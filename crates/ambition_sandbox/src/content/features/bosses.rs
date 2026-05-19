@@ -97,6 +97,89 @@ impl BossMovementProfile {
     }
 }
 
+/// One beat in a scripted boss attack timeline. Patterns built from these
+/// steps give each boss a memorizable rhythm — explicit rest beats let the
+/// player read the telegraph, react, and then learn the sequence over time.
+/// Bosses without a scripted pattern fall back to the older
+/// `attack_cooldown`-driven cycle through `BossBehaviorProfile::attacks`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BossPatternStep {
+    /// Boss is winding up: telegraph volumes draw, no damage yet.
+    Telegraph {
+        profile: BossAttackProfile,
+        duration: f32,
+    },
+    /// Hitbox is live: active volumes draw, contact damages the player.
+    Strike {
+        profile: BossAttackProfile,
+        duration: f32,
+    },
+    /// No volume. Pure breathing room so the player can reposition or punish.
+    Rest { duration: f32 },
+}
+
+/// A full attack script for one boss phase. Loops when it reaches the end.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BossPattern {
+    pub steps: Vec<BossPatternStep>,
+}
+
+impl BossPattern {
+    pub fn total_duration(&self) -> f32 {
+        self.steps
+            .iter()
+            .map(|step| match step {
+                BossPatternStep::Telegraph { duration, .. }
+                | BossPatternStep::Strike { duration, .. }
+                | BossPatternStep::Rest { duration } => *duration,
+            })
+            .sum()
+    }
+}
+
+/// How a boss decides which attack hitbox is active each frame.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BossAttackPattern {
+    /// Legacy cycle: rotate through `BossBehaviorProfile::attacks` using the
+    /// flat windup / active / cooldown durations on the profile. Cheap, but
+    /// every attack uses the same rhythm.
+    Cycle,
+    /// Scripted timeline keyed off `BossEncounterPhase`. Each phase carries
+    /// its own ordered list of telegraph / strike / rest beats. Missing
+    /// phases fall back to `phase1`.
+    Scripted {
+        intro: BossPattern,
+        phase1: BossPattern,
+        transition: BossPattern,
+        phase2: BossPattern,
+        enrage: BossPattern,
+    },
+}
+
+impl BossAttackPattern {
+    pub fn pattern_for(&self, phase: ae::BossEncounterPhase) -> Option<&BossPattern> {
+        match self {
+            BossAttackPattern::Cycle => None,
+            BossAttackPattern::Scripted {
+                intro,
+                phase1,
+                transition,
+                phase2,
+                enrage,
+            } => match phase {
+                ae::BossEncounterPhase::Intro => Some(intro),
+                ae::BossEncounterPhase::Phase1 => Some(phase1),
+                ae::BossEncounterPhase::Transition => Some(transition),
+                ae::BossEncounterPhase::Phase2 => Some(phase2),
+                ae::BossEncounterPhase::Enrage => Some(enrage),
+                // Dormant / Stagger / Death don't run patterns; the caller
+                // already skips attacks in those phases.
+                _ => Some(phase1),
+            },
+        }
+    }
+}
+
 /// Attack hitbox vocabulary used by `BossRuntime`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum BossAttackProfile {
@@ -131,6 +214,19 @@ pub struct BossBehaviorProfile {
     pub attack_active: f32,
     pub attack_damage: i32,
     pub body_damage: i32,
+    /// How attack hitboxes are selected. `Cycle` (default for legacy bosses)
+    /// rotates through `attacks` using the flat durations above. `Scripted`
+    /// runs an authored phase-keyed timeline of telegraph / strike / rest
+    /// beats and ignores `attacks` / `attack_cooldown` / `attack_windup` /
+    /// `attack_active`.
+    pub attack_pattern: BossAttackPattern,
+    /// World-space anchor offset (in pixels) from the boss center where
+    /// "hand"-class attacks should originate. For body-centered giants
+    /// (GNU-ton) the entity transform sits at the scholar on the shoulder,
+    /// not the giant's body — without this offset, hand hitboxes would
+    /// hover near the scholar instead of where the giant's arms are. Y is
+    /// world-space positive-down; leave at `Vec2::ZERO` for ordinary bosses.
+    pub attack_origin_offset: ae::Vec2,
 }
 
 impl BossBehaviorProfile {
@@ -157,6 +253,8 @@ impl BossBehaviorProfile {
             attack_active: 0.32,
             attack_damage: 2,
             body_damage: 1,
+            attack_pattern: BossAttackPattern::Cycle,
+            attack_origin_offset: ae::Vec2::ZERO,
         }
     }
 
@@ -183,14 +281,28 @@ impl BossBehaviorProfile {
             attack_active: 0.28,
             attack_damage: 2,
             body_damage: 1,
+            attack_pattern: BossAttackPattern::Cycle,
+            attack_origin_offset: ae::Vec2::ZERO,
         }
     }
 
     /// GNU-ton: stationary giant with wide-ranging hand attacks.
     ///
-    /// The entity barely moves (StationaryGiant sway). Attack volumes are
-    /// computed relative to spawn so the hands appear at the arena sides
-    /// and the descending head appears near center.
+    /// Unique pacing among bosses: scripted timeline with explicit *rest*
+    /// beats between strikes so the player can read each windup, react,
+    /// and learn the sequence. The other bosses (clockwork_warden,
+    /// mockingbird) keep the fast `Cycle` rhythm — the contrast itself is
+    /// the design intent. GNU-ton should feel like a slow, deliberate
+    /// monolith; the other bosses feel like dueling opponents.
+    ///
+    /// Phase pacing (longer than other bosses by design):
+    /// - Intro      : single show-of-force slam (no rest after) to set tone
+    /// - Phase 1    : ~9s — slam → rest → sweep → rest → slam → long rest
+    /// - Transition : ~3s pure rest (player gets a breath)
+    /// - Phase 2    : ~12s — adds head-descent windows where the head is
+    ///                exposed and vulnerable, framed by long rests so the
+    ///                player can punish during the descent and then reset
+    /// - Enrage     : ~8s — shockwave + double slam, shorter rests
     pub fn gnu_ton() -> Self {
         Self {
             id: "gnu_ton".into(),
@@ -202,22 +314,147 @@ impl BossBehaviorProfile {
                 sway_frequency: 0.28,
                 speed: 40.0,
             },
+            // Legacy `attacks` is unused for Scripted bosses — keep it for
+            // diagnostics so `boss inspect` style tooling can still list
+            // the attack vocabulary.
             attacks: vec![
                 BossAttackProfile::GnuHandSlam,
                 BossAttackProfile::GnuHandSweep,
                 BossAttackProfile::GnuHeadDescent,
                 BossAttackProfile::GnuShockwave,
             ],
-            // Deliberate, slow attack rhythm: each cycle takes ~5s
-            // (1.40 telegraph + 0.55 active + 3.20 cooldown) so the
-            // player has time to read the windup and dodge before the
-            // hitbox fires. The pattern rotates through all four
-            // attack profiles over 4 cycles (~20s).
-            attack_cooldown: 3.20,
-            attack_windup: 1.40,
-            attack_active: 0.55,
+            attack_cooldown: 0.0,
+            attack_windup: 0.0,
+            attack_active: 0.0,
             attack_damage: 2,
             body_damage: 0, // no contact damage from the offscreen body
+            attack_pattern: BossAttackPattern::Scripted {
+                intro: BossPattern {
+                    steps: vec![
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 1.6,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 0.55,
+                        },
+                        BossPatternStep::Rest { duration: 1.4 },
+                    ],
+                },
+                phase1: BossPattern {
+                    steps: vec![
+                        // Hand slam from above, long telegraph so the player
+                        // sees the arms rise.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 1.6,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 0.55,
+                        },
+                        BossPatternStep::Rest { duration: 1.2 },
+                        // Side sweep — a totally different motion / hitbox shape.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuHandSweep,
+                            duration: 1.4,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuHandSweep,
+                            duration: 0.50,
+                        },
+                        BossPatternStep::Rest { duration: 1.2 },
+                        // Repeat the slam to reward memorizers.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 1.6,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 0.55,
+                        },
+                        // Long breather closes the cycle.
+                        BossPatternStep::Rest { duration: 1.8 },
+                    ],
+                },
+                transition: BossPattern {
+                    steps: vec![BossPatternStep::Rest { duration: 3.0 }],
+                },
+                phase2: BossPattern {
+                    steps: vec![
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 1.4,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 0.55,
+                        },
+                        BossPatternStep::Rest { duration: 1.0 },
+                        // Long head-descent: head is the vulnerable target;
+                        // duration matches the score so the music's
+                        // "harpsichord exposure" beat lands in this window.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuHeadDescent,
+                            duration: 1.8,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuHeadDescent,
+                            duration: 1.4,
+                        },
+                        BossPatternStep::Rest { duration: 1.4 },
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuHandSweep,
+                            duration: 1.4,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuHandSweep,
+                            duration: 0.50,
+                        },
+                        BossPatternStep::Rest { duration: 2.0 },
+                    ],
+                },
+                enrage: BossPattern {
+                    steps: vec![
+                        // Faster pace, no head exposure: it's punishing.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 0.90,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuHandSlam,
+                            duration: 0.45,
+                        },
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuHandSweep,
+                            duration: 0.90,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuHandSweep,
+                            duration: 0.45,
+                        },
+                        BossPatternStep::Rest { duration: 0.6 },
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuShockwave,
+                            duration: 1.10,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuShockwave,
+                            duration: 0.70,
+                        },
+                        BossPatternStep::Rest { duration: 1.2 },
+                    ],
+                },
+            },
+            // GNU-ton's entity transform sits at the *scholar* (top of the
+            // sprite) per `feet_anchor_y: 0.32` in `boss_encounter/sprites.rs`.
+            // The visible giant body extends downward from there, so hand /
+            // shockwave hitboxes need to anchor below the scholar to land
+            // on the giant's body rather than around the scholar's head.
+            // The combat box is 580x320 — drop the origin ~95px so hands
+            // appear at the giant's mid-torso height.
+            attack_origin_offset: ae::Vec2::new(0.0, 95.0),
         }
     }
 
@@ -238,6 +475,14 @@ impl BossBehaviorProfile {
     }
 }
 
+fn step_duration(step: &BossPatternStep) -> f32 {
+    match step {
+        BossPatternStep::Telegraph { duration, .. }
+        | BossPatternStep::Strike { duration, .. }
+        | BossPatternStep::Rest { duration } => *duration,
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct BossRuntime {
     pub id: String,
@@ -255,6 +500,20 @@ pub struct BossRuntime {
     pub attack_timer: f32,
     pub attack_cooldown: f32,
     pub hit_flash: f32,
+    /// Active encounter phase. Forwarded by `update_ecs_bosses` from
+    /// `BossEncounterRegistry` so scripted patterns can pick the right
+    /// phase timeline. `Dormant` until the encounter wakes up.
+    pub encounter_phase: ae::BossEncounterPhase,
+    /// Cursor into the active scripted pattern. Cycle-mode bosses leave
+    /// this at 0. Resets to 0 on phase change.
+    pub scripted_step_index: usize,
+    /// Seconds spent in the current scripted step. Reset on step advance.
+    pub scripted_step_elapsed: f32,
+    /// Active strike's attack profile (set while the runtime is inside a
+    /// `Strike` step). `None` outside Strike.
+    pub active_strike_profile: Option<BossAttackProfile>,
+    /// Telegraphed attack profile (set while inside a `Telegraph` step).
+    pub telegraph_profile: Option<BossAttackProfile>,
 }
 
 impl BossRuntime {
@@ -275,6 +534,11 @@ impl BossRuntime {
             attack_timer: 0.0,
             attack_cooldown: 0.35,
             hit_flash: 0.0,
+            encounter_phase: ae::BossEncounterPhase::Dormant,
+            scripted_step_index: 0,
+            scripted_step_elapsed: 0.0,
+            active_strike_profile: None,
+            telegraph_profile: None,
         }
     }
 
@@ -293,6 +557,14 @@ impl BossRuntime {
         let target = self.behavior.movement.target(self, player);
         self.move_toward_target(world, target, dt);
         self.hit_flash = (self.hit_flash - dt).max(0.0);
+
+        match &self.behavior.attack_pattern {
+            BossAttackPattern::Cycle => self.update_cycle_attacks(tuning, dt),
+            BossAttackPattern::Scripted { .. } => self.update_scripted_attacks(dt),
+        }
+    }
+
+    fn update_cycle_attacks(&mut self, tuning: FeatureCombatTuning, dt: f32) {
         let was_winding_up = self.attack_windup_timer > 0.0;
         self.attack_windup_timer = (self.attack_windup_timer - dt).max(0.0);
         self.attack_timer = (self.attack_timer - dt).max(0.0);
@@ -311,6 +583,68 @@ impl BossRuntime {
             self.attack_windup_timer = self.behavior.attack_windup.max(0.01);
             self.attack_cooldown = self.behavior.attack_cooldown.max(0.05);
         }
+    }
+
+    fn update_scripted_attacks(&mut self, dt: f32) {
+        // Clone the active pattern's steps so we can mutate the cursor
+        // without aliasing the immutable behavior borrow. Scripts are
+        // small (~10 steps) so the per-frame clone cost is negligible.
+        let phase = self.encounter_phase;
+        let steps: Vec<BossPatternStep> = match self.behavior.attack_pattern.pattern_for(phase) {
+            Some(pattern) if !pattern.steps.is_empty() => pattern.steps.clone(),
+            _ => {
+                self.active_strike_profile = None;
+                self.telegraph_profile = None;
+                self.attack_timer = 0.0;
+                self.attack_windup_timer = 0.0;
+                return;
+            }
+        };
+
+        self.scripted_step_elapsed += dt;
+        // Wrap the cursor if a phase transition shrunk the script under
+        // our feet, then advance through any completed steps this frame.
+        if self.scripted_step_index >= steps.len() {
+            self.scripted_step_index = 0;
+            self.scripted_step_elapsed = 0.0;
+        }
+        loop {
+            let current = &steps[self.scripted_step_index];
+            let duration = step_duration(current).max(0.01);
+            if self.scripted_step_elapsed < duration {
+                break;
+            }
+            self.scripted_step_elapsed -= duration;
+            self.scripted_step_index = (self.scripted_step_index + 1) % steps.len();
+        }
+
+        // Drive the legacy `attack_windup_timer` / `attack_timer` mirror
+        // and the live profile slots from the active step. This keeps
+        // existing consumers (`attack_volumes()`, `attack_telegraph_volumes()`,
+        // `player_damage()`) working without per-call match arms.
+        let current = &steps[self.scripted_step_index];
+        let remaining = (step_duration(current) - self.scripted_step_elapsed).max(0.0);
+        match current {
+            BossPatternStep::Telegraph { profile, .. } => {
+                self.telegraph_profile = Some(profile.clone());
+                self.active_strike_profile = None;
+                self.attack_windup_timer = remaining;
+                self.attack_timer = 0.0;
+            }
+            BossPatternStep::Strike { profile, .. } => {
+                self.telegraph_profile = None;
+                self.active_strike_profile = Some(profile.clone());
+                self.attack_windup_timer = 0.0;
+                self.attack_timer = remaining;
+            }
+            BossPatternStep::Rest { .. } => {
+                self.telegraph_profile = None;
+                self.active_strike_profile = None;
+                self.attack_windup_timer = 0.0;
+                self.attack_timer = 0.0;
+            }
+        }
+        self.attack_cooldown = 0.0;
     }
 
     pub fn is_mockingbird(&self) -> bool {
@@ -357,14 +691,28 @@ impl BossRuntime {
         if self.attack_timer <= 0.0 {
             return Vec::new();
         }
-        self.pattern_volumes()
+        match &self.behavior.attack_pattern {
+            BossAttackPattern::Cycle => self.cycle_pattern_volumes(),
+            BossAttackPattern::Scripted { .. } => self
+                .active_strike_profile
+                .as_ref()
+                .map(|profile| self.volumes_for(profile))
+                .unwrap_or_default(),
+        }
     }
 
     pub fn attack_telegraph_volumes(&self) -> Vec<ae::Aabb> {
         if self.attack_windup_timer <= 0.0 {
             return Vec::new();
         }
-        self.pattern_volumes()
+        match &self.behavior.attack_pattern {
+            BossAttackPattern::Cycle => self.cycle_pattern_volumes(),
+            BossAttackPattern::Scripted { .. } => self
+                .telegraph_profile
+                .as_ref()
+                .map(|profile| self.volumes_for(profile))
+                .unwrap_or_default(),
+        }
     }
 
     pub fn body_damage_aabb(&self) -> ae::Aabb {
@@ -399,8 +747,11 @@ impl BossRuntime {
         }
     }
 
-    pub(super) fn pattern_volumes(&self) -> Vec<ae::Aabb> {
-        let size = self.combat_size();
+    /// Cycle-mode dispatch — picks the next attack profile from the flat
+    /// `attacks` list using `pattern_timer / attack_cooldown` and renders
+    /// its volumes via `volumes_for`. Used only when `attack_pattern` is
+    /// `BossAttackPattern::Cycle`.
+    pub(super) fn cycle_pattern_volumes(&self) -> Vec<ae::Aabb> {
         let attack_count = self.behavior.attacks.len().max(1);
         let phase = ((self.pattern_timer / self.behavior.attack_cooldown.max(0.05)) as usize)
             % attack_count;
@@ -408,38 +759,49 @@ impl BossRuntime {
             .behavior
             .attacks
             .get(phase)
-            .unwrap_or(&BossAttackProfile::FullBodyPulse);
+            .cloned()
+            .unwrap_or(BossAttackProfile::FullBodyPulse);
+        self.volumes_for(&attack)
+    }
+
+    /// Pure-data dispatch: given a specific attack profile, produce its
+    /// world-space hitbox volumes. Centered on `self.pos + attack_origin_offset`
+    /// so body-centered giants (GNU-ton) can anchor "hand"-class hitboxes
+    /// to the giant's torso rather than to the scholar perched on top.
+    pub(super) fn volumes_for(&self, attack: &BossAttackProfile) -> Vec<ae::Aabb> {
+        let size = self.combat_size();
+        let origin = self.pos + self.behavior.attack_origin_offset;
         match attack {
             BossAttackProfile::FloorSlam => vec![ae::Aabb::new(
-                self.pos + ae::Vec2::new(0.0, size.y * 0.5 + 22.0),
+                origin + ae::Vec2::new(0.0, size.y * 0.5 + 22.0),
                 ae::Vec2::new(size.x * 0.75, 18.0),
             )],
             BossAttackProfile::SideSweep => vec![
                 ae::Aabb::new(
-                    self.pos + ae::Vec2::new(-size.x * 0.50, 0.0),
+                    origin + ae::Vec2::new(-size.x * 0.50, 0.0),
                     ae::Vec2::new(size.x * 0.25, size.y * 0.72),
                 ),
                 ae::Aabb::new(
-                    self.pos + ae::Vec2::new(size.x * 0.50, 0.0),
+                    origin + ae::Vec2::new(size.x * 0.50, 0.0),
                     ae::Vec2::new(size.x * 0.25, size.y * 0.72),
                 ),
             ],
-            BossAttackProfile::FullBodyPulse => vec![ae::Aabb::new(self.pos, size * 0.70)],
+            BossAttackProfile::FullBodyPulse => vec![ae::Aabb::new(origin, size * 0.70)],
             BossAttackProfile::WingSweep => vec![ae::Aabb::new(
-                self.pos + ae::Vec2::new(0.0, size.y * 0.08),
+                origin + ae::Vec2::new(0.0, size.y * 0.08),
                 ae::Vec2::new(size.x * 0.56, size.y * 0.42),
             )],
             BossAttackProfile::DiveLane => vec![ae::Aabb::new(
-                self.pos + ae::Vec2::new(0.0, size.y * 0.42),
+                origin + ae::Vec2::new(0.0, size.y * 0.42),
                 ae::Vec2::new(size.x * 0.22, size.y * 0.72),
             )],
             BossAttackProfile::Broadside => vec![
                 ae::Aabb::new(
-                    self.pos + ae::Vec2::new(-size.x * 0.34, 0.0),
+                    origin + ae::Vec2::new(-size.x * 0.34, 0.0),
                     ae::Vec2::new(size.x * 0.18, size.y * 0.84),
                 ),
                 ae::Aabb::new(
-                    self.pos + ae::Vec2::new(size.x * 0.34, 0.0),
+                    origin + ae::Vec2::new(size.x * 0.34, 0.0),
                     ae::Vec2::new(size.x * 0.18, size.y * 0.84),
                 ),
             ],
@@ -448,31 +810,31 @@ impl BossRuntime {
             // extending from near the top down to the floor.
             BossAttackProfile::GnuHandSlam => vec![
                 ae::Aabb::new(
-                    self.pos + ae::Vec2::new(-size.x * 0.40, size.y * 0.25),
+                    origin + ae::Vec2::new(-size.x * 0.40, size.y * 0.25),
                     ae::Vec2::new(size.x * 0.14, size.y * 0.60),
                 ),
                 ae::Aabb::new(
-                    self.pos + ae::Vec2::new(size.x * 0.40, size.y * 0.25),
+                    origin + ae::Vec2::new(size.x * 0.40, size.y * 0.25),
                     ae::Vec2::new(size.x * 0.14, size.y * 0.60),
                 ),
             ],
             // GNU-ton: hands sweep from the far sides inward.
             // A wide horizontal hitbox covers most of the arena width at mid-height.
             BossAttackProfile::GnuHandSweep => vec![ae::Aabb::new(
-                self.pos + ae::Vec2::new(0.0, size.y * 0.15),
+                origin + ae::Vec2::new(0.0, size.y * 0.15),
                 ae::Vec2::new(size.x * 0.85, size.y * 0.28),
             )],
             // GNU-ton: the GNU head descends into player space.
             // Contact with the center-top region is dangerous; this is also
             // the window where the head becomes the vulnerable target.
             BossAttackProfile::GnuHeadDescent => vec![ae::Aabb::new(
-                self.pos + ae::Vec2::new(0.0, size.y * 0.05),
+                origin + ae::Vec2::new(0.0, size.y * 0.05),
                 ae::Vec2::new(size.x * 0.32, size.y * 0.38),
             )],
             // GNU-ton: shockwave when both hands meet in the center.
             // Floor-level shockwave spanning the full arena width.
             BossAttackProfile::GnuShockwave => vec![ae::Aabb::new(
-                self.pos + ae::Vec2::new(0.0, size.y * 0.48),
+                origin + ae::Vec2::new(0.0, size.y * 0.48),
                 ae::Vec2::new(size.x * 0.90, size.y * 0.08),
             )],
         }
@@ -509,5 +871,135 @@ impl BossRuntime {
             });
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod scripted_pattern_tests {
+    use super::*;
+    use ambition_engine as ae;
+
+    fn gnu_ton_runtime() -> BossRuntime {
+        let behavior = BossBehaviorProfile::gnu_ton();
+        let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(580.0, 320.0));
+        let pos = ae::Vec2::new(500.0, 400.0);
+        let aabb = ae::Aabb::new(pos, combat_size * 0.5);
+        let object = ae::RoomObject::new(
+            "boss_gnu_ton",
+            "GNU-ton",
+            aabb,
+            ae::RoomObjectKind::BossSpawn(ae::BossBrain::Dormant),
+        );
+        let mut runtime = BossRuntime::new(&object, ae::BossBrain::Dormant);
+        runtime.behavior = behavior;
+        runtime.encounter_phase = ae::BossEncounterPhase::Phase1;
+        runtime
+    }
+
+    #[test]
+    fn gnu_ton_pattern_includes_explicit_rest_beats_in_every_phase() {
+        let BossAttackPattern::Scripted {
+            phase1,
+            transition,
+            phase2,
+            enrage,
+            ..
+        } = BossBehaviorProfile::gnu_ton().attack_pattern
+        else {
+            panic!("gnu_ton must use a Scripted attack pattern");
+        };
+        for (label, pattern) in [
+            ("phase1", &phase1),
+            ("transition", &transition),
+            ("phase2", &phase2),
+            ("enrage", &enrage),
+        ] {
+            let has_rest = pattern
+                .steps
+                .iter()
+                .any(|step| matches!(step, BossPatternStep::Rest { .. }));
+            assert!(
+                has_rest,
+                "{label} pattern must include at least one Rest beat so the \
+                 player has breathing room — got steps {:?}",
+                pattern.steps
+            );
+        }
+    }
+
+    #[test]
+    fn gnu_ton_phase1_is_materially_longer_than_other_bosses() {
+        let gnu_phase1 = match BossBehaviorProfile::gnu_ton().attack_pattern {
+            BossAttackPattern::Scripted { phase1, .. } => phase1.total_duration(),
+            _ => unreachable!(),
+        };
+        let warden = BossBehaviorProfile::clockwork_warden();
+        let warden_cycle = warden.attack_windup + warden.attack_active + warden.attack_cooldown;
+        assert!(
+            gnu_phase1 > warden_cycle * 3.0,
+            "gnu_ton phase1 ({gnu_phase1}s) should be much slower than the \
+             clockwork warden cycle ({warden_cycle}s) — design intent is a \
+             deliberate, memorizable rhythm"
+        );
+    }
+
+    #[test]
+    fn gnu_ton_scripted_advance_cycles_telegraph_strike_rest() {
+        let mut boss = gnu_ton_runtime();
+        let world = ae::World::new(
+            "test_arena",
+            ae::Vec2::new(2_000.0, 2_000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        );
+        let player = ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default());
+        let mut observed: Vec<&'static str> = Vec::new();
+        let dt = 0.05;
+        let mut ticks = 0;
+        let mut last: &'static str = "";
+        while observed.len() < 6 && ticks < 4_000 {
+            boss.update(&world, &player, FeatureCombatTuning::default(), dt);
+            let now = if boss.telegraph_profile.is_some() {
+                "telegraph"
+            } else if boss.active_strike_profile.is_some() {
+                "strike"
+            } else {
+                "rest"
+            };
+            if now != last {
+                observed.push(now);
+                last = now;
+            }
+            ticks += 1;
+        }
+        // Phase 1 always begins on a Telegraph; we should see at least
+        // one telegraph -> strike transition AND one rest beat before
+        // looping. This catches regressions where the scripted runtime
+        // gets stuck inside one step type.
+        assert!(observed.contains(&"telegraph"), "{observed:?}");
+        assert!(observed.contains(&"strike"), "{observed:?}");
+        assert!(observed.contains(&"rest"), "{observed:?}");
+    }
+
+    #[test]
+    fn gnu_ton_hand_slam_anchors_below_scholar() {
+        // GNU-ton's transform sits at the scholar atop the giant. With
+        // `attack_origin_offset` applied, hand-slam hitboxes should be
+        // *below* the scholar (positive Y in engine space = downward)
+        // — i.e. on the giant's body, not floating at the scholar's
+        // shoulders. Reads as a visual sanity check on the alignment
+        // fix the user reported.
+        let boss = gnu_ton_runtime();
+        let scholar_y = boss.pos.y;
+        let slam = boss.volumes_for(&BossAttackProfile::GnuHandSlam);
+        for vol in &slam {
+            assert!(
+                vol.center().y > scholar_y,
+                "GnuHandSlam volume center.y ({}) should be below the scholar \
+                 (pos.y={}) once attack_origin_offset is applied",
+                vol.center().y,
+                scholar_y
+            );
+        }
     }
 }

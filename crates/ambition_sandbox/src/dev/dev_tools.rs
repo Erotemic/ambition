@@ -189,6 +189,16 @@ pub struct DeveloperTools {
     /// are visible. Useful for diagnosing spatial mismatches between art and
     /// collision geometry without sprite occlusion.
     pub hide_sprites: bool,
+    /// When true, every textured sprite is replaced with a colored rectangle
+    /// of the same size — the "placeholder art era" look. Independent from
+    /// `hide_sprites`: enable placeholders to confirm that gameplay is
+    /// readable with only solid rectangles, or combine with `hide_sprites`
+    /// to also drop the placeholders and rely purely on debug gizmos.
+    pub placeholder_sprites: bool,
+    /// When true, gizmo AABBs are drawn with a translucent fill in addition
+    /// to their outline. Makes overlapping volumes and empty regions easier
+    /// to read at a glance.
+    pub fill_debug_boxes: bool,
     /// High-level movement collider size preset for sandbox feel testing.
     pub player_body_profile: PlayerBodyProfile,
     /// High-level movement tuning preset for sandbox feel testing.
@@ -227,6 +237,12 @@ impl Default for DeveloperTools {
             overview_camera: false,
             overview_camera_scale: 2.35,
             hide_sprites: false,
+            placeholder_sprites: false,
+            // Default ON on desktop so debug volumes read as filled regions
+            // (much easier to spot overlaps / empty patches than outlines).
+            // Phone demo keeps it off — the extra alpha layers cost fillrate
+            // and the user isn't usually authoring hitboxes there.
+            fill_debug_boxes: !phone_demo,
             player_body_profile: PlayerBodyProfile::default(),
             movement_profile: MovementProfile::default(),
         }
@@ -671,10 +687,7 @@ pub fn sync_player_stats_with_inspector(
         &mut crate::player::PlayerMovementAuthority,
         With<crate::player::PlayerEntity>,
     >,
-    mut health_q: Query<
-        &mut crate::player::PlayerHealth,
-        With<crate::player::PlayerEntity>,
-    >,
+    mut health_q: Query<&mut crate::player::PlayerHealth, With<crate::player::PlayerEntity>>,
 ) {
     if !snapshot.initialized {
         snapshot.health = stats.health;

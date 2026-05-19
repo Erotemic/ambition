@@ -18,4 +18,4 @@ mod visuals;
 
 pub use state::{EnemyProjectileSpawn, EnemyProjectileState};
 pub use systems::update_enemy_projectiles;
-pub use visuals::sync_enemy_projectile_visuals;
+pub use visuals::{sync_enemy_projectile_visuals, EnemyProjectileVisual};

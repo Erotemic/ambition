@@ -193,10 +193,10 @@ impl BossEncounterSpec {
             death_seconds: 3.0,
             stagger_threshold: 8,
             stagger_window_seconds: 2.0,
-            music_intro: "pulse_drift_voyage".into(),
-            music_phase1: "pulse_drift_voyage".into(),
-            music_phase2: "original_lofi_loop".into(),
-            music_enrage: "original_lofi_loop".into(),
+            music_intro: "standing_on_shoulders".into(),
+            music_phase1: "standing_on_shoulders".into(),
+            music_phase2: "standing_on_shoulders".into(),
+            music_enrage: "standing_on_shoulders".into(),
         }
     }
 }

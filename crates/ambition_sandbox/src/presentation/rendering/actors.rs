@@ -9,8 +9,7 @@ use bevy::prelude::*;
 
 use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
-    PropVisual,
-    SceneEntities,
+    PropVisual, SceneEntities,
 };
 use crate::boss_sprites::{self, BossAnimState, BossAnimator};
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
@@ -43,14 +42,20 @@ pub fn sync_visuals(
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
-    if let Ok((mut transform, mut sprite, baseline, body, player_combat)) = player_query.get_mut(entities.player) {
+    if let Ok((mut transform, mut sprite, baseline, body, player_combat)) =
+        player_query.get_mut(entities.player)
+    {
         transform.translation = world_to_bevy(&world.0, body.pos, WORLD_Z_PLAYER);
         if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
             // Colored-rectangle fallback only — stretch to the collision-box
             // size and tint by flash. Textured sprites (atlas OR plain image)
             // keep their authored size and are tinted in the animation system.
             sprite.custom_size = Some(BVec2::new(body.size.x, body.size.y));
-            let alpha = if player_combat.flash_timer > 0.0 { 0.72 } else { 1.0 };
+            let alpha = if player_combat.flash_timer > 0.0 {
+                0.72
+            } else {
+                1.0
+            };
             sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
         } else if let Some(baseline) = baseline {
             // HACK(crouch-sprite-row): when the player crouches (or
@@ -88,14 +93,12 @@ pub fn sync_visuals(
         // chosen at spawn time and never change kind. Enemies are animated
         // through the character spritesheet path.
         if let Some(assets) = assets.as_deref() {
-            if let Some(target_key) =
-                state_aware_entity_sprite(
-                    &visual.id,
-                    view.kind,
-                    &ecs_chest_states,
-                    &ecs_breakable_states,
-                )
-            {
+            if let Some(target_key) = state_aware_entity_sprite(
+                &visual.id,
+                view.kind,
+                &ecs_chest_states,
+                &ecs_breakable_states,
+            ) {
                 if let Some(handle) = assets.entities.get(target_key) {
                     if sprite.image != *handle {
                         sprite.image = handle.clone();
@@ -137,13 +140,10 @@ fn state_aware_entity_sprite(
     ecs_breakables: &Query<(&FeatureId, &BreakableFeature)>,
 ) -> Option<EntitySprite> {
     match kind {
-        FeatureVisualKind::Breakable => {
-            crate::features::ecs_breakable_state(id, ecs_breakables)
-                .map(game_assets::breakable_state_sprite)
-        }
+        FeatureVisualKind::Breakable => crate::features::ecs_breakable_state(id, ecs_breakables)
+            .map(game_assets::breakable_state_sprite),
         FeatureVisualKind::Chest => {
-            crate::features::ecs_chest_opened(id, ecs_chests)
-                .map(game_assets::chest_state_sprite)
+            crate::features::ecs_chest_opened(id, ecs_chests).map(game_assets::chest_state_sprite)
         }
         _ => None,
     }
@@ -202,19 +202,20 @@ pub fn upgrade_enemy_sprites(
         // resolve to fascist_enforcer_spritesheet this way without
         // authors having to duplicate the registry entry on an
         // enemy-side table.
-        let character_asset = match crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors) {
-            Some(name) => assets
-                .characters
-                .npc_asset_for_name(name)
-                .or_else(|| {
-                    crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
-                        .and_then(|n| assets.characters.npc_asset_for_name(n))
-                })
-                .or_else(|| assets.characters.enemy_asset(view.kind)),
-            None => crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
-                .and_then(|n| assets.characters.npc_asset_for_name(n))
-                .or_else(|| assets.characters.enemy_asset(view.kind)),
-        };
+        let character_asset =
+            match crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors) {
+                Some(name) => assets
+                    .characters
+                    .npc_asset_for_name(name)
+                    .or_else(|| {
+                        crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
+                            .and_then(|n| assets.characters.npc_asset_for_name(n))
+                    })
+                    .or_else(|| assets.characters.enemy_asset(view.kind)),
+                None => crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
+                    .and_then(|n| assets.characters.npc_asset_for_name(n))
+                    .or_else(|| assets.characters.enemy_asset(view.kind)),
+            };
         let Some(character_asset) = character_asset else {
             continue;
         };
@@ -312,12 +313,26 @@ pub fn animate_player(
         With<PlayerVisual>,
     >,
 ) {
-    let Ok((mut sprite, mut animator, player_body, player_combat, authority, anim_state, blink_cam, scale)) =
-        query.get_mut(entities.player)
+    let Ok((
+        mut sprite,
+        mut animator,
+        player_body,
+        player_combat,
+        authority,
+        anim_state,
+        blink_cam,
+        scale,
+    )) = query.get_mut(entities.player)
     else {
         return;
     };
-    let anim = crate::character_sprites::pick_player_anim(anim_state, player_combat, blink_cam, attack_res.0.as_ref(), &authority.player);
+    let anim = crate::character_sprites::pick_player_anim(
+        anim_state,
+        player_combat,
+        blink_cam,
+        attack_res.0.as_ref(),
+        &authority.player,
+    );
     animator.request(anim);
     // ADR 0011 — `entity_dt` collapses to `sim_dt` when no
     // ProperTimeScale is set (SP default), so bullet-time /
@@ -325,9 +340,8 @@ pub fn animate_player(
     // wires the player ProperTimeScale path so future MP regimes
     // can boost the player's cognitive rate without slowing the
     // world for other observers.
-    let index = animator.tick(
-        world_time.entity_dt(crate::time_control::ProperTimeScale::or_default(scale)),
-    );
+    let index = animator
+        .tick(world_time.entity_dt(crate::time_control::ProperTimeScale::or_default(scale)));
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
@@ -379,24 +393,25 @@ pub fn animate_characters(
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale) in &mut query {
         let dt = world_time.entity_dt(crate::time_control::ProperTimeScale::or_default(scale));
-        let (anim, facing, hit_flash, attacking) =
-            if let Some(state) = crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors) {
-                (
-                    crate::character_sprites::pick_enemy_anim(state),
-                    state.facing,
-                    state.hit_flash,
-                    state.attack_active || state.attack_windup,
-                )
-            } else if let Some(state) = crate::features::ecs_npc_anim_state(&visual.id, &ecs_actors) {
-                (
-                    crate::character_sprites::pick_npc_anim(state),
-                    state.facing,
-                    state.hit_flash,
-                    false,
-                )
-            } else {
-                continue;
-            };
+        let (anim, facing, hit_flash, attacking) = if let Some(state) =
+            crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
+        {
+            (
+                crate::character_sprites::pick_enemy_anim(state),
+                state.facing,
+                state.hit_flash,
+                state.attack_active || state.attack_windup,
+            )
+        } else if let Some(state) = crate::features::ecs_npc_anim_state(&visual.id, &ecs_actors) {
+            (
+                crate::character_sprites::pick_npc_anim(state),
+                state.facing,
+                state.hit_flash,
+                false,
+            )
+        } else {
+            continue;
+        };
         animator.request(anim);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
@@ -519,8 +534,7 @@ pub fn upgrade_boss_sprites(
         // bosses fall back to the gradient-sentinel sheet.
         // If no asset is available we skip — the colored rectangle
         // fallback in `sync_visuals` continues to render.
-        let boss_name = crate::features::ecs_boss_name(&visual.id, &ecs_bosses)
-            .unwrap_or("");
+        let boss_name = crate::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
         let boss_asset = if boss_name.eq_ignore_ascii_case("mockingbird") {
             assets.mockingbird.as_ref().or(assets.boss.as_ref())
         } else if boss_name.eq_ignore_ascii_case("gnu_ton")
@@ -597,10 +611,6 @@ pub fn animate_bosses(
     }
 }
 
-/// When `DeveloperTools::hide_sprites` is enabled, force all room-scoped and
-/// player sprites to `Hidden` so only gizmo hitbox outlines are visible.
-/// When the flag is off, restore them to `Inherited` (the normal default).
-/// Runs after all other visibility systems so it wins the last-write battle.
 /// When `DeveloperTools::hide_sprites` is enabled, force every `Sprite`-bearing
 /// entity to `Hidden` so only gizmo hitbox outlines remain visible. When the
 /// flag is off, restore them to `Inherited` (the normal default). Runs after
@@ -619,5 +629,106 @@ pub fn apply_hide_sprites_override(
         if *vis != target {
             *vis = target;
         }
+    }
+}
+
+/// Cached pre-placeholder sprite state so toggling `placeholder_sprites`
+/// off can restore the textured rendering. Stored per-entity the first
+/// time we collapse the sprite to a colored rectangle.
+#[derive(Component, Clone)]
+pub struct SpriteOriginalState {
+    pub image: Handle<Image>,
+    pub atlas: Option<bevy::image::TextureAtlas>,
+    pub color: Color,
+}
+
+/// When `DeveloperTools::placeholder_sprites` is enabled, replace every
+/// textured sprite with a colored rectangle of the same `custom_size` —
+/// the "placeholder art era" look. When the flag flips back off, restore
+/// the original texture / atlas / tint. Independent from `hide_sprites`:
+/// enable both for "no art whatsoever" mode; enable only this one to
+/// confirm gameplay reads cleanly with solid rectangles.
+///
+/// The placeholder color is derived from a per-entity discriminator
+/// (`FeatureVisual` / `PlayerVisual` / boss / projectile markers) so
+/// similar entities visually group. Anything without a known marker
+/// falls back to the existing sprite color (kept as-is).
+pub fn apply_placeholder_sprites_override(
+    mut commands: Commands,
+    developer_tools: Res<crate::dev_tools::DeveloperTools>,
+    feature_views: Res<FeatureViewIndex>,
+    mut sprites: Query<(
+        Entity,
+        &mut Sprite,
+        Option<&SpriteOriginalState>,
+        Option<&FeatureVisual>,
+        Option<&PlayerVisual>,
+        Option<&crate::projectile::PlayerProjectileVisual>,
+        Option<&crate::enemy_projectile::EnemyProjectileVisual>,
+    )>,
+) {
+    if developer_tools.placeholder_sprites {
+        for (entity, mut sprite, original, feature, player, p_proj, e_proj) in &mut sprites {
+            // Record original state once so we can restore on toggle-off.
+            if original.is_none() {
+                commands.entity(entity).insert(SpriteOriginalState {
+                    image: sprite.image.clone(),
+                    atlas: sprite.texture_atlas.clone(),
+                    color: sprite.color,
+                });
+            }
+            let placeholder_color = pick_placeholder_color(
+                feature
+                    .and_then(|fv| feature_views.get(&fv.id))
+                    .map(|v| v.kind),
+                player.is_some(),
+                p_proj.is_some(),
+                e_proj.is_some(),
+            );
+            // Drop the texture and atlas so the sprite renders as a flat
+            // rectangle of `custom_size` × `placeholder_color`.
+            if sprite.image != Handle::default() {
+                sprite.image = Handle::default();
+            }
+            if sprite.texture_atlas.is_some() {
+                sprite.texture_atlas = None;
+            }
+            sprite.color = placeholder_color;
+        }
+    } else {
+        // Restore any cached originals.
+        for (entity, mut sprite, original, _, _, _, _) in &mut sprites {
+            if let Some(orig) = original {
+                if sprite.image != orig.image {
+                    sprite.image = orig.image.clone();
+                }
+                if sprite.texture_atlas != orig.atlas {
+                    sprite.texture_atlas = orig.atlas.clone();
+                }
+                sprite.color = orig.color;
+                commands.entity(entity).remove::<SpriteOriginalState>();
+            }
+        }
+    }
+}
+
+fn pick_placeholder_color(
+    feature_kind: Option<FeatureVisualKind>,
+    is_player: bool,
+    is_player_projectile: bool,
+    is_enemy_projectile: bool,
+) -> Color {
+    if is_player {
+        return Color::srgba(0.55, 0.85, 1.00, 1.0);
+    }
+    if is_player_projectile {
+        return Color::srgba(1.00, 0.74, 0.30, 1.0);
+    }
+    if is_enemy_projectile {
+        return Color::srgba(1.00, 0.32, 0.32, 1.0);
+    }
+    match feature_kind {
+        Some(kind) => feature_color(kind, false),
+        None => Color::srgba(0.70, 0.70, 0.72, 1.0),
     }
 }

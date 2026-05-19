@@ -883,13 +883,27 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         Update,
         crate::rendering::upgrade_npc_sprites.after(sync_visuals),
     )
-    // Dev "hide sprites" override — runs last so it wins over all other
-    // visibility-setting systems. When `developer.hide_sprites` is on,
-    // all room and player sprites are forced Hidden so only gizmo
-    // hitbox outlines remain visible.
+    // Dev "hide sprites" / "placeholder sprites" overrides — must run
+    // after every other visibility- or sprite-setting system so they
+    // win the last-write battle. `sync_morph_ball_visual`,
+    // `sync_bubble_shield_visual`, and the projectile rebuild systems
+    // all also run `.after(sync_visuals)` and unconditionally set
+    // `Visibility` (or despawn-respawn fresh `Inherited` sprites). If
+    // the override ran in parallel, Bevy could schedule either order
+    // and the player / shield / projectile sprites would sporadically
+    // remain visible. Explicit ordering keeps the toggle deterministic.
     .add_systems(
         Update,
-        crate::rendering::apply_hide_sprites_override.after(sync_visuals),
+        (
+            crate::rendering::apply_placeholder_sprites_override,
+            crate::rendering::apply_hide_sprites_override,
+        )
+            .chain()
+            .after(sync_visuals)
+            .after(crate::body_mode::sync_morph_ball_visual)
+            .after(crate::bubble_shield::sync_bubble_shield_visual)
+            .after(crate::projectile::sync_projectile_visuals)
+            .after(crate::enemy_projectile::sync_enemy_projectile_visuals),
     )
     // Mouse / touch dismissal for the map menu.
     .add_systems(Update, crate::map_menu::map_menu_pointer_dismiss)

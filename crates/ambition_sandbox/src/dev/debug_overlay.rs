@@ -73,9 +73,14 @@ pub fn draw_debug_overlay(
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
+    player_projectiles: Res<crate::projectile::PlayerProjectileState>,
+    enemy_projectiles: Res<crate::enemy_projectile::EnemyProjectileState>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     player_q: Query<
-        (&crate::player::PlayerMovementAuthority, Option<&crate::player::PlayerHealth>),
+        (
+            &crate::player::PlayerMovementAuthority,
+            Option<&crate::player::PlayerHealth>,
+        ),
         With<crate::player::PlayerEntity>,
     >,
     feature_q: FeatureDebugQueries,
@@ -134,7 +139,14 @@ pub fn draw_debug_overlay(
         draw_health_bars(&mut gizmos, world, &authority.player, player_health);
     }
     if developer_tools.show_feature_hitboxes {
-        draw_feature_debug(&mut gizmos, world, &feature_q);
+        draw_feature_debug(&mut gizmos, world, &feature_q, &developer_tools);
+        draw_projectile_debug(
+            &mut gizmos,
+            world,
+            &player_projectiles,
+            &enemy_projectiles,
+            &developer_tools,
+        );
     }
 }
 
@@ -463,7 +475,11 @@ fn draw_player_debug(
     }
 }
 
-fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, moving_platforms: &[crate::platforms::MovingPlatformState]) {
+fn draw_moving_platform_debug(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    moving_platforms: &[crate::platforms::MovingPlatformState],
+) {
     for platform in moving_platforms {
         let aabb = platform.aabb();
         draw_aabb(gizmos, world, aabb, blue());
@@ -479,13 +495,7 @@ fn draw_health_bars(
     player_health: Option<&crate::player::PlayerHealth>,
 ) {
     let ratio = player_health.map_or(1.0, |h| h.health.ratio());
-    draw_health_bar(
-        gizmos,
-        world,
-        player.aabb(),
-        ratio,
-        cyan(),
-    );
+    draw_health_bar(gizmos, world, player.aabb(), ratio, cyan());
     // Enemy / boss / breakable health bars are now drawn by
     // `sync_health_overlays` (the Bevy sprite overlay system), which reads
     // ECS `ActorRuntime`, `BossFeature`, and `BreakableFeature` components.
@@ -515,7 +525,6 @@ fn draw_health_bar(
     );
 }
 
-
 /// Draw debug rectangles for every gameplay feature (NPCs, enemies, bosses,
 /// breakables, chests, hazards). Also overlays boss attack telegraph + active
 /// volumes when an attack is firing. This is the "solid box" view the player
@@ -525,45 +534,85 @@ fn draw_feature_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     feature_q: &FeatureDebugQueries,
+    developer_tools: &DeveloperTools,
 ) {
     // Colors per role — strong enough to read against most backgrounds.
-    let npc_color = Color::srgba(0.30, 1.00, 0.45, 0.85);          // green
-    let enemy_color = Color::srgba(1.00, 0.32, 0.32, 0.88);        // red
-    let boss_color = Color::srgba(1.00, 0.60, 0.10, 0.88);         // orange
-    let breakable_color = Color::srgba(0.55, 0.80, 1.00, 0.80);    // light blue
-    let chest_color = Color::srgba(1.00, 0.85, 0.25, 0.85);        // gold
-    let hazard_color = Color::srgba(1.00, 0.32, 0.92, 0.80);       // magenta
-    let telegraph_color = Color::srgba(1.00, 0.95, 0.20, 0.60);    // yellow
-    let active_color = Color::srgba(1.00, 0.12, 0.12, 0.95);       // bright red
+    let npc_color = Color::srgba(0.30, 1.00, 0.45, 0.85); // green
+    let enemy_color = Color::srgba(1.00, 0.32, 0.32, 0.88); // red
+    let boss_color = Color::srgba(1.00, 0.60, 0.10, 0.88); // orange
+    let breakable_color = Color::srgba(0.55, 0.80, 1.00, 0.80); // light blue
+    let chest_color = Color::srgba(1.00, 0.85, 0.25, 0.85); // gold
+    let hazard_color = Color::srgba(1.00, 0.32, 0.92, 0.80); // magenta
+    let telegraph_color = Color::srgba(1.00, 0.95, 0.20, 0.60); // yellow
+    let active_color = Color::srgba(1.00, 0.12, 0.12, 0.95); // bright red
 
     for actor in feature_q.actors.iter() {
         let color = match actor {
             crate::features::ActorRuntime::Peaceful(_) => npc_color,
             crate::features::ActorRuntime::Hostile(_) => enemy_color,
         };
-        draw_aabb(gizmos, world, actor.aabb(), color);
+        draw_aabb_styled(gizmos, world, actor.aabb(), color, developer_tools);
     }
     for bf in feature_q.bosses.iter() {
         let boss = &bf.boss;
         if !boss.alive {
             continue;
         }
-        draw_aabb(gizmos, world, boss.aabb(), boss_color);
+        draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
         for vol in boss.attack_telegraph_volumes() {
-            draw_aabb(gizmos, world, vol, telegraph_color);
+            draw_aabb_styled(gizmos, world, vol, telegraph_color, developer_tools);
         }
         for vol in boss.attack_volumes() {
-            draw_aabb(gizmos, world, vol, active_color);
+            draw_aabb_styled(gizmos, world, vol, active_color, developer_tools);
         }
     }
     for aabb in feature_q.breakables.iter() {
-        draw_aabb(gizmos, world, aabb.aabb(), breakable_color);
+        draw_aabb_styled(gizmos, world, aabb.aabb(), breakable_color, developer_tools);
     }
     for aabb in feature_q.chests.iter() {
-        draw_aabb(gizmos, world, aabb.aabb(), chest_color);
+        draw_aabb_styled(gizmos, world, aabb.aabb(), chest_color, developer_tools);
     }
     for hf in feature_q.hazards.iter() {
-        draw_aabb(gizmos, world, hf.hazard.aabb(), hazard_color);
+        draw_aabb_styled(
+            gizmos,
+            world,
+            hf.hazard.aabb(),
+            hazard_color,
+            developer_tools,
+        );
+    }
+}
+
+/// Draw in-flight player and enemy projectile AABBs so they remain
+/// visible when `hide_sprites` strips the textured projectile ring.
+/// Player projectiles use a warm orange (matches charge tint); enemy
+/// projectiles use red so the faction is immediately readable.
+fn draw_projectile_debug(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    player_state: &crate::projectile::PlayerProjectileState,
+    enemy_state: &crate::enemy_projectile::EnemyProjectileState,
+    developer_tools: &DeveloperTools,
+) {
+    let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);
+    let enemy_color = Color::srgba(1.00, 0.32, 0.32, 0.92);
+    for proj in &player_state.bodies {
+        draw_aabb_styled(
+            gizmos,
+            world,
+            proj.body.aabb(),
+            player_color,
+            developer_tools,
+        );
+    }
+    for proj in &enemy_state.bodies {
+        draw_aabb_styled(
+            gizmos,
+            world,
+            proj.body.aabb(),
+            enemy_color,
+            developer_tools,
+        );
     }
 }
 
@@ -591,6 +640,46 @@ fn draw_aabb(gizmos: &mut Gizmos, world: &ae::World, aabb: ae::Aabb, color: Colo
     gizmos.line_2d(tr, br, color);
     gizmos.line_2d(br, bl, color);
     gizmos.line_2d(bl, tl, color);
+}
+
+/// Outline + (optional) translucent fill. When
+/// `DeveloperTools::fill_debug_boxes` is on, overlay a low-alpha rect
+/// inside the outline so empty regions and overlapping volumes are easy
+/// to read at a glance. Outline always draws so a slim/zero-area volume
+/// still has a visible boundary.
+fn draw_aabb_styled(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    aabb: ae::Aabb,
+    color: Color,
+    developer_tools: &DeveloperTools,
+) {
+    draw_aabb(gizmos, world, aabb, color);
+    if !developer_tools.fill_debug_boxes {
+        return;
+    }
+    let size = aabb.half_size() * 2.0;
+    let center = w2(world, aabb.center());
+    let fill = with_alpha(color, 0.22);
+    // Bevy gizmos' `rect_2d` draws the outline by default. We want a
+    // filled appearance, so draw a stack of horizontal lines spaced
+    // 2px apart — works on every Bevy gizmo backend without needing a
+    // separate mesh path. The cost is bounded (each AABB is small in
+    // pixel terms and we only call this when the toggle is on).
+    let step = 2.0;
+    let half_h = (size.y * 0.5).max(0.5);
+    let mut y = -half_h;
+    while y < half_h {
+        let a = BVec2::new(center.x - size.x * 0.5, center.y + y);
+        let b = BVec2::new(center.x + size.x * 0.5, center.y + y);
+        gizmos.line_2d(a, b, fill);
+        y += step;
+    }
+}
+
+fn with_alpha(color: Color, alpha: f32) -> Color {
+    let srgba = color.to_srgba();
+    Color::srgba(srgba.red, srgba.green, srgba.blue, alpha.clamp(0.0, 1.0))
 }
 
 fn draw_arrow(gizmos: &mut Gizmos, start: BVec2, end: BVec2, color: Color) {

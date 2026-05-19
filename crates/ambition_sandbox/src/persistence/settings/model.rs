@@ -140,6 +140,8 @@ pub enum SettingsItem {
     OverviewCamera,
     ShowHitboxes,
     HideSprites,
+    PlaceholderSprites,
+    FillDebugBoxes,
     MicroGrid,
     CameraFrame,
     PlayerBodyProfile,
@@ -231,6 +233,8 @@ impl SettingsItem {
                 Self::OverviewCamera,
                 Self::ShowHitboxes,
                 Self::HideSprites,
+                Self::PlaceholderSprites,
+                Self::FillDebugBoxes,
                 Self::MicroGrid,
                 Self::CameraFrame,
                 Self::PlayerBodyProfile,
@@ -491,6 +495,12 @@ impl SettingsItem {
             Self::HideSprites => {
                 format!("Hide Sprites: {}", on_off(dev.hide_sprites))
             }
+            Self::PlaceholderSprites => {
+                format!("Placeholder Sprites: {}", on_off(dev.placeholder_sprites))
+            }
+            Self::FillDebugBoxes => {
+                format!("Fill Debug Boxes: {}", on_off(dev.fill_debug_boxes))
+            }
             Self::MicroGrid => {
                 format!("Micro Grid (8px): {}", on_off(dev.micro_grid))
             }
@@ -531,6 +541,8 @@ pub struct DevToggleSnapshot {
     pub overview_camera: bool,
     pub show_hitboxes: bool,
     pub hide_sprites: bool,
+    pub placeholder_sprites: bool,
+    pub fill_debug_boxes: bool,
     pub micro_grid: bool,
     pub camera_frame: bool,
     pub player_body_profile: crate::dev_tools::PlayerBodyProfile,
@@ -552,6 +564,8 @@ impl DevToggleSnapshot {
             overview_camera: developer.overview_camera,
             show_hitboxes: developer.show_feature_hitboxes,
             hide_sprites: developer.hide_sprites,
+            placeholder_sprites: developer.placeholder_sprites,
+            fill_debug_boxes: developer.fill_debug_boxes,
             micro_grid: developer.show_micro_grid,
             camera_frame: developer.show_camera_frame,
             player_body_profile: developer.player_body_profile,
@@ -1006,6 +1020,16 @@ pub fn apply_action(
                 developer.hide_sprites = !developer.hide_sprites;
             }
         }
+        SettingsItem::PlaceholderSprites => {
+            if is_toggle_action(action) {
+                developer.placeholder_sprites = !developer.placeholder_sprites;
+            }
+        }
+        SettingsItem::FillDebugBoxes => {
+            if is_toggle_action(action) {
+                developer.fill_debug_boxes = !developer.fill_debug_boxes;
+            }
+        }
         SettingsItem::MicroGrid => {
             if is_toggle_action(action) {
                 developer.show_micro_grid = !developer.show_micro_grid;
@@ -1033,11 +1057,19 @@ pub fn apply_action(
         SettingsItem::MovementProfile => match action {
             SettingsAction::Prev => {
                 developer.movement_profile = developer.movement_profile.prev();
-                apply_movement_profile(editable_tuning, developer.movement_profile, authority_player);
+                apply_movement_profile(
+                    editable_tuning,
+                    developer.movement_profile,
+                    authority_player,
+                );
             }
             SettingsAction::Next | SettingsAction::Confirm => {
                 developer.movement_profile = developer.movement_profile.next();
-                apply_movement_profile(editable_tuning, developer.movement_profile, authority_player);
+                apply_movement_profile(
+                    editable_tuning,
+                    developer.movement_profile,
+                    authority_player,
+                );
             }
         },
         SettingsItem::LdtkAutoApply => {
@@ -1056,7 +1088,6 @@ pub fn apply_action(
     }
     SettingsOutcome::Stay
 }
-
 
 /// Slider cap for the player-damage multiplier. The underlying field
 /// clamps to `[0.25, 4.0]` (see `GameplaySettings::nudge_player_damage`),
@@ -1112,8 +1143,7 @@ impl SettingsItem {
                 Some((settings.controls.trigger_release_threshold / 0.95).clamp(0.0, 1.0))
             }
             Self::PlayerDamageMultiplier => Some(
-                (settings.gameplay.player_damage_multiplier
-                    / PLAYER_DAMAGE_SLIDER_MAX)
+                (settings.gameplay.player_damage_multiplier / PLAYER_DAMAGE_SLIDER_MAX)
                     .clamp(0.0, 1.0),
             ),
             _ => None,
@@ -1151,8 +1181,7 @@ impl SettingsItem {
             Self::TriggerPress => settings.controls.trigger_press_threshold = 0.05 + v * 0.95,
             Self::TriggerRelease => settings.controls.trigger_release_threshold = v * 0.95,
             Self::PlayerDamageMultiplier => {
-                settings.gameplay.player_damage_multiplier =
-                    v * PLAYER_DAMAGE_SLIDER_MAX;
+                settings.gameplay.player_damage_multiplier = v * PLAYER_DAMAGE_SLIDER_MAX;
             }
             _ => return false,
         }

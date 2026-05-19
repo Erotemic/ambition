@@ -1146,6 +1146,7 @@ pub fn update_ecs_bosses(
     platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
+    encounter_registry: Res<crate::boss_encounter::BossEncounterRegistry>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -1182,6 +1183,23 @@ pub fn update_ecs_bosses(
         !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
     for (mut aabb, mut feature, mut pattern_timer, mut phase) in &mut bosses {
         let boss = &mut feature.boss;
+        // Forward this boss's current encounter phase into the runtime
+        // so `Scripted` attack patterns can pick the right phase
+        // timeline. Look up by the semantic encounter id derived from
+        // the boss display name (matches the lazy-register path in
+        // `boss_encounter::systems::update_boss_encounters`). If the
+        // encounter hasn't been registered yet, leave the previous
+        // phase value alone — defaults to `Dormant` from `new()`.
+        let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
+        if let Some(state) = encounter_registry.get(&encounter_id) {
+            if boss.encounter_phase != state.phase {
+                boss.encounter_phase = state.phase;
+                // Reset the scripted cursor on phase change so each phase's
+                // timeline begins at step 0 rather than mid-step.
+                boss.scripted_step_index = 0;
+                boss.scripted_step_elapsed = 0.0;
+            }
+        }
         boss.update(
             &feature_world,
             &player,
@@ -1303,7 +1321,10 @@ pub fn update_ecs_actors(
         std::collections::HashMap::new();
     for (id, _pos, kind) in &requests {
         if slot_board.0.slot_for(id).is_none() {
-            unassigned_by_kind.entry(*kind).or_default().push(id.as_str());
+            unassigned_by_kind
+                .entry(*kind)
+                .or_default()
+                .push(id.as_str());
         }
     }
     let mut holding_pos_by_id: std::collections::HashMap<String, ae::Vec2> =

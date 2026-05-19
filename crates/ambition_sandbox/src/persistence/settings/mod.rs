@@ -49,18 +49,22 @@ pub mod video;
 
 pub use audio::AudioSettings;
 pub use controls::{
-    update_trigger_edge, ControlSettings, ControllerProfileId, DashInputMode, MenuPointerPress,
-    MenuTapMode, TriggerEdgeState,
+    update_trigger_edge, ControlSettings, DashInputMode, MenuPointerPress, MenuTapMode,
+    TriggerEdgeState,
 };
-pub use gameplay::{AssistMode, Difficulty, GameplaySettings};
+pub use gameplay::{AssistMode, GameplaySettings};
 pub use model::{
-    apply_action, apply_display_mode, next_display_mode, prev_display_mode, DevToggleSnapshot,
-    SettingsAction, SettingsItem, SettingsOutcome, SettingsPage,
+    apply_action, apply_display_mode, DevToggleSnapshot, SettingsAction, SettingsItem,
+    SettingsOutcome, SettingsPage,
 };
-pub use video::{
-    CameraAspectPolicy, CameraFramingPreset, CameraZoomPreset, ColorblindMode, FlashIntensity,
-    ScreenShaderSettings, SerializableDisplayMode, VideoSettings,
-};
+pub use video::{CameraAspectPolicy, ScreenShaderSettings, VideoSettings};
+
+#[cfg(test)]
+pub(crate) use gameplay::Difficulty;
+#[cfg(test)]
+pub(crate) use model::{next_display_mode, prev_display_mode};
+#[cfg(test)]
+pub(crate) use video::{FlashIntensity, SerializableDisplayMode};
 
 /// Aggregate user settings resource. Inserted at sandbox startup; the
 /// pause menu mutates it through `apply_action`. Future persistence

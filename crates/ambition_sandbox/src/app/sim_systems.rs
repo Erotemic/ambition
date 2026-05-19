@@ -417,8 +417,16 @@ pub fn apply_player_damage_system(
     mut died_writer: MessageWriter<PlayerDiedMessage>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
+    primary_q: Query<
+        Entity,
+        (
+            With<crate::player::PlayerEntity>,
+            With<crate::player::PrimaryPlayer>,
+        ),
+    >,
     mut player_q: Query<
         (
+            Entity,
             &mut crate::player::PlayerMovementAuthority,
             Option<&mut crate::player::PlayerHealth>,
             &mut crate::player::PlayerAnimState,
@@ -428,14 +436,8 @@ pub fn apply_player_damage_system(
         With<crate::player::PlayerEntity>,
     >,
 ) {
-    let Ok((mut authority, player_health, mut anim, mut combat, mut safety)) =
-        player_q.single_mut()
-    else {
-        return;
-    };
-    let player = &mut authority.player;
-    let player_damage_events: Vec<PlayerDamageEvent> = damage_events.read().copied().collect();
-    let feature_damaged_player = !player_damage_events.is_empty();
+    let primary = primary_q.single().ok();
+    let events: Vec<PlayerDamageEvent> = damage_events.read().copied().collect();
 
     let assist_factor = match user_settings.gameplay.assist {
         crate::persistence::settings::AssistMode::Off => 1.0,
@@ -446,35 +448,57 @@ pub fn apply_player_damage_system(
         * assist_factor;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-
-    super::world_flow::handle_player_damage_events(
-        &world.0,
-        &mut sfx_writer,
-        &mut vfx_writer,
-        &mut died_writer,
-        player,
-        &mut sim_state,
-        &mut safety,
-        &mut banner,
-        player_health.map(|h| h.into_inner()),
-        &player_damage_events,
-        tuning,
-        feel,
-        difficulty_multiplier,
-        &mut anim,
-        &mut combat,
-    );
-
     let safe_world =
         features::world_with_sandbox_solids(&world.0, &moving_platforms.0, &feature_ecs_overlay);
-    let ctx = SafePositionContext {
-        damaged_this_frame: feature_damaged_player,
-        in_hitstun: combat.hitstun_timer > 0.0,
-        feature_requested_reset: false,
-        blink_grace_active: player.blink_grace_timer > 0.0,
-        room_transitioning: sim_state.room_transition_cooldown > 0.0,
-    };
-    crate::remember_safe_player_position(&mut safety, player, &safe_world, ctx);
+
+    // Resolve every event to a concrete target entity once, so the
+    // per-player loop below can filter without re-doing the
+    // `target.or(primary)` math. Events that never resolve (no
+    // primary, e.g. headless pre-spawn) are silently dropped — they
+    // would have been in the legacy `single_mut()` early-return path.
+    let resolved: Vec<(Entity, PlayerDamageEvent)> = events
+        .into_iter()
+        .filter_map(|e| e.target.or(primary).map(|t| (t, e)))
+        .collect();
+
+    for (player_entity, mut authority, player_health, mut anim, mut combat, mut safety) in
+        &mut player_q
+    {
+        let target_events: Vec<PlayerDamageEvent> = resolved
+            .iter()
+            .filter(|(t, _)| *t == player_entity)
+            .map(|(_, e)| *e)
+            .collect();
+        let damaged_this_frame = !target_events.is_empty();
+        let player = &mut authority.player;
+
+        super::world_flow::handle_player_damage_events(
+            &world.0,
+            &mut sfx_writer,
+            &mut vfx_writer,
+            &mut died_writer,
+            player,
+            &mut sim_state,
+            &mut safety,
+            &mut banner,
+            player_health.map(|h| h.into_inner()),
+            &target_events,
+            tuning,
+            feel,
+            difficulty_multiplier,
+            &mut anim,
+            &mut combat,
+        );
+
+        let ctx = SafePositionContext {
+            damaged_this_frame,
+            in_hitstun: combat.hitstun_timer > 0.0,
+            feature_requested_reset: false,
+            blink_grace_active: player.blink_grace_timer > 0.0,
+            room_transitioning: sim_state.room_transition_cooldown > 0.0,
+        };
+        crate::remember_safe_player_position(&mut safety, player, &safe_world, ctx);
+    }
 }
 
 /// Decay presentation-only animation and flash timers.

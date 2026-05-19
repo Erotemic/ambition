@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Several helpers are reserved API for future menu callers.
+
 use crate::input::MenuInputFrame;
 
 /// Convert discrete vertical scroll steps into menu up/down edges.

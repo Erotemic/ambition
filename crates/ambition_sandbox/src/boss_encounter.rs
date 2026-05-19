@@ -30,7 +30,7 @@ mod systems;
 #[cfg(test)]
 mod tests;
 
-pub use banter::install_boss_banter;
+pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use damage::record_boss_damage;
 pub use ids::{encounter_id_from_name, MOCKINGBIRD_ENCOUNTER_ID};
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};

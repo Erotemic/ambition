@@ -611,6 +611,13 @@ pub struct GameAssets {
     /// rest / hand_slam / hand_sweep / head_down / hit / death.
     /// Installed by `ambition_sprite2d_renderer render-publish gnu_ton_boss`.
     pub gnu_ton: Option<BossSpriteAsset>,
+    /// Body-only GNU-ton sheet (no hands, no attack VFX). Rendered
+    /// behind platforms so the player can read jump targets through
+    /// the giant silhouette.
+    pub gnu_ton_body: Option<BossSpriteAsset>,
+    /// Hands-only GNU-ton sheet (with shockwave / vulnerability glow).
+    /// Rendered in front of platforms so incoming danger reads clearly.
+    pub gnu_ton_hands: Option<BossSpriteAsset>,
     /// Optional generated biome sky/background/parallax layers. Missing PNGs
     /// are fine: room rendering simply skips the extra layers and keeps the
     /// existing clear-color/grid/block visuals.
@@ -641,6 +648,8 @@ pub fn load_game_assets(
     let boss = sprites::load_boss_sprite_in(catalog, asset_server, layouts);
     let mockingbird = sprites::load_mockingbird_sprite_in(catalog, asset_server, layouts);
     let gnu_ton = sprites::load_gnu_ton_sprite_in(catalog, asset_server, layouts);
+    let gnu_ton_body = sprites::load_gnu_ton_body_sprite_in(catalog, asset_server, layouts);
+    let gnu_ton_hands = sprites::load_gnu_ton_hands_sprite_in(catalog, asset_server, layouts);
     let parallax_layers = load_parallax_layers(catalog, asset_server);
 
     let missing = EntitySprite::ALL.len() - entities.len();
@@ -658,6 +667,8 @@ pub fn load_game_assets(
         boss,
         mockingbird,
         gnu_ton,
+        gnu_ton_body,
+        gnu_ton_hands,
         parallax_layers,
     }
 }

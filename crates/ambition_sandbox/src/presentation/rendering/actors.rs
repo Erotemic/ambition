@@ -497,6 +497,32 @@ pub fn animate_props(
     }
 }
 
+/// Marks a GNU-ton boss entity whose render is split across two layers
+/// (body behind platforms, hands in front). The marker drives a follow-up
+/// system that overrides the entity's z-translation so the body silhouette
+/// sits behind one-way platforms, letting the player read jump targets
+/// through the giant.
+#[derive(Component)]
+pub struct GnuTonBodyLayer;
+
+/// Marks the hands overlay child entity spawned alongside a gnu_ton boss.
+/// A sync system mirrors the parent boss's atlas index + tint onto this
+/// child each frame, so both layers stay in lockstep without needing a
+/// second `BossAnimator`.
+#[derive(Component)]
+pub struct GnuTonHandsLayer;
+
+/// World-space z for the GNU-ton body silhouette — between block tiles
+/// (`WORLD_Z_BLOCK + 0.5 = 0.5`) and one-way platforms
+/// (`WORLD_Z_BLOCK + 4.0 = 4.0`) so the body sits behind platforms but
+/// in front of the wall tiles.
+pub const GNU_TON_BODY_Z: f32 = 2.0;
+
+/// World-space z for the GNU-ton hands overlay — just in front of the
+/// player (`WORLD_Z_PLAYER = 20.0`) so the slamming hands read as a
+/// foreground threat the player navigates around.
+pub const GNU_TON_HANDS_Z: f32 = 20.5;
+
 /// Replace the static `boss_core.png` look on boss feature entities with
 /// the animated boss spritesheet once the asset is available. Symmetric
 /// with `upgrade_enemy_sprites` but uses `BossAnimator` instead of
@@ -542,24 +568,49 @@ pub fn upgrade_boss_sprites(
         // If no asset is available we skip — the colored rectangle
         // fallback in `sync_visuals` continues to render.
         let boss_name = crate::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
-        let boss_asset = if boss_name.eq_ignore_ascii_case("mockingbird") {
-            assets.mockingbird.as_ref().or(assets.boss.as_ref())
-        } else if boss_name.eq_ignore_ascii_case("gnu_ton")
+        let is_gnu_ton = boss_name.eq_ignore_ascii_case("gnu_ton")
             || boss_name.eq_ignore_ascii_case("gnu-ton")
             || boss_name.to_lowercase().starts_with("gnu_ton")
-            || boss_name.to_lowercase().starts_with("gnu-ton")
-        {
-            assets.gnu_ton.as_ref().or(assets.boss.as_ref())
+            || boss_name.to_lowercase().starts_with("gnu-ton");
+        // GNU-ton gets a split body + hands render. If either layered
+        // sheet is missing, fall back to the legacy single-sheet path.
+        let split_layers = if is_gnu_ton {
+            match (assets.gnu_ton_body.as_ref(), assets.gnu_ton_hands.as_ref()) {
+                (Some(body), Some(hands))
+                    if images.get(&body.texture).is_some()
+                        && images.get(&hands.texture).is_some() =>
+                {
+                    Some((body, hands))
+                }
+                _ => None,
+            }
         } else {
-            assets.boss.as_ref()
+            None
         };
-        let Some(boss_asset) = boss_asset else {
-            continue;
+        let boss_asset = if let Some((body, _hands)) = split_layers {
+            body
+        } else if boss_name.eq_ignore_ascii_case("mockingbird") {
+            let Some(asset) = assets.mockingbird.as_ref().or(assets.boss.as_ref()) else {
+                continue;
+            };
+            asset
+        } else if is_gnu_ton {
+            let Some(asset) = assets.gnu_ton.as_ref().or(assets.boss.as_ref()) else {
+                continue;
+            };
+            asset
+        } else {
+            let Some(asset) = assets.boss.as_ref() else {
+                continue;
+            };
+            asset
         };
         if images.get(&boss_asset.texture).is_none() {
             continue;
         }
         let collision = BVec2::new(view.size.x, view.size.y);
+        let render_size = boss_asset.spec.render_size(collision);
+        let anchor = boss_asset.spec.collision_anchor(collision);
         let mut sprite = Sprite::from_atlas_image(
             boss_asset.texture.clone(),
             bevy::image::TextureAtlas {
@@ -567,12 +618,73 @@ pub fn upgrade_boss_sprites(
                 index: boss_asset.spec.flat_index(sprites::BossAnim::Rest, 0),
             },
         );
-        sprite.custom_size = Some(boss_asset.spec.render_size(collision));
-        commands.entity(entity).insert((
-            sprite,
-            boss_asset.spec.collision_anchor(collision),
-            BossAnimator::new(boss_asset.spec),
-        ));
+        sprite.custom_size = Some(render_size);
+        let mut entity_commands = commands.entity(entity);
+        entity_commands.insert((sprite, anchor, BossAnimator::new(boss_asset.spec)));
+        if let Some((_body, hands)) = split_layers {
+            // Spawn the hands overlay as a Bevy child so it inherits the
+            // parent's translation. The child's local z offset puts the
+            // hands well in front of platforms (and slightly in front of
+            // the player) so incoming slams read as foreground danger.
+            entity_commands.insert(GnuTonBodyLayer);
+            let mut hands_sprite = Sprite::from_atlas_image(
+                hands.texture.clone(),
+                bevy::image::TextureAtlas {
+                    layout: hands.layout.clone(),
+                    index: hands.spec.flat_index(sprites::BossAnim::Rest, 0),
+                },
+            );
+            hands_sprite.custom_size = Some(render_size);
+            entity_commands.with_children(|parent| {
+                parent.spawn((
+                    hands_sprite,
+                    anchor,
+                    GnuTonHandsLayer,
+                    // Local z offset relative to the parent body. The
+                    // parent's absolute z is forced to `GNU_TON_BODY_Z` by
+                    // `apply_gnu_ton_body_z` each frame, so this offset
+                    // lands the child at `GNU_TON_HANDS_Z` in world space.
+                    Transform::from_xyz(0.0, 0.0, GNU_TON_HANDS_Z - GNU_TON_BODY_Z),
+                ));
+            });
+        }
+    }
+}
+
+/// Override the gnu_ton boss parent entity's world z so the body
+/// silhouette sits behind one-way platforms. `sync_visuals` resets
+/// `translation.z` every frame from `feature_z(Boss) = 11.0`; this
+/// system runs after it and rewrites just the z, leaving x/y alone.
+pub fn apply_gnu_ton_body_z(
+    mut query: Query<&mut Transform, With<GnuTonBodyLayer>>,
+) {
+    for mut transform in &mut query {
+        transform.translation.z = GNU_TON_BODY_Z;
+    }
+}
+
+/// Mirror the parent boss's atlas index and color tint onto the hands
+/// overlay child each frame. Both sheets share the same atlas layout
+/// (same rows + frame counts) because the generator emits them in
+/// lockstep, so the same flat index applies to both.
+pub fn sync_gnu_ton_hands(
+    parents: Query<(&Sprite, &Children), With<GnuTonBodyLayer>>,
+    mut hands: Query<&mut Sprite, (With<GnuTonHandsLayer>, Without<GnuTonBodyLayer>)>,
+) {
+    for (parent_sprite, children) in &parents {
+        let Some(parent_atlas) = parent_sprite.texture_atlas.as_ref() else {
+            continue;
+        };
+        let parent_index = parent_atlas.index;
+        let parent_color = parent_sprite.color;
+        for child in children.iter() {
+            if let Ok(mut child_sprite) = hands.get_mut(child) {
+                if let Some(child_atlas) = child_sprite.texture_atlas.as_mut() {
+                    child_atlas.index = parent_index;
+                }
+                child_sprite.color = parent_color;
+            }
+        }
     }
 }
 

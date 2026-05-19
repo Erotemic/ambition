@@ -25,7 +25,7 @@
 //! - [`camera`] — player-following camera with eased zoom around
 //!   encounter transitions ([`camera_follow`]).
 
-mod actors;
+pub mod actors;
 mod camera;
 mod features;
 mod health;

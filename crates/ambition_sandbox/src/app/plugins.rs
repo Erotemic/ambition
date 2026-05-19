@@ -770,12 +770,19 @@ fn install_visual_animation_systems(app: &mut App) {
             // BEFORE sync_visuals reads positions for them.
             crate::presentation::rendering::spawn_dynamic_feature_visuals,
             sync_visuals,
+            // Override gnu_ton boss z AFTER sync_visuals (which resets
+            // it to `feature_z(Boss) = 11.0`) so the body silhouette
+            // sits behind one-way platforms.
+            crate::presentation::rendering::actors::apply_gnu_ton_body_z,
             upgrade_enemy_sprites,
             upgrade_boss_sprites,
             animate_player,
             animate_characters,
             crate::presentation::rendering::animate_props,
             animate_bosses,
+            // Mirror parent atlas index + tint onto the hands overlay
+            // after `animate_bosses` has updated the parent's frame.
+            crate::presentation::rendering::actors::sync_gnu_ton_hands,
             // Pirate rider composite — reads ECS actor state and
             // spawns/despawns presentation entities each frame, so
             // it belongs in `PresentationVisualSync` (after
@@ -835,6 +842,9 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         Update,
         crate::presentation::rendering::sync_health_overlays.after(sync_visuals),
     )
+    // Idle barks fire on a 5-10s cadence while the boss is in an
+    // attacking phase, so the scholar feels alive between strikes.
+    .add_systems(Update, crate::boss_encounter::tick_boss_idle_barks)
     // Portal presentation: read PortalRegistry.phase + apply
     // visibility / animation row / ring-spin to the matching
     // FeatureName-tagged sprites + hide the redundant debug

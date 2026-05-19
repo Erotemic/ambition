@@ -741,15 +741,31 @@ impl BossRuntime {
         if !self.is_gnu_ton() {
             return vec![self.aabb()];
         }
-        if matches!(
+        // GNU-ton's head is the only vulnerable target, but it is ALWAYS
+        // hittable — the head_descent windows just move it down to player
+        // level so the player doesn't have to climb. Previously this
+        // returned an empty list outside the GnuHeadDescent strike, which
+        // made the boss permanently invulnerable in Phase1 (no descent
+        // beat exists in that phase) and therefore unkillable, since HP
+        // never dropped enough to unlock Phase2. Repro: spawn the boss
+        // and watch it sit at full HP forever in Phase1.
+        let head_design_y = if matches!(
             self.active_strike_profile,
             Some(BossAttackProfile::GnuHeadDescent)
+        ) || matches!(
+            self.telegraph_profile,
+            Some(BossAttackProfile::GnuHeadDescent)
         ) {
-            return vec![
-                self.gnu_ton_part_aabb(ae::Vec2::new(0.0, 30.0), ae::Vec2::new(92.0, 74.0))
-            ];
-        }
-        Vec::new()
+            // Held-low position during the descent telegraph and strike.
+            // Matches the generator's `_draw_head_down` target y=30.
+            30.0
+        } else {
+            // Rest position high above the shoulder. Hard to reach but
+            // not impossible — the player can climb the perches and jump.
+            // Matches the generator's REST_HEAD_Y.
+            -75.0
+        };
+        vec![self.gnu_ton_part_aabb(ae::Vec2::new(0.0, head_design_y), ae::Vec2::new(92.0, 74.0))]
     }
 
     pub(super) fn move_toward_target(&mut self, world: &ae::World, target: ae::Vec2, dt: f32) {
@@ -1140,18 +1156,39 @@ mod scripted_pattern_tests {
     }
 
     #[test]
-    fn gnu_ton_is_only_damageable_during_head_descent_window() {
+    fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
+        // The head is always a valid hit target — the older "only
+        // damageable during head_descent strike" rule made the boss
+        // permanently invulnerable in Phase1 (no descent beat) and
+        // therefore unkillable. Now the head is always hittable; the
+        // descent window just moves it down to player level so the
+        // player doesn't have to climb. Both states must produce
+        // exactly one head AABB.
         let mut boss = gnu_ton_runtime();
+        let rest_head = boss.damageable_aabbs();
+        assert_eq!(rest_head.len(), 1, "head must always be a damageable target");
+        let rest_y = rest_head[0].center().y;
+        // Rest head sits ABOVE the shoulder anchor (player must climb).
         assert!(
-            boss.damageable_aabbs().is_empty(),
-            "GNU-ton should not take body damage outside the head exposure window"
+            rest_y < boss.pos.y,
+            "rest head should be above the shoulder anchor, got y={rest_y} vs pos.y={}",
+            boss.pos.y
         );
+
         boss.active_strike_profile = Some(BossAttackProfile::GnuHeadDescent);
-        let vulnerable = boss.damageable_aabbs();
-        assert_eq!(vulnerable.len(), 1);
+        let descent_head = boss.damageable_aabbs();
+        assert_eq!(descent_head.len(), 1);
+        let descent_y = descent_head[0].center().y;
+        // Descended head sits BELOW the shoulder anchor (at player level).
         assert!(
-            vulnerable[0].center().y > boss.pos.y,
-            "head descent vulnerable part should be below the shoulder anchor"
+            descent_y > boss.pos.y,
+            "descent head should be below the shoulder anchor"
+        );
+        // And materially lower than the rest position — that's the
+        // whole point of the vulnerability window.
+        assert!(
+            descent_y > rest_y + 50.0,
+            "descent must drop the head meaningfully (got rest_y={rest_y}, descent_y={descent_y})"
         );
     }
 }

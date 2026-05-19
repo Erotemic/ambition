@@ -335,6 +335,15 @@ pub struct BossSpriteAsset {
 pub(crate) const BOSS_FILENAME: &str = "boss_spritesheet.png";
 pub(crate) const MOCKINGBIRD_FILENAME: &str = "mockingbird_boss/mockingbird_boss_spritesheet.png";
 pub(crate) const GNU_TON_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_spritesheet.png";
+// Layered GNU-ton sheets emitted alongside the full sheet by the
+// Python generator. `_body` excludes hands + attack VFX; `_hands` is
+// only hands + VFX. Runtime z-layers the body behind platforms and the
+// hands in front so the player can read jump targets and incoming
+// danger separately.
+pub(crate) const GNU_TON_BODY_FILENAME: &str =
+    "gnu_ton_boss/gnu_ton_boss_body_spritesheet.png";
+pub(crate) const GNU_TON_HANDS_FILENAME: &str =
+    "gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png";
 
 /// GNU-ton boss sheet.
 ///
@@ -418,6 +427,8 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
         ("gradient_sentinel", BOSS_FILENAME),
         ("mockingbird", MOCKINGBIRD_FILENAME),
         ("gnu_ton", GNU_TON_FILENAME),
+        ("gnu_ton_body", GNU_TON_BODY_FILENAME),
+        ("gnu_ton_hands", GNU_TON_HANDS_FILENAME),
     ]
 }
 
@@ -467,6 +478,39 @@ pub fn load_gnu_ton_sprite_in(
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> Option<BossSpriteAsset> {
     load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, "gnu_ton", GNU_TON_SHEET)
+}
+
+/// Body-only GNU-ton sheet (no hands, no attack VFX). Rendered behind
+/// platforms so the player can see jump targets through the giant body.
+/// Same atlas layout as `GNU_TON_SHEET` so `flat_index` works for both.
+pub fn load_gnu_ton_body_sprite_in(
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> Option<BossSpriteAsset> {
+    load_named_boss_sprite_via_catalog(
+        catalog,
+        asset_server,
+        layouts,
+        "gnu_ton_body",
+        GNU_TON_SHEET,
+    )
+}
+
+/// Hands-only GNU-ton sheet (with attack VFX). Rendered in front of
+/// platforms so incoming danger reads clearly.
+pub fn load_gnu_ton_hands_sprite_in(
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> Option<BossSpriteAsset> {
+    load_named_boss_sprite_via_catalog(
+        catalog,
+        asset_server,
+        layouts,
+        "gnu_ton_hands",
+        GNU_TON_SHEET,
+    )
 }
 
 fn load_named_boss_sprite_via_catalog(

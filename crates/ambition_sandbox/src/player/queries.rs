@@ -5,9 +5,11 @@
 //! that reach for `single_mut()` are implicitly relying on that fact.
 //! These helpers give contributors obvious APIs to pick between:
 //!
-//! - **`PrimaryPlayerOnly` / `PrimaryPlayerOnlyMut`** — filtered query
-//!   types you can use as a `SystemParam` field when you genuinely
-//!   want the camera/HUD/dev-tool target.
+//! - **`PrimaryPlayerOnly`** — filter type usable on any `Query`
+//!   (immutable or mutable component access) when the system genuinely
+//!   wants the camera/HUD/dev-tool target. In Bevy the same filter
+//!   works for both read and write queries, so there is no separate
+//!   `…Mut` variant.
 //! - **`primary_player_entity`** — finds the primary player's `Entity`
 //!   from any `Query<Entity, With<PrimaryPlayer>>` without panicking.
 //! - **`sort_players_by_slot`** — collects player entities ordered by

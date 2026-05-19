@@ -423,37 +423,54 @@ impl BossRewardChest {
 // required components are expressed in one place and tests/editors can match
 // the exact shape without rediscovering the tuple.
 
-/// Shared base for every feature simulation entity (pickup, chest, hazard,
-/// actor, breakable …). Combines the marker, visual tag, and authored identity
-/// components that appear on every feature spawn.
-///
-/// Includes [`crate::presentation::rendering::RoomVisual`] because every authored feature
-/// today both *is* a simulation entity and *renders*; the rendering systems
-/// query `With<RoomVisual>` and the room-load / reset path despawns the same
-/// marker to wipe the previous room. See the doc comment on `RoomVisual` for
-/// the dual-role rationale and the planned split into a separate
-/// `RoomScopedEntity` lifecycle marker once a presentation observer makes the
-/// visual lazy.
+/// Simulation-only base for a feature entity: the marker that identifies it
+/// to feature-system queries, its room-scoped lifecycle, and its authored
+/// identity/shape. Does NOT include any rendering components, so it is the
+/// right base for headless features, AI scratch entities, and future
+/// presentation-lazy spawns.
 #[derive(Bundle)]
-pub struct FeatureBaseBundle {
+pub struct FeatureLifecycleBundle {
     pub sim_entity: FeatureSimEntity,
-    pub room_visual: crate::presentation::rendering::RoomVisual,
+    pub room_scoped: crate::presentation::rendering::RoomScopedEntity,
     pub id: FeatureId,
     pub name: FeatureName,
     pub aabb: FeatureAabb,
 }
 
-impl FeatureBaseBundle {
+impl FeatureLifecycleBundle {
     pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb) -> Self {
         Self {
             sim_entity: FeatureSimEntity,
-            room_visual: crate::presentation::rendering::RoomVisual,
+            room_scoped: crate::presentation::rendering::RoomScopedEntity,
             id: FeatureId(id.into()),
             name: FeatureName(name.into()),
             aabb,
         }
     }
 }
+
+/// Rendered feature base: lifecycle bundle plus [`crate::presentation::rendering::RoomVisual`].
+/// Use this for features that should be drawn by the presentation systems
+/// (the default for every authored feature today). Headless/sim-only spawns
+/// should reach for [`FeatureLifecycleBundle`] instead.
+#[derive(Bundle)]
+pub struct FeatureRenderedBundle {
+    pub lifecycle: FeatureLifecycleBundle,
+    pub room_visual: crate::presentation::rendering::RoomVisual,
+}
+
+impl FeatureRenderedBundle {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb) -> Self {
+        Self {
+            lifecycle: FeatureLifecycleBundle::new(id, name, aabb),
+            room_visual: crate::presentation::rendering::RoomVisual,
+        }
+    }
+}
+
+/// Backwards-compatible alias for [`FeatureRenderedBundle`]. New code should
+/// pick the explicit `Lifecycle` or `Rendered` bundle.
+pub type FeatureBaseBundle = FeatureRenderedBundle;
 
 /// Bundle for pickup feature entities.
 #[derive(Bundle)]
@@ -497,9 +514,10 @@ impl ChestBundle {
     }
 }
 
-/// Bundle for enemy actor entities. Presentation rendering and behavior
-/// runtime (ActorRuntime) are added separately so headless builds can omit
-/// the visual components.
+/// Bundle for enemy actor entities. `base` is the rendered feature bundle
+/// today; once headless feature spawning lands, swap it for
+/// [`FeatureLifecycleBundle`] and add `RoomVisual` only on the rendered
+/// path. Behavior runtime (`ActorRuntime`) is still added separately.
 #[derive(Bundle)]
 pub struct EnemyActorBundle {
     pub base: FeatureBaseBundle,

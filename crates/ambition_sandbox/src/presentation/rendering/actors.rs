@@ -603,20 +603,17 @@ pub fn animate_bosses(
 /// Runs after all other visibility systems so it wins the last-write battle.
 pub fn apply_hide_sprites_override(
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
-    mut room_sprites: Query<&mut Visibility, (With<RoomVisual>, With<Sprite>)>,
-    mut player_sprites: Query<&mut Visibility, (With<PlayerVisual>, With<Sprite>)>,
+    mut sprites: Query<
+        &mut Visibility,
+        (With<Sprite>, Or<(With<RoomVisual>, With<PlayerVisual>)>),
+    >,
 ) {
     let target = if developer_tools.hide_sprites {
         Visibility::Hidden
     } else {
         Visibility::Inherited
     };
-    for mut vis in room_sprites.iter_mut() {
-        if *vis != target {
-            *vis = target;
-        }
-    }
-    for mut vis in player_sprites.iter_mut() {
+    for mut vis in sprites.iter_mut() {
         if *vis != target {
             *vis = target;
         }

@@ -176,6 +176,10 @@ pub struct ClockScaleRequest {
     pub domain: ClockDomain,
     pub scale: f32,
     pub requester: ClockRequester,
+    /// Telemetry/debug label only — not read by `apply_clock_scale_requests`.
+    /// Kept on the request so traces and the debug overlay can attribute a
+    /// scale change to its source without an additional out-of-band lookup.
+    #[allow(dead_code)]
     pub reason: &'static str,
 }
 

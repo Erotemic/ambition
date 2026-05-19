@@ -84,7 +84,7 @@ typically filter by faction/state. Today single-player parity is preserved.
 | ~~`content/features/ecs/interact.rs`~~ ✓ DONE 2026-05-19 (0a569dd) | Was `player.single_mut()` | Now iterates every player. Dialogue stays global (one GameMode::Dialogue); switch activation is per-target so different players can flip different switches in the same frame |
 | `content/features/ecs/damage.rs` | 288 | `player_combat_q.single_mut()` | Per-player damage routing (OVERNIGHT-TODO #17.6) |
 | ~~`enemy_projectile/systems.rs`~~ ✓ DONE 2026-05-19 (bd306f0) | Was `player_body_q.single().ok()` | Now iterates every player; the first vulnerable overlapping player takes the hit |
-| `encounter/systems.rs` | 130 | `player_body_q.single()` for encounter trigger overlap | Iterate players; any player triggers |
+| ~~`encounter/systems.rs`~~ ✓ DONE 2026-05-19 (4ece6ad) | Was `player_body_q.single()` for encounter trigger overlap | Now iterates every player; the first overlapping player fires the trigger |
 | `projectile/systems.rs` | 164 | `player_body_q.single()` for player projectile spawn | Should be per-player owner (OVERNIGHT-TODO #17.7) |
 | `projectile/visuals.rs` | 62 | `player_body_q.single()` for projectile recolor based on player state | Per-projectile owner reference |
 | `presentation/fx.rs` | 480 | `player_authority.single()` for screen FX origin | Primary-player FX is acceptable; multi-player split-screen would need per-player FX |

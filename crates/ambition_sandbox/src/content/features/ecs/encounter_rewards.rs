@@ -7,8 +7,8 @@
 //! the single point that mirrors that contract from the encounter
 //! and boss-encounter registries to the ECS.
 
-use super::*;
 use super::falling_chest::settled_chest_center;
+use super::*;
 use bevy::prelude::Name;
 
 /// Drop the encounter's ECS reward chest, if any, and clear its looted flag.

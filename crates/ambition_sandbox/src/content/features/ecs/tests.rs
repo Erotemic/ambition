@@ -349,10 +349,7 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
 fn feature_view_index_reflects_same_frame_reset_spawn() {
     use crate::app::{configure_sandbox_sets, SandboxSet};
 
-    fn fake_reset_system(
-        mut commands: Commands,
-        existing: Query<Entity, With<FeatureSimEntity>>,
-    ) {
+    fn fake_reset_system(mut commands: Commands, existing: Query<Entity, With<FeatureSimEntity>>) {
         for entity in &existing {
             commands.entity(entity).despawn();
         }

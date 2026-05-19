@@ -19,22 +19,35 @@ use bevy::prelude::{
 
 use crate::WorldTime;
 
-mod damage;
-mod view_index;
-mod save_sync;
 mod anim_helpers;
-mod falling_chest;
+mod damage;
 mod encounter_rewards;
+mod falling_chest;
+mod interact;
+mod save_sync;
+mod spawn;
+mod view_index;
 
+pub use anim_helpers::{
+    ecs_boss_anim_state, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
+    ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state,
+    ecs_npc_name,
+};
 pub use damage::{
     apply_feature_damage_events, ecs_damage_event_hits_actor, ecs_damage_event_hits_boss,
     ecs_damage_event_hits_breakable,
 };
-pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
-pub use save_sync::{sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save};
-pub use anim_helpers::{ecs_boss_anim_state, ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name};
+pub use encounter_rewards::{
+    clear_encounter_reward_ecs, sync_boss_reward_chests_ecs, sync_encounter_reward_chests_ecs,
+};
 pub use falling_chest::update_ecs_falling_chests;
-pub use encounter_rewards::{clear_encounter_reward_ecs, sync_boss_reward_chests_ecs, sync_encounter_reward_chests_ecs};
+pub use interact::interact_ecs_actors_and_switches;
+pub use save_sync::{
+    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
+};
+pub use spawn::{despawn_encounter_mobs, spawn_encounter_mob, spawn_room_feature_entities};
+pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
+
 use damage::{begin_ecs_breakable_respawn, emit_breakable_destroyed};
 
 /// Marker for simulation-side feature entities spawned from the active room.
@@ -182,7 +195,7 @@ impl ActorRuntime {
     }
 }
 
-fn actor_component_snapshot(
+pub(crate) fn actor_component_snapshot(
     actor: &ActorRuntime,
 ) -> (
     ActorIdentity,
@@ -267,201 +280,6 @@ pub fn apply_gameplay_banner_requests(
         banner.show(request.text.clone(), request.duration);
     }
 }
-
-/// Spawn ECS-native feature entities for every static feature object in a room.
-pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms::RoomSpec) {
-    let paths = room_spec_paths(room);
-    for object in &room.world.objects {
-        spawn_room_feature_entity(commands, object, &paths);
-    }
-}
-
-fn spawn_room_feature_entity(
-    commands: &mut Commands,
-    object: &ae::RoomObject,
-    paths: &[(String, ae::KinematicPath)],
-) {
-    let feature_aabb = FeatureAabb::from_aabb(object.aabb);
-    match &object.kind {
-        ae::RoomObjectKind::DamageVolume(volume) => {
-            let hazard = HazardRuntime::new_with_paths(object, volume.clone(), paths);
-            commands.spawn((
-                Name::new(format!("Feature hazard: {}", object.name)),
-                FeatureSimEntity,
-                RoomVisual,
-                FeatureId::new(object.id.clone()),
-                FeatureName::new(object.name.clone()),
-                FeatureAabb::from_center_size(hazard.pos, hazard.size),
-                HazardFeature::new(hazard),
-            ));
-        }
-        ae::RoomObjectKind::BossSpawn(brain) => {
-            let boss = BossRuntime::new(object, brain.clone());
-            let initial_phase = BossPhase::from_alive(boss.alive);
-            commands.spawn((
-                Name::new(format!("Feature boss: {}", object.name)),
-                FeatureSimEntity,
-                RoomVisual,
-                FeatureId::new(object.id.clone()),
-                FeatureName::new(object.name.clone()),
-                FeatureAabb::from_center_size(boss.pos, boss.render_size()),
-                BossPatternTimer(boss.pattern_timer),
-                initial_phase,
-                BossFeature::new(boss),
-            ));
-        }
-        ae::RoomObjectKind::Pickup(pickup) => {
-            commands.spawn((
-                Name::new(format!("Feature pickup: {}", object.name)),
-                PickupBundle::new(&object.id, &object.name, feature_aabb, pickup.clone()),
-            ));
-        }
-        ae::RoomObjectKind::Chest(chest) => {
-            commands.spawn((
-                Name::new(format!("Feature chest: {}", object.name)),
-                ChestBundle::new(&object.id, &object.name, feature_aabb, chest.clone()),
-            ));
-        }
-        ae::RoomObjectKind::Breakable(breakable) => {
-            let mut entity = commands.spawn((
-                Name::new(format!("Feature breakable: {}", object.name)),
-                FeatureSimEntity,
-                RoomVisual,
-                FeatureId::new(object.id.clone()),
-                FeatureName::new(object.name.clone()),
-                feature_aabb,
-                BreakableFeature::new(breakable.clone()),
-                StandTimer(0.0),
-            ));
-            if breakable.collision.blocks_movement() {
-                entity.insert(SandboxSolidContributor);
-            }
-            if breakable.pogo_refresh
-                || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand())
-            {
-                entity.insert(PogoTargetContributor);
-            }
-        }
-        ae::RoomObjectKind::EnemySpawn(brain) => {
-            let actor = ActorRuntime::Hostile(EnemyRuntime::new(object, brain.clone(), paths));
-            let (identity, disposition, health, combat, intent, cooldowns) =
-                actor_component_snapshot(&actor);
-            commands.spawn((
-                Name::new(format!("Feature actor enemy: {}", object.name)),
-                EnemyActorBundle {
-                    base: FeatureBaseBundle::new(&object.id, &object.name, feature_aabb),
-                    identity,
-                    disposition,
-                    health,
-                    combat,
-                    intent,
-                    cooldowns,
-                },
-                actor,
-            ));
-        }
-        ae::RoomObjectKind::Interactable(interactable) => {
-            if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
-                let actor = ActorRuntime::Peaceful(NpcRuntime::new_with_paths(
-                    object,
-                    interactable.clone(),
-                    paths,
-                ));
-                let (identity, disposition, health, combat, intent, cooldowns) =
-                    actor_component_snapshot(&actor);
-                commands.spawn((
-                    Name::new(format!("Feature actor npc: {}", object.name)),
-                    EnemyActorBundle {
-                        base: FeatureBaseBundle::new(&object.id, &object.name, feature_aabb),
-                        identity,
-                        disposition,
-                        health,
-                        combat,
-                        intent,
-                        cooldowns,
-                    },
-                    actor,
-                ));
-            } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
-                if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload)
-                {
-                    commands.spawn((
-                        Name::new(format!("Feature switch: {}", object.name)),
-                        FeatureSimEntity,
-                        RoomVisual,
-                        FeatureId::new(object.id.clone()),
-                        FeatureName::new(object.name.clone()),
-                        feature_aabb,
-                        SwitchFeature::new(activation),
-                        SwitchOn(false),
-                    ));
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
-/// Spawn one hostile actor for an encounter wave.
-///
-/// The encounter system still owns wave timing, but the mob itself is a normal
-/// feature entity queried by actor, projectile, rendering, and health systems.
-pub fn spawn_encounter_mob(
-    commands: &mut Commands,
-    encounter_id: impl Into<String>,
-    id: String,
-    brain: ae::EnemyBrain,
-    pos: ae::Vec2,
-    size: ae::Vec2,
-) {
-    let encounter_id = encounter_id.into();
-    let archetype = EnemyArchetype::from_brain(&brain);
-    let aabb = ae::Aabb::new(pos, size * 0.5);
-    let object = ae::RoomObject::new(
-        id.clone(),
-        id.clone(),
-        aabb,
-        ae::RoomObjectKind::EnemySpawn(brain.clone()),
-    );
-    let mut enemy = EnemyRuntime::new(&object, brain, &[]);
-    enemy.archetype = archetype;
-    enemy.health = ae::Health::new(archetype.max_health());
-    // Encounter mobs should not auto-respawn like training sandbags.
-    enemy.respawn_timer = 999_999.0;
-    let actor = ActorRuntime::Hostile(enemy);
-    let (identity, disposition, health, combat, intent, cooldowns) =
-        actor_component_snapshot(&actor);
-    commands.spawn((
-        Name::new(format!("Encounter mob: {id}")),
-        FeatureSimEntity,
-        RoomVisual,
-        FeatureId::new(id.clone()),
-        FeatureName::new(id),
-        FeatureAabb::from_center_size(pos, size),
-        identity,
-        disposition,
-        health,
-        combat,
-        intent,
-        cooldowns,
-        actor,
-        EncounterMob::new(encounter_id),
-    ));
-}
-
-/// Despawn all ECS mobs owned by an encounter attempt.
-pub fn despawn_encounter_mobs(
-    commands: &mut Commands,
-    mobs: &Query<(Entity, &EncounterMob, &FeatureId, &ActorCombatState)>,
-    encounter_id: &str,
-) {
-    for (entity, mob, _, _) in mobs.iter() {
-        if mob.encounter_id == encounter_id {
-            commands.entity(entity).despawn();
-        }
-    }
-}
-
 
 /// Reset ECS-owned static feature state after a same-room sandbox reset.
 pub fn reset_ecs_room_features(
@@ -1234,96 +1052,6 @@ pub fn update_ecs_actors(
         );
     }
 }
-
-/// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
-/// `open_ecs_chests` because they have their own reward/persistence path.
-pub fn interact_ecs_actors_and_switches(
-    mut dialogue: ResMut<crate::dialog::DialogState>,
-    mut next_mode: ResMut<NextState<crate::GameMode>>,
-    mut banner: ResMut<GameplayBanner>,
-    mut player: Query<
-        (
-            &crate::player::PlayerBody,
-            &mut crate::player::PlayerInteractionState,
-        ),
-        With<crate::player::PlayerEntity>,
-    >,
-    actors: Query<(&FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
-    mut switches: Query<
-        (
-            &FeatureId,
-            &FeatureName,
-            &FeatureAabb,
-            &SwitchFeature,
-            &mut SwitchOn,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    mut gameplay_effects: MessageWriter<GameplayEffect>,
-    mut vfx: MessageWriter<VfxMessage>,
-) {
-    let Ok((player_body, mut interaction)) = player.single_mut() else {
-        return;
-    };
-    if !interaction.buffered() {
-        return;
-    }
-    let player_body = player_body.aabb();
-    for (aabb, actor) in &actors {
-        let ActorRuntime::Peaceful(npc) = actor else {
-            continue;
-        };
-        if !aabb.aabb().strict_intersects(player_body) {
-            continue;
-        }
-        interaction.clear();
-        banner.show(npc.message(), 2.6);
-        let request = npc.dialogue_request();
-        dialogue.start(&request.dialogue_id, &request.npc_name);
-        next_mode.set(crate::GameMode::Dialogue);
-        gameplay_effects.write(GameplayEffect::AdvanceQuest(
-            ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()),
-        ));
-        gameplay_effects.write(GameplayEffect::SetFlag {
-            id: "met_any_hub_npc".into(),
-            on: true,
-        });
-        gameplay_effects.write(GameplayEffect::SetFlag {
-            id: format!("npc_{}_talked", request.dialogue_id),
-            on: true,
-        });
-        vfx.write(VfxMessage::Burst {
-            pos: npc.pos,
-            count: 16,
-            speed: 230.0,
-            color: [0.84, 0.95, 1.0, 0.82],
-            kind: ParticleKind::Spark,
-        });
-        return;
-    }
-
-    for (_id, name, aabb, switch, mut on) in &mut switches {
-        if !aabb.aabb().strict_intersects(player_body) {
-            continue;
-        }
-        interaction.clear();
-        banner.show(format!("activated {}", name.0.as_str()), 2.6);
-        on.0 = true;
-        gameplay_effects.write(GameplayEffect::ActivateSwitch {
-            activation: switch.activation.clone(),
-            pos: aabb.center,
-        });
-        vfx.write(VfxMessage::Burst {
-            pos: aabb.center,
-            count: 16,
-            speed: 230.0,
-            color: [0.84, 0.95, 1.0, 0.82],
-            kind: ParticleKind::Spark,
-        });
-        return;
-    }
-}
-
 
 #[cfg(test)]
 mod tests;

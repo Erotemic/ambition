@@ -97,6 +97,7 @@ pub struct FeatureVisual {
 #[derive(Component, Clone, Debug)]
 pub struct PropVisual {
     /// LDtk iid — for debug overlay + future save-key joins.
+    #[allow(dead_code)]
     pub id: String,
     /// Registry key the sprite was looked up under.
     pub kind: String,

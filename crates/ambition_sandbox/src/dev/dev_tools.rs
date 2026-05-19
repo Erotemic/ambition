@@ -157,7 +157,7 @@ impl MovementProfile {
 pub enum DebugViewMode {
     /// Normal play view: no spatial overlays.
     Gameplay,
-    /// Level-authoring view: room bounds, triggers, and camera framing.
+    /// Default debug-authoring view: level context plus player/feature volumes.
     Authoring,
     /// Collision view: solid/query volumes with art out of the way.
     Collision,
@@ -291,10 +291,9 @@ pub struct DeveloperTools {
     /// collision geometry without sprite occlusion.
     pub hide_sprites: bool,
     /// When true, every textured sprite is replaced with a colored rectangle
-    /// of the same size — the "placeholder art era" look. Independent from
-    /// `hide_sprites`: enable placeholders to confirm that gameplay is
-    /// readable with only solid rectangles, or combine with `hide_sprites`
-    /// to also drop the placeholders and rely purely on debug gizmos.
+    /// sized to the gameplay/debug volume. Owned by `debug_art_mode` together
+    /// with `hide_sprites`; if stale state ever leaves both true, placeholder
+    /// mode wins so the rectangles remain visible.
     pub placeholder_sprites: bool,
     /// When true, gizmo AABBs are drawn with a translucent fill in addition
     /// to their outline. Makes overlapping volumes and empty regions easier
@@ -380,18 +379,18 @@ impl DeveloperTools {
             }
             DebugViewMode::Authoring => {
                 self.show_room_bounds = true;
-                self.show_world_blocks = false;
+                self.show_world_blocks = true;
                 self.show_loading_zones = true;
-                self.show_player_hitbox = false;
-                self.show_player_vectors = false;
-                self.show_blink_preview = false;
-                self.show_combat_preview = false;
-                self.show_feature_hitboxes = false;
-                self.show_health_bars = false;
+                self.show_player_hitbox = true;
+                self.show_player_vectors = true;
+                self.show_blink_preview = true;
+                self.show_combat_preview = true;
+                self.show_feature_hitboxes = true;
+                self.show_health_bars = true;
                 self.show_moving_platform = true;
-                self.show_rebound_vectors = false;
+                self.show_rebound_vectors = true;
                 self.show_micro_grid = false;
-                self.show_camera_frame = true;
+                self.show_camera_frame = false;
                 self.fill_debug_boxes = false;
             }
             DebugViewMode::Collision => {
@@ -473,6 +472,21 @@ impl DeveloperTools {
         self.debug_art_mode = mode;
         self.hide_sprites = matches!(mode, DebugArtMode::Hidden);
         self.placeholder_sprites = matches!(mode, DebugArtMode::Placeholder);
+    }
+
+    /// Repair stale persisted states from the older independent
+    /// hide/placeholder toggles so `DebugArtMode` remains the sole owner.
+    pub fn normalize_debug_modes(&mut self) {
+        let mode = match (
+            self.debug_art_mode,
+            self.placeholder_sprites,
+            self.hide_sprites,
+        ) {
+            (_, true, _) => DebugArtMode::Placeholder,
+            (_, false, true) => DebugArtMode::Hidden,
+            (mode, false, false) => mode,
+        };
+        self.apply_debug_art_mode(mode);
     }
 }
 
@@ -1012,9 +1026,17 @@ mod tests {
         tools.apply_debug_view_mode(DebugViewMode::Authoring, true);
         assert_eq!(tools.debug_view_mode, DebugViewMode::Authoring);
         assert!(tools.show_room_bounds);
+        assert!(tools.show_world_blocks);
         assert!(tools.show_loading_zones);
+        assert!(tools.show_player_hitbox);
+        assert!(tools.show_player_vectors);
+        assert!(tools.show_blink_preview);
+        assert!(tools.show_combat_preview);
+        assert!(tools.show_feature_hitboxes);
+        assert!(tools.show_health_bars);
+        assert!(tools.show_rebound_vectors);
         assert!(!tools.show_micro_grid);
-        assert!(!tools.show_world_blocks);
+        assert!(!tools.show_camera_frame);
         assert!(!tools.fill_debug_boxes);
         assert_eq!(tools.debug_art_mode, DebugArtMode::Normal);
     }
@@ -1032,6 +1054,28 @@ mod tests {
 
         tools.apply_debug_art_mode(DebugArtMode::Normal);
         assert!(!tools.placeholder_sprites);
+        assert!(!tools.hide_sprites);
+    }
+
+    #[test]
+    fn normalize_debug_modes_repairs_legacy_art_toggles() {
+        let mut tools = DeveloperTools {
+            debug_art_mode: DebugArtMode::Normal,
+            hide_sprites: true,
+            placeholder_sprites: true,
+            ..DeveloperTools::default()
+        };
+        tools.normalize_debug_modes();
+        assert_eq!(tools.debug_art_mode, DebugArtMode::Placeholder);
+        assert!(tools.placeholder_sprites);
+        assert!(!tools.hide_sprites);
+
+        tools.debug_art_mode = DebugArtMode::Hidden;
+        tools.hide_sprites = true;
+        tools.placeholder_sprites = true;
+        tools.normalize_debug_modes();
+        assert_eq!(tools.debug_art_mode, DebugArtMode::Placeholder);
+        assert!(tools.placeholder_sprites);
         assert!(!tools.hide_sprites);
     }
 }

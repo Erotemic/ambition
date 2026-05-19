@@ -633,7 +633,7 @@ pub fn apply_hide_sprites_override(
     mut prev_active: Local<bool>,
     mut sprites: Query<&mut Visibility, With<Sprite>>,
 ) {
-    let active = developer_tools.hide_sprites;
+    let active = effective_hide_sprites(&developer_tools);
     if active {
         for mut vis in sprites.iter_mut() {
             if *vis != Visibility::Hidden {
@@ -650,6 +650,13 @@ pub fn apply_hide_sprites_override(
     *prev_active = active;
 }
 
+fn effective_hide_sprites(developer_tools: &crate::dev::dev_tools::DeveloperTools) -> bool {
+    // Placeholder art is a visible debug-art mode. If an old persisted or
+    // inspector-mutated state leaves both booleans true, keep placeholders
+    // visible instead of letting hide mode erase them.
+    developer_tools.hide_sprites && !developer_tools.placeholder_sprites
+}
+
 /// Cached pre-placeholder sprite state so toggling `placeholder_sprites`
 /// off can restore the textured rendering. Stored per-entity the first
 /// time we collapse the sprite to a colored rectangle.
@@ -658,14 +665,14 @@ pub struct SpriteOriginalState {
     pub image: Handle<Image>,
     pub atlas: Option<bevy::image::TextureAtlas>,
     pub color: Color,
+    pub custom_size: Option<BVec2>,
+    pub image_mode: bevy::sprite::SpriteImageMode,
 }
 
 /// When `DeveloperTools::placeholder_sprites` is enabled, replace every
-/// textured sprite with a colored rectangle of the same `custom_size` —
+/// textured sprite with a colored rectangle of the collision/debug size —
 /// the "placeholder art era" look. When the flag flips back off, restore
-/// the original texture / atlas / tint. Independent from `hide_sprites`:
-/// enable both for "no art whatsoever" mode; enable only this one to
-/// confirm gameplay reads cleanly with solid rectangles.
+/// the original texture, atlas, tint, sizing, and image mode.
 ///
 /// The placeholder color is derived from a per-entity discriminator
 /// (`FeatureVisual` / `PlayerVisual` / boss / projectile markers) so
@@ -681,41 +688,53 @@ pub fn apply_placeholder_sprites_override(
         Option<&SpriteOriginalState>,
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
+        Option<&crate::player::PlayerBody>,
         Option<&crate::projectile::PlayerProjectileVisual>,
         Option<&crate::enemy_projectile::EnemyProjectileVisual>,
     )>,
 ) {
     if developer_tools.placeholder_sprites {
-        for (entity, mut sprite, original, feature, player, p_proj, e_proj) in &mut sprites {
+        for (entity, mut sprite, original, feature, player, player_body, p_proj, e_proj) in
+            &mut sprites
+        {
             // Record original state once so we can restore on toggle-off.
             if original.is_none() {
                 commands.entity(entity).insert(SpriteOriginalState {
                     image: sprite.image.clone(),
                     atlas: sprite.texture_atlas.clone(),
                     color: sprite.color,
+                    custom_size: sprite.custom_size,
+                    image_mode: sprite.image_mode.clone(),
                 });
             }
+            let feature_view = feature.and_then(|fv| feature_views.get(&fv.id));
             let placeholder_color = pick_placeholder_color(
-                feature
-                    .and_then(|fv| feature_views.get(&fv.id))
-                    .map(|v| v.kind),
+                feature_view.map(|v| v.kind),
                 player.is_some(),
                 p_proj.is_some(),
                 e_proj.is_some(),
             );
             // Drop the texture and atlas so the sprite renders as a flat
-            // rectangle of `custom_size` × `placeholder_color`.
+            // rectangle. Size feature placeholders to their gameplay AABB
+            // rather than their authored render bounds so placeholder mode
+            // doubles as a collision-readability mode.
             if sprite.image != Handle::default() {
                 sprite.image = Handle::default();
             }
             if sprite.texture_atlas.is_some() {
                 sprite.texture_atlas = None;
             }
+            sprite.image_mode = bevy::sprite::SpriteImageMode::Auto;
+            if let Some(view) = feature_view {
+                sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
+            } else if let Some(body) = player_body {
+                sprite.custom_size = Some(BVec2::new(body.size.x, body.size.y));
+            }
             sprite.color = placeholder_color;
         }
     } else {
         // Restore any cached originals.
-        for (entity, mut sprite, original, _, _, _, _) in &mut sprites {
+        for (entity, mut sprite, original, _, _, _, _, _) in &mut sprites {
             if let Some(orig) = original {
                 if sprite.image != orig.image {
                     sprite.image = orig.image.clone();
@@ -724,6 +743,8 @@ pub fn apply_placeholder_sprites_override(
                     sprite.texture_atlas = orig.atlas.clone();
                 }
                 sprite.color = orig.color;
+                sprite.custom_size = orig.custom_size;
+                sprite.image_mode = orig.image_mode.clone();
                 commands.entity(entity).remove::<SpriteOriginalState>();
             }
         }
@@ -748,5 +769,22 @@ fn pick_placeholder_color(
     match feature_kind {
         Some(kind) => feature_color(kind, false),
         None => Color::srgba(0.70, 0.70, 0.72, 1.0),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::effective_hide_sprites;
+    use crate::dev::dev_tools::{DebugArtMode, DeveloperTools};
+
+    #[test]
+    fn placeholder_art_wins_over_stale_hide_flag() {
+        let mut tools = DeveloperTools::default();
+        tools.apply_debug_art_mode(DebugArtMode::Hidden);
+        assert!(effective_hide_sprites(&tools));
+
+        tools.hide_sprites = true;
+        tools.placeholder_sprites = true;
+        assert!(!effective_hide_sprites(&tools));
     }
 }

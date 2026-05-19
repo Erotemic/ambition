@@ -47,8 +47,8 @@ The debug overlay is organized around named debug views first, with individual
 overlay booleans treated as advanced/custom state:
 
 - `Gameplay` keeps the game view clean.
-- `Authoring` shows room bounds, loading zones, camera framing, and authored
-  platform context.
+- `Authoring` shows room/world context plus player, blink, combat, feature,
+  health, moving-platform, and rebound overlays.
 - `Collision` hides art and fills collision/player/feature/platform volumes.
 - `Triggers` focuses loading zones, camera frames, player overlap, and feature
   trigger volumes.

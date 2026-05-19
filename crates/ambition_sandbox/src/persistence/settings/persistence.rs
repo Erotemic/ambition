@@ -160,7 +160,10 @@ pub fn load_developer(path: &Path) -> DeveloperTools {
         }
     };
     match ron::from_str::<DeveloperTools>(&bytes) {
-        Ok(developer) => developer,
+        Ok(mut developer) => {
+            developer.normalize_debug_modes();
+            developer
+        }
         Err(error) => {
             warn!(
                 target: "ambition::settings",
@@ -273,6 +276,27 @@ mod tests {
         save_settings(&path, &s).unwrap();
         let restored = load_settings(&path);
         assert_eq!(restored, s);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn developer_load_normalizes_legacy_art_toggles() {
+        let _g = TEST_DIR_LOCK.lock().unwrap();
+        let root = temp_root("developer_legacy_art");
+        let path = root.join("developer.ron");
+        let mut developer = DeveloperTools::default();
+        developer.debug_art_mode = crate::dev::dev_tools::DebugArtMode::Normal;
+        developer.hide_sprites = true;
+        developer.placeholder_sprites = true;
+        save_developer(&path, &developer).unwrap();
+
+        let restored = load_developer(&path);
+        assert_eq!(
+            restored.debug_art_mode,
+            crate::dev::dev_tools::DebugArtMode::Placeholder
+        );
+        assert!(restored.placeholder_sprites);
+        assert!(!restored.hide_sprites);
         let _ = fs::remove_dir_all(&root);
     }
 

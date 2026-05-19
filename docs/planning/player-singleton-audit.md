@@ -85,8 +85,8 @@ typically filter by faction/state. Today single-player parity is preserved.
 | `content/features/ecs/damage.rs` | 288 | `player_combat_q.single_mut()` | Per-player damage routing (OVERNIGHT-TODO #17.6) |
 | ~~`enemy_projectile/systems.rs`~~ ✓ DONE 2026-05-19 (bd306f0) | Was `player_body_q.single().ok()` | Now iterates every player; the first vulnerable overlapping player takes the hit |
 | ~~`encounter/systems.rs`~~ ✓ DONE 2026-05-19 (4ece6ad) | Was `player_body_q.single()` for encounter trigger overlap | Now iterates every player; the first overlapping player fires the trigger |
-| `projectile/systems.rs` | 164 | `player_body_q.single()` for player projectile spawn | Should be per-player owner (OVERNIGHT-TODO #17.7) |
-| `projectile/visuals.rs` | 62 | `player_body_q.single()` for projectile recolor based on player state | Per-projectile owner reference |
+| ~~`projectile/systems.rs`~~ ✓ DONE 2026-05-19 | Was `player_body_q.single()` for player projectile spawn | Now `PrimaryPlayerOnly` — spawn anchored to the primary local player whose `ControlFrame` pressed fire. Per-player input + projectile-owner is OVERNIGHT-TODO #17.5 + #17.7 |
+| ~~`projectile/visuals.rs`~~ ✓ DONE 2026-05-19 | Was `player_body_q.single()` for charge indicator anchor | Now `PrimaryPlayerOnly` — charge indicator follows the primary local player; per-player charge UI is #17.5 |
 | `presentation/fx.rs` | 480 | `player_authority.single()` for screen FX origin | Primary-player FX is acceptable; multi-player split-screen would need per-player FX |
 
 **B-bucket pattern split (post 2026-05-19):**

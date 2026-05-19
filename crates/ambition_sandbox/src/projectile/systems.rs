@@ -21,7 +21,15 @@ pub fn update_projectiles(
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
     control_frame: Res<ControlFrame>,
-    player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
+    // Projectile spawn origin/direction is anchored to the *primary*
+    // player today because the press itself comes from the local
+    // `ControlFrame` resource, which represents one local player's
+    // input. The `PrimaryPlayerOnly` filter documents that this is a
+    // deliberate targeting decision — when per-player input components
+    // land (OVERNIGHT-TODO #17.5) and projectile factions/owners land
+    // (#17.7), the spawn point becomes per-player and this filter
+    // gets replaced with an iter over input-bearing players.
+    player_body_q: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,

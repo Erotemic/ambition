@@ -35,7 +35,12 @@ pub fn sync_projectile_visuals(
     world: Res<crate::GameWorld>,
     state: Res<PlayerProjectileState>,
     assets: Option<Res<crate::assets::game_assets::GameAssets>>,
-    player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
+    // The charge indicator anchors to the primary player who actually
+    // released the charge (the input lives on `ControlFrame`, a single
+    // local-player resource). `PrimaryPlayerOnly` documents that this
+    // is a presentation decision tied to the input owner — per-player
+    // charge UI is a #17.5 follow-up.
+    player_body_q: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
     existing: Query<Entity, With<PlayerProjectileVisual>>,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
 ) {

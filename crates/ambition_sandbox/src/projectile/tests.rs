@@ -46,7 +46,14 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
         shielding: false,
         parrying: false,
     };
-    app.world_mut().spawn((crate::player::PlayerEntity, body));
+    // Projectile spawn queries `PrimaryPlayerOnly`; the test fixture
+    // must mark the spawned player as primary or the system will see
+    // an empty query and silently skip fire-press handling.
+    app.world_mut().spawn((
+        crate::player::PlayerEntity,
+        crate::player::PrimaryPlayer,
+        body,
+    ));
 }
 
 fn min_app() -> App {

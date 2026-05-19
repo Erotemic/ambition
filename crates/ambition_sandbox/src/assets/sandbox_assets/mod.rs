@@ -867,9 +867,8 @@ fn register_embedded_assets(app: &mut App) {
 /// `AssetReader`s; the consumer enables those features and adds the
 /// source via `AssetPlugin::source(...)`. This function is the wiring
 /// point — currently a no-op so call sites can be added now.
-pub fn add_http_asset_source(_app: &mut App) {
-    // Slated for slice 9 (WebHttp packaging).
-}
+#[allow(dead_code)] // Slated for slice 9 (WebHttp packaging).
+pub fn add_http_asset_source(_app: &mut App) {}
 
 #[cfg(test)]
 mod tests;

@@ -34,6 +34,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static crate::player::PlayerHealth,
             &'static crate::player::PlayerCombatState,
             &'static crate::player::PlayerMovementAuthority,
+            &'static crate::player::ActivePlayerAttack,
         ),
         crate::player::PrimaryPlayerOnly,
     >,
@@ -147,7 +148,8 @@ pub(super) fn update_hud(
                 camera_view_line
             )
         });
-    let Ok((hud_body, hud_health, hud_combat, hud_authority)) = camera_params.player.single()
+    let Ok((hud_body, hud_health, hud_combat, hud_authority, hud_attack)) =
+        camera_params.player.single()
     else {
         return;
     };
@@ -299,8 +301,7 @@ pub(super) fn update_hud(
     let mechanics_line = format!(
         "\nLOCO: {locomotion}  BODY: {body_mode}  MECH: {mechanics_summary}  ROOM: {metadata_summary}  TRACE: {trace_status}"
     );
-    let attack_line = progression
-        .current_attack
+    let attack_line = hud_attack
         .0
         .as_ref()
         .map(|attack| {

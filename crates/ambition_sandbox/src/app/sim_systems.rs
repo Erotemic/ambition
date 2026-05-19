@@ -20,8 +20,7 @@ use crate::presentation::fx::VfxMessage;
 use crate::rooms::{LoadingZoneActivation, PortalRegistry, RoomSet, RoomTransitionRequested};
 use crate::time::feel::SandboxFeelTuning;
 use crate::{
-    CurrentPlayerAttack, GameWorld, MovingPlatformSet, PlayerDiedMessage, SafePositionContext,
-    SandboxSimState,
+    GameWorld, MovingPlatformSet, PlayerDiedMessage, SafePositionContext, SandboxSimState,
 };
 
 /// Push live ability-flag and movement-tuning edits from the dev-tools
@@ -195,7 +194,6 @@ pub fn apply_player_reset_input_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
-    mut attack_state: ResMut<CurrentPlayerAttack>,
     mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -206,6 +204,7 @@ pub fn apply_player_reset_input_system(
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerBlinkCameraState,
+            &mut crate::player::ActivePlayerAttack,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -213,7 +212,7 @@ pub fn apply_player_reset_input_system(
     if !control_frame.reset_pressed {
         return;
     }
-    let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam)) =
+    let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam, mut attack)) =
         player_q.single_mut()
     else {
         return;
@@ -229,7 +228,7 @@ pub fn apply_player_reset_input_system(
         &mut vfx_writer,
         &mut authority.player,
         &mut sim_state,
-        &mut attack_state.0,
+        &mut attack.0,
         &mut anim,
         &mut combat,
         &mut interaction,
@@ -327,12 +326,12 @@ pub fn attack_advance_system(
     feel_tuning: Res<SandboxFeelTuning>,
     control_frame: Res<ControlFrame>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
-    mut attack_state: ResMut<CurrentPlayerAttack>,
     mut player_q: Query<
         (
             &mut crate::player::PlayerMovementAuthority,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
+            &mut crate::player::ActivePlayerAttack,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -341,7 +340,7 @@ pub fn attack_advance_system(
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
 ) {
-    let Ok((mut authority, mut anim, mut combat)) = player_q.single_mut() else {
+    let Ok((mut authority, mut anim, mut combat, mut attack)) = player_q.single_mut() else {
         return;
     };
     let player = &mut authority.player;
@@ -355,7 +354,7 @@ pub fn attack_advance_system(
             &mut sfx_writer,
             &mut vfx_writer,
             player,
-            &mut attack_state.0,
+            &mut attack.0,
             &mut anim,
             controls,
         );
@@ -366,7 +365,7 @@ pub fn attack_advance_system(
         &world.0,
         &moving_platforms.0,
         player,
-        &mut attack_state.0,
+        &mut attack.0,
         &mut anim,
         &mut combat,
         tuning,

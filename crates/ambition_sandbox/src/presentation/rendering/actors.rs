@@ -299,7 +299,7 @@ pub fn upgrade_npc_sprites(
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
 pub fn animate_player(
     world_time: Res<crate::WorldTime>,
-    attack_res: Res<crate::CurrentPlayerAttack>,
+    primary_attack: Query<&crate::player::ActivePlayerAttack, crate::player::PrimaryPlayerOnly>,
     entities: Res<SceneEntities>,
     mut query: Query<
         (
@@ -328,11 +328,12 @@ pub fn animate_player(
     else {
         return;
     };
+    let attack_state = primary_attack.iter().next().and_then(|a| a.0.as_ref());
     let anim = crate::presentation::character_sprites::pick_player_anim(
         anim_state,
         player_combat,
         blink_cam,
-        attack_res.0.as_ref(),
+        attack_state,
         &authority.player,
     );
     animator.request(anim);

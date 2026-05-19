@@ -68,7 +68,6 @@ use crate::world::platforms;
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
     sim_state: ResMut<'w, crate::SandboxSimState>,
-    attack: ResMut<'w, crate::CurrentPlayerAttack>,
     physics_settings: Res<'w, crate::world::physics::PhysicsSandboxSettings>,
     moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
 }
@@ -116,6 +115,7 @@ pub fn process_sandbox_reset_request(
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerBlinkCameraState,
+            &mut crate::player::ActivePlayerAttack,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -171,11 +171,12 @@ pub fn process_sandbox_reset_request(
     play_state.sim_state.last_safe_player_pos = world.0.spawn;
     play_state.sim_state.time_scale = 1.0;
     play_state.sim_state.room_transition_cooldown = 0.0;
-    play_state.attack.0 = None;
     // Reset the ECS authority directly so the next sandbox_update frame
     // starts from the spawn position. Also zero animation state so post-reset
     // frames don't continue a mid-air slash or dash-startup pose.
-    if let Ok((mut authority, mut anim, mut combat, mut blink_cam)) = player_q.single_mut() {
+    if let Ok((mut authority, mut anim, mut combat, mut blink_cam, mut attack)) =
+        player_q.single_mut()
+    {
         authority.player.reset_to(world.0.spawn);
         authority
             .player
@@ -185,6 +186,7 @@ pub fn process_sandbox_reset_request(
         combat.reset();
         combat.flash_timer = 0.18;
         blink_cam.reset();
+        attack.clear();
     }
     crate::features::spawn_room_feature_entities(&mut commands, &start_spec);
     play_state.moving_platforms.0 = platforms::moving_platforms_for_room(&start_spec);
@@ -280,9 +282,9 @@ mod tests {
                 crate::player::PlayerAnimState::default(),
                 crate::player::PlayerCombatState::default(),
                 PlayerBlinkCameraState::default(),
+                crate::player::ActivePlayerAttack::default(),
             ));
         }
-        app.insert_resource(crate::CurrentPlayerAttack::default());
         app.insert_resource(crate::world::physics::PhysicsSandboxSettings::default());
         app.insert_resource(crate::MovingPlatformSet::default());
         app.insert_resource(crate::SandboxSimState::default());

@@ -200,22 +200,6 @@ pub struct GameWorld(pub ae::World);
 pub const BLINK_IN_ANIM_TIME: f32 = 0.34;
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 
-/// Active player melee swing. `None` when no swing is in progress.
-///
-/// Authoritative source: set/cleared by `start_attack` / `advance_attack`
-/// inside `sandbox_update`. `write_player_ecs_components` mirrors
-/// `is_some()` into `PlayerCombatState::attacking` each frame.
-///
-/// **Multiplayer caveat (primary-player-only):** this is a global
-/// `Resource` and therefore implicitly the primary player's attack.
-/// Future co-op / split-screen will need per-player attack state —
-/// likely a `PlayerAttackState` component on the player entity rather
-/// than a `Resource`. Until then, treat any new reads/writes as
-/// "primary player only" and avoid adding additional one-player
-/// scalars here.
-#[derive(Resource, Default)]
-pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
-
 /// Live platform-simulation state for the current room.
 ///
 /// Owned by the physics/rendering pipeline; `sandbox_update` advances each

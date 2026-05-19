@@ -65,7 +65,6 @@ pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<GameWorld>,
     dev_state: Res<SandboxDevState>,
-    attack_res: Res<crate::CurrentPlayerAttack>,
     platform_set: Res<crate::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
@@ -80,6 +79,7 @@ pub fn draw_debug_overlay(
         (
             &crate::player::PlayerMovementAuthority,
             Option<&crate::player::PlayerHealth>,
+            &crate::player::ActivePlayerAttack,
         ),
         crate::player::PrimaryPlayerOnly,
     >,
@@ -100,7 +100,7 @@ pub fn draw_debug_overlay(
     } else {
         None
     };
-    let Ok((authority, player_health)) = player_q.single() else {
+    let Ok((authority, player_health, attack)) = player_q.single() else {
         return;
     };
     if developer_tools.show_room_bounds {
@@ -137,7 +137,7 @@ pub fn draw_debug_overlay(
         world,
         &authority.player,
         &platform_set.0,
-        attack_res.0.as_ref(),
+        attack.0.as_ref(),
         actions,
         gameplay_active,
         &developer_tools,

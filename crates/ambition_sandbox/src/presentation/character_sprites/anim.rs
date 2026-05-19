@@ -131,7 +131,7 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// `anim` is the authoritative ECS component for presentation timers.
 /// `combat` provides `hitstun_timer` (now on `PlayerCombatState`).
 /// `blink_cam` provides `blink_in_timer` (now on `PlayerBlinkCameraState`).
-/// `attack` is the active swing from `CurrentPlayerAttack`; `None` when idle.
+/// `attack` is the active swing from `player::ActivePlayerAttack`; `None` when idle.
 pub fn pick_player_anim(
     anim: &PlayerAnimState,
     combat: &crate::player::PlayerCombatState,

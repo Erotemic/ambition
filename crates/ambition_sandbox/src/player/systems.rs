@@ -3,7 +3,8 @@
 use bevy::prelude::*;
 
 use super::components::{
-    PlayerBody, PlayerCombatState, PlayerEntity, PlayerHealth, PlayerMovementAuthority,
+    ActivePlayerAttack, PlayerBody, PlayerCombatState, PlayerEntity, PlayerHealth,
+    PlayerMovementAuthority,
 };
 use super::events::PlayerHealRequested;
 
@@ -11,23 +12,24 @@ use super::events::PlayerHealRequested;
 /// sources each frame.
 ///
 /// `PlayerBody` is a snapshot of `PlayerMovementAuthority::player`.
-/// `attacking` mirrors whether `CurrentPlayerAttack` has an active swing.
+/// `attacking` mirrors whether the player's `ActivePlayerAttack` has an
+/// active swing — iterates so a future second player gets its own
+/// `attacking` flag without changing the call shape.
 pub fn write_player_ecs_components(
-    attack_res: Res<crate::CurrentPlayerAttack>,
     mut players: Query<
         (
             &PlayerMovementAuthority,
             &mut PlayerBody,
             &mut PlayerCombatState,
+            &ActivePlayerAttack,
         ),
         With<PlayerEntity>,
     >,
 ) {
-    let Ok((authority, mut body, mut combat)) = players.single_mut() else {
-        return;
-    };
-    *body = PlayerBody::from_player(&authority.player);
-    combat.attacking = attack_res.0.is_some();
+    for (authority, mut body, mut combat, attack) in &mut players {
+        *body = PlayerBody::from_player(&authority.player);
+        combat.attacking = attack.is_active();
+    }
 }
 
 /// Apply heal messages to the authoritative `PlayerHealth` ECS component.

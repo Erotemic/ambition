@@ -172,8 +172,8 @@ impl PlayerHealth {
 /// The four timer fields are written directly by the phase helpers and
 /// `world_flow` functions that produce damage/hit/respawn events.
 /// `write_player_ecs_components` no longer touches them; it only syncs the
-/// `attacking` flag from `CurrentPlayerAttack` so rendering
-/// systems can check attack state without querying the runtime.
+/// `attacking` flag from the per-player `ActivePlayerAttack` component so
+/// rendering systems can check attack state without querying the runtime.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct PlayerCombatState {
     /// Presentation flash (damage hit-blink). Decays in `cleanup_timers_system`.
@@ -184,7 +184,7 @@ pub struct PlayerCombatState {
     pub damage_invuln_timer: f32,
     /// Partial-control penalty after knockback. Decays in `input_timer_system`.
     pub hitstun_timer: f32,
-    /// Mirrored each frame from `CurrentPlayerAttack::is_some()`.
+    /// Mirrored each frame from `ActivePlayerAttack::is_active()`.
     pub attacking: bool,
 }
 
@@ -199,6 +199,31 @@ impl PlayerCombatState {
         self.damage_invuln_timer = 0.0;
         self.hitstun_timer = 0.0;
         self.attacking = false;
+    }
+}
+
+/// Per-player active melee swing. `None` when no swing is in progress.
+///
+/// Authoritative source: set/cleared by `start_attack` / `advance_attack`.
+/// `write_player_ecs_components` mirrors `is_some()` into
+/// `PlayerCombatState::attacking` each frame so rendering can branch on
+/// attack state without a separate query.
+///
+/// Replaces the global `CurrentPlayerAttack` resource (OVERNIGHT-TODO
+/// #17.4 / the multiplayer caveat that used to live in `lib.rs`). Each
+/// player entity carries its own attack state, so a future co-op /
+/// split-screen build can spawn additional players whose swings tick
+/// independently.
+#[derive(Component, Clone, Debug, Default)]
+pub struct ActivePlayerAttack(pub Option<super::super::PlayerAttackState>);
+
+impl ActivePlayerAttack {
+    pub fn is_active(&self) -> bool {
+        self.0.is_some()
+    }
+
+    pub fn clear(&mut self) {
+        self.0 = None;
     }
 }
 
@@ -365,4 +390,123 @@ impl PlayerBlinkCameraState {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerPlatformRideState {
     pub was_riding: bool,
+}
+
+#[cfg(test)]
+mod multiplayer_smoke_tests {
+    use super::*;
+    use ambition_engine as ae;
+    use bevy::prelude::*;
+
+    fn dummy_attack_spec() -> ae::AttackSpec {
+        // Construct via the live `attack_spec` builder; a minimal Player
+        // is enough — only the `intent` field is meaningful for these
+        // tests, and the builder gives us a well-formed spec with
+        // non-zero timings so the `PlayerAttackState::done()` path
+        // doesn't short-circuit.
+        let world = ae::World::new(
+            "smoke",
+            ae::Vec2::new(1000.0, 1000.0),
+            ae::Vec2::new(100.0, 900.0),
+            vec![],
+        );
+        let player = ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
+        ae::attack_spec(&player, ae::AttackIntent::Forward)
+    }
+
+    /// Two player entities each carry their own `ActivePlayerAttack`,
+    /// so a swing on one player does not silently affect the other.
+    /// Regression guard for the old shared-resource shape — if a
+    /// future patch turns `ActivePlayerAttack` back into a global
+    /// `Resource`, this test stops being meaningful and should fail
+    /// loudly when it tries to read two values.
+    #[test]
+    fn two_players_have_independent_active_attacks() {
+        let mut app = App::new();
+        let p1 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(0),
+                PrimaryPlayer,
+                ActivePlayerAttack::default(),
+            ))
+            .id();
+        let p2 = app
+            .world_mut()
+            .spawn((PlayerEntity, PlayerSlot(1), ActivePlayerAttack::default()))
+            .id();
+
+        // Start an attack on player 1 only.
+        let attack_spec = dummy_attack_spec();
+        app.world_mut()
+            .entity_mut(p1)
+            .get_mut::<ActivePlayerAttack>()
+            .expect("p1 has the component")
+            .0 = Some(crate::PlayerAttackState::new(attack_spec));
+
+        let p1_attack = app
+            .world()
+            .entity(p1)
+            .get::<ActivePlayerAttack>()
+            .expect("p1 has the component");
+        let p2_attack = app
+            .world()
+            .entity(p2)
+            .get::<ActivePlayerAttack>()
+            .expect("p2 has the component");
+
+        assert!(p1_attack.is_active(), "p1 should be mid-attack");
+        assert!(
+            !p2_attack.is_active(),
+            "p2's attack must not pick up p1's swing — that's the whole \
+             point of moving CurrentPlayerAttack onto the player entity \
+             (OVERNIGHT-TODO #17.4)"
+        );
+    }
+
+    /// `ActivePlayerAttack::clear` zeroes the attack on its own
+    /// entity without touching sibling players.
+    #[test]
+    fn clear_is_per_entity() {
+        let mut app = App::new();
+        let attack_spec = dummy_attack_spec();
+        let p1 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(0),
+                ActivePlayerAttack(Some(crate::PlayerAttackState::new(attack_spec.clone()))),
+            ))
+            .id();
+        let p2 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(1),
+                ActivePlayerAttack(Some(crate::PlayerAttackState::new(attack_spec))),
+            ))
+            .id();
+
+        app.world_mut()
+            .entity_mut(p1)
+            .get_mut::<ActivePlayerAttack>()
+            .unwrap()
+            .clear();
+
+        assert!(!app
+            .world()
+            .entity(p1)
+            .get::<ActivePlayerAttack>()
+            .unwrap()
+            .is_active());
+        assert!(
+            app.world()
+                .entity(p2)
+                .get::<ActivePlayerAttack>()
+                .unwrap()
+                .is_active(),
+            "clearing p1's attack must not touch p2's component"
+        );
+    }
 }

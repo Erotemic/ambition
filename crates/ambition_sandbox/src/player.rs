@@ -21,8 +21,8 @@ pub mod systems;
 
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use components::{
-    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody, PlayerCombatState,
-    PlayerEntity, PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
+    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody,
+    PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
     PlayerPlatformRideState, PlayerSlot, PrimaryPlayer,
 };
 pub use events::{PlayerDamageRequested, PlayerHealRequested};

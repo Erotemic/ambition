@@ -75,12 +75,20 @@ pub fn sandbox_update(
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerBlinkCameraState,
             &mut crate::player::PlayerPlatformRideState,
+            &mut crate::player::ActivePlayerAttack,
         ),
         With<crate::player::PlayerEntity>,
     >,
 ) {
-    let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam, mut ride)) =
-        player_q.single_mut()
+    let Ok((
+        mut authority,
+        mut anim,
+        mut combat,
+        mut interaction,
+        mut blink_cam,
+        mut ride,
+        mut attack,
+    )) = player_q.single_mut()
     else {
         return;
     };
@@ -109,7 +117,7 @@ pub fn sandbox_update(
             player,
             &mut queues.sim_state,
             &queues.moving_platforms.0,
-            &mut queues.current_attack.0,
+            &mut attack.0,
             &mut event_writers.sfx,
             &mut event_writers.vfx,
             tuning,
@@ -136,7 +144,7 @@ pub fn sandbox_update(
             &queues.dev_state,
             &mut queues.sim_state,
             &mut queues.moving_platforms.0,
-            &mut queues.current_attack.0,
+            &mut attack.0,
             &mut event_writers.sfx,
             &mut event_writers.vfx,
             tuning,

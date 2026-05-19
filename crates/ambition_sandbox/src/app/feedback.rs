@@ -84,7 +84,6 @@ pub struct SandboxQueues<'w> {
     pub pogo_bounces: MessageWriter<'w, crate::features::PogoBounceEvent>,
     pub reset_room_features: MessageWriter<'w, crate::features::ResetRoomFeaturesEvent>,
     pub feature_ecs_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
-    pub current_attack: ResMut<'w, crate::CurrentPlayerAttack>,
     pub dialogue: ResMut<'w, crate::dialog::DialogState>,
     pub physics_settings: Res<'w, crate::world::physics::PhysicsSandboxSettings>,
     pub moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
@@ -111,7 +110,6 @@ pub struct ProgressionResources<'w> {
     pub encounters: Res<'w, crate::encounter::EncounterRegistry>,
     pub map: Res<'w, crate::map_menu::MapMenuState>,
     pub banner: Res<'w, crate::features::GameplayBanner>,
-    pub current_attack: Res<'w, crate::CurrentPlayerAttack>,
 }
 
 /// Local control-flow signal for `sandbox_update`'s inline `*_phase`

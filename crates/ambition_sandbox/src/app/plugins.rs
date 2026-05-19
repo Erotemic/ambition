@@ -105,7 +105,6 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         // `docs/recipes/profiling.md` for Tracy / per-system profiling.
         .insert_resource(crate::dev::profiling::StartupProfiler::default())
         .insert_resource(crate::trace::GameplayTraceBuffer::default())
-        .insert_resource(crate::CurrentPlayerAttack::default())
         .insert_resource(crate::dialog::DialogState::default())
         .insert_resource(crate::MovingPlatformSet::default())
         .insert_resource(crate::SandboxSimState::default())

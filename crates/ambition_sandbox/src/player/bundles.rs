@@ -4,8 +4,8 @@ use ambition_engine as ae;
 use bevy::prelude::*;
 
 use super::components::{
-    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody, PlayerCombatState,
-    PlayerEntity, PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
+    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody,
+    PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
     PlayerPlatformRideState, PlayerSlot, PrimaryPlayer,
 };
 
@@ -46,6 +46,7 @@ pub struct PlayerSimulationBundle {
     pub anim: PlayerAnimState,
     pub blink_cam: PlayerBlinkCameraState,
     pub ride: PlayerPlatformRideState,
+    pub attack: ActivePlayerAttack,
     pub name: Name,
 }
 
@@ -75,6 +76,7 @@ impl PlayerSimulationBundle {
             anim: PlayerAnimState::default(),
             blink_cam: PlayerBlinkCameraState::default(),
             ride: PlayerPlatformRideState::default(),
+            attack: ActivePlayerAttack::default(),
             name: Name::new("Player"),
         }
     }

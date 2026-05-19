@@ -263,7 +263,7 @@ pub fn spawn_speech_bubble(commands: &mut Commands, world: &ae::World, pos: ae::
     commands.spawn((
         Text2d::new(bubble_text),
         TextFont {
-            font_size: 13.0,
+            font_size: 18.0,
             ..default()
         },
         TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95)),
@@ -271,7 +271,7 @@ pub fn spawn_speech_bubble(commands: &mut Commands, world: &ae::World, pos: ae::
         SpeechBubbleVisual {
             pos,
             age: 0.0,
-            duration: 1.35,
+            duration: 2.2,
         },
         Name::new(format!("Speech bubble: {text}")),
     ));

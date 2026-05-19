@@ -58,6 +58,11 @@ python scripts/check_agent_kb.py
 python scripts/check_doc_links.py
 ```
 
+## Commit messages
+
+- Make detailed commit messages as you might normally do it, but also include a
+  summary of the prompt that inspired them. I.e. why the change is being made.
+
 ## Patch discipline
 
 - Prefer reviewable changes with targeted validation.

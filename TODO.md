@@ -49,7 +49,7 @@ Useful companion docs:
 
 ### Movement, traversal, and collision
 
-- [~] **Ledge grab + climb-up polish / engine contract** `[V4/D3]` - `ambition_engine::ledge_grab` exists, but the mechanic still needs polish, animation coverage, and corner/one-way validation. Add diagonal-corner probe tests and confirm the sandbox driver uses the engine primitive rather than duplicating probe logic.
+- [~] **Ledge grab + climb-up polish / engine contract** `[V4/D3]` - `ambition_engine::ledge_grab` exists, but the mechanic still needs polish, animation coverage, and corner/one-way validation. Add diagonal-corner probe tests and confirm the sandbox driver uses the engine primitive rather than duplicating probe logic. Instead of 
 
 - [ ] **Ladders pass through solid blocks option** `[V3/D3]` - Avoid requiring authors to carve a gap in the platform whenever a ladder reaches a floor. Consider an engine-side rule: while `BodyMode::Climbing`, ignore `BlockKind::Solid` overlaps that coincide with the active climbable contact region, or expose an authored ladder-top passthrough flag.
   - Validate against `ladder_lab` / climbable zones and one-way platforms.
@@ -82,6 +82,8 @@ Useful companion docs:
 - [ ] **Additional body-mode traversal rooms** `[V3/D3]` - Current body-mode vocabulary is available, but more authored rooms should prove crouch, crawl, slide, morph, stand-up rejection, and compact traversal under real LDtk collision.
 
 - [ ] **Tutorial refresher / quest reminder rule** `[V3/D3]` - Design rule: the game should never permanently strand a player without a way to review tutorial controls, current quests, or what they were doing. Add a durable UI/UX plan and a small sandbox proof.
+
+- [ ] **Alice/Bob/Eve/Mallory/etc. NPC cast** `[V2/D3]` - Potential cryptography-themed NPC set: Bob the architect, Alice the cryptographer, Eve listener, Mallory malicious attacker, Trudy intruder, Craig cracker, Sybil identity attacker, Trent arbitrator, Victor/Peggy verifier/prover, Walter warden, Olivia oracle, Judy judge. Add these NPCs to various rooms in the sandbox.
 
 ## B - Audio, generated assets, and authoring tools
 
@@ -153,7 +155,6 @@ Agents may append new ideas here freely. Jon promotes them into the accepted sec
 
 - **PyO3 binding for `SandboxSim`** `[V3/D3]` - Wrap `SandboxSim::{new, step, observation, reset_episode}` plus `AgentAction` / `AgentObservation` as a Python module.
 - **N64/OOT-style spinning-cube inventory** `[V2/D5]` - Deferred on purpose. Keep as a design idea, not active implementation, until inventory/menu identity becomes a priority.
-- **Alice/Bob/Eve/Mallory/etc. NPC cast** `[V2/D3]` - Potential cryptography-themed NPC set: Bob the architect, Alice the cryptographer, Eve listener, Mallory malicious attacker, Trudy intruder, Craig cracker, Sybil identity attacker, Trent arbitrator, Victor/Peggy verifier/prover, Walter warden, Olivia oracle, Judy judge. Promote only when writing/story direction needs named NPCs.
 
 ## Closed-work policy
 

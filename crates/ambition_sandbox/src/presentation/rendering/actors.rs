@@ -655,9 +655,7 @@ pub fn upgrade_boss_sprites(
 /// silhouette sits behind one-way platforms. `sync_visuals` resets
 /// `translation.z` every frame from `feature_z(Boss) = 11.0`; this
 /// system runs after it and rewrites just the z, leaving x/y alone.
-pub fn apply_gnu_ton_body_z(
-    mut query: Query<&mut Transform, With<GnuTonBodyLayer>>,
-) {
+pub fn apply_gnu_ton_body_z(mut query: Query<&mut Transform, With<GnuTonBodyLayer>>) {
     for mut transform in &mut query {
         transform.translation.z = GNU_TON_BODY_Z;
     }

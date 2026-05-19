@@ -32,8 +32,8 @@ mod systems;
 mod tests;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
-pub use gnu_ton::gate_gnu_ton_arena_ladder;
 pub use damage::record_boss_damage;
+pub use gnu_ton::gate_gnu_ton_arena_ladder;
 pub use ids::{encounter_id_from_name, MOCKINGBIRD_ENCOUNTER_ID};
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;

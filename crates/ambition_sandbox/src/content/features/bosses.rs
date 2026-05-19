@@ -1166,7 +1166,11 @@ mod scripted_pattern_tests {
         // exactly one head AABB.
         let mut boss = gnu_ton_runtime();
         let rest_head = boss.damageable_aabbs();
-        assert_eq!(rest_head.len(), 1, "head must always be a damageable target");
+        assert_eq!(
+            rest_head.len(),
+            1,
+            "head must always be a damageable target"
+        );
         let rest_y = rest_head[0].center().y;
         // Rest head sits ABOVE the shoulder anchor (player must climb).
         assert!(

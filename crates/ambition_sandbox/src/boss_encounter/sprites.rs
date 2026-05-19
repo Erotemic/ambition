@@ -340,10 +340,8 @@ pub(crate) const GNU_TON_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_spritesheet
 // only hands + VFX. Runtime z-layers the body behind platforms and the
 // hands in front so the player can read jump targets and incoming
 // danger separately.
-pub(crate) const GNU_TON_BODY_FILENAME: &str =
-    "gnu_ton_boss/gnu_ton_boss_body_spritesheet.png";
-pub(crate) const GNU_TON_HANDS_FILENAME: &str =
-    "gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png";
+pub(crate) const GNU_TON_BODY_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_body_spritesheet.png";
+pub(crate) const GNU_TON_HANDS_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png";
 
 /// GNU-ton boss sheet.
 ///

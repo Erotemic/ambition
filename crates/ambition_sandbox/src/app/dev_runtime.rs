@@ -247,7 +247,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
+    moving_platforms: &mut Vec<crate::world::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     assets: Option<&crate::game_assets::GameAssets>,
     watch_path: &std::path::Path,

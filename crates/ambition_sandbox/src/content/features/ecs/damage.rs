@@ -22,7 +22,7 @@ use super::{
 };
 use crate::audio::SfxMessage;
 use crate::fx::{ParticleKind, VfxMessage};
-use crate::physics::{DebrisBurstMessage, PhysicsDebrisCue};
+use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
 /// Apply typed slash/projectile/pogo damage messages to ECS feature targets.
 pub fn apply_feature_damage_events(

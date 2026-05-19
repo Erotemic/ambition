@@ -9,7 +9,7 @@ use ambition_engine as ae;
 use ambition_engine::AabbExt;
 use bevy::prelude::*;
 
-use crate::platforms::MovingPlatformState;
+use crate::world::platforms::MovingPlatformState;
 
 const ENEMY_GRAVITY: f32 = 1450.0;
 const ENEMY_MAX_FALL: f32 = 760.0;

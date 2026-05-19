@@ -86,7 +86,7 @@ pub struct SandboxQueues<'w> {
     pub feature_ecs_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
     pub current_attack: ResMut<'w, crate::CurrentPlayerAttack>,
     pub dialogue: ResMut<'w, crate::dialog::DialogState>,
-    pub physics_settings: Res<'w, crate::physics::PhysicsSandboxSettings>,
+    pub physics_settings: Res<'w, crate::world::physics::PhysicsSandboxSettings>,
     pub moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
     pub sim_state: ResMut<'w, crate::SandboxSimState>,
     pub dev_state: ResMut<'w, crate::SandboxDevState>,

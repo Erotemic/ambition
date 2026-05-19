@@ -87,7 +87,8 @@ pub(crate) use presentation::{character_sprites, cutscene, fx, rendering, ui_fon
 // use the canonical `crate::runtime::{reset, setup}::…` paths.
 // Removed: `pub(crate) use time::{feel, time_control};` — call sites
 // now use the canonical `crate::time::{feel, time_control}::…` paths.
-pub(crate) use world::{physics, platforms};
+// Removed: `pub(crate) use world::{physics, platforms};` — call sites
+// now use the canonical `crate::world::{physics, platforms}::…` paths.
 
 // Crate-root types/consts whose definitions moved into themed modules but
 // still need to surface at `crate::WorldTime` / `ambition_sandbox::WorldTime`.
@@ -145,7 +146,7 @@ pub use rl_sim::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};
 // couldn't name the types cleanly — `platforms::MovingPlatformState`
 // wouldn't be reachable via any pub path — and Rust's
 // private-interfaces lint would fire under `-D warnings`.
-pub use platforms::MovingPlatformState;
+pub use world::platforms::MovingPlatformState;
 pub use time::time_control::ProperTimeScale;
 
 use ambition_engine as ae;
@@ -245,7 +246,7 @@ pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
 /// LDtk hot-reload, sandbox reset) replaces the Vec when the active room
 /// changes.
 #[derive(Resource, Default)]
-pub struct MovingPlatformSet(pub Vec<platforms::MovingPlatformState>);
+pub struct MovingPlatformSet(pub Vec<world::platforms::MovingPlatformState>);
 
 // `WorldTime`, `ClockDomain`, `refresh_world_time` moved to
 // `time::world_time`; `CameraEaseState` / `CameraEaseTuning` and the

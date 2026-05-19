@@ -13,7 +13,7 @@ pub fn record_simulation_frame(
     sim_dt: f32,
     game_mode: &str,
     active_area: &str,
-    moving_platforms: &[crate::platforms::MovingPlatformState],
+    moving_platforms: &[crate::world::platforms::MovingPlatformState],
     locomotion: &str,
     body_mode: &str,
 ) {

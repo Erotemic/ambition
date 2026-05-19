@@ -15,7 +15,7 @@ use crate::dev_tools::DeveloperTools;
 use crate::input::ControlFrame;
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
-use crate::platforms;
+use crate::world::platforms;
 #[cfg(feature = "input")]
 use crate::rendering::PlayerVisual;
 use crate::rendering::{CameraViewState, SceneEntities};
@@ -302,7 +302,7 @@ fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     player: &ae::Player,
-    moving_platforms: &[crate::platforms::MovingPlatformState],
+    moving_platforms: &[crate::world::platforms::MovingPlatformState],
     attack: Option<&crate::PlayerAttackState>,
     actions: Option<&ActionState<SandboxAction>>,
     gameplay_active: bool,
@@ -478,7 +478,7 @@ fn draw_player_debug(
 fn draw_moving_platform_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    moving_platforms: &[crate::platforms::MovingPlatformState],
+    moving_platforms: &[crate::world::platforms::MovingPlatformState],
 ) {
     for platform in moving_platforms {
         let aabb = platform.aabb();

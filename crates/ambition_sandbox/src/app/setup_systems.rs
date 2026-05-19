@@ -59,7 +59,7 @@ pub(super) fn setup_simulation_system(
             asset_server: &asset_server,
         },
     );
-    platform_set.0 = crate::platforms::moving_platforms_for_room(room_set.active_spec());
+    platform_set.0 = crate::world::platforms::moving_platforms_for_room(room_set.active_spec());
     sim_state.last_safe_player_pos = world.0.spawn;
 }
 

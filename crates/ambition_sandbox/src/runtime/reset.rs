@@ -56,8 +56,8 @@ use ambition_engine as ae;
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::encounter::{EncounterController, EncounterMusicRequest, EncounterRegistry};
 use crate::game_assets::GameAssets;
-use crate::physics;
-use crate::platforms;
+use crate::world::physics;
+use crate::world::platforms;
 use crate::quest::QuestRegistry;
 use crate::rendering::{spawn_room_visuals, RoomScopedEntity};
 use crate::rooms::RoomSet;
@@ -69,7 +69,7 @@ use crate::save::SandboxSave;
 pub struct ResetPlayState<'w> {
     sim_state: ResMut<'w, crate::SandboxSimState>,
     attack: ResMut<'w, crate::CurrentPlayerAttack>,
-    physics_settings: Res<'w, crate::physics::PhysicsSandboxSettings>,
+    physics_settings: Res<'w, crate::world::physics::PhysicsSandboxSettings>,
     moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
 }
 
@@ -280,7 +280,7 @@ mod tests {
             ));
         }
         app.insert_resource(crate::CurrentPlayerAttack::default());
-        app.insert_resource(crate::physics::PhysicsSandboxSettings::default());
+        app.insert_resource(crate::world::physics::PhysicsSandboxSettings::default());
         app.insert_resource(crate::MovingPlatformSet::default());
         app.insert_resource(crate::SandboxSimState::default());
         app.insert_resource(crate::SandboxDevState::default());
@@ -417,7 +417,7 @@ mod tests {
     #[test]
     fn processor_restores_authored_start_room_platform() {
         let mut app = min_app();
-        let authored = crate::platforms::MovingPlatformState::from_authored(
+        let authored = crate::world::platforms::MovingPlatformState::from_authored(
             ae::Vec2::new(512.0, 900.0),
             ae::Vec2::new(128.0, 16.0),
             192.0,
@@ -429,7 +429,7 @@ mod tests {
         }
         {
             let mut platform_set = app.world_mut().resource_mut::<crate::MovingPlatformSet>();
-            platform_set.0 = vec![crate::platforms::MovingPlatformState::from_authored(
+            platform_set.0 = vec![crate::world::platforms::MovingPlatformState::from_authored(
                 ae::Vec2::new(10.0, 20.0),
                 ae::Vec2::new(32.0, 8.0),
                 64.0,

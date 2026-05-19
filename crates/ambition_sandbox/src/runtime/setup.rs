@@ -35,8 +35,8 @@ use crate::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use crate::game_assets::GameAssets;
 use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::loading::SandboxAssetCollection;
-use crate::physics::PhysicsSandboxSettings;
-use crate::platforms;
+use crate::world::physics::PhysicsSandboxSettings;
+use crate::world::platforms;
 use crate::rendering::{
     spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, PlayerVisual,
     QuestPanelText, SceneEntities,

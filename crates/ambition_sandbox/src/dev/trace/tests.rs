@@ -19,8 +19,8 @@ fn dummy_player(at: ae::Vec2) -> ae::Player {
     ae::Player::new(at)
 }
 
-fn dummy_moving_platform() -> crate::platforms::MovingPlatformState {
-    crate::platforms::MovingPlatformState::from_authored(
+fn dummy_moving_platform() -> crate::world::platforms::MovingPlatformState {
+    crate::world::platforms::MovingPlatformState::from_authored(
         ae::Vec2::new(96.0, 80.0),
         ae::Vec2::new(80.0, 12.0),
         48.0,

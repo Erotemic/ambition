@@ -81,7 +81,7 @@ pub fn build_frame(
     active_area: &str,
     seq: u64,
     tick: u64,
-    moving_platforms: &[crate::platforms::MovingPlatformState],
+    moving_platforms: &[crate::world::platforms::MovingPlatformState],
     locomotion: &str,
     body_mode: &str,
 ) -> GameplayTraceFrame {
@@ -126,7 +126,7 @@ pub fn build_frame(
 /// Snapshot all active moving platforms into trace shapes.
 fn build_moving_platform_states(
     player: &ae::Player,
-    moving_platforms: &[crate::platforms::MovingPlatformState],
+    moving_platforms: &[crate::world::platforms::MovingPlatformState],
 ) -> Vec<MovingPlatformTraceState> {
     moving_platforms
         .iter()

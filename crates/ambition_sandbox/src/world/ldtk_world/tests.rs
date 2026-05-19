@@ -853,7 +853,7 @@ fn moving_platform_path_id_resolves_through_kinematic_path_index() {
         path,
     );
 
-    let mut platform = crate::platforms::MovingPlatformSpec::from_authored(
+    let mut platform = crate::world::platforms::MovingPlatformSpec::from_authored(
         "lift",
         "lift platform",
         ae::Vec2::new(348.0, 128.0),

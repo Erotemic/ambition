@@ -8,7 +8,7 @@ use crate::audio::SfxMessage;
 use crate::features::{ActorHealth, ActorIdentity, DamageEvent, GameplayBanner, GameplayEffect, PogoBounceEvent};
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
-use crate::physics::DebrisBurstMessage;
+use crate::world::physics::DebrisBurstMessage;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;
 

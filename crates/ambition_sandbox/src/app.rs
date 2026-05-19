@@ -73,9 +73,9 @@ use crate::ldtk_world;
 use crate::loading;
 use crate::pause_menu;
 #[cfg(feature = "physics_debris")]
-use crate::physics::physics_spawn_debris_messages;
-use crate::physics::{self, DebrisBurstMessage};
-use crate::platforms;
+use crate::world::physics::physics_spawn_debris_messages;
+use crate::world::physics::{self, DebrisBurstMessage};
+use crate::world::platforms;
 use crate::rendering::{
     animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,
     sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites, HudText,

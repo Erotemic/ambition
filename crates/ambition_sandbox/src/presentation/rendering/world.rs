@@ -16,7 +16,7 @@ use crate::character_sprites::{build_character_sprite, feet_anchor_for, sprite_r
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
 use crate::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
-use crate::physics;
+use crate::world::physics;
 use crate::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 
 pub fn spawn_room_visuals(

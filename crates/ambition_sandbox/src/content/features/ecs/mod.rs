@@ -10,7 +10,7 @@
 use super::*;
 use crate::audio::SfxMessage;
 use crate::fx::{ParticleKind, VfxMessage};
-use crate::physics::{DebrisBurstMessage, PhysicsDebrisCue};
+use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::rendering::RoomVisual;
 use bevy::prelude::{
     Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut,

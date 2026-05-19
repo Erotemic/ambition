@@ -515,7 +515,7 @@ pub struct RoomSpec {
     /// LDtk-authored moving platforms for this area. This is the complete
     /// platform set for gameplay: if the vector is empty, the room has no
     /// moving platforms.
-    pub moving_platforms: Vec<crate::platforms::MovingPlatformState>,
+    pub moving_platforms: Vec<crate::world::platforms::MovingPlatformState>,
     /// LDtk-authored decorative props. Render-only — see [`PropSpec`].
     pub props: Vec<PropSpec>,
 }

@@ -119,7 +119,7 @@ impl LdtkProject {
         let mut objects = Vec::new();
         let mut water_regions = Vec::new();
         let mut climbable_regions = Vec::new();
-        let mut moving_platforms: Vec<crate::platforms::MovingPlatformSpec> = Vec::new();
+        let mut moving_platforms: Vec<crate::world::platforms::MovingPlatformSpec> = Vec::new();
         let mut camera_zones: Vec<CameraZoneSpec> = Vec::new();
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut props: Vec<PropSpec> = Vec::new();
@@ -274,7 +274,7 @@ pub(super) struct RuntimeEntityEmission {
     /// Most entities emit zero platforms; `MovingPlatform` emits one. The room
     /// composer concatenates these so active areas can own multiple authored
     /// moving solids.
-    pub(super) moving_platforms: Vec<crate::platforms::MovingPlatformSpec>,
+    pub(super) moving_platforms: Vec<crate::world::platforms::MovingPlatformSpec>,
     pub(super) camera_zones: Vec<CameraZoneSpec>,
     pub(super) kinematic_paths: Vec<KinematicPathSpec>,
     /// LDtk-authored decorative props emitted by this entity. Most
@@ -320,7 +320,7 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn moving_platform(spec: crate::platforms::MovingPlatformSpec) -> Self {
+    fn moving_platform(spec: crate::world::platforms::MovingPlatformSpec) -> Self {
         Self {
             moving_platforms: vec![spec],
             ..Self::default()
@@ -766,7 +766,7 @@ fn convert_moving_platform(
     let path_id =
         field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"));
     RuntimeEntityEmission::moving_platform(
-        crate::platforms::MovingPlatformSpec::from_authored(
+        crate::world::platforms::MovingPlatformSpec::from_authored(
             entity.iid.clone(),
             name,
             start_pos,

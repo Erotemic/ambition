@@ -74,10 +74,9 @@ pub(crate) use assets::{game_assets, loading, sandbox_assets};
 // — call sites now use `crate::boss_encounter::sprites::…`.
 pub(crate) use content::{banter, content_validation, data, quest};
 pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics, profiling};
-// `platform` was `pub(crate) mod platform;` before the reorg; the shim
-// stays `pub(crate)` to preserve that visibility — bins/tests don't reach
-// into it. Accidentally widening it to `pub` last commit was a slip.
-pub(crate) use host::{mobile_input, platform, windowing};
+// Removed: `pub(crate) use host::{mobile_input, platform, windowing};` —
+// call sites now use the canonical `crate::host::{mobile_input,
+// platform, windowing}::…` paths.
 pub(crate) use persistence::{save, settings};
 // Removed: `pub(crate) use player::bubble_shield;` — call sites now
 // use `crate::player::bubble_shield::…`.
@@ -86,7 +85,8 @@ pub(crate) use persistence::{save, settings};
 pub(crate) use presentation::{character_sprites, cutscene, fx, rendering, ui_fonts};
 // Removed: `pub(crate) use runtime::{reset, setup};` — call sites now
 // use the canonical `crate::runtime::{reset, setup}::…` paths.
-pub(crate) use time::{feel, time_control};
+// Removed: `pub(crate) use time::{feel, time_control};` — call sites
+// now use the canonical `crate::time::{feel, time_control}::…` paths.
 pub(crate) use world::{physics, platforms};
 
 // Crate-root types/consts whose definitions moved into themed modules but
@@ -146,7 +146,7 @@ pub use rl_sim::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};
 // wouldn't be reachable via any pub path — and Rust's
 // private-interfaces lint would fire under `-D warnings`.
 pub use platforms::MovingPlatformState;
-pub use time_control::ProperTimeScale;
+pub use time::time_control::ProperTimeScale;
 
 use ambition_engine as ae;
 use bevy::prelude::{Message, Resource};

@@ -18,7 +18,7 @@ use crate::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DeveloperTools, EditableMovementTuning,
 };
 use crate::ldtk_world::LdtkHotReloadState;
-use crate::windowing::{DisplayModeKind, DisplayModeState};
+use crate::host::windowing::{DisplayModeKind, DisplayModeState};
 use crate::SandboxDevState;
 
 /// Top-level settings page. The pause menu starts at `Top` (the
@@ -1237,7 +1237,7 @@ pub fn prev_display_mode(current: DisplayModeKind) -> DisplayModeKind {
 }
 
 /// Apply a `DisplayModeKind` to the primary window. Shared between the
-/// settings menu and `crate::windowing::window_mode_hotkeys` so both
+/// settings menu and `crate::host::windowing::window_mode_hotkeys` so both
 /// surfaces produce the same `WindowMode` mapping.
 pub fn apply_display_mode(
     mode: DisplayModeKind,

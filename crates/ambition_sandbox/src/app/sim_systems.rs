@@ -15,7 +15,7 @@ use crate::features::{
     self, DamageEvent as FeatureDamageEvent, FeatureEcsWorldOverlay, GameplayBanner,
     PlayerDamageEvent, PogoBounceEvent,
 };
-use crate::feel::SandboxFeelTuning;
+use crate::time::feel::SandboxFeelTuning;
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::rooms::{LoadingZoneActivation, PortalRegistry, RoomSet, RoomTransitionRequested};
@@ -51,7 +51,7 @@ pub fn sync_live_player_dev_edits_system(
 
 /// While gameplay is suspended (paused, dialogue, room transition,
 /// cutscene), force `SandboxSimState::time_scale` AND the
-/// [`crate::time_control::RequestedClockScale`] target to 0 so any
+/// [`crate::time::time_control::RequestedClockScale`] target to 0 so any
 /// presentation system that scales an animation by `time_scale * dt`
 /// freezes — and so the smoother doesn't ramp back up on the very
 /// next frame.
@@ -68,7 +68,7 @@ pub fn sync_live_player_dev_edits_system(
 /// system intentionally does nothing when gameplay is allowed.
 pub fn apply_suspended_time_scale_system(
     mut sim_state: ResMut<SandboxSimState>,
-    mut target: ResMut<crate::time_control::RequestedClockScale>,
+    mut target: ResMut<crate::time::time_control::RequestedClockScale>,
 ) {
     sim_state.time_scale = 0.0;
     target.sim_clock = 0.0;
@@ -571,7 +571,7 @@ fn update_anim_signal_timers(
 mod suspended_time_tests {
     use super::*;
     use crate::game_mode::{gameplay_suspended, GameMode};
-    use crate::time_control::RequestedClockScale;
+    use crate::time::time_control::RequestedClockScale;
     use crate::WorldTime;
     use bevy::state::app::StatesPlugin;
 

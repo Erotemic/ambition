@@ -59,7 +59,7 @@ use crate::dev_tools::{
 };
 use crate::dialog;
 use crate::features;
-use crate::feel::SandboxFeelTuning;
+use crate::time::feel::SandboxFeelTuning;
 use crate::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::game_assets::{self, GameAssetConfig};
 use crate::game_mode::{gameplay_allowed, gameplay_suspended, GameMode};
@@ -84,7 +84,7 @@ use crate::rendering::{
 use crate::rooms;
 use crate::runtime::setup;
 use crate::ui_fonts;
-use crate::windowing;
+use crate::host::windowing;
 use crate::{GameWorld, PlayerDiedMessage, SandboxDevState};
 
 mod cli;

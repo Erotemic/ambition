@@ -91,7 +91,7 @@ impl UserSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::windowing::DisplayModeKind;
+    use crate::host::windowing::DisplayModeKind;
 
     #[test]
     fn rows_for_top_includes_categories() {

@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::windowing::DisplayModeKind;
+use crate::host::windowing::DisplayModeKind;
 
 /// Whether full-screen flash effects are shown at full strength,
 /// reduced, or disabled. Read by camera flash and VFX systems.

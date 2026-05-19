@@ -6,7 +6,7 @@
 use bevy::prelude::{Res, ResMut, Resource, Time};
 
 use crate::player::components::PlayerSlot;
-use crate::time_control::ProperTimeScale;
+use crate::time::time_control::ProperTimeScale;
 use crate::SandboxSimState;
 
 /// ADR 0010 vocabulary — the named clocks gameplay code can read.
@@ -107,14 +107,14 @@ impl WorldTime {
     }
 
     /// Per-entity proper-time dt (ADR 0011). Multiplies [`Self::sim_dt`]
-    /// by the entity's [`crate::time_control::ProperTimeScale`] —
+    /// by the entity's [`crate::time::time_control::ProperTimeScale`] —
     /// `1.0` by default, so callers that pass
-    /// [`crate::time_control::ProperTimeScale::ONE`] (the missing-
+    /// [`crate::time::time_control::ProperTimeScale::ONE`] (the missing-
     /// component case) get the same `sim_dt` value as before.
     ///
     /// Pattern: animator + AI systems query `Option<&ProperTimeScale>`
     /// alongside the entity's other components and feed the result
-    /// through [`crate::time_control::ProperTimeScale::or_default`]
+    /// through [`crate::time::time_control::ProperTimeScale::or_default`]
     /// before calling `entity_dt`. SP gameplay is unchanged because no
     /// entity sets the component today.
     #[inline]
@@ -140,7 +140,7 @@ pub fn refresh_world_time(
 mod tests {
     use super::*;
     use crate::player::components::PlayerSlot;
-    use crate::time_control::ProperTimeScale;
+    use crate::time::time_control::ProperTimeScale;
 
     /// Sim regime: SP grants every PlayerClock the SimClock rate, so
     /// player_dt(slot) is observationally identical to sim_dt(). This

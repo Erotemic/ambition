@@ -114,7 +114,7 @@ pub(super) fn player_control_phase(
 /// sandbox reset.
 ///
 /// Time-scale authority moved out of this phase in ADR 0010 step 4
-/// — see `crate::time_control::{emit_player_time_intent_system,
+/// — see `crate::time::time_control::{emit_player_time_intent_system,
 /// apply_clock_scale_requests, smooth_sim_clock_toward_target_system}`.
 /// This phase observes the smoothed `sim_state.time_scale` set by
 /// the PlayerInput pipeline.

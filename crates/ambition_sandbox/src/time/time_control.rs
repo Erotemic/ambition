@@ -18,7 +18,7 @@
 use bevy::prelude::*;
 
 use crate::{ClockDomain, SandboxSimState};
-use crate::feel::SandboxFeelTuning;
+use crate::time::feel::SandboxFeelTuning;
 use crate::player::components::{
     PlayerCombatState, PlayerMovementAuthority, PlayerSlot, PrimaryPlayer,
 };

@@ -94,9 +94,9 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         // time_scale toward the target at feel-tuned rates. See
         // `crate::time_control` for the policy + dispatch and ADR
         // 0010 §Vocabulary for the model.
-        .add_message::<crate::time_control::ClockScaleRequest>()
-        .insert_resource(crate::time_control::RegimePolicy::default())
-        .insert_resource(crate::time_control::RequestedClockScale::default())
+        .add_message::<crate::time::time_control::ClockScaleRequest>()
+        .insert_resource(crate::time::time_control::RegimePolicy::default())
+        .insert_resource(crate::time::time_control::RequestedClockScale::default())
         .register_type::<GameMode>()
         // StartupProfiler captures wall-clock at each marked phase so a
         // PostStartup report prints "where did the first frame's
@@ -269,9 +269,9 @@ fn register_player_input_systems(app: &mut App) {
             // `gameplay_allowed` so suspended frames don't re-emit a
             // default 1.0 request that would compete with the
             // suspended fallback above.
-            crate::time_control::emit_player_time_intent_system.run_if(gameplay_allowed),
-            crate::time_control::apply_clock_scale_requests.run_if(gameplay_allowed),
-            crate::time_control::smooth_sim_clock_toward_target_system.run_if(gameplay_allowed),
+            crate::time::time_control::emit_player_time_intent_system.run_if(gameplay_allowed),
+            crate::time::time_control::apply_clock_scale_requests.run_if(gameplay_allowed),
+            crate::time::time_control::smooth_sim_clock_toward_target_system.run_if(gameplay_allowed),
             // Unconditional: snapshot whichever path (suspended-zero
             // or gameplay-smoothed) wrote `SandboxSimState::time_scale`
             // this frame into `WorldTime` for downstream readers.
@@ -660,7 +660,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<EditablePlayerStats>()
         .register_type::<SandboxFeelTuning>();
 
-    app.add_plugins(crate::platform::PlatformPlugin);
+    app.add_plugins(crate::host::platform::PlatformPlugin);
     app.add_plugins(crate::presentation::screen_effects::ScreenEffectsPlugin);
     add_dev_tools_plugins(app);
     add_physics_debris_plugins(app);
@@ -1112,7 +1112,7 @@ pub(super) fn add_input_plugins(_app: &mut App) {}
 /// inactive folder.
 #[cfg(feature = "mobile_touch")]
 pub(super) fn add_mobile_touch_plugin(app: &mut App) {
-    app.add_plugins(crate::mobile_input::bevy_plugin::MobileTouchPlugin);
+    app.add_plugins(crate::host::mobile_input::bevy_plugin::MobileTouchPlugin);
 }
 
 #[cfg(not(feature = "mobile_touch"))]

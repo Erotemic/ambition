@@ -37,26 +37,31 @@ These are safe to keep as `single()` today; they should migrate to
 `PrimaryPlayerOnly` filters so the singleton intent is visible at the call
 site rather than implied by `With<PlayerEntity>`. No behavior change.
 
-| File | Line | Today | Migration target |
+**Status (2026-05-19):** All player-query A-bucket sites have been migrated
+to `PrimaryPlayerOnly`. Window-only and UI-root `single()` sites are
+intentionally singleton and need no change.
+
+| File | Line | Today | Status |
 |---|---|---|---|
-| `presentation/rendering/camera.rs` | 87, 154 | `camera.single()` / `player.single()` | `PrimaryPlayerOnly` filter |
-| `presentation/rendering/parallax.rs` | 112 | `camera.single()` | `PrimaryPlayerOnly` filter (via camera-follows-primary) |
-| `presentation/rendering/foreground.rs` | 85, 89 | `camera.single()` | `PrimaryPlayerOnly` filter |
-| `presentation/rendering/health.rs` | 39 | `player.single()` | `PrimaryPlayerOnly` filter for the HUD health bar; per-player overlays should iterate when added |
-| `app/hud.rs` | 132, 149 | `camera_params.player.single()` | `PrimaryPlayerOnly` filter; HUD already comments that it's primary-only |
-| `audio/environment.rs` | 157, 401, 417 | `Query<..., With<PrimaryPlayer>>` ✓ | Already uses `With<PrimaryPlayer>` (correct) |
-| `dev/trace/systems.rs` | 123 | `player_q.single()` | `PrimaryPlayerOnly` filter — trace dump should follow primary |
-| `dev/debug_overlay.rs` | 103 | `player_q.single()` | `PrimaryPlayerOnly` filter — debug overlay is primary-only |
-| `dev/fps_overlay.rs` | 161, 184 | `query.single_mut()` | One UI text node — single() is correct (not a player query) |
-| `dev/dev_tools.rs` | 563, 704, 724 | `player_q.single_mut()` / `health_q.single_mut()` | `PrimaryPlayerOnly` filter; dev hotkeys target the primary's player by intent |
-| `body_mode/morph_ball.rs` | 148, 154 | `ball_query.single_mut()` / `player_q.single()` | `PrimaryPlayerOnly` filter for the player; the ball is per-player visual (should become per-entity) |
-| `player/bubble_shield.rs` | 115, 116 | `player_q.single()` / `shield_q.single_mut()` | Bubble shield is per-player gameplay state — should become a per-player component, not a singleton |
-| `time/time_control.rs` | 277 | `primary.single()` ✓ | Already filtered by `With<PrimaryPlayer>` |
+| `presentation/rendering/camera.rs` | 87, 154 | `camera.single()` / `player.single()` | ✓ migrated 257aca4..0902de6 |
+| `presentation/rendering/parallax.rs` | 112 | `camera.single()` | camera filter — drives off primary-followed camera; no player query |
+| `presentation/rendering/foreground.rs` | 85, 89 | `camera.single()` | camera filter — drives off primary-followed camera; no player query |
+| `presentation/rendering/health.rs` | 39 | `player.single()` | ✓ migrated 0902de6 |
+| `app/hud.rs` | 132, 149 | `camera_params.player.single()` | ✓ migrated 0902de6 (HudCameraParams uses PrimaryPlayerOnly) |
+| `audio/environment.rs` | 157, 401, 417 | `Query<..., With<PrimaryPlayer>>` ✓ | Already correct before audit |
+| `dev/trace/systems.rs` | 123 | `player_q.single()` | ✓ migrated 0902de6 |
+| `dev/debug_overlay.rs` | 103 | `player_q.single()` | ✓ migrated 0902de6 |
+| `dev/fps_overlay.rs` | 161, 184 | `query.single_mut()` | UI text node — singleton is intentional |
+| `dev/dev_tools.rs` | 563, 704, 724 | `player_q.single_mut()` / `health_q.single_mut()` | ✓ migrated 0902de6 |
+| `body_mode/morph_ball.rs` | 148, 154 | `ball_query.single_mut()` / `player_q.single()` | ✓ migrated 0902de6 (player_q); the ball singleton stays per-presentation today |
+| `player/bubble_shield.rs` | 112, 115, 116 | `player_q.single()` / `shield_q.single_mut()` | ✓ migrated d183a9d (player_q); shield visual singleton stays primary-only today |
+| `time/time_control.rs` | 277 | `primary.single()` ✓ | Already correct before audit |
 | `app/input_systems.rs` | 72, 94, 133 | `player_input.single()` | Today's local-input ActionState is global; per-player input is OVERNIGHT-TODO #17.5 |
-| `pause_menu/input.rs` | 136 | `dev_toggles.player_q.single_mut().ok()` | Dev-pause input — primary-only is fine |
-| `host/mobile_input/bevy_plugin.rs` | 562, 577 | `windows.single()` | Window query (not player) — single() is correct |
-| `host/mobile_input/menu_bridge.rs` | 184 | `windows.single()` | Window query — single() is correct |
-| `persistence/settings/model.rs` | 1247 | `windows.single_mut()` | Window query — single() is correct |
+| `pause_menu/input.rs` | 136 (via model.rs `DevToggleParams::player_q`) | `dev_toggles.player_q.single_mut().ok()` | ✓ migrated fff5829 |
+| `presentation/fx.rs::update_blink_preview` | 480 | `player_authority.single()` | ✓ migrated fff5829 |
+| `host/mobile_input/bevy_plugin.rs` | 562, 577 | `windows.single()` | Window query (not player) — singleton is intentional |
+| `host/mobile_input/menu_bridge.rs` | 184 | `windows.single()` | Window query — singleton is intentional |
+| `persistence/settings/model.rs` | 1247 | `windows.single_mut()` | Window query — singleton is intentional |
 
 ### B — Should iterate ALL players (hazards, pickups, enemy attacks, world interactions)
 
@@ -106,10 +111,8 @@ per-`PlayerEntity` component.
 
 ## Recommended ordering for migration
 
-1. **A-bucket migration (cosmetic, no behavior change)** — Adopt the
-   `PrimaryPlayerOnly` filter at the camera/HUD/dev-tool/audio sites listed
-   above. Mechanical, behavior-preserving, makes the intent visible without
-   risk to single-player play. Good agent-sized first patch.
+1. **A-bucket migration (cosmetic, no behavior change)** — ✓ DONE
+   (2026-05-19). All A-bucket sites use `PrimaryPlayerOnly` now.
 2. **Per-entity attack state (OVERNIGHT-TODO #17.4)** — Move
    `CurrentPlayerAttack` onto the player entity as
    `ActivePlayerAttack`. Smoke test: spawn two players with different

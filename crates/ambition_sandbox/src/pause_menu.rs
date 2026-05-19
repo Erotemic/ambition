@@ -25,7 +25,7 @@ use bevy_kira_audio::prelude::AudioChannel;
 use crate::audio::{
     set_radio_track, AudioLibrary, MusicChannel, MusicPlaybackState, RadioStationState,
 };
-use crate::dev_tools::DeveloperTools;
+use crate::dev::dev_tools::DeveloperTools;
 use crate::game_mode::GameMode;
 use crate::input::{KeyboardPreset, MenuControlFrame, MenuInputFrame};
 use crate::inventory::InventoryUiState;

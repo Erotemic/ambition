@@ -265,7 +265,7 @@ pub fn sync_inventory_panel(
     state: Res<InventoryUiState>,
     inventory: Res<PlayerInventory>,
     map: Res<crate::map_menu::MapMenuState>,
-    quests: Res<crate::quest::QuestRegistry>,
+    quests: Res<crate::content::quest::QuestRegistry>,
     room_set: Res<crate::rooms::RoomSet>,
     mut roots: Query<&mut Visibility, With<InventoryRoot>>,
     mut widgets: Query<
@@ -465,7 +465,7 @@ fn map_tab_text(
     lines.join("\n")
 }
 
-fn quest_tab_text(state: &InventoryUiState, quests: &crate::quest::QuestRegistry) -> String {
+fn quest_tab_text(state: &InventoryUiState, quests: &crate::content::quest::QuestRegistry) -> String {
     let lines = quests.quest_log_lines();
     if lines.is_empty() {
         return "No active quests.".into();

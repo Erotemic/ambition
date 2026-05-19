@@ -58,7 +58,7 @@ use crate::encounter::{EncounterController, EncounterMusicRequest, EncounterRegi
 use crate::game_assets::GameAssets;
 use crate::world::physics;
 use crate::world::platforms;
-use crate::quest::QuestRegistry;
+use crate::content::quest::QuestRegistry;
 use crate::rendering::{spawn_room_visuals, RoomScopedEntity};
 use crate::rooms::RoomSet;
 use crate::save::SandboxSave;
@@ -104,7 +104,7 @@ pub fn process_sandbox_reset_request(
     mut play_state: ResetPlayState<'_>,
     mut room_set: ResMut<RoomSet>,
     mut world: ResMut<crate::GameWorld>,
-    tuning: Res<crate::dev_tools::EditableMovementTuning>,
+    tuning: Res<crate::dev::dev_tools::EditableMovementTuning>,
     assets: Option<Res<GameAssets>>,
     mut commands: Commands,
     mut banner: ResMut<crate::features::GameplayBanner>,
@@ -217,7 +217,7 @@ pub fn process_sandbox_reset_request(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dev_tools::EditableMovementTuning;
+    use crate::dev::dev_tools::EditableMovementTuning;
     use crate::player::{PlayerBlinkCameraState, PlayerMovementAuthority};
     use crate::GameWorld;
 

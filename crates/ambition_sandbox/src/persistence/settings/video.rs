@@ -551,7 +551,7 @@ pub struct VideoSettings {
     /// Whether the FPS / frame-time overlay is shown. ON by default
     /// on every platform — useful for diagnosing perf issues across
     /// browser and desktop. Toggle via the Video page or `F3`. The
-    /// overlay is wired by `crate::fps_overlay::FpsOverlayPlugin`,
+    /// overlay is wired by `crate::dev::fps_overlay::FpsOverlayPlugin`,
     /// which mirrors this flag into `FpsOverlayState::visible`.
     #[serde(default = "default_show_fps")]
     pub show_fps: bool,

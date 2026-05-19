@@ -4,7 +4,7 @@ use ambition_engine as ae;
 use bevy::prelude::*;
 
 use crate::cutscene::CutsceneTriggerQueue;
-use crate::quest::QuestRegistry;
+use crate::content::quest::QuestRegistry;
 
 use super::{
     default_boss_profiles, encounter_id_from_name, events::publish_events, BossEncounterRegistry,

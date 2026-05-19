@@ -178,7 +178,7 @@ embed_core_assets! {
         @ "../../assets/sprites/entities/boss_core.png",
 }
 
-use crate::data::AudioSpec;
+use crate::content::data::AudioSpec;
 use crate::game_assets::{sandbox_image_manifest, GameAssetConfig};
 
 /// Stable [`AssetId`] constructors for the fixed-vocabulary sandbox
@@ -219,7 +219,7 @@ pub mod ids {
         AssetId::new(FONT_DEBUG_MONO)
     }
 
-    /// `music.track.<id>` where `id` is the [`crate::data::MusicTrackSpec::id`]
+    /// `music.track.<id>` where `id` is the [`crate::content::data::MusicTrackSpec::id`]
     /// authored in `sandbox.ron`. The runtime registers one catalog entry
     /// per track and looks them up by this id.
     pub fn music_track(track_id: &str) -> AssetId {
@@ -272,7 +272,7 @@ impl SandboxAssetCatalog {
     pub fn for_desktop_dev_default() -> Self {
         let mut config = crate::game_assets::GameAssetConfig::default();
         config.asset_profile = AssetProfile::DesktopDevLoose;
-        let spec = crate::data::SandboxDataSpec::load_embedded();
+        let spec = crate::content::data::SandboxDataSpec::load_embedded();
         build_sandbox_catalog(&config, &spec.audio)
     }
 
@@ -454,7 +454,7 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
 /// Build the full sandbox catalog: every visible-sandbox asset id +
 /// the active profile. Called once during `init_sandbox_resources`.
 ///
-/// `audio` is borrowed from the already-loaded [`crate::data::SandboxDataSpec`]
+/// `audio` is borrowed from the already-loaded [`crate::content::data::SandboxDataSpec`]
 /// so music-track ids land in the catalog at startup; the spec itself
 /// is loaded via `include_str!`, so the catalog doesn't depend on
 /// disk-resident files for bootstrap.
@@ -532,7 +532,7 @@ fn extend_with_world_entries(manifest: &mut AssetManifest) {
 
 /// Sandbox tuning RON entry. Required — the game refuses to run
 /// without it. Today the live consumer is
-/// [`crate::data::SandboxDataSpec::load_embedded`] (always via
+/// [`crate::content::data::SandboxDataSpec::load_embedded`] (always via
 /// `include_str!`); the catalog entry exists so future code that asks
 /// for the Bevy path under a non-static profile gets a real answer.
 fn extend_with_data_entries(manifest: &mut AssetManifest) {
@@ -877,7 +877,7 @@ pub fn add_http_asset_source(_app: &mut App) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::SandboxDataSpec;
+    use crate::content::data::SandboxDataSpec;
     use std::collections::HashSet;
     use std::sync::Mutex;
 

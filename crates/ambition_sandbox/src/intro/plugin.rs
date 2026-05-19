@@ -18,7 +18,7 @@
 
 use bevy::prelude::*;
 
-use crate::banter::CombatBanterRegistry;
+use crate::content::banter::CombatBanterRegistry;
 use crate::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
 use crate::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use crate::game_assets::{GameAssetConfig, GameAssets};

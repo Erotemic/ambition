@@ -50,10 +50,10 @@ use crate::audio::{
     MusicChannel, SfxChannel,
 };
 use crate::config::{WINDOW_H, WINDOW_W};
-use crate::content_validation;
-use crate::data;
-use crate::debug_overlay;
-use crate::dev_tools::{
+use crate::content::content_validation;
+use crate::content::data;
+use crate::dev::debug_overlay;
+use crate::dev::dev_tools::{
     self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
 };

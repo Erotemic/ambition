@@ -11,7 +11,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use crate::config::world_to_bevy;
-use crate::dev_tools::DeveloperTools;
+use crate::dev::dev_tools::DeveloperTools;
 use crate::input::ControlFrame;
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;

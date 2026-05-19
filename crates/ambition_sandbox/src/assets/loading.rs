@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::AssetCollection;
 
-use crate::data::SandboxDataSpec;
+use crate::content::data::SandboxDataSpec;
 
 /// First asset collection for the sandbox.
 ///

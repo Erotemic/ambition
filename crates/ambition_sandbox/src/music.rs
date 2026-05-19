@@ -28,7 +28,7 @@ use crate::audio::{
     amplitude_to_decibels, switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState,
     RadioStationState,
 };
-use crate::data::SandboxDataSpec;
+use crate::content::data::SandboxDataSpec;
 use crate::encounter::{EncounterMusicRequest, EncounterPhase, EncounterRegistry};
 use crate::rooms::RoomMusicRequest;
 use crate::settings::UserSettings;

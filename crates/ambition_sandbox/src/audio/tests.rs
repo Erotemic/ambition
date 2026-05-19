@@ -1,5 +1,5 @@
 use super::*;
-use crate::data::SandboxDataSpec;
+use crate::content::data::SandboxDataSpec;
 
 #[test]
 fn amplitude_to_decibels_silent_floor() {
@@ -129,7 +129,7 @@ fn embedded_music_tracks_all_have_asset_paths() {
 /// so the radio menu never offers a silent entry.
 #[test]
 fn audio_library_skips_music_tracks_without_asset_path() {
-    use crate::data::{
+    use crate::content::data::{
         AudioSpec, MusicGainsSpec, MusicSpec, MusicTrackSpec, SfxSpec, WaveformSpec, SoundCueKey,
     };
 
@@ -413,7 +413,7 @@ fn ambition_sandbox_uses_only_bevy_kira_audio() {
 /// an entry on web.
 #[test]
 fn every_live_music_track_resolves_under_web_served_assets() {
-    use crate::data::SandboxDataSpec;
+    use crate::content::data::SandboxDataSpec;
     use crate::game_assets::GameAssetConfig;
     use ambition_asset_manager::AssetProfile;
 

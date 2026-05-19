@@ -617,7 +617,7 @@ pub fn animate_bosses(
 /// all other visibility-setting systems so it wins the last-write battle.
 /// UI uses `Node`/`ImageNode`, not `Sprite`, so HUD/menus are unaffected.
 pub fn apply_hide_sprites_override(
-    developer_tools: Res<crate::dev_tools::DeveloperTools>,
+    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
     mut sprites: Query<&mut Visibility, With<Sprite>>,
 ) {
     let target = if developer_tools.hide_sprites {
@@ -655,7 +655,7 @@ pub struct SpriteOriginalState {
 /// falls back to the existing sprite color (kept as-is).
 pub fn apply_placeholder_sprites_override(
     mut commands: Commands,
-    developer_tools: Res<crate::dev_tools::DeveloperTools>,
+    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
     feature_views: Res<FeatureViewIndex>,
     mut sprites: Query<(
         Entity,

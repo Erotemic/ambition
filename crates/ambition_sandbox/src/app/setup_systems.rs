@@ -82,7 +82,7 @@ pub(super) fn setup_presentation_system(
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
-    mut profiler: ResMut<crate::profiling::StartupProfiler>,
+    mut profiler: ResMut<crate::dev::profiling::StartupProfiler>,
 ) {
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
     // with "time not implemented on this platform". Gate the per-step

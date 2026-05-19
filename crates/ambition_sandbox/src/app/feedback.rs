@@ -104,7 +104,7 @@ pub struct SandboxQueues<'w> {
 /// (`sandbox_update`, `crate::quest`, `crate::boss_encounter`, etc.).
 #[derive(SystemParam)]
 pub struct ProgressionResources<'w> {
-    pub quests: Res<'w, crate::quest::QuestRegistry>,
+    pub quests: Res<'w, crate::content::quest::QuestRegistry>,
     pub cutscene: Res<'w, crate::cutscene::ActiveCutscene>,
     pub cutscene_request: Res<'w, crate::cutscene::CutsceneAdvanceRequest>,
     pub bosses: Res<'w, crate::boss_encounter::BossEncounterRegistry>,

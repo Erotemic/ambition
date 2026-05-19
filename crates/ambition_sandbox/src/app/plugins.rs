@@ -103,7 +103,7 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         // worth of init time go" without needing an external profiler
         // attached. See `crate::profiling` for the helper API and
         // `docs/recipes/profiling.md` for Tracy / per-system profiling.
-        .insert_resource(crate::profiling::StartupProfiler::default())
+        .insert_resource(crate::dev::profiling::StartupProfiler::default())
         .insert_resource(crate::trace::GameplayTraceBuffer::default())
         .insert_resource(crate::CurrentPlayerAttack::default())
         .insert_resource(crate::dialog::DialogState::default())
@@ -113,17 +113,17 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         .insert_resource(crate::features::GameplayBanner::default())
         .insert_resource(crate::features::FeatureEcsWorldOverlay::default())
         .insert_resource(crate::features::FeatureViewIndex::default())
-        .insert_resource(crate::mechanics::MechanicsRegistry::default())
+        .insert_resource(crate::dev::mechanics::MechanicsRegistry::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
         .add_plugins(ae::AmbitionStateMachinePlugin)
         .add_systems(
             Startup,
             (
-                crate::profiling::phase_mark("startup_begin"),
+                crate::dev::profiling::phase_mark("startup_begin"),
                 data::load_data_asset_handle,
-                crate::profiling::phase_mark("after_load_data_handle"),
+                crate::dev::profiling::phase_mark("after_load_data_handle"),
                 setup_simulation_system,
-                crate::profiling::phase_mark("after_setup_simulation"),
+                crate::dev::profiling::phase_mark("after_setup_simulation"),
             )
                 .chain(),
         )
@@ -135,8 +135,8 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         .add_systems(
             PostStartup,
             (
-                crate::profiling::phase_mark("post_startup_begin"),
-                crate::profiling::report_startup_phases,
+                crate::dev::profiling::phase_mark("post_startup_begin"),
+                crate::dev::profiling::report_startup_phases,
             )
                 .chain(),
         )
@@ -166,7 +166,7 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         // Quest + cutscene systems. Both are sim-side state machines
         // that read/write the save resource and surface HUD lines via
         // the encounter overlay.
-        .insert_resource(crate::quest::QuestRegistry::default())
+        .insert_resource(crate::content::quest::QuestRegistry::default())
         .insert_resource(crate::cutscene::default_cutscene_library())
         .insert_resource(crate::cutscene::ActiveCutscene::default())
         .insert_resource(crate::cutscene::CutsceneTriggerQueue::default())
@@ -177,7 +177,7 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         // installed inline; IntroPlugin adds the intro raiders' lines
         // via a startup system.
         .insert_resource({
-            let mut reg = crate::banter::CombatBanterRegistry::default();
+            let mut reg = crate::content::banter::CombatBanterRegistry::default();
             crate::boss_encounter::install_boss_banter(&mut reg);
             reg
         })
@@ -463,9 +463,9 @@ fn register_progression_chain_systems(app: &mut App) {
             crate::boss_encounter::update_boss_encounters,
             crate::features::sync_ecs_actors_with_save,
             crate::features::sync_ecs_bosses_with_save,
-            crate::quest::push_room_entered_quest_events,
-            crate::quest::apply_quest_advance_events,
-            crate::quest::grant_quest_completion_rewards,
+            crate::content::quest::push_room_entered_quest_events,
+            crate::content::quest::apply_quest_advance_events,
+            crate::content::quest::grant_quest_completion_rewards,
             crate::body_mode::update_body_mode,
             crate::rooms::sync_active_room_metadata,
             crate::rooms::sync_room_music_request,
@@ -502,7 +502,7 @@ fn register_progression_populate_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            crate::quest::populate_quest_registry,
+            crate::content::quest::populate_quest_registry,
             crate::boss_encounter::populate_boss_encounter_registry,
             crate::encounter::populate_encounter_registry,
         )
@@ -670,7 +670,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     add_mobile_touch_plugin(app);
     // Lightweight FPS / frame-time overlay. ON by default on wasm,
     // OFF on desktop; F3 toggles. See `crate::fps_overlay`.
-    app.add_plugins(crate::fps_overlay::FpsOverlayPlugin);
+    app.add_plugins(crate::dev::fps_overlay::FpsOverlayPlugin);
 
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
 }
@@ -723,12 +723,12 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Startup,
             (
-                crate::profiling::phase_mark("before_setup_presentation"),
+                crate::dev::profiling::phase_mark("before_setup_presentation"),
                 setup_presentation_system,
-                crate::profiling::phase_mark("after_setup_presentation"),
+                crate::dev::profiling::phase_mark("after_setup_presentation"),
                 crate::map_menu::populate_map_rooms,
                 crate::map_menu::spawn_map_menu,
-                crate::profiling::phase_mark("after_map_menu_spawn"),
+                crate::dev::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()
                 .after(setup_simulation_system)
@@ -1159,9 +1159,9 @@ pub(super) fn add_audio_plugins(app: &mut App) {
         .add_systems(
             Startup,
             (
-                crate::profiling::phase_mark("before_audio_init"),
+                crate::dev::profiling::phase_mark("before_audio_init"),
                 crate::music::load_music_cues,
-                crate::profiling::phase_mark("after_audio_init"),
+                crate::dev::profiling::phase_mark("after_audio_init"),
             )
                 .chain()
                 .after(setup_presentation_system),

@@ -15,7 +15,7 @@ pub fn sync_health_overlays(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
     dev_state: Res<crate::SandboxDevState>,
-    developer_tools: Res<crate::dev_tools::DeveloperTools>,
+    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     player: Query<
         (&crate::player::PlayerBody, &crate::player::PlayerHealth),

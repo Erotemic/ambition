@@ -72,8 +72,10 @@ pub use world::{ldtk_world, rooms};
 pub(crate) use assets::{game_assets, loading, sandbox_assets};
 // Removed: `pub(crate) use boss_encounter::sprites as boss_sprites;`
 // — call sites now use `crate::boss_encounter::sprites::…`.
-pub(crate) use content::{banter, content_validation, data, quest};
-pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics, profiling};
+// Removed: `pub(crate) use content::{banter, content_validation, data, quest};`
+// and `pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics,
+// profiling};` — call sites now use the canonical `crate::content::…` and
+// `crate::dev::…` paths.
 // Removed: `pub(crate) use host::{mobile_input, platform, windowing};` —
 // call sites now use the canonical `crate::host::{mobile_input,
 // platform, windowing}::…` paths.

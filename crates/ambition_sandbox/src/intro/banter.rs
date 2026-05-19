@@ -1,6 +1,6 @@
 //! Intro combat-banter lines.
 //!
-//! Story content for the [`crate::banter::CombatBanterRegistry`]:
+//! Story content for the [`crate::content::banter::CombatBanterRegistry`]:
 //! one-liners that the two intro raid antagonists yell when the
 //! player strikes them. Faction-flavored so the wrong-list narrative
 //! beat keeps landing during combat (it doesn't only live in the
@@ -10,7 +10,7 @@
 //! at startup — the sandbox-side registry stays empty by default so a
 //! plain sandbox build doesn't carry intro content.
 
-use crate::banter::CombatBanterRegistry;
+use crate::content::banter::CombatBanterRegistry;
 
 /// Bulk-install every intro-NPC's combat barks. Idempotent at the
 /// per-name level — re-running replaces the line list for each

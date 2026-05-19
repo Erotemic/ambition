@@ -68,7 +68,7 @@ pub fn camera_follow(
     world: Res<crate::GameWorld>,
     room_set: Res<RoomSet>,
     time: Res<Time>,
-    developer_tools: Res<crate::dev_tools::DeveloperTools>,
+    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
     encounter_registry: Res<crate::encounter::EncounterRegistry>,
     user_settings: Res<crate::settings::UserSettings>,
     mut camera_state: ResMut<crate::CameraEaseState>,

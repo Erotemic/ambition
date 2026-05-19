@@ -30,8 +30,8 @@ use crate::character_sprites::{
     player_placeholder_render_size, CharacterAnimator,
 };
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
-use crate::data::{SandboxDataAsset, SandboxDataSpec};
-use crate::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use crate::content::data::{SandboxDataAsset, SandboxDataSpec};
+use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use crate::game_assets::GameAssets;
 use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::loading::SandboxAssetCollection;

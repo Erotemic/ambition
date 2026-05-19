@@ -10,7 +10,7 @@ use ambition_engine as ae;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
-use crate::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
+use crate::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use crate::features::{
     self, DamageEvent as FeatureDamageEvent, FeatureEcsWorldOverlay, GameplayBanner,
     PlayerDamageEvent, PogoBounceEvent,

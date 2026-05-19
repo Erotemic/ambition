@@ -3,7 +3,7 @@
 //! Scholar-on-shoulder quotes for GNU-ton: pedantic, recursive, self-referential.
 //! Lines should sound like someone who has read every GNU manual and missed the point.
 
-use crate::banter::CombatBanterRegistry;
+use crate::content::banter::CombatBanterRegistry;
 
 /// Register hit-bark lines for all boss encounters.
 pub fn install_boss_banter(registry: &mut CombatBanterRegistry) {

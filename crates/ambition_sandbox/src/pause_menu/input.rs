@@ -316,7 +316,7 @@ fn handle_settings_page_input(
     preset_count: usize,
     dev_state: &mut SandboxDevState,
     developer: &mut DeveloperTools,
-    editable_tuning: &mut crate::dev_tools::EditableMovementTuning,
+    editable_tuning: &mut crate::dev::dev_tools::EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
     authority_player: Option<&mut ambition_engine::Player>,
 ) {

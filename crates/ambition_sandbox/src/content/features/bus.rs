@@ -8,7 +8,7 @@ use bevy::prelude::{MessageReader, MessageWriter, ResMut};
 pub fn apply_flag_effects(
     mut effects: MessageReader<GameplayEffect>,
     mut save: ResMut<crate::save::SandboxSave>,
-    mut quests: ResMut<crate::quest::QuestRegistry>,
+    mut quests: ResMut<crate::content::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
         if let GameplayEffect::SetFlag { id, on } = effect {
@@ -23,7 +23,7 @@ pub fn apply_flag_effects(
 /// Structured quest events from gameplay (NPC talked, item collected, etc.).
 pub fn apply_quest_effects(
     mut effects: MessageReader<GameplayEffect>,
-    mut quests: ResMut<crate::quest::QuestRegistry>,
+    mut quests: ResMut<crate::content::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
         if let GameplayEffect::AdvanceQuest(event) = effect {

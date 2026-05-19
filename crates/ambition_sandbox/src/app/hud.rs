@@ -66,7 +66,7 @@ pub(super) fn update_hud(
     ldtk_spine: Res<ldtk_world::LdtkRuntimeSpineStats>,
     ldtk_spine_index: Res<ldtk_world::LdtkRuntimeSpineIndex>,
     trace: Res<crate::trace::GameplayTraceBuffer>,
-    mechanics: Res<crate::mechanics::MechanicsRegistry>,
+    mechanics: Res<crate::dev::mechanics::MechanicsRegistry>,
     progression: ProgressionResources,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
@@ -150,7 +150,7 @@ pub(super) fn update_hud(
     let Ok((hud_body, hud_health, hud_combat, hud_authority)) = camera_params.player.single() else {
         return;
     };
-    let feel_line = crate::dev_tools::feel_metrics_summary(
+    let feel_line = crate::dev::dev_tools::feel_metrics_summary(
         hud_body.base_size,
         developer_tools.movement_profile.tuning(),
     );
@@ -266,9 +266,9 @@ pub(super) fn update_hud(
     };
     let mechanics_summary = format!(
         "stable={} backend={} planned={}",
-        mechanics.count_by_maturity(crate::mechanics::MechanicMaturity::Stable),
-        mechanics.count_by_maturity(crate::mechanics::MechanicMaturity::Backend),
-        mechanics.count_by_maturity(crate::mechanics::MechanicMaturity::Planned),
+        mechanics.count_by_maturity(crate::dev::mechanics::MechanicMaturity::Stable),
+        mechanics.count_by_maturity(crate::dev::mechanics::MechanicMaturity::Backend),
+        mechanics.count_by_maturity(crate::dev::mechanics::MechanicMaturity::Planned),
     );
     let metadata = room_set.active_metadata();
     let metadata_summary = if metadata.is_empty() {
@@ -450,7 +450,7 @@ pub(super) fn update_hud(
 /// independently. Writes empty string when there are no active
 /// quests, which collapses the panel visually.
 pub fn update_quest_panel(
-    quests: Res<crate::quest::QuestRegistry>,
+    quests: Res<crate::content::quest::QuestRegistry>,
     user_settings: Res<crate::settings::UserSettings>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<crate::rendering::QuestPanelText>>,

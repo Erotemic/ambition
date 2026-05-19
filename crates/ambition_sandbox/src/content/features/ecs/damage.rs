@@ -30,7 +30,7 @@ pub fn apply_feature_damage_events(
     mut damage_events: MessageReader<DamageEvent>,
     mut pogo_bounces: MessageReader<PogoBounceEvent>,
     mut banner: ResMut<GameplayBanner>,
-    combat_banter: Option<Res<crate::banter::CombatBanterRegistry>>,
+    combat_banter: Option<Res<crate::content::banter::CombatBanterRegistry>>,
     mut breakables: Query<
         (
             Entity,

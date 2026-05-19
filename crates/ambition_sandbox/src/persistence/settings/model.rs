@@ -14,7 +14,7 @@ use super::audio::AudioSettings;
 use super::gameplay::GameplaySettings;
 use super::video::{ScreenShaderSettings, SerializableDisplayMode};
 use super::UserSettings;
-use crate::dev_tools::{
+use crate::dev::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DeveloperTools, EditableMovementTuning,
 };
 use crate::ldtk_world::LdtkHotReloadState;
@@ -545,8 +545,8 @@ pub struct DevToggleSnapshot {
     pub fill_debug_boxes: bool,
     pub micro_grid: bool,
     pub camera_frame: bool,
-    pub player_body_profile: crate::dev_tools::PlayerBodyProfile,
-    pub movement_profile: crate::dev_tools::MovementProfile,
+    pub player_body_profile: crate::dev::dev_tools::PlayerBodyProfile,
+    pub movement_profile: crate::dev::dev_tools::MovementProfile,
     pub ldtk_auto_apply: bool,
 }
 

@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ambition_engine as ae;
 
-use crate::data::SandboxDataSpec;
+use crate::content::data::SandboxDataSpec;
 use crate::ldtk_world::{field_string, LdtkProject};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -259,7 +259,7 @@ fn validate_quest_conditions(
         }
     }
 
-    for spec in crate::quest::default_quest_specs() {
+    for spec in crate::content::quest::default_quest_specs() {
         if spec.steps.is_empty() {
             report.push_error(format!("quest '{}' has no steps", spec.id));
         }
@@ -430,7 +430,7 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
     let mut flags = BTreeSet::from([
         "met_any_hub_npc".to_string(),
         "test_switch_toggled".to_string(),
-        crate::quest::PIRATE_TREASURE_REWARD_FLAG.to_string(),
+        crate::content::quest::PIRATE_TREASURE_REWARD_FLAG.to_string(),
     ]);
     for level in &project.levels {
         let Some(layer) = level.ambition_layer() else {
@@ -502,7 +502,7 @@ mod tests {
         let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
         let boss_ids = authored_boss_encounter_ids(&project);
         assert!(boss_ids.contains("clockwork_warden"));
-        for spec in crate::quest::default_quest_specs() {
+        for spec in crate::content::quest::default_quest_specs() {
             for step in &spec.steps {
                 if let ae::QuestStepCondition::BossDefeated(id) = &step.condition {
                     assert!(

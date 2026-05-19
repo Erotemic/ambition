@@ -628,4 +628,102 @@ mod multiplayer_smoke_tests {
             "clearing p1's attack must not touch p2's component"
         );
     }
+
+    /// A `PlayerHealRequested` carrying `target: Some(p2)` heals p2,
+    /// not the primary p1. Pins the OVERNIGHT-TODO #17.6 bridge —
+    /// pickups now route heals to the player who actually overlapped
+    /// the heart instead of always to primary.
+    #[test]
+    fn targeted_heal_routes_to_named_entity_not_primary() {
+        use crate::player::{apply_player_heal_requests, PlayerHealRequested, PlayerHealth};
+
+        let mut app = App::new();
+        app.add_message::<PlayerHealRequested>();
+        app.add_systems(Update, apply_player_heal_requests);
+
+        let p1 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(0),
+                PrimaryPlayer,
+                PlayerHealth::new(ae::Health {
+                    current: 1,
+                    max: 5,
+                    invulnerable: false,
+                }),
+            ))
+            .id();
+        let p2 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(1),
+                PlayerHealth::new(ae::Health {
+                    current: 1,
+                    max: 5,
+                    invulnerable: false,
+                }),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<PlayerHealRequested>>()
+            .write(PlayerHealRequested::for_target(2, p2));
+        app.update();
+
+        let p1_health = app.world().entity(p1).get::<PlayerHealth>().unwrap();
+        let p2_health = app.world().entity(p2).get::<PlayerHealth>().unwrap();
+        assert_eq!(p1_health.current(), 1, "primary must not pick up p2's heal");
+        assert_eq!(p2_health.current(), 3, "p2 must be healed by 2");
+    }
+
+    /// `PlayerHealRequested::new` (target = None) keeps legacy
+    /// behavior: heal lands on the primary player. Pins the
+    /// backwards-compatible path so cutscene/quest heals don't
+    /// silently break when other code starts using `for_target`.
+    #[test]
+    fn untargeted_heal_routes_to_primary() {
+        use crate::player::{apply_player_heal_requests, PlayerHealRequested, PlayerHealth};
+
+        let mut app = App::new();
+        app.add_message::<PlayerHealRequested>();
+        app.add_systems(Update, apply_player_heal_requests);
+
+        let p1 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(0),
+                PrimaryPlayer,
+                PlayerHealth::new(ae::Health {
+                    current: 1,
+                    max: 5,
+                    invulnerable: false,
+                }),
+            ))
+            .id();
+        let p2 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(1),
+                PlayerHealth::new(ae::Health {
+                    current: 1,
+                    max: 5,
+                    invulnerable: false,
+                }),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<PlayerHealRequested>>()
+            .write(PlayerHealRequested::new(3));
+        app.update();
+
+        let p1_health = app.world().entity(p1).get::<PlayerHealth>().unwrap();
+        let p2_health = app.world().entity(p2).get::<PlayerHealth>().unwrap();
+        assert_eq!(p1_health.current(), 4, "primary picks up untargeted heal");
+        assert_eq!(p2_health.current(), 1, "p2 not touched by untargeted heal");
+    }
 }

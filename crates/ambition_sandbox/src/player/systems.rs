@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use super::components::{
     ActivePlayerAttack, PlayerBody, PlayerCombatState, PlayerEntity, PlayerHealth,
-    PlayerMovementAuthority,
+    PlayerMovementAuthority, PrimaryPlayer,
 };
 use super::events::PlayerHealRequested;
 
@@ -33,17 +33,30 @@ pub fn write_player_ecs_components(
 }
 
 /// Apply heal messages to the authoritative `PlayerHealth` ECS component.
+///
+/// A heal targets either a specific player entity (`heal.target ==
+/// Some(entity)`) or the primary player as a fallback (`None`). The
+/// fallback path keeps existing call sites — cutscene heals, dev-tool
+/// heals — working with no change. Per-player producers like pickup
+/// collection should set the target explicitly so a non-primary
+/// player who walked into the heart actually gets healed.
 pub fn apply_player_heal_requests(
     mut heals: MessageReader<PlayerHealRequested>,
     mut players: Query<&mut PlayerHealth, With<PlayerEntity>>,
+    primary_q: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
-    let Ok(mut health) = players.single_mut() else {
-        // No player entity yet (startup or headless): drain the queue.
-        for _ in heals.read() {}
-        return;
-    };
+    let primary = primary_q.single().ok();
     for heal in heals.read() {
-        if heal.amount > 0 {
+        if heal.amount <= 0 {
+            continue;
+        }
+        let target = heal.target.or(primary);
+        let Some(target) = target else {
+            // No player entity yet (startup or headless): drop the
+            // heal silently so the queue still drains.
+            continue;
+        };
+        if let Ok(mut health) = players.get_mut(target) {
             health.heal(heal.amount);
         }
     }

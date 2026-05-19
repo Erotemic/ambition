@@ -8,7 +8,7 @@ pub(super) fn apply_item_effect(
     match kind {
         ItemKind::HealthPotion => {
             if inventory.remove(ItemKind::HealthPotion, 1) > 0 {
-                heals.write(crate::player::PlayerHealRequested { amount: 2 });
+                heals.write(crate::player::PlayerHealRequested::new(2));
             }
         }
         ItemKind::SpareBattery | ItemKind::DataChip => {

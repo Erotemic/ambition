@@ -6,7 +6,7 @@ use super::*;
 pub fn collect_ecs_pickups(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
-    player: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
+    player: Query<(Entity, &crate::player::PlayerBody), With<crate::player::PlayerEntity>>,
     pickups: Query<
         (
             Entity,
@@ -28,22 +28,25 @@ pub fn collect_ecs_pickups(
         if collected.is_some() {
             continue;
         }
-        // Iterate every player so the first player to touch the
-        // pickup collects it. Single-player behavior preserved (one
-        // entity in the iterator). For a future co-op build the heal
-        // amount + banner / SFX / VFX would ideally target the
-        // collector specifically (OVERNIGHT-TODO #17.6); today the
-        // heal message is implicitly the primary player.
-        if !player
+        // Find the first overlapping player. The heal is then routed
+        // to that specific player via `PlayerHealRequested::target` so
+        // a non-primary collector still actually heals themselves
+        // (OVERNIGHT-TODO #17.6 bridge). Single-player behavior is
+        // unchanged: the iterator has one entity, and the target ==
+        // primary fallback path lands the heal on the same player.
+        let Some((collector_entity, _)) = player
             .iter()
-            .any(|pb| aabb.aabb().strict_intersects(pb.aabb()))
-        {
+            .find(|(_, pb)| aabb.aabb().strict_intersects(pb.aabb()))
+        else {
             continue;
-        }
+        };
         commands.entity(entity).insert(Collected);
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
         if let ae::PickupKind::Health { amount } = &pickup.pickup.kind {
-            heals.write(crate::player::PlayerHealRequested::new(*amount));
+            heals.write(crate::player::PlayerHealRequested::for_target(
+                *amount,
+                collector_entity,
+            ));
         }
         let pos = aabb.center;
         vfx.write(VfxMessage::Burst {

@@ -56,9 +56,15 @@ pub fn apply_feature_damage_events(
         With<FeatureSimEntity>,
     >,
     mut bosses: Query<(&FeatureId, &FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
+    // Hitstop / flash on a successful player attack apply to the
+    // primary player today. A future per-attacker version
+    // (OVERNIGHT-TODO #17.6) would carry the attacker entity on the
+    // damage event so this could attribute hitstop to the correct
+    // player; until then, `PrimaryPlayerOnly` documents the
+    // single-player-only assumption at the query.
     mut player_combat_q: Query<
         &mut crate::player::PlayerCombatState,
-        With<crate::player::PlayerEntity>,
+        crate::player::PrimaryPlayerOnly,
     >,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,

@@ -72,8 +72,14 @@ typically filter by faction/state. Today single-player parity is preserved.
 
 | File | Line | Today | Should become |
 |---|---|---|---|
-| `content/features/ecs/mod.rs` | 910, 967, 1027, 1097, 1177, 1280, 1490 | `player.single()` for pickup/breakable/chest/interactable overlap and switch toggles | `for player_body in players.iter()` — any overlapping player triggers; pickups/chests probably award the entity that touched them |
-| `content/features/ecs/damage.rs` | 281 | `player_combat_q.single_mut()` | Per-player damage routing (OVERNIGHT-TODO #17.6) |
+| `content/features/ecs/pickups.rs` | 24 | `player.single()` for pickup overlap | `for player_body in players.iter()` — any overlapping player triggers |
+| `content/features/ecs/chests.rs` | 32 | `player.single_mut()` for chest interact | iterate; each player can buffer-interact independently |
+| `content/features/ecs/breakables.rs` | 32 | `player_body_q.single()` for stand-to-break | iterate; any player standing triggers |
+| `content/features/ecs/hazards.rs` | 29 | `player.single()` for hazard damage | iterate; hazards damage every overlapping player |
+| `content/features/ecs/bosses.rs` | 41 | `player_query.single()` for boss contact damage | iterate; bosses damage every overlapping player |
+| `content/features/ecs/actors.rs` | 226 | `player_query.single()` for enemy attacks + slot board | iterate; slot board needs a per-target struct (OVERNIGHT-TODO #17.8) |
+| `content/features/ecs/interact.rs` | 37 | `player.single_mut()` for NPC dialogue + switch activation | iterate; per-player interact buffers |
+| `content/features/ecs/damage.rs` | 288 | `player_combat_q.single_mut()` | Per-player damage routing (OVERNIGHT-TODO #17.6) |
 | `enemy_projectile/systems.rs` | 32 | `player_body_q.single().ok()` for enemy aim target | Target nearest hostile actor (OVERNIGHT-TODO #17.8) |
 | `encounter/systems.rs` | 130 | `player_body_q.single()` for encounter trigger overlap | Iterate players; any player triggers |
 | `projectile/systems.rs` | 164 | `player_body_q.single()` for player projectile spawn | Should be per-player owner (OVERNIGHT-TODO #17.7) |

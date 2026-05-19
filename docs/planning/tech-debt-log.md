@@ -188,17 +188,17 @@ to the bottom under "Closed" with the commit that fixed them.
     See `feedback.rs` for the parallel `FrameFeedback` Vec-collector
     retirement plan (down to two channels: `sfx` and `vfx`).
 
-- **LOW — `RoomVisual` is a dual-purpose marker**
-  - File: `crates/ambition_sandbox/src/presentation/rendering/primitives.rs`
-  - `RoomVisual` is both the rendering tag and the "lifetime scoped
-    to current room" lifecycle marker. The room-load + reset paths
-    despawn every `RoomVisual`, and rendering systems query it to
-    filter to the active room. Works today because every sim feature
-    entity also renders, but a headless-only feature or a lazy
-    "presentation observer" pattern would need a separate
-    `RoomScopedEntity` lifecycle marker. Split when the second use
-    case lands; document both markers and update
-    `FeatureBaseBundle` accordingly.
+- **RESOLVED 2026-05-19 — `RoomVisual` is a dual-purpose marker**
+  — closed by the lifecycle/rendering separation in
+  `presentation/rendering/primitives.rs`: `RoomScopedEntity` carries
+  the room-scoped lifetime, `RoomVisual` carries only the "rendered
+  this room" tag (with `#[require(RoomScopedEntity)]` so existing
+  spawn sites stay correct). The matching bundle split landed in
+  commit 6ef63ba: `FeatureLifecycleBundle` (sim + RoomScopedEntity +
+  id/name/aabb) for headless / sim-only spawns, `FeatureRenderedBundle`
+  (lifecycle + RoomVisual) for everything that draws today.
+  `FeatureBaseBundle` is now a `pub type` alias for
+  `FeatureRenderedBundle` so callers keep compiling unchanged.
 
 - **RESOLVED 2026-05-16 — Two parallel chains in the Update schedule**
   — closed by introducing `SandboxSet` in

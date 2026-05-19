@@ -20,6 +20,7 @@ use bevy::prelude::{
 use crate::WorldTime;
 
 mod anim_helpers;
+mod banner;
 mod bosses;
 mod breakables;
 mod chests;
@@ -28,7 +29,9 @@ mod encounter_rewards;
 mod falling_chest;
 mod hazards;
 mod interact;
+mod overlay;
 mod pickups;
+mod reset;
 mod save_sync;
 mod spawn;
 mod view_index;
@@ -38,6 +41,7 @@ pub use anim_helpers::{
     ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state,
     ecs_npc_name,
 };
+pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use bosses::update_ecs_bosses;
 pub use breakables::update_ecs_breakables;
 pub use chests::open_ecs_chests;
@@ -51,7 +55,9 @@ pub use encounter_rewards::{
 pub use falling_chest::update_ecs_falling_chests;
 pub use hazards::update_ecs_hazards;
 pub use interact::interact_ecs_actors_and_switches;
+pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::collect_ecs_pickups;
+pub use reset::reset_ecs_room_features;
 pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };
@@ -263,234 +269,6 @@ pub(crate) fn sync_actor_components_from_runtime(
     *intent = next_intent;
     *cooldowns = next_cooldowns;
 }
-
-/// Collision contribution from ECS-owned breakables. Rebuilt before the main
-/// sandbox tick and consumed by `world_with_sandbox_solids` anywhere the engine
-/// needs the augmented collision world.
-#[derive(Resource, Default, Clone, Debug)]
-pub struct FeatureEcsWorldOverlay {
-    pub blocks: Vec<ae::Block>,
-}
-
-/// Tick the gameplay banner resource once per frame.
-pub fn tick_gameplay_banner(world_time: Res<WorldTime>, mut banner: ResMut<GameplayBanner>) {
-    // Sim clock: the gameplay banner displays gameplay-driven
-    // messages (quest hints, encounter intros) so its dismissal
-    // timer should pause alongside the sim — otherwise the banner
-    // burns its display window during bullet-time / pause.
-    banner.tick(world_time.sim_dt());
-}
-
-/// Apply deferred banner requests from high-param systems.
-pub fn apply_gameplay_banner_requests(
-    mut banner: ResMut<GameplayBanner>,
-    mut requests: MessageReader<GameplayBannerRequested>,
-) {
-    for request in requests.read() {
-        banner.show(request.text.clone(), request.duration);
-    }
-}
-
-/// Reset ECS-owned static feature state after a same-room sandbox reset.
-pub fn reset_ecs_room_features(
-    mut commands: Commands,
-    mut reset_requests: MessageReader<ResetRoomFeaturesEvent>,
-    collected_pickups: Query<Entity, (With<FeatureSimEntity>, With<Collected>)>,
-    opened_chests: Query<Entity, (With<FeatureSimEntity>, With<Opened>)>,
-    mut breakables: Query<
-        (Entity, &mut BreakableFeature, Option<&mut StandTimer>),
-        With<FeatureSimEntity>,
-    >,
-    mut actors: Query<
-        (
-            &mut FeatureAabb,
-            &mut ActorRuntime,
-            &mut ActorIdentity,
-            &mut ActorDisposition,
-            &mut ActorHealth,
-            &mut ActorCombatState,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
-    mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
-    mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
-    mut enemy_projectiles: ResMut<crate::enemy_projectile::EnemyProjectileState>,
-    mut combat_slots: ResMut<crate::combat_slots::CombatSlotsRes>,
-) {
-    if reset_requests.read().next().is_none() {
-        return;
-    }
-    // In-flight enemy volleys belong to the previous attempt; clear
-    // them so the room reset doesn't leave hostile shots sailing
-    // through the spawn point. Combat slot reservations are dropped
-    // for the same reason — `update_ecs_actors` will rebuild them
-    // from the freshly-respawned actor positions.
-    enemy_projectiles.clear();
-    combat_slots.0.clear_assignments();
-
-    for entity in &collected_pickups {
-        commands.entity(entity).remove::<Collected>();
-    }
-    for entity in &opened_chests {
-        commands.entity(entity).remove::<Opened>();
-    }
-    for (entity, mut feature, stand_timer) in &mut breakables {
-        feature.breakable.state = ae::BreakableState::Intact;
-        feature.breakable.health.reset();
-        if let Some(mut timer) = stand_timer {
-            timer.0 = 0.0;
-        }
-        commands.entity(entity).remove::<RespawnTimer>();
-    }
-    for (
-        mut aabb,
-        mut actor,
-        mut identity,
-        mut disposition,
-        mut health,
-        mut combat,
-        mut intent,
-        mut cooldowns,
-    ) in &mut actors
-    {
-        match &mut *actor {
-            ActorRuntime::Peaceful(npc) => {
-                npc.pos = npc.spawn;
-                aabb.center = npc.spawn;
-                npc.vel = ae::Vec2::ZERO;
-                npc.on_ground = false;
-                npc.hostile = false;
-                npc.strikes = 0;
-                npc.hit_flash = 0.0;
-            }
-            ActorRuntime::Hostile(enemy) => {
-                // Restore authored spawn state so morphed actors
-                // (PirateOnShark → PirateRaider / BurningFlyingShark)
-                // return as their original fused archetype with
-                // matching size, gravity, choreography, and rider
-                // health. Non-morphing enemies are reset to a clean
-                // baseline by the same call.
-                enemy.reset_to_spawn();
-                aabb.center = enemy.pos;
-                aabb.half_size = enemy.size * 0.5;
-            }
-        }
-        sync_actor_components_from_runtime(
-            &*actor,
-            &mut *identity,
-            &mut *disposition,
-            &mut *health,
-            &mut *combat,
-            &mut *intent,
-            &mut *cooldowns,
-        );
-    }
-    for mut boss_feature in &mut bosses {
-        let boss = &mut boss_feature.boss;
-        boss.pos = boss.spawn;
-        boss.alive = true;
-        boss.health.reset();
-        boss.pattern_timer = 0.0;
-        boss.movement_timer = 0.0;
-        boss.attack_windup_timer = 0.0;
-        boss.attack_timer = 0.0;
-        boss.attack_cooldown = 0.35;
-        boss.hit_flash = 0.0;
-    }
-    for mut hazard_feature in &mut hazards {
-        let spawn = hazard_feature.spawn;
-        hazard_feature.hazard.pos = spawn;
-        if let Some(motion_start) = hazard_feature
-            .hazard
-            .motion
-            .as_ref()
-            .and_then(PathMotion::start_pos)
-        {
-            hazard_feature.hazard.pos = motion_start;
-        }
-    }
-    for mut switch_on in &mut switches {
-        switch_on.0 = false;
-    }
-}
-
-/// Rebuild the transient collision blocks contributed by ECS-owned breakables.
-pub fn rebuild_feature_ecs_world_overlay(
-    mut overlay: ResMut<FeatureEcsWorldOverlay>,
-    breakables: Query<
-        (&FeatureId, &FeatureName, &FeatureAabb, &BreakableFeature),
-        With<FeatureSimEntity>,
-    >,
-    actors: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
-    bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
-) {
-    overlay.blocks.clear();
-    for (id, name, aabb, feature) in &breakables {
-        if feature.broken() {
-            continue;
-        }
-        if feature.breakable.pogo_refresh {
-            overlay.blocks.push(ae::Block {
-                name: format!("ecs-breakable-pogo {}", name.0.as_str()),
-                aabb: aabb.aabb(),
-                kind: ae::BlockKind::PogoOrb,
-            });
-            continue;
-        }
-        let kind = match feature.breakable.collision {
-            ae::BreakableCollision::None => continue,
-            ae::BreakableCollision::Solid => ae::BlockKind::BlinkWall {
-                tier: ae::BlinkWallTier::Hard,
-            },
-            ae::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
-        };
-        overlay.blocks.push(ae::Block {
-            name: format!("ecs-breakable {}", name.0.as_str()),
-            aabb: aabb.aabb(),
-            kind,
-        });
-        if feature.breakable.collision.blocks_movement() && feature.breakable.trigger.allows_stand()
-        {
-            overlay.blocks.push(ae::Block {
-                name: format!("ecs-breakable-pogo-target {}", id.as_str()),
-                aabb: aabb.aabb(),
-                kind: ae::BlockKind::PogoOrb,
-            });
-        }
-    }
-
-    // Expose alive enemy and boss bodies as PogoOrb ghost-blocks so the
-    // pogo-attack advance code can bounce off them without requiring the
-    // damage queue to resolve first. PogoOrb blocks do not block player
-    // movement or blink traversal, so this cannot cause collision regressions.
-    for (id, aabb, actor) in &actors {
-        let ActorRuntime::Hostile(enemy) = actor else {
-            continue;
-        };
-        if !enemy.alive {
-            continue;
-        }
-        overlay.blocks.push(ae::Block {
-            name: format!("ecs-enemy-body {}", id.as_str()),
-            aabb: aabb.aabb(),
-            kind: ae::BlockKind::PogoOrb,
-        });
-    }
-    for (id, aabb, feature) in &bosses {
-        if !feature.boss.alive {
-            continue;
-        }
-        overlay.blocks.push(ae::Block {
-            name: format!("ecs-boss-body {}", id.as_str()),
-            aabb: aabb.aabb(),
-            kind: ae::BlockKind::PogoOrb,
-        });
-    }
-}
-
 
 /// Tick ECS actors. Peaceful and hostile actors share the same entity identity
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the

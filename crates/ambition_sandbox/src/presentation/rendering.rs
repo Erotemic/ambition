@@ -35,17 +35,72 @@ mod primitives;
 mod world;
 
 pub use actors::{
-    animate_bosses, animate_characters, animate_player, animate_props, apply_hide_sprites_override,
+    animate_bosses, animate_characters, animate_player, apply_hide_sprites_override,
     apply_placeholder_sprites_override, sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites,
     upgrade_npc_sprites,
 };
 pub use camera::{camera_follow, CameraViewState};
-pub use features::spawn_dynamic_feature_visuals;
 pub use health::sync_health_overlays;
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
-pub use pirate_rider::sync_pirate_rider_visuals;
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,
 };
 pub use world::{spawn_room_visuals, sync_lock_wall_visuals};
+
+/// Module-local Bevy plugin: schedules the per-frame visual animation
+/// chain into [`crate::app::SandboxSet::PresentationVisualSync`].
+///
+/// Spawns dynamic feature visuals first (so `sync_visuals` finds them
+/// the same frame), then mirrors transforms / sprite atlas indices,
+/// overrides gnu_ton boss z, upgrades enemy / boss sprites, ticks all
+/// the per-actor animators, and finishes with the pirate rider
+/// composite. Carved out of
+/// `app/plugins.rs::install_visual_animation_systems` per
+/// OVERNIGHT-TODO #6 — every system in this chain lives under
+/// `presentation/rendering/`.
+///
+/// Pinned `.after(map_menu::handle_map_menu_hotkeys)` because the
+/// map-menu input is the last presentation-input system this set
+/// runs after; ordering is per the presentation install chain.
+pub struct PresentationVisualAnimationPlugin;
+
+impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs, Update};
+        app.add_systems(
+            Update,
+            (
+                // Spawn visual entities for encounter-spawned enemies
+                // BEFORE sync_visuals reads positions for them.
+                features::spawn_dynamic_feature_visuals,
+                actors::sync_visuals,
+                // Override gnu_ton boss z AFTER sync_visuals (which resets
+                // it to `feature_z(Boss) = 11.0`) so the body silhouette
+                // sits behind one-way platforms.
+                actors::apply_gnu_ton_body_z,
+                actors::upgrade_enemy_sprites,
+                actors::upgrade_boss_sprites,
+                actors::animate_player,
+                actors::animate_characters,
+                actors::animate_props,
+                actors::animate_bosses,
+                // Mirror parent atlas index + tint onto the hands overlay
+                // after `animate_bosses` has updated the parent's frame.
+                actors::sync_gnu_ton_hands,
+                // Pirate rider composite — reads ECS actor state and
+                // spawns/despawns presentation entities each frame, so
+                // it belongs in `PresentationVisualSync` (after
+                // `FeatureViewSync`) alongside `sync_visuals` rather
+                // than the projectile/VFX batch. Placing it here means
+                // a room reset's actor despawn is observed the same
+                // frame the rider visual disappears — no stale
+                // rider-on-no-shark across resets/transitions.
+                pirate_rider::sync_pirate_rider_visuals,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::PresentationVisualSync)
+                .after(crate::map_menu::handle_map_menu_hotkeys),
+        );
+    }
+}

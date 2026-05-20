@@ -394,7 +394,7 @@ pub fn add_presentation_plugins(app: &mut App) {
     install_presentation_resources_and_subplugins(app);
     app.add_plugins(crate::persistence::PersistenceSchedulePlugin);
     install_menu_setup_and_hotkeys(app);
-    install_visual_animation_systems(app);
+    app.add_plugins(crate::presentation::rendering::PresentationVisualAnimationPlugin);
     install_camera_and_debug_overlay_systems(app);
     install_fx_and_hud_systems(app);
     install_misc_visual_sync_systems(app);
@@ -497,42 +497,9 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 /// lives on the set itself in `configure_sandbox_sets`, NOT on this
 /// `.chain()` — that way the ordering contract is testable via a
 /// probe in the same set rather than re-typed on every call site.
-fn install_visual_animation_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            // Spawn visual entities for encounter-spawned enemies
-            // BEFORE sync_visuals reads positions for them.
-            crate::presentation::rendering::spawn_dynamic_feature_visuals,
-            sync_visuals,
-            // Override gnu_ton boss z AFTER sync_visuals (which resets
-            // it to `feature_z(Boss) = 11.0`) so the body silhouette
-            // sits behind one-way platforms.
-            crate::presentation::rendering::actors::apply_gnu_ton_body_z,
-            upgrade_enemy_sprites,
-            upgrade_boss_sprites,
-            animate_player,
-            animate_characters,
-            crate::presentation::rendering::animate_props,
-            animate_bosses,
-            // Mirror parent atlas index + tint onto the hands overlay
-            // after `animate_bosses` has updated the parent's frame.
-            crate::presentation::rendering::actors::sync_gnu_ton_hands,
-            // Pirate rider composite — reads ECS actor state and
-            // spawns/despawns presentation entities each frame, so
-            // it belongs in `PresentationVisualSync` (after
-            // `FeatureViewSync`) alongside `sync_visuals` rather
-            // than the projectile/VFX batch. Placing it here means
-            // a room reset's actor despawn is observed the same
-            // frame the rider visual disappears — no stale
-            // rider-on-no-shark across resets/transitions.
-            crate::presentation::rendering::sync_pirate_rider_visuals,
-        )
-            .chain()
-            .in_set(SandboxSet::PresentationVisualSync)
-            .after(crate::map_menu::handle_map_menu_hotkeys),
-    );
-}
+// Visual animation chain moved to
+// `crate::presentation::rendering::PresentationVisualAnimationPlugin`
+// (OVERNIGHT-TODO #6).
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
     app.add_systems(

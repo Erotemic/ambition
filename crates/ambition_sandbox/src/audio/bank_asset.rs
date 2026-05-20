@@ -41,8 +41,8 @@ use crate::audio::AudioLibrary;
 use crate::runtime::setup::SfxBankResource;
 
 /// Loaded SFX-bank asset. Wraps the parsed [`BankProvider`] in an
-/// `Arc` so [`SfxBankResource`] and any future direct consumers can
-/// share it without re-decoding.
+/// `Arc` so the private `SfxBankResource` (in `crate::runtime::setup`)
+/// and any future direct consumers can share it without re-decoding.
 #[derive(Asset, TypePath)]
 pub struct SfxBankAsset {
     pub provider: Arc<BankProvider>,

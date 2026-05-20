@@ -50,10 +50,10 @@ pub fn sync_live_player_dev_edits_system(
 
 /// While gameplay is suspended (paused, dialogue, room transition,
 /// cutscene), force `SandboxSimState::time_scale` AND the
-/// [`crate::time::time_control::RequestedClockScale`] target to 0 so any
-/// presentation system that scales an animation by `time_scale * dt`
-/// freezes — and so the smoother doesn't ramp back up on the very
-/// next frame.
+/// `RequestedClockScale` target (a private resource in
+/// `crate::time::time_control`) to 0 so any presentation system that
+/// scales an animation by `time_scale * dt` freezes — and so the
+/// smoother doesn't ramp back up on the very next frame.
 ///
 /// The previous `mode_gate_phase` did the same thing at the top of
 /// `sandbox_update`; now that `sandbox_update` is gated by

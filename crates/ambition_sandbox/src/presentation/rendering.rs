@@ -48,6 +48,52 @@ pub use primitives::{
 };
 pub use world::{spawn_room_visuals, sync_lock_wall_visuals};
 
+/// Module-local Bevy plugin: schedules player-bound visual systems
+/// (morph-ball sprite + bubble-shield sprite). Each follows the same
+/// pattern — build the texture once at startup, spawn lazily once the
+/// player entity exists, sync visibility / tint every frame after
+/// `sync_visuals` has mirrored the player transform.
+///
+/// Carved out of `app/plugins.rs::install_player_visual_systems` per
+/// OVERNIGHT-TODO #6. Lives in `presentation/rendering.rs` because
+/// both subsystems chain `.after(sync_visuals)` and are presentation-
+/// only — the body_mode + bubble_shield modules own the systems but
+/// the schedule ordering is a presentation concern.
+pub struct PlayerVisualSchedulePlugin;
+
+impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs, Startup, Update};
+        app.add_systems(Startup, crate::body_mode::build_morph_ball_sprite)
+            .add_systems(
+                Update,
+                (
+                    crate::body_mode::spawn_morph_ball_visual,
+                    crate::body_mode::sync_morph_ball_visual,
+                )
+                    .chain()
+                    .after(actors::sync_visuals),
+            )
+            // Bubble shield visual: similar pattern — toggle / tint every
+            // frame from `PlayerBody.shielding` and `PlayerBody.parrying`.
+            // Must run after `write_player_ecs_components` so `PlayerBody`
+            // is current.
+            .add_systems(
+                Startup,
+                crate::player::bubble_shield::build_bubble_shield_sprite,
+            )
+            .add_systems(
+                Update,
+                (
+                    crate::player::bubble_shield::spawn_bubble_shield_visual,
+                    crate::player::bubble_shield::sync_bubble_shield_visual,
+                )
+                    .chain()
+                    .after(actors::sync_visuals),
+            );
+    }
+}
+
 /// Module-local Bevy plugin: schedules the per-frame visual animation
 /// chain into [`crate::app::SandboxSet::PresentationVisualSync`].
 ///

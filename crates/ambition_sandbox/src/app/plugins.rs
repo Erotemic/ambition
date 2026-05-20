@@ -398,7 +398,7 @@ pub fn add_presentation_plugins(app: &mut App) {
     install_camera_and_debug_overlay_systems(app);
     install_fx_and_hud_systems(app);
     install_misc_visual_sync_systems(app);
-    install_player_visual_systems(app);
+    app.add_plugins(crate::presentation::rendering::PlayerVisualSchedulePlugin);
     install_projectile_and_vfx_systems(app);
 }
 
@@ -626,39 +626,9 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(Update, update_quest_panel.after(dialog::sync_dialog_ui));
 }
 
-/// Player-bound visuals: morph-ball sprite + bubble-shield sprite.
-/// Both follow the same pattern — build the texture once at startup,
-/// spawn lazily once the player entity exists, sync visibility / tint
-/// every frame after `sync_visuals` has mirrored the player transform.
-fn install_player_visual_systems(app: &mut App) {
-    app.add_systems(Startup, crate::body_mode::build_morph_ball_sprite)
-        .add_systems(
-            Update,
-            (
-                crate::body_mode::spawn_morph_ball_visual,
-                crate::body_mode::sync_morph_ball_visual,
-            )
-                .chain()
-                .after(sync_visuals),
-        )
-        // Bubble shield visual: similar pattern — toggle / tint every
-        // frame from `PlayerBody.shielding` and `PlayerBody.parrying`.
-        // Must run after `write_player_ecs_components` so `PlayerBody`
-        // is current.
-        .add_systems(
-            Startup,
-            crate::player::bubble_shield::build_bubble_shield_sprite,
-        )
-        .add_systems(
-            Update,
-            (
-                crate::player::bubble_shield::spawn_bubble_shield_visual,
-                crate::player::bubble_shield::sync_bubble_shield_visual,
-            )
-                .chain()
-                .after(sync_visuals),
-        );
-}
+// Player visual schedule moved to
+// `crate::presentation::rendering::PlayerVisualSchedulePlugin`
+// (OVERNIGHT-TODO #6).
 
 /// Projectile sprite ring + VFX/debris message subscribers + (input-
 /// feature-gated) blink preview ring.

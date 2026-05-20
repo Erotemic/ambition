@@ -342,8 +342,8 @@ fn start_adaptive_state(
     if start_new_bank_at_target {
         director.current_gains[new_bank.index()] = target_gains;
         director.target_gains[new_bank.index()] = target_gains;
-        for slot in 0..MAX_LAYERS {
-            channels.set_layer_volume(new_bank, slot, target_gains[slot]);
+        for (slot, &gain) in target_gains.iter().enumerate().take(MAX_LAYERS) {
+            channels.set_layer_volume(new_bank, slot, gain);
         }
     } else {
         set_bank_targets(director, new_bank, target_gains);

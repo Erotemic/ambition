@@ -8,6 +8,7 @@ use super::components::{
     PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
     PlayerMovementAuthority, PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
+use crate::features::ActorFaction;
 
 /// All simulation components required on the player entity.
 ///
@@ -49,6 +50,7 @@ pub struct PlayerSimulationBundle {
     pub attack: ActivePlayerAttack,
     pub safety: PlayerSafetyState,
     pub input: PlayerInputFrame,
+    pub faction: ActorFaction,
     pub name: Name,
 }
 
@@ -82,6 +84,7 @@ impl PlayerSimulationBundle {
             attack: ActivePlayerAttack::default(),
             safety: PlayerSafetyState::new(initial_safe_pos),
             input: PlayerInputFrame::default(),
+            faction: ActorFaction::Player,
             name: Name::new("Player"),
         }
     }

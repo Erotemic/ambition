@@ -97,6 +97,7 @@ mod plugins;
 mod resources;
 mod schedule;
 mod setup_systems;
+mod sim_resources;
 mod sim_systems;
 mod update;
 mod world_flow;

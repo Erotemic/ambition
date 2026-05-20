@@ -100,18 +100,13 @@ impl LoadingZone {
 /// Switch-flip behavior:
 /// - off → on: Off→Opening, or Closing→Opening (resumes mid-close)
 /// - on → off: On→Closing, or Opening→Closing (interrupts mid-open)
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum PortalPhase {
+    #[default]
     Off,
     Opening { elapsed: f32 },
     On,
     Closing { elapsed: f32 },
-}
-
-impl Default for PortalPhase {
-    fn default() -> Self {
-        Self::Off
-    }
 }
 
 impl PortalPhase {

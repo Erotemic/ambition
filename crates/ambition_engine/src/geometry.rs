@@ -146,13 +146,14 @@ impl AabbExt for Aabb {
 
         let moving_shape = parry_cuboid(self);
         let static_shape = parry_cuboid(rhs);
-        let mut options = ShapeCastOptions::default();
-        options.max_time_of_impact = 1.0;
-        options.target_distance = 0.0;
-        options.stop_at_penetration = true;
-        // Movement consumes `normal1` for t=0 contacts, so ask Parry to
-        // compute reliable impact geometry when a cast begins in penetration.
-        options.compute_impact_geometry_on_penetration = true;
+        let options = ShapeCastOptions {
+            max_time_of_impact: 1.0,
+            target_distance: 0.0,
+            stop_at_penetration: true,
+            // Movement consumes `normal1` for t=0 contacts, so ask Parry to
+            // compute reliable impact geometry when a cast begins in penetration.
+            compute_impact_geometry_on_penetration: true,
+        };
 
         query::cast_shapes(
             &parry_pose(self),

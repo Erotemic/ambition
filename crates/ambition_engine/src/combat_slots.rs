@@ -131,7 +131,7 @@ impl CombatSlotBoard {
     pub fn release_missing(&mut self, live_ids: &[&str]) {
         for slot in &mut self.slots {
             if let Some(id) = &slot.assigned_to {
-                if !live_ids.iter().any(|live| *live == id.as_str()) {
+                if !live_ids.contains(&id.as_str()) {
                     slot.assigned_to = None;
                 }
             }

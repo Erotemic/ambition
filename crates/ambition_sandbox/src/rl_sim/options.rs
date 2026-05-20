@@ -38,16 +38,11 @@ impl SandboxSimOptions {
 /// identical trajectories regardless of how fast the host machine
 /// runs the loop. The default fixed dt of `1.0 / 60.0` matches the
 /// visible binary's nominal 60 Hz target.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum TimestepMode {
+    #[default]
     WallClock,
     Fixed { dt: f32 },
-}
-
-impl Default for TimestepMode {
-    fn default() -> Self {
-        TimestepMode::WallClock
-    }
 }
 
 impl TimestepMode {

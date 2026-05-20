@@ -483,7 +483,7 @@ fn evaluate_aerial_orbit(
         AerialRole::Swoop => (0.85, 0.85), // lower + faster fire
     };
     let wobble_x = (radius * 0.18).min(60.0);
-    let wobble_y = (altitude * 0.10).min(28.0).max(8.0) * altitude_scale;
+    let wobble_y = (altitude * 0.10).clamp(8.0, 28.0) * altitude_scale;
     let phase = state.orbit_phase + orbit_offset;
     let mut engage_pos = Vec2::new(
         input.assigned_slot_pos.x + phase.cos() * wobble_x,

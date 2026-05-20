@@ -18,12 +18,15 @@
 //!
 //! ## Submodule layout (post-2026-05-09 split)
 //!
-//! - [`spec`] — `ProjectileKind`, `ProjectileSpec`, `FireballChargeTuning`.
-//! - [`body`] — `ProjectileBody` (per-frame state + tick / hit
+//! - `spec` — `ProjectileKind`, `ProjectileSpec`, `FireballChargeTuning`.
+//! - `body` — `ProjectileBody` (per-frame state + tick / hit
 //!   resolution) and `ProjectileSolidHit`.
-//! - [`motion_input`] — `MotionDirection`, `MotionSample`,
+//! - `motion_input` — `MotionDirection`, `MotionSample`,
 //!   `MotionInputBuffer` for QCF / half-circle gestures.
-//! - [`spawn`] — `ProjectileSpawner`, `SpawnFailure`.
+//! - `spawn` — `ProjectileSpawner`, `SpawnFailure`.
+//!
+//! All four are private (`mod`, not `pub mod`); the user-facing
+//! types are re-exported below.
 
 mod body;
 mod motion_input;

@@ -1,5 +1,102 @@
 Here’s the refactor backlog I’d give an autonomous coding agent, prioritized by maintainability/extensibility payoff. This is grounded in the latest uploaded snapshot. I could not run Rust validation here because `cargo` is unavailable in the environment, so these are static-analysis recommendations with local validation commands included.
 
+## Status (2026-05-20 engine-cleanup pass — pre-release no-compat rule)
+
+The user established a new rule: while nothing depends on this repo
+externally and no release has shipped, single-commit cold rips beat
+bridge / shim / parallel-path migrations
+(`feedback_pre_release_no_compat`). This session applied that rule to
+engine-side legacy systems blocking backend design.
+
+Commits 2f65c36…0d0744d land. Sandbox lib: 555 tests pass. Engine
+lib: 219 tests pass. Both crate builds clean. Engine surface
+shrank by ~2,300 lines of dead scaffolding + IR.
+
+**Engine-side rips:**
+
+- ✅ **#9 RoomObject / RoomObjectKind retired** — engine no longer
+  carries an authored-entity IR. The 11-variant `RoomObjectKind` enum
+  + `RoomObject { id, name, aabb, kind }` wrapper + `World.objects`
+  field gone. Sandbox-side `RoomSpec` carries per-family typed
+  `Authored<T>` Vecs (hazards, pickups, chests, breakables,
+  interactables, enemy_spawns, boss_spawns, debug_labels) — one
+  spawn loop per family in `spawn_room_feature_entities` instead of
+  a giant `match` on `RoomObjectKind`. Runtime constructors take
+  `(id, name, aabb, payload, …)` directly. Commits 2f65c36, fb07e33.
+- ✅ **engine `enemy.rs` deleted** — `Dummy`, `DummyKind`,
+  `spawn_dummies` were a pre-`EnemyArchetype` first-pass enemy
+  primitive with no external callers (397 lines). Plus
+  `combat::slash_hitbox` / `player_slash_hitbox` legacy shortcuts.
+  Commit 2007897.
+- ✅ **`Player.dash_available` deleted** — derived bool labeled
+  "Back-compat/debug convenience"; was just
+  `dash_charges_available > 0` recomputed everywhere. Plus
+  `world_with_moving_platform` singular shim. Commit 0779682.
+- ✅ **seldom_state scaffolding retired** — `state_machines.rs`
+  (287 lines) declared 25+ marker components for a state-machine
+  migration that never happened. `AmbitionStateMachinePlugin`
+  registered seldom_state but no entity spawned any `StateMachine`.
+  Encounter-controller markers (`EncounterDormant` /
+  `EncounterStarting` / `EncounterActive` / `EncounterCleared` /
+  `EncounterFailed`) were written-only — every consumer queried
+  `EncounterRegistry` directly. Deleted module + `seldom_state`
+  Cargo dep + plugin registration + `EncounterController` entity +
+  `sync_encounter_controller_states` system + reset's controller
+  despawn. Commit e9fad85.
+- ✅ **engine `music.rs` + `physics.rs` deleted** — both 50-260-line
+  "vocabulary for future story crates" modules without a single
+  game/runtime caller. `Motif` + `TANGENT_MOTIF` had two
+  self-tests; `PhysicsBodySpec` / `PhysicsBodyRole` /
+  `PhysicsMaterial` / `RagdollSpec` had vocabulary-only proptest
+  + snapshot self-tests. Commit e59fc30.
+- ✅ **`engine::DestinationLabel` deleted** — typed sandbox-side
+  authored entity for loading-zone destination labels was wired
+  through RoomSpec / RuntimeEntityEmission / render but no LDtk
+  entity ever produced one. Commit 592066a.
+- ✅ **engine `boss_patterns.rs` deleted (660 lines)** plus
+  `BossEncounterState::current_pattern_schedule` /
+  `evaluate_pattern` — the entire engine boss-attack-scheduling
+  surface (`BossPatternSchedule` / `BossPatternStep` /
+  `BossAttackKind` / `BossMovementKind` / `ArenaAnchor` /
+  `BossBeatPhase` / `ActiveBossBeat` plus six hardcoded
+  `gradient_sentinel_*` / `mockingbird_*` / `gnu_ton_*` constructor
+  methods). Sandbox uses its own typed `BossPatternStep` enum in
+  `content/features/bosses.rs`; engine module had zero external
+  callers beyond its own self-tests. Commit 9c9a2ee.
+
+**Sandbox-side rips:**
+
+- ✅ **`MechanicsRegistry` retired (393 lines + 8 self-tests)** —
+  scaffolded HUD catalog of "verbs the sandbox demos" that
+  openly admitted nothing consumed it. Commit 5b3bf33.
+- ✅ **`presentation/parallax` orphan retired (820 lines)** — a
+  data-authored parallax prototype from the 2026-05-17 themed
+  reorg, never wired into any `App::add_plugins` call. The real
+  parallax lives in `presentation::rendering::parallax`. Commit
+  deffe89.
+- ✅ **`add_http_asset_source` no-op + Brain placeholder docs** —
+  empty function reserved for "slice 9 (WebHttp packaging)" with
+  no callers; `EnemyBrain`/`BossBrain` docs updated from
+  "Placeholder enum before adopting a state-machine crate" to
+  match what they actually are (typed authoring payloads). Commit
+  0b4e9a9.
+- ✅ **engine lib.rs doc updated, `.agent` indexes refreshed** —
+  Commits a684989, 0d0744d.
+
+**Why this matters for engine design:**
+
+Engine now carries simulation primitives only:
+movement / collision / AABB / abilities / combat / character AI /
+projectile / quest / save / cutscene / ledge-grab / kinematic /
+combat slots / interaction authoring payloads / debug labels.
+No authored-entity IR (RoomObject is gone), no
+state-machine scaffold (seldom_state retired), no orphan
+vocabulary modules (music, physics, mechanics, parallax orphan,
+boss_patterns), no dead Dummy/slash_hitbox shortcuts. Adding a
+new authored entity type is "add a `Vec<Authored<T>>` field +
+spawn loop on the sandbox side", not "edit a kind enum in the
+engine and 22+ match arms."
+
 ## Status (2026-05-19 agent session — second pass)
 
 Continuing from the prior session, commits 2aab57e…871cf95 land:

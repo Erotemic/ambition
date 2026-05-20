@@ -339,12 +339,6 @@ pub fn world_with_moving_platforms(
     collision_world
 }
 
-/// Compatibility wrapper for single-platform tests.
-#[allow(dead_code)]
-pub fn world_with_moving_platform(world: &ae::World, platform: &MovingPlatformState) -> ae::World {
-    world_with_moving_platforms(world, std::slice::from_ref(platform))
-}
-
 #[derive(Component)]
 pub struct MovingPlatformVisual {
     pub index: usize,

@@ -40,8 +40,6 @@ pub struct Player {
     pub on_ground: bool,
     pub on_wall: bool,
     pub wall_normal_x: f32,
-    /// Back-compat/debug convenience: true when at least one dash charge exists.
-    pub dash_available: bool,
     /// Number of dash charges available before the next refresh.
     pub dash_charges_available: u8,
     pub air_jumps_available: u8,
@@ -184,7 +182,6 @@ impl Player {
             on_ground: false,
             on_wall: false,
             wall_normal_x: 0.0,
-            dash_available: dash_charges > 0,
             dash_charges_available: dash_charges,
             air_jumps_available: abilities.air_jump_count(DEFAULT_TUNING.air_jumps),
             fly_enabled: false,
@@ -241,14 +238,12 @@ impl Player {
     /// or pogo/rebound targets.
     pub fn refresh_movement_resources(&mut self, tuning: MovementTuning) {
         self.dash_charges_available = self.abilities.dash_charge_count();
-        self.dash_available = self.dash_charges_available > 0;
         self.air_jumps_available = self.abilities.air_jump_count(tuning.air_jumps);
     }
 
     pub(super) fn spend_dash_charge(&mut self) -> MovementOp {
         let before = self.dash_charges_available;
         self.dash_charges_available = self.dash_charges_available.saturating_sub(1);
-        self.dash_available = self.dash_charges_available > 0;
         if before >= 2 {
             MovementOp::DoubleDash
         } else {

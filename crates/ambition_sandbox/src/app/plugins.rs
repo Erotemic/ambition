@@ -60,7 +60,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_feature_interaction_systems(app);
     app.add_plugins(ldtk_world::LdtkRuntimeSpinePlugin);
     register_encounter_simulation_systems(app);
-    register_cutscene_systems(app);
+    app.add_plugins(crate::presentation::cutscene::CutsceneSchedulePlugin);
     register_gameplay_effects_systems(app);
     register_progression_chain_systems(app);
     register_progression_populate_systems(app);
@@ -276,18 +276,8 @@ fn register_encounter_simulation_systems(app: &mut App) {
 // groups so each tuple stays under Bevy's macro arity limit while
 // preserving the old drain-before-progression order.
 
-fn register_cutscene_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            crate::presentation::cutscene::auto_trigger_room_cutscenes,
-            crate::presentation::cutscene::drain_cutscene_triggers,
-            crate::presentation::cutscene::tick_active_cutscene,
-        )
-            .chain()
-            .in_set(SandboxSet::Cutscene),
-    );
-}
+// Cutscene schedule moved to
+// `crate::presentation::cutscene::CutsceneSchedulePlugin` (OVERNIGHT-TODO #6).
 
 fn register_gameplay_effects_systems(app: &mut App) {
     app.add_systems(

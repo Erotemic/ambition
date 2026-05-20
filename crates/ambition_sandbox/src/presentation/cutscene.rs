@@ -555,6 +555,31 @@ pub fn sync_cutscene_ui(
     }
 }
 
+/// Module-local Bevy plugin: schedules the cutscene chain
+/// (`auto_trigger_room_cutscenes` → `drain_cutscene_triggers` →
+/// `tick_active_cutscene`) into [`crate::app::SandboxSet::Cutscene`].
+///
+/// Carved out of `app/plugins.rs::register_cutscene_systems` per
+/// OVERNIGHT-TODO #6 (module-local plugins). Every system in this
+/// chain lives in this module, so this is the right place to own the
+/// schedule registration.
+pub struct CutsceneSchedulePlugin;
+
+impl Plugin for CutsceneSchedulePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                auto_trigger_room_cutscenes,
+                drain_cutscene_triggers,
+                tick_active_cutscene,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::Cutscene),
+        );
+    }
+}
+
 #[cfg(test)]
 mod skip_request_tests {
     use super::*;

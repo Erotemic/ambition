@@ -296,6 +296,45 @@ impl ActorFaction {
     pub fn is_hostile_side(self) -> bool {
         matches!(self, Self::Enemy | Self::Boss)
     }
+
+    /// True iff `self` needs an `ActorTarget` (hostile-side combat
+    /// actors and NPCs that face the player while idle).
+    pub fn needs_target(self) -> bool {
+        matches!(self, Self::Enemy | Self::Boss | Self::Npc)
+    }
+}
+
+/// Per-actor "who am I looking at this frame" pointer. Populated by
+/// [`select_actor_targets`](crate::features::ecs::select_actor_targets)
+/// at the top of the simulation chain to the nearest alive
+/// `ActorFaction::Player` entity.
+///
+/// Today's targeting policy is "single nearest player" (and there's
+/// exactly one player in production, so the choice is trivial); the
+/// component exists so the policy is a per-actor read, not a global
+/// `player_query.single()` hard-coded into every actor update.
+/// Co-op / split-screen builds can later swap in a per-actor policy
+/// (sticky-target, role-based, distance-weighted) without touching
+/// `enemy.update` / `npc.update` / `boss.update` signatures.
+///
+/// `entity` is `None` when no player-faction entities exist (pre-spawn,
+/// post-death-of-all-players, headless probe). `pos` defaults to the
+/// actor's own position in that case so a "no target" frame produces
+/// a self-looking no-op rather than NaN-on-zero-direction crashes
+/// in choreography or AI math.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct ActorTarget {
+    pub entity: Option<Entity>,
+    pub pos: ae::Vec2,
+}
+
+impl Default for ActorTarget {
+    fn default() -> Self {
+        Self {
+            entity: None,
+            pos: ae::Vec2::ZERO,
+        }
+    }
 }
 
 /// ECS-visible actor health. The behavior runtime is still the temporary home
@@ -581,6 +620,11 @@ pub struct EnemyActorBundle {
     /// dispatch on this rather than pattern-matching on
     /// `ActorRuntime`. See OVERNIGHT-TODO #17.2 / #17.3.
     pub faction: ActorFaction,
+    /// Per-frame "who is this actor looking at" pointer. Populated
+    /// by `select_actor_targets` to the nearest alive player-faction
+    /// entity (OVERNIGHT-TODO #17.8). Defaults to "no target",
+    /// updated each tick.
+    pub target: ActorTarget,
     pub health: ActorHealth,
     pub combat: ActorCombatState,
     pub intent: ActorIntent,

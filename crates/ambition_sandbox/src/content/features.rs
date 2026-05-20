@@ -54,9 +54,9 @@ pub use bus::{
 pub use chests::ChestRuntime;
 pub use components::{
     ActorCombatState, ActorCooldowns, ActorDisposition, ActorFaction, ActorHealth, ActorIdentity,
-    ActorIntent, BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature, ChestBundle,
-    ChestFeature, Collected, EncounterMob, EncounterRewardChest, EnemyActorBundle, FallingChest,
-    FeatureAabb, FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName,
+    ActorIntent, ActorTarget, BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature,
+    ChestBundle, ChestFeature, Collected, EncounterMob, EncounterRewardChest, EnemyActorBundle,
+    FallingChest, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName,
     FeatureRenderedBundle, Opened, PersistKey, PickupBundle, PickupFeature, PogoTargetContributor,
     RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };

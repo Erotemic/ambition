@@ -81,6 +81,7 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         BossPatternTimer(boss.pattern_timer),
         initial_phase,
         super::ActorFaction::Boss,
+        super::ActorTarget::default(),
         BossFeature::new(boss),
     ));
 }
@@ -156,6 +157,7 @@ fn spawn_enemy(
             identity,
             disposition,
             faction: super::ActorFaction::Enemy,
+            target: super::ActorTarget::default(),
             health,
             combat,
             intent,
@@ -189,6 +191,7 @@ fn spawn_interactable(
                 identity,
                 disposition,
                 faction: super::ActorFaction::Npc,
+                target: super::ActorTarget::default(),
                 health,
                 combat,
                 intent,
@@ -235,20 +238,20 @@ pub fn spawn_encounter_mob(
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
+    let feature_aabb = FeatureAabb::from_center_size(pos, size);
     commands.spawn((
         Name::new(format!("Encounter mob: {id}")),
-        FeatureSimEntity,
-        RoomVisual,
-        FeatureId::new(id.clone()),
-        FeatureName::new(id),
-        FeatureAabb::from_center_size(pos, size),
-        identity,
-        disposition,
-        super::ActorFaction::Enemy,
-        health,
-        combat,
-        intent,
-        cooldowns,
+        EnemyActorBundle {
+            base: FeatureBaseBundle::new(&id, &id, feature_aabb),
+            identity,
+            disposition,
+            faction: super::ActorFaction::Enemy,
+            target: super::ActorTarget::default(),
+            health,
+            combat,
+            intent,
+            cooldowns,
+        },
         actor,
         EncounterMob::new(encounter_id),
     ));

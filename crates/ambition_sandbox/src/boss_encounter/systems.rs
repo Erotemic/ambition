@@ -221,17 +221,13 @@ pub fn update_boss_encounters(
         }
     }
 
-    // While any encounter is in flight, the encounter music request
-    // takes precedence over the legacy mob-encounter request. We
-    // write the boss's per-phase track as `desired_track`; if both a
-    // mob encounter AND a boss are active (shouldn't happen at the
-    // same time, but guard) the boss wins because the boss path runs
-    // after `update_encounters_from_world`.
-    if let Some((_id, phase)) = registry.active_phase() {
-        let _ = phase; // Already published as MusicRequested events.
-        let _ = music_request; // Already mutated in `publish_events`.
-    }
-
+    // Per-phase music tracks are emitted as `MusicRequested` events
+    // from `publish_events` above when the engine state machine fires
+    // a phase transition, so the runtime mirror doesn't need to do a
+    // post-tick `registry.active_phase()` re-read here. (The previous
+    // implementation had a `let _ = phase; let _ = music_request;`
+    // pair to acknowledge that the values exist; with the inversion
+    // landed, those acknowledgements are no longer load-bearing.)
     let boss_anchors: Vec<(String, ae::Vec2)> = bosses_in_room
         .iter()
         .map(|(runtime_id, _name, _pos, spawn, _hp, _max_hp)| (runtime_id.clone(), *spawn))

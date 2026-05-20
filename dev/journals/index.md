@@ -34,6 +34,7 @@ Use this index when debugging a symptom. Search `dev/journals/` when in doubt; t
 | `cargo test` command grammar rejects multiple filters or unexpected args | [`cargo-test-command-lessons-2026-05-11.md`](cargo-test-command-lessons-2026-05-11.md) |
 | Android install/launch/build failure moves between Gradle, manifest, native library, assets, or logcat layers | [`lessons_learned.md`](lessons_learned.md) |
 | Overlay patch clobbers platform entrypoints or stale feature/event APIs | [`lessons_learned.md`](lessons_learned.md), [`parallax-overlay-module-graph-clobber-2026-05-11.md`](parallax-overlay-module-graph-clobber-2026-05-11.md) |
+| Headless sandbox build still pulls in winit even after moving render features off the base bevy dep (`ui_api` → `default_app` → `bevy_window` → `bevy_winit` transitive closure) | [`bevy-headless-feature-graph-2026-05-20.md`](bevy-headless-feature-graph-2026-05-20.md) |
 
 ## UI / input / Bevy
 

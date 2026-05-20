@@ -2,9 +2,9 @@
 //! input, and routes hits through ECS-native feature damage messages.
 
 use ambition_engine as ae;
-use ambition_engine::AabbExt;
 use bevy::prelude::*;
 
+use super::collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 use super::diagnostics::log_press_diagnostics;
 use super::state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent};
 use crate::audio::SfxMessage;
@@ -117,64 +117,28 @@ pub fn update_projectiles(
             continue;
         }
 
-        // Step 2: world-collision test. Fireball bounces off floors
-        // (per its `bounces_remaining` budget) on both solid blocks
-        // and one-way platforms — landing on a thin ledge feels the
-        // same to the player as landing on a thick floor. Side /
-        // ceiling / out-of-budget contacts on solids expire; the
-        // same contacts on one-ways pass through (the platform is
-        // non-solid from below and from the sides). Hadouken spawns
-        // with 0 bounces, so any solid hit expires it on the first
-        // contact, while one-way platforms simply don't stop it.
-        //
-        // Solids are checked first so a fireball overlapping both
-        // kinds in the same frame resolves against the harder
-        // surface (matches the priority used by player physics).
-        let aabb = p.body.aabb();
-        let solid_hit = world.0.blocks.iter().find(|block| {
-            matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            ) && block.aabb.strict_intersects(aabb)
-        });
-        let outcome = if let Some(block) = solid_hit {
-            Some(p.body.resolve_solid_hit(block.aabb))
-        } else {
-            let mut one_way_outcome = None;
-            for block in &world.0.blocks {
-                if !matches!(block.kind, ae::BlockKind::OneWay) {
-                    continue;
-                }
-                if !block.aabb.strict_intersects(aabb) {
-                    continue;
-                }
-                let result = p.body.resolve_one_way_hit(block.aabb);
-                if matches!(result, ae::ProjectileSolidHit::Bounced) {
-                    one_way_outcome = Some(result);
-                    break;
-                }
-                // Passthrough: keep scanning in case another one-way
-                // overlap qualifies as a top-landing. Expired isn't
-                // produced by one-way resolution.
-            }
-            one_way_outcome
-        };
-
-        match outcome {
-            Some(ae::ProjectileSolidHit::Bounced) => {
-                sfx.write(SfxMessage::Hit { pos: p.body.pos });
+        // Step 2: world-collision test, dispatched through the shared
+        // `WorldHitPolicy::PlayerBouncing` helper so the "solid first,
+        // then one-way" priority + bouncing semantics live in one
+        // place (OVERNIGHT-TODO #17.7). Player Fireballs (with
+        // `bounces_remaining > 0`) bounce off floors and pass through
+        // one-way platforms unless landing-from-above; Hadouken (0
+        // bounces) expires on the first solid hit.
+        match resolve_world_collision(&mut p.body, &world.0, WorldHitPolicy::PlayerBouncing) {
+            WorldHitOutcome::Bounced { pos } => {
+                sfx.write(SfxMessage::Hit { pos });
                 still_alive.push(p);
                 continue;
             }
-            Some(ae::ProjectileSolidHit::Expired) => {
+            WorldHitOutcome::Expired { pos } => {
                 events.push(ProjectileTraceEvent::Hit {
                     kind: p.body.kind,
                     damage: p.body.damage,
                 });
-                vfx.write(VfxMessage::Impact { pos: p.body.pos });
+                vfx.write(VfxMessage::Impact { pos });
                 continue;
             }
-            Some(ae::ProjectileSolidHit::Passthrough) | None => {}
+            WorldHitOutcome::Continue => {}
         }
 
         still_alive.push(p);

@@ -22,6 +22,7 @@
 //!   components.
 //! - [`diagnostics`] — internal motion-press logging helper.
 
+mod collision;
 mod diagnostics;
 mod state;
 mod systems;
@@ -30,6 +31,7 @@ mod visuals;
 #[cfg(test)]
 mod tests;
 
+pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 pub use state::PlayerProjectileState;
 pub use systems::update_projectiles;
 pub use visuals::{sync_projectile_visuals, PlayerProjectileVisual};

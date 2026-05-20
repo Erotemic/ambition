@@ -8,6 +8,7 @@ use super::state::EnemyProjectileState;
 use crate::audio::SfxMessage;
 use crate::features::{PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource};
 use crate::presentation::fx::VfxMessage;
+use crate::projectile::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 use crate::GameWorld;
 
 pub fn update_enemy_projectiles(
@@ -84,19 +85,21 @@ pub fn update_enemy_projectiles(
             continue;
         }
 
-        // World collision: expire on solid contact. (One-way platforms
-        // are treated as solid for enemy shots so they don't sail
-        // through floors and confuse the spatial read.)
-        let aabb = shot.body.aabb();
-        let solid_hit = world.0.blocks.iter().any(|block| {
-            matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
-            ) && block.aabb.strict_intersects(aabb)
-        });
-        if solid_hit {
-            vfx.write(VfxMessage::Impact { pos: shot.body.pos });
-            continue;
+        // World collision: dispatch through the shared resolver with
+        // the enemy faction's "expire on any contact" policy. One-way
+        // platforms are treated as solid for enemy shots so they
+        // don't sail through floors and confuse the spatial read
+        // (OVERNIGHT-TODO #17.7).
+        match resolve_world_collision(
+            &mut shot.body,
+            &world.0,
+            WorldHitPolicy::EnemyExpireOnAnyContact,
+        ) {
+            WorldHitOutcome::Expired { pos } => {
+                vfx.write(VfxMessage::Impact { pos });
+                continue;
+            }
+            WorldHitOutcome::Bounced { .. } | WorldHitOutcome::Continue => {}
         }
 
         keep.push(shot);

@@ -28,36 +28,24 @@ use bevy::prelude::*;
 #[cfg(target_os = "android")]
 use bevy::window::{AppLifecycle, WindowFocused, WindowOccluded};
 
-use super::power::PowerProfile;
 #[cfg(target_os = "android")]
 use crate::game_mode::GameMode;
 
-/// Pick a sensible default `PowerProfile` for the Android build.
-///
-/// Default is `BatterySaver`: phones run on battery, and the user
-/// can flip to `Performance` if they want maximum FPS while plugged
-/// in.
-pub fn default_power_profile() -> PowerProfile {
-    PowerProfile::BatterySaver
-}
-
 /// Bevy plugin for Android-only setup.
 ///
-/// - Inserts the initial [`PowerProfile`] resource.
-/// - Wires the suspend/resume handler that pauses the game + audio
-///   when the OS backgrounds the app.
+/// Wires the suspend/resume handler that pauses the game + audio
+/// when the OS backgrounds the app.
 pub struct AndroidPlatformPlugin;
 
 impl Plugin for AndroidPlatformPlugin {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(default_power_profile());
+    fn build(&self, _app: &mut App) {
         #[cfg(target_os = "android")]
         {
-            app.init_resource::<AndroidSuspendState>();
-            app.add_systems(PreUpdate, detect_android_suspend_state);
-            app.add_systems(Update, apply_android_suspend_to_game_mode);
+            _app.init_resource::<AndroidSuspendState>();
+            _app.add_systems(PreUpdate, detect_android_suspend_state);
+            _app.add_systems(Update, apply_android_suspend_to_game_mode);
             #[cfg(feature = "audio")]
-            app.add_systems(Update, audio_lifecycle::apply_android_suspend_to_audio);
+            _app.add_systems(Update, audio_lifecycle::apply_android_suspend_to_audio);
         }
     }
 }

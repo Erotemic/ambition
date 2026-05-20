@@ -101,12 +101,14 @@ impl PlayerInventory {
         removed
     }
 
+    #[cfg(test)]
     pub fn entries(&self) -> impl Iterator<Item = (ItemKind, u32)> + '_ {
         ItemKind::ALL
             .into_iter()
             .map(move |kind| (kind, self.count(kind)))
     }
 
+    #[cfg(test)]
     pub fn total_items(&self) -> u32 {
         self.counts.iter().sum()
     }

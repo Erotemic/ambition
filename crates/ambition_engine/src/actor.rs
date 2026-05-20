@@ -166,7 +166,10 @@ pub enum KinematicPathMode {
     PingPong,
 }
 
-/// Placeholder enum for enemy behavior before adopting a real state-machine crate.
+/// Authored enemy behavior tag. The sandbox maps `Custom(name)` to its
+/// own `EnemyArchetype` via `EnemyArchetype::from_brain`; the engine
+/// only carries this enum as a typed payload between LDtk authoring
+/// and sandbox dispatch.
 #[derive(Clone, Debug, PartialEq)]
 pub enum EnemyBrain {
     Passive,
@@ -175,7 +178,9 @@ pub enum EnemyBrain {
     Custom(String),
 }
 
-/// Placeholder enum for bosses and multi-phase encounters.
+/// Authored boss behavior tag. Same shape and contract as
+/// `EnemyBrain`: the engine doesn't simulate against the variants;
+/// the sandbox decides per-boss behavior from the payload.
 #[derive(Clone, Debug, PartialEq)]
 pub enum BossBrain {
     Dormant,

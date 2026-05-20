@@ -483,9 +483,8 @@ impl AmbitionAssetSourcePlugin {
 impl Plugin for AmbitionAssetSourcePlugin {
     fn build(&self, app: &mut App) {
         register_embedded_assets(app);
-        // HTTP / IPFS source registration hooks live alongside this
-        // for future profile-conditional registration; see
-        // [`add_http_asset_source`].
+        // Future profile-conditional source registration (HTTP / IPFS /
+        // user-data) hooks here.
         let _ = self.profile;
     }
 }
@@ -532,15 +531,6 @@ fn register_embedded_assets(app: &mut App) {
     #[cfg(feature = "static_core_assets")]
     register_embedded_core_assets(app);
 }
-
-/// Documented stub for future HTTP/HTTPS asset source registration.
-///
-/// Bevy 0.18 ships `http` and `https` features that provide
-/// `AssetReader`s; the consumer enables those features and adds the
-/// source via `AssetPlugin::source(...)`. This function is the wiring
-/// point — currently a no-op so call sites can be added now.
-#[allow(dead_code)] // Slated for slice 9 (WebHttp packaging).
-pub fn add_http_asset_source(_app: &mut App) {}
 
 #[cfg(test)]
 mod tests;

@@ -155,7 +155,6 @@ dependencies = [
  "insta",
  "parry2d 0.26.0",
  "proptest",
- "seldom_state",
  "serde",
  "serde_json",
 ]
@@ -5965,22 +5964,6 @@ dependencies = [
  "memmap2",
  "smithay-client-toolkit",
  "tiny-skia",
-]
-
-[[package]]
-name = "seldom_state"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5db0767975eeb39d99493b23adc55b14d7106c333c06dd85774fa2cb909b79d5"
-dependencies = [
- "bevy_app",
- "bevy_derive",
- "bevy_ecs",
- "bevy_log",
- "bevy_math",
- "bevy_utils",
- "either",
- "variadics_please",
 ]
 
 [[package]]

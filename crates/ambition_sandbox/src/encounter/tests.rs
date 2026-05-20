@@ -261,29 +261,18 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
         .find(|r| r.id == "mob_lab")
         .expect("mob_lab room");
     let switch_object = mob_lab
-        .world
-        .objects
+        .interactables
         .iter()
-        .find(|o| {
-            matches!(
-                &o.kind,
-                ae::RoomObjectKind::Interactable(i)
-                    if matches!(&i.kind, ae::InteractionKind::Custom(s)
-                        if s.starts_with("switch:"))
-            )
-        })
+        .find(|authored| matches!(&authored.payload.kind, ae::InteractionKind::Custom(s) if s.starts_with("switch:")))
         .expect("mob_lab has a switch interactable");
-    let payload = match &switch_object.kind {
-        ae::RoomObjectKind::Interactable(i) => match &i.kind {
-            ae::InteractionKind::Custom(s) => s.clone(),
-            _ => panic!("switch kind"),
-        },
-        _ => panic!("switch object kind"),
+    let payload = match &switch_object.payload.kind {
+        ae::InteractionKind::Custom(s) => s.clone(),
+        _ => panic!("switch kind"),
     };
     let activation = SwitchActivation::parse_custom(&payload).expect("parse");
     assert_eq!(
         switch_object.id, activation.id,
-        "RoomObject.id must equal the SwitchActivation.id so set_switch_on works"
+        "Authored switch id must equal the SwitchActivation.id so set_switch_on works"
     );
 }
 

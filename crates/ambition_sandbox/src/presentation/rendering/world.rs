@@ -9,8 +9,8 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::{
-    block_color, feature_color, feature_z, object_visual_kind, spawn_world_label, FeatureVisual,
-    LockWallVisual, PropVisual, RoomVisual,
+    block_color, feature_color, feature_z, spawn_world_label, FeatureVisual, LockWallVisual,
+    PropVisual, RoomVisual,
 };
 use crate::assets::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
@@ -23,12 +23,11 @@ use crate::world::physics;
 
 pub fn spawn_room_visuals(
     commands: &mut Commands,
-    world: &ae::World,
-    loading_zones: &[LoadingZone],
-    props: &[PropSpec],
+    spec: &crate::rooms::RoomSpec,
     physics_settings: physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
+    let world = &spec.world;
     spawn_grid(commands, world);
     for block in &world.blocks {
         spawn_block(commands, world, block, physics_settings, assets);
@@ -39,13 +38,93 @@ pub fn spawn_room_visuals(
     for region in &world.climbable_regions {
         spawn_climbable_region(commands, world, region);
     }
-    for zone in loading_zones {
+    for zone in &spec.loading_zones {
         spawn_loading_zone(commands, world, zone, assets);
     }
-    for object in &world.objects {
-        spawn_room_object(commands, world, object, assets);
+    // Per-family authored visuals. Each family carries an Authored<T>
+    // payload; spawn_authored_visual builds the sprite + label.
+    for hazard in &spec.hazards {
+        spawn_authored_hazard(commands, world, hazard, assets);
     }
-    for prop in props {
+    for pickup in &spec.pickups {
+        spawn_authored_basic(
+            commands,
+            world,
+            &pickup.id,
+            &pickup.name,
+            pickup.aabb,
+            FeatureVisualKind::Pickup,
+            game_assets::entity_sprite_for_pickup(&pickup.payload),
+            assets,
+        );
+    }
+    for chest in &spec.chests {
+        spawn_authored_chest(commands, world, chest, assets);
+    }
+    for breakable in &spec.breakables {
+        spawn_authored_basic(
+            commands,
+            world,
+            &breakable.id,
+            &breakable.name,
+            breakable.aabb,
+            FeatureVisualKind::Breakable,
+            game_assets::entity_sprite_for_breakable(&breakable.payload),
+            assets,
+        );
+    }
+    for enemy in &spec.enemy_spawns {
+        let kind = if matches!(&enemy.payload, ae::EnemyBrain::Custom(name) if name.starts_with("sandbag_"))
+        {
+            FeatureVisualKind::Sandbag
+        } else {
+            FeatureVisualKind::Enemy
+        };
+        spawn_authored_basic(
+            commands,
+            world,
+            &enemy.id,
+            &enemy.name,
+            enemy.aabb,
+            kind,
+            game_assets::entity_sprite_for_enemy(&enemy.payload),
+            assets,
+        );
+    }
+    for boss in &spec.boss_spawns {
+        spawn_authored_basic(
+            commands,
+            world,
+            &boss.id,
+            &boss.name,
+            boss.aabb,
+            FeatureVisualKind::Boss,
+            game_assets::entity_sprite_for_boss(&boss.payload),
+            assets,
+        );
+    }
+    for interactable in &spec.interactables {
+        spawn_authored_interactable(commands, world, interactable, assets);
+    }
+    for label in &spec.debug_labels {
+        spawn_world_label(
+            commands,
+            world,
+            label.payload.position,
+            &label.payload.text,
+            14.0,
+        );
+    }
+    for label in &spec.destination_labels {
+        spawn_world_label(
+            commands,
+            world,
+            label.payload.position,
+            &label.payload.text(),
+            14.0,
+        );
+    }
+    for prop in &spec.props {
         spawn_room_prop(commands, world, prop, assets);
     }
 }
@@ -359,71 +438,126 @@ pub fn spawn_loading_zone(
     spawn_world_label(commands, world, label_pos, &zone.name, 13.0);
 }
 
-pub fn spawn_room_object(
+/// Common spawn body for an authored entity with a sprite and no
+/// label. Hazards, pickups, breakables, enemies, bosses all funnel
+/// through here — they differ only in `kind` + which `EntitySprite`
+/// the asset bank resolves to.
+fn spawn_authored_basic(
     commands: &mut Commands,
     world: &ae::World,
-    object: &ae::RoomObject,
+    id: &str,
+    name: &str,
+    aabb: ae::Aabb,
+    kind: FeatureVisualKind,
+    entity_key: Option<game_assets::EntitySprite>,
     assets: Option<&GameAssets>,
 ) {
-    if let Some(kind) = object_visual_kind(&object.kind) {
-        let size = object.aabb.half_size() * 2.0;
-        let render = BVec2::new(size.x, size.y);
-        let entity_key = game_assets::entity_sprite_for_room_object(&object.kind);
-        let sprite = match assets {
-            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
-            None => Sprite::from_color(feature_color(kind, false), render),
-        };
-        commands.spawn((
-            sprite,
-            Transform::from_translation(world_to_bevy(
-                world,
-                object.aabb.center(),
-                feature_z(kind),
-            )),
-            Name::new(format!("Room object: {}", object.name)),
-            FeatureVisual {
-                id: object.id.clone(),
-            },
-            // FeatureName on the VISUAL entity (in addition to the
-            // sim entity) so per-name presentation systems (portal
-            // visibility / ring rotation / portal-anim swap) can
-            // locate the right sprite without a sim↔visual hop.
-            crate::features::FeatureName::new(object.name.clone()),
-            RoomVisual,
-        ));
-        if matches!(kind, FeatureVisualKind::Npc | FeatureVisualKind::Chest) {
-            // NPCs render with `collision_scale > 1`, so the sprite extends
-            // past the AABB top. When a character sheet is registered for
-            // this NPC, lift the label to clear the sprite's actual top by
-            // 12px; otherwise fall back to the AABB-based 22px gap (chests
-            // + anonymous NPCs render inside their AABB).
-            let half_h = object.aabb.half_size().y;
-            let mut label_dy = -half_h - 22.0;
-            if matches!(kind, FeatureVisualKind::Npc) {
-                if let Some(ch) = assets.and_then(|a| a.characters.npc_asset_for_name(&object.name))
-                {
-                    let collision = object.aabb.half_size() * 2.0;
-                    let render_h = sprite_render_size(ch.spec, collision).y;
-                    // World y is y-down: sprite top relative to AABB centre
-                    // is `half_h - render_h` (negative when render exceeds
-                    // collision). `min` so a registered sheet only ever
-                    // pushes the label further up.
-                    let sprite_top_dy = half_h - render_h;
-                    label_dy = label_dy.min(sprite_top_dy - 12.0);
-                }
-            }
-            spawn_world_label(
-                commands,
-                world,
-                object.aabb.center() + ae::Vec2::new(0.0, label_dy),
-                &object.name,
-                14.0,
-            );
+    let size = aabb.half_size() * 2.0;
+    let render = BVec2::new(size.x, size.y);
+    let sprite = match assets {
+        Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
+        None => Sprite::from_color(feature_color(kind, false), render),
+    };
+    commands.spawn((
+        sprite,
+        Transform::from_translation(world_to_bevy(world, aabb.center(), feature_z(kind))),
+        Name::new(format!("Room entity: {}", name)),
+        FeatureVisual { id: id.to_string() },
+        crate::features::FeatureName::new(name.to_string()),
+        RoomVisual,
+    ));
+}
+
+fn spawn_authored_hazard(
+    commands: &mut Commands,
+    world: &ae::World,
+    authored: &crate::rooms::Authored<ae::DamageVolume>,
+    assets: Option<&GameAssets>,
+) {
+    spawn_authored_basic(
+        commands,
+        world,
+        &authored.id,
+        &authored.name,
+        authored.aabb,
+        FeatureVisualKind::Hazard,
+        game_assets::entity_sprite_for_hazard(&authored.payload),
+        assets,
+    );
+}
+
+fn spawn_authored_chest(
+    commands: &mut Commands,
+    world: &ae::World,
+    authored: &crate::rooms::Authored<ae::Chest>,
+    assets: Option<&GameAssets>,
+) {
+    spawn_authored_basic(
+        commands,
+        world,
+        &authored.id,
+        &authored.name,
+        authored.aabb,
+        FeatureVisualKind::Chest,
+        game_assets::entity_sprite_for_chest(&authored.payload),
+        assets,
+    );
+    // Chest label (mirrors the pre-migration behavior).
+    let half_h = authored.aabb.half_size().y;
+    spawn_world_label(
+        commands,
+        world,
+        authored.aabb.center() + ae::Vec2::new(0.0, -half_h - 22.0),
+        &authored.name,
+        14.0,
+    );
+}
+
+fn spawn_authored_interactable(
+    commands: &mut Commands,
+    world: &ae::World,
+    authored: &crate::rooms::Authored<ae::Interactable>,
+    assets: Option<&GameAssets>,
+) {
+    let interactable = &authored.payload;
+    let kind = if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
+        FeatureVisualKind::Npc
+    } else if matches!(&interactable.kind, ae::InteractionKind::Custom(s) if s.starts_with("switch:"))
+    {
+        FeatureVisualKind::Switch
+    } else {
+        return;
+    };
+    spawn_authored_basic(
+        commands,
+        world,
+        &authored.id,
+        &authored.name,
+        authored.aabb,
+        kind,
+        game_assets::entity_sprite_for_interactable(interactable),
+        assets,
+    );
+    if matches!(kind, FeatureVisualKind::Npc) {
+        // NPCs render with `collision_scale > 1`, so the sprite extends
+        // past the AABB top. When a character sheet is registered for
+        // this NPC, lift the label to clear the sprite's actual top by
+        // 12px; otherwise fall back to the AABB-based 22px gap.
+        let half_h = authored.aabb.half_size().y;
+        let mut label_dy = -half_h - 22.0;
+        if let Some(ch) = assets.and_then(|a| a.characters.npc_asset_for_name(&authored.name)) {
+            let collision = authored.aabb.half_size() * 2.0;
+            let render_h = sprite_render_size(ch.spec, collision).y;
+            let sprite_top_dy = half_h - render_h;
+            label_dy = label_dy.min(sprite_top_dy - 12.0);
         }
-    } else if let ae::RoomObjectKind::DebugLabel(label) = &object.kind {
-        spawn_world_label(commands, world, label.position, &label.text, 14.0);
-    } else if let ae::RoomObjectKind::DestinationLabel(label) = &object.kind {
-        spawn_world_label(commands, world, label.position, &label.text(), 14.0);
+        spawn_world_label(
+            commands,
+            world,
+            authored.aabb.center() + ae::Vec2::new(0.0, label_dy),
+            &authored.name,
+            14.0,
+        );
     }
 }
 

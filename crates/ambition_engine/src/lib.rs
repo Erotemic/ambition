@@ -117,6 +117,5 @@ pub use state_machines::{
 };
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,
-    ClimbableSpec, RoomObject, RoomObjectKind, WaterContact, WaterKind, WaterRegion,
-    WaterVolumeSpec, World,
+    ClimbableSpec, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,
 };

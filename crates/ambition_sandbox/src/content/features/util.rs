@@ -24,30 +24,12 @@ pub(super) fn boss_space_is_free(world: &ae::World, pos: ae::Vec2, size: ae::Vec
     })
 }
 
-pub(super) fn room_paths(world: &ae::World) -> Vec<(String, ae::KinematicPath)> {
-    world
-        .objects
-        .iter()
-        .filter_map(|object| match &object.kind {
-            ae::RoomObjectKind::KinematicPath(path) => Some((object.id.clone(), path.clone())),
-            _ => None,
-        })
-        .collect()
-}
-
 pub(super) fn room_spec_paths(room: &crate::rooms::RoomSpec) -> Vec<(String, ae::KinematicPath)> {
     let mut paths: Vec<(String, ae::KinematicPath)> = Vec::new();
     for spec in &room.kinematic_paths {
         paths.push((spec.id.clone(), spec.path.clone()));
         if spec.name != spec.id {
             paths.push((spec.name.clone(), spec.path.clone()));
-        }
-    }
-    // Compatibility fallback for hand-built test worlds or older generated
-    // rooms that still mirror paths only through World::objects.
-    for (id, path) in room_paths(&room.world) {
-        if !paths.iter().any(|(existing, _)| existing == &id) {
-            paths.push((id, path));
         }
     }
     paths
@@ -92,9 +74,8 @@ pub(super) fn midpoint(a: ae::Vec2, b: ae::Vec2) -> ae::Vec2 {
 /// generic player-damage clip when no keyword matches.
 ///
 /// Long-term, a typed `HazardKind` field on the engine-side
-/// `DamageVolume` (or `RoomObjectKind::Hazard`) would let this
-/// dispatch happen on a real enum; until then the substring set is
-/// short enough to grep.
+/// `DamageVolume` would let this dispatch happen on a real enum;
+/// until then the substring set is short enough to grep.
 pub(super) fn hazard_sfx_id(name: &str) -> ambition_sfx::SfxId {
     let n = name.to_ascii_lowercase();
     if n.contains("lava") {

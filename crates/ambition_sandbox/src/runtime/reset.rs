@@ -205,9 +205,7 @@ pub fn process_sandbox_reset_request(
     );
     spawn_room_visuals(
         &mut commands,
-        &world.0,
-        &start_spec.loading_zones,
-        &start_spec.props,
+        &start_spec,
         *play_state.physics_settings,
         assets.as_deref(),
     );
@@ -304,6 +302,15 @@ mod tests {
             kinematic_paths: Vec::new(),
             moving_platforms: Vec::new(),
             props: Vec::new(),
+            hazards: Vec::new(),
+            interactables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            breakables: Vec::new(),
+            enemy_spawns: Vec::new(),
+            boss_spawns: Vec::new(),
+            debug_labels: Vec::new(),
+            destination_labels: Vec::new(),
         };
         app.insert_resource(crate::rooms::RoomSet::from_parts(
             "test",

@@ -92,6 +92,15 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         kinematic_paths: Vec::new(),
         moving_platforms: Vec::new(),
         props: Vec::new(),
+        hazards: Vec::new(),
+        interactables: Vec::new(),
+        pickups: Vec::new(),
+        chests: Vec::new(),
+        breakables: Vec::new(),
+        enemy_spawns: Vec::new(),
+        boss_spawns: Vec::new(),
+        debug_labels: Vec::new(),
+        destination_labels: Vec::new(),
     }
 }
 

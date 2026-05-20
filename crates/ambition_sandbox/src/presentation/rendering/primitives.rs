@@ -141,30 +141,6 @@ pub fn switch_on_color() -> Color {
     Color::srgba(0.20, 0.90, 0.30, 1.0)
 }
 
-pub(super) fn object_visual_kind(kind: &ae::RoomObjectKind) -> Option<FeatureVisualKind> {
-    match kind {
-        ae::RoomObjectKind::DamageVolume(_) => Some(FeatureVisualKind::Hazard),
-        ae::RoomObjectKind::Pickup(_) => Some(FeatureVisualKind::Pickup),
-        ae::RoomObjectKind::Chest(_) => Some(FeatureVisualKind::Chest),
-        ae::RoomObjectKind::Breakable(_) => Some(FeatureVisualKind::Breakable),
-        ae::RoomObjectKind::Interactable(interactable)
-            if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) =>
-        {
-            Some(FeatureVisualKind::Npc)
-        }
-        ae::RoomObjectKind::Interactable(interactable) if matches!(&interactable.kind, ae::InteractionKind::Custom(s) if s.starts_with("switch:")) => {
-            Some(FeatureVisualKind::Switch)
-        }
-        ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom(name))
-            if name.starts_with("sandbag_") =>
-        {
-            Some(FeatureVisualKind::Sandbag)
-        }
-        ae::RoomObjectKind::EnemySpawn(_) => Some(FeatureVisualKind::Enemy),
-        ae::RoomObjectKind::BossSpawn(_) => Some(FeatureVisualKind::Boss),
-        _ => None,
-    }
-}
 
 pub(super) fn feature_z(kind: FeatureVisualKind) -> f32 {
     match kind {

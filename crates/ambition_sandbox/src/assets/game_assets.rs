@@ -782,30 +782,47 @@ pub fn entity_sprite_or_color(
     }
 }
 
-/// Resolve the entity sprite to use at SPAWN time based on the engine's
-/// authored room object. Stateless choice — the runtime sync system swaps
-/// the sprite later for state-driven kinds (chest open, breakable cracked).
-pub fn entity_sprite_for_room_object(kind: &ae::RoomObjectKind) -> Option<EntitySprite> {
-    match kind {
-        ae::RoomObjectKind::DamageVolume(_) => Some(EntitySprite::HazardSpikes),
-        ae::RoomObjectKind::Pickup(p) => Some(pickup_sprite(&p.kind)),
-        ae::RoomObjectKind::Chest(_) => Some(EntitySprite::ChestClosed),
-        ae::RoomObjectKind::Breakable(_) => Some(EntitySprite::BreakableIntact),
-        ae::RoomObjectKind::Interactable(interactable)
-            if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) =>
-        {
-            Some(EntitySprite::NpcTerminal)
-        }
-        ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom(name))
-            if name.starts_with("sandbag_") =>
-        {
+/// Per-family entity-sprite resolvers. Stateless choices — the
+/// runtime sync system swaps the sprite later for state-driven kinds
+/// (chest open, breakable cracked).
+pub fn entity_sprite_for_hazard(_volume: &ae::DamageVolume) -> Option<EntitySprite> {
+    Some(EntitySprite::HazardSpikes)
+}
+
+pub fn entity_sprite_for_pickup(pickup: &ae::Pickup) -> Option<EntitySprite> {
+    Some(pickup_sprite(&pickup.kind))
+}
+
+pub fn entity_sprite_for_chest(_chest: &ae::Chest) -> Option<EntitySprite> {
+    Some(EntitySprite::ChestClosed)
+}
+
+pub fn entity_sprite_for_breakable(_breakable: &ae::Breakable) -> Option<EntitySprite> {
+    Some(EntitySprite::BreakableIntact)
+}
+
+pub fn entity_sprite_for_interactable(interactable: &ae::Interactable) -> Option<EntitySprite> {
+    if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
+        Some(EntitySprite::NpcTerminal)
+    } else {
+        None
+    }
+}
+
+pub fn entity_sprite_for_enemy(brain: &ae::EnemyBrain) -> Option<EntitySprite> {
+    match brain {
+        // Sandbag training dummies use a dedicated static sprite.
+        ae::EnemyBrain::Custom(name) if name.starts_with("sandbag_") => {
             Some(EntitySprite::SandbagDummy)
         }
-        ae::RoomObjectKind::BossSpawn(_) => Some(EntitySprite::BossCore),
-        // Enemies use the goblin spritesheet (animated), not a static
-        // entity sprite — `upgrade_enemy_sprites` handles them.
+        // Other enemies use the goblin spritesheet (animated), not a
+        // static entity sprite — `upgrade_enemy_sprites` handles them.
         _ => None,
     }
+}
+
+pub fn entity_sprite_for_boss(_brain: &ae::BossBrain) -> Option<EntitySprite> {
+    Some(EntitySprite::BossCore)
 }
 
 fn pickup_sprite(kind: &ae::PickupKind) -> EntitySprite {

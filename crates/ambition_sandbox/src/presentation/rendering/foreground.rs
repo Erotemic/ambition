@@ -14,7 +14,6 @@ use crate::assets::game_assets::{
     foreground_parallax_factor, foreground_parallax_sprite_for_biome, ForegroundParallaxSprite,
     GameAssets,
 };
-use crate::rooms::RoomMetadata;
 
 const FOREGROUND_OVERSCAN: f32 = 1.32;
 const FOREGROUND_Z: f32 = WORLD_Z_FX - 0.75;
@@ -32,17 +31,15 @@ pub struct ForegroundParallax {
 /// Spawn the active room's optional generated foreground layer.
 pub fn spawn_room_foreground_parallax(
     commands: &mut Commands,
-    world: &ae::World,
-    metadata: &RoomMetadata,
+    spec: &crate::rooms::RoomSpec,
     assets: Option<&GameAssets>,
 ) {
     let Some(assets) = assets else {
         return;
     };
-    let has_boss_spawn = world
-        .objects
-        .iter()
-        .any(|object| matches!(object.kind, ae::RoomObjectKind::BossSpawn(_)));
+    let world = &spec.world;
+    let metadata = &spec.metadata;
+    let has_boss_spawn = !spec.boss_spawns.is_empty();
     let sprite_key = if has_boss_spawn {
         ForegroundParallaxSprite::Boss
     } else {

@@ -301,14 +301,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         &room_set.active_spec().metadata,
         assets,
     );
-    spawn_room_visuals(
-        commands,
-        &world.0,
-        &room_set.active_spec().loading_zones,
-        &room_set.active_spec().props,
-        physics_settings,
-        assets,
-    );
+    spawn_room_visuals(commands, room_set.active_spec(), physics_settings, assets);
     platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);
 
     Ok(active_room)

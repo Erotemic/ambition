@@ -110,7 +110,7 @@ impl LdtkSurfaceSpec {
 #[derive(Clone, Debug, Default)]
 pub struct SurfaceCompiled {
     pub blocks: Vec<ae::Block>,
-    pub objects: Vec<ae::RoomObject>,
+    pub breakables: Vec<crate::rooms::Authored<ae::Breakable>>,
 }
 
 /// LDtk identifiers that lower into the typed runtime "surface" conversion
@@ -305,7 +305,7 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
     }
 
     let mut blocks = Vec::new();
-    let mut objects = Vec::new();
+    let mut breakables: Vec<crate::rooms::Authored<ae::Breakable>> = Vec::new();
 
     match spec.breakability {
         SurfaceBreakability::Indestructible => {
@@ -363,16 +363,16 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 SurfaceRespawn::AfterSeconds(seconds) => ae::RespawnPolicy::AfterSeconds(seconds),
             };
             breakable.pogo_refresh = pogo_orb_combo;
-            objects.push(ae::RoomObject::new(
+            breakables.push(crate::rooms::Authored::new(
                 spec.iid.clone(),
                 spec.name.clone(),
                 ae::aabb_from_min_size(spec.min, spec.size),
-                ae::RoomObjectKind::Breakable(breakable),
+                breakable,
             ));
         }
     }
 
-    Ok(SurfaceCompiled { blocks, objects })
+    Ok(SurfaceCompiled { blocks, breakables })
 }
 
 fn compile_static_surface_block(spec: &LdtkSurfaceSpec) -> Result<Option<ae::Block>, String> {

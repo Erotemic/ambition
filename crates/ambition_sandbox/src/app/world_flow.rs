@@ -156,14 +156,7 @@ pub(super) fn load_room(
         &spec.metadata,
         assets,
     );
-    spawn_room_visuals(
-        commands,
-        &world.0,
-        &spec.loading_zones,
-        &spec.props,
-        physics_settings,
-        assets,
-    );
+    spawn_room_visuals(commands, &spec, physics_settings, assets);
     platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);
     sfx.write(SfxMessage::Reset { pos: player.pos });
     if edge_exit {

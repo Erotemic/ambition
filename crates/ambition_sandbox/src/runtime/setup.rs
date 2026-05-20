@@ -344,9 +344,7 @@ fn presentation_world_inner(
     );
     spawn_room_visuals(
         commands,
-        &world.0,
-        room_set.active_loading_zones(),
-        room_set.active_props(),
+        room_set.active_spec(),
         physics_settings,
         Some(game_assets),
     );

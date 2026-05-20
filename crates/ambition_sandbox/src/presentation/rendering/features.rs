@@ -3,7 +3,6 @@
 //! remaining legacy runtime additions). Static LDtk-derived features are handled
 //! by [`super::world::spawn_room_visuals`] at room load.
 
-use ambition_engine as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -42,11 +41,10 @@ pub fn spawn_dynamic_feature_visuals(
         }
         let kind = actor.visual_kind();
         let render = BVec2::new(aabb.size().x, aabb.size().y);
-        let entity_kind = match actor {
-            ActorRuntime::Hostile(enemy) => ae::RoomObjectKind::EnemySpawn(enemy.brain.clone()),
+        let entity_key = match actor {
+            ActorRuntime::Hostile(enemy) => game_assets::entity_sprite_for_enemy(&enemy.brain),
             ActorRuntime::Peaceful(_) => continue,
         };
-        let entity_key = game_assets::entity_sprite_for_room_object(&entity_kind);
         let sprite = match assets_ref {
             Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
             None => Sprite::from_color(feature_color(kind, false), render),
@@ -66,8 +64,7 @@ pub fn spawn_dynamic_feature_visuals(
             continue;
         }
         let render = BVec2::new(aabb.size().x, aabb.size().y);
-        let entity_kind = ae::RoomObjectKind::Chest(chest.chest.clone());
-        let entity_key = game_assets::entity_sprite_for_room_object(&entity_kind);
+        let entity_key = game_assets::entity_sprite_for_chest(&chest.chest);
         let sprite = match assets_ref {
             Some(a) => entity_sprite_or_color(
                 a,

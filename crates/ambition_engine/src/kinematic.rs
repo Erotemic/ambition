@@ -179,7 +179,6 @@ mod tests {
             size: Vec2::new(800.0, 600.0),
             spawn: Vec2::new(0.0, 0.0),
             blocks,
-            objects: Vec::new(),
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
         }

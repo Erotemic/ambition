@@ -20,7 +20,6 @@ fn test_world() -> World {
             Block::solid("right wall", Vec2::new(w - 36.0, 0.0), Vec2::new(36.0, h)),
             Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(w, 24.0)),
         ],
-        objects: Vec::new(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
     }
@@ -921,7 +920,6 @@ fn partial_wall_cling_overlap_does_not_teleport_upward() {
             Vec2::new(712.0, 208.0),
             Vec2::new(16.0, 384.0),
         )],
-        objects: Vec::new(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
     };
@@ -982,7 +980,6 @@ fn descending_onto_top_corner_of_tall_block_lands_normally() {
             Vec2::new(380.0, 200.0),
             Vec2::new(40.0, 400.0),
         )],
-        objects: Vec::new(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
     };

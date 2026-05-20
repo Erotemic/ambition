@@ -465,11 +465,7 @@ fn embedded_ldtk_composes_central_hub_complex() {
         "basement should extend below hub"
     );
     assert!(
-        !room
-            .world
-            .objects
-            .iter()
-            .any(|object| matches!(&object.kind, ae::RoomObjectKind::BossSpawn(_))),
+        room.boss_spawns.is_empty(),
         "boss belongs in the boss lab, not the stitched hub basement"
     );
     let boss_room = room_set
@@ -477,12 +473,10 @@ fn embedded_ldtk_composes_central_hub_complex() {
         .iter()
         .find(|room| room.id == "basement_boss")
         .expect("boss lab room exists");
-    assert!(boss_room.world.objects.iter().any(|object| matches!(
-        &object.kind,
-        ae::RoomObjectKind::BossSpawn(_)
-    ) && object
-        .name
-        .contains("clockwork warden")));
+    assert!(boss_room
+        .boss_spawns
+        .iter()
+        .any(|authored| authored.name.contains("clockwork warden")));
 }
 
 #[test]
@@ -748,10 +742,12 @@ fn synthetic_kinematic_path_reaches_room_spec_with_area_offset() {
         vec![ae::Vec2::new(344.0, 40.0), ae::Vec2::new(416.0, 40.0)],
         "LDtk path points are level-local and must be converted into active-area-local coordinates"
     );
-    assert!(room.world.objects.iter().any(|object| matches!(
-        &object.kind,
-        ae::RoomObjectKind::KinematicPath(path) if path.points == spec.path.points
-    )));
+    // KinematicPath now lives only in `room.kinematic_paths`. The
+    // engine no longer carries a `RoomObject` mirror.
+    assert!(room
+        .kinematic_paths
+        .iter()
+        .any(|p| p.path.points == spec.path.points));
 }
 
 #[test]
@@ -820,13 +816,12 @@ fn enemy_spawn_uses_room_spec_kinematic_path_aliases() {
         .find(|room| room.id == "feature_path_lab")
         .expect("room should exist");
     let path_id = room
-        .world
-        .objects
+        .enemy_spawns
         .iter()
-        .find_map(|object| match &object.kind {
-            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Patrol {
+        .find_map(|authored| match &authored.payload {
+            ae::EnemyBrain::Patrol {
                 path_id: Some(path_id),
-            }) => Some(path_id.as_str()),
+            } => Some(path_id.as_str()),
             _ => None,
         })
         .expect("EnemySpawn Patrol:<path id> should survive LDtk lowering");
@@ -943,17 +938,13 @@ fn npc_path_id_resolves_through_room_spec_kinematic_paths() {
         .find(|room| room.id == "npc_path_lab")
         .expect("room should exist");
     let path_id = room
-        .world
-        .objects
+        .interactables
         .iter()
-        .find_map(|object| match &object.kind {
-            ae::RoomObjectKind::Interactable(interactable) => match &interactable.kind {
-                ae::InteractionKind::Npc {
-                    patrol_path_id: Some(path_id),
-                    ..
-                } => Some(path_id.as_str()),
-                _ => None,
-            },
+        .find_map(|authored| match &authored.payload.kind {
+            ae::InteractionKind::Npc {
+                patrol_path_id: Some(path_id),
+                ..
+            } => Some(path_id.as_str()),
             _ => None,
         })
         .expect("NpcSpawn path_id should survive LDtk lowering");
@@ -980,13 +971,12 @@ fn embedded_ldtk_patrol_enemy_resolves_kinematic_path_index() {
         "basement_enemies should expose authored KinematicPath specs"
     );
     let patrol_path_id = room
-        .world
-        .objects
+        .enemy_spawns
         .iter()
-        .find_map(|object| match &object.kind {
-            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Patrol {
+        .find_map(|authored| match &authored.payload {
+            ae::EnemyBrain::Patrol {
                 path_id: Some(path_id),
-            }) => Some(path_id.as_str()),
+            } => Some(path_id.as_str()),
             _ => None,
         })
         .expect("basement_enemies should contain an authored patrol enemy");
@@ -1287,7 +1277,7 @@ fn one_way_platform_compiles_to_one_way_block() {
 #[test]
 fn solid_compiles_to_solid_block() {
     let compiled = compile_identifier("Solid", [128, 32], &[]);
-    assert_eq!(compiled.objects.len(), 0);
+    assert_eq!(compiled.breakables.len(), 0);
     assert_eq!(compiled.blocks.len(), 1);
     assert!(matches!(compiled.blocks[0].kind, ae::BlockKind::Solid));
 }
@@ -1376,16 +1366,12 @@ fn breakable_platform_solid_compiles_with_solid_collision() {
         ],
     );
     assert!(compiled.blocks.is_empty());
-    assert_eq!(compiled.objects.len(), 1);
-    match &compiled.objects[0].kind {
-        ae::RoomObjectKind::Breakable(breakable) => {
-            assert_eq!(breakable.collision, ae::BreakableCollision::Solid);
-            assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
-            assert_eq!(breakable.health.max, 2);
-            assert!(!breakable.pogo_refresh);
-        }
-        other => panic!("expected Breakable, got {other:?}"),
-    }
+    assert_eq!(compiled.breakables.len(), 1);
+    let breakable = &compiled.breakables[0].payload;
+    assert_eq!(breakable.collision, ae::BreakableCollision::Solid);
+    assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
+    assert_eq!(breakable.health.max, 2);
+    assert!(!breakable.pogo_refresh);
 }
 
 /// `BreakablePlatform` with `collision=OneWayUp` lowers to a Breakable
@@ -1400,14 +1386,10 @@ fn breakable_platform_one_way_up_compiles() {
             ("trigger", Value::String("OnStand".into())),
         ],
     );
-    assert_eq!(compiled.objects.len(), 1);
-    match &compiled.objects[0].kind {
-        ae::RoomObjectKind::Breakable(breakable) => {
-            assert_eq!(breakable.collision, ae::BreakableCollision::OneWayUp);
-            assert_eq!(breakable.trigger, ae::BreakableTrigger::OnStand);
-        }
-        other => panic!("expected Breakable, got {other:?}"),
-    }
+    assert_eq!(compiled.breakables.len(), 1);
+    let breakable = &compiled.breakables[0].payload;
+    assert_eq!(breakable.collision, ae::BreakableCollision::OneWayUp);
+    assert_eq!(breakable.trigger, ae::BreakableTrigger::OnStand);
 }
 
 /// `BreakablePlatform` rejects unknown collision values. The LDtk enum
@@ -1508,16 +1490,12 @@ fn breakable_pogo_orb_compiles_with_pogo_flag() {
         &[("max_hp", Value::Number(serde_json::Number::from(4)))],
     );
     assert!(compiled.blocks.is_empty());
-    assert_eq!(compiled.objects.len(), 1);
-    match &compiled.objects[0].kind {
-        ae::RoomObjectKind::Breakable(breakable) => {
-            assert!(breakable.pogo_refresh);
-            assert_eq!(breakable.collision, ae::BreakableCollision::None);
-            assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
-            assert_eq!(breakable.health.max, 4);
-        }
-        other => panic!("expected Breakable, got {other:?}"),
-    }
+    assert_eq!(compiled.breakables.len(), 1);
+    let breakable = &compiled.breakables[0].payload;
+    assert!(breakable.pogo_refresh);
+    assert_eq!(breakable.collision, ae::BreakableCollision::None);
+    assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
+    assert_eq!(breakable.health.max, 4);
 }
 
 #[test]
@@ -1729,27 +1707,25 @@ fn intro_props_do_not_grow_interactables() {
         );
     }
 
-    // No RoomObject with an interactable matches a prop's position.
-    // The prop center must not also be the interactable center.
+    // No authored NPC interactable matches a prop's position. Props
+    // and NPCs are now distinct authored families; this pin keeps the
+    // separation honest.
     for room in &room_set.rooms {
-        for obj in &room.world.objects {
-            let ae::RoomObjectKind::Interactable(it) = &obj.kind else {
-                continue;
-            };
-            if !matches!(it.kind, ae::InteractionKind::Npc { .. }) {
+        for authored in &room.interactables {
+            if !matches!(authored.payload.kind, ae::InteractionKind::Npc { .. }) {
                 continue;
             }
             use ae::AabbExt as _;
-            let it_center = it.aabb.center();
+            let it_center = authored.aabb.center();
             for (kind, prop_pos) in &prop_positions {
                 let dx = (it_center.x - prop_pos.x).abs();
                 let dy = (it_center.y - prop_pos.y).abs();
                 assert!(
                     dx > 1.0 || dy > 1.0,
-                    "RoomObject Interactable (Npc) overlaps prop '{kind}' at \
-                     ({:.1}, {:.1}); the dedicated Prop entity should NOT emit \
-                     an Interactable. Either the migration regressed, or a new \
-                     NPC was placed exactly on top of a prop.",
+                    "authored NPC overlaps prop '{kind}' at ({:.1}, {:.1}); \
+                     the dedicated Prop entity should NOT emit an Interactable. \
+                     Either the migration regressed, or a new NPC was placed \
+                     exactly on top of a prop.",
                     prop_pos.x,
                     prop_pos.y,
                 );

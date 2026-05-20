@@ -1,165 +1,211 @@
 //! ECS-feature spawn paths.
 //!
-//! Both static room features (authored objects from `RoomSpec`) and
-//! dynamic encounter mobs land here. The two entry points stay near
-//! each other so the shape of the spawned components (bundles +
-//! markers + actor snapshot) is easy to diff when a new family is
-//! added.
+//! Both static room features (authored entities from `RoomSpec`) and
+//! dynamic encounter mobs land here. The static path is per-family —
+//! one loop per `RoomSpec.{pickups,chests,…}` — so adding a new
+//! authored entity type is "add a new Vec on RoomSpec + a new loop
+//! here" rather than "edit a match arm somewhere."
 
 use super::*;
 use crate::content::features::util::room_spec_paths;
 use bevy::prelude::Name;
 
-/// Spawn ECS-native feature entities for every static feature object in a room.
+/// Spawn ECS-native feature entities for every authored static
+/// feature in a room. One loop per family.
 pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms::RoomSpec) {
     let paths = room_spec_paths(room);
-    for object in &room.world.objects {
-        spawn_room_feature_entity(commands, object, &paths);
+    for hazard in &room.hazards {
+        spawn_hazard(commands, hazard, &paths);
+    }
+    for boss in &room.boss_spawns {
+        spawn_boss(commands, boss);
+    }
+    for pickup in &room.pickups {
+        spawn_pickup(commands, pickup);
+    }
+    for chest in &room.chests {
+        spawn_chest(commands, chest);
+    }
+    for breakable in &room.breakables {
+        spawn_breakable(commands, breakable);
+    }
+    for enemy in &room.enemy_spawns {
+        spawn_enemy(commands, enemy, &paths);
+    }
+    for interactable in &room.interactables {
+        spawn_interactable(commands, interactable, &paths);
+    }
+    // DebugLabel and DestinationLabel are presentation-only and don't
+    // spawn ECS feature entities today. The presentation layer reads
+    // them off `RoomSpec` directly.
+}
+
+fn spawn_hazard(
+    commands: &mut Commands,
+    authored: &crate::rooms::Authored<ae::DamageVolume>,
+    paths: &[(String, ae::KinematicPath)],
+) {
+    let hazard = HazardRuntime::new_with_paths(
+        authored.id.clone(),
+        authored.name.clone(),
+        authored.aabb,
+        authored.payload.clone(),
+        paths,
+    );
+    commands.spawn((
+        Name::new(format!("Feature hazard: {}", authored.name)),
+        FeatureSimEntity,
+        RoomVisual,
+        FeatureId::new(authored.id.clone()),
+        FeatureName::new(authored.name.clone()),
+        FeatureAabb::from_center_size(hazard.pos, hazard.size),
+        HazardFeature::new(hazard),
+    ));
+}
+
+fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::BossBrain>) {
+    let boss = BossRuntime::new(
+        authored.id.clone(),
+        authored.name.clone(),
+        authored.aabb,
+        authored.payload.clone(),
+    );
+    let initial_phase = BossPhase::from_alive(boss.alive);
+    commands.spawn((
+        Name::new(format!("Feature boss: {}", authored.name)),
+        FeatureSimEntity,
+        RoomVisual,
+        FeatureId::new(authored.id.clone()),
+        FeatureName::new(authored.name.clone()),
+        FeatureAabb::from_center_size(boss.pos, boss.render_size()),
+        BossPatternTimer(boss.pattern_timer),
+        initial_phase,
+        BossFeature::new(boss),
+    ));
+}
+
+fn spawn_pickup(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Pickup>) {
+    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    commands.spawn((
+        Name::new(format!("Feature pickup: {}", authored.name)),
+        PickupBundle::new(
+            &authored.id,
+            &authored.name,
+            feature_aabb,
+            authored.payload.clone(),
+        ),
+    ));
+}
+
+fn spawn_chest(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Chest>) {
+    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    commands.spawn((
+        Name::new(format!("Feature chest: {}", authored.name)),
+        ChestBundle::new(
+            &authored.id,
+            &authored.name,
+            feature_aabb,
+            authored.payload.clone(),
+        ),
+    ));
+}
+
+fn spawn_breakable(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Breakable>) {
+    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    let breakable = &authored.payload;
+    let mut entity = commands.spawn((
+        Name::new(format!("Feature breakable: {}", authored.name)),
+        FeatureSimEntity,
+        RoomVisual,
+        FeatureId::new(authored.id.clone()),
+        FeatureName::new(authored.name.clone()),
+        feature_aabb,
+        BreakableFeature::new(breakable.clone()),
+        StandTimer(0.0),
+    ));
+    if breakable.collision.blocks_movement() {
+        entity.insert(SandboxSolidContributor);
+    }
+    if breakable.pogo_refresh
+        || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand())
+    {
+        entity.insert(PogoTargetContributor);
     }
 }
 
-fn spawn_room_feature_entity(
+fn spawn_enemy(
     commands: &mut Commands,
-    object: &ae::RoomObject,
+    authored: &crate::rooms::Authored<ae::EnemyBrain>,
     paths: &[(String, ae::KinematicPath)],
 ) {
-    let feature_aabb = FeatureAabb::from_aabb(object.aabb);
-    match &object.kind {
-        ae::RoomObjectKind::DamageVolume(volume) => {
-            let hazard = HazardRuntime::new_with_paths(
-                object.id.clone(),
-                object.name.clone(),
-                object.aabb,
-                volume.clone(),
-                paths,
-            );
+    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    let actor = ActorRuntime::Hostile(EnemyRuntime::new(
+        authored.id.clone(),
+        authored.name.clone(),
+        authored.aabb,
+        authored.payload.clone(),
+        paths,
+    ));
+    let (identity, disposition, health, combat, intent, cooldowns) =
+        actor_component_snapshot(&actor);
+    commands.spawn((
+        Name::new(format!("Feature actor enemy: {}", authored.name)),
+        EnemyActorBundle {
+            base: FeatureBaseBundle::new(&authored.id, &authored.name, feature_aabb),
+            identity,
+            disposition,
+            health,
+            combat,
+            intent,
+            cooldowns,
+        },
+        actor,
+    ));
+}
+
+fn spawn_interactable(
+    commands: &mut Commands,
+    authored: &crate::rooms::Authored<ae::Interactable>,
+    paths: &[(String, ae::KinematicPath)],
+) {
+    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
+    let interactable = &authored.payload;
+    if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
+        let actor = ActorRuntime::Peaceful(NpcRuntime::new_with_paths(
+            authored.id.clone(),
+            authored.name.clone(),
+            authored.aabb,
+            interactable.clone(),
+            paths,
+        ));
+        let (identity, disposition, health, combat, intent, cooldowns) =
+            actor_component_snapshot(&actor);
+        commands.spawn((
+            Name::new(format!("Feature actor npc: {}", authored.name)),
+            EnemyActorBundle {
+                base: FeatureBaseBundle::new(&authored.id, &authored.name, feature_aabb),
+                identity,
+                disposition,
+                health,
+                combat,
+                intent,
+                cooldowns,
+            },
+            actor,
+        ));
+    } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
+        if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
             commands.spawn((
-                Name::new(format!("Feature hazard: {}", object.name)),
+                Name::new(format!("Feature switch: {}", authored.name)),
                 FeatureSimEntity,
                 RoomVisual,
-                FeatureId::new(object.id.clone()),
-                FeatureName::new(object.name.clone()),
-                FeatureAabb::from_center_size(hazard.pos, hazard.size),
-                HazardFeature::new(hazard),
-            ));
-        }
-        ae::RoomObjectKind::BossSpawn(brain) => {
-            let boss = BossRuntime::new(
-                object.id.clone(),
-                object.name.clone(),
-                object.aabb,
-                brain.clone(),
-            );
-            let initial_phase = BossPhase::from_alive(boss.alive);
-            commands.spawn((
-                Name::new(format!("Feature boss: {}", object.name)),
-                FeatureSimEntity,
-                RoomVisual,
-                FeatureId::new(object.id.clone()),
-                FeatureName::new(object.name.clone()),
-                FeatureAabb::from_center_size(boss.pos, boss.render_size()),
-                BossPatternTimer(boss.pattern_timer),
-                initial_phase,
-                BossFeature::new(boss),
-            ));
-        }
-        ae::RoomObjectKind::Pickup(pickup) => {
-            commands.spawn((
-                Name::new(format!("Feature pickup: {}", object.name)),
-                PickupBundle::new(&object.id, &object.name, feature_aabb, pickup.clone()),
-            ));
-        }
-        ae::RoomObjectKind::Chest(chest) => {
-            commands.spawn((
-                Name::new(format!("Feature chest: {}", object.name)),
-                ChestBundle::new(&object.id, &object.name, feature_aabb, chest.clone()),
-            ));
-        }
-        ae::RoomObjectKind::Breakable(breakable) => {
-            let mut entity = commands.spawn((
-                Name::new(format!("Feature breakable: {}", object.name)),
-                FeatureSimEntity,
-                RoomVisual,
-                FeatureId::new(object.id.clone()),
-                FeatureName::new(object.name.clone()),
+                FeatureId::new(authored.id.clone()),
+                FeatureName::new(authored.name.clone()),
                 feature_aabb,
-                BreakableFeature::new(breakable.clone()),
-                StandTimer(0.0),
-            ));
-            if breakable.collision.blocks_movement() {
-                entity.insert(SandboxSolidContributor);
-            }
-            if breakable.pogo_refresh
-                || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand())
-            {
-                entity.insert(PogoTargetContributor);
-            }
-        }
-        ae::RoomObjectKind::EnemySpawn(brain) => {
-            let actor = ActorRuntime::Hostile(EnemyRuntime::new(
-                object.id.clone(),
-                object.name.clone(),
-                object.aabb,
-                brain.clone(),
-                paths,
-            ));
-            let (identity, disposition, health, combat, intent, cooldowns) =
-                actor_component_snapshot(&actor);
-            commands.spawn((
-                Name::new(format!("Feature actor enemy: {}", object.name)),
-                EnemyActorBundle {
-                    base: FeatureBaseBundle::new(&object.id, &object.name, feature_aabb),
-                    identity,
-                    disposition,
-                    health,
-                    combat,
-                    intent,
-                    cooldowns,
-                },
-                actor,
+                SwitchFeature::new(activation),
+                SwitchOn(false),
             ));
         }
-        ae::RoomObjectKind::Interactable(interactable) => {
-            if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
-                let actor = ActorRuntime::Peaceful(NpcRuntime::new_with_paths(
-                    object.id.clone(),
-                    object.name.clone(),
-                    object.aabb,
-                    interactable.clone(),
-                    paths,
-                ));
-                let (identity, disposition, health, combat, intent, cooldowns) =
-                    actor_component_snapshot(&actor);
-                commands.spawn((
-                    Name::new(format!("Feature actor npc: {}", object.name)),
-                    EnemyActorBundle {
-                        base: FeatureBaseBundle::new(&object.id, &object.name, feature_aabb),
-                        identity,
-                        disposition,
-                        health,
-                        combat,
-                        intent,
-                        cooldowns,
-                    },
-                    actor,
-                ));
-            } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
-                if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload)
-                {
-                    commands.spawn((
-                        Name::new(format!("Feature switch: {}", object.name)),
-                        FeatureSimEntity,
-                        RoomVisual,
-                        FeatureId::new(object.id.clone()),
-                        FeatureName::new(object.name.clone()),
-                        feature_aabb,
-                        SwitchFeature::new(activation),
-                        SwitchOn(false),
-                    ));
-                }
-            }
-        }
-        _ => {}
     }
 }
 

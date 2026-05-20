@@ -116,13 +116,24 @@ impl LdtkProject {
         let mut spawn = None;
         let mut blocks = Vec::new();
         let mut loading_zones = Vec::new();
-        let mut objects = Vec::new();
         let mut water_regions = Vec::new();
         let mut climbable_regions = Vec::new();
         let mut moving_platforms: Vec<crate::world::platforms::MovingPlatformSpec> = Vec::new();
         let mut camera_zones: Vec<CameraZoneSpec> = Vec::new();
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut props: Vec<PropSpec> = Vec::new();
+        // Per-family authored entity lists. Each LDtk entity emits into
+        // exactly one of these (or into one of the non-authored Vecs
+        // above).
+        let mut hazards: Vec<crate::rooms::Authored<ae::DamageVolume>> = Vec::new();
+        let mut interactables: Vec<crate::rooms::Authored<ae::Interactable>> = Vec::new();
+        let mut pickups: Vec<crate::rooms::Authored<ae::Pickup>> = Vec::new();
+        let mut chests: Vec<crate::rooms::Authored<ae::Chest>> = Vec::new();
+        let mut breakables: Vec<crate::rooms::Authored<ae::Breakable>> = Vec::new();
+        let mut enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>> = Vec::new();
+        let mut boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>> = Vec::new();
+        let mut debug_labels: Vec<crate::rooms::Authored<ae::DebugLabel>> = Vec::new();
+        let mut destination_labels: Vec<crate::rooms::Authored<ae::DestinationLabel>> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -152,12 +163,20 @@ impl LdtkProject {
                         }
                         blocks.extend(emission.blocks);
                         loading_zones.extend(emission.zones);
-                        objects.extend(emission.objects);
                         water_regions.extend(emission.water_regions);
                         moving_platforms.extend(emission.moving_platforms);
                         camera_zones.extend(emission.camera_zones);
                         kinematic_paths.extend(emission.kinematic_paths);
                         props.extend(emission.props);
+                        hazards.extend(emission.hazards);
+                        interactables.extend(emission.interactables);
+                        pickups.extend(emission.pickups);
+                        chests.extend(emission.chests);
+                        breakables.extend(emission.breakables);
+                        enemy_spawns.extend(emission.enemy_spawns);
+                        boss_spawns.extend(emission.boss_spawns);
+                        debug_labels.extend(emission.debug_labels);
+                        destination_labels.extend(emission.destination_labels);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -222,21 +241,29 @@ impl LdtkProject {
 
         Ok(RoomSpec {
             id: area_id.to_string(),
-            world: ae::World {
-                name: format!("Ambition: {}", area_id.replace('_', " ")),
-                size: ae::Vec2::new(max_x - min_x, max_y - min_y),
-                spawn: spawn.unwrap_or_else(|| ae::Vec2::new(96.0, 96.0)),
+            world: ae::World::new(
+                format!("Ambition: {}", area_id.replace('_', " ")),
+                ae::Vec2::new(max_x - min_x, max_y - min_y),
+                spawn.unwrap_or_else(|| ae::Vec2::new(96.0, 96.0)),
                 blocks,
-                objects,
-                water_regions,
-                climbable_regions,
-            },
+            )
+            .with_water_regions(water_regions)
+            .with_climbable_regions(climbable_regions),
             loading_zones,
             metadata,
             camera_zones,
             kinematic_paths,
             moving_platforms: resolved_moving_platforms,
             props,
+            hazards,
+            interactables,
+            pickups,
+            chests,
+            breakables,
+            enemy_spawns,
+            boss_spawns,
+            debug_labels,
+            destination_labels,
         })
     }
 
@@ -260,14 +287,16 @@ impl LdtkProject {
 ///
 /// LDtk entities historically mapped 1:1 to a single emitted runtime piece.
 /// With `Surface`, a single LDtk entity can compile into multiple emissions
-/// (e.g. a Block for static collision plus an Object for breakable lifetime),
-/// so the conversion API yields a struct rather than a one-of enum.
+/// (e.g. a `Block` for static collision plus a typed authored entity for the
+/// breakable lifetime), so the conversion API yields a struct rather than a
+/// one-of enum. Per-family Vecs replace the retired generic
+/// `Vec<ae::RoomObject>` so the room composer can route each family into
+/// its own `RoomSpec` field without re-dispatching on a kind enum.
 #[derive(Clone, Debug, Default)]
 pub(super) struct RuntimeEntityEmission {
     pub(super) spawn: Option<ae::Vec2>,
     pub(super) blocks: Vec<ae::Block>,
     pub(super) zones: Vec<LoadingZone>,
-    pub(super) objects: Vec<ae::RoomObject>,
     pub(super) water_regions: Vec<ae::WaterRegion>,
     /// LDtk-authored moving platforms emitted by this entity.
     ///
@@ -278,9 +307,19 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) camera_zones: Vec<CameraZoneSpec>,
     pub(super) kinematic_paths: Vec<KinematicPathSpec>,
     /// LDtk-authored decorative props emitted by this entity. Most
-    /// entities emit zero; `Prop` emits one. Stays off `objects` so
-    /// the engine never sees them.
+    /// entities emit zero; `Prop` emits one. Render-only — see
+    /// [`PropSpec`].
     pub(super) props: Vec<PropSpec>,
+    // --- Per-family authored entity emissions:
+    pub(super) hazards: Vec<crate::rooms::Authored<ae::DamageVolume>>,
+    pub(super) interactables: Vec<crate::rooms::Authored<ae::Interactable>>,
+    pub(super) pickups: Vec<crate::rooms::Authored<ae::Pickup>>,
+    pub(super) chests: Vec<crate::rooms::Authored<ae::Chest>>,
+    pub(super) breakables: Vec<crate::rooms::Authored<ae::Breakable>>,
+    pub(super) enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>>,
+    pub(super) boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>>,
+    pub(super) debug_labels: Vec<crate::rooms::Authored<ae::DebugLabel>>,
+    pub(super) destination_labels: Vec<crate::rooms::Authored<ae::DestinationLabel>>,
     pub(super) ignored: bool,
 }
 
@@ -302,13 +341,6 @@ impl RuntimeEntityEmission {
     fn zone(zone: LoadingZone) -> Self {
         Self {
             zones: vec![zone],
-            ..Self::default()
-        }
-    }
-
-    fn object(object: ae::RoomObject) -> Self {
-        Self {
-            objects: vec![object],
             ..Self::default()
         }
     }
@@ -341,15 +373,8 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn kinematic_path(object_id: String, spec: KinematicPathSpec) -> Self {
-        let object = ae::RoomObject::new(
-            object_id,
-            spec.name.clone(),
-            spec.aabb,
-            ae::RoomObjectKind::KinematicPath(spec.path.clone()),
-        );
+    fn kinematic_path(spec: KinematicPathSpec) -> Self {
         Self {
-            objects: vec![object],
             kinematic_paths: vec![spec],
             ..Self::default()
         }
@@ -358,7 +383,66 @@ impl RuntimeEntityEmission {
     fn from_compiled(compiled: SurfaceCompiled) -> Self {
         Self {
             blocks: compiled.blocks,
-            objects: compiled.objects,
+            breakables: compiled.breakables,
+            ..Self::default()
+        }
+    }
+
+    // Per-family typed emitters. The conversion sites use these instead of
+    // wrapping payloads in a generic `RoomObject { kind: ... }`.
+    fn hazard(authored: crate::rooms::Authored<ae::DamageVolume>) -> Self {
+        Self {
+            hazards: vec![authored],
+            ..Self::default()
+        }
+    }
+
+    fn interactable(authored: crate::rooms::Authored<ae::Interactable>) -> Self {
+        Self {
+            interactables: vec![authored],
+            ..Self::default()
+        }
+    }
+
+    fn pickup(authored: crate::rooms::Authored<ae::Pickup>) -> Self {
+        Self {
+            pickups: vec![authored],
+            ..Self::default()
+        }
+    }
+
+    fn chest(authored: crate::rooms::Authored<ae::Chest>) -> Self {
+        Self {
+            chests: vec![authored],
+            ..Self::default()
+        }
+    }
+
+    fn enemy_spawn(authored: crate::rooms::Authored<ae::EnemyBrain>) -> Self {
+        Self {
+            enemy_spawns: vec![authored],
+            ..Self::default()
+        }
+    }
+
+    fn boss_spawn(authored: crate::rooms::Authored<ae::BossBrain>) -> Self {
+        Self {
+            boss_spawns: vec![authored],
+            ..Self::default()
+        }
+    }
+
+    fn debug_label(authored: crate::rooms::Authored<ae::DebugLabel>) -> Self {
+        Self {
+            debug_labels: vec![authored],
+            ..Self::default()
+        }
+    }
+
+    #[allow(dead_code)] // DestinationLabel emission lands when the LDtk entity gets re-wired.
+    fn destination_label(authored: crate::rooms::Authored<ae::DestinationLabel>) -> Self {
+        Self {
+            destination_labels: vec![authored],
             ..Self::default()
         }
     }
@@ -409,15 +493,13 @@ fn compact_path_name(name: &str) -> Option<String> {
     Some(slug.strip_suffix("_path").unwrap_or(&slug).to_string())
 }
 
-fn runtime_room_object(
+fn authored_triple(
     entity: &LdtkEntityInstance,
     name: String,
     min: ae::Vec2,
     size: ae::Vec2,
-    kind: ae::RoomObjectKind,
-) -> ae::RoomObject {
-    let aabb = object_aabb(min, size);
-    ae::RoomObject::new(entity.iid.clone(), name, aabb, kind)
+) -> (String, String, ae::Aabb) {
+    (entity.iid.clone(), name, object_aabb(min, size))
 }
 
 pub(super) fn entity_to_runtime(
@@ -511,11 +593,11 @@ fn convert_damage_volume(
         path.points = offset_points(path.points, offset);
         path
     });
-    RuntimeEntityEmission::object(ae::RoomObject::new(
+    RuntimeEntityEmission::hazard(crate::rooms::Authored::new(
         entity.iid.clone(),
         name,
         aabb,
-        ae::RoomObjectKind::DamageVolume(volume),
+        volume,
     ))
 }
 
@@ -548,15 +630,12 @@ fn convert_kinematic_path(
             .unwrap_or(0.0)
             .max(0.0),
     };
-    Ok(RuntimeEntityEmission::kinematic_path(
-        entity.iid.clone(),
-        KinematicPathSpec::new(
-            path_lookup_id(entity, &name),
-            name,
-            object_aabb(min, size),
-            path,
-        ),
-    ))
+    Ok(RuntimeEntityEmission::kinematic_path(KinematicPathSpec::new(
+        path_lookup_id(entity, &name),
+        name,
+        object_aabb(min, size),
+        path,
+    )))
 }
 
 fn convert_prop(
@@ -601,13 +680,8 @@ fn convert_npc_spawn(
                 .or_else(|| field_string(entity, "patrol_path_id")),
         },
     );
-    RuntimeEntityEmission::object(runtime_room_object(
-        entity,
-        name,
-        min,
-        size,
-        ae::RoomObjectKind::Interactable(interactable),
-    ))
+    let (id, name, aabb) = authored_triple(entity, name, min, size);
+    RuntimeEntityEmission::interactable(crate::rooms::Authored::new(id, name, aabb, interactable))
 }
 
 fn convert_pickup_spawn(
@@ -620,13 +694,8 @@ fn convert_pickup_spawn(
         entity.iid.clone(),
         parse_pickup_kind(&field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string())),
     );
-    RuntimeEntityEmission::object(runtime_room_object(
-        entity,
-        name,
-        min,
-        size,
-        ae::RoomObjectKind::Pickup(pickup),
-    ))
+    let (id, name, aabb) = authored_triple(entity, name, min, size);
+    RuntimeEntityEmission::pickup(crate::rooms::Authored::new(id, name, aabb, pickup))
 }
 
 fn convert_chest_spawn(
@@ -639,13 +708,8 @@ fn convert_chest_spawn(
         entity.iid.clone(),
         field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
     );
-    RuntimeEntityEmission::object(runtime_room_object(
-        entity,
-        name,
-        min,
-        size,
-        ae::RoomObjectKind::Chest(chest),
-    ))
+    let (id, name, aabb) = authored_triple(entity, name, min, size);
+    RuntimeEntityEmission::chest(crate::rooms::Authored::new(id, name, aabb, chest))
 }
 
 fn convert_enemy_spawn(
@@ -665,13 +729,8 @@ fn convert_enemy_spawn(
             };
         }
     }
-    RuntimeEntityEmission::object(runtime_room_object(
-        entity,
-        name,
-        min,
-        size,
-        ae::RoomObjectKind::EnemySpawn(brain),
-    ))
+    let (id, name, aabb) = authored_triple(entity, name, min, size);
+    RuntimeEntityEmission::enemy_spawn(crate::rooms::Authored::new(id, name, aabb, brain))
 }
 
 fn convert_boss_spawn(
@@ -680,15 +739,10 @@ fn convert_boss_spawn(
     min: ae::Vec2,
     size: ae::Vec2,
 ) -> RuntimeEntityEmission {
-    RuntimeEntityEmission::object(runtime_room_object(
-        entity,
-        name,
-        min,
-        size,
-        ae::RoomObjectKind::BossSpawn(parse_boss_brain(
-            &field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()),
-        )),
-    ))
+    let brain =
+        parse_boss_brain(&field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()));
+    let (id, name, aabb) = authored_triple(entity, name, min, size);
+    RuntimeEntityEmission::boss_spawn(crate::rooms::Authored::new(id, name, aabb, brain))
 }
 
 fn convert_debug_label(
@@ -706,11 +760,11 @@ fn convert_debug_label(
             &field_string(entity, "category").unwrap_or_else(|| "Custom".to_string()),
         ),
     );
-    RuntimeEntityEmission::object(ae::RoomObject::new(
+    RuntimeEntityEmission::debug_label(crate::rooms::Authored::new(
         entity.iid.clone(),
         name,
         aabb,
-        ae::RoomObjectKind::DebugLabel(label),
+        label,
     ))
 }
 
@@ -826,14 +880,14 @@ fn convert_switch(
         ae::InteractionKind::Custom(activation.to_custom_payload()),
     );
     // Use the LDtk field `id` (carried on activation) for the
-    // RoomObject id so the SwitchRuntime id matches the
-    // SwitchActivation id. (`runtime_room_object` defaults to
-    // entity.iid like "Switch-4072"; that mismatch silently no-op'd
-    // switch state updates and left the switch sprite stuck red.)
-    RuntimeEntityEmission::object(ae::RoomObject::new(
+    // authored entity id so the SwitchRuntime id matches the
+    // SwitchActivation id. The entity.iid would default to something
+    // like "Switch-4072"; that mismatch silently no-op'd switch state
+    // updates and left the switch sprite stuck red.
+    RuntimeEntityEmission::interactable(crate::rooms::Authored::new(
         activation.id,
         name,
         aabb,
-        ae::RoomObjectKind::Interactable(interactable),
+        interactable,
     ))
 }

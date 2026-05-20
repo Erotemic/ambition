@@ -496,6 +496,38 @@ pub struct PropSpec {
     pub size: ae::Vec2,
 }
 
+/// Authored entity payload — `(id, name, aabb, payload)`.
+///
+/// Sandbox-side replacement for the retired `ae::RoomObject` IR. Each
+/// per-family Vec on [`RoomSpec`] carries one of these per LDtk entity
+/// (or surface-compiled entity, or RON-authored entity); the engine
+/// crate no longer knows about authored entities at all. Per-family
+/// typing means "add a new authored entity type" is "add a new field
+/// to RoomSpec + a new spawn loop", not "edit a `match arm` somewhere".
+#[derive(Clone, Debug, PartialEq)]
+pub struct Authored<T> {
+    pub id: String,
+    pub name: String,
+    pub aabb: ae::Aabb,
+    pub payload: T,
+}
+
+impl<T> Authored<T> {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        payload: T,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            aabb,
+            payload,
+        }
+    }
+}
+
 /// Complete room data used by the Bevy sandbox.
 #[derive(Clone, Debug)]
 pub struct RoomSpec {
@@ -504,17 +536,28 @@ pub struct RoomSpec {
     pub loading_zones: Vec<LoadingZone>,
     pub metadata: RoomMetadata,
     pub camera_zones: Vec<CameraZoneSpec>,
-    /// LDtk-authored path index for platforms, hazards, NPC patrols, camera
-    /// rails, and future scripted room beats. `World::objects` still mirrors
-    /// these as `RoomObjectKind::KinematicPath` for older consumers, but new
-    /// systems should use this typed area-local index.
+    /// LDtk-authored path index for platforms, hazards, NPC patrols,
+    /// camera rails, and future scripted room beats.
     pub kinematic_paths: Vec<KinematicPathSpec>,
-    /// LDtk-authored moving platforms for this area. This is the complete
-    /// platform set for gameplay: if the vector is empty, the room has no
-    /// moving platforms.
+    /// LDtk-authored moving platforms for this area. This is the
+    /// complete platform set for gameplay: empty means the room has
+    /// no moving platforms.
     pub moving_platforms: Vec<crate::world::platforms::MovingPlatformState>,
     /// LDtk-authored decorative props. Render-only — see [`PropSpec`].
     pub props: Vec<PropSpec>,
+
+    // --- Per-family authored entity lists (replaces the retired
+    //     `ae::World::objects: Vec<RoomObject>` / `RoomObjectKind`
+    //     dispatch IR). Each family spawns through its own ECS path.
+    pub hazards: Vec<Authored<ae::DamageVolume>>,
+    pub interactables: Vec<Authored<ae::Interactable>>,
+    pub pickups: Vec<Authored<ae::Pickup>>,
+    pub chests: Vec<Authored<ae::Chest>>,
+    pub breakables: Vec<Authored<ae::Breakable>>,
+    pub enemy_spawns: Vec<Authored<ae::EnemyBrain>>,
+    pub boss_spawns: Vec<Authored<ae::BossBrain>>,
+    pub debug_labels: Vec<Authored<ae::DebugLabel>>,
+    pub destination_labels: Vec<Authored<ae::DestinationLabel>>,
 }
 
 #[derive(Clone, Debug)]

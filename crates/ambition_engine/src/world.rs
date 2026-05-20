@@ -3,11 +3,7 @@
 //! The engine models room geometry as named blocks. The Bevy sandbox decides
 //! how to draw each block; the engine only cares about collision semantics.
 
-use crate::actor::{Actor, BossBrain, EnemyBrain, KinematicPath};
-use crate::combat::DamageVolume;
-use crate::debug::{DebugLabel, DestinationLabel};
 use crate::geometry::{aabb_from_min_size, Aabb, AabbExt};
-use crate::interaction::{Breakable, Chest, Interactable, Pickup};
 use crate::Vec2;
 
 /// Upgrade tier required to blink through a blink wall.
@@ -94,51 +90,6 @@ impl Block {
             kind: BlockKind::Rebound { impulse },
         }
     }
-}
-
-/// Data-first room object wrapper used by future sandbox/story content.
-///
-/// Blocks remain the collision tile/fixture language. Room objects are authored
-/// entities layered on top of room geometry: hazards, interactables, pickups,
-/// chests, breakables, enemy/boss spawns, kinematic paths, and debug labels.
-#[derive(Clone, Debug, PartialEq)]
-pub struct RoomObject {
-    pub id: String,
-    pub name: String,
-    pub aabb: Aabb,
-    pub kind: RoomObjectKind,
-}
-
-impl RoomObject {
-    pub fn new(
-        id: impl Into<String>,
-        name: impl Into<String>,
-        aabb: Aabb,
-        kind: RoomObjectKind,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            name: name.into(),
-            aabb,
-            kind,
-        }
-    }
-}
-
-/// Reusable taxonomy for authored room entities.
-#[derive(Clone, Debug, PartialEq)]
-pub enum RoomObjectKind {
-    DamageVolume(DamageVolume),
-    Interactable(Interactable),
-    Pickup(Pickup),
-    Chest(Chest),
-    Breakable(Breakable),
-    Actor(Actor),
-    EnemySpawn(EnemyBrain),
-    BossSpawn(BossBrain),
-    KinematicPath(KinematicPath),
-    DebugLabel(DebugLabel),
-    DestinationLabel(DestinationLabel),
 }
 
 /// Authored water volume tuning. The simulation reads this when the
@@ -294,13 +245,20 @@ pub struct ClimbableContact {
 }
 
 /// Complete generated room spec.
+///
+/// Engine-side `World` carries only simulation primitives: blocks,
+/// source-agnostic water + climbable regions, and the room's nominal
+/// size / spawn / display name. Authored entities (hazards, pickups,
+/// chests, enemies, bosses, NPCs, switches, labels) live on the
+/// sandbox-side `RoomSpec` in per-family Vecs — see
+/// `crate::rooms::RoomSpec` in `ambition_sandbox`. The engine has no
+/// authored-entity IR.
 #[derive(Clone, Debug)]
 pub struct World {
     pub name: String,
     pub size: Vec2,
     pub spawn: Vec2,
     pub blocks: Vec<Block>,
-    pub objects: Vec<RoomObject>,
     /// Source-agnostic water regions. Authoring may come from LDtk
     /// entities, an LDtk IntGrid water layer, or generated content.
     /// Movement only reads this list (via `water_at`), never the
@@ -330,15 +288,9 @@ impl World {
             size,
             spawn,
             blocks,
-            objects: Vec::new(),
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
         }
-    }
-
-    pub fn with_objects(mut self, objects: Vec<RoomObject>) -> Self {
-        self.objects = objects;
-        self
     }
 
     pub fn with_water_regions(mut self, regions: Vec<WaterRegion>) -> Self {
@@ -452,14 +404,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn world_new_starts_without_authored_objects() {
+    fn world_new_starts_without_water_or_climbable_regions() {
         let world = World::new(
             "test",
             Vec2::new(100.0, 80.0),
             Vec2::new(20.0, 20.0),
             Vec::new(),
         );
-        assert!(world.objects.is_empty());
+        // Engine `World` no longer carries authored entities — those
+        // live on the sandbox-side `RoomSpec`. Pin that the engine
+        // starts with empty region lists too so future authors don't
+        // re-add an authored-entity Vec without thinking about the
+        // sandbox/engine boundary.
+        assert!(world.water_regions.is_empty());
+        assert!(world.climbable_regions.is_empty());
     }
 
     #[test]

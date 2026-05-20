@@ -463,6 +463,15 @@ mod tests {
             kinematic_paths: Vec::new(),
             moving_platforms: platforms,
             props: Vec::new(),
+            hazards: Vec::new(),
+            interactables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            breakables: Vec::new(),
+            enemy_spawns: Vec::new(),
+            boss_spawns: Vec::new(),
+            debug_labels: Vec::new(),
+            destination_labels: Vec::new(),
         }
     }
 

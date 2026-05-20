@@ -22,6 +22,7 @@ Use this index before refactors or when planning validation. Benchmark candidate
 | Removing sync systems leaves stale ECS components | [`bevy-ecs-stale-component-after-sync-removal-2026-05-15.md`](bevy-ecs-stale-component-after-sync-removal-2026-05-15.md) |
 | Resource derives/attributes drift during extraction | [`rust-attribute-drift-resource-derive-question-2026-05-12.md`](rust-attribute-drift-resource-derive-question-2026-05-12.md) |
 | Typed event/message API clobbered by stale overlays | [`overlay-stale-feature-events-api-question-2026-05-12.md`](overlay-stale-feature-events-api-question-2026-05-12.md) |
+| Bevy feature graph transitively re-enables `bevy_window` / `bevy_winit` even after removing `default_app` from the base dep | [`bevy-feature-graph-headless-2026-05-20.md`](bevy-feature-graph-headless-2026-05-20.md) |
 
 ## Movement / collision invariants
 

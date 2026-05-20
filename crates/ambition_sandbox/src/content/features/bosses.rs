@@ -307,13 +307,13 @@ impl BossBehaviorProfile {
     /// monolith; the other bosses feel like dueling opponents.
     ///
     /// Phase pacing (longer than other bosses by design):
-    /// - Intro      : single show-of-force slam (no rest after) to set tone
-    /// - Phase 1    : ~9s — slam → rest → sweep → rest → slam → long rest
-    /// - Transition : ~3s pure rest (player gets a breath)
-    /// - Phase 2    : ~12s — adds head-descent windows where the head is
-    ///                exposed and vulnerable, framed by long rests so the
-    ///                player can punish during the descent and then reset
-    /// - Enrage     : ~8s — shockwave + double slam, shorter rests
+    /// - Intro: single show-of-force slam (no rest after) to set tone
+    /// - Phase 1: ~9s — slam → rest → sweep → rest → slam → long rest
+    /// - Transition: ~3s pure rest (player gets a breath)
+    /// - Phase 2: ~12s — adds head-descent windows where the head is
+    ///   exposed and vulnerable, framed by long rests so the player
+    ///   can punish during the descent and then reset
+    /// - Enrage: ~8s — shockwave + double slam, shorter rests
     pub fn gnu_ton() -> Self {
         Self {
             id: "gnu_ton".into(),

@@ -30,10 +30,10 @@ use super::components::{PlayerEntity, PlayerSlot, PrimaryPlayer};
 /// the camera/HUD/dev-tool target rather than any player.
 ///
 /// Example:
-/// ```ignore
+/// ```text
 /// fn camera_follow(
 ///     primary: Query<&PlayerBody, PrimaryPlayerOnly>,
-/// ) { … }
+/// ) { /* … */ }
 /// ```
 pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
 

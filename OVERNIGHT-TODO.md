@@ -17,6 +17,43 @@ Flip the rule once an external consumer ships.
 - `cargo test -p ambition_engine --lib` → 219 passing
 - Both crate builds clean, zero warnings
 
+Recently retired (autonomous-mission pass 2026-05-20, see git log
+8b4cab1…HEAD's predecessor):
+
+- `world/ldtk_world/tests.rs` (1735 lines) — split into per-topic
+  submodules under `tests/{embedded_project, intgrid, kinematic_paths,
+  metadata, surfaces}.rs` (#15)
+- `assets/sandbox_assets/tests.rs` (818 lines) — split into
+  `tests/{identity, profiles, static_probes, embedded_core}.rs` (#15)
+- `assets/sandbox_assets/mod.rs` shed ~250 lines: `embed_core_assets!`
+  macro + `AmbitionAssetSourcePlugin` moved to `sandbox_assets/embedded.rs`
+  (#11)
+- `persistence/settings/model.rs` shed ~90 lines via `format_shader_percent`
+  / `format_audio_percent` / `format_toggle` label helpers (#12)
+- `map_menu/ui.rs` — room boxes are now persistent entities keyed by
+  `(MapRoomBoxKind, room_id)`; the per-frame despawn / respawn churn
+  is gone (#13)
+- `PlayerInputFrame` component + `sync_local_player_input_frame`
+  producer; `update_projectiles`, `sandbox_update`, `attack_advance_system`,
+  and `record_frame_system` migrated off `Res<ControlFrame>` (#17.5,
+  first slice — others can follow incrementally)
+- `ae::ProjectileFaction { Player, Enemy }` engine tag on
+  `ProjectileBody`, with `from_spec_with_faction` constructor; enemy
+  projectile spawner now tags `Enemy` (#10 / #17.7 enabler)
+- `app/plugins.rs` shed ~300 lines via five domain-local Plugin
+  extractions (#6):
+  - `SandboxSimulationResourcesPlugin` in `app/sim_resources.rs`
+  - `TraceSchedulePlugin` in `dev/trace/plugin.rs`
+  - `LdtkRuntimeSpinePlugin` in `world/ldtk_world/bevy_runtime/plugin.rs`
+  - `SandboxResetSchedulePlugin` in `runtime/reset.rs`
+  - `CutsceneSchedulePlugin` in `presentation/cutscene.rs`
+  - `GameplayEffectsSchedulePlugin` in `content/features/bus.rs`
+- bevy render features (`2d_bevy_render` / `ui_bevy_render` / `scene` /
+  `png`) moved off the base bevy dep onto the `visible` cargo
+  feature, so headless / future-non-render builds at least stop
+  compiling the renderer transitively (#1, first slice — winit still
+  comes in via `default_app`; documented as the next step)
+
 Recently retired (engine-cleanup pass, see git log e5be8c8…HEAD):
 
 - `RoomObject` / `RoomObjectKind` IR → per-family `Authored<T>` Vecs on `RoomSpec`

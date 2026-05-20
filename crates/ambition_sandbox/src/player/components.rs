@@ -85,12 +85,6 @@ pub struct PlayerInputFrame {
     pub frame: ControlFrame,
 }
 
-impl PlayerInputFrame {
-    pub fn from_frame(frame: ControlFrame) -> Self {
-        Self { frame }
-    }
-}
-
 /// Frame-to-frame authoritative player movement state.
 ///
 /// This is the single source of truth for `ae::Player` within the Bevy world.

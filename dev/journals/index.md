@@ -19,6 +19,12 @@ Use this index when debugging a symptom. Search `dev/journals/` when in doubt; t
 | `sandbox.ldtk` needs mutation or editor roundtrip repair | [`lessons_learned.md`](lessons_learned.md) |
 | IntGrid cells render unexpectedly, cWid/cHei are wrong, or rect merge output is surprising | [`lessons_learned.md`](lessons_learned.md) |
 
+## Bevy schedule ordering
+
+| Symptom | Read |
+|---|---|
+| Migrating a global resource read to a per-entity-component read silently delivers stale data because the mirror system runs after the migrated reader | [`per-player-input-mid-chain-vs-late-chain-2026-05-20.md`](per-player-input-mid-chain-vs-late-chain-2026-05-20.md) |
+
 ## Rust refactors / module boundaries
 
 | Symptom | Read |

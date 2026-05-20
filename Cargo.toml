@@ -11,11 +11,8 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 license = "Apache-2.0"
-authors = ["Jon Crall + ChatGPT"]
+authors = ["Jon Crall + ChatGPT + Claude"]
 description = "Ambition: a code-generated endgame movement sandbox for a mathematical AI-first platformer."
-
-[profile.dev.package."*"]
-opt-level = 3
 
 [profile.android-size]
 inherits = "release"
@@ -24,3 +21,35 @@ lto = "thin"
 codegen-units = 1
 panic = "abort"
 strip = "symbols"
+
+[profile.dev]
+# Optional, but often good for Bevy/game dev:
+# optimize your own workspace crates a little without going full release.
+opt-level = 1
+
+# Huge disk saver versus full DWARF debug info.
+# Keeps useful file/line backtraces.
+debug = "line-tables-only"
+
+# Incremental can make target/debug enormous.
+# Leave true if you strongly value fast edit-compile cycles;
+# set false if disk size is the priority.
+incremental = true
+
+[profile.dev.package."*"]
+# Optimize registry/git deps like Bevy, wgpu, image codecs, math crates, etc.
+opt-level = 3
+
+# Big disk saver for dependencies.
+debug = false
+
+# More release-like behavior for dependencies.
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.build-override]
+# Build scripts / proc macros are separate from normal deps.
+# Usually keep these cheap to compile.
+opt-level = 0
+debug = false
+codegen-units = 256

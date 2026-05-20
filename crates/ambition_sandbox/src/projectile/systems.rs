@@ -78,8 +78,12 @@ pub fn update_projectiles(
         }
 
         // Step 1: damage check against actors (enemies / bosses /
-        // breakables / NPCs) via the unified pathway. If anything was
-        // hit, the projectile expires this frame (no piercing today).
+        // breakables / NPCs) via the unified pathway. The damage event
+        // is only written when a hit is actually detected — a stray
+        // projectile mid-flight must not deal damage to anything its
+        // future AABB happens to brush in a later frame. The projectile
+        // also expires on the first hit (no piercing today), so one
+        // shot = one damage event = one damage application.
         let damage_event = DamageEvent {
             volume: p.body.aabb(),
             damage: p.body.damage,
@@ -91,8 +95,8 @@ pub fn update_projectiles(
         let ecs_actor_hit =
             crate::features::ecs_damage_event_hits_actor(&damage_event, &ecs_actors);
         let ecs_boss_hit = crate::features::ecs_damage_event_hits_boss(&damage_event, &ecs_bosses);
-        feature_damage.write(damage_event.clone());
         if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
+            feature_damage.write(damage_event);
             sfx.write(SfxMessage::Hit { pos: p.body.pos });
             events.push(ProjectileTraceEvent::Hit {
                 kind: p.body.kind,

@@ -34,6 +34,14 @@ Useful companion docs:
 
 - [ ] Pickups are broken. They don't disappear when collected.
 
+- [ ] The guy on gnuton's shoulders looks too much like Harry potter. Get rid of the glasses. He should look like Isaac Newton with a powdered wig.
+
+- [ ] A character should generally not bark a dialog response line if they are already in the middle of another one. 
+
+- [ ] I would like to have a better ledge get-up effect that isn't just a diagonal motion. I would also like a rolling getup option in addition to the normal getup option. In both cases we should make sure the path doesn't go through a wall or we should not allow the getup / roll (really we shouldn't even allow a ledge grab unless the ledge itself has an open path to it)
+
+- [ ] Enemy hurt boxes still don't visualize correctly. I can throw a fireball at gnuton and he will get hit before the fire ball collides with the visible box, so something is up with collision or the box isn't drawing.
+
 - [~] **Wall-cling / lock-wall / collision-correction debt** `[V5/D3]` - Keep the trace-backed lock-wall problem central until the root collision-correction behavior is fixed. The current authoritative write-up is `docs/planning/tech-debt-log.md`; use `docs/systems/gameplay-trace-recorder.md` for dump/replay workflow. Do not hide this by widening OOB margins.
   - Good session shape: build or improve a reproduction around the mob-lab lock wall / ceiling geometry, then assert that position correction cannot exceed the frame's velocity budget unless Reset or RoomTransition fired.
   - Validation anchors: `cargo test -p ambition_sandbox --test repro_walls`, `cargo test -p ambition_sandbox trace`, focused movement/collision tests.

@@ -25,7 +25,6 @@ use bevy::ecs::system::SystemParam;
 #[derive(SystemParam)]
 pub(super) struct HudCameraParams<'w, 's> {
     user_settings: Res<'w, crate::persistence::settings::UserSettings>,
-    camera_view: Res<'w, crate::presentation::rendering::CameraViewState>,
     player: bevy::prelude::Query<
         'w,
         's,
@@ -64,10 +63,6 @@ pub(super) fn update_hud(
     developer_tools: Res<DeveloperTools>,
     camera_params: HudCameraParams,
     ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
-    ldtk_spine: Res<ldtk_world::LdtkRuntimeSpineStats>,
-    ldtk_spine_index: Res<ldtk_world::LdtkRuntimeSpineIndex>,
-    trace: Res<crate::trace::GameplayTraceBuffer>,
-    mechanics: Res<crate::dev::mechanics::MechanicsRegistry>,
     progression: ProgressionResources,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
@@ -95,58 +90,26 @@ pub(super) fn update_hud(
         .iter()
         .filter_map(|(name, disposition, health, combat)| {
             disposition.is_hostile().then(|| {
-                format!(
-                    "{} hp {}/{} alive {}",
-                    name.0,
-                    health.health.current.max(0),
-                    health.health.max,
-                    combat.alive
-                )
+                let name = &name.0;
+                let cur = health.health.current.max(0);
+                let max = health.health.max;
+                let alive = combat.alive;
+                format!("{name} hp {cur}/{max} alive {alive}")
             })
         })
         .collect::<Vec<_>>()
         .join(" | ");
-    let mut gamepad = String::new();
-    for (physical, semantic) in GAMEPAD_MAP.iter().take(6) {
-        gamepad.push_str(&format!("{} = {}  ", physical, semantic));
-    }
-    let active_camera_zone = camera_params
-        .camera_view
-        .active_camera_zone
-        .as_deref()
-        .unwrap_or("—");
-    let camera_view_line = format!(
-        "view: {} {} {} req {:.0}x{:.0} vis {:.0}x{:.0} z{:.2} zones={} active={} body={} move={}",
-        camera_params.user_settings.video.camera_zoom.label(),
-        camera_params.user_settings.video.camera_aspect.label(),
-        camera_params.user_settings.video.camera_framing.label(),
-        camera_params.camera_view.requested_view.x,
-        camera_params.camera_view.requested_view.y,
-        camera_params.camera_view.visible_view.x,
-        camera_params.camera_view.visible_view.y,
-        camera_params.camera_view.zoom_multiplier,
-        camera_params.camera_view.active_camera_zones,
-        active_camera_zone,
-        developer_tools.player_body_profile.label(),
-        developer_tools.movement_profile.label(),
-    );
     let window_line = windows
         .single()
         .map(|w| {
-            format!(
-                "window: {:.0}x{:.0} {} | {}",
-                w.width(),
-                w.height(),
-                display_mode.label(),
-                camera_view_line
-            )
+            let width = w.width();
+            let height = w.height();
+            let mode = display_mode.label();
+            format!("window: {width:.0}x{height:.0} {mode}")
         })
         .unwrap_or_else(|_| {
-            format!(
-                "window: unknown {} | {}",
-                display_mode.label(),
-                camera_view_line
-            )
+            let mode = display_mode.label();
+            format!("window: unknown {mode}")
         });
     let Ok((hud_body, hud_health, hud_combat, hud_authority, hud_attack)) =
         camera_params.player.single()
@@ -173,11 +136,13 @@ pub(super) fn update_hud(
         if hints.is_empty() {
             "zones: none".to_string()
         } else {
-            format!("zones: {}", hints.join(" | "))
+            let joined = hints.join(" | ");
+            format!("zones: {joined}")
         }
     };
     let feature_banner = if progression.banner.visible() {
-        format!("\nFEATURE: {}", progression.banner.text)
+        let text = &progression.banner.text;
+        format!("\nFEATURE: {text}")
     } else {
         String::new()
     };
@@ -190,7 +155,8 @@ pub(super) fn update_hud(
     let quest_line = if quest_lines.is_empty() {
         String::new()
     } else {
-        format!("\nQUESTS: {}", quest_lines.join("  ::  "))
+        let joined = quest_lines.join("  ::  ");
+        format!("\nQUESTS: {joined}")
     };
     // Cutscene UI lives in the dedicated overlay
     // (`crate::presentation::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
@@ -218,16 +184,13 @@ pub(super) fn update_hud(
             let frac = state.hp_fraction();
             let filled = (frac * 16.0).round().clamp(0.0, 16.0) as usize;
             let empty = 16usize.saturating_sub(filled);
-            let bar = format!("[{}{}]", "=".repeat(filled), "-".repeat(empty));
-            format!(
-                "\nBOSS [{}] {} hp {}/{} {} {:.0}%",
-                id,
-                phase.label(),
-                state.hp,
-                state.spec.max_hp,
-                bar,
-                frac * 100.0,
-            )
+            let bar_filled = "=".repeat(filled);
+            let bar_empty = "-".repeat(empty);
+            let phase = phase.label();
+            let hp = state.hp;
+            let max_hp = state.spec.max_hp;
+            let pct = frac * 100.0;
+            format!("\nBOSS [{id}] {phase} hp {hp}/{max_hp} [{bar_filled}{bar_empty}] {pct:.0}%")
         } else {
             String::new()
         }
@@ -248,71 +211,29 @@ pub(super) fn update_hud(
         if bits.is_empty() {
             String::new()
         } else {
-            format!("\nENCOUNTER {}", bits.join("  ::  "))
+            let joined = bits.join("  ::  ");
+            format!("\nENCOUNTER {joined}")
         }
     };
     let map_lines = map_state.summary_lines(&room_set.active_spec().id);
     let map_line = if map_lines.is_empty() {
         String::new()
     } else {
-        format!("\nMAP\n{}", map_lines.join("\n"))
+        let joined = map_lines.join("\n");
+        format!("\nMAP\n{joined}")
     };
     let locomotion = ae::LocomotionState::from_player(&hud_authority.player).label();
     let body_mode = hud_body.body_mode.label();
-    let trace_status = match (&trace.last_dump_status, &trace.last_dump_path) {
-        (Some(status), _) => status.clone(),
-        (None, _) => format!(
-            "{} frames / {} events buffered (F8 dump)",
-            trace.frame_count(),
-            trace.event_count()
-        ),
-    };
-    let mechanics_summary = format!(
-        "stable={} backend={} planned={}",
-        mechanics.count_by_maturity(crate::dev::mechanics::MechanicMaturity::Stable),
-        mechanics.count_by_maturity(crate::dev::mechanics::MechanicMaturity::Backend),
-        mechanics.count_by_maturity(crate::dev::mechanics::MechanicMaturity::Planned),
-    );
-    let metadata = room_set.active_metadata();
-    let metadata_summary = if metadata.is_empty() {
-        "—".to_string()
-    } else {
-        let mut bits: Vec<String> = Vec::new();
-        if let Some(b) = &metadata.biome {
-            bits.push(format!("biome={b}"));
-        }
-        if let Some(t) = &metadata.music_track {
-            bits.push(format!("music={t}"));
-        }
-        if let Some(a) = &metadata.ambient_profile {
-            bits.push(format!("ambient={a}"));
-        }
-        if let Some(v) = &metadata.visual_theme {
-            bits.push(format!("theme={v}"));
-        }
-        if let Some(profile) = metadata.visual_profile.label() {
-            bits.push(format!("visual={profile}"));
-        }
-        if let Some(theme) = &metadata.visual_profile.parallax_theme {
-            bits.push(format!("parallax={theme}"));
-        }
-        bits.join(" ")
-    };
-    let mechanics_line = format!(
-        "\nLOCO: {locomotion}  BODY: {body_mode}  MECH: {mechanics_summary}  ROOM: {metadata_summary}  TRACE: {trace_status}"
-    );
+    let movement_line = format!("\nLOCO: {locomotion}  BODY: {body_mode}");
     let attack_line = hud_attack
         .0
         .as_ref()
         .map(|attack| {
+            let intent = attack.spec.intent.label();
             let phase = attack.phase().map(|phase| phase.label()).unwrap_or("done");
-            format!(
-                "\nATTACK: {} {} {:.0}% hits={}",
-                attack.spec.intent.label(),
-                phase,
-                attack.progress() * 100.0,
-                attack.hit_targets.len()
-            )
+            let pct = attack.progress() * 100.0;
+            let hits = attack.hit_targets.len();
+            format!("\nATTACK: {intent} {phase} {pct:.0}% hits={hits}")
         })
         .unwrap_or_default();
     let ledge_line = hud_authority
@@ -321,59 +242,42 @@ pub(super) fn update_hud(
         .as_ref()
         .map(|ledge| {
             if ledge.climbing {
-                let progress = (ledge.climb_elapsed / ae::LEDGE_CLIMB_TIME).clamp(0.0, 1.0);
-                format!("\nLEDGE: climb {:.0}%", progress * 100.0)
+                let pct = (ledge.climb_elapsed / ae::LEDGE_CLIMB_TIME).clamp(0.0, 1.0) * 100.0;
+                format!("\nLEDGE: climb {pct:.0}%")
             } else {
-                "\nLEDGE: hang  brief delay then up/toward=climb  down/away=drop".to_string()
+                "\nLEDGE: hang".to_string()
             }
         })
         .unwrap_or_default();
     if developer_tools.compact_hud {
+        let world_name = &world.0.name;
+        let mode_label = mode.get().label();
+        let room_index = room_set.active + 1;
+        let room_count = room_set.rooms.len();
+        let vx = player_vel.x;
+        let vy = player_vel.y;
+        let combo_symbols = hud_authority.player.combo_symbols();
+        let combo_hint = hud_authority.player.current_combo_hint();
+        let ldtk_status = &ldtk_reload.last_status;
+        let overview = developer_tools.overview_camera;
+        let preset_name = &preset.name;
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | feel: {} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}{}\n",
-            world.0.name,
-            mode.get().label(),
-            room_set.active + 1,
-            room_set.rooms.len(),
-            player_hp_current,
-            player_hp_max,
-            player_vel.x,
-            player_vel.y,
-            player_on_ground,
-            player_dash_charges,
-            player_air_jumps,
-            hud_authority.player.combo_symbols(),
-            hud_authority.player.current_combo_hint(),
-            zone_hint,
-            feel_line,
-            ldtk_reload.last_status,
-            ldtk_reload.auto_apply,
-            ldtk_reload.pending,
-            ldtk_spine.spawned_entities,
-            ldtk_spine_index.revision,
-            ldtk_spine_index.promoted_summary(),
-            if ldtk_spine.last_entity.is_empty() { "none" } else { &ldtk_spine.last_entity },
-            player_hitstun,
-            player_invuln,
-            player_hitstop,
-            preset.name,
-            window_line,
-            developer_tools.overview_camera,
-            // Nine trailing blocks: banner, quest, cutscene, boss, encounter, map, attack, ledge, mechanics
-            feature_banner,
-            quest_line,
-            cutscene_line,
-            boss_line,
-            encounter_line,
-            map_line,
-            attack_line,
-            ledge_line,
-            mechanics_line,
+            "{world_name} | {mode_label} | room {room_index}/{room_count} | \
+             hp {player_hp_current}/{player_hp_max} | vel ({vx:+.0},{vy:+.0}) | \
+             grounded {player_on_ground} | dash {player_dash_charges} | jumps {player_air_jumps}\n\
+             combo: {combo_symbols} | hint: {combo_hint}\n\
+             {zone_hint} | feel: {feel_line} | ldtk: {ldtk_status} | \
+             hitstun {player_hitstun:.2} invuln {player_invuln:.2} hitstop {player_hitstop:.2} | \
+             preset {preset_name} | {window_line} | \
+             F1 debug F3 inspector F4 world F5 overview={overview} F11 reload F12 auto\n\
+             {feature_banner}{quest_line}{cutscene_line}{boss_line}\
+             {encounter_line}{map_line}{attack_line}{ledge_line}{movement_line}\n"
         );
         return;
     }
     let flash_line = if dev_state.preset_flash > 0.0 {
-        format!("\nPRESET: {}", preset.name)
+        let name = &preset.name;
+        format!("\nPRESET: {name}")
     } else {
         String::new()
     };
@@ -382,67 +286,36 @@ pub(super) fn update_hud(
     // time_scale, inspector visibility) live in `bevy-inspector-egui`
     // (F3) — surfacing them again here just clutters the screen during
     // play. The compact HUD branch (above) keeps a single-screen
-    // diagnostic dump for when you want everything at once.
+    // diagnostic dump for when you want everything at once. Niche
+    // dev-tool telemetry (room metadata, mechanics counts, trace
+    // buffer size, LDtk spine entity counts, camera-view diagnostics,
+    // gamepad mapping table) intentionally lives elsewhere — promote
+    // it to this panel only when there's a gameplay reason to glance
+    // at it during play.
+    let world_name = &world.0.name;
+    let mode_label = mode.get().label();
+    let room_index = room_set.active + 1;
+    let room_count = room_set.rooms.len();
+    let combo_symbols = hud_authority.player.combo_symbols();
+    let combo_hint = hud_authority.player.current_combo_hint();
+    let preset_name = &preset.name;
+    let ldtk_status = &ldtk_reload.last_status;
+    let overview = developer_tools.overview_camera;
     **text = format!(
-        "{}  mode: {}  room {}/{}  size {:.0}x{:.0}\n\
-         {}\n\
-         hp {}/{}  dash {}  air_jumps {}  charges {}  combo: {}\n\
-         hint: {}\n\
-         preset: {}\n\
-         feel: {}\n\
-         F1 debug  F2 slowmo  F3 inspector  F4 world-inspector  F5 overview={}  F8 trace dump  F11 LDtk reload  F12 LDtk auto={}  Esc mode={}  Delete reset\n\
-         LDtk: {} (spine {} entities, promoted {})\n\
-         {}\n\
-         enemies: {}\n\
-         {}\n\
-         {}\n\
-         {}\n\
-         gamepad: {}{}{}\n",
-        world.0.name,
-        mode.get().label(),
-        room_set.active + 1,
-        room_set.rooms.len(),
-        world.0.size.x,
-        world.0.size.y,
-        zone_hint,
-        player_hp_current,
-        player_hp_max,
-        player_dash_charges,
-        player_air_jumps,
-        player_mana_current,
-        hud_authority.player.combo_symbols(),
-        hud_authority.player.current_combo_hint(),
-        preset.name,
-        feel_line,
-        developer_tools.overview_camera,
-        ldtk_reload.auto_apply,
-        mode.get().label(),
-        ldtk_reload.last_status,
-        ldtk_spine.spawned_entities,
-        ldtk_spine_index.promoted_summary(),
-        window_line,
-        enemy_health,
-        mechanics_line,
-        attack_line,
-        ledge_line,
-        gamepad,
-        flash_line,
-        feature_banner,
+        "{world_name}  mode: {mode_label}  room {room_index}/{room_count}\n\
+         {zone_hint}\n\
+         hp {player_hp_current}/{player_hp_max}  dash {player_dash_charges}  \
+         air_jumps {player_air_jumps}  mana {player_mana_current}  combo: {combo_symbols}\n\
+         hint: {combo_hint}\n\
+         preset: {preset_name}\n\
+         F1 debug  F2 slowmo  F3 inspector  F5 overview={overview}  F8 trace  \
+         F11 LDtk reload  Esc mode={mode_label}  Delete reset\n\
+         LDtk: {ldtk_status}\n\
+         {window_line}\n\
+         enemies: {enemy_health}\
+         {attack_line}{ledge_line}{movement_line}{flash_line}{feature_banner}\
+         {cutscene_line}{boss_line}{encounter_line}{map_line}\n"
     );
-    // Cutscene / boss / encounter / map lines stay in the verbose HUD
-    // because they're tightly coupled to the live combat / traversal
-    // status the rest of the HUD shows. Quests live in their own
-    // panel (`update_quest_panel`).
-    if !cutscene_line.is_empty()
-        || !boss_line.is_empty()
-        || !encounter_line.is_empty()
-        || !map_line.is_empty()
-    {
-        text.push_str(&cutscene_line);
-        text.push_str(&boss_line);
-        text.push_str(&encounter_line);
-        text.push_str(&map_line);
-    }
 }
 
 /// Update the dedicated quest-panel text widget.

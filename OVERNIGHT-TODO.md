@@ -587,3 +587,41 @@ Add tests that spawn two players and verify:
 * Remove obsolete primary-player-only resources once component equivalents are used.
 * Remove temporary adapters only after all systems have migrated.
 * Keep migration patches small and behavior-preserving.
+
+
+#### TODO;
+
+Remaining unfinished items from the OVERNIGHT-TODO backlog:
+
+Big architectural lifts (P0–P2)
+
+#1 — Headless feature builds real (P0/P1): cfg-gate audit + CI commands for --features headless/visible/web. Largest item; reveals coupling.
+#2 — Break up sandbox_update: extract player_control / player_simulation / room / combat / effects into module-local plugins. P1.
+#6 — Module-local Bevy plugins: plugins.rs is still a 1268-line owner of every subsystem schedule. P1/P2.
+#8 — Boss encounter authoritative: route boss damage through BossDamageRequested instead of mirroring BossRuntime.health. P2.
+#9 — Retire legacy RON-shaped room/object paths: 167 RoomObject sites; replace with typed LDtk projection. P2.
+#10 — Unify projectile + enemy_projectile around faction/owner/hit-policy components. P2.
+Bounded but not done (P2–P3)
+
+#7 rest — boss profile data-drive done; per-boss pattern schedules in data still pending (TODO.md C-bucket has matching item).
+#11 rest — sandbox_assets/ was split into mod + ids + builders + tests; further per-domain split (world/fonts/characters/audio/backgrounds/web) is open.
+#13 — persistent map UI keyed by room id (only repaint-gating shipped; entity-keyed rewrite open). P3.
+#14 — move dialog/cutscene content out of Rust (dialog/content.rs is 1016 lines). P3.
+#15 — reorganize large test modules (world/ldtk_world/tests.rs is 1759 lines). P3.
+Player/multiplayer unification (#17)
+
+17.2 / 17.3 — shared ActorIdentity / ActorFactionComponent / ActorBody / ActorHurtbox / ActorCombatStatus / ActorTarget facets on player + enemies.
+17.5 — per-player PlayerInputFrame component (today: global ControlFrame resource).
+17.7 — projectile faction/owner/hit-policy (overlaps #10).
+17.8 — generalize enemy/boss targeting (currently PrimaryPlayerOnly); pick "nearest hostile actor of faction Player".
+17.11 — remove compatibility shims after migration (deferred until 17.5/17.7/17.8 land).
+S-bucket bugs from TODO.md (worth flagging)
+
+Morph-ball sprite lingers after exit.
+Pickups "don't disappear when collected" (suspect stale — the view-index test asserts the contrary; needs in-game verification).
+Wall-cling / lock-wall collision-correction debt.
+Goblin encounter music transition still sounds like a section swap.
+Cutscene/dialogue input + prompt-mismatch.
+Menu mouse-hover vs keyboard-nav conflict.
+Touch controls can affect player during cutscenes.
+Suggested next pick (smallest payoff/size ratio): #13 persistent map UI or #15 test reorganization for pure bounded work, or #17.5 per-player input if you want to keep pushing the multiplayer chain — that's the gate for retiring the rest of the C-bucket single_mut sites in the audit doc

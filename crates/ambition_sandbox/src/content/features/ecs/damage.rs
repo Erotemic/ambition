@@ -391,11 +391,25 @@ pub fn ecs_damage_event_hits_boss(
     event: &DamageEvent,
     bosses: &Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
 ) -> bool {
-    bosses.iter().any(|(id, aabb, feature)| {
+    // Check against damageable_aabbs so the hit-check matches what
+    // apply_feature_damage_events will actually apply damage to.
+    // Multi-part bosses (e.g. GNU-ton) have a gross FeatureAabb covering
+    // the whole creature but only the head is actually damageable —
+    // checking against the gross AABB would over-trigger projectile
+    // termination on the body without ever applying damage.
+    bosses.iter().any(|(id, _aabb, feature)| {
         let key = format!("boss:{}", id.as_str());
-        !event.ignored_targets.iter().any(|ignored| ignored == &key)
-            && feature.boss.alive
-            && event.volume.strict_intersects(aabb.aabb())
+        if event.ignored_targets.iter().any(|ignored| ignored == &key) {
+            return false;
+        }
+        if !feature.boss.alive {
+            return false;
+        }
+        feature
+            .boss
+            .damageable_aabbs()
+            .iter()
+            .any(|part| event.volume.strict_intersects(*part))
     })
 }
 

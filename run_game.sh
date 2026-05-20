@@ -12,7 +12,10 @@
 # would require a separate `cargo apk` / `cargo ndk` toolchain plus
 # an Android NDK install. Nothing here invokes either of those.
 set -euo pipefail
-PYTHONPATH="$(dirname "$0")/tools/ambition_ldtk_tools" \
-    python -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
-    --secondary-world crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
-RUST_BACKTRACE=full cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release
+#PYTHONPATH="$(dirname "$0")/tools/ambition_ldtk_tools" \
+#    python -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+#    --secondary-world crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
+#RUST_BACKTRACE=full cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release
+#RUST_BACKTRACE=full cargo run -p ambition_sandbox --bin ambition_sandbox --release
+#RUST_BACKTRACE=full cargo run -p ambition_sandbox --bin ambition_sandbox
+cargo run -p ambition_sandbox --bin ambition_sandbox

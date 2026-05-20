@@ -589,6 +589,30 @@ fn draw_feature_debug(
             crate::features::ActorRuntime::Hostile(_) => enemy_color,
         };
         draw_aabb_styled(gizmos, world, actor.aabb(), color, developer_tools);
+        // Hostile actors (and turned-hostile NPCs like the Kernel Guide)
+        // own an attack volume that becomes active during a swing — draw
+        // it whenever windup or strike timer is live so the player can
+        // see exactly where the hit will land. Telegraph wins when both
+        // are zero so a frame on the edge still reads as "incoming".
+        if let crate::features::ActorRuntime::Hostile(enemy) = actor {
+            if enemy.attack_timer > 0.0 {
+                draw_aabb_styled(
+                    gizmos,
+                    world,
+                    enemy.attack_aabb(),
+                    active_color,
+                    developer_tools,
+                );
+            } else if enemy.attack_windup_timer > 0.0 {
+                draw_aabb_styled(
+                    gizmos,
+                    world,
+                    enemy.attack_telegraph_aabb(),
+                    telegraph_color,
+                    developer_tools,
+                );
+            }
+        }
     }
     for bf in feature_q.bosses.iter() {
         let boss = &bf.boss;

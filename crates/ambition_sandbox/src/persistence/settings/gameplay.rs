@@ -122,7 +122,7 @@ fn default_debug_hud_visible() -> bool {
 }
 
 fn default_quest_hud_visible() -> bool {
-    true
+    false
 }
 
 impl Default for GameplaySettings {
@@ -187,7 +187,7 @@ mod tests {
     fn hud_settings_have_expected_defaults() {
         let settings = GameplaySettings::default();
         assert_eq!(settings.debug_hud_visible, !cfg!(target_os = "android"));
-        assert!(settings.quest_hud_visible);
+        assert!(!settings.quest_hud_visible);
     }
 
     #[test]

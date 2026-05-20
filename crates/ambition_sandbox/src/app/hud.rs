@@ -88,14 +88,13 @@ pub(super) fn update_hud(
     let enemy_health = camera_params
         .ecs_actors
         .iter()
-        .filter_map(|(name, disposition, health, combat)| {
-            disposition.is_hostile().then(|| {
-                let name = &name.0;
-                let cur = health.health.current.max(0);
-                let max = health.health.max;
-                let alive = combat.alive;
-                format!("{name} hp {cur}/{max} alive {alive}")
-            })
+        .filter(|(_, disposition, _, _)| disposition.is_hostile())
+        .map(|(name, _, health, combat)| {
+            let name = &name.0;
+            let cur = health.health.current.max(0);
+            let max = health.health.max;
+            let alive = combat.alive;
+            format!("{name} hp {cur}/{max} alive {alive}")
         })
         .collect::<Vec<_>>()
         .join(" | ");

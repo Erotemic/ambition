@@ -131,7 +131,7 @@ pub fn ecs_boss_name<'a>(
 ) -> Option<&'a str> {
     bosses
         .iter()
-        .find_map(|(feature_id, boss)| (feature_id.as_str() == id).then(|| boss.boss.name.as_str()))
+        .find_map(|(feature_id, boss)| (feature_id.as_str() == id).then_some(boss.boss.name.as_str()))
 }
 
 pub fn ecs_boss_anim_state(

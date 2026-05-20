@@ -144,25 +144,31 @@ pub fn input_timer_system(
 pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,
+    control_frame: Res<ControlFrame>,
     mut player_q: Query<
         (
             &crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
-            &crate::player::PlayerInputFrame,
         ),
         With<crate::player::PlayerEntity>,
     >,
 ) {
     let frame_dt = time.delta_secs();
     let feel = *feel_tuning;
-    let Ok((combat, mut interaction, input)) = player_q.single_mut() else {
+    let Ok((combat, mut interaction)) = player_q.single_mut() else {
         return;
     };
     let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
+    // Reads `Res<ControlFrame>` directly rather than `PlayerInputFrame`
+    // because this system runs mid-input-chain — `input_timer_system`
+    // writes `fast_fall_pressed` to the resource and the per-player
+    // `sync_local_player_input_frame` mirror only fires at the END of
+    // the chain. Switching to `PlayerInputFrame` here would read the
+    // previous frame's snapshot (#17.5 migration boundary).
     let raw_interact_pressed = if combat.hitstun_timer > 0.0 {
         false
     } else {
-        input.frame.interact_pressed || door_double_tap_up
+        control_frame.interact_pressed || door_double_tap_up
     };
     let _live =
         interaction.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);

@@ -89,5 +89,34 @@ pub use world_overlay::world_with_sandbox_solids;
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
 use util::*;
 
+/// Module-local Bevy plugin: schedules the `WorldPrep` simulation set —
+/// LDtk hot-reload poll + the ECS feature-world overlay rebuild + the
+/// per-frame hazard/actor/boss ticks. Sets up the collision world that
+/// `PlayerInput` and `PlayerSimulation` read in the same frame.
+///
+/// Four of the five systems live in `content/features/ecs/`; the
+/// LDtk hot-reload poller is the one outlier (lives in
+/// `ldtk_world::hot_reload`). Carved out of
+/// `app/plugins.rs::register_world_prep_systems` per OVERNIGHT-TODO #6.
+pub struct WorldPrepSchedulePlugin;
+
+impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs, Update};
+        app.add_systems(
+            Update,
+            (
+                crate::ldtk_world::poll_ldtk_file_changes,
+                rebuild_feature_ecs_world_overlay,
+                update_ecs_hazards,
+                update_ecs_actors,
+                update_ecs_bosses,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::WorldPrep),
+        );
+    }
+}
+
 #[cfg(test)]
 mod conversion_tests;

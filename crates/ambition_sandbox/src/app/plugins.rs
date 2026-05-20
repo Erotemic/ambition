@@ -50,7 +50,7 @@ pub fn add_simulation_plugins(app: &mut App) {
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
-    register_world_prep_systems(app);
+    app.add_plugins(crate::features::WorldPrepSchedulePlugin);
     register_player_input_systems(app);
     register_player_simulation_systems(app);
     register_room_transition_systems(app);
@@ -76,22 +76,8 @@ pub fn add_simulation_plugins(app: &mut App) {
 // `SandboxSet::CoreSimulation`; that constraint covers all six
 // sub-sets transitively.
 
-/// LDtk hot-reload + feature world overlay + feature ticks. Sets up the
-/// collision world that PlayerInput + PlayerSimulation read.
-fn register_world_prep_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            ldtk_world::poll_ldtk_file_changes,
-            crate::features::rebuild_feature_ecs_world_overlay,
-            crate::features::update_ecs_hazards,
-            crate::features::update_ecs_actors,
-            crate::features::update_ecs_bosses,
-        )
-            .chain()
-            .in_set(SandboxSet::WorldPrep),
-    );
-}
+// WorldPrep schedule moved to `crate::features::WorldPrepSchedulePlugin`
+// (OVERNIGHT-TODO #6 — module-local plugins).
 
 /// Dev-edit sync + input-driven reset + gameplay timer decay + interact
 /// buffer + suspended-time fallback. Each subsequent system depends on

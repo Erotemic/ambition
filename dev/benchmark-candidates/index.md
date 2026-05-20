@@ -25,6 +25,7 @@ Use this index before refactors or when planning validation. Benchmark candidate
 | Bevy feature graph transitively re-enables `bevy_window` / `bevy_winit` even after removing `default_app` from the base dep | [`bevy-feature-graph-headless-2026-05-20.md`](bevy-feature-graph-headless-2026-05-20.md) |
 | Sandbox runtime mirror + engine state machine both own the same gameplay invariant; double-write yields one-frame off-by-ones | [`boss-runtime-mirror-vs-engine-state-2026-05-20.md`](boss-runtime-mirror-vs-engine-state-2026-05-20.md) |
 | Deciding whether a `register_*_systems` helper moves to a domain module or stays in the app orchestrator | [`module-local-bevy-plugin-extraction-2026-05-20.md`](module-local-bevy-plugin-extraction-2026-05-20.md) |
+| Per-player-component mirrors: only readers that run AFTER the sync system see this-frame data; mid-chain readers must stay on the source resource | [`per-player-component-mirror-schedule-boundary-2026-05-20.md`](per-player-component-mirror-schedule-boundary-2026-05-20.md) |
 
 ## Movement / collision invariants
 

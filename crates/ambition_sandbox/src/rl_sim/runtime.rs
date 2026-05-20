@@ -216,8 +216,8 @@ impl SandboxSim {
 
         // Combat timers now live on `PlayerCombatState` (authoritative ECS component).
         let combat = combat_query.single(world).ok();
-        let recently_damaged = combat.map_or(false, |c| c.damage_invuln_timer > 0.0);
-        let in_hitstun = combat.map_or(false, |c| c.hitstun_timer > 0.0);
+        let recently_damaged = combat.is_some_and(|c| c.damage_invuln_timer > 0.0);
+        let in_hitstun = combat.is_some_and(|c| c.hitstun_timer > 0.0);
         let last_safe_pos = safety_query
             .single(world)
             .map(|s| s.last_safe_pos)

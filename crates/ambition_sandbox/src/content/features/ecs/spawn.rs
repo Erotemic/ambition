@@ -26,7 +26,13 @@ fn spawn_room_feature_entity(
     let feature_aabb = FeatureAabb::from_aabb(object.aabb);
     match &object.kind {
         ae::RoomObjectKind::DamageVolume(volume) => {
-            let hazard = HazardRuntime::new_with_paths(object, volume.clone(), paths);
+            let hazard = HazardRuntime::new_with_paths(
+                object.id.clone(),
+                object.name.clone(),
+                object.aabb,
+                volume.clone(),
+                paths,
+            );
             commands.spawn((
                 Name::new(format!("Feature hazard: {}", object.name)),
                 FeatureSimEntity,
@@ -38,7 +44,12 @@ fn spawn_room_feature_entity(
             ));
         }
         ae::RoomObjectKind::BossSpawn(brain) => {
-            let boss = BossRuntime::new(object, brain.clone());
+            let boss = BossRuntime::new(
+                object.id.clone(),
+                object.name.clone(),
+                object.aabb,
+                brain.clone(),
+            );
             let initial_phase = BossPhase::from_alive(boss.alive);
             commands.spawn((
                 Name::new(format!("Feature boss: {}", object.name)),
@@ -85,7 +96,13 @@ fn spawn_room_feature_entity(
             }
         }
         ae::RoomObjectKind::EnemySpawn(brain) => {
-            let actor = ActorRuntime::Hostile(EnemyRuntime::new(object, brain.clone(), paths));
+            let actor = ActorRuntime::Hostile(EnemyRuntime::new(
+                object.id.clone(),
+                object.name.clone(),
+                object.aabb,
+                brain.clone(),
+                paths,
+            ));
             let (identity, disposition, health, combat, intent, cooldowns) =
                 actor_component_snapshot(&actor);
             commands.spawn((
@@ -105,7 +122,9 @@ fn spawn_room_feature_entity(
         ae::RoomObjectKind::Interactable(interactable) => {
             if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
                 let actor = ActorRuntime::Peaceful(NpcRuntime::new_with_paths(
-                    object,
+                    object.id.clone(),
+                    object.name.clone(),
+                    object.aabb,
                     interactable.clone(),
                     paths,
                 ));
@@ -159,13 +178,7 @@ pub fn spawn_encounter_mob(
     let encounter_id = encounter_id.into();
     let archetype = EnemyArchetype::from_brain(&brain);
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    let object = ae::RoomObject::new(
-        id.clone(),
-        id.clone(),
-        aabb,
-        ae::RoomObjectKind::EnemySpawn(brain.clone()),
-    );
-    let mut enemy = EnemyRuntime::new(&object, brain, &[]);
+    let mut enemy = EnemyRuntime::new(id.clone(), id.clone(), aabb, brain, &[]);
     enemy.archetype = archetype;
     enemy.health = ae::Health::new(archetype.max_health());
     // Encounter mobs should not auto-respawn like training sandbags.

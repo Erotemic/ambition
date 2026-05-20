@@ -18,12 +18,17 @@ pub struct HazardRuntime {
 }
 
 impl HazardRuntime {
-    pub(super) fn new(object: &ae::RoomObject, volume: ae::DamageVolume) -> Self {
+    pub(super) fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        volume: ae::DamageVolume,
+    ) -> Self {
         Self {
-            id: object.id.clone(),
-            name: object.name.clone(),
-            pos: object.aabb.center(),
-            size: object.aabb.half_size() * 2.0,
+            id: id.into(),
+            name: name.into(),
+            pos: aabb.center(),
+            size: aabb.half_size() * 2.0,
             motion: volume.motion.clone().map(PathMotion::new),
             volume,
             mode: PlayerDamageMode::Knockback,
@@ -31,7 +36,9 @@ impl HazardRuntime {
     }
 
     pub(super) fn new_with_paths(
-        object: &ae::RoomObject,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
         mut volume: ae::DamageVolume,
         paths: &[(String, ae::KinematicPath)],
     ) -> Self {
@@ -41,12 +48,12 @@ impl HazardRuntime {
             .map(str::trim)
             .filter(|path_id| !path_id.is_empty())
         {
-            if let Some((_, path)) = paths.iter().find(|(id, _)| id == path_id) {
+            if let Some((_, path)) = paths.iter().find(|(p_id, _)| p_id == path_id) {
                 volume.motion = Some(path.clone());
             }
         }
 
-        let mut hazard = Self::new(object, volume);
+        let mut hazard = Self::new(id, name, aabb, volume);
         if let Some(start_pos) = hazard.motion.as_ref().and_then(PathMotion::start_pos) {
             hazard.pos = start_pos;
         }

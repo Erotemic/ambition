@@ -98,14 +98,10 @@ impl ActorRuntime {
     }
 
     pub(crate) fn hostile_from_npc(npc: &NpcRuntime) -> EnemyRuntime {
-        let object = ae::RoomObject::new(
+        let mut enemy = EnemyRuntime::new(
             npc.id.clone(),
             npc.name.clone(),
             npc.aabb(),
-            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom("medium_striker".into())),
-        );
-        let mut enemy = EnemyRuntime::new(
-            &object,
             ae::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );

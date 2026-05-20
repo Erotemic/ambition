@@ -122,13 +122,7 @@ mod tests {
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-        let object = ae::RoomObject::new(
-            "boss_gnu_ton",
-            "GNU-ton",
-            aabb,
-            ae::RoomObjectKind::BossSpawn(ae::BossBrain::Dormant),
-        );
-        let mut runtime = BossRuntime::new(&object, ae::BossBrain::Dormant);
+        let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, ae::BossBrain::Dormant);
         runtime.behavior = behavior;
         runtime
     }

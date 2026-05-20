@@ -72,16 +72,23 @@ pub const NPC_PATROL_SPEED: f32 = 60.0;
 
 impl NpcRuntime {
     #[cfg(test)]
-    pub(super) fn new(object: &ae::RoomObject, interactable: ae::Interactable) -> Self {
-        Self::new_with_paths(object, interactable, &[])
+    pub(super) fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        interactable: ae::Interactable,
+    ) -> Self {
+        Self::new_with_paths(id, name, aabb, interactable, &[])
     }
 
     pub(super) fn new_with_paths(
-        object: &ae::RoomObject,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
         interactable: ae::Interactable,
         paths: &[(String, ae::KinematicPath)],
     ) -> Self {
-        let authored_pos = object.aabb.center();
+        let authored_pos = aabb.center();
         let (patrol_radius, motion) = match &interactable.kind {
             ae::InteractionKind::Npc {
                 patrol_radius,
@@ -91,7 +98,7 @@ impl NpcRuntime {
                 let motion = patrol_path_id.as_deref().and_then(|path_id| {
                     paths
                         .iter()
-                        .find(|(id, _)| id == path_id)
+                        .find(|(p_id, _)| p_id == path_id)
                         .map(|(_, path)| PathMotion::new(path.clone()))
                 });
                 (patrol_radius.max(0.0), motion)
@@ -103,11 +110,11 @@ impl NpcRuntime {
             .and_then(PathMotion::start_pos)
             .unwrap_or(authored_pos);
         Self {
-            id: object.id.clone(),
-            name: object.name.clone(),
+            id: id.into(),
+            name: name.into(),
             pos,
             spawn: pos,
-            size: object.aabb.half_size() * 2.0,
+            size: aabb.half_size() * 2.0,
             vel: ae::Vec2::ZERO,
             facing: 1.0,
             on_ground: false,

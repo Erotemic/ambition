@@ -523,15 +523,21 @@ pub struct BossRuntime {
 }
 
 impl BossRuntime {
-    pub(crate) fn new(object: &ae::RoomObject, brain: ae::BossBrain) -> Self {
+    pub(crate) fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        brain: ae::BossBrain,
+    ) -> Self {
+        let name = name.into();
         Self {
-            id: object.id.clone(),
-            name: object.name.clone(),
-            pos: object.aabb.center(),
-            spawn: object.aabb.center(),
-            size: object.aabb.half_size() * 2.0,
+            id: id.into(),
+            pos: aabb.center(),
+            spawn: aabb.center(),
+            size: aabb.half_size() * 2.0,
             health: ae::Health::new(18),
-            behavior: BossBehaviorProfile::for_authored_boss(&object.name),
+            behavior: BossBehaviorProfile::for_authored_boss(&name),
+            name,
             brain,
             alive: true,
             pattern_timer: 0.0,
@@ -998,13 +1004,7 @@ mod scripted_pattern_tests {
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-        let object = ae::RoomObject::new(
-            "boss_gnu_ton",
-            "GNU-ton",
-            aabb,
-            ae::RoomObjectKind::BossSpawn(ae::BossBrain::Dormant),
-        );
-        let mut runtime = BossRuntime::new(&object, ae::BossBrain::Dormant);
+        let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, ae::BossBrain::Dormant);
         runtime.behavior = behavior;
         runtime.encounter_phase = ae::BossEncounterPhase::Phase1;
         runtime

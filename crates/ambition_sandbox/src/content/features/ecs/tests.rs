@@ -193,27 +193,15 @@ fn interact_buffered_starts_npc_dialogue() {
 
     spawn_interaction_player(&mut app, center);
 
-    let npc_object = ae::RoomObject::new(
+    let npc_aabb = ae::Aabb::new(center, ae::Vec2::new(16.0, 24.0));
+    let npc = NpcRuntime::new(
         "guide",
         "Guide",
-        ae::Aabb::new(center, ae::Vec2::new(16.0, 24.0)),
-        ae::RoomObjectKind::Interactable(ae::Interactable::new(
-            "guide",
-            "Talk",
-            ae::Aabb::new(center, ae::Vec2::new(16.0, 24.0)),
-            ae::InteractionKind::Npc {
-                dialogue_id: Some("hub_guide".into()),
-                patrol_radius: 0.0,
-                patrol_path_id: None,
-            },
-        )),
-    );
-    let npc = NpcRuntime::new(
-        &npc_object,
+        npc_aabb,
         ae::Interactable::new(
             "guide",
             "Talk",
-            ae::Aabb::new(center, ae::Vec2::new(16.0, 24.0)),
+            npc_aabb,
             ae::InteractionKind::Npc {
                 dialogue_id: Some("hub_guide".into()),
                 patrol_radius: 0.0,

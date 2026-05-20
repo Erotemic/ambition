@@ -458,7 +458,9 @@ pub enum EnemyDamageOutcome {
 
 impl EnemyRuntime {
     pub(super) fn new(
-        object: &ae::RoomObject,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
         brain: ae::EnemyBrain,
         paths: &[(String, ae::KinematicPath)],
     ) -> Self {
@@ -468,20 +470,20 @@ impl EnemyRuntime {
                 path_id: Some(path_id),
             } if !archetype.is_sandbag() => paths
                 .iter()
-                .find(|(id, _)| id == path_id)
+                .find(|(p_id, _)| p_id == path_id)
                 .map(|(_, path)| PathMotion::new(path.clone())),
             _ => None,
         };
         let pos = motion
             .as_ref()
             .and_then(PathMotion::start_pos)
-            .unwrap_or_else(|| object.aabb.center());
+            .unwrap_or_else(|| aabb.center());
         let size = archetype
             .default_size()
-            .unwrap_or_else(|| object.aabb.half_size() * 2.0);
+            .unwrap_or_else(|| aabb.half_size() * 2.0);
         Self {
-            id: object.id.clone(),
-            name: object.name.clone(),
+            id: id.into(),
+            name: name.into(),
             pos,
             spawn: pos,
             size,

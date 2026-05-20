@@ -20,26 +20,17 @@ mod conversion_tests {
         );
         let aabb = ae::Aabb::new(ae::Vec2::new(800.0, 540.0), ae::Vec2::new(11.0, 19.0));
         let id = String::from("patrol_kira");
-        let object = ae::RoomObject::new(
+        let interactable = ae::Interactable::new(
             id.clone(),
-            id.clone(),
+            String::from("Talk"),
             aabb,
-            ae::RoomObjectKind::Interactable(ae::Interactable::new(
-                id.clone(),
-                String::from("Talk"),
-                aabb,
-                ae::InteractionKind::Npc {
-                    dialogue_id: Some(id.clone()),
-                    patrol_radius,
-                    patrol_path_id: None,
-                },
-            )),
+            ae::InteractionKind::Npc {
+                dialogue_id: Some(id.clone()),
+                patrol_radius,
+                patrol_path_id: None,
+            },
         );
-        let interactable = match object.kind.clone() {
-            ae::RoomObjectKind::Interactable(it) => it,
-            _ => unreachable!(),
-        };
-        let npc = NpcRuntime::new(&object, interactable);
+        let npc = NpcRuntime::new(id.clone(), id.clone(), aabb, interactable);
         let player = ae::Player::new_with_abilities(
             ae::Vec2::new(1500.0, 540.0),
             ae::AbilitySet::sandbox_all(),
@@ -272,22 +263,21 @@ mod conversion_tests {
         )
     }
 
-    fn enemy_object(id: &str, pos: ae::Vec2) -> ae::RoomObject {
-        let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
-        ae::RoomObject::new(
-            id.to_string(),
-            id.to_string(),
-            aabb,
-            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom("small_skitter".into())),
-        )
+    fn enemy_aabb(pos: ae::Vec2) -> ae::Aabb {
+        ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0))
     }
 
     #[test]
     fn enemy_ai_output_drives_chase_motion() {
         let world = enemy_test_world();
-        let object = enemy_object("skitter", ae::Vec2::new(100.0, 536.0));
-        let mut enemy =
-            EnemyRuntime::new(&object, ae::EnemyBrain::Custom("small_skitter".into()), &[]);
+        let aabb = enemy_aabb(ae::Vec2::new(100.0, 536.0));
+        let mut enemy = EnemyRuntime::new(
+            "skitter",
+            "skitter",
+            aabb,
+            ae::EnemyBrain::Custom("small_skitter".into()),
+            &[],
+        );
         // Newly spawned enemies carry a short spawn grace cooldown.
         // Clear it here so this test isolates the CharacterAI Chase
         // decision rather than the recovery/spawn-grace state.
@@ -314,7 +304,7 @@ mod conversion_tests {
     #[test]
     fn path_enemy_holds_patrol_and_starts_attack_from_character_ai_output() {
         let world = enemy_test_world();
-        let object = enemy_object("path_skitter", ae::Vec2::new(100.0, 536.0));
+        let aabb = enemy_aabb(ae::Vec2::new(100.0, 536.0));
         let path = ae::KinematicPath {
             points: vec![ae::Vec2::new(100.0, 536.0), ae::Vec2::new(260.0, 536.0)],
             speed: 120.0,
@@ -323,7 +313,9 @@ mod conversion_tests {
         };
         let paths = vec![("skitter_path".to_string(), path)];
         let mut enemy = EnemyRuntime::new(
-            &object,
+            "path_skitter",
+            "path_skitter",
+            aabb,
             ae::EnemyBrain::Patrol {
                 path_id: Some("skitter_path".into()),
             },
@@ -362,14 +354,10 @@ mod conversion_tests {
     fn reset_to_spawn_restores_morphed_pirate_on_shark() {
         let pos = ae::Vec2::new(400.0, 200.0);
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
-        let object = ae::RoomObject::new(
-            "shark_a".to_string(),
-            "Burning Flying Shark".to_string(),
-            aabb,
-            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom("pirate_on_shark".into())),
-        );
         let mut enemy = EnemyRuntime::new(
-            &object,
+            "shark_a",
+            "Burning Flying Shark",
+            aabb,
             ae::EnemyBrain::Custom("pirate_on_shark".into()),
             &[],
         );

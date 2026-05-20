@@ -196,19 +196,16 @@ fn register_presentation_sync_systems(app: &mut App) {
     );
 }
 
-/// Per-frame [`crate::features::FeatureViewIndex`] rebuild.
-///
-/// Has its own set rather than living at the end of `PresentationSync`
-/// because the pickup / chest / switch / encounter-mob / save-driven
-/// boss sync mutations land in sets that fire *after* `CoreSimulation`
-/// (`FeatureCollection`, `FeatureInteraction`, `EncounterSimulation`,
-/// `GameplayEffects`, `Progression`). Rebuilding at the very tail of
-/// the sim chain guarantees the cache reflects this frame's full
-/// feature state before the presentation half reads it.
 // FeatureViewSync, FeatureCollection, and FeatureInteraction schedules
 // moved to `crate::features::{FeatureViewSyncSchedulePlugin,
 // FeatureCollectionSchedulePlugin, FeatureInteractionSchedulePlugin}`
-// (OVERNIGHT-TODO #6 — module-local plugins).
+// (OVERNIGHT-TODO #6 — module-local plugins). The per-frame
+// `FeatureViewIndex` rebuild gets its own set rather than living at
+// the end of `PresentationSync` because pickup / chest / switch /
+// encounter-mob / save-driven boss sync mutations land in sets that
+// fire *after* `CoreSimulation`; rebuilding at the very tail of the
+// sim chain guarantees the cache reflects this frame's full feature
+// state before the presentation half reads it.
 
 // LDtk runtime spine schedule moved to
 // `ldtk_world::LdtkRuntimeSpinePlugin` (OVERNIGHT-TODO #6).
@@ -488,20 +485,17 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         );
 }
 
-/// Visual entity spawn for dynamic features + sprite/animation pipelines.
-/// Chained after `handle_map_menu_hotkeys` (the last input system in the
-/// presentation half) and placed in [`SandboxSet::PresentationVisualSync`].
-///
-/// `sync_visuals` reads `FeatureViewIndex` and so do
-/// `upgrade_enemy_sprites` / `upgrade_npc_sprites` (chained later
-/// via `.after(sync_visuals)`). The `.after(SandboxSet::FeatureViewSync)`
-/// constraint lives on the set itself in `configure_sandbox_sets`,
-/// NOT on this `.chain()` — that way the ordering contract is
-/// testable via a probe in the same set rather than re-typed on
-/// every call site.
 // Visual animation chain moved to
 // `crate::presentation::rendering::PresentationVisualAnimationPlugin`
-// (OVERNIGHT-TODO #6).
+// (OVERNIGHT-TODO #6). The chain spawns visual entities for dynamic
+// features plus the sprite/animation pipeline, chained after
+// `handle_map_menu_hotkeys` in `SandboxSet::PresentationVisualSync`.
+// `sync_visuals` and `upgrade_enemy_sprites` / `upgrade_npc_sprites`
+// all read `FeatureViewIndex`; the
+// `.after(SandboxSet::FeatureViewSync)` constraint lives on the set
+// itself in `configure_sandbox_sets` so the ordering contract is
+// testable via a probe in the same set rather than re-typed on every
+// call site.
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
     app.add_systems(

@@ -138,6 +138,37 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
   mirror vs engine state authority' (#8) and 'module-local Bevy
   plugin extraction decision criteria' (#6 retrospective). Both
   linked from `dev/benchmark-candidates/index.md`.
+- `update_body_mode` migrated off `Res<ControlFrame>` onto
+  `&PlayerInputFrame` (#17.5 cont.). `interaction_input_system`
+  migration was attempted then reverted — it runs mid-PlayerInput
+  chain, before `sync_local_player_input_frame`, so a
+  PlayerInputFrame read would deliver the previous frame's snapshot.
+  Lesson captured in `dev/benchmark-candidates/per-player-component-mirror-schedule-boundary-2026-05-20.md`
+  and `dev/journals/per-player-input-mid-chain-vs-late-chain-2026-05-20.md`.
+- New tests pin two #17.5 / #8 invariants the migrations created:
+  - `multiplayer_smoke_tests::two_players_have_independent_input_frames`
+    asserts two spawned players carry independent `PlayerInputFrame`s
+    (regression guard against a future "make it a Resource again" move).
+  - `boss_encounter::damage::tests::record_boss_damage_does_not_re_fire_killed_when_already_dead`
+    pins the `prev_hp > 0` guard so a second hit on an already-dead
+    boss doesn't double-route quest / save side effects.
+  Sandbox lib test count: 566 → 568.
+- Clippy hygiene pass across both crates: sandbox lib warnings
+  dropped from 170 → 95 (-75); engine from 4 → 1. Knocked out 38
+  redundant `&mut *Mut<T>` reborrows, 13 doc-list-misparse `+`/`-`
+  line-starts, 5 over-indented doc list continuations, 3 derivable
+  Default impls, 2 `field-reassign-after-default` patterns, 2 manual
+  contains/clamp, 2 `map_or(false, ...)` → `is_some_and`, 2
+  `bool::then[_some]` / `filter_map` tidies, plus single-occurrence
+  fixes for orphan docstrings, `&mut Vec` → `&mut [_]`, identical
+  branches, lifetime elision, `?`-operator early-out, etc. The
+  remaining ~95 sandbox warnings are predominantly Bevy-inherent
+  (Query type complexity / system fn arity).
+- Settings `label_with_dev` cycle/nudge rows route through a new
+  `format_cycle(label, value)` helper (24 → 6 inline `< / >` literals)
+  and the existing `format_toggle` helper picks up 10 dev-page
+  arms that were duplicating `format!("Foo: {}", on_off(...))`
+  inline.
 
 Recently retired (engine-cleanup pass, see git log e5be8c8…HEAD):
 

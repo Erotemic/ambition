@@ -67,10 +67,11 @@ pub use ecs::{
     ecs_damage_event_hits_breakable, ecs_enemy_anim_state, ecs_enemy_name,
     ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name, interact_ecs_actors_and_switches,
     open_ecs_chests, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
-    reset_ecs_room_features, spawn_encounter_mob, spawn_room_feature_entities,
-    sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
-    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, tick_gameplay_banner,
-    update_ecs_actors, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
+    reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
+    spawn_room_feature_entities, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
+    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
+    tick_gameplay_banner, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
+    update_ecs_falling_chests,
     update_ecs_hazards, ActorRuntime, BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity,
     FeatureViewIndex, HazardFeature,
 };
@@ -109,6 +110,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 crate::ldtk_world::poll_ldtk_file_changes,
                 rebuild_feature_ecs_world_overlay,
                 update_ecs_hazards,
+                // Target selection runs before actor / boss updates so
+                // each non-player actor's per-frame "who am I looking
+                // at" pointer is fresh by the time downstream ticks
+                // consult `ActorTarget` (OVERNIGHT-TODO #17.8).
+                select_actor_targets,
                 update_ecs_actors,
                 update_ecs_bosses,
             )

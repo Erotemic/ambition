@@ -61,6 +61,7 @@ mod pickups;
 mod reset;
 mod save_sync;
 mod spawn;
+mod targeting;
 mod view_index;
 
 pub(crate) use actors::{actor_component_snapshot, sync_actor_components_from_runtime};
@@ -91,6 +92,7 @@ pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };
 pub use spawn::{despawn_encounter_mobs, spawn_encounter_mob, spawn_room_feature_entities};
+pub use targeting::select_actor_targets;
 pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
 
 use damage::{begin_ecs_breakable_respawn, emit_breakable_destroyed};

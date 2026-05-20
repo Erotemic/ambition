@@ -191,3 +191,28 @@ cargo run -p ambition_sandbox --bin headless 30
 The last command prints a `HeadlessReport` summary and exits 0. Test
 counts grow as coverage expands — the count above is a snapshot, not a
 guarantee. The relevant invariant is "exit code 0, no panic."
+
+## `headless = []` cargo feature — partial gate (2026-05-20)
+
+The sandbox `Cargo.toml` declares an empty `headless` cargo feature
+intended to flip a `--no-default-features --features headless` build
+into a no-rendering / no-windowing path. As of #1's first slice (see
+`dev/journals/bevy-headless-feature-graph-2026-05-20.md`), the bevy
+**rendering** features (`2d_bevy_render`, `ui_bevy_render`, `scene`,
+`png`) live on the `visible` cargo feature; the headless build no
+longer compiles the renderer.
+
+`bevy/ui_api` still lives on the base bevy dep because hundreds of
+non-presentation use sites (`BackgroundColor` / `TextColor` /
+`Node` / `UiRect` in cutscene scaffolding, fx HUD primitives, runtime
+setup widgets) reference these types directly. `ui_api` transitively
+pulls in `default_app` → `bevy_window` → `bevy_winit`, so
+`cargo check -p ambition_sandbox --no-default-features --features
+headless` still fails on winit's "platform you're compiling for is
+not supported." A true no-winit headless build needs the
+non-presentation modules cfg-gated behind `visible` first — a
+follow-up that's intentionally staged so the contributor doesn't end
+up doing the 848-edit cfg-gate pass in one go. The
+`--bin headless` runner above stays the recommended headless entry
+point until then; it uses the default feature set (with the
+presentation pieces installed but not driven from the binary).

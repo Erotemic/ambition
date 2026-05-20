@@ -855,10 +855,10 @@ impl EnemyRuntime {
 
         match ai.intent {
             ae::CharacterAiIntent::Chase { direction_x }
-            | ae::CharacterAiIntent::Attack { direction_x } => {
-                if direction_x.abs() > 0.001 {
-                    self.facing = direction_x.signum();
-                }
+            | ae::CharacterAiIntent::Attack { direction_x }
+                if direction_x.abs() > 0.001 =>
+            {
+                self.facing = direction_x.signum();
             }
             _ => {}
         }

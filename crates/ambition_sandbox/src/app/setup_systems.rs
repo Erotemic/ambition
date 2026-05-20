@@ -69,7 +69,7 @@ pub(super) fn setup_simulation_system(
 /// Kira audio library, and overwrites SceneEntities to fill in the HUD
 /// entity.
 #[cfg(feature = "audio")]
-pub(super) fn setup_presentation_system(
+pub(crate) fn setup_presentation_system(
     mut commands: Commands,
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
@@ -154,7 +154,7 @@ pub(super) fn setup_presentation_system(
 }
 
 #[cfg(not(feature = "audio"))]
-pub(super) fn setup_presentation_system(
+pub(crate) fn setup_presentation_system(
     mut commands: Commands,
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,

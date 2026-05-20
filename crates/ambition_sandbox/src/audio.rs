@@ -41,6 +41,8 @@ use crate::content::data::SoundCueKey;
 #[cfg(feature = "audio")]
 mod bank_asset;
 pub mod environment;
+#[cfg(feature = "audio")]
+mod plugin;
 mod render;
 mod runtime;
 #[cfg(feature = "audio")]
@@ -54,6 +56,8 @@ pub use runtime::{SfxMessage, SoundCue, ORIGINAL_TRACK_ID};
 
 #[cfg(feature = "audio")]
 pub use bank_asset::{SfxBankAsset, SfxBankAssetPlugin};
+#[cfg(feature = "audio")]
+pub use plugin::SandboxAudioPlugin;
 #[cfg(feature = "audio")]
 pub use environment::{
     apply_audio_environment, detect_audio_environment, smooth_audio_environment,

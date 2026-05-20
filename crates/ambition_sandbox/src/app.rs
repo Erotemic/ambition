@@ -119,6 +119,7 @@ pub use plugins::{
 };
 pub use resources::{init_sandbox_resources, StartRoomOverride};
 pub use schedule::{configure_sandbox_sets, SandboxSet};
+pub(crate) use setup_systems::setup_presentation_system;
 pub use sim_systems::{
     apply_player_damage_system, apply_player_reset_input_system, apply_suspended_time_scale_system,
     attack_advance_system, cleanup_timers_system, detect_room_transition_system,

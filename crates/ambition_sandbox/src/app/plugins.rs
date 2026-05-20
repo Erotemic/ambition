@@ -900,87 +900,16 @@ pub(super) fn add_mobile_touch_plugin(app: &mut App) {
 #[cfg(not(feature = "mobile_touch"))]
 pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 
-/// Install the kira audio backend, channel resources, default music
-/// startup, and the SFX subscriber. Gated by `audio` so headless / RL
-/// builds drop `bevy_kira_audio` from the dep graph entirely. The sim
-/// still emits `SfxMessage`s; without this plugin the message queue
-/// just drains harmlessly per the ADR 0012 seam.
+/// Install the sandbox audio subsystem. Gated by `audio` so headless
+/// / RL builds drop `bevy_kira_audio` from the dep graph entirely;
+/// the sim still emits `SfxMessage`s and the queue drains harmlessly
+/// per the ADR 0012 seam.
+///
+/// Moved to `crate::audio::SandboxAudioPlugin` per OVERNIGHT-TODO #6;
+/// this helper is now a one-liner that installs that plugin.
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
-    app.add_plugins(KiraAudioPlugin)
-        // Async SFX-bank loader for profiles whose bank is not picked
-        // up by the sync fast path in `setup::try_load_sfx_bank_via_catalog`
-        // (web HTTP fetch, plain desktop loose FS without env override).
-        // Idempotent against the sync path; both insert the same
-        // `SfxBankResource` and the second writer no-ops.
-        .add_plugins(crate::audio::SfxBankAssetPlugin)
-        // Browser AudioContext unlock telemetry. No-op on desktop
-        // except the one-shot "audio unlocked" log; on wasm it also
-        // emits the startup "audio locked until first gesture" line
-        // so anyone watching devtools knows why audio is silent
-        // before they click.
-        .add_plugins(crate::audio::WebAudioUnlockPlugin)
-        .init_resource::<crate::audio::RadioStationState>()
-        .init_resource::<crate::audio::SfxBankHandleCache>()
-        .init_resource::<AudioEnvironment>()
-        .init_resource::<DefaultMusicStarted>()
-        .add_audio_channel::<MusicChannel>()
-        .add_audio_channel::<SfxChannel>()
-        .add_audio_channel::<crate::music::MusicLayer0AChannel>()
-        .add_audio_channel::<crate::music::MusicLayer1AChannel>()
-        .add_audio_channel::<crate::music::MusicLayer2AChannel>()
-        .add_audio_channel::<crate::music::MusicLayer3AChannel>()
-        .add_audio_channel::<crate::music::MusicLayer4AChannel>()
-        .add_audio_channel::<crate::music::MusicLayer5AChannel>()
-        .add_audio_channel::<crate::music::MusicLayer0BChannel>()
-        .add_audio_channel::<crate::music::MusicLayer1BChannel>()
-        .add_audio_channel::<crate::music::MusicLayer2BChannel>()
-        .add_audio_channel::<crate::music::MusicLayer3BChannel>()
-        .add_audio_channel::<crate::music::MusicLayer4BChannel>()
-        .add_audio_channel::<crate::music::MusicLayer5BChannel>()
-        .add_systems(
-            Startup,
-            (
-                crate::dev::profiling::phase_mark("before_audio_init"),
-                crate::music::load_music_cues,
-                crate::dev::profiling::phase_mark("after_audio_init"),
-            )
-                .chain()
-                .after(setup_presentation_system),
-        )
-        // Deferred music start: polls each Update for (a) user
-        // gesture observed (AudioUnlockState) and (b) the default
-        // music track's asset handle finished loading. On wasm the
-        // gesture gate is what prevents `play()` from no-op'ing
-        // against a suspended AudioContext; on desktop the gate
-        // flips during Startup so behavior matches the old direct-
-        // startup system.
-        .add_systems(Update, start_default_music_when_ready)
-        .add_systems(
-            Update,
-            audio_play_sfx_messages.after(SandboxSet::CoreSimulation),
-        )
-        // Observe the player's WaterContact and request the matching
-        // audio environment; the smoother ramps `wetness`, then
-        // `apply_audio_environment` writes the combined user-mixer
-        // × environment volume to Kira. Order: detect → smooth →
-        // apply so a single frame fully propagates a state change.
-        .add_systems(
-            Update,
-            (
-                detect_audio_environment,
-                smooth_audio_environment,
-                apply_audio_environment,
-            )
-                .chain()
-                .after(SandboxSet::CoreSimulation),
-        )
-        // Unified director: resolves room/encounter simple tracks and
-        // adaptive cue states behind one music intent layer.
-        .add_systems(
-            Update,
-            crate::music::drive_music_director.after(SandboxSet::CoreSimulation),
-        );
+    app.add_plugins(crate::audio::SandboxAudioPlugin);
 }
 
 #[cfg(not(feature = "audio"))]

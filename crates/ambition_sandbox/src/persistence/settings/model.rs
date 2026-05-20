@@ -310,42 +310,15 @@ impl SettingsItem {
             }
             Self::Flashes => format!("Flashes: {}  < / >", settings.video.flashes.label()),
             Self::Colorblind => format!("Colorblind: {}  < / >", settings.video.colorblind.label()),
-            Self::ShowFps => format!(
-                "FPS Overlay: {}",
-                if settings.video.show_fps { "on" } else { "off" }
-            ),
-            Self::ShaderStrength => format!(
-                "Shader Strength: {}%  < / >",
-                settings.video.shaders.strength_percent()
-            ),
-            Self::ShaderCrtStrength => format!(
-                "CRT Strength: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.crt_strength)
-            ),
-            Self::ShaderCrtScanlines => format!(
-                "CRT Scanlines: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.crt_scanlines)
-            ),
-            Self::ShaderCrtMask => format!(
-                "CRT Phosphor Mask: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.crt_mask)
-            ),
-            Self::ShaderCrtCurvature => format!(
-                "CRT Curvature: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.crt_curvature)
-            ),
-            Self::ShaderCrtBloom => format!(
-                "CRT Bloom: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.crt_bloom)
-            ),
-            Self::ShaderCrtChroma => format!(
-                "CRT Chroma Split: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.crt_chroma)
-            ),
-            Self::ShaderFilmGrainStrength => format!(
-                "Film Grain Strength: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.film_grain_strength)
-            ),
+            Self::ShowFps => format_toggle("FPS Overlay", settings.video.show_fps),
+            Self::ShaderStrength => format_shader_percent("Shader Strength", settings.video.shaders.strength),
+            Self::ShaderCrtStrength => format_shader_percent("CRT Strength", settings.video.shaders.crt_strength),
+            Self::ShaderCrtScanlines => format_shader_percent("CRT Scanlines", settings.video.shaders.crt_scanlines),
+            Self::ShaderCrtMask => format_shader_percent("CRT Phosphor Mask", settings.video.shaders.crt_mask),
+            Self::ShaderCrtCurvature => format_shader_percent("CRT Curvature", settings.video.shaders.crt_curvature),
+            Self::ShaderCrtBloom => format_shader_percent("CRT Bloom", settings.video.shaders.crt_bloom),
+            Self::ShaderCrtChroma => format_shader_percent("CRT Chroma Split", settings.video.shaders.crt_chroma),
+            Self::ShaderFilmGrainStrength => format_shader_percent("Film Grain Strength", settings.video.shaders.film_grain_strength),
             Self::ShaderFilmGrainSize => format!(
                 "Film Grain Size: {:.0}px  < / >",
                 settings.video.shaders.film_grain_size
@@ -354,55 +327,19 @@ impl SettingsItem {
                 "Film Grain Rate: {:.0} fps  < / >",
                 settings.video.shaders.film_grain_fps
             ),
-            Self::ShaderFilmGrainLumaBias => format!(
-                "Film Grain Luma Bias: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.film_grain_luma_bias)
-            ),
-            Self::ShaderRobotDeathStrength => format!(
-                "Robot Death Strength: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.robot_death_strength)
-            ),
-            Self::ShaderRobotStatic => format!(
-                "Robot Static: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.robot_static)
-            ),
-            Self::ShaderRobotTear => format!(
-                "Robot Tear: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.robot_tear)
-            ),
-            Self::ShaderRobotDesaturate => format!(
-                "Robot Desaturate: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.robot_desaturate)
-            ),
-            Self::ShaderRobotScanlines => format!(
-                "Robot Scanlines: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.robot_scanlines)
-            ),
-            Self::ShaderUnderwaterStrength => format!(
-                "Underwater Strength: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.underwater_strength)
-            ),
-            Self::ShaderUnderwaterDistortion => format!(
-                "Underwater Distortion: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.underwater_distortion)
-            ),
-            Self::ShaderVignetteStrength => format!(
-                "Vignette Strength: {}%  < / >",
-                ScreenShaderSettings::percent(settings.video.shaders.vignette_strength)
-            ),
+            Self::ShaderFilmGrainLumaBias => format_shader_percent("Film Grain Luma Bias", settings.video.shaders.film_grain_luma_bias),
+            Self::ShaderRobotDeathStrength => format_shader_percent("Robot Death Strength", settings.video.shaders.robot_death_strength),
+            Self::ShaderRobotStatic => format_shader_percent("Robot Static", settings.video.shaders.robot_static),
+            Self::ShaderRobotTear => format_shader_percent("Robot Tear", settings.video.shaders.robot_tear),
+            Self::ShaderRobotDesaturate => format_shader_percent("Robot Desaturate", settings.video.shaders.robot_desaturate),
+            Self::ShaderRobotScanlines => format_shader_percent("Robot Scanlines", settings.video.shaders.robot_scanlines),
+            Self::ShaderUnderwaterStrength => format_shader_percent("Underwater Strength", settings.video.shaders.underwater_strength),
+            Self::ShaderUnderwaterDistortion => format_shader_percent("Underwater Distortion", settings.video.shaders.underwater_distortion),
+            Self::ShaderVignetteStrength => format_shader_percent("Vignette Strength", settings.video.shaders.vignette_strength),
 
-            Self::MasterVolume => format!(
-                "Master Volume: {}%  < / >",
-                AudioSettings::percent(settings.audio.master_volume)
-            ),
-            Self::MusicVolume => format!(
-                "Music Volume: {}%  < / >",
-                AudioSettings::percent(settings.audio.music_volume)
-            ),
-            Self::SfxVolume => format!(
-                "SFX Volume: {}%  < / >",
-                AudioSettings::percent(settings.audio.sfx_volume)
-            ),
+            Self::MasterVolume => format_audio_percent("Master Volume", settings.audio.master_volume),
+            Self::MusicVolume => format_audio_percent("Music Volume", settings.audio.music_volume),
+            Self::SfxVolume => format_audio_percent("SFX Volume", settings.audio.sfx_volume),
             Self::Mute => format!(
                 "Mute: {}",
                 if settings.audio.muted { "muted" } else { "off" }
@@ -416,50 +353,17 @@ impl SettingsItem {
                 "Controller: {}  < / >",
                 settings.controls.controller_profile.label()
             ),
-            Self::LeftStickDeadzone => format!(
-                "L-Stick Deadzone: {}%  < / >",
-                AudioSettings::percent(settings.controls.left_stick_deadzone)
-            ),
-            Self::RightStickDeadzone => format!(
-                "R-Stick Deadzone: {}%  < / >",
-                AudioSettings::percent(settings.controls.right_stick_deadzone)
-            ),
-            Self::TriggerPress => format!(
-                "Trigger Press: {}%  < / >",
-                AudioSettings::percent(settings.controls.trigger_press_threshold)
-            ),
-            Self::TriggerRelease => format!(
-                "Trigger Release: {}%  < / >",
-                AudioSettings::percent(settings.controls.trigger_release_threshold)
-            ),
-            Self::DpadMenuNav => format!(
-                "D-Pad Menu Nav: {}",
-                if settings.controls.dpad_menu_navigation {
-                    "on"
-                } else {
-                    "off"
-                }
-            ),
-            Self::InvertAimY => format!(
-                "Invert Aim Y: {}",
-                if settings.controls.invert_aim_y {
-                    "on"
-                } else {
-                    "off"
-                }
-            ),
+            Self::LeftStickDeadzone => format_audio_percent("L-Stick Deadzone", settings.controls.left_stick_deadzone),
+            Self::RightStickDeadzone => format_audio_percent("R-Stick Deadzone", settings.controls.right_stick_deadzone),
+            Self::TriggerPress => format_audio_percent("Trigger Press", settings.controls.trigger_press_threshold),
+            Self::TriggerRelease => format_audio_percent("Trigger Release", settings.controls.trigger_release_threshold),
+            Self::DpadMenuNav => format_toggle("D-Pad Menu Nav", settings.controls.dpad_menu_navigation),
+            Self::InvertAimY => format_toggle("Invert Aim Y", settings.controls.invert_aim_y),
             Self::DashInputMode => format!(
                 "Dash Input: {}  < / >",
                 settings.controls.dash_input_mode.label()
             ),
-            Self::TouchControls => format!(
-                "Touch Controls: {}",
-                if settings.controls.touch_controls_visible {
-                    "on"
-                } else {
-                    "off"
-                }
-            ),
+            Self::TouchControls => format_toggle("Touch Controls", settings.controls.touch_controls_visible),
             Self::MenuTapMode => format!(
                 "Menu Tap: {}  < / >",
                 settings.controls.menu_tap_mode.label()
@@ -479,30 +383,9 @@ impl SettingsItem {
                 "Flashes (gameplay): {}  < / >",
                 settings.video.flashes.label()
             ),
-            Self::DebugHud => format!(
-                "Debug HUD: {}",
-                if settings.gameplay.debug_hud_visible {
-                    "on"
-                } else {
-                    "off"
-                }
-            ),
-            Self::QuestHud => format!(
-                "Quest HUD: {}",
-                if settings.gameplay.quest_hud_visible {
-                    "on"
-                } else {
-                    "off"
-                }
-            ),
-            Self::TraceAutoDump => format!(
-                "Trace Auto-Dump: {}",
-                if settings.gameplay.trace_auto_dump {
-                    "on"
-                } else {
-                    "off"
-                }
-            ),
+            Self::DebugHud => format_toggle("Debug HUD", settings.gameplay.debug_hud_visible),
+            Self::QuestHud => format_toggle("Quest HUD", settings.gameplay.quest_hud_visible),
+            Self::TraceAutoDump => format_toggle("Trace Auto-Dump", settings.gameplay.trace_auto_dump),
 
             Self::DebugOverlay => format!("Debug Overlay (F1): {}", on_off(dev.debug_overlay)),
             Self::SlowMotion => format!("Slow Motion (F2): {}", on_off(dev.slowmo)),
@@ -550,6 +433,36 @@ fn on_off(value: bool) -> &'static str {
     } else {
         "off"
     }
+}
+
+/// `Label: NN%  < / >` — the shared format for every 0..1 shader slider
+/// row. Pulled out of the 17 near-identical `Shader*` arms in
+/// [`SettingsItem::label_with_dev`] so adding a new shader slider is a
+/// one-line label change rather than a five-line `format!` boilerplate.
+fn format_shader_percent(label: &str, value: f32) -> String {
+    format!(
+        "{label}: {pct}%  < / >",
+        pct = ScreenShaderSettings::percent(value)
+    )
+}
+
+/// `Label: NN%  < / >` — same shape as [`format_shader_percent`] but
+/// using [`AudioSettings::percent`] (also clamping to 0..1 but at the
+/// audio settings layer). Used by the volume sliders and the controller
+/// deadzone / trigger threshold rows.
+fn format_audio_percent(label: &str, value: f32) -> String {
+    format!(
+        "{label}: {pct}%  < / >",
+        pct = AudioSettings::percent(value)
+    )
+}
+
+/// `Label: on|off` — the shared format for every two-state toggle row
+/// that wraps a plain `bool` field. Routed through [`on_off`] so the
+/// developer toggles, gameplay toggles, and controls toggles all read
+/// the same in the menu.
+fn format_toggle(label: &str, value: bool) -> String {
+    format!("{label}: {}", on_off(value))
 }
 
 /// Snapshot of the developer-page toggles, sampled from the live

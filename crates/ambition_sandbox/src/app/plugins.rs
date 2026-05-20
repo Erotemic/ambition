@@ -66,7 +66,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_progression_populate_systems(app);
     register_feature_view_sync_systems(app);
     register_reset_processing_systems(app);
-    register_trace_systems(app);
+    app.add_plugins(crate::trace::TraceSchedulePlugin);
 }
 
 // Core simulation, split into 6 finer-grained sub-sets that are
@@ -391,21 +391,9 @@ fn register_reset_processing_systems(app: &mut App) {
     );
 }
 
-/// Trace recorder lives at the simulation seam: `record_frame_system`
-/// captures one frame per Update tick after CoreSimulation has resolved
-/// player state; `flush_pending_dump` writes any pending dump to disk on
-/// the same tick. Both run on the simulation half so headless and
-/// visible builds share trace output.
-fn register_trace_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            crate::trace::record_frame_system,
-            crate::trace::flush_pending_dump.after(crate::trace::record_frame_system),
-        )
-            .in_set(SandboxSet::Trace),
-    );
-}
+// Trace recorder schedule moved to `crate::trace::TraceSchedulePlugin`
+// (OVERNIGHT-TODO #6 — module-local plugins). `add_simulation_plugins`
+// installs it via `app.add_plugins`.
 
 /// Register Bevy's `LdtkPlugin` plus the supporting Ambition glue
 /// (entity registrations, asset collection, LdtkWorldBundle spawn,

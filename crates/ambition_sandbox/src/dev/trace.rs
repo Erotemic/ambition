@@ -46,6 +46,7 @@ mod buffer;
 mod detect;
 mod dump;
 mod model;
+mod plugin;
 mod systems;
 
 #[cfg(test)]
@@ -59,6 +60,7 @@ pub use model::{
     CollisionTraceShape, ControlFrameTrace, DumpReason, GameplayTraceEvent, GameplayTraceFrame,
     MovingPlatformTraceState, OobReason, PlayerTraceState, TraceAabb, TracePoint,
 };
+pub use plugin::TraceSchedulePlugin;
 pub use systems::{
     flush_pending_dump, handle_trace_hotkey, record_frame_system, record_simulation_frame,
 };

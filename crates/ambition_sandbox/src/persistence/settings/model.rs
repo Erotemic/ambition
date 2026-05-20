@@ -289,27 +289,19 @@ impl SettingsItem {
             | Self::Back => unreachable!("page-nav rows handled by page_nav_label above"),
             Self::ResetAllSettings => "Reset All Settings to Defaults".into(),
 
-            Self::DisplayMode => format!(
-                "Display Mode: {}  < / >",
-                DisplayModeKind::from(settings.video.display_mode).label()
+            Self::DisplayMode => format_cycle(
+                "Display Mode",
+                DisplayModeKind::from(settings.video.display_mode).label(),
             ),
-            Self::CameraZoom => {
-                format!("Camera View: {}  < / >", settings.video.camera_zoom.label())
-            }
+            Self::CameraZoom => format_cycle("Camera View", settings.video.camera_zoom.label()),
             Self::CameraAspect => {
-                format!(
-                    "Camera Aspect: {}  < / >",
-                    settings.video.camera_aspect.label()
-                )
+                format_cycle("Camera Aspect", settings.video.camera_aspect.label())
             }
             Self::CameraFraming => {
-                format!(
-                    "Camera Framing: {}  < / >",
-                    settings.video.camera_framing.label()
-                )
+                format_cycle("Camera Framing", settings.video.camera_framing.label())
             }
-            Self::Flashes => format!("Flashes: {}  < / >", settings.video.flashes.label()),
-            Self::Colorblind => format!("Colorblind: {}  < / >", settings.video.colorblind.label()),
+            Self::Flashes => format_cycle("Flashes", settings.video.flashes.label()),
+            Self::Colorblind => format_cycle("Colorblind", settings.video.colorblind.label()),
             Self::ShowFps => format_toggle("FPS Overlay", settings.video.show_fps),
             Self::ShaderStrength => format_shader_percent("Shader Strength", settings.video.shaders.strength),
             Self::ShaderCrtStrength => format_shader_percent("CRT Strength", settings.video.shaders.crt_strength),
@@ -319,13 +311,13 @@ impl SettingsItem {
             Self::ShaderCrtBloom => format_shader_percent("CRT Bloom", settings.video.shaders.crt_bloom),
             Self::ShaderCrtChroma => format_shader_percent("CRT Chroma Split", settings.video.shaders.crt_chroma),
             Self::ShaderFilmGrainStrength => format_shader_percent("Film Grain Strength", settings.video.shaders.film_grain_strength),
-            Self::ShaderFilmGrainSize => format!(
-                "Film Grain Size: {:.0}px  < / >",
-                settings.video.shaders.film_grain_size
+            Self::ShaderFilmGrainSize => format_cycle(
+                "Film Grain Size",
+                format!("{:.0}px", settings.video.shaders.film_grain_size),
             ),
-            Self::ShaderFilmGrainFps => format!(
-                "Film Grain Rate: {:.0} fps  < / >",
-                settings.video.shaders.film_grain_fps
+            Self::ShaderFilmGrainFps => format_cycle(
+                "Film Grain Rate",
+                format!("{:.0} fps", settings.video.shaders.film_grain_fps),
             ),
             Self::ShaderFilmGrainLumaBias => format_shader_percent("Film Grain Luma Bias", settings.video.shaders.film_grain_luma_bias),
             Self::ShaderRobotDeathStrength => format_shader_percent("Robot Death Strength", settings.video.shaders.robot_death_strength),
@@ -345,44 +337,34 @@ impl SettingsItem {
                 if settings.audio.muted { "muted" } else { "off" }
             ),
 
-            Self::KeyboardPreset => format!(
-                "Keyboard Preset: {}  < / >",
-                settings.controls.keyboard_preset_index
-            ),
-            Self::ControllerProfile => format!(
-                "Controller: {}  < / >",
-                settings.controls.controller_profile.label()
-            ),
+            Self::KeyboardPreset => {
+                format_cycle("Keyboard Preset", settings.controls.keyboard_preset_index)
+            }
+            Self::ControllerProfile => {
+                format_cycle("Controller", settings.controls.controller_profile.label())
+            }
             Self::LeftStickDeadzone => format_audio_percent("L-Stick Deadzone", settings.controls.left_stick_deadzone),
             Self::RightStickDeadzone => format_audio_percent("R-Stick Deadzone", settings.controls.right_stick_deadzone),
             Self::TriggerPress => format_audio_percent("Trigger Press", settings.controls.trigger_press_threshold),
             Self::TriggerRelease => format_audio_percent("Trigger Release", settings.controls.trigger_release_threshold),
             Self::DpadMenuNav => format_toggle("D-Pad Menu Nav", settings.controls.dpad_menu_navigation),
             Self::InvertAimY => format_toggle("Invert Aim Y", settings.controls.invert_aim_y),
-            Self::DashInputMode => format!(
-                "Dash Input: {}  < / >",
-                settings.controls.dash_input_mode.label()
-            ),
+            Self::DashInputMode => {
+                format_cycle("Dash Input", settings.controls.dash_input_mode.label())
+            }
             Self::TouchControls => format_toggle("Touch Controls", settings.controls.touch_controls_visible),
-            Self::MenuTapMode => format!(
-                "Menu Tap: {}  < / >",
-                settings.controls.menu_tap_mode.label()
-            ),
+            Self::MenuTapMode => format_cycle("Menu Tap", settings.controls.menu_tap_mode.label()),
             Self::ResetControlFiltering => "Reset Filter Defaults".into(),
 
-            Self::Difficulty => format!(
-                "Difficulty: {}  < / >",
-                settings.gameplay.difficulty.label()
-            ),
+            Self::Difficulty => format_cycle("Difficulty", settings.gameplay.difficulty.label()),
             Self::Assist => format!("Assist: {}", settings.gameplay.assist.label()),
-            Self::PlayerDamageMultiplier => format!(
-                "Player Damage: x{:.2}  < / >",
-                settings.gameplay.player_damage_multiplier
+            Self::PlayerDamageMultiplier => format_cycle(
+                "Player Damage",
+                format!("x{:.2}", settings.gameplay.player_damage_multiplier),
             ),
-            Self::GameplayFlashes => format!(
-                "Flashes (gameplay): {}  < / >",
-                settings.video.flashes.label()
-            ),
+            Self::GameplayFlashes => {
+                format_cycle("Flashes (gameplay)", settings.video.flashes.label())
+            }
             Self::DebugHud => format_toggle("Debug HUD", settings.gameplay.debug_hud_visible),
             Self::QuestHud => format_toggle("Quest HUD", settings.gameplay.quest_hud_visible),
             Self::TraceAutoDump => format_toggle("Trace Auto-Dump", settings.gameplay.trace_auto_dump),
@@ -396,12 +378,8 @@ impl SettingsItem {
             Self::OverviewCamera => {
                 format!("Overview Camera (F5): {}", on_off(dev.overview_camera))
             }
-            Self::DebugViewMode => {
-                format!("Debug View: {}  < / >", dev.debug_view_mode.label())
-            }
-            Self::DebugArtMode => {
-                format!("Debug Art: {}  < / >", dev.debug_art_mode.label())
-            }
+            Self::DebugViewMode => format_cycle("Debug View", dev.debug_view_mode.label()),
+            Self::DebugArtMode => format_cycle("Debug Art", dev.debug_art_mode.label()),
             Self::ShowHitboxes => {
                 format!("Custom Hitboxes: {}", on_off(dev.show_hitboxes))
             }
@@ -415,11 +393,9 @@ impl SettingsItem {
                 format!("Camera Frame: {}", on_off(dev.camera_frame))
             }
             Self::PlayerBodyProfile => {
-                format!("Player Body: {}  < / >", dev.player_body_profile.label())
+                format_cycle("Player Body", dev.player_body_profile.label())
             }
-            Self::MovementProfile => {
-                format!("Movement Profile: {}  < / >", dev.movement_profile.label())
-            }
+            Self::MovementProfile => format_cycle("Movement Profile", dev.movement_profile.label()),
             Self::LdtkAutoApply => {
                 format!("LDtk Auto-Reload (F12): {}", on_off(dev.ldtk_auto_apply))
             }
@@ -435,15 +411,21 @@ fn on_off(value: bool) -> &'static str {
     }
 }
 
+/// `Label: <value>  < / >` — the shared cycle/nudge row format.
+/// Use this instead of an inline `format!("…: {} < / >", …)` so the
+/// "value-on-the-right + arrows" UX shape stays uniform across pages.
+/// Display values that already render the way the row should read
+/// (e.g. an enum's `label()` method) pass through directly.
+fn format_cycle(label: &str, value: impl std::fmt::Display) -> String {
+    format!("{label}: {value}  < / >")
+}
+
 /// `Label: NN%  < / >` — the shared format for every 0..1 shader slider
 /// row. Pulled out of the 17 near-identical `Shader*` arms in
 /// [`SettingsItem::label_with_dev`] so adding a new shader slider is a
 /// one-line label change rather than a five-line `format!` boilerplate.
 fn format_shader_percent(label: &str, value: f32) -> String {
-    format!(
-        "{label}: {pct}%  < / >",
-        pct = ScreenShaderSettings::percent(value)
-    )
+    format_cycle(label, format!("{}%", ScreenShaderSettings::percent(value)))
 }
 
 /// `Label: NN%  < / >` — same shape as [`format_shader_percent`] but
@@ -451,10 +433,7 @@ fn format_shader_percent(label: &str, value: f32) -> String {
 /// audio settings layer). Used by the volume sliders and the controller
 /// deadzone / trigger threshold rows.
 fn format_audio_percent(label: &str, value: f32) -> String {
-    format!(
-        "{label}: {pct}%  < / >",
-        pct = AudioSettings::percent(value)
-    )
+    format_cycle(label, format!("{}%", AudioSettings::percent(value)))
 }
 
 /// `Label: on|off` — the shared format for every two-state toggle row

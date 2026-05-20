@@ -110,10 +110,9 @@ impl MenuTapMode {
                 }
             }
             Self::SingleTapWithDestructiveGuard => {
-                if !is_destructive {
-                    *armed = None;
-                    MenuPointerPress::Confirm
-                } else if currently_selected == target_index && *armed == Some(target_index) {
+                let confirm_now = !is_destructive
+                    || (currently_selected == target_index && *armed == Some(target_index));
+                if confirm_now {
                     *armed = None;
                     MenuPointerPress::Confirm
                 } else {

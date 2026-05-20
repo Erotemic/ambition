@@ -557,7 +557,6 @@ pub struct RoomSpec {
     pub enemy_spawns: Vec<Authored<ae::EnemyBrain>>,
     pub boss_spawns: Vec<Authored<ae::BossBrain>>,
     pub debug_labels: Vec<Authored<ae::DebugLabel>>,
-    pub destination_labels: Vec<Authored<ae::DestinationLabel>>,
 }
 
 #[derive(Clone, Debug)]

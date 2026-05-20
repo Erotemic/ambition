@@ -36,24 +36,6 @@ pub enum DebugLabelKind {
     Custom,
 }
 
-/// Specialized label for loading-zone destinations.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DestinationLabel {
-    pub zone_id: String,
-    pub destination_room: String,
-    pub destination_zone: String,
-    pub position: Vec2,
-}
-
-impl DestinationLabel {
-    pub fn text(&self) -> String {
-        format!(
-            "{} -> {}:{}",
-            self.zone_id, self.destination_room, self.destination_zone
-        )
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -64,16 +46,5 @@ mod tests {
         assert_eq!(label.text, "hello");
         assert_eq!(label.position, Vec2::new(10.0, 20.0));
         assert_eq!(label.category, DebugLabelKind::Hazard);
-    }
-
-    #[test]
-    fn destination_label_text_uses_arrow_and_colon() {
-        let dest = DestinationLabel {
-            zone_id: "east_exit".into(),
-            destination_room: "scroll_lab".into(),
-            destination_zone: "lab_entry".into(),
-            position: Vec2::ZERO,
-        };
-        assert_eq!(dest.text(), "east_exit -> scroll_lab:lab_entry");
     }
 }

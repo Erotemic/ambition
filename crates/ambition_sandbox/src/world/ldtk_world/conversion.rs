@@ -133,7 +133,6 @@ impl LdtkProject {
         let mut enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>> = Vec::new();
         let mut boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>> = Vec::new();
         let mut debug_labels: Vec<crate::rooms::Authored<ae::DebugLabel>> = Vec::new();
-        let mut destination_labels: Vec<crate::rooms::Authored<ae::DestinationLabel>> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -176,7 +175,6 @@ impl LdtkProject {
                         enemy_spawns.extend(emission.enemy_spawns);
                         boss_spawns.extend(emission.boss_spawns);
                         debug_labels.extend(emission.debug_labels);
-                        destination_labels.extend(emission.destination_labels);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -263,7 +261,6 @@ impl LdtkProject {
             enemy_spawns,
             boss_spawns,
             debug_labels,
-            destination_labels,
         })
     }
 
@@ -319,7 +316,6 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>>,
     pub(super) boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>>,
     pub(super) debug_labels: Vec<crate::rooms::Authored<ae::DebugLabel>>,
-    pub(super) destination_labels: Vec<crate::rooms::Authored<ae::DestinationLabel>>,
     pub(super) ignored: bool,
 }
 
@@ -439,13 +435,6 @@ impl RuntimeEntityEmission {
         }
     }
 
-    #[allow(dead_code)] // DestinationLabel emission lands when the LDtk entity gets re-wired.
-    fn destination_label(authored: crate::rooms::Authored<ae::DestinationLabel>) -> Self {
-        Self {
-            destination_labels: vec![authored],
-            ..Self::default()
-        }
-    }
 }
 
 fn entity_min_size(entity: &LdtkEntityInstance, offset: ae::Vec2) -> (ae::Vec2, ae::Vec2) {

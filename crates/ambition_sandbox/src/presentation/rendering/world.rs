@@ -115,15 +115,6 @@ pub fn spawn_room_visuals(
             14.0,
         );
     }
-    for label in &spec.destination_labels {
-        spawn_world_label(
-            commands,
-            world,
-            label.payload.position,
-            &label.payload.text(),
-            14.0,
-        );
-    }
     for prop in &spec.props {
         spawn_room_prop(commands, world, prop, assets);
     }

@@ -465,7 +465,6 @@ mod tests {
             enemy_spawns: Vec::new(),
             boss_spawns: Vec::new(),
             debug_labels: Vec::new(),
-            destination_labels: Vec::new(),
         }
     }
 

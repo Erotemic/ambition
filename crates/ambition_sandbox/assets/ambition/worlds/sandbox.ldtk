@@ -25333,18 +25333,18 @@
 						},
 						{
 							"__identifier": "BossSpawn",
-							"__grid": [49,31],
+							"__grid": [49,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#C77DFF",
 							"__worldX": 36786,
-							"__worldY": 498,
+							"__worldY": 832,
 							"iid": "BossSpawn-4391",
 							"width": 220,
 							"height": 220,
 							"defUid": 2013,
-							"px": [786,498],
+							"px": [786,832],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "GNU-ton", "__tile": null, "defUid": 3033, "realEditorValues": [ { "id": "V_String", "params": ["GNU-ton"] } ] },
 								{ "__identifier": "brain", "__type": "String", "__value": "PhaseScript:gnu_ton", "__tile": null, "defUid": 3034, "realEditorValues": [ { "id": "V_String", "params": ["PhaseScript:gnu_ton"] } ] }

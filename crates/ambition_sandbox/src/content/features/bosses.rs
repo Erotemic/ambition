@@ -218,14 +218,19 @@ pub struct BossTickOutputs {
 /// inside an active GnuAppleRain strike; gravity is gentle enough that
 /// even a casual sidestep clears the falling arc, but the cadence is
 /// fast enough that standing still under the giant is unsafe.
-const APPLE_RAIN_INTERVAL: f32 = 0.55;
+/// Apples spawn anywhere along the arena width (not just over the
+/// player) so the entire floor becomes a no-stand zone for the
+/// duration of the strike — the player must keep moving.
+const APPLE_RAIN_INTERVAL: f32 = 0.35;
 const APPLE_RAIN_GRAVITY: f32 = 540.0;
 const APPLE_RAIN_SPAWN_SPEED: f32 = 35.0;
 const APPLE_RAIN_LIFETIME: f32 = 6.0;
-const APPLE_RAIN_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(9.0, 10.0);
+/// Apples are large enough to clearly read as the dominant arena
+/// threat (14×16 half-extent = 28×32 collision box, sprite renders
+/// ~5% larger). Earlier 9×10 was too easy to overlook visually.
+const APPLE_RAIN_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(14.0, 16.0);
 const APPLE_RAIN_DAMAGE: i32 = 1;
 const APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER: f32 = 320.0;
-const APPLE_RAIN_X_JITTER: f32 = 160.0;
 /// Stable id prefix used by the visuals layer to switch the
 /// flat-red-rectangle bullet shape to the apple sprite (red body +
 /// green leaf + brown stem). Keep in sync with
@@ -632,7 +637,22 @@ impl BossRuntime {
         }
         self.pattern_timer += dt;
         self.movement_timer += dt;
-        let target = self.behavior.movement.target(self, target_pos);
+        let mut target = self.behavior.movement.target(self, target_pos);
+        // While the giant is raining apples on the arena, add a
+        // visible horizontal dodge so it reads as "stepping aside to
+        // avoid its own experiment" instead of standing perfectly
+        // still under a deathstorm of fruit. The dodge is layered
+        // over (not replacing) the baseline StationaryGiant sway so
+        // the silhouette already moving for `sway_amplitude` keeps
+        // its phase while the amplitude swells.
+        if matches!(
+            self.active_strike_profile,
+            Some(BossAttackProfile::GnuAppleRain)
+        ) {
+            let dodge_amp = 70.0;
+            let dodge_freq = 1.6;
+            target.x += (self.movement_timer * dodge_freq).sin() * dodge_amp;
+        }
         self.move_toward_target(world, target, dt);
         self.hit_flash = (self.hit_flash - dt).max(0.0);
 
@@ -655,31 +675,51 @@ impl BossRuntime {
     }
 
     /// Emit one falling-apple spawn per `APPLE_RAIN_INTERVAL` while
-    /// the GnuAppleRain strike is active. Spawn point is above the
-    /// player with a deterministic x-jitter so consecutive apples
-    /// don't stack on the exact same column — the player can still
-    /// learn the cadence, but can't camp under a single safe pixel.
+    /// the GnuAppleRain strike is active. Spawn x is distributed
+    /// pseudo-uniformly across the FULL arena width via a low-discrepancy
+    /// sequence (golden-ratio rotation of `apple_spawn_index`), so the
+    /// whole arena becomes a no-stand zone — not just the column over
+    /// the player. The boss itself avoids dropping apples directly on
+    /// its own body so it doesn't self-flagellate during the strike;
+    /// see `apple_spawn_avoids_self_aabb`.
     fn tick_apple_rain(
         &mut self,
         world: &ae::World,
-        target_pos: ae::Vec2,
+        _target_pos: ae::Vec2,
         outputs: &mut BossTickOutputs,
         dt: f32,
     ) {
         self.apple_spawn_accum += dt;
+        let margin = APPLE_RAIN_HALF_EXTENT.x + 8.0;
+        let max_x = (world.size.x - margin).max(margin);
+        let spawnable_width = (max_x - margin).max(0.0);
+        let self_aabb = self.aabb();
         while self.apple_spawn_accum >= APPLE_RAIN_INTERVAL {
             self.apple_spawn_accum -= APPLE_RAIN_INTERVAL;
-            // Deterministic jitter: alternating signs + a triangle-wave
-            // magnitude over the spawn index keeps things readable without
-            // pulling an RNG into the tick.
+            // Golden-ratio low-discrepancy x — covers the whole arena
+            // evenly across consecutive spawns without RNG, and reads as
+            // "random" to the player. The Hammersley/Halton family
+            // would also work; phi gives the right "no two adjacent
+            // apples land on top of each other" property cheaply.
+            const PHI_FRAC: f32 = 0.618_033_99;
             let i = self.apple_spawn_index;
-            let mag = ((i % 7) as f32 / 6.0) * APPLE_RAIN_X_JITTER;
-            let sign = if i % 2 == 0 { 1.0 } else { -1.0 };
-            let raw_x = target_pos.x + sign * mag;
-            let margin = APPLE_RAIN_HALF_EXTENT.x + 8.0;
-            let max_x = (world.size.x - margin).max(margin);
-            let spawn_x = raw_x.clamp(margin, max_x);
-            let spawn_y = (target_pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
+            let frac = ((i as f32) * PHI_FRAC).fract();
+            let mut spawn_x = margin + frac * spawnable_width;
+            // Slide the x out from under the boss body so an apple
+            // doesn't immediately hit GNU-ton on the head. Pick the
+            // nearer of the boss's left/right edges so the cleaver
+            // motion is minimal.
+            let self_left = self_aabb.min.x - APPLE_RAIN_HALF_EXTENT.x;
+            let self_right = self_aabb.max.x + APPLE_RAIN_HALF_EXTENT.x;
+            if spawn_x > self_left && spawn_x < self_right {
+                spawn_x = if spawn_x - self_left < self_right - spawn_x {
+                    self_left
+                } else {
+                    self_right
+                };
+                spawn_x = spawn_x.clamp(margin, max_x);
+            }
+            let spawn_y = (self.pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
                 .max(APPLE_RAIN_HALF_EXTENT.y + 8.0);
             outputs
                 .projectile_spawns
@@ -1331,9 +1371,16 @@ mod scripted_pattern_tests {
         );
         let player_pos = ae::Vec2::new(500.0, 400.0);
         let mut outputs = BossTickOutputs::default();
-        // Hand-tick the apple-rain branch with a step that should
-        // cover ~3 apple intervals.
-        boss.tick_apple_rain(&world, player_pos, &mut outputs, APPLE_RAIN_INTERVAL * 3.0);
+        // Hand-tick the apple-rain branch with a step a hair past
+        // 3 intervals (epsilon avoids float-precision shaving the
+        // last spawn off when interval * 3 doesn't quite land at the
+        // boundary due to f32 rounding).
+        boss.tick_apple_rain(
+            &world,
+            player_pos,
+            &mut outputs,
+            APPLE_RAIN_INTERVAL * 3.0 + 1.0e-3,
+        );
         assert!(
             outputs.projectile_spawns.len() >= 3,
             "expected >=3 apple spawns over 3 intervals, got {}",
@@ -1348,11 +1395,89 @@ mod scripted_pattern_tests {
                  layer can swap in the apple sprite; got {}",
                 spawn.owner_id
             );
+            // Spawn height is anchored to the boss now (not the
+            // player target), but in this fixture the two share y so
+            // the original-spirit assertion still holds: apples fall
+            // from above the player onto the player.
             assert!(
                 spawn.origin.y < player_pos.y,
                 "apples must spawn above the player"
             );
         }
+    }
+
+    #[test]
+    fn gnu_ton_apple_rain_spawns_avoid_self_aabb() {
+        // The boss must not drop apples on its own head — the strike
+        // is choreography, not friendly fire. After ticking for many
+        // intervals, no spawn x should fall inside the boss AABB
+        // (expanded by the apple half-extent for the collision check).
+        let mut boss = gnu_ton_runtime();
+        boss.active_strike_profile = Some(BossAttackProfile::GnuAppleRain);
+        let world = ae::World::new(
+            "test_arena",
+            ae::Vec2::new(2_000.0, 2_000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        );
+        let player_pos = ae::Vec2::new(500.0, 400.0);
+        let mut outputs = BossTickOutputs::default();
+        // Long enough to walk through a full lap of the
+        // golden-ratio sequence so the avoidance path actually
+        // exercises the boss-overlap case.
+        boss.tick_apple_rain(
+            &world,
+            player_pos,
+            &mut outputs,
+            APPLE_RAIN_INTERVAL * 30.0 + 1.0e-3,
+        );
+        let self_aabb = boss.aabb();
+        let pad = APPLE_RAIN_HALF_EXTENT.x;
+        for spawn in &outputs.projectile_spawns {
+            assert!(
+                spawn.origin.x <= self_aabb.min.x - pad + 1e-3
+                    || spawn.origin.x >= self_aabb.max.x + pad - 1e-3,
+                "apple at x={} fell inside the boss aabb [{},{}] +/- {}",
+                spawn.origin.x,
+                self_aabb.min.x,
+                self_aabb.max.x,
+                pad
+            );
+        }
+    }
+
+    #[test]
+    fn gnu_ton_apple_rain_spawns_cover_full_arena_width() {
+        // The whole arena should become a no-stand zone, not just the
+        // column directly over the player. Across many spawns we
+        // should see apples both to the LEFT and to the RIGHT of the
+        // boss center — otherwise the player just stands on the
+        // opposite side of the boss and waits the strike out.
+        let mut boss = gnu_ton_runtime();
+        boss.active_strike_profile = Some(BossAttackProfile::GnuAppleRain);
+        let world = ae::World::new(
+            "test_arena",
+            ae::Vec2::new(2_000.0, 2_000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        );
+        let player_pos = ae::Vec2::new(500.0, 400.0);
+        let mut outputs = BossTickOutputs::default();
+        boss.tick_apple_rain(
+            &world,
+            player_pos,
+            &mut outputs,
+            APPLE_RAIN_INTERVAL * 20.0 + 1.0e-3,
+        );
+        let any_left = outputs
+            .projectile_spawns
+            .iter()
+            .any(|s| s.origin.x < boss.pos.x - 100.0);
+        let any_right = outputs
+            .projectile_spawns
+            .iter()
+            .any(|s| s.origin.x > boss.pos.x + 100.0);
+        assert!(any_left && any_right, "{:?}", outputs.projectile_spawns);
     }
 
     #[test]

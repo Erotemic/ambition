@@ -1,10 +1,13 @@
 //! Boss combat-banter lines + idle-bark ticker.
 //!
-//! Scholar-on-shoulder quotes for GNU-ton: pedantic, recursive,
-//! self-referential. Lines should sound like someone who has read every
-//! GNU manual and missed the point. Idle barks fire between strikes
-//! during attacking phases (Phase1/2/Enrage) so the scholar reads as a
-//! present, opinionated character even when not under attack.
+//! Scholar-on-shoulder quotes for GNU-ton: voiced primarily as Isaac
+//! Newton — cold, obsessive, theological, experimental, petty,
+//! cosmic. The GNU joke lives in the name and art only; the *voice*
+//! is the man who chased coiners to the gallows, ground his eye
+//! socket with a bodkin to study optics, and counted prophecy in
+//! arithmetic. Idle barks fire between strikes during attacking
+//! phases (Phase1/2/Enrage) so the scholar reads as a present,
+//! opinionated character even when not under attack.
 
 use std::collections::HashMap;
 
@@ -17,41 +20,98 @@ use ambition_engine as ae;
 
 /// Register hit-bark + idle-bark lines for all boss encounters.
 pub fn install_boss_banter(registry: &mut CombatBanterRegistry) {
-    // GNU-ton — the scholar atop the giant wildebeest.
-    // Hit barks: pompous, recursive, free-software militant.
+    // GNU-ton — the scholar atop the giant wildebeest, voiced as
+    // Isaac Newton. Hit barks are sharp, mathematical, and a little
+    // furious — the man does not enjoy being interrupted mid-proof.
     // Name key must match the LDtk BossSpawn entity name exactly.
     registry.set_hit_barks(
         "GNU-ton",
         vec![
-            "That's GPL v3, not v2! Read the license!",
-            "I wrote a 47-page rebuttal to that attack!",
-            "I can see further than everyone else — standing on the shoulders of giants!",
-            "It's not Linux, it's GNU slash Linux!",
-            "My wildebeest is free as in freedom — free as in freedom!",
-            "I was going to finish the Hurd kernel, but then you hit me!",
-            "Violence is closed source!",
-            "I have a recursive name. You have a recursive kick.",
-            "Have you considered contributing a patch instead?",
+            "Counterfeit.",
+            "You ring false.",
+            "Assayed. Found wanting.",
+            "Your defiance has mass.",
+            "Pain is data.",
+            "Impact is merely mathematics becoming honest.",
+            "The hypothesis has failed. Begin dissection.",
+            "Your continued existence is statistically irritating.",
+            "I tire of imprecision.",
         ],
     );
     // Idle barks: muttered between strikes so the scholar feels alive
     // even when not under attack. Fired by `tick_boss_idle_barks` while
-    // the boss is in an attacking phase.
+    // the boss is in an attacking phase. Pulls from the full
+    // Newton-voice menu — optics, alchemy, theology, the Mint — so
+    // repeat encounters sound layered rather than thematic-stuck.
     registry.set_idle_barks(
         "GNU-ton",
         vec![
-            "Did you know GNU is a recursive acronym? GNU's Not Unix.",
-            "Excuse me, but it's GNU slash Linux, actually.",
-            "Standing on the shoulders of giants. Literally.",
-            "I once filed a 200-page bug report against the universe.",
-            "'Free as in freedom', not 'free as in beer'. Common mistake.",
-            "Have you read the manifesto? It's only 41 pages.",
-            "The kernel is fine; the problem is the userspace.",
-            "I'm porting myself to Hurd. It's almost ready. Almost.",
-            "Software wants to be free. My wildebeest wants to be left alone.",
-            "I am the maintainer of this wildebeest.",
-            "Every commit a theorem. Every theorem a footnote.",
-            "Have you considered switching to Emacs?",
+            // The five Jon-favorited lines lead the pool so they
+            // surface first in a fresh fight.
+            "Fall. I have already solved for where.",
+            "The universe is not cruel. It is exact.",
+            "I have split the sun. I can divide you.",
+            "I know false weight when it breathes.",
+            "Your continued existence is statistically irritating.",
+            // Cosmic / mechanics.
+            "Your motion was inevitable.",
+            "I require no prophecy to know your end.",
+            "Do not resist the law. You are made of it.",
+            "I have measured the heavens. You are a rounding error.",
+            "Every body attracts every other. Unfortunately for you, I am very large.",
+            "You are not escaping. You are tracing a curve.",
+            "Be still. I am observing.",
+            "Hold steady. The experiment requires repetition.",
+            // Optics.
+            "White light concealed its colors better than you conceal your fear.",
+            "I pressed behind the eye and found truth in the bruise.",
+            "Look closer. Closer than sight allows.",
+            "The prism does not lie. It only reveals the lie.",
+            "Darkness is light refusing examination.",
+            "Your shadow has an angle. Your death has a proof.",
+            // Alchemy.
+            "Lead dreams of gold. Flesh dreams of dust.",
+            "The furnace corrects all impurities.",
+            "Mercury remembers the shape of every sin.",
+            "Be transmuted.",
+            "The Green Lion has tasted nobler metals than you.",
+            "I sought the stone. I found better uses for pressure.",
+            "Your blood has interesting properties.",
+            "All things refine under sufficient heat.",
+            "The world is a crucible, and you are not the gold.",
+            "Impurity is just matter confessing.",
+            // Theology / prophecy.
+            "History is a cipher. You are a solved term.",
+            "The end is not near. It is numbered.",
+            "I do not predict. I calculate.",
+            "Even apocalypse obeys arithmetic.",
+            "The beasts of Daniel were better documented than you.",
+            "God wrote in number. I learned to read.",
+            "Creation is not chaos. It is a ledger.",
+            "You mistake mystery for permission.",
+            "I have found no scripture in which you survive.",
+            "The stars keep their stations. Learn from them.",
+            // Mint / judgment.
+            "You are light coin.",
+            "Clipped, debased, and due for hanging.",
+            "Bring the scales.",
+            "The stamp shall reveal your value.",
+            "I have sent better men to the gallows for less.",
+            "Fraud always leaves a shaving.",
+            // Phase / enrage — read fine as idle mutters too.
+            "Enough observation. Now comes proof.",
+            "You have survived the question. Face the answer.",
+            "Let us remove the remaining variables.",
+            "The visible world is exhausted. Proceed to the hidden one.",
+            "I lower my head only to inspect the damage.",
+            "Come then. Address your objection to my face.",
+            "The calculation accelerates.",
+            "No more approximations.",
+            "Let the heavens fall inward.",
+            "Now every law acts at once.",
+            "I have been patient as a clock. No longer.",
+            "Your margin of error is closed.",
+            "The proof concludes.",
         ],
     );
 }

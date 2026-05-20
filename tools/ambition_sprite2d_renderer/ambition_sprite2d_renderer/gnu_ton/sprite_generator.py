@@ -554,28 +554,45 @@ def draw_gnu_ton_man(c: Canvas, hx: float = 0.0, hy: float = 0.0,
     # Body proportions referenced from `hy` (scholar's torso center). Head
     # at hy - 12, feet at hy + 16 → ~28 px tall.
 
-    # ── Head ──
-    c.ellipse(hx, hy - 12, 6, 6, C_MAN_SKIN, C_OUTLINE, 1.0)
-
-    # ── Powdered wig ──
-    # Crown: a tall rounded cap that sits over the head and forehead.
-    c.ellipse(hx, hy - 17, 8.5, 7.5, C_MAN_WIG, C_OUTLINE, 1.0)
-    # Side curls: a stack of three small ellipses cascading down each side
-    # of the face, classic late-17th-century full-bottom wig silhouette.
-    for dy in (-13, -10, -7):
-        c.ellipse(hx - 8, hy + dy, 3.2, 2.6, C_MAN_WIG, C_OUTLINE, 0.7)
-        c.ellipse(hx + 8, hy + dy, 3.2, 2.6, C_MAN_WIG, C_OUTLINE, 0.7)
-    # Inner curl shading so the stack reads as 3D, not three flat dots.
-    for dy in (-13, -10, -7):
-        c.ellipse(hx - 8.4, hy + dy + 0.5, 1.4, 1.0, C_MAN_WIG_S)
-        c.ellipse(hx + 8.4, hy + dy + 0.5, 1.4, 1.0, C_MAN_WIG_S)
-    # Forehead curl highlight that catches the (imagined) overhead light.
-    c.line([(hx - 4, hy - 18), (hx + 4, hy - 18)], C_MAN_WIG_S, 0.8)
+    # ── Powdered wig (drawn FIRST so the face can sit on top) ──
     # Tied queue at the back — implied by a small ribbon-and-tail bump
-    # just behind the right side curl. Reads as period-correct without
-    # demanding pixels we don't have.
+    # just behind the right side curl. Drawn first so the side curls
+    # overlap and visually anchor it.
     c.ellipse(hx + 7, hy - 4, 1.6, 2.4, C_MAN_WIG, C_OUTLINE, 0.6)
     c.line([(hx + 7, hy - 5.5), (hx + 7, hy - 2.5)], C_MAN_ROBE_D, 0.7)
+    # Crown: shorter cap that sits ABOVE the face area. Center moved
+    # up + half-height shrunk so the bottom of the crown (y = hy-18+5
+    # = hy-13) clears the top of the face (y = hy-18). Earlier version
+    # had crown bottom at hy-9.5, which buried the eyeline.
+    c.ellipse(hx, hy - 21, 8.5, 5.5, C_MAN_WIG, C_OUTLINE, 1.0)
+    # Side curls: a stack of three small ellipses cascading down each side
+    # of the face. Pulled outward (x = ±9 instead of ±8) so they frame
+    # the cheek instead of overlapping it.
+    for dy in (-13, -10, -7):
+        c.ellipse(hx - 9, hy + dy, 3.0, 2.6, C_MAN_WIG, C_OUTLINE, 0.7)
+        c.ellipse(hx + 9, hy + dy, 3.0, 2.6, C_MAN_WIG, C_OUTLINE, 0.7)
+    # Inner curl shading so the stack reads as 3D, not three flat dots.
+    for dy in (-13, -10, -7):
+        c.ellipse(hx - 9.3, hy + dy + 0.5, 1.3, 1.0, C_MAN_WIG_S)
+        c.ellipse(hx + 9.3, hy + dy + 0.5, 1.3, 1.0, C_MAN_WIG_S)
+    # Crown highlight that catches the (imagined) overhead light. Sits
+    # on the wig, not on the forehead, so the face still reads clean.
+    c.line([(hx - 4, hy - 23), (hx + 4, hy - 23)], C_MAN_WIG_S, 0.8)
+
+    # ── Head (drawn AFTER the wig so the face wins the z-fight) ──
+    # The face is intentionally last among the head-area primitives:
+    # earlier the wig crown overlapped the upper half of the face and
+    # the scholar read as "Harry Potter under a mop". Drawing skin on
+    # top guarantees the face is always visible regardless of how the
+    # wig silhouette grows later.
+    c.ellipse(hx, hy - 12, 6, 6, C_MAN_SKIN, C_OUTLINE, 1.0)
+    # Tiny face features so the face has something to be — without
+    # them the skin disk reads as a featureless ball. Two small dark
+    # dots for eyes; a faint mouth line. Kept dim so they don't fight
+    # the wig at small scales.
+    c.ellipse(hx - 1.8, hy - 12.5, 0.6, 0.7, C_OUTLINE)
+    c.ellipse(hx + 1.8, hy - 12.5, 0.6, 0.7, C_OUTLINE)
+    c.line([(hx - 1.2, hy - 9.5), (hx + 1.2, hy - 9.5)], C_OUTLINE, 0.6)
 
     # ── Triangular beard with shading ──
     beard_bob = wave(phase, 1.2) * 0.8

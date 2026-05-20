@@ -188,8 +188,15 @@ entities:
   # The runtime renders the body behind one-way platforms and the
   # hands in front of them (see `GnuTonBodyLayer` / `GnuTonHandsLayer`).
   # ─────────────────────────────────────────────────────────────────
+  # px.y was 498 originally; lowered to 832 (entity center engine y≈942)
+  # so the giant's hooves rest on the floor at y=1248 instead of
+  # floating ~334 px above it. Hitboxes are entity-relative so they
+  # shift down with the boss automatically (perches at 832/944/1088
+  # still bracket the head-descent window). See
+  # `specs/gnu_ton/lower_boss_spawn.yaml` for the move spec used to
+  # apply this on the live sandbox.ldtk.
   - type: BossSpawn
-    px: [786, 498]
+    px: [786, 832]
     size: [220, 220]
     fields:
       name: GNU-ton

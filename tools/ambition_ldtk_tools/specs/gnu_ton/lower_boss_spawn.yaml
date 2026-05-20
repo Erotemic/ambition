@@ -1,0 +1,21 @@
+# Lower the GNU-ton BossSpawn so the giant's hooves visually rest on
+# the arena floor instead of floating ~334 px above it.
+#
+# Math: collision_scale=4.5 puts the sprite at 4.5*220 = 990 px tall.
+# Hooves are at design y=+175 (out of a -288..+288 frame range), i.e.
+# fraction 0.8125 from the sprite top. With `feet_anchor_y ≈ 0`, the
+# entity sits near the sprite center, so hooves draw ~312 px below the
+# entity in world coords. Floor is at engine y=1248. To put hooves at
+# floor we need entity center y ≈ 1248-312 = 936; bbox top-left y =
+# 936-110 = 826. We round to 832 so the bbox aligns to an 8-px grid.
+#
+# All hand / head / shockwave hitboxes are computed relative to the
+# entity, so they shift down with the entity automatically — the
+# perches (832, 944, 1088) still bracket the head-descent window.
+level_id: gnu_ton_arena
+moves:
+  - target:
+      identifier: BossSpawn
+      match:
+        name: GNU-ton
+    px: [786, 832]

@@ -122,7 +122,7 @@ pub(super) fn player_simulation_phase(
     dev_state: &crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     safety: &mut crate::player::PlayerSafetyState,
-    moving_platforms: &mut Vec<crate::world::platforms::MovingPlatformState>,
+    moving_platforms: &mut [crate::world::platforms::MovingPlatformState],
     attack: &mut Option<crate::PlayerAttackState>,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,

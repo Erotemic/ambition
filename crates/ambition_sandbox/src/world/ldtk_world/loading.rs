@@ -59,8 +59,9 @@ fn secondary_world_ids() -> Vec<AssetId> {
 impl LdtkProject {
     /// Load the sandbox LDtk project through the asset catalog.
     ///
-    /// Resolves [`crate::assets::sandbox_assets::ids::sandbox_ldtk`] under the
-    /// active [`ambition_asset_manager::AssetProfile`]:
+    /// Resolves the `sandbox_ldtk` asset id (defined in the private
+    /// `crate::assets::sandbox_assets::ids` module) under the active
+    /// [`ambition_asset_manager::AssetProfile`]:
     ///
     /// - Desktop loose/installed: reads the file at the catalog's
     ///   `LocalPath` candidate and falls back to the embedded static

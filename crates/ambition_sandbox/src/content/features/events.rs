@@ -107,7 +107,7 @@ pub enum GameplayEffect {
     /// Feed a structured quest event into `QuestRegistry`.
     AdvanceQuest(ae::QuestAdvanceEvent),
     /// A Switch interactable was activated. Carries the parsed
-    /// [`crate::encounter::SwitchActivation`] directly — the
+    /// `SwitchActivation` (private to `crate::encounter`) directly — the
     /// `switch:<id>:<action>:<target>` wire string lives only at the
     /// engine `InteractionKind::Custom` boundary and is parsed once at
     /// LDtk spawn time.

@@ -28,8 +28,9 @@ pub struct LdtkHotReloadState {
     pub applied_count: u32,
     /// Local filesystem path the watcher polls, when both the active
     /// asset profile and the resolved LDtk location support filesystem
-    /// hot reload (see
-    /// [`crate::assets::sandbox_assets::SandboxAssetCatalog::hot_reload_local_path`]).
+    /// hot reload (resolved via
+    /// `SandboxAssetCatalog::hot_reload_local_path`, private to
+    /// `crate::assets::sandbox_assets`).
     /// `None` for bundled / web / embedded profiles — the watcher is
     /// effectively disabled there.
     pub watch_path: Option<PathBuf>,

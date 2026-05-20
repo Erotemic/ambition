@@ -175,8 +175,8 @@ pub struct PogoTargetContributor;
 
 /// ECS-native switch.
 ///
-/// Carries a typed [`crate::encounter::SwitchActivation`] instead of the
-/// raw `"switch:<id>:<action>:<target>"` wire string. The parse happens
+/// Carries a typed `SwitchActivation` (private to `crate::encounter`)
+/// instead of the raw `"switch:<id>:<action>:<target>"` wire string. The parse happens
 /// once at LDtk-to-ECS spawn time in
 /// `crate::features::ecs::spawn_room_feature_entity`; the
 /// activation-queue / switch-index / interact-emit paths all read
@@ -500,7 +500,8 @@ impl FeatureLifecycleBundle {
     }
 }
 
-/// Rendered feature base: lifecycle bundle plus [`crate::presentation::rendering::RoomVisual`].
+/// Rendered feature base: lifecycle bundle plus `RoomVisual` (a
+/// presentation-side component private to `crate::presentation::rendering`).
 /// Use this for features that should be drawn by the presentation systems
 /// (the default for every authored feature today). Headless/sim-only spawns
 /// should reach for [`FeatureLifecycleBundle`] instead.

@@ -259,10 +259,10 @@ impl RadioStationState {
 impl AudioLibrary {
     /// Build the audio library + music track table.
     ///
-    /// `catalog` (when `Some`) resolves each music track id through
-    /// [`crate::assets::sandbox_assets::ids::music_track`] so the runtime
-    /// stores the catalog-blessed path instead of the raw
-    /// `MusicTrackSpec::asset_path`. Tracks without an `asset_path`
+    /// `catalog` (when `Some`) resolves each music track id through the
+    /// `music_track` id helper in `crate::assets::sandbox_assets::ids`
+    /// (private) so the runtime stores the catalog-blessed path
+    /// instead of the raw `MusicTrackSpec::asset_path`. Tracks without an `asset_path`
     /// (and with no catalog-resolved path) are skipped with a loud
     /// warning — there is no procedural fallback anymore. Author a
     /// pre-rendered OGG at the path the spec points to, or drop the

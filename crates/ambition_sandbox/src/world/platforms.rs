@@ -111,8 +111,9 @@ enum MovingPlatformMotion {
 impl MovingPlatformState {
     /// Build from LDtk-authored AABB + sweep range. Kept as a test/helper
     /// constructor for simple horizontal platforms; runtime LDtk conversion now
-    /// goes through [`MovingPlatformSpec`] so optional `path_id` references can
-    /// be resolved against the active area's `KinematicPathSpec` index.
+    /// goes through `MovingPlatformSpec` (see same module) so optional
+    /// `path_id` references can be resolved against the active area's
+    /// `KinematicPathSpec` index.
     pub fn from_authored(start_pos: ae::Vec2, size: ae::Vec2, sweep_dx: f32, speed: f32) -> Self {
         Self::from_sweep(
             "moving_platform",

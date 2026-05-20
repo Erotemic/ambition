@@ -95,13 +95,13 @@ pub fn reset_ecs_room_features(
             }
         }
         sync_actor_components_from_runtime(
-            &*actor,
-            &mut *identity,
-            &mut *disposition,
-            &mut *health,
-            &mut *combat,
-            &mut *intent,
-            &mut *cooldowns,
+            &actor,
+            &mut identity,
+            &mut disposition,
+            &mut health,
+            &mut combat,
+            &mut intent,
+            &mut cooldowns,
         );
     }
     for mut boss_feature in &mut bosses {

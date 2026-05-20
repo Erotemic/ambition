@@ -154,7 +154,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut sim_state,
             &mut safety,
             &mut dialogue,
-            &mut *combat,
+            &mut combat,
             &mut ldtk_index,
             editable_tuning.as_engine(),
             *physics_settings,

@@ -243,13 +243,13 @@ pub fn apply_feature_damage_events(
                 }
             }
             sync_actor_components_from_runtime(
-                &*actor,
-                &mut *identity,
-                &mut *disposition,
-                &mut *health,
-                &mut *combat,
-                &mut *intent,
-                &mut *cooldowns,
+                &actor,
+                &mut identity,
+                &mut disposition,
+                &mut health,
+                &mut combat,
+                &mut intent,
+                &mut cooldowns,
             );
         }
         let mut boss_hit_this_event = false;

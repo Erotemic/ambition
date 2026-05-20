@@ -136,10 +136,10 @@ pub fn sandbox_update(
             &queues.feature_ecs_overlay,
             &mut queues.reset_room_features,
             &mut queues.pogo_bounces,
-            &mut *anim,
-            &mut *combat,
-            &mut *interaction,
-            &mut *blink_cam,
+            &mut anim,
+            &mut combat,
+            &mut interaction,
+            &mut blink_cam,
         ),
         PhaseOutcome::Return
     ) {
@@ -163,11 +163,11 @@ pub fn sandbox_update(
             frame_dt,
             &queues.feature_ecs_overlay,
             &mut queues.reset_room_features,
-            &mut *anim,
-            &mut *combat,
-            &mut *interaction,
-            &mut *blink_cam,
-            &mut *ride,
+            &mut anim,
+            &mut combat,
+            &mut interaction,
+            &mut blink_cam,
+            &mut ride,
         ),
         PhaseOutcome::Return
     ) {

@@ -396,13 +396,13 @@ pub fn update_ecs_actors(
             }
         }
         sync_actor_components_from_runtime(
-            &*actor,
-            &mut *identity,
-            &mut *disposition,
-            &mut *health,
-            &mut *combat,
-            &mut *intent,
-            &mut *cooldowns,
+            &actor,
+            &mut identity,
+            &mut disposition,
+            &mut health,
+            &mut combat,
+            &mut intent,
+            &mut cooldowns,
         );
     }
 }

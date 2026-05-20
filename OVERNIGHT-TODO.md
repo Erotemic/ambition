@@ -16,7 +16,7 @@ Flip the rule once an external consumer ships.
 - `cargo test -p ambition_sandbox --lib` → 568 passing
 - `cargo test -p ambition_engine --lib` → 222 passing
 - Both crate builds clean, zero warnings
-- `cargo clippy -p ambition_sandbox --lib --no-deps` → 99 warnings
+- `cargo clippy -p ambition_sandbox --lib --no-deps` → 96 warnings
   (down from 170 at the start of this session via derivable_impls,
   `&mut *Mut<T>` reborrow drops, `iter().any(==)` → `contains`, manual
   clamp, map_or → is_some_and, ?-operator, `+`-at-line-start doc-list

@@ -21,7 +21,9 @@
 //! - [`hot_reload`] — file-watch + transactional reload state.
 //! - [`intgrid`], [`fields`], [`surfaces`] — IntGrid emission,
 //!   field accessors, typed `Surface` parsing.
-//! - [`tests`] — internal tests.
+//! - `tests` (cfg(test) only) — internal tests, split by topic
+//!   (`embedded_project`, `intgrid`, `kinematic_paths`, `metadata`,
+//!   `surfaces`).
 
 use std::collections::{BTreeMap, BTreeSet};
 

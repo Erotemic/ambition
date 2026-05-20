@@ -93,8 +93,23 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
 - `boss_encounter::damage::record_boss_damage` unit tests pin the four
   outcome paths: unknown runtime id → `None`; normal damage → applied
   + new hp; lethal damage → killed flag; invulnerable phase → applied
-  false + hp unchanged. 560 sandbox lib tests now pass (was 553 at
-  session start).
+  false + hp unchanged. 566 sandbox lib tests now pass (was 553 at
+  session start; the +13 are ActorFaction predicates, ProjectileFaction
+  propagation, BossDamageOutcome semantics, and EnemyProjectileState
+  spawn invariants).
+- `sandbox_assets/builders.rs` (302 lines) split into a `builders/`
+  directory: `mod.rs` (helper + re-exports), `world.rs` (LDtk +
+  data), `audio.rs` (SFX bank + music), `visuals.rs` (fonts +
+  characters + bosses + intro sprites). The shared
+  `with_embedded_core_candidate` helper lives in `mod.rs` (#11 rest).
+- Settings dev-page toggles all route through the existing
+  `apply_toggle(action, || …)` helper instead of duplicating the
+  `if is_toggle_action(action) { … }` shape on 10+ arms (#12
+  closeout, model.rs sheds ~25 lines).
+- Cross-session benchmark candidates distilled: 'sandbox runtime
+  mirror vs engine state authority' (#8) and 'module-local Bevy
+  plugin extraction decision criteria' (#6 retrospective). Both
+  linked from `dev/benchmark-candidates/index.md`.
 
 Recently retired (engine-cleanup pass, see git log e5be8c8…HEAD):
 

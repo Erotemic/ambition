@@ -4,7 +4,6 @@
 use ambition_engine as ae;
 use bevy::prelude::info;
 
-use super::state::PlayerProjectileState;
 
 /// One-line summary of the motion buffer plus what the recognizer
 /// matched, emitted at INFO every time the player presses fire. The
@@ -68,13 +67,3 @@ pub(super) fn motion_label(dir: ae::MotionDirection) -> &'static str {
     }
 }
 
-#[allow(dead_code)] // HUD hook reserved for the projectile-debug overlay slice.
-pub fn projectile_status_summary(state: &PlayerProjectileState) -> String {
-    format!(
-        "fire {:.1}/{:.1}  cd {:.2}s  in-flight {}",
-        state.spawner.meter.current,
-        state.spawner.meter.max,
-        state.spawner.cooldown_remaining,
-        state.bodies.len()
-    )
-}

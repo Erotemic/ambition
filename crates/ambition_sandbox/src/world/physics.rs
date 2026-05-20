@@ -48,13 +48,6 @@ impl Default for PhysicsSandboxSettings {
     }
 }
 
-/// Marker for future experiments where the player is represented as a physics
-/// body. Do not attach this to the current player; Ambition's main controller is
-/// still authored in `ambition_engine::movement`.
-#[allow(dead_code)]
-#[derive(Component, Clone, Copy, Debug)]
-pub struct PhysicsControlledPlayerPrototype;
-
 /// Marker for room-owned Avian entities so room transitions can retire them
 /// through the physics-safe path instead of despawning active bodies immediately.
 #[derive(Component, Clone, Copy, Debug)]

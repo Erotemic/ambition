@@ -20,8 +20,7 @@
 //!   `try_fire_projectile` helper.
 //! - [`visuals`] — `sync_projectile_visuals` system + visual marker
 //!   components.
-//! - [`diagnostics`] — `projectile_status_summary` for the HUD plus
-//!   internal motion-press logging.
+//! - [`diagnostics`] — internal motion-press logging helper.
 
 mod diagnostics;
 mod state;

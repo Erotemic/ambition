@@ -62,7 +62,24 @@ shrank by ~2,300 lines of dead scaffolding + IR.
   `gradient_sentinel_*` / `mockingbird_*` / `gnu_ton_*` constructor
   methods). Sandbox uses its own typed `BossPatternStep` enum in
   `content/features/bosses.rs`; engine module had zero external
-  callers beyond its own self-tests. Commit 9c9a2ee.
+  callers beyond its own self-tests. `BossEncounterPhase::pattern_phase`
+  followed (1523c98 — was only called from the deleted
+  `current_pattern_schedule`). Commit 9c9a2ee.
+- ✅ **`host::platform::power` retired (148 lines)** —
+  `PowerProfile { Performance, Balanced, BatterySaver }` resource +
+  `WindowFocusState` resource + `track_window_focus` system +
+  `should_pause_nonessential_work` run-condition. Plumbed
+  end-to-end but write-only: no gameplay system gated work behind
+  the decision. Commit 1ed2469.
+- ✅ **Misc small scaffolds dropped** —
+  `projectile::diagnostics::projectile_status_summary` (HUD hook
+  for an overlay that never landed), `world::physics::
+  PhysicsControlledPlayerPrototype` marker (future-experiment
+  placeholder, never attached), `AMBITION_DIR` const ("for tooling"
+  with no tooling caller), and `SimulationSetup.sandbox_data` field
+  ("for symmetry with PresentationSetup"; destructured to `_` and
+  comments admitted nothing read it). Commits 6027452, 1680fac,
+  601154a.
 
 **Sandbox-side rips:**
 

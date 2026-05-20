@@ -35,11 +35,14 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
   is gone (#13)
 - `PlayerInputFrame` component + `sync_local_player_input_frame`
   producer; `update_projectiles`, `sandbox_update`, `attack_advance_system`,
-  `record_frame_system`, `update_body_mode`, and `interaction_input_system`
-  migrated off `Res<ControlFrame>` (#17.5 across two sessions —
-  the only remaining `Res<ControlFrame>` readers in the sandbox are
-  the producer itself and `input_timer_system` / reset which still
-  *write* to the resource so `sandbox_update` sees the same shape).
+  `record_frame_system`, and `update_body_mode` migrated off
+  `Res<ControlFrame>` (#17.5 across two sessions). Systems running
+  in `SandboxSet::Progression` or later can read `PlayerInputFrame`
+  safely; systems running mid-`SandboxSet::PlayerInput` (e.g.
+  `interaction_input_system`) MUST continue to read
+  `Res<ControlFrame>` because `sync_local_player_input_frame` runs
+  at the end of the input chain and mid-chain reads would deliver
+  the previous frame's snapshot.
 - `ae::ProjectileFaction { Player, Enemy }` engine tag on
   `ProjectileBody`, with `from_spec_with_faction` constructor; enemy
   projectile spawner now tags `Enemy` (#10 / #17.7 enabler)

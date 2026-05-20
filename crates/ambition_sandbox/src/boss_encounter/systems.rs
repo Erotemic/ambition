@@ -152,11 +152,13 @@ pub fn update_boss_encounters(
         );
     }
 
-    // Damage routing: when the sandbox `BossRuntime.health` decreases,
-    // mirror the delta into the engine state and feed it back. The
-    // BossRuntime is still the source of truth for HP because
-    // existing combat/feature systems already mutate it; the engine
-    // state is the *progression machine* fed by the damage delta.
+    // Per-frame mirror: engine `BossEncounterState` is the source of
+    // truth for boss HP (OVERNIGHT-TODO #8). The ECS damage system
+    // calls `record_boss_damage` directly and writes the post-hit HP
+    // onto `boss.health.current` on the same tick, so this pass is
+    // mostly idempotent — it covers the edge cases where engine state
+    // changed without a player damage event (boss revival on retry,
+    // save-driven Cleared mark, max_hp spec change).
     let runtime_id_lookup: BTreeMap<String, String> = registry.runtime_ids.clone();
     let profile_lookup = registry.profiles.clone();
     for (id, state) in registry.encounters.iter_mut() {

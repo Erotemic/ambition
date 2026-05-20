@@ -37,6 +37,7 @@ pub fn update_ecs_bosses(
             &mut BossFeature,
             &mut BossPatternTimer,
             &mut BossPhase,
+            &super::super::components::ActorTarget,
         ),
         With<FeatureSimEntity>,
     >,
@@ -46,15 +47,20 @@ pub fn update_ecs_bosses(
     // the player triggers bullet-time mid-pattern.
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    let Ok((pb, combat, authority)) = player_query.single() else {
+    // `authority` is unused after the #17.8 migration — bosses read
+    // their `target_pos` from `ActorTarget` (populated by
+    // `select_actor_targets`) and no longer need the full `Player`
+    // value. The `pb` / `combat` reads are still required for
+    // contact-damage vulnerability + impact AABB.
+    let Ok((pb, combat, _authority)) = player_query.single() else {
         return;
     };
-    let player = authority.player.clone();
     let player_body = pb.aabb();
     let player_vulnerable =
         !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (mut aabb, mut feature, mut pattern_timer, mut phase) in &mut bosses {
+    for (mut aabb, mut feature, mut pattern_timer, mut phase, target) in &mut bosses {
         let boss = &mut feature.boss;
+        let target_pos = target.pos;
         // Forward this boss's current encounter phase into the runtime
         // so `Scripted` attack patterns can pick the right phase
         // timeline. Look up by the semantic encounter id derived from
@@ -74,7 +80,7 @@ pub fn update_ecs_bosses(
         }
         boss.update(
             &feature_world,
-            &player,
+            target_pos,
             feel_tuning.feature_combat_tuning(),
             dt,
         );

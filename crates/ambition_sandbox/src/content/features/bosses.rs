@@ -39,8 +39,8 @@ pub enum BossMovementProfile {
 }
 
 impl BossMovementProfile {
-    fn target(&self, boss: &BossRuntime, player: &ae::Player) -> ae::Vec2 {
-        let anchor_to_player = player.pos - boss.spawn;
+    fn target(&self, boss: &BossRuntime, target_pos: ae::Vec2) -> ae::Vec2 {
+        let anchor_to_player = target_pos - boss.spawn;
         match *self {
             Self::AnchorSway {
                 x_radius,
@@ -554,10 +554,14 @@ impl BossRuntime {
         }
     }
 
+    /// `target_pos` is populated from the boss entity's `ActorTarget`
+    /// component by `select_actor_targets` (OVERNIGHT-TODO #17.8).
+    /// The boss movement profile reads it for anchor-sway / air-swoop
+    /// chase math; scripted patterns (`StationaryGiant`) ignore it.
     pub(super) fn update(
         &mut self,
         world: &ae::World,
-        player: &ae::Player,
+        target_pos: ae::Vec2,
         tuning: FeatureCombatTuning,
         dt: f32,
     ) {
@@ -566,7 +570,7 @@ impl BossRuntime {
         }
         self.pattern_timer += dt;
         self.movement_timer += dt;
-        let target = self.behavior.movement.target(self, player);
+        let target = self.behavior.movement.target(self, target_pos);
         self.move_toward_target(world, target, dt);
         self.hit_flash = (self.hit_flash - dt).max(0.0);
 
@@ -1072,7 +1076,7 @@ mod scripted_pattern_tests {
         let mut ticks = 0;
         let mut last: &'static str = "";
         while observed.len() < 6 && ticks < 4_000 {
-            boss.update(&world, &player, FeatureCombatTuning::default(), dt);
+            boss.update(&world, player.pos, FeatureCombatTuning::default(), dt);
             let now = if boss.telegraph_profile.is_some() {
                 "telegraph"
             } else if boss.active_strike_profile.is_some() {
@@ -1155,7 +1159,7 @@ mod scripted_pattern_tests {
         );
         let player = ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default());
         for _ in 0..200 {
-            boss.update(&world, &player, FeatureCombatTuning::default(), 0.05);
+            boss.update(&world, player.pos, FeatureCombatTuning::default(), 0.05);
             assert!(boss.active_strike_profile.is_none());
             assert!(boss.telegraph_profile.is_none());
             assert_eq!(boss.attack_timer, 0.0);

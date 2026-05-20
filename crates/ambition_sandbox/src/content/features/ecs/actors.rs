@@ -215,6 +215,7 @@ pub fn update_ecs_actors(
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
+            &super::super::components::ActorTarget,
         ),
         With<FeatureSimEntity>,
     >,
@@ -237,7 +238,7 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, ae::SlotKind)> = Vec::new();
-    for (_, actor, _, _, _, _, _, _) in &actors {
+    for (_, actor, _, _, _, _, _, _, _) in &actors {
         if let ActorRuntime::Hostile(enemy) = actor {
             if enemy.alive {
                 requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
@@ -333,17 +334,24 @@ pub fn update_ecs_actors(
         mut combat,
         mut intent,
         mut cooldowns,
+        target,
     ) in &mut actors
     {
+        // `target.pos` is populated by `select_actor_targets`
+        // (#17.8); it defaults to the actor's spawn-of-game position
+        // when no players exist yet (pre-spawn / post-death-of-all),
+        // and is the primary player's pos in the single-player
+        // production game.
+        let target_pos = target.pos;
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
-                npc.update(&feature_world, &player, dt);
+                npc.update(&feature_world, target_pos, dt);
                 aabb.center = npc.pos;
                 aabb.half_size = npc.size * 0.5;
             }
             ActorRuntime::Hostile(enemy) => {
                 let slot_pos = if let Some(slot) = slot_board.0.slot_for(&enemy.id) {
-                    Some(slot.world_pos(player.pos))
+                    Some(slot.world_pos(target_pos))
                 } else if enemy.alive {
                     // No slot assigned — fall back to the per-actor
                     // holding-ring position computed above. Multiple
@@ -358,7 +366,7 @@ pub fn update_ecs_actors(
                 let mut outputs = super::super::enemies::EnemyTickOutputs::default();
                 enemy.update(
                     &feature_world,
-                    &player,
+                    target_pos,
                     combat_tuning,
                     slot_pos,
                     nearest_neighbor,

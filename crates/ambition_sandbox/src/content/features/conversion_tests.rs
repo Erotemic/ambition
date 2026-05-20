@@ -49,7 +49,7 @@ mod conversion_tests {
         npc.pos.y = 200.0;
         npc.spawn.y = 200.0;
         for _ in 0..120 {
-            npc.update(&world, &player, 0.016);
+            npc.update(&world, player.pos, 0.016);
         }
         assert!(npc.on_ground, "NPC must land on the floor under gravity");
         // Body bottom should rest on the floor's top edge (y=600).
@@ -69,13 +69,13 @@ mod conversion_tests {
         // Settle gravity first so we're testing horizontal motion,
         // not the freefall.
         for _ in 0..30 {
-            npc.update(&world, &player, 0.016);
+            npc.update(&world, player.pos, 0.016);
         }
         let spawn_x = npc.spawn.x;
         let mut min_x = npc.pos.x;
         let mut max_x = npc.pos.x;
         for _ in 0..600 {
-            npc.update(&world, &player, 0.016);
+            npc.update(&world, player.pos, 0.016);
             min_x = min_x.min(npc.pos.x);
             max_x = max_x.max(npc.pos.x);
         }
@@ -110,7 +110,7 @@ mod conversion_tests {
         let (world, mut npc, mut player) = world_with_patrolling_npc(120.0);
         // Settle physics.
         for _ in 0..30 {
-            npc.update(&world, &player, 0.016);
+            npc.update(&world, player.pos, 0.016);
         }
         // Park the player right next to the NPC — within talk_radius.
         player.pos = ae::Vec2::new(npc.pos.x + 30.0, npc.pos.y);
@@ -118,7 +118,7 @@ mod conversion_tests {
         // left from the patrol step must drain to ~0 inside the
         // talk radius.
         for _ in 0..30 {
-            npc.update(&world, &player, 0.016);
+            npc.update(&world, player.pos, 0.016);
         }
         assert!(
             matches!(npc.ai_mode, ae::CharacterAiMode::Chase),
@@ -145,7 +145,7 @@ mod conversion_tests {
         let (world, mut npc, player) = world_with_patrolling_npc(0.0);
         let original_x = npc.pos.x;
         for _ in 0..300 {
-            npc.update(&world, &player, 0.016);
+            npc.update(&world, player.pos, 0.016);
         }
         assert!(
             (npc.pos.x - original_x).abs() < 1.0,
@@ -287,7 +287,7 @@ mod conversion_tests {
         let mut outputs = super::super::enemies::EnemyTickOutputs::default();
         enemy.update(
             &world,
-            &player,
+            player.pos,
             FeatureCombatTuning::default(),
             Some(player.pos),
             None,
@@ -329,7 +329,7 @@ mod conversion_tests {
         let mut outputs = super::super::enemies::EnemyTickOutputs::default();
         enemy.update(
             &world,
-            &player,
+            player.pos,
             FeatureCombatTuning::default(),
             Some(player.pos),
             None,

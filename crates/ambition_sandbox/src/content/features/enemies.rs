@@ -661,10 +661,16 @@ impl EnemyRuntime {
         self.pos + ae::Vec2::new(0.0, -self.size.y * 0.72 - 16.0)
     }
 
+    /// `target_pos` is the per-frame "who is this enemy looking at"
+    /// position, populated from the entity's `ActorTarget` component
+    /// by `select_actor_targets` (OVERNIGHT-TODO #17.8). In a
+    /// single-player build it's always the player's `pos`; a future
+    /// co-op build varies it per-enemy without changing this
+    /// function's shape.
     pub(super) fn update(
         &mut self,
         world: &ae::World,
-        player: &ae::Player,
+        target_pos: ae::Vec2,
         tuning: FeatureCombatTuning,
         slot_pos: Option<ae::Vec2>,
         nearest_neighbor: Option<ae::Vec2>,
@@ -700,7 +706,7 @@ impl EnemyRuntime {
             self.attack_timer = tuning.enemy_attack_active.max(0.01);
         }
 
-        let delta_to_player = player.pos - self.pos;
+        let delta_to_player = target_pos - self.pos;
         let recover_remaining = if self.attack_cooldown > 0.0
             && self.attack_windup_timer <= 0.0
             && self.attack_timer <= 0.0
@@ -716,7 +722,7 @@ impl EnemyRuntime {
         };
         let ai = ae::evaluate_character_ai_output(ae::CharacterAiSnapshot {
             actor_pos: self.pos,
-            player_pos: player.pos,
+            player_pos: target_pos,
             aggro_radius: effective_aggro_radius,
             attack_range: self.archetype.attack_range(),
             attack_windup_remaining: self.attack_windup_timer,
@@ -735,14 +741,14 @@ impl EnemyRuntime {
         // The choreography is consulted regardless of `ai.intent` —
         // it does not bypass the AI mode, just refines spatial
         // targeting and attack flavor.
-        let assigned_slot_pos = slot_pos.unwrap_or(player.pos);
+        let assigned_slot_pos = slot_pos.unwrap_or(target_pos);
         self.choreography_state.has_slot = slot_pos.is_some();
         let choreo_tick = ae::evaluate_choreography(
             self.choreography,
             &mut self.choreography_state,
             ae::ChoreographyInput {
                 actor_pos: self.pos,
-                target_pos: player.pos,
+                target_pos,
                 assigned_slot_pos,
                 dt,
                 nearest_neighbor,

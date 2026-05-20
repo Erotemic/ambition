@@ -148,7 +148,13 @@ impl NpcRuntime {
     ///   `evaluate_character_ai` evaluator just tells us "the
     ///   player is in range" — the per-actor caller decides what
     ///   that means in motion terms.
-    pub fn update(&mut self, world: &ae::World, player: &ae::Player, dt: f32) {
+    /// `target_pos` is the per-frame "who is this NPC facing" position,
+    /// populated from `ActorTarget` (OVERNIGHT-TODO #17.8). Peaceful
+    /// NPCs use it both to detect "player in talk range" via
+    /// `evaluate_character_ai` and to flip `facing` toward the player
+    /// while in `Chase` mode so dialogue prompts render on the
+    /// correct side of the NPC sprite.
+    pub fn update(&mut self, world: &ae::World, target_pos: ae::Vec2, dt: f32) {
         self.hit_flash = (self.hit_flash - dt).max(0.0);
 
         // Re-evaluate AI mode each tick. We feed `talk_radius` as
@@ -159,7 +165,7 @@ impl NpcRuntime {
         // out-of-range fallback is `Patrol` or `Idle`.
         self.ai_mode = ae::evaluate_character_ai(ae::CharacterAiSnapshot {
             actor_pos: self.pos,
-            player_pos: player.pos,
+            player_pos: target_pos,
             aggro_radius: self.talk_radius,
             attack_range: 0.0,
             attack_windup_remaining: 0.0,
@@ -257,7 +263,7 @@ impl NpcRuntime {
         // After moving, re-face the player while in talk range so
         // the dialog prompt sits on the correct side of the NPC.
         if matches!(self.ai_mode, ae::CharacterAiMode::Chase) {
-            let dx = player.pos.x - self.pos.x;
+            let dx = target_pos.x - self.pos.x;
             if dx.abs() > 4.0 {
                 self.facing = dx.signum();
             }

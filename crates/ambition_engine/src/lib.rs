@@ -1,14 +1,25 @@
 //! Ambition Engine
 //!
-//! This crate is the reusable Bevy-native mechanics layer for Ambition. It owns
-//! features a game or story crate should be able to assemble without rewriting
-//! details: movement, collision semantics, ability gates, combat hitboxes,
-//! enemies, room geometry, generated audio/music specs, and testable gameplay
-//! rules.
+//! Reusable Bevy-native simulation primitives for Ambition. The crate
+//! owns the testable gameplay rules a game or story crate should be
+//! able to assemble without rewriting details: kinematic player +
+//! actor movement, AABB collision semantics, ability gates, combat
+//! hitboxes / hurtboxes / damage routing, character AI evaluators,
+//! kinematic paths, ledge-grab probes, projectile bodies, quest /
+//! save state machines, and the `World` collision/water/climbable
+//! room data.
 //!
-//! Story/sandbox crates should generally provide data, presentation, and input
-//! wiring. The engine may depend on small Bevy crates such as `bevy_math` when
-//! they provide battle-tested primitives that are better than bespoke versions.
+//! The engine does **not** own authored content (LDtk entities,
+//! per-room authored Vecs, sandbox dispatch tables) — those live on
+//! the sandbox side. Authoring payloads that pass through the engine
+//! (`Pickup`, `Chest`, `Breakable`, `Interactable`, `EnemyBrain`,
+//! `BossBrain`, `DebugLabel`, `DamageVolume`) are typed config the
+//! engine carries between LDtk and sandbox dispatch without
+//! simulating against the variants.
+//!
+//! Story/sandbox crates provide data, presentation, and input wiring.
+//! The engine may depend on small Bevy crates (e.g. `bevy_math`) when
+//! they provide battle-tested primitives that beat bespoke versions.
 
 pub mod abilities;
 pub mod actor;

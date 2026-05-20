@@ -262,16 +262,17 @@ impl SettingsItem {
     /// settings snapshot.
     ///
     /// Convenience wrapper around [`label_with_dev`](Self::label_with_dev);
-    /// reserved for HUD callers that don't carry a `DevToggleSnapshot`.
-    #[allow(dead_code)]
+    /// the snapshot defaults to all-off for callers that don't render
+    /// the developer page.
+    #[cfg(test)]
     pub fn label(self, settings: &UserSettings) -> String {
         self.label_with_dev(settings, DevToggleSnapshot::default())
     }
 
-    /// Variant of [`label`](Self::label) that knows about the
-    /// developer-page toggles. Use this when rendering the Developer
-    /// page so the toggle state shows correctly; non-developer rows
-    /// ignore the snapshot.
+    /// Variant of `label` that knows about the developer-page
+    /// toggles. Use this when rendering the Developer page so the
+    /// toggle state shows correctly; non-developer rows ignore the
+    /// snapshot.
     pub fn label_with_dev(self, settings: &UserSettings, dev: DevToggleSnapshot) -> String {
         // Page-navigation rows have static labels held in
         // `PAGE_NAV_ROWS`; everything else has dynamic content so

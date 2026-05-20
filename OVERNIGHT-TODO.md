@@ -13,7 +13,7 @@ Flip the rule once an external consumer ships.
 
 ## Status snapshot (2026-05-20)
 
-- `cargo test -p ambition_sandbox --lib` → 568 passing
+- `cargo test -p ambition_sandbox --lib` → 577 passing
 - `cargo test -p ambition_engine --lib` → 222 passing
 - Both crate builds clean, zero warnings
 - `cargo clippy -p ambition_sandbox --lib --no-deps` → 95 warnings
@@ -173,6 +173,26 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
   and the existing `format_toggle` helper picks up 10 dev-page
   arms that were duplicating `format!("Foo: {}", on_off(...))`
   inline.
+- `ActorTarget { entity, pos }` component + `select_actor_targets`
+  system (#17.8 complete). Picks nearest alive `PlayerEntity` per
+  non-player actor at the top of `WorldPrep`; `enemy.update` /
+  `npc.update` / `boss.update` now take `target_pos: ae::Vec2`
+  instead of `&ae::Player` (4 + 2 + 1 internal `player.pos` reads
+  migrated; `update_ecs_actors` and `update_ecs_bosses` read
+  `target.pos` from the per-actor component, 10 test fixtures
+  updated to pass `player.pos`). Future per-actor target policies
+  (sticky, role-based, distance-weighted) swap into the selector
+  without touching any actor update signatures. +4 unit tests pin
+  the selection invariants.
+- Projectile world-block collision unified through
+  `crate::projectile::resolve_world_collision` with a `WorldHitPolicy`
+  enum (#17.7). Both `update_projectiles` (player) and
+  `update_enemy_projectiles` (enemy) call the same helper; the
+  bouncing-vs-expire-on-contact asymmetry lives in one place. Damage
+  routing stays per-faction (player → `DamageEvent` against
+  breakable/actor/boss; enemy → `PlayerDamageEvent`) — deeper merge
+  waits for `ActorHurtbox` + faction-aware target query. +5 unit
+  tests pin the policy boundary.
 
 Recently retired (engine-cleanup pass, see git log e5be8c8…HEAD):
 
@@ -520,21 +540,33 @@ pub struct PlayerInputFrame {
 
 ### 17.7 Unify projectile hit detection around faction / hit policy
 
-Overlaps #10.
+Overlaps #10. **First slice landed 2026-05-20**: shared
+`resolve_world_collision(body, world, WorldHitPolicy)` helper now
+backs both `update_projectiles` and `update_enemy_projectiles`; the
+bouncing-vs-expire-on-contact asymmetry lives in the `WorldHitPolicy`
+enum rather than duplicated in two systems. What's left:
 
-* Give projectiles owner / faction / hit-policy components.
-* Replace separate player / enemy projectile collision paths.
-* Query common `ActorHurtbox` / `ActorFactionComponent`.
+* Give projectiles a `ProjectileHitPolicy` ECS component (today the
+  policy is computed at the call site from the body's `faction` tag,
+  not stored). Useful once a boss or trap projectile family wants a
+  custom hit policy not captured by `Player` / `Enemy`.
+* Query common `ActorHurtbox` / `ActorFactionComponent` for the
+  damage-routing half (today's split is `DamageEvent` vs
+  `PlayerDamageEvent` against different component sets).
 * Prevent friendly fire by policy, not by separate code paths.
 * Keep player / enemy projectile spawn helpers as thin wrappers.
 
 ### 17.8 Generalize enemy targeting
 
-* Replace implicit "target the single player" logic with target selection
-  over hostile actors.
-* Start with nearest alive `ActorFaction::Player`.
-* Store selected target in `ActorTarget`.
-* Preserve current behavior when only one player exists.
+**Landed 2026-05-20**: `ActorTarget { entity, pos }` component +
+`select_actor_targets` system pick the nearest alive `PlayerEntity`
+each frame for every `ActorFaction::Enemy / Boss / Npc` actor.
+`enemy.update`, `npc.update`, `boss.update`, and
+`BossMovementProfile::target` all take `target_pos: ae::Vec2`
+instead of `&ae::Player`; live call sites read from
+`ActorTarget.pos`. Policy can swap (sticky-target, role-based,
+distance-weighted) inside `select_actor_targets` without rippling
+through any actor update signatures.
 
 ### 17.11 Remove compatibility shims after migration
 

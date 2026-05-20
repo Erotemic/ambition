@@ -117,6 +117,13 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
   `apply_toggle(action, || …)` helper instead of duplicating the
   `if is_toggle_action(action) { … }` shape on 10+ arms (#12
   closeout, model.rs sheds ~25 lines).
+- Settings `label_with_dev` cycle/nudge rows route through a new
+  `format_cycle(label, value)` helper (24 inline `< / >` literals
+  collapsed to 6 — the 6 left are in the helper definitions). Ten
+  dev-page toggle arms also now route through the existing
+  `format_toggle` helper instead of duplicating
+  `format!("{label}: {}", on_off(value))` inline (#12 deeper
+  closeout, model.rs sheds another ~33 lines).
 - Cross-session benchmark candidates distilled: 'sandbox runtime
   mirror vs engine state authority' (#8) and 'module-local Bevy
   plugin extraction decision criteria' (#6 retrospective). Both

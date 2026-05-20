@@ -26,7 +26,7 @@ Flip the rule once an external consumer ships.
 - `cargo clippy -p ambition_engine --lib --no-deps` → 1 warning
   (the manual !Range::contains in `apply_neighbor_spread`, left in
   current form because the predicate reads more naturally as written).
-- `cargo doc -p ambition_sandbox --no-deps` → 9 warnings (down from
+- `cargo doc -p ambition_sandbox --no-deps` → 7 warnings (down from
   24; intra-doc broken links + private-item references cleaned up).
 - `cargo doc -p ambition_engine --no-deps` → 0 warnings (down from 4;
   projectile submodule list was linking to private mods).

@@ -79,6 +79,11 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
 - `projectile/tests.rs` (684 lines) — split into
   `tests/{mod.rs, charging.rs, collision.rs}` (#15 — third big-file
   split).
+- `movement/tests.rs` (1669 lines) — split into
+  `tests/{mod.rs, ability_gates, blink, climbing, clock, combat_actions,
+  glide_and_air, ledge_grab, wall_collision}.rs` (#15 — fourth big-file
+  split, 44 tests across 8 topic files, biggest is wall_collision at
+  474 lines). The single biggest engine test file is now retired.
 - `ActorFaction { Player, Enemy, Npc, Boss, Neutral }` component
   (#17.2/17.3 first slice). Distinct from `ActorDisposition`;
   attached to every actor entity (player, encounter mob, NPC,

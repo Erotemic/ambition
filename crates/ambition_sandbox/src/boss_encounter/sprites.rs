@@ -152,6 +152,7 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
 ///   beat — the slash pose telegraphs an outward strike that the
 ///   sandbox controller pairs with a projectile spawn)
 /// - `hit`/`death` keep their meanings.
+///
 /// `SideSweep` is unmapped; `BossAnimator::request` falls back to
 /// `Rest` if the schedule asks for a row this sheet doesn't ship.
 pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {

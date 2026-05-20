@@ -272,9 +272,9 @@ fn build_joystick_knob_image() -> Image {
     )
 }
 
-/// Procedural 96x96 RGBA outline: ring with anti-aliased inner
-/// + outer edges. Used as the joystick's stationary background
-/// circle; tinted via background_color in `create_joystick`.
+/// Procedural 96x96 RGBA outline: ring with anti-aliased inner and
+/// outer edges. Used as the joystick's stationary background circle;
+/// tinted via background_color in `create_joystick`.
 fn build_joystick_outline_image() -> Image {
     use bevy::asset::RenderAssetUsages;
     use bevy::image::Image as BevyImage;

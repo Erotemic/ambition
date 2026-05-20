@@ -107,8 +107,8 @@ pub struct PropVisual {
 /// Stores the LoadingZone's `id` so portal-aware systems can
 /// suppress the debug door visual for zones whose actual gate is
 /// rendered as a separate sprite (e.g. the intro portal — the ring
-/// + portal NpcSpawn sprites ARE the visual; the LoadingZone's
-/// own colored DoorZone box is redundant + reads as a door behind
+/// and portal NpcSpawn sprites ARE the visual; the LoadingZone's
+/// own colored DoorZone box is redundant and reads as a door behind
 /// the portal).
 #[derive(Component, Clone, Debug)]
 pub struct LoadingZoneVisual {

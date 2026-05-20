@@ -274,6 +274,7 @@ fn register_progression_chain_systems(app: &mut App) {
 ///      can flip those flags back to false and the next tick
 ///      repopulates from the freshly-cleared save — without us
 ///      having to inline the populate logic in two places.
+///
 /// The cost when already loaded is one ResMut acquisition + one
 /// bool check per registry per frame: negligible.
 fn register_progression_populate_systems(app: &mut App) {
@@ -491,12 +492,13 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 /// Chained after `handle_map_menu_hotkeys` (the last input system in the
 /// presentation half) and placed in [`SandboxSet::PresentationVisualSync`].
 ///
-/// `sync_visuals` reads `FeatureViewIndex` and `upgrade_enemy_sprites`
-/// + `upgrade_npc_sprites` (chained later via `.after(sync_visuals)`)
-/// read it too. The `.after(SandboxSet::FeatureViewSync)` constraint
-/// lives on the set itself in `configure_sandbox_sets`, NOT on this
-/// `.chain()` — that way the ordering contract is testable via a
-/// probe in the same set rather than re-typed on every call site.
+/// `sync_visuals` reads `FeatureViewIndex` and so do
+/// `upgrade_enemy_sprites` / `upgrade_npc_sprites` (chained later
+/// via `.after(sync_visuals)`). The `.after(SandboxSet::FeatureViewSync)`
+/// constraint lives on the set itself in `configure_sandbox_sets`,
+/// NOT on this `.chain()` — that way the ordering contract is
+/// testable via a probe in the same set rather than re-typed on
+/// every call site.
 // Visual animation chain moved to
 // `crate::presentation::rendering::PresentationVisualAnimationPlugin`
 // (OVERNIGHT-TODO #6).
@@ -785,7 +787,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
 pub(super) fn add_input_plugins(_app: &mut App) {}
 
 /// Register the mobile-touch input plugin (`virtual_joystick` sticks
-/// + on-screen action buttons that fold into ControlFrame). Gated
+/// and on-screen action buttons that fold into ControlFrame). Gated
 /// behind the `mobile_touch` feature; on desktop builds without the
 /// feature this is a no-op.
 ///

@@ -13,8 +13,8 @@ Flip the rule once an external consumer ships.
 
 ## Status snapshot (2026-05-20)
 
-- `cargo test -p ambition_sandbox --lib` → 553 passing
-- `cargo test -p ambition_engine --lib` → 219 passing
+- `cargo test -p ambition_sandbox --lib` → 568 passing
+- `cargo test -p ambition_engine --lib` → 222 passing
 - Both crate builds clean, zero warnings
 
 Recently retired (autonomous-mission pass 2026-05-20, see git log

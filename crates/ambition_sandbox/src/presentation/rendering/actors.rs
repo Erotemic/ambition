@@ -473,10 +473,7 @@ pub fn animate_props(
     // ticking when the world freezes (a clock prop in a frozen
     // boss arena, say) get a non-1.0 ProperTimeScale.
     for (mut sprite, mut animator, prop, scale) in &mut query {
-        if PROP_KINDS_STATIC_UNTIL_MOVING
-            .iter()
-            .any(|k| *k == prop.kind.as_str())
-        {
+        if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
             // Force-rest at frame 0 of the Idle row. `request` selects
             // the row; ticking with dt=0 holds the row's current frame
             // and matches the asset's first frame on entry.

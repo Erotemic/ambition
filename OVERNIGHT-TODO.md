@@ -552,7 +552,7 @@ Deferred until 17.5 / 17.7 / 17.8 land:
 These are in `TODO.md` proper but called out here because they touch
 systems that the backlog refactors will affect:
 
-- Morph-ball sprite lingers after exit.
+- ~~Morph-ball sprite lingers after exit.~~ (fixed; TODO.md S-bucket cleared 2026-05-20)
 - Pickups "don't disappear when collected" — likely stale; the view-index
   test asserts the contrary. Needs in-game verification.
 - Wall-cling / lock-wall collision-correction debt

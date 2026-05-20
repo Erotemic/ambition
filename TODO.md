@@ -30,7 +30,7 @@ Useful companion docs:
 
 ## S - Active blockers and high-signal defects
 
-- [ ] Morph ball is broken. Sprite appears spawns in the room and moves when you enter morph ball and then stays when you leave. The robot sprite is also drawn when in morph ball mode, squished on top of the morph ball.
+- [x] Morph ball is broken. Sprite appears spawns in the room and moves when you enter morph ball and then stays when you leave. The robot sprite is also drawn when in morph ball mode, squished on top of the morph ball.
 
 - [ ] Pickups are broken. They don't disappear when collected.
 

@@ -57,7 +57,23 @@ web_platform = [
 ]
 
 # Composite for the playable Bevy app. Desktop and Android both build on this.
-visible = ["ldtk_runtime", "input", "audio", "ui", "physics_debris"]
+#
+# Pulls in Bevy's 2D / UI / scene / png render features explicitly so a
+# headless build (`--no-default-features --features headless`) does not
+# drag in `bevy_render`, `bevy_ui_render`, `bevy_scene`, or the PNG
+# loader. Anything that uses `Sprite`, `Camera2d`, `BackgroundColor`, etc.
+# should sit behind a presentation `cfg(feature = "visible")` gate.
+visible = [
+    "ldtk_runtime",
+    "input",
+    "audio",
+    "ui",
+    "physics_debris",
+    "bevy/2d_bevy_render",
+    "bevy/ui_bevy_render",
+    "bevy/scene",
+    "bevy/png",
+]
 
 # Shared backbone for the two browser personas. Mirrors `visible` but
 # drops the subsystems that don't yet have a wasm story: UI polish
@@ -224,12 +240,25 @@ ambition_asset_manager = { path = "../ambition_asset_manager", features = [
 ] }
 avian2d = { version = "0.5", optional = true }
 bevy = { version = "0.18.1", default-features = false, features = [
+    # Minimum surface every sandbox build (visible and headless) needs:
+    # App + ECS + state + log + math + reflect. `default_app` is the
+    # Bevy 0.18 meta-feature that pulls in those minimum-app pieces
+    # without committing to a render backend.
+    #
+    # NOTE: `default_app` transitively pulls in `bevy_winit`. A true
+    # headless build (no winit dep at all) requires moving to a
+    # narrower bevy feature set (bevy_app + bevy_ecs + bevy_state +
+    # bevy_log + bevy_math + bevy_reflect + bevy_time +
+    # bevy_diagnostic) — deferred. For now `--no-default-features
+    # --features headless` will still pull winit; the value of moving
+    # the rendering features off the base is to scope which builds
+    # actually compile the renderer.
     "default_app",
-    "2d_bevy_render",
+    # `ui_api` is no-render UI primitives (Node, Style, Val, ...).
+    # Several non-presentation modules (Bevy schedule helpers, the
+    # `sync_*` systems' query types) reference these without taking a
+    # hard render dependency, so it stays in the base set.
     "ui_api",
-    "ui_bevy_render",
-    "scene",
-    "png",
 ] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy_yarnspinner = { version = "0.8", optional = true }

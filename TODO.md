@@ -55,8 +55,6 @@ Useful companion docs:
 
 - [ ] **Menu mouse-hover vs keyboard navigation conflict** `[V3/D2]` - If the mouse is hovering an option while the user navigates by arrow keys / controller, the hover state can fight selection movement. Make menu focus policy explicit: pointer motion may set focus, but stale pointer position should not override a newer keyboard/controller navigation edge.
 
-- [ ] **Touch controls can affect the player during cutscenes/dialogue** `[V4/D2]` - `TODO-drafts.md` flags this as evidence that the control abstraction contract is still leaky. Consumers should see a canonical control frame that has already been mode-gated, not raw touch state that bypasses dialogue/cutscene restrictions.
-
 ## A - Sandbox expressiveness and mechanics
 
 ### Movement, traversal, and collision

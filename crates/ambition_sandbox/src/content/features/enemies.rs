@@ -34,7 +34,8 @@ pub struct EnemyRuntime {
     /// HUD / rendering / debug overlay so they can branch on a single
     /// vocabulary instead of inferring it from the timer fields.
     pub ai_mode: ae::CharacterAiMode,
-    /// Set by [`step_kinematic`] each tick. Used by chase-drop-through
+    /// Set by [`ae::step_kinematic`](ambition_engine::step_kinematic)
+    /// each tick. Used by chase-drop-through
     /// (enemy must be standing on something before it tries to fall
     /// through it) and by future jump AI.
     pub on_ground: bool,

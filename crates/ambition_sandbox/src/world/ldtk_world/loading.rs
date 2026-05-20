@@ -68,8 +68,8 @@ impl LdtkProject {
     ///   fails. Hot reload remains armed via
     ///   [`crate::ldtk_world::LdtkHotReloadState`].
     /// - Android / iOS / Web / Bundled static: uses the embedded
-    ///   `include_str!` byte stream from
-    ///   [`Self::load_static_map`].
+    ///   `include_str!` byte stream from `load_static_map` (only
+    ///   compiled with the `static_map` feature).
     /// - `NoAssets` / `Headless`: returns the required-asset error
     ///   (matches [`ambition_asset_manager::MissingAssetPolicy::Error`]).
     pub fn load_default(catalog: &SandboxAssetCatalog) -> Result<Self, String> {

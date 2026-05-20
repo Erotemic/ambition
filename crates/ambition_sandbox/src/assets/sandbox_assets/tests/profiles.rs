@@ -5,7 +5,7 @@
 use super::super::*;
 use crate::content::data::SandboxDataSpec;
 
-use super::{fixture_catalog, SFX_BANK_ENV_LOCK};
+use super::SFX_BANK_ENV_LOCK;
 
 #[test]
 fn sfx_bank_resolves_under_desktop_dev_loose() {

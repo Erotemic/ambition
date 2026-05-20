@@ -465,9 +465,10 @@ fn npc_hostile_bark(key: &str, name: &str) -> &'static str {
         "Steel decides."
     } else if key.contains("quartermaster") || name.contains("quartermaster") {
         "You owe me."
-    } else if key.contains("guard") || name.contains("guard") {
-        "That's it!"
     } else {
+        // Generic shout for unnamed mobs (e.g. "guard"). Each named
+        // archetype above has its own beat; everyone else gets the
+        // default barbark line.
         "That's it!"
     }
 }

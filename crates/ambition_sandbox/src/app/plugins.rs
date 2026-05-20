@@ -112,7 +112,6 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         .insert_resource(crate::features::GameplayBanner::default())
         .insert_resource(crate::features::FeatureEcsWorldOverlay::default())
         .insert_resource(crate::features::FeatureViewIndex::default())
-        .insert_resource(crate::dev::mechanics::MechanicsRegistry::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
         .add_systems(
             Startup,

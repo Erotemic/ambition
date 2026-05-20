@@ -40,8 +40,8 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
 - `ae::ProjectileFaction { Player, Enemy }` engine tag on
   `ProjectileBody`, with `from_spec_with_faction` constructor; enemy
   projectile spawner now tags `Enemy` (#10 / #17.7 enabler)
-- `app/plugins.rs` shed ~330 lines via ten domain-local Plugin
-  extractions (#6 — 1265 → 937 lines):
+- `app/plugins.rs` shed ~340 lines via thirteen domain-local Plugin
+  extractions (#6 — 1265 → 926 lines):
   - `SandboxSimulationResourcesPlugin` in `app/sim_resources.rs`
   - `TraceSchedulePlugin` in `dev/trace/plugin.rs`
   - `LdtkRuntimeSpinePlugin` in `world/ldtk_world/bevy_runtime/plugin.rs`
@@ -54,12 +54,12 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
   - `FeatureViewSyncSchedulePlugin` in `content/features.rs`
   - `SandboxAudioPlugin` in `audio/plugin.rs`
   - `PersistenceSchedulePlugin` in `persistence.rs`
+  - `EncounterSimulationSchedulePlugin` in `encounter.rs`
 
   Remaining `register_*` / `install_*` helpers in `plugins.rs` are the
   app-local chains (`PlayerInput`, `PlayerSimulation`, `RoomTransition`,
-  `Combat`, `PresentationSync`, `EncounterSimulation`,
-  `ProgressionChain`, `ProgressionPopulate`) plus the presentation
-  install fns (`install_menu_setup_and_hotkeys`,
+  `Combat`, `PresentationSync`, `ProgressionChain`, `ProgressionPopulate`)
+  plus the presentation install fns (`install_menu_setup_and_hotkeys`,
   `install_visual_animation_systems`, `install_misc_visual_sync_systems`,
   `install_player_visual_systems`, `install_projectile_and_vfx_systems`,
   `install_fx_and_hud_systems`, `install_camera_and_debug_overlay_systems`,

@@ -23,6 +23,7 @@ Use this index before refactors or when planning validation. Benchmark candidate
 | Resource derives/attributes drift during extraction | [`rust-attribute-drift-resource-derive-question-2026-05-12.md`](rust-attribute-drift-resource-derive-question-2026-05-12.md) |
 | Typed event/message API clobbered by stale overlays | [`overlay-stale-feature-events-api-question-2026-05-12.md`](overlay-stale-feature-events-api-question-2026-05-12.md) |
 | Bevy feature graph transitively re-enables `bevy_window` / `bevy_winit` even after removing `default_app` from the base dep | [`bevy-feature-graph-headless-2026-05-20.md`](bevy-feature-graph-headless-2026-05-20.md) |
+| Sandbox runtime mirror + engine state machine both own the same gameplay invariant; double-write yields one-frame off-by-ones | [`boss-runtime-mirror-vs-engine-state-2026-05-20.md`](boss-runtime-mirror-vs-engine-state-2026-05-20.md) |
 
 ## Movement / collision invariants
 

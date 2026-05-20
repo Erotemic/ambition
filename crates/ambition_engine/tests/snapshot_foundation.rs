@@ -1,37 +1,4 @@
-use ambition_engine::{state_machine_vocabulary, BossPatternSchedule};
-
-#[test]
-fn snapshot_state_machine_vocabulary() {
-    insta::assert_snapshot!(
-        state_machine_vocabulary().join("\n"),
-        @r###"AmbitionStateMachineActor
-EnemyIdle
-EnemyPatrol
-EnemyTelegraph
-EnemyAttack
-EnemyRecover
-EnemyStunned
-EnemyDead
-BossDormant
-BossIntro
-BossPhase
-BossDefeated
-ChestClosed
-ChestOpening
-ChestOpened
-BreakableIntact
-BreakableCracking
-BreakableBroken
-BreakableRespawning
-EncounterDormant
-EncounterStarting
-EncounterActive
-EncounterCleared
-EncounterFailed
-SwitchOff
-SwitchOn"###
-    );
-}
+use ambition_engine::BossPatternSchedule;
 
 #[test]
 fn snapshot_gradient_sentinel_phase1_schedule() {

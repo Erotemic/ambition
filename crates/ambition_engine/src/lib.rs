@@ -25,8 +25,6 @@ pub mod interaction;
 pub mod kinematic;
 pub mod ledge_grab;
 pub mod movement;
-pub mod music;
-pub mod physics;
 pub mod player_state;
 pub mod projectile;
 pub mod quest;
@@ -87,9 +85,6 @@ pub use movement::{
     MAX_FALL_SPEED, MAX_RUN_SPEED, PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED,
     PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL, WALL_CLIMB_SPEED, WALL_JUMP_X,
     WALL_SLIDE_SPEED,
-};
-pub use physics::{
-    PhysicsBodyKind, PhysicsBodyRole, PhysicsBodySpec, PhysicsMaterial, PhysicsShape, RagdollSpec,
 };
 pub use player_state::{
     classify_player_safety, try_change_body_mode, BodyMode, BodyShape, LocomotionState,

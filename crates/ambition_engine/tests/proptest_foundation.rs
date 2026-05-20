@@ -1,7 +1,4 @@
-use ambition_engine::{
-    aabb_from_min_size, AabbExt, BossPatternSchedule, KinematicPath, PhysicsBodySpec, RagdollSpec,
-    Vec2,
-};
+use ambition_engine::{aabb_from_min_size, AabbExt, BossPatternSchedule, KinematicPath, Vec2};
 use proptest::prelude::*;
 
 proptest! {
@@ -57,29 +54,3 @@ fn boss_pattern_schedules_have_finite_positive_timings() {
     }
 }
 
-#[test]
-fn physics_body_specs_validate_shape_and_material() {
-    let spec = PhysicsBodySpec::debris("debris", Vec2::new(4.0, 3.0));
-    assert!(spec.is_valid());
-}
-
-proptest! {
-    #[test]
-    fn ragdoll_specs_require_positive_finite_lifetime(
-        pieces in 1usize..20,
-        half_x in 0.5f32..32.0,
-        half_y in 0.5f32..32.0,
-        impulse in 0.0f32..1000.0,
-        lifetime in 0.05f32..20.0,
-    ) {
-        let spec = RagdollSpec {
-            id: "generated".to_string(),
-            role: ambition_engine::PhysicsBodyRole::EnemyCorpse,
-            piece_count: pieces,
-            piece_half_size: Vec2::new(half_x, half_y),
-            outward_impulse: impulse,
-            lifetime_seconds: lifetime,
-        };
-        prop_assert!(spec.is_valid());
-    }
-}

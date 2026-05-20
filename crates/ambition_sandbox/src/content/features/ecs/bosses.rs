@@ -11,6 +11,7 @@ pub fn update_ecs_bosses(
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
     encounter_registry: Res<crate::boss_encounter::BossEncounterRegistry>,
+    mut enemy_projectiles: ResMut<crate::enemy_projectile::EnemyProjectileState>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -78,12 +79,20 @@ pub fn update_ecs_bosses(
                 boss.scripted_step_elapsed = 0.0;
             }
         }
+        let mut outputs = crate::features::BossTickOutputs::default();
         boss.update(
             &feature_world,
             target_pos,
             feel_tuning.feature_combat_tuning(),
+            &mut outputs,
             dt,
         );
+        // Flush any spawn requests the strike emitted this tick
+        // (today: GNU-ton's apple rain). Same shape as the enemy
+        // projectile flush in `update_ecs_actors`.
+        for spawn in outputs.projectile_spawns {
+            enemy_projectiles.spawn(spawn);
+        }
         aabb.center = boss.pos;
         aabb.half_size = boss.render_size() * 0.5;
         pattern_timer.0 = boss.pattern_timer;

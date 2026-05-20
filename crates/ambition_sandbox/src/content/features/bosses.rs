@@ -197,7 +197,40 @@ pub enum BossAttackProfile {
     GnuHeadDescent,
     // GNU-ton specific: shockwave from both hands meeting in the center
     GnuShockwave,
+    // GNU-ton specific: apples fall from the ceiling around the player.
+    // Direct contact damage comes from spawned enemy projectiles
+    // (gravity > 0), not a single AABB, so `volumes_for` returns empty
+    // for this profile and damage routes through the projectile path.
+    GnuAppleRain,
 }
+
+/// Outputs produced by `BossRuntime::update` that need to be flushed
+/// into world resources by the calling system. Today this is just
+/// enemy-projectile spawn requests (GNU-ton's apple rain); future
+/// attacks that emit hazards or SFX can plug in here without further
+/// signature churn.
+#[derive(Default)]
+pub struct BossTickOutputs {
+    pub projectile_spawns: Vec<crate::enemy_projectile::EnemyProjectileSpawn>,
+}
+
+/// Apple-rain tuning. One spawn every `APPLE_RAIN_INTERVAL` seconds
+/// inside an active GnuAppleRain strike; gravity is gentle enough that
+/// even a casual sidestep clears the falling arc, but the cadence is
+/// fast enough that standing still under the giant is unsafe.
+const APPLE_RAIN_INTERVAL: f32 = 0.55;
+const APPLE_RAIN_GRAVITY: f32 = 540.0;
+const APPLE_RAIN_SPAWN_SPEED: f32 = 35.0;
+const APPLE_RAIN_LIFETIME: f32 = 6.0;
+const APPLE_RAIN_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(9.0, 10.0);
+const APPLE_RAIN_DAMAGE: i32 = 1;
+const APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER: f32 = 320.0;
+const APPLE_RAIN_X_JITTER: f32 = 160.0;
+/// Stable id prefix used by the visuals layer to switch the
+/// flat-red-rectangle bullet shape to the apple sprite (red body +
+/// green leaf + brown stem). Keep in sync with
+/// `enemy_projectile::visuals::is_apple_owner`.
+pub const GNU_TON_APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
 
 const GNU_TON_COLLISION_SCALE: f32 = 4.5;
 const GNU_TON_FRAME_HEIGHT: f32 = 576.0;
@@ -335,6 +368,7 @@ impl BossBehaviorProfile {
                 BossAttackProfile::GnuHandSweep,
                 BossAttackProfile::GnuHeadDescent,
                 BossAttackProfile::GnuShockwave,
+                BossAttackProfile::GnuAppleRain,
             ],
             attack_cooldown: 0.0,
             attack_windup: 0.0,
@@ -377,7 +411,19 @@ impl BossBehaviorProfile {
                             profile: BossAttackProfile::GnuHandSweep,
                             duration: 0.50,
                         },
-                        BossPatternStep::Rest { duration: 1.2 },
+                        BossPatternStep::Rest { duration: 1.0 },
+                        // Apple rain: the scholar gestures up and apples
+                        // fall around the player. Strike window is long
+                        // enough to drop ~4 apples at the chosen interval.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GnuAppleRain,
+                            duration: 1.0,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GnuAppleRain,
+                            duration: 2.2,
+                        },
+                        BossPatternStep::Rest { duration: 1.0 },
                         // Repeat the slam to reward memorizers.
                         BossPatternStep::Telegraph {
                             profile: BossAttackProfile::GnuHandSlam,
@@ -520,6 +566,15 @@ pub struct BossRuntime {
     pub active_strike_profile: Option<BossAttackProfile>,
     /// Telegraphed attack profile (set while inside a `Telegraph` step).
     pub telegraph_profile: Option<BossAttackProfile>,
+    /// Accumulates dt while a `GnuAppleRain` strike is active; emits
+    /// one apple every `APPLE_RAIN_INTERVAL` seconds. Reset to 0 when
+    /// the strike ends so the next rain window starts from a clean
+    /// cadence rather than an off-beat carry-over.
+    pub apple_spawn_accum: f32,
+    /// Monotonic counter for apple spawns this encounter — used as
+    /// a deterministic seed for x-jitter so two consecutive apples
+    /// land at different offsets without dragging in an RNG.
+    pub apple_spawn_index: u32,
 }
 
 impl BossRuntime {
@@ -551,6 +606,8 @@ impl BossRuntime {
             scripted_step_elapsed: 0.0,
             active_strike_profile: None,
             telegraph_profile: None,
+            apple_spawn_accum: 0.0,
+            apple_spawn_index: 0,
         }
     }
 
@@ -558,11 +615,16 @@ impl BossRuntime {
     /// component by `select_actor_targets` (OVERNIGHT-TODO #17.8).
     /// The boss movement profile reads it for anchor-sway / air-swoop
     /// chase math; scripted patterns (`StationaryGiant`) ignore it.
+    ///
+    /// `outputs` accumulates spawn requests that the calling system
+    /// is expected to flush into the relevant world resources
+    /// (e.g. `EnemyProjectileState` for apple-rain apples).
     pub(super) fn update(
         &mut self,
         world: &ae::World,
         target_pos: ae::Vec2,
         tuning: FeatureCombatTuning,
+        outputs: &mut BossTickOutputs,
         dt: f32,
     ) {
         if !self.alive {
@@ -577,6 +639,64 @@ impl BossRuntime {
         match &self.behavior.attack_pattern {
             BossAttackPattern::Cycle => self.update_cycle_attacks(tuning, dt),
             BossAttackPattern::Scripted { .. } => self.update_scripted_attacks(dt),
+        }
+
+        if matches!(
+            self.active_strike_profile,
+            Some(BossAttackProfile::GnuAppleRain)
+        ) {
+            self.tick_apple_rain(world, target_pos, outputs, dt);
+        } else {
+            // Drop the accumulator outside the strike so the next
+            // rain window starts on a clean beat instead of dumping
+            // a burst at t=0 from leftover dt.
+            self.apple_spawn_accum = 0.0;
+        }
+    }
+
+    /// Emit one falling-apple spawn per `APPLE_RAIN_INTERVAL` while
+    /// the GnuAppleRain strike is active. Spawn point is above the
+    /// player with a deterministic x-jitter so consecutive apples
+    /// don't stack on the exact same column — the player can still
+    /// learn the cadence, but can't camp under a single safe pixel.
+    fn tick_apple_rain(
+        &mut self,
+        world: &ae::World,
+        target_pos: ae::Vec2,
+        outputs: &mut BossTickOutputs,
+        dt: f32,
+    ) {
+        self.apple_spawn_accum += dt;
+        while self.apple_spawn_accum >= APPLE_RAIN_INTERVAL {
+            self.apple_spawn_accum -= APPLE_RAIN_INTERVAL;
+            // Deterministic jitter: alternating signs + a triangle-wave
+            // magnitude over the spawn index keeps things readable without
+            // pulling an RNG into the tick.
+            let i = self.apple_spawn_index;
+            let mag = ((i % 7) as f32 / 6.0) * APPLE_RAIN_X_JITTER;
+            let sign = if i % 2 == 0 { 1.0 } else { -1.0 };
+            let raw_x = target_pos.x + sign * mag;
+            let margin = APPLE_RAIN_HALF_EXTENT.x + 8.0;
+            let max_x = (world.size.x - margin).max(margin);
+            let spawn_x = raw_x.clamp(margin, max_x);
+            let spawn_y = (target_pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
+                .max(APPLE_RAIN_HALF_EXTENT.y + 8.0);
+            outputs
+                .projectile_spawns
+                .push(crate::enemy_projectile::EnemyProjectileSpawn {
+                    origin: ae::Vec2::new(spawn_x, spawn_y),
+                    // Downward initial velocity so the apple commits to
+                    // its lane immediately instead of hanging at zero
+                    // until gravity catches up.
+                    dir: ae::Vec2::new(0.0, 1.0),
+                    speed: APPLE_RAIN_SPAWN_SPEED,
+                    damage: APPLE_RAIN_DAMAGE,
+                    max_lifetime: APPLE_RAIN_LIFETIME,
+                    half_extent: APPLE_RAIN_HALF_EXTENT,
+                    owner_id: format!("{}:{}", GNU_TON_APPLE_OWNER_PREFIX, self.id),
+                    gravity: APPLE_RAIN_GRAVITY,
+                });
+            self.apple_spawn_index = self.apple_spawn_index.wrapping_add(1);
         }
     }
 
@@ -868,6 +988,15 @@ impl BossRuntime {
                     return vec![self
                         .gnu_ton_part_aabb(ae::Vec2::new(0.0, 195.0), ae::Vec2::new(300.0, 18.0))];
                 }
+                // Apple rain damage routes through the spawned projectile
+                // bodies, not a stationary AABB on the boss. Returning
+                // empty here keeps `player_damage` from double-counting
+                // contact-on-boss while the apples are in flight, and
+                // the debug overlay correctly draws no active strike
+                // volume (the apples themselves are the threat).
+                BossAttackProfile::GnuAppleRain => {
+                    return Vec::new();
+                }
                 _ => {}
             }
         }
@@ -940,6 +1069,11 @@ impl BossRuntime {
                 origin + ae::Vec2::new(0.0, size.y * 0.48),
                 ae::Vec2::new(size.x * 0.90, size.y * 0.08),
             )],
+            // Apple rain damages via spawned projectiles, not a static
+            // AABB on the boss. Empty here mirrors the gnu_ton branch
+            // above so ordinary bosses that ever inherit the profile
+            // (none today) behave the same.
+            BossAttackProfile::GnuAppleRain => Vec::new(),
         }
     }
 
@@ -1076,7 +1210,13 @@ mod scripted_pattern_tests {
         let mut ticks = 0;
         let mut last: &'static str = "";
         while observed.len() < 6 && ticks < 4_000 {
-            boss.update(&world, player.pos, FeatureCombatTuning::default(), dt);
+            boss.update(
+                &world,
+                player.pos,
+                FeatureCombatTuning::default(),
+                &mut BossTickOutputs::default(),
+                dt,
+            );
             let now = if boss.telegraph_profile.is_some() {
                 "telegraph"
             } else if boss.active_strike_profile.is_some() {
@@ -1159,12 +1299,109 @@ mod scripted_pattern_tests {
         );
         let player = ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default());
         for _ in 0..200 {
-            boss.update(&world, player.pos, FeatureCombatTuning::default(), 0.05);
+            boss.update(
+                &world,
+                player.pos,
+                FeatureCombatTuning::default(),
+                &mut BossTickOutputs::default(),
+                0.05,
+            );
             assert!(boss.active_strike_profile.is_none());
             assert!(boss.telegraph_profile.is_none());
             assert_eq!(boss.attack_timer, 0.0);
             assert_eq!(boss.attack_windup_timer, 0.0);
         }
+    }
+
+    #[test]
+    fn gnu_ton_apple_rain_strike_emits_falling_apple_spawns() {
+        // Concrete contract: while the GnuAppleRain strike is active,
+        // the boss must accumulate enemy-projectile spawn requests in
+        // `outputs.projectile_spawns` at the documented cadence. Each
+        // spawn must point downward, carry positive gravity, and be
+        // tagged with the apple owner prefix so the visuals layer
+        // picks the apple sprite instead of the bullet rectangle.
+        let mut boss = gnu_ton_runtime();
+        boss.active_strike_profile = Some(BossAttackProfile::GnuAppleRain);
+        let world = ae::World::new(
+            "test_arena",
+            ae::Vec2::new(2_000.0, 2_000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        );
+        let player_pos = ae::Vec2::new(500.0, 400.0);
+        let mut outputs = BossTickOutputs::default();
+        // Hand-tick the apple-rain branch with a step that should
+        // cover ~3 apple intervals.
+        boss.tick_apple_rain(&world, player_pos, &mut outputs, APPLE_RAIN_INTERVAL * 3.0);
+        assert!(
+            outputs.projectile_spawns.len() >= 3,
+            "expected >=3 apple spawns over 3 intervals, got {}",
+            outputs.projectile_spawns.len()
+        );
+        for spawn in &outputs.projectile_spawns {
+            assert!(spawn.gravity > 0.0, "apples must fall under gravity");
+            assert!(spawn.dir.y > 0.0, "apples must start moving down");
+            assert!(
+                spawn.owner_id.starts_with(GNU_TON_APPLE_OWNER_PREFIX),
+                "apples must use the apple owner prefix so the visuals \
+                 layer can swap in the apple sprite; got {}",
+                spawn.owner_id
+            );
+            assert!(
+                spawn.origin.y < player_pos.y,
+                "apples must spawn above the player"
+            );
+        }
+    }
+
+    #[test]
+    fn gnu_ton_apple_rain_volumes_are_empty_so_contact_does_not_double_count() {
+        // The strike's damage path goes through enemy projectiles, not
+        // a stationary boss AABB. `volumes_for(GnuAppleRain)` must
+        // return an empty list so the regular contact-damage check in
+        // `player_damage` doesn't ALSO hit the player at the boss's
+        // position while apples are in flight.
+        let boss = gnu_ton_runtime();
+        assert!(
+            boss.volumes_for(&BossAttackProfile::GnuAppleRain)
+                .is_empty(),
+            "apple-rain volumes must be empty — damage routes through projectiles"
+        );
+    }
+
+    #[test]
+    fn gnu_ton_apple_rain_resets_accumulator_when_strike_ends() {
+        // Leaving the strike must zero `apple_spawn_accum` so the next
+        // rain window starts on a clean beat instead of dumping a burst
+        // at t=0 from leftover dt.
+        let mut boss = gnu_ton_runtime();
+        boss.active_strike_profile = Some(BossAttackProfile::GnuAppleRain);
+        let world = ae::World::new(
+            "test_arena",
+            ae::Vec2::new(2_000.0, 2_000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        );
+        let player = ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default());
+        let mut outputs = BossTickOutputs::default();
+        // Tick mid-interval (so accum sits non-zero), then transition
+        // out of the strike and tick again — the non-rain branch should
+        // reset the accumulator without emitting spawns.
+        boss.tick_apple_rain(&world, player.pos, &mut outputs, APPLE_RAIN_INTERVAL * 0.5);
+        assert!(boss.apple_spawn_accum > 0.0);
+        boss.active_strike_profile = None;
+        boss.update(
+            &world,
+            player.pos,
+            FeatureCombatTuning::default(),
+            &mut outputs,
+            0.05,
+        );
+        assert_eq!(
+            boss.apple_spawn_accum, 0.0,
+            "accumulator must reset when the rain strike ends"
+        );
     }
 
     #[test]

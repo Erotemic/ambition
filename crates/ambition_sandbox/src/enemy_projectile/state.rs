@@ -15,8 +15,14 @@ pub struct EnemyProjectileSpawn {
     pub max_lifetime: f32,
     pub half_extent: ae::Vec2,
     /// Id of the spawning enemy. Useful for self-friendly-fire ignore
-    /// lists and debug traces.
+    /// lists, sprite routing in the visuals layer (GNU-ton's apples
+    /// stamp `gnu_ton_apple:*` so the visual gets the apple shape
+    /// instead of the default bullet rectangle), and debug traces.
     pub owner_id: String,
+    /// Per-second downward acceleration applied to the body each tick.
+    /// Zero for hitscan-like volleys; positive for arcing/falling
+    /// projectiles such as GNU-ton's apple rain.
+    pub gravity: f32,
 }
 
 /// Wrapper around an in-flight `ae::ProjectileBody` plus enemy
@@ -53,7 +59,7 @@ impl EnemyProjectileState {
             speed,
             max_lifetime: request.max_lifetime.max(0.2),
             half_extent: request.half_extent,
-            gravity: 0.0,
+            gravity: request.gravity.max(0.0),
             charge_tier: 0,
         };
         let mut body =
@@ -87,6 +93,7 @@ mod tests {
             max_lifetime: 1.0,
             half_extent: ae::Vec2::new(8.0, 8.0),
             owner_id: "pirate_1".into(),
+            gravity: 0.0,
         }
     }
 
@@ -128,6 +135,7 @@ mod tests {
             max_lifetime: 1.0,
             half_extent: ae::Vec2::new(8.0, 8.0),
             owner_id: "test".into(),
+            gravity: 0.0,
         });
         // A zero-length direction would NaN the initial_velocity; spawn
         // defaults to (1, 0) so the projectile has a sensible direction.

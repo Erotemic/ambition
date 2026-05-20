@@ -900,6 +900,7 @@ impl EnemyRuntime {
                     max_lifetime: 2.4,
                     half_extent: ae::Vec2::new(10.0, 8.0),
                     owner_id: self.id.clone(),
+                    gravity: 0.0,
                 });
                 // Brief telegraph for the HUD so the volley reads as a "shot".
                 self.ai_mode = ae::CharacterAiMode::Attack;

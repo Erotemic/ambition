@@ -614,12 +614,21 @@ fn draw_feature_debug(
             }
         }
     }
+    // Player-facing hurtbox: where the player's attacks land registers.
+    // Distinct from `boss.aabb()` (the movement envelope) because bosses
+    // like GNU-ton expose only specific parts (the head) as damageable.
+    // Drawing both is the only way the debug view can answer "why did
+    // my hit register here but not there?" without reading source.
+    let hurtbox_color = cyan();
     for bf in feature_q.bosses.iter() {
         let boss = &bf.boss;
         if !boss.alive {
             continue;
         }
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
+        for hurtbox in boss.damageable_aabbs() {
+            draw_aabb_styled(gizmos, world, hurtbox, hurtbox_color, developer_tools);
+        }
         for vol in boss.attack_telegraph_volumes() {
             draw_aabb_styled(gizmos, world, vol, telegraph_color, developer_tools);
         }

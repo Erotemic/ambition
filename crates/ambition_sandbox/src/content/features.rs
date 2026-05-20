@@ -44,7 +44,10 @@ mod pickups;
 mod util;
 mod world_overlay;
 
-pub use bosses::{BossAttackProfile, BossBehaviorProfile, BossMovementProfile, BossRuntime};
+pub use bosses::{
+    BossAttackProfile, BossBehaviorProfile, BossMovementProfile, BossRuntime, BossTickOutputs,
+    GNU_TON_APPLE_OWNER_PREFIX,
+};
 pub use breakables::BreakableRuntime;
 pub use bus::{
     apply_boss_damage_effects, apply_flag_effects, apply_gameplay_sfx_effects,

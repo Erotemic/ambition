@@ -406,42 +406,27 @@ pub fn attack_hitbox(player: &Player, spec: AttackSpec) -> Aabb {
     Aabb::new(player.pos + spec.hitbox_offset, spec.hitbox_half_size)
 }
 
-/// Compute the current slash/pogo hitbox for legacy callers. Prefer
-/// `resolve_attack_intent` + `attack_spec` + `attack_hitbox` when the caller
-/// has access to horizontal input or wants phase/debug metadata.
-pub fn slash_hitbox(player: &Player, axis_y: f32, forced_pogo: bool) -> Aabb {
-    let intent = resolve_attack_intent(player, 0.0, axis_y, forced_pogo);
-    attack_hitbox(player, attack_spec(player, intent))
-}
-
-/// Build a structured player slash hitbox from the directional attack helpers.
-pub fn player_slash_hitbox(
-    player: &Player,
-    axis_y: f32,
-    forced_pogo: bool,
-    damage_amount: i32,
-) -> Hitbox {
-    let intent = resolve_attack_intent(player, 0.0, axis_y, forced_pogo);
-    let spec = attack_spec(player, intent);
-    Hitbox::new(
-        "player_slash",
-        attack_hitbox(player, spec),
-        Damage::new(damage_amount, spec.damage_kind, ActorFaction::Player),
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::Vec2;
 
+    /// Test helper: resolve the canonical attack pipeline
+    /// (`resolve_attack_intent` → `attack_spec` → `attack_hitbox`) into
+    /// the final hitbox. The old `slash_hitbox` shortcut was retired
+    /// with the engine cleanup; tests use this 3-line helper instead.
+    fn slash_hitbox_for_test(player: &Player, axis_y: f32, forced_pogo: bool) -> Aabb {
+        let intent = resolve_attack_intent(player, 0.0, axis_y, forced_pogo);
+        attack_hitbox(player, attack_spec(player, intent))
+    }
+
     #[test]
     fn forward_slash_is_in_front_of_facing_direction() {
         let mut player = Player::new(Vec2::new(100.0, 100.0));
         player.facing = 1.0;
-        let right = slash_hitbox(&player, 0.0, false);
+        let right = slash_hitbox_for_test(&player, 0.0, false);
         player.facing = -1.0;
-        let left = slash_hitbox(&player, 0.0, false);
+        let left = slash_hitbox_for_test(&player, 0.0, false);
         assert!(right.center().x > player.pos.x);
         assert!(left.center().x < player.pos.x);
     }
@@ -499,7 +484,7 @@ mod tests {
     #[test]
     fn forced_pogo_slash_is_below_player() {
         let player = Player::new(Vec2::new(100.0, 100.0));
-        let pogo = slash_hitbox(&player, 0.0, true);
+        let pogo = slash_hitbox_for_test(&player, 0.0, true);
         // Pogo slash sits below the body — its center.y is greater
         // (Ambition uses +Y down) than the player's y.
         assert!(pogo.center().y > player.pos.y);
@@ -508,7 +493,7 @@ mod tests {
     #[test]
     fn upward_slash_is_above_player() {
         let player = Player::new(Vec2::new(100.0, 100.0));
-        let up = slash_hitbox(&player, -1.0, false);
+        let up = slash_hitbox_for_test(&player, -1.0, false);
         assert!(up.center().y < player.pos.y);
     }
 }

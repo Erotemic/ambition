@@ -20,7 +20,6 @@ pub mod combat;
 pub mod combat_slots;
 pub mod cutscene;
 pub mod debug;
-pub mod enemy;
 pub mod geometry;
 pub mod interaction;
 pub mod kinematic;
@@ -60,13 +59,12 @@ pub use character_ai::{
     CharacterAiOutput, CharacterAiSnapshot,
 };
 pub use combat::{
-    attack_hitbox, attack_spec, player_slash_hitbox, resolve_attack_intent, slash_hitbox,
+    attack_hitbox, attack_spec, resolve_attack_intent,
     AttackIntent, AttackPhase, AttackSpec, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
 pub use combat_slots::{assign_slots, CombatSlot, CombatSlotBoard, SlotKind, SlotRequest};
 pub use cutscene::{CutsceneBeat, CutsceneEvent, CutsceneRuntime, CutsceneScript};
 pub use debug::{DebugLabel, DebugLabelKind, DestinationLabel};
-pub use enemy::{spawn_dummies, Dummy, DummyKind};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
 pub use interaction::{
     Breakable, BreakableCollision, BreakableState, BreakableTrigger, Chest, ChestState,

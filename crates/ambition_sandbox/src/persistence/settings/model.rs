@@ -946,31 +946,21 @@ pub fn apply_action(
             }
         }
 
-        SettingsItem::DebugOverlay => {
-            if is_toggle_action(action) {
-                dev_state.debug = !dev_state.debug;
-            }
-        }
-        SettingsItem::SlowMotion => {
-            if is_toggle_action(action) {
-                dev_state.slowmo = !dev_state.slowmo;
-            }
-        }
-        SettingsItem::Inspector => {
-            if is_toggle_action(action) {
-                developer.inspector_visible = !developer.inspector_visible;
-            }
-        }
-        SettingsItem::WorldInspector => {
-            if is_toggle_action(action) {
-                developer.world_inspector_visible = !developer.world_inspector_visible;
-            }
-        }
-        SettingsItem::OverviewCamera => {
-            if is_toggle_action(action) {
-                developer.overview_camera = !developer.overview_camera;
-            }
-        }
+        SettingsItem::DebugOverlay => apply_toggle(action, || {
+            dev_state.debug = !dev_state.debug;
+        }),
+        SettingsItem::SlowMotion => apply_toggle(action, || {
+            dev_state.slowmo = !dev_state.slowmo;
+        }),
+        SettingsItem::Inspector => apply_toggle(action, || {
+            developer.inspector_visible = !developer.inspector_visible;
+        }),
+        SettingsItem::WorldInspector => apply_toggle(action, || {
+            developer.world_inspector_visible = !developer.world_inspector_visible;
+        }),
+        SettingsItem::OverviewCamera => apply_toggle(action, || {
+            developer.overview_camera = !developer.overview_camera;
+        }),
         SettingsItem::DebugViewMode => match action {
             SettingsAction::Prev => {
                 developer.apply_debug_view_mode(developer.debug_view_mode.prev(), true);
@@ -987,32 +977,24 @@ pub fn apply_action(
                 developer.apply_debug_art_mode(developer.debug_art_mode.next());
             }
         },
-        SettingsItem::ShowHitboxes => {
-            if is_toggle_action(action) {
-                developer.mark_debug_view_custom();
-                let next = !developer.show_feature_hitboxes;
-                developer.show_feature_hitboxes = next;
-                developer.show_player_hitbox = next;
-            }
-        }
-        SettingsItem::FillDebugBoxes => {
-            if is_toggle_action(action) {
-                developer.mark_debug_view_custom();
-                developer.fill_debug_boxes = !developer.fill_debug_boxes;
-            }
-        }
-        SettingsItem::MicroGrid => {
-            if is_toggle_action(action) {
-                developer.mark_debug_view_custom();
-                developer.show_micro_grid = !developer.show_micro_grid;
-            }
-        }
-        SettingsItem::CameraFrame => {
-            if is_toggle_action(action) {
-                developer.mark_debug_view_custom();
-                developer.show_camera_frame = !developer.show_camera_frame;
-            }
-        }
+        SettingsItem::ShowHitboxes => apply_toggle(action, || {
+            developer.mark_debug_view_custom();
+            let next = !developer.show_feature_hitboxes;
+            developer.show_feature_hitboxes = next;
+            developer.show_player_hitbox = next;
+        }),
+        SettingsItem::FillDebugBoxes => apply_toggle(action, || {
+            developer.mark_debug_view_custom();
+            developer.fill_debug_boxes = !developer.fill_debug_boxes;
+        }),
+        SettingsItem::MicroGrid => apply_toggle(action, || {
+            developer.mark_debug_view_custom();
+            developer.show_micro_grid = !developer.show_micro_grid;
+        }),
+        SettingsItem::CameraFrame => apply_toggle(action, || {
+            developer.mark_debug_view_custom();
+            developer.show_camera_frame = !developer.show_camera_frame;
+        }),
         SettingsItem::PlayerBodyProfile => match action {
             SettingsAction::Prev => {
                 developer.player_body_profile = developer.player_body_profile.prev();
@@ -1045,19 +1027,17 @@ pub fn apply_action(
                 );
             }
         },
-        SettingsItem::LdtkAutoApply => {
-            if is_toggle_action(action) {
-                ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
-                ldtk_reload.last_status = format!(
-                    "LDtk auto-apply {}",
-                    if ldtk_reload.auto_apply {
-                        "enabled"
-                    } else {
-                        "disabled"
-                    }
-                );
-            }
-        }
+        SettingsItem::LdtkAutoApply => apply_toggle(action, || {
+            ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
+            ldtk_reload.last_status = format!(
+                "LDtk auto-apply {}",
+                if ldtk_reload.auto_apply {
+                    "enabled"
+                } else {
+                    "disabled"
+                }
+            );
+        }),
     }
     SettingsOutcome::Stay
 }
@@ -1184,13 +1164,6 @@ fn nudge_shader_range(action: SettingsAction, value: &mut f32, step: f32, min: f
             ScreenShaderSettings::nudge_range(value, step, min, max);
         }
     }
-}
-
-fn is_toggle_action(action: SettingsAction) -> bool {
-    matches!(
-        action,
-        SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-    )
 }
 
 pub fn next_display_mode(current: DisplayModeKind) -> DisplayModeKind {

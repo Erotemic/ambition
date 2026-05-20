@@ -148,6 +148,47 @@ mod tests {
         assert!(outcome.killed);
     }
 
+    /// Pin the `prev_hp > 0` guard on `killed`. Re-damaging a boss
+    /// whose engine state is already at 0 HP (e.g. because the engine
+    /// just transitioned to `Death`) must NOT re-fire the kill flag —
+    /// otherwise the caller would route VFX / quest events / save
+    /// updates twice for the same death.
+    #[test]
+    fn record_boss_damage_does_not_re_fire_killed_when_already_dead() {
+        let mut registry = fixture(4);
+        let mut music = EncounterMusicRequest::default();
+        let mut cutscene = CutsceneTriggerQueue::default();
+        let mut banner = GameplayBanner::default();
+        // First hit kills.
+        let first = record_boss_damage(
+            &mut registry,
+            &mut music,
+            &mut cutscene,
+            &mut banner,
+            "test_boss_runtime",
+            10,
+        )
+        .expect("registered boss returns Some");
+        assert!(first.killed, "first lethal hit should report killed=true");
+        // Second hit on the already-dead boss.
+        let second = record_boss_damage(
+            &mut registry,
+            &mut music,
+            &mut cutscene,
+            &mut banner,
+            "test_boss_runtime",
+            5,
+        )
+        .expect("registered boss returns Some");
+        assert!(
+            !second.killed,
+            "killed must only fire once per encounter death; \
+             follow-up damage during Death phase should report killed=false \
+             so quest/save side effects don't double-fire"
+        );
+        assert_eq!(second.hp_remaining, 0);
+    }
+
     #[test]
     fn record_boss_damage_reports_not_applied_during_invulnerable_phase() {
         let mut registry = fixture(10);

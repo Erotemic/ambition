@@ -553,9 +553,7 @@ impl EnemyRuntime {
     /// hitbox on a fused pirate-on-shark. Player hits that overlap
     /// this region damage the rider's HP pool, not the shark's.
     pub fn rider_aabb(&self) -> Option<ae::Aabb> {
-        if self.rider_health.is_none() {
-            return None;
-        }
+        self.rider_health?;
         // The pirate sits on top of the shark. The shark sprite is
         // ~96 tall; the pirate occupies the top ~52 px (its sprite is
         // 128 tall but visually compressed when riding).

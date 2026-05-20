@@ -57,8 +57,6 @@ pub struct SimulationSetup<'a> {
     pub world: &'a GameWorld,
     pub room_set: &'a RoomSet,
     pub ldtk_index: &'a LdtkRuntimeIndex,
-    #[allow(dead_code)] // Reserved; setup currently reads sandbox_data via the asset handle.
-    pub sandbox_data: &'a SandboxDataSpec,
     pub editable_abilities: &'a EditableAbilitySet,
     pub editable_tuning: &'a EditableMovementTuning,
     pub sandbox_data_asset: Option<&'a SandboxDataAsset>,
@@ -96,15 +94,10 @@ pub struct PresentationSetup<'a> {
 /// * inserting a `SceneEntities` resource with `hud: Entity::PLACEHOLDER`
 ///   that `presentation_world` overwrites once the HUD entity exists
 pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) -> Entity {
-    // `sandbox_data` is reserved on `SimulationSetup` for symmetry with
-    // `PresentationSetup` and to support future sim-side reads (e.g. movement
-    // tuning resolved through SandboxDataSpec instead of the editable
-    // resources). Suppress the unused-field warning until then.
     let SimulationSetup {
         world,
         room_set,
         ldtk_index,
-        sandbox_data: _,
         editable_abilities,
         editable_tuning,
         sandbox_data_asset,

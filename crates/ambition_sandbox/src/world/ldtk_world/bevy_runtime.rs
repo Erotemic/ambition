@@ -2,7 +2,7 @@
 //! sandbox's LDtk integration.
 //!
 //! This submodule isolates everything that needs `bevy_ecs_ldtk` types
-//! (PluginEntityInstance, LevelSet, LdtkEntity, asset Handle<LdtkProject>)
+//! (PluginEntityInstance, LevelSet, LdtkEntity, asset `Handle<LdtkProject>`)
 //! from the pure-Rust LDtk JSON parser / validator / surface compiler in
 //! `super`. Step C of `docs/planning/path-forward.md` calls for splitting
 //! `ldtk_world.rs`; this is the bevy_ecs_ldtk-using half of that split.

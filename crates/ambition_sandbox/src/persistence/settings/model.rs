@@ -369,36 +369,22 @@ impl SettingsItem {
             Self::QuestHud => format_toggle("Quest HUD", settings.gameplay.quest_hud_visible),
             Self::TraceAutoDump => format_toggle("Trace Auto-Dump", settings.gameplay.trace_auto_dump),
 
-            Self::DebugOverlay => format!("Debug Overlay (F1): {}", on_off(dev.debug_overlay)),
-            Self::SlowMotion => format!("Slow Motion (F2): {}", on_off(dev.slowmo)),
-            Self::Inspector => format!("Inspector (F3): {}", on_off(dev.inspector)),
-            Self::WorldInspector => {
-                format!("World Inspector (F4): {}", on_off(dev.world_inspector))
-            }
-            Self::OverviewCamera => {
-                format!("Overview Camera (F5): {}", on_off(dev.overview_camera))
-            }
+            Self::DebugOverlay => format_toggle("Debug Overlay (F1)", dev.debug_overlay),
+            Self::SlowMotion => format_toggle("Slow Motion (F2)", dev.slowmo),
+            Self::Inspector => format_toggle("Inspector (F3)", dev.inspector),
+            Self::WorldInspector => format_toggle("World Inspector (F4)", dev.world_inspector),
+            Self::OverviewCamera => format_toggle("Overview Camera (F5)", dev.overview_camera),
             Self::DebugViewMode => format_cycle("Debug View", dev.debug_view_mode.label()),
             Self::DebugArtMode => format_cycle("Debug Art", dev.debug_art_mode.label()),
-            Self::ShowHitboxes => {
-                format!("Custom Hitboxes: {}", on_off(dev.show_hitboxes))
-            }
-            Self::FillDebugBoxes => {
-                format!("Debug Fills: {}", on_off(dev.fill_debug_boxes))
-            }
-            Self::MicroGrid => {
-                format!("Micro Grid (8px): {}", on_off(dev.micro_grid))
-            }
-            Self::CameraFrame => {
-                format!("Camera Frame: {}", on_off(dev.camera_frame))
-            }
+            Self::ShowHitboxes => format_toggle("Custom Hitboxes", dev.show_hitboxes),
+            Self::FillDebugBoxes => format_toggle("Debug Fills", dev.fill_debug_boxes),
+            Self::MicroGrid => format_toggle("Micro Grid (8px)", dev.micro_grid),
+            Self::CameraFrame => format_toggle("Camera Frame", dev.camera_frame),
             Self::PlayerBodyProfile => {
                 format_cycle("Player Body", dev.player_body_profile.label())
             }
             Self::MovementProfile => format_cycle("Movement Profile", dev.movement_profile.label()),
-            Self::LdtkAutoApply => {
-                format!("LDtk Auto-Reload (F12): {}", on_off(dev.ldtk_auto_apply))
-            }
+            Self::LdtkAutoApply => format_toggle("LDtk Auto-Reload (F12)", dev.ldtk_auto_apply),
         }
     }
 }

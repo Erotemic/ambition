@@ -90,6 +90,11 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
   document why a true headless build needs more than the Cargo.toml
   feature split (ui_api → default_app → bevy_window → bevy_winit
   transitive closure).
+- `boss_encounter::damage::record_boss_damage` unit tests pin the four
+  outcome paths: unknown runtime id → `None`; normal damage → applied
+  + new hp; lethal damage → killed flag; invulnerable phase → applied
+  false + hp unchanged. 560 sandbox lib tests now pass (was 553 at
+  session start).
 
 Recently retired (engine-cleanup pass, see git log e5be8c8…HEAD):
 

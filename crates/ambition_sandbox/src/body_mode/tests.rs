@@ -2,7 +2,7 @@ use super::*;
 use crate::input::ControlFrame;
 use crate::GameWorld;
 use ambition_engine as ae;
-use bevy::prelude::{App, Time, Update, With};
+use bevy::prelude::{App, IntoScheduleConfigs, Time, Update, With};
 
 fn empty_world() -> ae::World {
     ae::World::new(
@@ -34,12 +34,27 @@ fn body_app(world: ae::World) -> App {
         ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
     initial_player.refresh_movement_resources(ae::DEFAULT_TUNING);
     app.insert_resource(ControlFrame::default());
+    // `LocalPlayer` + `PlayerInputFrame` are required by
+    // `sync_local_player_input_frame`, which is the system the live
+    // build uses to mirror `Res<ControlFrame>` onto the per-player
+    // component. Scheduling that sync before `update_body_mode` keeps
+    // the existing per-test pattern of mutating `Res<ControlFrame>`
+    // (OVERNIGHT-TODO #17.5).
     app.world_mut().spawn((
         crate::player::PlayerEntity,
+        crate::player::LocalPlayer,
         crate::player::PlayerMovementAuthority::new(initial_player),
         crate::player::PlayerInteractionState::default(),
+        crate::player::PlayerInputFrame::default(),
     ));
-    app.add_systems(Update, update_body_mode);
+    app.add_systems(
+        Update,
+        (
+            crate::player::sync_local_player_input_frame,
+            update_body_mode,
+        )
+            .chain(),
+    );
     app
 }
 

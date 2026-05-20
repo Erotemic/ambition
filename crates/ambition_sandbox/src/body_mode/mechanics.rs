@@ -43,19 +43,20 @@ const CROUCH_AXIS_Y_THRESHOLD: f32 = 0.4;
 
 pub fn update_body_mode(
     world: Res<crate::GameWorld>,
-    controls: Res<crate::input::ControlFrame>,
     mut player_q: Query<
         (
             &mut crate::player::PlayerMovementAuthority,
             &mut crate::player::PlayerInteractionState,
+            &crate::player::PlayerInputFrame,
         ),
         With<crate::player::PlayerEntity>,
     >,
 ) {
-    let Ok((mut authority, mut interaction)) = player_q.single_mut() else {
+    let Ok((mut authority, mut interaction, input)) = player_q.single_mut() else {
         return;
     };
     let player = &mut authority.player;
+    let controls = &input.frame;
 
     // Mid-action mechanics own the body shape — don't fight them.
     if player.dash_timer > 0.0 || player.blink_aiming {

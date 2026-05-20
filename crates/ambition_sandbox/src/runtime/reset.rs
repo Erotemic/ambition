@@ -208,6 +208,23 @@ pub fn process_sandbox_reset_request(
     banner.show("SANDBOX RESET", 3.0);
 }
 
+/// Module-local Bevy plugin: schedules
+/// [`process_sandbox_reset_request`] into [`SandboxSet::ResetProcessing`].
+///
+/// Carved out of `app/plugins.rs::register_reset_processing_systems`
+/// per OVERNIGHT-TODO #6. The reset machinery lives entirely in this
+/// module, so its schedule registration belongs here too.
+pub struct SandboxResetSchedulePlugin;
+
+impl Plugin for SandboxResetSchedulePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            process_sandbox_reset_request.in_set(crate::app::SandboxSet::ResetProcessing),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

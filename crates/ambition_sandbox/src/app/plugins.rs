@@ -65,7 +65,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_progression_chain_systems(app);
     register_progression_populate_systems(app);
     register_feature_view_sync_systems(app);
-    register_reset_processing_systems(app);
+    app.add_plugins(crate::runtime::reset::SandboxResetSchedulePlugin);
     app.add_plugins(crate::trace::TraceSchedulePlugin);
 }
 
@@ -366,21 +366,11 @@ fn register_progression_populate_systems(app: &mut App) {
     );
 }
 
-/// Sandbox reset processor: consumes pending reset requests (set by the
-/// pause-menu "Reset Sandbox" item or any other caller). In set
-/// ResetProcessing (configured after CoreSimulation) so it can't race
-/// with in-flight gameplay mutations, and before the populate systems on
-/// the next frame so they see the cleared registries when re-running.
-fn register_reset_processing_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        crate::runtime::reset::process_sandbox_reset_request.in_set(SandboxSet::ResetProcessing),
-    );
-}
-
+// Sandbox reset schedule moved to
+// `crate::runtime::reset::SandboxResetSchedulePlugin` (OVERNIGHT-TODO #6).
 // Trace recorder schedule moved to `crate::trace::TraceSchedulePlugin`
 // (OVERNIGHT-TODO #6 — module-local plugins). `add_simulation_plugins`
-// installs it via `app.add_plugins`.
+// installs them via `app.add_plugins`.
 
 /// Register Bevy's `LdtkPlugin` plus the supporting Ambition glue
 /// (entity registrations, asset collection, LdtkWorldBundle spawn,

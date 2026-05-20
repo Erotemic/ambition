@@ -37,5 +37,33 @@ pub use systems::{
     populate_encounter_registry, update_encounters_from_world,
 };
 
+/// Module-local Bevy plugin: schedules the `EncounterSimulation`
+/// simulation set — moving-platform sweep + encounter tick +
+/// gameplay-banner queue drain.
+///
+/// Carved out of
+/// `app/plugins.rs::register_encounter_simulation_systems` per
+/// OVERNIGHT-TODO #6. Three different domains (platforms, encounter,
+/// features) participate; encounter is the central one (it owns
+/// `update_encounters_from_world`), so this plugin lives here.
+pub struct EncounterSimulationSchedulePlugin;
+
+impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs, Update};
+        app.add_systems(
+            Update,
+            (
+                crate::world::platforms::sync_moving_platform,
+                update_encounters_from_world,
+                crate::features::apply_gameplay_banner_requests,
+                crate::features::tick_gameplay_banner,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::EncounterSimulation),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests;

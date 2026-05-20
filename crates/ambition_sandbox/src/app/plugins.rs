@@ -59,7 +59,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(crate::features::FeatureCollectionSchedulePlugin);
     app.add_plugins(crate::features::FeatureInteractionSchedulePlugin);
     app.add_plugins(ldtk_world::LdtkRuntimeSpinePlugin);
-    register_encounter_simulation_systems(app);
+    app.add_plugins(crate::encounter::EncounterSimulationSchedulePlugin);
     app.add_plugins(crate::presentation::cutscene::CutsceneSchedulePlugin);
     app.add_plugins(crate::features::GameplayEffectsSchedulePlugin);
     register_progression_chain_systems(app);
@@ -213,19 +213,8 @@ fn register_presentation_sync_systems(app: &mut App) {
 // LDtk runtime spine schedule moved to
 // `ldtk_world::LdtkRuntimeSpinePlugin` (OVERNIGHT-TODO #6).
 
-fn register_encounter_simulation_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            platforms::sync_moving_platform,
-            crate::encounter::update_encounters_from_world,
-            crate::features::apply_gameplay_banner_requests,
-            crate::features::tick_gameplay_banner,
-        )
-            .chain()
-            .in_set(SandboxSet::EncounterSimulation),
-    );
-}
+// EncounterSimulation schedule moved to
+// `crate::encounter::EncounterSimulationSchedulePlugin` (OVERNIGHT-TODO #6).
 
 // Progression chain: cutscenes, gameplay-effect routing, boss encounters,
 // quest events, and the F3 stats editor sync. Split into several chained

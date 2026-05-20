@@ -76,6 +76,20 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
   death VFX / banner on the same tick the kill lands. Invulnerable
   beats now correctly suppress hit feedback instead of papering over
   it one frame later.
+- `projectile/tests.rs` (684 lines) — split into
+  `tests/{mod.rs, charging.rs, collision.rs}` (#15 — third big-file
+  split).
+- `ActorFaction { Player, Enemy, Npc, Boss, Neutral }` component
+  (#17.2/17.3 first slice). Distinct from `ActorDisposition`;
+  attached to every actor entity (player, encounter mob, NPC,
+  boss). Future projectile-faction merge / multiplayer targeting
+  will dispatch on this tag instead of pattern-matching on
+  per-family components.
+- `dev/journals/bevy-headless-feature-graph-2026-05-20.md` + matching
+  `dev/benchmark-candidates/bevy-feature-graph-headless-2026-05-20.md`
+  document why a true headless build needs more than the Cargo.toml
+  feature split (ui_api → default_app → bevy_window → bevy_winit
+  transitive closure).
 
 Recently retired (engine-cleanup pass, see git log e5be8c8…HEAD):
 

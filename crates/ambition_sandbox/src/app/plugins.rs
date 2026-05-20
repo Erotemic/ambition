@@ -61,7 +61,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(ldtk_world::LdtkRuntimeSpinePlugin);
     register_encounter_simulation_systems(app);
     app.add_plugins(crate::presentation::cutscene::CutsceneSchedulePlugin);
-    register_gameplay_effects_systems(app);
+    app.add_plugins(crate::features::GameplayEffectsSchedulePlugin);
     register_progression_chain_systems(app);
     register_progression_populate_systems(app);
     register_feature_view_sync_systems(app);
@@ -279,21 +279,8 @@ fn register_encounter_simulation_systems(app: &mut App) {
 // Cutscene schedule moved to
 // `crate::presentation::cutscene::CutsceneSchedulePlugin` (OVERNIGHT-TODO #6).
 
-fn register_gameplay_effects_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            crate::features::apply_flag_effects,
-            crate::features::apply_quest_effects,
-            crate::features::apply_switch_effects,
-            crate::features::apply_boss_damage_effects,
-            crate::features::apply_npc_strike_effects,
-            crate::features::apply_gameplay_sfx_effects,
-        )
-            .chain()
-            .in_set(SandboxSet::GameplayEffects),
-    );
-}
+// Gameplay-effects bus schedule moved to
+// `crate::features::GameplayEffectsSchedulePlugin` (OVERNIGHT-TODO #6).
 
 fn register_progression_chain_systems(app: &mut App) {
     app.add_systems(

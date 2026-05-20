@@ -400,7 +400,6 @@ systems that the backlog refactors will affect:
   test asserts the contrary. Needs in-game verification.
 - Wall-cling / lock-wall collision-correction debt
   (`docs/planning/tech-debt-log.md`).
-- Goblin encounter music transition still sounds like a section swap.
 - Cutscene / dialogue input + prompt mismatch.
 - Menu mouse-hover vs keyboard-nav conflict.
 - Touch controls can affect the player during cutscenes.
@@ -409,11 +408,11 @@ systems that the backlog refactors will affect:
 
 ## Suggested next picks (smallest payoff/size ratio)
 
-- **#17.5 per-player input** — single biggest unblocker for the rest of the
-  multiplayer chain (#17.7, #17.8, audit-doc C-bucket closeout).
 - **#10 / #17.7 projectile faction merge** — natural follow-on to the
   per-family `Authored<T>` migration; pulls projectile spawn / owner shape
   into the same idiom.
 - **#15 test reorganization** — pure file movement, easiest to land.
 - **#1 headless feature gate** — biggest design payoff but high cost;
   reveals accidental coupling.
+- **#17.5 per-player input** — single biggest unblocker for the rest of the
+  multiplayer chain (#17.7, #17.8, audit-doc C-bucket closeout).

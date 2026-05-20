@@ -1,0 +1,555 @@
+//! Sanity tests against the embedded `sandbox.ldtk` / `intro.ldtk` projects.
+//!
+//! These tests load the real authored content and pin that:
+//! - parser-level validation passes (`embedded_ldtk_validates`),
+//! - every authored surface-like entity round-trips through the typed
+//!   surface conversion (`embedded_surface_like_entities_lower_through_surface_model`),
+//! - room metadata (biome, music_track) and feature placement (ladders,
+//!   moving platforms, props) reach `RoomSpec` end-to-end,
+//! - kinematic-path resolution survives the LDtk → engine emission,
+//! - intro authoring keeps painted tile layers + the prop / NPC split.
+
+use ambition_engine as ae;
+
+use super::super::fields::*;
+use super::super::project::*;
+use super::super::surfaces::*;
+
+#[test]
+fn embedded_ldtk_validates() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let report = project.validate();
+    assert!(report.errors.is_empty(), "{:#?}", report.errors);
+}
+
+/// Surface-like entity identifiers are intentionally still supported in the
+/// embedded LDtk file. They lower through the typed `LdtkSurfaceSpec` pipeline,
+/// which is now the canonical runtime IR for rectangular collision/contact
+/// authoring.
+///
+/// Earlier migration-era tests banned legacy-looking identifiers such as
+/// `Solid` and `HazardBlock`, assuming every static rectangle had to become an
+/// IntGrid tile. That is too strict now: the editor still exposes
+/// differentiated surface identifiers, while the runtime parser collapses them
+/// into the shared surface model. This test keeps the useful invariant —
+/// embedded surface entities must validate through that model — without banning
+/// the authoring vocabulary.
+#[test]
+fn embedded_surface_like_entities_lower_through_surface_model() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let mut surface_count = 0usize;
+
+    for level in &project.levels {
+        for layer in &level.layer_instances {
+            for entity in &layer.entity_instances {
+                if !is_surface_like_identifier(&entity.identifier) {
+                    continue;
+                }
+                surface_count += 1;
+                let name =
+                    field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone());
+                let spec = parse_surface_spec(
+                    entity,
+                    ae::Vec2::ZERO,
+                    ae::Vec2::new(entity.width as f32, entity.height as f32),
+                    name,
+                )
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{}::{} ({}) should parse as an LDtk surface: {error}",
+                        level.identifier, entity.identifier, entity.iid
+                    )
+                });
+                compile_surface(&spec).unwrap_or_else(|error| {
+                    panic!(
+                        "{}::{} ({}) should compile as an LDtk surface: {error}",
+                        level.identifier, entity.identifier, entity.iid
+                    )
+                });
+            }
+        }
+    }
+
+    assert!(
+        surface_count > 0,
+        "embedded LDtk should contain at least one surface-like entity so this audit exercises real content"
+    );
+}
+
+/// Pin the biome-metadata seam end-to-end: every gameplay active
+/// area in the embedded LDtk should compose with a non-empty
+/// `biome` so the runtime resource (`ActiveRoomMetadata`) and
+/// the room-music plumbing have something to read. Regression
+/// guard for the "RoomSpec::metadata is always default" failure
+/// mode where the seam compiles but the LDtk side never set a
+/// value.
+#[test]
+fn embedded_ldtk_active_areas_have_biome_metadata() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    let mut missing: Vec<&str> = Vec::new();
+    for room in &room_set.rooms {
+        if room.metadata.biome.is_none() {
+            missing.push(room.id.as_str());
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "every embedded LDtk active area should declare a biome; missing: {missing:?}"
+    );
+}
+
+/// `crawl_lab` and `morph_lab` are the basement-reachable
+/// body-mode showcase rooms. This test pins that they exist, are
+/// reachable from `central_hub_complex` (the basement is part of
+/// that activeArea), and that the basement carries a reciprocal
+/// LoadingZone with the expected `target_room` per the spec
+/// applies in 2026-05-07.
+#[test]
+fn embedded_ldtk_includes_basement_reachable_body_mode_rooms() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    let room_ids: Vec<&str> = room_set.rooms.iter().map(|r| r.id.as_str()).collect();
+    for required in ["crawl_lab", "morph_lab", "ladder_lab"] {
+        assert!(
+            room_ids.contains(&required),
+            "basement-reachable showcase room '{required}' should exist; have: {room_ids:?}"
+        );
+    }
+    // Basement (part of central_hub_complex active area) must
+    // carry a LoadingZone for each showcase room. Walk the levels
+    // for the central_hub_complex active area and look for door ids.
+    let mut found_doors: Vec<String> = Vec::new();
+    for level in &project.levels {
+        for fi in &level.field_instances {
+            if fi.identifier == "activeArea"
+                && fi
+                    .value
+                    .as_str()
+                    .map(|s| s == "central_hub_complex")
+                    .unwrap_or(false)
+            {
+                for layer in &level.layer_instances {
+                    if layer.identifier != "Ambition" {
+                        continue;
+                    }
+                    for ent in &layer.entity_instances {
+                        if ent.identifier != "LoadingZone" {
+                            continue;
+                        }
+                        for ifield in &ent.field_instances {
+                            if ifield.identifier == "target_room" {
+                                if let Some(s) = ifield.value.as_str() {
+                                    found_doors.push(s.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for required_target in ["crawl_lab", "morph_lab", "ladder_lab"] {
+        assert!(
+            found_doors.iter().any(|d| d == required_target),
+            "central_hub_complex should have a LoadingZone with target_room='{required_target}'; have: {found_doors:?}"
+        );
+    }
+}
+
+/// `ladder_lab` ships a Climbable IntGrid layer with at least
+/// one Ladder cell run. This test pins that the room
+/// authoring → `World::climbable_regions` pipeline actually
+/// produces a region the runtime can query, end-to-end. A
+/// regression that drops the Climbable layer parser or the
+/// Climbable layer instance from sandbox.ldtk would fail this
+/// test immediately.
+#[test]
+fn embedded_ldtk_ladder_lab_has_a_ladder_climbable_region() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    let ladder_lab = room_set
+        .rooms
+        .iter()
+        .find(|r| r.id == "ladder_lab")
+        .expect("ladder_lab active area should exist after spec apply");
+    let regions = &ladder_lab.world.climbable_regions;
+    assert!(
+        !regions.is_empty(),
+        "ladder_lab should ship at least one ClimbableRegion (the floor-to-ceiling ladder column)"
+    );
+    let ladder = regions
+        .iter()
+        .find(|r| matches!(r.kind, ae::ClimbableKind::Ladder))
+        .expect("ladder_lab's region should be of kind Ladder");
+    // The ladder column spans floor (y=992) up to upper platform
+    // bottom (y=160). Pin the height as a sanity check.
+    let height = ladder.aabb.max.y - ladder.aabb.min.y;
+    assert!(
+        height > 600.0,
+        "ladder column should be tall (>600 px); got {height}"
+    );
+}
+
+/// `water_world` is the canonical "non-default music_track"
+/// example in the embedded LDtk. The room metadata flowing
+/// through to `RoomSpec::metadata.music_track` is what lets the
+/// runtime `RoomMusicRequest` swap the track when the player
+/// enters the area. `mob_lab` deliberately does NOT set a
+/// `music_track` — its music swap is owned by the encounter
+/// system and only fires when the encounter triggers, not when
+/// the door opens.
+#[test]
+fn embedded_ldtk_water_world_carries_music_track() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    let water = room_set
+        .rooms
+        .iter()
+        .find(|r| r.id == "water_world")
+        .expect("water_world active area exists");
+    assert_eq!(water.metadata.biome.as_deref(), Some("water"));
+    assert_eq!(
+        water.metadata.music_track.as_deref(),
+        Some("pulse_drift_voyage"),
+        "water_world should declare its non-default music track via the LDtk level field"
+    );
+}
+
+/// `music_track_warnings` returns a warning per (level, unknown_id)
+/// pair. The embedded LDtk's only declared music track today is
+/// `pulse_drift_voyage` on water_world; pinning the matrix here
+/// catches both directions of typo (LDtk-side and audio-catalog-side).
+#[test]
+fn music_track_warnings_flag_unknown_ids() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    // No tracks valid → every level that declares a music_track
+    // produces one warning.
+    let no_tracks = project.music_track_warnings(std::iter::empty::<&str>());
+    assert!(
+        !no_tracks.is_empty(),
+        "embedded LDtk should declare at least one music_track field"
+    );
+    for warning in &no_tracks {
+        assert!(
+            warning.contains("references unknown music_track"),
+            "warning should explain the missing reference: {warning}"
+        );
+    }
+    // Including the real track id silences its warning.
+    let with_water = project.music_track_warnings(["pulse_drift_voyage"]);
+    assert!(
+        !with_water
+            .iter()
+            .any(|w| w.contains("'pulse_drift_voyage'")),
+        "valid tracks should not warn; got: {with_water:?}"
+    );
+}
+
+/// Pin the audio-catalog × LDtk cross-validation as green for the
+/// embedded sandbox. The visible binary's `init_sandbox_resources`
+/// runs the same check at startup; this test fails the build if a
+/// future LDtk edit introduces an unknown music_track id.
+#[test]
+fn embedded_ldtk_music_tracks_match_audio_catalog() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let data = crate::content::data::SandboxDataSpec::load_embedded();
+    let valid = data.audio.music_tracks.iter().map(|t| t.id.as_str());
+    let warnings = project.music_track_warnings(valid);
+    assert!(
+        warnings.is_empty(),
+        "embedded LDtk references music_track ids not present in the audio catalog: {warnings:?}"
+    );
+}
+
+/// `mob_lab` must NOT declare a `music_track` so entering the
+/// mob lab door does not pre-empt the encounter system's music
+/// override. Encounter starts/clears own the swap, and the
+/// hub default plays while the room is unarmed.
+#[test]
+fn embedded_ldtk_mob_lab_does_not_carry_music_track() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    let mob = room_set
+        .rooms
+        .iter()
+        .find(|r| r.id == "mob_lab")
+        .expect("mob_lab active area exists");
+    assert_eq!(mob.metadata.biome.as_deref(), Some("mob_arena"));
+    assert_eq!(
+        mob.metadata.music_track, None,
+        "mob_lab must not carry a music_track — the encounter system owns the swap"
+    );
+}
+
+#[test]
+fn embedded_ldtk_composes_central_hub_complex() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    assert!(
+        room_set.rooms.len() > 1,
+        "old sandbox rooms should be represented as LDtk active areas"
+    );
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "central_hub_complex")
+        .expect("central hub active area exists");
+    assert!(
+        room.world.size.y > 1000.0,
+        "basement should extend below hub"
+    );
+    assert!(
+        room.boss_spawns.is_empty(),
+        "boss belongs in the boss lab, not the stitched hub basement"
+    );
+    let boss_room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "basement_boss")
+        .expect("boss lab room exists");
+    assert!(boss_room
+        .boss_spawns
+        .iter()
+        .any(|authored| authored.name.contains("clockwork warden")));
+}
+
+#[test]
+fn embedded_ldtk_central_hub_carries_authored_moving_platforms() {
+    // Moving platforms are LDtk-authored gameplay objects. This test ensures
+    // the central hub basement entity reaches the RoomSpec via the parser +
+    // emission path so the runtime has no hidden procedural platform to fall
+    // back to.
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    let hub = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "central_hub_complex")
+        .expect("central hub active area exists");
+    assert!(
+        !hub.moving_platforms.is_empty(),
+        "central_hub_basement should author at least one MovingPlatform entity"
+    );
+    let platform = &hub.moving_platforms[0];
+    assert!(
+        platform.size.x > 100.0 && platform.size.y > 0.0,
+        "platform AABB authored from LDtk size, got {:?}",
+        platform.size
+    );
+    // Authored sweep_dx is positive → platform starts at min_x and
+    // travels right initially.
+    assert_eq!(platform.direction(), 1.0);
+}
+
+#[test]
+fn embedded_ldtk_patrol_enemy_resolves_kinematic_path_index() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "basement_enemies")
+        .expect("basement_enemies active area exists");
+    assert!(
+        !room.kinematic_paths.is_empty(),
+        "basement_enemies should expose authored KinematicPath specs"
+    );
+    let patrol_path_id = room
+        .enemy_spawns
+        .iter()
+        .find_map(|authored| match &authored.payload {
+            ae::EnemyBrain::Patrol {
+                path_id: Some(path_id),
+            } => Some(path_id.as_str()),
+            _ => None,
+        })
+        .expect("basement_enemies should contain an authored patrol enemy");
+    assert!(
+        room.kinematic_paths
+            .iter()
+            .any(|spec| spec.matches_id(patrol_path_id)),
+        "at least one authored patrol enemy should resolve through RoomSpec::kinematic_paths"
+    );
+}
+
+#[test]
+fn central_hub_collision_layer_lowers_to_engine_blocks() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    let hub = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "central_hub_complex")
+        .expect("central hub active area exists");
+    let solid_blocks = hub
+        .world
+        .blocks
+        .iter()
+        .filter(|b| matches!(b.kind, ae::BlockKind::Solid))
+        .count();
+    let one_way_blocks = hub
+        .world
+        .blocks
+        .iter()
+        .filter(|b| matches!(b.kind, ae::BlockKind::OneWay))
+        .count();
+    let blink_blocks = hub
+        .world
+        .blocks
+        .iter()
+        .filter(|b| matches!(b.kind, ae::BlockKind::BlinkWall { .. }))
+        .count();
+    // Step E migration painted Solid + OneWayPlatform + BlinkWall in
+    // central_hub_main as IntGrid cells; the rect-merge collapses
+    // adjacent same-value runs into single blocks. Each kind should
+    // still produce at least one block, and the total stays well
+    // below the unmerged 1004-cell count to confirm merging actually
+    // ran.
+    assert!(
+        solid_blocks >= 1,
+        "expected at least one solid IntGrid block in central hub; got {solid_blocks}"
+    );
+    assert!(
+        one_way_blocks >= 1,
+        "expected at least one OneWay IntGrid block in central hub; got {one_way_blocks}"
+    );
+    assert!(
+        blink_blocks >= 1,
+        "expected at least one BlinkWall IntGrid block in central hub; got {blink_blocks}"
+    );
+    let total = solid_blocks + one_way_blocks + blink_blocks;
+    eprintln!(
+        "central_hub_complex IntGrid blocks after merge: solid={solid_blocks} one_way={one_way_blocks} blink={blink_blocks} total={total}"
+    );
+    assert!(
+        total < 200,
+        "expected rect-merged collision count well below the 1004 unmerged cells; got {total}"
+    );
+}
+
+/// Regression for ADR 0015 Step 2. Every intro level must carry a
+/// painted IntroLabTiles layer instance; without painted tiles the
+/// renderer wiring (`sync_ldtk_world_transform`) would draw nothing
+/// over the blank LdtkWorldBundle.
+///
+/// The test counts non-empty `gridTiles` arrays per level rather
+/// than asserting an exact pixel match — the tile content is
+/// regenerable from the Collision IntGrid via `tileset paint`.
+#[test]
+fn intro_levels_carry_painted_tileset_layers() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
+
+    // The intro tileset and its Tiles layer were registered in
+    // commit 66e62ad / the autonomous follow-up session.
+    let tiles_layer_id = "IntroLabTiles";
+
+    let intro_levels = [
+        "intro_wake_room",
+        "intro_raid_corridor",
+        "intro_escape_shaft",
+        "drain_alley",
+        "gate_stack_lower",
+    ];
+
+    for level_id in &intro_levels {
+        let level = project
+            .levels
+            .iter()
+            .find(|l| l.identifier == *level_id)
+            .unwrap_or_else(|| panic!("intro.ldtk must contain level '{level_id}'"));
+        let tiles_layer = level
+            .layer_instances
+            .iter()
+            .find(|l| l.identifier == tiles_layer_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "level '{level_id}' must carry a '{tiles_layer_id}' Tiles layer; \
+                     re-run `tileset add-layer` if a layer schema regression dropped it."
+                )
+            });
+        assert!(
+            !tiles_layer.grid_tiles.is_empty(),
+            "level '{level_id}' / '{tiles_layer_id}' has 0 painted tiles; \
+             re-run `tileset paint <ldtk> {level_id} {tiles_layer_id} \
+             --from-intgrid Collision --map 1=0 --map 2=28 --in-place`"
+        );
+    }
+}
+
+/// Regression for the §1.3 portal bug fixed in commit 195b5ce. The
+/// gate ring, gate portal, lab props, and intro cart used to be
+/// authored as `NpcSpawn` entities with `prompt: ""` and
+/// `dialogue_id: generic_npc` (the v1 hack), which leaked an
+/// "Interact" prompt onto decorative props. The dedicated `Prop`
+/// LDtk entity type replaces that — Props never grow an
+/// Interactable, so the player walks past silently.
+///
+/// This test pins both halves of the invariant:
+/// 1. Every expected prop kind shows up as a `PropSpec` on its
+///    room's `RoomSpec.props`.
+/// 2. No `RoomObject` with `InteractionKind::Npc` matches any of
+///    those prop kinds' positions (a stronger check than just
+///    counting NPCs, because story-content NPCs *do* still spawn
+///    elsewhere).
+#[test]
+fn intro_props_do_not_grow_interactables() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
+    let room_set = project.to_room_set().expect("LDtk should compose");
+
+    // The 6 prop kinds the v1 hack migrated. (PropSpec.kind values
+    // straight out of intro.ldtk.)
+    let expected_kinds = [
+        "intro_cart",
+        "lab_neural_console",
+        "lab_genesis_vat",
+        "lab_power_core",
+        "gate_ring",
+        "gate_portal",
+    ];
+
+    let mut seen_kinds: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut prop_positions: Vec<(String, ae::Vec2)> = Vec::new();
+    for room in &room_set.rooms {
+        for prop in &room.props {
+            if let Some(kind) = expected_kinds.iter().find(|k| ***k == prop.kind) {
+                seen_kinds.insert(*kind);
+                prop_positions.push((prop.kind.clone(), prop.pos));
+            }
+        }
+    }
+
+    for kind in &expected_kinds {
+        assert!(
+            seen_kinds.contains(*kind),
+            "expected Prop kind '{kind}' missing from intro.ldtk room set; \
+             did a refactor drop the migrated Prop entity?"
+        );
+    }
+
+    // No authored NPC interactable matches a prop's position. Props
+    // and NPCs are now distinct authored families; this pin keeps the
+    // separation honest.
+    for room in &room_set.rooms {
+        for authored in &room.interactables {
+            if !matches!(authored.payload.kind, ae::InteractionKind::Npc { .. }) {
+                continue;
+            }
+            use ae::AabbExt as _;
+            let it_center = authored.aabb.center();
+            for (kind, prop_pos) in &prop_positions {
+                let dx = (it_center.x - prop_pos.x).abs();
+                let dy = (it_center.y - prop_pos.y).abs();
+                assert!(
+                    dx > 1.0 || dy > 1.0,
+                    "authored NPC overlaps prop '{kind}' at ({:.1}, {:.1}); \
+                     the dedicated Prop entity should NOT emit an Interactable. \
+                     Either the migration regressed, or a new NPC was placed \
+                     exactly on top of a prop.",
+                    prop_pos.x,
+                    prop_pos.y,
+                );
+            }
+        }
+    }
+}

@@ -17,10 +17,6 @@ Flip the rule once an external consumer ships.
 - `cargo test -p ambition_engine --lib` → 222 passing
 - Both crate builds clean, zero warnings
 - `cargo clippy -p ambition_sandbox --lib --no-deps` → 95 warnings
-- `cargo doc -p ambition_sandbox --no-deps` → 9 warnings (down from
-  24; intra-doc broken links + private-item references cleaned up).
-- `cargo doc -p ambition_engine --no-deps` → 0 warnings (down from 4;
-  projectile submodule list was linking to private mods).
   (down from 170 at the start of this session via derivable_impls,
   `&mut *Mut<T>` reborrow drops, `iter().any(==)` → `contains`, manual
   clamp, map_or → is_some_and, ?-operator, `+`-at-line-start doc-list
@@ -30,6 +26,10 @@ Flip the rule once an external consumer ships.
 - `cargo clippy -p ambition_engine --lib --no-deps` → 1 warning
   (the manual !Range::contains in `apply_neighbor_spread`, left in
   current form because the predicate reads more naturally as written).
+- `cargo doc -p ambition_sandbox --no-deps` → 9 warnings (down from
+  24; intra-doc broken links + private-item references cleaned up).
+- `cargo doc -p ambition_engine --no-deps` → 0 warnings (down from 4;
+  projectile submodule list was linking to private mods).
 
 Recently retired (autonomous-mission pass 2026-05-20, see git log
 8b4cab1…HEAD's predecessor):

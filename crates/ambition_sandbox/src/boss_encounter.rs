@@ -33,6 +33,8 @@ mod tests;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use damage::record_boss_damage;
+#[allow(unused_imports)] // Future callers of `record_boss_damage` will name the outcome type.
+pub use damage::BossDamageOutcome;
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 pub use ids::{encounter_id_from_name, MOCKINGBIRD_ENCOUNTER_ID};
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};

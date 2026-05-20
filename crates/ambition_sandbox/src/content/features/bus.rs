@@ -52,24 +52,21 @@ pub fn apply_switch_effects(
     }
 }
 
-/// Boss damage routes through the boss encounter machine.
-pub fn apply_boss_damage_effects(
-    mut effects: MessageReader<GameplayEffect>,
-    mut boss_registry: ResMut<crate::boss_encounter::BossEncounterRegistry>,
-    mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
-    mut cutscene_queue: ResMut<crate::presentation::cutscene::CutsceneTriggerQueue>,
-    mut banner: ResMut<crate::features::GameplayBanner>,
-) {
+/// Boss damage events — drain the message queue.
+///
+/// After OVERNIGHT-TODO #8, the actual damage application happens
+/// inline inside [`apply_feature_damage_events`] (see
+/// `content/features/ecs/damage.rs`), which calls `record_boss_damage`
+/// directly so the engine `BossEncounterState` is the source of truth
+/// for HP. This reader stays as a typed seam: future tracing /
+/// quest / replay hooks can subscribe to `GameplayEffect::DamageBoss`
+/// without re-routing through the boss encounter registry. Today the
+/// body is a no-op apart from draining the queue so the message
+/// buffer doesn't grow unbounded.
+pub fn apply_boss_damage_effects(mut effects: MessageReader<GameplayEffect>) {
     for effect in effects.read() {
-        if let GameplayEffect::DamageBoss { boss_id, amount } = effect {
-            crate::boss_encounter::record_boss_damage(
-                &mut boss_registry,
-                &mut music_request,
-                &mut cutscene_queue,
-                &mut banner,
-                boss_id,
-                *amount,
-            );
+        if let GameplayEffect::DamageBoss { .. } = effect {
+            // Engine state already updated; nothing to do here.
         }
     }
 }

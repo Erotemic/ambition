@@ -21,6 +21,9 @@ use super::{
     FeatureSimEntity, GameplayBanner, GameplayEffect, PogoBounceEvent, RespawnTimer,
 };
 use crate::audio::SfxMessage;
+use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
+use crate::encounter::EncounterMusicRequest;
+use crate::presentation::cutscene::CutsceneTriggerQueue;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
@@ -70,6 +73,23 @@ pub fn apply_feature_damage_events(
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
+    // OVERNIGHT-TODO #8 — boss encounter authoritative state. The
+    // engine `BossEncounterState` is now the source of truth for boss
+    // HP; the sandbox `BossRuntime.health` is a one-way mirror updated
+    // by `update_boss_encounters`. `record_boss_damage` applies the
+    // damage delta to engine state and returns the outcome (post-hit
+    // HP + killed flag) so this system can drive death VFX / banner
+    // on the same tick the kill landed instead of one frame late.
+    //
+    // The boss-encounter resources are `Option<ResMut<…>>` so unit
+    // tests that exercise only the actor / breakable / pickup damage
+    // paths (e.g. projectile tests) don't have to install the boss
+    // encounter machine. When the resources are absent the boss
+    // damage branch falls back to the pre-inversion direct mutation
+    // path, so behavior is identical to the legacy code on tests.
+    mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
+    mut music_request: Option<ResMut<EncounterMusicRequest>>,
+    mut cutscene_queue: Option<ResMut<CutsceneTriggerQueue>>,
 ) {
     for event in damage_events.read().cloned() {
         let mut actor_hit_this_event = false;
@@ -264,9 +284,62 @@ pub fn apply_feature_damage_events(
                 }
             }
             let amount = event.damage.max(1);
-            let killed = boss.health.damage(amount);
+            // Boss encounter authoritative state (OVERNIGHT-TODO #8).
+            // Apply damage to engine state via the registry; the
+            // outcome tells us whether the hit actually landed (false
+            // during invulnerable phases) and whether it killed the
+            // boss. Mirror the new HP back to the runtime so
+            // downstream readers (HUD health bar, bark count, etc.)
+            // see it on the same tick instead of one frame late.
+            //
+            // If any of the boss-encounter resources is missing (test
+            // fixtures that don't install the encounter machine) we
+            // fall back to the pre-inversion direct mutation so the
+            // runtime still takes damage and the test exercises the
+            // hit path.
+            let outcome = match (
+                boss_registry.as_deref_mut(),
+                music_request.as_deref_mut(),
+                cutscene_queue.as_deref_mut(),
+            ) {
+                (Some(registry), Some(music), Some(cutscene)) => record_boss_damage(
+                    registry,
+                    music,
+                    cutscene,
+                    &mut banner,
+                    boss.id.as_str(),
+                    amount,
+                ),
+                _ => None,
+            };
+            let (applied, killed) = match outcome {
+                Some(outcome) => {
+                    boss.health.current = outcome.hp_remaining;
+                    (outcome.applied, outcome.killed)
+                }
+                // No engine encounter / missing test resource. Fall
+                // back to the pre-inversion direct mutation so the
+                // runtime still takes damage.
+                None => {
+                    let died = boss.health.damage(amount);
+                    (true, died)
+                }
+            };
+            if !applied {
+                // Invulnerable phase swallowed the damage. Skip the
+                // hit VFX / GameplayEffect signal so the player sees
+                // the boss as a hard wall during the beat instead of
+                // a fake impact.
+                continue;
+            }
             let impact = midpoint(event.volume.center(), hit_aabb.center());
             vfx.write(VfxMessage::Impact { pos: impact });
+            // `GameplayEffect::DamageBoss` is preserved for downstream
+            // listeners (e.g. trace / quest hooks) that still want to
+            // observe boss damage; engine state was already updated
+            // via `record_boss_damage` above, so the bus reader is
+            // now a no-op for the encounter machine — see
+            // `apply_boss_damage_effects`.
             gameplay_effects.write(GameplayEffect::DamageBoss {
                 boss_id: boss.id.clone(),
                 amount,

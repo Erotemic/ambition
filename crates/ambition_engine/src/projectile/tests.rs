@@ -1,6 +1,6 @@
 use bevy_math::Vec2;
 
-use super::body::{ProjectileBody, ProjectileSolidHit};
+use super::body::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
 use super::motion_input::{MotionDirection, MotionInputBuffer};
 use super::spawn::{ProjectileSpawner, SpawnFailure};
 use super::spec::{FireballChargeTuning, ProjectileKind, ProjectileSpec};
@@ -545,4 +545,36 @@ fn outgoing_damage_multiplier_scales_damage() {
     );
     // Hadouken default is 3 damage; 2x = 6.
     assert_eq!(spec.damage, 6);
+}
+
+#[test]
+fn projectile_faction_default_is_player() {
+    assert_eq!(ProjectileFaction::default(), ProjectileFaction::Player);
+}
+
+#[test]
+fn from_spec_defaults_faction_to_player() {
+    let spec = ProjectileSpec::new(
+        ProjectileKind::Fireball,
+        Vec2::ZERO,
+        Vec2::new(1.0, 0.0),
+        1.0,
+    );
+    let body = ProjectileBody::from_spec(spec);
+    assert_eq!(body.faction, ProjectileFaction::Player);
+}
+
+#[test]
+fn from_spec_with_faction_carries_enemy_tag_through_to_body() {
+    let spec = ProjectileSpec::new(
+        ProjectileKind::Fireball,
+        Vec2::ZERO,
+        Vec2::new(1.0, 0.0),
+        1.0,
+    );
+    let body = ProjectileBody::from_spec_with_faction(spec, ProjectileFaction::Enemy);
+    assert_eq!(body.faction, ProjectileFaction::Enemy);
+    // All other body fields land as if `from_spec` had been called.
+    assert_eq!(body.kind, ProjectileKind::Fireball);
+    assert_eq!(body.pos, Vec2::ZERO);
 }

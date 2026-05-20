@@ -69,6 +69,13 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
   feature, so headless / future-non-render builds at least stop
   compiling the renderer transitively (#1, first slice — winit still
   comes in via `default_app`; documented as the next step)
+- Boss-encounter authoritative state inversion (#8): engine
+  `BossEncounterState` is now the source of truth for boss HP;
+  `BossRuntime.health` is a one-way mirror. `record_boss_damage`
+  returns a `BossDamageOutcome` so the ECS damage system can drive
+  death VFX / banner on the same tick the kill lands. Invulnerable
+  beats now correctly suppress hit feedback instead of papering over
+  it one frame later.
 
 Recently retired (engine-cleanup pass, see git log e5be8c8…HEAD):
 

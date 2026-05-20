@@ -756,4 +756,48 @@ mod multiplayer_smoke_tests {
         assert_eq!(p1_health.current(), 4, "primary picks up untargeted heal");
         assert_eq!(p2_health.current(), 1, "p2 not touched by untargeted heal");
     }
+
+    /// Two players each carry their own `PlayerInputFrame`; mutating
+    /// one player's input frame must not propagate to the other.
+    /// Pins the multiplayer-readiness invariant for the per-player
+    /// input migration (OVERNIGHT-TODO #17.5) — if a future patch
+    /// turns the input frame back into a `Resource`, this test will
+    /// stop being meaningful and should fail loudly.
+    #[test]
+    fn two_players_have_independent_input_frames() {
+        let mut app = App::new();
+        let p1 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(0),
+                PrimaryPlayer,
+                PlayerInputFrame::default(),
+            ))
+            .id();
+        let p2 = app
+            .world_mut()
+            .spawn((PlayerEntity, PlayerSlot(1), PlayerInputFrame::default()))
+            .id();
+
+        // Mutate p1's input frame only.
+        app.world_mut()
+            .entity_mut(p1)
+            .get_mut::<PlayerInputFrame>()
+            .unwrap()
+            .frame
+            .interact_pressed = true;
+
+        let p1_input = app.world().entity(p1).get::<PlayerInputFrame>().unwrap();
+        let p2_input = app.world().entity(p2).get::<PlayerInputFrame>().unwrap();
+        assert!(
+            p1_input.frame.interact_pressed,
+            "p1's input frame should reflect the just-written press"
+        );
+        assert!(
+            !p2_input.frame.interact_pressed,
+            "p2's input frame must not pick up p1's press — per-player input \
+             only makes sense if the components are independent"
+        );
+    }
 }

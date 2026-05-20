@@ -56,15 +56,15 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_room_transition_systems(app);
     register_combat_systems(app);
     register_presentation_sync_systems(app);
-    register_feature_collection_systems(app);
-    register_feature_interaction_systems(app);
+    app.add_plugins(crate::features::FeatureCollectionSchedulePlugin);
+    app.add_plugins(crate::features::FeatureInteractionSchedulePlugin);
     app.add_plugins(ldtk_world::LdtkRuntimeSpinePlugin);
     register_encounter_simulation_systems(app);
     app.add_plugins(crate::presentation::cutscene::CutsceneSchedulePlugin);
     app.add_plugins(crate::features::GameplayEffectsSchedulePlugin);
     register_progression_chain_systems(app);
     register_progression_populate_systems(app);
-    register_feature_view_sync_systems(app);
+    app.add_plugins(crate::features::FeatureViewSyncSchedulePlugin);
     app.add_plugins(crate::runtime::reset::SandboxResetSchedulePlugin);
     app.add_plugins(crate::trace::TraceSchedulePlugin);
 }
@@ -205,40 +205,10 @@ fn register_presentation_sync_systems(app: &mut App) {
 /// `GameplayEffects`, `Progression`). Rebuilding at the very tail of
 /// the sim chain guarantees the cache reflects this frame's full
 /// feature state before the presentation half reads it.
-fn register_feature_view_sync_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        crate::features::rebuild_feature_view_index.in_set(SandboxSet::FeatureViewSync),
-    );
-}
-
-fn register_feature_collection_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            crate::features::collect_ecs_pickups,
-            crate::player::apply_player_heal_requests,
-        )
-            .chain()
-            .in_set(SandboxSet::FeatureCollection),
-    );
-}
-
-fn register_feature_interaction_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            crate::features::interact_ecs_actors_and_switches,
-            crate::features::open_ecs_chests,
-            crate::features::update_ecs_breakables,
-            crate::features::update_ecs_falling_chests,
-            crate::features::sync_ecs_switches_from_save,
-            crate::encounter::rebuild_encounter_switch_index,
-        )
-            .chain()
-            .in_set(SandboxSet::FeatureInteraction),
-    );
-}
+// FeatureViewSync, FeatureCollection, and FeatureInteraction schedules
+// moved to `crate::features::{FeatureViewSyncSchedulePlugin,
+// FeatureCollectionSchedulePlugin, FeatureInteractionSchedulePlugin}`
+// (OVERNIGHT-TODO #6 — module-local plugins).
 
 // LDtk runtime spine schedule moved to
 // `ldtk_world::LdtkRuntimeSpinePlugin` (OVERNIGHT-TODO #6).

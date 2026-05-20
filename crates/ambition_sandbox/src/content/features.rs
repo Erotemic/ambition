@@ -118,5 +118,80 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     }
 }
 
+/// Module-local Bevy plugin: schedules the `FeatureCollection`
+/// simulation set — pickups collected this frame + the resulting heal
+/// requests applied to player health.
+///
+/// Carved out of `app/plugins.rs::register_feature_collection_systems`
+/// per OVERNIGHT-TODO #6. The heal-request reader lives in
+/// `crate::player`; the chain still owns the ordering.
+pub struct FeatureCollectionSchedulePlugin;
+
+impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs, Update};
+        app.add_systems(
+            Update,
+            (
+                collect_ecs_pickups,
+                crate::player::apply_player_heal_requests,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::FeatureCollection),
+        );
+    }
+}
+
+/// Module-local Bevy plugin: schedules the `FeatureInteraction`
+/// simulation set — actor / switch interactions, chest opens, breakable
+/// damage, falling chest ticks, save mirror, and the encounter switch
+/// index rebuild.
+///
+/// Carved out of
+/// `app/plugins.rs::register_feature_interaction_systems` per
+/// OVERNIGHT-TODO #6. Five of the six systems live in
+/// `content/features/ecs/`; the encounter switch index rebuild is the
+/// one outlier (lives in `crate::encounter`).
+pub struct FeatureInteractionSchedulePlugin;
+
+impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs, Update};
+        app.add_systems(
+            Update,
+            (
+                interact_ecs_actors_and_switches,
+                open_ecs_chests,
+                update_ecs_breakables,
+                update_ecs_falling_chests,
+                sync_ecs_switches_from_save,
+                crate::encounter::rebuild_encounter_switch_index,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::FeatureInteraction),
+        );
+    }
+}
+
+/// Module-local Bevy plugin: schedules the per-frame
+/// [`FeatureViewIndex`] rebuild into [`crate::app::SandboxSet::FeatureViewSync`].
+/// The rebuild walks every ECS feature query once per frame and feeds
+/// presentation systems (sync_visuals, sprite upgraders, HUD readouts)
+/// a single shared read-model instead of forcing each consumer to
+/// re-scan the feature world. Carved out of
+/// `app/plugins.rs::register_feature_view_sync_systems` per
+/// OVERNIGHT-TODO #6.
+pub struct FeatureViewSyncSchedulePlugin;
+
+impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs, Update};
+        app.add_systems(
+            Update,
+            rebuild_feature_view_index.in_set(crate::app::SandboxSet::FeatureViewSync),
+        );
+    }
+}
+
 #[cfg(test)]
 mod conversion_tests;

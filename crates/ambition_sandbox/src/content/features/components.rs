@@ -603,4 +603,27 @@ mod tests {
             ae::Aabb::new(ae::Vec2::new(10.0, 20.0), ae::Vec2::new(4.0, 3.0))
         );
     }
+
+    #[test]
+    fn actor_faction_player_is_player_side_others_are_not() {
+        assert!(ActorFaction::Player.is_player_side());
+        assert!(!ActorFaction::Enemy.is_player_side());
+        assert!(!ActorFaction::Npc.is_player_side());
+        assert!(!ActorFaction::Boss.is_player_side());
+        assert!(!ActorFaction::Neutral.is_player_side());
+    }
+
+    #[test]
+    fn actor_faction_enemy_and_boss_are_hostile_side() {
+        assert!(ActorFaction::Enemy.is_hostile_side());
+        assert!(ActorFaction::Boss.is_hostile_side());
+        assert!(!ActorFaction::Player.is_hostile_side());
+        assert!(!ActorFaction::Npc.is_hostile_side());
+        assert!(!ActorFaction::Neutral.is_hostile_side());
+    }
+
+    #[test]
+    fn actor_faction_default_is_player() {
+        assert_eq!(ActorFaction::default(), ActorFaction::Player);
+    }
 }

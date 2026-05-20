@@ -66,3 +66,112 @@ pub fn record_boss_damage(
         applied,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::encounter::EncounterMusicRequest;
+    use crate::features::GameplayBanner;
+
+    fn fixture(max_hp: i32) -> BossEncounterRegistry {
+        // Reuse the gradient sentinel spec as the template — gives us
+        // realistic phase thresholds (0.66 / 0.22) and music ids, then
+        // override id + max_hp for the test.
+        let mut spec = ae::BossEncounterSpec::gradient_sentinel();
+        spec.id = "test_boss".into();
+        spec.name = "Test Boss".into();
+        spec.max_hp = max_hp;
+        let mut registry = BossEncounterRegistry::default();
+        registry.ensure(spec);
+        registry.link_runtime("test_boss", "test_boss_runtime");
+        // Skip Intro -> Phase1 so the boss is damageable.
+        let state = registry.encounters.get_mut("test_boss").unwrap();
+        state.phase = ae::BossEncounterPhase::Phase1;
+        state.hp = max_hp;
+        registry
+    }
+
+    #[test]
+    fn record_boss_damage_returns_none_for_unknown_runtime_id() {
+        let mut registry = fixture(10);
+        let mut music = EncounterMusicRequest::default();
+        let mut cutscene = CutsceneTriggerQueue::default();
+        let mut banner = GameplayBanner::default();
+        let outcome = record_boss_damage(
+            &mut registry,
+            &mut music,
+            &mut cutscene,
+            &mut banner,
+            "nobody",
+            5,
+        );
+        assert!(outcome.is_none());
+    }
+
+    #[test]
+    fn record_boss_damage_decreases_hp_and_reports_applied() {
+        let mut registry = fixture(10);
+        let mut music = EncounterMusicRequest::default();
+        let mut cutscene = CutsceneTriggerQueue::default();
+        let mut banner = GameplayBanner::default();
+        let outcome = record_boss_damage(
+            &mut registry,
+            &mut music,
+            &mut cutscene,
+            &mut banner,
+            "test_boss_runtime",
+            3,
+        )
+        .expect("registered boss returns Some");
+        assert_eq!(outcome.hp_remaining, 7);
+        assert!(outcome.applied);
+        assert!(!outcome.killed);
+    }
+
+    #[test]
+    fn record_boss_damage_kills_boss_when_hp_hits_zero() {
+        let mut registry = fixture(4);
+        let mut music = EncounterMusicRequest::default();
+        let mut cutscene = CutsceneTriggerQueue::default();
+        let mut banner = GameplayBanner::default();
+        let outcome = record_boss_damage(
+            &mut registry,
+            &mut music,
+            &mut cutscene,
+            &mut banner,
+            "test_boss_runtime",
+            10,
+        )
+        .expect("registered boss returns Some");
+        assert_eq!(outcome.hp_remaining, 0);
+        assert!(outcome.applied);
+        assert!(outcome.killed);
+    }
+
+    #[test]
+    fn record_boss_damage_reports_not_applied_during_invulnerable_phase() {
+        let mut registry = fixture(10);
+        // Flip to an invulnerable phase (Intro / Transition / Stagger).
+        registry
+            .encounters
+            .get_mut("test_boss")
+            .unwrap()
+            .phase = ae::BossEncounterPhase::Transition;
+        let mut music = EncounterMusicRequest::default();
+        let mut cutscene = CutsceneTriggerQueue::default();
+        let mut banner = GameplayBanner::default();
+        let outcome = record_boss_damage(
+            &mut registry,
+            &mut music,
+            &mut cutscene,
+            &mut banner,
+            "test_boss_runtime",
+            5,
+        )
+        .expect("registered boss returns Some");
+        // Engine state rejected the damage; HP unchanged.
+        assert_eq!(outcome.hp_remaining, 10);
+        assert!(!outcome.applied);
+        assert!(!outcome.killed);
+    }
+}

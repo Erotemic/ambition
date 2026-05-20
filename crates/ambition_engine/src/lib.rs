@@ -14,7 +14,6 @@ pub mod abilities;
 pub mod actor;
 pub mod attack_choreography;
 pub mod boss_encounter;
-pub mod boss_patterns;
 pub mod character_ai;
 pub mod combat;
 pub mod combat_slots;
@@ -46,10 +45,6 @@ pub use attack_choreography::{
 pub use bevy_math::Vec2;
 pub use boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
-};
-pub use boss_patterns::{
-    ActiveBossBeat, ArenaAnchor, BossAttackKind, BossBeatPhase, BossMovementKind,
-    BossPatternSchedule, BossPatternStep,
 };
 pub use character_ai::{
     evaluate_character_ai, evaluate_character_ai_output, CharacterAiIntent, CharacterAiMode,

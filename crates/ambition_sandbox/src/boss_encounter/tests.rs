@@ -1,5 +1,3 @@
-use ambition_engine as ae;
-
 use super::*;
 
 #[test]
@@ -68,6 +66,3 @@ fn mockingbird_profile_registers_and_links() {
     );
 }
 
-// Verify the ae::Vec2 unused import is not present (ae is used above).
-#[allow(dead_code)]
-fn _assert_ae_used(_: ae::Vec2) {}

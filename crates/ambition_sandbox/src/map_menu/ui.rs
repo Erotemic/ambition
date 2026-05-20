@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use bevy::prelude::*;
 
@@ -26,11 +26,34 @@ pub struct MinimapRoot;
 #[derive(Component)]
 pub struct MinimapCanvas;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MapRoomBoxKind {
+    Map,
+    Minimap,
+}
+
+/// Persistent UI entity for a single room on the map or minimap.
+///
+/// One [`MapRoomBox`] per `(MapRoomBoxKind, room_id)` pair lives as long
+/// as the room is in [`MapMenuState::rooms`] and its canvas is enabled.
+/// `sync_map_menu` mutates this entity's `Node` and color components in
+/// place when zoom / visit / active state changes, rather than the
+/// pre-refactor pattern of despawning + respawning the whole subtree
+/// every frame the state mutated.
 #[derive(Component)]
 pub struct MapRoomBox {
-    #[allow(dead_code)] // Carried for future "click room → highlight" lookup.
     pub room_id: String,
+    pub kind: MapRoomBoxKind,
+    /// Most recently rendered label state for the child
+    /// [`MapRoomLabel`] entity, so we can skip respawning the text
+    /// when zoom / size thresholds didn't change it. `None` for
+    /// canvases that render no label (minimap).
+    current_label: Option<String>,
+    current_font_size: f32,
 }
+
+#[derive(Component)]
+pub struct MapRoomLabel;
 
 pub fn spawn_map_menu(mut commands: Commands) {
     let root = commands
@@ -134,6 +157,26 @@ pub fn spawn_map_menu(mut commands: Commands) {
         .add_children(&[minimap_canvas]);
 }
 
+/// Visual produced for a single room on a single canvas this frame.
+/// `paint_room_boxes` builds these and `sync_map_menu` reconciles them
+/// against the live [`MapRoomBox`] entities.
+struct RoomVisual {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+    color: Color,
+    border: Color,
+    /// `None` when the canvas style asks for no labels.
+    label: Option<RoomLabel>,
+}
+
+struct RoomLabel {
+    text: String,
+    font_size: f32,
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn sync_map_menu(
     mut commands: Commands,
     map: Res<MapMenuState>,
@@ -143,7 +186,15 @@ pub fn sync_map_menu(
     canvases: Query<Entity, With<MapMenuCanvas>>,
     minimap_canvases: Query<Entity, With<MinimapCanvas>>,
     mut status: Query<&mut Text, With<MapMenuStatus>>,
-    existing_boxes: Query<Entity, With<MapRoomBox>>,
+    mut boxes: Query<(
+        Entity,
+        &mut MapRoomBox,
+        &mut Node,
+        &mut BackgroundColor,
+        &mut BorderColor,
+        Option<&Children>,
+    )>,
+    mut labels: Query<(&mut Text, &mut TextFont), (With<MapRoomLabel>, Without<MapMenuStatus>)>,
 ) {
     if let Ok(mut visibility) = roots.single_mut() {
         *visibility = if map.open {
@@ -170,9 +221,9 @@ pub fn sync_map_menu(
     }
 
     if !map.open && !map.minimap_enabled {
-        // Map and minimap both off — drop any leftover boxes once, then
-        // skip rebuild until the player toggles either back on.
-        for entity in &existing_boxes {
+        // Both canvases off — drop every persistent box once, then skip
+        // rebuild until the player toggles either back on.
+        for (entity, _, _, _, _, _) in &boxes {
             commands.entity(entity).despawn();
         }
         return;
@@ -181,53 +232,194 @@ pub fn sync_map_menu(
         return;
     }
 
-    // Skip the despawn-and-repaint pass when nothing material changed
-    // this frame. `MapMenuState` mutates on toggle / visit / zoom and
-    // `RoomSet` mutates on room transitions, so a frame with neither
-    // changed produces an identical paint — repainting it is wasted
-    // work. The visibility / status text branches above stay
-    // unconditional (cheap, and the status string depends on inputs
-    // that aren't all covered by `is_changed`).
+    // Skip the reconciliation pass when nothing material changed this
+    // frame. Visibility / status text above stay unconditional because
+    // they're cheap and depend on inputs not all covered by `is_changed`.
     if !map.is_changed() && !room_set.is_changed() {
         return;
     }
 
-    for entity in &existing_boxes {
-        commands.entity(entity).despawn();
-    }
-
     let active_id = room_set.active_spec().id.clone();
 
+    // Compute desired (kind, room_id) → RoomVisual for every enabled canvas.
+    let mut desired: HashMap<(MapRoomBoxKind, String), RoomVisual> = HashMap::new();
     if map.open {
-        if let Ok(canvas) = canvases.single() {
-            paint_room_boxes(
-                &mut commands,
-                canvas,
-                &map.rooms,
-                &map.visited,
-                &active_id,
-                MAP_PANEL_WIDTH - MAP_PADDING * 2.0,
-                MAP_PANEL_HEIGHT - MAP_PADDING * 2.0 - 60.0,
-                MapLabelStyle::Full,
-                map.zoom,
-            );
-        }
+        compute_canvas_visuals(
+            &mut desired,
+            MapRoomBoxKind::Map,
+            &map.rooms,
+            &map.visited,
+            &active_id,
+            MAP_PANEL_WIDTH - MAP_PADDING * 2.0,
+            MAP_PANEL_HEIGHT - MAP_PADDING * 2.0 - 60.0,
+            MapLabelStyle::Full,
+            map.zoom,
+        );
     }
     if map.minimap_enabled {
-        if let Ok(canvas) = minimap_canvases.single() {
-            paint_room_boxes(
+        compute_canvas_visuals(
+            &mut desired,
+            MapRoomBoxKind::Minimap,
+            &map.rooms,
+            &map.visited,
+            &active_id,
+            MINIMAP_WIDTH - MINIMAP_PADDING * 2.0,
+            MINIMAP_HEIGHT - MINIMAP_PADDING * 2.0,
+            MapLabelStyle::None,
+            1.0,
+        );
+    }
+
+    // Pass 1: walk existing boxes, mutate matches in place, despawn stragglers.
+    let mut seen: HashSet<(MapRoomBoxKind, String)> = HashSet::new();
+    for (entity, mut room_box, mut node, mut bg, mut border, children) in &mut boxes {
+        let key = (room_box.kind, room_box.room_id.clone());
+        if let Some(visual) = desired.get(&key) {
+            apply_visual_to_node(&mut node, visual);
+            *bg = BackgroundColor(visual.color);
+            *border = BorderColor::all(visual.border);
+            reconcile_label(
                 &mut commands,
-                canvas,
-                &map.rooms,
-                &map.visited,
-                &active_id,
-                MINIMAP_WIDTH - MINIMAP_PADDING * 2.0,
-                MINIMAP_HEIGHT - MINIMAP_PADDING * 2.0,
-                MapLabelStyle::None,
-                1.0,
+                entity,
+                children,
+                &mut room_box,
+                visual,
+                &mut labels,
             );
+            seen.insert(key);
+        } else {
+            commands.entity(entity).despawn();
         }
     }
+
+    // Pass 2: spawn boxes for desired entries we did not find above.
+    let Ok(map_canvas) = canvases.single() else {
+        return;
+    };
+    let minimap_canvas = minimap_canvases.single().ok();
+    for (key, visual) in desired {
+        if seen.contains(&key) {
+            continue;
+        }
+        let canvas = match key.0 {
+            MapRoomBoxKind::Map => map_canvas,
+            MapRoomBoxKind::Minimap => {
+                let Some(canvas) = minimap_canvas else {
+                    continue;
+                };
+                canvas
+            }
+        };
+        let (kind, room_id) = key;
+        spawn_room_box(&mut commands, canvas, kind, room_id, visual);
+    }
+}
+
+fn apply_visual_to_node(node: &mut Node, visual: &RoomVisual) {
+    node.position_type = PositionType::Absolute;
+    node.left = Val::Px(visual.left);
+    node.top = Val::Px(visual.top);
+    node.width = Val::Px(visual.width.max(8.0));
+    node.height = Val::Px(visual.height.max(8.0));
+    node.padding = UiRect::all(Val::Px(2.0));
+}
+
+fn reconcile_label(
+    commands: &mut Commands,
+    box_entity: Entity,
+    children: Option<&Children>,
+    room_box: &mut MapRoomBox,
+    visual: &RoomVisual,
+    labels: &mut Query<(&mut Text, &mut TextFont), (With<MapRoomLabel>, Without<MapMenuStatus>)>,
+) {
+    match &visual.label {
+        Some(label) => {
+            if room_box.current_label.as_deref() == Some(label.text.as_str())
+                && (room_box.current_font_size - label.font_size).abs() < 0.01
+            {
+                return;
+            }
+            // Find the existing label child, if any, and mutate it.
+            if let Some(children) = children {
+                for child in children.iter() {
+                    if let Ok((mut text, mut font)) = labels.get_mut(child) {
+                        **text = label.text.clone();
+                        font.font_size = label.font_size;
+                        room_box.current_label = Some(label.text.clone());
+                        room_box.current_font_size = label.font_size;
+                        return;
+                    }
+                }
+            }
+            // No existing label child — spawn one.
+            let label_entity = commands
+                .spawn((
+                    Text::new(label.text.clone()),
+                    TextFont {
+                        font_size: label.font_size,
+                        ..default()
+                    },
+                    TextColor(Color::srgba(0.04, 0.06, 0.10, 0.95)),
+                    MapRoomLabel,
+                ))
+                .id();
+            commands.entity(box_entity).add_child(label_entity);
+            room_box.current_label = Some(label.text.clone());
+            room_box.current_font_size = label.font_size;
+        }
+        None => {
+            // No label desired (minimap). Despawn any existing label child.
+            if let Some(children) = children {
+                for child in children.iter() {
+                    if labels.get(child).is_ok() {
+                        commands.entity(child).despawn();
+                    }
+                }
+            }
+            room_box.current_label = None;
+            room_box.current_font_size = 0.0;
+        }
+    }
+}
+
+fn spawn_room_box(
+    commands: &mut Commands,
+    canvas: Entity,
+    kind: MapRoomBoxKind,
+    room_id: String,
+    visual: RoomVisual,
+) {
+    let mut node = Node::default();
+    apply_visual_to_node(&mut node, &visual);
+    let mut entity = commands.spawn((
+        node,
+        BackgroundColor(visual.color),
+        BorderColor::all(visual.border),
+        MapRoomBox {
+            room_id: room_id.clone(),
+            kind,
+            current_label: visual.label.as_ref().map(|l| l.text.clone()),
+            current_font_size: visual.label.as_ref().map(|l| l.font_size).unwrap_or(0.0),
+        },
+        Name::new(format!("MapRoom {}", room_id)),
+    ));
+    if let Some(label) = &visual.label {
+        let text = label.text.clone();
+        let font_size = label.font_size;
+        entity.with_children(|parent| {
+            parent.spawn((
+                Text::new(text),
+                TextFont {
+                    font_size,
+                    ..default()
+                },
+                TextColor(Color::srgba(0.04, 0.06, 0.10, 0.95)),
+                MapRoomLabel,
+            ));
+        });
+    }
+    let entity_id = entity.id();
+    commands.entity(canvas).add_child(entity_id);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -238,9 +430,10 @@ enum MapLabelStyle {
     None,
 }
 
-fn paint_room_boxes(
-    commands: &mut Commands,
-    canvas: Entity,
+#[allow(clippy::too_many_arguments)]
+fn compute_canvas_visuals(
+    desired: &mut HashMap<(MapRoomBoxKind, String), RoomVisual>,
+    kind: MapRoomBoxKind,
     rooms: &[MapRoomNode],
     visited: &BTreeSet<String>,
     active: &str,
@@ -311,58 +504,36 @@ fn paint_room_boxes(
         let top = (room.world_min.y - min_y) * scale + offset_y;
         let width = room.world_size.x * scale;
         let height = room.world_size.y * scale;
-        let mut entity = commands.spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(left),
-                top: Val::Px(top),
-                width: Val::Px(width.max(8.0)),
-                height: Val::Px(height.max(8.0)),
-                padding: UiRect::all(Val::Px(2.0)),
-                ..default()
-            },
-            BackgroundColor(color),
-            BorderColor::all(border),
-            MapRoomBox {
-                room_id: room.id.clone(),
-            },
-            Name::new(format!("MapRoom {}", room.id)),
-        ));
-        let entity_id = entity.id();
-        match label_style {
-            MapLabelStyle::None => {}
-            MapLabelStyle::Short => {
-                entity.with_children(|parent| {
-                    parent.spawn((
-                        Text::new(short_room_label(&room.id)),
-                        TextFont {
-                            font_size: 10.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.04, 0.06, 0.10, 0.95)),
-                    ));
-                });
-            }
+
+        let label = match label_style {
+            MapLabelStyle::None => None,
+            MapLabelStyle::Short => Some(RoomLabel {
+                text: short_room_label(&room.id),
+                font_size: 10.0,
+            }),
             MapLabelStyle::Full => {
-                let label = if width >= 80.0 {
+                let text = if width >= 80.0 {
                     room.id.clone()
                 } else {
                     short_room_label(&room.id)
                 };
                 let font_size = if width >= 120.0 { 12.0 } else { 9.0 };
-                entity.with_children(|parent| {
-                    parent.spawn((
-                        Text::new(label),
-                        TextFont {
-                            font_size,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.04, 0.06, 0.10, 0.95)),
-                    ));
-                });
+                Some(RoomLabel { text, font_size })
             }
-        }
-        commands.entity(canvas).add_child(entity_id);
+        };
+
+        desired.insert(
+            (kind, room.id.clone()),
+            RoomVisual {
+                left,
+                top,
+                width,
+                height,
+                color,
+                border,
+                label,
+            },
+        );
     }
 }
 

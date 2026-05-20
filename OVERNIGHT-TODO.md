@@ -16,11 +16,13 @@ Flip the rule once an external consumer ships.
 - `cargo test -p ambition_sandbox --lib` → 568 passing
 - `cargo test -p ambition_engine --lib` → 222 passing
 - Both crate builds clean, zero warnings
-- `cargo clippy -p ambition_sandbox --lib --no-deps` → 129 warnings
+- `cargo clippy -p ambition_sandbox --lib --no-deps` → 108 warnings
   (down from 170 at the start of this session via derivable_impls,
   `&mut *Mut<T>` reborrow drops, `iter().any(==)` → `contains`, manual
-  clamp; remaining are predominantly Bevy-inherent "very complex type"
-  on Query<...> and "too many arguments" on system fns).
+  clamp, map_or → is_some_and, ?-operator, `+`-at-line-start doc-list
+  misparse fixes, match guards, identical-branch collapse, etc.;
+  remaining are predominantly Bevy-inherent "very complex type" on
+  Query<...> and "too many arguments" on system fns).
 - `cargo clippy -p ambition_engine --lib --no-deps` → 1 warning
   (the manual !Range::contains in `apply_neighbor_spread`, left in
   current form because the predicate reads more naturally as written).

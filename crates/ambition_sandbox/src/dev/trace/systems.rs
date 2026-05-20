@@ -109,7 +109,6 @@ pub fn record_frame_system(
     sim_state: Res<crate::SandboxSimState>,
     platform_set: Res<crate::MovingPlatformSet>,
     world: Res<GameWorld>,
-    control_frame: Res<ControlFrame>,
     time: Res<Time>,
     rooms: Option<Res<crate::rooms::RoomSet>>,
     mode: Res<State<crate::game_mode::GameMode>>,
@@ -119,14 +118,18 @@ pub fn record_frame_system(
             &crate::player::PlayerMovementAuthority,
             Option<&crate::player::PlayerHealth>,
             &crate::player::PlayerSafetyState,
+            &crate::player::PlayerInputFrame,
         ),
         crate::player::PrimaryPlayerOnly,
     >,
 ) {
-    let Ok((authority, player_health, safety)) = player_q.single() else {
+    let Ok((authority, player_health, safety, input)) = player_q.single() else {
         return;
     };
     let player = &authority.player;
+    // Trace records this frame's input alongside player state. Read
+    // from the per-player input component (OVERNIGHT-TODO #17.5).
+    let control_frame = input.frame;
     let real_dt = time.delta_secs();
     let sim_dt = real_dt * sim_state.time_scale;
     let active_area = rooms
@@ -149,7 +152,7 @@ pub fn record_frame_system(
         &mut buffer,
         player,
         hp_current,
-        *control_frame,
+        control_frame,
         real_dt,
         &active_area,
         locomotion_state,
@@ -162,7 +165,7 @@ pub fn record_frame_system(
         &sim_state,
         safety,
         &augmented_world,
-        *control_frame,
+        control_frame,
         real_dt,
         sim_dt,
         &mode_label,
@@ -181,7 +184,7 @@ pub fn record_frame_system(
         &mut buffer,
         player,
         hp_current,
-        *control_frame,
+        control_frame,
         &active_area,
         locomotion_state,
         body_mode_state,

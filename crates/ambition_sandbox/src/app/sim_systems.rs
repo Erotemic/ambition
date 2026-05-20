@@ -333,7 +333,6 @@ pub fn attack_advance_system(
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    control_frame: Res<ControlFrame>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     mut player_q: Query<
         (
@@ -341,6 +340,7 @@ pub fn attack_advance_system(
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::ActivePlayerAttack,
+            &crate::player::PlayerInputFrame,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -349,11 +349,15 @@ pub fn attack_advance_system(
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
 ) {
-    let Ok((mut authority, mut anim, mut combat, mut attack)) = player_q.single_mut() else {
+    let Ok((mut authority, mut anim, mut combat, mut attack, input)) = player_q.single_mut() else {
         return;
     };
     let player = &mut authority.player;
-    let controls = *control_frame;
+    // Per-player input (OVERNIGHT-TODO #17.5). `sync_local_player_input_frame`
+    // ran at the tail of PlayerInput; this Combat-set system sees a fresh
+    // snapshot. Future co-op drops the singleton query and iterates
+    // attack-bearing players, each with their own input frame.
+    let controls = input.frame;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();

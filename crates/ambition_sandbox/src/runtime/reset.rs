@@ -20,8 +20,6 @@
 //!   (`populate_encounter_registry`, etc.) re-run on the next frame
 //!   and rebuild the registries from the LDtk project + the now-empty
 //!   save.
-//! - **`EncounterController` entities** (one per encounter): despawned.
-//!   The next populate spawns fresh ones.
 //! - **`RoomScopedEntity` entities** (including all `RoomVisual`s):
 //!   despawned. The room-visual respawn path runs after the active
 //!   room flips back to the start.
@@ -56,7 +54,7 @@ use ambition_engine as ae;
 use crate::assets::game_assets::GameAssets;
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::content::quest::QuestRegistry;
-use crate::encounter::{EncounterController, EncounterMusicRequest, EncounterRegistry};
+use crate::encounter::{EncounterMusicRequest, EncounterRegistry};
 use crate::persistence::save::SandboxSave;
 use crate::presentation::rendering::{spawn_room_visuals, RoomScopedEntity};
 use crate::rooms::RoomSet;
@@ -107,7 +105,6 @@ pub fn process_sandbox_reset_request(
     assets: Option<Res<GameAssets>>,
     mut commands: Commands,
     mut banner: ResMut<crate::features::GameplayBanner>,
-    encounter_controllers: Query<Entity, With<EncounterController>>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     mut player_q: Query<
         (
@@ -143,13 +140,7 @@ pub fn process_sandbox_reset_request(
     *quest_registry = QuestRegistry::default();
     music_request.desired_track = None;
 
-    // 3. Despawn the EncounterController entities; populate will spawn
-    //    a fresh set keyed off the post-reset save state.
-    for entity in &encounter_controllers {
-        commands.entity(entity).despawn();
-    }
-
-    // 4. Despawn all room visuals (and their physics colliders if
+    // 3. Despawn all room visuals (and their physics colliders if
     //    Avian2D installed any). The room-visual respawn path that
     //    sandbox_update / room-load already use will rebuild them
     //    once the active room flip below kicks in.

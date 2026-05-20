@@ -4,8 +4,8 @@ use ambition_engine as ae;
 
 use super::lock_walls::sync_lock_walls;
 use super::{
-    load_encounter_specs_from_ldtk, EncounterController, EncounterEvent, EncounterMusicRequest,
-    EncounterPhase, EncounterRegistry, EncounterRun, EncounterSwitchIndex, SwitchActivationQueue,
+    load_encounter_specs_from_ldtk, EncounterEvent, EncounterMusicRequest, EncounterPhase,
+    EncounterRegistry, EncounterRun, EncounterSwitchIndex, SwitchActivationQueue,
 };
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
@@ -14,7 +14,6 @@ pub fn populate_encounter_registry(
     mut registry: ResMut<EncounterRegistry>,
     save: Res<crate::persistence::save::SandboxSave>,
     project: Res<crate::ldtk_world::SandboxLdtkProject>,
-    mut commands: Commands,
 ) {
     if registry.specs_loaded {
         return;
@@ -24,72 +23,8 @@ pub fn populate_encounter_registry(
         let state = registry.ensure(&id);
         state.spec = Some(spec);
         state.apply_persisted(persisted);
-        // One controller entity per encounter. The state component is
-        // attached separately by `sync_encounter_controller_states` so
-        // hot reload + spec changes can flip components without
-        // respawning entities.
-        commands.spawn((
-            EncounterController {
-                encounter_id: id.clone(),
-            },
-            Name::new(format!("EncounterController:{id}")),
-        ));
     }
     registry.specs_loaded = true;
-}
-
-/// Mirror the registry's live `EncounterPhase` onto the matching
-/// controller entity's seldom_state state component. Drops any other
-/// encounter-state component first so phase changes are clean.
-pub fn sync_encounter_controller_states(
-    registry: Res<EncounterRegistry>,
-    mut commands: Commands,
-    controllers: Query<(Entity, &EncounterController)>,
-) {
-    if !registry.is_changed() {
-        return;
-    }
-    for (entity, controller) in &controllers {
-        let Some(state) = registry.get(&controller.encounter_id) else {
-            continue;
-        };
-        let mut entity_commands = commands.entity(entity);
-        entity_commands
-            .remove::<ae::EncounterDormant>()
-            .remove::<ae::EncounterStarting>()
-            .remove::<ae::EncounterActive>()
-            .remove::<ae::EncounterCleared>()
-            .remove::<ae::EncounterFailed>();
-        match state.phase {
-            EncounterPhase::Inactive => {
-                entity_commands.insert(ae::EncounterDormant);
-            }
-            EncounterPhase::Starting { remaining } => {
-                entity_commands.insert(ae::EncounterStarting { remaining });
-            }
-            EncounterPhase::Active {
-                wave_index,
-                remaining_mobs,
-            } => {
-                let total_waves = state
-                    .spec
-                    .as_ref()
-                    .map(|s| s.waves.len() as u8)
-                    .unwrap_or(0);
-                entity_commands.insert(ae::EncounterActive {
-                    wave_index: wave_index as u8,
-                    remaining_mobs: remaining_mobs as u8,
-                    total_waves,
-                });
-            }
-            EncounterPhase::Cleared => {
-                entity_commands.insert(ae::EncounterCleared);
-            }
-            EncounterPhase::Failed => {
-                entity_commands.insert(ae::EncounterFailed);
-            }
-        }
-    }
 }
 
 /// Encounter cancellation: encounters that are `Active` only persist

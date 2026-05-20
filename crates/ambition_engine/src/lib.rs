@@ -32,7 +32,6 @@ pub mod projectile;
 pub mod quest;
 pub mod save;
 pub mod scalar;
-pub mod state_machines;
 pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
@@ -106,13 +105,6 @@ pub use save::{
     PersistedQuest, PersistedQuestState, PersistedSwitch, SandboxSaveData, CURRENT_SAVE_VERSION,
 };
 pub use scalar::approach;
-pub use state_machines::{
-    state_machine_vocabulary, AmbitionStateMachineActor, AmbitionStateMachinePlugin, BossDefeated,
-    BossDormant, BossIntro, BossPhase, BreakableBroken, BreakableCracking, BreakableIntact,
-    BreakableRespawning, ChestClosed, ChestOpened, ChestOpening, EncounterActive, EncounterCleared,
-    EncounterDormant, EncounterFailed, EncounterStarting, EnemyAttack, EnemyDead, EnemyIdle,
-    EnemyPatrol, EnemyRecover, EnemyStunned, EnemyTelegraph, SwitchOff, SwitchOn,
-};
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,
     ClimbableSpec, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,

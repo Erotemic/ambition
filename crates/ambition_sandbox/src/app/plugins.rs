@@ -114,7 +114,6 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         .insert_resource(crate::features::FeatureViewIndex::default())
         .insert_resource(crate::dev::mechanics::MechanicsRegistry::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
-        .add_plugins(ae::AmbitionStateMachinePlugin)
         .add_systems(
             Startup,
             (
@@ -413,7 +412,6 @@ fn register_encounter_simulation_systems(app: &mut App) {
         (
             platforms::sync_moving_platform,
             crate::encounter::update_encounters_from_world,
-            crate::encounter::sync_encounter_controller_states,
             crate::features::apply_gameplay_banner_requests,
             crate::features::tick_gameplay_banner,
         )

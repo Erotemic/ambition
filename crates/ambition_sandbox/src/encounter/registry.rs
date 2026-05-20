@@ -104,13 +104,3 @@ impl SwitchActivation {
     }
 }
 
-/// Marker component for the per-encounter seldom_state controller
-/// entity. The encounter system spawns one per registered encounter
-/// and keeps its sparse-set state component (`EncounterDormant`,
-/// `EncounterActive`, `EncounterCleared`, `EncounterFailed`) in sync
-/// with the registry's phase. HUD / debug systems can query by state
-/// component without touching the resource.
-#[derive(Component, Clone, Debug)]
-pub struct EncounterController {
-    pub encounter_id: String,
-}

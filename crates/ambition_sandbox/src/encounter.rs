@@ -26,7 +26,7 @@ pub use loading::load_encounter_specs_from_ldtk;
 #[cfg(test)]
 use lock_walls::sync_lock_walls;
 pub use music::EncounterMusicRequest;
-pub use registry::{EncounterController, EncounterRegistry, SwitchActivation};
+pub use registry::{EncounterRegistry, SwitchActivation};
 pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
 pub use spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 #[cfg(test)]
@@ -34,7 +34,7 @@ pub(super) use state::ENCOUNTER_INTER_WAVE_DELAY_SECONDS;
 pub use state::{EncounterPhase, EncounterRun, EncounterState};
 pub use switches::{rebuild_encounter_switch_index, EncounterSwitchIndex, SwitchActivationQueue};
 pub use systems::{
-    populate_encounter_registry, sync_encounter_controller_states, update_encounters_from_world,
+    populate_encounter_registry, update_encounters_from_world,
 };
 
 #[cfg(test)]

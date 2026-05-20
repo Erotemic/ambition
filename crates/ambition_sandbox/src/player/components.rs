@@ -7,6 +7,8 @@
 use ambition_engine as ae;
 use bevy::prelude::*;
 
+use crate::input::ControlFrame;
+
 /// Marker for **a player entity** — there may eventually be more than
 /// one. Use this when a query wants every player regardless of locality
 /// or which slot they occupy.
@@ -60,6 +62,34 @@ pub struct PrimaryPlayer;
 /// `LocalPlayer`.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct LocalPlayer;
+
+/// Per-player input snapshot. Mirrors the single global
+/// [`crate::input::ControlFrame`] resource onto the local player
+/// entity so simulation systems can move toward reading input from a
+/// `Query<&PlayerInputFrame>` rather than `Res<ControlFrame>`. That's
+/// the architectural seam multiplayer / netcode work needs:
+///
+/// - the local primary player's frame is filled by
+///   `sync_local_player_input_frame` after the input pipeline writes
+///   `Res<ControlFrame>`;
+/// - future remote / co-op players would have their own
+///   `PlayerInputFrame` populated by a network adapter or a second
+///   input device, without competing for the single global resource.
+///
+/// Today exactly one entity (the local primary player) carries this
+/// component, and `Res<ControlFrame>` stays the single writer channel.
+/// New simulation systems should prefer this component so they're
+/// already shaped for multiple input-bearing players.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct PlayerInputFrame {
+    pub frame: ControlFrame,
+}
+
+impl PlayerInputFrame {
+    pub fn from_frame(frame: ControlFrame) -> Self {
+        Self { frame }
+    }
+}
 
 /// Frame-to-frame authoritative player movement state.
 ///

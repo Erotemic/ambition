@@ -12,7 +12,6 @@ use crate::features::{
     ActorCombatState, ActorDisposition, BossFeature, BreakableFeature, DamageEvent, DamageSource,
     FeatureAabb, FeatureId, FeatureSimEntity,
 };
-use crate::input::ControlFrame;
 use crate::presentation::fx::VfxMessage;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;
@@ -20,16 +19,20 @@ use crate::GameWorld;
 pub fn update_projectiles(
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
-    control_frame: Res<ControlFrame>,
-    // Projectile spawn origin/direction is anchored to the *primary*
-    // player today because the press itself comes from the local
-    // `ControlFrame` resource, which represents one local player's
-    // input. The `PrimaryPlayerOnly` filter documents that this is a
-    // deliberate targeting decision — when per-player input components
-    // land (OVERNIGHT-TODO #17.5) and projectile factions/owners land
-    // (#17.7), the spawn point becomes per-player and this filter
-    // gets replaced with an iter over input-bearing players.
-    player_body_q: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
+    // Projectile spawn origin/direction reads input from the primary
+    // local player's `PlayerInputFrame` component (the per-player input
+    // migration target, OVERNIGHT-TODO #17.5). The single global
+    // `Res<ControlFrame>` is still written by the input pipeline and
+    // mirrored into this component by `sync_local_player_input_frame`,
+    // so today the `PrimaryPlayerOnly` filter keeps single-player
+    // behavior identical. Future co-op / network builds populate this
+    // component on additional player entities without ever competing
+    // for the global resource — projectile spawn becomes per-player at
+    // that point by simply dropping the filter.
+    player_input_q: Query<
+        (&crate::player::PlayerBody, &crate::player::PlayerInputFrame),
+        crate::player::PrimaryPlayerOnly,
+    >,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
@@ -56,6 +59,12 @@ pub fn update_projectiles(
     state.clock += dt;
     state.spawner.tick(dt);
 
+    // Resolve the primary local player's body + input frame from the
+    // ECS. `PrimaryPlayerOnly` keeps single-player behavior; future
+    // multiplayer drops the filter and iterates over input-bearing
+    // players.
+    let primary = player_input_q.single().ok();
+
     // Sample motion for Hadouken recognition. Both `ControlFrame::axis_y`
     // and `MotionDirection::from_axis` use the +Y-DOWN convention
     // (the engine matcher returns `Down` for y > 0; pinned by the
@@ -63,6 +72,9 @@ pub fn update_projectiles(
     // straight through — an earlier negation here was inverting the
     // sign and silently mapping every "press Down" sample to `Up`,
     // which made every QCF detection fail forever.
+    let control_frame = primary
+        .map(|(_, input)| input.frame)
+        .unwrap_or_default();
     let dir = ae::MotionDirection::from_axis(control_frame.axis_x, control_frame.axis_y, 0.55);
     let now = state.clock;
     state.motion_buffer.push(dir, now);
@@ -169,7 +181,7 @@ pub fn update_projectiles(
     }
     state.bodies = still_alive;
 
-    let Ok(body) = player_body_q.single() else {
+    let Some((body, _input)) = primary else {
         return;
     };
     let facing = if body.facing.abs() < f32::EPSILON {

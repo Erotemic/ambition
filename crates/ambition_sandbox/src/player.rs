@@ -22,9 +22,11 @@ pub mod systems;
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody,
-    PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
-    PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
+    PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
+    PlayerMovementAuthority, PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 pub use events::{PlayerDamageRequested, PlayerHealRequested};
 pub use queries::{primary_player_entity, sort_players_by_slot, PrimaryPlayerOnly};
-pub use systems::{apply_player_heal_requests, write_player_ecs_components};
+pub use systems::{
+    apply_player_heal_requests, sync_local_player_input_frame, write_player_ecs_components,
+};

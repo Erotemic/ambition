@@ -278,6 +278,14 @@ fn register_player_input_systems(app: &mut App) {
             apply_player_reset_input_system.run_if(gameplay_allowed),
             input_timer_system.run_if(gameplay_allowed),
             interaction_input_system.run_if(gameplay_allowed),
+            // Per-player input migration (OVERNIGHT-TODO #17.5). Mirror
+            // the now-final `Res<ControlFrame>` onto the local primary
+            // player's `PlayerInputFrame` so simulation systems can
+            // move toward reading input from a Query<&PlayerInputFrame>
+            // rather than the single global resource. Runs last in the
+            // PlayerInput phase so every input writer (leafwing, mobile
+            // bridge, RL) has finalized the resource for this frame.
+            crate::player::sync_local_player_input_frame,
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),

@@ -3,10 +3,36 @@
 use bevy::prelude::*;
 
 use super::components::{
-    ActivePlayerAttack, PlayerBody, PlayerCombatState, PlayerEntity, PlayerHealth,
-    PlayerMovementAuthority, PrimaryPlayer,
+    ActivePlayerAttack, LocalPlayer, PlayerBody, PlayerCombatState, PlayerEntity, PlayerHealth,
+    PlayerInputFrame, PlayerMovementAuthority, PrimaryPlayer,
 };
 use super::events::PlayerHealRequested;
+use crate::input::ControlFrame;
+
+/// Mirror the global [`ControlFrame`] resource onto the local primary
+/// player's [`PlayerInputFrame`] component each frame.
+///
+/// This is the producer for the per-player input migration (OVERNIGHT-
+/// TODO #17.5). The visible binary's input pipeline + the headless
+/// driver both keep writing the global resource; this system snapshots
+/// it onto the entity so simulation systems can move toward reading
+/// `Query<&PlayerInputFrame>` without losing the "primary local player"
+/// behavior. Future remote / co-op players would have their own
+/// PlayerInputFrame populated by a network adapter, bypassing the
+/// global resource entirely.
+///
+/// Runs once per frame after the input pipeline has finished writing
+/// `Res<ControlFrame>` (registered in the `PlayerInput` set, after
+/// `interaction_input_system`).
+pub fn sync_local_player_input_frame(
+    frame: Res<ControlFrame>,
+    mut players: Query<&mut PlayerInputFrame, (With<PlayerEntity>, With<LocalPlayer>)>,
+) {
+    let snapshot = *frame;
+    for mut player_input in &mut players {
+        player_input.frame = snapshot;
+    }
+}
 
 /// Write `PlayerBody` and `PlayerCombatState::attacking` from the authoritative
 /// sources each frame.

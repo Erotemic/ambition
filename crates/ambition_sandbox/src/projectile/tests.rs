@@ -46,12 +46,19 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
         shielding: false,
         parrying: false,
     };
-    // Projectile spawn queries `PrimaryPlayerOnly`; the test fixture
-    // must mark the spawned player as primary or the system will see
-    // an empty query and silently skip fire-press handling.
+    // Projectile spawn queries `PrimaryPlayerOnly` + `PlayerInputFrame`;
+    // the test fixture must mark the spawned player as primary AND
+    // local AND carry `PlayerInputFrame` or the system will see an
+    // empty query and silently skip fire-press handling.
+    // `sync_local_player_input_frame` (added to the test schedule)
+    // mirrors `Res<ControlFrame>` into the component each tick so
+    // existing tests that mutate the resource continue to drive the
+    // projectile system unchanged.
     app.world_mut().spawn((
         crate::player::PlayerEntity,
         crate::player::PrimaryPlayer,
+        crate::player::LocalPlayer,
+        crate::player::PlayerInputFrame::default(),
         body,
     ));
 }
@@ -76,6 +83,7 @@ fn min_app() -> App {
     app.add_systems(
         Update,
         (
+            crate::player::sync_local_player_input_frame,
             update_projectiles,
             crate::features::apply_feature_damage_events,
         )
@@ -426,6 +434,7 @@ fn fireball_bounces_off_floor_in_system() {
     app.add_systems(
         Update,
         (
+            crate::player::sync_local_player_input_frame,
             update_projectiles,
             crate::features::apply_feature_damage_events,
         )
@@ -502,6 +511,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.add_systems(
         Update,
         (
+            crate::player::sync_local_player_input_frame,
             update_projectiles,
             crate::features::apply_feature_damage_events,
         )
@@ -579,6 +589,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.add_systems(
         Update,
         (
+            crate::player::sync_local_player_input_frame,
             update_projectiles,
             crate::features::apply_feature_damage_events,
         )
@@ -653,6 +664,7 @@ fn hadouken_expires_on_solid_in_system() {
     app.add_systems(
         Update,
         (
+            crate::player::sync_local_player_input_frame,
             update_projectiles,
             crate::features::apply_feature_damage_events,
         )

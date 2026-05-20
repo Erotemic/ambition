@@ -21,6 +21,14 @@ Important paths:
 - `crates/ambition_sandbox/src/app/input_systems.rs` — Bevy systems that collect and apply input.
 - `crates/ambition_sandbox/src/host/mobile_input/` — touch layout and touch-to-control bridge.
 - `crates/ambition_sandbox/src/persistence/settings/controls.rs` — persisted control settings, deadzones, trigger thresholds, dash-repeat policy, controller profile defaults.
+- `crates/ambition_sandbox/src/player/components.rs::PlayerInputFrame` — per-player input snapshot component (OVERNIGHT-TODO #17.5). The global `Res<ControlFrame>` resource still represents the local primary player's input; `sync_local_player_input_frame` mirrors it onto this component each tick so simulation systems can move toward reading input from a `Query<&PlayerInputFrame>` rather than the global resource. Future remote / co-op players carry their own `PlayerInputFrame` populated by a network adapter or a second input device, bypassing the global resource entirely.
+
+## Per-player input migration status
+
+Today's readers of player input come in two flavors:
+
+- **In-phase `Res<ControlFrame>` readers** — `apply_player_reset_input_system`, `input_timer_system`, and `interaction_input_system` run inside the `PlayerInput` schedule set and mutate or consume the resource mid-phase. They stay on the resource because the sync system runs at the tail of the same set; reading from the component there would observe the previous frame's snapshot. These also include the writers (`apply_player_reset_input_system` clears `reset_pressed` so the engine path doesn't re-trigger).
+- **Out-of-phase `&PlayerInputFrame` readers** — `update_projectiles` (Combat), `sandbox_update` (PlayerSimulation), `attack_advance_system` (Combat), `record_frame_system` (Trace). These run after the sync system has mirrored the resource onto the component, so they see the current tick's input. New gameplay systems should follow this pattern.
 
 ## Rules
 

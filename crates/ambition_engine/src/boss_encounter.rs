@@ -70,19 +70,6 @@ impl BossEncounterPhase {
         matches!(self, Self::Phase1 | Self::Phase2 | Self::Enrage)
     }
 
-    /// Phase number for the seldom_state `BossPhase` component.
-    /// Stagger / Transition / Death share Phase1's ordinal so the
-    /// state component carries a stable "which patterns to run"
-    /// hint; consumers should branch on the full
-    /// `BossEncounterPhase` for transitions.
-    pub fn pattern_phase(self) -> u8 {
-        match self {
-            Self::Dormant | Self::Intro | Self::Phase1 | Self::Transition | Self::Stagger => 1,
-            Self::Phase2 => 2,
-            Self::Enrage => 3,
-            Self::Death => 0,
-        }
-    }
 }
 
 /// Authored thresholds + timings driving phase transitions.

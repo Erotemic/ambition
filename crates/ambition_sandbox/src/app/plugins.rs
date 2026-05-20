@@ -403,7 +403,7 @@ pub(super) fn spawn_ldtk_world_root(
 /// and VFX subscribers, HUD, debug overlays). Visible binary only.
 pub fn add_presentation_plugins(app: &mut App) {
     install_presentation_resources_and_subplugins(app);
-    install_settings_and_save_systems(app);
+    app.add_plugins(crate::persistence::PersistenceSchedulePlugin);
     install_menu_setup_and_hotkeys(app);
     install_visual_animation_systems(app);
     install_camera_and_debug_overlay_systems(app);
@@ -442,28 +442,8 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
 }
 
-/// Settings + sandbox-save persistence. Both load on startup and
-/// autosave when the relevant resource changes (`Res::is_changed`
-/// throttle). Headless drivers do not register these systems, so
-/// a `cargo run --bin headless` never reads or writes user files.
-fn install_settings_and_save_systems(app: &mut App) {
-    app.add_systems(
-        Startup,
-        (
-            crate::persistence::settings::persistence::load_settings_at_startup,
-            crate::persistence::settings::persistence::load_developer_at_startup,
-            crate::persistence::save::load_save_at_startup,
-        ),
-    )
-    .add_systems(
-        Update,
-        (
-            crate::persistence::settings::persistence::save_settings_on_change,
-            crate::persistence::settings::persistence::save_developer_on_change,
-            crate::persistence::save::autosave_sandbox_save,
-        ),
-    );
-}
+// Settings + sandbox-save persistence schedule moved to
+// `crate::persistence::PersistenceSchedulePlugin` (OVERNIGHT-TODO #6).
 
 /// Pause menu, inventory, map menu, presentation startup, dev/dialog
 /// hotkeys.

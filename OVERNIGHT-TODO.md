@@ -40,14 +40,30 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
 - `ae::ProjectileFaction { Player, Enemy }` engine tag on
   `ProjectileBody`, with `from_spec_with_faction` constructor; enemy
   projectile spawner now tags `Enemy` (#10 / #17.7 enabler)
-- `app/plugins.rs` shed ~300 lines via five domain-local Plugin
-  extractions (#6):
+- `app/plugins.rs` shed ~330 lines via ten domain-local Plugin
+  extractions (#6 — 1265 → 937 lines):
   - `SandboxSimulationResourcesPlugin` in `app/sim_resources.rs`
   - `TraceSchedulePlugin` in `dev/trace/plugin.rs`
   - `LdtkRuntimeSpinePlugin` in `world/ldtk_world/bevy_runtime/plugin.rs`
   - `SandboxResetSchedulePlugin` in `runtime/reset.rs`
   - `CutsceneSchedulePlugin` in `presentation/cutscene.rs`
   - `GameplayEffectsSchedulePlugin` in `content/features/bus.rs`
+  - `WorldPrepSchedulePlugin` in `content/features.rs`
+  - `FeatureCollectionSchedulePlugin` in `content/features.rs`
+  - `FeatureInteractionSchedulePlugin` in `content/features.rs`
+  - `FeatureViewSyncSchedulePlugin` in `content/features.rs`
+  - `SandboxAudioPlugin` in `audio/plugin.rs`
+  - `PersistenceSchedulePlugin` in `persistence.rs`
+
+  Remaining `register_*` / `install_*` helpers in `plugins.rs` are the
+  app-local chains (`PlayerInput`, `PlayerSimulation`, `RoomTransition`,
+  `Combat`, `PresentationSync`, `EncounterSimulation`,
+  `ProgressionChain`, `ProgressionPopulate`) plus the presentation
+  install fns (`install_menu_setup_and_hotkeys`,
+  `install_visual_animation_systems`, `install_misc_visual_sync_systems`,
+  `install_player_visual_systems`, `install_projectile_and_vfx_systems`,
+  `install_fx_and_hud_systems`, `install_camera_and_debug_overlay_systems`,
+  `install_presentation_resources_and_subplugins`).
 - bevy render features (`2d_bevy_render` / `ui_bevy_render` / `scene` /
   `png`) moved off the base bevy dep onto the `visible` cargo
   feature, so headless / future-non-render builds at least stop

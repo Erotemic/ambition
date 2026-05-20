@@ -52,8 +52,8 @@ pub fn primary_player_entity(primary: &Query<Entity, PrimaryPlayerOnly>) -> Opti
 /// that show every slot's status, debug overlays, etc.). Cheap today
 /// because there's exactly one player; the explicit sort keeps the
 /// order deterministic once a second player is added.
-pub fn sort_players_by_slot<'w, D, F>(
-    players: &'w Query<(Entity, &PlayerSlot, D), F>,
+pub fn sort_players_by_slot<D, F>(
+    players: &Query<(Entity, &PlayerSlot, D), F>,
 ) -> Vec<(Entity, PlayerSlot)>
 where
     D: QueryData,

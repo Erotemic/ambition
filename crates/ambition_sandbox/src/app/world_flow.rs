@@ -522,7 +522,7 @@ pub(super) fn death_respawn_player(
     sim_state: &mut crate::SandboxSimState,
     safety: &mut crate::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
-    mut player_health: Option<&mut crate::player::PlayerHealth>,
+    player_health: Option<&mut crate::player::PlayerHealth>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
@@ -538,7 +538,7 @@ pub(super) fn death_respawn_player(
     sim_state.room_transition_cooldown = 0.0;
     anim.reset();
     combat.reset();
-    if let Some(health) = player_health.as_deref_mut() {
+    if let Some(health) = player_health {
         health.reset();
     }
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;

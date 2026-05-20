@@ -238,7 +238,7 @@ pub fn update_ecs_actors(
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, ae::SlotKind)> = Vec::new();
     for (_, actor, _, _, _, _, _, _) in &actors {
-        if let ActorRuntime::Hostile(enemy) = &*actor {
+        if let ActorRuntime::Hostile(enemy) = actor {
             if enemy.alive {
                 requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
             }

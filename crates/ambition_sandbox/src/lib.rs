@@ -152,7 +152,9 @@ pub struct PlayerDiedMessage {
 /// Per-frame conditions that gate writes to `SandboxSimState::last_safe_player_pos`.
 /// We refuse to record a position as "safe" while any of these flags are
 /// set so an in-flight reset / hazard respawn / room transition cannot
-/// pollute the safe spawn point. Construct with [`SafePositionContext::frame`].
+/// pollute the safe spawn point. Construct with [`SafePositionContext::ideal`]
+/// for the "no contraindications" baseline, then flip individual flags as the
+/// frame's events fire.
 #[derive(Clone, Copy, Debug)]
 pub struct SafePositionContext {
     /// True if the player took damage this frame.

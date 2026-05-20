@@ -35,8 +35,11 @@ Recently retired (autonomous-mission pass 2026-05-20, see git log
   is gone (#13)
 - `PlayerInputFrame` component + `sync_local_player_input_frame`
   producer; `update_projectiles`, `sandbox_update`, `attack_advance_system`,
-  and `record_frame_system` migrated off `Res<ControlFrame>` (#17.5,
-  first slice — others can follow incrementally)
+  `record_frame_system`, `update_body_mode`, and `interaction_input_system`
+  migrated off `Res<ControlFrame>` (#17.5 across two sessions —
+  the only remaining `Res<ControlFrame>` readers in the sandbox are
+  the producer itself and `input_timer_system` / reset which still
+  *write* to the resource so `sandbox_update` sees the same shape).
 - `ae::ProjectileFaction { Player, Enemy }` engine tag on
   `ProjectileBody`, with `from_spec_with_faction` constructor; enemy
   projectile spawner now tags `Enemy` (#10 / #17.7 enabler)

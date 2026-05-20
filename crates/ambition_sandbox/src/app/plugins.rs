@@ -58,7 +58,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_presentation_sync_systems(app);
     register_feature_collection_systems(app);
     register_feature_interaction_systems(app);
-    register_ldtk_runtime_spine_systems(app);
+    app.add_plugins(ldtk_world::LdtkRuntimeSpinePlugin);
     register_encounter_simulation_systems(app);
     register_cutscene_systems(app);
     register_gameplay_effects_systems(app);
@@ -254,21 +254,8 @@ fn register_feature_interaction_systems(app: &mut App) {
     );
 }
 
-fn register_ldtk_runtime_spine_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            ldtk_world::sync_plugin_spawned_ambition_entities,
-            ldtk_world::rebuild_ldtk_runtime_spine_index,
-            ldtk_world::rebuild_ldtk_runtime_solid_index,
-            ldtk_world::rebuild_ldtk_runtime_one_way_index,
-            ldtk_world::rebuild_ldtk_runtime_damage_index,
-            ldtk_world::check_ldtk_runtime_spine_parity,
-        )
-            .chain()
-            .in_set(SandboxSet::LdtkRuntimeSpine),
-    );
-}
+// LDtk runtime spine schedule moved to
+// `ldtk_world::LdtkRuntimeSpinePlugin` (OVERNIGHT-TODO #6).
 
 fn register_encounter_simulation_systems(app: &mut App) {
     app.add_systems(

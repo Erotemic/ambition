@@ -1,10 +1,11 @@
-use bevy::prelude::{Added, App, Commands, Entity, Name, Plugin, Query, ResMut};
+use bevy::prelude::{Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut, Update};
 use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntityAppExt};
 
 use super::components::{
     AmbitionLdtkEntity, AmbitionLdtkMarkerBundle, LdtkDamageVolume, LdtkOneWayPlatform, LdtkSolid,
 };
 use super::indices::LdtkRuntimeSpineStats;
+use crate::app::SandboxSet;
 
 pub struct AmbitionLdtkRegistrationPlugin;
 
@@ -13,6 +14,38 @@ impl Plugin for AmbitionLdtkRegistrationPlugin {
         for identifier in AMBITION_LDTK_ENTITY_IDENTIFIERS {
             app.register_ldtk_entity::<AmbitionLdtkMarkerBundle>(identifier);
         }
+    }
+}
+
+/// Module-local Bevy plugin for the LDtk runtime-spine indexes.
+///
+/// Owns the chain that walks plugin-spawned Ambition entities
+/// (`sync_plugin_spawned_ambition_entities`), rebuilds the per-active-
+/// area solid / one-way / hazard runtime indexes, and pins parity with
+/// the JSON adapter via the spine parity check.
+///
+/// Runs in [`SandboxSet::LdtkRuntimeSpine`] (configured by
+/// `app/schedule.rs`). Carved out of `app/plugins.rs::register_ldtk_runtime_spine_systems`
+/// per OVERNIGHT-TODO #6 — every system in this chain lives under
+/// `ldtk_world::bevy_runtime`, so it's the right domain to own the
+/// schedule registration.
+pub struct LdtkRuntimeSpinePlugin;
+
+impl Plugin for LdtkRuntimeSpinePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                sync_plugin_spawned_ambition_entities,
+                super::systems::rebuild_ldtk_runtime_spine_index,
+                super::systems::rebuild_ldtk_runtime_solid_index,
+                super::systems::rebuild_ldtk_runtime_one_way_index,
+                super::systems::rebuild_ldtk_runtime_damage_index,
+                super::parity::check_ldtk_runtime_spine_parity,
+            )
+                .chain()
+                .in_set(SandboxSet::LdtkRuntimeSpine),
+        );
     }
 }
 

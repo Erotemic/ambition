@@ -56,7 +56,8 @@ impl EnemyProjectileState {
             gravity: 0.0,
             charge_tier: 0,
         };
-        let mut body = ae::ProjectileBody::from_spec(spec);
+        let mut body =
+            ae::ProjectileBody::from_spec_with_faction(spec, ae::ProjectileFaction::Enemy);
         // Enemy projectiles travel in a straight line (no bouncing —
         // a bouncing volley reads as a pinball and confuses the
         // player about the hostile path).

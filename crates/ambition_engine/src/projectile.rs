@@ -33,7 +33,7 @@ mod spec;
 #[cfg(test)]
 mod tests;
 
-pub use body::{ProjectileBody, ProjectileSolidHit};
+pub use body::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
 pub use motion_input::{MotionDirection, MotionInputBuffer, MotionSample};
 pub use spawn::{ProjectileSpawner, SpawnFailure};
 pub use spec::{FireballChargeTuning, ProjectileKind, ProjectileSpec};

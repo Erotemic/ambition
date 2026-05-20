@@ -98,7 +98,8 @@ pub use player_state::{
 };
 pub use projectile::{
     FireballChargeTuning, MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody,
-    ProjectileKind, ProjectileSolidHit, ProjectileSpawner, ProjectileSpec, SpawnFailure,
+    ProjectileFaction, ProjectileKind, ProjectileSolidHit, ProjectileSpawner, ProjectileSpec,
+    SpawnFailure,
 };
 pub use quest::{QuestAdvanceEvent, QuestSpec, QuestState, QuestStepCondition, QuestStepSpec};
 pub use save::{

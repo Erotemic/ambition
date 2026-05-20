@@ -6,12 +6,34 @@ use bevy_math::Vec2;
 use super::spec::{ProjectileKind, ProjectileSpec};
 use crate::geometry::{aabb_from_min_size, Aabb, AabbExt};
 
+/// Which side of the combat faction a projectile belongs to.
+///
+/// `Player` projectiles hit enemies / bosses / breakables; `Enemy`
+/// projectiles hit the player. The sandbox-side update loops dispatch
+/// damage routing on this so a future unified projectile system
+/// (OVERNIGHT-TODO #17.7) does not need separate code paths per
+/// faction — friendly-fire policy becomes a function of
+/// `(projectile.faction, target.faction)`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ProjectileFaction {
+    /// Player-owned projectile (fireball, hadouken). Hits hostile
+    /// actors; the player's own hurtbox is filtered out.
+    #[default]
+    Player,
+    /// Enemy-owned projectile (pirate volley, future boss shots).
+    /// Hits the player; does not damage other enemies.
+    Enemy,
+}
+
 /// Per-frame physics state of an in-flight projectile. Sandbox owns
 /// the world-collision check; this struct only owns position, velocity,
-/// and lifetime.
+/// faction, and lifetime.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProjectileBody {
     pub kind: ProjectileKind,
+    /// Combat faction (who fired this projectile, which targets it
+    /// may damage). Set at spawn time; the engine never mutates it.
+    pub faction: ProjectileFaction,
     pub pos: Vec2,
     pub vel: Vec2,
     pub age: f32,
@@ -23,9 +45,24 @@ pub struct ProjectileBody {
 }
 
 impl ProjectileBody {
+    /// Build a player-owned projectile body from `spec`. Convenience
+    /// wrapper around [`Self::from_spec_with_faction`] preserved for
+    /// callers that haven't migrated to the explicit-faction
+    /// constructor yet (player projectiles are the historical
+    /// default in the engine API).
     pub fn from_spec(spec: ProjectileSpec) -> Self {
+        Self::from_spec_with_faction(spec, ProjectileFaction::Player)
+    }
+
+    /// Build a projectile body from `spec` with an explicit
+    /// [`ProjectileFaction`]. Enemy-fired projectiles (pirate
+    /// volleys, future boss shots) pass `ProjectileFaction::Enemy`
+    /// so the unified projectile pipeline knows which target side
+    /// to test against.
+    pub fn from_spec_with_faction(spec: ProjectileSpec, faction: ProjectileFaction) -> Self {
         Self {
             kind: spec.kind,
+            faction,
             pos: spec.origin,
             vel: spec.initial_velocity(),
             age: 0.0,

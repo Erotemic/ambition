@@ -65,7 +65,6 @@ pub fn sandbox_update(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut event_writers: SandboxEventWriters,
-    control_frame: Res<ControlFrame>,
     mut queues: SandboxQueues,
     mut player_q: Query<
         (
@@ -77,6 +76,7 @@ pub fn sandbox_update(
             &mut crate::player::PlayerPlatformRideState,
             &mut crate::player::ActivePlayerAttack,
             &mut crate::player::PlayerSafetyState,
+            &crate::player::PlayerInputFrame,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -90,6 +90,7 @@ pub fn sandbox_update(
         mut ride,
         mut attack,
         mut safety,
+        input,
     )) = player_q.single_mut()
     else {
         return;
@@ -97,7 +98,13 @@ pub fn sandbox_update(
     let player = &mut authority.player;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    let controls = *control_frame;
+    // Player input now lives on `PlayerInputFrame` (OVERNIGHT-TODO
+    // #17.5). The single global `Res<ControlFrame>` is mirrored onto
+    // the local primary player's component by
+    // `sync_local_player_input_frame` in the PlayerInput phase; this
+    // tick reads from the component so a future co-op build can have
+    // each player carry their own input frame.
+    let controls = input.frame;
     let frame_dt = time.delta_secs();
 
     // Pause/resume toggling has moved to `pause_menu::pause_menu_toggle`,

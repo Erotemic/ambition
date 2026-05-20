@@ -102,8 +102,10 @@ impl SandboxAssetCatalog {
     /// in hand. Production startup builds the catalog from the live
     /// `GameAssetConfig` via [`build_sandbox_catalog`].
     pub fn for_desktop_dev_default() -> Self {
-        let mut config = crate::assets::game_assets::GameAssetConfig::default();
-        config.asset_profile = AssetProfile::DesktopDevLoose;
+        let config = crate::assets::game_assets::GameAssetConfig {
+            asset_profile: AssetProfile::DesktopDevLoose,
+            ..Default::default()
+        };
         let spec = crate::content::data::SandboxDataSpec::load_embedded();
         build_sandbox_catalog(&config, &spec.audio)
     }

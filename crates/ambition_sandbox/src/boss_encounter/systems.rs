@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use ambition_engine as ae;
 use bevy::prelude::*;
 
@@ -159,19 +157,30 @@ pub fn update_boss_encounters(
     // mostly idempotent — it covers the edge cases where engine state
     // changed without a player damage event (boss revival on retry,
     // save-driven Cleared mark, max_hp spec change).
-    let runtime_id_lookup: BTreeMap<String, String> = registry.runtime_ids.clone();
-    let profile_lookup = registry.profiles.clone();
-    for (id, state) in registry.encounters.iter_mut() {
-        let runtime_id = runtime_id_lookup
+    //
+    // Disjoint field borrows: split `registry` into a mutable borrow
+    // of `encounters` and immutable borrows of `runtime_ids` /
+    // `profiles`. Previously this cloned both maps to avoid a
+    // borrow conflict; with destructuring the compiler can prove the
+    // borrows are disjoint and the clones go away.
+    let registry_mut = &mut *registry;
+    let BossEncounterRegistry {
+        encounters,
+        profiles,
+        runtime_ids,
+        ..
+    } = registry_mut;
+    for (id, state) in encounters.iter_mut() {
+        let runtime_id = runtime_ids
             .get(id)
-            .cloned()
-            .unwrap_or_else(|| id.clone());
+            .map(String::as_str)
+            .unwrap_or(id.as_str());
         for (feature_id, mut feature) in &mut bosses {
             if feature_id.as_str() != runtime_id {
                 continue;
             }
             let boss = &mut feature.boss;
-            if let Some(profile) = profile_lookup.get(id) {
+            if let Some(profile) = profiles.get(id) {
                 boss.apply_behavior_profile(profile.behavior.clone());
             }
             if matches!(save.data().boss(id), ae::PersistedEncounterState::Cleared) {

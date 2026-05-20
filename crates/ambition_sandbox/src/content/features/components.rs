@@ -574,6 +574,12 @@ pub struct EnemyActorBundle {
     pub base: FeatureBaseBundle,
     pub identity: ActorIdentity,
     pub disposition: ActorDisposition,
+    /// Combat-side faction tag (`ActorFaction::Enemy` for encounter
+    /// mobs, `ActorFaction::Npc` for peaceful actors). Future
+    /// projectile-faction merge / multiplayer targeting will
+    /// dispatch on this rather than pattern-matching on
+    /// `ActorRuntime`. See OVERNIGHT-TODO #17.2 / #17.3.
+    pub faction: ActorFaction,
     pub health: ActorHealth,
     pub combat: ActorCombatState,
     pub intent: ActorIntent,

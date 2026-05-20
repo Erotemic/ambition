@@ -80,6 +80,7 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         FeatureAabb::from_center_size(boss.pos, boss.render_size()),
         BossPatternTimer(boss.pattern_timer),
         initial_phase,
+        super::ActorFaction::Boss,
         BossFeature::new(boss),
     ));
 }
@@ -154,6 +155,7 @@ fn spawn_enemy(
             base: FeatureBaseBundle::new(&authored.id, &authored.name, feature_aabb),
             identity,
             disposition,
+            faction: super::ActorFaction::Enemy,
             health,
             combat,
             intent,
@@ -186,6 +188,7 @@ fn spawn_interactable(
                 base: FeatureBaseBundle::new(&authored.id, &authored.name, feature_aabb),
                 identity,
                 disposition,
+                faction: super::ActorFaction::Npc,
                 health,
                 combat,
                 intent,
@@ -241,6 +244,7 @@ pub fn spawn_encounter_mob(
         FeatureAabb::from_center_size(pos, size),
         identity,
         disposition,
+        super::ActorFaction::Enemy,
         health,
         combat,
         intent,

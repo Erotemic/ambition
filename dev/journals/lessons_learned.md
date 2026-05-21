@@ -2,6 +2,20 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-05-21: Area-spec `world_x` can drift from the live LDtk; treat the live file as truth
+
+While building out the intro-v1 vertical slice (Task 02 reshape of `intro_escape_shaft`) the area spec `tools/ambition_ldtk_tools/specs/intro_escape_shaft_area.yaml` carried `world_x: 104000`, but the live `crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk` had `worldX: 2624`. Inspecting the other intro specs found the same drift across all five of them (`100000 / 102000 / 104000 / 106000 / 108000`), so a previous repo refactor had moved the intro levels in the live LDtk without re-applying the specs.
+
+If you re-apply such a drifted spec with `area create --replace-existing --ldtk intro.ldtk`, the tool obediently authors the level at the spec's stale coordinates and leaves a duplicate-or-misplaced level far away from the active intro strip. The runtime keeps using the original level by `level_id`, so the failure mode is silent: tests still pass, validation still passes, but the LDtk editor view looks weird and the next area-create on a different room produces overlap errors against the misplaced ghost.
+
+Rule: before `--replace-existing` on any historical spec, diff the spec's `world_x`/`world_y` against the live level (`python3 -c "import json,sys; d=json.load(open('...'))['levels']; print({l['identifier']:(l['worldX'],l['worldY']) for l in d})"`) and update the spec to match the live position first. The spec is the rebuildable source; the live LDtk is canon for layout state.
+
+Benchmark candidate: `dev/benchmark-candidates/ldtk-questions.md` is the place to file this — a distilled question along the lines of "before `area create --replace-existing` on a historical spec, what should you reconcile first?"
+
+Adjacent gotcha discovered in the same session: `doctor` did not forward `--secondary-world`, so it false-positives on cross-world LoadingZones (e.g. intro.ldtk's two zones into `central_hub_complex`). Fixed in the same commit run. The general rule is: `doctor` delegates raw `rest` args to both `roundtrip` and `validate`; any `validate`-only flag has to be teachable to `roundtrip` as a pass-through to keep `doctor` viable.
+
+Adjacent tooling gap discovered: `tileset add-layer` errored out instead of being idempotent when the layer def already existed. That blocked recovery from `area create --replace-existing` for levels with a Tiles layer (the replacement dropped the per-level instance). Fixed by making the def-exists path call the existing `add_empty_layer_instance_to_levels` backfill. Rule: tooling that emits per-level instances should always be idempotent so `--replace-existing` is recoverable without manual JSON edits.
+
 ## 2026-05-11: Movement split broke extension-trait scope and `Self: Sized` assumptions
 
 A movement refactor split [`crates/ambition_engine/src/movement.rs`](../../crates/ambition_engine/src/movement.rs) into child modules and changed AABB sweeps from returning only `time_of_impact` to returning an `AabbSweepHit` with Parry's contact normal. The patch looked mechanically reasonable but failed immediately when the user ran the suggested checks.

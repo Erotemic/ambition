@@ -1151,20 +1151,39 @@ pub fn prev_display_mode(current: DisplayModeKind) -> DisplayModeKind {
 /// Apply a `DisplayModeKind` to the primary window. Shared between the
 /// settings menu and `crate::host::windowing::window_mode_hotkeys` so both
 /// surfaces produce the same `WindowMode` mapping.
+///
+/// On wasm the underlying `winit` window-mode transitions are either
+/// no-ops or require a user gesture to satisfy the browser fullscreen
+/// API; cycling the setting via menu Confirm has been observed to lose
+/// the canvas's keyboard focus and produce an "input doesn't work"
+/// state. Short-circuit on wasm: update the menu state but don't touch
+/// `window.mode` — the canvas stays in its current display mode and
+/// keyboard focus is preserved.
 pub fn apply_display_mode(
     mode: DisplayModeKind,
     state: &mut DisplayModeState,
     windows: &mut Query<&mut Window, With<PrimaryWindow>>,
 ) {
-    let Ok(mut window) = windows.single_mut() else {
-        return;
-    };
-    window.mode = match mode {
-        DisplayModeKind::Windowed => WindowMode::Windowed,
-        DisplayModeKind::Borderless => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
-        DisplayModeKind::Fullscreen => {
-            WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current)
-        }
-    };
     state.mode = mode;
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Don't poke `winit`'s WindowMode on wasm; tracking only.
+        let _ = windows;
+        return;
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let Ok(mut window) = windows.single_mut() else {
+            return;
+        };
+        window.mode = match mode {
+            DisplayModeKind::Windowed => WindowMode::Windowed,
+            DisplayModeKind::Borderless => {
+                WindowMode::BorderlessFullscreen(MonitorSelection::Current)
+            }
+            DisplayModeKind::Fullscreen => {
+                WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current)
+            }
+        };
+    }
 }

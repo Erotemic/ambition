@@ -18,6 +18,7 @@
 
 use bevy::prelude::*;
 
+use crate::app::SandboxSet;
 use crate::assets::game_assets::{GameAssetConfig, GameAssets};
 use crate::content::banter::CombatBanterRegistry;
 use crate::presentation::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
@@ -97,8 +98,18 @@ impl Plugin for IntroPlugin {
                     install_intro_gated_zones_system,
                     super::route_state::emit_intro_flag_chains,
                     super::route_state::sync_intro_flag_gated_lock_walls,
-                    super::route_state::redirect_post_intro_dialog,
                 ),
+            )
+            // Mirror the pirate-cove `redirect_post_quest_dialog`
+            // ordering: the dialog-mode swap has to run AFTER the
+            // simulation tick (so this frame's bus effects have
+            // landed in save) and BEFORE the dialog UI sync (so the
+            // UI reads the swapped mode this frame, not next).
+            .add_systems(
+                Update,
+                super::route_state::redirect_post_intro_dialog
+                    .after(SandboxSet::CoreSimulation)
+                    .before(crate::dialog::sync_dialog_ui),
             );
     }
 }

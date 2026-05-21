@@ -26,7 +26,7 @@ spec:
   neck_h: 2.0
   head_anchor: 0.5
   neck_w: 5.5
-  back_hair_w_extra: 6.0
+  back_hair_w_extra: 4.0
   back_hair_h_extra: 14.0
   bangs_h: 3.6
   curtain_drop: 14.0

@@ -74,8 +74,13 @@ def _scale_color(color: Color, factor: float) -> Color:
 # ── Palette ──────────────────────────────────────────────────────────────────
 
 BOB_PALETTE: Dict[str, Color] = {
-    "skin":         rgba("#D8AF8F"),
-    "skin_shadow":  rgba("#A88567"),
+    # Deeper warm-olive skin so Bob reads as distinctly different
+    # from Alice's lighter peach (#E5C5A6) and Trent's mid-tan
+    # (#C9A78B). The skin_shadow uses the same hue rotated darker
+    # so the 5 o'clock stubble has obvious contrast against the
+    # face without going purple-grey.
+    "skin":         rgba("#B58968"),
+    "skin_shadow":  rgba("#7E5A3C"),
     "hair":         rgba("#3D2B22"),
     "hair_shine":   rgba("#6A4B3A"),
     # Workshop vest — warm tan over a slate-blue tee.
@@ -529,16 +534,29 @@ class BobEngineerGenerator:
         outline = pal["outline"]
         # 1. Neck strip — chin will overlap the top of it.
         self._draw_neck(d, c, spec, pal, S, slant=+0.5)
-        # 2. Back hair mass.
-        d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + 4.0) * S, (spec.head_h * 0.80 + 2.0) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)))
+        # 2. Back hair mass. Was offset to (c[0]-1, c[1]-4) which
+        # made the silhouette asymmetric and left the camera-right
+        # side of the head with visible "bald edge" between face and
+        # bangs. Now centered on c[0] with a taller envelope so it
+        # wraps the skull and meets the bangs without a visible seam.
+        d.ellipse(
+            _bbox((c[0] + 0.5 * S, c[1] - 3.0 * S), (spec.head_w + 6.0) * S, (spec.head_h * 0.92) * S),
+            fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)),
+        )
         # 3. Face oval.
         d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
-        # Five o'clock shadow: covers the lower jaw + mouth area,
-        # drawn BEFORE the mouth so the mouth line stays visible on
-        # top of the stubble tint. Was a small chin ellipse at y=0.20
-        # with jaw_h*1.4 height; now centered on the mouth at y=0.30
-        # with jaw_h*2.4 height so it reads as actual stubble.
-        d.ellipse(_bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.30 * S), (spec.head_w * 0.74) * S, (spec.jaw_h * 2.4) * S), fill=pal["skin_shadow"], outline=None)
+        # Five o'clock shadow: a FLATTER ellipse following the jaw
+        # line instead of the previous near-circular blob. Was
+        # head_w*0.74 wide × jaw_h*2.4 tall (≈19×14 — basically a
+        # circle pooling on the chin). New shape is wider + much
+        # flatter (head_w*0.78 × jaw_h*1.4 ≈ 20×8) and centered
+        # lower so it traces the underside of the jaw rather than
+        # the cheeks. Drawn before the mouth so the mouth line still
+        # reads through the stubble.
+        d.ellipse(
+            _bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.34 * S), (spec.head_w * 0.78) * S, (spec.jaw_h * 1.4) * S),
+            fill=pal["skin_shadow"], outline=None,
+        )
         # Tousled-crop bangs — tightened to two cleaner clumps that
         # don't fight the eyes below. Previous version had a
         # randomish "+/- (3 + sign * 4)" geometry that looked noisy

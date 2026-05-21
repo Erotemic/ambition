@@ -137,8 +137,11 @@ class AliceSpec:
     neck_h: float = 2.0
     head_anchor: float = 0.50
     neck_w: float = 5.5
-    # Hair — long-haired silhouette is the dominant cue.
-    back_hair_w_extra: float = 6.0  # how much wider than the head
+    # Hair — long-haired silhouette is the dominant cue. Trimmed
+    # `back_hair_w_extra` from 6 → 4 so the face has more visual
+    # weight relative to the hair envelope (it was reading as
+    # "small face peeking out of a hood").
+    back_hair_w_extra: float = 4.0
     back_hair_h_extra: float = 14.0  # how much it extends past the chin
     bangs_h: float = 3.6      # was 5.0 — was reading as a heavy visor
     curtain_drop: float = 14.0       # how far cheek curtains hang past the jaw
@@ -557,29 +560,40 @@ class AliceCryptographerGenerator:
         )
         # 3. Side hair curtains BEFORE the face. They start outside
         # the face (head_w * 0.50) and only their lower-outer halves
-        # show — the face oval cleanly crops the inner part.
+        # show — the face oval cleanly crops the inner part. The
+        # previous shape had sharp polygon corners that read as
+        # triangular hangs; the new vertex set adds an intermediate
+        # bulge so each curtain reads as a softer cascade.
         for sign in (-1, 1):
             curtain = [
-                (c[0] + sign * spec.head_w * 0.50 * S, c[1] - spec.head_h * 0.28 * S),
-                (c[0] + sign * (spec.head_w * 0.56) * S, c[1] + spec.head_h * 0.04 * S),
-                (c[0] + sign * (spec.head_w * 0.48) * S, c[1] + (spec.head_h * 0.40 + spec.curtain_drop * 0.5) * S),
-                (c[0] + sign * (spec.head_w * 0.34) * S, c[1] + (spec.head_h * 0.30 + spec.curtain_drop * 0.4) * S),
-                (c[0] + sign * (spec.head_w * 0.30) * S, c[1] + spec.head_h * 0.06 * S),
+                (c[0] + sign * spec.head_w * 0.50 * S, c[1] - spec.head_h * 0.22 * S),
+                (c[0] + sign * (spec.head_w * 0.58) * S, c[1] + spec.head_h * 0.06 * S),
+                (c[0] + sign * (spec.head_w * 0.54) * S, c[1] + (spec.head_h * 0.26 + spec.curtain_drop * 0.3) * S),
+                (c[0] + sign * (spec.head_w * 0.42) * S, c[1] + (spec.head_h * 0.40 + spec.curtain_drop * 0.5) * S),
+                (c[0] + sign * (spec.head_w * 0.28) * S, c[1] + (spec.head_h * 0.32 + spec.curtain_drop * 0.4) * S),
+                (c[0] + sign * (spec.head_w * 0.24) * S, c[1] + spec.head_h * 0.10 * S),
             ]
             d.polygon(curtain, fill=pal["hair"], outline=outline)
         # 4. Face oval — drawn AFTER curtains so the cheeks stay
         # uncovered. This is the z-order fix.
         d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
         # 5. Bangs — across the forehead, drawn over the face top.
-        bangs_top = c[1] - spec.head_h * 0.48 * S
+        # Outer corners pulled INSIDE the head_w envelope (was 0.50,
+        # now 0.42) and slightly lower so they tuck under the back
+        # hair top edge instead of poking up past it as the two
+        # pointy "horns" the previous revision had. Top edge slopes
+        # gently from outer to outer for a softer arc.
+        bangs_top = c[1] - spec.head_h * 0.42 * S
         bangs_bot = bangs_top + spec.bangs_h * S
         d.polygon([
-            (c[0] - spec.head_w * 0.50 * S, bangs_top),
-            (c[0] + spec.head_w * 0.50 * S, bangs_top - 1.0 * S),
-            (c[0] + spec.head_w * 0.46 * S, bangs_bot),
+            (c[0] - spec.head_w * 0.42 * S, bangs_top + 0.5 * S),
+            (c[0] - spec.head_w * 0.20 * S, bangs_top - 0.6 * S),
+            (c[0] + spec.head_w * 0.22 * S, bangs_top - 0.6 * S),
+            (c[0] + spec.head_w * 0.42 * S, bangs_top + 0.5 * S),
+            (c[0] + spec.head_w * 0.38 * S, bangs_bot),
             (c[0] + spec.head_w * 0.04 * S, bangs_bot - 1.0 * S),
             (c[0] - spec.head_w * 0.10 * S, bangs_bot),
-            (c[0] - spec.head_w * 0.46 * S, bangs_bot - 1.0 * S),
+            (c[0] - spec.head_w * 0.38 * S, bangs_bot - 1.0 * S),
         ], fill=pal["hair"], outline=outline)
         # Tiny skin sliver between the two bang clumps.
         d.line(

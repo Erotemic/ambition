@@ -116,13 +116,26 @@ entities:
       category: Custom
 
   # --- Tutorial pocket: one slow patrol enemy in a fenced area
-  # (single floor block makes the pocket read as a pen).
+  # (single floor block makes the pocket read as a pen). The
+  # `Patrol:lab_patrol_line` brain references the KinematicPath
+  # entity below: enemies with a Patrol brain look up their named
+  # path in the level's `KinematicPath` table and walk its points
+  # at the path's speed.
   - type: EnemySpawn
     px: [400, 688]
     size: [32, 48]
     fields:
       name: lab_patrol_dummy
       brain: Patrol:lab_patrol_line
+  - type: KinematicPath
+    px: [200, 716]
+    size: [400, 8]
+    fields:
+      id: lab_patrol_line
+      name: lab_patrol_line
+      points: "256,712;528,712"
+      speed: 85
+      mode: PingPong
   - type: DebugLabel
     px: [336, 664]
     size: [240, 24]

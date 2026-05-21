@@ -172,6 +172,21 @@ entities:
       prompt: Talk
       dialogue_id: pirate_lookout
       patrol_radius: 0
+  # Lady pirate — Navigator. Relocated from `pirate_sky_lookout` to
+  # the cove because the player needs the orbit-pattern briefing
+  # BEFORE the climb, not after. Placed on the right-lookout ledge
+  # (top y=320, spans x=720..912) directly next to the
+  # `pirate_cove_sky_hatch` door zone (x=768..816, y=224..320) — so
+  # she stands on the ledge surface (NPC bottom = 250+70 = 320,
+  # which is the ledge top) immediately right of the hatch.
+  - type: NpcSpawn
+    px: [830, 250]
+    size: [42, 70]
+    fields:
+      name: Pirate Navigator
+      prompt: Talk
+      dialogue_id: pirate_navigator
+      patrol_radius: 0
 
   # Sky-lookout ascent door — the player jumps onto the right
   # lookout ledge and presses Interact at the hatch in the ceiling

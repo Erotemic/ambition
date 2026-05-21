@@ -134,20 +134,25 @@ pub struct ChoreographyState {
     /// produce visually distinct trajectories. Zero is treated as
     /// "no seed set" (legacy behaviour, all actors in lockstep).
     pub seed: u32,
-    /// Sign multiplier on aerial orbit_speed. `+1.0` = clockwise
-    /// (default), `-1.0` = counter-clockwise. Periodically flipped
-    /// by [`evaluate_aerial_orbit`] so two same-role orbiters can't
-    /// stay locked at the same separation — they "double back" on
-    /// staggered timers and break any incidental clump. `0.0` is
-    /// the uninitialized sentinel; the evaluator promotes it to
-    /// `+1.0` on first tick.
-    pub orbit_direction: f32,
-    /// Seconds remaining until the next `orbit_direction` flip.
-    /// Counts down each aerial tick; at `<= 0` the evaluator flips
-    /// the sign and reseeds the timer to ~`AERIAL_REVERSE_PERIOD`
-    /// seconds with seed-driven jitter. `0.0` sentinel triggers the
-    /// initial seeded interval on first tick.
-    pub orbit_reverse_timer: f32,
+    /// Seconds until the next aerial-orbit "retreat" begins. Counts
+    /// down each aerial tick while the actor is orbiting normally.
+    /// At `<= 0` a fresh retreat fires — the actor picks a random
+    /// heading (see `aerial_retreat_heading`) and flies away from
+    /// the slot for `aerial_retreat_timer` seconds, then returns
+    /// to the orbit. `0.0` sentinel promotes to a seeded initial
+    /// cooldown on first tick so adjacent actors don't retreat in
+    /// lockstep.
+    pub aerial_retreat_cooldown: f32,
+    /// Seconds remaining in the current retreat. `> 0` = the actor
+    /// is steering toward an off-slot retreat point (no fire, no
+    /// orbit wobble). `== 0` = orbiting normally. Decremented each
+    /// tick during retreat; on exit the cooldown is re-seeded.
+    pub aerial_retreat_timer: f32,
+    /// Heading angle (radians, world frame) of the current retreat.
+    /// Set when retreat begins; combined with the
+    /// `AERIAL_RETREAT_DISTANCE` constant to derive the absolute
+    /// retreat point as `slot + distance * (cos, sin)`.
+    pub aerial_retreat_heading: f32,
 }
 
 /// Stable, allocation-free 32-bit hash of an actor id. Used so a
@@ -287,10 +292,20 @@ fn apply_neighbor_spread(target: Vec2, actor: Vec2, neighbor: Option<Vec2>) -> V
 const MELEE_ENGAGE_DISTANCE: f32 = 56.0;
 const VOLLEY_ENGAGE_DISTANCE: f32 = 24.0;
 const AERIAL_ENGAGE_DISTANCE: f32 = 32.0;
-/// Base interval between aerial-orbit direction reversals
-/// ("double-back"). Seed-derived jitter of ±30% layers on top so
-/// two same-seed actors never reverse on identical cycles.
-const AERIAL_REVERSE_PERIOD: f32 = 3.5;
+/// Base interval between aerial "retreats". Seed-derived jitter of
+/// ±30% layers on top so adjacent actors never retreat on the same
+/// frame. After a retreat ends, this interval is rolled again
+/// before the next one fires.
+const AERIAL_RETREAT_COOLDOWN: f32 = 4.0;
+/// Base duration of an aerial retreat (the "fly away in a random
+/// direction" window). Seed-derived jitter of ±20% layers on top so
+/// retreats don't snap back at the same beat.
+const AERIAL_RETREAT_DURATION: f32 = 2.5;
+/// World-frame distance from the assigned slot the actor steers
+/// toward during a retreat. Picked large enough that the retreat
+/// reads as "the shark flew off into the sky" rather than "the
+/// shark wobbled".
+const AERIAL_RETREAT_DISTANCE: f32 = 360.0;
 
 /// Pure evaluator: read the current actor snapshot + state, advance
 /// `state` in place, return the [`ChoreographyTick`].
@@ -482,29 +497,44 @@ fn evaluate_aerial_orbit(
     fire_interval: f32,
     projectile_speed: f32,
 ) -> ChoreographyTick {
-    // Initialize / advance the "double-back" direction. Uninitialized
-    // state (`orbit_direction == 0.0`, the Default sentinel) is
-    // promoted to `+1.0` on first tick and the reverse timer is
-    // seeded to a per-actor offset so adjacent sharks don't reverse
-    // on the same frame. Subsequent ticks decrement the timer; at
-    // <= 0 we flip the direction sign and reseed the timer.
-    if state.orbit_direction == 0.0 {
-        state.orbit_direction = 1.0;
-        // Stagger initial reversal across actors with a ±30% jitter
-        // band centered on AERIAL_REVERSE_PERIOD.
+    // Initialize the retreat cooldown on first tick (Default
+    // sentinel = 0.0). Seeded jitter staggers initial retreats so
+    // adjacent actors don't fly off at the same beat.
+    if state.aerial_retreat_cooldown == 0.0 && state.aerial_retreat_timer == 0.0 {
         let jitter = 1.0 + 0.30 * seed_jitter_unit(state.seed);
-        state.orbit_reverse_timer = AERIAL_REVERSE_PERIOD * jitter.max(0.40);
-    } else {
-        state.orbit_reverse_timer -= dt;
-        if state.orbit_reverse_timer <= 0.0 {
-            state.orbit_direction = -state.orbit_direction;
+        state.aerial_retreat_cooldown = AERIAL_RETREAT_COOLDOWN * jitter.max(0.40);
+    }
+
+    let in_retreat_at_tick_start = state.aerial_retreat_timer > 0.0;
+    if in_retreat_at_tick_start {
+        // Drain the retreat timer. When it hits 0, roll a fresh
+        // cooldown so the next retreat fires after a beat of normal
+        // orbiting. The retreat heading is left in place; it gets
+        // overwritten when the next retreat starts.
+        state.aerial_retreat_timer = (state.aerial_retreat_timer - dt).max(0.0);
+        if state.aerial_retreat_timer == 0.0 {
             let jitter = 1.0 + 0.30 * seed_jitter_unit(state.seed);
-            state.orbit_reverse_timer = AERIAL_REVERSE_PERIOD * jitter.max(0.40);
+            state.aerial_retreat_cooldown = AERIAL_RETREAT_COOLDOWN * jitter.max(0.40);
+        }
+    } else {
+        // Orbit normally; tick down toward the next retreat.
+        state.aerial_retreat_cooldown -= dt;
+        if state.aerial_retreat_cooldown <= 0.0 {
+            // Start a new retreat. Heading derives from the current
+            // orbit_phase (continuously advancing) so successive
+            // retreats from the same actor pick different headings
+            // without needing a separate counter. seed-jitter folds
+            // in for cross-actor variety.
+            let heading = state.orbit_phase
+                + seed_jitter_unit(state.seed) * std::f32::consts::PI
+                + std::f32::consts::FRAC_PI_2;
+            state.aerial_retreat_heading = heading.rem_euclid(std::f32::consts::TAU);
+            let duration_jitter = 1.0 + 0.20 * seed_jitter_unit(state.seed);
+            state.aerial_retreat_timer = AERIAL_RETREAT_DURATION * duration_jitter.max(0.50);
+            state.aerial_retreat_cooldown = 0.0;
         }
     }
-    let signed_orbit_speed = orbit_speed * state.orbit_direction;
-    state.orbit_phase =
-        (state.orbit_phase + signed_orbit_speed * dt).rem_euclid(std::f32::consts::TAU);
+    state.orbit_phase = (state.orbit_phase + orbit_speed * dt).rem_euclid(std::f32::consts::TAU);
 
     // Per-actor variation derived from the stable seed. Three roles
     // (Hover / Swoop / Retreat) give visually distinct readings;
@@ -574,6 +604,30 @@ fn evaluate_aerial_orbit(
         }
     }
 
+    // Retreat override: while the retreat timer is non-zero, the
+    // actor steers toward an off-slot point in the direction of
+    // `aerial_retreat_heading`. This wins over the role-specific
+    // engage_pos so a retreating Hover or Retreat actually leaves
+    // combat range instead of just wobbling. Swoop retreats also
+    // abort their dive — the retreat heading takes priority.
+    let retreating = state.aerial_retreat_timer > 0.0;
+    if retreating {
+        let cos_h = state.aerial_retreat_heading.cos();
+        let sin_h = state.aerial_retreat_heading.sin();
+        engage_pos = Vec2::new(
+            input.assigned_slot_pos.x + cos_h * AERIAL_RETREAT_DISTANCE,
+            input.assigned_slot_pos.y + sin_h * AERIAL_RETREAT_DISTANCE,
+        );
+        // Ensure Swoop logic doesn't tug back on the next tick — we
+        // forcibly leave Swoop's Engage/Recover state machine in
+        // Approach so it can re-enter naturally after the retreat
+        // ends.
+        if role == AerialRole::Swoop {
+            state.phase = ChoreographyPhase::Approach;
+            state.phase_timer = 0.0;
+        }
+    }
+
     // Neighbor-aware spread: push away from the nearest aerial
     // neighbor if it's inside personal-space radius. Layered on
     // AFTER the role-specific engage_pos so a swoop still moves
@@ -586,7 +640,13 @@ fn evaluate_aerial_orbit(
 
     let effective_fire_interval = (fire_interval * fire_scale * cadence_jitter).max(0.2);
     let mut action = None;
-    if in_position && state.has_slot && role != AerialRole::Swoop {
+    if retreating {
+        // Retreating actors do not fire — they're disengaging.
+        // Holding the cooldown at the role's interval keeps the
+        // first post-retreat shot from snapping immediately.
+        state.phase = ChoreographyPhase::Approach;
+        state.phase_timer = effective_fire_interval.max(state.phase_timer);
+    } else if in_position && state.has_slot && role != AerialRole::Swoop {
         // Hover / Retreat fire on cadence when in position.
         if state.phase_timer <= 0.0 {
             let dir = (input.target_pos - input.actor_pos).normalize_or(Vec2::new(face_x, 1.0));
@@ -946,12 +1006,13 @@ mod tests {
     }
 
     #[test]
-    fn aerial_orbit_direction_flips_on_reverse_timer() {
+    fn aerial_orbit_retreat_steers_far_from_slot() {
         // Drive the orbit eval long enough to trigger at least one
-        // direction flip; orbit_phase should momentarily decrease
-        // when direction goes negative. Verify orbit_direction toggles
-        // and that the sandbox-visible orbit_phase moves backward
-        // (rather than only forward) when direction is negative.
+        // retreat. During retreat, the steering target must be
+        // substantially farther from the slot than the normal orbit
+        // wobble (which is bounded by `wobble_x + wobble_y` ≈
+        // ~60 + 25 px on the slot ellipse). The retreat distance is
+        // hundreds of pixels.
         let choreography = AttackChoreography::AerialOrbitAndFire {
             altitude: 160.0,
             radius: 220.0,
@@ -960,7 +1021,7 @@ mod tests {
             projectile_speed: 380.0,
         };
         let mut state = ChoreographyState {
-            seed: seed_from_id("reverse_test"),
+            seed: seed_from_id("retreat_test"),
             has_slot: true,
             ..Default::default()
         };
@@ -968,15 +1029,13 @@ mod tests {
         let slot = Vec2::new(0.0, -160.0);
         let dt = 1.0 / 60.0;
 
-        // Capture orbit_phase samples while feeding ticks until we
-        // see direction flip from +1 to -1.
-        let mut saw_negative_direction = false;
-        let mut phase_at_flip = 0.0;
+        // Find the first frame where retreat_timer is set.
+        let mut max_dist_during_retreat = 0.0_f32;
+        let mut saw_retreat = false;
         let mut elapsed = 0.0_f32;
-        let cap = 15.0; // seconds — much larger than AERIAL_REVERSE_PERIOD
+        let cap = 15.0; // larger than AERIAL_RETREAT_COOLDOWN
         while elapsed < cap {
-            let prev_direction = state.orbit_direction;
-            evaluate_choreography(
+            let tick = evaluate_choreography(
                 choreography,
                 &mut state,
                 ChoreographyInput {
@@ -987,56 +1046,77 @@ mod tests {
                     nearest_neighbor: None,
                 },
             );
-            if prev_direction > 0.0 && state.orbit_direction < 0.0 {
-                saw_negative_direction = true;
-                phase_at_flip = state.orbit_phase;
-                break;
+            if state.aerial_retreat_timer > 0.0 {
+                saw_retreat = true;
+                let dist = (tick.steering_target - slot).length();
+                max_dist_during_retreat = max_dist_during_retreat.max(dist);
             }
             elapsed += dt;
         }
         assert!(
-            saw_negative_direction,
-            "orbit_direction never flipped to -1 within {cap}s (still {})",
-            state.orbit_direction
+            saw_retreat,
+            "retreat never fired within {cap}s; cooldown={}",
+            state.aerial_retreat_cooldown
         );
-
-        // Next tick after the flip must DECREASE orbit_phase
-        // (modulo TAU), proving the reversal actually steers the
-        // orbit backward and not just toggles a dead flag.
-        evaluate_choreography(
-            choreography,
-            &mut state,
-            ChoreographyInput {
-                actor_pos: slot,
-                target_pos: target,
-                assigned_slot_pos: slot,
-                dt,
-                nearest_neighbor: None,
-            },
-        );
-        // rem_euclid keeps phase in [0, TAU); the difference modulo
-        // TAU should be small negative (or near TAU if we wrapped).
-        let diff = state.orbit_phase - phase_at_flip;
-        let wrapped = (diff + std::f32::consts::TAU) % std::f32::consts::TAU;
-        // A clockwise tick at +0.9 rad/s for 1/60s advances ~0.015 rad
-        // forward. A reverse tick decreases by the same; in mod-TAU
-        // that surfaces as ~TAU - 0.015 ≈ 6.27.
         assert!(
-            wrapped > std::f32::consts::PI,
-            "after direction flip, orbit_phase should move backward; \
-             got diff={diff}, wrapped={wrapped} (phase_at_flip={phase_at_flip}, \
-             new phase={})",
-            state.orbit_phase
+            max_dist_during_retreat > 200.0,
+            "during retreat, steering target should be hundreds of px \
+             from the slot — got max {} px",
+            max_dist_during_retreat
         );
     }
 
     #[test]
-    fn aerial_orbit_double_back_staggers_across_seeds() {
-        // Two actors with different seeds should NOT reverse on the
-        // same frame — that's the whole point of the seeded jitter
-        // on the reverse timer. Run both for several reversal cycles
-        // and check at least one tick has actor_a reversed while
-        // actor_b is still forward (or vice versa).
+    fn aerial_orbit_retreat_suppresses_fire() {
+        // While the retreat timer is active, the choreography must
+        // not emit a FireProjectile action — the actor is fleeing,
+        // not shooting.
+        let choreography = AttackChoreography::AerialOrbitAndFire {
+            altitude: 160.0,
+            radius: 220.0,
+            orbit_speed: 0.9,
+            fire_interval: 1.4,
+            projectile_speed: 380.0,
+        };
+        // Force the actor into retreat immediately by pre-loading
+        // the retreat timer past the cooldown trigger.
+        let mut state = ChoreographyState {
+            seed: seed_from_id("retreat_no_fire"),
+            has_slot: true,
+            aerial_retreat_timer: 1.0,
+            aerial_retreat_heading: 0.0,
+            phase_timer: 0.0, // ordinarily ready to fire
+            ..Default::default()
+        };
+        let target = Vec2::new(0.0, 0.0);
+        // Place actor right at the target so without the retreat
+        // gate it WOULD fire immediately (in-position + slot + timer=0).
+        let actor_pos = Vec2::new(0.0, -160.0);
+        let tick = evaluate_choreography(
+            choreography,
+            &mut state,
+            ChoreographyInput {
+                actor_pos,
+                target_pos: target,
+                assigned_slot_pos: actor_pos,
+                dt: 1.0 / 60.0,
+                nearest_neighbor: None,
+            },
+        );
+        assert!(
+            !matches!(tick.action, Some(ChoreographyAction::FireProjectile { .. })),
+            "retreating actor should NOT fire; got {:?}",
+            tick.action
+        );
+    }
+
+    #[test]
+    fn aerial_orbit_retreat_staggers_across_seeds() {
+        // Two actors with different seeds should NOT enter retreat
+        // on the same frame — that's the whole point of seeded
+        // jitter on the cooldown. Run both for several cycles and
+        // check at least one tick has actor_a retreating while
+        // actor_b is orbiting (or vice versa).
         let choreography = AttackChoreography::AerialOrbitAndFire {
             altitude: 160.0,
             radius: 220.0,
@@ -1068,15 +1148,17 @@ mod tests {
             };
             evaluate_choreography(choreography, &mut a, input);
             evaluate_choreography(choreography, &mut b, input);
-            if a.orbit_direction * b.orbit_direction < 0.0 {
+            let a_retreat = a.aerial_retreat_timer > 0.0;
+            let b_retreat = b.aerial_retreat_timer > 0.0;
+            if a_retreat ^ b_retreat {
                 saw_desync = true;
                 break;
             }
         }
         assert!(
             saw_desync,
-            "two seeded actors never desync'd their orbit direction; \
-             the staggered reverse-timer jitter isn't doing its job"
+            "two seeded actors never desync'd their retreat windows; \
+             the staggered cooldown jitter isn't doing its job"
         );
     }
 

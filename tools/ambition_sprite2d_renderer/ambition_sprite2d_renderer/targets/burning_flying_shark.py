@@ -121,12 +121,12 @@ def _draw_shark(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     if anim == "chomp":
         mouth_open = max(mouth_open, 0.18 + 0.82 * math.sin(t * math.pi))
 
-    # Air-shadow / ember cloud.
-    shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shadow, "RGBA")
-    sd.ellipse(_box(42, 84 + bob * 0.35, 137, 98 + bob * 0.35), fill=(0, 0, 0, 54))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=5.0))
-    img.alpha_composite(shadow)
+    # Drop shadow intentionally omitted — the shark is airborne;
+    # an under-body ground shadow reads as a grounded prop and the
+    # arena lighting doesn't justify it. (Previous revisions added
+    # an "ember cloud" ellipse here for visual weight; removed at
+    # the user's request because it implied a floor that isn't
+    # there.)
 
     # Body proportions.
     cx = 88.0

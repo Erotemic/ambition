@@ -232,4 +232,76 @@ mod tests {
             );
         }
     }
+
+    /// Setting `bob_field_survey_received` should cause the
+    /// emit_intro_flag_chains system to write
+    /// `map_private_marks_unlocked` to save via the bus.
+    #[test]
+    fn emit_chains_promotes_bob_survey_to_private_marks() {
+        use bevy::app::{App, Update};
+        use crate::content::features::apply_flag_effects;
+        use crate::content::quest::QuestRegistry;
+        use crate::features::GameplayEffect;
+        use crate::persistence::save::SandboxSave;
+
+        let mut app = App::new();
+        app.insert_resource(SandboxSave::default());
+        app.insert_resource(QuestRegistry::default());
+        app.add_message::<GameplayEffect>();
+        app.add_systems(
+            Update,
+            (super::emit_intro_flag_chains, apply_flag_effects).chain(),
+        );
+
+        // Pre-condition: trigger flag set, target flag clear.
+        app.world_mut()
+            .resource_mut::<SandboxSave>()
+            .data_mut()
+            .set_flag("bob_field_survey_received", true);
+
+        // First tick: emit_intro_flag_chains writes a SetFlag effect
+        // for `map_private_marks_unlocked`; apply_flag_effects reads
+        // it the same frame because of `.chain()` ordering.
+        app.update();
+
+        let save = app.world().resource::<SandboxSave>();
+        assert!(
+            save.data().flag("map_private_marks_unlocked"),
+            "chained flag should be set after one update"
+        );
+        // Idempotency: a second tick must not emit a redundant SetFlag.
+        app.update();
+        let save = app.world().resource::<SandboxSave>();
+        assert!(save.data().flag("map_private_marks_unlocked"));
+    }
+
+    /// Setting `intro_p5_route_memory_received` should chain to
+    /// `route_memory_received` and quest steps watching the target
+    /// flag should see the FlagSet event through apply_flag_effects.
+    #[test]
+    fn emit_chains_promotes_p5_to_route_memory() {
+        use bevy::app::{App, Update};
+        use crate::content::features::apply_flag_effects;
+        use crate::content::quest::QuestRegistry;
+        use crate::features::GameplayEffect;
+        use crate::persistence::save::SandboxSave;
+
+        let mut app = App::new();
+        app.insert_resource(SandboxSave::default());
+        app.insert_resource(QuestRegistry::default());
+        app.add_message::<GameplayEffect>();
+        app.add_systems(
+            Update,
+            (super::emit_intro_flag_chains, apply_flag_effects).chain(),
+        );
+
+        app.world_mut()
+            .resource_mut::<SandboxSave>()
+            .data_mut()
+            .set_flag("intro_p5_route_memory_received", true);
+        app.update();
+
+        let save = app.world().resource::<SandboxSave>();
+        assert!(save.data().flag("route_memory_received"));
+    }
 }

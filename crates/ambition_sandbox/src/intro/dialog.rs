@@ -18,7 +18,7 @@ use crate::dialog::{DialogChoice, DialogNode};
 /// Identifier for an intro-specific conversation. Selected by string
 /// dialogue id in [`from_dialogue_id`]; pulled from the LDtk
 /// `NpcSpawn.dialogue_id` field on intro entities.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IntroDialog {
     /// Creator's wake-room dialogue. Short — control handoff lives in
     /// gameplay, not in a long talking head.

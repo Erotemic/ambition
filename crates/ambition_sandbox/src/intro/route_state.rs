@@ -94,11 +94,31 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
     ("gate_alice_private_lock", "bob_field_survey_received"),
 ];
 
+/// Data table for [`redirect_post_intro_dialog`]: each entry is
+/// `(pre_state, gate_flag, post_state)`. The redirector swaps a
+/// player's active dialog from the pre-state to the post-state once
+/// the gate flag is set in save. Generalized out of the original
+/// three-arm match so adding a fourth NPC swap is a one-row edit.
+pub const INTRO_DIALOG_REDIRECTS: &[(
+    crate::intro::dialog::IntroDialog,
+    &str,
+    crate::intro::dialog::IntroDialog,
+)] = {
+    use crate::intro::dialog::IntroDialog::*;
+    &[
+        (OilerIntro, "p1_stabilizer_received", OilerPostStabilizer),
+        (AliceIntroStub, "bob_field_survey_received", AliceAfterBobSurvey),
+        (BobIntroStub, "alice_route_note_reported", BobAfterReport),
+    ]
+};
+
 /// Per-frame dialog redirector. Mirrors the pirate-cove pattern
 /// (`dialog::redirect_post_quest_dialog`) but for intro NPCs whose
 /// post-state lines are swapped in based on save flags rather than
-/// boss death. Wired into `IntroPlugin::build` to run alongside the
-/// flag-chain and lock-wall syncs.
+/// boss death. Walks [`INTRO_DIALOG_REDIRECTS`] each frame; the
+/// table cost is O(redirects) and stays a handful of rows. Wired
+/// into `IntroPlugin::build` to run alongside the flag-chain and
+/// lock-wall syncs.
 pub fn redirect_post_intro_dialog(
     mut dialogue: ResMut<crate::dialog::DialogState>,
     save: Option<Res<crate::persistence::save::SandboxSave>>,
@@ -109,25 +129,14 @@ pub fn redirect_post_intro_dialog(
     let Some(save) = save else { return };
     let data = save.data();
     use crate::dialog::DialogMode;
-    use crate::intro::dialog::IntroDialog;
-    let new_intro = match dialogue.mode() {
-        DialogMode::Intro(IntroDialog::OilerIntro) if data.flag("p1_stabilizer_received") => {
-            Some(IntroDialog::OilerPostStabilizer)
-        }
-        DialogMode::Intro(IntroDialog::AliceIntroStub)
-            if data.flag("bob_field_survey_received") =>
-        {
-            Some(IntroDialog::AliceAfterBobSurvey)
-        }
-        DialogMode::Intro(IntroDialog::BobIntroStub)
-            if data.flag("alice_route_note_reported") =>
-        {
-            Some(IntroDialog::BobAfterReport)
-        }
-        _ => None,
+    let DialogMode::Intro(current) = dialogue.mode() else {
+        return;
     };
-    if let Some(intro) = new_intro {
-        dialogue.set_mode(DialogMode::Intro(intro));
+    for (pre, flag, post) in INTRO_DIALOG_REDIRECTS.iter().copied() {
+        if current == pre && data.flag(flag) {
+            dialogue.set_mode(DialogMode::Intro(post));
+            return;
+        }
     }
 }
 
@@ -354,6 +363,34 @@ mod tests {
         let save = ambition_engine::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert!(walls.is_empty(), "registered-id-only filter should exclude this");
+    }
+
+    #[test]
+    fn intro_dialog_redirects_have_no_loops() {
+        // A redirect's post-state should not itself be a pre-state in
+        // the table — that would mean two frames of swaps for a single
+        // flag flip. Keep the table flat.
+        let pres: std::collections::HashSet<_> = super::INTRO_DIALOG_REDIRECTS
+            .iter()
+            .map(|(pre, _, _)| *pre)
+            .collect();
+        for (_pre, _flag, post) in super::INTRO_DIALOG_REDIRECTS.iter().copied() {
+            assert!(
+                !pres.contains(&post),
+                "post-state {post:?} is itself a pre-state in INTRO_DIALOG_REDIRECTS"
+            );
+        }
+    }
+
+    #[test]
+    fn intro_dialog_redirects_have_no_duplicate_pres() {
+        let mut pres = std::collections::HashSet::new();
+        for (pre, _, _) in super::INTRO_DIALOG_REDIRECTS.iter().copied() {
+            assert!(
+                pres.insert(pre),
+                "duplicate pre-state {pre:?} in INTRO_DIALOG_REDIRECTS"
+            );
+        }
     }
 
     #[test]

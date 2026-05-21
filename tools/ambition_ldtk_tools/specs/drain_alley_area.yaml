@@ -1,22 +1,73 @@
-# drain_alley — fourth room of the intro sequence.
+# drain_alley — fourth room of the intro sequence, rebuilt as Drain
+# Market Knot per intro-v1 Task 03.
 #
-# Beat: First post-lab decompression. Oiler finds the player; signage
-# shifts tone from horror-basement to annoyed-infrastructure-city.
+# Beat: First decompression after the lab raid and the climb out of
+# the service shaft. The player emerges at street level into a small
+# compact platforming town with three vertical "neighborhoods":
+#   - SKY/ROOFS (y=0..320):  awnings, sky-chain tease, high reward
+#   - STREET   (y=320..640): Oiler, news board, signage, right utility exit
+#   - PIPES   (y=640..1024): under-town entrance (Task 04 wires it up),
+#                              Alice/Bob private map mark, sealed
+#                              military drain hatch.
 #
-# Transitions: both EdgeExits at the side walls (walk-through).
+# Width is kept at 1024 px so the lateral neighbor `gate_stack_lower`
+# (worldX=4928, pxWid=1600) does not shift; only height grows from
+# 512 to 1024. worldX is corrected from the stale spec value 106000
+# to the live value 3904.
+#
+# Transitions:
+# - Left-edge EdgeExit `drain_from_escape` ← intro_escape_shaft/escape_to_drain
+#   (zone band narrowed to street level (y=432..608) so the player
+#   lands on the main street instead of mid-air. The shaft side moved
+#   its exit to the top, so the diegetic feel is "emerge UP through
+#   the drain grate at street level".)
+# - Right-edge EdgeExit `drain_to_gate_stack` → gate_stack_lower/gate_stack_from_drain
+#   (zone moved to street level (y=432..608) to match the new street
+#   layout. drain_from_escape on gate_stack_lower's side still covers
+#   the full left edge, so the source side doesn't need to change.)
+#
+# No combat on the main street.
+#
+# Layout (1024×1024):
+#
+#   +-------------------------------------------------------+
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+#   | [sky chain — too high]                                |
+#   |                                                       |
+#   |              ▒▒▒[high pickup]▒▒▒                      |   roof_top (one-way)
+#   |                                                       |
+#   |   ▒▒▒▒▒▒▒▒▒                  ▒▒▒▒▒▒▒                  |   awnings A + B
+#   |                                                       |
+#   |                  ▒▒▒▒▒▒▒▒                             |   awnings C
+#   |                                                       |
+#   |    ←arrival                                        → |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒[MAIN STREET]▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ |   main street (solid)
+#   |  [Oiler]            [News Board]    [→ Gate Stack]    |
+#   |   ▒[under-town entry, sealed]▒                        |   pipes layer
+#   |   MAP_PRIVATE: ?? route mark                           |
+#   |                                                       |
+#   |                       ▒▒▒                             |   lower drain stub
+#   |   [sealed military drain hatch]                       |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ floor ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ |
+#   +-------------------------------------------------------+
 id: drain_alley
 level_id: drain_alley
-world_x: 106000
+world_x: 3904
 world_y: 0
 px_wid: 1024
-px_hei: 512
+px_hei: 1024
 fill_collision: empty
 bg_color: "#1B201A"
 biome: cave
 
 entities:
+  # --- Outer geometry. Floor at bottom; ceiling along the top with
+  # symmetric 16-px gaps on both side edges where the EdgeExit zones
+  # used to live (gaps are not strictly required because the level
+  # boundary clamps, but keeping ceiling open here matches the look
+  # of the neighboring rooms).
   - type: Solid
-    px: [0, 480]
+    px: [0, 992]
     size: [1024, 32]
     fields: { name: floor }
   - type: Solid
@@ -24,10 +75,29 @@ entities:
     size: [992, 32]
     fields: { name: ceiling }
 
-  # Left-edge EdgeExit (from escape shaft).
+  # --- Main street. Solid (not one-way) — this is the central rest
+  # surface and the entry/exit elevation. Sits at y=608..640 so the
+  # street walking surface is at y=608.
+  - type: Solid
+    px: [0, 608]
+    size: [1024, 32]
+    fields: { name: main_street }
+
+  # --- PlayerStart (cold-launch only). Stand on the street near the
+  # left edge so the cold-launch entry feels like the warm entry.
+  - type: PlayerStart
+    px: [120, 562]
+    size: [28, 46]
+    fields: { name: drain_alley_spawn }
+
+  # --- Left-edge EdgeExit (from escape shaft). Zone narrowed to the
+  # street band so the player lands on the street surface, not on the
+  # full left wall. The escape shaft's escape_to_drain zone determines
+  # arrival on the shaft side; this side determines arrival when the
+  # player walks back left into the shaft.
   - type: LoadingZone
-    px: [0, 0]
-    size: [16, 480]
+    px: [0, 432]
+    size: [16, 176]
     fields:
       id: drain_from_escape
       name: drain_from_escape
@@ -36,31 +106,13 @@ entities:
       target_zone: escape_to_drain
       bidirectional: true
 
-  - type: PlayerStart
-    px: [120, 434]
-    size: [28, 46]
-    fields: { name: drain_alley_spawn }
-
-  - type: NpcSpawn
-    px: [320, 432]
-    size: [32, 48]
-    fields:
-      name: Oiler
-      prompt: "Talk to Oiler"
-      dialogue_id: oiler_intro
-
-  - type: NpcSpawn
-    px: [560, 432]
-    size: [32, 48]
-    fields:
-      name: News Board
-      prompt: "Read the news board"
-      dialogue_id: news_board_lab_incident
-
-  # Right-edge EdgeExit (to gate stack).
+  # --- Right-edge EdgeExit (to gate stack). Same street-band band on
+  # the right edge. gate_stack_lower's gate_stack_from_drain still
+  # covers the full left edge of that room, so the source side
+  # doesn't need any spec change.
   - type: LoadingZone
-    px: [1008, 0]
-    size: [16, 480]
+    px: [1008, 432]
+    size: [16, 176]
     fields:
       id: drain_to_gate_stack
       name: drain_to_gate_stack
@@ -69,36 +121,176 @@ entities:
       target_zone: gate_stack_from_drain
       bidirectional: true
 
-  - type: CameraZone
-    px: [0, 0]
-    size: [1024, 512]
-    fields: { id: drain_alley_camera, name: drain_alley_camera, mode: Default }
+  # --- Oiler. First warm social anchor; intended owner of the
+  # P1 Stabilizer / Compact Calibration progression beat. Sits at
+  # street level, not blocking movement.
+  - type: NpcSpawn
+    px: [320, 560]
+    size: [32, 48]
+    fields:
+      name: Oiler
+      prompt: "Talk to Oiler"
+      dialogue_id: oiler_intro
 
+  - type: NpcSpawn
+    px: [560, 560]
+    size: [32, 48]
+    fields:
+      name: News Board
+      prompt: "Read the news board"
+      dialogue_id: news_board_lab_incident
+
+  # --- SKY / ROOF tier (y=0..480). Stacked one-way platforms forming
+  # a climbable but optional roof route, with one visible high reward
+  # near the top. Spacing keeps the climb within the default kit but
+  # forces back-and-forth horizontal traversal.
+  - type: OneWayPlatform
+    px: [320, 384]
+    size: [192, 16]
+    fields: { name: awning_c }
+  - type: OneWayPlatform
+    px: [80, 256]
+    size: [192, 16]
+    fields: { name: awning_a_left }
+  - type: OneWayPlatform
+    px: [704, 256]
+    size: [240, 16]
+    fields: { name: awning_b_right }
+  - type: OneWayPlatform
+    px: [400, 128]
+    size: [224, 16]
+    fields: { name: roof_top }
+
+  # High pickup at the top of the roof climb. Story flag so future
+  # systems can branch on "did the player chase the rooftop reward?".
+  - type: PickupSpawn
+    px: [496, 96]
+    size: [24, 24]
+    fields:
+      name: drain_roof_pickup
+      kind: "flag:intro_drain_roof_reward_taken"
+
+  # Sky / pirate teases at the very top of the room.
   - type: DebugLabel
     px: [40, 64]
+    size: [240, 24]
+    fields:
+      name: drain_sky_chain_label
+      text: "[sky chain — too high]"
+      category: Custom
+  - type: DebugLabel
+    px: [760, 64]
+    size: [240, 24]
+    fields:
+      name: drain_pirate_crate_label
+      text: "[contraband crate — locked]"
+      category: Custom
+
+  # --- STREET tier signage (y=320..608). Preserved from v1 with
+  # repositioning to the new street elevation.
+  - type: DebugLabel
+    px: [40, 336]
     size: [320, 24]
     fields:
       name: drain_alley_signage_staff_only
       text: "DRAIN MARKET — STAFF ONLY"
       category: Custom
   - type: DebugLabel
-    px: [40, 96]
-    size: [320, 24]
+    px: [40, 368]
+    size: [400, 24]
     fields:
       name: drain_alley_signage_no_swordguns
       text: "No swordguns inside the food court"
       category: Custom
   - type: DebugLabel
-    px: [40, 128]
-    size: [320, 24]
+    px: [40, 400]
+    size: [400, 24]
     fields:
       name: drain_alley_signage_ripples
       text: "Report unstable ripples to platform staff"
       category: Custom
   - type: DebugLabel
-    px: [840, 320]
+    px: [840, 432]
     size: [160, 24]
     fields:
       name: drain_alley_exit_arrow
       text: "→ Gate Stack"
       category: Custom
+
+  # Visible direction signage for the future left-side tease. The
+  # forest/ninja promise is a label only — no zone wired up because
+  # Task 03 does not own the forest level yet.
+  - type: DebugLabel
+    px: [40, 432]
+    size: [200, 24]
+    fields:
+      name: drain_forest_tease_label
+      text: "[← forest, distant]"
+      category: Custom
+
+  # --- PIPES tier (y=640..864). One-way platforms allow descent into
+  # the pipes; coming back up is also single-jump from the lower drain.
+  - type: OneWayPlatform
+    px: [240, 752]
+    size: [192, 16]
+    fields: { name: pipes_a }
+  - type: OneWayPlatform
+    px: [560, 752]
+    size: [224, 16]
+    fields: { name: pipes_b }
+
+  # Sealed under-town entrance. Solid block + label; Task 04 will
+  # remove the Solid and place a LoadingZone here targeting
+  # `under_town_pipes/under_town_from_drain`. The presence of the
+  # Solid prevents accidental no-target traversal in the meantime,
+  # while the label makes the intent visible to playtest and to the
+  # next agent who picks the task up.
+  - type: Solid
+    px: [336, 800]
+    size: [96, 48]
+    fields: { name: under_town_sealed_grate }
+  - type: DebugLabel
+    px: [320, 776]
+    size: [240, 24]
+    fields:
+      name: drain_under_town_entry_label
+      text: "[under-town entry — sealed]"
+      category: Custom
+
+  # The Alice/Bob private map mark. Subtle: a one-line DebugLabel
+  # placed near the under-town grate. The player does not know how to
+  # interpret it on first read; Task 04 builds the route that gives
+  # it meaning.
+  - type: DebugLabel
+    px: [320, 808]
+    size: [240, 24]
+    fields:
+      name: drain_alice_map_mark
+      text: "MAP_PRIVATE: ?? route mark"
+      category: Custom
+
+  # --- LOWER DRAIN tier (y=864..992). A small recess at the bottom
+  # of the room with a sealed military/service hatch. Pure scenery
+  # for now; intended hook is "old infrastructure" — Task 05+ may
+  # promote it into a chaotic shortcut.
+  - type: OneWayPlatform
+    px: [480, 880]
+    size: [192, 16]
+    fields: { name: lower_drain_step }
+  - type: Solid
+    px: [64, 944]
+    size: [96, 48]
+    fields: { name: sealed_military_hatch }
+  - type: DebugLabel
+    px: [40, 920]
+    size: [320, 24]
+    fields:
+      name: drain_sealed_hatch_label
+      text: "[sealed military drain hatch]"
+      category: Custom
+
+  # --- Camera. Sized to the full room.
+  - type: CameraZone
+    px: [0, 0]
+    size: [1024, 1024]
+    fields: { id: drain_alley_camera, name: drain_alley_camera, mode: Default }

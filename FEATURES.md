@@ -54,6 +54,19 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Trace recording / replay for movement bugs | Available | `docs/systems/gameplay-trace-recorder.md` |
 | Agent-readable indexes | Available, generated | `.agent/manifest.yaml`, `.agent/index/` |
 | Documentation health checks | Available | `scripts/check_agent_kb.py`, `scripts/check_doc_links.py` |
+| LDtk area-spec coordinate drift check | Available | `tools/ambition_ldtk_tools` `level diff-specs --all`; `dev/benchmark-candidates/ldtk-area-spec-drift-2026-05-21.md` |
+| EnemySpawn `Patrol:<id>` brain reference validation | Available (warnings) | `crates/ambition_sandbox/src/content/content_validation.rs::validate_patrol_brain_paths` |
+
+## Intro vertical slice (intro-v1)
+
+| Capability | Status | Where to read next |
+|---|---:|---|
+| Intro spine wake → raid → vertical shaft → drain market → gate stack → combat lab → first boss | Available, math-checked, unplaytested | `dev/vertical-slices/intro-v1/playtest-handoff.md`, `dev/vertical-slices/intro-v1/map-contract.md` |
+| Alice/Bob cartography route (under_town_pipes → alice_relay → bob_relay) | Available | `dev/vertical-slices/intro-v1/task-04-under-town-trust-route.md` |
+| Cartography route durable state (10+ flags, 3 auto-quests) | Available | `crates/ambition_sandbox/src/intro/route_state.rs`, `crates/ambition_sandbox/src/content/quest.rs::default_quest_specs` |
+| Flag-gated LockWalls (private return doors open on `bob_field_survey_received`) | Available | `crates/ambition_sandbox/src/intro/route_state.rs::sync_intro_flag_gated_lock_walls` |
+| Conditional intro dialogue (Oiler post-stabilizer, Alice post-Bob-survey, Bob post-report) | Available | `crates/ambition_sandbox/src/intro/route_state.rs::redirect_post_intro_dialog`, `crates/ambition_sandbox/src/intro/dialog.rs` |
+| Evil/lawful "Submit private route" Switch (gate_stack_lower) | Available | `tools/ambition_ldtk_tools/specs/gate_stack_lower_area.yaml` |
 
 ## Rules for updating this file
 

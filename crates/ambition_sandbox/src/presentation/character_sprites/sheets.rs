@@ -1089,6 +1089,52 @@ pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 2,
 };
 
+/// Alice — unofficial cartographer. Toon-side adapter render; the
+/// `alice_cryptographer` archetype reads as "cautious local with a
+/// scarf and a sealed envelope". Matches the Alice review config
+/// (configs/review/alice.yaml) and the
+/// `alice_spritesheet.yaml`/`.png` pair that ships in
+/// `crates/ambition_sandbox/assets/sprites/`.
+pub const ALICE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 116,
+    y_offset: 0,
+    // alice yaml frame=43×104; +4 border on both axes → 47×108.
+    frame_width: 47,
+    frame_height: 108,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.140,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.474,
+    frame_sample_inset: 2,
+};
+
+/// Bob — field cartographer. Toon-side adapter render; the
+/// `bob_engineer` archetype is wider in the shoulders (engineer
+/// silhouette) so the frame is correspondingly wider than Alice's.
+/// Matches the Bob review config (configs/review/bob.yaml).
+pub const BOB_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 116,
+    y_offset: 0,
+    // bob yaml frame=55×109; +4 border on both axes → 59×113.
+    frame_width: 59,
+    frame_height: 113,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.140,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.474,
+    frame_sample_inset: 2,
+};
+
 /// Merchant Prototype — placeholder shopkeeper NPC.
 pub const MERCHANT_PROTOTYPE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 116,

@@ -16,8 +16,8 @@
 use ambition_asset_manager::AssetId;
 
 use crate::presentation::character_sprites::{
-    CharacterSheetSpec, ARCHITECT_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
-    FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
+    ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CharacterSheetSpec, CREATOR_SHEET,
+    ERDISH_SHEET, FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
     LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
     LAB_PROP_RESONANCE_COIL, OILER_SHEET,
 };
@@ -81,6 +81,12 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     // sandbox treats every `NpcSpawn` the same way. Architect sheet
     // is a placeholder; a static kiosk sprite will replace this.
     ("News Board", "architect_spritesheet.png", ARCHITECT_SHEET),
+    // Alice — unofficial cartographer. Dedicated toon-side sheet
+    // (`alice_spritesheet.png` + `alice_spritesheet.yaml`); first
+    // intro NPC with non-placeholder art.
+    ("Alice", "alice_spritesheet.png", ALICE_SHEET),
+    // Bob — field cartographer. Companion dedicated sheet to Alice.
+    ("Bob", "bob_spritesheet.png", BOB_SHEET),
     // Cart, lab props, and gate sprites are now Prop entities (see
     // INTRO_PROP_REGISTRY below) and live in
     // `GameAssets.characters.props` instead of `npcs`.
@@ -175,6 +181,8 @@ pub fn intro_npc_label(npc_name: &str) -> &'static str {
         "Nazi Salvage Guard" => "nazi_salvage_guard",
         "Manifest Clerk" => "manifest_clerk",
         "News Board" => "news_board",
+        "Alice" => "alice",
+        "Bob" => "bob",
         // Story plugins that author NPCs outside `INTRO_NPC_SPRITE_REGISTRY`
         // fall through to a single "unregistered" label so the catalog
         // can still resolve their entries (typically resolves to a

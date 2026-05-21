@@ -25,15 +25,21 @@ const LASERSWORD_OWNER_PREFIX: &str = "lasersword";
 
 const LASERSWORD_SHEET_PATH: &str = "sprites/lasersword_spritesheet.png";
 
-/// Pixel dimensions of one frame in the projectile sheet (read from
-/// `lasersword_spritesheet.yaml`, idle row, frame 0). The renderer's
-/// auto-crop targets this shape at `RENDER_SCALE = 1.0`.
-const LASERSWORD_FRAME_W: f32 = 168.0;
+/// The PNG at `LASERSWORD_SHEET_PATH` is the FULL spritesheet (label
+/// column + idle / dissipate rows). To display a single frame we
+/// have to clip to its source rectangle via `Sprite::rect`. Default
+/// to the first idle frame. Read from
+/// `lasersword_spritesheet.yaml`, row `idle`, frame 0.
+const LASERSWORD_LABEL_W: f32 = 110.0;
+const LASERSWORD_FRAME_W: f32 = 169.0;
 const LASERSWORD_FRAME_H: f32 = 44.0;
+const LASERSWORD_IDLE_FRAME_X: f32 = LASERSWORD_LABEL_W;
+const LASERSWORD_IDLE_FRAME_Y: f32 = 0.0;
 
 /// Pommel anchor in the idle frame — rotation pivot of the
 /// projectile sprite. Game rotation aligns the blade to the
-/// projectile's velocity vector.
+/// projectile's velocity vector. Read from
+/// `lasersword_spritesheet.yaml::rects[0].anchors.pommel`.
 const LASERSWORD_POMMEL_X_PX: f32 = 14.0;
 const LASERSWORD_POMMEL_Y_PX: f32 = 22.0;
 
@@ -115,6 +121,17 @@ fn spawn_lasersword_visual(
     let anchor_y_norm = -(LASERSWORD_POMMEL_Y_PX - LASERSWORD_FRAME_H * 0.5) / LASERSWORD_FRAME_H;
     let mut sprite = Sprite::from_image(texture.clone());
     sprite.custom_size = Some(render);
+    // Clip to the first idle frame — without this the whole
+    // multi-row spritesheet (label column + idle + dissipate)
+    // would be scaled into `custom_size`, looking like a tiled
+    // grid of swords.
+    sprite.rect = Some(Rect::from_corners(
+        Vec2::new(LASERSWORD_IDLE_FRAME_X, LASERSWORD_IDLE_FRAME_Y),
+        Vec2::new(
+            LASERSWORD_IDLE_FRAME_X + LASERSWORD_FRAME_W,
+            LASERSWORD_IDLE_FRAME_Y + LASERSWORD_FRAME_H,
+        ),
+    ));
     commands.spawn((
         sprite,
         Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),

@@ -37,18 +37,23 @@ pub struct PirateWeaponVisual;
 /// `python3 -m ambition_sprite2d_renderer install lasersword_with_guns`).
 const WEAPON_SHEET_PATH: &str = "sprites/lasersword_with_guns_spritesheet.png";
 
-/// Pixel dimensions of one frame in the gun-sword sheet. Matches the
-/// auto-cropped output of the renderer at `RENDER_SCALE = 1.0`. If
-/// you bump RENDER_SCALE in `lasersword_common.py` you'll also need
-/// to update these constants (or load them from the YAML manifest).
-const WEAPON_FRAME_W: f32 = 176.0;
+/// The PNG at `WEAPON_SHEET_PATH` is the FULL spritesheet (label
+/// column + idle / fire / dissipate rows of frames laid out
+/// horizontally). To display a single frame we have to specify its
+/// source rectangle via `Sprite::rect`. Default to the first idle
+/// frame. Numbers read from `lasersword_with_guns_spritesheet.yaml`,
+/// row `idle`, frame 0 — bump these if RENDER_SCALE or the
+/// auto-crop output changes.
+const WEAPON_LABEL_W: f32 = 118.0;
+const WEAPON_FRAME_W: f32 = 177.0;
 const WEAPON_FRAME_H: f32 = 46.0;
+const WEAPON_IDLE_FRAME_X: f32 = WEAPON_LABEL_W;
+const WEAPON_IDLE_FRAME_Y: f32 = 0.0;
 
-/// Pixel position of the GRIP anchor inside the idle frame (read
-/// from `lasersword_with_guns_spritesheet.yaml`, row `idle`, frame 0,
-/// `anchors.grip`).
-const WEAPON_GRIP_X_PX: f32 = 40.0;
-const WEAPON_GRIP_Y_PX: f32 = 21.0;
+/// Pixel position of the GRIP anchor inside the idle frame (relative
+/// to the frame's top-left corner; read from the spritesheet YAML).
+const WEAPON_GRIP_X_PX: f32 = 36.45;
+const WEAPON_GRIP_Y_PX: f32 = 23.8;
 
 /// How big to render the gun-sword in world space. The pirate rider
 /// itself renders at ~72 px tall; the gun-sword needs to be visibly
@@ -146,6 +151,17 @@ pub fn sync_pirate_weapon_visuals(
 
         let mut sprite = Sprite::from_image(texture.clone());
         sprite.custom_size = Some(render);
+        // Source rect on the spritesheet PNG — the first idle frame.
+        // Without this, `Sprite::from_image` renders the whole sheet
+        // (label column + idle/fire/dissipate rows) scaled into
+        // `custom_size`, which looks like a tiled grid of swords.
+        sprite.rect = Some(Rect::from_corners(
+            Vec2::new(WEAPON_IDLE_FRAME_X, WEAPON_IDLE_FRAME_Y),
+            Vec2::new(
+                WEAPON_IDLE_FRAME_X + WEAPON_FRAME_W,
+                WEAPON_IDLE_FRAME_Y + WEAPON_FRAME_H,
+            ),
+        ));
 
         commands.spawn((
             sprite,

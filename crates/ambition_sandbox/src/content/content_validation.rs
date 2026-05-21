@@ -100,11 +100,103 @@ pub fn validate_content_graph(
     validate_npc_dialogue_ids(project, &mut report);
     validate_quest_conditions(project, data, &mut report);
     validate_boss_music_tracks(data, &mut report);
+    validate_patrol_brain_paths(project, &mut report);
 
     #[cfg(feature = "audio")]
     validate_adaptive_music_catalog(&mut report);
 
     report
+}
+
+/// Catch the failure mode from intro-v1 polish E: an `EnemySpawn`
+/// with `brain: "Patrol:<path_id>"` whose `path_id` doesn't resolve
+/// to a `KinematicPath` in the same level. The runtime silently
+/// falls back to passive behavior, so the broken patrol is invisible
+/// until playtest. Surfacing it as a content-graph warning catches
+/// it at `cargo test` time instead.
+///
+/// Path id resolution mirrors `world::ldtk_world::conversion::path_lookup_id`:
+/// 1. KinematicPath's `id` field if non-empty.
+/// 2. Otherwise, a slug of the `name` field (lowercase, non-alnum
+///    runs collapsed to underscores).
+/// 3. Otherwise, the iid.
+///
+/// This validator only emits warnings rather than errors so an
+/// existing latent mismatch (sandbox's basement `Patrol:enemy_patrol_a`
+/// vs the nearby `name: "enemy patrol path A"` whose slug is
+/// `enemy_patrol_path_a`) surfaces without breaking the regression
+/// test. Promote to an error once the slugs are aligned.
+fn validate_patrol_brain_paths(project: &LdtkProject, report: &mut ContentValidationReport) {
+    for level in &project.levels {
+        let Some(layer) = level.ambition_layer() else {
+            continue;
+        };
+        let mut path_ids: BTreeSet<String> = BTreeSet::new();
+        for entity in &layer.entity_instances {
+            if entity.identifier != "KinematicPath" {
+                continue;
+            }
+            if let Some(value) = field_string(entity, "id") {
+                let trimmed = value.trim();
+                if !trimmed.is_empty() {
+                    path_ids.insert(trimmed.to_string());
+                    continue;
+                }
+            }
+            if let Some(value) = field_string(entity, "name") {
+                if let Some(slug) = patrol_name_slug(value.trim()) {
+                    path_ids.insert(slug);
+                }
+            }
+        }
+        for entity in &layer.entity_instances {
+            if entity.identifier != "EnemySpawn" {
+                continue;
+            }
+            let Some(brain) = field_string(entity, "brain") else {
+                continue;
+            };
+            let Some(path_id) = brain.strip_prefix("Patrol:") else {
+                continue;
+            };
+            let path_id = path_id.trim();
+            if path_id.is_empty() {
+                report.push_warning(format!(
+                    "level '{}' EnemySpawn '{}' uses bare brain 'Patrol:' (no path_id); enemy will fall back to passive",
+                    level.identifier, entity.iid
+                ));
+                continue;
+            }
+            if !path_ids.contains(path_id) {
+                report.push_warning(format!(
+                    "level '{}' EnemySpawn '{}' brain 'Patrol:{}' references no matching KinematicPath (resolved ids: {:?}); enemy will fall back to passive",
+                    level.identifier, entity.iid, path_id, path_ids
+                ));
+            }
+        }
+    }
+}
+
+fn patrol_name_slug(name: &str) -> Option<String> {
+    let mut slug = String::new();
+    let mut previous_was_sep = false;
+    for ch in name.trim().chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            previous_was_sep = false;
+        } else if !previous_was_sep && !slug.is_empty() {
+            slug.push('_');
+            previous_was_sep = true;
+        }
+    }
+    while slug.ends_with('_') {
+        slug.pop();
+    }
+    if slug.is_empty() {
+        None
+    } else {
+        Some(slug)
+    }
 }
 
 fn validate_ldtk_room_links(project: &LdtkProject, report: &mut ContentValidationReport) {

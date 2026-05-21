@@ -151,8 +151,18 @@ pub struct ChoreographyState {
     /// Heading angle (radians, world frame) of the current retreat.
     /// Set when retreat begins; combined with the
     /// `AERIAL_RETREAT_DISTANCE` constant to derive the absolute
-    /// retreat point as `slot + distance * (cos, sin)`.
+    /// retreat point as `slot + distance * (cos, sin)`. Bounded to
+    /// the upper hemisphere (sin ≤ 0 in sandbox y-down convention)
+    /// so retreating sharks never steer toward the floor.
     pub aerial_retreat_heading: f32,
+    /// Monotonic count of retreats the actor has triggered. Mixed
+    /// with `seed` to produce fresh per-retreat jitter — so
+    /// successive retreats from the SAME actor pick different
+    /// cooldowns, durations, and headings rather than locking onto
+    /// a single seed-derived value. Three same-archetype sharks
+    /// also desync because their counters advance independently
+    /// (one shark retreating doesn't tick the others' counter).
+    pub aerial_retreat_count: u32,
 }
 
 /// Stable, allocation-free 32-bit hash of an actor id. Used so a
@@ -475,6 +485,35 @@ fn seed_jitter_unit(seed: u32) -> f32 {
     (bits / 127.5) - 1.0
 }
 
+/// Fold two `u32` together into a fresh hash so each retreat can
+/// derive its own jitter from `(seed, retreat_count)` without
+/// collapsing to a single shared per-actor value. FNV-1a variant;
+/// matches the `seed_from_id` style and stays deterministic.
+fn hash_combine(a: u32, b: u32) -> u32 {
+    let mut h = a ^ 0x811C9DC5;
+    for byte in b.to_le_bytes() {
+        h ^= byte as u32;
+        h = h.wrapping_mul(0x01000193);
+    }
+    if h == 0 {
+        1
+    } else {
+        h
+    }
+}
+
+/// Jitter unit in `[-1.0, 1.0]` derived from a `(seed, counter)`
+/// pair. Useful for "this actor's Nth retreat" where you want a
+/// fresh value each time even though seed and counter alone don't
+/// vary much across small N. Backed by `hash_combine`.
+fn seed_counter_jitter(seed: u32, counter: u32) -> f32 {
+    let mixed = hash_combine(seed, counter);
+    // Use bits 8..16 (mirrors seed_jitter_unit) so output range is
+    // consistent across the codebase.
+    let bits = ((mixed >> 8) & 0xFF) as f32;
+    (bits / 127.5) - 1.0
+}
+
 /// Stable per-seed orbit-phase starting offset in radians. Two
 /// sharks with the same orbit_speed but different seeds end up at
 /// different points around their slot anchor at any given tick.
@@ -497,12 +536,29 @@ fn evaluate_aerial_orbit(
     fire_interval: f32,
     projectile_speed: f32,
 ) -> ChoreographyTick {
+    // Per-retreat jitter: hash (seed, retreat_count) so successive
+    // retreats from the same actor produce different cooldowns,
+    // durations, and headings rather than locking onto one shared
+    // per-actor value. Cross-actor desync comes from each actor's
+    // distinct seed; cross-cycle desync comes from the counter.
+    // `aerial_retreat_count` increments when a retreat STARTS, so
+    // the cooldown that follows a retreat uses the post-increment
+    // counter and lands a different beat than the previous cycle.
+    let upcoming_counter = state.aerial_retreat_count.wrapping_add(1);
+    let cooldown_jitter =
+        1.0 + 0.45 * seed_counter_jitter(state.seed, upcoming_counter.wrapping_mul(3));
+    let duration_jitter =
+        1.0 + 0.35 * seed_counter_jitter(state.seed, upcoming_counter.wrapping_mul(5));
+    // Heading uses the post-increment counter directly so the very
+    // first retreat (counter 0 → upcoming 1) already produces a
+    // per-actor unique angle independent of the shared orbit_phase.
+    let heading_unit = seed_counter_jitter(state.seed, upcoming_counter);
+
     // Initialize the retreat cooldown on first tick (Default
     // sentinel = 0.0). Seeded jitter staggers initial retreats so
     // adjacent actors don't fly off at the same beat.
     if state.aerial_retreat_cooldown == 0.0 && state.aerial_retreat_timer == 0.0 {
-        let jitter = 1.0 + 0.30 * seed_jitter_unit(state.seed);
-        state.aerial_retreat_cooldown = AERIAL_RETREAT_COOLDOWN * jitter.max(0.40);
+        state.aerial_retreat_cooldown = AERIAL_RETREAT_COOLDOWN * cooldown_jitter.max(0.30);
     }
 
     let in_retreat_at_tick_start = state.aerial_retreat_timer > 0.0;
@@ -513,23 +569,29 @@ fn evaluate_aerial_orbit(
         // overwritten when the next retreat starts.
         state.aerial_retreat_timer = (state.aerial_retreat_timer - dt).max(0.0);
         if state.aerial_retreat_timer == 0.0 {
-            let jitter = 1.0 + 0.30 * seed_jitter_unit(state.seed);
-            state.aerial_retreat_cooldown = AERIAL_RETREAT_COOLDOWN * jitter.max(0.40);
+            state.aerial_retreat_cooldown = AERIAL_RETREAT_COOLDOWN * cooldown_jitter.max(0.30);
         }
     } else {
         // Orbit normally; tick down toward the next retreat.
         state.aerial_retreat_cooldown -= dt;
         if state.aerial_retreat_cooldown <= 0.0 {
-            // Start a new retreat. Heading derives from the current
-            // orbit_phase (continuously advancing) so successive
-            // retreats from the same actor pick different headings
-            // without needing a separate counter. seed-jitter folds
-            // in for cross-actor variety.
-            let heading = state.orbit_phase
-                + seed_jitter_unit(state.seed) * std::f32::consts::PI
-                + std::f32::consts::FRAC_PI_2;
-            state.aerial_retreat_heading = heading.rem_euclid(std::f32::consts::TAU);
-            let duration_jitter = 1.0 + 0.20 * seed_jitter_unit(state.seed);
+            // Start a new retreat. Increment the counter FIRST so
+            // the heading/duration jitter we already computed (based
+            // on `upcoming_counter`) matches the post-increment
+            // state value — keeping the math self-consistent.
+            state.aerial_retreat_count = upcoming_counter;
+            // Heading: pick from the UPPER HEMISPHERE only. In
+            // sandbox y-down world coordinates, sin > 0 ⇒ moving
+            // toward the floor; sin < 0 ⇒ moving toward the sky.
+            // Mapping `heading_unit ∈ [-1, 1]` to `heading ∈
+            // [-π, 0]` (i.e. the upper-half angular range) means
+            // sin(heading) ≤ 0 by construction — the shark always
+            // flies up-and-away, never into the deck.
+            // `heading_unit = -1` → -π (straight left), 0 → -π/2
+            // (straight up), +1 → 0 (straight right).
+            let heading = -std::f32::consts::FRAC_PI_2
+                + heading_unit * std::f32::consts::FRAC_PI_2;
+            state.aerial_retreat_heading = heading;
             state.aerial_retreat_timer = AERIAL_RETREAT_DURATION * duration_jitter.max(0.50);
             state.aerial_retreat_cooldown = 0.0;
         }
@@ -1108,6 +1170,200 @@ mod tests {
             "retreating actor should NOT fire; got {:?}",
             tick.action
         );
+    }
+
+    #[test]
+    fn aerial_orbit_retreat_heading_avoids_floor() {
+        // Sweep a wide range of seeds; every resulting first-retreat
+        // heading must have sin(heading) ≤ 0 (y-down sandbox = no
+        // downward retreat into the deck). Catches any regression
+        // where the heading falls back into the lower hemisphere.
+        let choreography = AttackChoreography::AerialOrbitAndFire {
+            altitude: 160.0,
+            radius: 220.0,
+            orbit_speed: 0.9,
+            fire_interval: 1.4,
+            projectile_speed: 380.0,
+        };
+        let target = Vec2::new(0.0, 0.0);
+        let slot = Vec2::new(0.0, -160.0);
+        let dt = 1.0 / 60.0;
+        for id_idx in 0..32 {
+            let id = format!("shark_{id_idx}");
+            let mut state = ChoreographyState {
+                seed: seed_from_id(&id),
+                has_slot: true,
+                ..Default::default()
+            };
+            // Tick until first retreat fires.
+            let mut elapsed = 0.0_f32;
+            let cap = 15.0;
+            while elapsed < cap && state.aerial_retreat_timer == 0.0 {
+                evaluate_choreography(
+                    choreography,
+                    &mut state,
+                    ChoreographyInput {
+                        actor_pos: slot,
+                        target_pos: target,
+                        assigned_slot_pos: slot,
+                        dt,
+                        nearest_neighbor: None,
+                    },
+                );
+                elapsed += dt;
+            }
+            assert!(
+                state.aerial_retreat_timer > 0.0,
+                "{id}: retreat never fired within {cap}s"
+            );
+            let sin_h = state.aerial_retreat_heading.sin();
+            assert!(
+                sin_h <= 1e-6,
+                "{id}: heading {} would steer toward the floor (sin={})",
+                state.aerial_retreat_heading,
+                sin_h
+            );
+        }
+    }
+
+    #[test]
+    fn aerial_orbit_retreat_heading_varies_across_retreats() {
+        // The SAME actor must pick different headings for successive
+        // retreats — otherwise it would keep flying off in the same
+        // direction every cycle. Drive a single actor through 4
+        // retreats and assert at least 3 distinct headings.
+        let choreography = AttackChoreography::AerialOrbitAndFire {
+            altitude: 160.0,
+            radius: 220.0,
+            orbit_speed: 0.9,
+            fire_interval: 1.4,
+            projectile_speed: 380.0,
+        };
+        let mut state = ChoreographyState {
+            seed: seed_from_id("multi_retreat_actor"),
+            has_slot: true,
+            ..Default::default()
+        };
+        let target = Vec2::new(0.0, 0.0);
+        let slot = Vec2::new(0.0, -160.0);
+        let dt = 1.0 / 60.0;
+        let mut headings: Vec<f32> = Vec::new();
+        let mut elapsed = 0.0_f32;
+        let cap = 60.0;
+        let mut was_retreating = false;
+        while elapsed < cap && headings.len() < 4 {
+            evaluate_choreography(
+                choreography,
+                &mut state,
+                ChoreographyInput {
+                    actor_pos: slot,
+                    target_pos: target,
+                    assigned_slot_pos: slot,
+                    dt,
+                    nearest_neighbor: None,
+                },
+            );
+            let is_retreating = state.aerial_retreat_timer > 0.0;
+            if is_retreating && !was_retreating {
+                headings.push(state.aerial_retreat_heading);
+            }
+            was_retreating = is_retreating;
+            elapsed += dt;
+        }
+        assert!(
+            headings.len() >= 4,
+            "only saw {} retreat starts in {cap}s — cooldown logic broken",
+            headings.len()
+        );
+        // Distinct heading count (within float tolerance).
+        let mut distinct = 0;
+        for i in 0..headings.len() {
+            if !headings[..i]
+                .iter()
+                .any(|h| (h - headings[i]).abs() < 0.01)
+            {
+                distinct += 1;
+            }
+        }
+        assert!(
+            distinct >= 3,
+            "expected ≥3 distinct headings across 4 retreats; got {distinct} \
+             ({headings:?})"
+        );
+    }
+
+    #[test]
+    fn aerial_orbit_retreat_first_cooldown_varies_across_seeds() {
+        // Spawn three same-archetype actors with different seeds and
+        // confirm their FIRST retreat fires on different frames.
+        // Before the per-retreat jitter rework, the same `seed_jitter`
+        // call dominated cooldown / duration / heading so 8-bit
+        // collisions in seed_jitter_unit could leave actors retreating
+        // close to the same beat. The new per-retreat hash should
+        // produce wider variance.
+        let choreography = AttackChoreography::AerialOrbitAndFire {
+            altitude: 160.0,
+            radius: 220.0,
+            orbit_speed: 0.9,
+            fire_interval: 1.4,
+            projectile_speed: 380.0,
+        };
+        let target = Vec2::new(0.0, 0.0);
+        let slot = Vec2::new(0.0, -160.0);
+        let dt = 1.0 / 60.0;
+        let ids = [
+            "EnemySpawn-104446",
+            "EnemySpawn-104447",
+            "EnemySpawn-104448",
+        ];
+        let mut first_retreat_frames: Vec<u32> = Vec::new();
+        for id in &ids {
+            let mut state = ChoreographyState {
+                seed: seed_from_id(id),
+                has_slot: true,
+                ..Default::default()
+            };
+            let mut frame = 0u32;
+            while frame < (15 * 60) && state.aerial_retreat_timer == 0.0 {
+                evaluate_choreography(
+                    choreography,
+                    &mut state,
+                    ChoreographyInput {
+                        actor_pos: slot,
+                        target_pos: target,
+                        assigned_slot_pos: slot,
+                        dt,
+                        nearest_neighbor: None,
+                    },
+                );
+                frame += 1;
+            }
+            assert!(
+                state.aerial_retreat_timer > 0.0,
+                "{id}: retreat never fired"
+            );
+            first_retreat_frames.push(frame);
+        }
+        // Every pair of frames must differ by at least a few frames
+        // (≥ 6 = 0.1s at 60Hz) — same-frame retreats are exactly
+        // the "they all do it at the same time" bug.
+        for i in 0..first_retreat_frames.len() {
+            for j in i + 1..first_retreat_frames.len() {
+                let diff = (first_retreat_frames[i] as i64
+                    - first_retreat_frames[j] as i64)
+                    .abs();
+                assert!(
+                    diff >= 6,
+                    "first-retreat frames {} and {} too close: \
+                     frame[{i}]={} frame[{j}]={} (delta {} frames)",
+                    ids[i],
+                    ids[j],
+                    first_retreat_frames[i],
+                    first_retreat_frames[j],
+                    diff
+                );
+            }
+        }
     }
 
     #[test]

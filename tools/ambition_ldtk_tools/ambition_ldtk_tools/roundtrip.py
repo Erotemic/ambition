@@ -62,6 +62,19 @@ def main(argv=None) -> int:
     parser.add_argument("path", type=Path, help="Path to an Ambition-authored .ldtk file")
     parser.add_argument("--schema", type=Path, default=None, help="Optional official LDtk JSON schema path")
     parser.add_argument("--require-schema", action="store_true", help="Fail if official LDtk schema validation cannot run")
+    parser.add_argument(
+        "--secondary-world",
+        action="append",
+        type=Path,
+        default=None,
+        help=(
+            "Additional .ldtk source files whose levels the runtime merges on "
+            "top of `path` (see ldtk_world/loading.rs::SECONDARY_WORLD_FILES). "
+            "Forwarded to the inner validate() call so cross-file "
+            "LoadingZone targets resolve without false-positives. May be "
+            "passed multiple times."
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -77,7 +90,12 @@ def main(argv=None) -> int:
         print_repair_hint(args.path, changes)
         return 1
 
-    errors, warnings = validate(args.path, args.schema, args.require_schema)
+    errors, warnings = validate(
+        args.path,
+        args.schema,
+        args.require_schema,
+        secondary_worlds=args.secondary_world,
+    )
     for warning in warnings:
         print(f"warning: {warning}", file=sys.stderr)
     for error in errors:

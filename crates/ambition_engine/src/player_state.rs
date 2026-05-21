@@ -198,11 +198,33 @@ impl BodyMode {
                 mode: self,
                 size: Vec2::new(base_size.x * 1.05, base_size.y * 0.40),
             },
-            BodyMode::MorphBall => BodyShape {
-                mode: self,
-                // Symmetric, much smaller. Suitable for low tunnels.
-                size: Vec2::new(base_size.x * 0.55, base_size.x * 0.55),
-            },
+            BodyMode::MorphBall => {
+                // Symmetric small ball, sized to fit a one-grid-cell
+                // (16 px) tunnel with ~1 px clearance per side.
+                //
+                // DECOUPLED from `base_size` on purpose: the morph-
+                // ball mechanic exists so the player can squeeze
+                // through tunnels authored on the 16-px grid, not to
+                // scale with the player's standing proportions. The
+                // earlier `base_size.x * 0.55` math worked for the
+                // old 28-px base (15.4 ≈ fits within rounding), but
+                // when the standing base grew to 30 px the ball
+                // became 16.5 and STOPPED fitting the 16-px morph_lab
+                // tunnel — morph mode looked broken even though the
+                // player had successfully transitioned into it.
+                //
+                // Holds the Crawl/Slide/Crouch/Stand discriminator:
+                //   Crawl   = 25.5 × 16.8 → blocked
+                //   Slide   = 31.5 × 19.2 → blocked
+                //   Crouch  = 30   × 26.4 → blocked
+                //   Stand   = 30   × 48   → blocked
+                //   Morph   = 14   × 14   → fits with 1 px each side
+                let _ = base_size; // retained for signature parity
+                BodyShape {
+                    mode: self,
+                    size: Vec2::new(14.0, 14.0),
+                }
+            }
             BodyMode::Climbing => BodyShape {
                 mode: self,
                 // Climbing keeps the standing silhouette so the
@@ -433,7 +455,8 @@ impl ResourceMeter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world::{Block, World};
+    use crate::movement::default_player_body_size;
+    use crate::world::{Block, BlockKind, World};
 
     #[test]
     fn locomotion_default_grounded_when_player_on_ground() {
@@ -645,5 +668,49 @@ mod tests {
             decay_rate: 0.0,
         };
         assert_eq!(m.fraction(), 0.0);
+    }
+
+    /// Regression test for the morph_lab tunnel: a one-grid-cell
+    /// (16 px) gap between a ceiling at y=336 and a floor at y=352
+    /// must allow MorphBall through and block every other body
+    /// mode (Standing, Crouching, Crawling, Sliding). The morph-ball
+    /// shape is decoupled from `base_size` precisely so the
+    /// discriminator survives changes to the player's standing
+    /// dimensions — earlier the multiplier-based morph ball became
+    /// 16.5 px when `base_size.x` grew to 30, snagging on the
+    /// 16-px tunnel even though the player had transitioned into
+    /// morph mode.
+    #[test]
+    fn morphball_fits_one_grid_cell_tunnel() {
+        // A "tunnel" sandwich: floor at y=352, low ceiling at y=336.
+        // 16-px gap between them. Player center at y=344 (midway).
+        let world = World::new(
+            "morph_tunnel",
+            Vec2::new(200.0, 500.0),
+            Vec2::ZERO,
+            vec![
+                Block::solid("floor", Vec2::new(0.0, 352.0), Vec2::new(200.0, 40.0)),
+                Block::solid("ceiling", Vec2::new(0.0, 200.0), Vec2::new(200.0, 136.0)),
+            ],
+        );
+        let base = default_player_body_size();
+        let center = Vec2::new(100.0, 344.0);
+        let solid_predicate = |b: &Block| matches!(b.kind, BlockKind::Solid);
+        assert!(
+            BodyMode::MorphBall.shape(base).fits_at(center, &world, solid_predicate),
+            "MorphBall must fit a 16-px tunnel — the morph_lab tunnel is sized exactly this way",
+        );
+        for non_fit in [
+            BodyMode::Standing,
+            BodyMode::Crouching,
+            BodyMode::Crawling,
+            BodyMode::Sliding,
+        ] {
+            assert!(
+                !non_fit.shape(base).fits_at(center, &world, solid_predicate),
+                "{:?} must NOT fit the 16-px morph-lab tunnel (discriminator broken)",
+                non_fit,
+            );
+        }
     }
 }

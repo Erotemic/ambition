@@ -93,14 +93,15 @@ proptest! {
 
     /// MorphBall is a strict shrink of every dimension relative to
     /// Standing for a typical base_size — so wherever Standing fits,
-    /// MorphBall fits. The size factors are 0.55x in both axes (with
-    /// width = base_size.x * 0.55 in MorphBall, vs base_size.x in
-    /// Standing; height = base_size.x * 0.55 in MorphBall, vs
-    /// base_size.y in Standing). Constrain `base_size.y >=
-    /// base_size.x * 0.55` so MorphBall is also shorter than Standing.
+    /// MorphBall fits. MorphBall is a fixed 14×14 ball (decoupled
+    /// from `base_size` so it always fits a 16-px grid tunnel
+    /// regardless of player base proportions); the invariant only
+    /// holds when standing is at least as large as the ball, which
+    /// is true for every authored player base in the project but
+    /// would not be true for arbitrary tiny test bases.
     #[test]
     fn morphball_fits_wherever_standing_fits(
-        base_x in 8.0f32..40.0,
+        base_x in 18.0f32..40.0,
         base_y_factor in 1.0f32..3.0, // base_size.y = base_x * factor; ensures shorter morph
         center_x in -500.0f32..500.0,
         center_y in -500.0f32..500.0,

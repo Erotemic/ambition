@@ -552,10 +552,25 @@ fn spawn_authored_interactable(
     }
 }
 
+/// Block-name prefixes whose presence in `world.blocks` should be
+/// reflected as a `LockWallVisual` Bevy entity. The encounter system
+/// writes `lockwall:<id>` blocks; the intro-v1 flag-gated lock-wall
+/// system writes `intro_lock:<id>` blocks. Both are surfaced with the
+/// same `LockWallTile` sprite so a Task 08 conditional gate reads the
+/// same way as an encounter-driven slam.
+const LOCK_WALL_BLOCK_PREFIXES: &[&str] = &["lockwall:", "intro_lock:"];
+
+fn is_lock_wall_block(name: &str) -> bool {
+    LOCK_WALL_BLOCK_PREFIXES
+        .iter()
+        .any(|prefix| name.starts_with(prefix))
+}
+
 /// Reconcile `LockWallVisual` Bevy entities against the encounter-
-/// driven `lockwall:*` blocks in `world.blocks`. Spawn a sprite for
-/// any new lock wall, despawn entities whose backing block has been
-/// removed (encounter cleared / failed).
+/// driven `lockwall:*` and intro flag-gated `intro_lock:*` blocks in
+/// `world.blocks`. Spawn a sprite for any new lock wall, despawn
+/// entities whose backing block has been removed (encounter cleared /
+/// failed, or flag unlocked).
 ///
 /// Without this system the lock wall has collision (the engine reads
 /// `world.blocks` every frame) but no rendered tile — the player
@@ -578,12 +593,12 @@ pub fn sync_lock_wall_visuals(
         existing_by_name.insert(visual.block_name.clone(), entity);
     }
 
-    // Pass 1: spawn a visual for any lockwall block that doesn't have
-    // one yet. Mark consumed names so the despawn pass below leaves
-    // them alone.
+    // Pass 1: spawn a visual for any lock-wall block (encounter or
+    // intro flag-gated) that doesn't have one yet. Mark consumed
+    // names so the despawn pass below leaves them alone.
     let mut consumed: std::collections::HashSet<String> = std::collections::HashSet::new();
     for block in &world.0.blocks {
-        if !block.name.starts_with("lockwall:") {
+        if !is_lock_wall_block(&block.name) {
             continue;
         }
         if existing_by_name.contains_key(&block.name) {

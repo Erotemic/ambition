@@ -8,6 +8,33 @@ The sandbox now uses two Bevy-native debugging layers:
 This is deliberately a developer/debug workflow, not an in-game editor. It lets
 us tune feel and inspect ECS state before spending time on custom editor UI.
 
+## Cargo feature notes
+
+`dev_tools` enables the inspector but not the Bevy asset file watcher. The
+file watcher (Bevy 0.18's `notify`-backed asset hot-reload) creates one
+inotify instance per watched directory; with ~320 files across ~70 subdirs
+under `crates/ambition_sandbox/assets/`, hosts with a low per-process file
+descriptor limit get `Failed to create file watcher … Too many open files`
+on startup.
+
+Asset hot reload is split into its own feature, `dev_hot_reload`. Enable
+it only when you are actually iterating on textures/fonts/spritesheets:
+
+```bash
+cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload
+```
+
+If you DO want hot reload but hit the same "Too many open files" error, raise
+your host's open-fd and inotify limits:
+
+```bash
+# Per-shell, transient. Persist via /etc/security/limits.d/ or systemd if needed.
+ulimit -n 65536
+# Linux inotify quota — typically 8192 by default.
+echo 524288 | sudo tee /proc/sys/fs/inotify/max_user_watches
+echo 1024   | sudo tee /proc/sys/fs/inotify/max_user_instances
+```
+
 ## Hotkeys
 
 | Input | Effect |

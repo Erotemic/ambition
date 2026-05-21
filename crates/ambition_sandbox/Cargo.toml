@@ -149,11 +149,22 @@ rl_sim = []
 # remaining subsystem gates.
 headless = []
 
-# Devtools: egui inspector plugins + Bevy file watcher for hot reload.
-dev_tools = ["dep:bevy-inspector-egui", "bevy/file_watcher"]
+# Devtools: egui inspector plugins. NOT the file watcher — its host
+# cost (one inotify instance + one open fd per watched directory)
+# scales with the assets tree (~320 files, ~70 dirs as of 2026-05-21)
+# and trips hosts with a low per-process file-descriptor limit
+# ("Failed to create file watcher … Too many open files"). Opt into
+# the hot-reload watcher explicitly with `--features dev_hot_reload`
+# when you actually want to iterate on assets live.
+dev_tools = ["dep:bevy-inspector-egui"]
 
-# Backward-compat alias used by docs/CI before `dev_tools` existed.
-# File-watcher only, no inspector; matches prior `dev_hot_reload` semantics.
+# Opt-in Bevy file watcher for live asset hot-reload. Off by default
+# in the desktop persona because the cost (inotify quota / open fds)
+# is real and the LDtk workflow has its own `tools/ambition_ldtk_tools`
+# repair-and-reload loop. Enable with
+# `cargo run --features dev_hot_reload` when iterating on textures /
+# fonts / spritesheets that the asset server should pick up
+# automatically.
 dev_hot_reload = ["bevy/file_watcher"]
 
 # Opt-in self-contained map build. Normal sandbox builds load

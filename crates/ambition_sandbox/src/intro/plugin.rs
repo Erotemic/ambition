@@ -97,6 +97,7 @@ impl Plugin for IntroPlugin {
                     install_intro_gated_zones_system,
                     super::route_state::emit_intro_flag_chains,
                     super::route_state::sync_intro_flag_gated_lock_walls,
+                    super::route_state::redirect_post_intro_dialog,
                 ),
             );
     }

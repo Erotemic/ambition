@@ -94,6 +94,43 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
     ("gate_alice_private_lock", "bob_field_survey_received"),
 ];
 
+/// Per-frame dialog redirector. Mirrors the pirate-cove pattern
+/// (`dialog::redirect_post_quest_dialog`) but for intro NPCs whose
+/// post-state lines are swapped in based on save flags rather than
+/// boss death. Wired into `IntroPlugin::build` to run alongside the
+/// flag-chain and lock-wall syncs.
+pub fn redirect_post_intro_dialog(
+    mut dialogue: ResMut<crate::dialog::DialogState>,
+    save: Option<Res<crate::persistence::save::SandboxSave>>,
+) {
+    if !dialogue.active() {
+        return;
+    }
+    let Some(save) = save else { return };
+    let data = save.data();
+    use crate::dialog::DialogMode;
+    use crate::intro::dialog::IntroDialog;
+    let new_intro = match dialogue.mode() {
+        DialogMode::Intro(IntroDialog::OilerIntro) if data.flag("p1_stabilizer_received") => {
+            Some(IntroDialog::OilerPostStabilizer)
+        }
+        DialogMode::Intro(IntroDialog::AliceIntroStub)
+            if data.flag("bob_field_survey_received") =>
+        {
+            Some(IntroDialog::AliceAfterBobSurvey)
+        }
+        DialogMode::Intro(IntroDialog::BobIntroStub)
+            if data.flag("alice_route_note_reported") =>
+        {
+            Some(IntroDialog::BobAfterReport)
+        }
+        _ => None,
+    };
+    if let Some(intro) = new_intro {
+        dialogue.set_mode(DialogMode::Intro(intro));
+    }
+}
+
 /// Per-frame sync of the intro flag-gated lock walls. Mirrors the
 /// encounter system's `sync_lock_walls` but driven by the save layer
 /// rather than encounter phase.

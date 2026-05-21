@@ -59,6 +59,18 @@ pub enum IntroDialog {
     /// inconvenient places. Same intro-v1 Task 04 stub treatment as
     /// Alice.
     BobIntroStub,
+    /// Oiler's post-stabilizer line. Swapped in by the intro
+    /// `redirect_post_intro_dialog` system once
+    /// `p1_stabilizer_received` is in save state.
+    OilerPostStabilizer,
+    /// Alice's post-Bob-survey line. Swapped in once
+    /// `bob_field_survey_received` is set.
+    AliceAfterBobSurvey,
+    /// Bob's post-report line. Swapped in once
+    /// `alice_route_note_reported` is set (the evil/lawful Script C
+    /// branch). Bob explicitly notices that the route is now
+    /// watched.
+    BobAfterReport,
 }
 
 /// Dialogue identifiers consumed by the LDtk `NpcSpawn.dialogue_id`
@@ -77,6 +89,9 @@ pub const INTRO_DIALOGUE_IDS: &[&str] = &[
     "manifest_kiosk_wrong_list",
     "alice_intro_stub",
     "bob_intro_stub",
+    "oiler_post_stabilizer",
+    "alice_after_bob_survey",
+    "bob_after_report",
 ];
 
 pub fn intro_dialogue_ids() -> &'static [&'static str] {
@@ -98,6 +113,9 @@ impl IntroDialog {
             "manifest_kiosk_wrong_list" => Self::ManifestKioskWrongList,
             "alice_intro_stub" => Self::AliceIntroStub,
             "bob_intro_stub" => Self::BobIntroStub,
+            "oiler_post_stabilizer" => Self::OilerPostStabilizer,
+            "alice_after_bob_survey" => Self::AliceAfterBobSurvey,
+            "bob_after_report" => Self::BobAfterReport,
             _ => return None,
         })
     }
@@ -116,6 +134,9 @@ impl IntroDialog {
             Self::ManifestKioskWrongList => "manifest kiosk (wrong list)",
             Self::AliceIntroStub => "alice intro (stub)",
             Self::BobIntroStub => "bob intro (stub)",
+            Self::OilerPostStabilizer => "oiler (post stabilizer)",
+            Self::AliceAfterBobSurvey => "alice (after Bob survey)",
+            Self::BobAfterReport => "bob (after report)",
         }
     }
 
@@ -133,6 +154,9 @@ impl IntroDialog {
             Self::ManifestKioskWrongList => MANIFEST_KIOSK_NODES,
             Self::AliceIntroStub => ALICE_INTRO_STUB_NODES,
             Self::BobIntroStub => BOB_INTRO_STUB_NODES,
+            Self::OilerPostStabilizer => OILER_POST_STABILIZER_NODES,
+            Self::AliceAfterBobSurvey => ALICE_AFTER_BOB_SURVEY_NODES,
+            Self::BobAfterReport => BOB_AFTER_REPORT_NODES,
         }
     }
 }
@@ -723,6 +747,105 @@ const BOB_INTRO_STUB_NODES: &[DialogNode] = &[
             label: "[move on]",
             next_node: None,
             note: Some("Bob does not look up; the survey stays half-drawn."),
+            close_after: true,
+        }],
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Oiler post-stabilizer. Swapped in by `redirect_post_intro_dialog`
+// when the player has picked up the stabilizer kit beside Oiler
+// (i.e. `p1_stabilizer_received` is true in save). Acknowledges the
+// pickup and gives the under-town descent a verbal blessing.
+// ─────────────────────────────────────────────────────────────────
+
+const OILER_POST_STABILIZER_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Oiler",
+        line: "Stabilizer's yours. Bad pipe goes quieter, knees lie less. Don't drown.",
+        options: &[
+            DialogChoice {
+                label: "What's below?",
+                next_node: Some(1),
+                note: None,
+                close_after: false,
+            },
+            DialogChoice {
+                label: "[move on]",
+                next_node: None,
+                note: Some("Oiler nods. He has more pipes than time."),
+                close_after: true,
+            },
+        ],
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Oiler",
+        line: "Drains. Cartographers. People who'd rather draw a route than declare one. Tell them I sent you, if you must.",
+        options: &[DialogChoice {
+            label: "[descend]",
+            next_node: None,
+            note: Some("He goes back to the pipe. The pipe still wins."),
+            close_after: true,
+        }],
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Alice after Bob's field survey. Swapped in when
+// `bob_field_survey_received` is set. Alice acknowledges receipt
+// and notes the private map marks are live.
+// ─────────────────────────────────────────────────────────────────
+
+const ALICE_AFTER_BOB_SURVEY_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Alice",
+        line: "Bob's survey. Quiet route's holding. Don't fold it the same way twice.",
+        options: &[
+            DialogChoice {
+                label: "What now?",
+                next_node: Some(1),
+                note: None,
+                close_after: false,
+            },
+            DialogChoice {
+                label: "[leave]",
+                next_node: None,
+                note: Some("Alice opens the back of the alcove. The wall remembers a door."),
+                close_after: true,
+            },
+        ],
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Alice",
+        line: "Private marks are yours now. The map is not neutral. You may notice it agreeing with you in places.",
+        options: &[DialogChoice {
+            label: "[step through]",
+            next_node: None,
+            note: Some("The private return is no longer a wall."),
+            close_after: true,
+        }],
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Bob after the player has reported the route at the official
+// terminal. Swapped in when `alice_route_note_reported` is true.
+// Bob is brief and not pleased.
+// ─────────────────────────────────────────────────────────────────
+
+const BOB_AFTER_REPORT_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Bob",
+        line: "You filed the route. The route now files itself. Map labels we can't take back.",
+        options: &[DialogChoice {
+            label: "[move on]",
+            next_node: None,
+            note: Some("He doesn't ask for the survey back. The survey is already on somebody else's wall."),
             close_after: true,
         }],
         default_next: None,

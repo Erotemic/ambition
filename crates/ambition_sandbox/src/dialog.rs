@@ -16,7 +16,6 @@ mod systems;
 mod ui;
 
 pub(crate) use content::known_dialogue_ids;
-#[cfg(test)]
 pub(crate) use content::DialogMode;
 pub use content::{DialogChoice, DialogNode};
 pub use runtime::DialogState;

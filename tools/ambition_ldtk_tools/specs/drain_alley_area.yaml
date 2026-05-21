@@ -239,22 +239,26 @@ entities:
     size: [224, 16]
     fields: { name: pipes_b }
 
-  # Sealed under-town entrance. Solid block + label; Task 04 will
-  # remove the Solid and place a LoadingZone here targeting
-  # `under_town_pipes/under_town_from_drain`. The presence of the
-  # Solid prevents accidental no-target traversal in the meantime,
-  # while the label makes the intent visible to playtest and to the
-  # next agent who picks the task up.
-  - type: Solid
+  # Under-town entrance. Door LoadingZone targeting
+  # `under_town_pipes/under_town_from_drain` — the player walks onto
+  # the grate and presses Interact to descend. Task 04 added this
+  # along with the under_town_pipes room.
+  - type: LoadingZone
     px: [336, 800]
     size: [96, 48]
-    fields: { name: under_town_sealed_grate }
+    fields:
+      id: under_town_to_drain
+      name: under_town_to_drain
+      activation: Door
+      target_room: under_town_pipes
+      target_zone: under_town_from_drain
+      bidirectional: true
   - type: DebugLabel
     px: [320, 776]
     size: [240, 24]
     fields:
       name: drain_under_town_entry_label
-      text: "[under-town entry — sealed]"
+      text: "[under-town entry — grate open]"
       category: Custom
 
   # The Alice/Bob private map mark. Subtle: a one-line DebugLabel
@@ -267,6 +271,28 @@ entities:
     fields:
       name: drain_alice_map_mark
       text: "MAP_PRIVATE: ?? route mark"
+      category: Custom
+
+  # --- Return shortcut from Bob's relay. Door LoadingZone planted
+  # mid-street so the player can roll back into Drain Market after
+  # completing the cartography loop without retracing through Alice
+  # and the pipes. Wired in by Task 04 alongside bob_relay.
+  - type: LoadingZone
+    px: [464, 560]
+    size: [48, 48]
+    fields:
+      id: drain_from_bob_return
+      name: drain_from_bob_return
+      activation: Door
+      target_room: bob_relay
+      target_zone: bob_return_to_drain
+      bidirectional: true
+  - type: DebugLabel
+    px: [432, 536]
+    size: [240, 24]
+    fields:
+      name: drain_bob_return_label
+      text: "[manhole — Bob route return]"
       category: Custom
 
   # --- LOWER DRAIN tier (y=864..992). A small recess at the bottom

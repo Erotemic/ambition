@@ -51,6 +51,14 @@ pub enum IntroDialog {
     /// Manifest Office kiosk: confirms `${BIG_AI_NAME}` was the
     /// actual target.
     ManifestKioskWrongList,
+    /// Alice — unofficial cartographer. Intro-v1 Task 04 stub; the
+    /// dialogue tree is intentionally short while Task 08 wires the
+    /// full route-state branches.
+    AliceIntroStub,
+    /// Bob — field cartographer who keeps getting found in
+    /// inconvenient places. Same intro-v1 Task 04 stub treatment as
+    /// Alice.
+    BobIntroStub,
 }
 
 /// Dialogue identifiers consumed by the LDtk `NpcSpawn.dialogue_id`
@@ -67,6 +75,8 @@ pub const INTRO_DIALOGUE_IDS: &[&str] = &[
     "nazi_salvage_guard",
     "news_board_lab_incident",
     "manifest_kiosk_wrong_list",
+    "alice_intro_stub",
+    "bob_intro_stub",
 ];
 
 pub fn intro_dialogue_ids() -> &'static [&'static str] {
@@ -86,6 +96,8 @@ impl IntroDialog {
             "nazi_salvage_guard" => Self::NaziSalvageGuard,
             "news_board_lab_incident" => Self::NewsBoardLabIncident,
             "manifest_kiosk_wrong_list" => Self::ManifestKioskWrongList,
+            "alice_intro_stub" => Self::AliceIntroStub,
+            "bob_intro_stub" => Self::BobIntroStub,
             _ => return None,
         })
     }
@@ -102,6 +114,8 @@ impl IntroDialog {
             Self::NaziSalvageGuard => "nazi salvage guard",
             Self::NewsBoardLabIncident => "news board (lab incident)",
             Self::ManifestKioskWrongList => "manifest kiosk (wrong list)",
+            Self::AliceIntroStub => "alice intro (stub)",
+            Self::BobIntroStub => "bob intro (stub)",
         }
     }
 
@@ -117,6 +131,8 @@ impl IntroDialog {
             Self::NaziSalvageGuard => NAZI_SALVAGE_NODES,
             Self::NewsBoardLabIncident => NEWS_BOARD_NODES,
             Self::ManifestKioskWrongList => MANIFEST_KIOSK_NODES,
+            Self::AliceIntroStub => ALICE_INTRO_STUB_NODES,
+            Self::BobIntroStub => BOB_INTRO_STUB_NODES,
         }
     }
 }
@@ -609,6 +625,106 @@ const MANIFEST_KIOSK_NODES: &[DialogNode] = &[
         speaker: "Manifest Clerk",
         line: "The actual target is classified. The kiosk will say only: it was not a man, it was not a basement, and it was not last night. Have a normal day.",
         options: MANIFEST_KIOSK_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Alice — unofficial cartographer (Task 04 stub).
+// Two short nodes covering "carry this" + "do not unfold here".
+// Task 08 will swap the player choice into a real flag-setting
+// path and add the route-state branches.
+// ─────────────────────────────────────────────────────────────────
+
+const ALICE_INTRO_STUB_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Take the note.",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "[step back]",
+        next_node: None,
+        note: Some("Alice does not push. People who push leave records."),
+        close_after: true,
+    },
+];
+
+const ALICE_INTRO_STUB_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Alice",
+        line: "Official maps are for people who enjoy being found.",
+        options: ALICE_INTRO_STUB_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Alice",
+        line: "Carry this to Bob. Do not unfold it where the walls can read.",
+        options: &[DialogChoice {
+            label: "[pocket the note]",
+            next_node: None,
+            note: Some("She nods once and goes back to a route she has not drawn yet."),
+            close_after: true,
+        }],
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Bob — field cartographer (Task 04 stub).
+// Three short nodes. Task 08 will branch on whether the player
+// arrived via the low/observed route or the high/private route.
+// ─────────────────────────────────────────────────────────────────
+
+const BOB_INTRO_STUB_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Hand him the note.",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Why are you up here?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "[leave him to it]",
+        next_node: None,
+        note: Some("He waves you off with a chalk-mark."),
+        close_after: true,
+    },
+];
+
+const BOB_INTRO_STUB_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Bob",
+        line: "Alice sent you? Good. She maps exits. I map mistakes.",
+        options: BOB_INTRO_STUB_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Bob",
+        line: "Take the survey back to her. Tell her the low route is watched now.",
+        options: &[DialogChoice {
+            label: "[pocket the survey]",
+            next_node: None,
+            note: Some("He turns back to a wall he has not finished drawing."),
+            close_after: true,
+        }],
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Bob",
+        line: "Sketching the room before the room sketches me. Half-finished is the safest a map ever gets.",
+        options: &[DialogChoice {
+            label: "[move on]",
+            next_node: None,
+            note: Some("Bob does not look up; the survey stays half-drawn."),
+            close_after: true,
+        }],
         default_next: None,
     },
 ];

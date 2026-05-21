@@ -1,0 +1,179 @@
+# under_town_pipes — first hidden/private route below Drain Market.
+#
+# Built as part of intro-v1 Task 04 ("Under-town cartography route").
+# Sits directly below `drain_alley` in world coordinates so the
+# diegetic relationship — Drain Market on top, pipes underneath — is
+# preserved in the LDtk gridvania view.
+#
+# Function: a tighter, wetter, lower-ceilinged transit room. The
+# player descends from drain_alley via the sealed grate (which Task
+# 04 unseals by swapping the Solid for a LoadingZone), threads a
+# short pipe traversal past a skitter patrol and a suspicious dead-
+# end, reads the first Alice/Bob private map mark, and continues
+# east to the Alice Relay.
+#
+# Width 1024 matches drain_alley's footprint so the descent and the
+# return alignment stay simple.
+#
+# Transitions:
+# - Top-edge Door `under_town_from_drain` ← drain_alley/under_town_to_drain
+#   Mid-room descent: the player walks onto the grate in drain_alley
+#   and presses Interact (door activation). Cross-zone width = 96 px
+#   so it lines up 1:1 with the drain_alley grate footprint.
+# - Right-edge EdgeExit `under_town_to_alice` → alice_relay/alice_from_under_town
+#
+# Layout (1024×768):
+#
+#   +---------------------------------------------------+
+#   | ▒▒▒▒▒▒▒▒▒▒▒[ from drain ↓ ]▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |  pipe ceiling
+#   |                                                   |
+#   |  ▒▒▒▒▒▒  dead-end pocket                  → alice |
+#   |  [pipe valve — broken]                            |  upper pipe
+#   |                                                   |
+#   |                       ▒▒▒▒▒▒▒                    |  mid step
+#   |   MAP_PRIVATE: Alice — pipe route, do not report  |
+#   |             ▒▒▒▒▒▒▒                                |  lower step
+#   |  [skitter patrol]                                  |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒[old mountain hatch — sealed]▒▒▒▒▒▒▒|  floor + military stub
+#   +---------------------------------------------------+
+id: under_town_pipes
+level_id: under_town_pipes
+world_x: 3904
+world_y: 1024
+px_wid: 1024
+px_hei: 768
+fill_collision: empty
+bg_color: "#0E1418"
+biome: cave
+
+entities:
+  # --- Outer geometry.
+  - type: Solid
+    px: [0, 736]
+    size: [1024, 32]
+    fields: { name: floor }
+  # Pipe ceiling with a 96-px hole over the descent zone (x=336..432)
+  # so the drop from drain_alley lands inside the level without
+  # hitting a ceiling solid.
+  - type: Solid
+    px: [16, 0]
+    size: [320, 32]
+    fields: { name: ceiling_left }
+  - type: Solid
+    px: [432, 0]
+    size: [576, 32]
+    fields: { name: ceiling_right }
+
+  # --- PlayerStart (cold-launch only). Stand on the floor near the
+  # left so the cold-launch entry matches the warm descent geometry.
+  - type: PlayerStart
+    px: [120, 690]
+    size: [28, 46]
+    fields: { name: under_town_pipes_spawn }
+
+  # --- Descent from Drain Market. Top-edge zone aligned with the
+  # drain_alley grate footprint (x=336..432). Door activation so the
+  # player chooses to descend via Interact rather than auto-dropping
+  # on overlap. The zone is 128 px tall (not just 16) so the
+  # `door_arrival` rule (zone.bottom - PLAYER_HALF_H - margin) lands
+  # the player inside the room rather than just above the ceiling.
+  - type: LoadingZone
+    px: [336, 0]
+    size: [96, 128]
+    fields:
+      id: under_town_from_drain
+      name: under_town_from_drain
+      activation: Door
+      target_room: drain_alley
+      target_zone: under_town_to_drain
+      bidirectional: true
+
+  # --- Exit eastward to the Alice relay. Right-edge EdgeExit at
+  # floor-walking level.
+  - type: LoadingZone
+    px: [1008, 560]
+    size: [16, 176]
+    fields:
+      id: under_town_to_alice
+      name: under_town_to_alice
+      activation: EdgeExit
+      target_room: alice_relay
+      target_zone: alice_from_under_town
+      bidirectional: true
+
+  # --- Pipe interior. Lower-ceiling pockets keep the room reading
+  # as a duct. The dead-end pocket is left of the descent; the
+  # middle and lower steps form a recoverable descent path that
+  # bends east toward the Alice exit.
+  - type: Solid
+    px: [32, 192]
+    size: [256, 16]
+    fields: { name: dead_end_pocket_ceiling }
+  - type: Solid
+    px: [32, 192]
+    size: [16, 96]
+    fields: { name: dead_end_pocket_wall }
+  - type: DebugLabel
+    px: [40, 224]
+    size: [240, 24]
+    fields:
+      name: under_town_dead_end_label
+      text: "[pipe valve — broken]"
+      category: Custom
+
+  # Mid + lower steps along the right side. One-way so the player
+  # can drop through them on the way down or back up.
+  - type: OneWayPlatform
+    px: [560, 384]
+    size: [192, 16]
+    fields: { name: pipes_mid }
+  - type: OneWayPlatform
+    px: [320, 480]
+    size: [192, 16]
+    fields: { name: pipes_lower }
+  - type: OneWayPlatform
+    px: [640, 576]
+    size: [192, 16]
+    fields: { name: pipes_approach_alice }
+
+  # --- Alice/Bob private map mark. Subtle in tone, central to the
+  # room so the player can't avoid reading it on the way past.
+  - type: DebugLabel
+    px: [320, 416]
+    size: [400, 24]
+    fields:
+      name: under_town_alice_map_mark
+      text: "MAP_PRIVATE: Alice — pipe route, do not report"
+      category: Custom
+
+  # --- Skitter patrol. Light combat texture (Task 04 brief: "one
+  # simple skitter/contact patrol"). Brain `medium_striker` is a
+  # known-good cell from the raid corridor.
+  - type: EnemySpawn
+    px: [720, 688]
+    size: [32, 48]
+    fields:
+      name: under_town_skitter
+      brain: medium_striker
+
+  # --- Old mountain / military service hint. Sealed for now; later
+  # tasks can use the hook for a chaotic shortcut. The Solid block
+  # at the bottom right makes the hatch read as a permanent fixture
+  # rather than a passable spot.
+  - type: Solid
+    px: [832, 656]
+    size: [96, 80]
+    fields: { name: old_mountain_hatch }
+  - type: DebugLabel
+    px: [760, 632]
+    size: [240, 24]
+    fields:
+      name: under_town_military_hint_label
+      text: "[old mountain hatch — sealed]"
+      category: Custom
+
+  # --- Camera.
+  - type: CameraZone
+    px: [0, 0]
+    size: [1024, 768]
+    fields: { id: under_town_pipes_camera, name: under_town_pipes_camera, mode: Default }

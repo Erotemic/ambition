@@ -1,0 +1,178 @@
+# bob_relay — Bob Field Survey traverse.
+#
+# Built as part of intro-v1 Task 04 ("Under-town cartography route").
+# Sits east of `alice_relay`. The room functions as a small courier
+# movement challenge: the player carries Alice's sealed route note
+# across one of two visible routes — a low/watched one or a high/
+# private one — to reach Bob in his in-progress survey alcove and
+# pick up Bob's field survey. A return shortcut on the right edge
+# leads back to drain_alley so the loop closes without making the
+# player retrace through Alice and the pipes.
+#
+# Width 1024 / height 768 matches the rest of the under-town row.
+#
+# Transitions:
+# - Left-edge EdgeExit `bob_from_alice` ← alice_relay/alice_to_bob
+# - Right-edge EdgeExit `bob_return_to_drain` → drain_alley/drain_from_bob_return
+#   (the matching zone in drain_alley is wired in the same change.)
+#
+# Layout (1024×768):
+#
+#   +---------------------------------------------------+
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+#   |                                                   |
+#   |  ▒▒▒▒[high route — private, harder jumps]▒▒▒      |  MAP_PRIVATE
+#   |                                                   |
+#   |                          ▒▒▒▒[Bob field survey]   |  Bob alcove
+#   |  ←from Alice                                    → |
+#   |▒▒▒▒[low route — observed]▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|  MAP_WATCHED
+#   |  [scanner beam]                                   |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ floor ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+#   +---------------------------------------------------+
+id: bob_relay
+level_id: bob_relay
+world_x: 5952
+world_y: 1024
+px_wid: 1024
+px_hei: 768
+fill_collision: empty
+bg_color: "#161B22"
+biome: cave
+
+entities:
+  # --- Outer geometry.
+  - type: Solid
+    px: [0, 736]
+    size: [1024, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [16, 0]
+    size: [992, 32]
+    fields: { name: ceiling }
+
+  # --- PlayerStart (cold-launch).
+  - type: PlayerStart
+    px: [120, 690]
+    size: [28, 46]
+    fields: { name: bob_relay_spawn }
+
+  # --- Left arrival from Alice.
+  - type: LoadingZone
+    px: [0, 560]
+    size: [16, 176]
+    fields:
+      id: bob_from_alice
+      name: bob_from_alice
+      activation: EdgeExit
+      target_room: alice_relay
+      target_zone: alice_to_bob
+      bidirectional: true
+
+  # --- Right return shortcut to drain_alley. This is the closing
+  # half of the cartography loop — Bob's room knows where to put the
+  # survey-bearing player so they can roll back into the market
+  # without retracing through Alice and the pipes.
+  - type: LoadingZone
+    px: [1008, 560]
+    size: [16, 176]
+    fields:
+      id: bob_return_to_drain
+      name: bob_return_to_drain
+      activation: EdgeExit
+      target_room: drain_alley
+      target_zone: drain_from_bob_return
+      bidirectional: true
+
+  # --- LOW route (observed). A continuous ground level with a
+  # scanner-beam label and a watched-route map tag. Easier to walk;
+  # Task 08 may turn this into a state-change ("bob_survey_observed")
+  # when the player uses it.
+  - type: DebugLabel
+    px: [120, 696]
+    size: [240, 24]
+    fields:
+      name: bob_low_route_scanner_label
+      text: "[scanner beam]"
+      category: Custom
+  - type: DebugLabel
+    px: [40, 664]
+    size: [320, 24]
+    fields:
+      name: bob_low_route_watched_label
+      text: "MAP_WATCHED: low route observed"
+      category: Custom
+
+  # --- HIGH route (private). Three one-way platforms staggered to
+  # require a double-jump — harder, but does not pass the scanner.
+  - type: OneWayPlatform
+    px: [192, 480]
+    size: [192, 16]
+    fields: { name: bob_high_a }
+  - type: OneWayPlatform
+    px: [432, 384]
+    size: [192, 16]
+    fields: { name: bob_high_b }
+  - type: OneWayPlatform
+    px: [672, 480]
+    size: [192, 16]
+    fields: { name: bob_high_c }
+  - type: DebugLabel
+    px: [192, 448]
+    size: [320, 24]
+    fields:
+      name: bob_high_route_private_label
+      text: "MAP_PRIVATE: high route is private"
+      category: Custom
+
+  # --- Bob's alcove. He sits on a Solid bench near the right side,
+  # at the elevation the high route lands on. Surveys-in-progress
+  # geometry is suggested by a small unfinished platform stub above
+  # the bench (extra step that goes nowhere — visual cue for "Bob
+  # was sketching a route up here").
+  - type: Solid
+    px: [800, 624]
+    size: [160, 16]
+    fields: { name: bob_alcove_bench }
+  - type: NpcSpawn
+    px: [848, 576]
+    size: [32, 48]
+    fields:
+      name: Bob
+      prompt: "Talk to Bob"
+      dialogue_id: bob_intro_stub
+  - type: OneWayPlatform
+    px: [800, 528]
+    size: [80, 16]
+    fields: { name: bob_unfinished_survey_step }
+
+  # --- Bob's Field Survey pickup. Story flag the player picks up by
+  # interacting/walking into the entity. Task 08 may swap this for
+  # dialogue-driven flag setting later.
+  - type: PickupSpawn
+    px: [880, 584]
+    size: [24, 24]
+    fields:
+      name: bob_field_survey
+      kind: "flag:bob_field_survey_received"
+
+  # --- Quote labels. Short placeholder lines per the task brief.
+  - type: DebugLabel
+    px: [560, 96]
+    size: [400, 24]
+    fields:
+      name: bob_quote_alice_sent_you
+      text: 'Bob: "Alice sent you? Good. She maps exits. I map mistakes."'
+      category: Custom
+  - type: DebugLabel
+    px: [560, 128]
+    size: [400, 24]
+    fields:
+      name: bob_quote_low_route_watched
+      text: 'Bob: "Tell her the low route is watched now."'
+      category: Custom
+
+  # --- Camera.
+  - type: CameraZone
+    px: [0, 0]
+    size: [1024, 768]
+    fields: { id: bob_relay_camera, name: bob_relay_camera, mode: Default }

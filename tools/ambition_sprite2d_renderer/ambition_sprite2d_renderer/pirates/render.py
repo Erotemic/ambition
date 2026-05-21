@@ -12,7 +12,10 @@ TARGETS = {
     "pirate_admiral": "pirate_admiral",
     "pirate_raider": "pirate_raider",
     "pirate_quartermaster": "pirate_quartermaster",
+    "pirate_lookout": "pirate_lookout",
+    "pirate_navigator": "pirate_navigator",
 }
+_TARGET_KEYS = list(TARGETS.keys())
 
 
 def find_repo_root(start: Path) -> Path:
@@ -49,7 +52,7 @@ def main(argv=None):
     tool_root = Path(__file__).resolve().parents[2]
     repo_root = find_repo_root(tool_root)
     p = argparse.ArgumentParser(description="Render standalone pirate spritesheets for Ambition.")
-    p.add_argument("--target", choices=["pirate_admiral", "pirate_raider", "pirate_quartermaster", "all"], default="all")
+    p.add_argument("--target", choices=[*_TARGET_KEYS, "all"], default="all")
     p.add_argument("--out-root", type=Path, default=tool_root / "generated")
     p.add_argument("--frame-width", type=int, default=128)
     p.add_argument("--frame-height", type=int, default=128)
@@ -57,7 +60,7 @@ def main(argv=None):
     p.add_argument("--dest-root", type=Path, default=repo_root / "crates" / "ambition_sandbox" / "assets" / "sprites")
     args = p.parse_args(argv)
 
-    targets = [args.target] if args.target != "all" else ["pirate_admiral", "pirate_raider", "pirate_quartermaster"]
+    targets = [args.target] if args.target != "all" else list(_TARGET_KEYS)
     frame_size = (args.frame_width, args.frame_height)
     for target in targets:
         out_dir = args.out_root / target

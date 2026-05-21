@@ -150,6 +150,22 @@ class Palette:
     accent: RGBA | None = None
 
 
+# Cohort tags so the parametric draw branches can ask "is this a
+# scarf-wearing pirate" / "is this a bearded pirate" rather than
+# spelling out every kind name in every branch. Lady pirates wear
+# scarves and share the taunt-tilt + blade-tip-offset behavior with
+# the male raiders, but they don't grow beards or wear the chest
+# skull motif.
+SCARFED_KINDS = (
+    "pirate_raider",
+    "pirate_quartermaster",
+    "pirate_lookout",
+    "pirate_navigator",
+)
+BEARDED_KINDS = ("pirate_raider", "pirate_quartermaster")
+SKULL_MOTIF_KINDS = ("pirate_raider", "pirate_quartermaster")
+
+
 PALETTES = {
     "pirate_admiral": Palette(
         outline=(26, 28, 35, 255),
@@ -198,7 +214,7 @@ PALETTES = {
     "pirate_quartermaster": Palette(
         outline=(18, 14, 16, 255),
         # Deep brown skin — noticeably darker than the existing
-        # `pirate_admiral` (#D4BCA0) and `pirate_raider` (#EBC4A0).
+        # `pirate_admiral` (#A87C58) and `pirate_raider` (#EBC4A0).
         skin=(112, 76, 50, 255),
         skin_shadow=(72, 46, 28, 255),
         hat=(20, 24, 30, 255),
@@ -213,6 +229,52 @@ PALETTES = {
         # Short cropped beard matching the warm-dark skin tone.
         beard=(38, 24, 16, 255),
         accent=(232, 220, 196, 255),
+    ),
+    # ─────────────────────────────────────────────────────────────────
+    # Lady pirate variants. Same skeleton + hat / sash / sword
+    # geometry as the male roles (the parametric character draws the
+    # same silhouette), but no beard and a warmer scarf / coat
+    # palette so they read as a distinct crew at a glance.
+    #
+    # Two skin tones — Lookout deep-brown (matches Quartermaster
+    # range), Navigator pale-warm — so the lineup hits five distinct
+    # phenotypes between the three men + two women.
+    # ─────────────────────────────────────────────────────────────────
+    "pirate_lookout": Palette(
+        outline=(22, 18, 22, 255),
+        # Deep brown skin in the Quartermaster range, slightly warmer.
+        skin=(118, 80, 56, 255),
+        skin_shadow=(76, 48, 32, 255),
+        hat=(24, 28, 38, 255),       # dark navy cap
+        coat=(176, 60, 88, 255),     # raspberry coat
+        coat2=(232, 200, 132, 255),  # buttery trim
+        sash=(48, 36, 28, 255),      # dark leather sash
+        shirt=(244, 232, 208, 255),
+        pants=(52, 38, 32, 255),
+        boots=(60, 38, 22, 255),
+        metal=(214, 220, 226, 255),
+        gold=(228, 188, 76, 255),
+        beard=None,  # no beard — lady pirate
+        accent=(255, 230, 196, 255),
+    ),
+    "pirate_navigator": Palette(
+        outline=(24, 20, 24, 255),
+        # Pale-warm skin, between the existing Raider and a paler
+        # northern-European reference. Distinct from Admiral's mid-
+        # brown so the cove lineup reads as five different people.
+        skin=(238, 206, 178, 255),
+        skin_shadow=(196, 152, 116, 255),
+        hat=(72, 24, 48, 255),       # plum hat
+        coat=(46, 64, 96, 255),      # midnight navy coat
+        coat2=(214, 198, 174, 255),  # bone trim
+        sash=(212, 168, 64, 255),    # gold sash
+        shirt=(244, 240, 232, 255),
+        pants=(58, 50, 48, 255),
+        boots=(64, 44, 28, 255),
+        metal=(216, 222, 230, 255),
+        gold=(232, 192, 80, 255),
+        beard=None,  # no beard — lady pirate
+        accent=(178, 116, 156, 255),
     ),
 }
 
@@ -366,7 +428,7 @@ def draw_human_neck(draw, chest, head_center, global_tilt, pal, kind="pirate_adm
     # Base of neck emerges from the shirt / coat opening.
     base = transform((0, -22), chest, deg=global_tilt)
     top = (head_center[0] - 2, head_center[1] + 24)
-    neck_fill = pal.skin if kind in ("pirate_raider", "pirate_quartermaster") else pal.skin_shadow
+    neck_fill = pal.skin if kind in SCARFED_KINDS else pal.skin_shadow
 
     # Slightly tapered neck polygon.
     pts = [
@@ -476,7 +538,7 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     ground = h * 0.83
     bob = pose["bob"] * SCALE
     root = (cx, ground + bob)
-    global_tilt = pose["body_tilt"] + (5 if kind in ("pirate_raider", "pirate_quartermaster") and anim == "taunt" else 0)
+    global_tilt = pose["body_tilt"] + (5 if kind in SCARFED_KINDS and anim == "taunt" else 0)
     death_t = pose["death_t"]
 
     # Whole body offsets / lean for death.
@@ -551,23 +613,23 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     line(draw, [front_shoulder, front_elbow, front_hand], pal.coat, width=13)
     line(draw, [front_shoulder, front_elbow, front_hand], pal.outline, width=4)
     circle(draw, front_hand, 8, pal.skin, pal.outline, width=2)
-    draw_sword(draw, front_hand, pose["weapon"], 92 if kind == "pirate_admiral" else 86, pal, curve=(16 if kind in ("pirate_raider", "pirate_quartermaster") else 5))
+    draw_sword(draw, front_hand, pose["weapon"], 92 if kind == "pirate_admiral" else 86, pal, curve=(16 if kind in SCARFED_KINDS else 5))
     if anim == "slash":
         arc_box = (front_hand[0] - 70, front_hand[1] - 96, front_hand[0] + 110, front_hand[1] + 76)
         draw.arc(arc_box, start=205, end=336, fill=(255, 245, 200, 180), width=8)
         draw.arc(arc_box, start=214, end=328, fill=(255, 255, 255, 120), width=4)
     elif anim in {"idle", "walk", "taunt"} and frame_idx % 2 == 0:
-        blade_tip = transform((92 if kind == "pirate_admiral" else 86, 4 if kind in ("pirate_raider", "pirate_quartermaster") else 0), front_hand, pose["weapon"])
+        blade_tip = transform((92 if kind == "pirate_admiral" else 86, 4 if kind in SCARFED_KINDS else 0), front_hand, pose["weapon"])
         line(draw, [blade_tip, (blade_tip[0] + 10, blade_tip[1] - 8)], (255, 255, 255, 100), width=2)
 
     # Neck / head / hat
     draw_human_neck(draw, chest, head_center, global_tilt, pal, kind=kind)
 
     head_bbox = (head_center[0] - 28, head_center[1] - 34, head_center[0] + 28, head_center[1] + 34)
-    draw_face(draw, head_bbox, pal, eyepatch=(kind == "pirate_admiral"), beard=(kind in ("pirate_raider", "pirate_quartermaster")), mean=True, x_eyes=pose["x_eyes"], blink=pose["blink"], mouth_open=pose["mouth_open"])
+    draw_face(draw, head_bbox, pal, eyepatch=(kind == "pirate_admiral"), beard=(kind in BEARDED_KINDS), mean=True, x_eyes=pose["x_eyes"], blink=pose["blink"], mouth_open=pose["mouth_open"])
     draw_hat(draw, head_center, 1.0, pal, skull=True, tilt=pose["hat_tilt"] + global_tilt * 0.15)
 
-    if kind in ("pirate_raider", "pirate_quartermaster"):
+    if kind in SKULL_MOTIF_KINDS:
         # chest skull motif
         chest_c = transform((0, 14), chest, deg=global_tilt)
         circle(draw, (chest_c[0], chest_c[1] - 4), 8, (242, 236, 230, 255), pal.outline, width=2)

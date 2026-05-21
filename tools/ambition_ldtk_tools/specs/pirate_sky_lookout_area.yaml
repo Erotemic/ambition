@@ -74,6 +74,21 @@ entities:
     size: [28, 46]
     fields: { name: pirate_sky_lookout_spawn }
 
+  # Lady pirate — Navigator. Lives on the lookout deck and walks
+  # the player through the shark orbit pattern + the double-back
+  # reversal. Non-hostile NPC; placed far-left so she's clear of
+  # the entry Door zone and the first shark spawn. Her dialogue
+  # references the AerialRole / orbit_direction mechanics so
+  # players can ground the visual cue in mechanical terms.
+  - type: NpcSpawn
+    px: [120, 670]
+    size: [42, 70]
+    fields:
+      name: Pirate Navigator
+      prompt: Talk
+      dialogue_id: pirate_navigator
+      patrol_radius: 0
+
   # ─────────────────────────────────────────────────────────────────
   # Cove ↔ lookout Door zones. Door activation (Interact) so the
   # player chooses to ascend/descend rather than auto-firing every

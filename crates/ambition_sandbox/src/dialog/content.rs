@@ -25,6 +25,14 @@ pub enum DialogMode {
     /// powder, complains about both, and is the player's path to
     /// the (new) sky-lookout sandbox room above the cove.
     PirateQuartermaster,
+    /// Lady pirate — Lookout. Stands on the cove ladder watching
+    /// the sky; warns about the rider grudge from a different
+    /// angle than the Quartermaster.
+    PirateLookout,
+    /// Lady pirate — Navigator. Lives on the sky lookout deck;
+    /// gives the player the geography of the route, including the
+    /// double-back orbits the riders fly.
+    PirateNavigator,
     /// Ninja-faction leader. Runs the Shadow Dojo and proposes a
     /// truce-of-convenience with the pirates so the two crews can
     /// settle the Mockingbird together. Dialog hangs on the rivalry
@@ -53,6 +61,8 @@ pub(crate) const KNOWN_DIALOGUE_IDS: &[&str] = &[
     "pirate_admiral",
     "pirate_raider",
     "pirate_quartermaster",
+    "pirate_lookout",
+    "pirate_navigator",
     "ninja_leader",
     "ninja_duelist",
     "generic_npc",
@@ -93,6 +103,8 @@ impl DialogMode {
             "pirate_admiral" => Self::PirateAdmiral,
             "pirate_raider" => Self::PirateRaider,
             "pirate_quartermaster" => Self::PirateQuartermaster,
+            "pirate_lookout" => Self::PirateLookout,
+            "pirate_navigator" => Self::PirateNavigator,
             "ninja_leader" => Self::NinjaLeader,
             "ninja_duelist" => Self::NinjaDuelist,
             "generic_npc" => Self::Generic,
@@ -113,6 +125,8 @@ impl DialogMode {
             Self::PirateAdmiral | Self::PirateAdmiralAfterTreasure => "pirate admiral",
             Self::PirateRaider | Self::PirateRaiderAfterTreasure => "pirate raider",
             Self::PirateQuartermaster => "pirate quartermaster",
+            Self::PirateLookout => "pirate lookout",
+            Self::PirateNavigator => "pirate navigator",
             Self::NinjaLeader => "ninja shadow oni leader",
             Self::NinjaDuelist => "ninja shadow duelist",
             Self::Intro(intro) => intro.label(),
@@ -135,6 +149,8 @@ impl DialogMode {
             Self::PirateRaider => PIRATE_RAIDER_NODES,
             Self::PirateRaiderAfterTreasure => PIRATE_RAIDER_AFTER_TREASURE_NODES,
             Self::PirateQuartermaster => PIRATE_QUARTERMASTER_NODES,
+            Self::PirateLookout => PIRATE_LOOKOUT_NODES,
+            Self::PirateNavigator => PIRATE_NAVIGATOR_NODES,
             Self::NinjaLeader => NINJA_LEADER_NODES,
             Self::NinjaDuelist => NINJA_DUELIST_NODES,
             Self::Intro(intro) => intro.nodes(),
@@ -948,6 +964,133 @@ const PIRATE_QUARTERMASTER_NODES: &[DialogNode] = &[
         speaker: "Quartermaster",
         line: "The lookout, up the rigging through the hatch in the ceiling. Crew's in a foul mood today — every shark's got a rider on top with a grudge and a flintlock, and they ain't asking questions before they fire. You ever try rationing salt pork between six pirates and three on-fire sharks? That's why they're cross.",
         options: PIRATE_QUARTERMASTER_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Pirate Lookout — lady pirate at the foot of the cove ladder.
+// Watches the sky for incoming sharks; second-source warning to
+// match the Quartermaster's "crew is grumpy" beat from a different
+// angle (eyes-on-the-sky vs ledger-side).
+// ─────────────────────────────────────────────────────────────────
+
+const PIRATE_LOOKOUT_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What're you watching for?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Why is the crew so cross?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "[climb past]",
+        next_node: None,
+        note: Some("She tips her cap with a knife — point first."),
+        close_after: true,
+    },
+];
+
+const PIRATE_LOOKOUT_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "[climb past]",
+        next_node: None,
+        note: Some("She rolls her eyes and goes back to scanning the cloud line."),
+        close_after: true,
+    },
+];
+
+const PIRATE_LOOKOUT_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Lookout",
+        line: "Shark trouble. The riders been circling since dawn — same orbit, then a hard double-back when they think nobody's watching. They are wrong about that.",
+        options: PIRATE_LOOKOUT_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Lookout",
+        line: "Sky. Mockingbird drops songs from up there sometimes; the riders dive at anything that twitches. If you see one peel off the orbit and reverse, that's the dive cue — step LEFT.",
+        options: PIRATE_LOOKOUT_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Lookout",
+        line: "Ration cut. Quartermaster cut the salt pork down to half-portions. Six pirates plus three sharks fed on half-portions equals a grudge with a heartbeat. The riders are the loudest about it.",
+        options: PIRATE_LOOKOUT_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Pirate Navigator — lady pirate on the sky-lookout deck. Lives
+// upstairs with the sharks; explains the orbit pattern and the
+// double-back to the player after they've climbed up.
+// ─────────────────────────────────────────────────────────────────
+
+const PIRATE_NAVIGATOR_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What's their flight pattern?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Why aren't they attacking you?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "[ready your blade]",
+        next_node: None,
+        note: Some("She steps back so you have a clear line to the first orbit."),
+        close_after: true,
+    },
+];
+
+const PIRATE_NAVIGATOR_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "[ready your blade]",
+        next_node: None,
+        note: Some("Navigator nods at the sky. 'Three of them. Mind the reverse.'"),
+        close_after: true,
+    },
+];
+
+const PIRATE_NAVIGATOR_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Navigator",
+        line: "Three sharks, three riders. They orbit at altitude until something they don't like steps onto the deck — that's you — then they peel off and fire. The interesting bit is the double-back: every few seconds they reverse the orbit direction so you can't lead them by counting beats.",
+        options: PIRATE_NAVIGATOR_OPTIONS,
+        default_next: None,
+        },
+    DialogNode {
+        speaker: "Navigator",
+        line: "Three roles up there: Hover, Swoop, Retreat. Hover keeps height and fires. Swoop dives every three seconds. Retreat gains altitude and stretches the cadence. Each rider picks one at spawn and sticks with it. The reverse is on top of all of it.",
+        options: PIRATE_NAVIGATOR_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Navigator",
+        line: "I plot the routes — they don't shoot the navigator. Mockingbird ate the chest, the songs got short, the crew got mean, I drew the line that says the navigator eats. Sit down a moment if you want; the sharks won't.",
+        options: PIRATE_NAVIGATOR_RETURN_OPTIONS,
         default_next: None,
     },
 ];

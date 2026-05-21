@@ -159,6 +159,19 @@ entities:
       prompt: Talk
       dialogue_id: pirate_quartermaster
       patrol_radius: 0
+  # Lady pirate — Lookout. Stands near the foot of the rigging
+  # ladder so the player meets her on the way up to the sky hatch.
+  # x=712 sits just right of the right-lookout ledge (which spans
+  # x=720..912, top y=320); she occupies the deck floor below the
+  # ledge so she's visible during the cove approach to the hatch.
+  - type: NpcSpawn
+    px: [712, 538]
+    size: [42, 70]
+    fields:
+      name: Pirate Lookout
+      prompt: Talk
+      dialogue_id: pirate_lookout
+      patrol_radius: 0
 
   # Sky-lookout ascent door — the player jumps onto the right
   # lookout ledge and presses Interact at the hatch in the ceiling

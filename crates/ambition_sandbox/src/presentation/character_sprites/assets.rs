@@ -154,6 +154,22 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
         "pirate_quartermaster_spritesheet.png",
         PIRATE_SHEET,
     ),
+    // Lady pirate variants — same PIRATE_SHEET 128×128 layout, six
+    // animations. Visual gendering happens entirely in the toon-
+    // target palette (no beard; warmer scarf / coat colors). See
+    // `tools/ambition_sprite2d_renderer/.../pirates/common.py`
+    // `pirate_lookout` (deep-brown skin) and `pirate_navigator`
+    // (pale-warm skin) palette entries.
+    (
+        "Pirate Lookout",
+        "pirate_lookout_spritesheet.png",
+        PIRATE_SHEET,
+    ),
+    (
+        "Pirate Navigator",
+        "pirate_navigator_spritesheet.png",
+        PIRATE_SHEET,
+    ),
     // Burning Flying Shark — enemy mount used by the pirate sky
     // arena. Registered through the NPC sprite registry because the
     // current enemy-sprite resolver falls through to NPC sheets
@@ -229,6 +245,8 @@ pub fn npc_sprite_label(npc_name: &str) -> &'static str {
         "Pirate Admiral" => "npc_pirate_admiral",
         "Pirate Raider" => "npc_pirate_raider",
         "Pirate Quartermaster" => "npc_pirate_quartermaster",
+        "Pirate Lookout" => "npc_pirate_lookout",
+        "Pirate Navigator" => "npc_pirate_navigator",
         "Burning Flying Shark" => "npc_burning_flying_shark",
         "Shadow Oni Leader" => "npc_ninja_shadow_oni_leader",
         "Shadow Duelist" => "npc_ninja_shadow_duelist",

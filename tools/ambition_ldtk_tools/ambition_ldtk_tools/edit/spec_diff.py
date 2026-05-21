@@ -100,7 +100,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "specs",
-        nargs="+",
+        nargs="*",
         type=Path,
         help="One or more spec YAML paths to diff against the live LDtk.",
     )
@@ -116,13 +116,29 @@ def main(argv=None) -> int:
         / "sandbox.ldtk",
         help="Path to the live .ldtk file (default: sandbox.ldtk).",
     )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help=(
+            "Diff every *.yaml spec under tools/ambition_ldtk_tools/specs/ "
+            "(non-recursive). Convenient for a clean-state CI check."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    spec_paths: list[Path] = list(args.specs)
+    if args.all:
+        spec_dir = REPO_ROOT / "tools" / "ambition_ldtk_tools" / "specs"
+        spec_paths.extend(sorted(spec_dir.glob("*.yaml")))
+        spec_paths.extend(sorted(spec_dir.glob("*.yml")))
+    if not spec_paths:
+        parser.error("no specs to diff; pass spec paths or --all")
 
     project = json.loads(args.ldtk.read_text())
     levels_by_id = {lvl["identifier"]: lvl for lvl in project.get("levels", [])}
 
     all_match = True
-    for spec_path in args.specs:
+    for spec_path in spec_paths:
         spec = load_yaml(spec_path)
         if spec is None:
             print(f"{spec_path}: empty or unreadable YAML")

@@ -1,0 +1,83 @@
+# combat_calibration_lab — combat verb calibration room.
+#
+# Stubbed by intro-v1 Task 05 so the right utility switchback has a
+# valid `gate_to_combat_lab` target. Task 06 expands the interior
+# (encounter ladder, ReboundPad, BreakablePogoOrb, etc.); this stub
+# just lays out the room shape, the left-edge entry from the gate
+# stack, and a forward-declared exit label toward the system boss.
+#
+# Width 1280 / height 768 leaves room for Task 06 to add three or
+# four readable combat beats without cramping them; height matches
+# the rest of the gate stack row.
+#
+# Transitions:
+# - Left-edge EdgeExit `combat_lab_from_gate` ← gate_stack_lower/gate_to_combat_lab
+# - Right-edge EdgeExit `combat_lab_to_boss` → first_system_boss/boss_from_combat_lab
+#   (Task 07 wires the destination side. For now the right exit is a
+#   DebugLabel only; promote it to a LoadingZone once the boss room
+#   exists, so the validator does not flag a dangling target_room.)
+id: combat_calibration_lab
+level_id: combat_calibration_lab
+world_x: 6528
+world_y: 0
+px_wid: 1280
+px_hei: 768
+fill_collision: empty
+bg_color: "#1A1620"
+biome: lab
+
+entities:
+  - type: Solid
+    px: [0, 736]
+    size: [1280, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [16, 0]
+    size: [1248, 32]
+    fields: { name: ceiling }
+
+  - type: PlayerStart
+    px: [120, 690]
+    size: [28, 46]
+    fields: { name: combat_calibration_lab_spawn }
+
+  - type: LoadingZone
+    px: [0, 560]
+    size: [16, 176]
+    fields:
+      id: combat_lab_from_gate
+      name: combat_lab_from_gate
+      activation: EdgeExit
+      target_room: gate_stack_lower
+      target_zone: gate_to_combat_lab
+      bidirectional: true
+
+  # --- Stub content. Task 06 will replace these with the real
+  # encounter ladder; the labels exist so the room reads as a
+  # WIP combat lab in playtest rather than an empty box.
+  - type: DebugLabel
+    px: [40, 64]
+    size: [400, 24]
+    fields:
+      name: combat_lab_title_label
+      text: "// COMBAT CALIBRATION — Task 06 expands"
+      category: Custom
+  - type: DebugLabel
+    px: [40, 96]
+    size: [400, 24]
+    fields:
+      name: combat_lab_intent_label
+      text: "Intent: parry / pogo / projectile verb confirmation"
+      category: Custom
+  - type: DebugLabel
+    px: [1040, 432]
+    size: [240, 24]
+    fields:
+      name: combat_lab_boss_exit_label
+      text: "→ first_system_boss (Task 07 stub)"
+      category: Custom
+
+  - type: CameraZone
+    px: [0, 0]
+    size: [1280, 768]
+    fields: { id: combat_calibration_lab_camera, name: combat_calibration_lab_camera, mode: Default }

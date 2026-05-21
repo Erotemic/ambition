@@ -1,19 +1,33 @@
-# gate_stack_lower — fifth room of the intro sequence: hub reveal.
+# gate_stack_lower — Right Utility Switchback (intro-v1 Task 05).
 #
-# Beat: Stable-gate infrastructure visible. Signage establishes that
-# gates are bureaucratic transit, not mythical doorways. Future
-# routes are SIGNPOSTED with DebugLabels — no actual doors, since
-# the routes don't exist yet and dead-end LoadingZones (the v1
-# placeholder) confused playtesting.
+# Beat: route-choice junction. Drain Market on the left, official
+# gate signage and a portal mechanic in the middle, a sky tease at
+# the top, a private side entrance from the Alice/Bob route at the
+# bottom (forward-declared), and the combat calibration lab on the
+# right. The room shows multiple access models side by side so the
+# player understands official/private/neutral/chaotic before any
+# dialogue explains them.
+#
+# Identifier kept as `gate_stack_lower` so existing LoadingZone
+# targets in drain_alley and central_hub_complex do not need
+# rewriting. Comments / debug labels carry the utility-switchback
+# reinterpretation. worldX corrected from the stale spec value
+# 108000 to the live value 4928.
 #
 # Transitions:
 # - Left-edge EdgeExit `gate_stack_from_drain` ← drain_alley
-# - (No right-side exit yet; the player explores then backtracks.
-#   When the real Manifest Office / pirate / ninja zones land,
-#   replace the appropriate DebugLabel with a LoadingZone.)
+# - Right-edge EdgeExit `gate_to_combat_lab` → combat_calibration_lab
+#   (Task 05 stub; Task 06 fills out the lab interior.)
+# - Mid-room Door `pirate_sky_up` → pirate_sky_arena (existing).
+# - Mid-room Door `intro_portal_zone` → central_hub_complex
+#   (existing, gated by `intro_portal_switch` via `GatedZoneRegistry`).
+# - Forward-declared: a `gate_from_alice_private` connection from
+#   alice_relay's `alice_private_return_lock` once Task 08 wires
+#   `bob_field_survey_received` into the gating registry. For now a
+#   LockWall + label holds the slot.
 id: gate_stack_lower
 level_id: gate_stack_lower
-world_x: 108000
+world_x: 4928
 world_y: 0
 px_wid: 1600
 px_hei: 768
@@ -50,6 +64,20 @@ entities:
       activation: EdgeExit
       target_room: drain_alley
       target_zone: drain_to_gate_stack
+      bidirectional: true
+
+  # Top-edge EdgeExit up to the pirate sky arena. Inherited from the
+  # v1 layout; not part of intro-v1's required loop but kept so the
+  # sky tease has a working transition.
+  - type: LoadingZone
+    px: [160, 0]
+    size: [96, 16]
+    fields:
+      id: pirate_sky_up
+      name: pirate_sky_up
+      activation: EdgeExit
+      target_room: pirate_sky_arena
+      target_zone: sky_arrival
       bidirectional: true
 
   - type: PlayerStart
@@ -217,4 +245,70 @@ entities:
     fields:
       name: gate_stack_lab_return_label
       text: "[lab ruins — collapsed]"
+      category: Custom
+
+  # --- Right-edge exit to the combat calibration lab. New for
+  # intro-v1 Task 05; the destination is stubbed by Task 05 and
+  # filled in by Task 06.
+  - type: LoadingZone
+    px: [1584, 560]
+    size: [16, 176]
+    fields:
+      id: gate_to_combat_lab
+      name: gate_to_combat_lab
+      activation: EdgeExit
+      target_room: combat_calibration_lab
+      target_zone: combat_lab_from_gate
+      bidirectional: true
+  - type: DebugLabel
+    px: [1380, 536]
+    size: [200, 24]
+    fields:
+      name: gate_combat_lab_exit_label
+      text: "→ Combat Calibration"
+      category: Custom
+
+  # --- Private side entrance from the Alice/Bob route. Currently a
+  # LockWall + label so the slot reads as deliberately gated; Task
+  # 08 will replace this with a real conditional gate that the
+  # `bob_field_survey_received` flag opens. The LockWall sits at the
+  # bottom-center of the room (between the gate machinery and the
+  # combat-lab exit) so the player sees it as an alternative route
+  # to the right side.
+  - type: LockWall
+    px: [880, 656]
+    size: [96, 80]
+    fields:
+      id: gate_alice_private_lock
+      name: gate_alice_private_lock
+  - type: DebugLabel
+    px: [840, 632]
+    size: [256, 24]
+    fields:
+      name: gate_alice_private_label
+      text: "MAP_PRIVATE: opens after Bob survey"
+      category: Custom
+
+  # --- Scanner-beam label near the manifest clerk, naming the
+  # observed-route axis. Future task (06 or 08) can promote this to
+  # a real scanner DamageVolume or observation beam; for intro-v1
+  # the label is enough to telegraph the watch-route fiction.
+  - type: DebugLabel
+    px: [880, 664]
+    size: [240, 24]
+    fields:
+      name: gate_scanner_label
+      text: "MAP_WATCHED: scanner beam"
+      category: Custom
+
+  # --- Official-route hook. The portal switch already exists; this
+  # label names it as the official/lawful-convenience axis so a
+  # later evil/lawful "report a route here" hook lands in the right
+  # place without rebuilding the geometry.
+  - type: DebugLabel
+    px: [560, 664]
+    size: [240, 24]
+    fields:
+      name: gate_official_terminal_label
+      text: "MAP_OFFICIAL: portal terminal"
       category: Custom

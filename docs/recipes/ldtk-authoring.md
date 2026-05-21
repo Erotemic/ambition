@@ -61,11 +61,11 @@ Area and entity specs live under `tools/ambition_ldtk_tools/specs/`.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/mob_lab_area.yaml \
+  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
   --dry-run
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/mob_lab_area.yaml \
+  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
   --apply
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \

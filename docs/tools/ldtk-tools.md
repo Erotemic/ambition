@@ -29,7 +29,7 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
   crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/mob_lab_area.yaml \
+  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
   --dry-run
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \

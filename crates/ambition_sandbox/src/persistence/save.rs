@@ -163,12 +163,12 @@ mod tests {
         let root = temp_root("round_trip");
         let path = save_path_under(&root);
         let mut save = SandboxSaveData::default();
-        save.set_encounter("mob_lab", PersistedEncounterState::Cleared);
+        save.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
         save.set_switch("reset_switch", true);
         write_save(&path, &save).unwrap();
         let restored = load_save(&path);
         assert_eq!(
-            restored.encounter("mob_lab"),
+            restored.encounter("goblin_encounter"),
             PersistedEncounterState::Cleared
         );
         assert!(restored.switch("reset_switch"));

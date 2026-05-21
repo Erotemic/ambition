@@ -67,7 +67,7 @@ Landed or scaffolded mechanics include:
 - projectile backend with Fireball and Hadouken-style motion-input upgrade;
 - shield/parry state and bubble-shield presentation;
 - actors, health/damage, interactions, breakables, pickups, projectiles, encounters, and boss-pattern vocabulary;
-- LDtk-authored mob lab / encounter-style areas and transition validation.
+- LDtk-authored goblin encounter / encounter-style areas and transition validation.
 
 The mechanics are still sandbox-grade. Treat mechanics docs as expressibility and validation guides, not as promises of final tuning or animation polish.
 

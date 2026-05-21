@@ -195,7 +195,7 @@ fn embedded_ldtk_ladder_lab_has_a_ladder_climbable_region() {
 /// example in the embedded LDtk. The room metadata flowing
 /// through to `RoomSpec::metadata.music_track` is what lets the
 /// runtime `RoomMusicRequest` swap the track when the player
-/// enters the area. `mob_lab` deliberately does NOT set a
+/// enters the area. `goblin_encounter` deliberately does NOT set a
 /// `music_track` — its music swap is owned by the encounter
 /// system and only fires when the encounter triggers, not when
 /// the door opens.
@@ -262,23 +262,23 @@ fn embedded_ldtk_music_tracks_match_audio_catalog() {
     );
 }
 
-/// `mob_lab` must NOT declare a `music_track` so entering the
-/// mob lab door does not pre-empt the encounter system's music
+/// `goblin_encounter` must NOT declare a `music_track` so entering the
+/// goblin encounter door does not pre-empt the encounter system's music
 /// override. Encounter starts/clears own the swap, and the
 /// hub default plays while the room is unarmed.
 #[test]
-fn embedded_ldtk_mob_lab_does_not_carry_music_track() {
+fn embedded_ldtk_goblin_encounter_does_not_carry_music_track() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let mob = room_set
         .rooms
         .iter()
-        .find(|r| r.id == "mob_lab")
-        .expect("mob_lab active area exists");
+        .find(|r| r.id == "goblin_encounter")
+        .expect("goblin_encounter active area exists");
     assert_eq!(mob.metadata.biome.as_deref(), Some("mob_arena"));
     assert_eq!(
         mob.metadata.music_track, None,
-        "mob_lab must not carry a music_track — the encounter system owns the swap"
+        "goblin_encounter must not carry a music_track — the encounter system owns the swap"
     );
 }
 

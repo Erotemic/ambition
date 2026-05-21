@@ -51,9 +51,9 @@ fn unknown_encounter_with_active_cue_returns_stop_now() {
 
 #[test]
 fn starting_phase_returns_starting_state_play() {
-    let registry = registry_with_phase("mob_lab", EncounterPhase::Starting { remaining: 1.0 });
+    let registry = registry_with_phase("goblin_encounter", EncounterPhase::Starting { remaining: 1.0 });
     let director = director_with_active_cue(None);
-    let bind = binding("mob_lab", "first_goblin_tune_v2");
+    let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
         resolve_directive_for_binding(&bind, &registry, &director),
         Some(AdaptiveCueDirective::Play {
@@ -66,14 +66,14 @@ fn starting_phase_returns_starting_state_play() {
 #[test]
 fn active_phase_uses_wave_state_by_index() {
     let registry = registry_with_phase(
-        "mob_lab",
+        "goblin_encounter",
         EncounterPhase::Active {
             wave_index: 2,
             remaining_mobs: 1,
         },
     );
     let director = director_with_active_cue(None);
-    let bind = binding("mob_lab", "first_goblin_tune_v2");
+    let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
         resolve_directive_for_binding(&bind, &registry, &director),
         Some(AdaptiveCueDirective::Play {
@@ -85,9 +85,9 @@ fn active_phase_uses_wave_state_by_index() {
 
 #[test]
 fn cleared_phase_returns_cleared_state_play() {
-    let registry = registry_with_phase("mob_lab", EncounterPhase::Cleared);
+    let registry = registry_with_phase("goblin_encounter", EncounterPhase::Cleared);
     let director = director_with_active_cue(None);
-    let bind = binding("mob_lab", "first_goblin_tune_v2");
+    let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
         resolve_directive_for_binding(&bind, &registry, &director),
         Some(AdaptiveCueDirective::Play {
@@ -99,9 +99,9 @@ fn cleared_phase_returns_cleared_state_play() {
 
 #[test]
 fn failed_phase_returns_stop_now() {
-    let registry = registry_with_phase("mob_lab", EncounterPhase::Failed);
+    let registry = registry_with_phase("goblin_encounter", EncounterPhase::Failed);
     let director = director_with_active_cue(None);
-    let bind = binding("mob_lab", "first_goblin_tune_v2");
+    let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
         resolve_directive_for_binding(&bind, &registry, &director),
         Some(AdaptiveCueDirective::StopNow)
@@ -111,7 +111,7 @@ fn failed_phase_returns_stop_now() {
 #[test]
 fn active_phase_wave2_promotes_to_reinforced_after_brute_delay() {
     let mut registry = EncounterRegistry::default();
-    let state = registry.ensure("mob_lab");
+    let state = registry.ensure("goblin_encounter");
     state.phase = EncounterPhase::Active {
         wave_index: 1,
         remaining_mobs: 3,
@@ -124,7 +124,7 @@ fn active_phase_wave2_promotes_to_reinforced_after_brute_delay() {
         ..Default::default()
     };
     let director = director_with_active_cue(None);
-    let bind = binding("mob_lab", "first_goblin_tune_v2");
+    let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
         resolve_directive_for_binding(&bind, &registry, &director),
         Some(AdaptiveCueDirective::Play {
@@ -150,7 +150,7 @@ fn resolver_iterates_multiple_bindings() {
     let state = registry.ensure("imaginary_arena");
     state.phase = EncounterPhase::Cleared;
     let director = MusicDirectorState::default();
-    // mob_lab binding has no encounter; imaginary_arena binding
+    // goblin_encounter binding has no encounter; imaginary_arena binding
     // is Cleared. The resolver iterates and returns the second
     // binding's Play directive.
     let result = resolve_adaptive_directive(&catalog, &registry, &director);

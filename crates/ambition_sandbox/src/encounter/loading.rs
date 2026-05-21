@@ -8,8 +8,8 @@ use super::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 /// Read all `EncounterTrigger` + `LockWall` markers in the active
 /// LDtk project, build matching `EncounterSpec`s, and register them.
 ///
-/// Runs once after startup (or after a hot reload). The mob_lab area
-/// gets its waves from a hard-coded `mob_lab_wave_specs()` rather
+/// Runs once after startup (or after a hot reload). The goblin_encounter area
+/// gets its waves from a hard-coded `goblin_encounter_wave_specs()` rather
 /// than from LDtk EnemySpawn markers, so the spawn timeline (delays
 /// between waves and within waves) lives in code where it's easier to
 /// tune than in the LDtk JSON.
@@ -51,7 +51,7 @@ pub fn load_encounter_specs_from_ldtk(
         // wave assembled from LDtk EnemySpawn markers for areas the
         // sandbox doesn't have a builder for yet.
         let waves = match trigger_id.as_str() {
-            "mob_lab" => mob_lab_wave_specs(),
+            "goblin_encounter" => goblin_encounter_wave_specs(),
             _ => fallback_waves_from_enemy_spawns(layer),
         };
 
@@ -63,8 +63,8 @@ pub fn load_encounter_specs_from_ldtk(
             camera_zoom,
             lock_wall,
             intro_seconds: 2.5,
-            // mob_lab is now driven by generated_music.rs: intro -> adaptive stem loops -> outro.
-            music_track: if trigger_id == "mob_lab" {
+            // goblin_encounter is now driven by generated_music.rs: intro -> adaptive stem loops -> outro.
+            music_track: if trigger_id == "goblin_encounter" {
                 String::new()
             } else {
                 "pulse_drift_voyage".into()
@@ -85,10 +85,10 @@ pub fn load_encounter_specs_from_ldtk(
 ///   are down).
 /// - Wave 3: 2 big goblins.
 ///
-/// Positions assume the mob_lab arena floor (y=608) and span from
+/// Positions assume the goblin_encounter arena floor (y=608) and span from
 /// the divider-jamb edge (~x=720) to the back wall (~x=1584). The
 /// arena is roughly 850x600 of usable space.
-pub fn mob_lab_wave_specs() -> Vec<EncounterWaveSpec> {
+pub fn goblin_encounter_wave_specs() -> Vec<EncounterWaveSpec> {
     // Active-area-local coords. The arena floor is y=608 and the
     // doorway opening is at x=480-704. The encounter trigger spans
     // x=920-1160, so wave mobs sit deeper still — past the trigger

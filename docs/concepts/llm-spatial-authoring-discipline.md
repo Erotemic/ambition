@@ -1,3 +1,22 @@
+---
+id: llm-spatial-authoring-discipline
+status: current
+aliases:
+  - spatial authoring
+  - gate placement
+  - LLM map reasoning
+  - LDtk gate discipline
+implemented_by:
+  - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/intgrid.py
+  - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/entities.py
+  - crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs
+related_docs:
+  - docs/concepts/ldtk-world-composition.md
+  - docs/recipes/ldtk-authoring.md
+  - docs/tools/ldtk-tools.md
+last_verified: 2026-05-21
+---
+
 # LLM spatial authoring discipline
 
 > **Scope.** This page is binding for any LLM doing spatial/layout

@@ -6,7 +6,7 @@ pub(in crate::music) fn resolve_adaptive_directive(
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
     // First binding with a live directive wins. Iterating the catalog
-    // (rather than hardcoding mob_lab) lets future encounter cues
+    // (rather than hardcoding goblin_encounter) lets future encounter cues
     // (boss / mini-boss) drop in by adding a binding without touching
     // this resolver.
     for binding in &catalog.encounter_bindings {

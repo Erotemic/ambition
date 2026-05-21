@@ -11,6 +11,7 @@ Concept pages are durable, agent-readable memory. They define vocabulary, aliase
 | [`tools-and-generated-content.md`](tools-and-generated-content.md) | using or documenting author-time generators, validators, asset renderers, or generated outputs |
 | [`movement-collision.md`](movement-collision.md) | touching movement, collision, body modes, slash/pogo, blink, ledges, wall cling, or OOB traces |
 | [`ldtk-world-composition.md`](ldtk-world-composition.md) | touching LDtk, active areas, loading zones, editor roundtrip, or world/runtime projection |
+| [`llm-spatial-authoring-discipline.md`](llm-spatial-authoring-discipline.md) | placing gates / walls / hitboxes / breakables / one-ways — read BEFORE asking "where exactly?" |
 | [`input-and-game-modes.md`](input-and-game-modes.md) | changing controls, Leafwing actions, pause/dialogue/cutscene modes, touch, controller, or mobile input |
 | [`asset-management.md`](asset-management.md) | changing asset IDs, platform profiles, web/static/served assets, Android bundles, or Steam Deck paths |
 | [`sim-presentation-seam.md`](sim-presentation-seam.md) | changing events/messages, presentation adapters, visual/audio effects, or headless paths |

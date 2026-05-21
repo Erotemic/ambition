@@ -152,24 +152,24 @@ fn observation_hp_fraction_handles_default() {
 
 #[test]
 fn sim_can_start_in_a_specific_room_via_options() {
-    // Build a sim explicitly starting in mob_lab. The default
+    // Build a sim explicitly starting in goblin_encounter. The default
     // start room is central_hub_complex, so a successful override
     // should change `active_room`.
     let mut default_sim = SandboxSim::new().expect("default builds");
     let default_room = default_sim.observation().active_room.clone();
 
-    let mut mob_lab_sim = SandboxSim::new_with_options(
+    let mut goblin_encounter_sim = SandboxSim::new_with_options(
         SandboxSimOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("mob_lab"),
+            .with_start_room("goblin_encounter"),
     )
-    .expect("mob_lab override builds");
-    let active = mob_lab_sim.observation().active_room.clone();
+    .expect("goblin_encounter override builds");
+    let active = goblin_encounter_sim.observation().active_room.clone();
     assert_ne!(
         active, default_room,
         "start_room override should change the active room from the default"
     );
-    assert_eq!(active, "mob_lab", "expected to start in mob_lab");
+    assert_eq!(active, "goblin_encounter", "expected to start in goblin_encounter");
 }
 
 #[test]

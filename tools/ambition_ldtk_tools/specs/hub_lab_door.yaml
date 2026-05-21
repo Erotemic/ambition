@@ -1,5 +1,5 @@
 # Adds a `lab_door` LoadingZone to central_hub_basement that targets
-# the new mob_lab area. Companion to tools/ambition_ldtk_tools/specs/mob_lab_area.yaml —
+# the new goblin_encounter area. Companion to tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml —
 # run that one first so the target level exists, then this one.
 #
 #   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
@@ -16,6 +16,6 @@ entities:
       id: lab_door
       name: lab_door
       activation: Door
-      target_room: mob_lab
+      target_room: goblin_encounter
       target_zone: lab_entry
       bidirectional: true

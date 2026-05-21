@@ -36,7 +36,7 @@ Notes:
   separate "Iron Resolve" lair — `military_tower` is its lair.
 - **Goblin Cantina** uses the radio-mix of the first-goblin-tune
   cue. The adaptive boss-encounter version of the same cue still
-  drives the `mob_lab` encounter; the cantina is a peaceful lair.
+  drives the `goblin_encounter` encounter; the cantina is a peaceful lair.
 
 ## Roadmap factions (sprite + music ready, lair pending)
 

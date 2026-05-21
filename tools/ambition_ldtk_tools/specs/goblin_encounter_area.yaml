@@ -32,11 +32,11 @@
 # appear as Ambition entity instances in the resulting LDtk file.
 # Authoring rectangles by entity type stays ergonomic, but the
 # canonical representation in the project is IntGrid cells (which
-# the LDtk GUI can paint per cell). Live mob_lab in
+# the LDtk GUI can paint per cell). Live goblin_encounter in
 # `crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk`
 # already lives on IntGrid; re-running this spec preserves that.
-id: mob_lab
-level_id: mob_lab
+id: goblin_encounter
+level_id: goblin_encounter
 world_x: 14000
 world_y: 1024
 px_wid: 1600
@@ -110,10 +110,10 @@ entities:
     px: [320, 576]
     size: [24, 32]
     fields:
-      id: mob_lab_reset_switch
-      name: mob_lab_reset_switch
-      prompt: "Toggle mob lab"
-      target_encounter: mob_lab
+      id: goblin_encounter_reset_switch
+      name: goblin_encounter_reset_switch
+      prompt: "Toggle goblin encounter"
+      target_encounter: goblin_encounter
       action: ResetEncounter
 
   # --- LockWall: fills the floor-level doorway gap when the encounter
@@ -123,8 +123,8 @@ entities:
     px: [480, 400]
     size: [224, 208]
     fields:
-      id: mob_lab_lock
-      name: mob_lab_lock
+      id: goblin_encounter_lock
+      name: goblin_encounter_lock
 
   # --- Encounter trigger: deep enough in the arena that the LockWall
   # closes BEHIND the player when it fires (the wall is at x=480-704;
@@ -134,15 +134,15 @@ entities:
     px: [920, 400]
     size: [240, 208]
     fields:
-      id: mob_lab
-      name: mob_lab_trigger
+      id: goblin_encounter
+      name: goblin_encounter_trigger
       camera_zoom: 1.4
 
   # --- Camera zone over the arena half.
   - type: CameraZone
     px: [704, 0]
     size: [880, 768]
-    fields: { id: mob_lab_arena, name: mob_lab_arena, mode: Encounter }
+    fields: { id: goblin_encounter_arena, name: goblin_encounter_arena, mode: Encounter }
 
   # --- Debug labels for in-game orientation.
   - type: DebugLabel

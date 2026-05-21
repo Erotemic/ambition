@@ -13,7 +13,7 @@ fn advance_past_intro(state: &mut EncounterState) {
 
 fn lab_spec() -> EncounterSpec {
     EncounterSpec {
-        id: "mob_lab".into(),
+        id: "goblin_encounter".into(),
         waves: vec![
             EncounterWaveSpec {
                 label: "wave 1".into(),
@@ -150,10 +150,10 @@ fn hud_summary_shows_wave_progress() {
 
 #[test]
 fn switch_activation_parses_full_payload() {
-    let act = SwitchActivation::parse_custom("switch:reset:ResetEncounter:mob_lab").unwrap();
+    let act = SwitchActivation::parse_custom("switch:reset:ResetEncounter:goblin_encounter").unwrap();
     assert_eq!(act.id, "reset");
     assert_eq!(act.action, "ResetEncounter");
-    assert_eq!(act.target_encounter, "mob_lab");
+    assert_eq!(act.target_encounter, "goblin_encounter");
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn switch_activation_rejects_non_switch_payload() {
 #[test]
 fn registry_ensure_creates_default_state() {
     let mut reg = EncounterRegistry::default();
-    let state = reg.ensure("mob_lab");
+    let state = reg.ensure("goblin_encounter");
     assert_eq!(state.phase, EncounterPhase::Inactive);
 }
 
@@ -182,7 +182,7 @@ fn registry_active_camera_zoom_picks_active_encounter() {
     let mut reg = EncounterRegistry::default();
     let mut spec = lab_spec();
     spec.camera_zoom = 1.6;
-    let state = reg.ensure("mob_lab");
+    let state = reg.ensure("goblin_encounter");
     state.spec = Some(spec);
     state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
     assert_eq!(reg.active_camera_zoom(), 1.6);
@@ -191,7 +191,7 @@ fn registry_active_camera_zoom_picks_active_encounter() {
 #[test]
 fn registry_camera_zoom_falls_back_to_one_when_inactive() {
     let mut reg = EncounterRegistry::default();
-    reg.ensure("mob_lab").spec = Some({
+    reg.ensure("goblin_encounter").spec = Some({
         let mut s = lab_spec();
         s.camera_zoom = 1.6;
         s
@@ -220,29 +220,29 @@ fn to_persisted_collapses_active_to_untouched() {
 // ── LDtk loader ────────────────────────────────────────────────
 
 #[test]
-fn load_encounter_specs_picks_up_mob_lab() {
+fn load_encounter_specs_picks_up_goblin_encounter() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let save = ae::SandboxSaveData::default();
     let entries = load_encounter_specs_from_ldtk(&project, &save);
-    let mob_lab = entries
+    let goblin_encounter = entries
         .iter()
-        .find(|(id, _, _)| id == "mob_lab")
-        .expect("mob_lab encounter should be loadable");
-    assert!(!mob_lab.1.waves.is_empty());
-    assert!(mob_lab.1.camera_zoom > 1.0);
-    assert_eq!(mob_lab.2, PersistedEncounterState::Untouched);
+        .find(|(id, _, _)| id == "goblin_encounter")
+        .expect("goblin_encounter encounter should be loadable");
+    assert!(!goblin_encounter.1.waves.is_empty());
+    assert!(goblin_encounter.1.camera_zoom > 1.0);
+    assert_eq!(goblin_encounter.2, PersistedEncounterState::Untouched);
 }
 
 #[test]
 fn load_encounter_specs_respects_persisted_cleared() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let mut save = ae::SandboxSaveData::default();
-    save.set_encounter("mob_lab", PersistedEncounterState::Cleared);
+    save.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let (_, _, state) = entries
         .iter()
-        .find(|(id, _, _)| id == "mob_lab")
-        .expect("mob_lab encounter should be loadable");
+        .find(|(id, _, _)| id == "goblin_encounter")
+        .expect("goblin_encounter encounter should be loadable");
     assert_eq!(*state, PersistedEncounterState::Cleared);
 }
 
@@ -251,20 +251,20 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
     // Regression for the bug where the Switch RoomObject id was
     // entity.iid (e.g. "Switch-4072") but the
     // SwitchActivation payload's id was the LDtk `id` field
-    // ("mob_lab_reset_switch"). That mismatch made switch state
+    // ("goblin_encounter_reset_switch"). That mismatch made switch state
     // updates a no-op and the switch sprite stayed stuck red.
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-    let room_set = project.to_room_set().expect("mob_lab world composes");
-    let mob_lab = room_set
+    let room_set = project.to_room_set().expect("goblin_encounter world composes");
+    let goblin_encounter = room_set
         .rooms
         .iter()
-        .find(|r| r.id == "mob_lab")
-        .expect("mob_lab room");
-    let switch_object = mob_lab
+        .find(|r| r.id == "goblin_encounter")
+        .expect("goblin_encounter room");
+    let switch_object = goblin_encounter
         .interactables
         .iter()
         .find(|authored| matches!(&authored.payload.kind, ae::InteractionKind::Custom(s) if s.starts_with("switch:")))
-        .expect("mob_lab has a switch interactable");
+        .expect("goblin_encounter has a switch interactable");
     let payload = match &switch_object.payload.kind {
         ae::InteractionKind::Custom(s) => s.clone(),
         _ => panic!("switch kind"),
@@ -277,14 +277,14 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
 }
 
 #[test]
-fn mob_lab_loaded_spec_has_three_waves_lockwall_and_intro() {
+fn goblin_encounter_loaded_spec_has_three_waves_lockwall_and_intro() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let save = ae::SandboxSaveData::default();
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let (_, spec, _) = entries
         .iter()
-        .find(|(id, _, _)| id == "mob_lab")
-        .expect("mob_lab encounter should be loadable");
+        .find(|(id, _, _)| id == "goblin_encounter")
+        .expect("goblin_encounter encounter should be loadable");
     assert_eq!(
         spec.waves.len(),
         3,
@@ -302,10 +302,10 @@ fn mob_lab_loaded_spec_has_three_waves_lockwall_and_intro() {
     );
     assert!(
         spec.lock_wall.is_some(),
-        "mob_lab spec should pick up the LockWall marker"
+        "goblin_encounter spec should pick up the LockWall marker"
     );
     assert!(spec.intro_seconds > 0.0);
-    // mob_lab is driven by generated_music.rs (intro → adaptive
+    // goblin_encounter is driven by generated_music.rs (intro → adaptive
     // stem loops → outro), so its EncounterSpec deliberately has
     // an empty `music_track` — the encounter system must NOT push
     // a `RoomMusicRequest` swap on entry. See the conditional in
@@ -474,25 +474,25 @@ fn switch_index(links: &[(&str, &str, bool)]) -> EncounterSwitchIndex {
 
 #[test]
 fn encounter_armed_when_no_linked_switch() {
-    assert!(switch_index(&[]).encounter_armed("mob_lab"));
+    assert!(switch_index(&[]).encounter_armed("goblin_encounter"));
 }
 
 #[test]
 fn encounter_armed_when_linked_switch_off() {
-    let index = switch_index(&[("mob_lab_reset_switch", "mob_lab", false)]);
-    assert!(index.encounter_armed("mob_lab"));
+    let index = switch_index(&[("goblin_encounter_reset_switch", "goblin_encounter", false)]);
+    assert!(index.encounter_armed("goblin_encounter"));
 }
 
 #[test]
 fn encounter_disarmed_when_linked_switch_on() {
-    let index = switch_index(&[("mob_lab_reset_switch", "mob_lab", true)]);
-    assert!(!index.encounter_armed("mob_lab"));
+    let index = switch_index(&[("goblin_encounter_reset_switch", "goblin_encounter", true)]);
+    assert!(!index.encounter_armed("goblin_encounter"));
 }
 
 #[test]
 fn unrelated_switches_dont_arm_other_encounters() {
     let index = switch_index(&[("boss_reset_switch", "boss_room", true)]);
-    assert!(index.encounter_armed("mob_lab"));
+    assert!(index.encounter_armed("goblin_encounter"));
     assert!(!index.encounter_armed("boss_room"));
 }
 
@@ -500,11 +500,11 @@ fn unrelated_switches_dont_arm_other_encounters() {
 fn switch_id_for_encounter_finds_linked_switch() {
     let index = switch_index(&[
         ("other_switch", "other_room", false),
-        ("mob_lab_reset_switch", "mob_lab", false),
+        ("goblin_encounter_reset_switch", "goblin_encounter", false),
     ]);
     assert_eq!(
-        index.switch_id_for_encounter("mob_lab"),
-        Some("mob_lab_reset_switch".into())
+        index.switch_id_for_encounter("goblin_encounter"),
+        Some("goblin_encounter_reset_switch".into())
     );
     assert_eq!(index.switch_id_for_encounter("nonexistent"), None);
 }
@@ -547,14 +547,14 @@ fn sync_lock_walls_inserts_and_removes_block() {
         min: [100.0, 100.0],
         size: [32.0, 200.0],
     });
-    let state = reg.ensure("mob_lab");
+    let state = reg.ensure("goblin_encounter");
     state.spec = Some(spec);
     state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
     sync_lock_walls(&mut world, &reg);
-    assert!(world.blocks.iter().any(|b| b.name == "lockwall:mob_lab"));
+    assert!(world.blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
     // Force back to Inactive — wall should be removed.
-    let state = reg.ensure("mob_lab");
+    let state = reg.ensure("goblin_encounter");
     state.phase = EncounterPhase::Inactive;
     sync_lock_walls(&mut world, &reg);
-    assert!(!world.blocks.iter().any(|b| b.name == "lockwall:mob_lab"));
+    assert!(!world.blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
 }

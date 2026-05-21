@@ -358,9 +358,9 @@ mod tests {
             let mut save = app.world_mut().resource_mut::<SandboxSave>();
             save.data_mut().set_flag("npc_kira_hostile", true);
             save.data_mut()
-                .set_flag("encounter_mob_lab_reward_dropped", true);
+                .set_flag("encounter_goblin_encounter_reward_dropped", true);
             save.data_mut()
-                .set_encounter("mob_lab", ae::PersistedEncounterState::Cleared);
+                .set_encounter("goblin_encounter", ae::PersistedEncounterState::Cleared);
         }
         {
             let mut reg = app.world_mut().resource_mut::<EncounterRegistry>();
@@ -384,9 +384,9 @@ mod tests {
         // Save is wiped.
         let save = app.world().resource::<SandboxSave>();
         assert!(!save.data().flag("npc_kira_hostile"));
-        assert!(!save.data().flag("encounter_mob_lab_reward_dropped"));
+        assert!(!save.data().flag("encounter_goblin_encounter_reward_dropped"));
         assert_eq!(
-            save.data().encounter("mob_lab"),
+            save.data().encounter("goblin_encounter"),
             ae::PersistedEncounterState::Untouched
         );
         // Registries flag-flipped back so populate Update systems

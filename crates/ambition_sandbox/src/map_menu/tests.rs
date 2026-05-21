@@ -48,7 +48,7 @@ fn map_zoom_step_is_round_trip_friendly() {
 fn short_room_label_initializes_underscore_id() {
     assert_eq!(short_room_label("central_hub_complex"), "CHC");
     assert_eq!(short_room_label("water_world"), "WW");
-    assert_eq!(short_room_label("mob_lab"), "ML");
+    assert_eq!(short_room_label("goblin_encounter"), "GE");
 }
 
 #[test]

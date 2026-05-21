@@ -35,7 +35,7 @@ use crate::rooms::RoomMusicRequest;
 
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
 const MAX_LAYERS: usize = 6;
-const MOB_LAB_ENCOUNTER_ID: &str = "mob_lab";
+const MOB_LAB_ENCOUNTER_ID: &str = "goblin_encounter";
 const FIRST_GOBLIN_CUE_ID: &str = "first_goblin_tune_v2";
 const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 

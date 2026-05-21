@@ -63,7 +63,7 @@ impl SandboxSim {
     }
 
     /// Build a new simulation with full options control. RL training loops that
-    /// want to focus on a specific room (e.g. only train on `mob_lab`) construct
+    /// want to focus on a specific room (e.g. only train on `goblin_encounter`) construct
     /// via this entry point with a `start_room` override. The override matches
     /// the visible binary's `--start-room` flag semantics.
     pub fn new_with_options(options: SandboxSimOptions) -> Result<Self, String> {

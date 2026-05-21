@@ -85,7 +85,7 @@ impl QuestRegistry {
 
 /// Default quest specs the sandbox ships. The "First Steps" quest is
 /// a tutorial that walks the player through talking to a hub NPC,
-/// clearing the mob lab, and defeating the prototype boss — exactly
+/// clearing the goblin encounter, and defeating the prototype boss — exactly
 /// the systems the rest of this build pass introduces.
 pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
     vec![
@@ -99,8 +99,8 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
                     ae::QuestStepCondition::FlagSet("met_any_hub_npc".into()),
                 ),
                 ae::QuestStepSpec::new(
-                    "Clear the mob lab.",
-                    ae::QuestStepCondition::EncounterCleared("mob_lab".into()),
+                    "Clear the goblin encounter.",
+                    ae::QuestStepCondition::EncounterCleared("goblin_encounter".into()),
                 ),
                 ae::QuestStepSpec::new(
                     "Defeat the clockwork warden.",

@@ -140,9 +140,9 @@ mod tests {
             GameplayEffect::AdvanceQuest(ae::QuestAdvanceEvent::NpcTalked("guide".into())),
             GameplayEffect::ActivateSwitch {
                 activation: crate::encounter::SwitchActivation {
-                    id: "mob_lab".into(),
+                    id: "goblin_encounter".into(),
                     action: "ResetEncounter".into(),
-                    target_encounter: "mob_lab".into(),
+                    target_encounter: "goblin_encounter".into(),
                 },
                 pos: ae::Vec2::new(1.0, 2.0),
             },

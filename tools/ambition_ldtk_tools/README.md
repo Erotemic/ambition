@@ -38,13 +38,13 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema valida
 
 # Authoring helpers.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/mob_lab_area.yaml \
+  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
   --dry-run
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/mob_lab_area.yaml
+  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml
 # Regenerate an existing spec-owned level in place.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/mob_lab_area.yaml \
+  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
   --replace-existing
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
   tools/ambition_ldtk_tools/specs/hub_lab_door.yaml \

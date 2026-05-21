@@ -77,7 +77,7 @@ pub struct RoomVisual;
 /// is in flight; `sync_lock_wall_visuals` reads that name and keeps
 /// one Bevy entity per matching block in sync (spawn on first sight,
 /// despawn when the block is removed). `block_name` is the full name
-/// (`lockwall:mob_lab`, etc.) so the dedup is bullet-proof against
+/// (`lockwall:goblin_encounter`, etc.) so the dedup is bullet-proof against
 /// multiple concurrent encounters in the same world.
 #[derive(Component, Clone, Debug)]
 pub struct LockWallVisual {

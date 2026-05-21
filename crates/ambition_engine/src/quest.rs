@@ -239,8 +239,8 @@ mod tests {
                     QuestStepCondition::NpcTalked("hub_warden".into()),
                 ),
                 QuestStepSpec::new(
-                    "Clear the mob lab.",
-                    QuestStepCondition::EncounterCleared("mob_lab".into()),
+                    "Clear the goblin encounter.",
+                    QuestStepCondition::EncounterCleared("goblin_encounter".into()),
                 ),
                 QuestStepSpec::new(
                     "Defeat the gradient sentinel.",
@@ -271,7 +271,7 @@ mod tests {
         assert!(quest.try_advance(&QuestAdvanceEvent::NpcTalked("hub_warden".into())));
         assert_eq!(quest.step, 1);
 
-        assert!(quest.try_advance(&QuestAdvanceEvent::EncounterCleared("mob_lab".into())));
+        assert!(quest.try_advance(&QuestAdvanceEvent::EncounterCleared("goblin_encounter".into())));
         assert_eq!(quest.step, 2);
 
         assert!(quest.try_advance(&QuestAdvanceEvent::BossDefeated("gradient_sentinel".into())));

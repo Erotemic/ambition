@@ -6776,7 +6776,7 @@
 								{ "__identifier": "id", "__type": "String", "__value": "lab_door", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["lab_door"] } ] },
 								{ "__identifier": "name", "__type": "String", "__value": "lab_door", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["lab_door"] } ] },
 								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [ { "id": "V_String", "params": ["Door"] } ] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "mob_lab", "__tile": null, "defUid": 3005, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab"] } ] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "goblin_encounter", "__tile": null, "defUid": 3005, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter"] } ] },
 								{ "__identifier": "target_zone", "__type": "String", "__value": "lab_entry", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["lab_entry"] } ] },
 								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007, "realEditorValues": [ { "id": "V_Bool", "params": [true] } ] }
 							],
@@ -17011,8 +17011,8 @@
 			"__neighbours": []
 		},
 		{
-			"identifier": "mob_lab",
-			"iid": "mob_lab-4104",
+			"identifier": "goblin_encounter",
+			"iid": "goblin_encounter-4104",
 			"uid": 4104,
 			"worldX": 14000,
 			"worldY": 1024,
@@ -17030,7 +17030,7 @@
 			"__bgPos": null,
 			"externalRelPath": null,
 			"fieldInstances": [
-				{ "__identifier": "activeArea", "__type": "String", "__value": "mob_lab", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab"] } ] },
+				{ "__identifier": "activeArea", "__type": "String", "__value": "goblin_encounter", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter"] } ] },
 				{ "__identifier": "biome", "__type": "String", "__value": "mob_arena", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["mob_arena"] } ] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
@@ -17282,10 +17282,10 @@
 							"defUid": 4051,
 							"px": [320,576],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "mob_lab_reset_switch", "__tile": null, "defUid": 4046, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab_reset_switch"] } ] },
-								{ "__identifier": "name", "__type": "String", "__value": "mob_lab_reset_switch", "__tile": null, "defUid": 4047, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab_reset_switch"] } ] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "Toggle mob lab", "__tile": null, "defUid": 4048, "realEditorValues": [ { "id": "V_String", "params": ["Toggle mob lab"] } ] },
-								{ "__identifier": "target_encounter", "__type": "String", "__value": "mob_lab", "__tile": null, "defUid": 4049, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab"] } ] },
+								{ "__identifier": "id", "__type": "String", "__value": "goblin_encounter_reset_switch", "__tile": null, "defUid": 4046, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter_reset_switch"] } ] },
+								{ "__identifier": "name", "__type": "String", "__value": "goblin_encounter_reset_switch", "__tile": null, "defUid": 4047, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter_reset_switch"] } ] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Toggle goblin encounter", "__tile": null, "defUid": 4048, "realEditorValues": [ { "id": "V_String", "params": ["Toggle goblin encounter"] } ] },
+								{ "__identifier": "target_encounter", "__type": "String", "__value": "goblin_encounter", "__tile": null, "defUid": 4049, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter"] } ] },
 								{ "__identifier": "action", "__type": "String", "__value": "ResetEncounter", "__tile": null, "defUid": 4050, "realEditorValues": [ { "id": "V_String", "params": ["ResetEncounter"] } ] }
 							],
 							"__worldX": 14320,
@@ -17304,8 +17304,8 @@
 							"defUid": 4084,
 							"px": [480,400],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "mob_lab_lock", "__tile": null, "defUid": 4082, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab_lock"] } ] },
-								{ "__identifier": "name", "__type": "String", "__value": "mob_lab_lock", "__tile": null, "defUid": 4083, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab_lock"] } ] }
+								{ "__identifier": "id", "__type": "String", "__value": "goblin_encounter_lock", "__tile": null, "defUid": 4082, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter_lock"] } ] },
+								{ "__identifier": "name", "__type": "String", "__value": "goblin_encounter_lock", "__tile": null, "defUid": 4083, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter_lock"] } ] }
 							],
 							"__worldX": 14480,
 							"__worldY": 1424
@@ -17323,8 +17323,8 @@
 							"defUid": 4045,
 							"px": [920,400],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "mob_lab", "__tile": null, "defUid": 4042, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab"] } ] },
-								{ "__identifier": "name", "__type": "String", "__value": "mob_lab_trigger", "__tile": null, "defUid": 4043, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab_trigger"] } ] },
+								{ "__identifier": "id", "__type": "String", "__value": "goblin_encounter", "__tile": null, "defUid": 4042, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter"] } ] },
+								{ "__identifier": "name", "__type": "String", "__value": "goblin_encounter_trigger", "__tile": null, "defUid": 4043, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter_trigger"] } ] },
 								{ "__identifier": "camera_zoom", "__type": "Float", "__value": 1.4, "__tile": null, "defUid": 4044, "realEditorValues": [ { "id": "V_Float", "params": [1.4] } ] }
 							],
 							"__worldX": 14920,
@@ -17343,8 +17343,8 @@
 							"defUid": 4002,
 							"px": [704,0],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "mob_lab_arena", "__tile": null, "defUid": 4003, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab_arena"] } ] },
-								{ "__identifier": "name", "__type": "String", "__value": "mob_lab_arena", "__tile": null, "defUid": 4004, "realEditorValues": [ { "id": "V_String", "params": ["mob_lab_arena"] } ] },
+								{ "__identifier": "id", "__type": "String", "__value": "goblin_encounter_arena", "__tile": null, "defUid": 4003, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter_arena"] } ] },
+								{ "__identifier": "name", "__type": "String", "__value": "goblin_encounter_arena", "__tile": null, "defUid": 4004, "realEditorValues": [ { "id": "V_String", "params": ["goblin_encounter_arena"] } ] },
 								{ "__identifier": "mode", "__type": "String", "__value": "Encounter", "__tile": null, "defUid": 4005, "realEditorValues": [ { "id": "V_String", "params": ["Encounter"] } ] },
 								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
 								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },

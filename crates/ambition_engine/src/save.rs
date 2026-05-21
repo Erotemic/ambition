@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// One persisted encounter (e.g. mob lab) entry. Only the terminal /
+/// One persisted encounter (e.g. goblin encounter) entry. Only the terminal /
 /// in-progress states matter for save reconstruction; `Inactive`
 /// reconstructs to "fresh attempt available" without needing an entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -296,16 +296,16 @@ mod tests {
     #[test]
     fn missing_encounter_reads_untouched() {
         let s = SandboxSaveData::default();
-        assert_eq!(s.encounter("mob_lab"), PersistedEncounterState::Untouched);
+        assert_eq!(s.encounter("goblin_encounter"), PersistedEncounterState::Untouched);
     }
 
     #[test]
     fn setting_encounter_round_trips() {
         let mut s = SandboxSaveData::new();
-        s.set_encounter("mob_lab", PersistedEncounterState::Cleared);
-        assert_eq!(s.encounter("mob_lab"), PersistedEncounterState::Cleared);
+        s.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
+        assert_eq!(s.encounter("goblin_encounter"), PersistedEncounterState::Cleared);
         // Resetting to untouched removes the entry to keep the save compact.
-        s.set_encounter("mob_lab", PersistedEncounterState::Untouched);
+        s.set_encounter("goblin_encounter", PersistedEncounterState::Untouched);
         assert!(s.encounters.is_empty());
     }
 
@@ -328,7 +328,7 @@ mod tests {
     #[test]
     fn serde_round_trip_preserves_fields() {
         let mut s = SandboxSaveData::new();
-        s.set_encounter("mob_lab", PersistedEncounterState::Cleared);
+        s.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
         s.set_encounter("boss_room", PersistedEncounterState::Failed);
         s.set_switch("reset_switch", true);
         let serialized = serde_json::to_string(&s).expect("serialize");
@@ -383,9 +383,9 @@ mod tests {
         // collection. Verifies the v1 → v2 schema migration is
         // backwards-compatible at the wire level.
         let json =
-            r#"{"version":1,"encounters":[{"id":"mob_lab","state":"Cleared"}],"switches":[]}"#;
+            r#"{"version":1,"encounters":[{"id":"goblin_encounter","state":"Cleared"}],"switches":[]}"#;
         let s: SandboxSaveData = serde_json::from_str(json).expect("parse");
-        assert_eq!(s.encounter("mob_lab"), PersistedEncounterState::Cleared);
+        assert_eq!(s.encounter("goblin_encounter"), PersistedEncounterState::Cleared);
         assert!(s.bosses.is_empty());
         assert!(s.quests.is_empty());
         assert!(s.flags.is_empty());

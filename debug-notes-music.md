@@ -176,7 +176,7 @@ crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2/
 
 ```bash
 cd ~/code/ambition
-cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release -- --start-room mob_lab
+cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release -- --start-room goblin_encounter
 ```
 
 ### 3. Capture music logs around the transition
@@ -424,7 +424,7 @@ When returning to this:
 4. Strengthen wave1 beat 1.
 5. Make intro’s last bar a pickup into wave1.
 6. Regenerate only this cue.
-7. Test in `mob_lab`.
+7. Test in `goblin_encounter`.
 
 Commands:
 
@@ -436,7 +436,7 @@ python tools/ambition_music_renderer/audit_cue_balance.py \
 
 ./generate_audio_assets.sh --force
 
-cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release -- --start-room mob_lab
+cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release -- --start-room goblin_encounter
 ```
 
 ```

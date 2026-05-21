@@ -298,8 +298,8 @@ mod cli_arg_tests {
     #[test]
     fn start_room_space_form() {
         assert_eq!(
-            parse_start_room_arg(&args(&["--start-room", "mob_lab"])),
-            Some("mob_lab".to_string())
+            parse_start_room_arg(&args(&["--start-room", "goblin_encounter"])),
+            Some("goblin_encounter".to_string())
         );
         assert_eq!(
             parse_start_room_arg(&args(&["--room", "central_hub_main"])),

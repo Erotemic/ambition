@@ -17,7 +17,7 @@ Recipes are current procedures: commands, workflows, or repeatable edit protocol
 |---|---|
 | LDtk authoring | `ldtk-authoring.md` |
 | Add a showcase room | `add-showcase-room.md` |
-| Mob lab encounter | `mob-lab.md` |
+| Mob lab encounter | `goblin-encounter.md` |
 | Generated music | `generated-music-workflow.md` |
 
 ## Planning moved out of recipes

@@ -25,11 +25,11 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Runtime / state
 
-- **HIGH — Wall-cling on the mob_lab lock wall teleports player onto
+- **HIGH — Wall-cling on the goblin_encounter lock wall teleports player onto
   the arena ceiling**
   - Trace: `debug_traces/ambition_trace_1777995217-972692847-000000_20578d15h33m37s`.
-  - Repro shape: enter `mob_lab`, the encounter starts, the runtime-
-    inserted `lockwall:mob_lab` block (LDtk px (480, 400) size
+  - Repro shape: enter `goblin_encounter`, the encounter starts, the runtime-
+    inserted `lockwall:goblin_encounter` block (LDtk px (480, 400) size
     (224, 208)) materializes between the hallway and arena. While
     wall-clinging on the lock wall's right edge (player x=718,
     lock_wall.right=704), the next y-sweep snaps the player from
@@ -64,7 +64,7 @@ to the bottom under "Closed" with the commit that fixed them.
     arena_ceiling-shaped block above and asserts no >100 px y-snap
     after one update. Mirror of the existing
     `square_arena_wall_cling_full_world_does_not_teleport`.
-    `mob_lab_lock_wall_cling_does_not_teleport` (added 2026-05-07)
+    `goblin_encounter_lock_wall_cling_does_not_teleport` (added 2026-05-07)
     pins the geometry but currently passes — the simplified fixture
     isn't enough to reproduce the production teleport. The
     `body_is_side_contact` predicate from the wall-jump fix appears

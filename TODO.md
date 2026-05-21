@@ -43,7 +43,7 @@ Useful companion docs:
 - [ ] Enemy hurt boxes still don't visualize correctly. I can throw a fireball at gnuton and he will get hit before the fire ball collides with the visible box, so something is up with collision or the box isn't drawing.
 
 - [~] **Wall-cling / lock-wall / collision-correction debt** `[V5/D3]` - Keep the trace-backed lock-wall problem central until the root collision-correction behavior is fixed. The current authoritative write-up is `docs/planning/tech-debt-log.md`; use `docs/systems/gameplay-trace-recorder.md` for dump/replay workflow. Do not hide this by widening OOB margins.
-  - Good session shape: build or improve a reproduction around the mob-lab lock wall / ceiling geometry, then assert that position correction cannot exceed the frame's velocity budget unless Reset or RoomTransition fired.
+  - Good session shape: build or improve a reproduction around the goblin-encounter lock wall / ceiling geometry, then assert that position correction cannot exceed the frame's velocity budget unless Reset or RoomTransition fired.
   - Validation anchors: `cargo test -p ambition_sandbox --test repro_walls`, `cargo test -p ambition_sandbox trace`, focused movement/collision tests.
 
 - [ ] **Goblin encounter music transition still sounds like a section swap** `[V4/D3]` - The player hears the intro fade out / wave1 enter instead of one continuous musical idea. Existing scratch context was promoted into `docs/recipes/generated-music-workflow.md`; use `debug-notes-music.md` only as historical detail if still present.

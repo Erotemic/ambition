@@ -1,16 +1,16 @@
 # Mob lab encounter workflow
 
-The mob lab is a showcase / regression area for enemy spawns, encounters, lock walls, rewards, and movement bugs around runtime-inserted geometry.
+The goblin encounter is a showcase / regression area for enemy spawns, encounters, lock walls, rewards, and movement bugs around runtime-inserted geometry.
 
 ## Current authoring path
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/mob_lab_area.yaml \
+  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
   --dry-run
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/mob_lab_area.yaml \
+  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
   --apply
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \

@@ -1,6 +1,6 @@
 # Mob arena — single-encounter wave demo with reciprocal hub link.
 #
-# Smaller and more linear than the existing `mob_lab` (which lives in
+# Smaller and more linear than the existing `goblin_encounter` (which lives in
 # the basement and has hallway/jambs/lock-wall art). This example is
 # intentionally minimal: one trigger, one lock wall, two enemy spawns,
 # and a reciprocal LoadingZone in the central hub. Use it as a starting

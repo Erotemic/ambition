@@ -37,16 +37,16 @@ impl Difficulty {
         }
     }
 
-    /// Multiplier applied to enemy spawn counts in the mob lab. Easy
+    /// Multiplier applied to enemy spawn counts in the goblin encounter. Easy
     /// reduces wave size; hard increases it.
     ///
     /// _Status_: defined but not yet wired into the encounter spawn
-    /// path. mob_lab waves are authored with specific positions /
+    /// path. goblin_encounter waves are authored with specific positions /
     /// brain types so a naive `count *= multiplier` would either
     /// drop authored mobs or duplicate them on top of each other.
     /// Future wiring options: scale per-wave delay, or randomly
     /// drop/clone mobs during encounter compose. Tracked under
-    /// "More enemy varieties" / mob_lab tier-A items.
+    /// "More enemy varieties" / goblin_encounter tier-A items.
     #[allow(dead_code)]
     pub fn spawn_count_multiplier(self) -> f32 {
         match self {

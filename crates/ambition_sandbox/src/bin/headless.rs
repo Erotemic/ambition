@@ -12,7 +12,7 @@
 //! cargo run -p ambition_sandbox --bin headless                       # 120 ticks (default)
 //! cargo run -p ambition_sandbox --bin headless -- 600                # 600 ticks
 //! cargo run -p ambition_sandbox --bin headless -- 600 --dump-trace path/  # dump trace to dir
-//! cargo run -p ambition_sandbox --bin headless -- 600 --start-room mob_lab
+//! cargo run -p ambition_sandbox --bin headless -- 600 --start-room goblin_encounter
 //! ```
 //!
 //! `--dump-trace DIR` writes a GameplayTraceBuffer JSON+Markdown dump

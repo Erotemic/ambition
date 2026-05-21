@@ -95,6 +95,7 @@ impl Plugin for IntroPlugin {
                     load_intro_prop_sprites_system,
                     install_intro_banter_system,
                     install_intro_gated_zones_system,
+                    super::route_state::emit_intro_flag_chains,
                 ),
             );
     }

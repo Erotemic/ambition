@@ -33,6 +33,7 @@ pub mod banter;
 pub mod cutscene;
 pub mod dialog;
 pub mod plugin;
+pub mod route_state;
 pub mod sprites;
 
 #[cfg(test)]

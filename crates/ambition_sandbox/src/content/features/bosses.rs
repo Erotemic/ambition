@@ -637,25 +637,49 @@ impl BossRuntime {
         }
         self.pattern_timer += dt;
         self.movement_timer += dt;
-        let mut target = self.behavior.movement.target(self, target_pos);
-        // While the giant is raining apples on the arena, add a
-        // visible horizontal dodge so it reads as "stepping aside to
-        // avoid its own experiment" instead of standing perfectly
-        // still under a deathstorm of fruit. The dodge is layered
-        // over (not replacing) the baseline StationaryGiant sway so
-        // the silhouette already moving for `sway_amplitude` keeps
-        // its phase while the amplitude swells.
-        if matches!(
-            self.active_strike_profile,
-            Some(BossAttackProfile::GnuAppleRain)
-        ) {
-            let dodge_amp = 70.0;
-            let dodge_freq = 1.6;
-            target.x += (self.movement_timer * dodge_freq).sin() * dodge_amp;
-        }
-        self.move_toward_target(world, target, dt);
+
+        // BRAIN STAGE — scripted boss pattern + movement profile pack
+        // their per-tick decision into an `ActorControlFrame`. Same
+        // contract enemies use; same one a future player-controlled
+        // boss or RL-driven boss would fill in. The brain owns the
+        // sway/dodge math and the clamp to world bounds; the
+        // simulation half decides what's actually possible against
+        // collision.
+        let frame = self.build_control_frame(world, target_pos, dt);
+
+        // INTEGRATION STAGE — gravity=0 (bosses float; ground state
+        // is irrelevant for current bosses), max_fall_speed=0. The
+        // single `step_kinematic` call replaces the bespoke per-axis
+        // `boss_space_is_free` sweep `move_toward_target` used to do
+        // by hand. Multi-part bosses like GNU-ton expose a
+        // `combat_size` distinct from the sprite `size`; that's the
+        // size we collide against, matching the previous behavior.
+        let mut body = ae::KinematicBody {
+            pos: self.pos,
+            vel: frame.desired_vel,
+            size: self.combat_size(),
+            on_ground: false,
+            facing: 1.0,
+        };
+        ae::step_kinematic(
+            &mut body,
+            world,
+            ae::KinematicTuning {
+                gravity: 0.0,
+                max_fall_speed: 0.0,
+            },
+            ae::KinematicInputs {
+                drop_through: frame.drop_through,
+            },
+            dt,
+        );
+        self.pos = body.pos;
         self.hit_flash = (self.hit_flash - dt).max(0.0);
 
+        // EFFECTS STAGE — attack pattern state machine and apple-rain
+        // tick. These are time-driven self-state mutations (not
+        // per-tick brain intents), so they live outside the frame and
+        // run after integration.
         match &self.behavior.attack_pattern {
             BossAttackPattern::Cycle => self.update_cycle_attacks(tuning, dt),
             BossAttackPattern::Scripted { .. } => self.update_scripted_attacks(dt),
@@ -672,6 +696,71 @@ impl BossRuntime {
             // a burst at t=0 from leftover dt.
             self.apple_spawn_accum = 0.0;
         }
+    }
+
+    /// Pack the boss's per-tick movement decision into a flat
+    /// `ActorControlFrame`. This is the brain-to-sim seam for bosses
+    /// — a future RL policy or remote-player driver fills the SAME
+    /// frame and the integration code in `update` is unchanged.
+    ///
+    /// Currently emits only `desired_vel`. Bosses don't melee-press
+    /// or fire individual projectiles through this seam yet —
+    /// scripted attack patterns + apple-rain tick handle those via
+    /// internal state, not per-tick intents. When bosses gain
+    /// brain-driven attack timing those signals will land on the
+    /// same frame.
+    fn build_control_frame(
+        &self,
+        world: &ae::World,
+        target_pos: ae::Vec2,
+        dt: f32,
+    ) -> ae::ActorControlFrame {
+        let mut frame = ae::ActorControlFrame::neutral();
+        if dt <= 0.0 {
+            return frame;
+        }
+
+        // Where the movement profile would like to be this tick,
+        // before the apple-rain dodge layer.
+        let mut target = self.behavior.movement.target(self, target_pos);
+        // While the giant is raining apples on the arena, add a
+        // visible horizontal dodge so it reads as "stepping aside to
+        // avoid its own experiment" instead of standing perfectly
+        // still under a deathstorm of fruit. Layered over (not
+        // replacing) the baseline StationaryGiant sway so the
+        // silhouette already moving for `sway_amplitude` keeps its
+        // phase while the amplitude swells.
+        if matches!(
+            self.active_strike_profile,
+            Some(BossAttackProfile::GnuAppleRain)
+        ) {
+            let dodge_amp = 70.0;
+            let dodge_freq = 1.6;
+            target.x += (self.movement_timer * dodge_freq).sin() * dodge_amp;
+        }
+
+        // Soft world-bounds clamp: keep the brain from asking to walk
+        // off the map. Real collision is still enforced by
+        // `step_kinematic` against world blocks; this clamp matches
+        // the previous `move_toward_target` margin semantics.
+        let half = self.combat_size() * 0.5;
+        let margin = 8.0;
+        let max_x = (world.size.x - half.x - margin).max(half.x + margin);
+        let max_y = (world.size.y - half.y - margin).max(half.y + margin);
+        let clamped_target = ae::Vec2::new(
+            target.x.clamp(half.x + margin, max_x),
+            target.y.clamp(half.y + margin, max_y),
+        );
+
+        let delta = clamped_target - self.pos;
+        let speed = self.behavior.movement.speed();
+        let max_step = speed * dt;
+        frame.desired_vel = if delta.length() > max_step && max_step > 0.0 {
+            delta.normalize_or_zero() * speed
+        } else {
+            delta / dt
+        };
+        frame
     }
 
     /// Emit one falling-apple spawn per `APPLE_RAIN_INTERVAL` while
@@ -936,34 +1025,6 @@ impl BossRuntime {
             -75.0
         };
         vec![self.gnu_ton_part_aabb(ae::Vec2::new(0.0, head_design_y), ae::Vec2::new(92.0, 74.0))]
-    }
-
-    pub(super) fn move_toward_target(&mut self, world: &ae::World, target: ae::Vec2, dt: f32) {
-        let move_size = self.combat_size();
-        let half = move_size * 0.5;
-        let margin = 8.0;
-        let max_x = (world.size.x - half.x - margin).max(half.x + margin);
-        let max_y = (world.size.y - half.y - margin).max(half.y + margin);
-        let clamped_target = ae::Vec2::new(
-            target.x.clamp(half.x + margin, max_x),
-            target.y.clamp(half.y + margin, max_y),
-        );
-        let delta = clamped_target - self.pos;
-        let max_step = self.behavior.movement.speed() * dt.max(0.0);
-        let step = if delta.length() > max_step && max_step > 0.0 {
-            delta.normalize_or_zero() * max_step
-        } else {
-            delta
-        };
-
-        let try_x = ae::Vec2::new(self.pos.x + step.x, self.pos.y);
-        if boss_space_is_free(world, try_x, move_size) {
-            self.pos.x = try_x.x;
-        }
-        let try_y = ae::Vec2::new(self.pos.x, self.pos.y + step.y);
-        if boss_space_is_free(world, try_y, move_size) {
-            self.pos.y = try_y.y;
-        }
     }
 
     /// Cycle-mode dispatch — picks the next attack profile from the flat
@@ -1567,6 +1628,69 @@ mod scripted_pattern_tests {
         assert!(
             descent_y > rest_y + 50.0,
             "descent must drop the head meaningfully (got rest_y={rest_y}, descent_y={descent_y})"
+        );
+    }
+
+    /// Bosses used to write `self.pos` via a bespoke per-axis sweep
+    /// against `boss_space_is_free`. With the brain→sim seam they
+    /// run through the SAME `step_kinematic` primitive every other
+    /// actor uses — so a wall placed in the chase path blocks them
+    /// at the wall instead of relying on a parallel-but-different
+    /// collision code path. This guards against future regressions
+    /// where someone reintroduces a position-space write.
+    #[test]
+    fn boss_motion_respects_world_collision_against_a_wall() {
+        let combat_size = ae::Vec2::new(80.0, 80.0);
+        let spawn = ae::Vec2::new(200.0, 400.0);
+        let aabb = ae::Aabb::new(spawn, combat_size * 0.5);
+        let mut boss = BossRuntime::new(
+            "test_warden",
+            "Clockwork Warden",
+            aabb,
+            ae::BossBrain::Dormant,
+        );
+        boss.behavior = BossBehaviorProfile::clockwork_warden();
+        boss.encounter_phase = ae::BossEncounterPhase::Phase1;
+        // World: a wall at x=400 blocks any rightward chase past it.
+        let world = ae::World::new(
+            String::from("boss_collision_test"),
+            ae::Vec2::new(1200.0, 800.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![
+                ae::Block::solid(
+                    String::from("floor"),
+                    ae::Vec2::new(0.0, 760.0),
+                    ae::Vec2::new(1200.0, 40.0),
+                ),
+                ae::Block::solid(
+                    String::from("wall"),
+                    ae::Vec2::new(400.0, 200.0),
+                    ae::Vec2::new(40.0, 500.0),
+                ),
+            ],
+        );
+        // Place the player far to the right of the wall so the
+        // AnchorSway profile pulls the boss as far right as its
+        // chase_limit allows.
+        let player_pos = ae::Vec2::new(1000.0, 400.0);
+        let mut outputs = BossTickOutputs::default();
+        for _ in 0..600 {
+            boss.update(
+                &world,
+                player_pos,
+                FeatureCombatTuning::default(),
+                &mut outputs,
+                1.0 / 60.0,
+            );
+        }
+        let boss_right_edge = boss.pos.x + boss.combat_size().x * 0.5;
+        let wall_left_edge = 400.0;
+        assert!(
+            boss_right_edge <= wall_left_edge + 0.5,
+            "boss clipped into wall at pos {:?} (right edge {}); wall left edge {}",
+            boss.pos,
+            boss_right_edge,
+            wall_left_edge,
         );
     }
 }

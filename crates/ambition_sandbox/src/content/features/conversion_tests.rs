@@ -413,7 +413,7 @@ mod conversion_tests {
     /// Aerial enemies (flying shark + rider) used to write `self.pos`
     /// directly from the choreography's steering target, which let
     /// them clip straight through solid walls. With the brain→sim
-    /// seam (`EnemyControlFrame` + uniform `step_kinematic`) the
+    /// seam (`ActorControlFrame` + uniform `step_kinematic`) the
     /// wall blocks them, so the position must stay on the safe side
     /// of the wall after one tick of forced chase.
     #[test]

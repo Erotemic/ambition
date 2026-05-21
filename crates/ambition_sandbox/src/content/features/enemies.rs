@@ -758,7 +758,7 @@ impl EnemyRuntime {
         // archetype's patrol/chase speeds and (when present) the
         // KinematicPath the enemy is bound to, and pack the whole
         // "what does this actor want this tick" decision into a
-        // single `EnemyControlFrame`. The integration stage below
+        // single `ActorControlFrame`. The integration stage below
         // only reads the frame, never the underlying brain — so a
         // future RL-policy or scripted brain that fills the same
         // frame plugs in without touching collision logic.
@@ -899,7 +899,7 @@ impl EnemyRuntime {
     }
 
     /// Pack the per-tick AI + choreography decision into a flat
-    /// `EnemyControlFrame`. This is the brain-to-sim seam — a
+    /// `ActorControlFrame`. This is the brain-to-sim seam — a
     /// future RL policy that wants to control an enemy fills the
     /// SAME frame and the integration code in `update` is
     /// unchanged.
@@ -910,8 +910,8 @@ impl EnemyRuntime {
         target_pos: ae::Vec2,
         is_aerial: bool,
         dt: f32,
-    ) -> ae::EnemyControlFrame {
-        let mut frame = ae::EnemyControlFrame::neutral();
+    ) -> ae::ActorControlFrame {
+        let mut frame = ae::ActorControlFrame::neutral();
 
         // Drop-through: chasing a player meaningfully below the actor
         // while currently grounded. Lets enemies follow through
@@ -984,7 +984,7 @@ impl EnemyRuntime {
                 frame.melee_pressed = true;
             }
             Some(ae::ChoreographyAction::FireProjectile { dir, speed }) => {
-                frame.fire = Some(ae::EnemyFireRequest { dir, speed });
+                frame.fire = Some(ae::ActorFireRequest { dir, speed });
             }
             None => {}
         }

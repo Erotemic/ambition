@@ -23,6 +23,7 @@
 
 pub mod abilities;
 pub mod actor;
+pub mod actor_control;
 pub mod attack_choreography;
 pub mod boss_encounter;
 pub mod character_ai;
@@ -32,7 +33,6 @@ pub mod cutscene;
 pub mod debug;
 pub mod geometry;
 pub mod interaction;
-pub mod enemy_control;
 pub mod kinematic;
 pub mod ledge_grab;
 pub mod movement;
@@ -66,8 +66,8 @@ pub use combat::{
     attack_hitbox, attack_spec, resolve_attack_intent,
     AttackIntent, AttackPhase, AttackSpec, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
+pub use actor_control::{ActorControlFrame, ActorFireRequest};
 pub use combat_slots::{assign_slots, CombatSlot, CombatSlotBoard, SlotKind, SlotRequest};
-pub use enemy_control::{EnemyControlFrame, EnemyFireRequest};
 pub use cutscene::{CutsceneBeat, CutsceneEvent, CutsceneRuntime, CutsceneScript};
 pub use debug::{DebugLabel, DebugLabelKind};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt};

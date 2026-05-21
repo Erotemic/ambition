@@ -7,23 +7,6 @@ pub(super) fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> boo
     horizontally_overlaps && near_top
 }
 
-pub(super) fn boss_space_is_free(world: &ae::World, pos: ae::Vec2, size: ae::Vec2) -> bool {
-    let aabb = ae::Aabb::new(pos, size * 0.5);
-    if aabb.left() < 0.0
-        || aabb.right() > world.size.x
-        || aabb.top() < 0.0
-        || aabb.bottom() > world.size.y
-    {
-        return false;
-    }
-    !world.body_overlaps_any(aabb, |block| {
-        matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
-        )
-    })
-}
-
 pub(super) fn room_spec_paths(room: &crate::rooms::RoomSpec) -> Vec<(String, ae::KinematicPath)> {
     let mut paths: Vec<(String, ae::KinematicPath)> = Vec::new();
     for spec in &room.kinematic_paths {

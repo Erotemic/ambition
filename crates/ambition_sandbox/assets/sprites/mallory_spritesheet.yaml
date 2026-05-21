@@ -1,0 +1,254 @@
+target: toon
+name: Mallory
+output_name: mallory
+seed: 527
+archetype: mallory
+variant: null
+held_item: null
+faction: null
+role: null
+music_cue: null
+tags: []
+frame_width: 94
+frame_height: 105
+label_width: 112
+border: 4
+spec:
+  target: toon
+  seed: 527
+  archetype: mallory
+  name: Mallory
+  role: npc
+  palette_name: mallory
+  body_plan: rigid
+  outfit: field_jacket
+  hair_style: undercut_braid
+  prop: tablet
+  accessory: medals
+  head_w: 25.573222049992154
+  head_h: 28.516266016069242
+  chin_h: 6.0
+  neck_h: 3.6
+  shoulder_w: 29.593930724104755
+  torso_w: 24.3445551693695
+  torso_h: 29.211629990581024
+  hip_w: 21.207855658997726
+  arm_upper: 13.810600957562599
+  arm_lower: 12.41349360975572
+  arm_radius: 3.0
+  leg_upper: 15.827521138563709
+  leg_lower: 14.274835522991488
+  leg_radius: 3.0
+  hand_r: 3.1
+  foot_w: 11.599638057366763
+  foot_h: 4.8
+  coat_len: 9.0
+  cape_len: 0.0
+  hair_volume: 3.825838600801866
+  nose_len: 3.1894981315297635
+  satchel_size: 0.0
+  hat_brim_offset_x: 0.0
+  hat_brim_offset_y: 0.0
+crop:
+  source_frame_width: 128
+  source_frame_height: 128
+  offset:
+    x: 5
+    y: 12
+  enabled: true
+  padding_px: 2
+animations:
+  idle:
+    frames:
+    - index: 0
+      x: 116
+      y: 4
+      w: 94
+      h: 105
+      duration_ms: 120
+    - index: 1
+      x: 214
+      y: 4
+      w: 94
+      h: 105
+      duration_ms: 120
+    - index: 2
+      x: 312
+      y: 4
+      w: 94
+      h: 105
+      duration_ms: 120
+    - index: 3
+      x: 410
+      y: 4
+      w: 94
+      h: 105
+      duration_ms: 120
+    - index: 4
+      x: 508
+      y: 4
+      w: 94
+      h: 105
+      duration_ms: 120
+    - index: 5
+      x: 606
+      y: 4
+      w: 94
+      h: 105
+      duration_ms: 120
+    - index: 6
+      x: 704
+      y: 4
+      w: 94
+      h: 105
+      duration_ms: 120
+    - index: 7
+      x: 802
+      y: 4
+      w: 94
+      h: 105
+      duration_ms: 120
+    duration_ms: 120
+  walk:
+    frames:
+    - index: 0
+      x: 116
+      y: 113
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 1
+      x: 214
+      y: 113
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 2
+      x: 312
+      y: 113
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 3
+      x: 410
+      y: 113
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 4
+      x: 508
+      y: 113
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 5
+      x: 606
+      y: 113
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 6
+      x: 704
+      y: 113
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 7
+      x: 802
+      y: 113
+      w: 94
+      h: 105
+      duration_ms: 100
+    duration_ms: 100
+  talk:
+    frames:
+    - index: 0
+      x: 116
+      y: 222
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 1
+      x: 214
+      y: 222
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 2
+      x: 312
+      y: 222
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 3
+      x: 410
+      y: 222
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 4
+      x: 508
+      y: 222
+      w: 94
+      h: 105
+      duration_ms: 100
+    - index: 5
+      x: 606
+      y: 222
+      w: 94
+      h: 105
+      duration_ms: 100
+    duration_ms: 100
+  interact:
+    frames:
+    - index: 0
+      x: 116
+      y: 331
+      w: 94
+      h: 105
+      duration_ms: 95
+    - index: 1
+      x: 214
+      y: 331
+      w: 94
+      h: 105
+      duration_ms: 95
+    - index: 2
+      x: 312
+      y: 331
+      w: 94
+      h: 105
+      duration_ms: 95
+    - index: 3
+      x: 410
+      y: 331
+      w: 94
+      h: 105
+      duration_ms: 95
+    - index: 4
+      x: 508
+      y: 331
+      w: 94
+      h: 105
+      duration_ms: 95
+    - index: 5
+      x: 606
+      y: 331
+      w: 94
+      h: 105
+      duration_ms: 95
+    duration_ms: 95
+body_metrics:
+  frame_width: 94
+  frame_height: 105
+  body_pixel_bbox:
+    x: 3
+    y: 4
+    w: 87
+    h: 98
+  feet_pixel:
+    x: 46.0
+    y: 101.0
+  feet_anchor_norm:
+    x: -0.010638297872340441
+    y: -0.46190476190476193

@@ -311,6 +311,113 @@ class ToonSideGenerator:
             "shadow": rgba("#000000", 40),
             "white": rgba("#F5EFE2"),
         },
+        # Cryptography crew — Bob/Alice/Eve/Mallory/Trent/Judy. The
+        # palettes lock the silhouette read at first glance even when
+        # two characters share a body plan or hair primitive: e.g.
+        # Trent and Judy are both `broad` robed figures, but Trent's
+        # forest-and-gold reads "council" while Judy's black-and-
+        # crimson reads "courtroom."
+        # Bob — practical key engineer. Warm tan workshop vest, slate
+        # blue undershirt, safety-yellow trim so the silhouette pops
+        # against any background.
+        "bob": {
+            "skin": rgba("#D8AF8F"),
+            "skin_shadow": rgba("#A88567"),
+            "hair": rgba("#3D2B22"),
+            "hair_shine": rgba("#6A4B3A"),
+            "outfit": rgba("#9D7548"),
+            "outfit_dark": rgba("#6A4C2A"),
+            "accent": rgba("#F2C752"),
+            "accent_dark": rgba("#A47616"),
+            "shoe": rgba("#231C16"),
+            "outline": rgba("#1A130E"),
+            "shadow": rgba("#000000", 42),
+            "white": rgba("#FBF0DC"),
+        },
+        # Alice — cryptographer. Deep teal tabard with a cream cipher-
+        # checker placket and black-white check accents (one-time pad).
+        "alice": {
+            "skin": rgba("#E5C5A6"),
+            "skin_shadow": rgba("#B3936F"),
+            "hair": rgba("#1C1C24"),
+            "hair_shine": rgba("#3A3A4A"),
+            "outfit": rgba("#1B5E6E"),
+            "outfit_dark": rgba("#0F3A47"),
+            "accent": rgba("#F0EAD2"),
+            "accent_dark": rgba("#A89C7A"),
+            "shoe": rgba("#1B1F22"),
+            "outline": rgba("#10141A"),
+            "shadow": rgba("#000000", 40),
+            "white": rgba("#F8F2E0"),
+        },
+        # Eve — eavesdropper. Deep aubergine cloak + slate undertones;
+        # warm-cream listening horn brass color so the prop pops.
+        "eve": {
+            "skin": rgba("#D6BBA6"),
+            "skin_shadow": rgba("#A88E78"),
+            "hair": rgba("#2A1F2F"),
+            "hair_shine": rgba("#54405E"),
+            "outfit": rgba("#3D2A4A"),
+            "outfit_dark": rgba("#22162D"),
+            "accent": rgba("#D9B26A"),
+            "accent_dark": rgba("#8E6F2D"),
+            "shoe": rgba("#171019"),
+            "outline": rgba("#0E0913"),
+            "shadow": rgba("#000000", 46),
+            "white": rgba("#EFE6D5"),
+        },
+        # Mallory — malicious attacker. Oxblood + black + chrome. NOT
+        # cartoon-evil; reads more like "competent threat-actor in
+        # tactical streetwear" than mustache-twirler.
+        "mallory": {
+            "skin": rgba("#D6A38B"),
+            "skin_shadow": rgba("#A07560"),
+            "hair": rgba("#B22531"),
+            "hair_shine": rgba("#E04956"),
+            "outfit": rgba("#1F1A1E"),
+            "outfit_dark": rgba("#0B0A0C"),
+            "accent": rgba("#8B1A23"),
+            "accent_dark": rgba("#4F0A10"),
+            "shoe": rgba("#080709"),
+            "outline": rgba("#070608"),
+            "shadow": rgba("#000000", 54),
+            "white": rgba("#E8E1D6"),
+        },
+        # Trent — trusted arbitrator. Forest green formal robe with
+        # brushed gold trim — secular council energy, not wizardly.
+        "trent": {
+            "skin": rgba("#C9A78B"),
+            "skin_shadow": rgba("#9B7C63"),
+            "hair": rgba("#E4DCC8"),
+            "hair_shine": rgba("#F4EFDC"),
+            "outfit": rgba("#264E32"),
+            "outfit_dark": rgba("#142A1B"),
+            "accent": rgba("#CBA653"),
+            "accent_dark": rgba("#866820"),
+            "shoe": rgba("#181612"),
+            "outline": rgba("#0C0F0C"),
+            "shadow": rgba("#000000", 44),
+            "white": rgba("#F5EEDA"),
+        },
+        # Judy — the judge. Black judicial robe + crimson trim + white
+        # jabot collar + powdered barrister wig. The black-on-white
+        # contrast is what locks the read at small render scales.
+        "judy": {
+            "skin": rgba("#D6B89E"),
+            "skin_shadow": rgba("#A88B73"),
+            # Wig is intentionally a different cream than Newton's so
+            # they don't read as the same character at a glance.
+            "hair": rgba("#EFE6D2"),
+            "hair_shine": rgba("#FAF4E2"),
+            "outfit": rgba("#16141A"),
+            "outfit_dark": rgba("#080608"),
+            "accent": rgba("#9D1F2A"),
+            "accent_dark": rgba("#5F0E15"),
+            "shoe": rgba("#0A090C"),
+            "outline": rgba("#050306"),
+            "shadow": rgba("#000000", 56),
+            "white": rgba("#F8F2E2"),
+        },
     }
 
     PRESETS = {
@@ -615,6 +722,236 @@ class ToonSideGenerator:
             "hair_volume": 7.0,
             "nose_len": 3.4,
             "satchel_size": 8.5,
+        },
+        # ─────────────────────────────────────────────────────────────
+        # Cryptography crew. Each preset locks a unique combination of
+        # body_plan + outfit + hair_style + prop + palette so two
+        # crew members never share a silhouette even when they share
+        # an individual primitive. The story-side intent: this is the
+        # first batch (Bob / Alice / Eve / Mallory / Trent / Judy) of
+        # a 13-character canonical crypto roster — Trudy, Craig,
+        # Sybil, Victor, Peggy, Walter, Olivia are queued in TODO.md.
+        # ─────────────────────────────────────────────────────────────
+        # Bob — practical key engineer. Broad workshop silhouette,
+        # high-vis vest over a tee, short cropped hair, ring of keys
+        # in one hand. The narrative pair to Alice (canonical Alice→
+        # Bob protocol sender/receiver) but designed to read at a
+        # glance as "implements the thing Alice designed."
+        "bob": {
+            "name": "Bob",
+            "role": "npc",
+            "palette_name": "bob",
+            "body_plan": "broad",
+            "outfit": "vest_over_shirt",
+            "hair_style": "tousled_crop",
+            "prop": "key_ring",
+            "accessory": "satchel",
+            "head_w": 26.5,
+            "head_h": 28.0,
+            "chin_h": 6.0,
+            "neck_h": 3.6,
+            "shoulder_w": 36.0,
+            "torso_w": 30.0,
+            "torso_h": 28.0,
+            "hip_w": 25.0,
+            "arm_upper": 13.0,
+            "arm_lower": 12.5,
+            "arm_radius": 3.3,
+            "leg_upper": 14.0,
+            "leg_lower": 13.0,
+            "leg_radius": 3.2,
+            "hand_r": 3.4,
+            "foot_w": 13.0,
+            "foot_h": 5.0,
+            "coat_len": 6.0,
+            "cape_len": 0.0,
+            "hair_volume": 4.5,
+            "nose_len": 3.0,
+            "satchel_size": 7.5,
+        },
+        # Alice — cryptographer. Clean academic silhouette with a
+        # tabard-style front panel patterned like a one-time pad
+        # checker. Hair tied in a tidy chignon (different from
+        # architect's bob and Erdős' combed-back), small ribbon-tied
+        # cipher scroll in hand. Locked-pair counterpart to Bob.
+        "alice": {
+            "name": "Alice",
+            "role": "npc",
+            "palette_name": "alice",
+            "body_plan": "hero",
+            "outfit": "tabard",
+            "hair_style": "chignon",
+            "prop": "cipher_scroll",
+            "accessory": "scarf",
+            "head_w": 24.5,
+            "head_h": 28.5,
+            "chin_h": 6.2,
+            "neck_h": 4.0,
+            "shoulder_w": 24.0,
+            "torso_w": 20.5,
+            "torso_h": 28.0,
+            "hip_w": 19.0,
+            "arm_upper": 13.5,
+            "arm_lower": 13.0,
+            "arm_radius": 2.6,
+            "leg_upper": 17.5,
+            "leg_lower": 16.5,
+            "leg_radius": 2.8,
+            "hand_r": 3.0,
+            "foot_w": 11.5,
+            "foot_h": 4.5,
+            "coat_len": 10.0,
+            "cape_len": 0.0,
+            "hair_volume": 5.5,
+            "nose_len": 2.8,
+            "satchel_size": 0.0,
+        },
+        # Eve — eavesdropper. Tall hooded cloak silhouette, brass
+        # listening horn cupped to one ear (the defining gesture).
+        # Slightly thinner than the architect so the cloak hangs
+        # straight rather than draping over a wide frame.
+        "eve": {
+            "name": "Eve",
+            "role": "npc",
+            "palette_name": "eve",
+            "body_plan": "tall",
+            "outfit": "eavesdrop_cloak",
+            "hair_style": "hood",
+            "prop": "listening_horn",
+            "accessory": "satchel",
+            "head_w": 23.5,
+            "head_h": 28.0,
+            "chin_h": 6.0,
+            "neck_h": 3.8,
+            "shoulder_w": 22.0,
+            "torso_w": 18.0,
+            "torso_h": 28.0,
+            "hip_w": 17.0,
+            "arm_upper": 14.0,
+            "arm_lower": 13.6,
+            "arm_radius": 2.5,
+            "leg_upper": 18.5,
+            "leg_lower": 17.0,
+            "leg_radius": 2.7,
+            "hand_r": 2.9,
+            "foot_w": 11.0,
+            "foot_h": 4.2,
+            "coat_len": 20.0,
+            "cape_len": 4.0,
+            "hair_volume": 5.0,
+            "nose_len": 3.2,
+            "satchel_size": 6.0,
+        },
+        # Mallory — malicious attacker. Tactical streetwear; rigid
+        # frame, undercut-with-braid hair, medals re-skinned as ID-
+        # badge clips on the chest. Carries a tablet — quiet and
+        # professional. The cliché "evil hacker hood" is deliberately
+        # left for Eve; Mallory's threat is competence, not theatre.
+        "mallory": {
+            "name": "Mallory",
+            "role": "npc",
+            "palette_name": "mallory",
+            "body_plan": "rigid",
+            "outfit": "field_jacket",
+            "hair_style": "undercut_braid",
+            "prop": "tablet",
+            "accessory": "medals",
+            "head_w": 25.0,
+            "head_h": 28.0,
+            "chin_h": 6.0,
+            "neck_h": 3.6,
+            "shoulder_w": 30.0,
+            "torso_w": 24.0,
+            "torso_h": 29.0,
+            "hip_w": 21.0,
+            "arm_upper": 13.5,
+            "arm_lower": 13.0,
+            "arm_radius": 3.0,
+            "leg_upper": 15.5,
+            "leg_lower": 14.5,
+            "leg_radius": 3.0,
+            "hand_r": 3.1,
+            "foot_w": 12.0,
+            "foot_h": 4.8,
+            "coat_len": 9.0,
+            "cape_len": 0.0,
+            "hair_volume": 4.0,
+            "nose_len": 3.2,
+            "satchel_size": 0.0,
+        },
+        # Trent — trusted arbitrator. Stout, dignified. Long formal
+        # robe with a collar, balance scales in hand, chain-of-office
+        # medals across the chest. Bald with neat white side fringe
+        # so the head silhouette differs sharply from Judy's wig and
+        # Eve's hood.
+        "trent": {
+            "name": "Trent",
+            "role": "npc",
+            "palette_name": "trent",
+            "body_plan": "broad",
+            "outfit": "formal_robe",
+            "hair_style": "clean_bald",
+            "prop": "balance_scales",
+            "accessory": "medals",
+            "head_w": 26.0,
+            "head_h": 28.5,
+            "chin_h": 7.0,
+            "neck_h": 3.6,
+            "shoulder_w": 33.0,
+            "torso_w": 28.0,
+            "torso_h": 30.0,
+            "hip_w": 25.0,
+            "arm_upper": 13.0,
+            "arm_lower": 12.5,
+            "arm_radius": 3.2,
+            "leg_upper": 13.0,
+            "leg_lower": 12.0,
+            "leg_radius": 3.2,
+            "hand_r": 3.3,
+            "foot_w": 12.5,
+            "foot_h": 4.8,
+            "coat_len": 22.0,
+            "cape_len": 0.0,
+            "hair_volume": 3.0,
+            "nose_len": 3.4,
+            "satchel_size": 0.0,
+        },
+        # Judy — the judge. Broad black judicial robe with crimson
+        # placket, white jabot collar, full-bottom barrister wig,
+        # gavel in hand. The wig and the jabot are what separate her
+        # silhouette from Trent (also broad-robed) — same body plan,
+        # different head + collar shape.
+        "judy": {
+            "name": "Judy",
+            "role": "npc",
+            "palette_name": "judy",
+            "body_plan": "broad",
+            "outfit": "judicial_robe",
+            "hair_style": "barrister_wig",
+            "prop": "gavel",
+            "accessory": "jabot_collar",
+            "head_w": 25.0,
+            "head_h": 27.5,
+            "chin_h": 6.4,
+            "neck_h": 3.4,
+            "shoulder_w": 33.0,
+            "torso_w": 27.0,
+            "torso_h": 30.0,
+            "hip_w": 25.0,
+            "arm_upper": 13.0,
+            "arm_lower": 12.5,
+            "arm_radius": 3.2,
+            "leg_upper": 13.5,
+            "leg_lower": 12.5,
+            "leg_radius": 3.2,
+            "hand_r": 3.3,
+            "foot_w": 12.5,
+            "foot_h": 4.8,
+            "coat_len": 22.0,
+            "cape_len": 0.0,
+            "hair_volume": 7.5,
+            "nose_len": 3.0,
+            "satchel_size": 0.0,
         },
     }
 
@@ -978,7 +1315,67 @@ class ToonSideGenerator:
                     (temple_base[0], temple_base[1] + 3.0 * S),
                     (temple_tip[0], temple_tip[1] + 3.0 * S),
                 ], fill=pal["skin"], outline=None)
-        elif spec.hair_style in {"bob", "crest", "swoop", "cap", "general_hat", "officer_cap"}:
+        elif spec.hair_style == "barrister_wig":
+            # Full-bottom barrister/judge wig — three tiers of side
+            # curls cascading past the cheek and a tightly-curled
+            # crown that hugs the skull. Visually distinct from
+            # `savant_cap` (Newton): horizontal-banded curls instead
+            # of a smooth turban, and the curl tiers project sideways
+            # past the head rather than tucking back.
+            wig = pal["hair"]
+            wig_shine = pal["hair_shine"]
+            # Crown: a wider-than-the-head cap of tight curl texture.
+            crown_w = (spec.head_w + spec.hair_volume * 1.6 + 6.0) * S
+            crown_h = (spec.head_h * 0.86 + spec.hair_volume * 0.50) * S
+            crown_cx = c[0] - 1.0 * S
+            crown_cy = c[1] - spec.head_h * 0.18 * S
+            d.ellipse(_bbox((crown_cx, crown_cy), crown_w, crown_h), fill=wig, outline=outline, width=max(1, int(1.1 * S)))
+            # Three stacked curl tiers on each side, getting slightly
+            # wider as they go down. Each tier is a row of small
+            # ellipses for the "tight ringlet" texture.
+            for tier_idx, dy in enumerate((-2.0, 5.0, 12.0)):
+                tier_w = (spec.head_w * 0.46 + tier_idx * 3.0) * S
+                tier_y = c[1] + dy * S
+                for sign in (-1, 1):
+                    base_x = c[0] + sign * (spec.head_w * 0.42 + tier_idx * 1.2) * S
+                    d.ellipse(_bbox((base_x, tier_y), 5.6 * S, 4.2 * S), fill=wig, outline=outline, width=max(1, int(0.9 * S)))
+                    d.ellipse(_bbox((base_x - sign * 1.4 * S, tier_y - 1.0 * S), 2.2 * S, 1.4 * S), fill=wig_shine, outline=None)
+                # subtle horizontal band across the back of the crown
+                # so the curls read as stacked rows even at downsample.
+                d.line(
+                    [(crown_cx - crown_w * 0.40, tier_y - 1.0 * S), (crown_cx + crown_w * 0.18, tier_y - 1.0 * S)],
+                    fill=_scale_color(wig, 0.85),
+                    width=max(1, int(0.7 * S)),
+                )
+            # Highlight curl on the crown so the dome doesn't read flat.
+            d.ellipse(_bbox((crown_cx + 2.0 * S, crown_cy - crown_h * 0.32), crown_w * 0.38, crown_h * 0.22), fill=wig_shine, outline=None)
+        elif spec.hair_style == "clean_bald":
+            # Trent — bald top with a tidy fringe of gray hair only
+            # behind the ears. No top mass at all so the face dome
+            # reads as bare skin; the fringe runs as a low horizontal
+            # band that traces just above the ear line.
+            fringe_y = c[1] + spec.head_h * 0.04 * S
+            fringe_w = (spec.head_w + 2.0) * S
+            fringe_h = (spec.head_h * 0.40) * S
+            # Side fringe: a low arc behind both temples, drawn as a
+            # pieslice so the front-facing portion stays clear.
+            d.pieslice(
+                _bbox((c[0] - 1.0 * S, fringe_y), fringe_w, fringe_h),
+                start=180,
+                end=360,
+                fill=pal["hair"],
+                outline=outline,
+                width=max(1, int(1.0 * S)),
+            )
+            # A short tuft just behind the ear (camera-right) so the
+            # silhouette has a small notch instead of a smooth dome.
+            d.ellipse(
+                _bbox((c[0] + spec.head_w * 0.40 * S, fringe_y + 2.0 * S), 3.5 * S, 3.0 * S),
+                fill=pal["hair"],
+                outline=outline,
+                width=max(1, int(0.8 * S)),
+            )
+        elif spec.hair_style in {"bob", "crest", "swoop", "cap", "general_hat", "officer_cap", "tousled_crop", "chignon", "undercut_braid"}:
             d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.78 + spec.hair_volume * 0.45) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
         # Face.
         d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
@@ -1095,6 +1492,84 @@ class ToonSideGenerator:
                 a = -math.pi / 2 + i * math.tau / 10
                 star.append((star_c[0] + math.cos(a) * r, star_c[1] + math.sin(a) * r))
             d.polygon(star, fill=pal["accent"], outline=outline)
+        elif spec.hair_style == "tousled_crop":
+            # Bob — short messy cut. A handful of small wedge tufts
+            # sitting on top of the back-mass ellipse, plus two
+            # forehead bangs that flop forward without covering the
+            # eyes. Reads as "doesn't think about hair, but it
+            # looks fine."
+            for sign, dx in zip((-1, -1, 1, 1), (-7, -2, 3, 8)):
+                tuft = [
+                    (c[0] + dx * S, c[1] - spec.head_h * 0.48 * S),
+                    (c[0] + (dx + 2.0) * S, c[1] - spec.head_h * 0.62 * S),
+                    (c[0] + (dx + 4.0) * S, c[1] - spec.head_h * 0.40 * S),
+                ]
+                d.polygon(tuft, fill=pal["hair"], outline=outline)
+            # Forehead bangs — two short triangles dipping toward the brow.
+            for dx in (-3.0, 3.0):
+                d.polygon([
+                    (c[0] + dx * S, c[1] - spec.head_h * 0.42 * S),
+                    (c[0] + (dx + 2.5) * S, c[1] - spec.head_h * 0.18 * S),
+                    (c[0] + (dx + 5.0) * S, c[1] - spec.head_h * 0.34 * S),
+                ], fill=pal["hair"], outline=outline)
+        elif spec.hair_style == "chignon":
+            # Alice — hair pulled back into a tidy bun on top with a
+            # decorative stick poking out. Forehead stays clear so
+            # the face reads sharp and focused.
+            bun_c = (c[0] - 3.0 * S, c[1] - spec.head_h * 0.62 * S)
+            d.ellipse(_bbox(bun_c, 6.5 * S, 5.0 * S), fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)))
+            # Hair-stick: a thin diagonal line crossing the bun.
+            stick_a = (bun_c[0] - 6.0 * S, bun_c[1] + 2.0 * S)
+            stick_b = (bun_c[0] + 6.0 * S, bun_c[1] - 2.0 * S)
+            d.line([stick_a, stick_b], fill=pal["accent"], width=max(1, int(1.4 * S)))
+            d.ellipse(_bbox(stick_b, 1.4 * S, 1.4 * S), fill=pal["accent"], outline=outline, width=max(1, int(0.7 * S)))
+            # Small wisp at the nape so the back of the head doesn't
+            # read as a bald patch behind the bun.
+            d.polygon([
+                (c[0] - spec.head_w * 0.34 * S, c[1] + 2.0 * S),
+                (c[0] - spec.head_w * 0.46 * S, c[1] - 4.0 * S),
+                (c[0] - spec.head_w * 0.20 * S, c[1] - 6.0 * S),
+            ], fill=pal["hair"], outline=outline)
+        elif spec.hair_style == "undercut_braid":
+            # Mallory — sides shaved short, long braid down the back
+            # falling past the shoulder. The shave is implied by a
+            # thin skin band exposed along the temple; the braid is
+            # three stacked ovals tapering to a tip.
+            # Temple shave band.
+            for sign in (-1, 1):
+                temple_top = (c[0] + sign * spec.head_w * 0.34 * S, c[1] - spec.head_h * 0.36 * S)
+                temple_bot = (c[0] + sign * spec.head_w * 0.32 * S, c[1] - spec.head_h * 0.08 * S)
+                d.line([temple_top, temple_bot], fill=pal["skin"], width=max(1, int(2.0 * S)))
+            # Braid hanging down the back (camera-left of the head).
+            braid_x = c[0] - spec.head_w * 0.46 * S
+            for i, (dy, w) in enumerate(((-2.0, 4.4), (4.0, 4.0), (10.0, 3.5), (16.0, 2.8))):
+                seg_c = (braid_x, c[1] + dy * S)
+                d.ellipse(_bbox(seg_c, w * S, 3.2 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
+                # Braid-weave shine: a small lighter dot near the top
+                # of each segment.
+                d.ellipse(_bbox((seg_c[0] - 0.6 * S, seg_c[1] - 1.0 * S), 1.4 * S, 0.9 * S), fill=pal["hair_shine"], outline=None)
+            # Braid-tie ribbon at the bottom in the accent color.
+            d.rounded_rectangle(
+                (braid_x - 3.0 * S, c[1] + 18.0 * S, braid_x + 3.0 * S, c[1] + 21.0 * S),
+                radius=1.4 * S, fill=pal["accent"], outline=outline, width=max(1, int(0.7 * S)),
+            )
+            # Forehead bang on the kept-long side (camera-right).
+            d.polygon([
+                (c[0] + 2.0 * S, c[1] - spec.head_h * 0.46 * S),
+                (c[0] + 8.0 * S, c[1] - spec.head_h * 0.42 * S),
+                (c[0] + 5.0 * S, c[1] - spec.head_h * 0.16 * S),
+                (c[0] + 1.0 * S, c[1] - spec.head_h * 0.24 * S),
+            ], fill=pal["hair"], outline=outline)
+        elif spec.hair_style == "clean_bald":
+            # Trent — front of the head is bare skin, but he gets a
+            # subtle gray brow line plus a small white mustache so
+            # the bald silhouette doesn't read as expressionless.
+            # Brow line (subtle): a faint dark stroke above the eyes.
+            d.line(
+                [(c[0] - 3.0 * S, c[1] - spec.head_h * 0.06 * S), (c[0] + 9.0 * S, c[1] - spec.head_h * 0.10 * S)],
+                fill=pal["hair_shine"],
+                width=max(1, int(0.9 * S)),
+            )
         elif spec.hair_style == "officer_cap":
             crown = [
                 (c[0] - 16.5 * S, c[1] - 19.0 * S),
@@ -1444,6 +1919,270 @@ class ToonSideGenerator:
                 (center[0] + spec.hip_w * 0.46 * S + 1.0 * S, sash_y + 10.0 * S),
                 (center[0] + spec.hip_w * 0.34 * S, sash_y + 2.0 * S),
             ], fill=sash, outline=outline)
+        elif spec.outfit == "vest_over_shirt":
+            # Bob — high-vis workshop vest layered over a tee. Two
+            # diagonal reflective stripes across the chest in the
+            # accent color make the silhouette pop and signal
+            # "practical engineer" instantly.
+            d = ImageDraw.Draw(base)
+            # Tee underneath (visible at sleeves and collar).
+            tee = [
+                (center[0] - spec.shoulder_w * 0.50 * S, center[1] - spec.torso_h * 0.46 * S),
+                (center[0] + spec.shoulder_w * 0.36 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + spec.torso_w * 0.50 * S, center[1] + spec.torso_h * 0.06 * S),
+                (center[0] + spec.hip_w * 0.34 * S, center[1] + spec.torso_h * 0.50 * S),
+                (center[0] - spec.hip_w * 0.38 * S, center[1] + spec.torso_h * 0.50 * S),
+            ]
+            d.polygon(tee, fill=pal.get("white", rgba("#EEE6D2")), outline=outline)
+            # Vest on top, open at the front.
+            vest_left = [
+                (center[0] - spec.shoulder_w * 0.48 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] - 3.0 * S, center[1] - spec.torso_h * 0.40 * S),
+                (center[0] - 4.0 * S, center[1] + spec.torso_h * 0.48 * S),
+                (center[0] - spec.hip_w * 0.36 * S, center[1] + spec.torso_h * 0.48 * S),
+            ]
+            vest_right = [
+                (center[0] + 2.0 * S, center[1] - spec.torso_h * 0.40 * S),
+                (center[0] + spec.shoulder_w * 0.34 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + spec.hip_w * 0.32 * S, center[1] + spec.torso_h * 0.48 * S),
+                (center[0] + 2.0 * S, center[1] + spec.torso_h * 0.48 * S),
+            ]
+            d.polygon(vest_left, fill=pal["outfit"], outline=outline)
+            d.polygon(vest_right, fill=pal["outfit"], outline=outline)
+            # Reflective accent stripes across both vest panels.
+            for sign in (-1, 1):
+                stripe_y = center[1] + 2.0 * S
+                d.rectangle(
+                    (center[0] + sign * 11.0 * S - 5.0 * S, stripe_y, center[0] + sign * 11.0 * S + 5.0 * S, stripe_y + 2.4 * S),
+                    fill=pal["accent"],
+                    outline=outline,
+                    width=max(1, int(0.7 * S)),
+                )
+            # Chest patch pocket in the darker outfit color on the
+            # camera-right panel.
+            d.rounded_rectangle(
+                (center[0] + 4.0 * S, center[1] - 6.0 * S, center[0] + 10.5 * S, center[1] + 0.5 * S),
+                radius=1.4 * S,
+                fill=pal["outfit_dark"],
+                outline=outline,
+                width=max(1, int(0.7 * S)),
+            )
+        elif spec.outfit == "tabard":
+            # Alice — a fitted under-jacket plus a long front tabard
+            # patterned like a one-time pad. The checker pattern is
+            # the locking visual: 4×8 grid of small squares in white
+            # + accent_dark covers the chest panel down to the hem.
+            d = ImageDraw.Draw(base)
+            # Jacket underneath (close-fitting).
+            jacket = [
+                (center[0] - spec.shoulder_w * 0.48 * S, center[1] - spec.torso_h * 0.46 * S),
+                (center[0] + spec.shoulder_w * 0.34 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + spec.torso_w * 0.46 * S, center[1] + spec.torso_h * 0.06 * S),
+                (center[0] + spec.hip_w * 0.30 * S, center[1] + spec.torso_h * 0.52 * S),
+                (center[0] - spec.hip_w * 0.36 * S, center[1] + spec.torso_h * 0.52 * S),
+            ]
+            d.polygon(jacket, fill=pal["outfit_dark"], outline=outline)
+            # Long tabard front panel in the lighter outfit color.
+            tabard = [
+                (center[0] - 7.5 * S, center[1] - spec.torso_h * 0.40 * S),
+                (center[0] + 7.5 * S, center[1] - spec.torso_h * 0.36 * S),
+                (center[0] + 6.5 * S, center[1] + spec.torso_h * 0.60 * S),
+                (center[0] - 6.5 * S, center[1] + spec.torso_h * 0.60 * S),
+            ]
+            d.polygon(tabard, fill=pal["outfit"], outline=outline)
+            # One-time-pad checker pattern — 4 columns × 6 rows,
+            # alternating accent (cream) and accent_dark.
+            cols, rows = 4, 6
+            cell_w = 14.0 * S / cols
+            cell_h = (spec.torso_h * 0.90 * S) / rows
+            x0 = center[0] - 7.0 * S
+            y0 = center[1] - spec.torso_h * 0.34 * S
+            for r in range(rows):
+                for cc in range(cols):
+                    if (r + cc) % 2 == 0:
+                        continue
+                    cx = x0 + cc * cell_w
+                    cy = y0 + r * cell_h
+                    d.rectangle(
+                        (cx, cy, cx + cell_w - 0.6 * S, cy + cell_h - 0.6 * S),
+                        fill=pal["accent_dark"],
+                        outline=None,
+                    )
+            # Belt at the waist holding the tabard down.
+            d.rounded_rectangle(
+                (center[0] - 8.0 * S, center[1] + spec.torso_h * 0.20 * S, center[0] + 8.0 * S, center[1] + spec.torso_h * 0.30 * S),
+                radius=1.6 * S,
+                fill=pal["outfit_dark"],
+                outline=outline,
+                width=max(1, int(0.8 * S)),
+            )
+            d.rectangle(
+                (center[0] - 1.5 * S, center[1] + spec.torso_h * 0.20 * S, center[0] + 1.5 * S, center[1] + spec.torso_h * 0.30 * S),
+                fill=pal["accent"],
+                outline=outline,
+                width=max(1, int(0.6 * S)),
+            )
+        elif spec.outfit == "eavesdrop_cloak":
+            # Eve — a long straight-fall cloak that drapes to ankles
+            # with a side-clasp at the throat. Quieter than the
+            # poncho's diagonal shawl; reads as someone trying not
+            # to be noticed.
+            d = ImageDraw.Draw(base)
+            cloak = [
+                (center[0] - spec.shoulder_w * 0.55 * S, center[1] - spec.torso_h * 0.50 * S),
+                (center[0] + spec.shoulder_w * 0.42 * S, center[1] - spec.torso_h * 0.44 * S),
+                (center[0] + spec.hip_w * 0.50 * S, center[1] + spec.torso_h * 0.52 * S + spec.coat_len * 0.50 * S),
+                (center[0] - spec.hip_w * 0.62 * S, center[1] + spec.torso_h * 0.50 * S + spec.coat_len * 0.55 * S),
+            ]
+            d.polygon(cloak, fill=pal["outfit"], outline=outline)
+            # Vertical seam down the center to give the long drop
+            # some structure at the runtime downsample.
+            d.line(
+                [
+                    (center[0] - 1.0 * S, center[1] - spec.torso_h * 0.46 * S),
+                    (center[0] - 2.0 * S, center[1] + spec.torso_h * 0.52 * S + spec.coat_len * 0.40 * S),
+                ],
+                fill=pal["outfit_dark"],
+                width=max(1, int(1.0 * S)),
+            )
+            # Throat clasp — a small round brooch in the accent color.
+            d.ellipse(
+                _bbox((center[0] - 4.0 * S, center[1] - spec.torso_h * 0.46 * S), 2.6 * S, 2.6 * S),
+                fill=pal["accent"],
+                outline=outline,
+                width=max(1, int(0.7 * S)),
+            )
+            # A subtle vertical pleat highlight on the camera-right
+            # half so the cloak doesn't read as a single flat block.
+            d.line(
+                [
+                    (center[0] + 6.0 * S, center[1] - spec.torso_h * 0.36 * S),
+                    (center[0] + 10.0 * S, center[1] + spec.torso_h * 0.46 * S + spec.coat_len * 0.30 * S),
+                ],
+                fill=_scale_color(pal["outfit"], 1.18),
+                width=max(1, int(0.8 * S)),
+            )
+        elif spec.outfit == "field_jacket":
+            # Mallory — close-fitting tactical jacket with chest
+            # straps and a zip down the middle. Multiple visible
+            # rectangular pockets read as "kit ready to go" without
+            # any military-cap accessories.
+            d = ImageDraw.Draw(base)
+            jacket = [
+                (center[0] - spec.shoulder_w * 0.48 * S, center[1] - spec.torso_h * 0.46 * S),
+                (center[0] + spec.shoulder_w * 0.36 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + spec.torso_w * 0.50 * S, center[1] + spec.torso_h * 0.06 * S),
+                (center[0] + spec.hip_w * 0.34 * S, center[1] + spec.torso_h * 0.52 * S),
+                (center[0] - spec.hip_w * 0.40 * S, center[1] + spec.torso_h * 0.52 * S),
+            ]
+            d.polygon(jacket, fill=pal["outfit"], outline=outline)
+            # Central zip in chrome (white) with a tab.
+            d.line(
+                [(center[0] - 1.0 * S, center[1] - spec.torso_h * 0.42 * S), (center[0] - 2.0 * S, center[1] + spec.torso_h * 0.46 * S)],
+                fill=pal["white"],
+                width=max(1, int(0.9 * S)),
+            )
+            d.rectangle(
+                (center[0] - 2.4 * S, center[1] - spec.torso_h * 0.18 * S, center[0] + 0.4 * S, center[1] - spec.torso_h * 0.10 * S),
+                fill=pal["white"],
+                outline=outline,
+                width=max(1, int(0.6 * S)),
+            )
+            # Two square chest pockets in the darker outfit color.
+            for sign in (-1, 1):
+                px = center[0] + sign * 8.0 * S
+                d.rectangle(
+                    (px - 4.0 * S, center[1] - 7.0 * S, px + 4.0 * S, center[1] + 1.0 * S),
+                    fill=pal["outfit_dark"],
+                    outline=outline,
+                    width=max(1, int(0.7 * S)),
+                )
+                d.line(
+                    [(px - 3.0 * S, center[1] - 6.0 * S), (px + 3.0 * S, center[1] - 6.0 * S)],
+                    fill=pal["white"],
+                    width=max(1, int(0.6 * S)),
+                )
+            # Diagonal chest strap in the accent color (oxblood).
+            d.polygon([
+                (center[0] - spec.shoulder_w * 0.46 * S, center[1] - spec.torso_h * 0.34 * S),
+                (center[0] + spec.shoulder_w * 0.10 * S, center[1] - spec.torso_h * 0.20 * S),
+                (center[0] + spec.shoulder_w * 0.06 * S, center[1] - spec.torso_h * 0.10 * S),
+                (center[0] - spec.shoulder_w * 0.48 * S, center[1] - spec.torso_h * 0.24 * S),
+            ], fill=pal["accent"], outline=outline)
+        elif spec.outfit == "formal_robe":
+            # Trent — long secular council robe with a square placket
+            # down the front (lighter than keeper_robe's narrow
+            # accent collar). Reads as "civic, not religious."
+            d = ImageDraw.Draw(base)
+            robe = [
+                (center[0] - spec.shoulder_w * 0.66 * S, center[1] - spec.torso_h * 0.50 * S),
+                (center[0] + spec.shoulder_w * 0.56 * S, center[1] - spec.torso_h * 0.44 * S),
+                (center[0] + spec.hip_w * 0.50 * S, center[1] + spec.torso_h * 0.50 * S + spec.coat_len * 0.42 * S),
+                (center[0] - spec.hip_w * 0.62 * S, center[1] + spec.torso_h * 0.50 * S + spec.coat_len * 0.36 * S),
+            ]
+            d.polygon(robe, fill=pal["outfit"], outline=outline)
+            # Wide square placket front (lighter), running the full
+            # length so the silhouette reads vertical and dignified.
+            placket = [
+                (center[0] - 6.0 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + 6.0 * S, center[1] - spec.torso_h * 0.40 * S),
+                (center[0] + 5.0 * S, center[1] + spec.torso_h * 0.48 * S + spec.coat_len * 0.30 * S),
+                (center[0] - 5.0 * S, center[1] + spec.torso_h * 0.48 * S + spec.coat_len * 0.30 * S),
+            ]
+            d.polygon(placket, fill=pal["accent"], outline=outline)
+            # Three brass buttons down the placket.
+            for i, ty in enumerate((-spec.torso_h * 0.20, -spec.torso_h * 0.02, spec.torso_h * 0.16)):
+                d.ellipse(
+                    _bbox((center[0] - 0.5 * S, center[1] + ty * S), 1.8 * S, 1.8 * S),
+                    fill=pal["accent_dark"],
+                    outline=outline,
+                    width=max(1, int(0.6 * S)),
+                )
+            # Wide upturned collar in the darker outfit color.
+            d.polygon([
+                (center[0] - 9.0 * S, center[1] - spec.torso_h * 0.46 * S),
+                (center[0] + 8.0 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + 6.0 * S, center[1] - spec.torso_h * 0.28 * S),
+                (center[0] - 7.0 * S, center[1] - spec.torso_h * 0.32 * S),
+            ], fill=pal["outfit_dark"], outline=outline)
+        elif spec.outfit == "judicial_robe":
+            # Judy — black judicial robe with crimson front placket
+            # and white cuffs. Same broad silhouette as formal_robe
+            # but the crimson and the wider sleeves separate Judy
+            # from Trent at a glance.
+            d = ImageDraw.Draw(base)
+            robe = [
+                (center[0] - spec.shoulder_w * 0.68 * S, center[1] - spec.torso_h * 0.50 * S),
+                (center[0] + spec.shoulder_w * 0.58 * S, center[1] - spec.torso_h * 0.44 * S),
+                (center[0] + spec.hip_w * 0.52 * S, center[1] + spec.torso_h * 0.50 * S + spec.coat_len * 0.44 * S),
+                (center[0] - spec.hip_w * 0.66 * S, center[1] + spec.torso_h * 0.50 * S + spec.coat_len * 0.40 * S),
+            ]
+            d.polygon(robe, fill=pal["outfit"], outline=outline)
+            # Narrow crimson placket strip down the front.
+            d.polygon([
+                (center[0] - 2.5 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + 2.5 * S, center[1] - spec.torso_h * 0.40 * S),
+                (center[0] + 2.0 * S, center[1] + spec.torso_h * 0.46 * S + spec.coat_len * 0.30 * S),
+                (center[0] - 2.0 * S, center[1] + spec.torso_h * 0.46 * S + spec.coat_len * 0.30 * S),
+            ], fill=pal["accent"], outline=outline)
+            # White starched cuff strip along the shoulders.
+            d.rounded_rectangle(
+                (center[0] - spec.shoulder_w * 0.60 * S, center[1] - spec.torso_h * 0.50 * S, center[0] - spec.shoulder_w * 0.26 * S, center[1] - spec.torso_h * 0.36 * S),
+                radius=1.4 * S,
+                fill=pal["white"],
+                outline=outline,
+                width=max(1, int(0.7 * S)),
+            )
+            # Subtle vertical fold lines so the robe drapes.
+            for fx in (-7.0, 7.0):
+                d.line(
+                    [
+                        (center[0] + fx * S, center[1] - spec.torso_h * 0.30 * S),
+                        (center[0] + fx * S, center[1] + spec.torso_h * 0.46 * S + spec.coat_len * 0.25 * S),
+                    ],
+                    fill=pal["outfit_dark"],
+                    width=max(1, int(0.7 * S)),
+                )
         # accessory overlays that belong to the silhouette, not random doodads.
         d = ImageDraw.Draw(base)
         if spec.accessory == "scarf":
@@ -1476,6 +2215,30 @@ class ToonSideGenerator:
                     ribbon = pal["accent_dark"] if (row + col) % 2 else pal["accent"]
                     d.rectangle((x - 1.1 * S, y - 4.0 * S, x + 1.1 * S, y), fill=ribbon, outline=outline, width=max(1, int(0.65 * S)))
                     d.ellipse(_bbox((x, y + 2.0 * S), 3.2 * S, 3.2 * S), fill=pal["accent"], outline=outline, width=max(1, int(0.75 * S)))
+        elif spec.accessory == "jabot_collar":
+            # Judy — starched white frilled collar (jabot) hanging
+            # from the throat. Three stacked layers of ruffled fabric
+            # drop ~12 design-pixels down the front of the robe.
+            white = pal.get("white", rgba("#F8F2E2"))
+            base_y = center[1] - spec.torso_h * 0.42 * S
+            for tier, (w, dy) in enumerate(((6.0, 0.0), (5.2, 4.5), (4.2, 8.5))):
+                tier_w = w * S
+                tier_y = base_y + dy * S
+                # Scalloped tier edge using three small overlapping
+                # ellipses so the ruffle reads at the runtime scale.
+                for sign, dx in zip((-1, 0, 1), (-tier_w, 0.0, tier_w)):
+                    d.ellipse(
+                        _bbox((center[0] + dx * 0.5, tier_y + 1.0 * S), 3.0 * S, 2.0 * S),
+                        fill=white,
+                        outline=outline,
+                        width=max(1, int(0.7 * S)),
+                    )
+                d.rectangle(
+                    (center[0] - tier_w, tier_y - 1.0 * S, center[0] + tier_w, tier_y + 1.0 * S),
+                    fill=white,
+                    outline=outline,
+                    width=max(1, int(0.7 * S)),
+                )
 
     def _draw_prop(self, base: Image.Image, hand: Point, spec: ToonSpec, pal: Dict[str, Color], S: float, angle: float) -> None:
         outline = pal["outline"]
@@ -1534,6 +2297,139 @@ class ToonSideGenerator:
         elif prop == "blueprint":
             draw_rotated_rounded_rect(base, add(hand, vec(10.0 * S, angle - 4.0)), (15.0 * S, 5.0 * S), angle - 4.0, 2.0 * S, pal["white"], outline, 1.0 * S)
             ImageDraw.Draw(base).line([add(hand, vec(4 * S, angle - 20)), add(hand, vec(12 * S, angle - 20))], fill=pal["accent_dark"], width=max(1, int(1.0 * S)))
+        elif prop == "key_ring":
+            # Bob — a carabiner ring with three pendant keys hanging
+            # below it. Reads as "key custodian" at a glance.
+            d = ImageDraw.Draw(base)
+            ring_c = add(hand, vec(6.0 * S, angle - 20.0))
+            d.ellipse(_bbox(ring_c, 4.0 * S, 4.0 * S), outline=outline, width=max(1, int(1.4 * S)))
+            # Three keys hanging from the bottom of the ring.
+            for i, ddx in enumerate((-3.0, 0.0, 3.0)):
+                key_top = (ring_c[0] + ddx * S, ring_c[1] + 4.0 * S)
+                key_tip = (ring_c[0] + ddx * S, ring_c[1] + 12.0 * S)
+                d.line([key_top, key_tip], fill=pal["accent"], width=max(1, int(1.4 * S)))
+                # Two short teeth on the lower half of each key.
+                for ty in (8.0, 11.0):
+                    d.line(
+                        [(ring_c[0] + ddx * S, ring_c[1] + ty * S), (ring_c[0] + (ddx + 1.4) * S, ring_c[1] + ty * S)],
+                        fill=pal["accent_dark"],
+                        width=max(1, int(1.0 * S)),
+                    )
+                # Bow (head) of the key.
+                d.ellipse(
+                    _bbox((ring_c[0] + ddx * S, ring_c[1] + 4.8 * S), 1.2 * S, 1.4 * S),
+                    fill=pal["accent_dark"],
+                    outline=outline,
+                    width=max(1, int(0.5 * S)),
+                )
+        elif prop == "cipher_scroll":
+            # Alice — a tightly-rolled scroll about half the size of
+            # a tablet, with a ribbon tied around it and a sliver of
+            # cipher text visible on the exposed edge.
+            d = ImageDraw.Draw(base)
+            scroll_c = add(hand, vec(6.0 * S, angle - 12.0))
+            # Body of the scroll.
+            draw_rotated_rounded_rect(base, scroll_c, (12.0 * S, 4.0 * S), angle - 14.0, 1.6 * S, pal["white"], outline, 0.9 * S)
+            # End caps darker so the rolled-up shape reads.
+            for sign in (-1, 1):
+                end_c = add(scroll_c, vec(sign * 6.0 * S, angle - 14.0))
+                d.ellipse(
+                    _bbox(end_c, 1.6 * S, 2.4 * S),
+                    fill=pal["accent_dark"],
+                    outline=outline,
+                    width=max(1, int(0.6 * S)),
+                )
+            # Ribbon tied around the middle.
+            ribbon_a = add(scroll_c, vec(2.0 * S, angle + 80.0))
+            ribbon_b = add(scroll_c, vec(2.0 * S, angle - 100.0))
+            d.line([ribbon_a, ribbon_b], fill=pal["outfit"], width=max(1, int(1.4 * S)))
+            # Small ciphertext sliver — three short ticks.
+            for tx in (-3.0, 0.0, 3.0):
+                tick_top = add(scroll_c, vec(tx * S, angle - 14.0))
+                tick_top = (tick_top[0], tick_top[1] - 1.0 * S)
+                d.line([tick_top, (tick_top[0], tick_top[1] + 2.2 * S)], fill=pal["outfit_dark"], width=max(1, int(0.5 * S)))
+        elif prop == "listening_horn":
+            # Eve — a brass ear-trumpet (Victorian listening horn).
+            # Held near the body in the hand; orientation suggests
+            # she's cupping it forward to overhear something. The
+            # cone widens away from the grip so the silhouette reads
+            # as a horn even at small scale.
+            d = ImageDraw.Draw(base)
+            grip = hand
+            mid = add(grip, vec(9.0 * S, angle - 25.0))
+            wide = add(grip, vec(15.0 * S, angle - 25.0))
+            # Cone polygon — wide end farther from the body.
+            cone = [
+                grip,
+                add(grip, vec(2.0 * S, angle + 90.0)),
+                add(mid, vec(4.0 * S, angle - 115.0)),
+                add(wide, vec(7.0 * S, angle - 90.0)),
+                add(wide, vec(7.0 * S, angle + 90.0)),
+                add(mid, vec(4.0 * S, angle + 65.0)),
+                add(grip, vec(2.0 * S, angle - 90.0)),
+            ]
+            d.polygon(cone, fill=pal["accent"], outline=outline)
+            # Brass ring at the wide rim.
+            d.ellipse(_bbox(wide, 4.0 * S, 5.5 * S), outline=outline, width=max(1, int(1.2 * S)))
+            d.ellipse(_bbox(wide, 2.6 * S, 4.0 * S), fill=pal["accent_dark"], outline=None)
+            # Highlight along the upper cone edge so the brass reads.
+            d.line(
+                [add(grip, vec(2.0 * S, angle + 90.0)), add(wide, vec(7.0 * S, angle + 90.0))],
+                fill=_scale_color(pal["accent"], 1.25),
+                width=max(1, int(0.9 * S)),
+            )
+        elif prop == "balance_scales":
+            # Trent — a small handheld balance: a central pillar
+            # rising from the fist, two side arms, two shallow pans
+            # at the arm tips. Universal "fair arbitration" read.
+            d = ImageDraw.Draw(base)
+            pillar_base = hand
+            pillar_top = add(hand, vec(14.0 * S, angle - 75.0))
+            d.line([pillar_base, pillar_top], fill=pal["accent_dark"], width=max(1, int(1.6 * S)))
+            # Crossbeam.
+            beam_a = add(pillar_top, vec(7.0 * S, angle + 0.0))
+            beam_b = add(pillar_top, vec(7.0 * S, angle + 180.0))
+            d.line([beam_a, beam_b], fill=pal["accent"], width=max(1, int(1.6 * S)))
+            # Pans (shallow arcs hanging from the beam tips).
+            for pan_c in (beam_a, beam_b):
+                # Chain from beam to pan.
+                pan_anchor = (pan_c[0], pan_c[1] + 3.0 * S)
+                d.line([pan_c, pan_anchor], fill=pal["accent_dark"], width=max(1, int(0.7 * S)))
+                # Pan: a flat arc.
+                d.arc(
+                    (pan_c[0] - 3.4 * S, pan_anchor[1] - 0.5 * S, pan_c[0] + 3.4 * S, pan_anchor[1] + 4.5 * S),
+                    start=0,
+                    end=180,
+                    fill=outline,
+                    width=max(1, int(1.0 * S)),
+                )
+                d.line(
+                    [(pan_c[0] - 3.4 * S, pan_anchor[1] + 0.5 * S), (pan_c[0] + 3.4 * S, pan_anchor[1] + 0.5 * S)],
+                    fill=pal["accent_dark"],
+                    width=max(1, int(0.8 * S)),
+                )
+            # Apex finial on the pillar.
+            d.ellipse(_bbox(pillar_top, 1.8 * S, 1.8 * S), fill=pal["accent"], outline=outline, width=max(1, int(0.6 * S)))
+        elif prop == "gavel":
+            # Judy — judicial gavel: a cylindrical wooden head with a
+            # darker handle. Held with the head out so the silhouette
+            # reads "gavel" even at small render sizes.
+            d = ImageDraw.Draw(base)
+            handle_a = hand
+            handle_b = add(hand, vec(11.0 * S, angle - 8.0))
+            head_c = add(handle_b, vec(3.0 * S, angle - 8.0))
+            # Handle.
+            d.line([handle_a, handle_b], fill=pal["outfit_dark"], width=max(1, int(2.8 * S)))
+            d.line([handle_a, handle_b], fill=pal["accent_dark"], width=max(1, int(1.4 * S)))
+            # Cylindrical head — rotated rectangle perpendicular to
+            # the handle so the gavel reads as a perpendicular cap.
+            draw_rotated_rounded_rect(base, head_c, (6.0 * S, 11.0 * S), angle - 8.0, 2.0 * S, pal["accent_dark"], outline, 1.0 * S)
+            # Wood-grain accent stripe across the head.
+            d.line(
+                [add(head_c, vec(5.0 * S, angle + 82.0)), add(head_c, vec(5.0 * S, angle - 98.0))],
+                fill=_scale_color(pal["accent_dark"], 1.30),
+                width=max(1, int(0.9 * S)),
+            )
 
     def render_animation_frame(
         self,
@@ -1716,7 +2612,7 @@ class ToonSideGenerator:
         draw_capsule(d, near_knee, near_ankle, spec.leg_radius * 0.96 * S, near_tint, pal["outline"], 1.15 * S)
         draw_rotated_rounded_rect(img, (near_ankle[0] + spec.foot_w * 0.28 * S, near_ankle[1] + 2.0 * S), (spec.foot_w * S, spec.foot_h * S), 2.0 + p.torso_tilt * 0.10, spec.foot_h * 0.48 * S, pal["shoe"], pal["outline"], 1.0 * S)
         near_shoulder, near_elbow, near_hand = arm_points(True)
-        sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform", "storm_uniform", "banyan"} else pal["skin"]
+        sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform", "storm_uniform", "banyan", "eavesdrop_cloak", "field_jacket", "formal_robe", "judicial_robe", "vest_over_shirt", "tabard"} else pal["skin"]
         draw_capsule(d, near_shoulder, near_elbow, spec.arm_radius * S, sleeve_fill, pal["outline"], 1.1 * S)
         draw_capsule(d, near_elbow, near_hand, spec.arm_radius * 0.95 * S, sleeve_fill, pal["outline"], 1.1 * S)
         draw_armband(near_shoulder, near_elbow, scale=1.0, include_insignia=True)

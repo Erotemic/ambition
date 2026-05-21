@@ -1,0 +1,254 @@
+target: toon
+name: Judy
+output_name: judy
+seed: 524
+archetype: judy
+variant: null
+held_item: null
+faction: null
+role: null
+music_cue: null
+tags: []
+frame_width: 98
+frame_height: 106
+label_width: 112
+border: 4
+spec:
+  target: toon
+  seed: 524
+  archetype: judy
+  name: Judy
+  role: npc
+  palette_name: judy
+  body_plan: broad
+  outfit: judicial_robe
+  hair_style: barrister_wig
+  prop: gavel
+  accessory: jabot_collar
+  head_w: 24.670367383647513
+  head_h: 26.913251047529084
+  chin_h: 6.4
+  neck_h: 3.4
+  shoulder_w: 32.76870811195435
+  torso_w: 26.723896904211546
+  torso_h: 29.804138965123432
+  hip_w: 25.560079205479465
+  arm_upper: 13.343706163697718
+  arm_lower: 11.987447033553709
+  arm_radius: 3.2
+  leg_upper: 13.095241837252223
+  leg_lower: 12.006139969000118
+  leg_radius: 3.2
+  hand_r: 3.3
+  foot_w: 12.958697248782027
+  foot_h: 4.8
+  coat_len: 22.0
+  cape_len: 0.0
+  hair_volume: 7.2936494667421305
+  nose_len: 3.1086522033489636
+  satchel_size: 0.0
+  hat_brim_offset_x: 0.0
+  hat_brim_offset_y: 0.0
+crop:
+  source_frame_width: 128
+  source_frame_height: 128
+  offset:
+    x: 5
+    y: 10
+  enabled: true
+  padding_px: 2
+animations:
+  idle:
+    frames:
+    - index: 0
+      x: 116
+      y: 4
+      w: 98
+      h: 106
+      duration_ms: 120
+    - index: 1
+      x: 218
+      y: 4
+      w: 98
+      h: 106
+      duration_ms: 120
+    - index: 2
+      x: 320
+      y: 4
+      w: 98
+      h: 106
+      duration_ms: 120
+    - index: 3
+      x: 422
+      y: 4
+      w: 98
+      h: 106
+      duration_ms: 120
+    - index: 4
+      x: 524
+      y: 4
+      w: 98
+      h: 106
+      duration_ms: 120
+    - index: 5
+      x: 626
+      y: 4
+      w: 98
+      h: 106
+      duration_ms: 120
+    - index: 6
+      x: 728
+      y: 4
+      w: 98
+      h: 106
+      duration_ms: 120
+    - index: 7
+      x: 830
+      y: 4
+      w: 98
+      h: 106
+      duration_ms: 120
+    duration_ms: 120
+  walk:
+    frames:
+    - index: 0
+      x: 116
+      y: 114
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 1
+      x: 218
+      y: 114
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 2
+      x: 320
+      y: 114
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 3
+      x: 422
+      y: 114
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 4
+      x: 524
+      y: 114
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 5
+      x: 626
+      y: 114
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 6
+      x: 728
+      y: 114
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 7
+      x: 830
+      y: 114
+      w: 98
+      h: 106
+      duration_ms: 100
+    duration_ms: 100
+  talk:
+    frames:
+    - index: 0
+      x: 116
+      y: 224
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 1
+      x: 218
+      y: 224
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 2
+      x: 320
+      y: 224
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 3
+      x: 422
+      y: 224
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 4
+      x: 524
+      y: 224
+      w: 98
+      h: 106
+      duration_ms: 100
+    - index: 5
+      x: 626
+      y: 224
+      w: 98
+      h: 106
+      duration_ms: 100
+    duration_ms: 100
+  interact:
+    frames:
+    - index: 0
+      x: 116
+      y: 334
+      w: 98
+      h: 106
+      duration_ms: 95
+    - index: 1
+      x: 218
+      y: 334
+      w: 98
+      h: 106
+      duration_ms: 95
+    - index: 2
+      x: 320
+      y: 334
+      w: 98
+      h: 106
+      duration_ms: 95
+    - index: 3
+      x: 422
+      y: 334
+      w: 98
+      h: 106
+      duration_ms: 95
+    - index: 4
+      x: 524
+      y: 334
+      w: 98
+      h: 106
+      duration_ms: 95
+    - index: 5
+      x: 626
+      y: 334
+      w: 98
+      h: 106
+      duration_ms: 95
+    duration_ms: 95
+body_metrics:
+  frame_width: 98
+  frame_height: 106
+  body_pixel_bbox:
+    x: 3
+    y: 4
+    w: 91
+    h: 100
+  feet_pixel:
+    x: 48.0
+    y: 103.0
+  feet_anchor_norm:
+    x: -0.010204081632653073
+    y: -0.4716981132075472

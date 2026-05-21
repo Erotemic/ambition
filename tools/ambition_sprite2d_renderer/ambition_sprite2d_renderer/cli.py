@@ -111,6 +111,16 @@ RUNTIME_REVIEW_NPCS: tuple[str, ...] = (
     "merchant_prototype",
     "oiler",
     "vault_keeper",
+    # Cryptography crew batch 1 — Bob/Alice/Eve/Mallory/Trent/Judy.
+    # See `docs/concepts/cryptography-crew.md` for the full canonical
+    # roster; the other 7 (Trudy, Craig, Sybil, Victor, Peggy, Walter,
+    # Olivia) are queued in TODO.md as a follow-up batch.
+    "alice",
+    "bob",
+    "eve",
+    "judy",
+    "mallory",
+    "trent",
 )
 
 
@@ -587,8 +597,9 @@ def build_parser() -> argparse.ArgumentParser:
             "Render + install every review-config NPC that the runtime "
             "sprite registry expects at boot (architect, kernel_guide, "
             "vault_keeper, merchant_prototype, absurd_general, oiler, "
-            "erdish). These live under configs/review/ so draw-all skips "
-            "them by default."
+            "erdish, plus the crypto crew batch 1: alice, bob, eve, "
+            "judy, mallory, trent). These live under configs/review/ "
+            "so draw-all skips them by default."
         ),
     )
     p.add_argument(

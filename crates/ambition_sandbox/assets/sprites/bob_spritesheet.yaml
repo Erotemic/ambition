@@ -1,4 +1,4 @@
-target: toon
+target: bob_engineer
 name: Bob
 output_name: bob
 seed: 510
@@ -9,52 +9,40 @@ faction: null
 role: null
 music_cue: null
 tags: []
-frame_width: 94
-frame_height: 103
+frame_width: 60
+frame_height: 119
 label_width: 112
 border: 4
 spec:
-  target: toon
+  target: bob_engineer
   seed: 510
   archetype: bob
   name: Bob
   role: npc
   palette_name: bob
-  body_plan: broad
-  outfit: vest_over_shirt
-  hair_style: tousled_crop
-  prop: key_ring
-  accessory: satchel
-  head_w: 26.72149402028043
-  head_h: 28.061754056384125
-  chin_h: 6.0
-  neck_h: 3.6
-  shoulder_w: 35.586512630955234
-  torso_w: 30.316451109226808
-  torso_h: 27.888840309744033
-  hip_w: 25.338626510577285
-  arm_upper: 13.161184545032983
-  arm_lower: 12.565781353798753
-  arm_radius: 3.3
-  leg_upper: 14.432348823529335
-  leg_lower: 13.479994123227813
-  leg_radius: 3.2
-  hand_r: 3.4
-  foot_w: 12.589146352167027
-  foot_h: 5.0
-  coat_len: 6.0
-  cape_len: 0.0
-  hair_volume: 4.677932117861086
-  nose_len: 3.1501497694111973
-  satchel_size: 7.5
-  hat_brim_offset_x: 0.0
-  hat_brim_offset_y: 0.0
+  head_w: 26.0
+  head_h: 28.0
+  head_depth: 22.0
+  jaw_h: 6.0
+  neck_h: 4.0
+  shoulder_w: 36.0
+  chest_h: 20.0
+  vest_h: 26.0
+  waist_w: 26.0
+  hip_w: 28.0
+  leg_h: 28.0
+  leg_w: 8.0
+  boot_w: 11.0
+  boot_h: 6.0
+  arm_len: 24.0
+  arm_w: 6.0
+  cuff_w: 5.5
 crop:
   source_frame_width: 128
   source_frame_height: 128
   offset:
-    x: 3
-    y: 13
+    x: 34
+    y: 9
   enabled: true
   padding_px: 2
 animations:
@@ -63,192 +51,258 @@ animations:
     - index: 0
       x: 116
       y: 4
-      w: 94
-      h: 103
-      duration_ms: 120
+      w: 60
+      h: 119
+      duration_ms: 140
     - index: 1
-      x: 214
+      x: 180
       y: 4
-      w: 94
-      h: 103
-      duration_ms: 120
+      w: 60
+      h: 119
+      duration_ms: 140
     - index: 2
-      x: 312
+      x: 244
       y: 4
-      w: 94
-      h: 103
-      duration_ms: 120
+      w: 60
+      h: 119
+      duration_ms: 140
     - index: 3
-      x: 410
+      x: 308
       y: 4
-      w: 94
-      h: 103
-      duration_ms: 120
+      w: 60
+      h: 119
+      duration_ms: 140
     - index: 4
-      x: 508
+      x: 372
       y: 4
-      w: 94
-      h: 103
-      duration_ms: 120
+      w: 60
+      h: 119
+      duration_ms: 140
     - index: 5
-      x: 606
+      x: 436
       y: 4
-      w: 94
-      h: 103
-      duration_ms: 120
-    - index: 6
-      x: 704
-      y: 4
-      w: 94
-      h: 103
-      duration_ms: 120
-    - index: 7
-      x: 802
-      y: 4
-      w: 94
-      h: 103
-      duration_ms: 120
-    duration_ms: 120
+      w: 60
+      h: 119
+      duration_ms: 140
+    duration_ms: 140
   walk:
     frames:
     - index: 0
       x: 116
-      y: 111
-      w: 94
-      h: 103
+      y: 127
+      w: 60
+      h: 119
       duration_ms: 100
     - index: 1
-      x: 214
-      y: 111
-      w: 94
-      h: 103
+      x: 180
+      y: 127
+      w: 60
+      h: 119
       duration_ms: 100
     - index: 2
-      x: 312
-      y: 111
-      w: 94
-      h: 103
+      x: 244
+      y: 127
+      w: 60
+      h: 119
       duration_ms: 100
     - index: 3
-      x: 410
-      y: 111
-      w: 94
-      h: 103
+      x: 308
+      y: 127
+      w: 60
+      h: 119
       duration_ms: 100
     - index: 4
-      x: 508
-      y: 111
-      w: 94
-      h: 103
+      x: 372
+      y: 127
+      w: 60
+      h: 119
       duration_ms: 100
     - index: 5
-      x: 606
-      y: 111
-      w: 94
-      h: 103
+      x: 436
+      y: 127
+      w: 60
+      h: 119
       duration_ms: 100
     - index: 6
-      x: 704
-      y: 111
-      w: 94
-      h: 103
+      x: 500
+      y: 127
+      w: 60
+      h: 119
       duration_ms: 100
     - index: 7
-      x: 802
-      y: 111
-      w: 94
-      h: 103
+      x: 564
+      y: 127
+      w: 60
+      h: 119
       duration_ms: 100
     duration_ms: 100
   talk:
     frames:
     - index: 0
       x: 116
-      y: 218
-      w: 94
-      h: 103
-      duration_ms: 100
+      y: 250
+      w: 60
+      h: 119
+      duration_ms: 110
     - index: 1
-      x: 214
-      y: 218
-      w: 94
-      h: 103
-      duration_ms: 100
+      x: 180
+      y: 250
+      w: 60
+      h: 119
+      duration_ms: 110
     - index: 2
-      x: 312
-      y: 218
-      w: 94
-      h: 103
-      duration_ms: 100
+      x: 244
+      y: 250
+      w: 60
+      h: 119
+      duration_ms: 110
     - index: 3
-      x: 410
-      y: 218
-      w: 94
-      h: 103
-      duration_ms: 100
+      x: 308
+      y: 250
+      w: 60
+      h: 119
+      duration_ms: 110
     - index: 4
-      x: 508
-      y: 218
-      w: 94
-      h: 103
-      duration_ms: 100
+      x: 372
+      y: 250
+      w: 60
+      h: 119
+      duration_ms: 110
     - index: 5
-      x: 606
-      y: 218
-      w: 94
-      h: 103
-      duration_ms: 100
-    duration_ms: 100
+      x: 436
+      y: 250
+      w: 60
+      h: 119
+      duration_ms: 110
+    duration_ms: 110
   interact:
     frames:
     - index: 0
       x: 116
-      y: 325
-      w: 94
-      h: 103
-      duration_ms: 95
+      y: 373
+      w: 60
+      h: 119
+      duration_ms: 130
     - index: 1
-      x: 214
-      y: 325
-      w: 94
-      h: 103
-      duration_ms: 95
+      x: 180
+      y: 373
+      w: 60
+      h: 119
+      duration_ms: 130
     - index: 2
-      x: 312
-      y: 325
-      w: 94
-      h: 103
-      duration_ms: 95
+      x: 244
+      y: 373
+      w: 60
+      h: 119
+      duration_ms: 130
     - index: 3
-      x: 410
-      y: 325
-      w: 94
-      h: 103
-      duration_ms: 95
+      x: 308
+      y: 373
+      w: 60
+      h: 119
+      duration_ms: 130
     - index: 4
-      x: 508
-      y: 325
-      w: 94
-      h: 103
-      duration_ms: 95
+      x: 372
+      y: 373
+      w: 60
+      h: 119
+      duration_ms: 130
     - index: 5
-      x: 606
-      y: 325
-      w: 94
-      h: 103
-      duration_ms: 95
-    duration_ms: 95
+      x: 436
+      y: 373
+      w: 60
+      h: 119
+      duration_ms: 130
+    duration_ms: 130
+  idle_front:
+    frames:
+    - index: 0
+      x: 116
+      y: 496
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 1
+      x: 180
+      y: 496
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 2
+      x: 244
+      y: 496
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 3
+      x: 308
+      y: 496
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 4
+      x: 372
+      y: 496
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 5
+      x: 436
+      y: 496
+      w: 60
+      h: 119
+      duration_ms: 140
+    duration_ms: 140
+  idle_side:
+    frames:
+    - index: 0
+      x: 116
+      y: 619
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 1
+      x: 180
+      y: 619
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 2
+      x: 244
+      y: 619
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 3
+      x: 308
+      y: 619
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 4
+      x: 372
+      y: 619
+      w: 60
+      h: 119
+      duration_ms: 140
+    - index: 5
+      x: 436
+      y: 619
+      w: 60
+      h: 119
+      duration_ms: 140
+    duration_ms: 140
 body_metrics:
-  frame_width: 94
-  frame_height: 103
+  frame_width: 60
+  frame_height: 119
   body_pixel_bbox:
-    x: 4
-    y: 4
-    w: 86
-    h: 97
+    x: 2
+    y: 3
+    w: 56
+    h: 114
   feet_pixel:
-    x: 46.5
-    y: 100.0
+    x: 29.5
+    y: 116.0
   feet_anchor_norm:
-    x: -0.005319148936170193
-    y: -0.470873786407767
+    x: -0.00833333333333336
+    y: -0.47478991596638653

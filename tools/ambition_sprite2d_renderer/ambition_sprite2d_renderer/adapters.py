@@ -15,6 +15,7 @@ from .targets.sandbag import ADAPTER_ANIMATIONS as SANDBAG_ANIMATIONS, SandbagSp
 from .targets.robot25d import parse_background as robot_parse_background
 from .targets.toon_side import ToonSideGenerator, parse_background as toon_parse_background
 from .targets.trent_elder import TrentElderGenerator, parse_background as trent_parse_background
+from .targets.bob_engineer import BobEngineerGenerator, parse_background as bob_parse_background
 
 
 def _dataclass_dict(obj: Any) -> Dict[str, Any]:
@@ -266,6 +267,39 @@ class TrentElderAdapter(BaseAdapter):
         )
 
 
+class BobEngineerAdapter(BaseAdapter):
+    """Bespoke multi-view target for Bob. Single-archetype; see
+    `targets/bob_engineer.py` for the design rationale, including
+    the per-animation view (3/4 / side / front) routing."""
+
+    target = "bob_engineer"
+
+    def __init__(self) -> None:
+        self.generator = BobEngineerGenerator()
+
+    def animations(self) -> Dict[str, Dict[str, int]]:
+        return dict(self.generator.ANIMATIONS)
+
+    def sample_spec(self, job: CharacterJob) -> Any:
+        spec = self.generator.sample_spec(job.seed, job.archetype)
+        if job.name:
+            spec = replace(spec, name=job.name)
+        return self._apply_overrides(spec, job)
+
+    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+        anim = self.animations()[animation]
+        return self.generator.render_animation_frame(
+            spec,
+            animation,
+            frame_index % anim["frames"],
+            anim["frames"],
+            size,
+            background=bob_parse_background(job.render.background),
+            supersample=job.render.supersample,
+            downsample=job.render.downsample,
+        )
+
+
 TARGETS: Dict[str, BaseAdapter] = {
     "boss": BossAdapter(),
     "goblin": GoblinAdapter(),
@@ -274,6 +308,7 @@ TARGETS: Dict[str, BaseAdapter] = {
     "sandbag": SandbagAdapter(),
     "toon": ToonAdapter(),
     "trent_elder": TrentElderAdapter(),
+    "bob_engineer": BobEngineerAdapter(),
 }
 
 

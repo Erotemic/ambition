@@ -54,7 +54,7 @@ These six are PRESETS in `toon_side.py`, with review configs in
 
 | Name | Silhouette read | Prop | Palette signal |
 |---|---|---|---|
-| **Bob** | Broad workshop engineer, hi-vis vest, short tousled hair | Carabiner ring with 3 keys | Warm tan + safety yellow |
+| **Bob** | Workshop engineer with visible legs + workboots, vest open over a tee, tool belt with three hanging tools (key ring + wrench + hammer); ships in 3/4 (idle), side (walk), and front (talk/interact) views | Carabiner ring with 3 keys held in hand + the three belt tools | Warm tan vest + slate-blue tee + safety yellow |
 | **Alice** | Hero-frame academic, tabard patterned like a one-time pad, chignon with hair-stick | Tightly-rolled ribbon-tied cipher scroll | Deep teal + cream |
 | **Eve** | Tall hooded cloak, brass ear-trumpet cupped to listen | Listening horn | Aubergine + slate + brass |
 | **Mallory** | Rigid tactical field jacket with chrome zip + diagonal strap, red mohawk-style hair | Tablet | Black + oxblood red |
@@ -112,6 +112,17 @@ Two adapters serve the crew today:
   jaw + beard + robe + side-fringe + chain-of-office) is documented
   so a future "council batch" character can be added by overriding
   the palette and a few proportions.
+- **`bob_engineer`** (`targets/bob_engineer.py`) — bespoke template
+  for Bob, builds on the trent_elder lessons and adds **multi-view
+  rendering**: each animation locks one of three views (3/4 / side /
+  front) via the `ANIMATION_VIEWS` table, with per-view draw
+  functions for head, body, and arms. Walking uses the side
+  profile (one eye, ear visible, nose forward, leg swing); talking
+  and interact use the front view (symmetric face + ears + bangs);
+  idle stays at 3/4 for canonical-preview continuity. Also lands a
+  visible-legs construction (no robe hiding them), workshop boots,
+  and a leather tool belt with three hanging tools (key ring /
+  wrench / hammer). Single archetype today.
 
 The expectation going forward: any character whose silhouette
 genuinely doesn't fit the toon template gets a bespoke template

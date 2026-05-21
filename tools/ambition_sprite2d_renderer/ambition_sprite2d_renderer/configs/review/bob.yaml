@@ -1,13 +1,18 @@
-target: toon
+target: bob_engineer
 name: Bob
 output_name: bob
 seed: 510
 archetype: bob
+# Bob's bespoke template ships three-quarter (idle), side (walk),
+# and front (talk + interact) views. Animation order intentionally
+# alternates views so the spritesheet preview is easy to scan.
 animations:
   - idle
   - walk
   - talk
   - interact
+  - idle_front
+  - idle_side
 render:
   frame_width: 128
   frame_height: 128

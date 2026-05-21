@@ -1,9 +1,12 @@
 //! Per-frame sprite rebuild for enemy projectiles. Mirrors the
-//! player-projectile visuals system but with a hostile red/orange tint
-//! so the player can tell incoming volleys from their own fireballs at
-//! a glance.
+//! player-projectile visuals system but with hostile per-owner art:
+//! GNU-ton apples render as the apple stack, `lasersword:`-prefixed
+//! pirate volleys render as a small spinning laser-sword sprite, and
+//! everything else falls back to a red/orange rectangle.
 
+use bevy::math::Vec2;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 
 use super::state::EnemyProjectileState;
 
@@ -12,17 +15,41 @@ pub struct EnemyProjectileVisual;
 
 /// `owner_id` prefix stamp used by GNU-ton's apple-rain attack so the
 /// visuals layer can swap the default red rectangle for the apple
-/// shape (red body + green leaf + brown stem). Lives here so the
-/// shared sandbox crate can match the prefix without depending on
-/// the features module.
+/// shape (red body + green leaf + brown stem).
 const APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
+/// Owner prefix used by `PirateOnShark` discharges. Routes the
+/// projectile to the `lasersword` sprite rendered rotated along its
+/// velocity vector. Set by `EnemyRuntime::update` when the firing
+/// archetype is `PirateOnShark`.
+const LASERSWORD_OWNER_PREFIX: &str = "lasersword";
+
+const LASERSWORD_SHEET_PATH: &str = "sprites/lasersword_spritesheet.png";
+
+/// Pixel dimensions of one frame in the projectile sheet (read from
+/// `lasersword_spritesheet.yaml`, idle row, frame 0). The renderer's
+/// auto-crop targets this shape at `RENDER_SCALE = 1.0`.
+const LASERSWORD_FRAME_W: f32 = 168.0;
+const LASERSWORD_FRAME_H: f32 = 44.0;
+
+/// Pommel anchor in the idle frame — rotation pivot of the
+/// projectile sprite. Game rotation aligns the blade to the
+/// projectile's velocity vector.
+const LASERSWORD_POMMEL_X_PX: f32 = 14.0;
+const LASERSWORD_POMMEL_Y_PX: f32 = 22.0;
+
+const LASERSWORD_RENDER_WIDTH: f32 = 56.0;
 
 fn is_apple_owner(owner_id: &str) -> bool {
     owner_id.starts_with(APPLE_OWNER_PREFIX)
 }
 
+fn is_lasersword_owner(owner_id: &str) -> bool {
+    owner_id.starts_with(LASERSWORD_OWNER_PREFIX)
+}
+
 pub fn sync_enemy_projectile_visuals(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     world: Res<crate::GameWorld>,
     state: Res<EnemyProjectileState>,
     existing: Query<Entity, With<EnemyProjectileVisual>>,
@@ -30,6 +57,7 @@ pub fn sync_enemy_projectile_visuals(
     for entity in &existing {
         commands.entity(entity).despawn();
     }
+    let lasersword_texture = asset_server.load(LASERSWORD_SHEET_PATH);
     for projectile in &state.bodies {
         let body = &projectile.body;
         let render_size = bevy::math::Vec2::new(
@@ -40,6 +68,10 @@ pub fn sync_enemy_projectile_visuals(
             crate::config::world_to_bevy(&world.0, body.pos, crate::config::WORLD_Z_PLAYER + 1.8);
         if is_apple_owner(&projectile.owner_id) {
             spawn_apple_visual(&mut commands, translation, render_size);
+            continue;
+        }
+        if is_lasersword_owner(&projectile.owner_id) {
+            spawn_lasersword_visual(&mut commands, &lasersword_texture, translation, body.vel);
             continue;
         }
         // Hostile orange-red: readable against the sky-blue background
@@ -55,6 +87,45 @@ pub fn sync_enemy_projectile_visuals(
             Name::new("Enemy projectile"),
         ));
     }
+}
+
+/// Spawn the lasersword-projectile visual at ``translation``, rotated
+/// so the blade points along the projectile's velocity. The sprite's
+/// pommel anchor is set so rotation pivots about the back-of-grip,
+/// which is what the projectile metadata reports as ``pommel`` and
+/// matches how the wielded weapon was rendered.
+fn spawn_lasersword_visual(
+    commands: &mut Commands,
+    texture: &Handle<Image>,
+    translation: bevy::math::Vec3,
+    vel: ambition_engine::Vec2,
+) {
+    // Bevy +Y is up; sandbox +Y is down — flip Y when computing the
+    // sprite rotation from the velocity vector.
+    let bevy_dx = vel.x;
+    let bevy_dy = -vel.y;
+    let angle = if bevy_dx == 0.0 && bevy_dy == 0.0 {
+        0.0
+    } else {
+        bevy_dy.atan2(bevy_dx)
+    };
+    let aspect = LASERSWORD_FRAME_W / LASERSWORD_FRAME_H;
+    let render = bevy::math::Vec2::new(LASERSWORD_RENDER_WIDTH, LASERSWORD_RENDER_WIDTH / aspect);
+    let anchor_x_norm = (LASERSWORD_POMMEL_X_PX - LASERSWORD_FRAME_W * 0.5) / LASERSWORD_FRAME_W;
+    let anchor_y_norm = -(LASERSWORD_POMMEL_Y_PX - LASERSWORD_FRAME_H * 0.5) / LASERSWORD_FRAME_H;
+    let mut sprite = Sprite::from_image(texture.clone());
+    sprite.custom_size = Some(render);
+    commands.spawn((
+        sprite,
+        Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),
+        Transform {
+            translation,
+            rotation: Quat::from_rotation_z(angle),
+            scale: Vec3::ONE,
+        },
+        EnemyProjectileVisual,
+        Name::new("Lasersword projectile"),
+    ));
 }
 
 /// Three-sprite apple: red body, green leaf, brown stem. The stack

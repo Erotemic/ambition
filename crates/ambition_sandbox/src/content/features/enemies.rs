@@ -883,16 +883,42 @@ impl EnemyRuntime {
             self.ai_mode = ae::CharacterAiMode::Telegraph;
         }
         if let Some(fire) = frame.fire {
+            // PirateOnShark fires from the rider's hand (where the
+            // visible gun-sword's muzzle sits) so the projectile
+            // looks like it's leaving the barrel. The `lasersword:`
+            // prefix on `owner_id` routes the projectile to the
+            // lasersword visual in `enemy_projectile/visuals.rs`.
+            let (origin, owner_id) = if self.archetype == EnemyArchetype::PirateOnShark {
+                let hand = crate::presentation::rendering::rider_hand_world_pos(
+                    self.pos,
+                    self.facing,
+                );
+                let muzzle_origin = hand + fire.dir.normalize_or_zero() * 18.0;
+                (muzzle_origin, format!("lasersword:{}", self.id))
+            } else {
+                (self.pos + ae::Vec2::new(0.0, -8.0), self.id.clone())
+            };
             outputs.projectile_spawns.push(EnemyProjectileSpawn {
-                origin: self.pos + ae::Vec2::new(0.0, -8.0),
+                origin,
                 dir: fire.dir,
                 speed: fire.speed,
                 damage: self.archetype.damage_amount(),
                 max_lifetime: 2.4,
                 half_extent: ae::Vec2::new(10.0, 8.0),
-                owner_id: self.id.clone(),
+                owner_id,
                 gravity: 0.0,
             });
+            // Recoil kick: push the firing actor backward along the
+            // negative fire direction. For the PirateOnShark this
+            // shoves both rider and shark (one fused actor) so the
+            // discharge reads as a noticeable knock-back.
+            let recoil_strength = if self.archetype == EnemyArchetype::PirateOnShark {
+                ENEMY_FIRE_RECOIL_PIRATE
+            } else {
+                ENEMY_FIRE_RECOIL_DEFAULT
+            };
+            let kick = fire.dir.normalize_or_zero() * -recoil_strength;
+            self.vel += kick;
             // Brief telegraph for the HUD so the volley reads as a "shot".
             self.ai_mode = ae::CharacterAiMode::Attack;
         }

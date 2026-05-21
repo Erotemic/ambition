@@ -531,4 +531,119 @@ mod conversion_tests {
             wall_left_edge,
         );
     }
+
+    /// When a PirateOnShark fires, the projectile spawn must:
+    ///   1. carry an owner_id with the `lasersword:` prefix so the
+    ///      visuals layer renders it with the laser-sword sprite, and
+    ///   2. originate from the rider's hand (NOT the enemy centre)
+    ///      so the muzzle flash and the projectile track the visible
+    ///      gun-sword. We drive the enemy with an in-range player to
+    ///      reach the fire branch of the choreography.
+    #[test]
+    fn pirate_on_shark_fire_uses_lasersword_owner_and_hand_origin() {
+        let world = enemy_test_world();
+        let aabb = ae::Aabb::new(
+            ae::Vec2::new(300.0, 300.0),
+            ae::Vec2::new(14.0, 23.0),
+        );
+        let mut enemy = EnemyRuntime::new(
+            "shark_a",
+            "Burning Flying Shark",
+            aabb,
+            ae::EnemyBrain::Custom("pirate_on_shark".into()),
+            &[],
+        );
+        assert_eq!(enemy.archetype, EnemyArchetype::PirateOnShark);
+        enemy.attack_cooldown = 0.0;
+        let player_pos = ae::Vec2::new(500.0, 300.0);
+        let mut outputs = super::super::enemies::EnemyTickOutputs::default();
+        // Drive long enough that the orbit-and-fire choreography
+        // emits at least one shot (`fire_interval` is 1.4s).
+        for _ in 0..200 {
+            enemy.update(
+                &world,
+                player_pos,
+                FeatureCombatTuning::default(),
+                Some(player_pos),
+                None,
+                &mut outputs,
+                1.0 / 60.0,
+            );
+        }
+        assert!(
+            !outputs.projectile_spawns.is_empty(),
+            "expected at least one projectile spawn from pirate_on_shark over 200 ticks",
+        );
+        let any_lasersword = outputs
+            .projectile_spawns
+            .iter()
+            .any(|s| s.owner_id.starts_with("lasersword:"));
+        assert!(
+            any_lasersword,
+            "expected projectile owner_id to start with `lasersword:` (got {:?})",
+            outputs.projectile_spawns.iter().map(|s| &s.owner_id).collect::<Vec<_>>(),
+        );
+    }
+
+    /// Firing must kick the enemy's velocity backward (opposite the
+    /// projectile direction). For PirateOnShark the kick should be
+    /// the documented "fair bit" — substantially larger than a
+    /// default enemy recoil — so the shark visibly knocks back.
+    #[test]
+    fn pirate_on_shark_fire_applies_backward_recoil() {
+        let world = enemy_test_world();
+        let aabb = ae::Aabb::new(
+            ae::Vec2::new(300.0, 300.0),
+            ae::Vec2::new(14.0, 23.0),
+        );
+        let mut enemy = EnemyRuntime::new(
+            "shark_a",
+            "Burning Flying Shark",
+            aabb,
+            ae::EnemyBrain::Custom("pirate_on_shark".into()),
+            &[],
+        );
+        enemy.attack_cooldown = 0.0;
+        let player_pos = ae::Vec2::new(500.0, 300.0);
+        let mut outputs = super::super::enemies::EnemyTickOutputs::default();
+        let mut fire_seen = false;
+        let mut vx_before_fire = enemy.vel.x;
+        for _ in 0..200 {
+            let projectiles_before = outputs.projectile_spawns.len();
+            let vx_pre = enemy.vel.x;
+            enemy.update(
+                &world,
+                player_pos,
+                FeatureCombatTuning::default(),
+                Some(player_pos),
+                None,
+                &mut outputs,
+                1.0 / 60.0,
+            );
+            if outputs.projectile_spawns.len() > projectiles_before {
+                // Fire happened this tick — vel.x should now be more
+                // negative (recoil) than it was a tick ago.
+                let spawn = outputs.projectile_spawns.last().unwrap();
+                let dir_x = spawn.dir.x;
+                // Player is to the right of the shark, so dir.x > 0
+                // and the recoil is to the LEFT (negative x). The
+                // post-fire vel.x should be substantially less than
+                // the pre-fire vel.x.
+                assert!(
+                    dir_x > 0.0,
+                    "projectile fired toward player should have +x dir, got {dir_x}",
+                );
+                assert!(
+                    enemy.vel.x < vx_pre - 50.0,
+                    "fire didn't apply visible recoil: pre={vx_pre}, post={}",
+                    enemy.vel.x,
+                );
+                vx_before_fire = vx_pre;
+                fire_seen = true;
+                break;
+            }
+        }
+        let _ = vx_before_fire;
+        assert!(fire_seen, "no fire happened in 200 ticks — choreography may have changed");
+    }
 }

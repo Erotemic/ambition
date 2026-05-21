@@ -1,0 +1,564 @@
+target: lasersword_with_guns
+image: lasersword_with_guns_spritesheet.png
+label_width: 118
+frame_width: 177
+frame_height: 46
+rows:
+- animation: idle
+  row_index: 0
+  frame_count: 8
+  duration_ms: 110
+  duration_secs: 0.11
+  rects:
+  - x: 118
+    y: 0
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 295
+    y: 0
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 472
+    y: 0
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 649
+    y: 0
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 826
+    y: 0
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 1003
+    y: 0
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 1180
+    y: 0
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 1357
+    y: 0
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+- animation: fire
+  row_index: 1
+  frame_count: 8
+  duration_ms: 65
+  duration_secs: 0.065
+  rects:
+  - x: 118
+    y: 46
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 33.48
+        y: 23.8
+      pommel:
+        x: 19.23
+        y: 23.8
+      guard:
+        x: 47.98
+        y: 23.8
+      muzzle:
+        x: 88.23
+        y: 11.55
+      tip:
+        x: 165.97
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 295
+    y: 46
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 32.95
+        y: 23.8
+      pommel:
+        x: 18.7
+        y: 23.8
+      guard:
+        x: 47.45
+        y: 23.8
+      muzzle:
+        x: 87.7
+        y: 11.55
+      tip:
+        x: 165.45
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 472
+    y: 46
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 34.78
+        y: 23.8
+      pommel:
+        x: 20.53
+        y: 23.8
+      guard:
+        x: 49.28
+        y: 23.8
+      muzzle:
+        x: 89.53
+        y: 11.55
+      tip:
+        x: 167.28
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 649
+    y: 46
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 35.49
+        y: 23.8
+      pommel:
+        x: 21.24
+        y: 23.8
+      guard:
+        x: 49.99
+        y: 23.8
+      muzzle:
+        x: 90.24
+        y: 11.55
+      tip:
+        x: 167.99
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 826
+    y: 46
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 1003
+    y: 46
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 1180
+    y: 46
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 1357
+    y: 46
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+- animation: dissipate
+  row_index: 2
+  frame_count: 6
+  duration_ms: 85
+  duration_secs: 0.085
+  rects:
+  - x: 118
+    y: 92
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 295
+    y: 92
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 472
+    y: 92
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 649
+    y: 92
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 826
+    y: 92
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+  - x: 1003
+    y: 92
+    w: 177
+    h: 46
+    anchors:
+      grip:
+        x: 36.45
+        y: 23.8
+      pommel:
+        x: 22.2
+        y: 23.8
+      guard:
+        x: 50.95
+        y: 23.8
+      muzzle:
+        x: 91.2
+        y: 11.55
+      tip:
+        x: 168.95
+        y: 23.8
+    forward:
+      x: 1.0
+      y: -0.0
+    blade_angle_deg: 90.0
+body_metrics:
+  body_pixel_bbox:
+    x: 15
+    y: 3
+    w: 159
+    h: 40
+  feet_pixel:
+    x: 94.5
+    y: 43.0
+  feet_anchor_norm:
+    x: 0.033898
+    y: -0.434783

@@ -17,6 +17,17 @@ const ENEMY_PATROL_SPEED: f32 = 105.0;
 const ENEMY_CHASE_SPEED: f32 = 155.0;
 const ENEMY_ATTACK_RANGE: f32 = 150.0;
 const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
+/// Velocity kick applied along the negative fire direction when a
+/// non-pirate enemy discharges a projectile. Modest because most
+/// enemies fire melee-range bolts and don't need the screen-shake
+/// equivalent of a cannon.
+const ENEMY_FIRE_RECOIL_DEFAULT: f32 = 60.0;
+/// Recoil for `PirateOnShark`. Larger because the pirate's
+/// gun-sword fires hurled laser-sword projectiles — the user spec
+/// asks for "recoil that pushes the pirate (and its shark) back a
+/// fair bit". The brain's velocity ramp will reel the shark back
+/// toward its orbit slot over the next ~half second.
+const ENEMY_FIRE_RECOIL_PIRATE: f32 = 380.0;
 const BOSS_ATTACK_COOLDOWN: f32 = 1.35;
 const BREAK_ON_STAND_SECONDS: f32 = 0.85;
 

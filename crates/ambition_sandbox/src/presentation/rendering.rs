@@ -31,6 +31,7 @@ mod features;
 mod health;
 mod parallax;
 mod pirate_rider;
+mod pirate_weapon;
 mod primitives;
 mod world;
 
@@ -41,6 +42,11 @@ pub use actors::{
 };
 pub use camera::{camera_follow, CameraViewState};
 pub use health::sync_health_overlays;
+// Re-exported so the simulation side (e.g. `EnemyRuntime::update`
+// in `content/features/enemies.rs`) can place projectile-spawn
+// origins at the same hand position the visual lays the gun-sword
+// on. Keeps "where the muzzle is" defined in ONE module.
+pub use pirate_weapon::rider_hand_world_pos;
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, QuestPanelText,
@@ -143,6 +149,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // frame the rider visual disappears — no stale
                 // rider-on-no-shark across resets/transitions.
                 pirate_rider::sync_pirate_rider_visuals,
+                // Gun-sword visual on the rider — runs after the
+                // rider visual so the weapon mounts on top of the
+                // pirate sprite in the same frame.
+                pirate_weapon::sync_pirate_weapon_visuals,
             )
                 .chain()
                 .in_set(crate::app::SandboxSet::PresentationVisualSync)

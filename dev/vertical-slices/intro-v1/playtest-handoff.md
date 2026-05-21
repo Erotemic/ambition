@@ -488,6 +488,52 @@ flag fires.
 Two tests in `intro/route_state.rs` drive the chain through a
 minimal Bevy App and assert the target flag lands in save.
 
+### M. dialog::DialogMode visibility
+The polish-F redirector matched on `DialogMode::Intro(_)` from
+non-test code, but `DialogMode` was re-exported as
+`pub(crate) #[cfg(test)]`. Dropped the cfg guard so the binary
+build sees it too. Headless smoke now runs cleanly with
+`--start-room=alice_relay`.
+
+### N. `level diff-specs` tooling
+`python -m ambition_ldtk_tools level diff-specs <specs> --ldtk <file>`
+reports any area-spec → live LDtk drift in world_x / world_y /
+px_wid / px_hei. Exits non-zero if any spec disagrees, 0 otherwise.
+Non-area specs (entity-add door specs etc.) are skipped quietly.
+Fixed two leftover drifted specs in the same commit
+(intro_wake_room and intro_raid_corridor). All ten intro area
+specs now match the live LDtk exactly.
+
+### O. INTRO_DIALOG_REDIRECTS data table
+The polish-F redirector's three-arm match expression is now a
+`&[(IntroDialog, &str, IntroDialog)]` const table. Adding a fourth
+NPC swap is a one-row edit. Two new tests pin "no loops" + "no
+duplicate pres" on the table.
+
+### P. Lock-wall sync unit tests
+Refactored `sync_intro_flag_gated_lock_walls` to delegate to a pure
+`compute_intro_flag_gated_lock_walls(project, room_id, save)`
+function. Four unit tests now cover: block present when flag clear,
+block absent when flag set, other rooms skipped, unregistered ids
+ignored.
+
+### Q. Combat lab tuning
+- Patrol KinematicPath speed bumped from 85 to 110 px/s.
+- Steam HazardBlock lifted 16 px off the floor (now floats between
+  patrol pocket and arena).
+- New `kind: health:2` PickupSpawn between classify Switch and the
+  boss-exit zone so the player heals before the boss.
+
+### U. intro_first_system_boss quest
+One-step quest gated on `BossDefeated("clockwork_warden")`. Tracks
+the capstone boss-kill as durable save state separate from the
+flag-driven cartography quest. Auto-started at boot.
+
+### V. spec_diff tests
+7 pytest tests under `tools/ambition_ldtk_tools/tests/test_spec_diff.py`
+pin the `diff_one` core against the real failure modes from the
+lessons-learned journal.
+
 ### Real durable state inventory (post-polish)
 
 Pickup flags (unchanged from Task 08 plus the new ones surfaced
@@ -519,14 +565,16 @@ switch_combat_lab_classify_switch_used (Task 06)
 switch_gate_official_report_used        (polish C)
 ```
 
-### Validation (final)
+### Validation (final, post-polish)
 ```bash
+# 1. LDtk schema + cross-world content graph.
 PYTHONPATH=tools/ambition_ldtk_tools python3 \
   tools/ambition_ldtk_tools/ambition_ldtk_tools/validate.py \
   --secondary-world crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
   crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
 # → OK: 0 warnings, 11 levels.
 
+# 2. Doctor (polish B fixed the --secondary-world forwarding).
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \
   doctor --secondary-world \
     crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
@@ -534,8 +582,25 @@ PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \
 # → OK: ... is valid and safe (roundtrip).
 # → OK: ... passes Ambition LDtk validation (0 warnings).
 
+# 3. Area-spec / live LDtk coordinate drift (polish N).
+PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \
+  level diff-specs tools/ambition_ldtk_tools/specs/intro_*.yaml \
+  tools/ambition_ldtk_tools/specs/{drain_alley,gate_stack_lower,under_town_pipes,alice_relay,bob_relay,combat_calibration_lab,first_system_boss}_area.yaml \
+  --ldtk crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
+# → All ten OK / one SKIP for the door-add spec; exit code 0.
+
+# 4. Sandbox lib tests.
 cargo test -p ambition_sandbox --lib
-# → 589 passed; 0 failed.   (+5 over the Task 08 baseline)
+# → 596 passed; 0 failed.
+
+# 5. LDtk tool python tests (polish V).
+cd tools/ambition_ldtk_tools && python3 -m pytest tests/test_spec_diff.py
+# → 7 passed.
+
+# 6. Headless intro smoke.
+cargo run -p ambition_sandbox --bin headless -- --start-room=intro_wake_room
+# → headless run completed: 120 ticks; active room intro_wake_room;
+#   39 rooms loaded (intro + sandbox merge).
 ```
 
 ### What remains placeholder after the polish wave

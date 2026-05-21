@@ -55,7 +55,7 @@ These six are PRESETS in `toon_side.py`, with review configs in
 | Name | Silhouette read | Prop | Palette signal |
 |---|---|---|---|
 | **Bob** | Workshop engineer with visible legs + workboots, vest open over a tee, tool belt with three hanging tools (key ring + wrench + hammer); ships in 3/4 (idle), side (walk), and front (talk/interact) views | Carabiner ring with 3 keys held in hand + the three belt tools | Warm tan vest + slate-blue tee + safety yellow |
-| **Alice** | Hero-frame academic, tabard patterned like a one-time pad, chignon with hair-stick | Tightly-rolled ribbon-tied cipher scroll | Deep teal + cream |
+| **Alice** | Lean academic with a knee-length cinched traveling coat over the OTP-checker tabard, ankle-cuffed leggings + ankle boots, layered long hair (back mass + cheek curtains + bangs + forward braid) | Ribbon-tied cipher scroll held in hand | Deep teal coat + cream OTP tabard + amber sash |
 | **Eve** | Tall hooded cloak, brass ear-trumpet cupped to listen | Listening horn | Aubergine + slate + brass |
 | **Mallory** | Rigid tactical field jacket with chrome zip + diagonal strap, red mohawk-style hair | Tablet | Black + oxblood red |
 | **Trent** | Robe-first silhouette (no stick-figure peeking through), elongated head with jaw extension, full white flowing beard, gold chain of office with medallion | Handheld balance scales | Forest green + brushed gold |
@@ -123,6 +123,22 @@ Two adapters serve the crew today:
   visible-legs construction (no robe hiding them), workshop boots,
   and a leather tool belt with three hanging tools (key ring /
   wrench / hammer). Single archetype today.
+- **`alice_cryptographer`** (`targets/alice_cryptographer.py`) —
+  bespoke template for Alice, third scaffold after Trent and Bob.
+  Silhouette philosophy: a knee-length cinched traveling coat over
+  an OTP-checker tabard with ankle-cuffed leggings + ankle boots
+  showing beneath the flared coat hem — distinct from Trent
+  (fully-draped robe) and Bob (workshop vest with belt-tools).
+  Layered hair construction is the key new pattern: hair is a
+  stack of FOUR primitives (back mass + cheek curtains + bangs +
+  forward braid), each its own polygon so the front fringe doesn't
+  fight the back mass. Multi-view: 3/4 (idle/talk/interact) +
+  side (walk/idle_side); front is queued. Cleaner face geometry:
+  smaller pupils with iris + sclera + outer-corner eyelash tick,
+  no chin shadow (per the feminine-archetype rule). Carries a
+  ribbon-tied cipher scroll. Single archetype today; the hair
+  primitive vocabulary (back / curtain / bangs / braid) is
+  documented so future long-haired characters can reuse it.
 
 The expectation going forward: any character whose silhouette
 genuinely doesn't fit the toon template gets a bespoke template

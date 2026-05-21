@@ -1,13 +1,16 @@
-target: toon
+target: alice_cryptographer
 name: Alice
 output_name: alice
-seed: 525
+seed: 540
 archetype: alice
+# Alice's bespoke template ships 3/4 (idle/talk/interact) + side
+# (walk/idle_side). Front view is queued for the dialog system.
 animations:
   - idle
   - walk
   - talk
   - interact
+  - idle_side
 render:
   frame_width: 128
   frame_height: 128

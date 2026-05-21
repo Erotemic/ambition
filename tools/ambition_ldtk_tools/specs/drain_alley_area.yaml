@@ -132,6 +132,17 @@ entities:
       prompt: "Talk to Oiler"
       dialogue_id: oiler_intro
 
+  # P1 Stabilizer kit. Sits on the bench beside Oiler so the
+  # narrative beat "Oiler hands you a stabilizer" maps cleanly to a
+  # PickupSpawn the player walks into after the conversation. Task
+  # 08 quest `intro_p1_stabilizer` watches for the flag.
+  - type: PickupSpawn
+    px: [368, 568]
+    size: [24, 24]
+    fields:
+      name: oiler_stabilizer_kit
+      kind: "flag:p1_stabilizer_received"
+
   - type: NpcSpawn
     px: [560, 560]
     size: [32, 48]

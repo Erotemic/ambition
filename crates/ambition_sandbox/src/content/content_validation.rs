@@ -466,6 +466,20 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
                     }
                 }
             }
+            // PickupSpawn entities with `kind: "flag:<id>"` set the
+            // named flag in save state when collected. Mirror the
+            // runtime parse rule in `world/ldtk_world/fields.rs::parse_pickup_kind`
+            // so quest steps that depend on a story-flag pickup
+            // validate without needing the flag listed elsewhere.
+            if entity.identifier == "PickupSpawn" {
+                if let Some(kind) = field_string(entity, "kind") {
+                    if let Some(flag) = kind.trim().strip_prefix("flag:") {
+                        if !flag.is_empty() {
+                            flags.insert(flag.to_string());
+                        }
+                    }
+                }
+            }
         }
     }
     for boss in authored_boss_encounter_ids(project) {

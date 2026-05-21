@@ -161,6 +161,49 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
                 ),
             ],
         ),
+        // Intro-v1 cartography route. Alice's sealed note → Bob's
+        // field survey → first system boss + P5 Route Memory. Steps
+        // are flag-set conditions wired to the PickupSpawn entities
+        // placed in alice_relay, bob_relay, and first_system_boss.
+        // Auto-starts at boot so the player sees the quest from the
+        // moment they leave the lab.
+        ae::QuestSpec::new(
+            "intro_cartography_route",
+            "Carry the Quiet Route",
+            "Alice trusts you with a sealed note. Bob owes her a survey.",
+            vec![
+                ae::QuestStepSpec::new(
+                    "Find Alice and accept her sealed route note.",
+                    ae::QuestStepCondition::FlagSet("alice_route_note_carried".into()),
+                ),
+                ae::QuestStepSpec::new(
+                    "Reach Bob and pick up his field survey.",
+                    ae::QuestStepCondition::FlagSet("bob_field_survey_received".into()),
+                ),
+                ae::QuestStepSpec::new(
+                    "Clear the first system encounter and bank route memory.",
+                    ae::QuestStepCondition::FlagSet("intro_p5_route_memory_received".into()),
+                ),
+            ],
+        ),
+        // Intro-v1 P1 Stabilizer beat. Oiler is the social anchor in
+        // Drain Market; talking to him plus picking up the stabilizer
+        // entity (drain_alley spec) closes the beat.
+        ae::QuestSpec::new(
+            "intro_p1_stabilizer",
+            "Stabilizer Drop",
+            "Oiler can stabilize the under-town descent.",
+            vec![
+                ae::QuestStepSpec::new(
+                    "Speak with Oiler in Drain Market.",
+                    ae::QuestStepCondition::FlagSet("npc_oiler_intro_talked".into()),
+                ),
+                ae::QuestStepSpec::new(
+                    "Pick up the stabilizer kit.",
+                    ae::QuestStepCondition::FlagSet("p1_stabilizer_received".into()),
+                ),
+            ],
+        ),
     ]
 }
 
@@ -193,6 +236,12 @@ pub fn populate_quest_registry(
         let _ = q.start();
     }
     if let Some(q) = registry.quests.get_mut("pirate_treasure") {
+        let _ = q.start();
+    }
+    if let Some(q) = registry.quests.get_mut("intro_cartography_route") {
+        let _ = q.start();
+    }
+    if let Some(q) = registry.quests.get_mut("intro_p1_stabilizer") {
         let _ = q.start();
     }
     registry.initialized = true;

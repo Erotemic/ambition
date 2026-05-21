@@ -1,6 +1,7 @@
 //! Player → pickup collection on the ECS feature path.
 
 use super::*;
+use crate::features::events::GameplayEffect;
 
 /// Collect ECS-owned pickups after the player simulation has advanced.
 pub fn collect_ecs_pickups(
@@ -20,6 +21,7 @@ pub fn collect_ecs_pickups(
     mut heals: MessageWriter<crate::player::PlayerHealRequested>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
+    mut gameplay_effects: MessageWriter<GameplayEffect>,
 ) {
     if player.is_empty() {
         return;
@@ -42,11 +44,26 @@ pub fn collect_ecs_pickups(
         };
         commands.entity(entity).insert(Collected);
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
-        if let ae::PickupKind::Health { amount } = &pickup.pickup.kind {
-            heals.write(crate::player::PlayerHealRequested::for_target(
-                *amount,
-                collector_entity,
-            ));
+        match &pickup.pickup.kind {
+            ae::PickupKind::Health { amount } => {
+                heals.write(crate::player::PlayerHealRequested::for_target(
+                    *amount,
+                    collector_entity,
+                ));
+            }
+            ae::PickupKind::StoryFlag { flag } => {
+                // PickupSpawn entities with `kind: "flag:<id>"` set
+                // the named flag in the save layer and emit a
+                // QuestAdvanceEvent::FlagSet via apply_flag_effects.
+                // Mirrors the LockWall/Switch flag-setting pattern so
+                // intro-v1 cartography pickups and similar narrative
+                // story-flag drops just work without per-pickup wiring.
+                gameplay_effects.write(GameplayEffect::SetFlag {
+                    id: flag.clone(),
+                    on: true,
+                });
+            }
+            _ => {}
         }
         let pos = aabb.center;
         vfx.write(VfxMessage::Burst {

@@ -46,6 +46,17 @@ fill_collision: empty
 bg_color: "#0E1418"
 biome: cave
 
+intgrid:
+  climbable:
+    # Pipe ladder running from the floor up past the dead-end
+    # pocket so the player can climb out of the lower-right area
+    # without retracing the one-way platform descent. Diegetically
+    # the under-town has lots of vertical pipework; this is the
+    # one ladder of the cartography route.
+    - kind: Ladder
+      px: [200, 192]
+      size: [16, 544]
+
 entities:
   # --- Outer geometry.
   - type: Solid

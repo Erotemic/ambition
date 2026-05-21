@@ -78,6 +78,89 @@ pub fn emit_intro_flag_chains(
     }
 }
 
+/// LockWalls in the intro slice whose collision should be removed
+/// once the named flag is set in save. Each entry is
+/// `(lock_id_on_LockWall_entity, unlock_flag)`.
+///
+/// LockWalls without an associated EncounterTrigger are inert in the
+/// stock runtime — the entity exists in LDtk but no system inserts a
+/// blocking solid into the engine's `world.blocks`. The system below
+/// reads from this table to provide that wiring for the cartography
+/// route: while the unlock flag is clear, an `intro_lock:<id>` solid
+/// block is inserted in the active room; once the flag flips, the
+/// block is removed and the player can walk through.
+pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
+    ("alice_private_return_lock", "bob_field_survey_received"),
+    ("gate_alice_private_lock", "bob_field_survey_received"),
+];
+
+/// Per-frame sync of the intro flag-gated lock walls. Mirrors the
+/// encounter system's `sync_lock_walls` but driven by the save layer
+/// rather than encounter phase.
+pub fn sync_intro_flag_gated_lock_walls(
+    project: Option<Res<crate::world::ldtk_world::SandboxLdtkProject>>,
+    room_set: Option<Res<crate::rooms::RoomSet>>,
+    save: Option<Res<crate::persistence::save::SandboxSave>>,
+    world: Option<ResMut<crate::GameWorld>>,
+) {
+    let (Some(project), Some(room_set), Some(save), Some(mut world)) =
+        (project, room_set, save, world)
+    else {
+        return;
+    };
+    let active_room_id = room_set.active_spec().id.clone();
+    let save_data = save.data();
+
+    let mut desired: std::collections::BTreeMap<
+        String,
+        (ambition_engine::Vec2, ambition_engine::Vec2),
+    > = std::collections::BTreeMap::new();
+    for level in &project.0.levels {
+        if level.active_area() != active_room_id {
+            continue;
+        }
+        let Some(layer) = level.ambition_layer() else {
+            continue;
+        };
+        for entity in &layer.entity_instances {
+            if entity.identifier != "LockWall" {
+                continue;
+            }
+            let Some(id) = crate::world::ldtk_world::field_string(entity, "id") else {
+                continue;
+            };
+            let id_trim = id.trim();
+            let Some((_, flag)) = INTRO_FLAG_GATED_LOCK_WALLS
+                .iter()
+                .find(|(lock, _)| *lock == id_trim)
+            else {
+                continue;
+            };
+            if save_data.flag(flag) {
+                continue;
+            }
+            let min = ambition_engine::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
+            let size = ambition_engine::Vec2::new(entity.width as f32, entity.height as f32);
+            desired.insert(id_trim.to_string(), (min, size));
+        }
+    }
+
+    world.0.blocks.retain(|b| {
+        if let Some(stripped) = b.name.strip_prefix("intro_lock:") {
+            desired.contains_key(stripped)
+        } else {
+            true
+        }
+    });
+
+    for (id, (min, size)) in desired {
+        let name = format!("intro_lock:{id}");
+        if !world.0.blocks.iter().any(|b| b.name == name) {
+            world.0.blocks.push(ambition_engine::Block::solid(name, min, size));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,6 +182,17 @@ mod tests {
     fn chain_table_has_no_trigger_equals_target() {
         for (trigger, target) in INTRO_FLAG_CHAINS.iter().copied() {
             assert_ne!(trigger, target, "chain trigger == target: {trigger}");
+        }
+    }
+
+    #[test]
+    fn flag_gated_lock_walls_have_unique_ids() {
+        let mut ids = std::collections::BTreeSet::new();
+        for (lock_id, _flag) in INTRO_FLAG_GATED_LOCK_WALLS.iter().copied() {
+            assert!(
+                ids.insert(lock_id),
+                "duplicate LockWall id in INTRO_FLAG_GATED_LOCK_WALLS: {lock_id}"
+            );
         }
     }
 }

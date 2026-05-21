@@ -1396,16 +1396,15 @@ class ToonSideGenerator:
                 width=max(1, int(0.8 * S)),
             )
         elif spec.hair_style == "long_side_braid":
-            # Alice — full-head hair mass that drops a long single
-            # braid OVER the camera-side shoulder. Different head
-            # silhouette from the male-default: the hair fills out
-            # the back of the skull AND the visible front + draped
-            # braid mass, so the silhouette reads as long-haired at
-            # any render scale.
+            # Alice — full-head hair mass that drops a LONG single
+            # braid OVER the camera-side shoulder, with full forehead
+            # bangs framing the face. Different silhouette from any
+            # male-default toon: the hair has bangs + side curtains
+            # + a 9-segment forward braid that falls past her ribs.
             # Back-of-skull mass: wider than the small bob crown so
             # the head reads as having full hair.
             d.ellipse(
-                _bbox((c[0] - 1.0 * S, c[1] - 5.0 * S), (spec.head_w + spec.hair_volume + 2.0) * S, (spec.head_h * 0.88 + spec.hair_volume * 0.55) * S),
+                _bbox((c[0] - 1.0 * S, c[1] - 5.0 * S), (spec.head_w + spec.hair_volume + 2.0) * S, (spec.head_h * 0.92 + spec.hair_volume * 0.60) * S),
                 fill=pal["hair"],
                 outline=outline,
                 width=max(1, int(1.1 * S)),
@@ -1421,19 +1420,53 @@ class ToonSideGenerator:
                     (c[0] + sign * spec.head_w * 0.32 * S, c[1] + spec.head_h * 0.10 * S),
                 ]
                 d.polygon(curtain, fill=pal["hair"], outline=outline)
-            # The braid: a long stack of 6 ellipses falling forward
-            # over the camera-side (+x) shoulder, with a tied tip.
+            # Forehead bangs — a soft fringe that crosses the brow,
+            # broken into two clumps that meet at a central part so
+            # the eyes stay visible. Reads as "she has bangs" even
+            # at the runtime downsample.
+            left_bang = [
+                (c[0] - spec.head_w * 0.50 * S, c[1] - spec.head_h * 0.42 * S),
+                (c[0] - spec.head_w * 0.06 * S, c[1] - spec.head_h * 0.48 * S),
+                (c[0] - spec.head_w * 0.02 * S, c[1] - spec.head_h * 0.14 * S),
+                (c[0] - spec.head_w * 0.38 * S, c[1] - spec.head_h * 0.06 * S),
+            ]
+            right_bang = [
+                (c[0] + spec.head_w * 0.04 * S, c[1] - spec.head_h * 0.48 * S),
+                (c[0] + spec.head_w * 0.48 * S, c[1] - spec.head_h * 0.40 * S),
+                (c[0] + spec.head_w * 0.40 * S, c[1] - spec.head_h * 0.04 * S),
+                (c[0] + spec.head_w * 0.06 * S, c[1] - spec.head_h * 0.16 * S),
+            ]
+            d.polygon(left_bang, fill=pal["hair"], outline=outline)
+            d.polygon(right_bang, fill=pal["hair"], outline=outline)
+            # Small skin-colored part-line so the bangs don't read
+            # as a solid mop. Subtle but it breaks the silhouette.
+            d.line([
+                (c[0] - spec.head_w * 0.02 * S, c[1] - spec.head_h * 0.46 * S),
+                (c[0] + spec.head_w * 0.02 * S, c[1] - spec.head_h * 0.18 * S),
+            ], fill=pal["skin"], width=max(1, int(0.9 * S)))
+            # The braid: a LONG stack of 9 ellipses falling forward
+            # over the camera-side (+x) shoulder, past the chest with
+            # a ribbon-tied tip. Was 6 segments; bumped to 9 +
+            # tapered widths so the braid extends visibly past the
+            # ribcage instead of stopping at the shoulder.
             braid_anchor_x = c[0] + spec.head_w * 0.32 * S
             braid_anchor_y = c[1] + spec.head_h * 0.34 * S
-            for i, (dy, w) in enumerate(((2.0, 4.6), (8.0, 4.4), (14.0, 4.0), (20.0, 3.6), (26.0, 3.2), (32.0, 2.6))):
-                seg_c = (braid_anchor_x - i * 0.4 * S, braid_anchor_y + dy * S)
+            braid_segs = (
+                (2.0, 4.8), (8.0, 4.6), (14.0, 4.2), (20.0, 3.9),
+                (26.0, 3.6), (32.0, 3.3), (38.0, 3.0), (44.0, 2.6),
+                (50.0, 2.1),
+            )
+            for i, (dy, w) in enumerate(braid_segs):
+                seg_c = (braid_anchor_x - i * 0.5 * S, braid_anchor_y + dy * S)
                 d.ellipse(_bbox(seg_c, w * S, 3.4 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
                 # Braid weave shine on the upper-left of each segment.
                 d.ellipse(_bbox((seg_c[0] - 0.8 * S, seg_c[1] - 1.0 * S), 1.6 * S, 1.0 * S), fill=pal["hair_shine"], outline=None)
             # Ribbon-tied tip at the bottom of the braid.
-            tip_y = braid_anchor_y + 34.0 * S
+            last_dy, last_w = braid_segs[-1]
+            tip_y = braid_anchor_y + (last_dy + 4.0) * S
+            tip_x = braid_anchor_x - (len(braid_segs) - 1) * 0.5 * S
             d.rounded_rectangle(
-                (braid_anchor_x - 4.0 * S, tip_y - 2.0 * S, braid_anchor_x + 0.0 * S, tip_y + 1.0 * S),
+                (tip_x - 4.0 * S, tip_y - 2.0 * S, tip_x + 0.0 * S, tip_y + 1.0 * S),
                 radius=1.0 * S,
                 fill=pal["accent"],
                 outline=outline,

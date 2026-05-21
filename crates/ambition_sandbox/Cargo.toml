@@ -84,7 +84,20 @@ visible = [
 # filesystem reader for `sandbox.ldtk`. Audio is NOT in this backbone —
 # each web persona opts in via `web_audio` so a silent smoke build is
 # still cheap.
-visible_web_base = ["ldtk_runtime", "input", "static_map"]
+#
+# `bevy/2d_bevy_render`, `bevy/ui_bevy_render`, `bevy/scene`, `bevy/png`
+# mirror what `visible` adds; without them the wasm build has the UI
+# type API (`ui_api`) but no render pipeline, so dialog overlays,
+# menus, and touch buttons spawn entities that never get drawn.
+visible_web_base = [
+    "ldtk_runtime",
+    "input",
+    "static_map",
+    "bevy/2d_bevy_render",
+    "bevy/ui_bevy_render",
+    "bevy/scene",
+    "bevy/png",
+]
 
 # Composite for the "embed core assets" browser persona. Bundles the
 # LDtk world + a bounded set of UI fonts + primary character sheets +

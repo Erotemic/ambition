@@ -55,6 +55,7 @@ Use this index before refactors or when planning validation. Benchmark candidate
 | Warning cleanup adds undeclared dependencies | [`warning-cleanup-questions.md`](warning-cleanup-questions.md) |
 | Cargo test command grammar / single filter rule | [`cargo-test-single-filter-question-2026-05-11.md`](cargo-test-single-filter-question-2026-05-11.md) |
 | Meta-process loop derails artifact delivery | [`meta-process-derailment-loop-tentative-2026-05-12.md`](meta-process-derailment-loop-tentative-2026-05-12.md) |
+| Autonomous long-run session vs interactive-default safety rules ("stop and ask") | [`autonomous-long-run-never-stop-2026-05-21.md`](autonomous-long-run-never-stop-2026-05-21.md) |
 
 ## Adding a benchmark candidate
 

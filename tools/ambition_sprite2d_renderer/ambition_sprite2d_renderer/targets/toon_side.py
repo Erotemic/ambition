@@ -769,41 +769,51 @@ class ToonSideGenerator:
             "nose_len": 3.0,
             "satchel_size": 7.5,
         },
-        # Alice — cryptographer. Clean academic silhouette with a
-        # tabard-style front panel patterned like a one-time pad
-        # checker. Hair tied in a tidy chignon (different from
-        # architect's bob and Erdős' combed-back), small ribbon-tied
-        # cipher scroll in hand. Locked-pair counterpart to Bob.
+        # Alice — cryptographer. Genuinely different silhouette from
+        # the male-default toon: noticeably narrower shoulders, a
+        # cinched-waist tabard with a hip-flare hem, and a long
+        # single side-braid draped over the camera-side shoulder so
+        # the head silhouette has a clear feminine read at any
+        # render scale. The one-time-pad checker stays on the
+        # tabard as her thematic cipher signature.
         "alice": {
             "name": "Alice",
             "role": "npc",
             "palette_name": "alice",
             "body_plan": "hero",
-            "outfit": "tabard",
-            "hair_style": "chignon",
+            # `cinched_tabard` adds a visible waist seam + lower
+            # hip flare that the plain `tabard` doesn't have.
+            "outfit": "cinched_tabard",
+            # `long_side_braid` is hair that visibly hangs OVER the
+            # front of her shoulder, not a tiny bun at the back.
+            "hair_style": "long_side_braid",
             "prop": "cipher_scroll",
             "accessory": "scarf",
-            "head_w": 24.5,
-            "head_h": 28.5,
-            "chin_h": 6.2,
-            "neck_h": 4.0,
-            "shoulder_w": 24.0,
-            "torso_w": 20.5,
-            "torso_h": 28.0,
-            "hip_w": 19.0,
-            "arm_upper": 13.5,
-            "arm_lower": 13.0,
-            "arm_radius": 2.6,
-            "leg_upper": 17.5,
-            "leg_lower": 16.5,
-            "leg_radius": 2.8,
-            "hand_r": 3.0,
-            "foot_w": 11.5,
-            "foot_h": 4.5,
-            "coat_len": 10.0,
+            # Head a touch smaller + cheekbones from chin_h shift.
+            "head_w": 23.5,
+            "head_h": 27.5,
+            "chin_h": 5.6,
+            "neck_h": 3.6,
+            # Narrow shoulders + slightly wider hips than the male
+            # hero. Torso slightly shorter so the cinched waist sits
+            # high. Arms longer + thinner.
+            "shoulder_w": 19.0,
+            "torso_w": 16.5,
+            "torso_h": 26.0,
+            "hip_w": 19.5,
+            "arm_upper": 14.0,
+            "arm_lower": 13.6,
+            "arm_radius": 2.2,
+            "leg_upper": 18.0,
+            "leg_lower": 17.0,
+            "leg_radius": 2.6,
+            "hand_r": 2.8,
+            "foot_w": 10.5,
+            "foot_h": 4.2,
+            "coat_len": 14.0,
             "cape_len": 0.0,
-            "hair_volume": 5.5,
-            "nose_len": 2.8,
+            "hair_volume": 7.5,
+            "nose_len": 2.4,
             "satchel_size": 0.0,
         },
         # Eve — eavesdropper. Tall hooded cloak silhouette, brass
@@ -842,41 +852,51 @@ class ToonSideGenerator:
             "nose_len": 3.2,
             "satchel_size": 6.0,
         },
-        # Mallory — malicious attacker. Tactical streetwear; rigid
-        # frame, undercut-with-braid hair, medals re-skinned as ID-
-        # badge clips on the chest. Carries a tablet — quiet and
-        # professional. The cliché "evil hacker hood" is deliberately
-        # left for Eve; Mallory's threat is competence, not theatre.
+        # Mallory — malicious attacker. Athletic silhouette: narrow
+        # shoulders + defined waist via a cinched belt at the field
+        # jacket. Hair has a kept-long side with a forward-draped
+        # red braid hanging over the camera-side shoulder, not a
+        # tucked-behind ponytail. The cliché "evil hacker hood" is
+        # deliberately left for Eve; Mallory's threat is competence,
+        # not theatre. Distinctly different silhouette from any of
+        # the male-default toons.
         "mallory": {
             "name": "Mallory",
             "role": "npc",
             "palette_name": "mallory",
-            "body_plan": "rigid",
-            "outfit": "field_jacket",
-            "hair_style": "undercut_braid",
+            # `hero` instead of `rigid` so the male tactical-hulk
+            # read disappears.
+            "body_plan": "hero",
+            # `cinched_field_jacket` adds a visible belt at the
+            # waist that the plain field_jacket doesn't have.
+            "outfit": "cinched_field_jacket",
+            # `forward_braid` drops the braid OVER the front
+            # shoulder where the camera sees it.
+            "hair_style": "forward_braid",
             "prop": "tablet",
             "accessory": "medals",
-            "head_w": 25.0,
-            "head_h": 28.0,
-            "chin_h": 6.0,
-            "neck_h": 3.6,
-            "shoulder_w": 30.0,
-            "torso_w": 24.0,
-            "torso_h": 29.0,
-            "hip_w": 21.0,
+            "head_w": 23.0,
+            "head_h": 27.0,
+            "chin_h": 5.6,
+            "neck_h": 3.4,
+            # Narrow tactical-athlete shoulders, defined waist.
+            "shoulder_w": 22.0,
+            "torso_w": 18.0,
+            "torso_h": 27.0,
+            "hip_w": 20.0,
             "arm_upper": 13.5,
             "arm_lower": 13.0,
-            "arm_radius": 3.0,
-            "leg_upper": 15.5,
-            "leg_lower": 14.5,
-            "leg_radius": 3.0,
-            "hand_r": 3.1,
-            "foot_w": 12.0,
-            "foot_h": 4.8,
-            "coat_len": 9.0,
+            "arm_radius": 2.6,
+            "leg_upper": 17.0,
+            "leg_lower": 16.0,
+            "leg_radius": 2.8,
+            "hand_r": 2.9,
+            "foot_w": 11.0,
+            "foot_h": 4.4,
+            "coat_len": 8.0,
             "cape_len": 0.0,
-            "hair_volume": 4.0,
-            "nose_len": 3.2,
+            "hair_volume": 6.5,
+            "nose_len": 2.6,
             "satchel_size": 0.0,
         },
         # Trent — trusted arbitrator. Stout, dignified. Long formal
@@ -1375,6 +1395,100 @@ class ToonSideGenerator:
                 outline=outline,
                 width=max(1, int(0.8 * S)),
             )
+        elif spec.hair_style == "long_side_braid":
+            # Alice — full-head hair mass that drops a long single
+            # braid OVER the camera-side shoulder. Different head
+            # silhouette from the male-default: the hair fills out
+            # the back of the skull AND the visible front + draped
+            # braid mass, so the silhouette reads as long-haired at
+            # any render scale.
+            # Back-of-skull mass: wider than the small bob crown so
+            # the head reads as having full hair.
+            d.ellipse(
+                _bbox((c[0] - 1.0 * S, c[1] - 5.0 * S), (spec.head_w + spec.hair_volume + 2.0) * S, (spec.head_h * 0.88 + spec.hair_volume * 0.55) * S),
+                fill=pal["hair"],
+                outline=outline,
+                width=max(1, int(1.1 * S)),
+            )
+            # Side hair drops past the jaw on both sides of the face
+            # (curtain that frames the cheeks — doesn't cover the
+            # face, hangs in front of the ears).
+            for sign in (-1, 1):
+                curtain = [
+                    (c[0] + sign * spec.head_w * 0.50 * S, c[1] - spec.head_h * 0.30 * S),
+                    (c[0] + sign * spec.head_w * 0.60 * S, c[1] + spec.head_h * 0.10 * S),
+                    (c[0] + sign * spec.head_w * 0.42 * S, c[1] + spec.head_h * 0.34 * S),
+                    (c[0] + sign * spec.head_w * 0.32 * S, c[1] + spec.head_h * 0.10 * S),
+                ]
+                d.polygon(curtain, fill=pal["hair"], outline=outline)
+            # The braid: a long stack of 6 ellipses falling forward
+            # over the camera-side (+x) shoulder, with a tied tip.
+            braid_anchor_x = c[0] + spec.head_w * 0.32 * S
+            braid_anchor_y = c[1] + spec.head_h * 0.34 * S
+            for i, (dy, w) in enumerate(((2.0, 4.6), (8.0, 4.4), (14.0, 4.0), (20.0, 3.6), (26.0, 3.2), (32.0, 2.6))):
+                seg_c = (braid_anchor_x - i * 0.4 * S, braid_anchor_y + dy * S)
+                d.ellipse(_bbox(seg_c, w * S, 3.4 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
+                # Braid weave shine on the upper-left of each segment.
+                d.ellipse(_bbox((seg_c[0] - 0.8 * S, seg_c[1] - 1.0 * S), 1.6 * S, 1.0 * S), fill=pal["hair_shine"], outline=None)
+            # Ribbon-tied tip at the bottom of the braid.
+            tip_y = braid_anchor_y + 34.0 * S
+            d.rounded_rectangle(
+                (braid_anchor_x - 4.0 * S, tip_y - 2.0 * S, braid_anchor_x + 0.0 * S, tip_y + 1.0 * S),
+                radius=1.0 * S,
+                fill=pal["accent"],
+                outline=outline,
+                width=max(1, int(0.7 * S)),
+            )
+        elif spec.hair_style == "forward_braid":
+            # Mallory — undercut on one side, long braid forward over
+            # the camera-side shoulder. The undercut + visible braid
+            # silhouette is unmistakable feminine + tactical.
+            # Top hair mass: tighter than long_side_braid, swept up.
+            d.ellipse(
+                _bbox((c[0] - 1.0 * S, c[1] - 6.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.74 + spec.hair_volume * 0.45) * S),
+                fill=pal["hair"],
+                outline=outline,
+                width=max(1, int(1.1 * S)),
+            )
+            # Undercut band along the camera-far side: a thin strip
+            # of skin exposed where the hair is shaved.
+            for sign in (-1,):
+                temple_top = (c[0] + sign * spec.head_w * 0.46 * S, c[1] - spec.head_h * 0.16 * S)
+                temple_bot = (c[0] + sign * spec.head_w * 0.42 * S, c[1] + spec.head_h * 0.18 * S)
+                d.polygon([
+                    temple_top,
+                    (temple_top[0] + sign * -2.0 * S, temple_top[1]),
+                    (temple_bot[0] + sign * -2.0 * S, temple_bot[1]),
+                    temple_bot,
+                ], fill=pal["skin"], outline=None)
+            # Bangs swept forward to one side (camera-right of the
+            # face) so the kept-long side reads at a glance.
+            d.polygon([
+                (c[0] - 2.0 * S, c[1] - spec.head_h * 0.50 * S),
+                (c[0] + 10.0 * S, c[1] - spec.head_h * 0.42 * S),
+                (c[0] + 12.0 * S, c[1] - spec.head_h * 0.12 * S),
+                (c[0] + 4.0 * S, c[1] - spec.head_h * 0.22 * S),
+                (c[0] - 4.0 * S, c[1] - spec.head_h * 0.28 * S),
+            ], fill=pal["hair"], outline=outline)
+            # The forward braid: lays over the camera-side shoulder
+            # in front of the face, hanging down past the chest.
+            braid_anchor_x = c[0] + spec.head_w * 0.34 * S
+            braid_anchor_y = c[1] + spec.head_h * 0.28 * S
+            for i, (dy, w) in enumerate(((2.0, 4.4), (8.0, 4.2), (14.0, 3.8), (20.0, 3.4), (26.0, 3.0), (32.0, 2.6))):
+                seg_c = (braid_anchor_x - i * 0.6 * S, braid_anchor_y + dy * S)
+                d.ellipse(_bbox(seg_c, w * S, 3.2 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
+                # Shine accent uses the brighter hair_shine so red-on-
+                # red braids still read as woven.
+                d.ellipse(_bbox((seg_c[0] - 0.8 * S, seg_c[1] - 1.0 * S), 1.6 * S, 1.0 * S), fill=pal["hair_shine"], outline=None)
+            # Black ribbon at the braid tip (mallory's outfit color).
+            tip_y = braid_anchor_y + 34.0 * S
+            d.rounded_rectangle(
+                (braid_anchor_x - 4.5 * S, tip_y - 2.0 * S, braid_anchor_x + 0.5 * S, tip_y + 1.0 * S),
+                radius=1.0 * S,
+                fill=pal["outfit"],
+                outline=outline,
+                width=max(1, int(0.7 * S)),
+            )
         elif spec.hair_style in {"bob", "crest", "swoop", "cap", "general_hat", "officer_cap", "tousled_crop", "chignon", "undercut_braid"}:
             d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.78 + spec.hair_volume * 0.45) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
         # Face.
@@ -1647,6 +1761,24 @@ class ToonSideGenerator:
                 # suggest the head tilt from the 3/4 angle).
                 d.ellipse(_bbox((far_eye_x, eye_y - 0.1 * S), far_w, far_h), fill=pal["white"], outline=outline, width=max(1, int(0.9 * S)))
                 d.ellipse(_bbox((far_eye_x + 0.45 * S, pupil_y - 0.05 * S), 1.05 * S, 2.0 * S), fill=outline)
+                # Eyelash cue for archetypes that opt in. Two short
+                # ticks above the outer corner of each eye — read as
+                # eyelashes at the runtime downsample without sliding
+                # into "make-up trope" territory. Keep the list
+                # explicit so adding a new feminine-coded archetype
+                # is a one-line edit.
+                if spec.archetype in {"alice", "mallory"}:
+                    # Near (larger) eye — three short upward strokes
+                    # from the upper lid arc, slanted outward.
+                    for i, dx in enumerate((-1.6, 0.4, 2.4)):
+                        lash_root = (near_eye_x + dx * S, eye_y - near_h)
+                        lash_tip = (lash_root[0] + (dx - 0.6) * 0.4 * S, lash_root[1] - 2.2 * S)
+                        d.line([lash_root, lash_tip], fill=outline, width=max(1, int(0.8 * S)))
+                    # Far eye — two shorter strokes on the outer corner.
+                    for dx in (1.0, 2.4):
+                        lash_root = (far_eye_x + dx * S, eye_y - far_h - 0.1 * S)
+                        lash_tip = (lash_root[0] + 0.6 * S, lash_root[1] - 1.6 * S)
+                        d.line([lash_root, lash_tip], fill=outline, width=max(1, int(0.7 * S)))
         nose = [
             (c[0] + 4.5 * S, c[1] + 1.8 * S),
             (c[0] + (4.5 + spec.nose_len) * S, c[1] + 3.0 * S),
@@ -1964,6 +2096,143 @@ class ToonSideGenerator:
                 (center[0] + 4.0 * S, center[1] - 6.0 * S, center[0] + 10.5 * S, center[1] + 0.5 * S),
                 radius=1.4 * S,
                 fill=pal["outfit_dark"],
+                outline=outline,
+                width=max(1, int(0.7 * S)),
+            )
+        elif spec.outfit == "cinched_tabard":
+            # Alice — variant of `tabard` with a clearly cinched
+            # waist and a flared hip hem so the silhouette reads
+            # feminine without leaning on body-type stereotype. Same
+            # one-time-pad checker survives so the cipher signature
+            # stays.
+            d = ImageDraw.Draw(base)
+            # Under-jacket — slim through the waist.
+            waist_y_top = center[1] + spec.torso_h * 0.06 * S
+            waist_y_bot = center[1] + spec.torso_h * 0.20 * S
+            jacket = [
+                (center[0] - spec.shoulder_w * 0.48 * S, center[1] - spec.torso_h * 0.46 * S),
+                (center[0] + spec.shoulder_w * 0.34 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + spec.torso_w * 0.46 * S, waist_y_top),
+                # Pinch at the waist.
+                (center[0] + spec.torso_w * 0.34 * S, waist_y_bot),
+                (center[0] + spec.hip_w * 0.42 * S, center[1] + spec.torso_h * 0.42 * S),
+                # Flared hem below the waist.
+                (center[0] + spec.hip_w * 0.56 * S, center[1] + spec.torso_h * 0.56 * S),
+                (center[0] - spec.hip_w * 0.62 * S, center[1] + spec.torso_h * 0.56 * S),
+                (center[0] - spec.hip_w * 0.46 * S, center[1] + spec.torso_h * 0.42 * S),
+                (center[0] - spec.torso_w * 0.38 * S, waist_y_bot),
+                (center[0] - spec.torso_w * 0.46 * S, waist_y_top),
+            ]
+            d.polygon(jacket, fill=pal["outfit_dark"], outline=outline)
+            # Front tabard panel — slightly tapered at the waist,
+            # widens again at the hem.
+            tabard = [
+                (center[0] - 7.0 * S, center[1] - spec.torso_h * 0.40 * S),
+                (center[0] + 7.0 * S, center[1] - spec.torso_h * 0.36 * S),
+                (center[0] + 5.5 * S, waist_y_bot),
+                (center[0] + 7.5 * S, center[1] + spec.torso_h * 0.60 * S),
+                (center[0] - 7.5 * S, center[1] + spec.torso_h * 0.60 * S),
+                (center[0] - 5.5 * S, waist_y_bot),
+            ]
+            d.polygon(tabard, fill=pal["outfit"], outline=outline)
+            # OTP checker pattern (same as tabard, condensed slightly
+            # because the panel is narrower at the waist).
+            cols, rows = 4, 6
+            cell_w = 13.0 * S / cols
+            cell_h = (spec.torso_h * 0.90 * S) / rows
+            x0 = center[0] - 6.5 * S
+            y0 = center[1] - spec.torso_h * 0.34 * S
+            for r in range(rows):
+                for cc in range(cols):
+                    if (r + cc) % 2 == 0:
+                        continue
+                    cx = x0 + cc * cell_w
+                    cy = y0 + r * cell_h
+                    d.rectangle(
+                        (cx, cy, cx + cell_w - 0.6 * S, cy + cell_h - 0.6 * S),
+                        fill=pal["accent_dark"],
+                        outline=None,
+                    )
+            # Visible waist sash (wider + brighter than the plain
+            # tabard's belt) — the key feminine silhouette cue.
+            d.rounded_rectangle(
+                (center[0] - 9.0 * S, waist_y_top, center[0] + 9.0 * S, waist_y_bot),
+                radius=2.0 * S,
+                fill=pal["accent"],
+                outline=outline,
+                width=max(1, int(0.9 * S)),
+            )
+            # Sash tie + tail on camera-right.
+            d.polygon([
+                (center[0] + 8.0 * S, waist_y_top),
+                (center[0] + 13.0 * S, waist_y_top + 1.0 * S),
+                (center[0] + 11.0 * S, waist_y_bot + 6.0 * S),
+                (center[0] + 7.0 * S, waist_y_bot),
+            ], fill=pal["accent"], outline=outline)
+        elif spec.outfit == "cinched_field_jacket":
+            # Mallory — field_jacket with a visible cinched belt at
+            # the waist and slightly tapered torso. The chest strap
+            # + zip + pockets all carry over from the original; the
+            # belt is the silhouette cue.
+            d = ImageDraw.Draw(base)
+            waist_y_top = center[1] + spec.torso_h * 0.10 * S
+            waist_y_bot = center[1] + spec.torso_h * 0.22 * S
+            jacket = [
+                (center[0] - spec.shoulder_w * 0.50 * S, center[1] - spec.torso_h * 0.46 * S),
+                (center[0] + spec.shoulder_w * 0.38 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + spec.torso_w * 0.50 * S, waist_y_top),
+                (center[0] + spec.torso_w * 0.36 * S, waist_y_bot),
+                (center[0] + spec.hip_w * 0.36 * S, center[1] + spec.torso_h * 0.52 * S),
+                (center[0] - spec.hip_w * 0.42 * S, center[1] + spec.torso_h * 0.52 * S),
+                (center[0] - spec.torso_w * 0.40 * S, waist_y_bot),
+                (center[0] - spec.torso_w * 0.52 * S, waist_y_top),
+            ]
+            d.polygon(jacket, fill=pal["outfit"], outline=outline)
+            # Central zip.
+            d.line(
+                [(center[0] - 1.0 * S, center[1] - spec.torso_h * 0.42 * S), (center[0] - 2.0 * S, waist_y_top - 1.0 * S)],
+                fill=pal["white"],
+                width=max(1, int(0.9 * S)),
+            )
+            d.rectangle(
+                (center[0] - 2.4 * S, center[1] - spec.torso_h * 0.18 * S, center[0] + 0.4 * S, center[1] - spec.torso_h * 0.10 * S),
+                fill=pal["white"],
+                outline=outline,
+                width=max(1, int(0.6 * S)),
+            )
+            # Two square chest pockets in the darker outfit color.
+            for sign in (-1, 1):
+                px = center[0] + sign * 7.0 * S
+                d.rectangle(
+                    (px - 3.5 * S, center[1] - 6.0 * S, px + 3.5 * S, center[1] + 1.0 * S),
+                    fill=pal["outfit_dark"],
+                    outline=outline,
+                    width=max(1, int(0.7 * S)),
+                )
+                d.line(
+                    [(px - 2.6 * S, center[1] - 5.0 * S), (px + 2.6 * S, center[1] - 5.0 * S)],
+                    fill=pal["white"],
+                    width=max(1, int(0.6 * S)),
+                )
+            # Diagonal chest strap in the accent color (oxblood).
+            d.polygon([
+                (center[0] - spec.shoulder_w * 0.46 * S, center[1] - spec.torso_h * 0.34 * S),
+                (center[0] + spec.shoulder_w * 0.10 * S, center[1] - spec.torso_h * 0.20 * S),
+                (center[0] + spec.shoulder_w * 0.06 * S, center[1] - spec.torso_h * 0.10 * S),
+                (center[0] - spec.shoulder_w * 0.48 * S, center[1] - spec.torso_h * 0.24 * S),
+            ], fill=pal["accent"], outline=outline)
+            # The waist belt — wide accent_dark strap with a chrome
+            # buckle on center.
+            d.rounded_rectangle(
+                (center[0] - spec.torso_w * 0.46 * S, waist_y_top, center[0] + spec.torso_w * 0.42 * S, waist_y_bot),
+                radius=1.6 * S,
+                fill=pal["accent_dark"],
+                outline=outline,
+                width=max(1, int(0.9 * S)),
+            )
+            d.rectangle(
+                (center[0] - 2.4 * S, waist_y_top + 0.2 * S, center[0] + 2.4 * S, waist_y_bot - 0.2 * S),
+                fill=pal["white"],
                 outline=outline,
                 width=max(1, int(0.7 * S)),
             )
@@ -2612,7 +2881,7 @@ class ToonSideGenerator:
         draw_capsule(d, near_knee, near_ankle, spec.leg_radius * 0.96 * S, near_tint, pal["outline"], 1.15 * S)
         draw_rotated_rounded_rect(img, (near_ankle[0] + spec.foot_w * 0.28 * S, near_ankle[1] + 2.0 * S), (spec.foot_w * S, spec.foot_h * S), 2.0 + p.torso_tilt * 0.10, spec.foot_h * 0.48 * S, pal["shoe"], pal["outline"], 1.0 * S)
         near_shoulder, near_elbow, near_hand = arm_points(True)
-        sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform", "storm_uniform", "banyan", "eavesdrop_cloak", "field_jacket", "formal_robe", "judicial_robe", "vest_over_shirt", "tabard"} else pal["skin"]
+        sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform", "storm_uniform", "banyan", "eavesdrop_cloak", "field_jacket", "cinched_field_jacket", "formal_robe", "judicial_robe", "vest_over_shirt", "tabard", "cinched_tabard"} else pal["skin"]
         draw_capsule(d, near_shoulder, near_elbow, spec.arm_radius * S, sleeve_fill, pal["outline"], 1.1 * S)
         draw_capsule(d, near_elbow, near_hand, spec.arm_radius * 0.95 * S, sleeve_fill, pal["outline"], 1.1 * S)
         draw_armband(near_shoulder, near_elbow, scale=1.0, include_insignia=True)

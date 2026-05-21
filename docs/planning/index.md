@@ -8,5 +8,7 @@ Planning docs describe sequencing, open debt, and next implementation tracks. Th
 | Tech debt log | `tech-debt-log.md` |
 | Android/mobile power planning | `android-power.md` |
 | Refactor candidates | `refactor-candidates.md` |
+| Story/gameplay progression draft | `story-gameplay-progression-draft.md` |
+| Gameplay idea index | `gameplay-idea-index.md` |
 
 For immediate status, start with `../current/next.md`. For durable cross-cutting rules, prefer `../concepts/`.

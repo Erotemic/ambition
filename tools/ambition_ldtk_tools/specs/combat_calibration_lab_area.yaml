@@ -134,7 +134,7 @@ entities:
       id: lab_patrol_line
       name: lab_patrol_line
       points: "256,712;528,712"
-      speed: 85
+      speed: 110
       mode: PingPong
   - type: DebugLabel
     px: [336, 664]
@@ -146,18 +146,31 @@ entities:
 
   # --- Hazard read: one HazardBlock steam vent the player can
   # observe before approaching, labelled MAP_DANGER so Bob's field
-  # survey reward (if implemented) maps onto it.
+  # survey reward (if implemented) maps onto it. Sits 16 px above the
+  # floor so the steam reads as floating between the patrol pocket
+  # and the arena rather than embedded in the floor.
   - type: HazardBlock
-    px: [592, 720]
+    px: [592, 704]
     size: [96, 16]
     fields: { name: lab_steam_vent }
   - type: DebugLabel
-    px: [560, 688]
+    px: [560, 672]
     size: [240, 24]
     fields:
       name: lab_hazard_danger_label
       text: "MAP_DANGER: arena hazard cycle"
       category: Custom
+
+  # --- Small health pickup just before the boss exit so the arena's
+  # damage-on-mistakes pattern doesn't bleed into the boss fight.
+  # Sits behind the classify Switch so the player has a reason to
+  # backtrack one tile before pressing on.
+  - type: PickupSpawn
+    px: [1184, 688]
+    size: [24, 24]
+    fields:
+      name: lab_pre_boss_health_pickup
+      kind: "health:2"
 
   # --- Small arena: stationary spitter (slow projectile source) +
   # striker. Pair selected so each one can be read independently

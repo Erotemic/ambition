@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import yaml
 from PIL import Image, ImageDraw, ImageFont
@@ -643,8 +643,103 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     return downsample(img, frame_size)
 
 
-def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_dir: Path, frame_size=BASE_FRAME, label_width=LABEL_WIDTH):
+def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_dir: Path, frame_size=BASE_FRAME, label_width=LABEL_WIDTH, frame_meta_fn=None, auto_crop: bool = True, crop_margin: int = 2):
+    """Build a labeled spritesheet + companion YAML manifest.
+
+    ``frame_meta_fn`` is an optional callable ``(animation, frame_idx,
+    nframes) -> dict``. When provided, the returned dict is merged
+    into each frame's per-rect metadata, so callers can attach
+    anchors, weapon-specific rig data, etc.
+
+    ``auto_crop`` (default ``True``) computes the union alpha bbox
+    across EVERY rendered frame and crops every frame (plus the
+    canonical) to that bbox + ``crop_margin``. The resulting frame
+    size hugs the actual art instead of relying on the caller to
+    guess a tight ``frame_size``. Any positional anchors that
+    ``frame_meta_fn`` reported under a top-level ``"anchors"`` key
+    are automatically translated by the crop offset so the
+    coordinates stay correct in the cropped frame.
+    """
     fw, fh = frame_size
+
+    # ---- Pass 1: render every frame + metadata into memory. -------------
+    # We need all frames in hand before we can compute the union alpha
+    # bbox for auto-crop.
+    rendered_rows: List[Tuple[str, int, int, List[Tuple[Image.Image, dict]]]] = []
+    for row_idx, (anim, nframes, duration_ms) in enumerate(rows):
+        frames_data: List[Tuple[Image.Image, dict]] = []
+        for frame_idx in range(nframes):
+            frame = render_fn(anim, frame_idx, nframes)
+            meta = {}
+            if frame_meta_fn is not None:
+                extra = frame_meta_fn(anim, frame_idx, nframes)
+                if extra:
+                    meta = dict(extra)
+            frames_data.append((frame, meta))
+        rendered_rows.append((anim, nframes, duration_ms, frames_data))
+    canonical_raw = render_fn("idle", 1, 6)
+
+    # ---- Auto-crop pass (optional) --------------------------------------
+    # Union alpha bbox across every frame in the sheet AND the canonical.
+    # Cropping uniformly means each frame retains identical dimensions —
+    # required for the spritesheet grid to tile correctly — and the
+    # canonical also gets the same crop so still poses and animated
+    # frames are visually consistent.
+    if auto_crop:
+        union_bbox: Optional[List[int]] = None
+        all_frames_iter = []
+        for (_, _, _, frames_data) in rendered_rows:
+            all_frames_iter.extend(f for (f, _) in frames_data)
+        all_frames_iter.append(canonical_raw)
+        for frame in all_frames_iter:
+            alpha = frame.getchannel("A")
+            bbox = alpha.getbbox()
+            if bbox is None:
+                continue
+            if union_bbox is None:
+                union_bbox = list(bbox)
+            else:
+                union_bbox[0] = min(union_bbox[0], bbox[0])
+                union_bbox[1] = min(union_bbox[1], bbox[1])
+                union_bbox[2] = max(union_bbox[2], bbox[2])
+                union_bbox[3] = max(union_bbox[3], bbox[3])
+
+        if union_bbox is not None:
+            crop_x = max(0, union_bbox[0] - crop_margin)
+            crop_y = max(0, union_bbox[1] - crop_margin)
+            crop_x1 = min(fw, union_bbox[2] + crop_margin)
+            crop_y1 = min(fh, union_bbox[3] + crop_margin)
+            new_fw = crop_x1 - crop_x
+            new_fh = crop_y1 - crop_y
+
+            cropped_rows: List[Tuple[str, int, int, List[Tuple[Image.Image, dict]]]] = []
+            for (anim, nframes, duration_ms, frames_data) in rendered_rows:
+                new_data: List[Tuple[Image.Image, dict]] = []
+                for (frame, meta) in frames_data:
+                    cropped = frame.crop((crop_x, crop_y, crop_x1, crop_y1))
+                    # Translate any positional anchors in `meta.anchors`
+                    # by the crop offset so the metadata coordinates
+                    # match the cropped frame. Non-anchor fields
+                    # (`forward` unit vector, `blade_angle_deg`, …)
+                    # pass through unchanged.
+                    if meta and "anchors" in meta and isinstance(meta["anchors"], dict):
+                        new_anchors = {}
+                        for name, pos in meta["anchors"].items():
+                            if isinstance(pos, dict) and "x" in pos and "y" in pos:
+                                new_anchors[name] = {
+                                    "x": round(pos["x"] - crop_x, 2),
+                                    "y": round(pos["y"] - crop_y, 2),
+                                }
+                            else:
+                                new_anchors[name] = pos
+                        meta = {**meta, "anchors": new_anchors}
+                    new_data.append((cropped, meta))
+                cropped_rows.append((anim, nframes, duration_ms, new_data))
+            rendered_rows = cropped_rows
+            canonical_raw = canonical_raw.crop((crop_x, crop_y, crop_x1, crop_y1))
+            fw, fh = new_fw, new_fh
+
+    # ---- Pass 2: assemble the spritesheet from the (cropped) frames. ----
     max_frames = max(n for _, n, _ in rows)
     sheet = Image.new("RGBA", (label_width + fw * max_frames, fh * len(rows)), (0, 0, 0, 0))
     preview = Image.new("RGBA", (label_width + fw * max_frames, fh * len(rows)), (34, 34, 40, 255))
@@ -654,21 +749,23 @@ def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_di
 
     rows_meta = []
     first = None
-    for row_idx, (anim, nframes, duration_ms) in enumerate(rows):
+    for row_idx, (anim, nframes, duration_ms, frames_data) in enumerate(rendered_rows):
         y = row_idx * fh
         for dr in [draw_sheet, draw_prev]:
             dr.rectangle((0, y, label_width - 1, y + fh - 1), fill=(18, 22, 30, 235))
             dr.text((8, y + 10), anim, fill=(236, 240, 244, 255), font=font(14))
             dr.text((8, y + 30), f"{nframes}f @ {duration_ms}ms", fill=(160, 170, 184, 255), font=font(11))
         rects = []
-        for frame_idx in range(nframes):
-            frame = render_fn(anim, frame_idx, nframes)
+        for frame_idx, (frame, meta) in enumerate(frames_data):
             if first is None:
                 first = frame.copy()
             x = label_width + frame_idx * fw
             sheet.alpha_composite(frame, (x, y))
             preview.alpha_composite(frame, (x, y))
-            rects.append({"x": x, "y": y, "w": fw, "h": fh})
+            rect = {"x": x, "y": y, "w": fw, "h": fh}
+            if meta:
+                rect.update(meta)
+            rects.append(rect)
         rows_meta.append({
             "animation": anim,
             "row_index": row_idx,
@@ -678,8 +775,8 @@ def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_di
             "rects": rects,
         })
 
-    can = render_fn("idle", 1, 6)
-    can_bg = Image.new("RGBA", frame_size, (43, 33, 40, 255))
+    can = canonical_raw
+    can_bg = Image.new("RGBA", (fw, fh), (43, 33, 40, 255))
     can_bg.alpha_composite(can, (0, 0))
 
     canonical_path = out_dir / f"{target}_canonical.png"

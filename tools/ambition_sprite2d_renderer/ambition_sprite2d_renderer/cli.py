@@ -96,6 +96,13 @@ _TACKON_TARGETS: dict[str, str] = {
     "pirate_navigator": "ambition_sprite2d_renderer.targets.pirate_navigator",
     "interdimensional_gate": "ambition_sprite2d_renderer.targets.interdimensional_gate",
     "burning_flying_shark": "ambition_sprite2d_renderer.targets.burning_flying_shark",
+    # High-tech laser sword family — wielded weapon + its projectile.
+    # The projectile (`lasersword`) is a smaller copy of the wielded
+    # weapon (`lasersword_with_guns`) with the gun barrels stripped
+    # off; both share `targets/lasersword_common.py` for the blade +
+    # hilt drawing.
+    "lasersword_with_guns": "ambition_sprite2d_renderer.targets.lasersword_with_guns",
+    "lasersword": "ambition_sprite2d_renderer.targets.lasersword",
     # Sandbag stays last for parity with the pre-refactor ordering.
     "sandbag": "ambition_sprite2d_renderer.targets.sandbag",
 }

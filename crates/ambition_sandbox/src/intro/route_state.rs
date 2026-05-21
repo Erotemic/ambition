@@ -131,28 +131,18 @@ pub fn redirect_post_intro_dialog(
     }
 }
 
-/// Per-frame sync of the intro flag-gated lock walls. Mirrors the
-/// encounter system's `sync_lock_walls` but driven by the save layer
-/// rather than encounter phase.
-pub fn sync_intro_flag_gated_lock_walls(
-    project: Option<Res<crate::world::ldtk_world::SandboxLdtkProject>>,
-    room_set: Option<Res<crate::rooms::RoomSet>>,
-    save: Option<Res<crate::persistence::save::SandboxSave>>,
-    world: Option<ResMut<crate::GameWorld>>,
-) {
-    let (Some(project), Some(room_set), Some(save), Some(mut world)) =
-        (project, room_set, save, world)
-    else {
-        return;
-    };
-    let active_room_id = room_set.active_spec().id.clone();
-    let save_data = save.data();
-
-    let mut desired: std::collections::BTreeMap<
-        String,
-        (ambition_engine::Vec2, ambition_engine::Vec2),
-    > = std::collections::BTreeMap::new();
-    for level in &project.0.levels {
+/// Pure computational core of [`sync_intro_flag_gated_lock_walls`].
+/// Given the LDtk project, the active room id, and a save snapshot,
+/// returns the (lock_id, min, size) triples that should be present
+/// as `intro_lock:<id>` blocks this frame. Extracted so the Bevy
+/// system can be tested without spinning up a full ECS world.
+pub fn compute_intro_flag_gated_lock_walls(
+    project: &crate::world::ldtk_world::LdtkProject,
+    active_room_id: &str,
+    save: &ambition_engine::SandboxSaveData,
+) -> Vec<(String, ambition_engine::Vec2, ambition_engine::Vec2)> {
+    let mut out: Vec<(String, ambition_engine::Vec2, ambition_engine::Vec2)> = Vec::new();
+    for level in &project.levels {
         if level.active_area() != active_room_id {
             continue;
         }
@@ -173,27 +163,53 @@ pub fn sync_intro_flag_gated_lock_walls(
             else {
                 continue;
             };
-            if save_data.flag(flag) {
+            if save.flag(flag) {
                 continue;
             }
             let min = ambition_engine::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
             let size = ambition_engine::Vec2::new(entity.width as f32, entity.height as f32);
-            desired.insert(id_trim.to_string(), (min, size));
+            out.push((id_trim.to_string(), min, size));
         }
     }
+    out
+}
+
+/// Per-frame sync of the intro flag-gated lock walls. Mirrors the
+/// encounter system's `sync_lock_walls` but driven by the save layer
+/// rather than encounter phase. Delegates the LDtk-walking logic to
+/// [`compute_intro_flag_gated_lock_walls`] so the policy is testable
+/// in isolation.
+pub fn sync_intro_flag_gated_lock_walls(
+    project: Option<Res<crate::world::ldtk_world::SandboxLdtkProject>>,
+    room_set: Option<Res<crate::rooms::RoomSet>>,
+    save: Option<Res<crate::persistence::save::SandboxSave>>,
+    world: Option<ResMut<crate::GameWorld>>,
+) {
+    let (Some(project), Some(room_set), Some(save), Some(mut world)) =
+        (project, room_set, save, world)
+    else {
+        return;
+    };
+    let active_room_id = room_set.active_spec().id.clone();
+    let desired = compute_intro_flag_gated_lock_walls(&project.0, &active_room_id, save.data());
+    let desired_ids: std::collections::HashSet<String> =
+        desired.iter().map(|(id, _, _)| id.clone()).collect();
 
     world.0.blocks.retain(|b| {
         if let Some(stripped) = b.name.strip_prefix("intro_lock:") {
-            desired.contains_key(stripped)
+            desired_ids.contains(stripped)
         } else {
             true
         }
     });
 
-    for (id, (min, size)) in desired {
+    for (id, min, size) in desired {
         let name = format!("intro_lock:{id}");
         if !world.0.blocks.iter().any(|b| b.name == name) {
-            world.0.blocks.push(ambition_engine::Block::solid(name, min, size));
+            world
+                .0
+                .blocks
+                .push(ambition_engine::Block::solid(name, min, size));
         }
     }
 }
@@ -220,6 +236,124 @@ mod tests {
         for (trigger, target) in INTRO_FLAG_CHAINS.iter().copied() {
             assert_ne!(trigger, target, "chain trigger == target: {trigger}");
         }
+    }
+
+    /// Hand-build a minimal LdtkProject with a single level whose
+    /// activeArea = "alice_relay" and one LockWall entity matching a
+    /// known intro gated lock id.
+    fn synthetic_alice_relay_project() -> crate::world::ldtk_world::LdtkProject {
+        use crate::world::ldtk_world::{
+            LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
+        };
+        use serde_json::Value;
+
+        let lock_wall = LdtkEntityInstance {
+            iid: "LockWall-test-alice".into(),
+            identifier: "LockWall".into(),
+            pivot: vec![0.0, 0.0],
+            px: [800, 624],
+            width: 96,
+            height: 112,
+            field_instances: vec![
+                LdtkFieldInstance {
+                    identifier: "id".into(),
+                    value: Value::String("alice_private_return_lock".into()),
+                    real_editor_values: vec![Value::Null],
+                },
+                LdtkFieldInstance {
+                    identifier: "name".into(),
+                    value: Value::String("alice_private_return_lock".into()),
+                    real_editor_values: vec![Value::Null],
+                },
+            ],
+        };
+        let area_field = LdtkFieldInstance {
+            identifier: "activeArea".into(),
+            value: Value::String("alice_relay".into()),
+            real_editor_values: vec![Value::Null],
+        };
+        LdtkProject {
+            json_version: "1.5.3".into(),
+            levels: vec![LdtkLevel {
+                identifier: "alice_relay".into(),
+                iid: "level-iid".into(),
+                world_x: 0,
+                world_y: 0,
+                px_wid: 1024,
+                px_hei: 768,
+                field_instances: vec![area_field],
+                layer_instances: vec![LdtkLayerInstance {
+                    identifier: "Ambition".into(),
+                    layer_type: "Entities".into(),
+                    c_wid: 64,
+                    c_hei: 48,
+                    grid_size: 16,
+                    entity_instances: vec![lock_wall],
+                    int_grid_csv: Vec::new(),
+                    grid_tiles: Vec::new(),
+                }],
+            }],
+        }
+    }
+
+    /// Without the unlock flag, compute_intro_flag_gated_lock_walls
+    /// should return the LockWall's footprint.
+    #[test]
+    fn lock_wall_compute_returns_block_when_flag_clear() {
+        let project = synthetic_alice_relay_project();
+        let save = ambition_engine::SandboxSaveData::default();
+        let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
+        assert_eq!(walls.len(), 1, "expected one lock wall");
+        let (id, min, size) = &walls[0];
+        assert_eq!(id, "alice_private_return_lock");
+        assert_eq!(*min, ambition_engine::Vec2::new(800.0, 624.0));
+        assert_eq!(*size, ambition_engine::Vec2::new(96.0, 112.0));
+    }
+
+    /// Once the unlock flag flips, compute should drop the LockWall
+    /// from the returned set.
+    #[test]
+    fn lock_wall_compute_drops_block_when_flag_set() {
+        let project = synthetic_alice_relay_project();
+        let mut save = ambition_engine::SandboxSaveData::default();
+        save.set_flag("bob_field_survey_received", true);
+        let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
+        assert!(walls.is_empty(), "expected no lock walls after unlock");
+    }
+
+    /// A non-active room's lock walls should not appear in the
+    /// active-room block list — the system only operates on the
+    /// current room.
+    #[test]
+    fn lock_wall_compute_skips_other_rooms() {
+        let project = synthetic_alice_relay_project();
+        let save = ambition_engine::SandboxSaveData::default();
+        let walls = compute_intro_flag_gated_lock_walls(&project, "drain_alley", &save);
+        assert!(walls.is_empty(), "expected no lock walls for inactive room");
+    }
+
+    /// A LockWall whose id is not in the registry table must be left
+    /// alone — the system only manages flag-gated locks, not every
+    /// LockWall in the project.
+    #[test]
+    fn lock_wall_compute_ignores_unregistered_ids() {
+        use crate::world::ldtk_world::LdtkFieldInstance;
+        let mut project = synthetic_alice_relay_project();
+        // Mutate the one entity's `id` field to something not in
+        // INTRO_FLAG_GATED_LOCK_WALLS.
+        if let Some(entity) = project.levels[0].layer_instances[0]
+            .entity_instances
+            .first_mut()
+        {
+            entity.field_instances = vec![LdtkFieldInstance {
+                identifier: "id".into(),
+                value: serde_json::Value::String("encounter_owned_lock".into()),
+                real_editor_values: vec![serde_json::Value::Null],
+            }];
+        }
+        let save = ambition_engine::SandboxSaveData::default();
+        let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
+        assert!(walls.is_empty(), "registered-id-only filter should exclude this");
     }
 
     #[test]

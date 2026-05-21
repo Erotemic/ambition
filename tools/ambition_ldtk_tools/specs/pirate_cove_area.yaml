@@ -37,24 +37,12 @@ music_track: pirates_guild_black_flag_jig
 ambient_profile: tide
 visual_theme: blue
 
-# Entry door from central hub. Picked from the
-# `door free-spots central_hub_main` row at y=880 (gap x=500..1176).
-# Slid right to x=1050 to avoid an existing y=832 door at x=800-848
-# whose y range overlaps a y=880 placement when the door is 96px tall.
-# Bidirectional so the player can walk back out the same way.
-connect_to:
-  # y=832 was confirmed via `area_authoring --snap-to-surface
-  # central_hub_main --x 1050`: the floor surface at this x is
-  # OneWayUp at y=832, so the 96-tall door must sit with its top at
-  # y=832 to land on the floor (an earlier y=880 placement put the
-  # bottom 48px through the floor).
-  - target_room: central_hub_main
-    px: [1050, 832]
-    size: [48, 96]
-    id: pirate_cove_door
-    target_zone: pirate_cove_entry
-    activation: Door
-    bidirectional: true
+# Entry door from central hub. The door entity already exists in
+# central_hub_main from the initial pirate_cove creation; the
+# `connect_to` block that authored it has been removed so this spec
+# is safe to re-apply with `area create --replace-existing` without
+# re-poking central_hub_main's door row. The matching cove-side
+# `pirate_cove_entry` LoadingZone lives below in `entities`.
 
 entities:
   # ─────────────────────────────────────────────────────────────────
@@ -158,6 +146,38 @@ entities:
       prompt: Talk
       dialogue_id: pirate_raider
       patrol_radius: 0
+  # Third base pirate — Quartermaster. Slotted between the Raider
+  # and the arena door so the cove reads as a real three-NPC crew.
+  # Dialogue points the player at `pirate_sky_lookout` (the sandbox
+  # sky-lookout room above the cove) so flying-shark combat is
+  # discoverable from the cove itself.
+  - type: NpcSpawn
+    px: [880, 538]
+    size: [42, 70]
+    fields:
+      name: Pirate Quartermaster
+      prompt: Talk
+      dialogue_id: pirate_quartermaster
+      patrol_radius: 0
+
+  # Sky-lookout ascent door — the player jumps onto the right
+  # lookout ledge and presses Interact at the hatch in the ceiling
+  # to ascend to `pirate_sky_lookout` for flying-shark combat.
+  # Door activation (Interact) so it doesn't fire on every cove
+  # traversal. Placed directly above the right lookout ledge
+  # (which is at y=320, x=720..912) — sized 48×96 with top at y=224
+  # so the player can land on the ledge, then double-jump up to
+  # press Interact at the hatch.
+  - type: LoadingZone
+    px: [768, 224]
+    size: [48, 96]
+    fields:
+      id: pirate_cove_sky_hatch
+      name: pirate_cove_sky_hatch
+      activation: Door
+      target_room: pirate_sky_lookout
+      target_zone: pirate_sky_lookout_entry
+      bidirectional: true
 
   # ─────────────────────────────────────────────────────────────────
   # Camera + signage.

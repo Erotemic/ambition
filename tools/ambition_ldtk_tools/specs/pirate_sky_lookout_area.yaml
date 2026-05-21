@@ -1,0 +1,148 @@
+# Pirate Sky Lookout — sandbox-side sky arena above the Pirate Cove.
+#
+# Distinct from `intro.ldtk::pirate_sky_arena` (which lives at the
+# top of the intro gate stack and is a story scaffolding placeholder).
+# This room is a SANDBOX test surface for the burning-flying-shark
+# combat encounter — wired into the cove so the player can iterate
+# on shark dives, dive-strike timing, and rider-vs-shark separation
+# without having to thread through the intro flow.
+#
+# Layout (1280×768): a windswept lookout deck above the cove. The
+# cove is at world (-8000, 0); this room sits at world
+# (-8000, -1568) so the gridvania view reads "sky above cove,
+# ninja dojo over to the side at (-8000, -800)".
+#
+# The cove's `pirate_cove_sky_hatch` Door targets
+# `pirate_sky_lookout / pirate_sky_lookout_entry` (this room's
+# bottom-center band). Return Door on the same band sends the
+# player back down to the cove via `pirate_sky_lookout_to_cove`
+# → `pirate_cove_sky_hatch`.
+#
+# Sky background; 3 flying sharks staggered at different heights so
+# the player can test approach order and dive cones. Two solid
+# lookout platforms (deck + crow's nest) plus a short one-way
+# rigging step give the player vertical traversal during the
+# fight.
+
+id: pirate_sky_lookout
+level_id: pirate_sky_lookout
+world_x: -8000
+world_y: -1568
+px_wid: 1280
+px_hei: 768
+fill_collision: empty
+
+biome: outdoor
+music_track: pirates_guild_black_flag_jig
+ambient_profile: tide
+visual_theme: sky
+
+entities:
+  # ─────────────────────────────────────────────────────────────────
+  # Outer geometry. Open sky on the sides (no walls); a solid lower
+  # deck the player lands on, a high crow's-nest platform, and a
+  # ceiling solid so flying enemies have an upper bound.
+  # ─────────────────────────────────────────────────────────────────
+  - type: Solid
+    px: [0, 720]
+    size: [1280, 48]
+    fields: { name: lookout_deck }
+  - type: Solid
+    px: [16, 0]
+    size: [1248, 32]
+    fields: { name: sky_ceiling }
+
+  # Crow's-nest platform — solid (rest spot) on the left side.
+  - type: Solid
+    px: [80, 480]
+    size: [192, 16]
+    fields: { name: crows_nest_left }
+
+  # One-way rigging step on the right side; gives the player a
+  # second elevation to bait dives from.
+  - type: OneWayPlatform
+    px: [960, 384]
+    size: [192, 16]
+    fields: { name: rigging_step_right }
+
+  # ─────────────────────────────────────────────────────────────────
+  # PlayerStart (cold-launch only — warm entries come via the cove
+  # Door zone below).
+  # ─────────────────────────────────────────────────────────────────
+  - type: PlayerStart
+    px: [560, 672]
+    size: [28, 46]
+    fields: { name: pirate_sky_lookout_spawn }
+
+  # ─────────────────────────────────────────────────────────────────
+  # Cove ↔ lookout Door zones. Door activation (Interact) so the
+  # player chooses to ascend/descend rather than auto-firing every
+  # time they overlap the band.
+  #
+  # The cove side's `pirate_cove_sky_hatch` lives at the top of the
+  # cove ceiling (y=224 in cove-local coords). This room's
+  # `pirate_sky_lookout_entry` is on the lower deck so the player
+  # arrives standing on the deck.
+  # ─────────────────────────────────────────────────────────────────
+  - type: LoadingZone
+    px: [592, 624]
+    size: [96, 96]
+    fields:
+      id: pirate_sky_lookout_entry
+      name: pirate_sky_lookout_entry
+      activation: Door
+      target_room: pirate_cove
+      target_zone: pirate_cove_sky_hatch
+      bidirectional: true
+
+  # ─────────────────────────────────────────────────────────────────
+  # Burning Flying Shark spawns. Three sharks at staggered heights
+  # and x-positions, all with the `burning_flying_shark` brain so
+  # the dive-strike choreography fires. Hostile actors register
+  # through the NPC sprite registry (same path used by
+  # `pirate_sky_arena` in intro.ldtk).
+  # ─────────────────────────────────────────────────────────────────
+  - type: EnemySpawn
+    px: [192, 240]
+    size: [108, 96]
+    fields:
+      name: Burning Flying Shark
+      brain: burning_flying_shark
+  - type: EnemySpawn
+    px: [560, 160]
+    size: [108, 96]
+    fields:
+      name: Burning Flying Shark
+      brain: burning_flying_shark
+  - type: EnemySpawn
+    px: [960, 240]
+    size: [108, 96]
+    fields:
+      name: Burning Flying Shark
+      brain: burning_flying_shark
+
+  # ─────────────────────────────────────────────────────────────────
+  # Camera + signage.
+  # ─────────────────────────────────────────────────────────────────
+  - type: CameraZone
+    px: [0, 0]
+    size: [1280, 768]
+    fields:
+      id: pirate_sky_lookout_camera
+      name: pirate_sky_lookout_camera
+      mode: Default
+
+  - type: DebugLabel
+    px: [40, 80]
+    size: [400, 24]
+    fields:
+      name: pirate_sky_lookout_title_label
+      text: "Pirate Sky Lookout — three burning sharks, no rails."
+      category: Custom
+  - type: DebugLabel
+    px: [40, 112]
+    size: [400, 24]
+    fields:
+      name: pirate_sky_lookout_descent_label
+      text: "[hatch back to cove on the lower deck]"
+      category: Custom

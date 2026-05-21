@@ -144,6 +144,16 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
         "pirate_raider_spritesheet.png",
         PIRATE_SHEET,
     ),
+    // Third pirate variant — same silhouette family as Raider but a
+    // distinctly darker skin tone (see `pirates/common.py::PALETTES`
+    // entry for `pirate_quartermaster`). Quartermaster role keeps the
+    // crew lineup readable (Admiral / Raider / Quartermaster) and
+    // gives the cove a third base pirate for combat / dialogue tests.
+    (
+        "Pirate Quartermaster",
+        "pirate_quartermaster_spritesheet.png",
+        PIRATE_SHEET,
+    ),
     // Burning Flying Shark — enemy mount used by the pirate sky
     // arena. Registered through the NPC sprite registry because the
     // current enemy-sprite resolver falls through to NPC sheets
@@ -218,6 +228,7 @@ pub fn npc_sprite_label(npc_name: &str) -> &'static str {
         "Chadwick Disruptor III" => "npc_tech_bro_disruptor",
         "Pirate Admiral" => "npc_pirate_admiral",
         "Pirate Raider" => "npc_pirate_raider",
+        "Pirate Quartermaster" => "npc_pirate_quartermaster",
         "Burning Flying Shark" => "npc_burning_flying_shark",
         "Shadow Oni Leader" => "npc_ninja_shadow_oni_leader",
         "Shadow Duelist" => "npc_ninja_shadow_duelist",

@@ -21,6 +21,10 @@ pub enum DialogMode {
     /// admiral. Cheaper banter — the raider gets a different beat to
     /// keep the cove from feeling like one looping admiral.
     PirateRaiderAfterTreasure,
+    /// Third pirate variant — Quartermaster keeps the books and the
+    /// powder, complains about both, and is the player's path to
+    /// the (new) sky-lookout sandbox room above the cove.
+    PirateQuartermaster,
     /// Ninja-faction leader. Runs the Shadow Dojo and proposes a
     /// truce-of-convenience with the pirates so the two crews can
     /// settle the Mockingbird together. Dialog hangs on the rivalry
@@ -48,6 +52,7 @@ pub(crate) const KNOWN_DIALOGUE_IDS: &[&str] = &[
     "tech_bros_disruptor",
     "pirate_admiral",
     "pirate_raider",
+    "pirate_quartermaster",
     "ninja_leader",
     "ninja_duelist",
     "generic_npc",
@@ -87,6 +92,7 @@ impl DialogMode {
             "tech_bros_disruptor" => Self::TechBrosDisruptor,
             "pirate_admiral" => Self::PirateAdmiral,
             "pirate_raider" => Self::PirateRaider,
+            "pirate_quartermaster" => Self::PirateQuartermaster,
             "ninja_leader" => Self::NinjaLeader,
             "ninja_duelist" => Self::NinjaDuelist,
             "generic_npc" => Self::Generic,
@@ -106,6 +112,7 @@ impl DialogMode {
             Self::TechBrosDisruptor => "tech-bros disruptor",
             Self::PirateAdmiral | Self::PirateAdmiralAfterTreasure => "pirate admiral",
             Self::PirateRaider | Self::PirateRaiderAfterTreasure => "pirate raider",
+            Self::PirateQuartermaster => "pirate quartermaster",
             Self::NinjaLeader => "ninja shadow oni leader",
             Self::NinjaDuelist => "ninja shadow duelist",
             Self::Intro(intro) => intro.label(),
@@ -127,6 +134,7 @@ impl DialogMode {
             Self::PirateAdmiralAfterTreasure => PIRATE_ADMIRAL_AFTER_TREASURE_NODES,
             Self::PirateRaider => PIRATE_RAIDER_NODES,
             Self::PirateRaiderAfterTreasure => PIRATE_RAIDER_AFTER_TREASURE_NODES,
+            Self::PirateQuartermaster => PIRATE_QUARTERMASTER_NODES,
             Self::NinjaLeader => NINJA_LEADER_NODES,
             Self::NinjaDuelist => NINJA_DUELIST_NODES,
             Self::Intro(intro) => intro.nodes(),
@@ -876,6 +884,70 @@ const PIRATE_RAIDER_NODES: &[DialogNode] = &[
         speaker: "Raider",
         line: "Mind the swoops. It hovers, it lulls you, then it dives. If it spits something at you, count to two and step LEFT. Or right. One of those. I'm the muscle, not the navigator.",
         options: PIRATE_RAIDER_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Pirate Quartermaster — keeps the books and the powder. Lives in
+// the cove next to the Admiral and the Raider, points the player
+// at the sky lookout above the cove so the flying-shark combat is
+// reachable as a sandbox test surface.
+// ─────────────────────────────────────────────────────────────────
+
+const PIRATE_QUARTERMASTER_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What's the inventory situation?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Anything above the cove?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "[step aside]",
+        next_node: None,
+        note: Some("Quartermaster nods and goes back to a ledger that nods back."),
+        close_after: true,
+    },
+];
+
+const PIRATE_QUARTERMASTER_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "[step aside]",
+        next_node: None,
+        note: Some("Quartermaster waves you off with the eraser end of a pencil."),
+        close_after: true,
+    },
+];
+
+const PIRATE_QUARTERMASTER_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Quartermaster",
+        line: "Aye. I'm the only one in this cove who can spell 'inventory'. The Admiral signs the manifest; the Raider EATS the manifest. Try not to be a Raider.",
+        options: PIRATE_QUARTERMASTER_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Quartermaster",
+        line: "Powder: short. Salt pork: shorter. Songs: somehow running a deficit since the bird took the chest. We're trading IOUs for verses, which is exactly as sustainable as it sounds.",
+        options: PIRATE_QUARTERMASTER_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Quartermaster",
+        line: "The lookout. Up the rigging through the hatch in the ceiling. Sharks roost up there now — the ON FIRE kind. Test your steel before you go visit the Mockingbird; the bird counts how many sharks you ate.",
+        options: PIRATE_QUARTERMASTER_RETURN_OPTIONS,
         default_next: None,
     },
 ];

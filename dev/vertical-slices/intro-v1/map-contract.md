@@ -1,25 +1,35 @@
 # Intro v1 map contract
 
-Status: live audit at 2026-05-21 for the Act 1 intro vertical slice
-(`crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk`). This document
+Status: live audit. Original Task 01 snapshot was 2026-05-21; Section 1 was
+re-synced at the end of Tasks 02–08 in the same session. This document
 grounds Task 02–09 in the actual repo state. It is not the scaffold; see
-`scaffold.md` for the full design north star.
+`scaffold.md` for the full design north star. See `playtest-handoff.md` for
+the post-Task-08 route graph and durable-state inventory.
 
 When this file disagrees with the live LDtk, the live LDtk wins. Update this
 contract whenever a room is resized, renamed, or rewired.
 
-## 1. Current intro room list
+## 1. Current intro room list (post-Task 08)
 
 Live JSON inspection (`crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk`):
 
 ```text
-intro_wake_room       1024 x 384   world (0,        0)     biome=lab
-intro_raid_corridor   1600 x 512   world (1024,     0)     biome=lab
-intro_escape_shaft    1280 x 512   world (2624,     0)     biome=lab
-drain_alley           1024 x 512   world (3904,     0)     biome=cave
-gate_stack_lower      1600 x 768   world (4928,     0)     biome=lab
-pirate_sky_arena      2400 x 1024  world (108000,  -1024)  biome=outdoor
+intro_wake_room          1024 x 384    world (0,        0)     biome=lab
+intro_raid_corridor      1600 x 512    world (1024,     0)     biome=lab
+intro_escape_shaft       1280 x 1280   world (2624,     0)     biome=lab     ★ Task 02 reshape
+drain_alley              1024 x 1024   world (3904,     0)     biome=cave    ★ Task 03 reshape
+gate_stack_lower         1600 x 768    world (4928,     0)     biome=lab     ★ Task 05 patches
+under_town_pipes         1024 x 768    world (3904,  1024)     biome=cave    ★ Task 04 new
+alice_relay              1024 x 768    world (4928,  1024)     biome=cave    ★ Task 04 new
+bob_relay                1024 x 768    world (5952,  1024)     biome=cave    ★ Task 04 new
+combat_calibration_lab   1280 x 768    world (6528,     0)     biome=lab     ★ Task 06 new
+first_system_boss        1280 x 768    world (7808,     0)     biome=lab     ★ Task 07 new
+pirate_sky_arena         2400 x 1024   world (108000, -1024)   biome=outdoor
 ```
+
+11 levels. The Task 04 cartography row (under_town_pipes / alice_relay /
+bob_relay) sits at worldY=1024 directly under drain_alley / gate_stack_lower
+so the gridvania view reads "Drain Market on top, pipes underneath".
 
 `worldLayout` is `GridVania`. The world grid cell is 16×16 (px). The intro feed
 runs left-to-right in a single horizontal strip at world_y=0 (every room sits

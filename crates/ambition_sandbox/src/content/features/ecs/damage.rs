@@ -46,6 +46,7 @@ pub fn apply_feature_damage_events(
     >,
     mut actors: Query<
         (
+            Entity,
             &FeatureId,
             &FeatureAabb,
             &mut ActorRuntime,
@@ -94,6 +95,7 @@ pub fn apply_feature_damage_events(
     for event in damage_events.read().cloned() {
         let mut actor_hit_this_event = false;
         for (
+            actor_entity,
             id,
             aabb,
             mut actor,
@@ -209,6 +211,18 @@ pub fn apply_feature_damage_events(
                         // Dismount cue — small banner so the player
                         // sees the morph happened. Avoid death banner.
                         banner.show(format!("{} dismounted", enemy.name), 1.8);
+                        // Clear the visual binding so the
+                        // sprite-resolver picks up the new
+                        // archetype's sheet on the next
+                        // `upgrade_enemy_sprites` pass. Without
+                        // this, the sprite stays whatever it was
+                        // bound to at spawn (e.g. a Burning Flying
+                        // Shark after the shark died into a pirate)
+                        // and you get a small pirate hitbox under a
+                        // big shark sprite.
+                        commands
+                            .entity(actor_entity)
+                            .remove::<crate::presentation::rendering::BoundFeatureKind>();
                     }
                     if killed {
                         enemy.alive = false;

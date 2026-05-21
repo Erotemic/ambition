@@ -376,7 +376,17 @@ pub fn update_ecs_actors(
                 aabb.center = enemy.pos;
                 aabb.half_size = enemy.size * 0.5;
                 // Flush projectile spawns this enemy emitted this tick.
+                // Stamp a dedicated "laser-sword fire" SFX cue when
+                // the owner is the pirate-on-shark gun-sword (owner
+                // ids carry the `lasersword:` prefix for that
+                // archetype — see `EnemyRuntime::update`).
                 for spawn in outputs.projectile_spawns {
+                    if spawn.owner_id.starts_with("lasersword:") {
+                        sfx.write(crate::audio::SfxMessage::Play {
+                            id: ambition_sfx::SfxId::from_static("weapon.lasersword.fire"),
+                            pos: spawn.origin,
+                        });
+                    }
                     enemy_projectiles.spawn(spawn);
                 }
                 if player_vulnerable && enemy.alive {

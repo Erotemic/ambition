@@ -389,6 +389,22 @@ mod conversion_tests {
         assert_eq!(enemy.archetype, EnemyArchetype::PirateRaider);
         assert_eq!(enemy.gravity_scale, 1.0);
         assert!(enemy.rider_health.is_none());
+        // After dismount the runtime name must reflect the new
+        // archetype so the visual layer's name-based sprite lookup
+        // resolves to the pirate sheet (not the shark sheet that
+        // matched the spawn name). Without this rename the bug
+        // surfaces as "small pirate hitbox drawn as a giant shark".
+        assert_eq!(
+            enemy.name, "Pirate Raider",
+            "dismount_shark must rename so the sprite layer picks pirate art",
+        );
+        let expected_size = EnemyArchetype::PirateRaider
+            .default_size()
+            .expect("PirateRaider has a default size");
+        assert_eq!(
+            enemy.size, expected_size,
+            "dismount_shark must shrink the hitbox to pirate-sized",
+        );
 
         // Now reset to spawn — archetype must come back, size + gravity
         // restored, rider_health re-armed, timers cleared.

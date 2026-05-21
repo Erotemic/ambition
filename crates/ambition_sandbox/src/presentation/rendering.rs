@@ -38,7 +38,7 @@ mod world;
 pub use actors::{
     animate_bosses, animate_characters, animate_player, apply_hide_sprites_override,
     apply_placeholder_sprites_override, sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites,
-    upgrade_npc_sprites,
+    upgrade_npc_sprites, BoundFeatureKind,
 };
 pub use camera::{camera_follow, CameraViewState};
 pub use health::sync_health_overlays;

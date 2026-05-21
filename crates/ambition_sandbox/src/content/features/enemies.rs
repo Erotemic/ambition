@@ -632,6 +632,14 @@ impl EnemyRuntime {
     /// the rider hp pool (or starts at the grounded-pirate default
     /// if the rider had already died — which shouldn't happen since
     /// the actor would already be a BurningFlyingShark by then).
+    ///
+    /// We also rename the runtime to "Pirate Raider" so the visual
+    /// layer's name-based sprite lookup
+    /// (`assets.characters.npc_asset_for_name(...)`) resolves to the
+    /// pirate sheet instead of the (no-longer-correct) shark sheet
+    /// that matched the spawn name. The `archetype_changed: true`
+    /// outcome signals the damage system to clear
+    /// `BoundFeatureKind` so `upgrade_enemy_sprites` re-evaluates.
     fn dismount_shark(&mut self) -> EnemyDamageOutcome {
         let inherited_hp = self
             .rider_health
@@ -648,6 +656,11 @@ impl EnemyRuntime {
         if let Some(default_size) = EnemyArchetype::PirateRaider.default_size() {
             self.size = default_size;
         }
+        // Renaming the runtime is what makes the sprite layer pick
+        // up the right sheet on the next `upgrade_enemy_sprites`
+        // pass. Without this, the actor walks around as a pirate-
+        // sized hitbox but still rendered as a shark.
+        self.name = String::from("Pirate Raider");
         EnemyDamageOutcome::Damaged {
             killed: false,
             archetype_changed: true,

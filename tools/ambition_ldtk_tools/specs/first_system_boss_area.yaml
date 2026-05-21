@@ -1,0 +1,70 @@
+# first_system_boss — boss room stub (Task 06 plants, Task 07 expands).
+#
+# Stubbed here so combat_calibration_lab's `combat_lab_to_boss`
+# LoadingZone has a valid destination. Task 07 owns the actual boss
+# arena, BossSpawn, phase script, and return shortcut.
+#
+# Width 1280 / height 768. World position downstream of the combat
+# lab (worldX=7808) along the same gate-stack row.
+id: first_system_boss
+level_id: first_system_boss
+world_x: 7808
+world_y: 0
+px_wid: 1280
+px_hei: 768
+fill_collision: empty
+bg_color: "#1F1622"
+biome: lab
+
+entities:
+  - type: Solid
+    px: [0, 736]
+    size: [1280, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [16, 0]
+    size: [1248, 32]
+    fields: { name: ceiling }
+
+  - type: PlayerStart
+    px: [120, 690]
+    size: [28, 46]
+    fields: { name: first_system_boss_spawn }
+
+  - type: LoadingZone
+    px: [0, 560]
+    size: [16, 176]
+    fields:
+      id: boss_from_combat_lab
+      name: boss_from_combat_lab
+      activation: EdgeExit
+      target_room: combat_calibration_lab
+      target_zone: combat_lab_to_boss
+      bidirectional: true
+
+  - type: DebugLabel
+    px: [40, 64]
+    size: [400, 24]
+    fields:
+      name: first_system_boss_title_label
+      text: "// FIRST SYSTEM BOSS — Task 07 expands"
+      category: Custom
+  - type: DebugLabel
+    px: [40, 96]
+    size: [400, 24]
+    fields:
+      name: first_system_boss_intent_label
+      text: "Intent: two/three readable phases, return shortcut on clear"
+      category: Custom
+  - type: DebugLabel
+    px: [1040, 432]
+    size: [240, 24]
+    fields:
+      name: first_system_boss_return_label
+      text: "→ Drain Market shortcut (Task 07 wires)"
+      category: Custom
+
+  - type: CameraZone
+    px: [0, 0]
+    size: [1280, 768]
+    fields: { id: first_system_boss_camera, name: first_system_boss_camera, mode: Default }

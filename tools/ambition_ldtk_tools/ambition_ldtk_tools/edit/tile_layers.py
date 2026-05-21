@@ -248,25 +248,36 @@ def main(argv=None) -> int:
 
     existing = find_layer_def(project, layer_identifier)
     if existing is not None:
-        return _fail(
-            f"layer identifier '{layer_identifier}' already exists in {args.ldtk}; "
-            f"pass --layer-identifier to disambiguate or remove the existing def."
+        # Backfill mode: the layer def is already in `defs.layers`, but
+        # one or more levels may be missing the matching layer instance
+        # (this happens when `area create --replace-existing` rewrites a
+        # level without re-emitting Tiles layers). Re-run the
+        # idempotent per-level adder so missing instances get an empty
+        # `gridTiles: []` entry; levels that already have one are
+        # skipped.
+        layer_def = existing
+        mutated = add_empty_layer_instance_to_levels(project, layer_def, tileset_def)
+        print(
+            f"Tiles layer '{layer_identifier}' already declared "
+            f"(uid={layer_def['uid']}); backfilled {mutated} missing level instance(s)"
         )
-
-    layer_def = build_tiles_layer_def(
-        project=project,
-        identifier=layer_identifier,
-        tileset_def=tileset_def,
-        display_opacity=args.display_opacity,
-    )
-    project["defs"].setdefault("layers", []).append(layer_def)
-    mutated = add_empty_layer_instance_to_levels(project, layer_def, tileset_def)
-
-    print(
-        f"added Tiles layer def: {layer_identifier} (uid={layer_def['uid']}, "
-        f"gridSize={layer_def['gridSize']}, tileset={tileset_def['identifier']})"
-    )
-    print(f"added empty Tiles layer instance to {mutated} level(s)")
+        if mutated == 0:
+            print("nothing to do; exiting without writing")
+            return 0
+    else:
+        layer_def = build_tiles_layer_def(
+            project=project,
+            identifier=layer_identifier,
+            tileset_def=tileset_def,
+            display_opacity=args.display_opacity,
+        )
+        project["defs"].setdefault("layers", []).append(layer_def)
+        mutated = add_empty_layer_instance_to_levels(project, layer_def, tileset_def)
+        print(
+            f"added Tiles layer def: {layer_identifier} (uid={layer_def['uid']}, "
+            f"gridSize={layer_def['gridSize']}, tileset={tileset_def['identifier']})"
+        )
+        print(f"added empty Tiles layer instance to {mutated} level(s)")
 
     target = args.output or args.ldtk
     if args.in_place and args.backup:

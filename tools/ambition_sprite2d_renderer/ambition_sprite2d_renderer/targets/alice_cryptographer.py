@@ -143,21 +143,31 @@ class AliceSpec:
     bangs_h: float = 5.0
     curtain_drop: float = 14.0       # how far cheek curtains hang past the jaw
     braid_segments: int = 10         # long forward braid (10 stacked ellipses)
-    # Body — slim academic.
+    # Body — slim academic. New scaffold (NOT Trent-derived):
+    # short fitted jacket at the shoulders → skirt at the hips →
+    # leggings + ankle boots. No flowing robe, no waist sash, no
+    # placket/tabard front. The cipher motif lives on a SCARF
+    # draped over one shoulder, not as a front panel.
     shoulder_w: float = 22.0
     torso_w: float = 16.0
-    coat_top_w: float = 24.0
-    coat_waist_w: float = 18.0
-    coat_hem_w: float = 30.0
-    coat_h: float = 38.0     # from shoulder yoke down to coat hem
-    waist_band_h: float = 4.0  # cinched waist band height
-    tabard_w: float = 12.0
-    tabard_h: float = 32.0
-    # Below the coat hem: tights + ankle boots.
-    leg_h: float = 18.0
+    # Hip-length fitted jacket (was the long coat).
+    jacket_top_w: float = 24.0
+    jacket_hem_w: float = 22.0
+    jacket_h: float = 22.0
+    # A-line knee-length skirt — narrower at the waist, wider at
+    # the knee. Distinct from any coat hem in the cast.
+    skirt_top_w: float = 22.0
+    skirt_hem_w: float = 32.0
+    skirt_h: float = 18.0
+    # Leggings under the skirt; ankle boots below.
+    leg_h: float = 16.0
     leg_w: float = 6.0
     boot_w: float = 10.0
     boot_h: float = 6.0
+    # Cipher scarf — wraps the neck and trails down the camera-side
+    # shoulder. Its width is independent of any tabard.
+    scarf_thickness: float = 4.0
+    scarf_drop: float = 28.0
     # Arms.
     arm_len: float = 25.0
     sleeve_w_shoulder: float = 7.0
@@ -174,7 +184,12 @@ class AlicePose:
     blink: bool = False
     arm_lift: float = 0.0
     step_phase: float = 0.0
-    hold_scroll: bool = True
+    # Off-arm tucks a stack of papers/notes under the elbow — a
+    # different silhouette from Bob (key ring in hand), Trent
+    # (handheld scales), and the old toon Alice (cipher scroll out
+    # to the side). Both arms hang at the side; the papers stick
+    # out forward of the elbow on the camera-far side.
+    carry_notes: bool = True
 
 
 class AliceCryptographerGenerator:
@@ -269,15 +284,24 @@ class AliceCryptographerGenerator:
     def _render_three_quarter(self, base: Image.Image, cx: float, feet_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float, pose: AlicePose) -> None:
         boot_top_y = feet_y - spec.boot_h * S
         leg_top_y = boot_top_y - spec.leg_h * S
-        # Coat hem just above the boots (so a slice of leg/boot shows).
-        hem_y = leg_top_y - 1.0 * S
-        shoulder_y = hem_y - spec.coat_h * S
+        # Stack the new scaffold from feet up: legs → skirt → jacket.
+        # The skirt hem sits just above the leggings; the jacket hem
+        # tops the skirt. NO continuous robe, NO waist sash, NO front
+        # placket — explicitly NOT a Trent-derived silhouette.
+        skirt_hem_y = leg_top_y + 0.0 * S
+        skirt_top_y = skirt_hem_y - spec.skirt_h * S
+        jacket_hem_y = skirt_top_y + 1.0 * S
+        shoulder_y = jacket_hem_y - spec.jacket_h * S
         head_center = (cx + 2.0 * S, shoulder_y - spec.head_h * spec.head_anchor * S - spec.neck_h * S)
 
         self._tq_draw_legs(base, cx, leg_top_y, boot_top_y, feet_y, spec, pal, S)
-        self._tq_draw_arms_back(base, cx, shoulder_y, spec, pal, S, pose)
-        self._tq_draw_coat(base, cx, shoulder_y, hem_y, spec, pal, S)
-        self._tq_draw_arms_front(base, cx, shoulder_y, spec, pal, S, pose)
+        self._tq_draw_skirt(base, cx, skirt_top_y, skirt_hem_y, spec, pal, S)
+        self._tq_draw_arms_back(base, cx, shoulder_y, jacket_hem_y, spec, pal, S, pose)
+        self._tq_draw_jacket(base, cx, shoulder_y, jacket_hem_y, spec, pal, S)
+        self._tq_draw_arms_front(base, cx, shoulder_y, jacket_hem_y, spec, pal, S, pose)
+        # The scarf wraps the neck and drapes down OVER the jacket
+        # front, so it draws after the jacket but before the head.
+        self._tq_draw_scarf(base, cx, shoulder_y, spec, pal, S)
         self._tq_draw_head(base, head_center, spec, pal, S, pose)
 
     def _tq_draw_legs(self, base: Image.Image, cx: float, leg_top_y: float, boot_top_y: float, feet_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float) -> None:
@@ -303,84 +327,128 @@ class AliceCryptographerGenerator:
                 fill=pal["boot_cuff"], outline=outline, width=max(1, int(0.7 * S)),
             )
 
-    def _tq_draw_coat(self, base: Image.Image, cx: float, shoulder_y: float, hem_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float) -> None:
+    def _tq_draw_skirt(self, base: Image.Image, cx: float, top_y: float, hem_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float) -> None:
+        """A-line knee-length skirt — narrow at the waist, wider at
+        the knee. Drawn before the jacket so the jacket hem covers
+        the top edge of the skirt for a layered read."""
         d = ImageDraw.Draw(base)
         outline = pal["outline"]
-        # Coat silhouette — pinched at the waist, flared at the hem.
-        waist_y = shoulder_y + spec.coat_h * 0.50 * S
-        coat = [
-            (cx - spec.coat_top_w * 0.50 * S, shoulder_y),
-            (cx + spec.coat_top_w * 0.50 * S, shoulder_y),
-            (cx + spec.coat_waist_w * 0.50 * S, waist_y - spec.waist_band_h * 0.5 * S),
-            (cx + spec.coat_waist_w * 0.50 * S, waist_y + spec.waist_band_h * 0.5 * S),
-            (cx + spec.coat_hem_w * 0.50 * S, hem_y),
-            (cx - spec.coat_hem_w * 0.50 * S, hem_y),
-            (cx - spec.coat_waist_w * 0.50 * S, waist_y + spec.waist_band_h * 0.5 * S),
-            (cx - spec.coat_waist_w * 0.50 * S, waist_y - spec.waist_band_h * 0.5 * S),
+        skirt = [
+            (cx - spec.skirt_top_w * 0.5 * S, top_y),
+            (cx + spec.skirt_top_w * 0.5 * S, top_y),
+            (cx + spec.skirt_hem_w * 0.5 * S, hem_y),
+            (cx - spec.skirt_hem_w * 0.5 * S, hem_y),
         ]
-        d.polygon(coat, fill=pal["coat"], outline=outline)
-        # OTP tabard panel underneath, visible down the open front.
-        tabard = [
-            (cx - spec.tabard_w * 0.5 * S, shoulder_y + 2.0 * S),
-            (cx + spec.tabard_w * 0.5 * S, shoulder_y + 2.0 * S),
-            (cx + spec.tabard_w * 0.42 * S, waist_y - spec.waist_band_h * 0.5 * S),
-            (cx - spec.tabard_w * 0.42 * S, waist_y - spec.waist_band_h * 0.5 * S),
-        ]
-        d.polygon(tabard, fill=pal["tabard"], outline=outline)
-        # OTP checker pattern on the tabard (4 cols x 6 rows).
-        cols, rows = 4, 6
-        cell_w = (spec.tabard_w - 2.0) * S / cols
-        cell_h = (waist_y - spec.waist_band_h * 0.5 * S - shoulder_y - 4.0 * S) / rows
-        x0 = cx - (spec.tabard_w - 2.0) * 0.5 * S
-        y0 = shoulder_y + 4.0 * S
-        for r in range(rows):
-            for cc in range(cols):
-                if (r + cc) % 2 == 0:
-                    continue
-                d.rectangle(
-                    (x0 + cc * cell_w, y0 + r * cell_h, x0 + (cc + 1) * cell_w - 0.6 * S, y0 + (r + 1) * cell_h - 0.6 * S),
-                    fill=pal["cipher"], outline=None,
-                )
-        # Amber sash at the waist.
-        d.rounded_rectangle(
-            (cx - spec.coat_waist_w * 0.55 * S, waist_y - spec.waist_band_h * 0.5 * S, cx + spec.coat_waist_w * 0.55 * S, waist_y + spec.waist_band_h * 0.5 * S),
-            radius=1.4 * S, fill=pal["amber"], outline=outline, width=max(1, int(0.8 * S)),
-        )
-        # Sash tail on camera-right.
-        d.polygon([
-            (cx + spec.coat_waist_w * 0.50 * S, waist_y - 0.5 * S),
-            (cx + spec.coat_waist_w * 0.70 * S, waist_y + 0.5 * S),
-            (cx + spec.coat_waist_w * 0.58 * S, waist_y + 7.0 * S),
-            (cx + spec.coat_waist_w * 0.42 * S, waist_y + 1.5 * S),
-        ], fill=pal["amber"], outline=outline)
-        # Coat lapels along the open front (darker stripe each side).
+        d.polygon(skirt, fill=pal["coat_dark"], outline=outline)
+        # Two pleat folds suggesting the A-line drape.
         for sign in (-1, 1):
             d.line(
-                [
-                    (cx + sign * spec.tabard_w * 0.55 * S, shoulder_y + 1.0 * S),
-                    (cx + sign * spec.tabard_w * 0.50 * S, waist_y - spec.waist_band_h * 0.5 * S),
-                ],
-                fill=pal["coat_dark"], width=max(1, int(1.4 * S)),
+                [(cx + sign * spec.skirt_top_w * 0.18 * S, top_y + 2.0 * S),
+                 (cx + sign * spec.skirt_hem_w * 0.30 * S, hem_y - 1.0 * S)],
+                fill=pal["coat_dark"], width=max(1, int(0.8 * S)),
             )
-        # Subtle vertical fold-shadow on the hem so the flare reads.
-        d.line([
-            (cx + spec.coat_waist_w * 0.36 * S, waist_y + spec.waist_band_h * 0.5 * S),
-            (cx + spec.coat_hem_w * 0.42 * S, hem_y - 1.0 * S),
-        ], fill=pal["coat_dark"], width=max(1, int(0.8 * S)))
-        d.line([
-            (cx - spec.coat_waist_w * 0.36 * S, waist_y + spec.waist_band_h * 0.5 * S),
-            (cx - spec.coat_hem_w * 0.42 * S, hem_y - 1.0 * S),
-        ], fill=pal["coat_dark"], width=max(1, int(0.8 * S)))
-        # Hem trim — a thin darker line along the bottom of the coat.
+        # A subtler highlight on the camera-side fold.
         d.line(
-            [(cx - spec.coat_hem_w * 0.50 * S, hem_y), (cx + spec.coat_hem_w * 0.50 * S, hem_y)],
-            fill=pal["coat_dark"], width=max(1, int(1.0 * S)),
+            [(cx + spec.skirt_top_w * 0.04 * S, top_y + 2.0 * S),
+             (cx + spec.skirt_hem_w * 0.10 * S, hem_y - 1.0 * S)],
+            fill=pal["coat"], width=max(1, int(0.7 * S)),
+        )
+        # Hem band — thin lighter stripe along the bottom edge.
+        d.line(
+            [(cx - spec.skirt_hem_w * 0.50 * S, hem_y - 0.5 * S),
+             (cx + spec.skirt_hem_w * 0.50 * S, hem_y - 0.5 * S)],
+            fill=pal["coat"], width=max(1, int(0.9 * S)),
         )
 
-    def _tq_draw_arms_back(self, base: Image.Image, cx: float, shoulder_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float, pose: AlicePose) -> None:
+    def _tq_draw_jacket(self, base: Image.Image, cx: float, shoulder_y: float, hem_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float) -> None:
+        """Short fitted hip-length jacket. Pinches in slightly at the
+        hip rather than flaring; closed button-front rather than
+        open with a placket. Deliberately not a Trent-style robe."""
         d = ImageDraw.Draw(base)
         outline = pal["outline"]
-        # Far arm hanging at the side.
+        jacket = [
+            (cx - spec.jacket_top_w * 0.5 * S, shoulder_y),
+            (cx + spec.jacket_top_w * 0.5 * S, shoulder_y),
+            (cx + spec.jacket_hem_w * 0.5 * S, hem_y),
+            (cx - spec.jacket_hem_w * 0.5 * S, hem_y),
+        ]
+        d.polygon(jacket, fill=pal["coat"], outline=outline)
+        # Three button-front buttons down the center.
+        button_x = cx + 0.5 * S
+        for i in range(3):
+            y = shoulder_y + (4.0 + i * 5.5) * S
+            d.ellipse(_bbox((button_x, y), 1.4 * S, 1.4 * S), fill=pal["amber"], outline=outline, width=max(1, int(0.5 * S)))
+        # Jacket collar — a small V-shaped notched lapel at the throat.
+        collar = [
+            (cx - spec.jacket_top_w * 0.30 * S, shoulder_y),
+            (cx + spec.jacket_top_w * 0.30 * S, shoulder_y),
+            (cx + 2.0 * S, shoulder_y + 4.0 * S),
+            (cx, shoulder_y + 6.0 * S),
+            (cx - 2.0 * S, shoulder_y + 4.0 * S),
+        ]
+        d.polygon(collar, fill=pal["coat_dark"], outline=outline)
+        # Subtle highlight along the camera-side seam.
+        d.line(
+            [(cx + spec.jacket_top_w * 0.40 * S, shoulder_y + 2.0 * S),
+             (cx + spec.jacket_hem_w * 0.40 * S, hem_y - 1.0 * S)],
+            fill=pal["coat_light"], width=max(1, int(0.7 * S)),
+        )
+
+    def _tq_draw_scarf(self, base: Image.Image, cx: float, shoulder_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float) -> None:
+        """Long cream scarf wrapped around the neck with a forward
+        drape down the camera-side. The cipher motif lives HERE as
+        ciphertext characters along the trailing edge, not as a
+        front-panel checker tabard. New visual cipher signature
+        that doesn't repeat the previous OTP-grid placement."""
+        d = ImageDraw.Draw(base)
+        outline = pal["outline"]
+        # Wrap loop around the back of the neck (visible as a low
+        # arc just above the collar).
+        wrap_top = shoulder_y - 4.0 * S
+        wrap_bot = shoulder_y + 2.0 * S
+        d.rounded_rectangle(
+            (cx - 9.0 * S, wrap_top, cx + 9.0 * S, wrap_bot),
+            radius=2.0 * S, fill=pal["tabard"], outline=outline, width=max(1, int(0.9 * S)),
+        )
+        # Forward drape — a long rectangle of scarf hanging down the
+        # camera-side, past the jacket hem.
+        drape_top_x = cx + 5.0 * S
+        drape_top_y = shoulder_y + 1.0 * S
+        drape_bot_x = cx + 8.0 * S
+        drape_bot_y = drape_top_y + spec.scarf_drop * S
+        drape = [
+            (drape_top_x - spec.scarf_thickness * 0.5 * S, drape_top_y),
+            (drape_top_x + spec.scarf_thickness * 0.5 * S, drape_top_y),
+            (drape_bot_x + spec.scarf_thickness * 0.55 * S, drape_bot_y),
+            (drape_bot_x - spec.scarf_thickness * 0.55 * S, drape_bot_y),
+        ]
+        d.polygon(drape, fill=pal["tabard"], outline=outline)
+        # Frayed tassel ends at the bottom.
+        for tx in (-1.5, 0.0, 1.5):
+            d.line(
+                [(drape_bot_x + tx * S, drape_bot_y - 0.5 * S),
+                 (drape_bot_x + tx * S, drape_bot_y + 3.0 * S)],
+                fill=pal["tabard_dark"], width=max(1, int(0.7 * S)),
+            )
+        # Cipher characters running down the drape — short ink dashes
+        # in alternating orientations, NOT the OTP-grid checker.
+        rng_chars = [(-0.6, 0.6), (0.4, -0.5), (-0.4, 0.4), (0.5, -0.3), (-0.3, 0.5)]
+        for i, (dx_off, dy_off) in enumerate(rng_chars):
+            ch_y = drape_top_y + (4.0 + i * 5.0) * S
+            ch_x = drape_top_x + (drape_bot_x - drape_top_x) * (i / float(len(rng_chars) - 1))
+            d.line(
+                [(ch_x - 1.0 * S + dx_off * S, ch_y + dy_off * S),
+                 (ch_x + 1.0 * S + dx_off * S, ch_y - dy_off * S)],
+                fill=pal["ink"], width=max(1, int(0.6 * S)),
+            )
+
+    def _tq_draw_arms_back(self, base: Image.Image, cx: float, shoulder_y: float, jacket_hem_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float, pose: AlicePose) -> None:
+        d = ImageDraw.Draw(base)
+        outline = pal["outline"]
+        # Far arm — tucks a stack of papers under the elbow. The
+        # sleeve hangs at the side; the papers stick out forward of
+        # the elbow as a small white rectangle peeking out behind
+        # the jacket.
         sx = cx - spec.shoulder_w * 0.42 * S
         sy = shoulder_y + 2.0 * S
         ex = sx - 0.5 * S
@@ -392,22 +460,46 @@ class AliceCryptographerGenerator:
             (ex - spec.sleeve_w_cuff * 0.5 * S, ey),
         ]
         d.polygon(sleeve, fill=pal["coat_dark"], outline=outline)
-        # Cuff (lighter).
         d.rectangle(
-            (ex - spec.sleeve_w_cuff * 0.6 * S, ey - spec.cuff_h * 0.5 * S, ex + spec.sleeve_w_cuff * 0.6 * S, ey + spec.cuff_h * 0.5 * S),
+            (ex - spec.sleeve_w_cuff * 0.6 * S, ey - spec.cuff_h * 0.5 * S,
+             ex + spec.sleeve_w_cuff * 0.6 * S, ey + spec.cuff_h * 0.5 * S),
             fill=pal["coat_light"], outline=outline, width=max(1, int(0.7 * S)),
         )
-        # Hand peek.
         d.ellipse(_bbox((ex, ey + 3.0 * S), 3.0 * S, 2.6 * S), fill=pal["skin"], outline=outline, width=max(1, int(0.7 * S)))
+        if pose.carry_notes:
+            # A small stack of papers (3 sheets) clipped to the side
+            # of the body just above the jacket hem. Visible behind
+            # the camera-far elbow.
+            self._draw_papers_stack(d, (cx - spec.shoulder_w * 0.30 * S, jacket_hem_y - 6.0 * S), S, pal)
 
-    def _tq_draw_arms_front(self, base: Image.Image, cx: float, shoulder_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float, pose: AlicePose) -> None:
+    def _draw_papers_stack(self, d: ImageDraw.ImageDraw, anchor: Point, S: float, pal: Dict[str, Color]) -> None:
+        """Three offset sheets of paper tucked under the elbow.
+        Sits on the camera-FAR side so it doesn't fight the scarf."""
+        outline = pal["outline"]
+        for i, (dx, dy) in enumerate(((0.0, 0.0), (-1.5, -1.2), (1.0, -2.4))):
+            sx0 = anchor[0] + dx * S - 5.0 * S
+            sy0 = anchor[1] + dy * S - 6.0 * S
+            sx1 = anchor[0] + dx * S + 5.0 * S
+            sy1 = anchor[1] + dy * S + 6.0 * S
+            d.rectangle((sx0, sy0, sx1, sy1), fill=pal["paper"], outline=outline, width=max(1, int(0.6 * S)))
+            # A couple of ink lines on the topmost sheet.
+            if i == 2:
+                for ly in (-3.0, 0.0, 3.0):
+                    d.line(
+                        [(sx0 + 1.5 * S, anchor[1] + dy * S + ly * S),
+                         (sx1 - 1.5 * S, anchor[1] + dy * S + ly * S)],
+                        fill=pal["ink"], width=max(1, int(0.5 * S)),
+                    )
+
+    def _tq_draw_arms_front(self, base: Image.Image, cx: float, shoulder_y: float, jacket_hem_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float, pose: AlicePose) -> None:
         d = ImageDraw.Draw(base)
         outline = pal["outline"]
-        # Near arm — slightly forward, ending at a cipher scroll
-        # (Alice's primary prop).
+        # Near arm — hangs at the side with a slight forward lean
+        # during talk/interact (arm_lift). No prop in the front
+        # hand; the prop (papers stack) is tucked under the far arm.
         sx = cx + spec.shoulder_w * 0.38 * S
         sy = shoulder_y + 2.0 * S
-        ex = sx + 2.0 * S + pose.arm_lift * 6.0 * S
+        ex = sx + 1.0 * S + pose.arm_lift * 5.0 * S
         ey = sy + spec.arm_len * S - pose.arm_lift * 8.0 * S
         sleeve = [
             (sx - spec.sleeve_w_shoulder * 0.5 * S, sy),
@@ -421,51 +513,33 @@ class AliceCryptographerGenerator:
             fill=pal["coat_light"], width=max(1, int(0.8 * S)),
         )
         d.rectangle(
-            (ex - spec.sleeve_w_cuff * 0.6 * S, ey - spec.cuff_h * 0.5 * S, ex + spec.sleeve_w_cuff * 0.6 * S, ey + spec.cuff_h * 0.5 * S),
+            (ex - spec.sleeve_w_cuff * 0.6 * S, ey - spec.cuff_h * 0.5 * S,
+             ex + spec.sleeve_w_cuff * 0.6 * S, ey + spec.cuff_h * 0.5 * S),
             fill=pal["coat_light"], outline=outline, width=max(1, int(0.7 * S)),
         )
-        # Hand.
-        hand_c = (ex + 1.0 * S, ey + 3.5 * S)
+        hand_c = (ex + 0.5 * S, ey + 3.5 * S)
         d.ellipse(_bbox(hand_c, 3.6 * S, 3.0 * S), fill=pal["skin"], outline=outline, width=max(1, int(0.8 * S)))
-        if pose.hold_scroll:
-            self._draw_cipher_scroll(d, hand_c, S, pal)
-
-    def _draw_cipher_scroll(self, d: ImageDraw.ImageDraw, hand: Point, S: float, pal: Dict[str, Color]) -> None:
-        outline = pal["outline"]
-        # A small tightly-rolled scroll wrapped with an amber ribbon.
-        scroll_c = (hand[0] + 5.0 * S, hand[1] + 0.0 * S)
-        # Body of the scroll (paper).
-        d.rounded_rectangle(
-            (scroll_c[0] - 6.0 * S, scroll_c[1] - 2.0 * S, scroll_c[0] + 6.0 * S, scroll_c[1] + 2.0 * S),
-            radius=1.4 * S, fill=pal["paper"], outline=outline, width=max(1, int(0.7 * S)),
-        )
-        # End caps.
-        d.ellipse(_bbox((scroll_c[0] - 6.0 * S, scroll_c[1]), 1.4 * S, 2.4 * S), fill=pal["tabard_dark"], outline=outline, width=max(1, int(0.5 * S)))
-        d.ellipse(_bbox((scroll_c[0] + 6.0 * S, scroll_c[1]), 1.4 * S, 2.4 * S), fill=pal["tabard_dark"], outline=outline, width=max(1, int(0.5 * S)))
-        # Amber ribbon tied around the middle.
-        d.line([(scroll_c[0], scroll_c[1] - 2.4 * S), (scroll_c[0], scroll_c[1] + 2.4 * S)], fill=pal["amber"], width=max(1, int(1.4 * S)))
-        # Ribbon ends fluttering down.
-        d.polygon([
-            (scroll_c[0] - 0.8 * S, scroll_c[1] + 2.0 * S),
-            (scroll_c[0] + 0.8 * S, scroll_c[1] + 2.0 * S),
-            (scroll_c[0] + 1.6 * S, scroll_c[1] + 6.0 * S),
-            (scroll_c[0] - 1.4 * S, scroll_c[1] + 6.0 * S),
-        ], fill=pal["amber"], outline=outline)
-        # Tiny ciphertext ticks visible through the scroll body.
-        for tx in (-3.0, 0.0, 3.0):
-            d.line(
-                [(scroll_c[0] + tx * S, scroll_c[1] - 1.0 * S), (scroll_c[0] + tx * S, scroll_c[1] + 1.0 * S)],
-                fill=pal["ink"], width=max(1, int(0.5 * S)),
-            )
 
     def _tq_draw_head(self, base: Image.Image, c: Point, spec: AliceSpec, pal: Dict[str, Color], S: float, pose: AlicePose) -> None:
         d = ImageDraw.Draw(base)
         outline = pal["outline"]
-        # Neck (drawn first; chin will overlap).
+        # Hair z-order — explicit, documented stack (previous revision
+        # drew curtains AFTER the face, so the curtain inner edge cut
+        # into the face oval and the cheeks turned dark):
+        #   1. Neck   (chin will cover the top of it)
+        #   2. Back hair mass  (sits behind everything)
+        #   3. Cheek curtains  (sit behind the face so the face oval
+        #                       crops their inner edge cleanly)
+        #   4. Face oval        ← key: drawn AFTER curtains
+        #   5. Bangs            (sit over the upper face only)
+        #   6. Forward braid    (drapes in front of the body)
+        #   7. Eyes / nose / mouth
+        # The order is named with comments so the failure mode
+        # "curtain bites into the cheek" can't recur silently.
+
+        # 1. Neck.
         self._draw_neck(d, c, spec, pal, S, slant=+0.5)
-        # Back hair mass — extends WIDE and LONG past the head so the
-        # silhouette reads as long-haired at any render scale. This is
-        # the primary feminine cue.
+        # 2. Back hair mass — extends WIDE and LONG past the head.
         back_hair_w = (spec.head_w + spec.back_hair_w_extra) * S
         back_hair_h = (spec.head_h + spec.back_hair_h_extra) * S
         back_hair_cy = c[1] + spec.back_hair_h_extra * 0.30 * S
@@ -473,9 +547,9 @@ class AliceCryptographerGenerator:
             _bbox((c[0] - 0.5 * S, back_hair_cy), back_hair_w, back_hair_h),
             fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)),
         )
-        # Face oval on top of the back hair.
-        d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
-        # Side hair curtains — frame the cheeks, hang past the jaw.
+        # 3. Side hair curtains BEFORE the face. They start outside
+        # the face (head_w * 0.50) and only their lower-outer halves
+        # show — the face oval cleanly crops the inner part.
         for sign in (-1, 1):
             curtain = [
                 (c[0] + sign * spec.head_w * 0.50 * S, c[1] - spec.head_h * 0.28 * S),
@@ -485,9 +559,10 @@ class AliceCryptographerGenerator:
                 (c[0] + sign * (spec.head_w * 0.30) * S, c[1] + spec.head_h * 0.06 * S),
             ]
             d.polygon(curtain, fill=pal["hair"], outline=outline)
-        # Bangs — a single sweeping fringe across the forehead, with a
-        # small visible part-line in the middle so it reads as two
-        # clumps rather than a solid mop.
+        # 4. Face oval — drawn AFTER curtains so the cheeks stay
+        # uncovered. This is the z-order fix.
+        d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
+        # 5. Bangs — across the forehead, drawn over the face top.
         bangs_top = c[1] - spec.head_h * 0.48 * S
         bangs_bot = bangs_top + spec.bangs_h * S
         d.polygon([
@@ -596,8 +671,10 @@ class AliceCryptographerGenerator:
         outline = pal["outline"]
         boot_top_y = feet_y - spec.boot_h * S
         leg_top_y = boot_top_y - spec.leg_h * S
-        hem_y = leg_top_y - 1.0 * S
-        shoulder_y = hem_y - spec.coat_h * S
+        skirt_hem_y = leg_top_y + 0.0 * S
+        skirt_top_y = skirt_hem_y - spec.skirt_h * S
+        jacket_hem_y = skirt_top_y + 1.0 * S
+        shoulder_y = jacket_hem_y - spec.jacket_h * S
         head_center = (cx + 3.0 * S, shoulder_y - spec.head_h * spec.head_anchor * S - spec.neck_h * S)
 
         step = pose.step_phase
@@ -625,22 +702,62 @@ class AliceCryptographerGenerator:
                 fill=pal["boot_cuff"], outline=outline, width=max(1, int(0.7 * S)),
             )
 
-        # Coat in profile — narrower than 3/4. Flared hem.
-        coat = [
-            (cx - spec.coat_top_w * 0.18 * S, shoulder_y),
-            (cx + spec.coat_top_w * 0.36 * S, shoulder_y),
-            (cx + spec.coat_waist_w * 0.34 * S, shoulder_y + spec.coat_h * 0.50 * S),
-            (cx + spec.coat_hem_w * 0.40 * S, hem_y),
-            (cx - spec.coat_hem_w * 0.30 * S, hem_y),
-            (cx - spec.coat_waist_w * 0.24 * S, shoulder_y + spec.coat_h * 0.50 * S),
+        # Skirt in profile — narrow at waist, flared at hem.
+        skirt = [
+            (cx - spec.skirt_top_w * 0.18 * S, skirt_top_y),
+            (cx + spec.skirt_top_w * 0.30 * S, skirt_top_y),
+            (cx + spec.skirt_hem_w * 0.36 * S, skirt_hem_y),
+            (cx - spec.skirt_hem_w * 0.30 * S, skirt_hem_y),
         ]
-        d.polygon(coat, fill=pal["coat"], outline=outline)
-        # Amber sash.
-        waist_y = shoulder_y + spec.coat_h * 0.50 * S
-        d.rounded_rectangle(
-            (cx - spec.coat_waist_w * 0.22 * S, waist_y - 2.0 * S, cx + spec.coat_waist_w * 0.38 * S, waist_y + 2.0 * S),
-            radius=1.4 * S, fill=pal["amber"], outline=outline, width=max(1, int(0.8 * S)),
+        d.polygon(skirt, fill=pal["coat_dark"], outline=outline)
+        d.line(
+            [(cx - spec.skirt_hem_w * 0.30 * S, skirt_hem_y - 0.5 * S),
+             (cx + spec.skirt_hem_w * 0.36 * S, skirt_hem_y - 0.5 * S)],
+            fill=pal["coat"], width=max(1, int(0.9 * S)),
         )
+
+        # Short fitted jacket in profile.
+        jacket = [
+            (cx - spec.jacket_top_w * 0.18 * S, shoulder_y),
+            (cx + spec.jacket_top_w * 0.36 * S, shoulder_y),
+            (cx + spec.jacket_hem_w * 0.32 * S, jacket_hem_y),
+            (cx - spec.jacket_hem_w * 0.22 * S, jacket_hem_y),
+        ]
+        d.polygon(jacket, fill=pal["coat"], outline=outline)
+        # One visible button on the camera-side front.
+        d.ellipse(
+            _bbox((cx + spec.jacket_hem_w * 0.20 * S, shoulder_y + 8.0 * S), 1.2 * S, 1.2 * S),
+            fill=pal["amber"], outline=outline, width=max(1, int(0.5 * S)),
+        )
+        # Notched collar.
+        d.polygon([
+            (cx + spec.jacket_top_w * 0.10 * S, shoulder_y),
+            (cx + spec.jacket_top_w * 0.34 * S, shoulder_y),
+            (cx + spec.jacket_top_w * 0.10 * S, shoulder_y + 5.0 * S),
+        ], fill=pal["coat_dark"], outline=outline)
+
+        # Cipher scarf — wraps the neck + drapes down the camera-side
+        # over the jacket front.
+        d.rounded_rectangle(
+            (cx - 5.0 * S, shoulder_y - 4.0 * S, cx + 7.0 * S, shoulder_y + 2.0 * S),
+            radius=2.0 * S, fill=pal["tabard"], outline=outline, width=max(1, int(0.9 * S)),
+        )
+        drape_top_x = cx + 5.0 * S
+        drape_bot_x = cx + 8.0 * S
+        drape_top_y = shoulder_y + 1.0 * S
+        drape_bot_y = drape_top_y + spec.scarf_drop * S
+        d.polygon([
+            (drape_top_x - spec.scarf_thickness * 0.5 * S, drape_top_y),
+            (drape_top_x + spec.scarf_thickness * 0.5 * S, drape_top_y),
+            (drape_bot_x + spec.scarf_thickness * 0.55 * S, drape_bot_y),
+            (drape_bot_x - spec.scarf_thickness * 0.55 * S, drape_bot_y),
+        ], fill=pal["tabard"], outline=outline)
+        for tx in (-1.5, 0.0, 1.5):
+            d.line(
+                [(drape_bot_x + tx * S, drape_bot_y - 0.5 * S),
+                 (drape_bot_x + tx * S, drape_bot_y + 3.0 * S)],
+                fill=pal["tabard_dark"], width=max(1, int(0.7 * S)),
+            )
 
         # Arms swing opposite the legs.
         arm_swing = -step

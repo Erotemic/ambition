@@ -204,6 +204,21 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
                 ),
             ],
         ),
+        // Intro-v1 first system boss clear, tracked as a separate
+        // single-step quest gated by BossDefeated("clockwork_warden")
+        // (the boss profile the first_system_boss room reuses).
+        // Mirrors the existing pirate_treasure / first_steps boss
+        // hooks so the cartography quest stays flag-driven while the
+        // boss-kill itself produces a separate durable record.
+        ae::QuestSpec::new(
+            "intro_first_system_boss",
+            "Capstone: First System",
+            "Reach the system boss at the end of the gate stack and clear it.",
+            vec![ae::QuestStepSpec::new(
+                "Defeat the system boss (clockwork_warden brain).",
+                ae::QuestStepCondition::BossDefeated("clockwork_warden".into()),
+            )],
+        ),
     ]
 }
 
@@ -242,6 +257,9 @@ pub fn populate_quest_registry(
         let _ = q.start();
     }
     if let Some(q) = registry.quests.get_mut("intro_p1_stabilizer") {
+        let _ = q.start();
+    }
+    if let Some(q) = registry.quests.get_mut("intro_first_system_boss") {
         let _ = q.start();
     }
     registry.initialized = true;

@@ -315,6 +315,29 @@ entities:
       text: "[sealed military drain hatch]"
       category: Custom
 
+  # --- Return shortcut from the system-boss arena. Door zone
+  # planted on the lower-right of the room (in the open between
+  # the sealed military hatch and the under-town entry) so the
+  # player diegetically "emerges back into the market through old
+  # infrastructure". Wired in by Task 07.
+  - type: LoadingZone
+    px: [624, 880]
+    size: [96, 112]
+    fields:
+      id: drain_from_boss_return
+      name: drain_from_boss_return
+      activation: Door
+      target_room: first_system_boss
+      target_zone: boss_return_to_drain
+      bidirectional: true
+  - type: DebugLabel
+    px: [592, 856]
+    size: [240, 24]
+    fields:
+      name: drain_from_boss_return_label
+      text: "[shortcut — System Boss return]"
+      category: Custom
+
   # --- Camera. Sized to the full room.
   - type: CameraZone
     px: [0, 0]

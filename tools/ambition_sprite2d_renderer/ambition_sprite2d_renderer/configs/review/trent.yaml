@@ -1,7 +1,7 @@
-target: toon
+target: trent_elder
 name: Trent
 output_name: trent
-seed: 525
+seed: 530
 archetype: trent
 animations:
   - idle

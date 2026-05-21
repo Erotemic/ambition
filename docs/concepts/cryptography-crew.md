@@ -58,7 +58,7 @@ These six are PRESETS in `toon_side.py`, with review configs in
 | **Alice** | Hero-frame academic, tabard patterned like a one-time pad, chignon with hair-stick | Tightly-rolled ribbon-tied cipher scroll | Deep teal + cream |
 | **Eve** | Tall hooded cloak, brass ear-trumpet cupped to listen | Listening horn | Aubergine + slate + brass |
 | **Mallory** | Rigid tactical field jacket with chrome zip + diagonal strap, red mohawk-style hair | Tablet | Black + oxblood red |
-| **Trent** | Broad formal robe with placket buttons + chain of office, clean bald with side fringe | Handheld balance scales | Forest green + brushed gold |
+| **Trent** | Robe-first silhouette (no stick-figure peeking through), elongated head with jaw extension, full white flowing beard, gold chain of office with medallion | Handheld balance scales | Forest green + brushed gold |
 | **Judy** | Broad black judicial robe + crimson placket, full-bottom barrister wig, white jabot collar | Wooden gavel | Black + crimson + white |
 
 The pair (Bob ↔ Alice), the eavesdropper (Eve), the attacker
@@ -94,17 +94,49 @@ Sketched silhouette intent below; not yet implemented.
 When implementing each, follow the anti-stereotype rule and pick a
 prop that subverts the cryptographic role rather than literalizing it.
 
+## Templates
+
+Two adapters serve the crew today:
+
+- **`toon`** (`targets/toon_side.py`) — the shared cartoon
+  template that ships Bob, Alice, Eve, Mallory, Judy. Stick-figure
+  construction underneath: capsule limbs + oval head + applied
+  hair/outfit/prop dispatch tables. Easy to add new characters by
+  authoring a preset; harder to escape the "everyone is basically
+  the same body under the costume" read.
+- **`trent_elder`** (`targets/trent_elder.py`) — bespoke template
+  for Trent. Robe-first composition (no capsule limbs poking out),
+  elongated head with a jaw extension that gives the beard a real
+  triangular base, two-tone draped fabric, no shared dispatch
+  tables. Single archetype today; the geometry vocabulary (head +
+  jaw + beard + robe + side-fringe + chain-of-office) is documented
+  so a future "council batch" character can be added by overriding
+  the palette and a few proportions.
+
+The expectation going forward: any character whose silhouette
+genuinely doesn't fit the toon template gets a bespoke template
+file. Don't keep stretching the toon target to handle every
+silhouette — the per-character template cost is real (~500
+lines), but each one delivers a quality jump that's hard to get
+from preset tuning alone.
+
 ## Pipeline notes
 
-- All six PRESETS live in
+- The toon PRESETS live in
   `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/toon_side.py`.
   They mix existing primitives (body plans, the `hood` hair, the
   `tablet`/`medals`/`scarf`/`satchel` props) with new ones added in
-  the same patch: hairs `tousled_crop`, `chignon`, `undercut_braid`,
-  `clean_bald`, `barrister_wig`; outfits `vest_over_shirt`, `tabard`,
-  `eavesdrop_cloak`, `field_jacket`, `formal_robe`, `judicial_robe`;
-  props `key_ring`, `cipher_scroll`, `listening_horn`,
-  `balance_scales`, `gavel`; accessory `jabot_collar`.
+  the same patch: hairs `tousled_crop`, `long_side_braid`,
+  `forward_braid`, `clean_bald`, `barrister_wig` (and the original
+  `chignon` / `undercut_braid` kept for opt-in androgynous reads);
+  outfits `vest_over_shirt`, `tabard`, `cinched_tabard`,
+  `eavesdrop_cloak`, `field_jacket`, `cinched_field_jacket`,
+  `formal_robe`, `judicial_robe`; props `key_ring`,
+  `cipher_scroll`, `listening_horn`, `balance_scales`, `gavel`;
+  accessory `jabot_collar`.
+- Trent's bespoke template lives in `targets/trent_elder.py` with a
+  one-line registration in `adapters.py`. His review config sets
+  `target: trent_elder` instead of `target: toon`.
 - Review configs in `configs/review/{alice,bob,eve,judy,mallory,trent}.yaml`
   are added to `RUNTIME_REVIEW_NPCS` in `cli.py` so
   `draw-runtime-npcs` installs them with the rest of the toon roster.

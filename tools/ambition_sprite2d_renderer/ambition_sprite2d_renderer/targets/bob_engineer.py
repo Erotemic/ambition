@@ -501,15 +501,28 @@ class BobEngineerGenerator:
             d.ellipse(_bbox((ring_c[0] + ddx * S, ring_c[1] + 4.2 * S), 1.0 * S, 1.2 * S), fill=pal["brass_dark"], outline=outline, width=max(1, int(0.5 * S)))
 
     def _tq_draw_head(self, base: Image.Image, c: Point, spec: BobSpec, pal: Dict[str, Color], S: float, pose: BobPose) -> None:
+        """Three-quarter view head.
+
+        Z-order (matches the pattern documented in
+        alice_cryptographer._tq_draw_head — even though Bob has no
+        cheek curtains, the structure stays parallel so a future
+        long-haired engineer-style character can reuse this scaffold
+        without re-deriving the layering):
+          1. Neck    (chin will cover the top of it)
+          2. Back hair mass
+          3. Face oval        ← if curtains existed, they'd go here
+                                BEFORE the face oval, like Alice
+          4. Five o'clock shadow over the lower face
+          5. Tousled-crop bangs (forehead clumps, drawn over the face)
+          6. Eyes / nose / mouth
+        """
         d = ImageDraw.Draw(base)
         outline = pal["outline"]
-        # Neck strip first, behind the head — the chin will overlap
-        # the top of the neck so the join reads cleanly.
+        # 1. Neck strip — chin will overlap the top of it.
         self._draw_neck(d, c, spec, pal, S, slant=+0.5)
-        # Back hair mass (drawn first so the face sits on top).
+        # 2. Back hair mass.
         d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + 4.0) * S, (spec.head_h * 0.80 + 2.0) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)))
-        # Face: a smoother oval than Trent's polygon — the silhouette
-        # is more organic.
+        # 3. Face oval.
         d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
         # Five o'clock shadow: covers the lower jaw + mouth area,
         # drawn BEFORE the mouth so the mouth line stays visible on
@@ -517,16 +530,39 @@ class BobEngineerGenerator:
         # with jaw_h*1.4 height; now centered on the mouth at y=0.30
         # with jaw_h*2.4 height so it reads as actual stubble.
         d.ellipse(_bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.30 * S), (spec.head_w * 0.74) * S, (spec.jaw_h * 2.4) * S), fill=pal["skin_shadow"], outline=None)
-        # Tousled-crop bangs — two soft clumps.
-        for sign, dx in zip((-1, 1), (-3.0, 3.0)):
-            d.polygon([
-                (c[0] + dx * S, c[1] - spec.head_h * 0.50 * S),
-                (c[0] + (dx + sign * 3.0) * S, c[1] - spec.head_h * 0.46 * S),
-                (c[0] + (dx + sign * 4.0) * S, c[1] - spec.head_h * 0.22 * S),
-                (c[0] + (dx + sign * 1.0) * S, c[1] - spec.head_h * 0.26 * S),
-            ], fill=pal["hair"], outline=outline)
-        # 3/4 eyes (matches the toon convention so the face reads the
-        # same way the rest of the cast does in this view).
+        # Tousled-crop bangs — tightened to two cleaner clumps that
+        # don't fight the eyes below. Previous version had a
+        # randomish "+/- (3 + sign * 4)" geometry that looked noisy
+        # at downsample. New version uses a deliberate left clump +
+        # right clump with a small forehead skin gap between them.
+        left_clump = [
+            (c[0] - spec.head_w * 0.42 * S, c[1] - spec.head_h * 0.48 * S),
+            (c[0] - spec.head_w * 0.06 * S, c[1] - spec.head_h * 0.46 * S),
+            (c[0] - spec.head_w * 0.10 * S, c[1] - spec.head_h * 0.22 * S),
+            (c[0] - spec.head_w * 0.34 * S, c[1] - spec.head_h * 0.18 * S),
+        ]
+        right_clump = [
+            (c[0] + spec.head_w * 0.00 * S, c[1] - spec.head_h * 0.48 * S),
+            (c[0] + spec.head_w * 0.34 * S, c[1] - spec.head_h * 0.42 * S),
+            (c[0] + spec.head_w * 0.30 * S, c[1] - spec.head_h * 0.18 * S),
+            (c[0] + spec.head_w * 0.02 * S, c[1] - spec.head_h * 0.22 * S),
+        ]
+        d.polygon(left_clump, fill=pal["hair"], outline=outline)
+        d.polygon(right_clump, fill=pal["hair"], outline=outline)
+        # Brow strokes for expression — one above each eye, drawn in
+        # the hair color so they tie the face to the hair without
+        # being as heavy as the outline.
+        d.line(
+            [(c[0] - spec.head_w * 0.10 * S, c[1] - spec.head_h * 0.10 * S),
+             (c[0] + spec.head_w * 0.06 * S, c[1] - spec.head_h * 0.12 * S)],
+            fill=pal["hair"], width=max(1, int(0.9 * S)),
+        )
+        d.line(
+            [(c[0] + spec.head_w * 0.18 * S, c[1] - spec.head_h * 0.12 * S),
+             (c[0] + spec.head_w * 0.34 * S, c[1] - spec.head_h * 0.10 * S)],
+            fill=pal["hair"], width=max(1, int(0.8 * S)),
+        )
+        # 3/4 eyes.
         self._draw_eyes_three_quarter(d, c, spec, pal, S, pose)
         # Nose.
         d.line(
@@ -697,73 +733,128 @@ class BobEngineerGenerator:
         self._side_draw_head(base, head_center, spec, pal, S, pose)
 
     def _side_draw_head(self, base: Image.Image, c: Point, spec: BobSpec, pal: Dict[str, Color], S: float, pose: BobPose) -> None:
+        """Profile head with a proper inline neck that connects the
+        jawline down to the shoulder.
+
+        Z-order (explicit, matches Alice's documented pattern):
+          1. Inline profile neck  (chin will overlap the top edge)
+          2. Back hair cap
+          3. Full face polygon    (extends to head_h * 0.46 chin — a
+                                   real jaw, not the truncated 0.34
+                                   polygon the previous revision used)
+          4. Stub / 5-oc shadow over the lower face
+          5. Ear (camera-far side)
+          6. Forward bang sweep
+          7. Eye + brow
+          8. Mouth lip line
+        """
         d = ImageDraw.Draw(base)
         outline = pal["outline"]
-        # Profile head: an asymmetric ellipse with a forward-jutting
-        # nose + chin polygon. The hair is a solid cap on the back of
-        # the skull, with a forward bang sweep.
-        # Neck strip behind the head (chin will overlap the top of it).
-        self._draw_neck(d, c, spec, pal, S, slant=+1.5)
-        # Back hair cap.
+
+        # 1. Inline profile neck — connects the jaw point to the
+        # shoulder. The generic `_draw_neck` helper centers the neck
+        # under head_center.x, but in profile the chin is offset
+        # forward (+head_w * 0.34) and the neck needs to angle back
+        # to the shoulder. Draw the neck polygon explicitly here so
+        # the front edge follows the chin and the back edge follows
+        # the nape.
+        shoulder_y = c[1] + spec.head_h * spec.head_anchor * S + spec.neck_h * S
+        chin_front_x = c[0] + spec.head_w * 0.36 * S
+        chin_front_y = c[1] + spec.head_h * 0.36 * S
+        nape_x = c[0] - spec.head_w * 0.10 * S
+        nape_y = c[1] + spec.head_h * 0.32 * S
+        neck = [
+            (chin_front_x, chin_front_y),
+            (chin_front_x - 1.5 * S, shoulder_y + 2.0 * S),
+            (nape_x - 1.0 * S, shoulder_y + 2.0 * S),
+            (nape_x, nape_y),
+        ]
+        d.polygon(neck, fill=pal["skin"], outline=outline)
+        # Throat shadow — a thin darker stroke along the back of the
+        # neck so the front-vs-back planes read.
+        d.line(
+            [(nape_x + 0.5 * S, nape_y + 1.0 * S), (nape_x - 0.5 * S, shoulder_y + 1.0 * S)],
+            fill=pal["skin_shadow"], width=max(1, int(0.7 * S)),
+        )
+
+        # 2. Back hair cap.
         d.ellipse(
             _bbox((c[0] - 2.0 * S, c[1] - 3.0 * S), (spec.head_w + 4.0) * S, (spec.head_h * 0.86) * S),
             fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)),
         )
-        # Face — head outline with a clear forehead, brow, nose, lip,
-        # chin sequence drawn as one polygon for a clean silhouette.
+
+        # 3. Face polygon — extended down to head_h * 0.46 chin
+        # (was 0.34, which cut the bottom of the head off and left a
+        # gap above the neck). The forward-chin point is at the same
+        # x as the neck top so the silhouette connects cleanly.
         face = [
             (c[0] - spec.head_w * 0.30 * S, c[1] - spec.head_h * 0.46 * S),
             (c[0] + spec.head_w * 0.28 * S, c[1] - spec.head_h * 0.36 * S),
-            (c[0] + spec.head_w * 0.38 * S, c[1] - spec.head_h * 0.10 * S),  # brow
-            (c[0] + spec.head_w * 0.52 * S, c[1] + spec.head_h * 0.02 * S),  # nose tip
-            (c[0] + spec.head_w * 0.38 * S, c[1] + spec.head_h * 0.10 * S),  # under-nose
-            (c[0] + spec.head_w * 0.42 * S, c[1] + spec.head_h * 0.20 * S),  # upper lip
-            (c[0] + spec.head_w * 0.34 * S, c[1] + spec.head_h * 0.28 * S),  # chin
-            (c[0] + spec.head_w * 0.08 * S, c[1] + spec.head_h * 0.34 * S),
-            (c[0] - spec.head_w * 0.34 * S, c[1] + spec.head_h * 0.22 * S),
-            (c[0] - spec.head_w * 0.42 * S, c[1] - spec.head_h * 0.10 * S),
+            (c[0] + spec.head_w * 0.40 * S, c[1] - spec.head_h * 0.14 * S),  # brow
+            (c[0] + spec.head_w * 0.54 * S, c[1] - spec.head_h * 0.02 * S),  # nose bridge
+            (c[0] + spec.head_w * 0.56 * S, c[1] + spec.head_h * 0.06 * S),  # nose tip
+            (c[0] + spec.head_w * 0.40 * S, c[1] + spec.head_h * 0.14 * S),  # under-nose
+            (c[0] + spec.head_w * 0.44 * S, c[1] + spec.head_h * 0.22 * S),  # upper lip
+            (c[0] + spec.head_w * 0.40 * S, c[1] + spec.head_h * 0.30 * S),  # lower lip
+            (c[0] + spec.head_w * 0.36 * S, c[1] + spec.head_h * 0.36 * S),  # chin connects to neck top
+            (c[0] + spec.head_w * 0.10 * S, c[1] + spec.head_h * 0.46 * S),  # jaw under-chin
+            (c[0] - spec.head_w * 0.10 * S, c[1] + spec.head_h * 0.36 * S),  # nape connects to neck top
+            (c[0] - spec.head_w * 0.36 * S, c[1] + spec.head_h * 0.18 * S),  # jaw back corner
+            (c[0] - spec.head_w * 0.42 * S, c[1] - spec.head_h * 0.10 * S),  # cheek
         ]
         d.polygon(face, fill=pal["skin"], outline=outline)
-        # Five o'clock shadow on the jaw line — covers the lower-
-        # face area including the mouth corner. Profile uses an
-        # angled polygon following the jaw rather than an ellipse
-        # so it traces the silhouette.
+
+        # 4. Five o'clock shadow on the lower face — repositioned to
+        # follow the new larger jawline. Covers from the cheekbone
+        # down to the chin including the mouth area.
         stub = [
-            (c[0] - spec.head_w * 0.32 * S, c[1] + spec.head_h * 0.12 * S),
-            (c[0] + spec.head_w * 0.38 * S, c[1] + spec.head_h * 0.16 * S),
-            (c[0] + spec.head_w * 0.40 * S, c[1] + spec.head_h * 0.22 * S),
-            (c[0] + spec.head_w * 0.32 * S, c[1] + spec.head_h * 0.30 * S),
-            (c[0] + spec.head_w * 0.06 * S, c[1] + spec.head_h * 0.34 * S),
-            (c[0] - spec.head_w * 0.32 * S, c[1] + spec.head_h * 0.26 * S),
+            (c[0] - spec.head_w * 0.34 * S, c[1] + spec.head_h * 0.10 * S),
+            (c[0] + spec.head_w * 0.40 * S, c[1] + spec.head_h * 0.16 * S),
+            (c[0] + spec.head_w * 0.44 * S, c[1] + spec.head_h * 0.26 * S),
+            (c[0] + spec.head_w * 0.36 * S, c[1] + spec.head_h * 0.36 * S),
+            (c[0] + spec.head_w * 0.10 * S, c[1] + spec.head_h * 0.44 * S),
+            (c[0] - spec.head_w * 0.10 * S, c[1] + spec.head_h * 0.34 * S),
+            (c[0] - spec.head_w * 0.34 * S, c[1] + spec.head_h * 0.20 * S),
         ]
         d.polygon(stub, fill=pal["skin_shadow"], outline=None)
-        # Ear visible on the back-of-head side.
-        d.ellipse(
-            _bbox((c[0] - spec.head_w * 0.18 * S, c[1] + spec.head_h * 0.02 * S), 3.2 * S, 4.0 * S),
-            fill=pal["skin"], outline=outline, width=max(1, int(0.8 * S)),
-        )
+
+        # 5. Ear (camera-far side) — slightly lower + larger than
+        # before so the silhouette reads as having a real ear.
+        ear_c = (c[0] - spec.head_w * 0.22 * S, c[1] + spec.head_h * 0.04 * S)
+        d.ellipse(_bbox(ear_c, 3.4 * S, 4.6 * S), fill=pal["skin"], outline=outline, width=max(1, int(0.8 * S)))
+        # Ear inner crease.
         d.line(
-            [(c[0] - spec.head_w * 0.20 * S, c[1] + spec.head_h * 0.00 * S), (c[0] - spec.head_w * 0.16 * S, c[1] + spec.head_h * 0.06 * S)],
+            [(ear_c[0] + 0.5 * S, ear_c[1] - 1.5 * S), (ear_c[0] - 0.5 * S, ear_c[1] + 1.5 * S)],
             fill=pal["skin_shadow"], width=max(1, int(0.7 * S)),
         )
-        # Forward bang sweep across the forehead.
+
+        # 6. Forward bang sweep across the forehead.
         d.polygon([
             (c[0] - spec.head_w * 0.30 * S, c[1] - spec.head_h * 0.46 * S),
             (c[0] + spec.head_w * 0.30 * S, c[1] - spec.head_h * 0.34 * S),
-            (c[0] + spec.head_w * 0.24 * S, c[1] - spec.head_h * 0.18 * S),
+            (c[0] + spec.head_w * 0.26 * S, c[1] - spec.head_h * 0.20 * S),
             (c[0] - spec.head_w * 0.20 * S, c[1] - spec.head_h * 0.18 * S),
         ], fill=pal["hair"], outline=outline)
-        # Single visible eye (profile).
-        eye_x = c[0] + spec.head_w * 0.20 * S
-        eye_y = c[1] - spec.head_h * 0.04 * S
+
+        # 7. Eye + brow.
+        eye_x = c[0] + spec.head_w * 0.22 * S
+        eye_y = c[1] - spec.head_h * 0.06 * S
+        # Brow stroke (subtle).
+        d.line(
+            [(c[0] + spec.head_w * 0.12 * S, c[1] - spec.head_h * 0.14 * S),
+             (c[0] + spec.head_w * 0.32 * S, c[1] - spec.head_h * 0.12 * S)],
+            fill=pal["hair"], width=max(1, int(0.8 * S)),
+        )
         if pose.blink:
             d.line([(eye_x - 1.2 * S, eye_y), (eye_x + 1.2 * S, eye_y)], fill=outline, width=max(1, int(1.0 * S)))
         else:
             d.ellipse(_bbox((eye_x, eye_y), 2.0 * S, 1.4 * S), fill=pal["white"], outline=outline, width=max(1, int(0.7 * S)))
             d.ellipse(_bbox((eye_x + 0.4 * S, eye_y), 1.0 * S, 1.2 * S), fill=outline)
-        # Mouth as a small forward-facing arc on the lip line.
+
+        # 8. Mouth lip line.
         d.line(
-            [(c[0] + spec.head_w * 0.36 * S, c[1] + spec.head_h * 0.22 * S), (c[0] + spec.head_w * 0.42 * S, c[1] + spec.head_h * 0.22 * S)],
+            [(c[0] + spec.head_w * 0.34 * S, c[1] + spec.head_h * 0.24 * S),
+             (c[0] + spec.head_w * 0.42 * S, c[1] + spec.head_h * 0.24 * S)],
             fill=outline, width=max(1, int(0.9 * S)),
         )
 
@@ -883,6 +974,14 @@ class BobEngineerGenerator:
                 (c[0] + (dx + 4.0) * S, c[1] - spec.head_h * 0.20 * S),
                 (c[0] + (dx - 4.0) * S, c[1] - spec.head_h * 0.20 * S),
             ], fill=pal["hair"], outline=outline)
+        # Symmetric brow strokes — one above each eye, in hair color.
+        for sgn in (-1, 1):
+            ex = c[0] + sgn * spec.head_w * 0.18 * S
+            d.line(
+                [(ex - 2.4 * S, c[1] - spec.head_h * 0.12 * S),
+                 (ex + 2.4 * S, c[1] - spec.head_h * 0.12 * S)],
+                fill=pal["hair"], width=max(1, int(0.9 * S)),
+            )
         # Two symmetric eyes.
         eye_y = c[1] - 2.0 * S
         for sgn in (-1, 1):

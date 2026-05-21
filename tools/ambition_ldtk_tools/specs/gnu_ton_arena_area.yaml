@@ -95,6 +95,14 @@ entities:
   # `OnStand` and never respawns, so the descent is one-way per
   # encounter attempt.
   # ─────────────────────────────────────────────────────────────────
+  # NOTE: a 48×16 slot is later punched out of this ledge at
+  # x=112..160 (IntGrid cells 7..9) and refilled with a named
+  # `ladder_floor_gate` Solid entity that the boss-defeat gating
+  # system removes on victory. The IntGrid erase + entity add live
+  # in `specs/gnu_ton/erase_floor_gate_slot.yaml` and
+  # `specs/gnu_ton/add_ladder_floor_gate.yaml` so re-running
+  # `area create` on this spec without those follow-up specs would
+  # leave the ledge solid and the gate non-functional.
   - type: Solid
     px: [16, 208]
     size: [288, 16]

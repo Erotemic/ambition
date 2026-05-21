@@ -1,11 +1,24 @@
 //! GNU-ton arena environment gating.
 //!
-//! The arena's retreat ladder is authored as a Climbable IntGrid column
-//! in `gnu_ton_arena_area.yaml`, so by default it's painted into
-//! `world.climbable_regions` the moment the room loads — which would
-//! let the player skip the fight by climbing right back out. This
-//! module hides the ladder while the gnu_ton boss is alive and
-//! re-adds it the frame the boss is defeated.
+//! Two arena hooks live here, both driven by the same "is the GNU-ton
+//! boss alive?" check so they stay in lockstep:
+//!
+//! 1. **Ladder reveal.** The arena's retreat ladder is authored as a
+//!    Climbable IntGrid column in `gnu_ton_arena_area.yaml`, so by
+//!    default it's painted into `world.climbable_regions` the moment
+//!    the room loads — which would let the player skip the fight by
+//!    climbing right back out. This module hides the ladder while the
+//!    boss is alive and re-adds it the frame the boss is defeated.
+//!
+//! 2. **Floor-gate above the ladder.** The entry ledge has a 48-px
+//!    gap punched out above the ladder column; a named Solid
+//!    (`ladder_floor_gate`) authored in LDtk fills that gap while the
+//!    boss is alive and is removed from `world.blocks` on defeat, so
+//!    the player can climb up the ladder and walk back to the exit
+//!    door. The floor-gate uses the *opposite* polarity from the
+//!    ladder (present-when-alive instead of absent-when-alive); both
+//!    are intentionally driven from the same boss-alive check so a
+//!    single gating system maintains both invariants.
 //!
 //! Gating is current-state-driven (any ECS boss with `is_gnu_ton() &&
 //! !alive`) rather than persisted-encounter-driven. Dying mid-fight
@@ -23,6 +36,12 @@ use crate::features::BossFeature;
 /// yaml at `tools/ambition_ldtk_tools/specs/gnu_ton_arena_area.yaml`.
 const ARENA_ROOM_NAME: &str = "gnu_ton_arena";
 
+/// Authored name of the named Solid block that fills the gap above
+/// the ladder while the fight is live. Defined in the LDtk file as a
+/// `Solid` entity with `fields.name = "ladder_floor_gate"`. Must
+/// match `specs/gnu_ton/add_ladder_floor_gate.yaml`.
+const FLOOR_GATE_BLOCK_NAME: &str = "ladder_floor_gate";
+
 /// Per-visit gating state. Lives in a `Local` on the gating system so
 /// the resource graph stays clean (no global resource for a single
 /// arena's environment hook).
@@ -37,6 +56,10 @@ pub struct GnuTonLadderGate {
     /// True once we've re-added the stashed ladders on boss death
     /// this visit. Stops us from re-adding every frame after defeat.
     revealed: bool,
+    /// True once the named `ladder_floor_gate` Solid has been removed
+    /// from `world.blocks` on defeat this visit. Stops us from
+    /// re-scanning every frame after the gate is open.
+    floor_gate_opened: bool,
 }
 
 /// Stash the arena's Climbable Ladder regions while the boss is alive,
@@ -52,9 +75,11 @@ pub fn gate_gnu_ton_arena_ladder(
         // Leaving the arena (or never entered). Drop visit-scoped
         // state so re-entry re-stashes against the freshly loaded
         // world — `world.0 = spec.world.clone()` on room change
-        // restores the ladder cells that we removed last visit.
+        // restores the ladder cells that we removed last visit, and
+        // re-emits the `ladder_floor_gate` Solid block.
         state.stashed = None;
         state.revealed = false;
+        state.floor_gate_opened = false;
         return;
     }
 
@@ -98,6 +123,16 @@ pub fn gate_gnu_ton_arena_ladder(
             }
         }
         state.revealed = true;
+        if !state.floor_gate_opened {
+            // Drop the named Solid that fills the gap above the ladder
+            // so the player can climb back up. The block is restored
+            // automatically on re-entry by the LDtk room-load path.
+            let before = world.0.blocks.len();
+            world.0.blocks.retain(|b| b.name != FLOOR_GATE_BLOCK_NAME);
+            if world.0.blocks.len() != before {
+                state.floor_gate_opened = true;
+            }
+        }
     }
 }
 
@@ -115,6 +150,35 @@ mod tests {
         )
         .with_climbable_regions(ladders);
         crate::GameWorld(world)
+    }
+
+    fn make_game_world_with_floor_gate(
+        name: &str,
+        ladders: Vec<ae::ClimbableRegion>,
+    ) -> crate::GameWorld {
+        let gate_block = ae::Block::solid(
+            FLOOR_GATE_BLOCK_NAME,
+            ae::Vec2::new(112.0, 208.0),
+            ae::Vec2::new(48.0, 16.0),
+        );
+        let world = ae::World::new(
+            name,
+            ae::Vec2::new(2_000.0, 2_000.0),
+            ae::Vec2::ZERO,
+            vec![gate_block],
+        )
+        .with_climbable_regions(ladders);
+        crate::GameWorld(world)
+    }
+
+    fn floor_gate_count(app: &App) -> usize {
+        app.world()
+            .resource::<crate::GameWorld>()
+            .0
+            .blocks
+            .iter()
+            .filter(|b| b.name == FLOOR_GATE_BLOCK_NAME)
+            .count()
     }
 
     fn spawn_gnu_ton_runtime() -> BossRuntime {
@@ -189,6 +253,58 @@ mod tests {
             .climbable_regions;
         assert_eq!(regions.len(), 1, "ladder should be back after defeat");
         assert_eq!(regions[0].kind, ae::ClimbableKind::Ladder);
+    }
+
+    #[test]
+    fn floor_gate_block_stays_while_boss_is_alive() {
+        // While the boss is alive the ladder_floor_gate block must
+        // remain in world.blocks — that's what physically blocks the
+        // player from climbing back up to the exit door mid-fight.
+        let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
+        let mut app = make_app(make_game_world_with_floor_gate(
+            ARENA_ROOM_NAME,
+            vec![ladder],
+        ));
+        app.world_mut()
+            .spawn(BossFeature::new(spawn_gnu_ton_runtime()));
+        for _ in 0..5 {
+            app.update();
+        }
+        assert_eq!(
+            floor_gate_count(&app),
+            1,
+            "floor gate must stay while the boss is alive — otherwise \
+             the player can climb back out to skip the fight"
+        );
+    }
+
+    #[test]
+    fn floor_gate_block_is_removed_on_boss_defeat() {
+        // The frame the boss dies, the named ladder_floor_gate block
+        // should be removed from world.blocks so the player can climb
+        // up the ladder and walk back to the exit door.
+        let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
+        let mut app = make_app(make_game_world_with_floor_gate(
+            ARENA_ROOM_NAME,
+            vec![ladder],
+        ));
+        let boss_entity = app
+            .world_mut()
+            .spawn(BossFeature::new(spawn_gnu_ton_runtime()))
+            .id();
+        app.update();
+        assert_eq!(floor_gate_count(&app), 1);
+        app.world_mut()
+            .get_mut::<BossFeature>(boss_entity)
+            .unwrap()
+            .boss
+            .alive = false;
+        app.update();
+        assert_eq!(
+            floor_gate_count(&app),
+            0,
+            "floor gate must be dropped on defeat so the player can climb out"
+        );
     }
 
     #[test]

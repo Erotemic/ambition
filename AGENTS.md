@@ -36,6 +36,16 @@ Historical notes under `docs/archive/` are evidence, not current authority. Gene
 - LDtk owns world/level authoring. RON room manifests are historical; RON may still be used for tuning, save/settings, and other data where appropriate.
 - Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
 
+## Spatial authoring discipline (LDtk, gates, hitboxes)
+
+If you are placing entities, gates, walls, hitboxes, or other map
+geometry, read `docs/concepts/llm-spatial-authoring-discipline.md`
+before asking the user "where exactly?". The short version: read the
+map, infer the *purpose* of the component (block exit / block entry
+/ gate progression), place it along the seam that fulfils that
+purpose, and state the reasoning in the commit message. Asking
+"where?" is the wrong default.
+
 ## Engineering memory and benchmark candidates
 
 Before a non-trivial patch, search prior mistakes:

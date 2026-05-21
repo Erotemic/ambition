@@ -422,3 +422,12 @@ some line about not known what it is, but its not Unix.
 The Luddite / Nazi dichotomy in the intro doesn't work. One isn't as bad as the
 other. The current presentation is too symmetrical. We either need to rework it
 so save Nazis for later, or figure out how to handle the asymmetry. 
+
+---
+
+A fun idea that might pivot other ideas is that you are the only non-AI in the
+world and everyone else is an AI, so that would be interesting.
+
+Oh, maybe we could do a pokemon red / blue thing where the engine is used to
+express two different games that are "sold separately". Ambition AI / NI.  Or
+some sort of red / blue split release would be really sweet.

@@ -88,7 +88,8 @@ Implementation hooks:
 Existing anchor:
 
 - `intro_raid_corridor`
-- `Framebreaker` enemy, `Nazi Salvage Guard` enemy
+- `Framebreaker` enemy, `Nazi Salvage Guard` enemy. (NOTE: The Flamebreaker name is not set in stone), and we might change the other faction so Nazis are introduced later.
+
 - Creator Final NPC and fast/impossible dialogue variants
 - Debug labels already plant the manifest/wrong-list joke
 

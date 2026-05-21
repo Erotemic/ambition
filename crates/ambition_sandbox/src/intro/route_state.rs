@@ -366,6 +366,91 @@ mod tests {
     }
 
     #[test]
+    fn redirect_post_intro_dialog_swaps_oiler_after_stabilizer() {
+        use bevy::app::{App, Update};
+        use crate::dialog::{DialogMode, DialogState};
+        use crate::intro::dialog::IntroDialog;
+        use crate::persistence::save::SandboxSave;
+
+        let mut app = App::new();
+        let mut dialog = DialogState::default();
+        dialog.start("oiler_intro", "Oiler");
+        // start() should produce the OilerIntro mode via the
+        // dialog::content from_dialogue_id dispatcher; assert that as
+        // a precondition so the redirect test exercises the swap, not
+        // a happenstance.
+        assert_eq!(dialog.mode(), DialogMode::Intro(IntroDialog::OilerIntro));
+        app.insert_resource(dialog);
+        app.insert_resource(SandboxSave::default());
+        app.add_systems(Update, super::redirect_post_intro_dialog);
+
+        // Pre-flag: redirector should leave the mode alone.
+        app.update();
+        let mode = app.world().resource::<DialogState>().mode();
+        assert_eq!(mode, DialogMode::Intro(IntroDialog::OilerIntro));
+
+        // Flip the flag; the next tick should swap to the post-state.
+        app.world_mut()
+            .resource_mut::<SandboxSave>()
+            .data_mut()
+            .set_flag("p1_stabilizer_received", true);
+        app.update();
+        let mode = app.world().resource::<DialogState>().mode();
+        assert_eq!(
+            mode,
+            DialogMode::Intro(IntroDialog::OilerPostStabilizer),
+            "expected post-stabilizer swap after p1_stabilizer_received"
+        );
+    }
+
+    #[test]
+    fn redirect_post_intro_dialog_swaps_alice_after_bob_survey() {
+        use bevy::app::{App, Update};
+        use crate::dialog::{DialogMode, DialogState};
+        use crate::intro::dialog::IntroDialog;
+        use crate::persistence::save::SandboxSave;
+
+        let mut app = App::new();
+        let mut dialog = DialogState::default();
+        dialog.start("alice_intro_stub", "Alice");
+        assert_eq!(dialog.mode(), DialogMode::Intro(IntroDialog::AliceIntroStub));
+        app.insert_resource(dialog);
+        app.insert_resource(SandboxSave::default());
+        app.add_systems(Update, super::redirect_post_intro_dialog);
+
+        app.world_mut()
+            .resource_mut::<SandboxSave>()
+            .data_mut()
+            .set_flag("bob_field_survey_received", true);
+        app.update();
+        let mode = app.world().resource::<DialogState>().mode();
+        assert_eq!(
+            mode,
+            DialogMode::Intro(IntroDialog::AliceAfterBobSurvey)
+        );
+    }
+
+    #[test]
+    fn redirect_post_intro_dialog_does_nothing_when_dialog_inactive() {
+        use bevy::app::{App, Update};
+        use crate::dialog::DialogState;
+        use crate::persistence::save::SandboxSave;
+
+        let mut app = App::new();
+        app.insert_resource(DialogState::default());
+        let mut save = SandboxSave::default();
+        save.data_mut().set_flag("p1_stabilizer_received", true);
+        save.data_mut().set_flag("bob_field_survey_received", true);
+        app.insert_resource(save);
+        app.add_systems(Update, super::redirect_post_intro_dialog);
+
+        // No dialog active; system should early-return without touching
+        // DialogState. Just running the update verifies no panic.
+        app.update();
+        assert!(!app.world().resource::<DialogState>().active());
+    }
+
+    #[test]
     fn intro_dialog_redirects_have_no_loops() {
         // A redirect's post-state should not itself be a pre-state in
         // the table — that would mean two frames of swaps for a single

@@ -140,7 +140,7 @@ class AliceSpec:
     # Hair — long-haired silhouette is the dominant cue.
     back_hair_w_extra: float = 6.0  # how much wider than the head
     back_hair_h_extra: float = 14.0  # how much it extends past the chin
-    bangs_h: float = 5.0
+    bangs_h: float = 3.6      # was 5.0 — was reading as a heavy visor
     curtain_drop: float = 14.0       # how far cheek curtains hang past the jaw
     braid_segments: int = 10         # long forward braid (10 stacked ellipses)
     # Body — slim academic. New scaffold (NOT Trent-derived):
@@ -233,9 +233,14 @@ class AliceCryptographerGenerator:
             p.body_bob = wave * 0.5
             p.blink = frame_index == frame_count - 1
         elif animation == "walk":
-            p.step_phase = wave
-            p.body_bob = abs(wave) * 1.0
-            p.head_tilt = -wave * 0.6
+            # Phase-shifted so frame 0 already shows a stride peak
+            # (sin(pi/2) = +1) instead of the neutral midpoint
+            # (sin(0) = 0). Spot checks of frame 0 should look like
+            # walking, not standing.
+            phase_wave = math.sin((t + 0.25) * math.tau)
+            p.step_phase = phase_wave
+            p.body_bob = abs(phase_wave) * 1.0
+            p.head_tilt = -phase_wave * 0.6
         elif animation == "talk":
             p.talk_open = (0.5 + 0.5 * wave) * 0.85
             p.head_tilt = wave * 1.2
@@ -307,9 +312,12 @@ class AliceCryptographerGenerator:
     def _tq_draw_legs(self, base: Image.Image, cx: float, leg_top_y: float, boot_top_y: float, feet_y: float, spec: AliceSpec, pal: Dict[str, Color], S: float) -> None:
         d = ImageDraw.Draw(base)
         outline = pal["outline"]
+        # Spread the legs so they don't merge at the centerline (was
+        # sign * 4.0 with leg_w 6 — gap was 2 design units, hard to
+        # read at downsample). New spacing leaves a clear ankle gap.
         for sign in (-1, 1):
-            hip_x = cx + sign * 4.0 * S
-            ankle_x = cx + sign * 4.0 * S
+            hip_x = cx + sign * 5.5 * S
+            ankle_x = cx + sign * 5.5 * S
             leg = [
                 (hip_x - spec.leg_w * 0.5 * S, leg_top_y),
                 (hip_x + spec.leg_w * 0.5 * S, leg_top_y),

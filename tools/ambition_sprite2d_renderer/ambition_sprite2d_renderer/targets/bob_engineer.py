@@ -219,10 +219,16 @@ class BobEngineerGenerator:
             p.blink = frame_index == frame_count - 1
         elif animation == "walk":
             # SIDE view walk — step_phase drives leg + arm swing.
-            p.step_phase = wave
-            p.body_bob = abs(wave) * 1.0
+            # Offset the phase by a quarter cycle so frame 0 is at
+            # a clear stride peak (step_phase = sin(pi/2) = +1), not
+            # the neutral midpoint (step_phase = sin(0) = 0). Spot
+            # checks of frame 0 should show a real walking pose so
+            # the spritesheet preview is honest about motion.
+            phase_wave = math.sin((t + 0.25) * math.tau)
+            p.step_phase = phase_wave
+            p.body_bob = abs(phase_wave) * 1.0
             # Subtle counter-tilt of head with the gait.
-            p.head_tilt = -wave * 1.0
+            p.head_tilt = -phase_wave * 1.0
         elif animation == "talk":
             p.talk_open = (0.5 + 0.5 * wave) * 0.9
             p.head_tilt = wave * 1.2
@@ -296,9 +302,12 @@ class BobEngineerGenerator:
         outline = pal["outline"]
         # Two tapered leg shapes — narrower at the boot, wider at the
         # hip — in pants color, with a subtle inner-shadow seam.
+        # Spread the legs so they don't visually merge at the centerline:
+        # was hip * 0.22 + leg_w 0.5 (legs touched at x=0); bumped to
+        # hip * 0.38 so there's a clear gap between them.
         for sign, dx in zip((-1, 1), (-1, 1)):
-            hip = (cx + dx * spec.hip_w * 0.22 * S, pants_top_y)
-            ankle = (cx + dx * spec.boot_w * 0.10 * S, boot_top_y)
+            hip = (cx + dx * spec.hip_w * 0.38 * S, pants_top_y)
+            ankle = (cx + dx * spec.boot_w * 0.28 * S, boot_top_y)
             leg = [
                 (hip[0] - spec.leg_w * 0.5 * S, hip[1]),
                 (hip[0] + spec.leg_w * 0.5 * S, hip[1]),

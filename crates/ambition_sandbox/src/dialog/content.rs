@@ -913,13 +913,13 @@ const PIRATE_RAIDER_NODES: &[DialogNode] = &[
 
 const PIRATE_QUARTERMASTER_OPTIONS: &[DialogChoice] = &[
     DialogChoice {
-        label: "What's the inventory situation?",
+        label: "How's the hold lookin'?",
         next_node: Some(1),
         note: None,
         close_after: false,
     },
     DialogChoice {
-        label: "Anything above the cove?",
+        label: "What's above decks?",
         next_node: Some(2),
         note: None,
         close_after: false,
@@ -934,7 +934,7 @@ const PIRATE_QUARTERMASTER_OPTIONS: &[DialogChoice] = &[
 
 const PIRATE_QUARTERMASTER_RETURN_OPTIONS: &[DialogChoice] = &[
     DialogChoice {
-        label: "Ask another question.",
+        label: "Aught else, master?",
         next_node: Some(0),
         note: None,
         close_after: false,
@@ -950,19 +950,19 @@ const PIRATE_QUARTERMASTER_RETURN_OPTIONS: &[DialogChoice] = &[
 const PIRATE_QUARTERMASTER_NODES: &[DialogNode] = &[
     DialogNode {
         speaker: "Quartermaster",
-        line: "Aye. I'm the only one in this cove who can spell 'inventory'. The Admiral signs the manifest; the Raider EATS the manifest. Try not to be a Raider.",
+        line: "Aye-aye, landstrider. I be the only soul in this here cove what can spell 'manifest' — th' Admiral signs it, the Raider DEVOURS it. Pray ye don't end up a Raider, savvy?",
         options: PIRATE_QUARTERMASTER_OPTIONS,
         default_next: None,
     },
     DialogNode {
         speaker: "Quartermaster",
-        line: "Powder: short. Salt pork: shorter. Songs: somehow running a deficit since the bird took the chest. We're trading IOUs for verses, which is exactly as sustainable as it sounds.",
+        line: "Powder: low. Salt pork: lower. Rum: don't ask. Shanties: somehow runnin' a deficit since the bird flew off with the chest — we be tradin' IOUs for verses now, which is as seaworthy as a sieve in a squall.",
         options: PIRATE_QUARTERMASTER_RETURN_OPTIONS,
         default_next: None,
     },
     DialogNode {
         speaker: "Quartermaster",
-        line: "The lookout, up the rigging through the hatch in the ceiling. Crew's in a foul mood today — every shark's got a rider on top with a grudge and a flintlock, and they ain't asking questions before they fire. You ever try rationing salt pork between six pirates and three on-fire sharks? That's why they're cross.",
+        line: "Up the riggin', through the hatch in the overhead — that's where the lookout's perched. Mind ye: the crew be in a black humor today. Every shark wears a rider with a grudge an' a flintlock, an' they fire before they ask yer name. Ye try splittin' six pork rations 'tween six pirates an' three on-fire sharks an' see how SWEET-tempered ye'd be.",
         options: PIRATE_QUARTERMASTER_RETURN_OPTIONS,
         default_next: None,
     },
@@ -977,13 +977,13 @@ const PIRATE_QUARTERMASTER_NODES: &[DialogNode] = &[
 
 const PIRATE_LOOKOUT_OPTIONS: &[DialogChoice] = &[
     DialogChoice {
-        label: "What're you watching for?",
+        label: "What's on the horizon?",
         next_node: Some(1),
         note: None,
         close_after: false,
     },
     DialogChoice {
-        label: "Why is the crew so cross?",
+        label: "Why be the crew so cross?",
         next_node: Some(2),
         note: None,
         close_after: false,
@@ -998,7 +998,7 @@ const PIRATE_LOOKOUT_OPTIONS: &[DialogChoice] = &[
 
 const PIRATE_LOOKOUT_RETURN_OPTIONS: &[DialogChoice] = &[
     DialogChoice {
-        label: "Ask another question.",
+        label: "Aught else, sentry?",
         next_node: Some(0),
         note: None,
         close_after: false,
@@ -1014,19 +1014,19 @@ const PIRATE_LOOKOUT_RETURN_OPTIONS: &[DialogChoice] = &[
 const PIRATE_LOOKOUT_NODES: &[DialogNode] = &[
     DialogNode {
         speaker: "Lookout",
-        line: "Shark trouble. The riders been circling since dawn — same orbit, then a hard double-back when they think nobody's watching. They are wrong about that.",
+        line: "Hist. Shark trouble brewin' aloft — riders been comin' about since first light. Same arc, then a sharp double-back when they reckon no one's watchin'. They reckon WRONG.",
         options: PIRATE_LOOKOUT_OPTIONS,
         default_next: None,
     },
     DialogNode {
         speaker: "Lookout",
-        line: "Sky. Mockingbird drops songs from up there sometimes; the riders dive at anything that twitches. If you see one peel off the orbit and reverse, that's the dive cue — step LEFT.",
+        line: "Sky an' clouds, lubber. That cursed Mockingbird drops shanties from up yonder — riders dive at whatever twitches below. Mark me: when ye see one peel off the orbit an' reverse her heading, that be the dive — step PORT, smartly.",
         options: PIRATE_LOOKOUT_RETURN_OPTIONS,
         default_next: None,
     },
     DialogNode {
         speaker: "Lookout",
-        line: "Ration cut. Quartermaster cut the salt pork down to half-portions. Six pirates plus three sharks fed on half-portions equals a grudge with a heartbeat. The riders are the loudest about it.",
+        line: "Short rations, plain an' simple. Quartermaster halved the salt pork. Six pirates an' three on-fire sharks on half-portions? That be a grudge with a heartbeat, an' the riders bark loudest about it. Empty belly makes a sharp cutlass.",
         options: PIRATE_LOOKOUT_RETURN_OPTIONS,
         default_next: None,
     },
@@ -1040,13 +1040,13 @@ const PIRATE_LOOKOUT_NODES: &[DialogNode] = &[
 
 const PIRATE_NAVIGATOR_OPTIONS: &[DialogChoice] = &[
     DialogChoice {
-        label: "What's their flight pattern?",
+        label: "What's their course aloft?",
         next_node: Some(1),
         note: None,
         close_after: false,
     },
     DialogChoice {
-        label: "Why aren't they attacking you?",
+        label: "How d'ye dodge their broadside?",
         next_node: Some(2),
         note: None,
         close_after: false,
@@ -1061,7 +1061,7 @@ const PIRATE_NAVIGATOR_OPTIONS: &[DialogChoice] = &[
 
 const PIRATE_NAVIGATOR_RETURN_OPTIONS: &[DialogChoice] = &[
     DialogChoice {
-        label: "Ask another question.",
+        label: "One more question, cap'n cartographer.",
         next_node: Some(0),
         note: None,
         close_after: false,
@@ -1069,7 +1069,7 @@ const PIRATE_NAVIGATOR_RETURN_OPTIONS: &[DialogChoice] = &[
     DialogChoice {
         label: "[ready your blade]",
         next_node: None,
-        note: Some("Navigator nods at the sky. 'Three of them. Mind the reverse.'"),
+        note: Some("Navigator nods at the sky. 'Three of 'em. Mind the reverse.'"),
         close_after: true,
     },
 ];
@@ -1077,19 +1077,19 @@ const PIRATE_NAVIGATOR_RETURN_OPTIONS: &[DialogChoice] = &[
 const PIRATE_NAVIGATOR_NODES: &[DialogNode] = &[
     DialogNode {
         speaker: "Navigator",
-        line: "Three sharks, three riders. They orbit at altitude until something they don't like steps onto the deck — that's you — then they peel off and fire. The interesting bit is the double-back: every few seconds they reverse the orbit direction so you can't lead them by counting beats.",
+        line: "Three sharks, three riders, three sets o' teeth. They orbit on station at altitude 'til somethin' they fancy steps onto the planks — that be you, lubber — then they peel off and broadside. Here be the rub: every few breaths they come about and reverse the orbit, so ye can't lead 'em like a duck shoot.",
         options: PIRATE_NAVIGATOR_OPTIONS,
         default_next: None,
         },
     DialogNode {
         speaker: "Navigator",
-        line: "Three roles up there: Hover, Swoop, Retreat. Hover keeps height and fires. Swoop dives every three seconds. Retreat gains altitude and stretches the cadence. Each rider picks one at spawn and sticks with it. The reverse is on top of all of it.",
+        line: "Three roles aloft, picked at sail-out an' kept 'til death. HOVER holds the weather gauge an' fires. SWOOP dives every three breaths. RETREAT climbs an' stretches the cadence so ye lose the beat. An' atop all of it — the reverse. Watch the SHARK, not the rider; the rider just pulls the trigger.",
         options: PIRATE_NAVIGATOR_RETURN_OPTIONS,
         default_next: None,
     },
     DialogNode {
         speaker: "Navigator",
-        line: "I plot the routes — they don't shoot the navigator. Mockingbird ate the chest, the songs got short, the crew got mean, I drew the line that says the navigator eats. Sit down a moment if you want; the sharks won't.",
+        line: "Easy now — they don't fire on the navigator, see. Mockingbird made off with the chest, the shanties went short, the crew turned mean, and I drew the chart that says the cartographer eats first. Sit a spell if ye like; the sharks won't.",
         options: PIRATE_NAVIGATOR_RETURN_OPTIONS,
         default_next: None,
     },

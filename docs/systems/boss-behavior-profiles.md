@@ -38,6 +38,31 @@ The short-term implementation still uses `BossRuntime` as the live physics-ish
 actor, but the profile now gives us a place to move toward per-boss behavior
 without changing the generic encounter machine.
 
+## Brain→sim seam
+
+As of 2026-05-21 (commit `66c8b0b`), `BossRuntime::update` runs through
+the same `ActorControlFrame` seam every other actor uses:
+
+1. **BRAIN** — `build_control_frame` consults
+   `BossMovementProfile::target` plus the apple-rain dodge layer and a
+   world-bounds clamp to produce a `desired_vel`.
+2. **INTEGRATION** — a uniform `step_kinematic` call with `gravity=0`
+   integrates the velocity against world solids. The bespoke
+   `move_toward_target` + `boss_space_is_free` collision path is
+   deleted. Multi-part bosses still collide against `combat_size`.
+3. **EFFECTS** — `Cycle` / `Scripted` attack-pattern timers and the
+   apple-rain spawn tick run unchanged.
+
+Practical consequence for new profiles: the brain owns "where do I want
+to be this tick" (sway, dodge, chase math, world-bounds clamp); the
+simulation half guarantees collision. Profiles should keep their
+`movement` math velocity-space-friendly (a target the brain converts to
+`desired_vel`) rather than asking for position-space teleports.
+
+See `docs/systems/character-ai-refactor.md` for the parallel enemy
+migration and `crates/ambition_engine/src/actor_control.rs` for the
+shared frame definition.
+
 ## Charged fireball test tuning
 
 For rapid boss-battle iteration, charged fireball damage now ramps

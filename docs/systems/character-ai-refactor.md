@@ -1,6 +1,9 @@
 # Character AI refactor
 
-Status: enemy intent migration landed, boss/data-table migration pending.
+Status: enemy + boss MOVEMENT now route through the shared
+`ActorControlFrame` brain→sim seam (commits `155171c`, `66c8b0b`,
+2026-05-21). Data-table migration for per-brain knobs is still
+pending. Attack-pattern timer migration is deferred.
 
 This is the companion doc referenced from
 `crates/ambition_engine/src/character_ai.rs`. It captures the current
@@ -57,16 +60,39 @@ already exist.
 
 ## What hasn't landed
 
-`EnemyRuntime` now builds a `CharacterAiSnapshot` and consumes
+`EnemyRuntime` builds a `CharacterAiSnapshot` and consumes
 `CharacterAiOutput` for its coarse hold / patrol / chase / attack branch.
 That makes the shared engine evaluator authoritative for standard enemy
-intent. Remaining enemy work is data-table cleanup: archetype-specific
-speeds, aggro ranges, attack ranges, cooldown multipliers, and damage still
-live in sandbox enum matches.
+intent. The 2026-05-21 brain→sim refactor goes one step further: the
+output is packed into an `ActorControlFrame` (`desired_vel`,
+`drop_through`, `facing`, `melee_pressed`, `fire`) and integrated by a
+single `step_kinematic` call, so aerial + grounded + patrol all collide
+through the same primitive.
 
-`BossRuntime` still has its own pattern/state loop. See the open tech-debt
-entry "`EnemyRuntime` and `BossRuntime` carry their own ad-hoc state
-machines" for the boss half.
+`BossRuntime` MOVEMENT is now on the same seam: a `build_control_frame`
+helper derives `desired_vel` from the movement profile's target plus
+the apple-rain dodge layer, and `step_kinematic` replaces the bespoke
+`move_toward_target` + `boss_space_is_free` collision path. The boss
+attack pattern state machine (`Cycle` / `Scripted`) still runs in the
+EFFECTS stage as a layered driver.
+
+Remaining work:
+
+- **Data-table cleanup** — archetype-specific speeds, aggro ranges,
+  attack ranges, cooldown multipliers, and damage still live in
+  sandbox enum matches. Pushing them out to a small data table is
+  Step B below.
+- **Attack-pattern timer migration** — boss `Cycle` / `Scripted` and
+  the enemy wind-up / active / cooldown timers can become evaluator
+  outputs (or override fields into the snapshot) instead of
+  EFFECTS-stage timers. Optional; downgraded to shape-cleanup once
+  the movement seam landed.
+- **Player + multi-player on `ActorControlFrame`** — the player
+  still rides its own `update_player` path. Same seam, plus
+  per-character `AbilitySet`, unlocks "play as a goblin" + a second
+  player with a different ability set as the same operation. See
+  `docs/planning/player-singleton-audit.md` for the per-player audit
+  this work feeds.
 
 ## Migration target
 
@@ -93,9 +119,10 @@ That refactor is meaningful surgery — it touches every enemy
 behavior test plus the boss encounter integration test — so it is
 intentionally not scoped to a single patch. Doing it in two steps:
 
-- Step A: route `EnemyRuntime::update` through
-  `evaluate_character_ai_output` and assert the resulting intent drives
-  chase / patrol / attack behavior. **Done for standard enemies.**
+- Step A: route `EnemyRuntime::update` and `BossRuntime::update`
+  through the shared `ActorControlFrame` seam so movement integrates
+  through `step_kinematic` for every actor. **Done — enemies
+  2026-05-21 `155171c`, bosses 2026-05-21 `66c8b0b`.**
 - Step B: move per-brain knobs (`chase_speed`, `attack_radius`,
   `telegraph_seconds`, …) from the brain/archetype match arms into a small
   data table; delete the duplicate match arms.

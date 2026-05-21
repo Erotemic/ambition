@@ -143,7 +143,9 @@ Useful companion docs:
 
 ## D - Engine, validation, and architecture
 
-- [ ] **CharacterAI authoritative migration** `[V3/D4]` - Convert one enemy archetype's movement to read evaluator output, then one boss pattern, then add parity tests. Current tech debt says `EnemyRuntime` / `BossRuntime` still carry ad-hoc state machines.
+- [~] **CharacterAI authoritative migration** `[V3/D3]` - Movement half done as of 2026-05-21: every enemy archetype + every boss runs through the `ActorControlFrame` brain→sim seam and a uniform `step_kinematic` (commits `155171c`, `66c8b0b`). What remains: push per-brain knobs (`chase_speed`, `attack_radius`, `telegraph_seconds`, …) out of the `EnemyArchetype` / `BossBehaviorProfile` match arms into a small data table so adding an enemy stops needing a code change, and decide whether the boss `Cycle` / `Scripted` attack-pattern timer state machine should also migrate into the evaluator output or stay as a layered driver. See `docs/systems/character-ai-refactor.md` for the two-step plan.
+
+- [ ] **Player + multi-player unification onto `ActorControlFrame`** `[V4/D4]` - The brain→sim seam (`crates/ambition_engine/src/actor_control.rs`) now unifies enemies + bosses behind one velocity-space frame + `step_kinematic` integration. Player still rides its own `update_player` path; converting the player means writing a `build_player_control_frame(input, ability_set) -> ActorControlFrame` and routing through the same integration. Once that lands, "play as a goblin" and a second local player with a different `AbilitySet` are the same operation (spawn actor, attach brain, pick ability set). See `docs/planning/player-singleton-audit.md` for the per-player audit and OVERNIGHT-TODO #17 multiplayer roadmap this work feeds.
 
 - [~] **Headless simulation for AI playtesting** `[V4/D4]` - `SandboxSim` and trace replay exist. Remaining useful work: PyO3 binding for Python research code, reward shaping examples, and a decision on whether to adopt `bevy_rl` or keep the custom adapter.
 

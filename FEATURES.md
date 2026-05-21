@@ -24,6 +24,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Shield/parry/bubble-shield vocabulary | Available | `docs/mechanics/abilities.md` |
 | Actor, faction, damage, interactable, pickup, breakable vocabulary | Available | `docs/systems/progression-systems.md`, `docs/systems/factions.md` |
 | Enemy archetypes, boss profiles, encounter lock walls/rewards | Partial but playable | `docs/systems/boss-behavior-profiles.md`, `docs/systems/boss-encounter-architecture.md`, `docs/planning/tech-debt-log.md` |
+| Unified brain→sim seam (`ActorControlFrame`) for enemies + bosses | Available; player still on bespoke path | `crates/ambition_engine/src/actor_control.rs`, `docs/systems/character-ai-refactor.md` |
 | Dialogue/commerce hooks | Scaffolded | `docs/systems/progression-systems.md`, `docs/adr/0008-dialogue-and-commerce-architecture.md` |
 
 ## World authoring and runtime projection

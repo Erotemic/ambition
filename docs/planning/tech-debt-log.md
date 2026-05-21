@@ -82,19 +82,17 @@ to the bottom under "Closed" with the commit that fixed them.
     encounter geometry) live alongside this bug. Document any new
     runtime block insertion with this caveat.
 
-- **MED — `EnemyRuntime` movement still pre-computes `desired_x` from
-  brain enums, then overrides via `ai_mode`**
-  - File: `crates/ambition_sandbox/src/content/features/enemies.rs:EnemyRuntime::update`
-  - The post-refactor pattern is: evaluate ai_mode → branch movement
-    on it. The match-on-brain still has its own arms because the
-    chase-speed and aggro-radius logic varies per `EnemyBrain`
-    variant. The right shape is to push that into the brain trait
-    (or into `EnemyArchetype`) so the AI evaluator's output can drive
-    everything; today the brain match is duplicated under the
-    `ai_mode` branch.
-  - Leaving for the same reason as the broader state-machine refactor
-    — it's a meaningful surgery on a tested system, schedule a
-    dedicated pass.
+- **RESOLVED 2026-05-21 — `EnemyRuntime` movement still pre-computes
+  `desired_x` from brain enums, then overrides via `ai_mode`** —
+  closed by the `ActorControlFrame` brain→sim seam (commit `155171c`).
+  `EnemyRuntime::update` is now BRAIN → INTEGRATION → EFFECTS:
+  `build_control_frame` packs `CharacterAi` + `AttackChoreography` +
+  `KinematicPath` lookahead into a single `desired_vel`, and a uniform
+  `step_kinematic` call replaces the per-brain position writes.
+  Aerial + grounded + patrol now all collide through the same
+  primitive. Remaining surgery is the data-table cleanup (push
+  archetype knobs out of match arms), tracked in
+  `docs/systems/character-ai-refactor.md` Step B.
 
 - **RESOLVED 2026-05-16 — `SandboxRuntime` god-resource** — closed by
   the full ECS player migration. Player state, feature runtimes,
@@ -117,15 +115,25 @@ to the bottom under "Closed" with the commit that fixed them.
     `npcs`/`enemies` during the convert window" isn't enforced by
     types — a future system could violate it.
 
-- **HIGH — `EnemyRuntime` and `BossRuntime` carry their own ad-hoc
-  state machines**
+- **MED — `EnemyRuntime` and `BossRuntime` attack-pattern timers
+  still hand-rolled** (downgraded from HIGH 2026-05-21)
   - File: `crates/ambition_sandbox/src/content/features/`
-  - We just added `ai_mode: CharacterAiMode` snapshot but the actual
-    movement / attack code still uses the timer-fields directly.
-    Real refactor: swap those branches over to `evaluate_character_ai`
-    + a small `tick(snapshot) → events` API so all combatants share
-    one state machine. Boss patterns then layer on top via
-    `BossPatternStep`.
+  - Movement and collision are now unified through the
+    `ActorControlFrame` brain→sim seam (commits `155171c`, `66c8b0b`),
+    so the ad-hoc state machine that remains is just attack-pattern
+    timer bookkeeping: `EnemyRuntime`'s wind-up / active / cooldown
+    fields and `BossRuntime`'s `Cycle` / `Scripted` step machinery.
+    These timers run in the EFFECTS stage after the frame is
+    integrated, not before, so they no longer block the collision
+    unification.
+  - Real refactor (deferred): swap the timer branches over to
+    `evaluate_character_ai` + a small `tick(snapshot) → events`
+    API so all combatants share one state machine. Boss patterns
+    then layer on top via `BossPatternStep` writing override fields
+    into the snapshot.
+  - Downgraded because the position-space write that was the
+    actually-incorrect part of the hand-rolled state machine is gone;
+    what's left is shape-cleanup, not a correctness bug.
 
 - **RESOLVED 2026-05-07 — `mana_current` / `mana_max` live on
   `SandboxRuntime`, not `Player`**

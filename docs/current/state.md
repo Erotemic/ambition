@@ -67,7 +67,8 @@ Landed or scaffolded mechanics include:
 - projectile backend with Fireball and Hadouken-style motion-input upgrade;
 - shield/parry state and bubble-shield presentation;
 - actors, health/damage, interactions, breakables, pickups, projectiles, encounters, and boss-pattern vocabulary;
-- LDtk-authored goblin encounter / encounter-style areas and transition validation.
+- LDtk-authored goblin encounter / encounter-style areas and transition validation;
+- unified `ActorControlFrame` brain→sim seam for enemies + bosses (`crates/ambition_engine/src/actor_control.rs`): brains output desired velocity, a single `step_kinematic` call resolves collision for aerial, grounded, patrol, and boss bodies. Player still rides its own path; converging it is the next unification step.
 
 The mechanics are still sandbox-grade. Treat mechanics docs as expressibility and validation guides, not as promises of final tuning or animation polish.
 

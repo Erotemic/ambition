@@ -91,6 +91,7 @@ _TACKON_TARGETS: dict[str, str] = {
     "mockingbird_boss": "ambition_sprite2d_renderer.targets.mockingbird_boss",
     "pirate_admiral": "ambition_sprite2d_renderer.targets.pirate_admiral",
     "pirate_raider": "ambition_sprite2d_renderer.targets.pirate_raider",
+    "pirate_corsair": "ambition_sprite2d_renderer.targets.pirate_corsair",
     "interdimensional_gate": "ambition_sprite2d_renderer.targets.interdimensional_gate",
     "burning_flying_shark": "ambition_sprite2d_renderer.targets.burning_flying_shark",
     # Sandbag stays last for parity with the pre-refactor ordering.
@@ -113,14 +114,22 @@ RUNTIME_REVIEW_NPCS: tuple[str, ...] = (
     "vault_keeper",
     # Cryptography crew batch 1 — Bob/Alice/Eve/Mallory/Trent/Judy.
     # See `docs/concepts/cryptography-crew.md` for the full canonical
-    # roster; the other 7 (Trudy, Craig, Sybil, Victor, Peggy, Walter,
-    # Olivia) are queued in TODO.md as a follow-up batch.
+    # roster. Batch 2 (Trudy/Craig/Sybil/Victor/Peggy/Walter/Olivia)
+    # landed as toon-target sketches with phenotype variation; each
+    # may be promoted to a bespoke template if a story room demands.
     "alice",
     "bob",
     "eve",
     "judy",
     "mallory",
     "trent",
+    "trudy",
+    "craig",
+    "sybil",
+    "victor",
+    "peggy",
+    "walter",
+    "olivia",
 )
 
 

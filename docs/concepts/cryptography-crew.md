@@ -76,23 +76,66 @@ cover the two flavors of authority the game's plot will lean on
 remaining seven add nuance but the protocol scaffolding works without
 them.
 
-## Batch 2 — queued (see TODO.md)
+## Phenotype variation across the cast
 
-The other seven canonical names are queued as a follow-up batch.
-Sketched silhouette intent below; not yet implemented.
+Skin tones, hair textures, and facial features are deliberately
+spread across the human phenotype range so the cast actually
+looks like a crew rather than seven shades of the same person.
+The batch-2 sketches are where the spread became explicit; the
+guideline for any future addition is to look at the existing
+palette set and pick a tone that's not already represented.
 
-| Name | Role hint | Sketched silhouette |
-|---|---|---|
-| **Trudy** | Intruder | Lithe, parkour-ready; utility suit with many pockets, bandanna; carries a lockpick. |
-| **Craig** | Cracker | Tall and gangly; wide-brim hat, suspenders; carries a stethoscope (safe-cracker, not script-kiddie). |
-| **Sybil** | Pseudonymous attacker (many fake identities) | Soft-frame; layered patchwork vest of swapped badges, many small braids, mask stack. |
-| **Victor** | Verifier | Sharp rigid frame; square-fringe haircut, precise blazer; carries a magnifier. |
-| **Peggy** | Prover | Athletic; long flowing streamer; carries a long pointer; mid-stride dynamic pose. |
-| **Walter** | Warden | Rigid; tricorn-style hat, long coat, brass buttons; carries a lantern. |
-| **Olivia** | Oracle | Tall; veiled face, many-layered draped robe; carries nothing; stillness. |
+Current spread (skin → hair):
 
-When implementing each, follow the anti-stereotype rule and pick a
-prop that subverts the cryptographic role rather than literalizing it.
+- Olivia: very pale `#F2DDC6` → platinum `#F4EEDC`
+- Alice: light peach `#E5C5A6` → blue-black `#15131C`
+- Craig: pale freckled `#ECCBB0` → faded auburn `#7A4630`
+- Eve / Judy: muted tan range
+- Trudy: warm tan `#D9B190` → jet black `#0E0B12`
+- Walter: medium cool `#C2A48B` → silver `#B4B0B0`
+- Trent: mid-tan `#C9A78B` → white beard
+- Mallory: warm tan `#D6A38B` → oxblood-red hair
+- Victor: olive `#B58B6E` → dark `#1A1820`
+- Bob: warm-olive `#B58968` → dark brown `#3D2B22`
+- Peggy: rich brown `#97694A` → black ponytail
+- Sybil: deep brown `#6B4530` → black braids
+
+## Batch 2 — landed (sketches)
+
+Seven first-pass sketches on the toon template. Each may be
+promoted to a bespoke template (like trent_elder / bob_engineer /
+alice_cryptographer) when a story room calls for it. The sketches
+fix the canonical names + phenotype + prop + outfit in place so
+later refinements can iterate on geometry without re-deriving
+identity.
+
+| Name | Silhouette read | Prop | Palette signal |
+|---|---|---|---|
+| **Trudy** | Lean intruder; visible ponytail flowing back, dark green field jacket, lockpick + tension wrench in hand | Lockpick set | Slate green + warm tan skin (East Asian phenotype) |
+| **Craig** | Tall + gangly safe-cracker; wide-brim hat over faded auburn hair, denim apron, stethoscope at the safe (NOT a script-kiddie hacker) | Stethoscope | Pale freckled European + denim blue |
+| **Sybil** | Layered patchwork poncho over many small braids, holding a fan of small masks (three colors) | Stack of masks | Plum + marigold + deep brown skin |
+| **Victor** | Sharp slate blazer, square-fringe haircut, holding a magnifier — precise and analytical | Magnifier | Slate blue + chrome accent + olive skin |
+| **Peggy** | Athletic prover stance with a long pointer/wand; high ponytail, warm orange jacket | Long pointer/wand | Warm orange + cream + rich brown skin |
+| **Walter** | Stern warden; tricorn hat over silver hair, deep navy long coat, brass-trimmed handheld lantern | Lantern | Deep navy + brass + silver hair |
+| **Olivia** | Veiled oracle in a lavender layered robe; hands hidden in long sleeves, no held prop | none (hands in sleeves) | Lavender veil + silver-pale skin + platinum hair |
+
+## Promotion criteria
+
+A batch-2 sketch should be promoted out of toon (i.e. given a
+bespoke target like trent_elder / bob_engineer / alice_cryptographer)
+when:
+
+- The story room needs multi-view rendering (front pose for dialog,
+  side profile for walking).
+- The character's silhouette would be hard to reach by tweaking
+  toon primitives — e.g. Olivia's veiled drape, Sybil's many-braid
+  textured hair, or characters who'd carry both hands forward.
+- A specific gesture or animation can't be expressed in toon's
+  `idle / walk / talk / interact / hit / death` vocabulary.
+
+Promote into a new file `targets/<name>_<role>.py` + new adapter,
+following the trent_elder / bob_engineer / alice_cryptographer
+file conventions.
 
 ## Templates
 

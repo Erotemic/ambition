@@ -418,6 +418,131 @@ class ToonSideGenerator:
             "shadow": rgba("#000000", 56),
             "white": rgba("#F8F2E2"),
         },
+        # ─── Crypto crew batch 2 ─────────────────────────────────────
+        # Phenotype variation is deliberate: the previously-landed
+        # crew (Bob/Alice/Eve/Mallory/Trent/Judy) clusters around
+        # warm-tan skin tones. Batch 2 deliberately spreads across
+        # the human skin-tone range from very pale to very dark,
+        # with distinct hair colors + textures, so the cast
+        # actually looks like a crew rather than seven shades of
+        # the same person.
+        # Trudy (intruder) — warm-tan East Asian phenotype, jet
+        # black short hair, slate field jacket.
+        "trudy": {
+            "skin": rgba("#D9B190"),
+            "skin_shadow": rgba("#A88260"),
+            "hair": rgba("#0E0B12"),
+            "hair_shine": rgba("#36303A"),
+            "outfit": rgba("#2E3A2A"),
+            "outfit_dark": rgba("#19211B"),
+            "accent": rgba("#C49A4A"),
+            "accent_dark": rgba("#7A5B22"),
+            "shoe": rgba("#171814"),
+            "outline": rgba("#0A0C0A"),
+            "shadow": rgba("#000000", 44),
+            "white": rgba("#F2EBDA"),
+        },
+        # Craig (cracker/safe-cracker) — pale freckled European
+        # phenotype, weathered older man, faded auburn hair,
+        # denim + wool palette.
+        "craig": {
+            "skin": rgba("#ECCBB0"),
+            "skin_shadow": rgba("#C09980"),
+            "hair": rgba("#7A4630"),
+            "hair_shine": rgba("#A56B4A"),
+            "outfit": rgba("#3F5C7A"),
+            "outfit_dark": rgba("#22364B"),
+            "accent": rgba("#C8A878"),
+            "accent_dark": rgba("#8A7048"),
+            "shoe": rgba("#221A14"),
+            "outline": rgba("#161513"),
+            "shadow": rgba("#000000", 40),
+            "white": rgba("#F8EFDC"),
+        },
+        # Sybil (pseudonymous attacker) — rich deep brown skin
+        # with cool undertone, hair worn in many small black
+        # braids, layered patchwork colors.
+        "sybil": {
+            "skin": rgba("#6B4530"),
+            "skin_shadow": rgba("#3F271A"),
+            "hair": rgba("#0A0A10"),
+            "hair_shine": rgba("#2D2A36"),
+            "outfit": rgba("#5C2E7A"),       # plum base
+            "outfit_dark": rgba("#321648"),
+            "accent": rgba("#E6A14E"),       # contrasting marigold
+            "accent_dark": rgba("#A36A1F"),
+            "shoe": rgba("#1A1418"),
+            "outline": rgba("#0A0710"),
+            "shadow": rgba("#000000", 48),
+            "white": rgba("#F4ECDA"),
+        },
+        # Victor (verifier) — olive Mediterranean phenotype, sharp
+        # angular features, black square-fringe hair, cool slate
+        # blazer palette with chrome accents.
+        "victor": {
+            "skin": rgba("#B58B6E"),
+            "skin_shadow": rgba("#7E5C44"),
+            "hair": rgba("#1A1820"),
+            "hair_shine": rgba("#3E3A48"),
+            "outfit": rgba("#3F4A5C"),       # slate blue blazer
+            "outfit_dark": rgba("#22293A"),
+            "accent": rgba("#B8C0CA"),       # brushed chrome
+            "accent_dark": rgba("#727B86"),
+            "shoe": rgba("#16181E"),
+            "outline": rgba("#0C0F14"),
+            "shadow": rgba("#000000", 42),
+            "white": rgba("#F1F3F6"),
+        },
+        # Peggy (prover) — rich brown South-Asian/Latin phenotype,
+        # black ponytail, athletic energy. Bright orange-and-cream
+        # palette signals "moving + demonstrating things."
+        "peggy": {
+            "skin": rgba("#97694A"),
+            "skin_shadow": rgba("#5C3F2A"),
+            "hair": rgba("#13100E"),
+            "hair_shine": rgba("#3A302A"),
+            "outfit": rgba("#D8662A"),       # warm orange
+            "outfit_dark": rgba("#8A3B15"),
+            "accent": rgba("#F2E5C2"),       # cream
+            "accent_dark": rgba("#B8A87E"),
+            "shoe": rgba("#1F1612"),
+            "outline": rgba("#100A08"),
+            "shadow": rgba("#000000", 42),
+            "white": rgba("#FBF1D7"),
+        },
+        # Walter (warden) — medium-cool European tan with silver
+        # hair (older). Deep navy long coat + brass accents.
+        "walter": {
+            "skin": rgba("#C2A48B"),
+            "skin_shadow": rgba("#8C7158"),
+            "hair": rgba("#B4B0B0"),         # silver
+            "hair_shine": rgba("#E2DEDE"),
+            "outfit": rgba("#1A2438"),       # deep navy
+            "outfit_dark": rgba("#0B1020"),
+            "accent": rgba("#C49A56"),       # brass
+            "accent_dark": rgba("#7E5E24"),
+            "shoe": rgba("#0E0E14"),
+            "outline": rgba("#06080E"),
+            "shadow": rgba("#000000", 48),
+            "white": rgba("#EFE8D2"),
+        },
+        # Olivia (oracle) — very pale Northern European phenotype,
+        # nearly-white platinum hair, lavender + silver layered
+        # robe. Ethereal, quiet.
+        "olivia": {
+            "skin": rgba("#F2DDC6"),
+            "skin_shadow": rgba("#C8AE96"),
+            "hair": rgba("#F4EEDC"),         # platinum/white
+            "hair_shine": rgba("#FFFAEC"),
+            "outfit": rgba("#9A8FB0"),       # lavender
+            "outfit_dark": rgba("#5E5470"),
+            "accent": rgba("#D6D2E4"),       # silver-lavender
+            "accent_dark": rgba("#888098"),
+            "shoe": rgba("#28242E"),
+            "outline": rgba("#1B1822"),
+            "shadow": rgba("#000000", 36),
+            "white": rgba("#FAF6E6"),
+        },
     }
 
     PRESETS = {
@@ -973,6 +1098,267 @@ class ToonSideGenerator:
             "nose_len": 3.0,
             "satchel_size": 0.0,
         },
+        # ─── Crypto crew batch 2 — sketches ──────────────────────────
+        # Seven new presets that drop the remaining canonical
+        # cryptography names into the cast with deliberate phenotype
+        # variation. These are first-pass sketches on the toon
+        # template; each may be promoted to a bespoke template
+        # (cf. trent_elder / bob_engineer / alice_cryptographer) as
+        # the story rooms call for them. The body / outfit / prop
+        # picks lean on existing primitives where they work; only
+        # truly unique silhouette features get new geometry.
+        # Trudy — intruder; small frame, tight cropped hair, lockpick.
+        "trudy": {
+            "name": "Trudy",
+            "role": "npc",
+            "palette_name": "trudy",
+            "body_plan": "hero",
+            "outfit": "field_jacket",
+            # Ponytail (not tousled crop) — visible long hair is the
+            # primary feminine silhouette cue. Field jacket + lockpick
+            # carry over.
+            "hair_style": "ponytail",
+            "prop": "lockpick",
+            "accessory": "satchel",
+            "head_w": 23.0,
+            "head_h": 26.5,
+            "chin_h": 5.6,
+            "neck_h": 3.4,
+            # Narrower shoulders + slightly wider hips so the
+            # silhouette reads feminine. Was 23 / 19; now 19 / 20.
+            "shoulder_w": 19.0,
+            "torso_w": 16.5,
+            "torso_h": 26.0,
+            "hip_w": 20.0,
+            "arm_upper": 13.0,
+            "arm_lower": 12.6,
+            "arm_radius": 2.4,
+            "leg_upper": 16.5,
+            "leg_lower": 15.5,
+            "leg_radius": 2.8,
+            "hand_r": 2.8,
+            "foot_w": 10.8,
+            "foot_h": 4.4,
+            "coat_len": 6.0,
+            "cape_len": 0.0,
+            "hair_volume": 6.0,
+            "nose_len": 2.4,
+            "satchel_size": 6.5,
+        },
+        # Craig — safe-cracker; tall + bony, wide-brim hat,
+        # stethoscope. Apron over a shirt reads as "workshop with
+        # a notebook in the pocket" (different from Bob's vest).
+        "craig": {
+            "name": "Craig",
+            "role": "npc",
+            "palette_name": "craig",
+            "body_plan": "tall",
+            "outfit": "apron",
+            "hair_style": "wide_brim_hat",
+            "prop": "stethoscope",
+            "accessory": "satchel",
+            "head_w": 23.5,
+            "head_h": 28.0,
+            "chin_h": 7.0,
+            "neck_h": 4.4,
+            "shoulder_w": 22.0,
+            "torso_w": 17.5,
+            "torso_h": 29.0,
+            "hip_w": 16.0,
+            "arm_upper": 15.0,
+            "arm_lower": 14.5,
+            "arm_radius": 2.2,
+            "leg_upper": 19.5,
+            "leg_lower": 18.0,
+            "leg_radius": 2.5,
+            "hand_r": 2.7,
+            "foot_w": 10.5,
+            "foot_h": 4.2,
+            "coat_len": 6.0,
+            "cape_len": 0.0,
+            "hair_volume": 4.0,
+            "nose_len": 3.4,
+            "satchel_size": 7.5,
+        },
+        # Sybil — pseudonymous attacker; many tight braids, layered
+        # poncho-as-patchwork, holding a small mask stack.
+        "sybil": {
+            "name": "Sybil",
+            "role": "npc",
+            "palette_name": "sybil",
+            "body_plan": "soft",
+            "outfit": "poncho",
+            "hair_style": "many_braids",
+            "prop": "mask_stack",
+            "accessory": "shawl",
+            "head_w": 24.5,
+            "head_h": 27.0,
+            "chin_h": 5.8,
+            "neck_h": 3.4,
+            # Narrower shoulders + hips wider than shoulders.
+            # Was 30 / 24 (broad-shouldered). Now 22 / 25.
+            "shoulder_w": 22.0,
+            "torso_w": 19.0,
+            "torso_h": 25.0,
+            "hip_w": 25.0,
+            "arm_upper": 12.0,
+            "arm_lower": 11.5,
+            "arm_radius": 2.8,
+            "leg_upper": 12.5,
+            "leg_lower": 11.5,
+            "leg_radius": 2.9,
+            "hand_r": 3.0,
+            "foot_w": 11.5,
+            "foot_h": 4.5,
+            "coat_len": 14.0,
+            "cape_len": 18.0,
+            "hair_volume": 6.5,
+            "nose_len": 2.8,
+            "satchel_size": 0.0,
+        },
+        # Victor — verifier; rigid square-fringe haircut, slate
+        # jacket, holding a magnifier.
+        "victor": {
+            "name": "Victor",
+            "role": "npc",
+            "palette_name": "victor",
+            "body_plan": "rigid",
+            "outfit": "jacket",
+            "hair_style": "square_fringe",
+            "prop": "magnifier",
+            "accessory": "scarf",
+            "head_w": 24.5,
+            "head_h": 28.0,
+            "chin_h": 6.4,
+            "neck_h": 3.6,
+            "shoulder_w": 28.0,
+            "torso_w": 22.0,
+            "torso_h": 28.0,
+            "hip_w": 20.0,
+            "arm_upper": 13.5,
+            "arm_lower": 13.0,
+            "arm_radius": 2.8,
+            "leg_upper": 15.5,
+            "leg_lower": 14.5,
+            "leg_radius": 2.9,
+            "hand_r": 3.0,
+            "foot_w": 11.5,
+            "foot_h": 4.6,
+            "coat_len": 8.0,
+            "cape_len": 0.0,
+            "hair_volume": 4.5,
+            "nose_len": 3.2,
+            "satchel_size": 0.0,
+        },
+        # Peggy — prover; athletic with a high ponytail, holding
+        # a long pointer/wand. The pointer doubles as her
+        # demonstrating tool.
+        "peggy": {
+            "name": "Peggy",
+            "role": "npc",
+            "palette_name": "peggy",
+            "body_plan": "hero",
+            "outfit": "jacket",
+            "hair_style": "ponytail",
+            "prop": "long_pointer",
+            "accessory": "scarf",
+            "head_w": 24.0,
+            "head_h": 28.0,
+            "chin_h": 5.8,
+            "neck_h": 3.6,
+            # Athletic but feminine — shoulders narrower than hips.
+            # Was 24 / 21; now 20 / 22.
+            "shoulder_w": 20.0,
+            "torso_w": 17.0,
+            "torso_h": 27.0,
+            "hip_w": 22.0,
+            "arm_upper": 13.5,
+            "arm_lower": 13.0,
+            "arm_radius": 2.5,
+            "leg_upper": 17.0,
+            "leg_lower": 16.0,
+            "leg_radius": 2.7,
+            "hand_r": 2.9,
+            "foot_w": 11.0,
+            "foot_h": 4.4,
+            "coat_len": 8.0,
+            "cape_len": 0.0,
+            "hair_volume": 6.5,
+            "nose_len": 2.6,
+            "satchel_size": 0.0,
+        },
+        # Walter — warden; tricorn hat over silver hair, long
+        # navy coat, brass-trim lantern. Older + dignified.
+        "walter": {
+            "name": "Walter",
+            "role": "npc",
+            "palette_name": "walter",
+            "body_plan": "rigid",
+            "outfit": "long_coat",
+            "hair_style": "tricorn_hat",
+            "prop": "lantern",
+            "accessory": "keys",
+            "head_w": 26.0,
+            "head_h": 28.5,
+            "chin_h": 6.6,
+            "neck_h": 3.8,
+            "shoulder_w": 31.0,
+            "torso_w": 24.5,
+            "torso_h": 30.0,
+            "hip_w": 22.0,
+            "arm_upper": 13.5,
+            "arm_lower": 13.0,
+            "arm_radius": 3.0,
+            "leg_upper": 15.5,
+            "leg_lower": 14.5,
+            "leg_radius": 3.0,
+            "hand_r": 3.1,
+            "foot_w": 12.0,
+            "foot_h": 4.8,
+            "coat_len": 16.0,
+            "cape_len": 0.0,
+            "hair_volume": 4.5,
+            "nose_len": 3.5,
+            "satchel_size": 0.0,
+        },
+        # Olivia — oracle; veiled face, very pale skin, long
+        # flowing keeper-robe in lavender. Holds nothing — both
+        # hands tucked into sleeves.
+        "olivia": {
+            "name": "Olivia",
+            "role": "npc",
+            "palette_name": "olivia",
+            "body_plan": "tall",
+            "outfit": "keeper_robe",
+            "hair_style": "veiled",
+            "prop": "none",
+            "accessory": "shawl",
+            "head_w": 23.0,
+            "head_h": 28.5,
+            "chin_h": 5.8,
+            "neck_h": 4.0,
+            # Slender feminine frame — narrow shoulders, slightly
+            # wider hips (was 21 / 16.5, which read as upside-down
+            # triangle / masculine).
+            "shoulder_w": 17.0,
+            "torso_w": 14.0,
+            "torso_h": 28.0,
+            "hip_w": 18.0,
+            "arm_upper": 14.0,
+            "arm_lower": 13.5,
+            "arm_radius": 2.3,
+            "leg_upper": 18.5,
+            "leg_lower": 17.0,
+            "leg_radius": 2.6,
+            "hand_r": 2.8,
+            "foot_w": 10.5,
+            "foot_h": 4.2,
+            "coat_len": 22.0,
+            "cape_len": 12.0,
+            "hair_volume": 6.0,
+            "nose_len": 2.4,
+            "satchel_size": 0.0,
+        },
     }
 
     def sample_spec(self, seed: int, archetype: str = "general_hero") -> ToonSpec:
@@ -1522,6 +1908,87 @@ class ToonSideGenerator:
                 outline=outline,
                 width=max(1, int(0.7 * S)),
             )
+        elif spec.hair_style == "many_braids":
+            # Sybil — head full of small tight braids. Back mass is
+            # rounded + textured with small dot accents in the
+            # shine color to suggest individual braid tips.
+            d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume + 2.0) * S, (spec.head_h * 0.82 + spec.hair_volume * 0.5) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
+            for bx, by in ((-7, -8), (-4, -10), (0, -11), (4, -10), (7, -8), (-9, -4), (9, -4), (-10, 0), (10, 0)):
+                d.ellipse(_bbox((c[0] + bx * S, c[1] + by * S), 1.6 * S, 1.6 * S), fill=pal["hair_shine"], outline=None)
+        elif spec.hair_style == "veiled":
+            # Olivia — long veil draped from the crown. The veil
+            # color is the OUTFIT shade (lavender) — not hair. The
+            # actual hair beneath barely shows; the veil is the
+            # silhouette.
+            veil_color = pal.get("accent", pal["outfit"])
+            d.ellipse(_bbox((c[0] - 0.5 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume + 4.0) * S, (spec.head_h * 0.84 + spec.hair_volume * 0.6) * S), fill=veil_color, outline=outline, width=max(1, int(1.1 * S)))
+            # Long veil panels drop past the chin on both sides.
+            for sign in (-1, 1):
+                drop = [
+                    (c[0] + sign * (spec.head_w * 0.46) * S, c[1] - spec.head_h * 0.10 * S),
+                    (c[0] + sign * (spec.head_w * 0.56) * S, c[1] + spec.head_h * 0.32 * S),
+                    (c[0] + sign * (spec.head_w * 0.38) * S, c[1] + spec.head_h * 0.62 * S),
+                    (c[0] + sign * (spec.head_w * 0.20) * S, c[1] + spec.head_h * 0.30 * S),
+                ]
+                d.polygon(drop, fill=veil_color, outline=outline)
+        elif spec.hair_style == "ponytail":
+            # Peggy — short crown of hair plus a high ponytail
+            # streaming out the back. The back mass is shorter +
+            # the ponytail is a separate teardrop shape.
+            d.ellipse(_bbox((c[0] - 0.5 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.74 + spec.hair_volume * 0.45) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
+            # Ponytail extending out the back (camera-left).
+            tail = [
+                (c[0] - spec.head_w * 0.32 * S, c[1] - spec.head_h * 0.22 * S),
+                (c[0] - spec.head_w * 0.62 * S, c[1] - spec.head_h * 0.10 * S),
+                (c[0] - spec.head_w * 0.72 * S, c[1] + spec.head_h * 0.18 * S),
+                (c[0] - spec.head_w * 0.52 * S, c[1] + spec.head_h * 0.28 * S),
+                (c[0] - spec.head_w * 0.28 * S, c[1] + spec.head_h * 0.06 * S),
+            ]
+            d.polygon(tail, fill=pal["hair"], outline=outline)
+        elif spec.hair_style == "square_fringe":
+            # Victor — precise blocky bangs across the forehead,
+            # cropped close on the sides. The back mass is
+            # geometric (a flat-bottomed ellipse).
+            d.ellipse(_bbox((c[0] - 0.5 * S, c[1] - 5.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.74 + spec.hair_volume * 0.4) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
+        elif spec.hair_style == "wide_brim_hat":
+            # Craig — a wide-brimmed straw / felt hat. Brim is a
+            # broad ellipse, crown is a shorter rounded rectangle.
+            brim_w = (spec.head_w + spec.hair_volume + 16.0) * S
+            brim_h = 5.0 * S
+            brim_y = c[1] - spec.head_h * 0.32 * S
+            d.ellipse(_bbox((c[0], brim_y), brim_w, brim_h), fill=pal["accent_dark"], outline=outline, width=max(1, int(1.0 * S)))
+            d.ellipse(_bbox((c[0], brim_y + 1.0 * S), brim_w * 0.92, brim_h * 0.7), fill=pal["accent"], outline=None)
+            # Crown.
+            crown_top = brim_y - 7.0 * S
+            d.rounded_rectangle(
+                (c[0] - (spec.head_w * 0.40) * S, crown_top, c[0] + (spec.head_w * 0.40) * S, brim_y - 0.0 * S),
+                radius=2.5 * S, fill=pal["accent_dark"], outline=outline, width=max(1, int(1.0 * S)),
+            )
+            d.rectangle(
+                (c[0] - (spec.head_w * 0.42) * S, brim_y - 1.5 * S, c[0] + (spec.head_w * 0.42) * S, brim_y + 0.5 * S),
+                fill=pal["accent"], outline=outline, width=max(1, int(0.7 * S)),
+            )
+        elif spec.hair_style == "tricorn_hat":
+            # Walter — three-cornered hat with brass trim. A
+            # triangle silhouette pointed forward + sideways.
+            tri = [
+                (c[0] - spec.head_w * 0.62 * S, c[1] - spec.head_h * 0.28 * S),
+                (c[0] - spec.head_w * 0.08 * S, c[1] - spec.head_h * 0.62 * S),
+                (c[0] + spec.head_w * 0.50 * S, c[1] - spec.head_h * 0.20 * S),
+            ]
+            d.polygon(tri, fill=pal["outfit"], outline=outline)
+            # Brim band under the points.
+            d.line(
+                [(c[0] - spec.head_w * 0.62 * S, c[1] - spec.head_h * 0.28 * S),
+                 (c[0] + spec.head_w * 0.50 * S, c[1] - spec.head_h * 0.20 * S)],
+                fill=pal["accent"], width=max(1, int(1.4 * S)),
+            )
+            # Silver side fringe of hair visible below the hat.
+            d.pieslice(
+                _bbox((c[0] - 0.5 * S, c[1] - spec.head_h * 0.08 * S), (spec.head_w + 2.0) * S, (spec.head_h * 0.36) * S),
+                start=180, end=360,
+                fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)),
+            )
         elif spec.hair_style in {"bob", "crest", "swoop", "cap", "general_hat", "officer_cap", "tousled_crop", "chignon", "undercut_braid"}:
             d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.78 + spec.hair_volume * 0.45) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
         # Face.
@@ -1532,7 +1999,7 @@ class ToonSideGenerator:
         # length is the main feminine cue; this avoids fighting it.
         # Keep the list explicit so adding a new feminine-coded
         # archetype is a one-line edit, matching the eyelash list.
-        if spec.archetype not in {"alice", "mallory"}:
+        if spec.archetype not in {"alice", "mallory", "trudy", "sybil", "peggy", "olivia"}:
             d.ellipse(_bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.18 * S), (spec.head_w * 0.70) * S, (spec.chin_h * 1.9) * S), fill=pal["skin_shadow"], outline=None)
         # Front hair / features.
         if spec.hair_style == "swoop":
@@ -1724,6 +2191,23 @@ class ToonSideGenerator:
                 fill=pal["hair_shine"],
                 width=max(1, int(0.9 * S)),
             )
+        elif spec.hair_style == "square_fringe":
+            # Victor — precise blocky bangs across the forehead.
+            # Flat-bottomed rectangle with sharp corners (vs the
+            # rounded tousled / soft bangs of other characters).
+            d.rectangle(
+                (c[0] - spec.head_w * 0.40 * S, c[1] - spec.head_h * 0.50 * S,
+                 c[0] + spec.head_w * 0.40 * S, c[1] - spec.head_h * 0.22 * S),
+                fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)),
+            )
+        elif spec.hair_style == "ponytail":
+            # Peggy — small forehead bang sweep on the camera-side.
+            d.polygon([
+                (c[0] - spec.head_w * 0.30 * S, c[1] - spec.head_h * 0.46 * S),
+                (c[0] + spec.head_w * 0.30 * S, c[1] - spec.head_h * 0.40 * S),
+                (c[0] + spec.head_w * 0.22 * S, c[1] - spec.head_h * 0.18 * S),
+                (c[0] - spec.head_w * 0.18 * S, c[1] - spec.head_h * 0.22 * S),
+            ], fill=pal["hair"], outline=outline)
         elif spec.hair_style == "officer_cap":
             crown = [
                 (c[0] - 16.5 * S, c[1] - 19.0 * S),
@@ -1808,7 +2292,7 @@ class ToonSideGenerator:
                 # primary feminine cue; this is the subtle finish.
                 # Keep the list explicit so adding a new feminine-
                 # coded archetype is a one-line edit.
-                if spec.archetype in {"alice", "mallory"}:
+                if spec.archetype in {"alice", "mallory", "trudy", "sybil", "peggy", "olivia"}:
                     # Single short stroke at the outer corner of the
                     # near eye only.
                     lash_root = (near_eye_x + 2.0 * S, eye_y - near_h)
@@ -2738,6 +3222,76 @@ class ToonSideGenerator:
                 fill=_scale_color(pal["accent_dark"], 1.30),
                 width=max(1, int(0.9 * S)),
             )
+        elif prop == "lockpick":
+            # Trudy — a slim L-shaped lockpick + tension wrench.
+            d = ImageDraw.Draw(base)
+            tip = add(hand, vec(14.0 * S, angle - 30.0))
+            d.line([hand, tip], fill=pal["accent_dark"], width=max(1, int(1.4 * S)))
+            d.line([hand, tip], fill=_scale_color(pal["accent"], 1.05), width=max(1, int(0.7 * S)))
+            # L-bend at the tip.
+            tip_l = add(tip, vec(3.5 * S, angle - 100.0))
+            d.line([tip, tip_l], fill=pal["accent_dark"], width=max(1, int(1.4 * S)))
+            # Tension wrench (smaller, perpendicular).
+            wrench_a = add(hand, vec(8.0 * S, angle - 70.0))
+            wrench_b = add(wrench_a, vec(6.0 * S, angle - 70.0))
+            d.line([wrench_a, wrench_b], fill=pal["accent_dark"], width=max(1, int(1.2 * S)))
+        elif prop == "stethoscope":
+            # Craig — safe-cracker's stethoscope. Drum at the end +
+            # tubing curving back to the ear pieces.
+            d = ImageDraw.Draw(base)
+            drum_c = add(hand, vec(10.0 * S, angle - 20.0))
+            d.ellipse(_bbox(drum_c, 4.6 * S, 4.6 * S), fill=pal["accent"], outline=outline, width=max(1, int(1.0 * S)))
+            d.ellipse(_bbox(drum_c, 2.8 * S, 2.8 * S), fill=pal["accent_dark"], outline=None)
+            # Tubing.
+            mid = add(hand, vec(4.0 * S, angle - 70.0))
+            d.line([drum_c, mid, hand], fill=pal["outfit_dark"], width=max(1, int(1.4 * S)))
+        elif prop == "mask_stack":
+            # Sybil — a stack of three small masks held by the
+            # strings. Each mask in a different palette tone so the
+            # "many identities" signal reads.
+            d = ImageDraw.Draw(base)
+            colors = [pal["accent"], pal["outfit"], pal["accent_dark"]]
+            for i, fill in enumerate(colors):
+                mask_c = add(hand, vec((6.0 + i * 1.4) * S, angle - 18.0 - i * 4.0))
+                d.ellipse(_bbox(mask_c, 4.0 * S, 3.0 * S), fill=fill, outline=outline, width=max(1, int(0.7 * S)))
+                # Eye holes (two tiny dots).
+                d.ellipse(_bbox((mask_c[0] - 1.2 * S, mask_c[1] - 0.4 * S), 0.6 * S, 0.6 * S), fill=outline)
+                d.ellipse(_bbox((mask_c[0] + 1.2 * S, mask_c[1] - 0.4 * S), 0.6 * S, 0.6 * S), fill=outline)
+        elif prop == "magnifier":
+            # Victor — small lens-on-handle magnifier.
+            d = ImageDraw.Draw(base)
+            handle_tip = add(hand, vec(6.0 * S, angle - 30.0))
+            lens_c = add(handle_tip, vec(4.5 * S, angle - 30.0))
+            d.line([hand, handle_tip], fill=pal["accent_dark"], width=max(1, int(1.8 * S)))
+            d.ellipse(_bbox(lens_c, 5.0 * S, 5.0 * S), fill=None, outline=outline, width=max(1, int(1.4 * S)))
+            d.ellipse(_bbox(lens_c, 4.0 * S, 4.0 * S), fill=_scale_color(pal["white"], 0.95), outline=None)
+        elif prop == "long_pointer":
+            # Peggy — a long pointer / wand ~28 design pixels long.
+            d = ImageDraw.Draw(base)
+            tip = add(hand, vec(28.0 * S, angle - 12.0))
+            d.line([hand, tip], fill=pal["accent_dark"], width=max(1, int(1.6 * S)))
+            d.ellipse(_bbox(tip, 1.8 * S, 1.8 * S), fill=pal["accent"], outline=outline, width=max(1, int(0.6 * S)))
+            d.line([hand, add(hand, vec(3.0 * S, angle + 168.0))], fill=pal["accent"], width=max(1, int(1.8 * S)))
+        elif prop == "lantern":
+            # Walter — handheld brass lantern with a glowing
+            # interior + a small wire handle.
+            d = ImageDraw.Draw(base)
+            lantern_c = add(hand, vec(6.0 * S, angle - 30.0))
+            # Body — vertical rectangle with rounded top.
+            body = (lantern_c[0] - 3.6 * S, lantern_c[1] - 5.0 * S,
+                    lantern_c[0] + 3.6 * S, lantern_c[1] + 5.0 * S)
+            d.rounded_rectangle(body, radius=1.4 * S, fill=pal["accent_dark"], outline=outline, width=max(1, int(0.9 * S)))
+            # Glass inset (lighter glow).
+            d.rectangle((lantern_c[0] - 2.6 * S, lantern_c[1] - 3.0 * S,
+                         lantern_c[0] + 2.6 * S, lantern_c[1] + 3.0 * S), fill=pal["accent"], outline=None)
+            # Wire handle arc above.
+            d.arc((lantern_c[0] - 3.6 * S, lantern_c[1] - 9.0 * S,
+                   lantern_c[0] + 3.6 * S, lantern_c[1] - 5.0 * S), start=180, end=360, fill=outline, width=max(1, int(1.0 * S)))
+        elif prop == "none":
+            # Sentinel — characters with no held prop (Olivia, etc.)
+            # explicitly set prop: "none" so the dispatch is a no-op
+            # rather than silently falling through.
+            pass
 
     def render_animation_frame(
         self,

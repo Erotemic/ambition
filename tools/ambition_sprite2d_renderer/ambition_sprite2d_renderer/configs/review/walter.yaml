@@ -1,0 +1,21 @@
+target: toon
+name: Walter
+output_name: walter
+seed: 606
+archetype: walter
+animations:
+  - idle
+  - walk
+  - talk
+  - interact
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 160
+  single_height: 160
+  supersample: 4
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 4
+  label_width: 112

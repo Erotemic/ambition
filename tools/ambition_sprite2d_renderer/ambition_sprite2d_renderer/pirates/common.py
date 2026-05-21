@@ -183,6 +183,33 @@ PALETTES = {
         beard=(77, 42, 23, 255),
         accent=(239, 239, 239, 255),
     ),
+    # Third pirate variant — same silhouette family as `pirate_raider`
+    # (broad cutlass-and-coat raider archetype) but a distinctly
+    # darker skin tone so the lineup represents more of the actual
+    # human phenotype range that historical Caribbean / Indian Ocean
+    # / Mediterranean pirate crews drew from. The coat shifts from
+    # raider's bright red to a deep teal so the silhouettes are
+    # easy to tell apart at a glance even when palette-only
+    # variants ship side-by-side.
+    "pirate_corsair": Palette(
+        outline=(18, 14, 16, 255),
+        # Deep brown skin — noticeably darker than the existing
+        # `pirate_admiral` (#D4BCA0) and `pirate_raider` (#EBC4A0).
+        skin=(112, 76, 50, 255),
+        skin_shadow=(72, 46, 28, 255),
+        hat=(20, 24, 30, 255),
+        coat=(28, 92, 92, 255),       # deep teal
+        coat2=(206, 178, 92, 255),    # warm gold trim
+        sash=(160, 38, 38, 255),      # bright crimson sash for contrast
+        shirt=(238, 226, 198, 255),
+        pants=(46, 42, 38, 255),
+        boots=(54, 36, 22, 255),
+        metal=(212, 218, 224, 255),
+        gold=(228, 188, 76, 255),
+        # Short cropped beard matching the warm-dark skin tone.
+        beard=(38, 24, 16, 255),
+        accent=(232, 220, 196, 255),
+    ),
 }
 
 
@@ -335,7 +362,7 @@ def draw_human_neck(draw, chest, head_center, global_tilt, pal, kind="pirate_adm
     # Base of neck emerges from the shirt / coat opening.
     base = transform((0, -22), chest, deg=global_tilt)
     top = (head_center[0] - 2, head_center[1] + 24)
-    neck_fill = pal.skin if kind == "pirate_raider" else pal.skin_shadow
+    neck_fill = pal.skin if kind in ("pirate_raider", "pirate_corsair") else pal.skin_shadow
 
     # Slightly tapered neck polygon.
     pts = [
@@ -445,7 +472,7 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     ground = h * 0.83
     bob = pose["bob"] * SCALE
     root = (cx, ground + bob)
-    global_tilt = pose["body_tilt"] + (5 if kind == "pirate_raider" and anim == "taunt" else 0)
+    global_tilt = pose["body_tilt"] + (5 if kind in ("pirate_raider", "pirate_corsair") and anim == "taunt" else 0)
     death_t = pose["death_t"]
 
     # Whole body offsets / lean for death.
@@ -520,23 +547,23 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     line(draw, [front_shoulder, front_elbow, front_hand], pal.coat, width=13)
     line(draw, [front_shoulder, front_elbow, front_hand], pal.outline, width=4)
     circle(draw, front_hand, 8, pal.skin, pal.outline, width=2)
-    draw_sword(draw, front_hand, pose["weapon"], 92 if kind == "pirate_admiral" else 86, pal, curve=(16 if kind == "pirate_raider" else 5))
+    draw_sword(draw, front_hand, pose["weapon"], 92 if kind == "pirate_admiral" else 86, pal, curve=(16 if kind in ("pirate_raider", "pirate_corsair") else 5))
     if anim == "slash":
         arc_box = (front_hand[0] - 70, front_hand[1] - 96, front_hand[0] + 110, front_hand[1] + 76)
         draw.arc(arc_box, start=205, end=336, fill=(255, 245, 200, 180), width=8)
         draw.arc(arc_box, start=214, end=328, fill=(255, 255, 255, 120), width=4)
     elif anim in {"idle", "walk", "taunt"} and frame_idx % 2 == 0:
-        blade_tip = transform((92 if kind == "pirate_admiral" else 86, 4 if kind == "pirate_raider" else 0), front_hand, pose["weapon"])
+        blade_tip = transform((92 if kind == "pirate_admiral" else 86, 4 if kind in ("pirate_raider", "pirate_corsair") else 0), front_hand, pose["weapon"])
         line(draw, [blade_tip, (blade_tip[0] + 10, blade_tip[1] - 8)], (255, 255, 255, 100), width=2)
 
     # Neck / head / hat
     draw_human_neck(draw, chest, head_center, global_tilt, pal, kind=kind)
 
     head_bbox = (head_center[0] - 28, head_center[1] - 34, head_center[0] + 28, head_center[1] + 34)
-    draw_face(draw, head_bbox, pal, eyepatch=(kind == "pirate_admiral"), beard=(kind == "pirate_raider"), mean=True, x_eyes=pose["x_eyes"], blink=pose["blink"], mouth_open=pose["mouth_open"])
+    draw_face(draw, head_bbox, pal, eyepatch=(kind == "pirate_admiral"), beard=(kind in ("pirate_raider", "pirate_corsair")), mean=True, x_eyes=pose["x_eyes"], blink=pose["blink"], mouth_open=pose["mouth_open"])
     draw_hat(draw, head_center, 1.0, pal, skull=True, tilt=pose["hat_tilt"] + global_tilt * 0.15)
 
-    if kind == "pirate_raider":
+    if kind in ("pirate_raider", "pirate_corsair"):
         # chest skull motif
         chest_c = transform((0, 14), chest, deg=global_tilt)
         circle(draw, (chest_c[0], chest_c[1] - 4), 8, (242, 236, 230, 255), pal.outline, width=2)

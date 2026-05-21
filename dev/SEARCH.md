@@ -18,7 +18,7 @@ Use this when you hit a confusing bug, plan a refactor, or see an error that fee
 ```bash
 rg -n "movement|collision|sweep|teleport|wall|ledge|body mode" dev/journals dev/benchmark-candidates
 rg -n "module split|re-export|visibility|extension trait|Self: Sized|derive|attribute" dev/journals dev/benchmark-candidates
-rg -n "LDtk|LoadingZone|activeArea|IntGrid|cWid|editor|roundtrip|defUid" dev/journals dev/benchmark-candidates
+rg -n "LDtk|LoadingZone|activeArea|IntGrid|cWid|editor|roundtrip|defUid|spec drift|world_x|--replace-existing|--secondary-world" dev/journals dev/benchmark-candidates
 rg -n "Bevy|resource|system tuple|event|message|ParamSet|visibility" dev/journals dev/benchmark-candidates
 rg -n "cargo test|single filter|unexpected argument|command grammar" dev/journals dev/benchmark-candidates
 rg -n "Android|APK|asset|manifest|logcat|android_main|Gradle" dev/journals dev/benchmark-candidates

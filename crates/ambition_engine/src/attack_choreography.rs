@@ -134,6 +134,20 @@ pub struct ChoreographyState {
     /// produce visually distinct trajectories. Zero is treated as
     /// "no seed set" (legacy behaviour, all actors in lockstep).
     pub seed: u32,
+    /// Sign multiplier on aerial orbit_speed. `+1.0` = clockwise
+    /// (default), `-1.0` = counter-clockwise. Periodically flipped
+    /// by [`evaluate_aerial_orbit`] so two same-role orbiters can't
+    /// stay locked at the same separation — they "double back" on
+    /// staggered timers and break any incidental clump. `0.0` is
+    /// the uninitialized sentinel; the evaluator promotes it to
+    /// `+1.0` on first tick.
+    pub orbit_direction: f32,
+    /// Seconds remaining until the next `orbit_direction` flip.
+    /// Counts down each aerial tick; at `<= 0` the evaluator flips
+    /// the sign and reseeds the timer to ~`AERIAL_REVERSE_PERIOD`
+    /// seconds with seed-driven jitter. `0.0` sentinel triggers the
+    /// initial seeded interval on first tick.
+    pub orbit_reverse_timer: f32,
 }
 
 /// Stable, allocation-free 32-bit hash of an actor id. Used so a
@@ -273,6 +287,10 @@ fn apply_neighbor_spread(target: Vec2, actor: Vec2, neighbor: Option<Vec2>) -> V
 const MELEE_ENGAGE_DISTANCE: f32 = 56.0;
 const VOLLEY_ENGAGE_DISTANCE: f32 = 24.0;
 const AERIAL_ENGAGE_DISTANCE: f32 = 32.0;
+/// Base interval between aerial-orbit direction reversals
+/// ("double-back"). Seed-derived jitter of ±30% layers on top so
+/// two same-seed actors never reverse on identical cycles.
+const AERIAL_REVERSE_PERIOD: f32 = 3.5;
 
 /// Pure evaluator: read the current actor snapshot + state, advance
 /// `state` in place, return the [`ChoreographyTick`].
@@ -464,7 +482,29 @@ fn evaluate_aerial_orbit(
     fire_interval: f32,
     projectile_speed: f32,
 ) -> ChoreographyTick {
-    state.orbit_phase = (state.orbit_phase + orbit_speed * dt) % std::f32::consts::TAU;
+    // Initialize / advance the "double-back" direction. Uninitialized
+    // state (`orbit_direction == 0.0`, the Default sentinel) is
+    // promoted to `+1.0` on first tick and the reverse timer is
+    // seeded to a per-actor offset so adjacent sharks don't reverse
+    // on the same frame. Subsequent ticks decrement the timer; at
+    // <= 0 we flip the direction sign and reseed the timer.
+    if state.orbit_direction == 0.0 {
+        state.orbit_direction = 1.0;
+        // Stagger initial reversal across actors with a ±30% jitter
+        // band centered on AERIAL_REVERSE_PERIOD.
+        let jitter = 1.0 + 0.30 * seed_jitter_unit(state.seed);
+        state.orbit_reverse_timer = AERIAL_REVERSE_PERIOD * jitter.max(0.40);
+    } else {
+        state.orbit_reverse_timer -= dt;
+        if state.orbit_reverse_timer <= 0.0 {
+            state.orbit_direction = -state.orbit_direction;
+            let jitter = 1.0 + 0.30 * seed_jitter_unit(state.seed);
+            state.orbit_reverse_timer = AERIAL_REVERSE_PERIOD * jitter.max(0.40);
+        }
+    }
+    let signed_orbit_speed = orbit_speed * state.orbit_direction;
+    state.orbit_phase =
+        (state.orbit_phase + signed_orbit_speed * dt).rem_euclid(std::f32::consts::TAU);
 
     // Per-actor variation derived from the stable seed. Three roles
     // (Hover / Swoop / Retreat) give visually distinct readings;
@@ -902,6 +942,141 @@ mod tests {
             distinct >= 2,
             "expected at least 2 distinct aerial roles across 6 ids \
              (Hover={hovers}, Swoop={swoops}, Retreat={retreats})"
+        );
+    }
+
+    #[test]
+    fn aerial_orbit_direction_flips_on_reverse_timer() {
+        // Drive the orbit eval long enough to trigger at least one
+        // direction flip; orbit_phase should momentarily decrease
+        // when direction goes negative. Verify orbit_direction toggles
+        // and that the sandbox-visible orbit_phase moves backward
+        // (rather than only forward) when direction is negative.
+        let choreography = AttackChoreography::AerialOrbitAndFire {
+            altitude: 160.0,
+            radius: 220.0,
+            orbit_speed: 0.9,
+            fire_interval: 1.4,
+            projectile_speed: 380.0,
+        };
+        let mut state = ChoreographyState {
+            seed: seed_from_id("reverse_test"),
+            has_slot: true,
+            ..Default::default()
+        };
+        let target = Vec2::new(0.0, 0.0);
+        let slot = Vec2::new(0.0, -160.0);
+        let dt = 1.0 / 60.0;
+
+        // Capture orbit_phase samples while feeding ticks until we
+        // see direction flip from +1 to -1.
+        let mut saw_negative_direction = false;
+        let mut phase_at_flip = 0.0;
+        let mut elapsed = 0.0_f32;
+        let cap = 15.0; // seconds — much larger than AERIAL_REVERSE_PERIOD
+        while elapsed < cap {
+            let prev_direction = state.orbit_direction;
+            evaluate_choreography(
+                choreography,
+                &mut state,
+                ChoreographyInput {
+                    actor_pos: slot,
+                    target_pos: target,
+                    assigned_slot_pos: slot,
+                    dt,
+                    nearest_neighbor: None,
+                },
+            );
+            if prev_direction > 0.0 && state.orbit_direction < 0.0 {
+                saw_negative_direction = true;
+                phase_at_flip = state.orbit_phase;
+                break;
+            }
+            elapsed += dt;
+        }
+        assert!(
+            saw_negative_direction,
+            "orbit_direction never flipped to -1 within {cap}s (still {})",
+            state.orbit_direction
+        );
+
+        // Next tick after the flip must DECREASE orbit_phase
+        // (modulo TAU), proving the reversal actually steers the
+        // orbit backward and not just toggles a dead flag.
+        evaluate_choreography(
+            choreography,
+            &mut state,
+            ChoreographyInput {
+                actor_pos: slot,
+                target_pos: target,
+                assigned_slot_pos: slot,
+                dt,
+                nearest_neighbor: None,
+            },
+        );
+        // rem_euclid keeps phase in [0, TAU); the difference modulo
+        // TAU should be small negative (or near TAU if we wrapped).
+        let diff = state.orbit_phase - phase_at_flip;
+        let wrapped = (diff + std::f32::consts::TAU) % std::f32::consts::TAU;
+        // A clockwise tick at +0.9 rad/s for 1/60s advances ~0.015 rad
+        // forward. A reverse tick decreases by the same; in mod-TAU
+        // that surfaces as ~TAU - 0.015 ≈ 6.27.
+        assert!(
+            wrapped > std::f32::consts::PI,
+            "after direction flip, orbit_phase should move backward; \
+             got diff={diff}, wrapped={wrapped} (phase_at_flip={phase_at_flip}, \
+             new phase={})",
+            state.orbit_phase
+        );
+    }
+
+    #[test]
+    fn aerial_orbit_double_back_staggers_across_seeds() {
+        // Two actors with different seeds should NOT reverse on the
+        // same frame — that's the whole point of the seeded jitter
+        // on the reverse timer. Run both for several reversal cycles
+        // and check at least one tick has actor_a reversed while
+        // actor_b is still forward (or vice versa).
+        let choreography = AttackChoreography::AerialOrbitAndFire {
+            altitude: 160.0,
+            radius: 220.0,
+            orbit_speed: 0.9,
+            fire_interval: 1.4,
+            projectile_speed: 380.0,
+        };
+        let mut a = ChoreographyState {
+            seed: seed_from_id("shark_a"),
+            has_slot: true,
+            ..Default::default()
+        };
+        let mut b = ChoreographyState {
+            seed: seed_from_id("shark_b"),
+            has_slot: true,
+            ..Default::default()
+        };
+        let target = Vec2::new(0.0, 0.0);
+        let slot = Vec2::new(0.0, -160.0);
+        let dt = 1.0 / 60.0;
+        let mut saw_desync = false;
+        for _ in 0..(20 * 60) {
+            let input = ChoreographyInput {
+                actor_pos: slot,
+                target_pos: target,
+                assigned_slot_pos: slot,
+                dt,
+                nearest_neighbor: None,
+            };
+            evaluate_choreography(choreography, &mut a, input);
+            evaluate_choreography(choreography, &mut b, input);
+            if a.orbit_direction * b.orbit_direction < 0.0 {
+                saw_desync = true;
+                break;
+            }
+        }
+        assert!(
+            saw_desync,
+            "two seeded actors never desync'd their orbit direction; \
+             the staggered reverse-timer jitter isn't doing its job"
         );
     }
 

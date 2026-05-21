@@ -946,7 +946,7 @@ const PIRATE_QUARTERMASTER_NODES: &[DialogNode] = &[
     },
     DialogNode {
         speaker: "Quartermaster",
-        line: "The lookout. Up the rigging through the hatch in the ceiling. Sharks roost up there now — the ON FIRE kind. Test your steel before you go visit the Mockingbird; the bird counts how many sharks you ate.",
+        line: "The lookout, up the rigging through the hatch in the ceiling. Crew's in a foul mood today — every shark's got a rider on top with a grudge and a flintlock, and they ain't asking questions before they fire. You ever try rationing salt pork between six pirates and three on-fire sharks? That's why they're cross.",
         options: PIRATE_QUARTERMASTER_RETURN_OPTIONS,
         default_next: None,
     },

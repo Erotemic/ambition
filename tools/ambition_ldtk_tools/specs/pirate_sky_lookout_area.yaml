@@ -96,30 +96,36 @@ entities:
       bidirectional: true
 
   # ─────────────────────────────────────────────────────────────────
-  # Burning Flying Shark spawns. Three sharks at staggered heights
-  # and x-positions, all with the `burning_flying_shark` brain so
-  # the dive-strike choreography fires. Hostile actors register
-  # through the NPC sprite registry (same path used by
-  # `pirate_sky_arena` in intro.ldtk).
+  # Burning Flying Shark spawns — composite rider-on-mount actor.
+  # Brain `pirate_on_shark` runs the `AerialOrbitAndFire`
+  # choreography: a pirate rider orbits the player and fires
+  # projectiles from atop the burning shark. Killing the rider
+  # morphs the actor into a bare `BurningFlyingShark` (which falls
+  # back to `DiveStrike`); killing the shark dismounts the rider
+  # to a grounded `PirateRaider` (melee).
+  #
+  # Three sharks at staggered x/y so the player can read the orbit
+  # rings independently. Matches the intro `pirate_sky_arena`
+  # brain wiring so feel calibrations on either room transfer.
   # ─────────────────────────────────────────────────────────────────
   - type: EnemySpawn
     px: [192, 240]
     size: [108, 96]
     fields:
       name: Burning Flying Shark
-      brain: burning_flying_shark
+      brain: pirate_on_shark
   - type: EnemySpawn
     px: [560, 160]
     size: [108, 96]
     fields:
       name: Burning Flying Shark
-      brain: burning_flying_shark
+      brain: pirate_on_shark
   - type: EnemySpawn
     px: [960, 240]
     size: [108, 96]
     fields:
       name: Burning Flying Shark
-      brain: burning_flying_shark
+      brain: pirate_on_shark
 
   # ─────────────────────────────────────────────────────────────────
   # Camera + signage.

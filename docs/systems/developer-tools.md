@@ -10,12 +10,18 @@ us tune feel and inspect ECS state before spending time on custom editor UI.
 
 ## Cargo feature notes
 
-`dev_tools` enables the inspector but not the Bevy asset file watcher. The
-file watcher (Bevy 0.18's `notify`-backed asset hot-reload) creates one
-inotify instance per watched directory; with ~320 files across ~70 subdirs
-under `crates/ambition_sandbox/assets/`, hosts with a low per-process file
-descriptor limit get `Failed to create file watcher … Too many open files`
-on startup.
+`dev_tools` enables the inspector but **not** the Bevy asset file watcher.
+The watcher (Bevy 0.18's `notify`-backed asset hot-reload) calls
+`inotify_init()` to obtain an inotify *instance* — and the scarce Linux
+resource here is `/proc/sys/fs/inotify/max_user_instances`, which
+defaults to **128** on most kernels and is shared across every program
+the user is running (VSCode language servers, file managers, sync
+clients, browser tabs, dev servers, etc.). When Bevy tries to grab an
+instance and the user is already near the cap, `inotify_init()` returns
+`EMFILE`, which the notify crate surfaces as `Failed to create file
+watcher … "Too many open files"`. The per-file watch count
+(`max_user_watches`, default tens of thousands) is essentially never the
+issue.
 
 Asset hot reload is split into its own feature, `dev_hot_reload`. Enable
 it only when you are actually iterating on textures/fonts/spritesheets:
@@ -24,16 +30,24 @@ it only when you are actually iterating on textures/fonts/spritesheets:
 cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload
 ```
 
-If you DO want hot reload but hit the same "Too many open files" error, raise
-your host's open-fd and inotify limits:
+If you DO want hot reload but still hit `EMFILE`, raise the per-user
+instance cap (and optionally the watch cap) on your host:
 
 ```bash
-# Per-shell, transient. Persist via /etc/security/limits.d/ or systemd if needed.
-ulimit -n 65536
-# Linux inotify quota — typically 8192 by default.
-echo 524288 | sudo tee /proc/sys/fs/inotify/max_user_watches
+# Linux inotify instance quota — default 128, shared across all programs
+# the user is running. Bump it; the kernel just allocates a bit more
+# slab memory.
 echo 1024   | sudo tee /proc/sys/fs/inotify/max_user_instances
+# Watch count: usually fine, but bumping costs nothing.
+echo 524288 | sudo tee /proc/sys/fs/inotify/max_user_watches
+
+# Per-shell open-fd limit. Generally not the cause of `inotify_init`
+# EMFILE specifically, but a low ulimit -n can trip other code paths.
+ulimit -n 65536
 ```
+
+Persist via `sysctl.d` for inotify and `/etc/security/limits.d/` for
+ulimits if you want it to survive reboot.
 
 ## Hotkeys
 

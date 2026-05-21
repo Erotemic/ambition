@@ -2,6 +2,23 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-05-21: Bevy file watcher EMFILE is `inotify_instances`, not `max_user_watches`
+
+Reported during the intro-v1 polish session: `cargo run -p ambition_sandbox --bin ambition_sandbox` on the user's host failed with `Failed to create file watcher from path "…/crates/ambition_sandbox/assets", Error { kind: Io(Os { code: 24, kind: Uncategorized, message: "Too many open files" }), paths: [] }`. First guess (in the original developer-tools doc patch) was that `max_user_watches` was exhausted by the ~320 files in `crates/ambition_sandbox/assets/`. The user immediately falsified that — `cat /proc/sys/fs/inotify/max_user_watches → 65536` — and confirmed that removing `bevy/file_watcher` from the default `dev_tools` feature resolved the error.
+
+The actual scarce resource on Linux for `inotify_init()` is `max_user_instances` — the count of inotify INSTANCES a user may hold open simultaneously across every program they're running. The default is **128** on most distros (Ubuntu, Fedora, Arch at time of writing). VSCode language servers, file managers, sync clients (Dropbox, Syncthing), browser dev tools, watch-mode test runners, and so on each take one or more inotify instances. By the time the user hits `cargo run` on a Bevy app, the cap is already close to exhausted; Bevy's watcher tries `inotify_init()`, the syscall returns errno 24 (EMFILE), and `notify` surfaces it as `Too many open files`.
+
+Things that won't help:
+- Raising `max_user_watches`. That's the per-instance watch-count quota, not the per-user instance count. The original error never hit that limit.
+- `ulimit -n`. Per-process fd limit, mostly orthogonal. `inotify_init()`'s EMFILE does NOT come from the process fd table in this failure mode (though a separately-low ulimit can trip the same errno later in unrelated paths).
+
+Things that DO help:
+- `echo 1024 | sudo tee /proc/sys/fs/inotify/max_user_instances` (and persist via `sysctl.d`). Bumps the per-user instance cap; cost is a small slab of kernel memory.
+- Closing other inotify-heavy programs (VSCode language servers etc.) before `cargo run`. Quick verification step.
+- Not enabling `bevy/file_watcher` unless the workflow actually needs live asset hot reload. Polish AS pulled it out of the default `dev_tools` feature and moved it to `dev_hot_reload` (already documented for LDtk hot reload).
+
+Rule for the next agent looking at this error message: `code: 24` from `notify` + "file watcher" + a Linux host → check `max_user_instances`, not `max_user_watches`. If the file watcher feature isn't load-bearing for the current task, drop it; iterating with the watcher is a separate workflow.
+
 ## 2026-05-21: Area-spec `world_x` can drift from the live LDtk; treat the live file as truth
 
 While building out the intro-v1 vertical slice (Task 02 reshape of `intro_escape_shaft`) the area spec `tools/ambition_ldtk_tools/specs/intro_escape_shaft_area.yaml` carried `world_x: 104000`, but the live `crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk` had `worldX: 2624`. Inspecting the other intro specs found the same drift across all five of them (`100000 / 102000 / 104000 / 106000 / 108000`), so a previous repo refactor had moved the intro levels in the live LDtk without re-applying the specs.

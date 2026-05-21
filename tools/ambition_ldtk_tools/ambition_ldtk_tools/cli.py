@@ -138,6 +138,8 @@ def cmd_door(args, rest):
 def cmd_level(args, rest):
     if args.level_action == "set-field":
         return _delegate("ambition_ldtk_tools.edit.level_set_field", rest)
+    if args.level_action == "diff-specs":
+        return _delegate("ambition_ldtk_tools.edit.spec_diff", rest)
     return _todo(f"level {args.level_action}")
 
 
@@ -292,6 +294,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Set level field instances (biome / music_track / "
             "ambient_profile / visual_theme / etc.) on existing levels"
+        ),
+    )
+    level_sub.add_parser(
+        "diff-specs",
+        help=(
+            "Read-only: compare each named area spec's "
+            "world_x/world_y/px_wid/px_hei against the live LDtk and "
+            "report any drift. Use --ldtk <file>. Exits non-zero if "
+            "any spec disagrees (CI-friendly)."
         ),
     )
     sp_level.set_defaults(func=cmd_level)

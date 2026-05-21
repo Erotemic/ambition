@@ -23,7 +23,7 @@
 #   +-----------------------------------------------------------------+
 id: intro_raid_corridor
 level_id: intro_raid_corridor
-world_x: 102000
+world_x: 1024  # matches live intro.ldtk; was 102000 (spec drift)
 world_y: 0
 px_wid: 1600
 px_hei: 512

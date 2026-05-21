@@ -25,7 +25,7 @@
 #   +-------------------------------------------------+
 id: intro_wake_room
 level_id: intro_wake_room
-world_x: 100000
+world_x: 0  # matches live intro.ldtk; was 100000 (spec drift)
 world_y: 0
 px_wid: 1024
 px_hei: 384

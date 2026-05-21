@@ -4,6 +4,9 @@ Status: end-of-session handoff for the intro-v1 vertical slice, written at
 2026-05-21 after Tasks 01–08 of the scaffold landed. This file is the single
 best place for a next-iteration agent or playtester to pick the slice up.
 
+The original 2026-05-21 baseline was extended in the same session with
+polish passes A–L (see "Polish session log" at the end).
+
 ## Playable route graph (post-Task 08)
 
 ```text
@@ -393,6 +396,158 @@ Task 09.5 follow-ups, in priority order:
 
 1. Hands-on Script A playtest (the spine).
 2. Conditional LockWall + chained-flag system (closes Task 08's
-   stretch goals).
+   stretch goals). [DONE in this session — polish A + D]
 3. Evil/lawful report Switch in gate_stack_lower (Script C).
+   [DONE in this session — polish C]
 4. Boss arena re-geometry / tuning.
+
+## Polish session log (2026-05-21, post-Task-09)
+
+After the initial Tasks 01–09 pass closed, the session continued
+with a polish wave that landed several stretch goals from this
+handoff's "next polish order" list. Captured here so the post-
+polish state is visible from the same file.
+
+### A. Chained flag system (`crates/ambition_sandbox/src/intro/route_state.rs`)
+
+Constant table `INTRO_FLAG_CHAINS` plus per-frame
+`emit_intro_flag_chains` system that promotes trigger flags to
+target flags through the standard `GameplayEffect::SetFlag` bus:
+
+```text
+bob_field_survey_received        → map_private_marks_unlocked
+intro_p5_route_memory_received   → route_memory_received
+alice_route_note_carried         → map_basic_unlocked
+switch_gate_official_report_used → alice_route_note_reported  (polish C)
+alice_route_note_reported        → private_routes_compromised (polish C)
+```
+
+Two integration tests (polish L) pin the round-trip through
+`apply_flag_effects` so downstream consumers (quest steps, label
+swaps, lock walls) see chained flags the same way they see
+authored ones.
+
+### B. `tileset add-layer` + `doctor --secondary-world`
+Both tools became idempotent / forward-compatible so
+`area create --replace-existing` is recoverable without hand-edits
+and `doctor crates/.../intro.ldtk` works end-to-end with the
+cross-world LoadingZones (see the new
+`dev/journals/lessons_learned.md` 2026-05-21 entry, and
+`dev/benchmark-candidates/ldtk-area-spec-drift-2026-05-21.md` for
+the durable engineering memory).
+
+### C. Evil/lawful report Switch
+gate_stack_lower spec gained a `gate_official_report` Switch
+("Submit private route data") next to the Manifest Clerk. Toggling
+it emits `switch_gate_official_report_used`, which the new chain
+promotes to `alice_route_note_reported` and `private_routes_compromised`.
+Script C in this handoff is no longer "NOT YET REAL".
+
+### D. Flag-gated LockWalls
+`intro::route_state::sync_intro_flag_gated_lock_walls` reads the
+`INTRO_FLAG_GATED_LOCK_WALLS` table and inserts/removes
+`intro_lock:<id>` solid blocks in the active room's `world.blocks`
+based on save flags. Initial gating:
+```text
+alice_private_return_lock → opens on bob_field_survey_received
+gate_alice_private_lock   → opens on bob_field_survey_received
+```
+Before the survey: LockWall acts like a solid (blocks the player).
+After the survey: block is removed on the next frame; the player
+walks through.
+
+### E. lab_patrol_line KinematicPath
+Added in combat_calibration_lab so the
+`Patrol:lab_patrol_line`-brained EnemySpawn actually patrols
+instead of falling back to passive. Path runs x=256..528 at y=712,
+PingPong at speed 85.
+
+### F. Conditional dialogue
+Three new IntroDialog variants (OilerPostStabilizer,
+AliceAfterBobSurvey, BobAfterReport) plus
+`redirect_post_intro_dialog` swap Oiler / Alice / Bob to their
+post-state lines based on save flags
+(`p1_stabilizer_received`, `bob_field_survey_received`,
+`alice_route_note_reported`). Mirrors the existing pirate-cove
+post-treasure pattern.
+
+### G. Engineering memory
+`dev/journals/lessons_learned.md` and
+`dev/benchmark-candidates/ldtk-area-spec-drift-2026-05-21.md`
+capture the spec-drift gotcha, the doctor `--secondary-world`
+forwarding fix, and the `tileset add-layer` idempotency rule.
+
+### I. LockWall visuals cover both block prefixes
+`presentation/rendering/world.rs::sync_lock_wall_visuals` now
+also reacts to `intro_lock:*` blocks (in addition to the
+encounter-driven `lockwall:*` blocks). The two flag-gated
+LockWalls show the same `LockWallTile` art until their unlock
+flag fires.
+
+### L. Chained-flag integration tests
+Two tests in `intro/route_state.rs` drive the chain through a
+minimal Bevy App and assert the target flag lands in save.
+
+### Real durable state inventory (post-polish)
+
+Pickup flags (unchanged from Task 08 plus the new ones surfaced
+by the chain table):
+```text
+p1_stabilizer_received           (pickup, intro_p1_stabilizer step 2)
+alice_route_note_carried         (pickup, intro_cartography_route step 1)
+bob_field_survey_received        (pickup, intro_cartography_route step 2)
+intro_p5_route_memory_received   (pickup, intro_cartography_route step 3)
+intro_p4_combat_calibrated       (pickup)
+intro_shaft_alcove_visited       (pickup)
+intro_shaft_late_ledge_reached   (pickup, future-gated)
+intro_drain_roof_reward_taken    (pickup)
+```
+
+Chained flags (auto-emitted by emit_intro_flag_chains):
+```text
+map_basic_unlocked               (from alice_route_note_carried)
+map_private_marks_unlocked       (from bob_field_survey_received)
+route_memory_received            (from intro_p5_route_memory_received)
+alice_route_note_reported        (from gate_official_report switch)
+private_routes_compromised       (from alice_route_note_reported)
+```
+
+Switch flags:
+```text
+switch_intro_portal_switch_used        (existing)
+switch_combat_lab_classify_switch_used (Task 06)
+switch_gate_official_report_used        (polish C)
+```
+
+### Validation (final)
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python3 \
+  tools/ambition_ldtk_tools/ambition_ldtk_tools/validate.py \
+  --secondary-world crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+  crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
+# → OK: 0 warnings, 11 levels.
+
+PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \
+  doctor --secondary-world \
+    crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+    crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
+# → OK: ... is valid and safe (roundtrip).
+# → OK: ... passes Ambition LDtk validation (0 warnings).
+
+cargo test -p ambition_sandbox --lib
+# → 589 passed; 0 failed.   (+5 over the Task 08 baseline)
+```
+
+### What remains placeholder after the polish wave
+
+- The hands-on playtest itself has still not happened.
+- Boss arena geometry is still the inherited clockwork_warden room
+  (Task 07 stub note).
+- Tile painting is still flat-bicolor across all rooms
+  (`--map 1=0 --map 2=28`).
+- No quest tracks the report path; submitting at
+  gate_official_report sets save flags but doesn't advance an
+  authored quest yet.
+- No conditional dialogue for the lawful path beyond Bob's brief
+  acknowledgement (polish F).
+- LockWall visual transitions are snap-on/off; no fade animation.

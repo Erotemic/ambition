@@ -706,7 +706,6 @@ impl EnemyRuntime {
             self.attack_timer = tuning.enemy_attack_active.max(0.01);
         }
 
-        let delta_to_player = target_pos - self.pos;
         let recover_remaining = if self.attack_cooldown > 0.0
             && self.attack_windup_timer <= 0.0
             && self.attack_timer <= 0.0
@@ -755,111 +754,100 @@ impl EnemyRuntime {
             },
         );
 
-        // The engine CharacterAI output is now authoritative for the coarse
-        // behavior decision. Sandbox code supplies archetype speeds and
-        // collision, but no longer has a second, parallel set of
-        // Guard/Custom/Patrol/attack-range branches.
+        // BRAIN STAGE — read AI mode + choreography output, plus the
+        // archetype's patrol/chase speeds and (when present) the
+        // KinematicPath the enemy is bound to, and pack the whole
+        // "what does this actor want this tick" decision into a
+        // single `EnemyControlFrame`. The integration stage below
+        // only reads the frame, never the underlying brain — so a
+        // future RL-policy or scripted brain that fills the same
+        // frame plugs in without touching collision logic.
         let is_aerial = self.gravity_scale <= 0.001;
-        if let Some(motion) = &mut self.motion {
-            if matches!(ai.intent, ae::CharacterAiIntent::Patrol) {
-                let old = self.pos;
-                self.pos = motion.advance(self.pos, dt);
-                let delta = self.pos - old;
-                self.vel = if dt > 0.0 { delta / dt } else { ae::Vec2::ZERO };
-                self.facing = delta.x.signum_or(self.facing);
-            } else {
-                self.vel = ae::Vec2::ZERO;
-            }
-        } else if is_aerial {
-            // Aerial flight: steer toward the choreography's target
-            // position. No world collision (sky arenas are open) and
-            // no gravity — the steering target *is* the path.
-            // The choreography may override the convergence speed
-            // (e.g. DiveStrike during the dive phase uses
-            // `dive_speed` instead of `chase_speed`); fall back to
-            // the archetype default otherwise.
-            let steering_speed = choreo_tick
-                .steering_speed_override
-                .unwrap_or_else(|| self.archetype.chase_speed());
-            let to_target = choreo_tick.steering_target - self.pos;
-            let dist = to_target.length();
-            let desired_vel = if dist > 1.0 {
-                (to_target / dist) * steering_speed
-            } else {
-                ae::Vec2::ZERO
-            };
-            // Match accel to the steering speed so a faster dive
-            // also ramps faster — otherwise an aerial actor at
-            // 3x speed would still take 3x as long to converge.
-            let accel = (steering_speed * 3.0).max(900.0) * dt;
-            self.vel.x = approach(self.vel.x, desired_vel.x, accel);
-            self.vel.y = approach(self.vel.y, desired_vel.y, accel);
-            self.pos += self.vel * dt;
-            self.on_ground = false;
+        let frame = self.build_control_frame(&ai, &choreo_tick, target_pos, is_aerial, dt);
+
+        // INTEGRATION STAGE — every actor (aerial, grounded, patrol)
+        // goes through `step_kinematic` against the live `world`.
+        // This is the seam the player uses too: brain produces
+        // desired velocity, the kinematic primitive resolves
+        // collision. The previous codebase wrote `self.pos += ...`
+        // directly for aerial + patrol movement, which meant flying
+        // sharks could clip through walls and KinematicPath patrols
+        // ignored solids entirely.
+        let max_fall = ENEMY_MAX_FALL;
+        let gravity = if is_aerial {
+            0.0
         } else {
-            let desired_x = match ai.intent {
-                ae::CharacterAiIntent::Hold | ae::CharacterAiIntent::Attack { .. } => {
-                    if ai.committed() {
-                        self.vel.x * 0.4
-                    } else {
-                        0.0
-                    }
-                }
-                ae::CharacterAiIntent::Patrol => self.facing * self.archetype.patrol_speed(),
-                ae::CharacterAiIntent::Chase { .. } => {
-                    // Steering target comes from the choreography
-                    // (slot-aware) instead of the raw chase direction
-                    // toward the player. Anti-clump behavior: enemies
-                    // without a slot stand off; enemies with a slot
-                    // approach the slot, not the player center.
-                    let dx = choreo_tick.steering_target.x - self.pos.x;
-                    let sign = if dx.abs() < 1.0 { 0.0 } else { dx.signum() };
-                    let speed = choreo_tick
-                        .steering_speed_override
-                        .unwrap_or_else(|| self.archetype.chase_speed());
-                    sign * speed
-                }
-            };
-            self.vel.x = approach(self.vel.x, desired_x, 650.0 * dt);
+            ENEMY_GRAVITY * self.gravity_scale
+        };
+        let mut body = ae::KinematicBody {
+            pos: self.pos,
+            vel: self.vel,
+            size: self.size,
+            on_ground: self.on_ground,
+            facing: self.facing,
+        };
+        let prev_vel_x = body.vel.x;
+        if is_aerial {
+            // Aerial bodies own both vx and vy via the brain. We
+            // approach the desired velocity (not snap to it) so a
+            // dive-strike speed override accelerates believably
+            // rather than teleporting velocity.
+            let target_speed = frame.desired_vel.length();
+            let archetype_chase = self.archetype.chase_speed();
+            let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
+            body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
+            body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
+        } else {
+            // Grounded bodies own vx via the brain; gravity owns vy.
+            // Match the previous ground-acceleration constant
+            // (650 px/s²·dt) so chase/patrol feel doesn't shift.
+            body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
+        }
+        ae::step_kinematic(
+            &mut body,
+            world,
+            ae::KinematicTuning {
+                gravity,
+                max_fall_speed: max_fall,
+            },
+            ae::KinematicInputs {
+                drop_through: frame.drop_through,
+            },
+            dt,
+        );
+        self.pos = body.pos;
+        self.vel = body.vel;
+        self.on_ground = if is_aerial { false } else { body.on_ground };
 
-            // Chase-drop-through: when actively chasing a player who is
-            // meaningfully BELOW us, AND we're currently standing on something,
-            // suppress the OneWay vertical block this tick so we follow the
-            // player through the same platform.
-            let drop_through = matches!(ai.intent, ae::CharacterAiIntent::Chase { .. })
-                && self.on_ground
-                && delta_to_player.y > 48.0;
-
-            let mut body = ae::KinematicBody {
-                pos: self.pos,
-                vel: self.vel,
-                size: self.size,
-                on_ground: self.on_ground,
-                facing: self.facing,
-            };
-            let prev_vel_x = body.vel.x;
-            ae::step_kinematic(
-                &mut body,
-                world,
-                ae::KinematicTuning {
-                    gravity: ENEMY_GRAVITY * self.gravity_scale,
-                    max_fall_speed: ENEMY_MAX_FALL,
-                },
-                ae::KinematicInputs { drop_through },
-                dt,
-            );
-            self.pos = body.pos;
-            self.vel = body.vel;
-            self.on_ground = body.on_ground;
-
-            if matches!(ai.intent, ae::CharacterAiIntent::Patrol)
-                && prev_vel_x.abs() > 1.0
-                && self.vel.x.abs() < 0.01
-            {
-                self.facing *= -1.0;
-            }
+        // KinematicPath patrols: the brain reads the path's "would
+        // be" position to derive the desired_vel above. If
+        // step_kinematic clipped the actor against a wall, the path
+        // moved on without us — that's fine; the next tick the
+        // brain re-derives velocity from the new path target and
+        // catches up. Path itself is still advanced (single source
+        // of truth for the patrol curve).
+        if let Some(motion) = &mut self.motion {
+            // Advance the path's internal cursor by `dt` regardless
+            // of whether the body kept up. The brain reads from
+            // `motion.advance` next tick to recompute desired_vel.
+            let _ = motion.advance(self.pos, dt);
         }
 
+        // Patrol turn-around: if the body's x velocity was non-zero
+        // before the sweep but the sweep zeroed it (wall block),
+        // flip facing so the next tick walks back. Aerial actors
+        // skip this — they bend around obstacles by re-steering.
+        if !is_aerial
+            && matches!(ai.intent, ae::CharacterAiIntent::Patrol)
+            && prev_vel_x.abs() > 1.0
+            && self.vel.x.abs() < 0.01
+        {
+            self.facing *= -1.0;
+        }
+
+        // Facing: AI/choreography facing always wins over derived
+        // facing; brain-frame facing (when set) wins over both. This
+        // ordering matches the pre-refactor behaviour.
         match ai.intent {
             ae::CharacterAiIntent::Chase { direction_x }
             | ae::CharacterAiIntent::Attack { direction_x }
@@ -872,41 +860,136 @@ impl EnemyRuntime {
         if choreo_tick.face_x.abs() > 0.001 {
             self.facing = choreo_tick.face_x;
         }
+        if frame.facing.abs() > 0.001 {
+            self.facing = frame.facing.signum();
+        }
 
-        // Translate the choreography's action request into either a
-        // melee wind-up (legacy path) or a projectile spawn (new
-        // ranged path).
+        // EFFECTS STAGE — translate the frame's attack intents into
+        // wind-up timers / projectile spawns. Same gating
+        // (cooldowns, archetype eligibility) as before.
+        if frame.melee_pressed
+            && !self.archetype.is_sandbag()
+            && self.attack_cooldown <= 0.0
+        {
+            self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
+            self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
+                * if self.archetype == EnemyArchetype::SmallSkitter {
+                    0.75
+                } else if self.archetype == EnemyArchetype::LargeBrute {
+                    1.35
+                } else {
+                    1.0
+                };
+            self.ai_mode = ae::CharacterAiMode::Telegraph;
+        }
+        if let Some(fire) = frame.fire {
+            outputs.projectile_spawns.push(EnemyProjectileSpawn {
+                origin: self.pos + ae::Vec2::new(0.0, -8.0),
+                dir: fire.dir,
+                speed: fire.speed,
+                damage: self.archetype.damage_amount(),
+                max_lifetime: 2.4,
+                half_extent: ae::Vec2::new(10.0, 8.0),
+                owner_id: self.id.clone(),
+                gravity: 0.0,
+            });
+            // Brief telegraph for the HUD so the volley reads as a "shot".
+            self.ai_mode = ae::CharacterAiMode::Attack;
+        }
+    }
+
+    /// Pack the per-tick AI + choreography decision into a flat
+    /// `EnemyControlFrame`. This is the brain-to-sim seam — a
+    /// future RL policy that wants to control an enemy fills the
+    /// SAME frame and the integration code in `update` is
+    /// unchanged.
+    fn build_control_frame(
+        &mut self,
+        ai: &ae::CharacterAiOutput,
+        choreo_tick: &ae::ChoreographyTick,
+        target_pos: ae::Vec2,
+        is_aerial: bool,
+        dt: f32,
+    ) -> ae::EnemyControlFrame {
+        let mut frame = ae::EnemyControlFrame::neutral();
+
+        // Drop-through: chasing a player meaningfully below the actor
+        // while currently grounded. Lets enemies follow through
+        // one-way platforms the player just used. Aerial bodies have
+        // no on_ground so this is naturally a no-op for them.
+        let delta_y = target_pos.y - self.pos.y;
+        frame.drop_through = !is_aerial
+            && matches!(ai.intent, ae::CharacterAiIntent::Chase { .. })
+            && self.on_ground
+            && delta_y > 48.0;
+
+        // Desired velocity. Aerial actors fly in 2D toward the
+        // choreography's steering target; grounded actors get an
+        // x-axis intent that the integration stage ramps toward.
+        // KinematicPath patrol overrides the x intent with the
+        // path's lookahead so patrols actually walk their curve.
+        if is_aerial {
+            let steering_speed = choreo_tick
+                .steering_speed_override
+                .unwrap_or_else(|| self.archetype.chase_speed());
+            let to_target = choreo_tick.steering_target - self.pos;
+            let dist = to_target.length();
+            frame.desired_vel = if dist > 1.0 {
+                (to_target / dist) * steering_speed
+            } else {
+                ae::Vec2::ZERO
+            };
+        } else if let Some(motion) = self.motion.as_ref() {
+            // Path patrols only walk their curve when the AI is in
+            // Patrol intent. Hold/Attack must keep the actor pinned
+            // (e.g. during a telegraph against an in-range player).
+            // Lookahead-by-dt asks the path where it wants to be
+            // next tick without mutating the cursor; `update`
+            // advances the cursor separately so the path remains
+            // the source of truth even when collision blocks the
+            // body.
+            if matches!(ai.intent, ae::CharacterAiIntent::Patrol) {
+                let target_pos = motion.lookahead(self.pos, dt);
+                let dx = target_pos.x - self.pos.x;
+                let desired_x = if dt > 0.0 { dx / dt } else { 0.0 };
+                frame.desired_vel = ae::Vec2::new(desired_x, 0.0);
+                frame.facing = dx.signum_or(self.facing);
+            }
+        } else {
+            let desired_x = match ai.intent {
+                ae::CharacterAiIntent::Hold | ae::CharacterAiIntent::Attack { .. } => {
+                    if ai.committed() {
+                        self.vel.x * 0.4
+                    } else {
+                        0.0
+                    }
+                }
+                ae::CharacterAiIntent::Patrol => self.facing * self.archetype.patrol_speed(),
+                ae::CharacterAiIntent::Chase { .. } => {
+                    let dx = choreo_tick.steering_target.x - self.pos.x;
+                    let sign = if dx.abs() < 1.0 { 0.0 } else { dx.signum() };
+                    let speed = choreo_tick
+                        .steering_speed_override
+                        .unwrap_or_else(|| self.archetype.chase_speed());
+                    sign * speed
+                }
+            };
+            frame.desired_vel = ae::Vec2::new(desired_x, 0.0);
+        }
+
+        // Attack intents from the choreography are forwarded onto
+        // the frame; the simulation half handles cooldown gating.
         match choreo_tick.action {
             Some(ae::ChoreographyAction::Melee) => {
-                if !self.archetype.is_sandbag() && self.attack_cooldown <= 0.0 {
-                    self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
-                    self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
-                        * if self.archetype == EnemyArchetype::SmallSkitter {
-                            0.75
-                        } else if self.archetype == EnemyArchetype::LargeBrute {
-                            1.35
-                        } else {
-                            1.0
-                        };
-                    self.ai_mode = ae::CharacterAiMode::Telegraph;
-                }
+                frame.melee_pressed = true;
             }
             Some(ae::ChoreographyAction::FireProjectile { dir, speed }) => {
-                outputs.projectile_spawns.push(EnemyProjectileSpawn {
-                    origin: self.pos + ae::Vec2::new(0.0, -8.0),
-                    dir,
-                    speed,
-                    damage: self.archetype.damage_amount(),
-                    max_lifetime: 2.4,
-                    half_extent: ae::Vec2::new(10.0, 8.0),
-                    owner_id: self.id.clone(),
-                    gravity: 0.0,
-                });
-                // Brief telegraph for the HUD so the volley reads as a "shot".
-                self.ai_mode = ae::CharacterAiMode::Attack;
+                frame.fire = Some(ae::EnemyFireRequest { dir, speed });
             }
             None => {}
         }
+
+        frame
     }
 
     pub fn aabb(&self) -> ae::Aabb {

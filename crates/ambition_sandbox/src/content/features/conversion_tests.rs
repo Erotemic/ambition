@@ -409,4 +409,126 @@ mod conversion_tests {
         assert_eq!(enemy.hit_flash, 0.0);
         let _ = body; // silence unused warning if body becomes unused
     }
+
+    /// Aerial enemies (flying shark + rider) used to write `self.pos`
+    /// directly from the choreography's steering target, which let
+    /// them clip straight through solid walls. With the brain→sim
+    /// seam (`EnemyControlFrame` + uniform `step_kinematic`) the
+    /// wall blocks them, so the position must stay on the safe side
+    /// of the wall after one tick of forced chase.
+    #[test]
+    fn aerial_enemy_respects_world_collision_against_a_wall() {
+        let world = ae::World::new(
+            String::from("aerial_collision_test"),
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![
+                ae::Block::solid(
+                    String::from("floor"),
+                    ae::Vec2::new(0.0, 560.0),
+                    ae::Vec2::new(800.0, 40.0),
+                ),
+                ae::Block::solid(
+                    String::from("wall"),
+                    ae::Vec2::new(300.0, 200.0),
+                    ae::Vec2::new(40.0, 320.0),
+                ),
+            ],
+        );
+        let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 300.0), ae::Vec2::new(20.0, 16.0));
+        let mut enemy = EnemyRuntime::new(
+            "shark_a",
+            "Burning Flying Shark",
+            aabb,
+            ae::EnemyBrain::Custom("pirate_on_shark".into()),
+            &[],
+        );
+        enemy.attack_cooldown = 0.0;
+        let player_pos = ae::Vec2::new(500.0, 300.0);
+        let mut outputs = super::super::enemies::EnemyTickOutputs::default();
+        for _ in 0..120 {
+            enemy.update(
+                &world,
+                player_pos,
+                FeatureCombatTuning::default(),
+                Some(player_pos),
+                None,
+                &mut outputs,
+                1.0 / 60.0,
+            );
+        }
+        let half_w = enemy.size.x * 0.5;
+        let wall_left_edge = 300.0;
+        assert!(
+            enemy.pos.x + half_w <= wall_left_edge + 0.5,
+            "aerial enemy clipped into wall at pos {:?}; wall left edge {}",
+            enemy.pos,
+            wall_left_edge,
+        );
+    }
+
+    /// Path-patrol enemies used to write `self.pos = motion.advance(...)`
+    /// directly, bypassing world collision. With the brain→sim seam
+    /// the path lookahead becomes a desired velocity that `step_kinematic`
+    /// blocks against solids — so a wall placed on the patrol curve
+    /// stops the body short of the wall instead of letting it clip.
+    #[test]
+    fn patrol_enemy_respects_world_collision_against_a_wall() {
+        let world = ae::World::new(
+            String::from("patrol_collision_test"),
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![
+                ae::Block::solid(
+                    String::from("floor"),
+                    ae::Vec2::new(0.0, 560.0),
+                    ae::Vec2::new(800.0, 40.0),
+                ),
+                ae::Block::solid(
+                    String::from("wall"),
+                    ae::Vec2::new(200.0, 480.0),
+                    ae::Vec2::new(40.0, 80.0),
+                ),
+            ],
+        );
+        let aabb = enemy_aabb(ae::Vec2::new(100.0, 536.0));
+        let path = ae::KinematicPath {
+            points: vec![ae::Vec2::new(100.0, 536.0), ae::Vec2::new(400.0, 536.0)],
+            speed: 120.0,
+            mode: ae::KinematicPathMode::PingPong,
+            start_offset_seconds: 0.0,
+        };
+        let paths = vec![("skitter_path".to_string(), path)];
+        let mut enemy = EnemyRuntime::new(
+            "path_skitter",
+            "path_skitter",
+            aabb,
+            ae::EnemyBrain::Patrol {
+                path_id: Some("skitter_path".into()),
+            },
+            &paths,
+        );
+        enemy.attack_cooldown = 0.0;
+        let player_pos_far = ae::Vec2::new(2000.0, 536.0);
+        let mut outputs = super::super::enemies::EnemyTickOutputs::default();
+        for _ in 0..120 {
+            enemy.update(
+                &world,
+                player_pos_far,
+                FeatureCombatTuning::default(),
+                Some(player_pos_far),
+                None,
+                &mut outputs,
+                1.0 / 60.0,
+            );
+        }
+        let half_w = enemy.size.x * 0.5;
+        let wall_left_edge = 200.0;
+        assert!(
+            enemy.pos.x + half_w <= wall_left_edge + 0.5,
+            "patrol enemy clipped into wall at pos {:?}; wall left edge {}",
+            enemy.pos,
+            wall_left_edge,
+        );
+    }
 }

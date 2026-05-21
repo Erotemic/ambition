@@ -312,3 +312,27 @@ entities:
       name: gate_official_terminal_label
       text: "MAP_OFFICIAL: portal terminal"
       category: Custom
+
+  # --- Evil/lawful report terminal. A second Switch (separate from
+  # the portal switch) placed next to the Manifest Clerk. Activating
+  # it sets `switch_gate_official_report_used` per the standard
+  # interact-system pattern; the intro flag-chain table promotes that
+  # to `alice_route_note_reported` and then to
+  # `private_routes_compromised` so the cartography route's
+  # consequences are durable in save state.
+  - type: Switch
+    px: [1024, 704]
+    size: [24, 32]
+    fields:
+      id: gate_official_report
+      name: gate_official_report
+      prompt: "Submit private route data"
+      target_encounter: ""
+      action: ResetEncounter
+  - type: DebugLabel
+    px: [968, 664]
+    size: [240, 24]
+    fields:
+      name: gate_official_report_label
+      text: "[official report — Alice/Bob route]"
+      category: Custom

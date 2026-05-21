@@ -42,6 +42,21 @@ pub const INTRO_FLAG_CHAINS: &[(&str, &str)] = &[
     // Picking up Alice's sealed route note also turns on basic map
     // awareness so a future minimap layer has a flag to gate on.
     ("alice_route_note_carried", "map_basic_unlocked"),
+    // Evil/lawful report route (Script C in playtest-handoff.md).
+    // Activating the `gate_official_report` Switch in
+    // gate_stack_lower sets `switch_gate_official_report_used` (the
+    // standard interact-system pattern). This chain promotes that to
+    // the canonical `alice_route_note_reported` and then to
+    // `private_routes_compromised` so a single Switch toggle
+    // produces a coherent save-state record of the report path.
+    (
+        "switch_gate_official_report_used",
+        "alice_route_note_reported",
+    ),
+    (
+        "alice_route_note_reported",
+        "private_routes_compromised",
+    ),
 ];
 
 /// Watches the save layer for any chained trigger and emits the target

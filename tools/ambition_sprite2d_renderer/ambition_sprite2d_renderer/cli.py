@@ -91,7 +91,7 @@ _TACKON_TARGETS: dict[str, str] = {
     "mockingbird_boss": "ambition_sprite2d_renderer.targets.mockingbird_boss",
     "pirate_admiral": "ambition_sprite2d_renderer.targets.pirate_admiral",
     "pirate_raider": "ambition_sprite2d_renderer.targets.pirate_raider",
-    "pirate_corsair": "ambition_sprite2d_renderer.targets.pirate_corsair",
+    "pirate_quartermaster": "ambition_sprite2d_renderer.targets.pirate_quartermaster",
     "interdimensional_gate": "ambition_sprite2d_renderer.targets.interdimensional_gate",
     "burning_flying_shark": "ambition_sprite2d_renderer.targets.burning_flying_shark",
     # Sandbag stays last for parity with the pre-refactor ordering.

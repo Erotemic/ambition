@@ -1,5 +1,5 @@
-target: pirate_corsair
-image: pirate_corsair_spritesheet.png
+target: pirate_quartermaster
+image: pirate_quartermaster_spritesheet.png
 label_width: 100
 frame_width: 128
 frame_height: 128

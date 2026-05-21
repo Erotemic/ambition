@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ..pirates.render import render_target
 
-TARGET_NAME = "pirate_corsair"
+TARGET_NAME = "pirate_quartermaster"
 SHEET_FILES = [f"{TARGET_NAME}_spritesheet.png", f"{TARGET_NAME}_spritesheet.yaml"]
 
 

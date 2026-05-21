@@ -139,7 +139,14 @@ class BobSpec:
     head_h: float = 28.0
     head_depth: float = 22.0  # used for side-view head ellipse
     jaw_h: float = 6.0
-    neck_h: float = 4.0
+    # Head sits ~2.5 design units above the shoulder yoke; a short
+    # neck polygon fills that gap. Was 4.0 + 0.55 (a 5+ unit gap
+    # that read as a floating head); 2.5 + 0.50 keeps a visible
+    # neck strip without making the head look attached at the
+    # collarbone.
+    neck_h: float = 2.5
+    head_anchor: float = 0.50  # fraction of head_h above shoulder_y
+    neck_w: float = 7.0        # width of the visible neck skin polygon
     shoulder_w: float = 36.0
     chest_h: float = 20.0
     vest_h: float = 26.0
@@ -248,9 +255,10 @@ class BobEngineerGenerator:
 
         cx = 64.0 * S
         feet_y = 116.0 * S + pose.body_bob * S
-        # Drop shadow under the figure.
-        d = ImageDraw.Draw(img)
-        d.ellipse(_bbox((cx, feet_y + 4.0 * S), spec.shoulder_w * 1.4 * S, 6.0 * S), fill=pal["shadow"])
+        # No drop shadow — the in-game renderer composites characters
+        # over scene geometry that already provides ground contact,
+        # and the baked-in shadow ellipse fought camera angles and
+        # transparent backgrounds for review previews.
 
         if pose.view == BobView.SIDE:
             self._render_side(img, cx, feet_y, spec, pal, S, pose)
@@ -274,7 +282,7 @@ class BobEngineerGenerator:
         waist_y = pants_top_y - 2.0 * S
         vest_top_y = waist_y - spec.vest_h * S
         shoulder_y = vest_top_y - 4.0 * S
-        head_center = (cx + 2.0 * S, shoulder_y - spec.head_h * 0.55 * S - spec.neck_h * S)
+        head_center = (cx + 2.0 * S, shoulder_y - spec.head_h * spec.head_anchor * S - spec.neck_h * S)
 
         self._tq_draw_legs(base, cx, pants_top_y, boot_top_y, feet_y, spec, pal, S, pose)
         self._tq_draw_arms_back(base, cx, shoulder_y, spec, pal, S, pose)
@@ -495,14 +503,20 @@ class BobEngineerGenerator:
     def _tq_draw_head(self, base: Image.Image, c: Point, spec: BobSpec, pal: Dict[str, Color], S: float, pose: BobPose) -> None:
         d = ImageDraw.Draw(base)
         outline = pal["outline"]
+        # Neck strip first, behind the head — the chin will overlap
+        # the top of the neck so the join reads cleanly.
+        self._draw_neck(d, c, spec, pal, S, slant=+0.5)
         # Back hair mass (drawn first so the face sits on top).
         d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + 4.0) * S, (spec.head_h * 0.80 + 2.0) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)))
         # Face: a smoother oval than Trent's polygon — the silhouette
-        # is more organic. Separate jaw ellipse below adds chin
-        # definition without a polygonal angle.
+        # is more organic.
         d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
-        # Jaw shadow (chin definition without "beard" read).
-        d.ellipse(_bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.20 * S), (spec.head_w * 0.62) * S, (spec.jaw_h * 1.4) * S), fill=pal["skin_shadow"], outline=None)
+        # Five o'clock shadow: covers the lower jaw + mouth area,
+        # drawn BEFORE the mouth so the mouth line stays visible on
+        # top of the stubble tint. Was a small chin ellipse at y=0.20
+        # with jaw_h*1.4 height; now centered on the mouth at y=0.30
+        # with jaw_h*2.4 height so it reads as actual stubble.
+        d.ellipse(_bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.30 * S), (spec.head_w * 0.74) * S, (spec.jaw_h * 2.4) * S), fill=pal["skin_shadow"], outline=None)
         # Tousled-crop bangs — two soft clumps.
         for sign, dx in zip((-1, 1), (-3.0, 3.0)):
             d.polygon([
@@ -520,7 +534,8 @@ class BobEngineerGenerator:
             fill=pal["skin_shadow"],
             width=max(1, int(0.9 * S)),
         )
-        # Mouth — a small friendly arc by default, opens during talk.
+        # Mouth — drawn LAST (on top of the 5 o'clock shadow) so the
+        # lip line stays visible through the stubble.
         mouth_y = c[1] + spec.head_h * 0.28 * S
         if pose.talk_open > 0.2:
             d.ellipse(_bbox((c[0] + 3.0 * S, mouth_y), 3.6 * S, (1.0 + pose.talk_open * 1.6) * S), fill=outline)
@@ -529,6 +544,45 @@ class BobEngineerGenerator:
                 (c[0] + 0.0 * S, mouth_y - 1.5 * S, c[0] + 6.0 * S, mouth_y + 2.5 * S),
                 start=10, end=160, fill=outline, width=max(1, int(1.0 * S)),
             )
+
+    def _draw_neck(self, d: ImageDraw.ImageDraw, head_center: Point, spec: BobSpec, pal: Dict[str, Color], S: float, *, slant: float = 0.0) -> None:
+        """Draw a short skin-colored neck strip below the head.
+
+        The neck runs from a point just inside the face's bottom
+        (head_h * 0.42 below center) down to the shoulder yoke. The
+        shoulder yoke's vertical position is reconstructed from
+        ``spec.head_anchor`` + ``spec.neck_h`` rather than being
+        passed in — this keeps the neck function callable from any
+        view's head renderer without threading an extra argument.
+
+        ``slant`` lets the neck tilt a few units to one side so the
+        3/4 and side views can suggest a tiny head turn. Front view
+        passes 0.0 for a perfectly vertical neck.
+        """
+        outline = pal["outline"]
+        chin_y = head_center[1] + spec.head_h * 0.42 * S
+        shoulder_y = head_center[1] + spec.head_h * spec.head_anchor * S + spec.neck_h * S
+        # 4-point polygon: narrower at the chin, slightly wider at
+        # the shoulder where it meets the trapezius.
+        top_w = spec.neck_w * 0.85
+        bot_w = spec.neck_w * 1.10
+        neck = [
+            (head_center[0] - top_w * 0.5 * S + slant * S, chin_y),
+            (head_center[0] + top_w * 0.5 * S + slant * S, chin_y),
+            (head_center[0] + bot_w * 0.5 * S, shoulder_y + 1.5 * S),
+            (head_center[0] - bot_w * 0.5 * S, shoulder_y + 1.5 * S),
+        ]
+        d.polygon(neck, fill=pal["skin"], outline=outline)
+        # Subtle shadow on the camera-far side of the neck so it
+        # doesn't read as a flat tab of skin.
+        d.line(
+            [
+                (head_center[0] - top_w * 0.40 * S + slant * S, chin_y + 0.5 * S),
+                (head_center[0] - bot_w * 0.42 * S, shoulder_y),
+            ],
+            fill=pal["skin_shadow"],
+            width=max(1, int(0.7 * S)),
+        )
 
     def _draw_eyes_three_quarter(self, d: ImageDraw.ImageDraw, c: Point, spec: BobSpec, pal: Dict[str, Color], S: float, pose: BobPose) -> None:
         outline = pal["outline"]
@@ -559,7 +613,7 @@ class BobEngineerGenerator:
         vest_top_y = waist_y - spec.vest_h * S
         shoulder_y = vest_top_y - 4.0 * S
         # In profile, the head sits forward of the shoulder centerline.
-        head_center = (cx + 3.0 * S, shoulder_y - spec.head_h * 0.55 * S - spec.neck_h * S)
+        head_center = (cx + 3.0 * S, shoulder_y - spec.head_h * spec.head_anchor * S - spec.neck_h * S)
 
         # Back leg first (gets covered by the body), then front leg.
         # camera-near leg follows +step (forward when step > 0),
@@ -648,6 +702,8 @@ class BobEngineerGenerator:
         # Profile head: an asymmetric ellipse with a forward-jutting
         # nose + chin polygon. The hair is a solid cap on the back of
         # the skull, with a forward bang sweep.
+        # Neck strip behind the head (chin will overlap the top of it).
+        self._draw_neck(d, c, spec, pal, S, slant=+1.5)
         # Back hair cap.
         d.ellipse(
             _bbox((c[0] - 2.0 * S, c[1] - 3.0 * S), (spec.head_w + 4.0) * S, (spec.head_h * 0.86) * S),
@@ -668,6 +724,19 @@ class BobEngineerGenerator:
             (c[0] - spec.head_w * 0.42 * S, c[1] - spec.head_h * 0.10 * S),
         ]
         d.polygon(face, fill=pal["skin"], outline=outline)
+        # Five o'clock shadow on the jaw line — covers the lower-
+        # face area including the mouth corner. Profile uses an
+        # angled polygon following the jaw rather than an ellipse
+        # so it traces the silhouette.
+        stub = [
+            (c[0] - spec.head_w * 0.32 * S, c[1] + spec.head_h * 0.12 * S),
+            (c[0] + spec.head_w * 0.38 * S, c[1] + spec.head_h * 0.16 * S),
+            (c[0] + spec.head_w * 0.40 * S, c[1] + spec.head_h * 0.22 * S),
+            (c[0] + spec.head_w * 0.32 * S, c[1] + spec.head_h * 0.30 * S),
+            (c[0] + spec.head_w * 0.06 * S, c[1] + spec.head_h * 0.34 * S),
+            (c[0] - spec.head_w * 0.32 * S, c[1] + spec.head_h * 0.26 * S),
+        ]
+        d.polygon(stub, fill=pal["skin_shadow"], outline=None)
         # Ear visible on the back-of-head side.
         d.ellipse(
             _bbox((c[0] - spec.head_w * 0.18 * S, c[1] + spec.head_h * 0.02 * S), 3.2 * S, 4.0 * S),
@@ -710,7 +779,7 @@ class BobEngineerGenerator:
         waist_y = pants_top_y - 2.0 * S
         vest_top_y = waist_y - spec.vest_h * S
         shoulder_y = vest_top_y - 4.0 * S
-        head_center = (cx, shoulder_y - spec.head_h * 0.55 * S - spec.neck_h * S)
+        head_center = (cx, shoulder_y - spec.head_h * spec.head_anchor * S - spec.neck_h * S)
 
         # Legs (symmetric).
         for sgn in (-1, 1):
@@ -794,12 +863,15 @@ class BobEngineerGenerator:
     def _front_draw_head(self, base: Image.Image, c: Point, spec: BobSpec, pal: Dict[str, Color], S: float, pose: BobPose) -> None:
         d = ImageDraw.Draw(base)
         outline = pal["outline"]
+        # Neck strip (front view: vertical, no slant).
+        self._draw_neck(d, c, spec, pal, S, slant=0.0)
         # Back hair cap.
         d.ellipse(_bbox((c[0], c[1] - 3.0 * S), (spec.head_w + 4.0) * S, (spec.head_h * 0.86) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)))
         # Face.
         d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
-        # Jaw shadow (symmetric).
-        d.ellipse(_bbox((c[0], c[1] + spec.head_h * 0.22 * S), (spec.head_w * 0.66) * S, (spec.jaw_h * 1.4) * S), fill=pal["skin_shadow"], outline=None)
+        # Five o'clock shadow (symmetric, lower than the previous
+        # `jaw shadow` so it covers the mouth area).
+        d.ellipse(_bbox((c[0], c[1] + spec.head_h * 0.32 * S), (spec.head_w * 0.78) * S, (spec.jaw_h * 2.4) * S), fill=pal["skin_shadow"], outline=None)
         # Ears (two, one per side).
         for sgn in (-1, 1):
             d.ellipse(_bbox((c[0] + sgn * spec.head_w * 0.48 * S, c[1] + 0.5 * S), 2.6 * S, 3.4 * S), fill=pal["skin"], outline=outline, width=max(1, int(0.7 * S)))

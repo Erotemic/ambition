@@ -102,12 +102,8 @@ def _draw_creator(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     glow_cyan = _rgba("#8befff")
     glow_violet = _rgba("#b88cff")
 
-    # Ground shadow.
-    shadow_layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shadow_layer, "RGBA")
-    sd.ellipse(_box(46, 168, 113, 180), fill=(0, 0, 0, 60))
-    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=5.0))
-    img.alpha_composite(shadow_layer)
+    # Ground shadow removed; the in-game renderer composites the
+    # Creator over scene geometry that provides ground contact.
 
     base_x = 79.0
     base_y = 164.0 + bob

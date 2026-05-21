@@ -554,7 +554,8 @@ class AISlopZetaGenerator:
         root_x = (60.0 + p.root_x) * S
         outline = 1.8 * S
 
-        self._draw_shadow(img, ground_y, root_x + 2 * S, (40 + 14 * p.collapse) * S, int(34 * (1 - 0.25 * p.collapse)))
+        # Ground shadow removed; the in-game renderer composites bosses
+        # over floor geometry that already provides ground contact.
         if animation == "dash_echo":
             self._draw_dash_echo_fx(img, root_x, ground_y, p.dash_echo, S)
 

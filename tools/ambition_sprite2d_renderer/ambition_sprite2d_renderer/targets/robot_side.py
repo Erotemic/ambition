@@ -1367,7 +1367,8 @@ class SideRobotGenerator:
         root_x = (62.0 + p.root_x) * S
         outline = 1.8 * S
 
-        self._draw_shadow(img, ground_y, root_x + 3 * S, (55 + 18 * p.collapse) * S, int(32 * (1 - 0.35 * p.collapse)))
+        # Ground shadow removed; the in-game renderer composites the
+        # robot over floor geometry that already provides contact.
         d = ImageDraw.Draw(img)
 
         if animation == "blink_out":

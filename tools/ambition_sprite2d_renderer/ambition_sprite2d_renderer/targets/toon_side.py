@@ -2765,8 +2765,10 @@ class ToonSideGenerator:
         torso_center = (hip_center[0] + 0.5 * S, hip_center[1] - spec.torso_h * 0.52 * S + shift["shoulder_y"] * S)
         head_center = (torso_center[0] + 4.0 * S, torso_center[1] - spec.torso_h * 0.62 * S - spec.neck_h * S + shift["head_y"] * S)
 
-        shadow_w = max(spec.shoulder_w * 1.8, spec.torso_w * 2.0)
-        self._draw_shadow(d, (46 * S + p.root_x * S, 106 * S), shadow_w, S, 34 if animation != "dash" else 24)
+        # Drop-shadow removed — the in-game renderer composites
+        # characters over scene geometry that already provides ground
+        # contact, and the baked-in shadow ellipse fought camera
+        # angles and transparent backgrounds.
         if p.dash > 0.0:
             trail = Image.new("RGBA", img.size, (0, 0, 0, 0))
             trail_d = ImageDraw.Draw(trail)

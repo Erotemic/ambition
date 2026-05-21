@@ -196,7 +196,6 @@ class TrentElderGenerator:
         W, H = size
         ss = max(1, int(supersample))
         img = Image.new("RGBA", (W * ss, H * ss), background or (0, 0, 0, 0))
-        d = ImageDraw.Draw(img)
         S = (W / 128.0) * ss
         pal = TRENT_PALETTE
         p = self.pose_for_animation(animation, frame_index, frame_count)
@@ -204,15 +203,13 @@ class TrentElderGenerator:
         # Anchor the figure: feet on the bottom-third of the frame, head
         # slightly above center. The robe drapes down to the hem near
         # the bottom of the canvas, no visible feet (the silhouette
-        # stops at the hem).
+        # stops at the hem). No drop shadow — the in-game renderer
+        # composites characters over scene geometry that already
+        # provides ground contact.
         cx = 64.0 * S
         hem_y = 116.0 * S
         shoulder_y = (hem_y - spec.robe_h * S) + p.body_bob * S
         head_center = (cx + 1.5 * S, shoulder_y - spec.head_h * 0.55 * S - spec.neck_h * S)
-
-        # Drop shadow under the hem so the figure is grounded even when
-        # there's no floor in the canvas.
-        d.ellipse(_bbox((cx, hem_y + 4.0 * S), spec.robe_hem_w * 1.3 * S, 6.0 * S), fill=pal["shadow"])
 
         # Order: robe back-cuffs → robe body → arms in sleeves → head + beard.
         self._draw_robe(img, cx, shoulder_y, hem_y, spec, pal, S, p)

@@ -606,8 +606,7 @@ def render_frame(animation: str, frame_index: int, frame_count: int) -> Image.Im
     else:
         raise KeyError(f"unknown sandbag animation: {animation!r}")
 
-    draw.ellipse(_box(64 - shadow_w / 2, 108, 64 + shadow_w / 2, 118), fill=(35, 35, 48, shadow_a))
-
+    # Ground shadow removed; in-game compositing handles ground contact.
     body_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     _draw_sandbag_body(body_layer, cx=cx, cy=cy, sx=sx, sy=sy, eyes=eyes, tint=tint, strap_swing=strap_swing)
     if angle:

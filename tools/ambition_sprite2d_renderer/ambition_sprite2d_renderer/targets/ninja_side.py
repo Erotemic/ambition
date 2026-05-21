@@ -431,10 +431,8 @@ class NinjaSideGenerator:
         neck = (torso[0] + 0.5, torso[1] - 21.0)
         head = (torso[0] + 1.5, torso[1] - 34.0)
 
-        # Grounding shadow and smoke crescents make this silhouette different
-        # from the cleaner robot/goblin/toon characters.
-        shadow_w = 58.0 * spec.armor_bulk + (8.0 if leader else 0.0) - abs(p.root_y) * 0.7
-        self._draw_shadow(d, sp((64.0 + p.root_x * 0.5, ground_y + 2.0)), sc(shadow_w), sc(11.0), col("shadow"))
+        # Ground shadow removed; dash smoke crescents (below) are
+        # intentional VFX and stay.
         if p.dash > 0.0:
             for i, alpha in enumerate((72, 44, 25)):
                 self._draw_shadow(

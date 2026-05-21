@@ -9,8 +9,8 @@ faction: null
 role: null
 music_cue: null
 tags: []
-frame_width: 72
-frame_height: 128
+frame_width: 63
+frame_height: 121
 label_width: 112
 border: 4
 spec:
@@ -38,7 +38,7 @@ crop:
   source_frame_width: 128
   source_frame_height: 128
   offset:
-    x: 28
+    x: 35
     y: 0
   enabled: true
   padding_px: 2
@@ -48,168 +48,168 @@ animations:
     - index: 0
       x: 116
       y: 4
-      w: 72
-      h: 128
+      w: 63
+      h: 121
       duration_ms: 140
     - index: 1
-      x: 192
+      x: 183
       y: 4
-      w: 72
-      h: 128
+      w: 63
+      h: 121
       duration_ms: 140
     - index: 2
-      x: 268
+      x: 250
       y: 4
-      w: 72
-      h: 128
+      w: 63
+      h: 121
       duration_ms: 140
     - index: 3
-      x: 344
+      x: 317
       y: 4
-      w: 72
-      h: 128
+      w: 63
+      h: 121
       duration_ms: 140
     - index: 4
-      x: 420
+      x: 384
       y: 4
-      w: 72
-      h: 128
+      w: 63
+      h: 121
       duration_ms: 140
     - index: 5
-      x: 496
+      x: 451
       y: 4
-      w: 72
-      h: 128
+      w: 63
+      h: 121
       duration_ms: 140
     duration_ms: 140
   walk:
     frames:
     - index: 0
       x: 116
-      y: 136
-      w: 72
-      h: 128
+      y: 129
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 1
-      x: 192
-      y: 136
-      w: 72
-      h: 128
+      x: 183
+      y: 129
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 2
-      x: 268
-      y: 136
-      w: 72
-      h: 128
+      x: 250
+      y: 129
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 3
-      x: 344
-      y: 136
-      w: 72
-      h: 128
+      x: 317
+      y: 129
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 4
-      x: 420
-      y: 136
-      w: 72
-      h: 128
+      x: 384
+      y: 129
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 5
-      x: 496
-      y: 136
-      w: 72
-      h: 128
+      x: 451
+      y: 129
+      w: 63
+      h: 121
       duration_ms: 130
     duration_ms: 130
   talk:
     frames:
     - index: 0
       x: 116
-      y: 268
-      w: 72
-      h: 128
+      y: 254
+      w: 63
+      h: 121
       duration_ms: 110
     - index: 1
-      x: 192
-      y: 268
-      w: 72
-      h: 128
+      x: 183
+      y: 254
+      w: 63
+      h: 121
       duration_ms: 110
     - index: 2
-      x: 268
-      y: 268
-      w: 72
-      h: 128
+      x: 250
+      y: 254
+      w: 63
+      h: 121
       duration_ms: 110
     - index: 3
-      x: 344
-      y: 268
-      w: 72
-      h: 128
+      x: 317
+      y: 254
+      w: 63
+      h: 121
       duration_ms: 110
     - index: 4
-      x: 420
-      y: 268
-      w: 72
-      h: 128
+      x: 384
+      y: 254
+      w: 63
+      h: 121
       duration_ms: 110
     - index: 5
-      x: 496
-      y: 268
-      w: 72
-      h: 128
+      x: 451
+      y: 254
+      w: 63
+      h: 121
       duration_ms: 110
     duration_ms: 110
   interact:
     frames:
     - index: 0
       x: 116
-      y: 400
-      w: 72
-      h: 128
+      y: 379
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 1
-      x: 192
-      y: 400
-      w: 72
-      h: 128
+      x: 183
+      y: 379
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 2
-      x: 268
-      y: 400
-      w: 72
-      h: 128
+      x: 250
+      y: 379
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 3
-      x: 344
-      y: 400
-      w: 72
-      h: 128
+      x: 317
+      y: 379
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 4
-      x: 420
-      y: 400
-      w: 72
-      h: 128
+      x: 384
+      y: 379
+      w: 63
+      h: 121
       duration_ms: 130
     - index: 5
-      x: 496
-      y: 400
-      w: 72
-      h: 128
+      x: 451
+      y: 379
+      w: 63
+      h: 121
       duration_ms: 130
     duration_ms: 130
 body_metrics:
-  frame_width: 72
-  frame_height: 128
+  frame_width: 63
+  frame_height: 121
   body_pixel_bbox:
     x: 2
     y: 0
-    w: 68
-    h: 126
+    w: 55
+    h: 119
   feet_pixel:
-    x: 35.5
-    y: 125.0
+    x: 29.0
+    y: 118.0
   feet_anchor_norm:
-    x: -0.00694444444444442
-    y: -0.4765625
+    x: -0.03968253968253971
+    y: -0.4752066115702479

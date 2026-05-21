@@ -275,6 +275,106 @@ mod tests {
         assert!(save.data().flag("map_private_marks_unlocked"));
     }
 
+    /// End-to-end progression check: walking the cartography quest
+    /// through alice → bob → P5 by setting flags one at a time
+    /// should advance `intro_cartography_route` through its three
+    /// steps.
+    #[test]
+    fn cartography_quest_advances_through_alice_bob_p5() {
+        use bevy::app::{App, Update};
+        use crate::content::features::{apply_flag_effects, apply_quest_effects};
+        use crate::content::quest::{
+            apply_quest_advance_events, default_quest_specs, QuestRegistry,
+        };
+        use crate::features::GameplayEffect;
+        use crate::persistence::save::SandboxSave;
+
+        let mut app = App::new();
+        app.insert_resource(SandboxSave::default());
+        let mut registry = QuestRegistry::default();
+        for spec in default_quest_specs() {
+            registry.ensure(spec);
+        }
+        if let Some(q) = registry.quests.get_mut("intro_cartography_route") {
+            let _ = q.start();
+        }
+        app.insert_resource(registry);
+        app.add_message::<GameplayEffect>();
+        // Order matters: chain emits SetFlag effects, then
+        // apply_flag_effects writes them to save + pushes
+        // QuestAdvanceEvent::FlagSet into the registry, then
+        // apply_quest_advance_events drains those events and
+        // advances quest state.
+        app.add_systems(
+            Update,
+            (
+                super::emit_intro_flag_chains,
+                apply_flag_effects,
+                apply_quest_effects,
+                apply_quest_advance_events,
+            )
+                .chain(),
+        );
+
+        let step = |app: &App| {
+            app.world()
+                .resource::<QuestRegistry>()
+                .quests
+                .get("intro_cartography_route")
+                .map(|q| q.step)
+                .unwrap_or(0)
+        };
+
+        assert_eq!(step(&app), 0, "quest starts at step 0");
+
+        // Step 1: alice's note. Set the source flag directly so the
+        // chain promotion landed in save + bus same-frame; the quest
+        // step condition watches FlagSet("alice_route_note_carried").
+        app.world_mut()
+            .resource_mut::<SandboxSave>()
+            .data_mut()
+            .set_flag("alice_route_note_carried", true);
+        app.world_mut()
+            .resource_mut::<QuestRegistry>()
+            .push_event(ambition_engine::QuestAdvanceEvent::FlagSet(
+                "alice_route_note_carried".into(),
+            ));
+        app.update();
+        assert_eq!(step(&app), 1, "after alice carry, quest should be at step 1");
+
+        // Step 2: bob's field survey.
+        app.world_mut()
+            .resource_mut::<SandboxSave>()
+            .data_mut()
+            .set_flag("bob_field_survey_received", true);
+        app.world_mut()
+            .resource_mut::<QuestRegistry>()
+            .push_event(ambition_engine::QuestAdvanceEvent::FlagSet(
+                "bob_field_survey_received".into(),
+            ));
+        app.update();
+        assert_eq!(step(&app), 2, "after bob survey, quest should be at step 2");
+        let save = app.world().resource::<SandboxSave>();
+        assert!(save.data().flag("map_private_marks_unlocked"));
+
+        // Step 3: P5 route memory.
+        app.world_mut()
+            .resource_mut::<SandboxSave>()
+            .data_mut()
+            .set_flag("intro_p5_route_memory_received", true);
+        app.world_mut()
+            .resource_mut::<QuestRegistry>()
+            .push_event(ambition_engine::QuestAdvanceEvent::FlagSet(
+                "intro_p5_route_memory_received".into(),
+            ));
+        app.update();
+        let registry = app.world().resource::<QuestRegistry>();
+        let q = registry.quests.get("intro_cartography_route").unwrap();
+        assert!(q.is_complete(), "after P5 pickup, quest should be complete");
+        let save = app.world().resource::<SandboxSave>();
+        assert!(save.data().flag("route_memory_received"));
+    }
+
     /// Setting `intro_p5_route_memory_received` should chain to
     /// `route_memory_received` and quest steps watching the target
     /// flag should see the FlagSet event through apply_flag_effects.

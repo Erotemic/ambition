@@ -1493,7 +1493,14 @@ class ToonSideGenerator:
             d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.78 + spec.hair_volume * 0.45) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
         # Face.
         d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
-        d.ellipse(_bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.18 * S), (spec.head_w * 0.70) * S, (spec.chin_h * 1.9) * S), fill=pal["skin_shadow"], outline=None)
+        # Chin/jaw shadow. Suppressed for feminine-coded archetypes
+        # because the skin_shadow ellipse against the lighter face
+        # reads as a beard/goatee at the runtime downsample. Hair
+        # length is the main feminine cue; this avoids fighting it.
+        # Keep the list explicit so adding a new feminine-coded
+        # archetype is a one-line edit, matching the eyelash list.
+        if spec.archetype not in {"alice", "mallory"}:
+            d.ellipse(_bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.18 * S), (spec.head_w * 0.70) * S, (spec.chin_h * 1.9) * S), fill=pal["skin_shadow"], outline=None)
         # Front hair / features.
         if spec.hair_style == "swoop":
             # Tousled front fringe broken into two clumps so it doesn't
@@ -1761,24 +1768,23 @@ class ToonSideGenerator:
                 # suggest the head tilt from the 3/4 angle).
                 d.ellipse(_bbox((far_eye_x, eye_y - 0.1 * S), far_w, far_h), fill=pal["white"], outline=outline, width=max(1, int(0.9 * S)))
                 d.ellipse(_bbox((far_eye_x + 0.45 * S, pupil_y - 0.05 * S), 1.05 * S, 2.0 * S), fill=outline)
-                # Eyelash cue for archetypes that opt in. Two short
-                # ticks above the outer corner of each eye — read as
-                # eyelashes at the runtime downsample without sliding
-                # into "make-up trope" territory. Keep the list
-                # explicit so adding a new feminine-coded archetype
-                # is a one-line edit.
+                # Eyelash cue for archetypes that opt in. One short
+                # outer-corner tick per eye — read as a hint of lash
+                # at the runtime downsample without sliding into
+                # "make-up trope" territory. Hair length is the
+                # primary feminine cue; this is the subtle finish.
+                # Keep the list explicit so adding a new feminine-
+                # coded archetype is a one-line edit.
                 if spec.archetype in {"alice", "mallory"}:
-                    # Near (larger) eye — three short upward strokes
-                    # from the upper lid arc, slanted outward.
-                    for i, dx in enumerate((-1.6, 0.4, 2.4)):
-                        lash_root = (near_eye_x + dx * S, eye_y - near_h)
-                        lash_tip = (lash_root[0] + (dx - 0.6) * 0.4 * S, lash_root[1] - 2.2 * S)
-                        d.line([lash_root, lash_tip], fill=outline, width=max(1, int(0.8 * S)))
-                    # Far eye — two shorter strokes on the outer corner.
-                    for dx in (1.0, 2.4):
-                        lash_root = (far_eye_x + dx * S, eye_y - far_h - 0.1 * S)
-                        lash_tip = (lash_root[0] + 0.6 * S, lash_root[1] - 1.6 * S)
-                        d.line([lash_root, lash_tip], fill=outline, width=max(1, int(0.7 * S)))
+                    # Single short stroke at the outer corner of the
+                    # near eye only.
+                    lash_root = (near_eye_x + 2.0 * S, eye_y - near_h)
+                    lash_tip = (lash_root[0] + 0.4 * S, lash_root[1] - 1.0 * S)
+                    d.line([lash_root, lash_tip], fill=outline, width=max(1, int(0.6 * S)))
+                    # One even shorter stroke on the far eye outer corner.
+                    lash_root = (far_eye_x + 2.0 * S, eye_y - far_h - 0.1 * S)
+                    lash_tip = (lash_root[0] + 0.3 * S, lash_root[1] - 0.8 * S)
+                    d.line([lash_root, lash_tip], fill=outline, width=max(1, int(0.5 * S)))
         nose = [
             (c[0] + 4.5 * S, c[1] + 1.8 * S),
             (c[0] + (4.5 + spec.nose_len) * S, c[1] + 3.0 * S),

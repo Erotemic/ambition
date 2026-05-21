@@ -191,6 +191,12 @@ def draw_character(config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR) 
     used by the game.  It deliberately shares the same `CharacterJob` adapter
     path as `single` and `spritesheet`, so the canonical pose and the sheet are
     generated from the exact same spec.
+
+    Canonical PNGs land in ``<out_dir>/canonicals/`` so they don't visually
+    mix with the per-character spritesheet PNGs in ``<out_dir>/`` when an
+    artist pages through the folder. Spritesheet + manifest stay at the
+    top of ``<out_dir>`` because that's where the runtime asset loader
+    looks for them.
     """
     config_path = Path(config)
     out_dir = Path(out_dir)
@@ -198,7 +204,9 @@ def draw_character(config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR) 
     stem = job.output_stem(config_path)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    canonical_out = out_dir / f"{stem}_canonical.png"
+    canonical_dir = out_dir / "canonicals"
+    canonical_dir.mkdir(parents=True, exist_ok=True)
+    canonical_out = canonical_dir / f"{stem}_canonical.png"
     render_canonical(job).save(canonical_out)
 
     sheet_out = out_dir / f"{stem}_spritesheet.png"

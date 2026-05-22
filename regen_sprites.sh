@@ -158,4 +158,78 @@ echo "==> tack-on: mockingbird boss (render-publish into $sprites_dir/mockingbir
 "$python_bin" "$renderer_dir/mockingbird_boss_sprite_generator.py" render-publish \
     --install-dir "$sprites_dir/mockingbird_boss"
 
+echo "==> postcondition: every runtime-required sprite file present"
+# Walk the list of files the sandbox crate actually loads at runtime
+# and fail loudly if any are missing after regen. Keeps the regen
+# pipeline honest as new sprite consumers are added.
+#
+# Expected file list is derived from:
+#   - every `*_SHEET` / `LAB_PROP_*` static in
+#     `crates/ambition_sandbox/src/presentation/character_sprites/sheets.rs`
+#     (each implies `{root}_spritesheet.{png,yaml,ron}` for single-record
+#     files, or just the shared sheet for multi-record files like
+#     creator_lab_props),
+#   - the gnu_ton_boss / mockingbird_boss subdir PNG sets referenced
+#     by `boss_encounter/sprites.rs`.
+#
+# If you add a new sprite consumer, append the filename here.
+expected_files=(
+    # Adapter targets (draw-all).
+    boss_spritesheet.png boss_spritesheet.yaml boss_spritesheet.ron
+    fascist_enforcer_spritesheet.png fascist_enforcer_spritesheet.yaml fascist_enforcer_spritesheet.ron
+    goblin_spritesheet.png goblin_spritesheet.yaml goblin_spritesheet.ron
+    ninja_shadow_duelist_spritesheet.png ninja_shadow_duelist_spritesheet.yaml ninja_shadow_duelist_spritesheet.ron
+    ninja_shadow_oni_leader_spritesheet.png ninja_shadow_oni_leader_spritesheet.yaml ninja_shadow_oni_leader_spritesheet.ron
+    player_robot_spritesheet.png player_robot_spritesheet.yaml player_robot_spritesheet.ron
+    robot_spritesheet.png robot_spritesheet.yaml robot_spritesheet.ron
+    sandbag_spritesheet.png sandbag_spritesheet.yaml sandbag_spritesheet.ron
+    # Review-config NPCs (draw-review → copied).
+    absurd_general_spritesheet.png absurd_general_spritesheet.yaml absurd_general_spritesheet.ron
+    alice_spritesheet.png alice_spritesheet.yaml alice_spritesheet.ron
+    architect_spritesheet.png architect_spritesheet.yaml architect_spritesheet.ron
+    bob_spritesheet.png bob_spritesheet.yaml bob_spritesheet.ron
+    erdish_spritesheet.png erdish_spritesheet.yaml erdish_spritesheet.ron
+    kernel_guide_spritesheet.png kernel_guide_spritesheet.yaml kernel_guide_spritesheet.ron
+    merchant_prototype_spritesheet.png merchant_prototype_spritesheet.yaml merchant_prototype_spritesheet.ron
+    oiler_spritesheet.png oiler_spritesheet.yaml oiler_spritesheet.ron
+    vault_keeper_spritesheet.png vault_keeper_spritesheet.yaml vault_keeper_spritesheet.ron
+    # Faction-leader sheets (draw-factions → copied).
+    goblin_cantina_chieftain_spritesheet.png goblin_cantina_chieftain_spritesheet.yaml goblin_cantina_chieftain_spritesheet.ron
+    pulse_voyager_captain_spritesheet.png pulse_voyager_captain_spritesheet.yaml pulse_voyager_captain_spritesheet.ron
+    tech_bro_disruptor_spritesheet.png tech_bro_disruptor_spritesheet.yaml tech_bro_disruptor_spritesheet.ron
+    # Tack-on targets that produce character sheets.
+    burning_flying_shark_spritesheet.png burning_flying_shark_spritesheet.yaml burning_flying_shark_spritesheet.ron
+    creator_spritesheet.png creator_spritesheet.yaml creator_spritesheet.ron
+    creator_lab_props_spritesheet.png creator_lab_props_spritesheet.yaml creator_lab_props_spritesheet.ron
+    interdimensional_gate_portal_spritesheet.png interdimensional_gate_portal_spritesheet.yaml interdimensional_gate_portal_spritesheet.ron
+    interdimensional_gate_ring_spritesheet.png interdimensional_gate_ring_spritesheet.yaml interdimensional_gate_ring_spritesheet.ron
+    intro_cart_spritesheet.png intro_cart_spritesheet.yaml intro_cart_spritesheet.ron
+    news_board_spritesheet.png news_board_spritesheet.yaml news_board_spritesheet.ron
+    # Pirate sheets (standalone publisher).
+    pirate_admiral_spritesheet.png pirate_admiral_spritesheet.yaml pirate_admiral_spritesheet.ron
+    pirate_lookout_spritesheet.png pirate_lookout_spritesheet.yaml pirate_lookout_spritesheet.ron
+    pirate_navigator_spritesheet.png pirate_navigator_spritesheet.yaml pirate_navigator_spritesheet.ron
+    pirate_quartermaster_spritesheet.png pirate_quartermaster_spritesheet.yaml pirate_quartermaster_spritesheet.ron
+    pirate_raider_spritesheet.png pirate_raider_spritesheet.yaml pirate_raider_spritesheet.ron
+    # Boss subdirectories (custom install paths).
+    gnu_ton_boss/gnu_ton_boss_spritesheet.png
+    gnu_ton_boss/gnu_ton_boss_body_spritesheet.png
+    gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png
+    mockingbird_boss/mockingbird_boss_spritesheet.png
+)
+missing=()
+for rel in "${expected_files[@]}"; do
+    if [ ! -f "$sprites_dir/$rel" ]; then
+        missing+=("$rel")
+    fi
+done
+if [ "${#missing[@]}" -gt 0 ]; then
+    echo "  ERROR: missing ${#missing[@]} expected file(s) after regen:" >&2
+    for rel in "${missing[@]}"; do
+        echo "    $sprites_dir/$rel" >&2
+    done
+    exit 1
+fi
+echo "  ok: ${#expected_files[@]} expected files present"
+
 echo "==> done"

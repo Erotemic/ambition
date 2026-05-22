@@ -810,21 +810,39 @@ def build_sheet(rows: List[Tuple[str, str, int, int]], *, sheet_background: RGBA
     return sheet, manifest
 
 
-def write_outputs(out_dir: Path, *, legacy_aliases: bool = False) -> Tuple[Path, Path]:
+def write_outputs(out_dir: Path, *, legacy_aliases: bool = False) -> Tuple[Path, Path, Path]:
     rows = _rows_for_legacy() if legacy_aliases else _rows_for_sparse()
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = "sandbag_legacy_11row_spritesheet" if legacy_aliases else "sandbag_spritesheet"
     png_path = out_dir / f"{stem}.png"
     yaml_path = out_dir / f"{stem}.yaml"
+    ron_path = out_dir / f"{stem}.ron"
     sheet, manifest = build_sheet(rows)
     sheet.save(png_path)
     _write_manifest(yaml_path, manifest)
-    return png_path, yaml_path
+    # The runtime SheetRegistry parses RON, not YAML, at startup
+    # (`presentation::character_sprites::registry`). The sandbag
+    # manifest already has the `animations: {...}` shape that
+    # `_adapter_manifest_to_ron` consumes — same path the adapter
+    # `draw-all` pipeline uses for the row-ordered RON.
+    from ..sheet import _adapter_manifest_to_ron  # local import: tooling-only dependency
+    manifest_for_ron = dict(manifest)
+    manifest_for_ron["image"] = png_path.name
+    ron_path.write_text(_adapter_manifest_to_ron(manifest_for_ron), encoding="utf8")
+    return png_path, yaml_path, ron_path
 
 
 TARGET_NAME = "sandbag"
-SHEET_FILES = ("sandbag_spritesheet.png", "sandbag_spritesheet.yaml")
-LEGACY_FILES = ("sandbag_legacy_11row_spritesheet.png", "sandbag_legacy_11row_spritesheet.yaml")
+SHEET_FILES = (
+    "sandbag_spritesheet.png",
+    "sandbag_spritesheet.yaml",
+    "sandbag_spritesheet.ron",
+)
+LEGACY_FILES = (
+    "sandbag_legacy_11row_spritesheet.png",
+    "sandbag_legacy_11row_spritesheet.yaml",
+    "sandbag_legacy_11row_spritesheet.ron",
+)
 
 
 def render(out_dir: Path, *, legacy_aliases: bool = False) -> List[Path]:

@@ -18,10 +18,34 @@ cd "$repo_root"
 renderer_dir="$repo_root/tools/ambition_sfx_renderer"
 pack_script="$repo_root/tools/ambition_sfx_pack/pack.py"
 
+has_renderer() {
+    [ -x "$1" ] && "$1" -c 'import ambition_sfx_renderer' >/dev/null 2>&1
+}
+
 select_python() {
+    # Explicit override always wins.
     if [ -n "${PYTHON:-}" ]; then
         printf '%s\n' "$PYTHON"
-    elif [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
+        return
+    fi
+    # Otherwise prefer the first candidate that actually has the renderer
+    # installed. The dedicated venv at $renderer_dir/.venv is created by
+    # run_developer_setup.sh when the active interpreter's Python version is
+    # outside the renderer's requires-python window (>=3.11,<3.13), so we must
+    # be willing to pick it over an incompatible $VIRTUAL_ENV.
+    local candidate
+    for candidate in \
+        "${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python}" \
+        "$repo_root/.venv/bin/python" \
+        "$renderer_dir/.venv/bin/python"; do
+        [ -n "$candidate" ] || continue
+        if has_renderer "$candidate"; then
+            printf '%s\n' "$candidate"
+            return
+        fi
+    done
+    # Fall back to the original preference order for the error message below.
+    if [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
         printf '%s\n' "$VIRTUAL_ENV/bin/python"
     elif [ -x "$repo_root/.venv/bin/python" ]; then
         printf '%s\n' "$repo_root/.venv/bin/python"

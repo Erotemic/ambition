@@ -544,10 +544,12 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
     # Whole body offsets / lean for death.
     char_origin = (root[0] + pose["root_x"] * SCALE + death_t * 12 * SCALE, root[1] + death_t * 5 * SCALE)
 
-    # Shadow
-    if anim != "death":
-        shadow_w = 42 * SCALE / 4 + abs(pose["root_x"]) * 1.5
-        ellipse(draw, (cx - shadow_w, ground + 8, cx + shadow_w, ground + 26 - min(8, abs(bob) * 0.4)), (0, 0, 0, 70))
+    # No baked drop shadow. A shadow ellipse below the feet extends the
+    # auto-crop bbox downward, which moves the cropped frame's "bottom"
+    # off the feet — every pirate ends up floating above their collision
+    # AABB by the shadow's height. Cast shadows that need to track
+    # gameplay state belong on the ECS visual layer, not the source PNG.
+    # See agent memory: [[feedback-no-drop-shadows-on-sprites]].
 
     # Local joints.
     hip = transform((0, -60), char_origin, deg=global_tilt)

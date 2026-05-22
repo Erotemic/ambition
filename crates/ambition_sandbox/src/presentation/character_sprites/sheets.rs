@@ -277,7 +277,7 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         ),
     ],
     collision_scale: 2.1,
-    feet_anchor_y: -0.320,
+    feet_anchor_y: -0.3125,
     frame_sample_inset: 1,
 };
 
@@ -500,7 +500,7 @@ pub const PLAYER_ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     // body_pixel_bbox (≈62×89 inside the 128×125 crop).
     collision_scale: 1.35,
     // Manifest reports feet_anchor_norm.y = -0.340.
-    feet_anchor_y: -0.340,
+    feet_anchor_y: -0.316,
     frame_sample_inset: 1,
 };
 
@@ -590,7 +590,7 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         ),
     ],
     collision_scale: 2.1,
-    feet_anchor_y: -0.350,
+    feet_anchor_y: -0.3504,
     frame_sample_inset: 1,
 };
 
@@ -634,7 +634,7 @@ pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     // 116-tall frame → normalized −0.474 from frame center. Match
     // that here so the General's boots land on the alcove floor
     // instead of hovering above it.
-    feet_anchor_y: -0.474,
+    feet_anchor_y: -0.4643,
     frame_sample_inset: 2,
 };
 
@@ -693,7 +693,7 @@ pub const BURNING_FLYING_SHARK_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     // 192-wide sprite over a ~108-wide collision body — keep the
     // silhouette readable without overflowing the box too aggressively.
     collision_scale: 1.4,
-    feet_anchor_y: -0.289,
+    feet_anchor_y: -0.3947,
     frame_sample_inset: 1,
 };
 
@@ -756,7 +756,7 @@ pub const PIRATE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     // ballpark for similarly-sized characters).
     collision_scale: 1.6,
     // From both pirate manifests: feet_anchor_norm.y = -0.375.
-    feet_anchor_y: -0.375,
+    feet_anchor_y: -0.4825,
     frame_sample_inset: 1,
 };
 
@@ -775,7 +775,7 @@ pub const ARCHITECT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.465,
+    feet_anchor_y: -0.4649,
     frame_sample_inset: 2,
 };
 
@@ -794,7 +794,7 @@ pub const KERNEL_GUIDE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.469,
+    feet_anchor_y: -0.4663,
     frame_sample_inset: 2,
 };
 
@@ -813,7 +813,7 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.474,
+    feet_anchor_y: -0.4655,
     frame_sample_inset: 2,
 };
 
@@ -850,7 +850,7 @@ pub const GATE_RING_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         ),
     ],
     collision_scale: 1.00,
-    feet_anchor_y: -0.500,
+    feet_anchor_y: -0.4872,
     frame_sample_inset: 2,
 };
 
@@ -977,7 +977,7 @@ pub const CART_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     // The cart's bottom sits flush at y=128 (no overshoot from a
     // walking silhouette). Feet anchor at the bottom row, slight
     // upward bias so the player visually stands ON the cart top.
-    feet_anchor_y: -0.500,
+    feet_anchor_y: -0.4432,
     frame_sample_inset: 2,
 };
 
@@ -1004,7 +1004,7 @@ pub const NEWS_BOARD_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.50,
-    feet_anchor_y: -0.500,
+    feet_anchor_y: -0.4479,
     frame_sample_inset: 2,
 };
 
@@ -1028,7 +1028,7 @@ pub const CREATOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.453,
+    feet_anchor_y: -0.4653,
     frame_sample_inset: 2,
 };
 
@@ -1056,7 +1056,7 @@ pub const FASCIST_ENFORCER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.474,
+    feet_anchor_y: -0.4262,
     frame_sample_inset: 2,
 };
 
@@ -1087,7 +1087,7 @@ pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.474,
+    feet_anchor_y: -0.4633,
     frame_sample_inset: 2,
 };
 
@@ -1112,7 +1112,7 @@ pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.474,
+    feet_anchor_y: -0.4652,
     frame_sample_inset: 2,
 };
 
@@ -1136,7 +1136,7 @@ pub const ALICE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.474,
+    feet_anchor_y: -0.4712,
     frame_sample_inset: 2,
 };
 
@@ -1158,7 +1158,7 @@ pub const BOB_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.474,
+    feet_anchor_y: -0.4725,
     frame_sample_inset: 2,
 };
 
@@ -1177,7 +1177,7 @@ pub const MERCHANT_PROTOTYPE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.469,
+    feet_anchor_y: -0.467,
     frame_sample_inset: 2,
 };
 
@@ -1204,7 +1204,7 @@ pub const GOBLIN_CANTINA_CHIEFTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpe
         },
     )],
     collision_scale: 1.16,
-    feet_anchor_y: -0.352,
+    feet_anchor_y: -0.3516,
     frame_sample_inset: 1,
 };
 
@@ -1222,7 +1222,7 @@ pub const PULSE_VOYAGER_CAPTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.20,
-    feet_anchor_y: -0.328,
+    feet_anchor_y: -0.3125,
     frame_sample_inset: 1,
 };
 
@@ -1240,7 +1240,7 @@ pub const TECH_BRO_DISRUPTOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.20,
-    feet_anchor_y: -0.328,
+    feet_anchor_y: -0.3125,
     frame_sample_inset: 1,
 };
 
@@ -1273,7 +1273,7 @@ pub const SANDBAG_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         ),
     ],
     collision_scale: 1.38,
-    feet_anchor_y: -0.438,
+    feet_anchor_y: -0.375,
     frame_sample_inset: 1,
 };
 

@@ -119,6 +119,46 @@ fn yaml_top_u32(text: &str, key: &str) -> Option<u32> {
     None
 }
 
+/// Pull `body_metrics.feet_anchor_norm.y` out of a manifest. The nested
+/// shape is consistent across every renderer:
+///
+///   body_metrics:
+///     feet_anchor_norm:
+///       x: ...
+///       y: -0.482456
+fn yaml_feet_anchor_norm_y(text: &str) -> Option<f32> {
+    let mut in_metrics = false;
+    let mut in_anchor = false;
+    for line in text.lines() {
+        let trimmed_start = line.trim_start();
+        let indent = line.len() - trimmed_start.len();
+        if indent == 0 {
+            // Top-level key — reset our nesting tracker.
+            in_metrics = trimmed_start.starts_with("body_metrics:");
+            in_anchor = false;
+            continue;
+        }
+        if !in_metrics {
+            continue;
+        }
+        if indent == 2 && trimmed_start.starts_with("feet_anchor_norm:") {
+            in_anchor = true;
+            continue;
+        }
+        if indent == 2 && trimmed_start.ends_with(':') {
+            // Different sub-key under body_metrics → exit anchor block.
+            in_anchor = false;
+            continue;
+        }
+        if in_anchor && indent >= 4 {
+            if let Some(rest) = trimmed_start.strip_prefix("y:") {
+                return rest.trim().parse::<f32>().ok();
+            }
+        }
+    }
+    None
+}
+
 /// Catch sheet-spec / YAML drift the moment it lands. The auto-crop in
 /// `pirates/common::build_sheet` shrinks each frame to its union alpha
 /// bbox + crop_margin, so any animation edit that changes the silhouette
@@ -197,6 +237,21 @@ fn sheet_consts_match_their_yaml_manifests() {
                 yfh,
                 path.display(),
             ));
+        }
+        // Feet anchor: the YAML records `feet_anchor_norm.y` (in [-1, 1]
+        // relative to the cropped frame center). Tolerance is 0.001 — the
+        // YAML is rounded to ~6 decimals and the const is hand-rounded to
+        // 4; tighter than that catches real drift, looser hides it.
+        if let Some(yfa) = yaml_feet_anchor_norm_y(&text) {
+            if (spec.feet_anchor_y - yfa).abs() > 0.001 {
+                mismatches.push(format!(
+                    "{}: feet_anchor_y const={:.4} vs yaml={:.4} — {}",
+                    name,
+                    spec.feet_anchor_y,
+                    yfa,
+                    path.display(),
+                ));
+            }
         }
     }
 

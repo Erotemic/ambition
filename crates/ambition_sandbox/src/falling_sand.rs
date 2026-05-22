@@ -549,14 +549,15 @@ fn emit_falling_sand_spouts(
     // Feed the crate's simulation for material accumulation and collision/water
     // projection, and also spawn lightweight Ambition-side falling pixels so
     // the player gets immediate visual feedback that the spout opened.
-    // Each spout drops a thin slice of new particles per frame. The
-    // previous 18×3 = 54 particles/frame quickly saturated the
-    // bevy_falling_sand sim (which caps particle count per chunk) so
-    // older particles were despawned to make room and piles never grew
-    // visibly. 6×1 = 6/frame ≈ 360/sec lets the sim keep up and the
-    // stream looks continuous instead of pulsing.
+    //
+    // emit_spout uses `overwrite_existing` (not `new`) so the spout mouth
+    // is guaranteed to produce a particle every frame even if the cell
+    // was still occupied by the previous frame's emission. The 8×1 mouth
+    // gives a visibly thick stream at ~480 particles/sec per solo spout
+    // (one per frame per X-column). Mixed splits its budget across three
+    // streams.
     if state.spouts.sand {
-        emit_spout(&mut writer, TYPE_SAND, world, 176.0, 90.0, 6, 1);
+        emit_spout(&mut writer, TYPE_SAND, world, 176.0, 90.0, 8, 1);
         spawn_stream_particles(
             &mut commands,
             world,
@@ -569,7 +570,7 @@ fn emit_falling_sand_spouts(
         );
     }
     if state.spouts.water {
-        emit_spout(&mut writer, TYPE_WATER, world, 384.0, 90.0, 6, 1);
+        emit_spout(&mut writer, TYPE_WATER, world, 384.0, 90.0, 8, 1);
         spawn_stream_particles(
             &mut commands,
             world,
@@ -582,7 +583,7 @@ fn emit_falling_sand_spouts(
         );
     }
     if state.spouts.oil {
-        emit_spout(&mut writer, TYPE_OIL, world, 592.0, 90.0, 6, 1);
+        emit_spout(&mut writer, TYPE_OIL, world, 592.0, 90.0, 8, 1);
         spawn_stream_particles(
             &mut commands,
             world,
@@ -647,7 +648,13 @@ fn emit_spout(
     for dx in 0..width {
         for dy in 0..height {
             let world_pos = ae::Vec2::new((start_x + dx) as f32, (start_y + dy) as f32);
-            writer.write(SpawnParticleSignal::new(
+            // `overwrite_existing` rather than `new` because the spout
+            // mouth is hit again every Bevy frame: with `new` the signal
+            // silently fails whenever a previous frame's particle hasn't
+            // moved out yet, so the effective emit rate collapses far
+            // below what the dimensions suggest. Overwriting guarantees
+            // a constant supply at the source.
+            writer.write(SpawnParticleSignal::overwrite_existing(
                 Particle::new(particle_type),
                 world_to_particle_grid(world, world_pos),
             ));

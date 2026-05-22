@@ -219,13 +219,10 @@ entities:
       name: gate_stack_manifest_label
       text: "→ Manifest Office (TBD)"
       category: Custom
-  - type: DebugLabel
-    px: [1420, 640]
-    size: [180, 24]
-    fields:
-      name: gate_stack_nazi_label
-      text: "→ Nazi Fortress (TBD)"
-      category: Custom
+  # Note: a former DebugLabel pointed at a "Nazi Fortress (TBD)" route
+  # — removed 2026-05-22 since Act 1 shouldn't be hinting at that
+  # destination yet. When the antagonist faction shows up later we
+  # can restore a thematic label in their own act.
   - type: DebugLabel
     px: [128, 280]
     size: [256, 24]

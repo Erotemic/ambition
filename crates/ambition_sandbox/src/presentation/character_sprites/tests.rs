@@ -1,7 +1,14 @@
 use bevy::prelude::Vec2;
 
 use super::anim::CharacterAnim;
-use super::sheets::{sprite_render_size, ROBOT_SHEET};
+use super::sheets::{
+    sprite_render_size, CharacterSheetSpec, ABSURD_GENERAL_SHEET, ALICE_SHEET, ARCHITECT_SHEET,
+    BOB_SHEET, BURNING_FLYING_SHARK_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
+    FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, GOBLIN_CANTINA_CHIEFTAIN_SHEET,
+    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET, NEWS_BOARD_SHEET, OILER_SHEET,
+    PIRATE_SHEET, PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
+    TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
+};
 
 #[test]
 fn sprite_render_size_uses_max_collision_axis() {
@@ -93,6 +100,121 @@ fn frame_duration_positive_for_every_row() {
             ROBOT_SHEET.frame_duration(*anim) > 0.0,
             "anim {:?} has non-positive duration",
             anim
+        );
+    }
+}
+
+/// Pull a `u32` value out of a YAML file via a tiny line-based parser.
+/// The sprite manifests put `frame_width:`, `frame_height:`, `label_width:`
+/// as top-level scalar fields at the head of each file, so we don't need
+/// a real YAML dep to read them.
+fn yaml_top_u32(text: &str, key: &str) -> Option<u32> {
+    for line in text.lines() {
+        let trimmed = line.trim_start();
+        if let Some(rest) = trimmed.strip_prefix(&format!("{key}:")) {
+            let rest = rest.trim();
+            return rest.split_whitespace().next()?.parse::<u32>().ok();
+        }
+    }
+    None
+}
+
+/// Catch sheet-spec / YAML drift the moment it lands. The auto-crop in
+/// `pirates/common::build_sheet` shrinks each frame to its union alpha
+/// bbox + crop_margin, so any animation edit that changes the silhouette
+/// envelope changes the YAML's `frame_width` / `frame_height` — and if
+/// the hardcoded const stays at the old value, the game's URect samples
+/// the wrong window of the PNG (the actual cause of the May 22 pirate /
+/// shark misalignment bug). The follow-up is to drive sheet sizes from
+/// the YAML at load time; until then, this test makes drift loud.
+#[test]
+fn sheet_consts_match_their_yaml_manifests() {
+    // (const, sheet, yaml_target_id_in_assets_dir)
+    let cases: &[(&str, &CharacterSheetSpec, &str)] = &[
+        ("ABSURD_GENERAL_SHEET", &ABSURD_GENERAL_SHEET, "absurd_general"),
+        ("ALICE_SHEET", &ALICE_SHEET, "alice"),
+        ("ARCHITECT_SHEET", &ARCHITECT_SHEET, "architect"),
+        ("BOB_SHEET", &BOB_SHEET, "bob"),
+        ("BURNING_FLYING_SHARK_SHEET", &BURNING_FLYING_SHARK_SHEET, "burning_flying_shark"),
+        ("CART_SHEET", &CART_SHEET, "intro_cart"),
+        ("CREATOR_SHEET", &CREATOR_SHEET, "creator"),
+        ("ERDISH_SHEET", &ERDISH_SHEET, "erdish"),
+        ("FASCIST_ENFORCER_SHEET", &FASCIST_ENFORCER_SHEET, "fascist_enforcer"),
+        ("GATE_PORTAL_SHEET", &GATE_PORTAL_SHEET, "interdimensional_gate_portal"),
+        ("GATE_RING_SHEET", &GATE_RING_SHEET, "interdimensional_gate_ring"),
+        (
+            "GOBLIN_CANTINA_CHIEFTAIN_SHEET",
+            &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
+            "goblin_cantina_chieftain",
+        ),
+        ("GOBLIN_SHEET", &GOBLIN_SHEET, "goblin"),
+        ("KERNEL_GUIDE_SHEET", &KERNEL_GUIDE_SHEET, "kernel_guide"),
+        ("MERCHANT_PROTOTYPE_SHEET", &MERCHANT_PROTOTYPE_SHEET, "merchant_prototype"),
+        ("NEWS_BOARD_SHEET", &NEWS_BOARD_SHEET, "news_board"),
+        ("OILER_SHEET", &OILER_SHEET, "oiler"),
+        // PIRATE_SHEET is shared by every pirate generator; admiral is the
+        // representative manifest. The set is regenerated together so any
+        // member matches if one does.
+        ("PIRATE_SHEET", &PIRATE_SHEET, "pirate_admiral"),
+        ("PLAYER_ROBOT_SHEET", &PLAYER_ROBOT_SHEET, "player_robot"),
+        ("PULSE_VOYAGER_CAPTAIN_SHEET", &PULSE_VOYAGER_CAPTAIN_SHEET, "pulse_voyager_captain"),
+        ("ROBOT_SHEET", &ROBOT_SHEET, "robot"),
+        ("SANDBAG_SHEET", &SANDBAG_SHEET, "sandbag"),
+        ("TECH_BRO_DISRUPTOR_SHEET", &TECH_BRO_DISRUPTOR_SHEET, "tech_bro_disruptor"),
+        ("VAULT_KEEPER_SHEET", &VAULT_KEEPER_SHEET, "vault_keeper"),
+    ];
+
+    let assets_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
+    let mut mismatches: Vec<String> = Vec::new();
+    let mut checked = 0usize;
+    let mut missing_yamls: Vec<&str> = Vec::new();
+
+    for (name, spec, target) in cases {
+        let path = assets_dir.join(format!("{target}_spritesheet.yaml"));
+        if !path.exists() {
+            missing_yamls.push(name);
+            continue;
+        }
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|_| panic!("read {}", path.display()));
+        let yfw = yaml_top_u32(&text, "frame_width")
+            .unwrap_or_else(|| panic!("frame_width missing in {}", path.display()));
+        let yfh = yaml_top_u32(&text, "frame_height")
+            .unwrap_or_else(|| panic!("frame_height missing in {}", path.display()));
+        let ylw = yaml_top_u32(&text, "label_width")
+            .unwrap_or_else(|| panic!("label_width missing in {}", path.display()));
+
+        checked += 1;
+        if spec.frame_width != yfw || spec.frame_height != yfh || spec.label_width != ylw {
+            mismatches.push(format!(
+                "{}: const=(lw={}, fw={}, fh={}) yaml=(lw={}, fw={}, fh={}) — {}",
+                name,
+                spec.label_width,
+                spec.frame_width,
+                spec.frame_height,
+                ylw,
+                yfw,
+                yfh,
+                path.display(),
+            ));
+        }
+    }
+
+    assert!(checked > 0, "no sheet manifests resolved at all");
+    if !mismatches.is_empty() {
+        panic!(
+            "{} sheet const(s) drifted from their YAML manifests; \
+             update the const in sheets.rs to match (or regenerate the YAML \
+             intentionally and update both):\n  {}",
+            mismatches.len(),
+            mismatches.join("\n  "),
+        );
+    }
+    // Soft note: we don't fail on missing yamls because some specs
+    // (e.g. lab props) deliberately don't ship a manifest yet.
+    if !missing_yamls.is_empty() {
+        eprintln!(
+            "sheet_consts_match_their_yaml_manifests: skipped (no YAML on disk): {missing_yamls:?}"
         );
     }
 }

@@ -606,15 +606,15 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// will extend `CharacterAnim` and append rows in PNG order so the
 /// atlas y-stride stays aligned with the generator output.
 pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // Pitch values: each frame's content is 120×116, but the
     // generator reserves 4 extra pixels on the right and bottom
     // edges for inter-frame padding. Sampling at the pitch with
     // `frame_sample_inset: 2` keeps bilinear filtering inside the
     // frame interior even with the wider gap.
-    frame_width: 124,
-    frame_height: 120,
+    frame_width: 120,
+    frame_height: 112,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -658,8 +658,8 @@ pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 pub const BURNING_FLYING_SHARK_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 118,
     y_offset: 0,
-    frame_width: 192,
-    frame_height: 128,
+    frame_width: 162,
+    frame_height: 76,
     rows: &[
         (
             CharacterAnim::Idle,
@@ -705,8 +705,8 @@ pub const BURNING_FLYING_SHARK_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 pub const PIRATE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
     y_offset: 0,
-    frame_width: 128,
-    frame_height: 128,
+    frame_width: 103,
+    frame_height: 114,
     rows: &[
         (
             CharacterAnim::Idle,
@@ -762,11 +762,11 @@ pub const PIRATE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 
 /// Architect — hub research / ADR-explainer NPC.
 pub const ARCHITECT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // body_metrics frame=97×114, +4px padding both axes → 101×118.
-    frame_width: 101,
-    frame_height: 118,
+    frame_width: 97,
+    frame_height: 114,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -781,11 +781,11 @@ pub const ARCHITECT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 
 /// Kernel Guide — onboarding NPC at the hub spawn area.
 pub const KERNEL_GUIDE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // body_metrics frame=89×97, +4px padding → 93×101.
-    frame_width: 93,
-    frame_height: 101,
+    frame_width: 89,
+    frame_height: 89,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -800,11 +800,11 @@ pub const KERNEL_GUIDE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 
 /// Vault Keeper — persistence / save-seed NPC in the basement.
 pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // body_metrics frame=99×116, +4px padding → 103×120.
-    frame_width: 103,
-    frame_height: 120,
+    frame_width: 99,
+    frame_height: 116,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -831,8 +831,8 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 pub const GATE_RING_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 128,
     y_offset: 0,
-    frame_width: 192,
-    frame_height: 192,
+    frame_width: 154,
+    frame_height: 156,
     rows: &[
         (
             CharacterAnim::Idle,
@@ -870,8 +870,8 @@ pub const GATE_RING_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 pub const GATE_PORTAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 128,
     y_offset: 0,
-    frame_width: 192,
-    frame_height: 192,
+    frame_width: 92,
+    frame_height: 92,
     rows: &[
         // Row 0 = opening (one-shot, 640ms).
         (
@@ -964,8 +964,8 @@ pub const LAB_PROP_PORTAL_CALIBRATOR: CharacterSheetSpec = lab_prop_sheet(896);
 pub const CART_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 112,
     y_offset: 0,
-    frame_width: 192,
-    frame_height: 128,
+    frame_width: 137,
+    frame_height: 88,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -1018,8 +1018,8 @@ pub const NEWS_BOARD_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 pub const CREATOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 108,
     y_offset: 0,
-    frame_width: 160,
-    frame_height: 192,
+    frame_width: 97,
+    frame_height: 144,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -1042,12 +1042,12 @@ pub const FASCIST_ENFORCER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     // to the first frame and yaml `frame_width`+border for the column
     // pitch. The 4-px inter-frame gap is transparent, so the extra
     // sample width gets clipped by `frame_sample_inset`.
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // body_metrics yaml frame=128×122 (already includes the right/bottom
     // pad inside the cropped sheet); add border to match the col/row pitch.
-    frame_width: 132,
-    frame_height: 126,
+    frame_width: 128,
+    frame_height: 122,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -1071,14 +1071,14 @@ pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     // on `frame_width` makes that offset accumulate by 4 px per column,
     // causing the sprite to appear to "drive" rightward and wrap into
     // the neighboring frame.
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // body_metrics yaml frame=84×115 (savant_cap + banyan silhouette
     // is taller than the old cap version because the turban peak adds
     // headroom and the banyan + cravat add a bit more torso). +4 border
     // on both axes → 88×119.
-    frame_width: 88,
-    frame_height: 119,
+    frame_width: 84,
+    frame_height: 109,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -1099,11 +1099,11 @@ pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     // sheet. The previous values omitted the border on `label_width`
     // and `frame_*`, which made the sample window drift right by 4 px
     // per column and pull the next frame's content.
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // body_metrics yaml frame=91×115; +4 border on both axes → 95×119.
-    frame_width: 95,
-    frame_height: 119,
+    frame_width: 91,
+    frame_height: 115,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -1123,11 +1123,11 @@ pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// `alice_spritesheet.yaml`/`.png` pair that ships in
 /// `crates/ambition_sandbox/assets/sprites/`.
 pub const ALICE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // alice yaml frame=43×104; +4 border on both axes → 47×108.
-    frame_width: 47,
-    frame_height: 108,
+    frame_width: 43,
+    frame_height: 104,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -1145,11 +1145,11 @@ pub const ALICE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// silhouette) so the frame is correspondingly wider than Alice's.
 /// Matches the Bob review config (configs/review/bob.yaml).
 pub const BOB_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // bob yaml frame=55×109; +4 border on both axes → 59×113.
-    frame_width: 59,
-    frame_height: 113,
+    frame_width: 55,
+    frame_height: 109,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -1164,11 +1164,11 @@ pub const BOB_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 
 /// Merchant Prototype — placeholder shopkeeper NPC.
 pub const MERCHANT_PROTOTYPE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 116,
+    label_width: 112,
     y_offset: 0,
     // body_metrics frame=83×98, +4px padding → 87×102.
-    frame_width: 87,
-    frame_height: 102,
+    frame_width: 83,
+    frame_height: 91,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {

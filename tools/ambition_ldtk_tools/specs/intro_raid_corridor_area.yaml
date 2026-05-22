@@ -30,6 +30,7 @@ px_hei: 512
 fill_collision: empty
 bg_color: "#1A0F0F"
 biome: lab
+music_track: tech_bros_disruption
 
 entities:
   # --- Outer geometry. Left + right walls have gaps for EdgeExit.

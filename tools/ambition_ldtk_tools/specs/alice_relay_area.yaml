@@ -43,6 +43,7 @@ px_hei: 768
 fill_collision: empty
 bg_color: "#11161E"
 biome: cave
+music_track: tech_bros_disruption
 
 entities:
   # --- Outer geometry. Symmetric ceiling gaps for the side-edge

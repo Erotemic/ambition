@@ -63,6 +63,7 @@ px_hei: 1280
 fill_collision: empty
 bg_color: "#0A0E14"
 biome: lab
+music_track: tech_bros_disruption
 
 entities:
   # --- Outer geometry. Floor at the bottom, ceiling along the top

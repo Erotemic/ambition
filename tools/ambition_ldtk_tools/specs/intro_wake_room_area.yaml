@@ -32,6 +32,7 @@ px_hei: 384
 fill_collision: empty
 bg_color: "#0F1218"
 biome: lab
+music_track: tech_bros_disruption
 
 entities:
   # --- Outer geometry. Right wall intentionally omitted so the

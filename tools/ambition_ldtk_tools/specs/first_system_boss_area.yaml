@@ -51,6 +51,7 @@ px_hei: 768
 fill_collision: empty
 bg_color: "#1F1622"
 biome: lab
+music_track: tech_bros_disruption
 
 entities:
   - type: Solid

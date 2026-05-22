@@ -206,6 +206,14 @@ fn setup_particle_types(mut commands: Commands) {
         Speed::new(4, 5),
     ));
 
+    // Static wall: matches the basic.rs demo's "Dirt Wall" pattern —
+    // ParticleType + ColorProfile only, no Density/Movement/Speed. In
+    // bevy_falling_sand's displacement logic, a particle with no
+    // Density component is unconditionally "obstructed" by any moving
+    // particle that hits it, which is exactly what we want for an
+    // immovable wall. Adding Density(3000) ALSO blocks sand by virtue
+    // of "moving particle density < wall density → obstructed", but
+    // the demo specifically uses the no-Density form, so mirror it.
     commands.spawn((
         Name::new("particle type: ambition static wall"),
         ParticleType::new(TYPE_WALL),
@@ -213,7 +221,6 @@ fn setup_particle_types(mut commands: Commands) {
             Color::Srgba(Srgba::hex("#253040").expect("valid wall color")),
             Color::Srgba(Srgba::hex("#34445A").expect("valid wall color")),
         ]),
-        Density(3000),
     ));
 
     commands.spawn((
@@ -375,7 +382,12 @@ fn emit_particle_rect(
     for dx in 0..width.max(0) {
         for dy in 0..height.max(0) {
             let world_pos = ae::Vec2::new((start_x + dx) as f32, (start_y + dy) as f32);
-            writer.write(SpawnParticleSignal::new(
+            // `overwrite_existing` so overlapping seed regions (e.g. the
+            // side walls + the floor share corners; multiple LDtk blocks
+            // may touch) don't leave silent-fail holes that material can
+            // tunnel through. `new` would silently skip any cell that's
+            // already occupied by an earlier seed call this frame.
+            writer.write(SpawnParticleSignal::overwrite_existing(
                 Particle::new(particle_type),
                 world_to_particle_grid(world, world_pos),
             ));

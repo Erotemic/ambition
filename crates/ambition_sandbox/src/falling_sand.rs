@@ -974,12 +974,34 @@ fn grant_room_swim_controls(
 ///   - count of wall particles in the floor band (proves walls exist)
 ///
 /// All from one ECS query, so it's cheap to leave on while we debug.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn log_falling_sand_diagnostics(
     time: Res<Time>,
     state: Res<FallingSandRoomState>,
     room_set: Res<crate::rooms::RoomSet>,
     particles: Query<(&Particle, &GridPosition)>,
+    // Component-presence query: every particle that has Particle should
+    // ALSO get Density/Speed/Movement/AirResistance/MovementRng inherited
+    // from its ParticleType via the sync propagators. If a particle is
+    // missing any of these, the movement query in PostUpdate skips it
+    // entirely and it just sits in the spout cell — exactly the
+    // "stuck at grid_y=230" symptom from the previous run.
+    movement_ready: Query<
+        Entity,
+        (
+            With<Particle>,
+            With<Density>,
+            With<Speed>,
+            With<Movement>,
+            With<AirResistance>,
+            With<MovementRng>,
+        ),
+    >,
+    no_density: Query<Entity, (With<Particle>, Without<Density>)>,
+    no_speed: Query<Entity, (With<Particle>, Without<Speed>)>,
+    no_movement: Query<Entity, (With<Particle>, Without<Movement>)>,
+    no_air: Query<Entity, (With<Particle>, Without<AirResistance>)>,
+    no_rng: Query<Entity, (With<Particle>, Without<MovementRng>)>,
     mut next_log_at: Local<f32>,
 ) {
     if !state.active_room || room_set.active_spec().id != ROOM_ID {
@@ -1041,6 +1063,8 @@ fn log_falling_sand_diagnostics(
         format!("grid_y∈[{sand_y_min}, {sand_y_max}]")
     };
 
+    let total_particles = movement_ready.iter().count()
+        + no_density.iter().count().max(no_speed.iter().count());
     bevy::log::info!(
         "fs-diag: counts={:?}  sand:{}  near_floor={}  below_floor={}  walls_in_band={}  band_grid_y∈[{}, {}]",
         counts,
@@ -1050,6 +1074,16 @@ fn log_falling_sand_diagnostics(
         wall_in_floor_band,
         band_grid_y_low,
         band_grid_y_high,
+    );
+    bevy::log::info!(
+        "fs-diag components: movement_ready={}  no_density={}  no_speed={}  no_movement={}  no_air_resistance={}  no_movement_rng={}  (total {:?})",
+        movement_ready.iter().count(),
+        no_density.iter().count(),
+        no_speed.iter().count(),
+        no_movement.iter().count(),
+        no_air.iter().count(),
+        no_rng.iter().count(),
+        total_particles,
     );
 }
 

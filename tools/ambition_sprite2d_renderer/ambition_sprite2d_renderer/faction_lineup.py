@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import yaml
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from .config import CharacterJob, RenderConfig
+from .rendering import load_font
 from .sheet import write_spritesheet
 from .canonical import render_canonical
 
@@ -127,15 +128,6 @@ class FactionLineup:
                 yield faction, character, job
 
 
-def _font(size: int = 13):
-    for name in ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf"):
-        try:
-            return ImageFont.truetype(name, size=size)
-        except OSError:
-            pass
-    return ImageFont.load_default()
-
-
 def _safe_name(value: str) -> str:
     return "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in value.lower()).strip("_")
 
@@ -143,8 +135,8 @@ def _safe_name(value: str) -> str:
 def _write_contact_sheet(tiles: List[Tuple[str, str, Image.Image]], out: Path) -> None:
     if not tiles:
         return
-    font = _font(12)
-    small = _font(10)
+    font = load_font(12)
+    small = load_font(10)
     probe = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
     draw_probe = ImageDraw.Draw(probe)
     tile_w = 178

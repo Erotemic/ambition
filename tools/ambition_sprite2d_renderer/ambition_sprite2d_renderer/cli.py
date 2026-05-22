@@ -523,6 +523,16 @@ def _add_tackon_install_args(p: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_config_dir_args(
+    p: argparse.ArgumentParser,
+    *,
+    config_default: Path,
+    out_default: Path,
+) -> None:
+    p.add_argument("--config-dir", default=str(config_default))
+    p.add_argument("--out-dir", default=str(out_default))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ambition_sprite2d_renderer",
@@ -533,18 +543,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Adapter (character lab) commands.
     p = sub.add_parser("draw-all", help="Render all default sprite sheets")
-    p.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR))
-    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR))
+    _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR)
     p.set_defaults(func=_cmd_draw_all)
 
     p = sub.add_parser("draw-review", help="Render review/variant sprite sheets")
-    p.add_argument("--config-dir", default=str(DEFAULT_REVIEW_CONFIG_DIR))
-    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "review"))
+    _add_config_dir_args(p, config_default=DEFAULT_REVIEW_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "review")
     p.set_defaults(func=_cmd_draw_review)
 
     p = sub.add_parser("draw-canonicals", help="Render canonical images + contact sheet")
-    p.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR))
-    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "canonicals"))
+    _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "canonicals")
     p.set_defaults(func=_cmd_draw_canonicals)
 
     p = sub.add_parser("draw-character", help="Render one config's canonical image, spritesheet, and YAML")

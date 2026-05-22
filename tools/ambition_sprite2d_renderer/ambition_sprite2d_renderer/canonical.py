@@ -3,21 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Tuple
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from .adapters import get_adapter
 from .config import CharacterJob, load_jobs
-
-
-
-def _font(size: int = 14):
-    for name in ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf"):
-        try:
-            return ImageFont.truetype(name, size=size)
-        except OSError:
-            pass
-    return ImageFont.load_default()
-
+from .rendering import load_font
 
 
 def render_canonical(job: CharacterJob) -> Image.Image:
@@ -43,7 +33,7 @@ def write_canonicals(config_dir: str | Path, out_dir: str | Path) -> List[Path]:
         tiles.append((stem, label, img))
 
     if tiles:
-        font = _font(14)
+        font = load_font(14)
         label_w = max((font.getbbox(label)[2] - font.getbbox(label)[0]) for _, label, _ in tiles)
         tile_w = max(max(img.width for _, _, img in tiles), label_w + 18)
         tile_h = max(img.height for _, _, img in tiles) + 24

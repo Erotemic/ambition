@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 import yaml
-from PIL import Image, ImageColor, ImageDraw, ImageFont
+from PIL import Image, ImageColor, ImageDraw
 
 from .adapters import get_adapter
 from .config import CharacterJob
+from .rendering import load_font
 
 
 def _parse_bg(value: str):
@@ -15,15 +16,6 @@ def _parse_bg(value: str):
         return (0, 0, 0, 0)
     r, g, b = ImageColor.getrgb(value)
     return (r, g, b, 255)
-
-
-def _font(size: int = 12):
-    for name in ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf"):
-        try:
-            return ImageFont.truetype(name, size=size)
-        except OSError:
-            pass
-    return ImageFont.load_default()
 
 
 def _measure_body_extent(frame: Image.Image) -> Dict[str, Any] | None:
@@ -147,7 +139,7 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
     sheet_h = len(selected) * (fh + border) + border
     sheet = Image.new("RGBA", (sheet_w, sheet_h), _parse_bg(job.render.sheet_background))
     draw = ImageDraw.Draw(sheet)
-    font = _font(12)
+    font = load_font(12)
     manifest: Dict[str, Any] = {
         "target": job.target,
         "name": job.name,
@@ -180,7 +172,7 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         y = border + row_idx * (fh + border)
         if label_w:
             draw.text((8, y + 8), animation, fill=(255, 255, 255, 255), font=font)
-            draw.text((8, y + 23), f"{info['frames']}f/{info['duration_ms']}ms", fill=(190, 190, 190, 255), font=_font(10))
+            draw.text((8, y + 23), f"{info['frames']}f/{info['duration_ms']}ms", fill=(190, 190, 190, 255), font=load_font(10))
         frame_records: List[Dict[str, Any]] = []
         for frame_index, src_frame in enumerate(rendered[row_idx]):
             cropped = src_frame.crop((crop_min_x, crop_min_y, crop_max_x, crop_max_y))

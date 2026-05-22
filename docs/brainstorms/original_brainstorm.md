@@ -431,3 +431,12 @@ world and everyone else is an AI, so that would be interesting.
 Oh, maybe we could do a pokemon red / blue thing where the engine is used to
 express two different games that are "sold separately". Ambition AI / NI.  Or
 some sort of red / blue split release would be really sweet.
+
+
+---
+
+Maybe Alice and bob are cartographers and they are what gives you unlocks of
+the map. The Motiff is you find Alice and she needs you to send a message to
+Bob who is often in some situation. One situation might be that you find bob in
+a crypt and he jokes, So you found me in a crypt. Maybe you should call me a
+crypt-tographer instead of cartographer. 

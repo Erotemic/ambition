@@ -4,6 +4,22 @@
 //! flags gate particle spouts. This module bridges the particle sim back into
 //! Ambition's movement world by projecting dense sand/liquid tiles into one-way
 //! platforms and temporary water regions before the player simulation runs.
+//!
+//! # Status: semi-landed, in-progress (2026-05-22)
+//!
+//! Movement, accumulation, and player-collision projection all work end-to-end
+//! after the v0.7.0 `ChunkLoader` requirement was tracked down (see
+//! [`setup_particle_types`]). What's still rough — none blocking the prototype,
+//! all enumerated under "Simple falling-sand sim room" in `TODO.md`:
+//!
+//! - Pile-up reads "a bit weird" — some material piles near overhead walls,
+//!   not just the floor. Likely the ceiling LDtk block also gets walls seeded
+//!   on top of it; consider gating the seed loop to only LDtk blocks the
+//!   player can walk on.
+//! - The projection cap can flicker when dense streams pass through a tile
+//!   (sort-by-count helped but didn't eliminate it).
+//! - Fire-from-fireballs and traceable-stream interactions aren't wired yet
+//!   — that was the original scope but is decoupled work.
 
 use std::collections::{HashMap, HashSet};
 
@@ -1037,13 +1053,19 @@ fn log_falling_sand_diagnostics(
     // We approximate "floor band" as the union of bands across blocks
     // by taking the minimum block min.y, since that's the highest
     // visible floor surface in world coords.
-    let block_min_y = world
+    // The "floor band" is the seed-wall strip on top of the lowest
+    // visible LDtk block. World Y increases downward in our convention,
+    // so the floor is the block with the LARGEST `min.y` (the topmost
+    // edge of the lowest block). Previously this used `min(block.min.y)`
+    // which finds the topmost CEILING block — making `near_floor` and
+    // `below_floor` meaningless for the actual pile location.
+    let floor_block_top_world_y = world
         .blocks
         .iter()
         .map(|b| b.aabb.min.y)
-        .fold(f32::INFINITY, f32::min);
-    let band_top_world_y = block_min_y;
-    let band_bottom_world_y = block_min_y + FLOOR_WALL_THICKNESS as f32;
+        .fold(f32::NEG_INFINITY, f32::max);
+    let band_top_world_y = floor_block_top_world_y;
+    let band_bottom_world_y = floor_block_top_world_y + FLOOR_WALL_THICKNESS as f32;
     // Convert to grid_y. Recall: grid_y = size.y/2 - world_y, so a
     // SMALLER world_y maps to a LARGER grid_y. The floor band's TOP
     // edge in world is its BOTTOM edge in grid space and vice versa.

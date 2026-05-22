@@ -39,9 +39,15 @@ Useful companion docs:
 
 - [ ] **Better door sprites + variable door sizes** `[V3/D3]` — current door visuals look the same regardless of width/height. Procedurally generate frame variants (small / standard / tall / wide / double) keyed off `LoadingZone.size`, with the door art aligned to the size. Could probably reuse the lasersword DESIGN/OUTPUT split pattern.
 
-- [ ] **Smash-Bros style ledge feel** `[V4/D4]` — Jon wants the ledge-grab / ledge-getup feel to evoke Smash Bros (snap to ledge, fast getup, multiple getup options including a roll). Add `LedgeGetupKind::Roll` to `ledge_grab.rs` alongside the existing climb, gate roll on horizontal input, and tune the snap windows / invuln frames to match the Smash feel. Long-term goal: this character should be easy to port to Smash; keep the ledge contract documentable.
+- [~] **Smash-Bros style ledge feel** `[V4/D4]` — first chunk shipped 2026-05-22 (ffbaaf1): `LedgeGetupKind::{Climb, Roll}`, shield-held triggers a forward roll with full invulnerability via `dodge_roll_timer`, brief intangibility window on grab, tightened `LEDGE_MIN_CLIMB_DELAY` for snap feel. Follow-ups: ledge getup-attack (attack from hang), Smash-style fall-through-then-up-B reclaim, document the ledge contract as an ADR so the port-to-Smash goal stays explicit, optional second-roll cooldown so spammers can't permastall.
 
 - [ ] **Wall-clipping bugs in the intro** `[V4/D4]` — Jon's noted ongoing bad-clipping-through-walls errors during intro playthroughs. Probably a mix of (a) sub-pixel collision drift at high speeds, (b) thin-wall (16-px) corner cases, (c) the trace-replay-driven lock-wall debt already in the active blockers list. Cross-link with the existing wall-cling teleport entry in `docs/planning/tech-debt-log.md`.
+
+- [ ] **Wire contextual button labels into the UI** `[V3/D3]` — `player::contextual_actions::{ContextualAction, PlayerActionContext, label_for}` is the data-only label engine (shipped ffbaaf1; "Roll" on a ledge, "Pogo" for down-air attack, custom interact prompts, …). Now wire it into actual consumers:
+   - Mobile touch buttons (`host/mobile_input/`) — update each button's label per tick from a `PlayerActionContext`.
+   - On-screen interact prompt — replace the hardcoded "Interact" text with `label_for(Interact, ctx)`.
+   - Tutorial/dialogue prompts that name a button — pull through the same labels.
+   The pattern is: each frame, build one `PlayerActionContext` from existing components, hand it to UI systems. Adding a new contextual rule = one new match arm in `contextual_actions.rs`.
 
 - [ ] **Auto-spacer for overlapping DebugLabels** `[V2/D2]` — the new lint flags overlapping labels but doesn't fix them. Add an `ambition_ldtk_tools` subcommand that takes a level and shoves any overlapping labels into a vertical stack with sensible padding, in place. Bonus: also widen the entity `width` field to fit the actual text when text is longer than authored width.
 

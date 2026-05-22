@@ -1,0 +1,15 @@
+[build]
+# Cargo target dir lives outside the repo tree on purpose.
+#
+# The repo is checked out on a virtiofs mount shared between the VM
+# and host; `/home/joncrall/` is on each machine's local disk. The
+# path string is identical in both environments, but resolves to
+# distinct filesystems, so VM and host caches stay separate and the
+# fingerprint fragmentation that comes from co-mingled builds is
+# avoided. The repo's `target/` directory is left untouched and can
+# be deleted to reclaim the shared-disk space it currently occupies.
+target-dir = "/home/joncrall/ambition-target"
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]

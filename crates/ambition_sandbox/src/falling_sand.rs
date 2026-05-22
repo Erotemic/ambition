@@ -163,7 +163,13 @@ impl Plugin for FallingSandRoomPlugin {
                 )
                     .chain()
                     .in_set(crate::app::SandboxSet::GameplayEffects),
-            );
+            )
+            // Diagnostic: once per second while in the falling-sand room,
+            // dump per-type particle counts and Y-distribution. Lets us
+            // see at a glance whether particles are being spawned,
+            // whether they're reaching the floor wall band, and where
+            // they're going if they vanish.
+            .add_systems(Update, log_falling_sand_diagnostics);
     }
 }
 
@@ -957,6 +963,94 @@ fn grant_room_swim_controls(
             player.player.abilities.swim = snapshot.previous_swim;
         }
     }
+}
+
+/// Once per second while in the falling-sand room, log a diagnostic
+/// snapshot:
+///   - total particle count, broken down by particle type name
+///   - sand / water / oil Y-extent (min/max grid_y observed)
+///   - count "near the floor" (within the bevy_falling_sand wall band)
+///   - count "below the floor" (would mean particles tunneled through)
+///   - count of wall particles in the floor band (proves walls exist)
+///
+/// All from one ECS query, so it's cheap to leave on while we debug.
+#[allow(clippy::too_many_arguments)]
+fn log_falling_sand_diagnostics(
+    time: Res<Time>,
+    state: Res<FallingSandRoomState>,
+    room_set: Res<crate::rooms::RoomSet>,
+    particles: Query<(&Particle, &GridPosition)>,
+    mut next_log_at: Local<f32>,
+) {
+    if !state.active_room || room_set.active_spec().id != ROOM_ID {
+        return;
+    }
+    let now = time.elapsed_secs();
+    if now < *next_log_at {
+        return;
+    }
+    *next_log_at = now + 1.0;
+
+    let world = &room_set.active_spec().world;
+    // The expected floor band (where our seed walls live): the band of
+    // grid_y values covered by emit_wall_rect at each LDtk block top.
+    // We approximate "floor band" as the union of bands across blocks
+    // by taking the minimum block min.y, since that's the highest
+    // visible floor surface in world coords.
+    let block_min_y = world
+        .blocks
+        .iter()
+        .map(|b| b.aabb.min.y)
+        .fold(f32::INFINITY, f32::min);
+    let band_top_world_y = block_min_y;
+    let band_bottom_world_y = block_min_y + FLOOR_WALL_THICKNESS as f32;
+    // Convert to grid_y. Recall: grid_y = size.y/2 - world_y, so a
+    // SMALLER world_y maps to a LARGER grid_y. The floor band's TOP
+    // edge in world is its BOTTOM edge in grid space and vice versa.
+    let band_grid_y_high = (world.size.y * 0.5 - band_top_world_y).round() as i32;
+    let band_grid_y_low = (world.size.y * 0.5 - band_bottom_world_y).round() as i32;
+
+    let mut counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut sand_y_min = i32::MAX;
+    let mut sand_y_max = i32::MIN;
+    let mut sand_near_floor = 0usize;
+    let mut sand_below_floor = 0usize;
+    let mut wall_in_floor_band = 0usize;
+    for (particle, grid_pos) in &particles {
+        let name: &str = particle.name.as_ref();
+        *counts.entry(name.to_owned()).or_default() += 1;
+        let gy = grid_pos.0.y;
+        if name == TYPE_SAND {
+            sand_y_min = sand_y_min.min(gy);
+            sand_y_max = sand_y_max.max(gy);
+            if gy <= band_grid_y_high && gy >= band_grid_y_low {
+                sand_near_floor += 1;
+            } else if gy < band_grid_y_low {
+                sand_below_floor += 1;
+            }
+        }
+        if name == TYPE_WALL && gy <= band_grid_y_high && gy >= band_grid_y_low {
+            wall_in_floor_band += 1;
+        }
+    }
+
+    let sand_extent = if sand_y_min == i32::MAX {
+        "(none)".to_owned()
+    } else {
+        format!("grid_y∈[{sand_y_min}, {sand_y_max}]")
+    };
+
+    bevy::log::info!(
+        "fs-diag: counts={:?}  sand:{}  near_floor={}  below_floor={}  walls_in_band={}  band_grid_y∈[{}, {}]",
+        counts,
+        sand_extent,
+        sand_near_floor,
+        sand_below_floor,
+        wall_in_floor_band,
+        band_grid_y_low,
+        band_grid_y_high,
+    );
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

@@ -142,7 +142,12 @@ impl Plugin for MobileTouchPlugin {
                         .before(crate::pause_menu::pause_menu_toggle),
                 )
                     .chain(),
-            );
+            )
+            // Contextual button-label sync. Runs in Update,
+            // unchained from the input fold so it doesn't share
+            // ordering with anything else — it only reads player
+            // state and writes Text content.
+            .add_systems(Update, sync_touch_action_labels);
     }
 }
 
@@ -497,8 +502,86 @@ fn spawn_action_button_at(
                     ..default()
                 },
                 TextColor(Color::srgb(0.96, 0.97, 1.0)),
+                // Marker so `sync_touch_action_labels` can find
+                // this text node and overwrite its content when the
+                // button means something different right now —
+                // Shield → "Roll" on a ledge, Interact → the
+                // interactable's prompt, etc.
+                TouchActionLabel(action),
             ));
         });
+}
+
+/// Marker on the touch button's text node. Lets the
+/// `sync_touch_action_labels` system find the text widget for each
+/// action and overwrite its content with the contextual label
+/// without re-spawning the UI.
+#[derive(Component)]
+pub struct TouchActionLabel(pub TouchActionButton);
+
+fn touch_action_to_contextual(
+    action: TouchActionButton,
+) -> Option<crate::player::contextual_actions::ContextualAction> {
+    use crate::player::contextual_actions::ContextualAction as CA;
+    Some(match action {
+        TouchActionButton::Jump => CA::Jump,
+        TouchActionButton::Attack => CA::Attack,
+        TouchActionButton::Dash => CA::Dash,
+        TouchActionButton::Shield => CA::Shield,
+        TouchActionButton::Interact => CA::Interact,
+        TouchActionButton::Projectile | TouchActionButton::Blink => CA::Special,
+        // FlyToggle / Start / Reset have only one meaning today —
+        // no contextual swap.
+        TouchActionButton::FlyToggle
+        | TouchActionButton::Start
+        | TouchActionButton::Reset => return None,
+    })
+}
+
+/// Per-frame label sync: build a `PlayerActionContext` from the
+/// primary player's state and update each touch button's text.
+/// First concrete consumer of `player::contextual_actions`; the same
+/// context can drive on-screen prompts and tutorial overlays without
+/// re-deriving the rules anywhere else.
+pub fn sync_touch_action_labels(
+    player_q: Query<
+        &crate::player::PlayerMovementAuthority,
+        (
+            With<crate::player::PlayerEntity>,
+            With<crate::player::PrimaryPlayer>,
+        ),
+    >,
+    mut labels: Query<(&TouchActionLabel, &mut Text)>,
+) {
+    let Ok(authority) = player_q.single() else {
+        return;
+    };
+    let player = &authority.player;
+    let ctx = crate::player::contextual_actions::PlayerActionContext {
+        on_ledge: player.ledge_grab.is_some(),
+        // Interact prompts aren't wired through the touch path yet
+        // — Interact falls back to its generic label. When the
+        // nearest-interactable query exposes a prompt, plug it in
+        // here.
+        has_interactable: false,
+        interact_prompt: None,
+        is_aerial: !player.on_ground,
+        aim_down: false,
+        aim_up: false,
+        is_morphed: matches!(player.body_mode, ::ambition_engine::BodyMode::MorphBall),
+        is_swimming: player.water_contact.is_some(),
+    };
+    for (TouchActionLabel(action), mut text) in &mut labels {
+        let Some(ctx_action) = touch_action_to_contextual(*action) else {
+            continue;
+        };
+        let desired = crate::player::contextual_actions::label_for(ctx_action, &ctx);
+        // Only write when the label changes — avoids churning the
+        // Text component's change-detection bit every frame.
+        if text.0 != desired {
+            text.0 = desired.into_owned();
+        }
+    }
 }
 
 /// Build one menu-row button. Used for Menu / Back, which are

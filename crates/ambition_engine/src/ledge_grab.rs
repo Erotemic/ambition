@@ -120,8 +120,19 @@ fn smoothstep(t: f32) -> f32 {
 }
 
 fn climb_position(contact: LedgeContact, progress: f32) -> Vec2 {
+    // Smash-style curved climb: the player rises up the wall FIRST
+    // and arcs over onto the platform second, instead of moving in
+    // a straight diagonal from anchor → climb_target. Implemented
+    // as a quadratic Bezier with control point at (anchor.x,
+    // climb_target.y) — same x as the anchor (so the early curve
+    // is purely vertical along the wall), same y as the target (so
+    // the late curve is purely horizontal across the platform top).
     let t = smoothstep(progress);
-    contact.anchor + (contact.climb_target - contact.anchor) * t
+    let a = contact.anchor;
+    let b = contact.climb_target;
+    let control = Vec2::new(a.x, b.y);
+    let one_t = 1.0 - t;
+    a * (one_t * one_t) + control * (2.0 * one_t * t) + b * (t * t)
 }
 
 /// Roll target: ``climb_target`` plus an extra ``LEDGE_ROLL_OVERSHOOT``
@@ -354,27 +365,35 @@ pub fn tick_active_ledge_grab(
     let input_away_from_platform = input.axis_x * away_from_platform_axis(state.contact) > 0.4;
     let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;
 
-    // Ledge ROLL (Smash-Bros style): shield held while hanging →
-    // forward roll onto the platform with full invulnerability. The
-    // shield ability gate matches the dodge/shield pattern elsewhere
-    // — if the player doesn't have shield unlocked the roll branch
-    // is dead. Roll wins over climb so a "shield + up" combo still
-    // produces the roll the player asked for.
+    // Smash-Bros option menu from hang. Priority (highest first):
+    //   1. Roll       — shield held
+    //   2. Ledge jump — jump pressed (pure hop UP onto platform)
+    //   3. Ledge release jump — jump pressed + away (outward arc)
+    //   4. Climb      — up / into-platform / interact
+    //   5. Drop       — down / away
     let want_roll =
         climb_unlocked && input.shield_held && player.abilities.shield;
-    // Ledge jump: jump pressed while holding away from the ledge launches
-    // the player outward with a full wall-jump-style velocity. This is the
-    // smash-like "ledge jump" option as opposed to the normal pull-up climb.
-    let want_ledge_jump =
+    // Ledge release: jump + away → outward arc like a wall jump. Used to
+    // bail outward when the player decided NOT to commit to the platform.
+    let want_ledge_release =
         climb_unlocked && !want_roll && input.jump_pressed && input_away_from_platform;
+    // Pure ledge jump: jump with NO away input → vertical hop with a
+    // small inboard drift. Player can act in the air mid-hop (refresh
+    // movement resources so double-jump / dash / blink come back), and
+    // they typically land on the platform but retain the option to
+    // air-control off.
+    let want_ledge_jump =
+        climb_unlocked && !want_roll && !want_ledge_release && input.jump_pressed;
     let want_climb = climb_unlocked
         && !want_roll
+        && !want_ledge_release
         && !want_ledge_jump
         && (input_up
             || input.interact_pressed
-            || (input.jump_pressed && !input_away_from_platform)
             || (state.elapsed >= LEDGE_TOWARD_CLIMB_DELAY && input_into_platform));
-    let want_drop = !want_roll && (input_down || (input_away_from_platform && !want_ledge_jump));
+    let want_drop = !want_roll
+        && !want_ledge_jump
+        && (input_down || (input_away_from_platform && !want_ledge_release));
 
     if want_roll {
         state.climbing = true;
@@ -393,7 +412,11 @@ pub fn tick_active_ledge_grab(
         events.op(player, MovementOp::LedgeRoll);
         return true;
     }
-    if want_ledge_jump {
+    if want_ledge_release {
+        // Outward arc, like a wall jump. Big horizontal velocity AWAY
+        // from the platform — player bails outward and arcs through
+        // the air; useful if they're escaping or repositioning to
+        // grab the ledge again from a different angle.
         let away_x = away_from_platform_axis(state.contact);
         player.wall_clinging = false;
         player.wall_climbing = false;
@@ -401,6 +424,27 @@ pub fn tick_active_ledge_grab(
         player.on_ground = false;
         player.ledge_grab = None;
         player.vel = Vec2::new(away_x * tuning.wall_jump_x, -tuning.jump_speed);
+        player.refresh_movement_resources(tuning);
+        events.op(player, MovementOp::LedgeJump);
+        return true;
+    }
+    if want_ledge_jump {
+        // Pure hop UP from the ledge: full vertical jump speed with a
+        // small inboard drift so the player usually lands ON the
+        // platform but can still air-control off. This is the option
+        // a player picks when they want air control mid-recovery — in
+        // Smash this is the "jump" ledge option and it's the most
+        // common pull-up choice for technical play.
+        let into_x = into_platform_axis(state.contact);
+        player.wall_clinging = false;
+        player.wall_climbing = false;
+        player.on_wall = false;
+        player.on_ground = false;
+        player.ledge_grab = None;
+        // Inboard drift is 35% of jump_speed — small enough that the
+        // player can still air-control sideways, large enough that
+        // the default trajectory lands on the platform.
+        player.vel = Vec2::new(into_x * tuning.jump_speed * 0.35, -tuning.jump_speed);
         player.refresh_movement_resources(tuning);
         events.op(player, MovementOp::LedgeJump);
         return true;
@@ -449,6 +493,17 @@ fn requested_wall_normal(player: &Player, input: InputState) -> Option<f32> {
 
 /// Probe for and start a new ledge grab after normal collision has established
 /// this frame's wall/airborne state. Returns true when a new grab latched.
+///
+/// Two snap paths:
+///
+/// - **Intentional snap**: the player is wall-clinging or actively
+///   moving toward a wall (input.axis_x non-zero while airborne).
+///   `requested_wall_normal` returns the side to probe.
+/// - **Falling-into-ledge snap**: the player is falling fast and a
+///   grabbable ledge sits within reach on either side. Mirrors
+///   Smash's auto-snap on a descending recovery — you don't have
+///   to hold a stick into the wall to catch the lip you're already
+///   trying to grab.
 pub fn try_start_ledge_grab(
     world: &World,
     player: &mut Player,
@@ -458,12 +513,26 @@ pub fn try_start_ledge_grab(
     if !player.abilities.ledge_grab || player.ledge_grab.is_some() || player.on_ground {
         return false;
     }
-    let Some(wall_normal) = requested_wall_normal(player, input) else {
-        return false;
-    };
-    let Some(contact) = probe_ledge_grab(player.pos, player.size, wall_normal, world) else {
-        return false;
-    };
+    let mut contact: Option<LedgeContact> = None;
+    if let Some(wall_normal) = requested_wall_normal(player, input) {
+        contact = probe_ledge_grab(player.pos, player.size, wall_normal, world);
+    }
+    if contact.is_none() && player.vel.y > FALL_SNAP_MIN_VY {
+        // Smash-style auto-snap during a falling recovery: try BOTH
+        // sides and snap to whichever has a grabbable lip in the
+        // chin band. `probe_ledge_grab` is strict enough about the
+        // ledge top / cling-side proximity that an arbitrary fall
+        // past a wall doesn't latch — only a near-miss does.
+        for trial_normal in [-1.0_f32, 1.0_f32] {
+            if let Some(found) =
+                probe_ledge_grab(player.pos, player.size, trial_normal, world)
+            {
+                contact = Some(found);
+                break;
+            }
+        }
+    }
+    let Some(contact) = contact else { return false; };
     player.pos = contact.anchor;
     player.vel = Vec2::ZERO;
     player.facing = into_platform_axis(contact);
@@ -483,6 +552,12 @@ pub fn try_start_ledge_grab(
     events.op(player, MovementOp::LedgeGrab);
     true
 }
+
+/// Minimum downward velocity for the auto-snap-on-fall path to
+/// trigger. Set just above terminal "drifting" speed so a player
+/// who is loitering near a ledge with no stick input doesn't get
+/// snagged on it by accident.
+const FALL_SNAP_MIN_VY: f32 = 80.0;
 
 #[cfg(test)]
 mod tests {
@@ -686,7 +761,11 @@ mod tests {
     }
 
     #[test]
-    fn jump_toward_platform_still_climbs() {
+    fn jump_toward_platform_now_hops_up_not_climbs() {
+        // Smash-style split: pressing Jump from a ledge is the
+        // "ledge jump" option (vertical hop with control). It used
+        // to trigger a climb instead. The climb is now reserved
+        // for Up / Into / Interact.
         let contact = LedgeContact {
             wall_normal_x: -1.0,
             anchor: Vec2::new(86.0, 110.0),
@@ -695,7 +774,6 @@ mod tests {
         let mut player = make_hanging_player(contact);
         let mut events = crate::movement::FrameEvents::default();
         let tuning = crate::movement::MovementTuning::default();
-        // Pressing toward the platform (right = into wall side) with jump.
         let input = InputState {
             jump_pressed: true,
             axis_x: 1.0, // pressing into the platform (into = -wall_normal = +1)
@@ -703,12 +781,124 @@ mod tests {
         };
         let consumed = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
         assert!(consumed);
-        // Should start climbing, not a ledge jump.
-        if let Some(state) = player.ledge_grab {
-            assert!(state.climbing, "should be in climbing state");
-        } else {
-            // Also OK: climb finished immediately (degenerate case)
-        }
+        assert!(player.ledge_grab.is_none(), "ledge should be released by the hop");
+        assert!(player.vel.y < -100.0, "ledge jump should fling upward, got vy={}", player.vel.y);
+        // Inboard drift: for a -1 wall_normal, into_x = +1, so vx > 0.
+        assert!(player.vel.x > 0.0, "ledge jump should drift inboard, got vx={}", player.vel.x);
+        assert!(!player.on_wall);
+    }
+
+    /// Pure jump from the ledge with NO horizontal input also hops
+    /// UP. This was the case the old code mapped to "climb" because
+    /// jump was a confirm cue; now the player gets a vertical hop
+    /// they can air-control.
+    #[test]
+    fn jump_with_no_horizontal_input_hops_up() {
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        let mut player = make_hanging_player(contact);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = crate::movement::MovementTuning::default();
+        let input = InputState {
+            jump_pressed: true,
+            ..InputState::default()
+        };
+        let consumed = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        assert!(consumed);
+        assert!(player.ledge_grab.is_none());
+        assert!(player.vel.y < -100.0, "pure jump should still go up, got vy={}", player.vel.y);
+    }
+
+    /// `Up` (without jump) is still the slow climb path. The split
+    /// must NOT have broken the regular pull-up.
+    #[test]
+    fn up_alone_still_starts_a_climb() {
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        let mut player = make_hanging_player(contact);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = crate::movement::MovementTuning::default();
+        let input = InputState {
+            axis_y: -1.0, // up
+            ..InputState::default()
+        };
+        let _ = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        let state = player.ledge_grab.expect("climb should leave transitioning state");
+        assert!(state.climbing, "Up should start a climb");
+        assert_eq!(state.getup_kind, LedgeGetupKind::Climb);
+    }
+
+    /// The climb path is a quadratic Bezier whose control point sits
+    /// at `(anchor.x, climb_target.y)` — so the player goes UP the
+    /// wall first and ACROSS onto the platform second. At t=0.5 the
+    /// player's position should be much closer to the bend (above
+    /// the anchor on the wall) than to the midpoint of a straight
+    /// line between anchor and climb_target. This is the curved-feel
+    /// Jon asked for; the straight-diagonal was the old behavior.
+    #[test]
+    fn climb_path_curves_up_before_going_over() {
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        let mid_curved = climb_position(contact, 0.5);
+        let mid_straight = (contact.anchor + contact.climb_target) * 0.5;
+        // The curved midpoint should be closer to `(anchor.x, target.y)`
+        // — the control point — than the straight-line midpoint is.
+        let control = Vec2::new(contact.anchor.x, contact.climb_target.y);
+        let curved_to_ctrl = (mid_curved - control).length();
+        let straight_to_ctrl = (mid_straight - control).length();
+        assert!(
+            curved_to_ctrl < straight_to_ctrl,
+            "curved midpoint should bias toward the bend; got {:.2} vs straight {:.2}",
+            curved_to_ctrl,
+            straight_to_ctrl,
+        );
+    }
+
+    /// Falling fast past a ledge should auto-snap to it, even with
+    /// no stick input — the Smash recovery snap. Without this you
+    /// have to hold a stick INTO the wall to grab; in practice
+    /// players want a near-miss snap.
+    #[test]
+    fn falling_player_auto_snaps_to_nearby_ledge() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        player.abilities.ledge_grab = true;
+        player.vel = Vec2::new(0.0, 150.0); // falling fast, no horizontal input
+        let mut events = crate::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
+        assert!(latched, "fast-falling near a ledge should auto-snap");
+        assert!(player.ledge_grab.is_some());
+    }
+
+    /// A loitering player (slow descent, no stick input) should NOT
+    /// auto-snap — only an active recovery does. Keeps the snap
+    /// from feeling like sticky-wall.
+    #[test]
+    fn drifting_player_does_not_auto_snap() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        player.abilities.ledge_grab = true;
+        player.vel = Vec2::new(0.0, 20.0); // gentle drift, well below FALL_SNAP_MIN_VY
+        let mut events = crate::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
+        assert!(!latched, "slow drift must not auto-snap");
     }
 
     /// Holding shield while hanging on a ledge triggers a Smash-Bros

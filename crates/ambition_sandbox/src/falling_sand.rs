@@ -624,7 +624,8 @@ fn animate_falling_sand_stream_particles(
     for (entity, mut particle, mut transform) in &mut particles {
         particle.age += dt;
         particle.vel.y += 90.0 * dt;
-        particle.world_pos += particle.vel * dt;
+        let step = particle.vel * dt;
+        particle.world_pos += step;
         if particle.age >= particle.lifetime || particle.world_pos.y >= floor_y + 10.0 {
             commands.entity(entity).despawn();
             continue;

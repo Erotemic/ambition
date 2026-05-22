@@ -19,6 +19,14 @@ pub const LEDGE_CLIMB_TIME: f32 = 0.24;
 /// timer.
 pub const LEDGE_ROLL_TIME: f32 = 0.30;
 
+/// Duration of a getup-attack (Smash-style "ledge attack"). The
+/// player lifts to the platform on the same curve as the climb but
+/// swings during the lift; the active hitbox fires at the start and
+/// the player has invuln frames via `Player::dodge_roll_timer` for
+/// the duration. Tuned slightly longer than a plain climb to give the
+/// swing time to read.
+pub const LEDGE_GETUP_ATTACK_TIME: f32 = 0.30;
+
 /// How much further inboard the roll lands than the climb. The roll
 /// target is `climb_target + into_axis * LEDGE_ROLL_OVERSHOOT`,
 /// chosen so the roll covers ~1 player width past the platform edge
@@ -73,6 +81,14 @@ pub enum LedgeGetupKind {
     /// the platform edge, and grants invulnerability for the whole
     /// duration via `Player::dodge_roll_timer`.
     Roll,
+    /// Smash-Bros style ledge getup attack: the player swings onto the
+    /// platform, attacking on the way up. Movement follows the same
+    /// curve as `Climb`; the slash hitbox is fired at the start and
+    /// the player is invulnerable for the duration. Reuses the
+    /// regular player attack animation for now — TODO: author a
+    /// dedicated getup-attack sprite/animation so the swing reads
+    /// distinctly from a normal slash.
+    Attack,
 }
 
 /// Engine-owned ledge-grab state for the player.
@@ -110,6 +126,7 @@ impl LedgeGrabState {
         match self.getup_kind {
             LedgeGetupKind::Climb => LEDGE_CLIMB_TIME,
             LedgeGetupKind::Roll => LEDGE_ROLL_TIME,
+            LedgeGetupKind::Attack => LEDGE_GETUP_ATTACK_TIME,
         }
     }
 }
@@ -159,6 +176,9 @@ fn getup_position(state: LedgeGrabState, progress: f32) -> Vec2 {
     match state.getup_kind {
         LedgeGetupKind::Climb => climb_position(state.contact, progress),
         LedgeGetupKind::Roll => roll_position(state.contact, progress),
+        // Attack uses the same arc as Climb — only the timing,
+        // invuln, and triggered slash differ.
+        LedgeGetupKind::Attack => climb_position(state.contact, progress),
     }
 }
 
@@ -166,6 +186,7 @@ fn getup_end_position(state: LedgeGrabState) -> Vec2 {
     match state.getup_kind {
         LedgeGetupKind::Climb => state.contact.climb_target,
         LedgeGetupKind::Roll => roll_target(state.contact),
+        LedgeGetupKind::Attack => state.contact.climb_target,
     }
 }
 
@@ -366,11 +387,12 @@ pub fn tick_active_ledge_grab(
     let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;
 
     // Smash-Bros option menu from hang. Priority (highest first):
-    //   1. Roll       — shield held
-    //   2. Ledge jump — jump pressed (pure hop UP onto platform)
+    //   1. Roll               — shield held
+    //   2. Ledge jump         — jump pressed (pure hop UP onto platform)
     //   3. Ledge release jump — jump pressed + away (outward arc)
-    //   4. Climb      — up / into-platform / interact
-    //   5. Drop       — down / away
+    //   4. Getup attack       — attack pressed
+    //   5. Climb              — up / into-platform / interact
+    //   6. Drop               — down / away
     let want_roll =
         climb_unlocked && input.shield_held && player.abilities.shield;
     // Ledge release: jump + away → outward arc like a wall jump. Used to
@@ -384,15 +406,25 @@ pub fn tick_active_ledge_grab(
     // air-control off.
     let want_ledge_jump =
         climb_unlocked && !want_roll && !want_ledge_release && input.jump_pressed;
+    // Getup attack: attack pressed from hang → swing onto platform.
+    // Beats climb so a player holding "up" + tapping attack always gets
+    // the attack rather than a plain climb.
+    let want_getup_attack = climb_unlocked
+        && !want_roll
+        && !want_ledge_release
+        && !want_ledge_jump
+        && input.attack_pressed;
     let want_climb = climb_unlocked
         && !want_roll
         && !want_ledge_release
         && !want_ledge_jump
+        && !want_getup_attack
         && (input_up
             || input.interact_pressed
             || (state.elapsed >= LEDGE_TOWARD_CLIMB_DELAY && input_into_platform));
     let want_drop = !want_roll
         && !want_ledge_jump
+        && !want_getup_attack
         && (input_down || (input_away_from_platform && !want_ledge_release));
 
     if want_roll {
@@ -449,12 +481,33 @@ pub fn tick_active_ledge_grab(
         events.op(player, MovementOp::LedgeJump);
         return true;
     }
-    if want_drop && !want_climb {
+    if want_drop && !want_climb && !want_getup_attack {
         player.wall_clinging = false;
         player.wall_climbing = false;
         player.on_wall = false;
         player.ledge_grab = None;
         events.op(player, MovementOp::LedgeDrop);
+        return true;
+    }
+    if want_getup_attack {
+        state.climbing = true;
+        state.getup_kind = LedgeGetupKind::Attack;
+        state.climb_elapsed = 0.0;
+        player.pos = state.contact.anchor;
+        player.vel = Vec2::ZERO;
+        player.on_ground = false;
+        player.wall_clinging = false;
+        player.wall_climbing = false;
+        player.on_wall = false;
+        // Invuln for the duration of the swing, mirroring the roll
+        // option so the player isn't punishable mid-getup-attack.
+        player.dodge_roll_timer = LEDGE_GETUP_ATTACK_TIME;
+        player.ledge_grab = Some(state);
+        events.op(player, MovementOp::LedgeGetupAttack);
+        // Fire the actual slash now so the hitbox is active at the
+        // start of the swing. Sprite is the regular attack animation
+        // for now — see TODO on `LedgeGetupKind::Attack`.
+        events.op(player, MovementOp::Slash);
         return true;
     }
     if want_climb {

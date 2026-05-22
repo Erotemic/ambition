@@ -469,6 +469,19 @@ pub(super) fn handle_player_events(
                     facing: player.facing,
                 });
             }
+            ae::MovementOp::LedgeGetupAttack => {
+                // The engine pairs this op with MovementOp::Slash on
+                // the same frame, so the slash SFX/VFX (and the
+                // attack hitbox) fire through the normal slash path.
+                // Here we only add the lift-up dust so the swing
+                // reads as "coming off the ledge," not "in mid-air."
+                // TODO: when a dedicated getup-attack sprite lands,
+                // route a distinct VFX/SFX here too.
+                vfx.write(VfxMessage::Dust {
+                    pos: player.pos,
+                    facing: player.facing,
+                });
+            }
             ae::MovementOp::ShieldUp => {
                 // Reuse the quick blink tone as a placeholder until a
                 // dedicated Shield SoundCue is added to the sfxbank.

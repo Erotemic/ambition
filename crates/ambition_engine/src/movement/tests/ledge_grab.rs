@@ -71,6 +71,51 @@ fn simulation_latches_ledge_grab_on_one_way_surface_without_wall_collision() {
 }
 
 #[test]
+fn attack_press_from_hang_starts_getup_attack_and_fires_slash() {
+    let world = test_world();
+    let mut abilities = AbilitySet::sandbox_all();
+    abilities.ledge_grab = true;
+    let mut player = Player::new_with_abilities(Vec2::new(87.0, 119.0), abilities);
+    let contact = crate::LedgeContact {
+        wall_normal_x: -1.0,
+        anchor: Vec2::new(87.0, 119.0),
+        climb_target: Vec2::new(118.0, 76.0),
+    };
+    let mut state = crate::LedgeGrabState::hanging(contact);
+    // Skip past the hang debounce so the input is accepted this tick.
+    state.elapsed = crate::LEDGE_MIN_CLIMB_DELAY;
+    player.ledge_grab = Some(state);
+
+    let events = update_player_simulation_with_tuning(
+        &world,
+        &mut player,
+        InputState {
+            attack_pressed: true,
+            control_dt: 1.0 / 60.0,
+            ..InputState::default()
+        },
+        1.0 / 60.0,
+        DEFAULT_TUNING,
+    );
+
+    assert!(
+        events.operations.contains(&MovementOp::LedgeGetupAttack),
+        "attack from hang should emit LedgeGetupAttack"
+    );
+    assert!(
+        events.operations.contains(&MovementOp::Slash),
+        "getup attack should also emit a Slash op so the hitbox fires"
+    );
+    let new_state = player.ledge_grab.expect("getup-attack keeps ledge state");
+    assert!(new_state.climbing, "state should be in getup transition");
+    assert_eq!(new_state.getup_kind, crate::LedgeGetupKind::Attack);
+    assert!(
+        player.dodge_roll_timer > 0.0,
+        "getup attack grants invuln frames via dodge_roll_timer"
+    );
+}
+
+#[test]
 fn active_ledge_grab_climb_finishes_inside_simulation_tick() {
     let world = test_world();
     let mut abilities = AbilitySet::sandbox_all();

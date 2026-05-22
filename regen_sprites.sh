@@ -83,7 +83,15 @@ echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 review_scratch="$renderer_dir/generated/review"
 mkdir -p "$review_scratch"
 (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch")
-for cue in absurd_general architect kernel_guide vault_keeper merchant_prototype oiler erdish fascist_enforcer; do
+review_cues=(
+    # Toon-target NPC variants already promoted.
+    absurd_general architect kernel_guide vault_keeper
+    merchant_prototype oiler erdish fascist_enforcer
+    # Named characters whose YAML manifests already live in $sprites_dir.
+    alice bob craig eve general_hero judy mallory olivia
+    peggy sybil trent trudy victor walter
+)
+for cue in "${review_cues[@]}"; do
     for ext in png yaml; do
         src="$review_scratch/${cue}_spritesheet.$ext"
         if [ -f "$src" ]; then

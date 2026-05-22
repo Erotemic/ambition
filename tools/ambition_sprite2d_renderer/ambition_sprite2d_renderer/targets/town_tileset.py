@@ -27,7 +27,15 @@ TARGET_NAME = "town_tileset"
 SHEET_FILES = ("town_tileset.png", "town_tileset.yaml")
 CONTACT_FILE = "town_tileset_contact_sheet.png"
 
-TILE = 64
+# DESIGN_TILE is the logical px the tile draw functions assume —
+# coordinates and feature sizes were authored against 64×64 cells.
+# OUTPUT_TILE is the final cell size in the published PNG / atlas;
+# we downsample DESIGN_TILE → OUTPUT_TILE at the end. This split
+# lets the world author tiles on a 16-px grid (matching the
+# Collision IntGrid) without rewriting every tile drawing.
+DESIGN_TILE = 64
+OUTPUT_TILE = 16
+TILE = DESIGN_TILE  # alias used by the draw functions
 SCALE = 4
 ATLAS_COLUMNS = 8
 CONTACT_COLUMNS = 4
@@ -98,7 +106,7 @@ def _tile_canvas(transparent: bool = False) -> Image.Image:
 
 
 def _tile_downsample(img: Image.Image) -> Image.Image:
-    return img.resize((TILE, TILE), Image.Resampling.LANCZOS)
+    return img.resize((OUTPUT_TILE, OUTPUT_TILE), Image.Resampling.LANCZOS)
 
 
 def _shadow(draw: ImageDraw.ImageDraw, x1: float, y1: float, x2: float, y2: float, alpha: int = 40) -> None:
@@ -1013,14 +1021,14 @@ def render_tile(spec: TileSpec) -> Image.Image:
 def build_sheet(tiles: Sequence[TileSpec] = TILES) -> Tuple[Image.Image, Dict[str, Any]]:
     cols = ATLAS_COLUMNS
     rows = math.ceil(len(tiles) / cols)
-    atlas = Image.new("RGBA", (cols * TILE, rows * TILE), (0, 0, 0, 0))
+    atlas = Image.new("RGBA", (cols * OUTPUT_TILE, rows * OUTPUT_TILE), (0, 0, 0, 0))
     groups: Dict[str, List[str]] = {}
     manifest: Dict[str, Any] = {
         "target": TARGET_NAME,
         "sheet_kind": "tileset",
         "view": "side_scroller",
-        "tile_width": TILE,
-        "tile_height": TILE,
+        "tile_width": OUTPUT_TILE,
+        "tile_height": OUTPUT_TILE,
         "atlas_columns": cols,
         "atlas_rows": rows,
         "tile_count": len(tiles),
@@ -1038,8 +1046,8 @@ def build_sheet(tiles: Sequence[TileSpec] = TILES) -> Tuple[Image.Image, Dict[st
         tile = render_tile(spec)
         col = idx % cols
         row = idx // cols
-        x = col * TILE
-        y = row * TILE
+        x = col * OUTPUT_TILE
+        y = row * OUTPUT_TILE
         atlas.alpha_composite(tile, (x, y))
         groups.setdefault(spec.category, []).append(spec.key)
         manifest["tiles"][spec.key] = {
@@ -1050,8 +1058,8 @@ def build_sheet(tiles: Sequence[TileSpec] = TILES) -> Tuple[Image.Image, Dict[st
             "tags": list(spec.tags),
             "x": x,
             "y": y,
-            "w": TILE,
-            "h": TILE,
+            "w": OUTPUT_TILE,
+            "h": OUTPUT_TILE,
             "atlas_col": col,
             "atlas_row": row,
         }
@@ -1059,8 +1067,8 @@ def build_sheet(tiles: Sequence[TileSpec] = TILES) -> Tuple[Image.Image, Dict[st
 
 
 def build_contact_sheet(tiles: Sequence[TileSpec] = TILES) -> Image.Image:
-    cell_w = TILE + 56
-    cell_h = TILE + 34
+    cell_w = OUTPUT_TILE + 56
+    cell_h = OUTPUT_TILE + 34
     cols = CONTACT_COLUMNS
     rows = math.ceil(len(tiles) / cols)
     img = Image.new("RGBA", (cols * cell_w, rows * cell_h), (18, 20, 27, 255))
@@ -1072,14 +1080,15 @@ def build_contact_sheet(tiles: Sequence[TileSpec] = TILES) -> Image.Image:
         row = idx // cols
         ox = col * cell_w
         oy = row * cell_h
-        for yy in range(0, TILE, 8):
-            for xx in range(0, TILE, 8):
-                fill = (44, 47, 56, 255) if ((xx // 8 + yy // 8) % 2 == 0) else (34, 37, 44, 255)
-                d.rectangle((ox + 8 + xx, oy + 6 + yy, ox + 8 + xx + 8, oy + 6 + yy + 8), fill=fill)
+        step = max(2, OUTPUT_TILE // 4)
+        for yy in range(0, OUTPUT_TILE, step):
+            for xx in range(0, OUTPUT_TILE, step):
+                fill = (44, 47, 56, 255) if ((xx // step + yy // step) % 2 == 0) else (34, 37, 44, 255)
+                d.rectangle((ox + 8 + xx, oy + 6 + yy, ox + 8 + xx + step, oy + 6 + yy + step), fill=fill)
         tile = render_tile(spec)
         img.alpha_composite(tile, (ox + 8, oy + 6))
-        _outline_text(d, (ox + 8, oy + TILE + 10), spec.display_name, font=name_font, fill=(240, 242, 255, 255), outline=(0, 0, 0, 150))
-        d.text((ox + 8, oy + TILE + 22), spec.category, font=meta_font, fill=(151, 215, 235, 255))
+        _outline_text(d, (ox + 8, oy + OUTPUT_TILE + 10), spec.display_name, font=name_font, fill=(240, 242, 255, 255), outline=(0, 0, 0, 150))
+        d.text((ox + 8, oy + OUTPUT_TILE + 22), spec.category, font=meta_font, fill=(151, 215, 235, 255))
     return img
 
 

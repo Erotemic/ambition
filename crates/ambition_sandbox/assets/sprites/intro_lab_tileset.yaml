@@ -1,7 +1,7 @@
 target: intro_lab_tileset
 image: intro_lab_tileset.png
-tile_width: 32
-tile_height: 32
+tile_width: 16
+tile_height: 16
 columns: 16
 rows: 6
 tile_count: 88
@@ -18,8 +18,8 @@ tiles:
   rect:
     x: 0
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: plain segmented lab wall
 - index: 1
   key: wall_plain_alt
@@ -31,10 +31,10 @@ tiles:
   - solid
   - variant
   rect:
-    x: 32
+    x: 16
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: alternate segmented lab wall
 - index: 2
   key: wall_panel_light
@@ -46,10 +46,10 @@ tiles:
   - solid
   - light
   rect:
-    x: 64
+    x: 32
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: wall panel with cyan inspection light
 - index: 3
   key: wall_dark_panel
@@ -61,10 +61,10 @@ tiles:
   - solid
   - variant
   rect:
-    x: 96
+    x: 48
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: dark inset wall panel
 - index: 4
   key: wall_pillar
@@ -76,10 +76,10 @@ tiles:
   - solid
   - pillar
   rect:
-    x: 128
+    x: 64
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: vertical structural pillar
 - index: 5
   key: wall_corner_left
@@ -91,10 +91,10 @@ tiles:
   - edge
   - left
   rect:
-    x: 160
+    x: 80
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: left wall edge / corner cap
 - index: 6
   key: wall_corner_right
@@ -106,10 +106,10 @@ tiles:
   - edge
   - right
   rect:
-    x: 192
+    x: 96
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: right wall edge / corner cap
 - index: 7
   key: wall_trim_top
@@ -121,10 +121,10 @@ tiles:
   - trim
   - top
   rect:
-    x: 224
+    x: 112
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: wall tile with top trim
 - index: 8
   key: wall_trim_bottom
@@ -136,10 +136,10 @@ tiles:
   - trim
   - bottom
   rect:
-    x: 256
+    x: 128
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: wall tile with bottom trim
 - index: 9
   key: wall_trim_left
@@ -151,10 +151,10 @@ tiles:
   - trim
   - left
   rect:
-    x: 288
+    x: 144
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: wall tile with left trim
 - index: 10
   key: wall_trim_right
@@ -166,10 +166,10 @@ tiles:
   - trim
   - right
   rect:
-    x: 320
+    x: 160
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: wall tile with right trim
 - index: 11
   key: wall_trim_tl
@@ -181,10 +181,10 @@ tiles:
   - trim
   - corner
   rect:
-    x: 352
+    x: 176
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: top-left trimmed wall corner
 - index: 12
   key: wall_trim_tr
@@ -196,10 +196,10 @@ tiles:
   - trim
   - corner
   rect:
-    x: 384
+    x: 192
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: top-right trimmed wall corner
 - index: 13
   key: wall_trim_bl
@@ -211,10 +211,10 @@ tiles:
   - trim
   - corner
   rect:
-    x: 416
+    x: 208
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: bottom-left trimmed wall corner
 - index: 14
   key: wall_trim_br
@@ -226,10 +226,10 @@ tiles:
   - trim
   - corner
   rect:
-    x: 448
+    x: 224
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: bottom-right trimmed wall corner
 - index: 15
   key: cracked_panel
@@ -240,10 +240,10 @@ tiles:
   - wall
   - damage
   rect:
-    x: 480
+    x: 240
     y: 0
-    w: 32
-    h: 32
+    w: 16
+    h: 16
   description: damaged lab wall panel
 - index: 16
   key: wall_window
@@ -255,9 +255,9 @@ tiles:
   - window
   rect:
     x: 0
-    y: 32
-    w: 32
-    h: 32
+    y: 16
+    w: 16
+    h: 16
   description: dark observation window wall tile
 - index: 17
   key: wall_warning_panel
@@ -268,10 +268,10 @@ tiles:
   - wall
   - warning
   rect:
-    x: 32
-    y: 32
-    w: 32
-    h: 32
+    x: 16
+    y: 16
+    w: 16
+    h: 16
   description: wall caution placard
 - index: 18
   key: floor_plain
@@ -282,10 +282,10 @@ tiles:
   - floor
   - solid
   rect:
-    x: 64
-    y: 32
-    w: 32
-    h: 32
+    x: 32
+    y: 16
+    w: 16
+    h: 16
   description: standard rubberized lab floor
 - index: 19
   key: floor_plain_alt
@@ -297,10 +297,10 @@ tiles:
   - solid
   - variant
   rect:
-    x: 96
-    y: 32
-    w: 32
-    h: 32
+    x: 48
+    y: 16
+    w: 16
+    h: 16
   description: alternate rubberized lab floor
 - index: 20
   key: floor_grate
@@ -312,10 +312,10 @@ tiles:
   - solid
   - grate
   rect:
-    x: 128
-    y: 32
-    w: 32
-    h: 32
+    x: 64
+    y: 16
+    w: 16
+    h: 16
   description: metal grate floor tile
 - index: 21
   key: floor_hazard
@@ -326,10 +326,10 @@ tiles:
   - floor
   - hazard
   rect:
-    x: 160
-    y: 32
-    w: 32
-    h: 32
+    x: 80
+    y: 16
+    w: 16
+    h: 16
   description: hazard-striped floor edge
 - index: 22
   key: floor_hazard_left
@@ -341,10 +341,10 @@ tiles:
   - hazard
   - left
   rect:
-    x: 192
-    y: 32
-    w: 32
-    h: 32
+    x: 96
+    y: 16
+    w: 16
+    h: 16
   description: left hazard edge floor tile
 - index: 23
   key: floor_hazard_right
@@ -356,10 +356,10 @@ tiles:
   - hazard
   - right
   rect:
-    x: 224
-    y: 32
-    w: 32
-    h: 32
+    x: 112
+    y: 16
+    w: 16
+    h: 16
   description: right hazard edge floor tile
 - index: 24
   key: floor_stain
@@ -370,10 +370,10 @@ tiles:
   - floor
   - stain
   rect:
-    x: 256
-    y: 32
-    w: 32
-    h: 32
+    x: 128
+    y: 16
+    w: 16
+    h: 16
   description: oil-stained floor variation
 - index: 25
   key: floor_cracked
@@ -384,10 +384,10 @@ tiles:
   - floor
   - damage
   rect:
-    x: 288
-    y: 32
-    w: 32
-    h: 32
+    x: 144
+    y: 16
+    w: 16
+    h: 16
   description: cracked floor variation
 - index: 26
   key: floor_cable_trench
@@ -398,10 +398,10 @@ tiles:
   - floor
   - cable
   rect:
-    x: 320
-    y: 32
-    w: 32
-    h: 32
+    x: 160
+    y: 16
+    w: 16
+    h: 16
   description: floor tile with exposed cable trench
 - index: 27
   key: floor_drain
@@ -412,10 +412,10 @@ tiles:
   - floor
   - drain
   rect:
-    x: 352
-    y: 32
-    w: 32
-    h: 32
+    x: 176
+    y: 16
+    w: 16
+    h: 16
   description: round floor drain
 - index: 28
   key: platform_single
@@ -426,10 +426,10 @@ tiles:
   - platform
   - one_way
   rect:
-    x: 384
-    y: 32
-    w: 32
-    h: 32
+    x: 192
+    y: 16
+    w: 16
+    h: 16
   description: single raised platform tile
 - index: 29
   key: platform_left
@@ -441,10 +441,10 @@ tiles:
   - one_way
   - left
   rect:
-    x: 416
-    y: 32
-    w: 32
-    h: 32
+    x: 208
+    y: 16
+    w: 16
+    h: 16
   description: left cap for raised platform
 - index: 30
   key: platform_mid
@@ -456,10 +456,10 @@ tiles:
   - one_way
   - mid
   rect:
-    x: 448
-    y: 32
-    w: 32
-    h: 32
+    x: 224
+    y: 16
+    w: 16
+    h: 16
   description: middle raised platform tile
 - index: 31
   key: platform_right
@@ -471,10 +471,10 @@ tiles:
   - one_way
   - right
   rect:
-    x: 480
-    y: 32
-    w: 32
-    h: 32
+    x: 240
+    y: 16
+    w: 16
+    h: 16
   description: right cap for raised platform
 - index: 32
   key: platform_support
@@ -486,9 +486,9 @@ tiles:
   - support
   rect:
     x: 0
-    y: 64
-    w: 32
-    h: 32
+    y: 32
+    w: 16
+    h: 16
   description: vertical platform support strut
 - index: 33
   key: pipe_horizontal
@@ -499,10 +499,10 @@ tiles:
   - pipe
   - horizontal
   rect:
-    x: 32
-    y: 64
-    w: 32
-    h: 32
+    x: 16
+    y: 32
+    w: 16
+    h: 16
   description: horizontal service pipe
 - index: 34
   key: pipe_vertical
@@ -513,10 +513,10 @@ tiles:
   - pipe
   - vertical
   rect:
-    x: 64
-    y: 64
-    w: 32
-    h: 32
+    x: 32
+    y: 32
+    w: 16
+    h: 16
   description: vertical service pipe
 - index: 35
   key: pipe_corner_tl
@@ -527,10 +527,10 @@ tiles:
   - pipe
   - corner
   rect:
-    x: 96
-    y: 64
-    w: 32
-    h: 32
+    x: 48
+    y: 32
+    w: 16
+    h: 16
   description: service pipe corner top-left
 - index: 36
   key: pipe_corner_tr
@@ -541,10 +541,10 @@ tiles:
   - pipe
   - corner
   rect:
-    x: 128
-    y: 64
-    w: 32
-    h: 32
+    x: 64
+    y: 32
+    w: 16
+    h: 16
   description: service pipe corner top-right
 - index: 37
   key: pipe_corner_bl
@@ -555,10 +555,10 @@ tiles:
   - pipe
   - corner
   rect:
-    x: 160
-    y: 64
-    w: 32
-    h: 32
+    x: 80
+    y: 32
+    w: 16
+    h: 16
   description: service pipe corner bottom-left
 - index: 38
   key: pipe_corner_br
@@ -569,10 +569,10 @@ tiles:
   - pipe
   - corner
   rect:
-    x: 192
-    y: 64
-    w: 32
-    h: 32
+    x: 96
+    y: 32
+    w: 16
+    h: 16
   description: service pipe corner bottom-right
 - index: 39
   key: pipe_valve
@@ -583,10 +583,10 @@ tiles:
   - pipe
   - valve
   rect:
-    x: 224
-    y: 64
-    w: 32
-    h: 32
+    x: 112
+    y: 32
+    w: 16
+    h: 16
   description: service pipe with valve wheel
 - index: 40
   key: cable_bundle
@@ -597,10 +597,10 @@ tiles:
   - cable
   - horizontal
   rect:
-    x: 256
-    y: 64
-    w: 32
-    h: 32
+    x: 128
+    y: 32
+    w: 16
+    h: 16
   description: horizontal exposed cable bundle
 - index: 41
   key: cable_vertical
@@ -611,10 +611,10 @@ tiles:
   - cable
   - vertical
   rect:
-    x: 288
-    y: 64
-    w: 32
-    h: 32
+    x: 144
+    y: 32
+    w: 16
+    h: 16
   description: vertical exposed cable bundle
 - index: 42
   key: vent
@@ -624,10 +624,10 @@ tiles:
   tags:
   - vent
   rect:
-    x: 320
-    y: 64
-    w: 32
-    h: 32
+    x: 160
+    y: 32
+    w: 16
+    h: 16
   description: wall ventilation grate
 - index: 43
   key: fan_vent
@@ -638,10 +638,10 @@ tiles:
   - vent
   - fan
   rect:
-    x: 352
-    y: 64
-    w: 32
-    h: 32
+    x: 176
+    y: 32
+    w: 16
+    h: 16
   description: round fan ventilation tile
 - index: 44
   key: ceiling_light
@@ -652,10 +652,10 @@ tiles:
   - light
   - cyan
   rect:
-    x: 384
-    y: 64
-    w: 32
-    h: 32
+    x: 192
+    y: 32
+    w: 16
+    h: 16
   description: cool fluorescent ceiling light
 - index: 45
   key: red_warning_light
@@ -666,10 +666,10 @@ tiles:
   - light
   - warning
   rect:
-    x: 416
-    y: 64
-    w: 32
-    h: 32
+    x: 208
+    y: 32
+    w: 16
+    h: 16
   description: red rotating warning light
 - index: 46
   key: terminal
@@ -680,10 +680,10 @@ tiles:
   - terminal
   - interactive
   rect:
-    x: 448
-    y: 64
-    w: 32
-    h: 32
+    x: 224
+    y: 32
+    w: 16
+    h: 16
   description: small lab control terminal
 - index: 47
   key: big_monitor
@@ -694,10 +694,10 @@ tiles:
   - monitor
   - interactive
   rect:
-    x: 480
-    y: 64
-    w: 32
-    h: 32
+    x: 240
+    y: 32
+    w: 16
+    h: 16
   description: large waveform monitor
 - index: 48
   key: switch_box
@@ -709,9 +709,9 @@ tiles:
   - interactive
   rect:
     x: 0
-    y: 96
-    w: 32
-    h: 32
+    y: 48
+    w: 16
+    h: 16
   description: breaker switch box
 - index: 49
   key: gate_socket
@@ -723,10 +723,10 @@ tiles:
   - socket
   - interactive
   rect:
-    x: 32
-    y: 96
-    w: 32
-    h: 32
+    x: 16
+    y: 48
+    w: 16
+    h: 16
   description: intro gate calibration socket
 - index: 50
   key: lab_door_top
@@ -738,10 +738,10 @@ tiles:
   - solid
   - top
   rect:
-    x: 64
-    y: 96
-    w: 32
-    h: 32
+    x: 32
+    y: 48
+    w: 16
+    h: 16
   description: upper laboratory door tile
 - index: 51
   key: lab_door_bottom
@@ -753,10 +753,10 @@ tiles:
   - solid
   - bottom
   rect:
-    x: 96
-    y: 96
-    w: 32
-    h: 32
+    x: 48
+    y: 48
+    w: 16
+    h: 16
   description: lower laboratory door tile
 - index: 52
   key: blast_door_left
@@ -768,10 +768,10 @@ tiles:
   - solid
   - left
   rect:
-    x: 128
-    y: 96
-    w: 32
-    h: 32
+    x: 64
+    y: 48
+    w: 16
+    h: 16
   description: left half of heavy blast door
 - index: 53
   key: blast_door_right
@@ -783,10 +783,10 @@ tiles:
   - solid
   - right
   rect:
-    x: 160
-    y: 96
-    w: 32
-    h: 32
+    x: 80
+    y: 48
+    w: 16
+    h: 16
   description: right half of heavy blast door
 - index: 54
   key: glass_tube_top
@@ -798,10 +798,10 @@ tiles:
   - tube
   - top
   rect:
-    x: 192
-    y: 96
-    w: 32
-    h: 32
+    x: 96
+    y: 48
+    w: 16
+    h: 16
   description: top of glass specimen tube
 - index: 55
   key: glass_tube_mid
@@ -813,10 +813,10 @@ tiles:
   - tube
   - mid
   rect:
-    x: 224
-    y: 96
-    w: 32
-    h: 32
+    x: 112
+    y: 48
+    w: 16
+    h: 16
   description: middle of glass specimen tube
 - index: 56
   key: glass_tube_bottom
@@ -828,10 +828,10 @@ tiles:
   - tube
   - bottom
   rect:
-    x: 256
-    y: 96
-    w: 32
-    h: 32
+    x: 128
+    y: 48
+    w: 16
+    h: 16
   description: bottom of glass specimen tube
 - index: 57
   key: glass_tube_specimen
@@ -843,10 +843,10 @@ tiles:
   - tube
   - specimen
   rect:
-    x: 288
-    y: 96
-    w: 32
-    h: 32
+    x: 144
+    y: 48
+    w: 16
+    h: 16
   description: specimen-filled glass tube middle
 - index: 58
   key: lab_table_left
@@ -857,10 +857,10 @@ tiles:
   - table
   - left
   rect:
-    x: 320
-    y: 96
-    w: 32
-    h: 32
+    x: 160
+    y: 48
+    w: 16
+    h: 16
   description: left lab workbench segment
 - index: 59
   key: lab_table_mid
@@ -871,10 +871,10 @@ tiles:
   - table
   - mid
   rect:
-    x: 352
-    y: 96
-    w: 32
-    h: 32
+    x: 176
+    y: 48
+    w: 16
+    h: 16
   description: middle lab workbench segment
 - index: 60
   key: lab_table_right
@@ -885,10 +885,10 @@ tiles:
   - table
   - right
   rect:
-    x: 384
-    y: 96
-    w: 32
-    h: 32
+    x: 192
+    y: 48
+    w: 16
+    h: 16
   description: right lab workbench segment
 - index: 61
   key: locker
@@ -899,10 +899,10 @@ tiles:
   - locker
   - solid
   rect:
-    x: 416
-    y: 96
-    w: 32
-    h: 32
+    x: 208
+    y: 48
+    w: 16
+    h: 16
   description: lab locker prop
 - index: 62
   key: small_crate
@@ -913,10 +913,10 @@ tiles:
   - crate
   - solid
   rect:
-    x: 448
-    y: 96
-    w: 32
-    h: 32
+    x: 224
+    y: 48
+    w: 16
+    h: 16
   description: small storage crate prop
 - index: 63
   key: barrel
@@ -927,10 +927,10 @@ tiles:
   - barrel
   - solid
   rect:
-    x: 480
-    y: 96
-    w: 32
-    h: 32
+    x: 240
+    y: 48
+    w: 16
+    h: 16
   description: metal barrel prop
 - index: 64
   key: sign_arrow
@@ -942,9 +942,9 @@ tiles:
   - exit
   rect:
     x: 0
-    y: 128
-    w: 32
-    h: 32
+    y: 64
+    w: 16
+    h: 16
   description: exit arrow sign
 - index: 65
   key: warning_sign
@@ -955,10 +955,10 @@ tiles:
   - sign
   - warning
   rect:
-    x: 32
-    y: 128
-    w: 32
-    h: 32
+    x: 16
+    y: 64
+    w: 16
+    h: 16
   description: triangular warning sign
 - index: 66
   key: bg_dark_panel
@@ -969,10 +969,10 @@ tiles:
   - background
   - panel
   rect:
-    x: 64
-    y: 128
-    w: 32
-    h: 32
+    x: 32
+    y: 64
+    w: 16
+    h: 16
   description: dark recessed background panel
 - index: 67
   key: bg_girder_cross
@@ -983,10 +983,10 @@ tiles:
   - background
   - girder
   rect:
-    x: 96
-    y: 128
-    w: 32
-    h: 32
+    x: 48
+    y: 64
+    w: 16
+    h: 16
   description: cross-braced girder backdrop
 - index: 68
   key: bg_window_left
@@ -998,10 +998,10 @@ tiles:
   - window
   - left
   rect:
-    x: 128
-    y: 128
-    w: 32
-    h: 32
+    x: 64
+    y: 64
+    w: 16
+    h: 16
   description: left segment of large observation window
 - index: 69
   key: bg_window_mid
@@ -1013,10 +1013,10 @@ tiles:
   - window
   - mid
   rect:
-    x: 160
-    y: 128
-    w: 32
-    h: 32
+    x: 80
+    y: 64
+    w: 16
+    h: 16
   description: middle segment of large observation window
 - index: 70
   key: bg_window_right
@@ -1028,10 +1028,10 @@ tiles:
   - window
   - right
   rect:
-    x: 192
-    y: 128
-    w: 32
-    h: 32
+    x: 96
+    y: 64
+    w: 16
+    h: 16
   description: right segment of large observation window
 - index: 71
   key: ceiling_rail_left
@@ -1043,10 +1043,10 @@ tiles:
   - rail
   - left
   rect:
-    x: 224
-    y: 128
-    w: 32
-    h: 32
+    x: 112
+    y: 64
+    w: 16
+    h: 16
   description: left overhead utility rail
 - index: 72
   key: ceiling_rail_mid
@@ -1058,10 +1058,10 @@ tiles:
   - rail
   - mid
   rect:
-    x: 256
-    y: 128
-    w: 32
-    h: 32
+    x: 128
+    y: 64
+    w: 16
+    h: 16
   description: middle overhead utility rail
 - index: 73
   key: ceiling_rail_right
@@ -1073,10 +1073,10 @@ tiles:
   - rail
   - right
   rect:
-    x: 288
-    y: 128
-    w: 32
-    h: 32
+    x: 144
+    y: 64
+    w: 16
+    h: 16
   description: right overhead utility rail
 - index: 74
   key: hanging_cable
@@ -1087,10 +1087,10 @@ tiles:
   - cable
   - hanging
   rect:
-    x: 320
-    y: 128
-    w: 32
-    h: 32
+    x: 160
+    y: 64
+    w: 16
+    h: 16
   description: hanging loose cable bundle
 - index: 75
   key: machine_core_top
@@ -1101,10 +1101,10 @@ tiles:
   - machine
   - top
   rect:
-    x: 352
-    y: 128
-    w: 32
-    h: 32
+    x: 176
+    y: 64
+    w: 16
+    h: 16
   description: top tile of tall glowing machine core
 - index: 76
   key: machine_core_mid
@@ -1115,10 +1115,10 @@ tiles:
   - machine
   - mid
   rect:
-    x: 384
-    y: 128
-    w: 32
-    h: 32
+    x: 192
+    y: 64
+    w: 16
+    h: 16
   description: middle tile of tall glowing machine core
 - index: 77
   key: machine_core_bottom
@@ -1129,10 +1129,10 @@ tiles:
   - machine
   - bottom
   rect:
-    x: 416
-    y: 128
-    w: 32
-    h: 32
+    x: 208
+    y: 64
+    w: 16
+    h: 16
   description: bottom tile of tall glowing machine core
 - index: 78
   key: track_left
@@ -1143,10 +1143,10 @@ tiles:
   - floor
   - track
   rect:
-    x: 448
-    y: 128
-    w: 32
-    h: 32
+    x: 224
+    y: 64
+    w: 16
+    h: 16
   description: cart / equipment rail floor tile left
 - index: 79
   key: track_mid
@@ -1157,10 +1157,10 @@ tiles:
   - floor
   - track
   rect:
-    x: 480
-    y: 128
-    w: 32
-    h: 32
+    x: 240
+    y: 64
+    w: 16
+    h: 16
   description: cart / equipment rail floor tile middle
 - index: 80
   key: track_right
@@ -1172,9 +1172,9 @@ tiles:
   - track
   rect:
     x: 0
-    y: 160
-    w: 32
-    h: 32
+    y: 80
+    w: 16
+    h: 16
   description: cart / equipment rail floor tile right
 - index: 81
   key: floor_arrow
@@ -1185,10 +1185,10 @@ tiles:
   - floor
   - arrow
   rect:
-    x: 32
-    y: 160
-    w: 32
-    h: 32
+    x: 16
+    y: 80
+    w: 16
+    h: 16
   description: painted directional arrow on floor
 - index: 82
   key: floor_bolt_plate
@@ -1199,10 +1199,10 @@ tiles:
   - floor
   - plate
   rect:
-    x: 64
-    y: 160
-    w: 32
-    h: 32
+    x: 32
+    y: 80
+    w: 16
+    h: 16
   description: bolted floor access plate
 - index: 83
   key: tool_rack
@@ -1213,10 +1213,10 @@ tiles:
   - tools
   - rack
   rect:
-    x: 96
-    y: 160
-    w: 32
-    h: 32
+    x: 48
+    y: 80
+    w: 16
+    h: 16
   description: wall-mounted tool rack
 - index: 84
   key: whiteboard
@@ -1227,10 +1227,10 @@ tiles:
   - whiteboard
   - diagram
   rect:
-    x: 128
-    y: 160
-    w: 32
-    h: 32
+    x: 64
+    y: 80
+    w: 16
+    h: 16
   description: small lab whiteboard with graph scribble
 - index: 85
   key: first_aid
@@ -1241,10 +1241,10 @@ tiles:
   - medical
   - wallbox
   rect:
-    x: 160
-    y: 160
-    w: 32
-    h: 32
+    x: 80
+    y: 80
+    w: 16
+    h: 16
   description: first aid wall box
 - index: 86
   key: spilled_beaker
@@ -1255,10 +1255,10 @@ tiles:
   - beaker
   - spill
   rect:
-    x: 192
-    y: 160
-    w: 32
-    h: 32
+    x: 96
+    y: 80
+    w: 16
+    h: 16
   description: spilled glowing beaker prop
 - index: 87
   key: blank
@@ -1268,10 +1268,10 @@ tiles:
   tags:
   - blank
   rect:
-    x: 224
-    y: 160
-    w: 32
-    h: 32
+    x: 112
+    y: 80
+    w: 16
+    h: 16
   description: empty transparent tile
 groups:
   by_category:
@@ -1473,7 +1473,7 @@ groups:
     Utility:
     - blank
 ldtk:
-  suggested_tile_size: 32
+  suggested_tile_size: 16
   suggested_layers:
   - name: LabBackground
     type: Tiles

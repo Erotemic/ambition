@@ -21,11 +21,19 @@ RGBA = Tuple[int, int, int, int]
 TARGET_NAME = "intro_lab_tileset"
 SHEET_FILES = [f"{TARGET_NAME}.png", f"{TARGET_NAME}.yaml"]
 
-TILE = 32
+# DESIGN_TILE is the logical px the tile draw functions assume —
+# coordinates and feature sizes were authored against 32×32 cells.
+# OUTPUT_TILE is the final cell size in the published PNG / atlas;
+# we downsample DESIGN_TILE → OUTPUT_TILE at the very end. This
+# split lets the world author tiles on a 16-px grid (matching the
+# Collision IntGrid) without rewriting every tile drawing.
+DESIGN_TILE = 32
+OUTPUT_TILE = 16
+TILE = DESIGN_TILE  # alias used by the draw functions
 SCALE = 4
 COLS = 16
 PREVIEW_PAD = 8
-CANVAS_TILE = TILE * SCALE
+CANVAS_TILE = DESIGN_TILE * SCALE
 
 
 @dataclass(frozen=True)
@@ -77,7 +85,7 @@ def _font(size: int = 7):
 
 
 def _downsample(img: Image.Image) -> Image.Image:
-    return img.resize((TILE, TILE), Image.Resampling.LANCZOS)
+    return img.resize((OUTPUT_TILE, OUTPUT_TILE), Image.Resampling.LANCZOS)
 
 
 # Palette: cold lab surfaces with amber warning and cyan machine accents.
@@ -877,20 +885,20 @@ def render_tile(tile: TileSpec) -> Image.Image:
 
 def _write_preview(tile_images: Dict[str, Image.Image], out_path: Path) -> None:
     rows = _rows()
-    preview_w = COLS * (TILE + PREVIEW_PAD) + PREVIEW_PAD
-    preview_h = rows * (TILE + 18 + PREVIEW_PAD) + PREVIEW_PAD
+    preview_w = COLS * (OUTPUT_TILE + PREVIEW_PAD) + PREVIEW_PAD
+    preview_h = rows * (OUTPUT_TILE + 18 + PREVIEW_PAD) + PREVIEW_PAD
     preview = Image.new("RGBA", (preview_w, preview_h), _rgba("#1f2028"))
     d = ImageDraw.Draw(preview, "RGBA")
     font = ImageFont.load_default()
     for idx, tile in enumerate(TILES):
         col = idx % COLS
         row = idx // COLS
-        x = PREVIEW_PAD + col * (TILE + PREVIEW_PAD)
-        y = PREVIEW_PAD + row * (TILE + 18 + PREVIEW_PAD)
-        d.rectangle((x - 1, y - 1, x + TILE, y + TILE), fill=_rgba("#11151c"), outline=_rgba("#545a66"))
+        x = PREVIEW_PAD + col * (OUTPUT_TILE + PREVIEW_PAD)
+        y = PREVIEW_PAD + row * (OUTPUT_TILE + 18 + PREVIEW_PAD)
+        d.rectangle((x - 1, y - 1, x + OUTPUT_TILE, y + OUTPUT_TILE), fill=_rgba("#11151c"), outline=_rgba("#545a66"))
         preview.alpha_composite(tile_images[tile.key], (x, y))
-        d.text((x, y + TILE + 2), str(idx), fill=_rgba("#d7dbe2"), font=font)
-        d.text((x + 14, y + TILE + 2), tile.key[:5], fill=_rgba("#8e98a8"), font=font)
+        d.text((x, y + OUTPUT_TILE + 2), str(idx), fill=_rgba("#d7dbe2"), font=font)
+        d.text((x + 14, y + OUTPUT_TILE + 2), tile.key[:5], fill=_rgba("#8e98a8"), font=font)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     preview.save(out_path)
 
@@ -916,14 +924,14 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
 
     tile_images = {tile.key: render_tile(tile) for tile in TILES}
     rows = _rows()
-    sheet = Image.new("RGBA", (COLS * TILE, rows * TILE), (0, 0, 0, 0))
+    sheet = Image.new("RGBA", (COLS * OUTPUT_TILE, rows * OUTPUT_TILE), (0, 0, 0, 0))
     tiles_meta = []
     by_category: Dict[str, List[str]] = {}
     by_layer: Dict[str, List[str]] = {}
     for idx, tile in enumerate(TILES):
         col = idx % COLS
         row = idx // COLS
-        x, y = col * TILE, row * TILE
+        x, y = col * OUTPUT_TILE, row * OUTPUT_TILE
         sheet.alpha_composite(tile_images[tile.key], (x, y))
         by_category.setdefault(tile.category, []).append(tile.key)
         by_layer.setdefault(tile.layer, []).append(tile.key)
@@ -934,7 +942,7 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
             "collision": tile.collision,
             "ldtk_layer": tile.layer,
             "tags": list(tile.tags),
-            "rect": {"x": x, "y": y, "w": TILE, "h": TILE},
+            "rect": {"x": x, "y": y, "w": OUTPUT_TILE, "h": OUTPUT_TILE},
             "description": tile.description,
         })
 
@@ -943,8 +951,8 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
     manifest = {
         "target": TARGET_NAME,
         "image": sheet_path.name,
-        "tile_width": TILE,
-        "tile_height": TILE,
+        "tile_width": OUTPUT_TILE,
+        "tile_height": OUTPUT_TILE,
         "columns": COLS,
         "rows": rows,
         "tile_count": len(TILES),
@@ -954,7 +962,7 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
             "by_ldtk_layer": by_layer,
         },
         "ldtk": {
-            "suggested_tile_size": TILE,
+            "suggested_tile_size": OUTPUT_TILE,
             "suggested_layers": _ldtk_suggested_layers(),
             "collision_values": {"none": 0, "solid": 1, "one_way": 2},
         },

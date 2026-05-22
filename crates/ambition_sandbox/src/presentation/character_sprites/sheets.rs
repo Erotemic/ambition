@@ -981,6 +981,33 @@ pub const CART_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 2,
 };
 
+/// News board — wall-mounted bulletin board prop rendered by the
+/// `news_board` tack-on target. Single Idle row (6 frames @ 165 ms)
+/// for the LED blink + sticky-note flutter. Sheet is 64×96 per
+/// frame after the renderer's label column (104 px wide).
+///
+/// `collision_scale: 1.50` makes the board render visibly bigger
+/// than its 32×48 LDtk collision box so the art reads as a
+/// proper bulletin board rather than a thumbnail. `feet_anchor_y`
+/// pins the board's bottom row against the collision-box bottom
+/// (no baked drop shadow — see the project rule on no shadows).
+pub const NEWS_BOARD_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 104,
+    y_offset: 0,
+    frame_width: 64,
+    frame_height: 96,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.165,
+        },
+    )],
+    collision_scale: 1.50,
+    feet_anchor_y: -0.500,
+    frame_sample_inset: 2,
+};
+
 /// Creator — the researcher who wakes the player. Rendered by the
 /// dedicated `creator` tack-on target (not the toon-side adapter), so
 /// the sheet is wider (160×192) and starts after a 108px label column.

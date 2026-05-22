@@ -19,7 +19,7 @@ use crate::presentation::character_sprites::{
     ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CharacterSheetSpec, CREATOR_SHEET,
     ERDISH_SHEET, FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
     LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
-    LAB_PROP_RESONANCE_COIL, OILER_SHEET,
+    LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET, OILER_SHEET,
 };
 
 /// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
@@ -78,9 +78,11 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
         ARCHITECT_SHEET,
     ),
     // News board: not an animated NPC in the design sense, but the
-    // sandbox treats every `NpcSpawn` the same way. Architect sheet
-    // is a placeholder; a static kiosk sprite will replace this.
-    ("News Board", "architect_spritesheet.png", ARCHITECT_SHEET),
+    // sandbox treats every `NpcSpawn` the same way. Dedicated
+    // `news_board_spritesheet.png` renders a wall-mounted bulletin
+    // board (Disruptor Industries header, pinned papers, blinking
+    // LED) so it visibly reads as a board instead of a person.
+    ("News Board", "news_board_spritesheet.png", NEWS_BOARD_SHEET),
     // Alice — unofficial cartographer. Dedicated toon-side sheet
     // (`alice_spritesheet.png` + `alice_spritesheet.yaml`); first
     // intro NPC with non-placeholder art.

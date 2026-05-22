@@ -22,7 +22,12 @@ pub const INTRO_ROOM_CUTSCENE_BINDINGS: &[(&str, &str)] = &[
     ("intro_wake_room", "intro_wake"),
     ("intro_raid_corridor", "intro_raid"),
     ("drain_alley", "drain_market_arrival"),
-    ("gate_stack_lower", "gate_stack_reveal"),
+    // Removed 2026-05-22: the gate-stack reveal cutscene interrupted
+    // the player on every entry without earning the pause. The PA
+    // "Gate Six delayed" line lives in the dialogue layer; the
+    // banner reveal isn't needed when the room itself reads as a
+    // gate stack on sight. If we want a one-time arrival beat later
+    // it should be a quieter banner with no dialogue.
 ];
 
 pub fn intro_room_cutscene_bindings() -> &'static [(&'static str, &'static str)] {
@@ -35,7 +40,6 @@ pub fn install_intro_cutscenes(library: &mut CutsceneLibrary) {
     library.insert(intro_wake_script());
     library.insert(intro_raid_script());
     library.insert(drain_market_arrival_script());
-    library.insert(gate_stack_reveal_script());
     library.insert(first_ripple_script());
     library.insert(creator_final_fragment_script());
 }
@@ -129,32 +133,6 @@ fn drain_market_arrival_script() -> ae::CutsceneScript {
         ],
     )
     .with_seen_flag("drain_market_arrival_seen")
-}
-
-fn gate_stack_reveal_script() -> ae::CutsceneScript {
-    ae::CutsceneScript::new(
-        "gate_stack_reveal",
-        vec![
-            ae::CutsceneBeat::Banner {
-                text: "GATE STACK (LOWER)".into(),
-                seconds: 1.4,
-            },
-            ae::CutsceneBeat::Dialogue {
-                speaker: "PA".into(),
-                text: "Gate Six delayed. Shark traffic. Please declare all impossible luggage."
-                    .into(),
-            },
-            ae::CutsceneBeat::SetFlag {
-                id: "gate_stack_reveal_seen".into(),
-                on: true,
-            },
-            ae::CutsceneBeat::SetFlag {
-                id: "player_unmanifested_hardware".into(),
-                on: true,
-            },
-        ],
-    )
-    .with_seen_flag("gate_stack_reveal_seen")
 }
 
 fn first_ripple_script() -> ae::CutsceneScript {

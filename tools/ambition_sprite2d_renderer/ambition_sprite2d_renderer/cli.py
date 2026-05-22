@@ -103,6 +103,10 @@ _TACKON_TARGETS: dict[str, str] = {
     # hilt drawing.
     "lasersword_with_guns": "ambition_sprite2d_renderer.targets.lasersword_with_guns",
     "lasersword": "ambition_sprite2d_renderer.targets.lasersword",
+    # Wall-mounted bulletin board prop used in `drain_alley` and
+    # other intro slice rooms. Static-ish sprite (one idle row + a
+    # blinking LED + small paper flutter).
+    "news_board": "ambition_sprite2d_renderer.targets.news_board",
     # Sandbag stays last for parity with the pre-refactor ordering.
     "sandbag": "ambition_sprite2d_renderer.targets.sandbag",
 }

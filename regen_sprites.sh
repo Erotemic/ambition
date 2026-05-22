@@ -119,6 +119,11 @@ done
 echo "==> tack-on: sandbag (render-publish into $sprites_dir)"
 (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer render-publish sandbag --dest-root "$sprites_dir")
 
+echo "==> tack-on: lasersword + lasersword_with_guns (render-publish into $sprites_dir)"
+for target in lasersword lasersword_with_guns; do
+    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer render-publish "$target" --dest-root "$sprites_dir")
+done
+
 echo "==> standalone pirate sheets (render-publish into $sprites_dir)"
 PYTHON="$python_bin" bash "$repo_root/scripts/publish_pirate_spritesheets.sh"
 

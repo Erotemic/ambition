@@ -181,7 +181,12 @@ fn setup_particle_types(mut commands: Commands) {
             vec![IVec2::new(-1, -1), IVec2::new(1, -1)],
         ]),
         Density(1250),
-        Speed::new(4, 8),
+        // Speed range chosen for visual continuity. Wide ranges
+        // (e.g. 4..8 like the original) make consecutive frames'
+        // emissions land 4–8 cells apart vertically, so the stream
+        // reads as discrete clumps. Keeping the range tight gives a
+        // continuous-looking column.
+        Speed::new(3, 4),
     ));
 
     commands.spawn((
@@ -198,7 +203,7 @@ fn setup_particle_types(mut commands: Commands) {
             vec![IVec2::new(-1, 0), IVec2::new(1, 0)],
         ]),
         Density(1000),
-        Speed::new(5, 10),
+        Speed::new(4, 5),
     ));
 
     commands.spawn((
@@ -225,7 +230,8 @@ fn setup_particle_types(mut commands: Commands) {
             vec![IVec2::new(-1, 0), IVec2::new(1, 0)],
         ]),
         Density(850),
-        Speed::new(1, 4),
+        // Oil falls slower than sand or water — viscous.
+        Speed::new(2, 3),
     ));
 }
 
@@ -543,8 +549,14 @@ fn emit_falling_sand_spouts(
     // Feed the crate's simulation for material accumulation and collision/water
     // projection, and also spawn lightweight Ambition-side falling pixels so
     // the player gets immediate visual feedback that the spout opened.
+    // Each spout drops a thin slice of new particles per frame. The
+    // previous 18×3 = 54 particles/frame quickly saturated the
+    // bevy_falling_sand sim (which caps particle count per chunk) so
+    // older particles were despawned to make room and piles never grew
+    // visibly. 6×1 = 6/frame ≈ 360/sec lets the sim keep up and the
+    // stream looks continuous instead of pulsing.
     if state.spouts.sand {
-        emit_spout(&mut writer, TYPE_SAND, world, 176.0, 90.0, 18, 3);
+        emit_spout(&mut writer, TYPE_SAND, world, 176.0, 90.0, 6, 1);
         spawn_stream_particles(
             &mut commands,
             world,
@@ -557,7 +569,7 @@ fn emit_falling_sand_spouts(
         );
     }
     if state.spouts.water {
-        emit_spout(&mut writer, TYPE_WATER, world, 384.0, 90.0, 18, 3);
+        emit_spout(&mut writer, TYPE_WATER, world, 384.0, 90.0, 6, 1);
         spawn_stream_particles(
             &mut commands,
             world,
@@ -570,7 +582,7 @@ fn emit_falling_sand_spouts(
         );
     }
     if state.spouts.oil {
-        emit_spout(&mut writer, TYPE_OIL, world, 592.0, 90.0, 18, 2);
+        emit_spout(&mut writer, TYPE_OIL, world, 592.0, 90.0, 6, 1);
         spawn_stream_particles(
             &mut commands,
             world,
@@ -583,9 +595,11 @@ fn emit_falling_sand_spouts(
         );
     }
     if state.spouts.mixed {
-        emit_spout(&mut writer, TYPE_SAND, world, 760.0, 90.0, 10, 2);
-        emit_spout(&mut writer, TYPE_WATER, world, 792.0, 90.0, 10, 2);
-        emit_spout(&mut writer, TYPE_OIL, world, 824.0, 90.0, 10, 2);
+        // Mixed spreads three thinner streams so the combined throughput
+        // stays in the same per-frame budget as one solo spout.
+        emit_spout(&mut writer, TYPE_SAND, world, 760.0, 90.0, 3, 1);
+        emit_spout(&mut writer, TYPE_WATER, world, 792.0, 90.0, 3, 1);
+        emit_spout(&mut writer, TYPE_OIL, world, 824.0, 90.0, 3, 1);
         spawn_stream_particles(
             &mut commands,
             world,

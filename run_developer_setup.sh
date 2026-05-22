@@ -86,6 +86,22 @@ install_system_packages() {
     local -a required_pkgs=(
         build-essential
         ca-certificates
+        # clang + mold are the Rust linker pair `.cargo/config.toml`
+        # pins (`linker = "clang"`, `rustflags = [ … -fuse-ld=mold]`).
+        # Without these, cargo errors out with `linker `clang` not
+        # found` or `cannot find 'ld'` deep inside compilation. Pulled
+        # in here so a fresh checkout can compile without manual setup.
+        clang
+        mold
+        # Bevy's windowing / input / audio crates link against these
+        # system libraries via pkg-config. Missing any of them surfaces
+        # as `Package 'X' not found in the pkg-config search path`
+        # deep in the cargo build output.
+        libwayland-dev
+        libudev-dev
+        libasound2-dev
+        libxkbcommon-dev
+        libfontconfig1-dev
         curl
         ffmpeg
         fluid-soundfont-gm

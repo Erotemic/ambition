@@ -28,6 +28,25 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Soft import: ubelt.ProgIter gives the bulk loop a count + ETA. If it's not
+# installed in the active venv (older setup), fall back to a plain iterator
+# so the renderer still works.
+try:
+    import ubelt as _ub  # type: ignore[import-not-found]
+
+    def _progress(iterable, *, total, desc):
+        return _ub.ProgIter(
+            iterable,
+            total=total,
+            desc=desc,
+            verbose=3,
+            freq=1,
+            adjust=False,
+        )
+except ImportError:  # pragma: no cover — graceful fallback
+    def _progress(iterable, *, total, desc):  # noqa: ARG001
+        return iterable
+
 # Single-track cues authored under scores/active that ship via the radio.
 # These render with --simple-mix and publish the mastered preview.
 SANDBOX_CUES = ("lofi_study_loop", "long_lofi_drift", "pulse_drift_voyage")
@@ -348,7 +367,8 @@ def _process_simple_mix_cue(
 
 def _run_bulk(args: argparse.Namespace, cues: tuple[str, ...]) -> int:
     failed: list[str] = []
-    for cue in cues:
+    desc = f"music {args.action}"
+    for cue in _progress(cues, total=len(cues), desc=desc):
         stage = _process_simple_mix_cue(
             cue,
             action=args.action,

@@ -18,6 +18,7 @@ dependencies = [
   "midiutil",
   "mido",
   "pydub",
+  "ubelt",
 ]
 
 [project.scripts]

@@ -166,7 +166,14 @@ def _phase(frame_index: int, frame_count: int) -> float:
 
 
 def _floor_shadow(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, alpha: int = 64) -> None:
-    draw.ellipse(_box(cx - rx, cy - ry, cx + rx, cy + ry), fill=(26, 24, 34, alpha))
+    # No-op. Project rule: NO baked drop shadows on sprites — foot
+    # alignment is the engine's job (the renderer uses the alpha
+    # bbox + `feet_anchor_y` to land the silhouette's true bottom
+    # on the floor). A baked ellipse here would push every lab
+    # prop's alpha bbox down by ~8 px, making the prop hover. Call
+    # sites are kept so future shadow-as-VFX work can wire a
+    # separate cast-shadow layer if a room wants it.
+    _ = (draw, cx, cy, rx, ry, alpha)
 
 
 

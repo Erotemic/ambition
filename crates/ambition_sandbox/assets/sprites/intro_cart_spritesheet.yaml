@@ -1,8 +1,8 @@
 target: intro_cart
 image: intro_cart_spritesheet.png
 label_width: 112
-frame_width: 192
-frame_height: 128
+frame_width: 137
+frame_height: 88
 rows:
 - animation: idle
   row_index: 0
@@ -12,28 +12,28 @@ rows:
   rects:
   - x: 112
     y: 0
-    w: 192
-    h: 128
-  - x: 304
+    w: 137
+    h: 88
+  - x: 249
     y: 0
-    w: 192
-    h: 128
-  - x: 496
+    w: 137
+    h: 88
+  - x: 386
     y: 0
-    w: 192
-    h: 128
-  - x: 688
+    w: 137
+    h: 88
+  - x: 523
     y: 0
-    w: 192
-    h: 128
-  - x: 880
+    w: 137
+    h: 88
+  - x: 660
     y: 0
-    w: 192
-    h: 128
-  - x: 1072
+    w: 137
+    h: 88
+  - x: 797
     y: 0
-    w: 192
-    h: 128
+    w: 137
+    h: 88
 - animation: roll
   row_index: 1
   frame_count: 8
@@ -41,37 +41,37 @@ rows:
   duration_secs: 0.095
   rects:
   - x: 112
-    y: 128
-    w: 192
-    h: 128
-  - x: 304
-    y: 128
-    w: 192
-    h: 128
-  - x: 496
-    y: 128
-    w: 192
-    h: 128
-  - x: 688
-    y: 128
-    w: 192
-    h: 128
-  - x: 880
-    y: 128
-    w: 192
-    h: 128
-  - x: 1072
-    y: 128
-    w: 192
-    h: 128
-  - x: 1264
-    y: 128
-    w: 192
-    h: 128
-  - x: 1456
-    y: 128
-    w: 192
-    h: 128
+    y: 88
+    w: 137
+    h: 88
+  - x: 249
+    y: 88
+    w: 137
+    h: 88
+  - x: 386
+    y: 88
+    w: 137
+    h: 88
+  - x: 523
+    y: 88
+    w: 137
+    h: 88
+  - x: 660
+    y: 88
+    w: 137
+    h: 88
+  - x: 797
+    y: 88
+    w: 137
+    h: 88
+  - x: 934
+    y: 88
+    w: 137
+    h: 88
+  - x: 1071
+    y: 88
+    w: 137
+    h: 88
 - animation: jolt
   row_index: 2
   frame_count: 6
@@ -79,38 +79,38 @@ rows:
   duration_secs: 0.085
   rects:
   - x: 112
-    y: 256
-    w: 192
-    h: 128
-  - x: 304
-    y: 256
-    w: 192
-    h: 128
-  - x: 496
-    y: 256
-    w: 192
-    h: 128
-  - x: 688
-    y: 256
-    w: 192
-    h: 128
-  - x: 880
-    y: 256
-    w: 192
-    h: 128
-  - x: 1072
-    y: 256
-    w: 192
-    h: 128
+    y: 176
+    w: 137
+    h: 88
+  - x: 249
+    y: 176
+    w: 137
+    h: 88
+  - x: 386
+    y: 176
+    w: 137
+    h: 88
+  - x: 523
+    y: 176
+    w: 137
+    h: 88
+  - x: 660
+    y: 176
+    w: 137
+    h: 88
+  - x: 797
+    y: 176
+    w: 137
+    h: 88
 body_metrics:
   body_pixel_bbox:
-    x: 20
-    y: 27
-    w: 148
-    h: 84
+    x: 2
+    y: 5
+    w: 133
+    h: 78
   feet_pixel:
-    x: 94.0
-    y: 111.0
+    x: 68.5
+    y: 83.0
   feet_anchor_norm:
-    x: -0.010417
-    y: -0.367188
+    x: 0.0
+    y: -0.443182

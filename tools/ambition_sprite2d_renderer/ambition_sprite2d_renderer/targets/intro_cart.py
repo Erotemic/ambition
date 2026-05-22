@@ -91,12 +91,11 @@ def _draw_cart(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         sway = math.sin(t * math.pi * 2.0) * 1.15
         wheel_spin = cyc * 0.55
 
-    # Ground shadow.
-    shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shadow, "RGBA")
-    sd.ellipse(_box(22, 95, 146, 108), fill=(0, 0, 0, 62))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=5.0))
-    img.alpha_composite(shadow)
+    # NO baked drop shadow. Foot alignment is the engine's job —
+    # baked shadows shift the alpha bbox bottom away from the true
+    # foot of the silhouette, so a cart with a shadow appears to
+    # hover above the floor. Cast shadows belong in the ECS visual
+    # layer as a separate primitive if a room wants them.
 
     cart = Image.new("RGBA", img.size, (0, 0, 0, 0))
     cd = ImageDraw.Draw(cart, "RGBA")

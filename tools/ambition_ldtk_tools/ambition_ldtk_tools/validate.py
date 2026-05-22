@@ -1032,7 +1032,131 @@ def validate(
         if count != 1:
             errors.append(f"active area {area!r} has {count} PlayerStart entities across {level_names}; expected exactly 1")
 
+    _check_intro_authoring_hygiene(project, warnings)
+
     return errors, warnings
+
+
+def _check_intro_authoring_hygiene(project, warnings):
+    """Three soft checks Jon asked for after the 2026-05-22 review:
+
+    - **DebugLabel overlaps**: any pair of DebugLabel entities whose
+      rendered text bboxes overlap in world space looks like a wall
+      of garbled text in the debug overlay. Flagged as a warning so
+      authors can space them.
+    - **Mid-air LoadingZones**: a `Door` LoadingZone that has no
+      walkable surface (Solid / OneWayPlatform) within `STAND_GAP`
+      px below its bottom edge is a teleport from nowhere. Warned
+      so authors notice.
+    - **Missing room walls**: a level whose boundary has neither a
+      Solid covering it NOR an EdgeExit LoadingZone is a "walks off
+      the world" boundary. Warned so authors fill it.
+
+    These are warnings — they describe authoring smells rather than
+    schema violations, so `validate --strict` can be used to escalate
+    them in CI without breaking iteration.
+    """
+    STAND_GAP = 16.0
+
+    # --- DebugLabel pair-wise overlap ---------------------------------
+    # Approximate each label's bbox from its entity rect — exact text
+    # metrics depend on the runtime font choice but the entity's
+    # `width` field is sized for the rendered text already.
+    label_rects_by_level = defaultdict(list)
+    for level in project.get("levels") or []:
+        identifier = level.get("identifier", "<unknown>")
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances") or []:
+                if entity.get("__identifier") != "DebugLabel":
+                    continue
+                ex, ey, ew, eh = rect(entity)
+                label_rects_by_level[identifier].append((entity_name(entity), ex, ey, ew, eh))
+    for level_name, rects in label_rects_by_level.items():
+        for i in range(len(rects)):
+            for j in range(i + 1, len(rects)):
+                ai, ax, ay, aw, ah = rects[i]
+                bi, bx, by, bw, bh = rects[j]
+                if strict_rects_intersect((ax, ay, aw, ah), (bx, by, bw, bh)):
+                    warnings.append(
+                        f"DebugLabels {ai!r} and {bi!r} in level {level_name!r} "
+                        f"overlap — space them apart or stack vertically so the "
+                        f"text is readable in the debug overlay"
+                    )
+
+    # --- Mid-air Doors + missing room walls --------------------------
+    for level in project.get("levels") or []:
+        identifier = level.get("identifier", "<unknown>")
+        width = int(level.get("pxWid", 0))
+        height = int(level.get("pxHei", 0))
+        solids = []
+        one_ways = []
+        doors = []
+        edge_exits = set()  # which sides have an EdgeExit
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances") or []:
+                ident = entity.get("__identifier")
+                if ident == "Solid":
+                    solids.append(rect(entity))
+                elif ident == "OneWayPlatform":
+                    one_ways.append(rect(entity))
+                elif ident == "LoadingZone":
+                    fields = entity.get("fieldInstances") or []
+                    activation = str(field_value(fields, "activation", "Door"))
+                    er = rect(entity)
+                    doors.append((entity_name(entity), activation, er))
+                    if activation == "EdgeExit":
+                        ex, ey, ew, eh = er
+                        if ex <= 1:
+                            edge_exits.add("left")
+                        if ex + ew >= width - 1:
+                            edge_exits.add("right")
+                        if ey <= 1:
+                            edge_exits.add("top")
+                        if ey + eh >= height - 1:
+                            edge_exits.add("bottom")
+        # Mid-air Door check: a `Door` activation should have a
+        # walkable surface within STAND_GAP px below its bottom edge.
+        for name, activation, (dx, dy, dw, dh) in doors:
+            if activation != "Door":
+                continue
+            door_bottom_y = dy + dh
+            probe = (dx, door_bottom_y, dw, STAND_GAP)
+            supports = any(
+                strict_rects_intersect(probe, (sx, sy, sw, sh))
+                for (sx, sy, sw, sh) in solids
+            ) or any(
+                strict_rects_intersect(probe, (sx, sy, sw, sh))
+                for (sx, sy, sw, sh) in one_ways
+            )
+            if not supports:
+                warnings.append(
+                    f"LoadingZone {name!r} in level {identifier!r} is a "
+                    f"`Door` with no walkable surface within {int(STAND_GAP)}px "
+                    f"below — looks like a teleport hanging in mid-air. Add a "
+                    f"Solid/OneWayPlatform under it or switch to EdgeExit."
+                )
+        # Missing-wall check: every side of the level box that has no
+        # EdgeExit should be covered by a Solid that meets the level edge.
+        if width > 0 and height > 0:
+            sides = (
+                ("left",   (0, 0, 1, height)),
+                ("right",  (max(0, width - 1), 0, 1, height)),
+                ("top",    (0, 0, width, 1)),
+                ("bottom", (0, max(0, height - 1), width, 1)),
+            )
+            for side_name, probe in sides:
+                if side_name in edge_exits:
+                    continue
+                blocks_side = any(
+                    strict_rects_intersect(probe, (sx, sy, sw, sh))
+                    for (sx, sy, sw, sh) in solids
+                )
+                if not blocks_side:
+                    warnings.append(
+                        f"level {identifier!r} has no Solid blocking the "
+                        f"{side_name} edge and no EdgeExit on that side — "
+                        f"the player can walk off the world."
+                    )
 
 
 def main(argv=None):

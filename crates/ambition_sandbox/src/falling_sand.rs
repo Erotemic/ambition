@@ -278,21 +278,8 @@ fn seed_falling_sand_room_boundaries(
     }
 
     let world = &room.world;
-    let floor_y = (world.size.y - 64.0).max(0.0);
-    // Thick floor + side walls so falling material has a solid barrier
-    // to pile against. The original 2-cell floor was thin enough that
-    // sand was reportedly phasing through and disappearing past it;
-    // 16 cells gives the bevy_falling_sand sim enough body to reliably
-    // block higher-density particles. Walls extend up the full world
-    // height with similar thickness to keep streams in the room.
-    emit_wall_rect(
-        &mut writer,
-        world,
-        0.0,
-        floor_y,
-        world.size.x as i32,
-        FLOOR_WALL_THICKNESS,
-    );
+
+    // Side walls keep falling material inside the room.
     emit_wall_rect(
         &mut writer,
         world,
@@ -309,17 +296,50 @@ fn seed_falling_sand_room_boundaries(
         SIDE_WALL_THICKNESS,
         world.size.y as i32,
     );
+    // Cap the bottom of the world so anything that slips through a gap
+    // in the LDtk floor doesn't tunnel out of the bevy_falling_sand map.
+    emit_wall_rect(
+        &mut writer,
+        world,
+        0.0,
+        world.size.y - SIDE_WALL_THICKNESS as f32,
+        world.size.x as i32,
+        SIDE_WALL_THICKNESS,
+    );
 
-    // Low retaining lips make the material demo readable without boxing the
-    // player in. They are particles, not Ambition collision, so movement still
-    // uses the LDtk-authored room plus the projected material properties below.
-    for x in [256.0, 512.0, 704.0] {
-        emit_wall_rect(&mut writer, world, x, floor_y - 190.0, 2, 190);
+    // Mirror the LDtk room's collision blocks as wall particles so
+    // material piles ON TOP of the surfaces the player actually walks
+    // on. The previous version used an artificial `world.size.y - 64`
+    // floor that sat below the visible LDtk floor — sand was piling
+    // there, just out of view and below the player's collision plane.
+    // Only the top FLOOR_WALL_THICKNESS rows of each block need walls
+    // (material rests at the surface), which keeps the particle count
+    // bounded even for big floor blocks.
+    let mut block_wall_emits = 0usize;
+    for block in &world.blocks {
+        let min = block.aabb.min;
+        let width = (block.aabb.max.x - min.x).round() as i32;
+        let block_height = (block.aabb.max.y - min.y).round() as i32;
+        let strip_height = block_height.min(FLOOR_WALL_THICKNESS);
+        if width <= 0 || strip_height <= 0 {
+            continue;
+        }
+        emit_wall_rect(&mut writer, world, min.x, min.y, width, strip_height);
+        block_wall_emits += (width as usize) * (strip_height as usize);
     }
 
-    // (No seeded sample trays — the player relies on the spouts to put
-    // material into the room. The seeded piles were originally a demo
-    // affordance but masked the spout behaviour, so they're gone.)
+    // Low retaining lips help split the spout streams into visually
+    // separate columns. Particles, not Ambition collision.
+    let retain_top = (world.size.y - 200.0).max(0.0);
+    for x in [256.0, 512.0, 704.0] {
+        emit_wall_rect(&mut writer, world, x, retain_top, 2, 190);
+    }
+
+    bevy::log::info!(
+        "falling_sand_room: seeded boundaries — {} block-top wall particles across {} LDtk blocks",
+        block_wall_emits,
+        world.blocks.len()
+    );
 
     state.seeded_boundaries = true;
 }

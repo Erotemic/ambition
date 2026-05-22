@@ -174,6 +174,24 @@ impl Plugin for FallingSandRoomPlugin {
 }
 
 fn setup_particle_types(mut commands: Commands) {
+    // bevy_falling_sand v0.7.0 lazy-loads chunk entities in
+    // `update_chunk_loading`, which early-returns if there's no
+    // `ChunkLoader` entity in the world. With no chunk entities, the
+    // movement-by-chunks system finds zero dirty chunks and skips
+    // every particle (silently — no warning) — exactly the bug we hit
+    // (sand spawned into the ParticleMap but never moved).
+    //
+    // Spawn one static ChunkLoader at the world origin. The map's
+    // initial loaded region is [-1024, 1024) on both axes, which
+    // contains the entire falling-sand room, so a static loader at
+    // (0, 0) is fine — we don't need or want origin shifts.
+    commands.spawn((
+        Name::new("falling sand chunk loader (static, origin)"),
+        ChunkLoader,
+        Transform::from_xyz(0.0, 0.0, 0.0),
+        GlobalTransform::default(),
+    ));
+
     commands.spawn((
         Name::new("particle type: ambition sand"),
         ParticleType::new(TYPE_SAND),

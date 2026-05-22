@@ -276,7 +276,7 @@ fn sheet_consts_match_their_yaml_manifests() {
 }
 
 /// Every `*_spritesheet.ron` next to a YAML must deserialize cleanly
-/// into [`SheetRecord`]. This is the runtime contract the
+/// into `Vec<SheetRecord>`. This is the runtime contract the
 /// `SheetRegistry` startup loader depends on; if a generator emits
 /// a RON the loader can't parse, the registry silently drops it
 /// and any consumer that expected that sheet falls back to default.
@@ -289,7 +289,8 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
     let entries = std::fs::read_dir(&assets_dir)
         .unwrap_or_else(|e| panic!("read {}: {e}", assets_dir.display()));
 
-    let mut parsed = 0usize;
+    let mut parsed_records = 0usize;
+    let mut parsed_files = 0usize;
     let mut failures: Vec<String> = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
@@ -299,20 +300,28 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
         }
         let text = std::fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-        match ron::from_str::<SheetRecord>(&text) {
-            Ok(record) => {
-                parsed += 1;
-                // Smoke: target string nonzero, frame dims positive.
-                assert!(!record.target.is_empty(), "{name}: empty target");
-                assert!(record.frame_width > 0, "{name}: frame_width == 0");
-                assert!(record.frame_height > 0, "{name}: frame_height == 0");
+        match ron::from_str::<Vec<SheetRecord>>(&text) {
+            Ok(records) => {
+                parsed_files += 1;
+                assert!(!records.is_empty(), "{name}: zero records in file");
+                for record in &records {
+                    parsed_records += 1;
+                    assert!(!record.target.is_empty(), "{name}: empty target");
+                    assert!(record.frame_width > 0, "{name}: frame_width == 0");
+                    assert!(record.frame_height > 0, "{name}: frame_height == 0");
+                }
             }
             Err(err) => {
                 failures.push(format!("{name}: {err}"));
             }
         }
     }
-    assert!(parsed > 0, "no *_spritesheet.ron found under {}", assets_dir.display());
+    assert!(
+        parsed_files > 0,
+        "no *_spritesheet.ron found under {}",
+        assets_dir.display()
+    );
+    assert!(parsed_records >= parsed_files);
     if !failures.is_empty() {
         panic!(
             "{} RON manifest(s) failed to parse:\n  {}",
@@ -376,8 +385,15 @@ fn sheet_consts_match_their_ron_manifests() {
         }
         let text = std::fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-        let record: SheetRecord = ron::from_str(&text)
+        let records: Vec<SheetRecord> = ron::from_str(&text)
             .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
+        // Every per-character RON ships as a single-record list. The
+        // file's name is the index key (the in-file `target` may be a
+        // generator archetype like `"toon"` shared across files — see
+        // `sheets::record_index`).
+        let record = records
+            .first()
+            .unwrap_or_else(|| panic!("{}: zero records in file", path.display()));
         checked += 1;
 
         if spec.label_width != record.label_width

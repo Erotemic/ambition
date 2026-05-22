@@ -1,5 +1,6 @@
 // Auto-emitted from pirate_quartermaster_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "pirate_quartermaster",
     image: "pirate_quartermaster_spritesheet.png",
@@ -101,4 +102,5 @@
         ],
     ),
     ],
-)
+),
+]

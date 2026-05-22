@@ -1,5 +1,6 @@
 // Auto-emitted from pirate_navigator_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "pirate_navigator",
     image: "pirate_navigator_spritesheet.png",
@@ -101,4 +102,5 @@
         ],
     ),
     ],
-)
+),
+]

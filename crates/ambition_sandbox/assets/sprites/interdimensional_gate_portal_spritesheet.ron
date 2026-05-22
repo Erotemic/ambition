@@ -1,5 +1,6 @@
 // Auto-emitted from interdimensional_gate_portal_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "interdimensional_gate_portal",
     image: "interdimensional_gate_portal_spritesheet.png",
@@ -60,4 +61,5 @@
         ],
     ),
     ],
-)
+),
+]

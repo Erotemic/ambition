@@ -1,5 +1,6 @@
 // Auto-emitted from news_board_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "news_board",
     image: "news_board_spritesheet.png",
@@ -24,4 +25,5 @@
         ],
     ),
     ],
-)
+),
+]

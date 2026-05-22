@@ -1,5 +1,6 @@
 // Auto-emitted from pirate_lookout_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "pirate_lookout",
     image: "pirate_lookout_spritesheet.png",
@@ -101,4 +102,5 @@
         ],
     ),
     ],
-)
+),
+]

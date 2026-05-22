@@ -301,6 +301,10 @@ def _adapter_manifest_to_ron(manifest: dict) -> str:
     """Translate the adapter-pipeline YAML manifest (which uses
     `animations: {name: {frames, duration_ms}}`) into the row-ordered
     RON shape consumed by `SheetRegistry`.
+
+    The top-level RON shape is always a list `[SheetRecord, …]` — even
+    for single-target adapter sheets — to match the universal
+    `Vec<SheetRecord>` loader contract.
     """
     target = manifest["target"]
     anims = manifest.get("animations") or {}
@@ -312,16 +316,21 @@ def _adapter_manifest_to_ron(manifest: dict) -> str:
         rows_field = f"    rows: [\n    {rows_inner}\n    ],\n"
     else:
         rows_field = "    rows: [],\n"
+    y_offset = int(manifest.get("y_offset", 0))
+    y_offset_field = f"    y_offset: {y_offset},\n" if y_offset else ""
     return (
         f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
         f"// `presentation::character_sprites::registry`.\n"
+        f"[\n"
         f"(\n"
         f'    target: "{_ron_escape(target)}",\n'
         f'    image: "{_ron_escape(manifest.get("image") or f"{target}_spritesheet.png")}",\n'
         f"    label_width: {int(manifest.get('label_width', 0))},\n"
         f"    frame_width: {int(manifest['frame_width'])},\n"
         f"    frame_height: {int(manifest['frame_height'])},\n"
+        f"{y_offset_field}"
         f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
         f"{rows_field}"
-        f")\n"
+        f"),\n"
+        f"]\n"
     )

@@ -887,12 +887,32 @@ def _ron_row(row):
 
 
 def _emit_sheet_ron(manifest):
-    """Serialize the manifest dict to RON in the shape `SheetRecord`
-    in `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs`
-    expects. Sidecar to the YAML; both files describe the same data.
+    """Serialize the manifest dict to RON in the shape
+    `Vec<SheetRecord>` (defined in
+    `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs`)
+    expects. Even for single-target sheets the top-level is a list — the
+    loader always parses `Vec<SheetRecord>`, and shared PNGs (lab props)
+    use the same emitter to write multiple records.
 
     Kept as a hand-rolled emitter (no python-ron dep) because the
     output shape is small, fixed, and easy to inspect in a diff.
+    """
+    target = manifest["target"]
+    return (
+        f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
+        f"// `presentation::character_sprites::registry`.\n"
+        f"[\n"
+        f"{_ron_sheet_record(manifest)},\n"
+        f"]\n"
+    )
+
+
+def _ron_sheet_record(manifest):
+    """Render one `SheetRecord` as RON. Caller wraps in `[...]`.
+
+    A separate helper so callers that need to emit a multi-record list
+    (e.g. the lab-props sheet with 8 props on one PNG) can join several
+    `_ron_sheet_record(...)` strings with `,\n` between them.
     """
     target = manifest["target"]
     row_entries = list(manifest.get("rows", []))
@@ -901,16 +921,17 @@ def _emit_sheet_ron(manifest):
         rows_field = f"    rows: [\n    {rows_inner}\n    ],\n"
     else:
         rows_field = "    rows: [],\n"
+    y_offset = int(manifest.get("y_offset", 0))
+    y_offset_field = f"    y_offset: {y_offset},\n" if y_offset else ""
     return (
-        f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
-        f"// `presentation::character_sprites::registry`.\n"
         f"(\n"
         f'    target: "{_ron_escape(target)}",\n'
         f'    image: "{_ron_escape(manifest.get("image", f"{target}_spritesheet.png"))}",\n'
         f"    label_width: {int(manifest.get('label_width', 0))},\n"
         f"    frame_width: {int(manifest['frame_width'])},\n"
         f"    frame_height: {int(manifest['frame_height'])},\n"
+        f"{y_offset_field}"
         f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
         f"{rows_field}"
-        f")\n"
+        f")"
     )

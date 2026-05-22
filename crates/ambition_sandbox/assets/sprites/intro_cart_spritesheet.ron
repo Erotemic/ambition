@@ -1,5 +1,6 @@
 // Auto-emitted from intro_cart_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "intro_cart",
     image: "intro_cart_spritesheet.png",
@@ -56,4 +57,5 @@
         ],
     ),
     ],
-)
+),
+]

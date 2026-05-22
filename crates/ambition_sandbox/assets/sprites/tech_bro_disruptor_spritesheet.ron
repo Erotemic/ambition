@@ -1,5 +1,6 @@
 // Auto-emitted from robot_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "robot",
     image: "robot_spritesheet.png",
@@ -142,4 +143,5 @@
         ],
     ),
     ],
-)
+),
+]

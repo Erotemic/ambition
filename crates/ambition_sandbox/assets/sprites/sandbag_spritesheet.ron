@@ -1,5 +1,6 @@
 // Auto-emitted from sandbag_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "sandbag",
     image: "sandbag_spritesheet.png",
@@ -53,4 +54,5 @@
         ],
     ),
     ],
-)
+),
+]

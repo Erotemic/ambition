@@ -1,5 +1,6 @@
 // Auto-emitted from ninja_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "ninja",
     image: "ninja_spritesheet.png",
@@ -183,4 +184,5 @@
         ],
     ),
     ],
-)
+),
+]

@@ -1,5 +1,6 @@
 // Auto-emitted from bob_engineer_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "bob_engineer",
     image: "bob_engineer_spritesheet.png",
@@ -101,4 +102,5 @@
         ],
     ),
     ],
-)
+),
+]

@@ -50,17 +50,35 @@ use serde::Deserialize;
 
 /// One sprite-sheet's metadata as serialized by the generator. Field
 /// names mirror the RON shape exactly; reorder cautiously.
+///
+/// The RON file shape is always `[SheetRecord, SheetRecord, …]` — a
+/// list, even for single-target sheets. Most lists have length 1, but
+/// shared PNGs (e.g. `creator_lab_props_spritesheet.png` packs 8 props
+/// into one image) carry one record per sub-target, each with a
+/// distinct `y_offset`. The list shape is uniform so loaders and the
+/// generator emitters don't branch.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SheetRecord {
     /// Unique target id (matches the generator's `TARGET_NAME`, the
     /// YAML's `target` field, and the PNG filename root). Use this as
     /// the key when looking up a sheet.
     pub target: String,
-    /// PNG filename, relative to the sprites asset dir.
+    /// PNG filename, relative to the sprites asset dir. May be shared
+    /// across multiple records when several targets pack onto the same
+    /// sheet image (in which case `y_offset` selects each target's row
+    /// band).
     pub image: String,
     pub label_width: u32,
     pub frame_width: u32,
     pub frame_height: u32,
+    /// Pixel offset from the top of the shared sheet PNG before this
+    /// target's first row. `0` for sheets whose row 0 starts at the
+    /// top of the image (the common case). Lab-prop entries on the
+    /// shared `creator_lab_props_spritesheet.png` set this to
+    /// `prop_index * frame_height` so each prop addresses its own row
+    /// band of the packed image.
+    #[serde(default)]
+    pub y_offset: u32,
     /// Derived geometry the generator computed from the rendered art:
     /// alpha-bbox of the body, foot pixel, and the normalized foot
     /// anchor (`feet_anchor_norm.y` is what
@@ -173,6 +191,10 @@ fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
 /// Default loader: read every `*_spritesheet.ron` from
 /// `<manifest>/assets/sprites/` at startup. Native-only — wasm and
 /// android builds should enable the `baked_sheets` Cargo feature.
+///
+/// Each file is a list `[SheetRecord, …]`. Most lists are length 1;
+/// shared-PNG sheets (lab props) carry multiple records, one per
+/// sub-target.
 #[cfg(not(feature = "baked_sheets"))]
 fn init_runtime(registry: &mut SheetRegistry) {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
@@ -204,10 +226,12 @@ fn init_runtime(registry: &mut SheetRegistry) {
                 continue;
             }
         };
-        match ron::from_str::<SheetRecord>(&text) {
-            Ok(record) => {
-                registry.sheets.insert(record.target.clone(), record);
-                loaded += 1;
+        match ron::from_str::<Vec<SheetRecord>>(&text) {
+            Ok(records) => {
+                for record in records {
+                    registry.sheets.insert(record.target.clone(), record);
+                    loaded += 1;
+                }
             }
             Err(err) => {
                 failed.push((name.to_owned(), err.to_string()));
@@ -240,14 +264,16 @@ fn init_runtime(registry: &mut SheetRegistry) {
 ///                 $name,
 ///                 "_spritesheet.ron",
 ///             ));
-///             let record: SheetRecord = ron::from_str(text)
+///             let records: Vec<SheetRecord> = ron::from_str(text)
 ///                 .expect(concat!("baked: ", $name, " parse"));
-///             registry.sheets.insert(record.target.clone(), record);
+///             for record in records {
+///                 registry.sheets.insert(record.target.clone(), record);
+///             }
 ///         }};
 ///     }
 ///     load!("pirate_admiral");
 ///     load!("pirate_raider");
-///     /* …one per sprite id… */
+///     /* …one per sheet filename, not per target id… */
 /// }
 /// ```
 ///

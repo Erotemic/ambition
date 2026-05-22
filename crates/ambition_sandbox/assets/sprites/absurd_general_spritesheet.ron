@@ -1,5 +1,6 @@
 // Auto-emitted from toon_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "toon",
     image: "toon_spritesheet.png",
@@ -102,4 +103,5 @@
         ],
     ),
     ],
-)
+),
+]

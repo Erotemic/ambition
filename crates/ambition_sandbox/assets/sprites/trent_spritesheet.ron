@@ -1,5 +1,6 @@
 // Auto-emitted from trent_elder_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "trent_elder",
     image: "trent_elder_spritesheet.png",
@@ -69,4 +70,5 @@
         ],
     ),
     ],
-)
+),
+]

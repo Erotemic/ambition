@@ -553,11 +553,69 @@ def write_outputs(out_dir: Path) -> List[Path]:
     sheet, manifest = build_sheet(PROP_SPECS)
     png_path = out_dir / SHEET_FILES[0]
     yaml_path = out_dir / SHEET_FILES[1]
+    ron_path = out_dir / f"{TARGET_NAME}_spritesheet.ron"
     contact_path = out_dir / CONTACT_FILE
     sheet.save(png_path)
     yaml_path.write_text(yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True), encoding="utf8")
+    ron_path.write_text(_emit_props_ron(manifest), encoding="utf8")
     build_contact_sheet(PROP_SPECS).save(contact_path)
-    return [png_path, yaml_path, contact_path]
+    return [png_path, yaml_path, ron_path, contact_path]
+
+
+def _emit_props_ron(manifest: Dict[str, object]) -> str:
+    """Serialize the lab-props manifest to the multi-record RON shape
+    consumed by `SheetRegistry`. One `SheetRecord` per prop key, each
+    with `y_offset` = `row_idx * FRAME_H` so it addresses its own row
+    band of the shared `creator_lab_props_spritesheet.png`.
+    """
+    from ..pirates.common import _ron_sheet_record  # local import: tooling-only dependency
+
+    image = SHEET_FILES[0]
+    props = manifest.get("props", {}) if isinstance(manifest, dict) else {}
+    records: List[str] = []
+    for row_idx, (key, info) in enumerate(props.items() if isinstance(props, dict) else []):
+        frames = info.get("frames", []) if isinstance(info, dict) else []
+        rects = [
+            {
+                "x": int(f["x"]),
+                "y": int(f["y"]),
+                "w": int(f.get("w", FRAME_W)),
+                "h": int(f.get("h", FRAME_H)),
+            }
+            for f in frames
+        ]
+        duration_ms = int(frames[0].get("duration_ms", 140)) if frames else 140
+        record = {
+            "target": key,
+            "image": image,
+            "label_width": LABEL_W,
+            "frame_width": FRAME_W,
+            "frame_height": FRAME_H,
+            "y_offset": row_idx * FRAME_H,
+            "body_metrics": None,
+            "rows": [
+                {
+                    "animation": "idle",
+                    "row_index": 0,
+                    "frame_count": len(rects),
+                    "duration_ms": duration_ms,
+                    "duration_secs": round(duration_ms / 1000.0, 6),
+                    "rects": rects,
+                }
+            ],
+        }
+        records.append(_ron_sheet_record(record))
+
+    header = (
+        f"// Auto-emitted from {TARGET_NAME}_spritesheet.yaml — see\n"
+        f"// `presentation::character_sprites::registry`.\n"
+        f"//\n"
+        f"// 8 lab props share `{image}`; each record below claims its own\n"
+        f"// row band of the packed image via `y_offset`.\n"
+    )
+    if not records:
+        return header + "[\n]\n"
+    return header + "[\n" + ",\n".join(records) + ",\n]\n"
 
 
 

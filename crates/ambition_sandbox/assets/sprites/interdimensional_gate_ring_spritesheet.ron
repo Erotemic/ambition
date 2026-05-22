@@ -1,5 +1,6 @@
 // Auto-emitted from interdimensional_gate_ring_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "interdimensional_gate_ring",
     image: "interdimensional_gate_ring_spritesheet.png",
@@ -47,4 +48,5 @@
         ],
     ),
     ],
-)
+),
+]

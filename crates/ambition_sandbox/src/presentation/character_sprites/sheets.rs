@@ -21,7 +21,8 @@
 //! `NPC_SPRITE_REGISTRY`) now hold `&'static LazyLock<CharacterSheetSpec>`
 //! references.
 
-use std::sync::LazyLock;
+use std::collections::HashMap;
+use std::sync::{LazyLock, OnceLock};
 
 use bevy::math::URect;
 use bevy::prelude::*;
@@ -85,7 +86,6 @@ struct SheetTuning {
     collision_scale: f32,
     feet_anchor_y_override: Option<f32>,
     frame_sample_inset: u32,
-    y_offset: u32,
 }
 
 impl SheetTuning {
@@ -94,35 +94,86 @@ impl SheetTuning {
             collision_scale,
             feet_anchor_y_override: None,
             frame_sample_inset,
-            y_offset: 0,
         }
     }
 
-    const fn with_y_offset(mut self, y_offset: u32) -> Self {
-        self.y_offset = y_offset;
-        self
-    }
-
+    #[allow(dead_code)]
     const fn with_feet_anchor_y(mut self, feet_anchor_y: f32) -> Self {
         self.feet_anchor_y_override = Some(feet_anchor_y);
         self
     }
 }
 
-/// Load + cache a `CharacterSheetSpec` from its RON manifest, combined
-/// with the static gameplay tuning. Panics if the RON is missing or
-/// malformed — that's a hard project invariant (the test
-/// `every_spritesheet_ron_parses_into_sheet_record` catches it before
-/// runtime).
-fn load_spec(sprite_id: &str, tuning: &SheetTuning) -> CharacterSheetSpec {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("assets/sprites")
-        .join(format!("{sprite_id}_spritesheet.ron"));
-    let text = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("load_spec({sprite_id}): read {}: {e}", path.display()));
-    let record: SheetRecord = ron::from_str(&text)
-        .unwrap_or_else(|e| panic!("load_spec({sprite_id}): parse {}: {e}", path.display()));
-    spec_from_record(&record, tuning)
+/// Process-wide index of every `SheetRecord`, populated lazily on
+/// first `load_spec` call by scanning every `*_spritesheet.ron` under
+/// `assets/sprites/`.
+///
+/// Two indexing rules cover both file shapes:
+///
+/// - **Single-record files** (length-1 list): keyed by the filename
+///   root (e.g. `absurd_general_spritesheet.ron` → `"absurd_general"`).
+///   The record's `target` field is *not* used as the index key,
+///   because the toon/robot/goblin adapter generators emit a fixed
+///   archetype `target: "toon"` (or `"robot"` / `"goblin"`) into every
+///   file they produce. Indexing by `target` would collide several
+///   files onto the same key. The filename is the stable id.
+/// - **Multi-record files** (length-N>1 list): each record is keyed by
+///   its own `target` (e.g. `creator_lab_props_spritesheet.ron` →
+///   `"genesis_vat"`, `"specimen_jar"`, …). Inside one packed-PNG
+///   file, target ids are guaranteed unique.
+///
+/// Shared with the runtime `SheetRegistry` resource only by
+/// construction (both parse the same files); the index here is what
+/// backs the `LazyLock<CharacterSheetSpec>` statics, which need their
+/// data before any Bevy `Startup` system runs.
+fn record_index() -> &'static HashMap<String, SheetRecord> {
+    static INDEX: OnceLock<HashMap<String, SheetRecord>> = OnceLock::new();
+    INDEX.get_or_init(|| {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
+        let mut index: HashMap<String, SheetRecord> = HashMap::new();
+        let entries = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("record_index: read {}: {e}", dir.display()));
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            let Some(filename_root) = name.strip_suffix("_spritesheet.ron") else {
+                continue;
+            };
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("record_index: read {}: {e}", path.display()));
+            let records: Vec<SheetRecord> = ron::from_str(&text).unwrap_or_else(|e| {
+                panic!("record_index: parse {}: {e}", path.display())
+            });
+            if records.len() == 1 {
+                let mut record = records.into_iter().next().unwrap();
+                // Rewrite the in-memory `target` to match the filename
+                // root so downstream code that inspects `record.target`
+                // gets the stable id (the on-disk `target` is the
+                // generator archetype, not the sheet id).
+                record.target = filename_root.to_owned();
+                index.insert(filename_root.to_owned(), record);
+            } else {
+                for record in records {
+                    index.insert(record.target.clone(), record);
+                }
+            }
+        }
+        index
+    })
+}
+
+/// Build a `CharacterSheetSpec` from the RON record for `target`,
+/// combined with the static gameplay tuning. Panics if the target id
+/// is not present in any `*_spritesheet.ron` — that's a hard project
+/// invariant (the test `every_spritesheet_ron_parses_into_sheet_record`
+/// catches malformed RON before runtime).
+fn load_spec(target: &str, tuning: &SheetTuning) -> CharacterSheetSpec {
+    let record = record_index().get(target).unwrap_or_else(|| {
+        panic!("load_spec({target}): no SheetRecord with that target in any *_spritesheet.ron")
+    });
+    spec_from_record(record, tuning)
 }
 
 fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterSheetSpec {
@@ -150,7 +201,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
     });
     CharacterSheetSpec {
         label_width: record.label_width,
-        y_offset: tuning.y_offset,
+        y_offset: record.y_offset,
         frame_width: record.frame_width,
         frame_height: record.frame_height,
         rows,
@@ -274,43 +325,25 @@ pub static GATE_PORTAL_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lo
 // but never opens a dialogue panel.
 // ───────────────────────────────────────────────────────────────────
 
-// Lab-prop sheets are special: 8 different props share one PNG
-// (`creator_lab_props_spritesheet.png`) addressed by y_offset, and the
-// RON manifest for that PNG isn't shaped like the per-character RONs
-// (it stores props in a `props:` map keyed by prop id, not row-ordered
-// animation rows). Until the generator emits a per-prop RON or the
-// runtime grows a multi-prop manifest reader, these stay hand-typed.
-// The single-row idle animation is identical across all 8 props.
-fn lab_prop_sheet(y_offset: u32) -> CharacterSheetSpec {
-    CharacterSheetSpec {
-        label_width: 160,
-        y_offset,
-        frame_width: 128,
-        frame_height: 128,
-        rows: vec![(
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 4,
-                duration_secs: 0.140,
-            },
-        )],
-        collision_scale: 1.00,
-        feet_anchor_y: -0.500,
-        frame_sample_inset: 2,
-    }
-}
+// Lab-prop sheets share one PNG (`creator_lab_props_spritesheet.png`):
+// 8 props stacked vertically with row pitch = frame_height. Each prop
+// is its own `SheetRecord` in `creator_lab_props_spritesheet.ron`
+// (target ids: `genesis_vat`, `specimen_jar`, …) with `y_offset` set
+// to `prop_index * frame_height`. From the runtime's perspective they
+// are 8 ordinary specs that happen to dereference the same PNG.
+const LAB_PROP_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
 
-pub static LAB_PROP_GENESIS_VAT: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(0));
+pub static LAB_PROP_GENESIS_VAT: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("genesis_vat", &LAB_PROP_TUNING));
 #[allow(dead_code)]
-pub static LAB_PROP_SPECIMEN_JAR: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(128));
-pub static LAB_PROP_NEURAL_CONSOLE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(256));
-pub static LAB_PROP_RESONANCE_COIL: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(384));
-pub static LAB_PROP_POWER_CORE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(512));
-pub static LAB_PROP_REPAIR_CRADLE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(640));
+pub static LAB_PROP_SPECIMEN_JAR: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("specimen_jar", &LAB_PROP_TUNING));
+pub static LAB_PROP_NEURAL_CONSOLE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("neural_console", &LAB_PROP_TUNING));
+pub static LAB_PROP_RESONANCE_COIL: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("resonance_coil", &LAB_PROP_TUNING));
+pub static LAB_PROP_POWER_CORE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("power_core", &LAB_PROP_TUNING));
+pub static LAB_PROP_REPAIR_CRADLE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("repair_cradle", &LAB_PROP_TUNING));
 #[allow(dead_code)]
-pub static LAB_PROP_DRONE_CRADLE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(768));
+pub static LAB_PROP_DRONE_CRADLE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("drone_cradle", &LAB_PROP_TUNING));
 #[allow(dead_code)]
-pub static LAB_PROP_PORTAL_CALIBRATOR: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(896));
+pub static LAB_PROP_PORTAL_CALIBRATOR: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("portal_calibrator", &LAB_PROP_TUNING));
 
 /// Diagnostic Cart — the rail / gurney the player wakes on. Rendered
 /// by the dedicated `intro_cart` tack-on target. 3 rows ship on disk

@@ -1,5 +1,6 @@
 // Auto-emitted from goblin_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "goblin",
     image: "goblin_spritesheet.png",
@@ -182,4 +183,5 @@
         ],
     ),
     ],
-)
+),
+]

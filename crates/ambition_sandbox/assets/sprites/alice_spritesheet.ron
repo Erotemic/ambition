@@ -1,5 +1,6 @@
 // Auto-emitted from alice_cryptographer_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "alice_cryptographer",
     image: "alice_cryptographer_spritesheet.png",
@@ -86,4 +87,5 @@
         ],
     ),
     ],
-)
+),
+]

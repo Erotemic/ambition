@@ -1,5 +1,6 @@
 // Auto-emitted from pirate_raider_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "pirate_raider",
     image: "pirate_raider_spritesheet.png",
@@ -101,4 +102,5 @@
         ],
     ),
     ],
-)
+),
+]

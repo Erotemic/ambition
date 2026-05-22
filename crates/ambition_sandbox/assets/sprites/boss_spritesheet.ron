@@ -1,5 +1,6 @@
 // Auto-emitted from boss_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "boss",
     image: "boss_spritesheet.png",
@@ -122,4 +123,5 @@
         ],
     ),
     ],
-)
+),
+]

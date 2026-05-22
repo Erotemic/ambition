@@ -1,5 +1,6 @@
 // Auto-emitted from pirate_admiral_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "pirate_admiral",
     image: "pirate_admiral_spritesheet.png",
@@ -101,4 +102,5 @@
         ],
     ),
     ],
-)
+),
+]

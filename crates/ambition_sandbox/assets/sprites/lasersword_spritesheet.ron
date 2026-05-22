@@ -1,5 +1,6 @@
 // Auto-emitted from lasersword_spritesheet.yaml — see
 // `presentation::character_sprites::registry`.
+[
 (
     target: "lasersword",
     image: "lasersword_spritesheet.png",
@@ -41,4 +42,5 @@
         ],
     ),
     ],
-)
+),
+]

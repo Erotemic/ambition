@@ -18,7 +18,7 @@ default = ["desktop_dev"]
 
 # Full desktop sandbox. This is the regular `cargo run` experience: visible
 # gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
-desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_sim"]
+desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_sim", "falling_sand"]
 
 
 # Desktop platform support mirrors Bevy's default platform collection: windowing,
@@ -241,6 +241,10 @@ input = ["dep:leafwing-input-manager"]
 # requiring the feature.
 mobile_touch = ["input", "dep:virtual_joystick"]
 
+# Desktop-only falling-sand room prototype. Kept out of Android/web composites
+# for now while the bevy_falling_sand render feature is validated there.
+falling_sand = ["dep:bevy_falling_sand"]
+
 # Bevy/Tracy per-system profiling. Off by default because it pulls
 # `tracing-tracy` and instruments every Bevy system, increasing binary
 # size and runtime overhead. Build with `cargo run --features profile`
@@ -291,6 +295,7 @@ bevy_asset_loader = { version = "0.26", optional = true }
 bevy_ecs_ldtk = { version = "0.14", optional = true }
 bevy-inspector-egui = { version = "0.36", optional = true }
 bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav", "ogg"], optional = true }
+bevy_falling_sand = { version = "0.7", default-features = false, features = ["render", "movement"], optional = true }
 leafwing-input-manager = { version = "0.20", optional = true }
 virtual_joystick = { version = "2.7.2", default-features = false, optional = true }
 # Browser bootstrap deps. Pulled in only by the `web_platform` feature.

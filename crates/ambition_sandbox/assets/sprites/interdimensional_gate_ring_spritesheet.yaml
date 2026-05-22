@@ -1,8 +1,8 @@
 target: interdimensional_gate_ring
 image: interdimensional_gate_ring_spritesheet.png
 label_width: 128
-frame_width: 192
-frame_height: 192
+frame_width: 154
+frame_height: 156
 rows:
 - animation: idle
   row_index: 0
@@ -12,36 +12,36 @@ rows:
   rects:
   - x: 128
     y: 0
-    w: 192
-    h: 192
-  - x: 320
+    w: 154
+    h: 156
+  - x: 282
     y: 0
-    w: 192
-    h: 192
-  - x: 512
+    w: 154
+    h: 156
+  - x: 436
     y: 0
-    w: 192
-    h: 192
-  - x: 704
+    w: 154
+    h: 156
+  - x: 590
     y: 0
-    w: 192
-    h: 192
-  - x: 896
+    w: 154
+    h: 156
+  - x: 744
     y: 0
-    w: 192
-    h: 192
-  - x: 1088
+    w: 154
+    h: 156
+  - x: 898
     y: 0
-    w: 192
-    h: 192
-  - x: 1280
+    w: 154
+    h: 156
+  - x: 1052
     y: 0
-    w: 192
-    h: 192
-  - x: 1472
+    w: 154
+    h: 156
+  - x: 1206
     y: 0
-    w: 192
-    h: 192
+    w: 154
+    h: 156
 - animation: spin
   row_index: 1
   frame_count: 12
@@ -49,62 +49,62 @@ rows:
   duration_secs: 0.085
   rects:
   - x: 128
-    y: 192
-    w: 192
-    h: 192
-  - x: 320
-    y: 192
-    w: 192
-    h: 192
-  - x: 512
-    y: 192
-    w: 192
-    h: 192
-  - x: 704
-    y: 192
-    w: 192
-    h: 192
-  - x: 896
-    y: 192
-    w: 192
-    h: 192
-  - x: 1088
-    y: 192
-    w: 192
-    h: 192
-  - x: 1280
-    y: 192
-    w: 192
-    h: 192
-  - x: 1472
-    y: 192
-    w: 192
-    h: 192
-  - x: 1664
-    y: 192
-    w: 192
-    h: 192
-  - x: 1856
-    y: 192
-    w: 192
-    h: 192
-  - x: 2048
-    y: 192
-    w: 192
-    h: 192
-  - x: 2240
-    y: 192
-    w: 192
-    h: 192
+    y: 156
+    w: 154
+    h: 156
+  - x: 282
+    y: 156
+    w: 154
+    h: 156
+  - x: 436
+    y: 156
+    w: 154
+    h: 156
+  - x: 590
+    y: 156
+    w: 154
+    h: 156
+  - x: 744
+    y: 156
+    w: 154
+    h: 156
+  - x: 898
+    y: 156
+    w: 154
+    h: 156
+  - x: 1052
+    y: 156
+    w: 154
+    h: 156
+  - x: 1206
+    y: 156
+    w: 154
+    h: 156
+  - x: 1360
+    y: 156
+    w: 154
+    h: 156
+  - x: 1514
+    y: 156
+    w: 154
+    h: 156
+  - x: 1668
+    y: 156
+    w: 154
+    h: 156
+  - x: 1822
+    y: 156
+    w: 154
+    h: 156
 body_metrics:
   body_pixel_bbox:
-    x: 21
-    y: 16
+    x: 2
+    y: 2
     w: 150
     h: 152
   feet_pixel:
-    x: 96.0
-    y: 168.0
+    x: 77.0
+    y: 154.0
   feet_anchor_norm:
     x: 0.0
-    y: -0.375
+    y: -0.487179

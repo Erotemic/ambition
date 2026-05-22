@@ -1,8 +1,8 @@
 target: creator
 image: creator_spritesheet.png
 label_width: 108
-frame_width: 160
-frame_height: 192
+frame_width: 97
+frame_height: 144
 rows:
 - animation: idle
   row_index: 0
@@ -12,28 +12,28 @@ rows:
   rects:
   - x: 108
     y: 0
-    w: 160
-    h: 192
-  - x: 268
+    w: 97
+    h: 144
+  - x: 205
     y: 0
-    w: 160
-    h: 192
-  - x: 428
+    w: 97
+    h: 144
+  - x: 302
     y: 0
-    w: 160
-    h: 192
-  - x: 588
+    w: 97
+    h: 144
+  - x: 399
     y: 0
-    w: 160
-    h: 192
-  - x: 748
+    w: 97
+    h: 144
+  - x: 496
     y: 0
-    w: 160
-    h: 192
-  - x: 908
+    w: 97
+    h: 144
+  - x: 593
     y: 0
-    w: 160
-    h: 192
+    w: 97
+    h: 144
 - animation: speak
   row_index: 1
   frame_count: 6
@@ -41,29 +41,29 @@ rows:
   duration_secs: 0.11
   rects:
   - x: 108
-    y: 192
-    w: 160
-    h: 192
-  - x: 268
-    y: 192
-    w: 160
-    h: 192
-  - x: 428
-    y: 192
-    w: 160
-    h: 192
-  - x: 588
-    y: 192
-    w: 160
-    h: 192
-  - x: 748
-    y: 192
-    w: 160
-    h: 192
-  - x: 908
-    y: 192
-    w: 160
-    h: 192
+    y: 144
+    w: 97
+    h: 144
+  - x: 205
+    y: 144
+    w: 97
+    h: 144
+  - x: 302
+    y: 144
+    w: 97
+    h: 144
+  - x: 399
+    y: 144
+    w: 97
+    h: 144
+  - x: 496
+    y: 144
+    w: 97
+    h: 144
+  - x: 593
+    y: 144
+    w: 97
+    h: 144
 - animation: gesture
   row_index: 2
   frame_count: 6
@@ -71,29 +71,29 @@ rows:
   duration_secs: 0.1
   rects:
   - x: 108
-    y: 384
-    w: 160
-    h: 192
-  - x: 268
-    y: 384
-    w: 160
-    h: 192
-  - x: 428
-    y: 384
-    w: 160
-    h: 192
-  - x: 588
-    y: 384
-    w: 160
-    h: 192
-  - x: 748
-    y: 384
-    w: 160
-    h: 192
-  - x: 908
-    y: 384
-    w: 160
-    h: 192
+    y: 288
+    w: 97
+    h: 144
+  - x: 205
+    y: 288
+    w: 97
+    h: 144
+  - x: 302
+    y: 288
+    w: 97
+    h: 144
+  - x: 399
+    y: 288
+    w: 97
+    h: 144
+  - x: 496
+    y: 288
+    w: 97
+    h: 144
+  - x: 593
+    y: 288
+    w: 97
+    h: 144
 - animation: walk
   row_index: 3
   frame_count: 8
@@ -101,46 +101,46 @@ rows:
   duration_secs: 0.095
   rects:
   - x: 108
-    y: 576
-    w: 160
-    h: 192
-  - x: 268
-    y: 576
-    w: 160
-    h: 192
-  - x: 428
-    y: 576
-    w: 160
-    h: 192
-  - x: 588
-    y: 576
-    w: 160
-    h: 192
-  - x: 748
-    y: 576
-    w: 160
-    h: 192
-  - x: 908
-    y: 576
-    w: 160
-    h: 192
-  - x: 1068
-    y: 576
-    w: 160
-    h: 192
-  - x: 1228
-    y: 576
-    w: 160
-    h: 192
+    y: 432
+    w: 97
+    h: 144
+  - x: 205
+    y: 432
+    w: 97
+    h: 144
+  - x: 302
+    y: 432
+    w: 97
+    h: 144
+  - x: 399
+    y: 432
+    w: 97
+    h: 144
+  - x: 496
+    y: 432
+    w: 97
+    h: 144
+  - x: 593
+    y: 432
+    w: 97
+    h: 144
+  - x: 690
+    y: 432
+    w: 97
+    h: 144
+  - x: 787
+    y: 432
+    w: 97
+    h: 144
 body_metrics:
   body_pixel_bbox:
-    x: 42
-    y: 36
+    x: 2
+    y: 7
     w: 93
-    h: 147
+    h: 132
   feet_pixel:
-    x: 88.5
-    y: 183.0
+    x: 48.5
+    y: 139.0
   feet_anchor_norm:
-    x: 0.053125
-    y: -0.453125
+    x: 0.0
+    y: -0.465278

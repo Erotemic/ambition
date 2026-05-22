@@ -422,6 +422,8 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     add_input_plugins(app);
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
+    #[cfg(feature = "falling_sand")]
+    app.add_plugins(crate::falling_sand::FallingSandRoomPlugin);
     // Lightweight FPS / frame-time overlay. ON by default on wasm,
     // OFF on desktop; F3 toggles. See `crate::fps_overlay`.
     app.add_plugins(crate::dev::fps_overlay::FpsOverlayPlugin);

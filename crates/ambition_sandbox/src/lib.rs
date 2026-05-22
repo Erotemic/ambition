@@ -41,6 +41,8 @@ pub(crate) mod dev;
 pub(crate) mod dialog;
 pub(crate) mod encounter;
 pub(crate) mod enemy_projectile;
+#[cfg(feature = "falling_sand")]
+pub(crate) mod falling_sand;
 pub(crate) mod host;
 pub(crate) mod intro;
 pub(crate) mod inventory;

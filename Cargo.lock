@@ -172,6 +172,7 @@ dependencies = [
  "bevy_asset_loader",
  "bevy_common_assets",
  "bevy_ecs_ldtk",
+ "bevy_falling_sand",
  "bevy_kira_audio",
  "bevy_material_ui",
  "bevy_yarnspinner",
@@ -1073,6 +1074,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_falling_sand"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d971dfb5c4cf91449749a7a7e69449ec388d33047e4ebf7385847832adbbe45b"
+dependencies = [
+ "bevy",
+ "bevy_shader",
+ "bevy_sprite_render",
+ "bevy_turborand",
+ "serde",
+ "smallvec",
+]
+
+[[package]]
 name = "bevy_feathers"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1863,6 +1878,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88545c8b0fa8f3502b9a439c71fa6b596ee9e808bfb16f27a51c8c6f7405a657"
 dependencies = [
  "bevy",
+]
+
+[[package]]
+name = "bevy_turborand"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5b02b7f7ae14d72373f343291d266f550c173a7e3d4160e0054637f48a0b1a3"
+dependencies = [
+ "bevy",
+ "instant",
+ "serde",
+ "turborand",
 ]
 
 [[package]]
@@ -3279,8 +3306,8 @@ dependencies = [
  "libc",
  "log",
  "rustversion",
- "windows-link 0.1.3",
- "windows-result 0.3.4",
+ "windows-link 0.2.1",
+ "windows-result 0.4.1",
 ]
 
 [[package]]
@@ -3301,6 +3328,19 @@ checksum = "1bd49230192a3797a9a4d6abe9b3eed6f7fa4c8a8a4947977c6f80025f92cbd8"
 dependencies = [
  "rustix 1.1.4",
  "windows-link 0.2.1",
+]
+
+[[package]]
+name = "getrandom"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff2abc00be7fca6ebc474524697ae276ad847ad0a6b3faa4bcb027e9a4614ad0"
+dependencies = [
+ "cfg-if",
+ "js-sys",
+ "libc",
+ "wasi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -6737,6 +6777,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 dependencies = [
  "core_maths",
+]
+
+[[package]]
+name = "turborand"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffa9ae3c65785079fa553e8aea4ae4b12579b5c5029b4133b54ea3afb2e3e9fa"
+dependencies = [
+ "getrandom 0.2.17",
+ "instant",
+ "serde",
 ]
 
 [[package]]

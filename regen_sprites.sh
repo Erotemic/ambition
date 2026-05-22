@@ -116,11 +116,25 @@ for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
     done
 done
 
-echo "==> tack-on: sandbag (render-publish into $sprites_dir)"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer render-publish sandbag --dest-root "$sprites_dir")
-
-echo "==> tack-on: lasersword + lasersword_with_guns (render-publish into $sprites_dir)"
-for target in lasersword lasersword_with_guns; do
+echo "==> tack-on targets (render-publish into $sprites_dir)"
+# Every tack-on registered in _TACKON_TARGETS whose YAML manifest the
+# sandbox crate loads. Keep this list in sync with cli.py's _TACKON_TARGETS
+# (mockingbird_boss has its own driver below; pirates go through the
+# standalone publisher).
+tackon_targets=(
+    sandbag
+    burning_flying_shark
+    creator
+    creator_lab_props
+    interdimensional_gate
+    intro_cart
+    intro_lab_tileset
+    lasersword
+    lasersword_with_guns
+    news_board
+    town_tileset
+)
+for target in "${tackon_targets[@]}"; do
     (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer render-publish "$target" --dest-root "$sprites_dir")
 done
 

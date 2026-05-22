@@ -24,6 +24,11 @@ const OIL_SWITCH: &str = "falling_sand_oil_switch";
 const MIXED_SWITCH: &str = "falling_sand_mixed_switch";
 
 const TILE_SIZE: i32 = 16;
+/// Floor / side-wall thickness in particle cells. Needs to be deep
+/// enough that high-density material can't tunnel through during a
+/// single sim step; 16 has held up in practice where 2 did not.
+const FLOOR_WALL_THICKNESS: i32 = 16;
+const SIDE_WALL_THICKNESS: i32 = 8;
 const SAND_THRESHOLD: usize = 14;
 const LIQUID_THRESHOLD: usize = 10;
 const MATERIAL_VISUAL_THRESHOLD: usize = 6;
@@ -147,7 +152,16 @@ impl Plugin for FallingSandRoomPlugin {
             )
             .add_systems(
                 Update,
-                capture_falling_sand_switch_interactions
+                (
+                    capture_falling_sand_switch_interactions,
+                    // Visual sync must run *after* the toggle handler so
+                    // SwitchOn reflects the spout state we just set —
+                    // otherwise the engine's "switch is latching" semantics
+                    // leave the sprite stuck green while the spout flips
+                    // back off, which inverts the player's mental model.
+                    sync_falling_sand_switch_visuals,
+                )
+                    .chain()
                     .in_set(crate::app::SandboxSet::GameplayEffects),
             );
     }
@@ -265,14 +279,34 @@ fn seed_falling_sand_room_boundaries(
 
     let world = &room.world;
     let floor_y = (world.size.y - 64.0).max(0.0);
-    emit_wall_rect(&mut writer, world, 0.0, floor_y, world.size.x as i32, 2);
-    emit_wall_rect(&mut writer, world, 0.0, 0.0, 2, world.size.y as i32);
+    // Thick floor + side walls so falling material has a solid barrier
+    // to pile against. The original 2-cell floor was thin enough that
+    // sand was reportedly phasing through and disappearing past it;
+    // 16 cells gives the bevy_falling_sand sim enough body to reliably
+    // block higher-density particles. Walls extend up the full world
+    // height with similar thickness to keep streams in the room.
     emit_wall_rect(
         &mut writer,
         world,
-        world.size.x - 2.0,
         0.0,
-        2,
+        floor_y,
+        world.size.x as i32,
+        FLOOR_WALL_THICKNESS,
+    );
+    emit_wall_rect(
+        &mut writer,
+        world,
+        0.0,
+        0.0,
+        SIDE_WALL_THICKNESS,
+        world.size.y as i32,
+    );
+    emit_wall_rect(
+        &mut writer,
+        world,
+        world.size.x - SIDE_WALL_THICKNESS as f32,
+        0.0,
+        SIDE_WALL_THICKNESS,
         world.size.y as i32,
     );
 
@@ -283,12 +317,9 @@ fn seed_falling_sand_room_boundaries(
         emit_wall_rect(&mut writer, world, x, floor_y - 190.0, 2, 190);
     }
 
-    // Seed a small sample tray so the room has an immediate visible/material
-    // affordance even before the player flips a spout switch. The switches
-    // still control the sustained streams.
-    emit_particle_rect(&mut writer, TYPE_SAND, world, 152.0, floor_y - 46.0, 76, 28);
-    emit_particle_rect(&mut writer, TYPE_WATER, world, 348.0, floor_y - 40.0, 88, 24);
-    emit_particle_rect(&mut writer, TYPE_OIL, world, 556.0, floor_y - 38.0, 88, 22);
+    // (No seeded sample trays — the player relies on the spouts to put
+    // material into the room. The seeded piles were originally a demo
+    // affordance but masked the spout behaviour, so they're gone.)
 
     state.seeded_boundaries = true;
 }
@@ -366,6 +397,36 @@ fn capture_falling_sand_switch_interactions(
                 "falling_sand_room: ignoring switch activation id={:?} (not a spout switch)",
                 activation.id
             );
+        }
+    }
+}
+
+/// Force the falling-sand switch sprites' `SwitchOn` flag to track the
+/// spout state. The engine's default switch behaviour is one-way
+/// latching (`on.0 = true` on activation, never reset), which inverts
+/// the player's mental model once they toggle a spout closed: the
+/// sprite stays "on" (green) while the spout is actually off.
+fn sync_falling_sand_switch_visuals(
+    state: Res<FallingSandRoomState>,
+    room_set: Res<crate::rooms::RoomSet>,
+    mut switches: Query<(
+        &crate::features::SwitchFeature,
+        &mut crate::features::SwitchOn,
+    )>,
+) {
+    if !state.active_room || room_set.active_spec().id != ROOM_ID {
+        return;
+    }
+    for (switch, mut on) in &mut switches {
+        let desired = match switch.activation.id.as_str() {
+            SAND_SWITCH => state.spouts.sand,
+            WATER_SWITCH => state.spouts.water,
+            OIL_SWITCH => state.spouts.oil,
+            MIXED_SWITCH => state.spouts.mixed,
+            _ => continue,
+        };
+        if on.0 != desired {
+            on.0 = desired;
         }
     }
 }

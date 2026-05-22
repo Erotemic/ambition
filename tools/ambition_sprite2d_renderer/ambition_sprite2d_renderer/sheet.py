@@ -211,4 +211,113 @@ def write_spritesheet(job: CharacterJob, image_out: str | Path, manifest_out: st
     sheet.save(image_out)
     with open(manifest_out, "w", encoding="utf8") as file:
         yaml.safe_dump(manifest, file, sort_keys=False)
+    # Sidecar RON: same data, machine-readable shape for the sandbox's
+    # SheetRegistry. The adapter pipeline's YAML is `animations:`-keyed,
+    # so we translate to the row-ordered SheetRecord shape here. See
+    # `pirates/common::_emit_sheet_ron` for the tack-on equivalent.
+    ron_path = manifest_out.with_suffix(".ron")
+    ron_path.write_text(_adapter_manifest_to_ron(manifest))
     return image_out, manifest_out
+
+
+def _ron_escape(s):
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _ron_some(inner):
+    return f"Some({inner})"
+
+
+def _ron_optional_rect(v):
+    if not isinstance(v, dict):
+        return "None"
+    return _ron_some(
+        f"(x: {int(v['x'])}, y: {int(v['y'])}, w: {int(v['w'])}, h: {int(v['h'])})"
+    )
+
+
+def _ron_optional_point(v):
+    if not isinstance(v, dict):
+        return "None"
+    return _ron_some(f"(x: {float(v['x'])}, y: {float(v['y'])})")
+
+
+def _ron_body_metrics(bm):
+    if not isinstance(bm, dict):
+        return "None"
+    parts = [
+        f"body_pixel_bbox: {_ron_optional_rect(bm.get('body_pixel_bbox'))}",
+        f"feet_pixel: {_ron_optional_point(bm.get('feet_pixel'))}",
+        f"feet_anchor_norm: {_ron_optional_point(bm.get('feet_anchor_norm'))}",
+    ]
+    return _ron_some(f"({', '.join(parts)})")
+
+
+def _ron_anchors(anchors):
+    if not isinstance(anchors, dict) or not anchors:
+        return "{}"
+    items = []
+    for name, pos in sorted(anchors.items()):
+        if isinstance(pos, dict) and "x" in pos and "y" in pos:
+            items.append(
+                f'"{_ron_escape(str(name))}": (x: {float(pos["x"])}, y: {float(pos["y"])})'
+            )
+    return "{" + ", ".join(items) + "}" if items else "{}"
+
+
+def _ron_rect_from_adapter_frame(fr):
+    base = f"x: {int(fr['x'])}, y: {int(fr['y'])}, w: {int(fr['w'])}, h: {int(fr['h'])}"
+    anchors = fr.get("anchors")
+    if anchors:
+        return f"({base}, anchors: {_ron_anchors(anchors)})"
+    return f"({base})"
+
+
+def _ron_row_from_adapter(animation_name: str, row_index: int, info: dict) -> str:
+    frames = info.get("frames", []) if isinstance(info, dict) else []
+    duration_ms = int(info.get("duration_ms", 0)) if isinstance(info, dict) else 0
+    rects = []
+    for fr in frames:
+        if not isinstance(fr, dict):
+            continue
+        try:
+            rects.append(_ron_rect_from_adapter_frame(fr))
+        except (KeyError, TypeError, ValueError):
+            continue
+    rects_str = ",\n            ".join(rects)
+    return (
+        f"(\n"
+        f'        animation: "{_ron_escape(animation_name)}",\n'
+        f"        row_index: {int(row_index)},\n"
+        f"        frame_count: {len(rects)},\n"
+        f"        duration_ms: {duration_ms},\n"
+        f"        duration_secs: {round(duration_ms / 1000.0, 6)},\n"
+        f"        rects: [\n            {rects_str},\n        ],\n"
+        f"    )"
+    )
+
+
+def _adapter_manifest_to_ron(manifest: dict) -> str:
+    """Translate the adapter-pipeline YAML manifest (which uses
+    `animations: {name: {frames, duration_ms}}`) into the row-ordered
+    RON shape consumed by `SheetRegistry`.
+    """
+    target = manifest["target"]
+    anims = manifest.get("animations") or {}
+    rows = []
+    for row_index, (name, info) in enumerate(anims.items() if isinstance(anims, dict) else []):
+        rows.append(_ron_row_from_adapter(name, row_index, info))
+    rows_str = ",\n    ".join(rows)
+    return (
+        f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
+        f"// `presentation::character_sprites::registry`.\n"
+        f"(\n"
+        f'    target: "{_ron_escape(target)}",\n'
+        f'    image: "{_ron_escape(manifest.get("image") or f"{target}_spritesheet.png")}",\n'
+        f"    label_width: {int(manifest.get('label_width', 0))},\n"
+        f"    frame_width: {int(manifest['frame_width'])},\n"
+        f"    frame_height: {int(manifest['frame_height'])},\n"
+        f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
+        f"    rows: [\n    {rows_str},\n    ],\n"
+        f")\n"
+    )

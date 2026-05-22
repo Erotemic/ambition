@@ -194,13 +194,13 @@ rows:
     h: 114
 body_metrics:
   body_pixel_bbox:
-    x: 22
+    x: 20
     y: 0
-    w: 60
+    w: 63
     h: 112
   feet_pixel:
-    x: 52.0
+    x: 51.5
     y: 112.0
   feet_anchor_norm:
-    x: 0.004854
+    x: 0.0
     y: -0.482456

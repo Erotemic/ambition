@@ -1,6 +1,7 @@
 use bevy::prelude::Vec2;
 
 use super::anim::CharacterAnim;
+use super::registry::SheetRecord;
 use super::sheets::{
     sprite_render_size, CharacterSheetSpec, ABSURD_GENERAL_SHEET, ALICE_SHEET, ARCHITECT_SHEET,
     BOB_SHEET, BURNING_FLYING_SHARK_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
@@ -270,6 +271,147 @@ fn sheet_consts_match_their_yaml_manifests() {
     if !missing_yamls.is_empty() {
         eprintln!(
             "sheet_consts_match_their_yaml_manifests: skipped (no YAML on disk): {missing_yamls:?}"
+        );
+    }
+}
+
+/// Every `*_spritesheet.ron` next to a YAML must deserialize cleanly
+/// into [`SheetRecord`]. This is the runtime contract the
+/// `SheetRegistry` startup loader depends on; if a generator emits
+/// a RON the loader can't parse, the registry silently drops it
+/// and any consumer that expected that sheet falls back to default.
+///
+/// Validating the parse here catches malformed RON at `cargo test`
+/// time instead of at game startup.
+#[test]
+fn every_spritesheet_ron_parses_into_sheet_record() {
+    let assets_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
+    let entries = std::fs::read_dir(&assets_dir)
+        .unwrap_or_else(|e| panic!("read {}: {e}", assets_dir.display()));
+
+    let mut parsed = 0usize;
+    let mut failures: Vec<String> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
+        if !name.ends_with("_spritesheet.ron") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        match ron::from_str::<SheetRecord>(&text) {
+            Ok(record) => {
+                parsed += 1;
+                // Smoke: target string nonzero, frame dims positive.
+                assert!(!record.target.is_empty(), "{name}: empty target");
+                assert!(record.frame_width > 0, "{name}: frame_width == 0");
+                assert!(record.frame_height > 0, "{name}: frame_height == 0");
+            }
+            Err(err) => {
+                failures.push(format!("{name}: {err}"));
+            }
+        }
+    }
+    assert!(parsed > 0, "no *_spritesheet.ron found under {}", assets_dir.display());
+    if !failures.is_empty() {
+        panic!(
+            "{} RON manifest(s) failed to parse:\n  {}",
+            failures.len(),
+            failures.join("\n  "),
+        );
+    }
+}
+
+/// For every sheet const that has a paired RON manifest, the const's
+/// label_width / frame_width / frame_height / feet_anchor_y must
+/// agree with the RON. This is the same drift check the YAML test
+/// runs, but against the *canonical* machine-readable manifest the
+/// runtime `SheetRegistry` actually loads.
+///
+/// When the two tests disagree, the YAML and RON sidecar are out of
+/// sync — that means a generator wrote one but not the other, and
+/// `pirates/common::build_sheet` / `sheet::write_spritesheet` need a
+/// re-run.
+#[test]
+fn sheet_consts_match_their_ron_manifests() {
+    let cases: &[(&str, &CharacterSheetSpec, &str)] = &[
+        ("ABSURD_GENERAL_SHEET", &ABSURD_GENERAL_SHEET, "absurd_general"),
+        ("ALICE_SHEET", &ALICE_SHEET, "alice"),
+        ("ARCHITECT_SHEET", &ARCHITECT_SHEET, "architect"),
+        ("BOB_SHEET", &BOB_SHEET, "bob"),
+        ("BURNING_FLYING_SHARK_SHEET", &BURNING_FLYING_SHARK_SHEET, "burning_flying_shark"),
+        ("CART_SHEET", &CART_SHEET, "intro_cart"),
+        ("CREATOR_SHEET", &CREATOR_SHEET, "creator"),
+        ("ERDISH_SHEET", &ERDISH_SHEET, "erdish"),
+        ("FASCIST_ENFORCER_SHEET", &FASCIST_ENFORCER_SHEET, "fascist_enforcer"),
+        ("GATE_PORTAL_SHEET", &GATE_PORTAL_SHEET, "interdimensional_gate_portal"),
+        ("GATE_RING_SHEET", &GATE_RING_SHEET, "interdimensional_gate_ring"),
+        (
+            "GOBLIN_CANTINA_CHIEFTAIN_SHEET",
+            &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
+            "goblin_cantina_chieftain",
+        ),
+        ("GOBLIN_SHEET", &GOBLIN_SHEET, "goblin"),
+        ("KERNEL_GUIDE_SHEET", &KERNEL_GUIDE_SHEET, "kernel_guide"),
+        ("MERCHANT_PROTOTYPE_SHEET", &MERCHANT_PROTOTYPE_SHEET, "merchant_prototype"),
+        ("NEWS_BOARD_SHEET", &NEWS_BOARD_SHEET, "news_board"),
+        ("OILER_SHEET", &OILER_SHEET, "oiler"),
+        ("PIRATE_SHEET", &PIRATE_SHEET, "pirate_admiral"),
+        ("PLAYER_ROBOT_SHEET", &PLAYER_ROBOT_SHEET, "player_robot"),
+        ("PULSE_VOYAGER_CAPTAIN_SHEET", &PULSE_VOYAGER_CAPTAIN_SHEET, "pulse_voyager_captain"),
+        ("ROBOT_SHEET", &ROBOT_SHEET, "robot"),
+        ("SANDBAG_SHEET", &SANDBAG_SHEET, "sandbag"),
+        ("TECH_BRO_DISRUPTOR_SHEET", &TECH_BRO_DISRUPTOR_SHEET, "tech_bro_disruptor"),
+        ("VAULT_KEEPER_SHEET", &VAULT_KEEPER_SHEET, "vault_keeper"),
+    ];
+
+    let assets_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
+    let mut mismatches: Vec<String> = Vec::new();
+    let mut checked = 0usize;
+
+    for (name, spec, target) in cases {
+        let path = assets_dir.join(format!("{target}_spritesheet.ron"));
+        if !path.exists() {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        let record: SheetRecord = ron::from_str(&text)
+            .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
+        checked += 1;
+
+        if spec.label_width != record.label_width
+            || spec.frame_width != record.frame_width
+            || spec.frame_height != record.frame_height
+        {
+            mismatches.push(format!(
+                "{name}: const=(lw={}, fw={}, fh={}) ron=(lw={}, fw={}, fh={})",
+                spec.label_width,
+                spec.frame_width,
+                spec.frame_height,
+                record.label_width,
+                record.frame_width,
+                record.frame_height,
+            ));
+        }
+        if let Some(metrics) = &record.body_metrics {
+            if let Some(anchor) = metrics.feet_anchor_norm {
+                if (spec.feet_anchor_y - anchor.y).abs() > 0.001 {
+                    mismatches.push(format!(
+                        "{name}: feet_anchor_y const={:.4} vs ron={:.4}",
+                        spec.feet_anchor_y, anchor.y,
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(checked > 0, "no RON manifests resolved at all");
+    if !mismatches.is_empty() {
+        panic!(
+            "{} const(s) drifted from RON manifests; resync the const or regen the sheet:\n  {}",
+            mismatches.len(),
+            mismatches.join("\n  "),
         );
     }
 }

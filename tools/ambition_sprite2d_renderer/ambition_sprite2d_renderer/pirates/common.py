@@ -785,6 +785,7 @@ def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_di
     canonical_transparent_path = out_dir / f"{target}_canonical_transparent.png"
     sheet_path = out_dir / f"{target}_spritesheet.png"
     yaml_path = out_dir / f"{target}_spritesheet.yaml"
+    ron_path = out_dir / f"{target}_spritesheet.ron"
     preview_path = out_dir / f"{target}_preview_labeled.png"
 
     can_bg.save(canonical_path)
@@ -802,10 +803,109 @@ def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_di
         "body_metrics": alpha_bbox_metrics(first or can),
     }
     yaml_path.write_text(yaml.safe_dump(manifest, sort_keys=False, width=120))
+    # Sidecar RON manifest consumed at runtime by the sandbox's
+    # SheetRegistry. The YAML is the human-readable sidecar; RON is
+    # what gameplay code deserializes. Keep both in lockstep — they
+    # encode the same data structure.
+    ron_path.write_text(_emit_sheet_ron(manifest))
     return {
         "canonical": canonical_path,
         "canonical_transparent": canonical_transparent_path,
         "spritesheet": sheet_path,
         "yaml": yaml_path,
+        "ron": ron_path,
         "preview": preview_path,
     }
+
+
+def _ron_escape(s):
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _ron_some(inner):
+    return f"Some({inner})"
+
+
+def _ron_optional_rect(v):
+    if not isinstance(v, dict):
+        return "None"
+    return _ron_some(
+        f"(x: {int(v['x'])}, y: {int(v['y'])}, w: {int(v['w'])}, h: {int(v['h'])})"
+    )
+
+
+def _ron_optional_point(v):
+    if not isinstance(v, dict):
+        return "None"
+    return _ron_some(f"(x: {float(v['x'])}, y: {float(v['y'])})")
+
+
+def _ron_body_metrics(bm):
+    if not isinstance(bm, dict):
+        return "None"
+    parts = [
+        f"body_pixel_bbox: {_ron_optional_rect(bm.get('body_pixel_bbox'))}",
+        f"feet_pixel: {_ron_optional_point(bm.get('feet_pixel'))}",
+        f"feet_anchor_norm: {_ron_optional_point(bm.get('feet_anchor_norm'))}",
+    ]
+    return _ron_some(f"({', '.join(parts)})")
+
+
+def _ron_anchors(anchors):
+    if not isinstance(anchors, dict) or not anchors:
+        return "{}"
+    items = []
+    for name, pos in sorted(anchors.items()):
+        if not isinstance(pos, dict) or "x" not in pos or "y" not in pos:
+            continue
+        items.append(
+            f'"{_ron_escape(str(name))}": (x: {float(pos["x"])}, y: {float(pos["y"])})'
+        )
+    return "{" + ", ".join(items) + "}" if items else "{}"
+
+
+def _ron_rect(r):
+    base = f"x: {int(r['x'])}, y: {int(r['y'])}, w: {int(r['w'])}, h: {int(r['h'])}"
+    anchors = r.get("anchors")
+    if anchors:
+        return f"({base}, anchors: {_ron_anchors(anchors)})"
+    return f"({base})"
+
+
+def _ron_row(row):
+    rects = ",\n            ".join(_ron_rect(r) for r in row.get("rects", []))
+    return (
+        f"(\n"
+        f'        animation: "{_ron_escape(row["animation"])}",\n'
+        f"        row_index: {int(row['row_index'])},\n"
+        f"        frame_count: {int(row['frame_count'])},\n"
+        f"        duration_ms: {int(row['duration_ms'])},\n"
+        f"        duration_secs: {float(row['duration_secs'])},\n"
+        f"        rects: [\n            {rects},\n        ],\n"
+        f"    )"
+    )
+
+
+def _emit_sheet_ron(manifest):
+    """Serialize the manifest dict to RON in the shape `SheetRecord`
+    in `crates/ambition_sandbox/src/presentation/character_sprites/registry.rs`
+    expects. Sidecar to the YAML; both files describe the same data.
+
+    Kept as a hand-rolled emitter (no python-ron dep) because the
+    output shape is small, fixed, and easy to inspect in a diff.
+    """
+    target = manifest["target"]
+    rows = ",\n    ".join(_ron_row(r) for r in manifest.get("rows", []))
+    return (
+        f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
+        f"// `presentation::character_sprites::registry`.\n"
+        f"(\n"
+        f'    target: "{_ron_escape(target)}",\n'
+        f'    image: "{_ron_escape(manifest.get("image", f"{target}_spritesheet.png"))}",\n'
+        f"    label_width: {int(manifest.get('label_width', 0))},\n"
+        f"    frame_width: {int(manifest['frame_width'])},\n"
+        f"    frame_height: {int(manifest['frame_height'])},\n"
+        f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
+        f"    rows: [\n    {rows},\n    ],\n"
+        f")\n"
+    )

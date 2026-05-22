@@ -1,0 +1,13 @@
+// Auto-emitted from creator_lab_props_spritesheet.yaml — see
+// `presentation::character_sprites::registry`.
+(
+    target: "creator_lab_props",
+    image: "creator_lab_props_spritesheet.png",
+    label_width: 160,
+    frame_width: 128,
+    frame_height: 128,
+    body_metrics: None,
+    rows: [
+    ,
+    ],
+)

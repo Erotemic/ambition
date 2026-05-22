@@ -194,9 +194,9 @@ rows:
     h: 114
 body_metrics:
   body_pixel_bbox:
-    x: 24
+    x: 22
     y: 0
-    w: 56
+    w: 60
     h: 112
   feet_pixel:
     x: 52.0

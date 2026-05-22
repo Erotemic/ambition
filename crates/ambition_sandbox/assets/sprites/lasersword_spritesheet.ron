@@ -1,0 +1,44 @@
+// Auto-emitted from lasersword_spritesheet.yaml — see
+// `presentation::character_sprites::registry`.
+(
+    target: "lasersword",
+    image: "lasersword_spritesheet.png",
+    label_width: 110,
+    frame_width: 169,
+    frame_height: 44,
+    body_metrics: Some((body_pixel_bbox: Some((x: 15, y: 2, w: 151, h: 40)), feet_pixel: Some((x: 90.5, y: 42.0)), feet_anchor_norm: Some((x: 0.035503, y: -0.454545)))),
+    rows: [
+    (
+        animation: "idle",
+        row_index: 0,
+        frame_count: 8,
+        duration_ms: 110,
+        duration_secs: 0.11,
+        rects: [
+            (x: 110, y: 0, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 279, y: 0, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 448, y: 0, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 617, y: 0, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 786, y: 0, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 955, y: 0, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 1124, y: 0, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 1293, y: 0, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+        ],
+    ),
+    (
+        animation: "dissipate",
+        row_index: 1,
+        frame_count: 6,
+        duration_ms: 80,
+        duration_secs: 0.08,
+        rects: [
+            (x: 110, y: 44, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 279, y: 44, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 448, y: 44, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 617, y: 44, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 786, y: 44, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+            (x: 955, y: 44, w: 169, h: 44, anchors: {"grip": (x: 36.45, y: 22.0), "guard": (x: 50.95, y: 22.0), "pommel": (x: 22.2, y: 22.0), "tip": (x: 161.7, y: 22.0)}),
+        ],
+    ),
+    ],
+)

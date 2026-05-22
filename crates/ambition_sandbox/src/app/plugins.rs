@@ -416,6 +416,11 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
 
     app.add_plugins(crate::host::platform::PlatformPlugin);
     app.add_plugins(crate::presentation::screen_effects::ScreenEffectsPlugin);
+    // Loads `*_spritesheet.ron` manifests so the registry (and, in a
+    // future pass, the consumer code) can read sheet sizing / feet
+    // anchors / per-frame anchors from data instead of hardcoded
+    // consts in `presentation::character_sprites::sheets`.
+    app.add_plugins(crate::presentation::character_sprites::SheetRegistryPlugin);
     add_dev_tools_plugins(app);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);

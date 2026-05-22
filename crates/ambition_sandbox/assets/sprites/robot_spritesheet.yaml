@@ -1301,10 +1301,10 @@ body_metrics:
     x: 30
     y: 0
     w: 70
-    h: 106
+    h: 105
   feet_pixel:
     x: 64.5
-    y: 105.0
+    y: 104.0
   feet_anchor_norm:
     x: 0.00390625
-    y: -0.3203125
+    y: -0.3125

@@ -143,7 +143,7 @@ def main() -> int:
     src = Path(args.src).resolve()
     if not (src / "adaptive").exists():
         print(f"error: no adaptive directory at {src}", file=sys.stderr)
-        print("       run ./generate_audio_assets.sh first.", file=sys.stderr)
+        print("       run ./scripts/regen_first_goblin_tune_v2.sh first.", file=sys.stderr)
         return 2
 
     manifest_path = find_manifest(src)

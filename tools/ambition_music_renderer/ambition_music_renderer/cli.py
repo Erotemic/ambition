@@ -32,7 +32,8 @@ from pathlib import Path
 # These render with --simple-mix and publish the mastered preview.
 SANDBOX_CUES = ("lofi_study_loop", "long_lofi_drift", "pulse_drift_voyage")
 
-# Adaptive cues handled by the dedicated pipeline (generate_audio_assets.sh).
+# Adaptive cues handled by the dedicated pipeline
+# (scripts/regen_first_goblin_tune_v2.sh).
 # This module deliberately skips them in the bulk `radio` pass; their
 # multi-stem layout is owned elsewhere.
 ADAPTIVE_CUES = ("first_goblin_tune_v2",)
@@ -132,7 +133,8 @@ def discover_active_radio_cues() -> tuple[str, ...]:
 
     Excludes:
       - Cues already in ``SANDBOX_CUES`` (handled by that path).
-      - Cues in ``ADAPTIVE_CUES`` (handled by ``generate_audio_assets.sh``).
+      - Cues in ``ADAPTIVE_CUES`` (handled by
+        ``scripts/regen_first_goblin_tune_v2.sh``).
     Returns a sorted, deduped tuple so the order is stable across runs.
     """
     active = package_dir() / "scores" / "active"
@@ -380,7 +382,7 @@ def cmd_radio(args: argparse.Namespace) -> int:
 
     Covers ``SANDBOX_CUES`` plus auto-discovered ``scores/active/*`` cues
     plus the curated ``EXTRA_RADIO_CUES`` list. Skips ``ADAPTIVE_CUES``
-    (those go through ``generate_audio_assets.sh``). Honors
+    (those go through ``scripts/regen_first_goblin_tune_v2.sh``). Honors
     ``preview/published.ogg`` pins for cues whose mastered file lives
     under a manual filename.
     """

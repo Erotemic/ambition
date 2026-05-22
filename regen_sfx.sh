@@ -16,8 +16,30 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sfx_renderer"
-renderer_py="$renderer_dir/.venv/bin/python"
 pack_script="$repo_root/tools/ambition_sfx_pack/pack.py"
+
+select_python() {
+    if [ -n "${PYTHON:-}" ]; then
+        printf '%s\n' "$PYTHON"
+    elif [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
+        printf '%s\n' "$VIRTUAL_ENV/bin/python"
+    elif [ -x "$repo_root/.venv/bin/python" ]; then
+        printf '%s\n' "$repo_root/.venv/bin/python"
+    elif [ -x "$renderer_dir/.venv/bin/python" ]; then
+        printf '%s\n' "$renderer_dir/.venv/bin/python"
+    else
+        printf '%s\n' python
+    fi
+}
+
+print_help() {
+    awk '
+        NR == 1 { next }
+        /^set -euo pipefail$/ { exit }
+        /^#$/ { print ""; next }
+        /^# / { sub(/^# /, ""); print }
+    ' "$0"
+}
 
 force=0
 skip_render=0
@@ -25,14 +47,21 @@ for arg in "$@"; do
     case "$arg" in
         --force) force=1 ;;
         --skip-render) skip_render=1 ;;
-        -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) print_help; exit 0 ;;
         *) echo "unknown arg: $arg" >&2; exit 2 ;;
     esac
 done
 
-if [ ! -x "$renderer_py" ]; then
-    echo "sfx renderer venv missing: $renderer_py" >&2
-    echo "run: (cd tools/ambition_sfx_renderer && ./setup.sh)" >&2
+renderer_py="$(select_python)"
+if ! command -v "$renderer_py" >/dev/null 2>&1; then
+    echo "python executable not found: $renderer_py" >&2
+    echo "run ./run_developer_setup.sh, activate a venv, or set PYTHON=/path/to/python" >&2
+    exit 1
+fi
+
+if ! "$renderer_py" -c 'import ambition_sfx_renderer' >/dev/null 2>&1; then
+    echo "ambition_sfx_renderer is not installed in: $renderer_py" >&2
+    echo "run ./run_developer_setup.sh to initialize the submodule and install it" >&2
     exit 1
 fi
 

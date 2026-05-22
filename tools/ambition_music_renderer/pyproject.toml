@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "ambition-music-renderer"
 version = "0.4.0"
@@ -19,3 +23,7 @@ dependencies = [
 [project.scripts]
 ambition-music-renderer = "ambition_music_renderer.cli:main"
 render-ambition-music = "ambition_music_renderer.musicir_renderer:main"
+
+[tool.setuptools.packages.find]
+include = ["ambition_music_renderer*"]
+exclude = ["scores*", "tests*"]

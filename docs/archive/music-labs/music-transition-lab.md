@@ -148,7 +148,7 @@ When the experiment sounds better:
 1. compare the experiment YAML against the active YAML;
 2. manually port only the accepted musical/postprocess changes into
    `scores/active/first_goblin_tune_v2.music.yaml`;
-3. regenerate the real cue with `./generate_audio_assets.sh --force`;
+3. regenerate the real cue with `./regen_music.sh --force`;
 4. test in `mob_lab`;
 5. check in/IPFS-track accepted installed audio assets separately.
 

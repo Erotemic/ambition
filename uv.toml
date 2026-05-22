@@ -1,0 +1,15 @@
+# Project-wide uv settings.
+#
+# exclude-newer caps the published-at date considered during dependency
+# resolution. The intent is supply-chain hygiene: ignore packages newer than
+# ~2 weeks so the community has time to catch malicious releases before we
+# adopt them.
+#
+# This static date is the floor. run_developer_setup.sh exports
+# UV_EXCLUDE_NEWER=$(today - 14d) at run time, which takes precedence and
+# keeps the cutoff rolling forward without needing to edit this file.
+#
+# Bump this manually when intentionally adopting newer packages (e.g. a
+# security fix). Keep the date >= ~2 weeks behind today under normal
+# circumstances.
+exclude-newer = "2026-05-08"

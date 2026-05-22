@@ -46,7 +46,7 @@ python tools/ambition_sprite2d_renderer/publish_pirate_spritesheets.py
 or
 
 ```bash
-./regen_pirate_sprites.sh
+./regen_sprites.sh
 ```
 
 This copies only the runtime pair for each target into:

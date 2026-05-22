@@ -1,12 +1,12 @@
 # Music generation pipeline notes
 
-`generate_audio_assets.sh` is currently a convenience wrapper for one adaptive cue:
-`first_goblin_tune_v2`.
+`scripts/regen_first_goblin_tune_v2.sh` is the focused helper for one adaptive
+cue: `first_goblin_tune_v2`.
 
 The default path now matches what the game actually loads for that cue:
 
 ```bash
-./generate_audio_assets.sh --force
+./scripts/regen_first_goblin_tune_v2.sh --force
 ```
 
 That renders:
@@ -21,7 +21,7 @@ the installed asset tree with stems that are not currently used by the runtime.
 Use this only when you want to inspect or restore stem-driven runtime playback:
 
 ```bash
-./generate_audio_assets.sh --force --with-stems
+./scripts/regen_first_goblin_tune_v2.sh --force --with-stems
 ```
 
 ## Scratch `.npy` files
@@ -36,7 +36,7 @@ By default, the buffers are deleted after a successful render. Keep them only
 for debugging:
 
 ```bash
-./generate_audio_assets.sh --force --keep-debug-stems
+./scripts/regen_first_goblin_tune_v2.sh --force --keep-debug-stems
 ```
 
 So the current speedup is not "avoid every `.npy` write"; it is "avoid the

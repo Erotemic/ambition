@@ -45,7 +45,7 @@ For the current `first_goblin_tune_v2` full-mix approach:
 This pass changes generation inputs. Re-render and reinstall the OGG assets:
 
 ```bash
-./generate_audio_assets.sh --force
+./regen_music.sh --force
 ```
 
 Then run the encounter room:
@@ -75,7 +75,7 @@ assets:
 - intro full mix peaks lower than wave1 so it no longer dominates the handoff;
 - master/section reverb is much drier to reduce broadband "white noise" tails;
 - synthetic hat/noise-prone percussion is quieter and darker;
-- `generate_audio_assets.sh` defaults to full-mix-only rendering, skipping
+- `scripts/regen_first_goblin_tune_v2.sh` defaults to full-mix-only rendering, skipping
   per-stem OGGs because the Rust cue spec currently plays `*.full.ogg` files.
 
 The renderer still uses temporary `.npy` scratch buffers between isolated worker

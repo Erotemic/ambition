@@ -363,12 +363,12 @@ fn presentation_world_inner(
         .as_ref()
         .or(character_sprites.robot.as_ref())
     {
-        let player_render = player_placeholder_render_size(asset.spec, player_collision);
+        let player_render = player_placeholder_render_size(&asset.spec, player_collision);
         let sprite = build_character_sprite_with_render_size(asset, player_render);
         commands.entity(player).insert((
             sprite,
-            feet_anchor_for_render_size(asset.spec, player_collision, player_render),
-            CharacterAnimator::new(asset.spec),
+            feet_anchor_for_render_size(&asset.spec, player_collision, player_render),
+            CharacterAnimator::new(&asset.spec),
             PlayerSpriteBaseline {
                 standing_render: player_render,
                 standing_collision: player_collision,

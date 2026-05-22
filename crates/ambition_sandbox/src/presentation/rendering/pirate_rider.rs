@@ -96,7 +96,7 @@ pub fn sync_pirate_rider_visuals(
             // occluded by the shark torso.
             WORLD_Z_PLAYER + 0.5,
         );
-        let mut animator = CharacterAnimator::new(rider_asset.spec);
+        let mut animator = CharacterAnimator::new(&rider_asset.spec);
         // The rider rides — show the idle pose. Future polish: swing
         // when the shark fires, hurt when rider takes damage.
         animator.request(CharacterAnim::Idle);

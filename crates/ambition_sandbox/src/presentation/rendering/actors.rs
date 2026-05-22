@@ -233,8 +233,8 @@ pub fn upgrade_enemy_sprites(
         let sprite = build_character_sprite(character_asset, collision);
         commands.entity(entity).insert((
             sprite,
-            feet_anchor_for(character_asset.spec, collision),
-            CharacterAnimator::new(character_asset.spec),
+            feet_anchor_for(&character_asset.spec, collision),
+            CharacterAnimator::new(&character_asset.spec),
             BoundFeatureKind(view.kind),
         ));
     }
@@ -288,8 +288,8 @@ pub fn upgrade_npc_sprites(
         let sprite = build_character_sprite(character_asset, collision);
         commands.entity(entity).insert((
             sprite,
-            feet_anchor_for(character_asset.spec, collision),
-            CharacterAnimator::new(character_asset.spec),
+            feet_anchor_for(&character_asset.spec, collision),
+            CharacterAnimator::new(&character_asset.spec),
             BoundFeatureKind(view.kind),
         ));
     }

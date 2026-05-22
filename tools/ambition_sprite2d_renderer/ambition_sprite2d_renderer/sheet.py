@@ -307,7 +307,11 @@ def _adapter_manifest_to_ron(manifest: dict) -> str:
     rows = []
     for row_index, (name, info) in enumerate(anims.items() if isinstance(anims, dict) else []):
         rows.append(_ron_row_from_adapter(name, row_index, info))
-    rows_str = ",\n    ".join(rows)
+    if rows:
+        rows_inner = "\n    ".join(r + "," for r in rows)
+        rows_field = f"    rows: [\n    {rows_inner}\n    ],\n"
+    else:
+        rows_field = "    rows: [],\n"
     return (
         f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
         f"// `presentation::character_sprites::registry`.\n"
@@ -318,6 +322,6 @@ def _adapter_manifest_to_ron(manifest: dict) -> str:
         f"    frame_width: {int(manifest['frame_width'])},\n"
         f"    frame_height: {int(manifest['frame_height'])},\n"
         f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
-        f"    rows: [\n    {rows_str},\n    ],\n"
+        f"{rows_field}"
         f")\n"
     )

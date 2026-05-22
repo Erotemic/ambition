@@ -895,7 +895,12 @@ def _emit_sheet_ron(manifest):
     output shape is small, fixed, and easy to inspect in a diff.
     """
     target = manifest["target"]
-    rows = ",\n    ".join(_ron_row(r) for r in manifest.get("rows", []))
+    row_entries = list(manifest.get("rows", []))
+    if row_entries:
+        rows_inner = "\n    ".join(_ron_row(r) + "," for r in row_entries)
+        rows_field = f"    rows: [\n    {rows_inner}\n    ],\n"
+    else:
+        rows_field = "    rows: [],\n"
     return (
         f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
         f"// `presentation::character_sprites::registry`.\n"
@@ -906,6 +911,6 @@ def _emit_sheet_ron(manifest):
         f"    frame_width: {int(manifest['frame_width'])},\n"
         f"    frame_height: {int(manifest['frame_height'])},\n"
         f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
-        f"    rows: [\n    {rows},\n    ],\n"
+        f"{rows_field}"
         f")\n"
     )

@@ -110,39 +110,39 @@ const BASE_CHARACTER_FILENAMES: &[(&str, &str)] = &[
 /// filename, sheet spec)`. Add a row here to wire a new NPC sprite;
 /// `load_character_sprites_in` walks the table and inserts each
 /// present sheet into `CharacterSpriteAssets::npcs`.
-const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
+const NPC_SPRITE_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<CharacterSheetSpec>)] = &[
     // Faction leaders.
     (
         "General",
         "absurd_general_spritesheet.png",
-        ABSURD_GENERAL_SHEET,
+        &ABSURD_GENERAL_SHEET,
     ),
     (
         "Fretjaw, Cantina Chieftain",
         "goblin_cantina_chieftain_spritesheet.png",
-        GOBLIN_CANTINA_CHIEFTAIN_SHEET,
+        &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
     ),
     (
         "Captain Pulse",
         "pulse_voyager_captain_spritesheet.png",
-        PULSE_VOYAGER_CAPTAIN_SHEET,
+        &PULSE_VOYAGER_CAPTAIN_SHEET,
     ),
     (
         "Chadwick Disruptor III",
         "tech_bro_disruptor_spritesheet.png",
-        TECH_BRO_DISRUPTOR_SHEET,
+        &TECH_BRO_DISRUPTOR_SHEET,
     ),
     // Pirate-faction characters in the Pirate Cove. Same sheet layout
     // (idle/walk/slash/taunt/hurt/death) for both — see PIRATE_SHEET.
     (
         "Pirate Admiral",
         "pirate_admiral_spritesheet.png",
-        PIRATE_SHEET,
+        &PIRATE_SHEET,
     ),
     (
         "Pirate Raider",
         "pirate_raider_spritesheet.png",
-        PIRATE_SHEET,
+        &PIRATE_SHEET,
     ),
     // Third pirate variant — same silhouette family as Raider but a
     // distinctly darker skin tone (see `pirates/common.py::PALETTES`
@@ -152,7 +152,7 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     (
         "Pirate Quartermaster",
         "pirate_quartermaster_spritesheet.png",
-        PIRATE_SHEET,
+        &PIRATE_SHEET,
     ),
     // Lady pirate variants — same PIRATE_SHEET 128×128 layout, six
     // animations. Visual gendering happens entirely in the toon-
@@ -163,12 +163,12 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     (
         "Pirate Lookout",
         "pirate_lookout_spritesheet.png",
-        PIRATE_SHEET,
+        &PIRATE_SHEET,
     ),
     (
         "Pirate Navigator",
         "pirate_navigator_spritesheet.png",
-        PIRATE_SHEET,
+        &PIRATE_SHEET,
     ),
     // Burning Flying Shark — enemy mount used by the pirate sky
     // arena. Registered through the NPC sprite registry because the
@@ -177,7 +177,7 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     (
         "Burning Flying Shark",
         "burning_flying_shark_spritesheet.png",
-        BURNING_FLYING_SHARK_SHEET,
+        &BURNING_FLYING_SHARK_SHEET,
     ),
     // Ninja-faction characters in the Shadow Dojo. Same sheet layout
     // (idle/walk/run/jump/fall/slash/hit/death/blink_out/blink_in/
@@ -185,34 +185,34 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     (
         "Shadow Oni Leader",
         "ninja_shadow_oni_leader_spritesheet.png",
-        NINJA_SHEET,
+        &NINJA_SHEET,
     ),
     (
         "Shadow Duelist",
         "ninja_shadow_duelist_spritesheet.png",
-        NINJA_SHEET,
+        &NINJA_SHEET,
     ),
     // Hub NPCs already authored in LDtk; we just point them at the
     // toon-target sheets rendered for them.
     (
         "Architect NPC",
         "architect_spritesheet.png",
-        ARCHITECT_SHEET,
+        &ARCHITECT_SHEET,
     ),
     (
         "Kernel Guide NPC",
         "kernel_guide_spritesheet.png",
-        KERNEL_GUIDE_SHEET,
+        &KERNEL_GUIDE_SHEET,
     ),
     (
         "Vault Keeper NPC",
         "vault_keeper_spritesheet.png",
-        VAULT_KEEPER_SHEET,
+        &VAULT_KEEPER_SHEET,
     ),
     (
         "Merchant Prototype NPC",
         "merchant_prototype_spritesheet.png",
-        MERCHANT_PROTOTYPE_SHEET,
+        &MERCHANT_PROTOTYPE_SHEET,
     ),
 ];
 
@@ -278,7 +278,7 @@ pub fn load_character_sprites_in(
         asset_server,
         layouts,
         &ids::character_sprite("player"),
-        PLAYER_ROBOT_SHEET,
+        &PLAYER_ROBOT_SHEET,
         Some("player"),
     );
     let robot = build_optional_via_catalog(
@@ -286,7 +286,7 @@ pub fn load_character_sprites_in(
         asset_server,
         layouts,
         &ids::character_sprite("robot"),
-        ROBOT_SHEET,
+        &ROBOT_SHEET,
         Some("robot"),
     );
     let goblin = build_optional_via_catalog(
@@ -294,7 +294,7 @@ pub fn load_character_sprites_in(
         asset_server,
         layouts,
         &ids::character_sprite("goblin"),
-        GOBLIN_SHEET,
+        &GOBLIN_SHEET,
         Some("goblin"),
     );
     let sandbag = build_optional_via_catalog(
@@ -302,7 +302,7 @@ pub fn load_character_sprites_in(
         asset_server,
         layouts,
         &ids::character_sprite("sandbag"),
-        SANDBAG_SHEET,
+        &SANDBAG_SHEET,
         Some("sandbag"),
     );
 
@@ -336,7 +336,7 @@ fn build_optional_via_catalog(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     id: &AssetId,
-    spec: CharacterSheetSpec,
+    spec: &CharacterSheetSpec,
     log_label: Option<&str>,
 ) -> Option<CharacterSpriteAsset> {
     let Some(path) = catalog.try_path_for_load(id) else {
@@ -352,7 +352,7 @@ fn build_optional_via_catalog(
     Some(CharacterSpriteAsset {
         texture: asset_server.load(path),
         layout,
-        spec,
+        spec: spec.clone(),
     })
 }
 
@@ -370,7 +370,7 @@ pub fn build_npc_sprite_asset(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     id: &AssetId,
-    spec: CharacterSheetSpec,
+    spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
     build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None)
 }
@@ -385,7 +385,7 @@ pub fn build_prop_sprite_asset(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     id: &AssetId,
-    spec: CharacterSheetSpec,
+    spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
     build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None)
 }

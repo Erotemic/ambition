@@ -7,7 +7,5 @@
     frame_width: 128,
     frame_height: 128,
     body_metrics: None,
-    rows: [
-    ,
-    ],
+    rows: [],
 )

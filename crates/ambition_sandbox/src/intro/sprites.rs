@@ -26,17 +26,17 @@ use crate::presentation::character_sprites::{
 /// intro NPCs. Filenames are relative to the configured
 /// `assets/<sprite_folder>/` directory — same convention as
 /// `crate::presentation::character_sprites::assets::NPC_SPRITE_REGISTRY`.
-pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
+pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<CharacterSheetSpec>)] = &[
     // Wake-room creator. Dedicated creator tack-on sheet — 160×192 with
     // a 108px label column, four authored rows (idle/speak/gesture/walk).
-    ("Creator", "creator_spritesheet.png", CREATOR_SHEET),
+    ("Creator", "creator_spritesheet.png", &CREATOR_SHEET),
     // Same creator, raid-corridor variant. Same sheet so the player
     // recognizes the silhouette dying mid-sentence.
-    ("Creator Final", "creator_spritesheet.png", CREATOR_SHEET),
+    ("Creator Final", "creator_spritesheet.png", &CREATOR_SHEET),
     // Oiler: street mechanic. Dedicated toon-adapter sheet (rendered
     // from configs/review/oiler.yaml + the `oiler` PRESETS entry in
     // targets/toon_side.py).
-    ("Oiler", "oiler_spritesheet.png", OILER_SHEET),
+    ("Oiler", "oiler_spritesheet.png", &OILER_SHEET),
     // Gate Janitor: utility staff under the gate stack. Kernel Guide
     // is the placeholder until a dedicated janitor sheet lands —
     // poncho + slightly weary silhouette reads closer than the
@@ -44,13 +44,13 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     (
         "Gate Janitor",
         "kernel_guide_spritesheet.png",
-        KERNEL_GUIDE_SHEET,
+        &KERNEL_GUIDE_SHEET,
     ),
     // Erdish: optional recurring graph-theory eccentric. Not spawned
     // in the v1 intro slice yet (he lands when a `NpcSpawn` with
     // `name: Erdish` is authored in a later room), but pre-registered
     // so the sprite is ready the moment LDtk authoring catches up.
-    ("Erdish", "erdish_spritesheet.png", ERDISH_SHEET),
+    ("Erdish", "erdish_spritesheet.png", &ERDISH_SHEET),
     // Framebreaker (anti-machine hardliner). Fascist enforcer reads
     // as "uniformed raid grunt" which fits this role better than the
     // earlier goblin placeholder — both intro raid factions wear
@@ -59,7 +59,7 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     (
         "Framebreaker",
         "fascist_enforcer_spritesheet.png",
-        FASCIST_ENFORCER_SHEET,
+        &FASCIST_ENFORCER_SHEET,
     ),
     // Nazi salvage guard. Fascist Enforcer is the correct raid-trooper
     // sheet — the previous Absurd General was a satirical hub NPC, not
@@ -68,33 +68,34 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     (
         "Nazi Salvage Guard",
         "fascist_enforcer_spritesheet.png",
-        FASCIST_ENFORCER_SHEET,
+        &FASCIST_ENFORCER_SHEET,
     ),
     // Manifest clerk: bureaucratic kiosk operator. Architect sheet
     // reads as "person at a podium pointing at things."
     (
         "Manifest Clerk",
         "architect_spritesheet.png",
-        ARCHITECT_SHEET,
+        &ARCHITECT_SHEET,
     ),
     // News board: not an animated NPC in the design sense, but the
     // sandbox treats every `NpcSpawn` the same way. Dedicated
     // `news_board_spritesheet.png` renders a wall-mounted bulletin
     // board (Disruptor Industries header, pinned papers, blinking
     // LED) so it visibly reads as a board instead of a person.
-    ("News Board", "news_board_spritesheet.png", NEWS_BOARD_SHEET),
+    ("News Board", "news_board_spritesheet.png", &NEWS_BOARD_SHEET),
     // Alice — unofficial cartographer. Dedicated toon-side sheet
     // (`alice_spritesheet.png` + `alice_spritesheet.yaml`); first
     // intro NPC with non-placeholder art.
-    ("Alice", "alice_spritesheet.png", ALICE_SHEET),
+    ("Alice", "alice_spritesheet.png", &ALICE_SHEET),
     // Bob — field cartographer. Companion dedicated sheet to Alice.
-    ("Bob", "bob_spritesheet.png", BOB_SHEET),
+    ("Bob", "bob_spritesheet.png", &BOB_SHEET),
     // Cart, lab props, and gate sprites are now Prop entities (see
     // INTRO_PROP_REGISTRY below) and live in
     // `GameAssets.characters.props` instead of `npcs`.
 ];
 
-pub fn intro_npc_sprite_rows() -> &'static [(&'static str, &'static str, CharacterSheetSpec)] {
+pub fn intro_npc_sprite_rows(
+) -> &'static [(&'static str, &'static str, &'static std::sync::LazyLock<CharacterSheetSpec>)] {
     INTRO_NPC_SPRITE_REGISTRY
 }
 
@@ -104,35 +105,35 @@ pub fn intro_npc_sprite_rows() -> &'static [(&'static str, &'static str, Charact
 /// prop in LDtk without re-pointing the sprite registry. Loaded into
 /// `GameAssets.characters.props` by
 /// [`crate::intro::plugin::load_intro_prop_sprites_system`].
-pub const INTRO_PROP_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
+pub const INTRO_PROP_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<CharacterSheetSpec>)] = &[
     // Diagnostic cart the player wakes on.
-    ("intro_cart", "intro_cart_spritesheet.png", CART_SHEET),
+    ("intro_cart", "intro_cart_spritesheet.png", &CART_SHEET),
     // Creator lab props — each pulls a different row from the shared
     // `creator_lab_props_spritesheet.png` via its `y_offset`.
     (
         "lab_genesis_vat",
         "creator_lab_props_spritesheet.png",
-        LAB_PROP_GENESIS_VAT,
+        &LAB_PROP_GENESIS_VAT,
     ),
     (
         "lab_neural_console",
         "creator_lab_props_spritesheet.png",
-        LAB_PROP_NEURAL_CONSOLE,
+        &LAB_PROP_NEURAL_CONSOLE,
     ),
     (
         "lab_power_core",
         "creator_lab_props_spritesheet.png",
-        LAB_PROP_POWER_CORE,
+        &LAB_PROP_POWER_CORE,
     ),
     (
         "lab_repair_cradle",
         "creator_lab_props_spritesheet.png",
-        LAB_PROP_REPAIR_CRADLE,
+        &LAB_PROP_REPAIR_CRADLE,
     ),
     (
         "lab_resonance_coil",
         "creator_lab_props_spritesheet.png",
-        LAB_PROP_RESONANCE_COIL,
+        &LAB_PROP_RESONANCE_COIL,
     ),
     // Interdimensional gate (legally distinct stargate). Ring is the
     // always-on structural arch; portal renders the shimmering
@@ -141,16 +142,17 @@ pub const INTRO_PROP_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     (
         "gate_ring",
         "interdimensional_gate_ring_spritesheet.png",
-        GATE_RING_SHEET,
+        &GATE_RING_SHEET,
     ),
     (
         "gate_portal",
         "interdimensional_gate_portal_spritesheet.png",
-        GATE_PORTAL_SHEET,
+        &GATE_PORTAL_SHEET,
     ),
 ];
 
-pub fn intro_prop_sprite_rows() -> &'static [(&'static str, &'static str, CharacterSheetSpec)] {
+pub fn intro_prop_sprite_rows(
+) -> &'static [(&'static str, &'static str, &'static std::sync::LazyLock<CharacterSheetSpec>)] {
     INTRO_PROP_REGISTRY
 }
 

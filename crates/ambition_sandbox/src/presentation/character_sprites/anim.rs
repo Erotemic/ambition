@@ -94,6 +94,55 @@ pub enum CharacterAnim {
     AirUp = 28,
 }
 
+impl CharacterAnim {
+    /// Map a generator-emitted row name (e.g. the lowercase strings in
+    /// `*_spritesheet.ron`'s `rows[*].animation` field) to its enum
+    /// variant. Returns `None` for names the runtime doesn't have a
+    /// variant for — the row is silently dropped from the sheet spec.
+    ///
+    /// Accepted aliases:
+    /// - `hurt` ↔ `Hit` (the goblin / pirate generators emit `hurt`,
+    ///   but the runtime ECS animation picker uses `Hit`).
+    /// - `hover` ↔ `Fly` (robot generator emits `hover` for the
+    ///   jet-flight pose).
+    pub fn from_name(name: &str) -> Option<Self> {
+        // Lowercase + strip nothing; we want exact matches against the
+        // generator output strings.
+        Some(match name {
+            "idle" => Self::Idle,
+            "walk" => Self::Walk,
+            "run" => Self::Run,
+            "jump" => Self::Jump,
+            "fall" => Self::Fall,
+            "slash" => Self::Slash,
+            "hit" | "hurt" => Self::Hit,
+            "death" => Self::Death,
+            "blink_out" => Self::BlinkOut,
+            "blink_in" => Self::BlinkIn,
+            "dash" => Self::Dash,
+            "fly" | "hover" => Self::Fly,
+            "taunt" => Self::Taunt,
+            "ledge_grab" => Self::LedgeGrab,
+            "ledge_climb" => Self::LedgeClimb,
+            "ledge_getup" => Self::LedgeGetup,
+            "wall_grab" => Self::WallGrab,
+            "float_glide" => Self::FloatGlide,
+            "land_hard" => Self::LandHard,
+            "land_recovery" => Self::LandRecovery,
+            "dash_startup" => Self::DashStartup,
+            "attack_side" => Self::AttackSide,
+            "attack_up" => Self::AttackUp,
+            "attack_down" => Self::AttackDown,
+            "air_neutral" => Self::AirNeutral,
+            "air_forward" => Self::AirForward,
+            "air_back" => Self::AirBack,
+            "air_down" => Self::AirDown,
+            "air_up" => Self::AirUp,
+            _ => return None,
+        })
+    }
+}
+
 pub(super) fn non_looping(anim: CharacterAnim) -> bool {
     matches!(
         anim,

@@ -211,7 +211,7 @@ pub(crate) fn load_intro_npc_sprites_system(
         }
         let id = crate::intro::sprites::intro_npc_asset_id(name);
         if let Some(asset) =
-            build_npc_sprite_asset(&catalog, &asset_server, &mut layouts, &id, *spec)
+            build_npc_sprite_asset(&catalog, &asset_server, &mut layouts, &id, spec)
         {
             game_assets.characters.npcs.insert(*name, asset);
         } else {
@@ -255,7 +255,7 @@ pub(crate) fn load_intro_prop_sprites_system(
         }
         let id = crate::intro::sprites::intro_prop_asset_id(kind);
         if let Some(asset) =
-            build_prop_sprite_asset(&catalog, &asset_server, &mut layouts, &id, *spec)
+            build_prop_sprite_asset(&catalog, &asset_server, &mut layouts, &id, spec)
         {
             game_assets
                 .characters

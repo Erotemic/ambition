@@ -2,11 +2,26 @@
 //! geometry helpers (`sprite_render_size`, `feet_anchor_for`,
 //! `build_character_sprite`).
 //!
-//! The frame counts, durations, label widths, and `feet_anchor_y`
-//! values are kept in sync with `tools/ambition_sprite2d_renderer`
-//! output. After regenerating sheets, mirror the new YAML headers +
-//! body_metrics here. When the runtime gains a YAML loader for the
-//! `body_metrics` field, these constants can be removed.
+//! # Source of truth
+//!
+//! Generator output (`tools/ambition_sprite2d_renderer`) writes a
+//! `*_spritesheet.ron` next to each PNG. The RON manifest is the
+//! canonical record for everything the generator *knows*: per-frame
+//! sizing, animation rows, foot anchor. The `*_SHEET` statics in this
+//! file are thin `LazyLock<CharacterSheetSpec>` wrappers that pull
+//! those values from the RON on first access and combine them with
+//! the gameplay-tuning fields the generator can't infer
+//! (`collision_scale`, `frame_sample_inset`, `y_offset`). There is no
+//! hand-typed copy of frame width / height / row counts — those would
+//! drift the moment a generator re-runs.
+//!
+//! Callsites are unchanged from the old const era: `PIRATE_SHEET`
+//! still dereferences to `&CharacterSheetSpec` via `LazyLock`'s
+//! `Deref` impl. Tables that previously stored specs by value (e.g.
+//! `NPC_SPRITE_REGISTRY`) now hold `&'static LazyLock<CharacterSheetSpec>`
+//! references.
+
+use std::sync::LazyLock;
 
 use bevy::math::URect;
 use bevy::prelude::*;
@@ -14,6 +29,7 @@ use bevy::sprite::Anchor;
 
 use super::anim::CharacterAnim;
 use super::assets::CharacterSpriteAsset;
+use super::registry::{NormPoint, SheetRecord};
 
 #[derive(Clone, Copy, Debug)]
 pub struct AnimRow {
@@ -23,263 +39,129 @@ pub struct AnimRow {
 
 /// Frame layout for one of the generated sheets.
 ///
-/// Frames are 128x128 with a per-row label strip on the left whose width
-/// differs between targets. Rows are sparse and ordered exactly as the
-/// generator emits them, so a sandbag can list only idle/hit/death while the
-/// player can still list the full movement/combat set.
+/// Rows are sparse and ordered exactly as the generator emits them, so a
+/// sandbag can list only idle/hit/death while the player can still list
+/// the full movement/combat set.
 ///
-/// Tuning fields (`collision_scale`, `feet_anchor_y`, `frame_sample_inset`)
-/// live per-spec so each target can be tuned without touching globals —
-/// the prior version used module-level constants which forced identical
-/// scale/anchor across robot and goblin even though their rendered bodies
-/// occupy different fractions of the 128px frame.
-#[derive(Clone, Copy, Debug)]
+/// The dynamic fields (`label_width`, `frame_width`, `frame_height`,
+/// `rows`, `feet_anchor_y`) come from the RON manifest at first access;
+/// the tuning fields (`collision_scale`, `frame_sample_inset`,
+/// `y_offset`) live in this file because they're gameplay decisions
+/// about how a sprite is *used*, not facts about how it was drawn.
+#[derive(Clone, Debug)]
 pub struct CharacterSheetSpec {
     pub label_width: u32,
     /// Pixel offset from the top of the sheet PNG before the first row.
     /// Used to share one PNG across multiple sprite specs that each take
     /// a different row block — e.g. the lab-props sheet has 8 props
-    /// stacked vertically, each addressed by its own const with
+    /// stacked vertically, each addressed by its own static with
     /// `y_offset = N * frame_height`. Defaults to 0 for sheets whose
     /// row 0 starts at the top of the image.
     pub y_offset: u32,
-    /// Per-frame width in source-image pixels. The generator now crops
-    /// each sheet to the union of opaque-pixel bboxes across every frame,
-    /// so this is *not* always 128 anymore — robot is 120, goblin 121.
+    /// Per-frame width in source-image pixels. The generator crops each
+    /// sheet to the union of opaque-pixel bboxes across every frame,
+    /// so this is *not* always 128 — pirate is 103, shark is 162.
+    /// Authoritative value lives in the paired `*_spritesheet.ron`.
     pub frame_width: u32,
     pub frame_height: u32,
-    pub rows: &'static [(CharacterAnim, AnimRow)],
+    pub rows: Vec<(CharacterAnim, AnimRow)>,
     /// Multiplier applied to the entity's collision-box max dimension to
     /// derive the rendered sprite's height. Width is derived from the
     /// cropped frame's aspect ratio so the character isn't squashed.
     pub collision_scale: f32,
     /// Sprite anchor y (normalized; negative shifts the sprite up so feet
-    /// land near the collision-box bottom).
+    /// land near the collision-box bottom). Authoritative value lives in
+    /// the RON's `body_metrics.feet_anchor_norm.y`.
     pub feet_anchor_y: f32,
     /// Pixel inset on every URect to prevent bilinear filtering from
     /// pulling neighboring frame pixels at the seam.
     pub frame_sample_inset: u32,
 }
 
-pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 100,
-    y_offset: 0,
-    // The new directional-attack rows extend the union-bbox crop back
-    // out to 128×128 (overhead swings + spinning aerials reach the
-    // canvas edges). Re-confirm against the regenerated manifest after
-    // any animation edit that widens the silhouette envelope.
-    frame_width: 128,
-    frame_height: 128,
-    rows: &[
-        (
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.120,
-            },
-        ),
-        (
-            CharacterAnim::Walk,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Run,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::Jump,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Fall,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Slash,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::Hit,
-            AnimRow {
-                frame_count: 5,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            CharacterAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-        (
-            CharacterAnim::BlinkOut,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::BlinkIn,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::Dash,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.065,
-            },
-        ),
-        // Hover / free-flight pose with jet flames at the feet. Sits
-        // after Dash because the robot config lists `hover` after
-        // `dash`; PNG row order is the source of truth, so any
-        // reorder here must match a regenerated sheet.
-        (
-            CharacterAnim::Fly,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.078,
-            },
-        ),
-        // Held ledge-grab dangle.
-        (
-            CharacterAnim::LedgeGrab,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.100,
-            },
-        ),
-        // ── Traversal polish rows (appended; PNG row order matches
-        // `configs/robot.yaml`).
-        (
-            CharacterAnim::DashStartup,
-            AnimRow {
-                frame_count: 4,
-                duration_secs: 0.050,
-            },
-        ),
-        (
-            CharacterAnim::LandHard,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::LandRecovery,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::WallGrab,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.110,
-            },
-        ),
-        (
-            CharacterAnim::LedgeClimb,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.100,
-            },
-        ),
-        (
-            CharacterAnim::LedgeGetup,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::FloatGlide,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-        // ── Directional sword attacks (Marth/Lucina shapes).
-        (
-            CharacterAnim::AttackSide,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.065,
-            },
-        ),
-        (
-            CharacterAnim::AttackUp,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.065,
-            },
-        ),
-        (
-            CharacterAnim::AttackDown,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.065,
-            },
-        ),
-        (
-            CharacterAnim::AirNeutral,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.060,
-            },
-        ),
-        (
-            CharacterAnim::AirForward,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::AirBack,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::AirDown,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.070,
-            },
-        ),
-        (
-            CharacterAnim::AirUp,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.062,
-            },
-        ),
-    ],
-    collision_scale: 2.1,
-    feet_anchor_y: -0.3125,
-    frame_sample_inset: 1,
-};
+/// The gameplay-tuning fields that don't appear in the RON manifest.
+/// One `SheetTuning` per sprite id is the smallest hand-typed delta
+/// between the RON and a runnable `CharacterSheetSpec`.
+struct SheetTuning {
+    collision_scale: f32,
+    feet_anchor_y_override: Option<f32>,
+    frame_sample_inset: u32,
+    y_offset: u32,
+}
+
+impl SheetTuning {
+    const fn new(collision_scale: f32, frame_sample_inset: u32) -> Self {
+        Self {
+            collision_scale,
+            feet_anchor_y_override: None,
+            frame_sample_inset,
+            y_offset: 0,
+        }
+    }
+
+    const fn with_y_offset(mut self, y_offset: u32) -> Self {
+        self.y_offset = y_offset;
+        self
+    }
+
+    const fn with_feet_anchor_y(mut self, feet_anchor_y: f32) -> Self {
+        self.feet_anchor_y_override = Some(feet_anchor_y);
+        self
+    }
+}
+
+/// Load + cache a `CharacterSheetSpec` from its RON manifest, combined
+/// with the static gameplay tuning. Panics if the RON is missing or
+/// malformed — that's a hard project invariant (the test
+/// `every_spritesheet_ron_parses_into_sheet_record` catches it before
+/// runtime).
+fn load_spec(sprite_id: &str, tuning: &SheetTuning) -> CharacterSheetSpec {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets/sprites")
+        .join(format!("{sprite_id}_spritesheet.ron"));
+    let text = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("load_spec({sprite_id}): read {}: {e}", path.display()));
+    let record: SheetRecord = ron::from_str(&text)
+        .unwrap_or_else(|e| panic!("load_spec({sprite_id}): parse {}: {e}", path.display()));
+    spec_from_record(&record, tuning)
+}
+
+fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterSheetSpec {
+    let rows: Vec<(CharacterAnim, AnimRow)> = record
+        .rows
+        .iter()
+        .filter_map(|row| {
+            let anim = CharacterAnim::from_name(&row.animation)?;
+            Some((
+                anim,
+                AnimRow {
+                    frame_count: row.frame_count as usize,
+                    duration_secs: row.duration_secs,
+                },
+            ))
+        })
+        .collect();
+    let feet_anchor_y = tuning.feet_anchor_y_override.unwrap_or_else(|| {
+        record
+            .body_metrics
+            .as_ref()
+            .and_then(|b| b.feet_anchor_norm)
+            .map(|p: NormPoint| p.y)
+            .unwrap_or(-0.5)
+    });
+    CharacterSheetSpec {
+        label_width: record.label_width,
+        y_offset: tuning.y_offset,
+        frame_width: record.frame_width,
+        frame_height: record.frame_height,
+        rows,
+        collision_scale: tuning.collision_scale,
+        feet_anchor_y,
+        frame_sample_inset: tuning.frame_sample_inset,
+    }
+}
+
+const ROBOT_TUNING: SheetTuning = SheetTuning::new(2.1, 1);
+pub static ROBOT_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("robot", &ROBOT_TUNING));
 
 /// Player-specific compact robot sheet. Rendered from
 /// `tools/ambition_sprite2d_renderer/configs/player_robot.yaml`
@@ -287,312 +169,11 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// `ROBOT_SHEET` so animation indexing is identical — only the
 /// per-frame geometry + anchor differ to match the shrunk
 /// silhouette.
-pub const PLAYER_ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 100,
-    y_offset: 0,
-    // Union-bbox crop of the compact player sheet (was 128×128 source).
-    // Re-confirm against the regenerated manifest after any animation
-    // edit that widens the silhouette envelope.
-    frame_width: 128,
-    frame_height: 125,
-    rows: &[
-        (
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.120,
-            },
-        ),
-        (
-            CharacterAnim::Walk,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Run,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::Jump,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Fall,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Slash,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::Hit,
-            AnimRow {
-                frame_count: 5,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            CharacterAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-        (
-            CharacterAnim::BlinkOut,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::BlinkIn,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::Dash,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.065,
-            },
-        ),
-        (
-            CharacterAnim::Fly,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.078,
-            },
-        ),
-        (
-            CharacterAnim::LedgeGrab,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.100,
-            },
-        ),
-        (
-            CharacterAnim::DashStartup,
-            AnimRow {
-                frame_count: 4,
-                duration_secs: 0.050,
-            },
-        ),
-        (
-            CharacterAnim::LandHard,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::LandRecovery,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::WallGrab,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.110,
-            },
-        ),
-        (
-            CharacterAnim::LedgeClimb,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.100,
-            },
-        ),
-        (
-            CharacterAnim::LedgeGetup,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::FloatGlide,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-        (
-            CharacterAnim::AttackSide,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.065,
-            },
-        ),
-        (
-            CharacterAnim::AttackUp,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.065,
-            },
-        ),
-        (
-            CharacterAnim::AttackDown,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.065,
-            },
-        ),
-        (
-            CharacterAnim::AirNeutral,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.060,
-            },
-        ),
-        (
-            CharacterAnim::AirForward,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::AirBack,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::AirDown,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.070,
-            },
-        ),
-        (
-            CharacterAnim::AirUp,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.062,
-            },
-        ),
-    ],
-    // The compact silhouette fills more of its (smaller) frame than the
-    // base robot does, so a smaller `collision_scale` keeps the rendered
-    // sprite close in size to the 30×48 collider rather than oversizing
-    // the placeholder. Tuned against the player_robot manifest's
-    // body_pixel_bbox (≈62×89 inside the 128×125 crop).
-    collision_scale: 1.35,
-    // Manifest reports feet_anchor_norm.y = -0.340.
-    feet_anchor_y: -0.316,
-    frame_sample_inset: 1,
-};
+const PLAYER_ROBOT_TUNING: SheetTuning = SheetTuning::new(1.35, 1);
+pub static PLAYER_ROBOT_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("player_robot", &PLAYER_ROBOT_TUNING));
 
-pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 100,
-    y_offset: 0,
-    // After the gen2d union-bbox crop the goblin sheet is 121x127.
-    frame_width: 121,
-    frame_height: 127,
-    rows: &[
-        (
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.120,
-            },
-        ),
-        (
-            CharacterAnim::Walk,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Run,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::Jump,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Fall,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Slash,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::Hit,
-            AnimRow {
-                frame_count: 5,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            CharacterAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-        (
-            CharacterAnim::BlinkOut,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::BlinkIn,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::Dash,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.065,
-            },
-        ),
-    ],
-    collision_scale: 2.1,
-    feet_anchor_y: -0.3504,
-    frame_sample_inset: 1,
-};
+const GOBLIN_TUNING: SheetTuning = SheetTuning::new(2.1, 1);
+pub static GOBLIN_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("goblin", &GOBLIN_TUNING));
 
 /// Absurd General — military-faction NPC sheet. Generated by
 /// `tools/ambition_sprite2d_renderer` (archetype: `absurd_general`).
@@ -605,38 +186,8 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// animations (talk during dialog, celebrate on encounter clear)
 /// will extend `CharacterAnim` and append rows in PNG order so the
 /// atlas y-stride stays aligned with the generator output.
-pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
-    y_offset: 0,
-    // Pitch values: each frame's content is 120×116, but the
-    // generator reserves 4 extra pixels on the right and bottom
-    // edges for inter-frame padding. Sampling at the pitch with
-    // `frame_sample_inset: 2` keeps bilinear filtering inside the
-    // frame interior even with the wider gap.
-    frame_width: 120,
-    frame_height: 112,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    // The General's body_pixel_bbox covers ~95% of the 116-tall
-    // frame (the whole "uniformed officer" silhouette is in-frame),
-    // so we want the rendered quad height to be barely larger than
-    // the LDtk-authored collision box. Robot/Goblin sit around 2.1
-    // because their generator leaves big transparent margins; the
-    // General has almost no margin so 1.1 keeps the silhouette on
-    // scale with other characters.
-    collision_scale: 1.15,
-    // Body metrics from the generator: feet_pixel.y = 113 in a
-    // 116-tall frame → normalized −0.474 from frame center. Match
-    // that here so the General's boots land on the alcove floor
-    // instead of hovering above it.
-    feet_anchor_y: -0.4643,
-    frame_sample_inset: 2,
-};
+const ABSURD_GENERAL_TUNING: SheetTuning = SheetTuning::new(1.15, 2);
+pub static ABSURD_GENERAL_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("absurd_general", &ABSURD_GENERAL_TUNING));
 
 // ─────────────────────────────────────────────────────────────────
 // Toon-target NPC sheets — share the generator's 4-px inter-frame
@@ -655,167 +206,28 @@ pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// flyer), chomp row → Slash (attack picker), dive row → Dash. There
 /// is no hit / death row in this generated sheet; the resolver falls
 /// back to Idle for those animations.
-pub const BURNING_FLYING_SHARK_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 118,
-    y_offset: 0,
-    frame_width: 162,
-    frame_height: 76,
-    rows: &[
-        (
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.135,
-            },
-        ),
-        (
-            CharacterAnim::Walk,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            CharacterAnim::Slash,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.082,
-            },
-        ),
-        (
-            CharacterAnim::Dash,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.082,
-            },
-        ),
-    ],
-    // 192-wide sprite over a ~108-wide collision body — keep the
-    // silhouette readable without overflowing the box too aggressively.
-    collision_scale: 1.4,
-    feet_anchor_y: -0.3947,
-    frame_sample_inset: 1,
-};
+const BURNING_FLYING_SHARK_TUNING: SheetTuning = SheetTuning::new(1.4, 1);
+pub static BURNING_FLYING_SHARK_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("burning_flying_shark", &BURNING_FLYING_SHARK_TUNING));
 
 /// Pirate Admiral / Pirate Raider — both ship the same generator
 /// layout (idle / walk / slash / taunt / hurt / death; 128×128
 /// frames; feet_anchor_norm.y ≈ -0.375). They share one sheet spec
 /// because the layout is identical even though the rendered art
 /// differs. Two filenames; one indexing contract.
-pub const PIRATE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 100,
-    y_offset: 0,
-    frame_width: 103,
-    frame_height: 114,
-    rows: &[
-        (
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.120,
-            },
-        ),
-        (
-            CharacterAnim::Walk,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            CharacterAnim::Slash,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.085,
-            },
-        ),
-        (
-            CharacterAnim::Taunt,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.100,
-            },
-        ),
-        (
-            CharacterAnim::Hit,
-            AnimRow {
-                frame_count: 4,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            CharacterAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-    ],
-    // Generator leaves enough headroom that 1.6 lines the silhouette
-    // up roughly to the LDtk collision box (matches the goblin/robot
-    // ballpark for similarly-sized characters).
-    collision_scale: 1.6,
-    // From both pirate manifests: feet_anchor_norm.y = -0.375.
-    feet_anchor_y: -0.4825,
-    frame_sample_inset: 1,
-};
+const PIRATE_TUNING: SheetTuning = SheetTuning::new(1.6, 1);
+pub static PIRATE_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("pirate_admiral", &PIRATE_TUNING));
 
 /// Architect — hub research / ADR-explainer NPC.
-pub const ARCHITECT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
-    y_offset: 0,
-    // body_metrics frame=97×114, +4px padding both axes → 101×118.
-    frame_width: 97,
-    frame_height: 114,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.4649,
-    frame_sample_inset: 2,
-};
+const ARCHITECT_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static ARCHITECT_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("architect", &ARCHITECT_TUNING));
 
 /// Kernel Guide — onboarding NPC at the hub spawn area.
-pub const KERNEL_GUIDE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
-    y_offset: 0,
-    // body_metrics frame=89×97, +4px padding → 93×101.
-    frame_width: 89,
-    frame_height: 89,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.4663,
-    frame_sample_inset: 2,
-};
+const KERNEL_GUIDE_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static KERNEL_GUIDE_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("kernel_guide", &KERNEL_GUIDE_TUNING));
 
 /// Vault Keeper — persistence / save-seed NPC in the basement.
-pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
-    y_offset: 0,
-    // body_metrics frame=99×116, +4px padding → 103×120.
-    frame_width: 99,
-    frame_height: 116,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.4655,
-    frame_sample_inset: 2,
-};
+const VAULT_KEEPER_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static VAULT_KEEPER_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("vault_keeper", &VAULT_KEEPER_TUNING));
 
 /// Interdimensional gate ring — the standing stone arch that frames
 /// a portal. Two authored rows in
@@ -828,31 +240,8 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// [`crate::rooms::sync_portal_ring_rotation_system`] requests
 /// `Walk` while `PortalPhase::Opening` is active and falls back to
 /// `Idle` otherwise.
-pub const GATE_RING_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 128,
-    y_offset: 0,
-    frame_width: 154,
-    frame_height: 156,
-    rows: &[
-        (
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.140,
-            },
-        ),
-        (
-            CharacterAnim::Walk,
-            AnimRow {
-                frame_count: 12,
-                duration_secs: 0.085,
-            },
-        ),
-    ],
-    collision_scale: 1.00,
-    feet_anchor_y: -0.4872,
-    frame_sample_inset: 2,
-};
+const GATE_RING_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
+pub static GATE_RING_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("interdimensional_gate_ring", &GATE_RING_TUNING));
 
 /// Interdimensional gate portal — the shimmering surface inside the
 /// ring. Three rows authored in the source PNG
@@ -867,41 +256,8 @@ pub const GATE_RING_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// [`crate::rooms::sync_portal_sprite_animation`] system calls
 /// `CharacterAnimator::request(...)` with the right variant on
 /// phase change.
-pub const GATE_PORTAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 128,
-    y_offset: 0,
-    frame_width: 92,
-    frame_height: 92,
-    rows: &[
-        // Row 0 = opening (one-shot, 640ms).
-        (
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.080,
-            },
-        ),
-        // Row 1 = stable (looping, 880ms per loop).
-        (
-            CharacterAnim::Walk,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-        // Row 2 = closing (one-shot, 640ms).
-        (
-            CharacterAnim::Run,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.080,
-            },
-        ),
-    ],
-    collision_scale: 1.00,
-    feet_anchor_y: -0.500,
-    frame_sample_inset: 2,
-};
+const GATE_PORTAL_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
+pub static GATE_PORTAL_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("interdimensional_gate_portal", &GATE_PORTAL_TUNING));
 
 // ───────────────────────────────────────────────────────────────────
 // Lab props — shared `creator_lab_props_spritesheet.png`.
@@ -918,39 +274,43 @@ pub const GATE_PORTAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 // but never opens a dialogue panel.
 // ───────────────────────────────────────────────────────────────────
 
-const LAB_PROP_ROWS: &[(CharacterAnim, AnimRow)] = &[(
-    CharacterAnim::Idle,
-    AnimRow {
-        frame_count: 4,
-        duration_secs: 0.140,
-    },
-)];
-
-const fn lab_prop_sheet(y_offset: u32) -> CharacterSheetSpec {
+// Lab-prop sheets are special: 8 different props share one PNG
+// (`creator_lab_props_spritesheet.png`) addressed by y_offset, and the
+// RON manifest for that PNG isn't shaped like the per-character RONs
+// (it stores props in a `props:` map keyed by prop id, not row-ordered
+// animation rows). Until the generator emits a per-prop RON or the
+// runtime grows a multi-prop manifest reader, these stay hand-typed.
+// The single-row idle animation is identical across all 8 props.
+fn lab_prop_sheet(y_offset: u32) -> CharacterSheetSpec {
     CharacterSheetSpec {
         label_width: 160,
         y_offset,
         frame_width: 128,
         frame_height: 128,
-        rows: LAB_PROP_ROWS,
+        rows: vec![(
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 4,
+                duration_secs: 0.140,
+            },
+        )],
         collision_scale: 1.00,
-        // Props sit on the floor by their bottom edge.
         feet_anchor_y: -0.500,
         frame_sample_inset: 2,
     }
 }
 
-pub const LAB_PROP_GENESIS_VAT: CharacterSheetSpec = lab_prop_sheet(0);
-#[allow(dead_code)] // Reserved for future intro/lab authoring.
-pub const LAB_PROP_SPECIMEN_JAR: CharacterSheetSpec = lab_prop_sheet(128);
-pub const LAB_PROP_NEURAL_CONSOLE: CharacterSheetSpec = lab_prop_sheet(256);
-pub const LAB_PROP_RESONANCE_COIL: CharacterSheetSpec = lab_prop_sheet(384);
-pub const LAB_PROP_POWER_CORE: CharacterSheetSpec = lab_prop_sheet(512);
-pub const LAB_PROP_REPAIR_CRADLE: CharacterSheetSpec = lab_prop_sheet(640);
-#[allow(dead_code)] // Reserved for future intro/lab authoring.
-pub const LAB_PROP_DRONE_CRADLE: CharacterSheetSpec = lab_prop_sheet(768);
-#[allow(dead_code)] // Reserved for future intro/lab authoring.
-pub const LAB_PROP_PORTAL_CALIBRATOR: CharacterSheetSpec = lab_prop_sheet(896);
+pub static LAB_PROP_GENESIS_VAT: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(0));
+#[allow(dead_code)]
+pub static LAB_PROP_SPECIMEN_JAR: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(128));
+pub static LAB_PROP_NEURAL_CONSOLE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(256));
+pub static LAB_PROP_RESONANCE_COIL: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(384));
+pub static LAB_PROP_POWER_CORE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(512));
+pub static LAB_PROP_REPAIR_CRADLE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(640));
+#[allow(dead_code)]
+pub static LAB_PROP_DRONE_CRADLE: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(768));
+#[allow(dead_code)]
+pub static LAB_PROP_PORTAL_CALIBRATOR: LazyLock<CharacterSheetSpec> = LazyLock::new(|| lab_prop_sheet(896));
 
 /// Diagnostic Cart — the rail / gurney the player wakes on. Rendered
 /// by the dedicated `intro_cart` tack-on target. 3 rows ship on disk
@@ -961,25 +321,8 @@ pub const LAB_PROP_PORTAL_CALIBRATOR: CharacterSheetSpec = lab_prop_sheet(896);
 /// path the other intro characters use. A dedicated `Prop` entity
 /// type lands in a follow-up; for the v1 slice the NpcSpawn slot is
 /// the lightest way to get a visible cart without engine churn.
-pub const CART_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
-    y_offset: 0,
-    frame_width: 137,
-    frame_height: 88,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.145,
-        },
-    )],
-    collision_scale: 1.00,
-    // The cart's bottom sits flush at y=128 (no overshoot from a
-    // walking silhouette). Feet anchor at the bottom row, slight
-    // upward bias so the player visually stands ON the cart top.
-    feet_anchor_y: -0.4432,
-    frame_sample_inset: 2,
-};
+const CART_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
+pub static CART_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("intro_cart", &CART_TUNING));
 
 /// News board — wall-mounted bulletin board prop rendered by the
 /// `news_board` tack-on target. Single Idle row (6 frames @ 165 ms)
@@ -991,22 +334,8 @@ pub const CART_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// proper bulletin board rather than a thumbnail. `feet_anchor_y`
 /// pins the board's bottom row against the collision-box bottom
 /// (no baked drop shadow — see the project rule on no shadows).
-pub const NEWS_BOARD_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 104,
-    y_offset: 0,
-    frame_width: 64,
-    frame_height: 96,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.165,
-        },
-    )],
-    collision_scale: 1.50,
-    feet_anchor_y: -0.4479,
-    frame_sample_inset: 2,
-};
+const NEWS_BOARD_TUNING: SheetTuning = SheetTuning::new(1.50, 2);
+pub static NEWS_BOARD_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("news_board", &NEWS_BOARD_TUNING));
 
 /// Creator — the researcher who wakes the player. Rendered by the
 /// dedicated `creator` tack-on target (not the toon-side adapter), so
@@ -1015,106 +344,27 @@ pub const NEWS_BOARD_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// is wired here today — when CharacterAnim grows a Talk variant,
 /// the speak row at index 1 lands automatically because the renderer
 /// looks the row up by enum discriminant.
-pub const CREATOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 108,
-    y_offset: 0,
-    frame_width: 97,
-    frame_height: 144,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.145,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.4653,
-    frame_sample_inset: 2,
-};
+const CREATOR_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static CREATOR_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("creator", &CREATOR_TUNING));
 
 /// Fascist Enforcer — uniformed Nazi-dimension raid grunt. Toon-side
 /// adapter render; the dedicated `fascist_enforcer` archetype reads
 /// as "officer cap + storm uniform + rifle" so it's the correct
 /// silhouette for the intro Nazi salvage guard (the Absurd General
 /// placeholder was a satirical hub NPC, not a raid trooper).
-pub const FASCIST_ENFORCER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    // Toon-target convention: yaml `label_width`+border for the offset
-    // to the first frame and yaml `frame_width`+border for the column
-    // pitch. The 4-px inter-frame gap is transparent, so the extra
-    // sample width gets clipped by `frame_sample_inset`.
-    label_width: 112,
-    y_offset: 0,
-    // body_metrics yaml frame=128×122 (already includes the right/bottom
-    // pad inside the cropped sheet); add border to match the col/row pitch.
-    frame_width: 128,
-    frame_height: 122,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.4262,
-    frame_sample_inset: 2,
-};
+const FASCIST_ENFORCER_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static FASCIST_ENFORCER_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("fascist_enforcer", &FASCIST_ENFORCER_TUNING));
 
 /// Oiler — street mechanic / Eulerian gate-keeper NPC who finds the
 /// player in the drain alley after the intro escape. Toon-side adapter
 /// render; matches the Oiler review config (configs/review/oiler.yaml).
-pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    // Toon-target convention (see Architect/Vault Keeper above):
-    // label_width = yaml_label_width + border; frame_width/height =
-    // yaml + border. Without the +border on `label_width` the sample
-    // window starts 4 pixels left of frame 0, and the missing border
-    // on `frame_width` makes that offset accumulate by 4 px per column,
-    // causing the sprite to appear to "drive" rightward and wrap into
-    // the neighboring frame.
-    label_width: 112,
-    y_offset: 0,
-    // body_metrics yaml frame=84×115 (savant_cap + banyan silhouette
-    // is taller than the old cap version because the turban peak adds
-    // headroom and the banyan + cravat add a bit more torso). +4 border
-    // on both axes → 88×119.
-    frame_width: 84,
-    frame_height: 109,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.4633,
-    frame_sample_inset: 2,
-};
+const OILER_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static OILER_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("oiler", &OILER_TUNING));
 
 /// Erdish — wandering graph-theory eccentric. Toon-side adapter render;
 /// matches the Erdish review config (configs/review/erdish.yaml).
-pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    // Toon-target convention (see Architect): yaml label_width/frame_*
-    // + 4-px border for the actual column/row pitch in the cropped
-    // sheet. The previous values omitted the border on `label_width`
-    // and `frame_*`, which made the sample window drift right by 4 px
-    // per column and pull the next frame's content.
-    label_width: 112,
-    y_offset: 0,
-    // body_metrics yaml frame=91×115; +4 border on both axes → 95×119.
-    frame_width: 91,
-    frame_height: 115,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.4652,
-    frame_sample_inset: 2,
-};
+const ERDISH_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static ERDISH_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("erdish", &ERDISH_TUNING));
 
 /// Alice — unofficial cartographer. Toon-side adapter render; the
 /// `alice_cryptographer` archetype reads as "cautious local with a
@@ -1122,64 +372,19 @@ pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// (configs/review/alice.yaml) and the
 /// `alice_spritesheet.yaml`/`.png` pair that ships in
 /// `crates/ambition_sandbox/assets/sprites/`.
-pub const ALICE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
-    y_offset: 0,
-    // alice yaml frame=43×104; +4 border on both axes → 47×108.
-    frame_width: 43,
-    frame_height: 104,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.140,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.4712,
-    frame_sample_inset: 2,
-};
+const ALICE_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static ALICE_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("alice", &ALICE_TUNING));
 
 /// Bob — field cartographer. Toon-side adapter render; the
 /// `bob_engineer` archetype is wider in the shoulders (engineer
 /// silhouette) so the frame is correspondingly wider than Alice's.
 /// Matches the Bob review config (configs/review/bob.yaml).
-pub const BOB_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
-    y_offset: 0,
-    // bob yaml frame=55×109; +4 border on both axes → 59×113.
-    frame_width: 55,
-    frame_height: 109,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.140,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.4725,
-    frame_sample_inset: 2,
-};
+const BOB_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static BOB_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("bob", &BOB_TUNING));
 
 /// Merchant Prototype — placeholder shopkeeper NPC.
-pub const MERCHANT_PROTOTYPE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
-    y_offset: 0,
-    // body_metrics frame=83×98, +4px padding → 87×102.
-    frame_width: 83,
-    frame_height: 91,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.10,
-    feet_anchor_y: -0.467,
-    frame_sample_inset: 2,
-};
+const MERCHANT_PROTOTYPE_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static MERCHANT_PROTOTYPE_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("merchant_prototype", &MERCHANT_PROTOTYPE_TUNING));
 
 // ─────────────────────────────────────────────────────────────────
 // Robot-target faction-leader sheets. Tightly packed (no inter-frame
@@ -1191,91 +396,19 @@ pub const MERCHANT_PROTOTYPE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// rowdy training-pit faction). Goblin-target generator output:
 /// label_w=120, no inter-frame padding, body fills ~86% of the
 /// 128-tall row.
-pub const GOBLIN_CANTINA_CHIEFTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 120,
-    y_offset: 0,
-    frame_width: 114,
-    frame_height: 128,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.16,
-    feet_anchor_y: -0.3516,
-    frame_sample_inset: 1,
-};
+const GOBLIN_CANTINA_CHIEFTAIN_TUNING: SheetTuning = SheetTuning::new(1.16, 1);
+pub static GOBLIN_CANTINA_CHIEFTAIN_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("goblin_cantina_chieftain", &GOBLIN_CANTINA_CHIEFTAIN_TUNING));
 
 /// Captain Pulse — Pulse Voyagers faction leader.
-pub const PULSE_VOYAGER_CAPTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 120,
-    y_offset: 0,
-    frame_width: 110,
-    frame_height: 128,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.20,
-    feet_anchor_y: -0.3125,
-    frame_sample_inset: 1,
-};
+const PULSE_VOYAGER_CAPTAIN_TUNING: SheetTuning = SheetTuning::new(1.20, 1);
+pub static PULSE_VOYAGER_CAPTAIN_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("pulse_voyager_captain", &PULSE_VOYAGER_CAPTAIN_TUNING));
 
 /// Chadwick Disruptor III — Tech-Bros Basement faction leader.
-pub const TECH_BRO_DISRUPTOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 120,
-    y_offset: 0,
-    frame_width: 111,
-    frame_height: 128,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        },
-    )],
-    collision_scale: 1.20,
-    feet_anchor_y: -0.3125,
-    frame_sample_inset: 1,
-};
+const TECH_BRO_DISRUPTOR_TUNING: SheetTuning = SheetTuning::new(1.20, 1);
+pub static TECH_BRO_DISRUPTOR_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("tech_bro_disruptor", &TECH_BRO_DISRUPTOR_TUNING));
 
-pub const SANDBAG_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 100,
-    y_offset: 0,
-    frame_width: 128,
-    frame_height: 128,
-    rows: &[
-        (
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.120,
-            },
-        ),
-        (
-            CharacterAnim::Hit,
-            AnimRow {
-                frame_count: 4,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::Death,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.112,
-            },
-        ),
-    ],
-    collision_scale: 1.38,
-    feet_anchor_y: -0.375,
-    frame_sample_inset: 1,
-};
+const SANDBAG_TUNING: SheetTuning = SheetTuning::new(1.38, 1);
+pub static SANDBAG_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("sandbag", &SANDBAG_TUNING));
 
 /// Shadow Oni Leader / Shadow Duelist — both ship the same generator
 /// layout (idle / walk / run / jump / fall / slash / hit / death /
@@ -1283,98 +416,8 @@ pub const SANDBAG_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// padding, label_width = 100). Mirrors the PIRATE_SHEET pattern:
 /// two filenames, one indexing contract. Both ninja manifests
 /// report `feet_anchor_norm.y = -0.4921875`.
-pub const NINJA_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 100,
-    y_offset: 0,
-    frame_width: 128,
-    frame_height: 128,
-    rows: &[
-        (
-            CharacterAnim::Idle,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.120,
-            },
-        ),
-        (
-            CharacterAnim::Walk,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Run,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.075,
-            },
-        ),
-        (
-            CharacterAnim::Jump,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Fall,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.095,
-            },
-        ),
-        (
-            CharacterAnim::Slash,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.068,
-            },
-        ),
-        (
-            CharacterAnim::Hit,
-            AnimRow {
-                frame_count: 5,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            CharacterAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-        (
-            CharacterAnim::BlinkOut,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::BlinkIn,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            CharacterAnim::Dash,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.058,
-            },
-        ),
-    ],
-    // Ninja silhouettes fill nearly the full 128px frame height (body
-    // bbox h = 128 in both manifests), so a smaller scale than the
-    // robot/goblin (2.1) keeps the rendered sprite roughly proportional
-    // to the LDtk collision box.
-    collision_scale: 1.5,
-    feet_anchor_y: -0.492,
-    frame_sample_inset: 1,
-};
+const NINJA_TUNING: SheetTuning = SheetTuning::new(1.5, 1);
+pub static NINJA_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("ninja", &NINJA_TUNING));
 
 /// Per-target sprite render size. The generator's character occupies only
 /// part of the 128×128 frame, so the rendered quad must be larger than
@@ -1385,7 +428,7 @@ pub const NINJA_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// load them at runtime, replacing these per-spec constants with values
 /// derived from each sheet's actual rendered body. The per-spec tuning
 /// already isolates the override per target so the migration is local.
-pub fn sprite_render_size(spec: CharacterSheetSpec, collision: Vec2) -> Vec2 {
+pub fn sprite_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {
     sprite_render_size_scaled(spec, collision, 1.0)
 }
 
@@ -1394,7 +437,7 @@ pub fn sprite_render_size(spec: CharacterSheetSpec, collision: Vec2) -> Vec2 {
 /// The collision box remains gameplay authority; this scale is only for
 /// placeholder sprites while final art is still in flux.
 pub fn sprite_render_size_scaled(
-    spec: CharacterSheetSpec,
+    spec: &CharacterSheetSpec,
     collision: Vec2,
     visual_scale: f32,
 ) -> Vec2 {
@@ -1415,20 +458,20 @@ pub fn sprite_render_size_scaled(
 /// gameplay collision.
 pub const PLAYER_PLACEHOLDER_VISUAL_SCALE: f32 = 1.16;
 
-pub fn player_placeholder_render_size(spec: CharacterSheetSpec, collision: Vec2) -> Vec2 {
+pub fn player_placeholder_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {
     sprite_render_size_scaled(spec, collision, PLAYER_PLACEHOLDER_VISUAL_SCALE)
 }
 
 /// Sprite anchor that places the rendered character's feet on the bottom
 /// of the collision box (rather than at its centre).
-pub fn feet_anchor_for(spec: CharacterSheetSpec, collision: Vec2) -> Anchor {
+pub fn feet_anchor_for(spec: &CharacterSheetSpec, collision: Vec2) -> Anchor {
     feet_anchor_for_render_size(spec, collision, sprite_render_size(spec, collision))
 }
 
 /// Sprite anchor for an explicit render size. This keeps the feet planted when
 /// presentation-only scaling makes the sprite larger than its collider.
 pub fn feet_anchor_for_render_size(
-    spec: CharacterSheetSpec,
+    spec: &CharacterSheetSpec,
     collision: Vec2,
     render_size: Vec2,
 ) -> Anchor {
@@ -1440,7 +483,7 @@ pub fn feet_anchor_for_render_size(
 
 /// Build the textured sprite for a character given its collision-box size.
 pub fn build_character_sprite(asset: &CharacterSpriteAsset, collision: Vec2) -> Sprite {
-    build_character_sprite_with_render_size(asset, sprite_render_size(asset.spec, collision))
+    build_character_sprite_with_render_size(asset, sprite_render_size(&asset.spec, collision))
 }
 
 /// Build the textured sprite with an explicit presentation render size.

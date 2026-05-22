@@ -159,8 +159,8 @@ pub fn spawn_room_prop(
         let sprite = build_character_sprite(asset, collision);
         entity.insert((
             sprite,
-            feet_anchor_for(asset.spec, collision),
-            CharacterAnimator::new(asset.spec),
+            feet_anchor_for(&asset.spec, collision),
+            CharacterAnimator::new(&asset.spec),
         ));
     } else {
         // Fallback: a translucent placeholder rectangle so authors
@@ -538,7 +538,7 @@ fn spawn_authored_interactable(
         let mut label_dy = -half_h - 22.0;
         if let Some(ch) = assets.and_then(|a| a.characters.npc_asset_for_name(&authored.name)) {
             let collision = authored.aabb.half_size() * 2.0;
-            let render_h = sprite_render_size(ch.spec, collision).y;
+            let render_h = sprite_render_size(&ch.spec, collision).y;
             let sprite_top_dy = half_h - render_h;
             label_dy = label_dy.min(sprite_top_dy - 12.0);
         }

@@ -24,9 +24,9 @@ pub struct CharacterAnimator {
 }
 
 impl CharacterAnimator {
-    pub fn new(spec: CharacterSheetSpec) -> Self {
+    pub fn new(spec: &CharacterSheetSpec) -> Self {
         Self {
-            spec,
+            spec: spec.clone(),
             current: CharacterAnim::Idle,
             frame: 0,
             elapsed: 0.0,

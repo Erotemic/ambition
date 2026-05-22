@@ -25,7 +25,23 @@ Useful companion docs:
 
 - [ ] Increase the resolution of gnuton so the sprite is not drawn pixelated. 
 
-- [ ] Remove ground shadows from sprites, they do not belong in sprites, especially ones that fly.
+- [ ] Remove ground shadows from sprites, they do not belong in sprites, especially ones that fly. **Project rule (2026-05-22): NO BAKED DROP SHADOWS.** Foot alignment is the engine's job (alpha bbox + `feet_anchor_y`); baked shadows make every sprite hover. Cast shadows belong in the ECS visual layer as a separate primitive. Audit existing sprite generators (creator, lab props, npcs, …) and strip any soft elliptical "shadow" pass. See [[feedback-no-drop-shadows-on-sprites]] in agent memory.
+
+- [ ] **Vertical-slice "rooms with missing walls" audit** `[V4/D2]` — many intro rooms have boundaries that nothing solid blocks (player walks off into empty space). Cross-check every spec in `tools/ambition_ldtk_tools/specs/intro_*_area.yaml` against its `px_wid` / `px_hei`; if there's an EdgeExit on a side, fine, but otherwise there must be a Solid covering that boundary. Add a validator to `ambition_ldtk_tools` so future authoring catches this.
+
+- [ ] **"Doors in mid-air" audit** `[V4/D2]` — LoadingZones with `activation: Door` must be on something the player can stand on (floor / OneWay / ledge they can ledge-grab). Right now several intro rooms have doors that hang in space. Add a validator that flags any Door whose bottom edge has no walkable surface within `STAND_GAP` px below.
+
+- [ ] **Avoid doors + teleports in the vertical slice; build a gridvania world.** `[V5/D5]` — Current intro chains 10+ rooms via Door LoadingZones, which makes the slice feel like a hub with a million side-rooms. Convert to EdgeExits (stitched corridors) and connected geometry so the player traverses continuously. Reuses existing `stitched / loading-zone-free room transitions` work in the queue further down — escalate that to high priority for the intro.
+
+- [ ] **Better door sprites + variable door sizes** `[V3/D3]` — current door visuals look the same regardless of width/height. Procedurally generate frame variants (small / standard / tall / wide / double) keyed off `LoadingZone.size`, with the door art aligned to the size.
+
+- [ ] **LDtk debug-label overlap warning** `[V3/D2]` — DebugLabels frequently overlay each other in the same room (especially gate_stack_lower with the route markers). Write an `ambition_ldtk_tools` validator that flags any pair of DebugLabel entities whose rendered text bboxes overlap in world space. Bonus: a small auto-spacer that nudges them onto a vertical stack.
+
+- [ ] **Smash-Bros style ledge feel** `[V4/D4]` — Jon wants the ledge-grab / ledge-getup feel to evoke Smash Bros (snap to ledge, fast getup, multiple getup options including a roll). Add `LedgeGetupKind::Roll` to `ledge_grab.rs` alongside the existing climb, gate roll on horizontal input, and tune the snap windows / invuln frames to match the Smash feel. Long-term goal: this character should be easy to port to Smash; keep the ledge contract documentable.
+
+- [ ] **NEWS BOARD sprite** `[V2/D2]` — the in-game News Board currently renders as a generic person. Either move it from `INTRO_NPC_SPRITE_REGISTRY` into `INTRO_PROP_REGISTRY` with a static board sprite, or add a `news_board_spritesheet.png` procedural generator (wall-mounted corkboard / digital news ticker, fits the tech-bros theme).
+
+- [ ] **Wall-clipping bugs in the intro** `[V4/D4]` — Jon's noted ongoing bad-clipping-through-walls errors during intro playthroughs. Probably a mix of (a) sub-pixel collision drift at high speeds, (b) thin-wall (16-px) corner cases, (c) the trace-replay-driven lock-wall debt that's already in the active blockers list. Cross-link with the existing wall-cling teleport entry in `docs/planning/tech-debt-log.md`.
 
 ## Status legend
 

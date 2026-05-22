@@ -91,8 +91,12 @@ review_cues=(
     alice bob craig eve general_hero judy mallory olivia
     peggy sybil trent trudy victor walter
 )
+# `ron` is included because the sandbox SheetRegistry parses RON at
+# startup (see `presentation::character_sprites::registry`). Without
+# the copy step the .ron in $sprites_dir would drift from the
+# regenerated .yaml/.png.
 for cue in "${review_cues[@]}"; do
-    for ext in png yaml; do
+    for ext in png yaml ron; do
         src="$review_scratch/${cue}_spritesheet.$ext"
         if [ -f "$src" ]; then
             cp "$src" "$sprites_dir/${cue}_spritesheet.$ext"
@@ -113,7 +117,7 @@ factions_scratch="$renderer_dir/generated/factions"
 mkdir -p "$factions_scratch"
 (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-factions --out-dir "$factions_scratch")
 for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
-    for ext in png yaml; do
+    for ext in png yaml ron; do
         src="$factions_scratch/${cue}_spritesheet.$ext"
         if [ -f "$src" ]; then
             cp "$src" "$sprites_dir/${cue}_spritesheet.$ext"
@@ -134,6 +138,7 @@ tackon_targets=(
     burning_flying_shark
     creator
     creator_lab_props
+    gnu_ton_boss
     interdimensional_gate
     intro_cart
     intro_lab_tileset

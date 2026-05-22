@@ -459,6 +459,16 @@ pub(super) fn handle_player_events(
                     kind: ParticleKind::Dust,
                 });
             }
+            ae::MovementOp::LedgeRoll => {
+                // Reuse the dash sfx — the ledge roll IS a dodge-roll
+                // semantically (invuln rolling motion). Adds a small
+                // dust burst at the platform lip for visual feedback.
+                sfx.write(SfxMessage::Dash { pos });
+                vfx.write(VfxMessage::Dust {
+                    pos: player.pos,
+                    facing: player.facing,
+                });
+            }
             ae::MovementOp::ShieldUp => {
                 // Reuse the quick blink tone as a placeholder until a
                 // dedicated Shield SoundCue is added to the sfxbank.

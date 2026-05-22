@@ -10,15 +10,40 @@ use crate::movement::{InputState, MovementOp, MovementTuning, Player};
 use crate::world::{BlockKind, World};
 use crate::Vec2;
 
-/// Duration of the ledge pull-up transition.
+/// Duration of the standard ledge pull-up transition.
 pub const LEDGE_CLIMB_TIME: f32 = 0.24;
+
+/// Duration of a Smash-Bros-style ledge ROLL: shorter than the climb
+/// because the player commits horizontally and lands further inboard.
+/// The whole window grants invulnerability via the existing dodge-roll
+/// timer.
+pub const LEDGE_ROLL_TIME: f32 = 0.30;
+
+/// How much further inboard the roll lands than the climb. The roll
+/// target is `climb_target + into_axis * LEDGE_ROLL_OVERSHOOT`,
+/// chosen so the roll covers ~1 player width past the platform edge
+/// — enough that the player visibly tumbles past the lip, like the
+/// "ledge roll" option in Smash Bros.
+pub const LEDGE_ROLL_OVERSHOOT: f32 = 36.0;
 
 /// Require a tiny hang beat before held horizontal input into the platform
 /// auto-starts the climb.
 pub const LEDGE_TOWARD_CLIMB_DELAY: f32 = 0.045;
 
-/// Minimum hang time before any climb input can start the pull-up.
-pub const LEDGE_MIN_CLIMB_DELAY: f32 = 0.16;
+/// Minimum hang time before any climb/roll input can fire. Tightened
+/// from 0.16 to 0.06 (≈ one frame at 60Hz of debounce) for Smash-Bros
+/// snap-and-act feel — the original 160 ms felt mushy because most of
+/// the time the player is grabbing INTENTIONALLY and wants to act
+/// immediately.
+pub const LEDGE_MIN_CLIMB_DELAY: f32 = 0.06;
+
+/// Intangibility window granted at the moment the player grabs a
+/// ledge. Mirrors Smash's "ledge intangibility" so a grab can't be
+/// punished by edge-guards on contact. Plumbed through
+/// `Player::dodge_roll_timer` because that field already powers the
+/// engine's "invuln while rolling" gate; reusing it keeps the damage
+/// pipeline single-source.
+pub const LEDGE_GRAB_INVULN_TIME: f32 = 0.50;
 
 /// What surface, and where, does the probe accept a ledge grab?
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -36,6 +61,20 @@ pub struct LedgeContact {
     pub climb_target: Vec2,
 }
 
+/// Which getup the player chose when leaving the hang. The state
+/// machine interpolates position differently for each variant, and
+/// the sandbox HUD reads this to label the action ("Climb" / "Roll")
+/// at the bottom of the screen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LedgeGetupKind {
+    /// Standard pull-up: short arc from anchor to `climb_target`.
+    Climb,
+    /// Smash-Bros style ledge roll: faster, covers more ground past
+    /// the platform edge, and grants invulnerability for the whole
+    /// duration via `Player::dodge_roll_timer`.
+    Roll,
+}
+
 /// Engine-owned ledge-grab state for the player.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeGrabState {
@@ -43,10 +82,14 @@ pub struct LedgeGrabState {
     /// Seconds since the cling-snap fired. Used for input affordances such as
     /// giving held-into-wall input a tiny beat before it auto-starts the climb.
     pub elapsed: f32,
-    /// True once the climb has been requested. While true, the movement tick
-    /// interpolates the player from `contact.anchor` to `contact.climb_target`.
+    /// True once a getup (climb or roll) has been requested. While
+    /// true, the movement tick interpolates the player along the
+    /// chosen getup curve.
     pub climbing: bool,
-    /// Seconds spent in the pull-up transition.
+    /// Which getup is in progress. Only meaningful while
+    /// ``climbing``; ignored while hanging.
+    pub getup_kind: LedgeGetupKind,
+    /// Seconds spent in the pull-up / roll transition.
     pub climb_elapsed: f32,
 }
 
@@ -56,7 +99,17 @@ impl LedgeGrabState {
             contact,
             elapsed: 0.0,
             climbing: false,
+            getup_kind: LedgeGetupKind::Climb,
             climb_elapsed: 0.0,
+        }
+    }
+
+    /// Duration of the active getup at this state's `getup_kind`.
+    /// Returns 0 if not currently in a getup.
+    pub fn getup_duration(self) -> f32 {
+        match self.getup_kind {
+            LedgeGetupKind::Climb => LEDGE_CLIMB_TIME,
+            LedgeGetupKind::Roll => LEDGE_ROLL_TIME,
         }
     }
 }
@@ -69,6 +122,40 @@ fn smoothstep(t: f32) -> f32 {
 fn climb_position(contact: LedgeContact, progress: f32) -> Vec2 {
     let t = smoothstep(progress);
     contact.anchor + (contact.climb_target - contact.anchor) * t
+}
+
+/// Roll target: ``climb_target`` plus an extra ``LEDGE_ROLL_OVERSHOOT``
+/// along the into-platform axis, so the player lands a body-width
+/// past the lip rather than right at the edge.
+fn roll_target(contact: LedgeContact) -> Vec2 {
+    Vec2::new(
+        contact.climb_target.x + into_platform_axis(contact) * LEDGE_ROLL_OVERSHOOT,
+        contact.climb_target.y,
+    )
+}
+
+fn roll_position(contact: LedgeContact, progress: f32) -> Vec2 {
+    // Roll uses ease-out (quick start, settles into the ground) so
+    // the player commits horizontally fast and decelerates smoothly.
+    // Smoothstep starts slow; for the roll feel we want fast-start so
+    // we mirror the curve: 1 - smoothstep(1 - t).
+    let t = 1.0 - smoothstep(1.0 - progress.clamp(0.0, 1.0));
+    let target = roll_target(contact);
+    contact.anchor + (target - contact.anchor) * t
+}
+
+fn getup_position(state: LedgeGrabState, progress: f32) -> Vec2 {
+    match state.getup_kind {
+        LedgeGetupKind::Climb => climb_position(state.contact, progress),
+        LedgeGetupKind::Roll => roll_position(state.contact, progress),
+    }
+}
+
+fn getup_end_position(state: LedgeGrabState) -> Vec2 {
+    match state.getup_kind {
+        LedgeGetupKind::Climb => state.contact.climb_target,
+        LedgeGetupKind::Roll => roll_target(state.contact),
+    }
 }
 
 pub fn into_platform_axis(contact: LedgeContact) -> f32 {
@@ -237,8 +324,9 @@ pub fn tick_active_ledge_grab(
 
     if state.climbing {
         state.climb_elapsed += dt;
-        let progress = (state.climb_elapsed / LEDGE_CLIMB_TIME).clamp(0.0, 1.0);
-        player.pos = climb_position(state.contact, progress);
+        let duration = state.getup_duration();
+        let progress = (state.climb_elapsed / duration).clamp(0.0, 1.0);
+        player.pos = getup_position(state, progress);
         player.vel = Vec2::ZERO;
         player.on_ground = false;
         player.wall_clinging = false;
@@ -246,7 +334,7 @@ pub fn tick_active_ledge_grab(
         player.on_wall = false;
 
         if progress >= 1.0 {
-            player.pos = state.contact.climb_target;
+            player.pos = getup_end_position(state);
             player.vel = Vec2::ZERO;
             player.on_ground = true;
             player.wall_clinging = false;
@@ -266,18 +354,45 @@ pub fn tick_active_ledge_grab(
     let input_away_from_platform = input.axis_x * away_from_platform_axis(state.contact) > 0.4;
     let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;
 
+    // Ledge ROLL (Smash-Bros style): shield held while hanging →
+    // forward roll onto the platform with full invulnerability. The
+    // shield ability gate matches the dodge/shield pattern elsewhere
+    // — if the player doesn't have shield unlocked the roll branch
+    // is dead. Roll wins over climb so a "shield + up" combo still
+    // produces the roll the player asked for.
+    let want_roll =
+        climb_unlocked && input.shield_held && player.abilities.shield;
     // Ledge jump: jump pressed while holding away from the ledge launches
     // the player outward with a full wall-jump-style velocity. This is the
     // smash-like "ledge jump" option as opposed to the normal pull-up climb.
-    let want_ledge_jump = climb_unlocked && input.jump_pressed && input_away_from_platform;
+    let want_ledge_jump =
+        climb_unlocked && !want_roll && input.jump_pressed && input_away_from_platform;
     let want_climb = climb_unlocked
+        && !want_roll
         && !want_ledge_jump
         && (input_up
             || input.interact_pressed
             || (input.jump_pressed && !input_away_from_platform)
             || (state.elapsed >= LEDGE_TOWARD_CLIMB_DELAY && input_into_platform));
-    let want_drop = input_down || (input_away_from_platform && !want_ledge_jump);
+    let want_drop = !want_roll && (input_down || (input_away_from_platform && !want_ledge_jump));
 
+    if want_roll {
+        state.climbing = true;
+        state.getup_kind = LedgeGetupKind::Roll;
+        state.climb_elapsed = 0.0;
+        player.pos = state.contact.anchor;
+        player.vel = Vec2::ZERO;
+        player.on_ground = false;
+        player.wall_clinging = false;
+        player.wall_climbing = false;
+        player.on_wall = false;
+        // Invuln for the duration of the roll, plus a small tail so
+        // the player has a few extra frames as they stand up.
+        player.dodge_roll_timer = LEDGE_ROLL_TIME + 0.10;
+        player.ledge_grab = Some(state);
+        events.op(player, MovementOp::LedgeRoll);
+        return true;
+    }
     if want_ledge_jump {
         let away_x = away_from_platform_axis(state.contact);
         player.wall_clinging = false;
@@ -300,6 +415,7 @@ pub fn tick_active_ledge_grab(
     }
     if want_climb {
         state.climbing = true;
+        state.getup_kind = LedgeGetupKind::Climb;
         state.climb_elapsed = 0.0;
         player.pos = state.contact.anchor;
         player.vel = Vec2::ZERO;
@@ -356,6 +472,14 @@ pub fn try_start_ledge_grab(
     player.on_wall = true;
     player.wall_normal_x = contact.wall_normal_x;
     player.ledge_grab = Some(LedgeGrabState::hanging(contact));
+    // Smash-Bros style ledge intangibility: a brief invuln window on
+    // grab so the player can't be edge-guarded the instant they
+    // touch a corner. Reuses `dodge_roll_timer` because that field
+    // already gates damage (`PlayerBody::dodge_rolling`) — same
+    // pipeline, single source of truth.
+    if player.dodge_roll_timer < LEDGE_GRAB_INVULN_TIME {
+        player.dodge_roll_timer = LEDGE_GRAB_INVULN_TIME;
+    }
     events.op(player, MovementOp::LedgeGrab);
     true
 }
@@ -522,10 +646,12 @@ mod tests {
     fn make_hanging_player(contact: LedgeContact) -> crate::movement::Player {
         let mut player = crate::movement::Player::new(Vec2::ZERO);
         player.abilities.ledge_grab = true;
+        player.abilities.shield = true;
         player.ledge_grab = Some(LedgeGrabState {
             contact,
             elapsed: LEDGE_MIN_CLIMB_DELAY + 0.01,
             climbing: false,
+            getup_kind: LedgeGetupKind::Climb,
             climb_elapsed: 0.0,
         });
         player.wall_clinging = true;
@@ -583,5 +709,132 @@ mod tests {
         } else {
             // Also OK: climb finished immediately (degenerate case)
         }
+    }
+
+    /// Holding shield while hanging on a ledge triggers a Smash-Bros
+    /// style roll: the getup_kind switches to Roll, the player starts
+    /// climbing (interpolating along the roll trajectory), and
+    /// `dodge_roll_timer` is set so the player is invulnerable for
+    /// the duration of the roll.
+    #[test]
+    fn shield_held_starts_a_ledge_roll() {
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        let mut player = make_hanging_player(contact);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = crate::movement::MovementTuning::default();
+        let input = InputState {
+            shield_held: true,
+            ..InputState::default()
+        };
+        let consumed = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        assert!(consumed);
+        let state = player.ledge_grab.expect("roll should leave a transitioning state");
+        assert!(state.climbing, "roll must enter the climbing state");
+        assert_eq!(state.getup_kind, LedgeGetupKind::Roll);
+        assert!(
+            player.dodge_roll_timer > 0.0,
+            "ledge roll must arm dodge_roll_timer for invuln",
+        );
+    }
+
+    /// Shield wins over climb when both inputs are present (e.g. Up
+    /// + Shield). Matches Smash where shield-from-ledge is the
+    /// universal roll cue regardless of stick direction.
+    #[test]
+    fn shield_overrides_climb_when_both_inputs_are_held() {
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        let mut player = make_hanging_player(contact);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = crate::movement::MovementTuning::default();
+        let input = InputState {
+            shield_held: true,
+            axis_y: -1.0, // up — would otherwise climb
+            ..InputState::default()
+        };
+        let _ = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        let state = player.ledge_grab.expect("active transition");
+        assert_eq!(state.getup_kind, LedgeGetupKind::Roll);
+    }
+
+    /// At the end of the roll the player lands FURTHER inboard than a
+    /// climb would, by ``LEDGE_ROLL_OVERSHOOT`` along the into-platform
+    /// axis. That overshoot is what makes the roll feel like a real
+    /// commitment past the ledge edge instead of a snappier climb.
+    #[test]
+    fn ledge_roll_lands_further_inboard_than_climb() {
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        let mut player = make_hanging_player(contact);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = crate::movement::MovementTuning::default();
+        // Start the roll.
+        let _ = tick_active_ledge_grab(
+            &mut player,
+            InputState { shield_held: true, ..InputState::default() },
+            0.001,
+            tuning,
+            &mut events,
+        );
+        // Run the full roll duration in one big tick to land.
+        let _ = tick_active_ledge_grab(
+            &mut player,
+            InputState::default(),
+            LEDGE_ROLL_TIME + 0.05,
+            tuning,
+            &mut events,
+        );
+        // After the roll finishes, the player should be at the roll
+        // landing position which is past climb_target along the
+        // into-platform axis. For a -1 wall normal that's +x.
+        assert!(player.ledge_grab.is_none(), "roll should have finished");
+        assert!(player.on_ground, "roll lands the player on the platform");
+        let expected = roll_target(contact);
+        assert!(
+            (player.pos.x - expected.x).abs() < 0.5,
+            "expected roll landing x ≈ {}, got {}",
+            expected.x,
+            player.pos.x,
+        );
+        assert!(
+            (expected.x - contact.climb_target.x).abs() >= LEDGE_ROLL_OVERSHOOT - 0.01,
+            "roll target must overshoot the climb target by ~{}px",
+            LEDGE_ROLL_OVERSHOOT,
+        );
+    }
+
+    /// Grabbing a ledge grants brief intangibility via
+    /// ``Player::dodge_roll_timer`` so an edge-guarding hit can't
+    /// punish the moment of contact.
+    #[test]
+    fn ledge_grab_arms_intangibility_window() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        player.abilities.ledge_grab = true;
+        player.wall_clinging = true;
+        player.wall_normal_x = -1.0;
+        let mut events = crate::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
+        assert!(latched, "expected ledge grab to latch");
+        assert!(
+            player.dodge_roll_timer >= LEDGE_GRAB_INVULN_TIME - 0.001,
+            "grab should arm at least {}s of invuln, got {}",
+            LEDGE_GRAB_INVULN_TIME,
+            player.dodge_roll_timer,
+        );
     }
 }

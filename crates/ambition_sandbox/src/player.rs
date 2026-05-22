@@ -13,6 +13,7 @@
 pub mod bubble_shield;
 pub mod bundles;
 pub mod components;
+pub mod contextual_actions;
 pub mod events;
 pub mod ledge_grab;
 pub mod queries;

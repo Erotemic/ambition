@@ -6,8 +6,11 @@ use super::sheets::{
     sprite_render_size, CharacterSheetSpec, ABSURD_GENERAL_SHEET, ALICE_SHEET, ARCHITECT_SHEET,
     BOB_SHEET, BURNING_FLYING_SHARK_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
     FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, GOBLIN_CANTINA_CHIEFTAIN_SHEET,
-    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET, NEWS_BOARD_SHEET, OILER_SHEET,
-    PIRATE_SHEET, PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
+    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, LAB_PROP_DRONE_CRADLE, LAB_PROP_GENESIS_VAT,
+    LAB_PROP_NEURAL_CONSOLE, LAB_PROP_PORTAL_CALIBRATOR, LAB_PROP_POWER_CORE,
+    LAB_PROP_REPAIR_CRADLE, LAB_PROP_RESONANCE_COIL, LAB_PROP_SPECIMEN_JAR,
+    MERCHANT_PROTOTYPE_SHEET, NEWS_BOARD_SHEET, NINJA_SHEET, OILER_SHEET, PIRATE_SHEET,
+    PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
     TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 
@@ -102,6 +105,56 @@ fn frame_duration_positive_for_every_row() {
             "anim {:?} has non-positive duration",
             anim
         );
+    }
+}
+
+/// Touching every published `*_SHEET` static forces its `LazyLock` to
+/// initialize via `load_spec(...)`. Catches the "this static refers to
+/// a `target` id that no RON file actually exposes" failure mode at
+/// `cargo test` time instead of waiting for `setup_presentation_system`
+/// to panic at game launch. The list must include every public
+/// `*_SHEET` and `LAB_PROP_*` static defined in `sheets.rs`.
+#[test]
+fn every_published_sheet_static_loads() {
+    let specs: &[(&str, &CharacterSheetSpec)] = &[
+        ("ABSURD_GENERAL_SHEET", &ABSURD_GENERAL_SHEET),
+        ("ALICE_SHEET", &ALICE_SHEET),
+        ("ARCHITECT_SHEET", &ARCHITECT_SHEET),
+        ("BOB_SHEET", &BOB_SHEET),
+        ("BURNING_FLYING_SHARK_SHEET", &BURNING_FLYING_SHARK_SHEET),
+        ("CART_SHEET", &CART_SHEET),
+        ("CREATOR_SHEET", &CREATOR_SHEET),
+        ("ERDISH_SHEET", &ERDISH_SHEET),
+        ("FASCIST_ENFORCER_SHEET", &FASCIST_ENFORCER_SHEET),
+        ("GATE_PORTAL_SHEET", &GATE_PORTAL_SHEET),
+        ("GATE_RING_SHEET", &GATE_RING_SHEET),
+        ("GOBLIN_CANTINA_CHIEFTAIN_SHEET", &GOBLIN_CANTINA_CHIEFTAIN_SHEET),
+        ("GOBLIN_SHEET", &GOBLIN_SHEET),
+        ("KERNEL_GUIDE_SHEET", &KERNEL_GUIDE_SHEET),
+        ("LAB_PROP_DRONE_CRADLE", &LAB_PROP_DRONE_CRADLE),
+        ("LAB_PROP_GENESIS_VAT", &LAB_PROP_GENESIS_VAT),
+        ("LAB_PROP_NEURAL_CONSOLE", &LAB_PROP_NEURAL_CONSOLE),
+        ("LAB_PROP_PORTAL_CALIBRATOR", &LAB_PROP_PORTAL_CALIBRATOR),
+        ("LAB_PROP_POWER_CORE", &LAB_PROP_POWER_CORE),
+        ("LAB_PROP_REPAIR_CRADLE", &LAB_PROP_REPAIR_CRADLE),
+        ("LAB_PROP_RESONANCE_COIL", &LAB_PROP_RESONANCE_COIL),
+        ("LAB_PROP_SPECIMEN_JAR", &LAB_PROP_SPECIMEN_JAR),
+        ("MERCHANT_PROTOTYPE_SHEET", &MERCHANT_PROTOTYPE_SHEET),
+        ("NEWS_BOARD_SHEET", &NEWS_BOARD_SHEET),
+        ("NINJA_SHEET", &NINJA_SHEET),
+        ("OILER_SHEET", &OILER_SHEET),
+        ("PIRATE_SHEET", &PIRATE_SHEET),
+        ("PLAYER_ROBOT_SHEET", &PLAYER_ROBOT_SHEET),
+        ("PULSE_VOYAGER_CAPTAIN_SHEET", &PULSE_VOYAGER_CAPTAIN_SHEET),
+        ("ROBOT_SHEET", &ROBOT_SHEET),
+        ("SANDBAG_SHEET", &SANDBAG_SHEET),
+        ("TECH_BRO_DISRUPTOR_SHEET", &TECH_BRO_DISRUPTOR_SHEET),
+        ("VAULT_KEEPER_SHEET", &VAULT_KEEPER_SHEET),
+    ];
+    for (name, spec) in specs {
+        assert!(spec.frame_width > 0, "{name}: frame_width == 0");
+        assert!(spec.frame_height > 0, "{name}: frame_height == 0");
+        assert!(!spec.rows.is_empty(), "{name}: zero rows after load");
     }
 }
 

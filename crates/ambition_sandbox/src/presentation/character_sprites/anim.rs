@@ -105,13 +105,18 @@ impl CharacterAnim {
     ///   but the runtime ECS animation picker uses `Hit`).
     /// - `hover` ↔ `Fly` (robot generator emits `hover` for the
     ///   jet-flight pose).
+    /// - `opening` ↔ `Idle`, `stable` / `spin` ↔ `Walk`,
+    ///   `closing` ↔ `Run` (interdimensional gate portal / ring sheets
+    ///   borrow `CharacterAnim` slots for their phase-machine rows;
+    ///   see `GATE_PORTAL_SHEET` / `GATE_RING_SHEET` docstrings in
+    ///   `sheets.rs` for the runtime mapping).
     pub fn from_name(name: &str) -> Option<Self> {
         // Lowercase + strip nothing; we want exact matches against the
         // generator output strings.
         Some(match name {
-            "idle" => Self::Idle,
-            "walk" => Self::Walk,
-            "run" => Self::Run,
+            "idle" | "opening" => Self::Idle,
+            "walk" | "stable" | "spin" => Self::Walk,
+            "run" | "closing" => Self::Run,
             "jump" => Self::Jump,
             "fall" => Self::Fall,
             "slash" => Self::Slash,

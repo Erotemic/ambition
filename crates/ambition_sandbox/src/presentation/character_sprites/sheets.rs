@@ -447,10 +447,12 @@ pub static SANDBAG_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_s
 /// layout (idle / walk / run / jump / fall / slash / hit / death /
 /// blink_out / blink_in / dash; 128×128 frames, no inter-frame
 /// padding, label_width = 100). Mirrors the PIRATE_SHEET pattern:
-/// two filenames, one indexing contract. Both ninja manifests
-/// report `feet_anchor_norm.y = -0.4921875`.
+/// two filenames, one indexing contract. We load `ninja_shadow_duelist`
+/// as the representative — both ninja manifests report
+/// `feet_anchor_norm.y = -0.4921875` and identical row layout, so the
+/// pair stays interchangeable.
 const NINJA_TUNING: SheetTuning = SheetTuning::new(1.5, 1);
-pub static NINJA_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("ninja", &NINJA_TUNING));
+pub static NINJA_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("ninja_shadow_duelist", &NINJA_TUNING));
 
 /// Per-target sprite render size. The generator's character occupies only
 /// part of the 128×128 frame, so the rendered quad must be larger than

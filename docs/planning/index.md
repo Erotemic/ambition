@@ -10,5 +10,6 @@ Planning docs describe sequencing, open debt, and next implementation tracks. Th
 | Refactor candidates | `refactor-candidates.md` |
 | Story/gameplay progression draft | `story-gameplay-progression-draft.md` |
 | Gameplay idea index | `gameplay-idea-index.md` |
+| Universal brain interface (NPC + Enemy + Player unification, RL-ready) | `universal-brain-interface.md` |
 
 For immediate status, start with `../current/next.md`. For durable cross-cutting rules, prefer `../concepts/`.

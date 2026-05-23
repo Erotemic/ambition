@@ -16,8 +16,8 @@ use ambition_asset_manager::AssetId;
 use super::sheets::{
     CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, BURNING_FLYING_SHARK_SHEET,
     GOBLIN_CANTINA_CHIEFTAIN_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET,
-    NINJA_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET,
-    SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
+    NINJA_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET,
+    PUPPY_SLUG_SHEET, ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::features::FeatureVisualKind;
@@ -178,6 +178,15 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<Character
         "Burning Flying Shark",
         "burning_flying_shark_spritesheet.png",
         &BURNING_FLYING_SHARK_SHEET,
+    ),
+    // Puppy Slug — small deep-dream Crawlid-style enemy. Same
+    // NPC-fallthrough pattern as the burning flying shark: the
+    // EnemySpawn's display name "Puppy Slug" is what the resolver
+    // hashes to find this sheet.
+    (
+        "Puppy Slug",
+        "puppy_slug_spritesheet.png",
+        &PUPPY_SLUG_SHEET,
     ),
     // Ninja-faction characters in the Shadow Dojo. Same sheet layout
     // (idle/walk/run/jump/fall/slash/hit/death/blink_out/blink_in/

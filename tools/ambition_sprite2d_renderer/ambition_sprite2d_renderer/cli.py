@@ -96,6 +96,10 @@ _TACKON_TARGETS: dict[str, str] = {
     "pirate_navigator": "ambition_sprite2d_renderer.targets.pirate_navigator",
     "interdimensional_gate": "ambition_sprite2d_renderer.targets.interdimensional_gate",
     "burning_flying_shark": "ambition_sprite2d_renderer.targets.burning_flying_shark",
+    # Puppy slug — deep-dream Crawlid-style enemy that just walks the
+    # floor and reverses at walls / ledges. Sprite has spare
+    # wall_crawl / ceiling_crawl rows for a future surface-wrapper.
+    "puppy_slug": "ambition_sprite2d_renderer.targets.puppy_slug",
     # High-tech laser sword family — wielded weapon + its projectile.
     # The projectile (`lasersword`) is a smaller copy of the wielded
     # weapon (`lasersword_with_guns`) with the gun barrels stripped

@@ -93,6 +93,14 @@ pub enum EnemyArchetype {
     /// when the shark dies and into `BurningFlyingShark` when the
     /// rider dies.
     PirateOnShark,
+    /// Deep-dream "puppy slug" — small ground-walker (Crawlid
+    /// analogue from Hollow Knight). Always patrols, no chase, no
+    /// attack windup. Body-contact damages on touch. The brain
+    /// reverses facing at walls (the standard patrol-blocked path)
+    /// AND at ledges (custom probe in `update`) so it never falls
+    /// off platforms — even though `aggro_radius = 0` keeps it
+    /// completely ignorant of the player.
+    PuppySlug,
 }
 
 /// Maps `ae::EnemyBrain::Custom("...")` strings to archetype variants.
@@ -110,6 +118,7 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
     ("pirate_raider", EnemyArchetype::PirateRaider),
     ("burning_flying_shark", EnemyArchetype::BurningFlyingShark),
     ("pirate_on_shark", EnemyArchetype::PirateOnShark),
+    ("puppy_slug", EnemyArchetype::PuppySlug),
 ];
 
 /// Authored tuning row for one [`EnemyArchetype`]. Every archetype is
@@ -307,6 +316,26 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_sandbag: false,
             default_size: Some(ae::Vec2::new(108.0, 96.0)),
         },
+        PuppySlug => EnemyArchetypeSpec {
+            // Crawlid-style grunt: 1 HP, slow, body-contact damage,
+            // never aggros (aggro_radius = 0 → AI stays in Patrol).
+            // chase_speed is unused but kept non-zero so any future
+            // promotion to "panic-on-hit chase" reads sensibly.
+            max_health: 1,
+            rider_max_health: None,
+            patrol_speed: 55.0,
+            chase_speed: 80.0,
+            aggro_radius: 0.0,
+            attack_range: 0.0,
+            contact_strength: 0.55,
+            damage_amount: 1,
+            is_aerial: false,
+            is_sandbag: false,
+            // Match the rendered sheet's body proportions (puppy_slug
+            // sprite is 128×95 with body bbox ~120×31). The collider
+            // hugs the dorsal-ridge silhouette.
+            default_size: Some(ae::Vec2::new(48.0, 22.0)),
+        },
     }
 }
 
@@ -315,7 +344,7 @@ impl EnemyArchetype {
     /// tests / tooling that want to iterate every variant; the
     /// sandbag training dummies are *not* in this list because they
     /// don't run the standard combat AI loop.
-    pub const COMBAT_ALL: [Self; 10] = [
+    pub const COMBAT_ALL: [Self; 11] = [
         Self::Combatant,
         Self::SmallSkitter,
         Self::SmallLurker,
@@ -326,6 +355,7 @@ impl EnemyArchetype {
         Self::PirateRaider,
         Self::BurningFlyingShark,
         Self::PirateOnShark,
+        Self::PuppySlug,
     ];
 
     pub(super) fn from_brain(brain: &ae::EnemyBrain) -> Self {
@@ -776,6 +806,20 @@ impl EnemyRuntime {
         // future RL-policy or scripted brain that fills the same
         // frame plugs in without touching collision logic.
         let is_aerial = self.gravity_scale <= 0.001;
+
+        // Crawlid-style ledge avoidance for the PuppySlug. We probe a
+        // small AABB just past the leading foot, one body-height
+        // below the floor line. If nothing solid is there, the slug
+        // is about to walk off — flip facing BEFORE the brain reads
+        // it. Gated on `on_ground` so mid-air slugs (e.g. spawn drop)
+        // don't keep oscillating in flight. Wall reversal is handled
+        // by the generic patrol-blocked check after `step_kinematic`.
+        if self.archetype == EnemyArchetype::PuppySlug && self.on_ground {
+            if !self.probe_ground_ahead(world) {
+                self.facing = -self.facing;
+            }
+        }
+
         let frame = self.build_control_frame(&ai, &choreo_tick, target_pos, is_aerial, dt);
 
         // INTEGRATION STAGE — every actor (aerial, grounded, patrol)
@@ -1033,6 +1077,32 @@ impl EnemyRuntime {
 
     pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
+    }
+
+    /// Look for ground one body-width ahead, just below the floor
+    /// line. Returns `true` if anything that the slug can stand on
+    /// exists at that probe — solid tiles AND one-way platforms both
+    /// count, mirroring the kinematic step's notion of "ground".
+    /// Used by the [`EnemyArchetype::PuppySlug`] turn-at-ledge logic.
+    fn probe_ground_ahead(&self, world: &ae::World) -> bool {
+        let foot_y = self.pos.y + self.size.y * 0.5;
+        // Probe one half-width ahead of the body, dropped 4-12px
+        // below the floor line — enough to overlap a tile sitting
+        // directly under the body's leading edge, but tight enough
+        // to fall into a one-tile gap.
+        let probe_center = ae::Vec2::new(
+            self.pos.x + self.facing * (self.size.x * 0.55 + 2.0),
+            foot_y + 8.0,
+        );
+        let probe = ae::Aabb::new(probe_center, ae::Vec2::new(3.0, 4.0));
+        world.body_overlaps_any(probe, |b| {
+            matches!(
+                b.kind,
+                ae::BlockKind::Solid
+                    | ae::BlockKind::OneWay
+                    | ae::BlockKind::BlinkWall { .. }
+            )
+        })
     }
 
     pub fn visual_kind(&self) -> FeatureVisualKind {

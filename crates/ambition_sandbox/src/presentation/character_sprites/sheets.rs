@@ -260,6 +260,15 @@ pub static ABSURD_GENERAL_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(||
 const BURNING_FLYING_SHARK_TUNING: SheetTuning = SheetTuning::new(1.4, 1);
 pub static BURNING_FLYING_SHARK_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("burning_flying_shark", &BURNING_FLYING_SHARK_TUNING));
 
+/// Puppy slug — a small ground-walker (Crawlid analogue). Generator
+/// emits 128×95 frames with rows `idle / walk / wall_walk /
+/// ceiling_walk / hurt / death`. Only `idle / walk / hurt / death`
+/// are picked up by `CharacterAnim::from_name`; the two surface-
+/// variant rows are kept in the sheet for a future wall-wrapping
+/// brain.
+const PUPPY_SLUG_TUNING: SheetTuning = SheetTuning::new(1.4, 1);
+pub static PUPPY_SLUG_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("puppy_slug", &PUPPY_SLUG_TUNING));
+
 /// Pirate Admiral / Pirate Raider — both ship the same generator
 /// layout (idle / walk / slash / taunt / hurt / death; 128×128
 /// frames; feet_anchor_norm.y ≈ -0.375). They share one sheet spec

@@ -33,6 +33,16 @@ pub enum DialogMode {
     /// gives the player the geography of the route, including the
     /// double-back orbits the riders fly.
     PirateNavigator,
+    /// Pirate heavy — Broadside Bess. Cove gunner. Brash, loud,
+    /// obsessed with firepower. Crew member NPC; the shark-rider
+    /// "Iron Mary on Shark" in the sky is still hostile combat.
+    PirateHeavyBroadsideBess,
+    /// Pirate heavy — Iron Mary. Cove armorer. Stoic, terse, all
+    /// about plating and salt-rust.
+    PirateHeavyIronMary,
+    /// Pirate heavy — Salt Annet. Oldest soul in the cove.
+    /// Weathered, salty, half her vocabulary is "salt".
+    PirateHeavySaltAnnet,
     /// Ninja-faction leader. Runs the Shadow Dojo and proposes a
     /// truce-of-convenience with the pirates so the two crews can
     /// settle the Mockingbird together. Dialog hangs on the rivalry
@@ -63,6 +73,9 @@ pub(crate) const KNOWN_DIALOGUE_IDS: &[&str] = &[
     "pirate_quartermaster",
     "pirate_lookout",
     "pirate_navigator",
+    "pirate_heavy_broadside_bess",
+    "pirate_heavy_iron_mary",
+    "pirate_heavy_salt_annet",
     "ninja_leader",
     "ninja_duelist",
     "generic_npc",
@@ -105,6 +118,9 @@ impl DialogMode {
             "pirate_quartermaster" => Self::PirateQuartermaster,
             "pirate_lookout" => Self::PirateLookout,
             "pirate_navigator" => Self::PirateNavigator,
+            "pirate_heavy_broadside_bess" => Self::PirateHeavyBroadsideBess,
+            "pirate_heavy_iron_mary" => Self::PirateHeavyIronMary,
+            "pirate_heavy_salt_annet" => Self::PirateHeavySaltAnnet,
             "ninja_leader" => Self::NinjaLeader,
             "ninja_duelist" => Self::NinjaDuelist,
             "generic_npc" => Self::Generic,
@@ -127,6 +143,9 @@ impl DialogMode {
             Self::PirateQuartermaster => "pirate quartermaster",
             Self::PirateLookout => "pirate lookout",
             Self::PirateNavigator => "pirate navigator",
+            Self::PirateHeavyBroadsideBess => "pirate heavy — broadside bess",
+            Self::PirateHeavyIronMary => "pirate heavy — iron mary",
+            Self::PirateHeavySaltAnnet => "pirate heavy — salt annet",
             Self::NinjaLeader => "ninja shadow oni leader",
             Self::NinjaDuelist => "ninja shadow duelist",
             Self::Intro(intro) => intro.label(),
@@ -151,6 +170,9 @@ impl DialogMode {
             Self::PirateQuartermaster => PIRATE_QUARTERMASTER_NODES,
             Self::PirateLookout => PIRATE_LOOKOUT_NODES,
             Self::PirateNavigator => PIRATE_NAVIGATOR_NODES,
+            Self::PirateHeavyBroadsideBess => PIRATE_HEAVY_BROADSIDE_BESS_NODES,
+            Self::PirateHeavyIronMary => PIRATE_HEAVY_IRON_MARY_NODES,
+            Self::PirateHeavySaltAnnet => PIRATE_HEAVY_SALT_ANNET_NODES,
             Self::NinjaLeader => NINJA_LEADER_NODES,
             Self::NinjaDuelist => NINJA_DUELIST_NODES,
             Self::Intro(intro) => intro.nodes(),
@@ -1226,6 +1248,186 @@ const NINJA_DUELIST_NODES: &[DialogNode] = &[
         speaker: "Duelist",
         line: "It mimics. Don't believe a sound it makes — your own voice in your own kata could come out of its beak. Strike on the silence between its calls. If you hear yourself, you're already losing.",
         options: NINJA_DUELIST_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Pirate heavies — three cove crew NPCs (Broadside Bess, Iron
+// Mary, Salt Annet) who share the heavy-bruiser silhouette but
+// each have their own bit. Authored as `NpcSpawn` so the player
+// can press Interact to talk to them; the sky-rider "Iron Mary
+// on Shark" in `pirate_sky_lookout` is still hostile combat and
+// doesn't use these nodes.
+// ─────────────────────────────────────────────────────────────────
+
+const PIRATE_HEAVY_BROADSIDE_BESS_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What's a 'broadside', exactly?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "How d'ye end up in this cove?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("Bess hefts her cleaver in a salute, knocks a lantern off a hook, swears like a thunderclap, and pretends it was on purpose."),
+        close_after: true,
+    },
+];
+
+const PIRATE_HEAVY_BROADSIDE_BESS_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Aye, another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("Bess bellows YO-HO at the ceiling. The ceiling, accustomed, does not flinch."),
+        close_after: true,
+    },
+];
+
+const PIRATE_HEAVY_BROADSIDE_BESS_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Broadside Bess",
+        line: "YARRRGH — wee skipper! Mind the cleaver, mind the cleaver! Bess be the loudest gun on this here cove, an' I will out-shout, out-shoot, an' out-drink anyone who says different. The Admiral, bless 'im, signs me chits an' covers his ears.",
+        options: PIRATE_HEAVY_BROADSIDE_BESS_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Broadside Bess",
+        line: "A BROADSIDE, ye landlubber? 'Tis EVERY GUN on the port side firin' at once — boom, boom, boom-boom-boom — twelve cannons singin' the same hymn at the same wave. Yo-ho! When Bess fires a broadside, the SKY apologizes. The Mockingbird heard one once an' has been writin' diss-shanties about us ever since.",
+        options: PIRATE_HEAVY_BROADSIDE_BESS_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Broadside Bess",
+        line: "Story is — yarrr — I was THREE crews ago, gunner on the Stormpetrel, an' the captain says 'Bess, ye fire when I say.' I says 'I fire when the SHIP says.' Ship said now. Captain said never. Captain swam back to port. I sailed here. Cove ain't paid me proper since, but the Admiral lets me yell, so we be square.",
+        options: PIRATE_HEAVY_BROADSIDE_BESS_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+const PIRATE_HEAVY_IRON_MARY_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Why 'Iron'?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Any tip for the bird?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("Iron Mary nods once. The nod is, somehow, also rust-flaked."),
+        close_after: true,
+    },
+];
+
+const PIRATE_HEAVY_IRON_MARY_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Another, then.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("Mary taps her chestplate twice. It rings like a small bell with a grudge."),
+        close_after: true,
+    },
+];
+
+const PIRATE_HEAVY_IRON_MARY_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Iron Mary",
+        line: "Hmmph. Iron Mary. Don't shake me hand, ye'll lose yer grip on it. Yarrgh. The Admiral keeps me 'round 'cause when the negotiatin' fails, I'm what the negotiatin' WAS about. Wee skipper, what brings ye to a cove full o' shouters?",
+        options: PIRATE_HEAVY_IRON_MARY_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Iron Mary",
+        line: "Plate. Rivets. Stubborn. Three reasons. Plate — me whole top half be hammered scrap salvaged off a sunk navy cutter, bolted to me leathers. Rivets — anything that ain't bolted shut, I bolted shut, twice. Stubborn — I'm older than this cove an' younger than the Admiral's grudges, an' that be a long stretch o' stubborn. Yo-ho.",
+        options: PIRATE_HEAVY_IRON_MARY_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Iron Mary",
+        line: "Aye. Bird's a mimic. Bird's a thief. Bird's a coward at close range — they always be. If ye can get a hand on it, ye don't NEED a sword. Yer fists, me fists — same arithmetic. But ye ain't got me fists, so bring somethin' heavy. An' don't listen to its voice; it'll wear yours.",
+        options: PIRATE_HEAVY_IRON_MARY_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+const PIRATE_HEAVY_SALT_ANNET_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "How long ye been here?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Got a shanty for me?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("Salt Annet spits a precise arc over the rail and into the wash. A gull, paid, applauds."),
+        close_after: true,
+    },
+];
+
+const PIRATE_HEAVY_SALT_ANNET_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "One more, ye old salt.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("Annet waves a hand crusted in dried sea-spray. 'Pleasure was MINE,' she lies."),
+        close_after: true,
+    },
+];
+
+const PIRATE_HEAVY_SALT_ANNET_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Salt Annet",
+        line: "Yarrrr. Salt in me eyes, salt in me bones, salt in me bloody MORNIN' COFFEE — yo-ho, the cove gives an' the cove takes an' mostly the cove takes salt. Sit a spell, wee skipper. Old Annet's seen yer kind come an' go like tides — most go.",
+        options: PIRATE_HEAVY_SALT_ANNET_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Salt Annet",
+        line: "Too long, an' not long enough — yarr. The Admiral was a midshipman when I signed on; now he salutes me with both hands an' I salute him with neither. I've watched three ships rot at this very dock. The bird? The bird be a NEW kind o' weather. An' weather always passes, wee skipper. Always.",
+        options: PIRATE_HEAVY_SALT_ANNET_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Salt Annet",
+        line: "(coughs, clears throat, sings) 'Yo-ho an' a barrel o' salt — yo-ho an' the captain's at fault — yo-ho an' the bird stole the chest — yo-ho an' we'll be GETTIN' it back — yarrgh.' Aye, I made the last verse up just now. Ye get what ye pay for in shanties, an' ye paid in a HALLO.",
+        options: PIRATE_HEAVY_SALT_ANNET_RETURN_OPTIONS,
         default_next: None,
     },
 ];

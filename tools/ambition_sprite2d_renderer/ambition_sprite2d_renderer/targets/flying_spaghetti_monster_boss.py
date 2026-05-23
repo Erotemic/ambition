@@ -29,7 +29,7 @@ Point = Tuple[float, float]
 
 TARGET_NAME = "flying_spaghetti_monster_boss"
 FRAME_SIZE = (320, 256)
-WORK_FRAME_SIZE = (880, 760)
+WORK_FRAME_SIZE = (920, 840)
 SUPER = 4
 ROWS: List[Tuple[str, int, int]] = [
     ("idle", 6, 132),
@@ -116,6 +116,24 @@ def _quad(a: Point, b: Point, c: Point, steps: int = 18) -> List[Point]:
     return pts
 
 
+def _cubic(a: Point, b: Point, c: Point, d: Point, steps: int = 22) -> List[Point]:
+    pts: List[Point] = []
+    for i in range(steps + 1):
+        t = i / steps
+        u = 1.0 - t
+        pts.append((
+            u * u * u * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c[0] + t * t * t * d[0],
+            u * u * u * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c[1] + t * t * t * d[1],
+        ))
+    return pts
+
+
+def _cubic_from_triplet(a: Point, b: Point, c: Point, curve: float = 0.72, steps: int = 22) -> List[Point]:
+    c1 = (_lerp(a[0], b[0], curve), _lerp(a[1], b[1], curve))
+    c2 = (_lerp(c[0], b[0], curve), _lerp(c[1], b[1], curve))
+    return _cubic(a, c1, c2, c, steps)
+
+
 @dataclass
 class Pose:
     root_x: float = 0.0
@@ -132,6 +150,7 @@ class Pose:
     eye_aim: float = 0.0
     left_meatball_shift: float = 0.0
     right_meatball_shift: float = 0.0
+    slither: float = 0.0
 
 
 def _ease(t: float) -> float:
@@ -148,17 +167,19 @@ def _pose(anim: str, frame_idx: int, nframes: int) -> Pose:
     p = Pose()
     if anim == "idle":
         p.bob = wave * 4.0
-        p.tilt = wave * 2.2
-        p.noodle_wave = wave * 0.9
-        p.spread = abs(wave) * 0.35
-        p.eye_aim = wave * 2.5
+        p.tilt = wave * 2.6
+        p.noodle_wave = wave * 1.4
+        p.spread = 0.12 + abs(wave) * 0.42
+        p.eye_aim = wave * 3.0
+        p.slither = math.sin(cyc * 1.8) * 1.35
     elif anim == "drift":
         p.root_x = wave * 12.0
         p.bob = math.sin(cyc * 1.2) * 5.0
         p.tilt = wave * 5.0
-        p.noodle_wave = math.sin(cyc * 1.6) * 1.4
+        p.noodle_wave = math.sin(cyc * 1.6) * 1.6
         p.spread = 0.25 + abs(wave) * 0.45
         p.eye_aim = 6.0 * math.sin(cyc * 0.7)
+        p.slither = math.sin(cyc * 2.1) * 1.1
     elif anim == "noodle_whip":
         wind = 1.0 - _ease(min(1.0, t / 0.3))
         lash = _ease(max(0.0, min(1.0, (t - 0.18) / 0.42)))
@@ -169,6 +190,7 @@ def _pose(anim: str, frame_idx: int, nframes: int) -> Pose:
         p.noodle_wave = -0.8 + lash * 2.2
         p.spread = 0.35 + lash * 0.4
         p.eye_aim = 10.0 * lash
+        p.slither = -0.5 + lash * 1.2
     elif anim == "meatball_volley":
         charge = _ease(min(1.0, t / 0.45))
         fire = _ease(max(0.0, min(1.0, (t - 0.38) / 0.5)))
@@ -179,6 +201,7 @@ def _pose(anim: str, frame_idx: int, nframes: int) -> Pose:
         p.left_meatball_shift = -5.0 * charge
         p.right_meatball_shift = 10.0 * charge
         p.eye_aim = 12.0 * fire
+        p.slither = 0.3 + fire * 0.8
     elif anim == "eye_beam":
         charge = _ease(min(1.0, t / 0.40))
         fire = _ease(max(0.0, min(1.0, (t - 0.35) / 0.45)))
@@ -188,6 +211,7 @@ def _pose(anim: str, frame_idx: int, nframes: int) -> Pose:
         p.beam = fire
         p.spread = 0.35 + charge * 0.3
         p.eye_aim = 18.0 * fire
+        p.slither = 0.4 + fire * 0.8
     elif anim == "hurt":
         bump = math.sin(t * math.pi)
         p.root_x = 5.0 * (1 if frame_idx % 2 == 0 else -1)
@@ -196,6 +220,7 @@ def _pose(anim: str, frame_idx: int, nframes: int) -> Pose:
         p.noodle_wave = -1.4 * bump
         p.hurt = bump
         p.eye_aim = 0.0
+        p.slither = -1.0 * bump
     elif anim == "death":
         c = _ease(t)
         p.root_y = 70.0 * c
@@ -205,11 +230,12 @@ def _pose(anim: str, frame_idx: int, nframes: int) -> Pose:
         p.spread = 0.2 + 1.2 * c
         p.collapse = c
         p.eye_aim = -10.0 * c
+        p.slither = -1.2 * c
     return p
 
 
 def _draw_noodle(draw: ImageDraw.ImageDraw, pts: Sequence[Point], width: float, front: bool) -> None:
-    _line(draw, pts, OUTLINE, width + 1.8)
+    _line(draw, pts, OUTLINE, width + 1.9)
     _line(draw, pts, NOODLE, width)
     _line(draw, pts, NOODLE_SHADE, max(1.2, width * 0.34))
     if front:
@@ -239,12 +265,12 @@ def _draw_meatball(draw: ImageDraw.ImageDraw, center: Point, rx: float, ry: floa
 
 
 def _draw_eye_stalk(draw: ImageDraw.ImageDraw, root: Point, bend: Point, tip: Point, eye_angle: float, angry: float, blink: bool = False, dead: bool = False) -> None:
-    pts = _quad(root, bend, tip, 16)
+    pts = _cubic_from_triplet(root, bend, tip, curve=0.76, steps=20)
     _line(draw, pts, OUTLINE, 6.0)
-    _line(draw, pts, STALK, 4.4)
+    _line(draw, pts, STALK, 4.8)
     _line(draw, pts, STALK_SHADE, 1.6)
     ex, ey = tip
-    _ellipse(draw, ex, ey, 10.6, 10.0, EYE, OUTLINE, 0.8)
+    _ellipse(draw, ex, ey, 15.4, 14.8, EYE, OUTLINE, 1.0)
     if dead:
         _line(draw, [(ex - 5, ey - 5), (ex + 5, ey + 5)], OUTLINE, 1.2)
         _line(draw, [(ex - 5, ey + 5), (ex + 5, ey - 5)], OUTLINE, 1.2)
@@ -254,10 +280,10 @@ def _draw_eye_stalk(draw: ImageDraw.ImageDraw, root: Point, bend: Point, tip: Po
     if blink:
         _line(draw, [(ex - 5, ey + 1), (ex + 5, ey + 1)], OUTLINE, 1.1)
     else:
-        px = ex + math.cos(math.radians(eye_angle)) * 2.8
-        py = ey + math.sin(math.radians(eye_angle)) * 2.8
-        _circle(draw, (px, py), 3.0, PUPIL, PUPIL, 0.4)
-        _circle(draw, (px - 1.2, py - 1.0), 0.8, (255, 255, 255, 200), None, 0)
+        px = ex + math.cos(math.radians(eye_angle)) * 3.8
+        py = ey + math.sin(math.radians(eye_angle)) * 3.8
+        _circle(draw, (px, py), 4.0, PUPIL, PUPIL, 0.4)
+        _circle(draw, (px - 1.6, py - 1.4), 1.1, (255, 255, 255, 200), None, 0)
 
 
 def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
@@ -265,7 +291,7 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     img = Image.new("RGBA", (_s(WORK_FRAME_SIZE[0]), _s(WORK_FRAME_SIZE[1])), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img, "RGBA")
 
-    root = (156.0 + p.root_x, 118.0 + p.root_y + p.bob)
+    root = (160.0 + p.root_x, 152.0 + p.root_y + p.bob)
 
     def P(x: float, y: float) -> Point:
         rx, ry = _rot(x, y, p.tilt)
@@ -284,8 +310,22 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         (-58, 28, -104, 66, -146, 92, 10.4, False),
     ]
     for idx, (ax, ay, bx, by, cx, cy, width, front) in enumerate(back_specs):
-        wave = math.sin(frame_idx * 0.9 + idx * 0.8) * 10.0 * (0.35 + p.spread)
-        pts = _quad(P(ax, ay), P(bx + wave * 0.35, by + p.noodle_wave * 7.0 + wave * 0.12), P(cx + wave, cy + p.noodle_wave * 10.0), 18)
+        wave = math.sin(frame_idx * 0.9 + idx * 0.8 + p.slither * 0.7) * 10.0 * (0.35 + p.spread)
+        pts = _cubic_from_triplet(P(ax, ay), P(bx + wave * 0.35, by + p.noodle_wave * 7.0 + wave * 0.12), P(cx + wave, cy + p.noodle_wave * 10.0), curve=0.78, steps=24)
+        _draw_noodle(draw, pts, width, front)
+
+    # Extra tangled center mass behind the meatballs.
+    tangle_specs = [
+        (-54, -12, -12, -34, 28, -10, 9.6, False),
+        (-42, 8, 4, -16, 58, -2, 9.4, False),
+        (-28, 26, 8, 0, 46, 22, 8.8, False),
+        (-10, -24, 18, -2, 42, 28, 8.6, False),
+        (8, -28, -8, 6, -36, 30, 8.6, False),
+        (22, 12, -12, 30, -46, 18, 8.8, False),
+    ]
+    for idx, (ax, ay, bx, by, cx, cy, width, front) in enumerate(tangle_specs):
+        wave = math.sin(frame_idx * 1.05 + idx * 1.15 + p.slither) * 8.0
+        pts = _cubic_from_triplet(P(ax, ay), P(bx + wave * 0.55, by + p.noodle_wave * 6.5 - wave * 0.14), P(cx - wave * 0.35, cy + p.noodle_wave * 5.2), curve=0.82, steps=24)
         _draw_noodle(draw, pts, width, front)
 
     # Meatballs.
@@ -306,8 +346,8 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         (82, 42, 26, 58, -26, 76, 9.6, True),
     ]
     for idx, (ax, ay, bx, by, cx, cy, width, front) in enumerate(mid_specs):
-        wave = math.sin(frame_idx * 0.75 + idx * 0.9 + 0.8) * 9.0
-        pts = _quad(P(ax, ay), P(bx + wave * 0.40, by + p.noodle_wave * 7.5), P(cx + wave * (0.7 + p.spread * 0.25), cy + p.noodle_wave * 8.5), 18)
+        wave = math.sin(frame_idx * 0.75 + idx * 0.9 + 0.8 + p.slither) * 9.0
+        pts = _cubic_from_triplet(P(ax, ay), P(bx + wave * 0.40, by + p.noodle_wave * 7.5), P(cx + wave * (0.7 + p.spread * 0.25), cy + p.noodle_wave * 8.5), curve=0.80, steps=24)
         _draw_noodle(draw, pts, width, front)
 
     # Distinct front lash noodle for the whip.
@@ -315,7 +355,7 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         whip_end_x = 116.0 + 116.0 * p.whip
         whip_end_y = -20.0 - 10.0 * p.whip
         whip_mid_y = -68.0 - 40.0 * p.whip
-        pts = _quad(P(42, -6), P(82 + 46 * p.whip, whip_mid_y), P(whip_end_x, whip_end_y), 22)
+        pts = _cubic_from_triplet(P(42, -6), P(82 + 46 * p.whip, whip_mid_y), P(whip_end_x, whip_end_y), curve=0.84, steps=28)
         _draw_noodle(draw, pts, 10.2, True)
         if p.whip > 0.2:
             cx, cy = pts[-1]
@@ -332,19 +372,18 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         (-82, 6, -120, 42, -162, 74, 9.8, True),
     ]
     for idx, (ax, ay, bx, by, cx, cy, width, front) in enumerate(front_specs):
-        drip = math.sin(frame_idx * 0.7 + idx * 0.9) * 8.0
+        drip = math.sin(frame_idx * 0.7 + idx * 0.9 + p.slither * 0.9) * 8.0
         collapse_y = p.collapse * (20.0 + idx * 6)
-        pts = _quad(P(ax, ay), P(bx + drip * 0.35, by + p.noodle_wave * 8.0 + collapse_y * 0.2), P(cx + drip * 0.8, cy + collapse_y), 20)
+        pts = _cubic_from_triplet(P(ax, ay), P(bx + drip * 0.35, by + p.noodle_wave * 8.0 + collapse_y * 0.2), P(cx + drip * 0.8, cy + collapse_y), curve=0.78, steps=24)
         _draw_noodle(draw, pts, width, front)
 
-    # Eye stalks.
+    # Eye stalks: two larger matching eyes.
     eye_ang = p.eye_aim
     eye_dead = anim == "death" and p.collapse > 0.55
     blink = anim == "hurt"
     stalks = [
-        (P(-18, -42), P(-26, -88 - p.beam * 10), P(-24, -126 - p.beam * 18), eye_ang - 2),
-        (P(10, -48), P(12, -98 - p.beam * 12), P(18, -140 - p.beam * 22), eye_ang),
-        (P(34, -36), P(48, -74 - p.beam * 8), P(58, -108 - p.beam * 14), eye_ang + 3),
+        (P(-28, -28), P(-44, -72 - p.beam * 8), P(-36, -106 - p.beam * 14), eye_ang - 2),
+        (P(34, -26), P(52, -70 - p.beam * 8), P(60, -104 - p.beam * 14), eye_ang + 2),
     ]
     for root_pt, bend_pt, tip_pt, ang in stalks:
         if anim == "death":
@@ -354,14 +393,14 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
 
     # Attack extras.
     if anim == "meatball_volley" and p.volley > 0.02:
-        proj_center = P(70 + 124 * p.volley, -2 - 18 * p.volley)
-        proj_r = 10 + 4 * p.volley
-        _draw_meatball(draw, proj_center, proj_r, proj_r * 1.02, sauce_tilt=40, sauce_drip=0.0)
-        trail = [P(70, -2), P(86 + 68 * p.volley, -8 - 9 * p.volley), proj_center]
-        _line(draw, trail, SAUCE, 3.0)
-        _line(draw, trail, SAUCE_DARK, 1.0)
+        # Telegraph only: no projectile sprite baked into the boss animation.
+        arc = [P(54, -2), P(88 + 54 * p.volley, -20 - 12 * p.volley), P(126 + 74 * p.volley, -10 - 8 * p.volley)]
+        _line(draw, arc, SAUCE, 3.0)
+        _line(draw, arc, SAUCE_DARK, 1.0)
+        for cx, cy in arc[1:]:
+            _ellipse(draw, cx, cy, 4.0 + p.volley * 2.0, 2.4 + p.volley, SAUCE, None, 0)
     if anim == "eye_beam" and p.beam > 0.05:
-        for origin in [P(-24, -126 - p.beam * 18), P(18, -140 - p.beam * 22)]:
+        for origin in [P(-36, -106 - p.beam * 14), P(60, -104 - p.beam * 14)]:
             tip = (origin[0] + 110 + 72 * p.beam, origin[1] - 8 + 2 * p.beam)
             beam_poly = [
                 (origin[0] + 2, origin[1] - 5),
@@ -399,7 +438,7 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         render_fn=lambda anim, frame_idx, nframes: _render_frame(anim, frame_idx, nframes),
         out_dir=out_dir,
         frame_size=opts.get("frame_size", FRAME_SIZE),
-        crop_margin=10,
+        crop_margin=18,
         auto_crop=True,
     )
     return [outputs[k] for k in ["spritesheet", "yaml", "ron", "preview", "canonical", "canonical_transparent"]]

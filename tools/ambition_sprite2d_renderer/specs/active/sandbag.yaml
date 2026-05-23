@@ -15,5 +15,4 @@ runtime_alias_policy: missing_animations_resolve_to_idle
 notes: >
   Sparse sheet. The runtime resolves missing animations (walk, run, slash,
   jump, fall, blink_out, blink_in, dash) to idle at load time, so the sheet
-  does not need alias rows. Pass --legacy-aliases to emit the 11-row alias
-  sheet for unpatched runtimes.
+  does not need alias rows.

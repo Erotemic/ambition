@@ -619,6 +619,5 @@ def _emit_props_ron(manifest: Dict[str, object]) -> str:
 
 
 
-def render(out_dir: Path, *, legacy_aliases: bool = False) -> List[Path]:
-    del legacy_aliases  # compatibility with tack-on render signature
+def render(out_dir: Path) -> List[Path]:
     return write_outputs(out_dir)

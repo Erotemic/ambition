@@ -90,9 +90,7 @@ python -m ambition_sprite2d_renderer spritesheet ambition_sprite2d_renderer/conf
 
 Procedural pale cloth sandbag character. Sparse output (only `idle`, `hit`,
 `death`). Runtime support for missing animations is provided by
-`character_sprites.rs` resolving them to `idle` at load time. Pass
-`--legacy-aliases` to also emit the 11-row alias sheet
-(`sandbag_legacy_11row_spritesheet.*`) for old-runtime compatibility.
+`character_sprites.rs` resolving them to `idle` at load time.
 
 ```bash
 python -m ambition_sprite2d_renderer render sandbag

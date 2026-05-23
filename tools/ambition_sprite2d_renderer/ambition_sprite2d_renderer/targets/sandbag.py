@@ -72,28 +72,12 @@ ADAPTER_ANIMATIONS: Dict[str, Dict[str, int]] = {
     **DEFAULT_ADVANCED_TIMINGS,
 }
 
-# Native rows for the old sparse tack-on output. Do not pad with walk/run/etc. The runtime
-# patch teaches CharacterSheetSpec to map missing rows to idle on demand.
+# Native rows for the sparse tack-on output. Do not pad with walk/run/etc. —
+# CharacterSheetSpec maps missing rows to idle on demand at runtime.
 SANDBAG_ROWS: List[Tuple[str, int, int]] = [
     ("idle", 6, 120),
     ("hit", 4, 75),
     ("death", 7, 112),
-]
-
-# Optional legacy output for old fixed-11-row runtime builds. The normal output
-# is intentionally sparse; this exists only as an emergency compatibility shim.
-LEGACY_RUNTIME_ROWS: List[Tuple[str, str, int, int]] = [
-    ("idle", "idle", 6, 120),
-    ("walk", "idle", 6, 120),
-    ("run", "idle", 6, 120),
-    ("jump", "idle", 6, 120),
-    ("fall", "idle", 6, 120),
-    ("slash", "idle", 6, 120),
-    ("hit", "hit", 4, 75),
-    ("death", "death", 7, 112),
-    ("blink_out", "idle", 6, 120),
-    ("blink_in", "idle", 6, 120),
-    ("dash", "idle", 6, 120),
 ]
 
 
@@ -757,10 +741,6 @@ def _write_manifest(path: Path, manifest: Dict[str, object]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf8")
 
 
-def _rows_for_legacy() -> List[Tuple[str, str, int, int]]:
-    return LEGACY_RUNTIME_ROWS
-
-
 def _rows_for_sparse() -> List[Tuple[str, str, int, int]]:
     return [(name, name, frames, duration_ms) for name, frames, duration_ms in SANDBAG_ROWS]
 
@@ -810,10 +790,10 @@ def build_sheet(rows: List[Tuple[str, str, int, int]], *, sheet_background: RGBA
     return sheet, manifest
 
 
-def write_outputs(out_dir: Path, *, legacy_aliases: bool = False) -> Tuple[Path, Path, Path]:
-    rows = _rows_for_legacy() if legacy_aliases else _rows_for_sparse()
+def write_outputs(out_dir: Path) -> Tuple[Path, Path, Path]:
+    rows = _rows_for_sparse()
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = "sandbag_legacy_11row_spritesheet" if legacy_aliases else "sandbag_spritesheet"
+    stem = "sandbag_spritesheet"
     png_path = out_dir / f"{stem}.png"
     yaml_path = out_dir / f"{stem}.yaml"
     ron_path = out_dir / f"{stem}.ron"
@@ -838,21 +818,9 @@ SHEET_FILES = (
     "sandbag_spritesheet.yaml",
     "sandbag_spritesheet.ron",
 )
-LEGACY_FILES = (
-    "sandbag_legacy_11row_spritesheet.png",
-    "sandbag_legacy_11row_spritesheet.yaml",
-    "sandbag_legacy_11row_spritesheet.ron",
-)
 
 
-def render(out_dir: Path, *, legacy_aliases: bool = False) -> List[Path]:
-    """Render the sandbag spritesheet into ``out_dir``.
-
-    Always emits the sparse sheet (idle/hit/death). When ``legacy_aliases``
-    is true, also emits the 11-row alias sheet for old-runtime compatibility.
-    """
+def render(out_dir: Path) -> List[Path]:
+    """Render the sparse sandbag spritesheet (idle/hit/death) into ``out_dir``."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    paths: List[Path] = list(write_outputs(out_dir, legacy_aliases=False))
-    if legacy_aliases:
-        paths.extend(write_outputs(out_dir, legacy_aliases=True))
-    return paths
+    return list(write_outputs(out_dir))

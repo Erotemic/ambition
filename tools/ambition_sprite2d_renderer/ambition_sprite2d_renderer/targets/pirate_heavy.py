@@ -622,10 +622,6 @@ def render_variant(spec: VariantSpec, out_dir: str | Path, **opts) -> List[Path]
 def render(out_dir: str | Path, variant: str = "all", **opts) -> List[Path]:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    # The CLI passes `legacy_aliases=…` to every target's render; the
-    # variants generator doesn't read it, so silently swallow it
-    # alongside any other forwarded kwargs.
-    opts.pop("legacy_aliases", None)
     outputs: List[Path] = []
     if variant == "all":
         for slug, spec in VARIANTS.items():

@@ -60,11 +60,10 @@ procedural sandbag drawing code behind `BaseAdapter`, and `configs/sandbag.yaml`
 renders an 11-row runtime-compatible sheet with `crop: false` so 128×128 cells
 are preserved.
 
-The legacy tack-on commands remain because they are still useful for the sparse
-idle/hit/death output and old runtime aliases:
+The tack-on command renders the sparse idle/hit/death output:
 
 ```bash
-python -m ambition_sprite2d_renderer render sandbag --legacy-aliases
+python -m ambition_sprite2d_renderer render sandbag
 ```
 
 ## Variants

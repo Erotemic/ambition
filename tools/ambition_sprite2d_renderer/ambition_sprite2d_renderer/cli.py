@@ -16,18 +16,19 @@ Two surfaces live here:
       spritesheet <config> <out> Render one job's sheet.
       single <config> <out>      Render one frame.
 
-(b) Tack-on targets (e.g. sandbag) that are not yet folded into the
-    adapter system. They expose a ``render(out_dir, **opts) -> list[Path]``
-    function and are driven by these subcommands:
+(b) Tack-on targets (e.g. sandbag, ghoul_skulker) that ship their own
+    ``render(out_dir, **opts) -> Iterable[Path]`` function. They are
+    auto-discovered from ``targets/*.py`` via
+    :mod:`ambition_sprite2d_renderer.target_registry` — there is no
+    central registration list to edit, so dropping a new file in
+    ``targets/`` is the entire integration step.
 
       render <target>            Render into ``generated/<target>/``.
       preview <target>           Render and print the resulting paths.
       install <target>           Copy generated files into sandbox assets.
       render-publish <target>    Render then install.
 
-See ``targets/sandbag.py`` for an integration TODO that spells out how to
-fold sandbag into the adapter system once the next sandbag-shaped target
-appears.
+See ``target_registry.py`` for the tack-on API contract.
 """
 from __future__ import annotations
 
@@ -46,6 +47,11 @@ from .entities import write_entity_sprites
 from .item_icons import write_item_icons
 from .faction_lineup import write_faction_lineup
 from .sheet import write_spritesheet
+from .target_registry import (
+    DiscoveryReport,
+    default_sheet_files,
+    discover_tackon_targets,
+)
 
 
 def package_dir() -> Path:
@@ -69,80 +75,16 @@ DEFAULT_ASSET_DIR = (
 DEFAULT_FACTION_CONFIG = DEFAULT_CONFIG_DIR / "factions" / "music_factions.yaml"
 
 
-# ---- Tack-on targets registry --------------------------------------------------
+# ---- Tack-on targets ----------------------------------------------------------
 #
-# Maps target id -> dotted module path. Modules are imported lazily so that
-# `list-targets` works even without Pillow installed.
+# `targets/*.py` is auto-discovered at import time (see
+# `target_registry.discover_tackon_targets`). Adding a new tack-on is
+# just `targets/<name>.py` exposing a `render()` function — no edit to
+# this file is required.
 
-_TACKON_TARGETS: dict[str, str] = {
-    # Lab + town environment sheets.
-    "creator_lab_props": "ambition_sprite2d_renderer.targets.creator_lab_props",
-    "town_tileset": "ambition_sprite2d_renderer.targets.town_tileset",
-    # Intro-sequence sheets (wake room cart + lab tileset).
-    "intro_cart": "ambition_sprite2d_renderer.targets.intro_cart",
-    "intro_lab_tileset": "ambition_sprite2d_renderer.targets.intro_lab_tileset",
-    # Characters / NPCs that don't fit the standard adapter rig and
-    # have their own per-target render module instead. These were
-    # dropped from the registry during a refactor (see commit a0d8b15
-    # "Sprites") and restored 2026-05-16 so `render-publish-all` and
-    # `list-targets` see them again.
-    "creator": "ambition_sprite2d_renderer.targets.creator",
-    "gnu_ton_boss": "ambition_sprite2d_renderer.targets.gnu_ton_boss",
-    "mockingbird_boss": "ambition_sprite2d_renderer.targets.mockingbird_boss",
-    "pirate_admiral": "ambition_sprite2d_renderer.targets.pirate_admiral",
-    "pirate_raider": "ambition_sprite2d_renderer.targets.pirate_raider",
-    "pirate_quartermaster": "ambition_sprite2d_renderer.targets.pirate_quartermaster",
-    "pirate_lookout": "ambition_sprite2d_renderer.targets.pirate_lookout",
-    "pirate_navigator": "ambition_sprite2d_renderer.targets.pirate_navigator",
-    # Pirate heavy — bruiser archetype with three named variants
-    # (Broadside Bess, Iron Mary, Salt Annet). Render emits one
-    # subdir per variant; the target's custom `install` flattens
-    # them into the sandbox sprites folder.
-    "pirate_heavy": "ambition_sprite2d_renderer.targets.pirate_heavy",
-    "interdimensional_gate": "ambition_sprite2d_renderer.targets.interdimensional_gate",
-    "burning_flying_shark": "ambition_sprite2d_renderer.targets.burning_flying_shark",
-    # Puppy slug — deep-dream Crawlid-style enemy that just walks the
-    # floor and reverses at walls / ledges. Sprite has spare
-    # wall_crawl / ceiling_crawl rows for a future surface-wrapper.
-    "puppy_slug": "ambition_sprite2d_renderer.targets.puppy_slug",
-    # High-tech laser sword family — wielded weapon + its projectile.
-    # The projectile (`lasersword`) is a smaller copy of the wielded
-    # weapon (`lasersword_with_guns`) with the gun barrels stripped
-    # off; both share `targets/lasersword_common.py` for the blade +
-    # hilt drawing.
-    "lasersword_with_guns": "ambition_sprite2d_renderer.targets.lasersword_with_guns",
-    "lasersword": "ambition_sprite2d_renderer.targets.lasersword",
-    # Wall-mounted bulletin board prop used in `drain_alley` and
-    # other intro slice rooms. Static-ish sprite (one idle row + a
-    # blinking LED + small paper flutter).
-    "news_board": "ambition_sprite2d_renderer.targets.news_board",
-    # 2026-05-23 character batch (Jon authored these directly under
-    # `targets/` using `pirates.common.build_sheet` instead of the
-    # adapter rig). Register them here so `list-targets`,
-    # `render-publish-all`, and the fresh-checkout bootstrap pick
-    # them up alongside the existing tack-on roster.
-    #
-    # Ghoul Skulker — crouched dark-lord-adjacent minion / wretch
-    # enemy (idle / skulk / claw / pounce / cackle / hurt / death).
-    "ghoul_skulker": "ambition_sprite2d_renderer.targets.ghoul_skulker",
-    # President Portrait — bust prop / scene-dressing painting used
-    # by lab rooms; single idle pose + subtle ambient frames.
-    "president_portrait": "ambition_sprite2d_renderer.targets.president_portrait",
-    # Weird Hermit — side-profile enemy; bespoke render path (no
-    # `_spritesheet` filename suffix, see the target's SHEET_FILES).
-    "weird_hermit": "ambition_sprite2d_renderer.targets.weird_hermit",
-    # Galwah — baked sheet shipped via `SHEET_STEM`-named files; not
-    # procedural at install time but registered for parity so the
-    # install path is identical to the other tack-ons.
-    "galwah": "ambition_sprite2d_renderer.targets.galwah",
-    # Smart House — domestic-prop enemy; idle + alert + attack rows.
-    "smart_house": "ambition_sprite2d_renderer.targets.smart_house",
-    # Viking pair — shieldmaiden and warrior; full combat rosters.
-    "viking_shieldmaiden": "ambition_sprite2d_renderer.targets.viking_shieldmaiden",
-    "viking_warrior": "ambition_sprite2d_renderer.targets.viking_warrior",
-    # Sandbag stays last for parity with the pre-refactor ordering.
-    "sandbag": "ambition_sprite2d_renderer.targets.sandbag",
-}
+_TACKON_REPORT: DiscoveryReport = discover_tackon_targets()
+_TACKON_TARGETS: dict[str, str] = _TACKON_REPORT.targets
+
 
 # Review configs whose generated spritesheets are loaded at runtime via
 # the sandbox NPC sprite registry. `draw-all` skips `configs/review/`
@@ -185,6 +127,19 @@ def _get_tackon_target(name: str):
     except KeyError as ex:
         raise KeyError(f"unknown tack-on target: {name}") from ex
     return import_module(mod_path)
+
+
+def _tackon_sheet_files(name: str) -> list[str]:
+    """Files the installer copies for ``name``.
+
+    Targets may declare ``SHEET_FILES`` explicitly; otherwise we fall
+    back to the convention used by ``pirates.common.build_sheet``.
+    """
+    mod = _get_tackon_target(name)
+    declared = getattr(mod, "SHEET_FILES", None)
+    if declared is not None:
+        return list(declared)
+    return default_sheet_files(name)
 
 
 def sandbox_sprites_dir() -> Path:
@@ -328,6 +283,10 @@ def _cmd_list_targets(args: argparse.Namespace) -> int:
     print("# tack-on targets (render/install/render-publish):")
     for target in sorted(_TACKON_TARGETS):
         print(f"  {target}")
+    if _TACKON_REPORT.warnings:
+        print("# warnings (files in targets/ that don't conform to the tack-on API):", file=sys.stderr)
+        for line in _TACKON_REPORT.warnings:
+            print(f"  {line}", file=sys.stderr)
     return 0
 
 
@@ -351,10 +310,10 @@ def _cmd_single(args: argparse.Namespace) -> int:
 
 # ---- Tack-on commands ---------------------------------------------------------
 
-def _render_tackon(target_name: str, *, legacy_aliases: bool = False) -> List[Path]:
+def _render_tackon(target_name: str) -> List[Path]:
     target = _get_tackon_target(target_name)
     out_dir = generated_dir(target_name)
-    paths = target.render(out_dir, legacy_aliases=legacy_aliases)
+    paths = target.render(out_dir)
     print_paths(paths)
     return paths
 
@@ -375,7 +334,7 @@ def _install_tackon(target_name: str, dest_root: Path) -> List[Path]:
     dest_root.mkdir(parents=True, exist_ok=True)
     copied: List[Path] = []
     missing: List[str] = []
-    for fname in target.SHEET_FILES:
+    for fname in _tackon_sheet_files(target_name):
         src = out_dir / fname
         if not src.exists():
             missing.append(fname)
@@ -393,12 +352,12 @@ def _install_tackon(target_name: str, dest_root: Path) -> List[Path]:
 
 
 def _cmd_render(args: argparse.Namespace) -> int:
-    _render_tackon(args.target, legacy_aliases=args.legacy_aliases)
+    _render_tackon(args.target)
     return 0
 
 
 def _cmd_preview(args: argparse.Namespace) -> int:
-    paths = _render_tackon(args.target, legacy_aliases=args.legacy_aliases)
+    paths = _render_tackon(args.target)
     if paths:
         print_paths([paths[0]])
     else:
@@ -412,7 +371,7 @@ def _cmd_install(args: argparse.Namespace) -> int:
 
 
 def _cmd_render_publish(args: argparse.Namespace) -> int:
-    _render_tackon(args.target, legacy_aliases=args.legacy_aliases)
+    _render_tackon(args.target)
     copied = _install_tackon(args.target, args.dest_root)
     return 0 if copied else 1
 
@@ -426,7 +385,7 @@ def _cmd_render_publish_all(args: argparse.Namespace) -> int:
     for target_name in sorted(_TACKON_TARGETS):
         print(f"\n# {target_name}")
         try:
-            _render_tackon(target_name, legacy_aliases=args.legacy_aliases)
+            _render_tackon(target_name)
             if not _install_tackon(target_name, args.dest_root):
                 failures.append(target_name)
         except Exception as ex:  # noqa: BLE001 - report and continue
@@ -455,10 +414,8 @@ def _cmd_regenerate_all(args: argparse.Namespace) -> int:
     1. `draw-all --out-dir <sandbox assets>` — adapter-driven sheets
        (player_robot, robot, goblin, ninja, ninja_leader, sandbag,
        boss, fascist_enforcer).
-    2. `render-publish-all` — every tack-on target (intro_cart,
-       intro_lab_tileset, creator, creator_lab_props, town_tileset,
-       mockingbird_boss, pirate_admiral, pirate_raider,
-       interdimensional_gate, burning_flying_shark, sandbag).
+    2. `render-publish-all` — every tack-on target discovered under
+       `targets/`.
     3. `draw-runtime-npcs` — review-config toon NPCs that the runtime
        sprite registry expects (architect, kernel_guide, vault_keeper,
        merchant_prototype, absurd_general, oiler, erdish).
@@ -476,7 +433,7 @@ def _cmd_regenerate_all(args: argparse.Namespace) -> int:
         failures.append("draw-all")
 
     print("\n# step 2/3: render-publish-all (tack-on targets)")
-    publish_args = argparse.Namespace(legacy_aliases=False, dest_root=dest)
+    publish_args = argparse.Namespace(dest_root=dest)
     rc = _cmd_render_publish_all(publish_args)
     if rc != 0:
         failures.append("render-publish-all")
@@ -537,17 +494,12 @@ def _cmd_draw_runtime_npcs(args: argparse.Namespace) -> int:
     return 0
 
 
-def _add_tackon_render_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument("target", choices=list(_TACKON_TARGETS))
-    p.add_argument(
-        "--legacy-aliases",
-        action="store_true",
-        help="also emit any legacy compatibility sheets the target supports",
-    )
+def _add_tackon_target_arg(p: argparse.ArgumentParser) -> None:
+    p.add_argument("target", choices=sorted(_TACKON_TARGETS))
 
 
 def _add_tackon_install_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument("target", choices=list(_TACKON_TARGETS))
+    p.add_argument("target", choices=sorted(_TACKON_TARGETS))
     p.add_argument(
         "--dest-root",
         type=Path,
@@ -624,11 +576,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Tack-on commands.
     p = sub.add_parser("render", help="Render a tack-on target into generated/")
-    _add_tackon_render_args(p)
+    _add_tackon_target_arg(p)
     p.set_defaults(func=_cmd_render)
 
     p = sub.add_parser("preview", help="Render a tack-on target and report paths")
-    _add_tackon_render_args(p)
+    _add_tackon_target_arg(p)
     p.set_defaults(func=_cmd_preview)
 
     p = sub.add_parser("install", help="Copy a tack-on target's files into sandbox assets")
@@ -636,7 +588,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=_cmd_install)
 
     p = sub.add_parser("render-publish", help="Render then install a tack-on target")
-    _add_tackon_render_args(p)
+    _add_tackon_target_arg(p)
     p.add_argument(
         "--dest-root",
         type=Path,
@@ -646,18 +598,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser(
         "render-publish-all",
-        help="Render + install every registered tack-on target in one shot",
+        help="Render + install every discovered tack-on target in one shot",
     )
     p.add_argument(
         "--dest-root",
         type=Path,
         default=sandbox_sprites_dir(),
         help="install destination (default: crates/ambition_sandbox/assets/sprites)",
-    )
-    p.add_argument(
-        "--legacy-aliases",
-        action="store_true",
-        help="also emit any legacy compatibility sheets the targets support",
     )
     p.set_defaults(func=_cmd_render_publish_all)
 

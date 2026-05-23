@@ -685,6 +685,15 @@ pub struct EditableMovementTuning {
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
     pub parry_window_time: f32,
+    // Ledge momentum-carry boost. Seconds-after-grab during which a
+    // getup option can claim incoming momentum; gains scale incoming
+    // velocity into the boost; caps clamp the post-gain magnitude.
+    // Set `ledge_boost_window` to 0.0 to disable the mechanic.
+    pub ledge_boost_window: f32,
+    pub ledge_boost_x_gain: f32,
+    pub ledge_boost_y_gain: f32,
+    pub ledge_boost_x_cap: f32,
+    pub ledge_boost_y_cap: f32,
 }
 
 impl EditableMovementTuning {
@@ -732,11 +741,13 @@ impl EditableMovementTuning {
             dodge_roll_speed: self.dodge_roll_speed,
             dodge_roll_cooldown: self.dodge_roll_cooldown,
             parry_window_time: self.parry_window_time,
-            // Ledge momentum-carry isn't surfaced in EditableMovementTuning
-            // (yet). Pass the engine default through so the dev-tools
-            // panel doesn't accidentally disable the boost. If/when we
-            // add per-field sliders for it, swap in the editable copy.
-            ledge_momentum: ae::LedgeMomentumTuning::DEFAULT,
+            ledge_momentum: ae::LedgeMomentumTuning {
+                window: self.ledge_boost_window,
+                x_gain: self.ledge_boost_x_gain,
+                y_gain: self.ledge_boost_y_gain,
+                x_cap: self.ledge_boost_x_cap,
+                y_cap: self.ledge_boost_y_cap,
+            },
         }
     }
 }
@@ -786,6 +797,11 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             dodge_roll_speed: value.dodge_roll_speed,
             dodge_roll_cooldown: value.dodge_roll_cooldown,
             parry_window_time: value.parry_window_time,
+            ledge_boost_window: value.ledge_momentum.window,
+            ledge_boost_x_gain: value.ledge_momentum.x_gain,
+            ledge_boost_y_gain: value.ledge_momentum.y_gain,
+            ledge_boost_x_cap: value.ledge_momentum.x_cap,
+            ledge_boost_y_cap: value.ledge_momentum.y_cap,
         }
     }
 }

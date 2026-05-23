@@ -123,10 +123,31 @@ RUNTIME_REVIEW_NPCS: tuple[str, ...] = (
 
 
 def _get_tackon(name: str) -> TackonTarget:
-    try:
+    """Look up a discovered tack-on target.
+
+    If the name isn't in the registry but a matching file exists under
+    ``targets/<category>/<name>.py``, surface the discovery warning for
+    it (typically "no `render()` function") so the user knows *why*
+    their file isn't registered, instead of just "unknown target."
+    """
+    if name in _TACKON_TARGETS:
         return _TACKON_TARGETS[name]
-    except KeyError as ex:
-        raise KeyError(f"unknown tack-on target: {name}") from ex
+    # Look for a discovery warning matching this name. Warnings are
+    # formatted as "<category>/<stem>: <reason>" so an `endswith` /
+    # `:` split is enough to find the relevant one.
+    for line in _TACKON_REPORT.warnings:
+        head, _, reason = line.partition(":")
+        if head.endswith(f"/{name}"):
+            raise SystemExit(
+                f"error: target {name!r} is not registered.\n"
+                f"  reason: {reason.strip()}\n"
+                f"  location: {head.strip()}.py\n"
+                f"  see `target_registry.py` for the tack-on API contract."
+            )
+    raise SystemExit(
+        f"error: unknown tack-on target: {name!r}\n"
+        f"  run `list-targets` to see the registered tack-ons."
+    )
 
 
 def sandbox_sprites_dir() -> Path:
@@ -519,11 +540,24 @@ def _cmd_draw_runtime_npcs(args: argparse.Namespace) -> int:
 
 
 def _add_tackon_target_arg(p: argparse.ArgumentParser) -> None:
-    p.add_argument("target", choices=sorted(_TACKON_TARGETS))
+    # No `choices=` constraint here. We want argparse to accept any
+    # string so `_get_tackon` can give a useful error when the name
+    # matches a file under `targets/<category>/` but the file is
+    # missing the tack-on API. With `choices=` argparse would error
+    # before our handler runs and we couldn't surface the warning.
+    p.add_argument(
+        "target",
+        metavar="TARGET",
+        help="tack-on target id (run `list-targets` to see what's registered)",
+    )
 
 
 def _add_tackon_install_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument("target", choices=sorted(_TACKON_TARGETS))
+    p.add_argument(
+        "target",
+        metavar="TARGET",
+        help="tack-on target id (run `list-targets` to see what's registered)",
+    )
     p.add_argument(
         "--dest-root",
         type=Path,

@@ -26,6 +26,8 @@
 //!   encounter transitions ([`camera_follow`]).
 
 pub mod actors;
+#[cfg(feature = "visible")]
+mod deep_dream;
 mod camera;
 mod features;
 mod health;
@@ -120,6 +122,8 @@ pub struct PresentationVisualAnimationPlugin;
 impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
+        #[cfg(feature = "visible")]
+        deep_dream::add_puppy_slug_deep_dream_material_plugin(app);
         app.add_systems(
             Update,
             (
@@ -135,6 +139,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 actors::upgrade_boss_sprites,
                 actors::animate_player,
                 actors::animate_characters,
+                #[cfg(feature = "visible")]
+                deep_dream::attach_puppy_slug_deep_dream_overlays,
+                #[cfg(feature = "visible")]
+                deep_dream::sync_puppy_slug_deep_dream_overlays,
                 actors::animate_props,
                 actors::animate_bosses,
                 // Mirror parent atlas index + tint onto the hands overlay

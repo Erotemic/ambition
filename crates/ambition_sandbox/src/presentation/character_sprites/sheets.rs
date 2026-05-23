@@ -680,6 +680,54 @@ impl CharacterSheetSpec {
         frames_before + frame.min(max_frame)
     }
 
+    /// Pixel extent of the atlas texture addressed by this sheet spec.
+    ///
+    /// Custom sprite materials use this to convert a flat atlas frame index
+    /// into normalized UVs without depending on Bevy's private
+    /// `TextureAtlasLayout` internals. The calculation intentionally matches
+    /// [`Self::build_atlas`].
+    pub fn atlas_texture_size(&self) -> UVec2 {
+        let (w, h) = atlas_extent(self);
+        UVec2::new(w.max(1), h.max(1))
+    }
+
+    /// Return the inset pixel rect for a flat atlas index.
+    ///
+    /// This mirrors [`Self::build_atlas`]'s rect insertion order: rows are
+    /// concatenated in spec order, and each row contributes `frame_count`
+    /// rects. It gives custom materials the same frame crop used by the
+    /// ordinary Bevy `Sprite` path, including the bilinear-filtering inset.
+    pub fn texture_rect_for_flat_index(&self, index: usize) -> Option<URect> {
+        let inset = self
+            .frame_sample_inset
+            .min(self.frame_width.min(self.frame_height) / 4);
+        let mut flat = 0usize;
+        for (_, row) in self.rows.iter() {
+            if let Some(rects) = row.frame_rects.as_ref() {
+                for rect in rects.iter().take(row.frame_count) {
+                    if flat == index {
+                        return Some(inset_rect(*rect, inset));
+                    }
+                    flat += 1;
+                }
+                continue;
+            }
+            for col in 0..row.frame_count {
+                let x = self.label_width + col as u32 * self.frame_width;
+                let y = self.y_offset + row.row_index * self.frame_height;
+                let cell = URect {
+                    min: UVec2::new(x, y),
+                    max: UVec2::new(x + self.frame_width, y + self.frame_height),
+                };
+                if flat == index {
+                    return Some(inset_rect(cell, inset));
+                }
+                flat += 1;
+            }
+        }
+        None
+    }
+
     pub fn frame_count(&self, anim: CharacterAnim) -> usize {
         self.row(anim).frame_count
     }

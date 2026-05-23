@@ -385,8 +385,25 @@ fn seed_falling_sand_room_boundaries(
     // Only the top FLOOR_WALL_THICKNESS rows of each block need walls
     // (material rests at the surface), which keeps the particle count
     // bounded even for big floor blocks.
+    //
+    // Only solid blocks (`Solid` / `BlinkWall`) get seeded as particle
+    // walls. **One-way platforms are deliberately skipped** — the
+    // user expects falling material to PASS THROUGH platforms (the
+    // way the player drops through them with the down-press), so
+    // seeding wall particles on top would trap material on every
+    // mid-height platform and never let it reach the actual floor.
+    // This was the cause of "everything pools on the top platform"
+    // — the room's high one-way ledges were acting as impenetrable
+    // lids that captured all the water and oil before it could
+    // settle on the floor.
     let mut block_wall_emits = 0usize;
     for block in &world.blocks {
+        if !matches!(
+            block.kind,
+            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+        ) {
+            continue;
+        }
         let min = block.aabb.min;
         let width = (block.aabb.max.x - min.x).round() as i32;
         let block_height = (block.aabb.max.y - min.y).round() as i32;

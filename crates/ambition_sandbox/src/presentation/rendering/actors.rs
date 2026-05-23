@@ -90,6 +90,12 @@ pub fn sync_visuals(
             continue;
         };
         transform.translation = world_to_bevy(&world.0, view.pos, feature_z(view.kind));
+        // Surface-walking enemies (PuppySlug) rotate the sprite so
+        // its authored "up" axis aligns with the surface normal —
+        // the slug crawls along walls / ceilings with its body
+        // visibly clinging to them. All other actors stay axis-
+        // aligned (rotation_rad = 0).
+        transform.rotation = Quat::from_rotation_z(view.rotation_rad);
 
         // State-aware sprite swap for breakables and chests. Pickups are
         // chosen at spawn time and never change kind. Enemies are animated
@@ -553,6 +559,7 @@ pub fn upgrade_boss_sprites(
                     || boss.attack_windup_timer > 0.0
                     || boss.attack_timer > 0.0,
                 switch_on: false,
+                rotation_rad: 0.0,
             })
         }) else {
             continue;

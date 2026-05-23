@@ -82,6 +82,7 @@ pub fn rebuild_feature_view_index(
                 visible: collected.is_none(),
                 flash: false,
                 switch_on: false,
+                rotation_rad: 0.0,
             },
         );
     }
@@ -95,6 +96,7 @@ pub fn rebuild_feature_view_index(
                 visible: true,
                 flash: opened.is_some(),
                 switch_on: false,
+                rotation_rad: 0.0,
             },
         );
     }
@@ -108,6 +110,7 @@ pub fn rebuild_feature_view_index(
                 visible: !breakable.broken(),
                 flash: breakable.breakable.state == ae::BreakableState::Cracking,
                 switch_on: false,
+                rotation_rad: 0.0,
             },
         );
     }
@@ -121,6 +124,7 @@ pub fn rebuild_feature_view_index(
                 visible: true,
                 flash: false,
                 switch_on: switch_on.0,
+                rotation_rad: 0.0,
             },
         );
     }
@@ -137,6 +141,7 @@ pub fn rebuild_feature_view_index(
                 visible: hazard.hazard.active(),
                 flash: false,
                 switch_on: false,
+                rotation_rad: 0.0,
             },
         );
     }
@@ -153,6 +158,7 @@ pub fn rebuild_feature_view_index(
                     || boss.attack_windup_timer > 0.0
                     || boss.attack_timer > 0.0,
                 switch_on: false,
+                rotation_rad: 0.0,
             },
         );
     }

@@ -1,6 +1,27 @@
 use super::*;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 
+/// Predicate matching any tile a surface-walker (PuppySlug) can
+/// CLING TO — both solid blocks and one-way platforms count, mirroring
+/// what step_kinematic treats as "ground" for grounded actors.
+fn surface_solid_pred(b: &ae::Block) -> bool {
+    matches!(
+        b.kind,
+        ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
+    )
+}
+
+/// Predicate matching tiles a surface-walker treats as "walls in
+/// the way" — strictly solid, NOT one-way. A one-way platform sitting
+/// in the slug's path along a wall must not register as a concave
+/// corner since the slug would never collide with its side anyway.
+fn surface_wall_pred(b: &ae::Block) -> bool {
+    matches!(
+        b.kind,
+        ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+    )
+}
+
 #[derive(Clone, Debug)]
 pub struct EnemyRuntime {
     pub id: String,
@@ -61,6 +82,13 @@ pub struct EnemyRuntime {
     /// `PirateOnShark` actor where the pirate on top can be killed
     /// independently of the shark. `None` for everyone else.
     pub rider_health: Option<ae::Health>,
+    /// Outward-pointing unit normal of the surface the actor is
+    /// currently clinging to. Used by surface-walking archetypes
+    /// (`PuppySlug`) to crawl floors, walls, and ceilings; all
+    /// other archetypes pin this at `(0, -1)` (floor) and ignore
+    /// it. Engine y grows downward, so floor → (0, -1), right wall
+    /// → (-1, 0), ceiling → (0, 1), left wall → (1, 0).
+    pub surface_normal: ae::Vec2,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -539,6 +567,7 @@ impl EnemyRuntime {
             choreography: archetype.choreography(),
             choreography_state: ae::ChoreographyState::default(),
             rider_health: archetype.rider_max_health().map(ae::Health::new),
+            surface_normal: ae::Vec2::new(0.0, -1.0),
         }
     }
 
@@ -571,6 +600,12 @@ impl EnemyRuntime {
         self.ai_mode = ae::CharacterAiMode::Idle;
         self.on_ground = false;
         self.facing = -1.0;
+        // Surface walkers reset to floor — even if the slug died on
+        // a wall or ceiling, respawn pins it on whatever the platform
+        // its `spawn` sits above is. Same-room reset path's
+        // collision-shape rewrite in `EnemyTickOutputs` reads the
+        // unrotated `size`, which is correct again at floor stance.
+        self.surface_normal = ae::Vec2::new(0.0, -1.0);
     }
 
     /// True when this actor still has a rider (live pirate on top).
@@ -806,100 +841,99 @@ impl EnemyRuntime {
         // future RL-policy or scripted brain that fills the same
         // frame plugs in without touching collision logic.
         let is_aerial = self.gravity_scale <= 0.001;
-
-        // Crawlid-style ledge avoidance for the PuppySlug. We probe a
-        // small AABB just past the leading foot, one body-height
-        // below the floor line. If nothing solid is there, the slug
-        // is about to walk off — flip facing BEFORE the brain reads
-        // it. Gated on `on_ground` so mid-air slugs (e.g. spawn drop)
-        // don't keep oscillating in flight. Wall reversal is handled
-        // by the generic patrol-blocked check after `step_kinematic`.
-        if self.archetype == EnemyArchetype::PuppySlug && self.on_ground {
-            if !self.probe_ground_ahead(world) {
-                self.facing = -self.facing;
-            }
-        }
+        let is_surface_walker = self.archetype == EnemyArchetype::PuppySlug;
 
         let frame = self.build_control_frame(&ai, &choreo_tick, target_pos, is_aerial, dt);
 
-        // INTEGRATION STAGE — every actor (aerial, grounded, patrol)
-        // goes through `step_kinematic` against the live `world`.
-        // This is the seam the player uses too: brain produces
-        // desired velocity, the kinematic primitive resolves
-        // collision. The previous codebase wrote `self.pos += ...`
-        // directly for aerial + patrol movement, which meant flying
-        // sharks could clip through walls and KinematicPath patrols
-        // ignored solids entirely.
-        let max_fall = ENEMY_MAX_FALL;
-        let gravity = if is_aerial {
-            0.0
+        if is_surface_walker {
+            // Surface-walker integration: the slug crawls along any
+            // surface (floor / wall / ceiling), wrapping around
+            // convex corners and turning into concave ones. Bypasses
+            // `step_kinematic` entirely — that primitive bakes in
+            // gravity-down + axis-aligned solid sweeps, which is
+            // wrong on rotated surfaces. The custom step has its own
+            // ledge / wall / fall handling.
+            self.step_surface_walker(world, dt);
         } else {
-            ENEMY_GRAVITY * self.gravity_scale
-        };
-        let mut body = ae::KinematicBody {
-            pos: self.pos,
-            vel: self.vel,
-            size: self.size,
-            on_ground: self.on_ground,
-            facing: self.facing,
-        };
-        let prev_vel_x = body.vel.x;
-        if is_aerial {
-            // Aerial bodies own both vx and vy via the brain. We
-            // approach the desired velocity (not snap to it) so a
-            // dive-strike speed override accelerates believably
-            // rather than teleporting velocity.
-            let target_speed = frame.desired_vel.length();
-            let archetype_chase = self.archetype.chase_speed();
-            let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
-            body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
-            body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
-        } else {
-            // Grounded bodies own vx via the brain; gravity owns vy.
-            // Match the previous ground-acceleration constant
-            // (650 px/s²·dt) so chase/patrol feel doesn't shift.
-            body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
-        }
-        ae::step_kinematic(
-            &mut body,
-            world,
-            ae::KinematicTuning {
-                gravity,
-                max_fall_speed: max_fall,
-            },
-            ae::KinematicInputs {
-                drop_through: frame.drop_through,
-            },
-            dt,
-        );
-        self.pos = body.pos;
-        self.vel = body.vel;
-        self.on_ground = if is_aerial { false } else { body.on_ground };
+            // INTEGRATION STAGE — every actor (aerial, grounded, patrol)
+            // goes through `step_kinematic` against the live `world`.
+            // This is the seam the player uses too: brain produces
+            // desired velocity, the kinematic primitive resolves
+            // collision. The previous codebase wrote `self.pos += ...`
+            // directly for aerial + patrol movement, which meant flying
+            // sharks could clip through walls and KinematicPath patrols
+            // ignored solids entirely.
+            let max_fall = ENEMY_MAX_FALL;
+            let gravity = if is_aerial {
+                0.0
+            } else {
+                ENEMY_GRAVITY * self.gravity_scale
+            };
+            let mut body = ae::KinematicBody {
+                pos: self.pos,
+                vel: self.vel,
+                size: self.size,
+                on_ground: self.on_ground,
+                facing: self.facing,
+            };
+            let prev_vel_x = body.vel.x;
+            if is_aerial {
+                // Aerial bodies own both vx and vy via the brain. We
+                // approach the desired velocity (not snap to it) so a
+                // dive-strike speed override accelerates believably
+                // rather than teleporting velocity.
+                let target_speed = frame.desired_vel.length();
+                let archetype_chase = self.archetype.chase_speed();
+                let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
+                body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
+                body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
+            } else {
+                // Grounded bodies own vx via the brain; gravity owns vy.
+                // Match the previous ground-acceleration constant
+                // (650 px/s²·dt) so chase/patrol feel doesn't shift.
+                body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
+            }
+            ae::step_kinematic(
+                &mut body,
+                world,
+                ae::KinematicTuning {
+                    gravity,
+                    max_fall_speed: max_fall,
+                },
+                ae::KinematicInputs {
+                    drop_through: frame.drop_through,
+                },
+                dt,
+            );
+            self.pos = body.pos;
+            self.vel = body.vel;
+            self.on_ground = if is_aerial { false } else { body.on_ground };
 
-        // KinematicPath patrols: the brain reads the path's "would
-        // be" position to derive the desired_vel above. If
-        // step_kinematic clipped the actor against a wall, the path
-        // moved on without us — that's fine; the next tick the
-        // brain re-derives velocity from the new path target and
-        // catches up. Path itself is still advanced (single source
-        // of truth for the patrol curve).
-        if let Some(motion) = &mut self.motion {
-            // Advance the path's internal cursor by `dt` regardless
-            // of whether the body kept up. The brain reads from
-            // `motion.advance` next tick to recompute desired_vel.
-            let _ = motion.advance(self.pos, dt);
-        }
+            // KinematicPath patrols: the brain reads the path's "would
+            // be" position to derive the desired_vel above. If
+            // step_kinematic clipped the actor against a wall, the path
+            // moved on without us — that's fine; the next tick the
+            // brain re-derives velocity from the new path target and
+            // catches up. Path itself is still advanced (single source
+            // of truth for the patrol curve).
+            if let Some(motion) = &mut self.motion {
+                // Advance the path's internal cursor by `dt` regardless
+                // of whether the body kept up. The brain reads from
+                // `motion.advance` next tick to recompute desired_vel.
+                let _ = motion.advance(self.pos, dt);
+            }
 
-        // Patrol turn-around: if the body's x velocity was non-zero
-        // before the sweep but the sweep zeroed it (wall block),
-        // flip facing so the next tick walks back. Aerial actors
-        // skip this — they bend around obstacles by re-steering.
-        if !is_aerial
-            && matches!(ai.intent, ae::CharacterAiIntent::Patrol)
-            && prev_vel_x.abs() > 1.0
-            && self.vel.x.abs() < 0.01
-        {
-            self.facing *= -1.0;
+            // Patrol turn-around: if the body's x velocity was non-zero
+            // before the sweep but the sweep zeroed it (wall block),
+            // flip facing so the next tick walks back. Aerial actors
+            // skip this — they bend around obstacles by re-steering.
+            if !is_aerial
+                && matches!(ai.intent, ae::CharacterAiIntent::Patrol)
+                && prev_vel_x.abs() > 1.0
+                && self.vel.x.abs() < 0.01
+            {
+                self.facing *= -1.0;
+            }
         }
 
         // Facing: AI/choreography facing always wins over derived
@@ -1075,34 +1109,186 @@ impl EnemyRuntime {
         frame
     }
 
+    /// Body AABB used for collision + damage routing.
+    ///
+    /// Surface-walking archetypes (`PuppySlug`) swap width × height
+    /// when the surface normal is horizontal (slug clinging to a
+    /// wall) so the hit-detection envelope stays aligned with the
+    /// rendered, rotated sprite. All other archetypes report the
+    /// authored AABB unchanged.
     pub fn aabb(&self) -> ae::Aabb {
-        ae::Aabb::new(self.pos, self.size * 0.5)
+        let size = if self.archetype == EnemyArchetype::PuppySlug
+            && self.surface_normal.x.abs() > 0.5
+        {
+            ae::Vec2::new(self.size.y, self.size.x)
+        } else {
+            self.size
+        };
+        ae::Aabb::new(self.pos, size * 0.5)
     }
 
-    /// Look for ground one body-width ahead, just below the floor
-    /// line. Returns `true` if anything that the slug can stand on
-    /// exists at that probe — solid tiles AND one-way platforms both
-    /// count, mirroring the kinematic step's notion of "ground".
-    /// Used by the [`EnemyArchetype::PuppySlug`] turn-at-ledge logic.
-    fn probe_ground_ahead(&self, world: &ae::World) -> bool {
-        let foot_y = self.pos.y + self.size.y * 0.5;
-        // Probe one half-width ahead of the body, dropped 4-12px
-        // below the floor line — enough to overlap a tile sitting
-        // directly under the body's leading edge, but tight enough
-        // to fall into a one-tile gap.
-        let probe_center = ae::Vec2::new(
-            self.pos.x + self.facing * (self.size.x * 0.55 + 2.0),
-            foot_y + 8.0,
+    /// Bevy-frame Z rotation (radians) implied by `surface_normal`.
+    /// Engine y grows downward but Bevy y grows upward; the formula
+    /// `atan2(-n.x, -n.y)` accounts for that flip while keeping the
+    /// sprite's authored "up" axis aligned with the surface's
+    /// outward normal.
+    /// - Floor (n=(0,-1))  → 0
+    /// - Right wall (n=(-1,0)) → +π/2 (CCW in Bevy)
+    /// - Ceiling (n=(0,1))   → ±π
+    /// - Left wall  (n=(1,0))  → -π/2
+    pub fn rotation_rad(&self) -> f32 {
+        f32::atan2(-self.surface_normal.x, -self.surface_normal.y)
+    }
+
+    /// Surface-walking integration for `PuppySlug`. Walks at
+    /// `patrol_speed` along the tangent (perpendicular to
+    /// `surface_normal`, sign by `facing`), probing each tick for:
+    ///
+    /// 1. **Concave corner** — solid blocks dead ahead at body
+    ///    height. Rotate normal toward the obstacle so the slug
+    ///    climbs up onto it.
+    /// 2. **Convex corner** — the supporting surface ends underneath
+    ///    the leading edge. Rotate normal the opposite way so the
+    ///    slug wraps around the lip and crawls down.
+    /// 3. **Fallthrough** — the surface vanished entirely (e.g. one-
+    ///    way platform dropped out, or the slug was knocked off the
+    ///    wall). Run a one-tick gravity-down kinematic step; on
+    ///    landing, re-pin the normal to the floor.
+    ///
+    /// Otherwise it just translates along the tangent. The slug's
+    /// body is bumped a fraction of a tile through the corner so
+    /// adjacent ticks have room to detect the next surface state
+    /// without overshooting.
+    fn step_surface_walker(&mut self, world: &ae::World, dt: f32) {
+        let n = self.surface_normal;
+        let speed = self.archetype.patrol_speed();
+
+        // tangent_base = 90° math-CCW rotation of normal; multiply by
+        // facing to pick a direction along the surface.
+        let tangent =
+            ae::Vec2::new(-n.y * self.facing, n.x * self.facing);
+
+        // Half-extents in surface-local coords: along-tangent
+        // ("length" of the slug along the surface) vs along-normal
+        // ("thickness" sticking up from the surface).
+        let body_long = self.size.x * 0.5;
+        let body_thick = self.size.y * 0.5;
+
+        // First: is there still ANY surface beneath the body center?
+        // If we lost it entirely (e.g. one-way platform dropped, or
+        // we're freshly spawned in mid-air), fall.
+        let beneath_center = self.pos + (-n) * (body_thick + 4.0);
+        let beneath_probe =
+            ae::Aabb::new(beneath_center, ae::Vec2::new(body_long * 0.6, 3.0));
+        let still_on_surface = world.body_overlaps_any(beneath_probe, surface_solid_pred);
+        if !still_on_surface {
+            self.fall_until_landed(world, dt);
+            return;
+        }
+
+        // Concave: a solid is sitting in our path at body height.
+        // Probe a thin AABB just ahead of the leading edge at body-
+        // center thickness so we trigger on actual walls but ignore
+        // bumps in the floor we're already on.
+        let ahead_center = self.pos + tangent * (body_long + 3.0);
+        let ahead_probe = ae::Aabb::new(
+            ahead_center,
+            ae::Vec2::new(2.5, body_thick * 0.6),
         );
-        let probe = ae::Aabb::new(probe_center, ae::Vec2::new(3.0, 4.0));
-        world.body_overlaps_any(probe, |b| {
-            matches!(
-                b.kind,
-                ae::BlockKind::Solid
-                    | ae::BlockKind::OneWay
-                    | ae::BlockKind::BlinkWall { .. }
-            )
-        })
+        let wall_ahead = world.body_overlaps_any(ahead_probe, surface_wall_pred);
+        if wall_ahead {
+            // Rotate normal CW (math sense — engine y-down makes that
+            // visually CCW). The slug pivots its head INTO the
+            // obstacle so the obstacle becomes the new surface.
+            self.surface_normal = ae::Vec2::new(n.y, -n.x);
+            self.vel = ae::Vec2::ZERO;
+            return;
+        }
+
+        // Convex: the surface beneath us ENDS at the leading edge.
+        // Probe at the leading-edge foot — if no support, wrap.
+        let leading_foot = self.pos
+            + tangent * (body_long + 2.0)
+            + (-n) * (body_thick + 4.0);
+        let convex_probe = ae::Aabb::new(leading_foot, ae::Vec2::new(2.5, 3.0));
+        let surface_at_leading =
+            world.body_overlaps_any(convex_probe, surface_solid_pred);
+        if !surface_at_leading {
+            // Rotate normal CCW (math sense). The slug pivots its
+            // BODY into open space and clings to the wall it just
+            // walked off.
+            self.surface_normal = ae::Vec2::new(-n.y, n.x);
+            // Step forward + drop the body around the corner. The
+            // (body_thick) inset moves the slug onto the new
+            // surface's facing side; the (body_long * 0.3) along the
+            // old tangent prevents an immediate convex-re-trigger.
+            self.pos += tangent * (body_thick * 0.5)
+                + (-n) * (body_thick * 0.5);
+            self.vel = ae::Vec2::ZERO;
+            return;
+        }
+
+        // Normal step along tangent.
+        let step = tangent * speed * dt;
+        self.pos += step;
+        self.vel = tangent * speed;
+        self.on_ground = true;
+
+        // Snap toward surface: if floating-point drift pushed the
+        // body away from the surface, pull it back. We probe deeper
+        // along -n than the contact line and nudge the body until
+        // the contact probe registers a thin overlap.
+        self.stick_to_surface(world);
+    }
+
+    /// Gravity-fall step when the slug has lost contact with any
+    /// surface. Uses the standard `step_kinematic` path with
+    /// world-frame gravity; on landing, re-orients the slug onto a
+    /// floor (normal = (0, -1)).
+    fn fall_until_landed(&mut self, world: &ae::World, dt: f32) {
+        let mut body = ae::KinematicBody {
+            pos: self.pos,
+            vel: self.vel,
+            size: self.size,
+            on_ground: self.on_ground,
+            facing: self.facing,
+        };
+        ae::step_kinematic(
+            &mut body,
+            world,
+            ae::KinematicTuning {
+                gravity: ENEMY_GRAVITY,
+                max_fall_speed: ENEMY_MAX_FALL,
+            },
+            ae::KinematicInputs { drop_through: false },
+            dt,
+        );
+        self.pos = body.pos;
+        self.vel = body.vel;
+        self.on_ground = body.on_ground;
+        if body.on_ground {
+            // Re-pin to a floor surface — the slug forgets it was
+            // ever on a wall once it lands.
+            self.surface_normal = ae::Vec2::new(0.0, -1.0);
+        }
+    }
+
+    /// Nudge the slug back toward `surface_normal`'s surface when it
+    /// has drifted slightly off (floating-point error after a
+    /// rotation). Walks the body 0.5-px steps toward `-n` until a
+    /// thin contact probe overlaps a solid block, capped at a
+    /// quarter-tile of travel so a missing-surface case can't loop.
+    fn stick_to_surface(&mut self, world: &ae::World) {
+        let n = self.surface_normal;
+        let body_thick = self.size.y * 0.5;
+        for _ in 0..8 {
+            let contact_center = self.pos + (-n) * (body_thick + 1.5);
+            let contact_probe = ae::Aabb::new(contact_center, ae::Vec2::new(2.0, 2.0));
+            if world.body_overlaps_any(contact_probe, surface_solid_pred) {
+                return;
+            }
+            self.pos += (-n) * 0.5;
+        }
     }
 
     pub fn visual_kind(&self) -> FeatureVisualKind {

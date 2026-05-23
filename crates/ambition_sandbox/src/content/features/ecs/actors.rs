@@ -87,6 +87,10 @@ impl ActorRuntime {
     }
 
     pub fn feature_view(&self) -> FeatureView {
+        let rotation_rad = match self {
+            Self::Peaceful(_) => 0.0,
+            Self::Hostile(enemy) => enemy.rotation_rad(),
+        };
         FeatureView {
             pos: self.pos(),
             size: self.size(),
@@ -94,6 +98,7 @@ impl ActorRuntime {
             visible: self.visible(),
             flash: self.flash(),
             switch_on: false,
+            rotation_rad,
         }
     }
 

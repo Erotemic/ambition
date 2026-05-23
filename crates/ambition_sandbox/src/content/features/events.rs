@@ -26,6 +26,12 @@ pub struct FeatureView {
     /// "on" (encounter cleared / reset path armed). Renders green when
     /// true, red when false. Ignored for other kinds.
     pub switch_on: bool,
+    /// Z-axis rotation to apply to the rendered sprite, in radians
+    /// (Bevy frame; +π/2 is CCW). Non-zero for surface-walking
+    /// archetypes that crawl on walls/ceilings; everyone else
+    /// reports 0.0 and renders axis-aligned. See
+    /// `EnemyRuntime::rotation_rad` for the engine → Bevy mapping.
+    pub rotation_rad: f32,
 }
 
 #[derive(Clone, Copy, Debug)]

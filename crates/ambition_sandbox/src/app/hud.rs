@@ -115,10 +115,6 @@ pub(super) fn update_hud(
     else {
         return;
     };
-    let feel_line = crate::dev::dev_tools::feel_metrics_summary(
-        hud_body.base_size,
-        developer_tools.movement_profile.tuning(),
-    );
     let player_hp_current = hud_health.current().max(0);
     let player_hp_max = hud_health.max();
     let player_vel = hud_body.vel;
@@ -130,32 +126,11 @@ pub(super) fn update_hud(
     let player_invuln = hud_combat.damage_invuln_timer;
     let player_hitstop = hud_combat.hitstop_timer;
 
-    let zone_hint = {
-        let hints = room_set.nearby_zone_hints(hud_body.aabb(), hud_body.fly_enabled);
-        if hints.is_empty() {
-            "zones: none".to_string()
-        } else {
-            let joined = hints.join(" | ");
-            format!("zones: {joined}")
-        }
-    };
     let feature_banner = if progression.banner.visible() {
         let text = &progression.banner.text;
         format!("\nFEATURE: {text}")
     } else {
         String::new()
-    };
-    // Quest content now lives in its own UI surface
-    // (`update_quest_panel` writes to `QuestPanelText`); the debug HUD
-    // no longer carries a `\nQUESTS: ...` trailer. The compact HUD
-    // branch keeps emitting the line for the single-screen dump
-    // (testers want everything-at-once); the verbose branch omits it.
-    let quest_lines = quest_registry.quest_log_lines();
-    let quest_line = if quest_lines.is_empty() {
-        String::new()
-    } else {
-        let joined = quest_lines.join("  ::  ");
-        format!("\nQUESTS: {joined}")
     };
     // Cutscene UI lives in the dedicated overlay
     // (`crate::presentation::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
@@ -256,20 +231,15 @@ pub(super) fn update_hud(
         let vx = player_vel.x;
         let vy = player_vel.y;
         let combo_symbols = hud_authority.player.combo_symbols();
-        let combo_hint = hud_authority.player.current_combo_hint();
-        let ldtk_status = &ldtk_reload.last_status;
-        let overview = developer_tools.overview_camera;
         let preset_name = &preset.name;
         **text = format!(
             "{world_name} | {mode_label} | room {room_index}/{room_count} | \
              hp {player_hp_current}/{player_hp_max} | vel ({vx:+.0},{vy:+.0}) | \
              grounded {player_on_ground} | dash {player_dash_charges} | jumps {player_air_jumps}\n\
-             combo: {combo_symbols} | hint: {combo_hint}\n\
-             {zone_hint} | feel: {feel_line} | ldtk: {ldtk_status} | \
+             combo: {combo_symbols}\n\
              hitstun {player_hitstun:.2} invuln {player_invuln:.2} hitstop {player_hitstop:.2} | \
              preset {preset_name} | {window_line} | \
-             F1 debug F3 inspector F4 world F5 overview={overview} F11 reload F12 auto\n\
-             {feature_banner}{quest_line}{cutscene_line}{boss_line}\
+             {feature_banner}{cutscene_line}{boss_line}\
              {encounter_line}{map_line}{attack_line}{ledge_line}{movement_line}\n"
         );
         return;
@@ -296,20 +266,12 @@ pub(super) fn update_hud(
     let room_index = room_set.active + 1;
     let room_count = room_set.rooms.len();
     let combo_symbols = hud_authority.player.combo_symbols();
-    let combo_hint = hud_authority.player.current_combo_hint();
     let preset_name = &preset.name;
-    let ldtk_status = &ldtk_reload.last_status;
-    let overview = developer_tools.overview_camera;
     **text = format!(
         "{world_name}  mode: {mode_label}  room {room_index}/{room_count}\n\
-         {zone_hint}\n\
          hp {player_hp_current}/{player_hp_max}  dash {player_dash_charges}  \
          air_jumps {player_air_jumps}  mana {player_mana_current}  combo: {combo_symbols}\n\
-         hint: {combo_hint}\n\
          preset: {preset_name}\n\
-         F1 debug  F2 slowmo  F3 inspector  F5 overview={overview}  F8 trace  \
-         F11 LDtk reload  Esc mode={mode_label}  Delete reset\n\
-         LDtk: {ldtk_status}\n\
          {window_line}\n\
          enemies: {enemy_health}\
          {attack_line}{ledge_line}{movement_line}{flash_line}{feature_banner}\

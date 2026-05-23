@@ -40,6 +40,7 @@ SKIN_LIGHT = (235, 214, 188, 255)
 HAIR = (62, 50, 46, 255)
 HAIR_LIGHT = (94, 82, 76, 255)
 GLASS = (28, 26, 30, 255)
+GLASS_TINT = (180, 200, 220, 72)
 SUIT = (124, 98, 72, 255)
 SUIT_DARK = (84, 65, 50, 255)
 SUIT_LIGHT = (157, 131, 103, 255)
@@ -203,6 +204,19 @@ def line(draw: ImageDraw.ImageDraw, pts: Sequence[Point], fill: RGBA, width: flo
     draw.line([pt(p) for p in pts], fill=fill, width=max(1, s(width)), joint="curve")
 
 
+def composite_transparent_ellipse(img: Image.Image, cx: float, cy: float, rx: float, ry: float, fill: RGBA) -> Image.Image:
+    """Draw a translucent ellipse via alpha compositing.
+
+    This keeps the underlying eye / skin pixels visible under the lens tint.
+    """
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay, "RGBA")
+    ellipse(overlay_draw, cx, cy, rx, ry, fill, None, 0)
+    composed = Image.alpha_composite(img, overlay)
+    img.paste(composed)
+    return img
+
+
 def ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     draw.ellipse(box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, s(width)))
 
@@ -254,7 +268,7 @@ class GirdleRenderer:
         self._draw_arms(draw, P, pose, body_yaw, chest)
         # Head last for readability.
         head_anchor = P(mix(0.0, 14.0, body_yaw), -120)
-        self._draw_head(draw, head_anchor, pose)
+        self._draw_head(img, draw, head_anchor, pose)
 
         if anim == "loophole":
             origin = P(72, -102)
@@ -355,17 +369,17 @@ class GirdleRenderer:
                 line(draw, [front_hand, tip], SKIN, 1.3)
                 line(draw, [front_hand, tip], OUTLINE, 0.45)
 
-    def _draw_head(self, draw: ImageDraw.ImageDraw, anchor: Point, pose: Pose) -> None:
+    def _draw_head(self, img: Image.Image, draw: ImageDraw.ImageDraw, anchor: Point, pose: Pose) -> None:
         yaw = pose.yaw
         cx, cy = anchor
         if yaw < 0.22:
-            self._draw_head_front(draw, (cx, cy), pose)
+            self._draw_head_front(img, draw, (cx, cy), pose)
         elif yaw > 0.78:
-            self._draw_head_side(draw, (cx, cy), pose)
+            self._draw_head_side(img, draw, (cx, cy), pose)
         else:
-            self._draw_head_three_quarter(draw, (cx, cy), pose)
+            self._draw_head_three_quarter(img, draw, (cx, cy), pose)
 
-    def _draw_head_front(self, draw: ImageDraw.ImageDraw, c: Point, pose: Pose) -> None:
+    def _draw_head_front(self, img: Image.Image, draw: ImageDraw.ImageDraw, c: Point, pose: Pose) -> None:
         cx, cy = c
         # Ears
         ellipse(draw, cx - 22, cy + 2, 5.5, 8.5, SKIN_SHADE, OUTLINE, 0.7)
@@ -382,8 +396,10 @@ class GirdleRenderer:
         line(draw, [(cx - 16, cy - 10), (cx - 16, cy - 24)], HAIR, 1.2)
         line(draw, [(cx + 16, cy - 10), (cx + 16, cy - 24)], HAIR, 1.2)
         # Glasses
-        ellipse(draw, cx - 10, cy + 0, 8.5, 8.5, (0, 0, 0, 0), GLASS, 1.1)
-        ellipse(draw, cx + 10, cy + 0, 8.5, 8.5, (0, 0, 0, 0), GLASS, 1.1)
+        img = composite_transparent_ellipse(img, cx - 10, cy + 0, 8.5, 8.5, GLASS_TINT)
+        img = composite_transparent_ellipse(img, cx + 10, cy + 0, 8.5, 8.5, GLASS_TINT)
+        ellipse(draw, cx - 10, cy + 0, 8.5, 8.5, None, GLASS, 1.1)
+        ellipse(draw, cx + 10, cy + 0, 8.5, 8.5, None, GLASS, 1.1)
         line(draw, [(cx - 1.5, cy), (cx + 1.5, cy)], GLASS, 0.8)
         line(draw, [(cx - 18, cy - 1), (cx - 25, cy - 4)], GLASS, 0.7)
         line(draw, [(cx + 18, cy - 1), (cx + 25, cy - 4)], GLASS, 0.7)
@@ -408,7 +424,7 @@ class GirdleRenderer:
         line(draw, [(cx - 8, cy + 6), (cx - 10, cy + 16)], SKIN_SHADE, 0.45)
         line(draw, [(cx + 8, cy + 6), (cx + 10, cy + 16)], SKIN_SHADE, 0.45)
 
-    def _draw_head_three_quarter(self, draw: ImageDraw.ImageDraw, c: Point, pose: Pose) -> None:
+    def _draw_head_three_quarter(self, img: Image.Image, draw: ImageDraw.ImageDraw, c: Point, pose: Pose) -> None:
         cx, cy = c
         yaw = pose.yaw
         # Visible ear
@@ -421,8 +437,10 @@ class GirdleRenderer:
         line(draw, [(cx - 4, cy - 18), (cx + 2, cy - 26), (cx + 10, cy - 25)], OUTLINE, 0.9)
         line(draw, [(cx - 10, cy - 12), (cx - 10, cy - 24)], HAIR, 1.0)
         # Glasses, near lens prominent.
-        ellipse(draw, cx + 5, cy - 1, 8.8, 8.8, (0, 0, 0, 0), GLASS, 1.0)
-        ellipse(draw, cx - 8, cy + 0.5, 6.0, 6.0, (0, 0, 0, 0), GLASS, 0.9)
+        img = composite_transparent_ellipse(img, cx + 5, cy - 1, 8.8, 8.8, GLASS_TINT)
+        img = composite_transparent_ellipse(img, cx - 8, cy + 0.5, 6.0, 6.0, GLASS_TINT)
+        ellipse(draw, cx + 5, cy - 1, 8.8, 8.8, None, GLASS, 1.0)
+        ellipse(draw, cx - 8, cy + 0.5, 6.0, 6.0, None, GLASS, 0.9)
         line(draw, [(cx - 2, cy), (cx + 0.5, cy - 1)], GLASS, 0.8)
         line(draw, [(cx + 13, cy - 1), (cx + 21, cy - 4)], GLASS, 0.7)
         line(draw, [(cx - 14, cy), (cx - 22, cy - 3)], GLASS, 0.6)
@@ -442,7 +460,7 @@ class GirdleRenderer:
         line(draw, [(cx + 2, cy + 20), (cx + 12, cy + 20)], SKIN_SHADE, 0.45)
         line(draw, [(cx + 0, cy + 6), (cx - 2, cy + 15)], SKIN_SHADE, 0.4)
 
-    def _draw_head_side(self, draw: ImageDraw.ImageDraw, c: Point, pose: Pose) -> None:
+    def _draw_head_side(self, img: Image.Image, draw: ImageDraw.ImageDraw, c: Point, pose: Pose) -> None:
         cx, cy = c
         # Ear
         ellipse(draw, cx - 18, cy + 2, 5.5, 8.0, SKIN_SHADE, OUTLINE, 0.7)
@@ -452,7 +470,8 @@ class GirdleRenderer:
         face = [(cx - 12, cy - 20), (cx + 6, cy - 22), (cx + 20, cy - 14), (cx + 27, cy - 2), (cx + 24, cy + 6), (cx + 14, cy + 14), (cx + 9, cy + 24), (cx - 7, cy + 26), (cx - 16, cy + 14)]
         poly(draw, face, SKIN, OUTLINE, 0.9)
         line(draw, [(cx + 0, cy - 18), (cx + 5, cy - 28), (cx + 11, cy - 28)], OUTLINE, 0.9)
-        ellipse(draw, cx + 5, cy - 1, 8.6, 8.6, (0, 0, 0, 0), GLASS, 1.0)
+        img = composite_transparent_ellipse(img, cx + 5, cy - 1, 8.6, 8.6, GLASS_TINT)
+        ellipse(draw, cx + 5, cy - 1, 8.6, 8.6, None, GLASS, 1.0)
         line(draw, [(cx + 13, cy - 1), (cx + 21, cy - 4)], GLASS, 0.7)
         if pose.blink:
             line(draw, [(cx + 2, cy + 0), (cx + 8, cy + 0)], OUTLINE, 0.7)

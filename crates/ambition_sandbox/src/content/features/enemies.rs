@@ -1100,8 +1100,18 @@ impl EnemyRuntime {
         // EFFECTS STAGE — translate the frame's attack intents into
         // wind-up timers / projectile spawns. Same gating
         // (cooldowns, archetype eligibility) as before.
+        //
+        // Surface walkers (PuppySlug) have no telegraphed attack —
+        // contact with the body is the only damage source.
+        // `MeleeContact` choreography fires `Melee` actions whenever
+        // the slug is near the player, which would otherwise leak
+        // through to `attack_windup_timer` and produce a forward
+        // hit-volume the player could be struck by. Skipping the
+        // EFFECTS gate is the simplest way to express "this
+        // archetype doesn't initiate attacks."
         if frame.melee_pressed
             && !self.archetype.is_sandbag()
+            && !is_surface_walker
             && self.attack_cooldown <= 0.0
         {
             self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
@@ -1288,105 +1298,176 @@ impl EnemyRuntime {
         f32::atan2(-self.surface_normal.x, -self.surface_normal.y)
     }
 
-    /// Surface-walking integration for `PuppySlug`. Walks at
-    /// `patrol_speed` along the tangent (perpendicular to
-    /// `surface_normal`, sign by `facing`), probing each tick for:
+    /// Surface-walking integration for `PuppySlug`. The slug's
+    /// invariant is "body is `body_thick` away from a solid in
+    /// `-surface_normal` direction" — every tick re-establishes
+    /// it. Routine per tick:
     ///
-    /// 1. **Concave corner** — solid blocks dead ahead at body
-    ///    height. Rotate normal toward the obstacle so the slug
-    ///    climbs up onto it.
-    /// 2. **Convex corner** — the supporting surface ends underneath
-    ///    the leading edge. Rotate normal the opposite way so the
-    ///    slug wraps around the lip and crawls down.
-    /// 3. **Fallthrough** — the surface vanished entirely (e.g. one-
-    ///    way platform dropped out, or the slug was knocked off the
-    ///    wall). Run a one-tick gravity-down kinematic step; on
-    ///    landing, re-pin the normal to the floor.
+    /// 1. **Pre-step wall check.** Probe just past the leading edge
+    ///    at body thickness. If solid → rotate CW (so the wall
+    ///    becomes the new surface) and snap to it. Don't step.
+    /// 2. **Step along tangent.** Move the slug forward.
+    /// 3. **Snap to current surface.** Cast in `-normal` for a
+    ///    solid within reach; reposition `pos` so the body just
+    ///    touches it. If success, done.
+    /// 4. **Try CCW rotation.** The slug walked off a ledge; the
+    ///    surface ahead-and-down is the new surface. Snap.
+    /// 5. **Try CW rotation.** Rare — overshot a concave corner
+    ///    that pre-step missed. Snap.
+    /// 6. **Fall.** No surface in any cardinal direction. Hand off
+    ///    to a one-tick gravity step; on landing, re-pin to floor.
     ///
-    /// Otherwise it just translates along the tangent. The slug's
-    /// body is bumped a fraction of a tile through the corner so
-    /// adjacent ticks have room to detect the next surface state
-    /// without overshooting.
+    /// Compared to the previous design (which fired discrete
+    /// "convex"/"concave" rules and applied hand-tuned post-rotation
+    /// offsets), this one delegates corner geometry to a single
+    /// `snap_pos_to_surface` helper that finds the actual solid
+    /// edge. That eliminates the "stuck at the lip of a ledge"
+    /// failure where the hand-tuned offset didn't land on the new
+    /// cliff face, and the "crawls between two stacked blocks"
+    /// failure where the slug penetrated the wall without
+    /// re-contacting it.
     fn step_surface_walker(&mut self, world: &ae::World, dt: f32) {
         let n = self.surface_normal;
         let speed = self.archetype.patrol_speed();
-
+        let step_len = speed * dt;
         // tangent_base = 90° math-CCW rotation of normal; multiply by
         // facing to pick a direction along the surface.
         let tangent =
             ae::Vec2::new(-n.y * self.facing, n.x * self.facing);
-
-        // Half-extents in surface-local coords: along-tangent
-        // ("length" of the slug along the surface) vs along-normal
-        // ("thickness" sticking up from the surface).
         let body_long = self.size.x * 0.5;
         let body_thick = self.size.y * 0.5;
 
-        // First: is there still ANY surface beneath the body center?
-        // If we lost it entirely (e.g. one-way platform dropped, or
-        // we're freshly spawned in mid-air), fall.
-        let beneath_center = self.pos + (-n) * (body_thick + 4.0);
-        let beneath_probe =
-            ae::Aabb::new(beneath_center, ae::Vec2::new(body_long * 0.6, 3.0));
-        let still_on_surface = world.body_overlaps_any(beneath_probe, surface_solid_pred);
-        if !still_on_surface {
-            self.fall_until_landed(world, dt);
-            return;
-        }
-
-        // Concave: a solid is sitting in our path at body height.
-        // Probe a thin AABB just ahead of the leading edge at body-
-        // center thickness so we trigger on actual walls but ignore
-        // bumps in the floor we're already on.
-        let ahead_center = self.pos + tangent * (body_long + 3.0);
-        let ahead_probe = ae::Aabb::new(
-            ahead_center,
-            ae::Vec2::new(2.5, body_thick * 0.6),
-        );
-        let wall_ahead = world.body_overlaps_any(ahead_probe, surface_wall_pred);
-        if wall_ahead {
-            // Rotate normal CW (math sense — engine y-down makes that
-            // visually CCW). The slug pivots its head INTO the
-            // obstacle so the obstacle becomes the new surface.
+        // ---- 1. Pre-step wall check -------------------------------
+        if self.wall_ahead(world, tangent, body_long, body_thick) {
+            // Rotate CW (math): (x, y) → (y, -x). Picks the
+            // orientation where the obstructing surface becomes the
+            // new "down".
             self.surface_normal = ae::Vec2::new(n.y, -n.x);
-            self.vel = ae::Vec2::ZERO;
-            return;
+            if self.snap_pos_to_surface(world) {
+                self.vel = ae::Vec2::ZERO;
+                self.on_ground = true;
+                return;
+            }
+            // Snap failed (no actual surface in the CW direction —
+            // edge case, e.g. a single-tile-wide bump). Revert and
+            // try the step anyway.
+            self.surface_normal = n;
         }
 
-        // Convex: the surface beneath us ENDS at the leading edge.
-        // Probe at the leading-edge foot — if no support, wrap.
-        let leading_foot = self.pos
-            + tangent * (body_long + 2.0)
-            + (-n) * (body_thick + 4.0);
-        let convex_probe = ae::Aabb::new(leading_foot, ae::Vec2::new(2.5, 3.0));
-        let surface_at_leading =
-            world.body_overlaps_any(convex_probe, surface_solid_pred);
-        if !surface_at_leading {
-            // Rotate normal CCW (math sense). The slug pivots its
-            // BODY into open space and clings to the wall it just
-            // walked off.
-            self.surface_normal = ae::Vec2::new(-n.y, n.x);
-            // Step forward + drop the body around the corner. The
-            // (body_thick) inset moves the slug onto the new
-            // surface's facing side; the (body_long * 0.3) along the
-            // old tangent prevents an immediate convex-re-trigger.
-            self.pos += tangent * (body_thick * 0.5)
-                + (-n) * (body_thick * 0.5);
-            self.vel = ae::Vec2::ZERO;
-            return;
-        }
-
-        // Normal step along tangent.
-        let step = tangent * speed * dt;
-        self.pos += step;
+        // ---- 2. Step along tangent --------------------------------
+        let original_pos = self.pos;
+        self.pos += tangent * step_len;
         self.vel = tangent * speed;
-        self.on_ground = true;
 
-        // Snap toward surface: if floating-point drift pushed the
-        // body away from the surface, pull it back. We probe deeper
-        // along -n than the contact line and nudge the body until
-        // the contact probe registers a thin overlap.
-        self.stick_to_surface(world);
+        // ---- 3. Snap to current surface ---------------------------
+        if self.snap_pos_to_surface(world) {
+            self.on_ground = true;
+            return;
+        }
+
+        // ---- 4. Try CCW rotation (convex wrap) --------------------
+        // Slug walked off the surface in the direction of motion;
+        // the wall just past the corner is the new surface. Before
+        // snapping, slide pos a half-body along the OLD tangent +
+        // OLD -normal direction — that puts the slug center "around
+        // the corner" so the snap cast in the new -normal direction
+        // can actually hit the new wall face.
+        let ccw_normal = ae::Vec2::new(-n.y, n.x);
+        let around_corner = original_pos
+            + tangent * body_long
+            + (-n) * body_long;
+        self.pos = around_corner;
+        self.surface_normal = ccw_normal;
+        if self.snap_pos_to_surface(world) {
+            self.vel = ae::Vec2::ZERO;
+            self.on_ground = true;
+            return;
+        }
+
+        // ---- 5. Try CW rotation (back-wrap) -----------------------
+        // Very rare — the slug ran straight into a concave corner
+        // that the pre-step probe missed because the geometry sat
+        // just outside the probe envelope. Try the opposite
+        // rotation from the same pre-step pos.
+        self.pos = original_pos;
+        self.surface_normal = ae::Vec2::new(n.y, -n.x);
+        if self.snap_pos_to_surface(world) {
+            self.vel = ae::Vec2::ZERO;
+            self.on_ground = true;
+            return;
+        }
+
+        // ---- 6. Fall -----------------------------------------------
+        self.surface_normal = n;
+        self.pos = original_pos;
+        self.fall_until_landed(world, dt);
+    }
+
+    /// True when the slug's next step in the tangent direction
+    /// would punch its body into a wall. Probe is a thin slice
+    /// perpendicular to tangent, sized just shy of body thickness
+    /// across the normal axis so floor bumps under the body don't
+    /// trigger it.
+    fn wall_ahead(
+        &self,
+        world: &ae::World,
+        tangent: ae::Vec2,
+        body_long: f32,
+        body_thick: f32,
+    ) -> bool {
+        let probe_center = self.pos + tangent * (body_long + 3.0);
+        // Probe half-extents: slim along tangent (the direction we
+        // care about) and ~body_thickness across normal (so the
+        // probe matches the body cross-section, not the floor).
+        let half = if tangent.x.abs() > 0.5 {
+            ae::Vec2::new(2.0, body_thick * 0.7)
+        } else {
+            ae::Vec2::new(body_thick * 0.7, 2.0)
+        };
+        let probe = ae::Aabb::new(probe_center, half);
+        world.body_overlaps_any(probe, surface_wall_pred)
+    }
+
+    /// Slide pos along the normal axis so the slug's body just
+    /// touches a solid in `-surface_normal` direction. Casts a
+    /// thin AABB outward from `self.pos` step-by-pixel until a
+    /// solid block is hit; then shifts pos so the body's
+    /// `body_thick` half-extent rests on the contact edge.
+    ///
+    /// Returns `false` if no solid is within reach (the slug is in
+    /// open space; caller should fall or try another orientation).
+    fn snap_pos_to_surface(&mut self, world: &ae::World) -> bool {
+        let n = self.surface_normal;
+        let body_thick = self.size.y * 0.5;
+        let body_long = self.size.x * 0.5;
+        let down = -n;
+        // Search outward up to a body_long beyond the contact line
+        // — covers a full body-rotation around a corner (the slug
+        // can wrap onto a wall whose face is up to body_long away
+        // from where pos currently sits, post-corner-shift).
+        let max_d = (body_thick + body_long + 4.0) as i32;
+        // Probe is slim along the cast axis, wide across the
+        // perpendicular so it matches the body's "foot print" on
+        // the surface and tolerates 1-px floating-point jitter.
+        let half = if n.x.abs() > 0.5 {
+            ae::Vec2::new(0.75, body_long * 0.35)
+        } else {
+            ae::Vec2::new(body_long * 0.35, 0.75)
+        };
+        for i in 0..=max_d {
+            let d = i as f32;
+            let probe = ae::Aabb::new(self.pos + down * d, half);
+            if world.body_overlaps_any(probe, surface_solid_pred) {
+                // The solid edge is approximately `d - 0.5` from
+                // pos along `down` (the 1-px probe spans
+                // `[d - 0.5, d + 0.5]`). Shift pos along +normal so
+                // the body's `body_thick`-deep underside touches the
+                // edge exactly.
+                self.pos += n * (body_thick - (d - 0.5));
+                return true;
+            }
+        }
+        false
     }
 
     /// Gravity-fall step when the slug has lost contact with any
@@ -1418,24 +1499,6 @@ impl EnemyRuntime {
             // Re-pin to a floor surface — the slug forgets it was
             // ever on a wall once it lands.
             self.surface_normal = ae::Vec2::new(0.0, -1.0);
-        }
-    }
-
-    /// Nudge the slug back toward `surface_normal`'s surface when it
-    /// has drifted slightly off (floating-point error after a
-    /// rotation). Walks the body 0.5-px steps toward `-n` until a
-    /// thin contact probe overlaps a solid block, capped at a
-    /// quarter-tile of travel so a missing-surface case can't loop.
-    fn stick_to_surface(&mut self, world: &ae::World) {
-        let n = self.surface_normal;
-        let body_thick = self.size.y * 0.5;
-        for _ in 0..8 {
-            let contact_center = self.pos + (-n) * (body_thick + 1.5);
-            let contact_probe = ae::Aabb::new(contact_center, ae::Vec2::new(2.0, 2.0));
-            if world.body_overlaps_any(contact_probe, surface_solid_pred) {
-                return;
-            }
-            self.pos += (-n) * 0.5;
         }
     }
 

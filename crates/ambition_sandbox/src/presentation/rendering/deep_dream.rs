@@ -153,6 +153,13 @@ pub fn attach_puppy_slug_deep_dream_overlays(
 /// Mirror the hidden source sprite's current atlas frame into the overlay
 /// material. This runs after `animate_characters`, so it sees the same atlas
 /// index and facing flip that the normal sprite would have drawn.
+///
+/// Also drives a guaranteed-visible rainbow tint on the source sprite by
+/// cycling its `color` through HSV every tick. This is a fail-safe for the
+/// custom-material overlay: if the WGSL pipeline silently isn't drawing
+/// (compile error, render-graph wiring, asset race) the slug still ends up
+/// surreal-looking instead of plain. When the overlay DOES render, the tint
+/// blends underneath the dream shader.
 pub fn sync_puppy_slug_deep_dream_overlays(
     world_time: Res<crate::WorldTime>,
     mut elapsed: Local<f32>,
@@ -177,10 +184,16 @@ pub fn sync_puppy_slug_deep_dream_overlays(
         let uv_rect = current_sprite_uv_rect(&source_sprite, animator);
         let flip = flip_flag(&source_sprite);
 
-        // Hide the ordinary sprite AFTER `animate_characters` has used it as
-        // the animation state carrier. The material child draws the visible
-        // pixels instead.
-        source_sprite.color = Color::srgba(1.0, 1.0, 1.0, SOURCE_ALPHA_WHILE_DREAMING);
+        // Rainbow tint cycle. Hue scrolls at ~0.7 cycles/s, offset by the
+        // per-slug seed so multiple slugs aren't synchronised. Saturation
+        // and value are kept high enough that the texture's authored
+        // pattern still reads through the multiply. Alpha is held at
+        // `SOURCE_ALPHA_WHILE_DREAMING` (currently 1.0) until the overlay
+        // material is verified to draw — at that point this can drop and
+        // the shader takes over.
+        let hue = (*elapsed * 0.7 + source.seed * 0.91).rem_euclid(1.0);
+        let tint = hsv_to_rgb(hue, 0.78, 1.0);
+        source_sprite.color = Color::srgba(tint.x, tint.y, tint.z, SOURCE_ALPHA_WHILE_DREAMING);
 
         for child in children.iter() {
             let Ok((material_handle, mut transform)) = overlays.get_mut(child) else {
@@ -193,6 +206,25 @@ pub fn sync_puppy_slug_deep_dream_overlays(
                 material.control = Vec4::new(*elapsed, flip, 1.0, source.seed);
             }
         }
+    }
+}
+
+/// Cheap HSV → linear RGB conversion. Used by the rainbow-tint fail-safe;
+/// doesn't need to be color-space-accurate, just lively.
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Vec3 {
+    let h = h.rem_euclid(1.0);
+    let i = (h * 6.0).floor() as i32;
+    let f = h * 6.0 - i as f32;
+    let p = v * (1.0 - s);
+    let q = v * (1.0 - s * f);
+    let t = v * (1.0 - s * (1.0 - f));
+    match i.rem_euclid(6) {
+        0 => Vec3::new(v, t, p),
+        1 => Vec3::new(q, v, p),
+        2 => Vec3::new(p, v, t),
+        3 => Vec3::new(p, q, v),
+        4 => Vec3::new(t, p, v),
+        _ => Vec3::new(v, p, q),
     }
 }
 

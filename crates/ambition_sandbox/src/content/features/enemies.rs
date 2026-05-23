@@ -433,11 +433,11 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             default_size: Some(ae::Vec2::new(108.0, 96.0)),
         },
         PuppySlug => EnemyArchetypeSpec {
-            // Crawlid-style grunt: 1 HP, slow, body-contact damage,
+            // Crawlid-style grunt: 2 HP, slow, body-contact damage,
             // never aggros (aggro_radius = 0 → AI stays in Patrol).
             // chase_speed is unused but kept non-zero so any future
             // promotion to "panic-on-hit chase" reads sensibly.
-            max_health: 1,
+            max_health: 2,
             rider_max_health: None,
             patrol_speed: 55.0,
             chase_speed: 80.0,
@@ -1003,8 +1003,10 @@ impl EnemyRuntime {
             // `step_kinematic` entirely — that primitive bakes in
             // gravity-down + axis-aligned solid sweeps, which is
             // wrong on rotated surfaces. The custom step has its own
-            // ledge / wall / fall handling.
-            self.step_surface_walker(world, dt);
+            // ledge / wall / fall handling. `nearest_neighbor` lets
+            // two slugs that bump into each other reverse instead of
+            // overlapping.
+            self.step_surface_walker(world, nearest_neighbor, dt);
         } else {
             // INTEGRATION STAGE — every actor (aerial, grounded, patrol)
             // goes through `step_kinematic` against the live `world`.
@@ -1348,7 +1350,12 @@ impl EnemyRuntime {
     /// cliff face, and the "crawls between two stacked blocks"
     /// failure where the slug penetrated the wall without
     /// re-contacting it.
-    fn step_surface_walker(&mut self, world: &ae::World, dt: f32) {
+    fn step_surface_walker(
+        &mut self,
+        world: &ae::World,
+        nearest_neighbor: Option<ae::Vec2>,
+        dt: f32,
+    ) {
         let n = self.surface_normal;
         let speed = self.archetype.patrol_speed();
         let step_len = speed * dt;
@@ -1358,6 +1365,30 @@ impl EnemyRuntime {
             ae::Vec2::new(-n.y * self.facing, n.x * self.facing);
         let body_long = self.size.x * 0.5;
         let body_thick = self.size.y * 0.5;
+
+        // ---- 0. Slug-vs-slug collision ----------------------------
+        // If another actor is within body extent in front of us
+        // (along tangent), reverse facing rather than stepping into
+        // them. Both slugs do this on the same tick, so they bounce
+        // apart instead of stacking. The `(body_long + 6)` along
+        // and `(body_thick + 4)` perpendicular envelope is sized to
+        // match the visual silhouette so two slugs visibly making
+        // contact reverse; passing each other on parallel surfaces
+        // (one floor, one ceiling) is unaffected because the
+        // perpendicular check rejects.
+        if let Some(neighbor_pos) = nearest_neighbor {
+            let delta = neighbor_pos - self.pos;
+            let along = delta.x * tangent.x + delta.y * tangent.y;
+            let perp = delta.x * n.x + delta.y * n.y;
+            if along > 0.0
+                && along < body_long + 6.0
+                && perp.abs() < body_thick + 4.0
+            {
+                self.facing = -self.facing;
+                self.vel = ae::Vec2::ZERO;
+                return;
+            }
+        }
 
         // ---- 1. Pre-step wall check -------------------------------
         if self.wall_ahead(world, tangent, body_long, body_thick) {

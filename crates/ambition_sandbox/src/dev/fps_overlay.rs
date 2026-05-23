@@ -141,16 +141,56 @@ fn sync_fps_overlay_state_from_settings(
     }
 }
 
-/// Read `FPS` + `FRAME_TIME` from the diagnostics store and write a
-/// single short line into the overlay text. Format:
+/// Min/mean/max of a diagnostic's history window. The window size is
+/// whatever `FrameTimeDiagnosticsPlugin` is configured with (Bevy's
+/// default is ~120 samples = ~2 s at 60 Hz), so the stats reflect
+/// recent gameplay rather than the entire session.
+///
+/// Returns `None` when the diagnostic has no samples yet — the
+/// overlay falls back to showing dashes in that brief startup
+/// window. Tested via `window_stats_from_iter` against a fixture
+/// iterator so we don't have to construct a real `Diagnostic`.
+fn window_stats_from_iter(values: impl IntoIterator<Item = f64>) -> Option<(f64, f64, f64)> {
+    let mut count = 0_u32;
+    let mut sum = 0.0_f64;
+    let mut min = f64::INFINITY;
+    let mut max = f64::NEG_INFINITY;
+    for v in values {
+        count += 1;
+        sum += v;
+        if v < min {
+            min = v;
+        }
+        if v > max {
+            max = v;
+        }
+    }
+    if count == 0 {
+        None
+    } else {
+        Some((min, sum / f64::from(count), max))
+    }
+}
+
+/// Pull min/mean/max out of a Bevy diagnostic's history window.
+/// Thin wrapper over [`window_stats_from_iter`] that dereferences
+/// the `&f64` items the diagnostic exposes.
+fn window_stats(diagnostic: &bevy::diagnostic::Diagnostic) -> Option<(f64, f64, f64)> {
+    window_stats_from_iter(diagnostic.values().copied())
+}
+
+/// Read `FPS` + `FRAME_TIME` from the diagnostics store and write the
+/// overlay's two-line summary. Format:
 ///
 /// ```text
-/// FPS 60  |  frame 16.6ms
+/// FPS    60.0  min 58  max 62
+/// frame  16.6  min 16.0  max 17.2 ms
 /// ```
 ///
-/// Uses the smoothed (`smoothed()`) value when available; falls back
-/// to the latest instantaneous value if smoothing hasn't built up
-/// history yet.
+/// The middle column is the moving-window mean over the diagnostic
+/// history (≈2 s by default); `min` / `max` show the worst- and
+/// best-case sample in the same window so a single hitched frame
+/// shows up as an outlier without polluting the mean.
 fn update_fps_overlay_text(
     diagnostics: Res<DiagnosticsStore>,
     mut query: Query<&mut Text, With<FpsOverlayText>>,
@@ -158,15 +198,17 @@ fn update_fps_overlay_text(
     let Ok(mut text) = query.single_mut() else {
         return;
     };
-    let fps = diagnostics
+    let fps_line = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|d| d.smoothed().or_else(|| d.value()))
-        .unwrap_or(0.0);
-    let frame_time_ms = diagnostics
+        .and_then(window_stats)
+        .map(|(min, mean, max)| format!("FPS    {mean:>5.1}  min {min:>3.0}  max {max:>3.0}"))
+        .unwrap_or_else(|| "FPS    --     min  --   max  --".to_owned());
+    let frame_line = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
-        .and_then(|d| d.smoothed().or_else(|| d.value()))
-        .unwrap_or(0.0);
-    text.0 = format!("FPS {fps:>3.0}  |  frame {frame_time_ms:>5.1}ms");
+        .and_then(window_stats)
+        .map(|(min, mean, max)| format!("frame  {mean:>5.1}  min {min:>4.1} max {max:>4.1} ms"))
+        .unwrap_or_else(|| "frame  --     min  --   max  --   ms".to_owned());
+    text.0 = format!("{fps_line}\n{frame_line}");
 }
 
 /// Sync the overlay entity's `Visibility` with `FpsOverlayState`.
@@ -207,6 +249,44 @@ mod tests {
         assert!(
             settings.video.show_fps,
             "VideoSettings::show_fps default must be true so the overlay shows out of the box",
+        );
+    }
+
+    /// Empty history → no stats. The overlay falls back to "--"
+    /// placeholders during the brief frame-zero window before the
+    /// diagnostic has any samples.
+    #[test]
+    fn window_stats_returns_none_when_empty() {
+        assert_eq!(window_stats_from_iter(Vec::<f64>::new()), None);
+    }
+
+    /// Min / mean / max across a small fixture window. Spot-checks
+    /// the math without needing to construct a Bevy `Diagnostic`.
+    #[test]
+    fn window_stats_computes_min_mean_max() {
+        let stats = window_stats_from_iter([60.0, 58.0, 62.0, 60.0]).unwrap();
+        assert_eq!(stats.0, 58.0, "min");
+        assert!((stats.1 - 60.0).abs() < 0.001, "mean ≈ 60");
+        assert_eq!(stats.2, 62.0, "max");
+    }
+
+    /// A single hitched sample drags the min/max immediately but
+    /// barely moves the mean — exactly the "outlier visibility"
+    /// behavior Jon asked for ("easier to see [perf spikes]").
+    #[test]
+    fn window_stats_exposes_outliers_without_burying_mean() {
+        // 99 nominal samples + 1 hitch.
+        let mut values: Vec<f64> = vec![60.0; 99];
+        values.push(15.0);
+        let (min, mean, max) = window_stats_from_iter(values).unwrap();
+        assert_eq!(min, 15.0, "outlier visible as min");
+        assert_eq!(max, 60.0);
+        // Mean stays close to the nominal — outlier only shifts it
+        // by ~0.45 over 100 samples.
+        assert!(
+            (mean - 59.55).abs() < 0.01,
+            "mean lightly dragged by hitch; got {}",
+            mean,
         );
     }
 }

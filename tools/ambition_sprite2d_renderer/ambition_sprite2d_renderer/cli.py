@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import List
 
 from .adapters import TARGETS, get_adapter
-from .canonical import render_canonical, write_canonicals
+from .canonical import render_canonical, write_all_canonicals, write_canonicals
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
 from .targets.props.entities import write_entity_sprites
@@ -176,8 +176,31 @@ def draw_review(
 def draw_canonicals(
     config_dir: str | Path = DEFAULT_CONFIG_DIR,
     out_dir: str | Path = DEFAULT_ASSET_DIR / "canonicals",
+    *,
+    adapters_only: bool = False,
+    render_if_missing: bool = True,
 ) -> List[Path]:
-    return write_canonicals(config_dir, out_dir)
+    """Render every adapter + tack-on canonical pose into ``out_dir``.
+
+    Tack-on canonicals come from each target's cached
+    ``generated/<name>/<name>_canonical.png`` (rendered on demand if
+    missing and ``render_if_missing`` is true).
+
+    Set ``adapters_only=True`` for the legacy behavior that walks
+    ``configs/*.yaml`` only.
+    """
+    if adapters_only:
+        return write_canonicals(config_dir, out_dir)
+    outputs, warnings = write_all_canonicals(
+        out_dir,
+        config_dir=config_dir,
+        tackons=_TACKON_TARGETS.items(),
+        generated_root=DEFAULT_ASSET_DIR,
+        render_if_missing=render_if_missing,
+    )
+    for line in warnings:
+        print(f"warning: {line}", file=sys.stderr)
+    return outputs
 
 
 def draw_character(config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR) -> List[Path]:
@@ -238,7 +261,12 @@ def _cmd_draw_review(args: argparse.Namespace) -> int:
 
 
 def _cmd_draw_canonicals(args: argparse.Namespace) -> int:
-    print_canonical_outputs(draw_canonicals(args.config_dir, args.out_dir))
+    print_canonical_outputs(draw_canonicals(
+        args.config_dir,
+        args.out_dir,
+        adapters_only=args.adapters_only,
+        render_if_missing=not args.no_render,
+    ))
     return 0
 
 
@@ -531,8 +559,26 @@ def build_parser() -> argparse.ArgumentParser:
     _add_config_dir_args(p, config_default=DEFAULT_REVIEW_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "review")
     p.set_defaults(func=_cmd_draw_review)
 
-    p = sub.add_parser("draw-canonicals", help="Render canonical images + contact sheet")
+    p = sub.add_parser(
+        "draw-canonicals",
+        help=(
+            "Render every adapter + tack-on canonical pose + a grid contact sheet. "
+            "Tack-on canonicals are read from generated/<name>/ if cached, or "
+            "rendered on demand. Pass --adapters-only for the legacy adapter-only "
+            "behavior, or --no-render to skip rendering missing tack-on canonicals."
+        ),
+    )
     _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "canonicals")
+    p.add_argument(
+        "--adapters-only",
+        action="store_true",
+        help="Render only adapter (YAML-driven) canonicals; skip tack-on targets",
+    )
+    p.add_argument(
+        "--no-render",
+        action="store_true",
+        help="Skip the on-demand render fallback for tack-on canonicals missing from generated/",
+    )
     p.set_defaults(func=_cmd_draw_canonicals)
 
     p = sub.add_parser("draw-character", help="Render one config's canonical image, spritesheet, and YAML")

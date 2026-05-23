@@ -29,7 +29,8 @@ Adapter (character lab) commands:
 ```
 python -m ambition_sprite2d_renderer list-targets        # adapter + tack-on targets (grouped by category)
 python -m ambition_sprite2d_renderer draw-all            # render every job in configs/
-python -m ambition_sprite2d_renderer draw-canonicals     # canonical poses + contact sheet
+python -m ambition_sprite2d_renderer draw-canonicals     # every adapter + tack-on canonical + grid contact sheet
+                                                          #   (--adapters-only to skip tack-ons; --no-render to read cache only)
 python -m ambition_sprite2d_renderer draw-review         # curated general-character + NPC review pass
 python -m ambition_sprite2d_renderer draw-character <cfg> # one config: canonical + spritesheet + YAML
 python -m ambition_sprite2d_renderer draw-entities       # batch render every entity sprite

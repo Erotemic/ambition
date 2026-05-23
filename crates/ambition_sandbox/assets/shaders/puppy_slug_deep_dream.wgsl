@@ -53,8 +53,10 @@ fn atlas_uv(local_uv_in: vec2<f32>) -> vec2<f32> {
     }
     let atlas_min = uv_rect.xy;
     let atlas_max = uv_rect.zw;
-    let texel = vec2<f32>(1.0) / vec2<f32>(textureDimensions(puppy_texture));
-    return mix(atlas_min + texel, atlas_max - texel, clamp(local_uv, vec2<f32>(0.0), vec2<f32>(1.0)));
+    // The TextureAtlasLayout already uses inset rects for character sheets.
+    // Avoid recomputing a texel size here so this material stays boringly
+    // compatible with every backend Bevy targets.
+    return mix(atlas_min, atlas_max, clamp(local_uv, vec2<f32>(0.0), vec2<f32>(1.0)));
 }
 
 fn sample_frame(local_uv: vec2<f32>) -> vec4<f32> {
@@ -118,19 +120,20 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         * smoothstep(0.00, 0.08, mesh.uv.y)
         * smoothstep(0.00, 0.08, 1.0 - mesh.uv.x)
         * smoothstep(0.00, 0.08, 1.0 - mesh.uv.y);
-    let diagnostic_alpha = edge_fade * 0.16;
+    let diagnostic_alpha = edge_fade * 0.36;
     let mask_alpha = max(base.a, diagnostic_alpha);
     if mask_alpha <= 0.010 {
         discard;
     }
 
-    let base_rgb = mix(vec3<f32>(0.16, 0.10, 0.30), base.rgb, step(0.015, base.a));
+    let diagnostic_rgb = hsv2rgb(vec3<f32>(fract(time * 0.12 + seed + mesh.uv.x * 0.3 + mesh.uv.y * 0.2), 0.85, 1.0));
+    let base_rgb = mix(diagnostic_rgb, base.rgb, step(0.015, base.a));
     let rgb = dream_rgb(uv, base_rgb, time, strength, seed);
 
     let dissolve_noise = fbm(uv * 14.0 + vec2<f32>(time * -0.8, time * 0.45 + seed));
     let dissolve_wave = 0.5 + 0.5 * sin(time * 2.6 + uv.y * 13.0 + seed * 6.0);
     let dissolve = smoothstep(0.18, 0.74, dissolve_noise + dissolve_wave * 0.35);
-    let overlay_alpha = mask_alpha * mix(0.48, 0.92, dissolve) * strength;
+    let overlay_alpha = mask_alpha * mix(0.62, 0.98, dissolve) * strength;
 
     return vec4<f32>(clamp(rgb * tint.rgb, vec3<f32>(0.0), vec3<f32>(1.6)), overlay_alpha * tint.a);
 }

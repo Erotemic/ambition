@@ -16,8 +16,10 @@ use ambition_asset_manager::AssetId;
 use super::sheets::{
     CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, BURNING_FLYING_SHARK_SHEET,
     GOBLIN_CANTINA_CHIEFTAIN_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET,
-    NINJA_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET,
-    PUPPY_SLUG_SHEET, ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
+    NINJA_SHEET, PIRATE_HEAVY_BROADSIDE_BESS_SHEET, PIRATE_HEAVY_IRON_MARY_SHEET,
+    PIRATE_HEAVY_SALT_ANNET_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET,
+    PULSE_VOYAGER_CAPTAIN_SHEET, PUPPY_SLUG_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
+    TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::features::FeatureVisualKind;
@@ -187,6 +189,26 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<Character
         "Puppy Slug",
         "puppy_slug_spritesheet.png",
         &PUPPY_SLUG_SHEET,
+    ),
+    // Pirate Heavy bruiser variants. Each has palette/proportion
+    // tweaks (see `pirate_heavy_variants` Python target) but shares
+    // the heavy-bruiser silhouette: bandana hair, massive shoulders,
+    // skirt, cleaver weapon. Spawned as ground enemies in the
+    // pirate cove and as the rider on a `PirateHeavyOnShark`.
+    (
+        "Broadside Bess",
+        "pirate_heavy_broadside_bess_spritesheet.png",
+        &PIRATE_HEAVY_BROADSIDE_BESS_SHEET,
+    ),
+    (
+        "Iron Mary",
+        "pirate_heavy_iron_mary_spritesheet.png",
+        &PIRATE_HEAVY_IRON_MARY_SHEET,
+    ),
+    (
+        "Salt Annet",
+        "pirate_heavy_salt_annet_spritesheet.png",
+        &PIRATE_HEAVY_SALT_ANNET_SHEET,
     ),
     // Ninja-faction characters in the Shadow Dojo. Same sheet layout
     // (idle/walk/run/jump/fall/slash/hit/death/blink_out/blink_in/

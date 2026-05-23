@@ -129,6 +129,18 @@ pub enum EnemyArchetype {
     /// off platforms — even though `aggro_radius = 0` keeps it
     /// completely ignorant of the player.
     PuppySlug,
+    /// Pirate heavy bruiser. Slow, tanky, big-cleaver swing. Three
+    /// authored sprite variants (Broadside Bess, Iron Mary, Salt
+    /// Annet) all map to this archetype — variants differ by
+    /// EnemySpawn display name, not by tuning.
+    PirateHeavy,
+    /// Pirate heavy riding a burning flying shark. Mechanically a
+    /// `PirateOnShark` clone (two health pools, aerial orbit-and-
+    /// fire choreography) but the rider sprite resolves to one of
+    /// the heavy-variant sheets instead of `Pirate Raider`. On
+    /// shark-death dismount, the rider drops to a ground
+    /// `PirateHeavy` (heavier and slower than a `PirateRaider`).
+    PirateHeavyOnShark,
 }
 
 /// Maps `ae::EnemyBrain::Custom("...")` strings to archetype variants.
@@ -147,6 +159,8 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
     ("burning_flying_shark", EnemyArchetype::BurningFlyingShark),
     ("pirate_on_shark", EnemyArchetype::PirateOnShark),
     ("puppy_slug", EnemyArchetype::PuppySlug),
+    ("pirate_heavy", EnemyArchetype::PirateHeavy),
+    ("pirate_heavy_on_shark", EnemyArchetype::PirateHeavyOnShark),
 ];
 
 /// Authored tuning row for one [`EnemyArchetype`]. Every archetype is
@@ -344,6 +358,45 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_sandbag: false,
             default_size: Some(ae::Vec2::new(108.0, 96.0)),
         },
+        PirateHeavy => EnemyArchetypeSpec {
+            // Slow, tanky bruiser. Bigger HP + damage than the
+            // baseline pirate raider, smaller aggro radius (commits
+            // to swings rather than chasing the player across the
+            // arena). Cleaver swing connects from further out.
+            max_health: 10,
+            rider_max_health: None,
+            patrol_speed: 75.0,
+            chase_speed: 130.0,
+            aggro_radius: 380.0,
+            attack_range: 190.0,
+            contact_strength: 1.20,
+            damage_amount: 2,
+            is_aerial: false,
+            is_sandbag: false,
+            // Sized to the variants' rendered silhouette
+            // (broadside_bess: 172×138, iron_mary: 176×143,
+            // salt_annet: 169×134). Collider uses the bess midpoint
+            // so all three variants share a hitbox; tuning by
+            // variant can come later if combat asks for it.
+            default_size: Some(ae::Vec2::new(72.0, 110.0)),
+        },
+        PirateHeavyOnShark => EnemyArchetypeSpec {
+            // Aerial fused actor. Same envelope as PirateOnShark
+            // but with a chunkier rider — heavier melee on the body
+            // contact, bigger rider HP pool, slightly slower orbit
+            // because the heavy weight drags the shark.
+            max_health: 7,
+            rider_max_health: Some(6),
+            patrol_speed: 110.0,
+            chase_speed: 215.0,
+            aggro_radius: 1200.0,
+            attack_range: 1100.0,
+            contact_strength: 1.30,
+            damage_amount: 3,
+            is_aerial: true,
+            is_sandbag: false,
+            default_size: Some(ae::Vec2::new(108.0, 96.0)),
+        },
         PuppySlug => EnemyArchetypeSpec {
             // Crawlid-style grunt: 1 HP, slow, body-contact damage,
             // never aggros (aggro_radius = 0 → AI stays in Patrol).
@@ -372,7 +425,7 @@ impl EnemyArchetype {
     /// tests / tooling that want to iterate every variant; the
     /// sandbag training dummies are *not* in this list because they
     /// don't run the standard combat AI loop.
-    pub const COMBAT_ALL: [Self; 11] = [
+    pub const COMBAT_ALL: [Self; 13] = [
         Self::Combatant,
         Self::SmallSkitter,
         Self::SmallLurker,
@@ -384,6 +437,8 @@ impl EnemyArchetype {
         Self::BurningFlyingShark,
         Self::PirateOnShark,
         Self::PuppySlug,
+        Self::PirateHeavy,
+        Self::PirateHeavyOnShark,
     ];
 
     pub(super) fn from_brain(brain: &ae::EnemyBrain) -> Self {
@@ -426,13 +481,15 @@ impl EnemyArchetype {
     /// `MeleeContact` literal.
     pub(super) fn choreography(self) -> ae::AttackChoreography {
         match self {
-            Self::PirateOnShark => ae::AttackChoreography::AerialOrbitAndFire {
-                altitude: 150.0,
-                radius: 220.0,
-                orbit_speed: 0.9,
-                fire_interval: 1.4,
-                projectile_speed: 380.0,
-            },
+            Self::PirateOnShark | Self::PirateHeavyOnShark => {
+                ae::AttackChoreography::AerialOrbitAndFire {
+                    altitude: 150.0,
+                    radius: 220.0,
+                    orbit_speed: 0.85,
+                    fire_interval: 1.5,
+                    projectile_speed: 360.0,
+                }
+            }
             Self::BurningFlyingShark => ae::AttackChoreography::DiveStrike {
                 hover_altitude: 140.0,
                 hover_rest: 0.55,
@@ -642,7 +699,10 @@ impl EnemyRuntime {
             return EnemyDamageOutcome::NoOp;
         }
         // Fused pirate-on-shark: route by overlap with the rider hitbox.
-        if self.archetype == EnemyArchetype::PirateOnShark {
+        if matches!(
+            self.archetype,
+            EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
+        ) {
             if let (Some(rider_aabb), Some(rider)) = (self.rider_aabb(), self.rider_health.as_mut())
             {
                 if rider_aabb.strict_intersects(hit_volume) && rider.alive() {
@@ -662,9 +722,13 @@ impl EnemyRuntime {
         let killed = self.health.damage(damage);
         self.hit_flash = 0.18;
         if killed {
-            // If this was a fused pirate-on-shark, the shark died —
-            // dismount the rider into a grounded pirate.
-            if self.archetype == EnemyArchetype::PirateOnShark {
+            // If this was a fused pirate-on-shark variant, the shark
+            // died — dismount the rider into a grounded pirate (heavy
+            // bruiser if the rider was a heavy, raider otherwise).
+            if matches!(
+                self.archetype,
+                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
+            ) {
                 return self.dismount_shark();
             }
             self.alive = false;
@@ -693,39 +757,51 @@ impl EnemyRuntime {
         }
     }
 
-    /// Shark died: actor becomes a grounded pirate. Pirate inherits
-    /// the rider hp pool (or starts at the grounded-pirate default
-    /// if the rider had already died — which shouldn't happen since
-    /// the actor would already be a BurningFlyingShark by then).
+    /// Shark died: actor becomes a grounded pirate. The grounded
+    /// form depends on which fused variant the actor was —
+    /// `PirateOnShark` → `PirateRaider`, `PirateHeavyOnShark` →
+    /// `PirateHeavy`. The rider keeps its (potentially partial) HP
+    /// pool, capped by the new archetype's max.
     ///
-    /// We also rename the runtime to "Pirate Raider" so the visual
-    /// layer's name-based sprite lookup
-    /// (`assets.characters.npc_asset_for_name(...)`) resolves to the
-    /// pirate sheet instead of the (no-longer-correct) shark sheet
-    /// that matched the spawn name. The `archetype_changed: true`
-    /// outcome signals the damage system to clear
-    /// `BoundFeatureKind` so `upgrade_enemy_sprites` re-evaluates.
+    /// Renaming the runtime is what makes the sprite layer pick up
+    /// the right sheet on the next `upgrade_enemy_sprites` pass.
+    /// Without this, the actor walks around as a pirate-sized
+    /// hitbox but still rendered as a shark. For `PirateHeavy` the
+    /// rider name was already a heavy variant (e.g. "Broadside Bess
+    /// on Shark"); we strip the " on Shark" suffix so the sprite
+    /// resolver finds the same heavy sheet on the ground.
     fn dismount_shark(&mut self) -> EnemyDamageOutcome {
+        let dismount_target = match self.archetype {
+            EnemyArchetype::PirateHeavyOnShark => EnemyArchetype::PirateHeavy,
+            _ => EnemyArchetype::PirateRaider,
+        };
         let inherited_hp = self
             .rider_health
             .filter(|h| h.alive())
             .map(|h| h.current)
-            .unwrap_or_else(|| EnemyArchetype::PirateRaider.max_health());
-        self.archetype = EnemyArchetype::PirateRaider;
+            .unwrap_or_else(|| dismount_target.max_health());
+        self.archetype = dismount_target;
         self.choreography = self.archetype.choreography();
         self.choreography_state = ae::ChoreographyState::default();
-        self.health = ae::Health::new(EnemyArchetype::PirateRaider.max_health());
+        self.health = ae::Health::new(dismount_target.max_health());
         self.health.current = inherited_hp.min(self.health.max);
         self.rider_health = None;
         self.gravity_scale = 1.0;
-        if let Some(default_size) = EnemyArchetype::PirateRaider.default_size() {
+        if let Some(default_size) = dismount_target.default_size() {
             self.size = default_size;
         }
-        // Renaming the runtime is what makes the sprite layer pick
-        // up the right sheet on the next `upgrade_enemy_sprites`
-        // pass. Without this, the actor walks around as a pirate-
-        // sized hitbox but still rendered as a shark.
-        self.name = String::from("Pirate Raider");
+        self.name = match dismount_target {
+            EnemyArchetype::PirateHeavy => {
+                // Strip the " on Shark" suffix authored on the
+                // EnemySpawn so the heavy's ground sheet (Broadside
+                // Bess / Iron Mary / Salt Annet) resolves cleanly.
+                self.name
+                    .strip_suffix(" on Shark")
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| String::from("Broadside Bess"))
+            }
+            _ => String::from("Pirate Raider"),
+        };
         EnemyDamageOutcome::Damaged {
             killed: false,
             archetype_changed: true,
@@ -979,7 +1055,10 @@ impl EnemyRuntime {
             // looks like it's leaving the barrel. The `lasersword:`
             // prefix on `owner_id` routes the projectile to the
             // lasersword visual in `enemy_projectile/visuals.rs`.
-            let (origin, owner_id) = if self.archetype == EnemyArchetype::PirateOnShark {
+            let (origin, owner_id) = if matches!(
+                self.archetype,
+                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
+            ) {
                 let hand = crate::presentation::rendering::rider_hand_world_pos(
                     self.pos,
                     self.facing,
@@ -1003,7 +1082,10 @@ impl EnemyRuntime {
             // negative fire direction. For the PirateOnShark this
             // shoves both rider and shark (one fused actor) so the
             // discharge reads as a noticeable knock-back.
-            let recoil_strength = if self.archetype == EnemyArchetype::PirateOnShark {
+            let recoil_strength = if matches!(
+                self.archetype,
+                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
+            ) {
                 ENEMY_FIRE_RECOIL_PIRATE
             } else {
                 ENEMY_FIRE_RECOIL_DEFAULT
@@ -1318,7 +1400,12 @@ impl EnemyRuntime {
     /// player simply for being below an orbiting shark; its damage
     /// comes through projectile volleys.
     pub fn body_damage_aabb(&self) -> Option<ae::Aabb> {
-        if self.archetype.is_sandbag() || self.archetype == EnemyArchetype::PirateOnShark {
+        if self.archetype.is_sandbag()
+            || matches!(
+                self.archetype,
+                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
+            )
+        {
             None
         } else {
             Some(self.aabb())

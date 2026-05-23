@@ -62,29 +62,31 @@ pub fn sync_pirate_rider_visuals(
     let Some(assets) = assets else {
         return;
     };
-    // Use the existing Pirate Raider sheet. Anything else (sandbag,
-    // goblin) would be a visual mismatch.
-    let Some(rider_asset) = assets.characters.npc_asset_for_name("Pirate Raider") else {
-        return;
-    };
-    if images.get(&rider_asset.texture).is_none() {
-        // Sprite not loaded yet — skip this frame; we'll try again.
-        return;
-    }
     for (_id, actor) in &ecs_actors {
         let ActorRuntime::Hostile(enemy) = actor else {
             continue;
         };
-        if enemy.archetype != EnemyArchetype::PirateOnShark {
+        if !matches!(
+            enemy.archetype,
+            EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
+        ) {
             continue;
         }
         if !enemy.alive || !enemy.has_live_rider() {
             continue;
         }
+        let rider_sprite_name = rider_sprite_name_for(enemy);
+        let Some(rider_asset) = assets.characters.npc_asset_for_name(rider_sprite_name) else {
+            continue;
+        };
+        if images.get(&rider_asset.texture).is_none() {
+            continue;
+        }
         let rider_pos =
             ambition_engine::Vec2::new(enemy.pos.x, enemy.pos.y + RIDER_VERTICAL_OFFSET);
         // Scale render size to match the desired rider height while
-        // preserving the sheet's aspect ratio (frame is 128×128).
+        // preserving the sheet's aspect ratio (frame is 128×128 for
+        // the pirate raider; ~172×138 for heavy variants).
         let aspect = rider_asset.spec.frame_width as f32 / rider_asset.spec.frame_height as f32;
         let render = bevy::math::Vec2::new(RIDER_RENDER_HEIGHT * aspect, RIDER_RENDER_HEIGHT);
         let mut sprite = build_character_sprite_with_render_size(rider_asset, render);
@@ -111,5 +113,29 @@ pub fn sync_pirate_rider_visuals(
             PirateRiderVisual,
             Name::new("Pirate rider visual"),
         ));
+    }
+}
+
+/// Pick which NPC-sprite display name represents the rider on top of
+/// a fused pirate-on-shark actor. For the legacy `PirateOnShark`
+/// archetype this is always the Pirate Raider sheet. For the heavy
+/// variant we look at the EnemySpawn's authored display name and
+/// strip the " on Shark" suffix so the ground-side heavy sheet
+/// (Broadside Bess / Iron Mary / Salt Annet) is reused above the
+/// shark too.
+fn rider_sprite_name_for(enemy: &crate::features::EnemyRuntime) -> &'static str {
+    if enemy.archetype != EnemyArchetype::PirateHeavyOnShark {
+        return "Pirate Raider";
+    }
+    // The runtime's `name` field is whatever the EnemySpawn was
+    // authored as (e.g. "Iron Mary on Shark"). Strip the suffix to
+    // find the matching ground-form sheet. Fall back to Broadside
+    // Bess so a misspelled spawn still renders a heavy.
+    let base = enemy.name.strip_suffix(" on Shark").unwrap_or(&enemy.name);
+    match base {
+        "Broadside Bess" => "Broadside Bess",
+        "Iron Mary" => "Iron Mary",
+        "Salt Annet" => "Salt Annet",
+        _ => "Broadside Bess",
     }
 }

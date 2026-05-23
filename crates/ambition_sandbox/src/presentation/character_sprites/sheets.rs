@@ -269,6 +269,19 @@ pub static BURNING_FLYING_SHARK_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::
 const PUPPY_SLUG_TUNING: SheetTuning = SheetTuning::new(1.4, 1);
 pub static PUPPY_SLUG_SHEET: LazyLock<CharacterSheetSpec> = LazyLock::new(|| load_spec("puppy_slug", &PUPPY_SLUG_TUNING));
 
+/// Pirate heavy bruiser — three named variants (Broadside Bess,
+/// Iron Mary, Salt Annet) sharing the same row layout (idle / walk
+/// / slash / taunt / hurt / death) but with palette + proportion
+/// differences that auto-crop into slightly different frame sizes
+/// per variant. Each variant therefore declares its own spec.
+const PIRATE_HEAVY_TUNING: SheetTuning = SheetTuning::new(1.95, 1);
+pub static PIRATE_HEAVY_BROADSIDE_BESS_SHEET: LazyLock<CharacterSheetSpec> =
+    LazyLock::new(|| load_spec("pirate_heavy_broadside_bess", &PIRATE_HEAVY_TUNING));
+pub static PIRATE_HEAVY_IRON_MARY_SHEET: LazyLock<CharacterSheetSpec> =
+    LazyLock::new(|| load_spec("pirate_heavy_iron_mary", &PIRATE_HEAVY_TUNING));
+pub static PIRATE_HEAVY_SALT_ANNET_SHEET: LazyLock<CharacterSheetSpec> =
+    LazyLock::new(|| load_spec("pirate_heavy_salt_annet", &PIRATE_HEAVY_TUNING));
+
 /// Pirate Admiral / Pirate Raider — both ship the same generator
 /// layout (idle / walk / slash / taunt / hurt / death; 128×128
 /// frames; feet_anchor_norm.y ≈ -0.375). They share one sheet spec

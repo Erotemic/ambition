@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 4502,
+	"nextUid": 4506,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -25644,6 +25644,63 @@
 								},
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [12,31],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": -7800,
+							"__worldY": 498,
+							"iid": "EnemySpawn-4502",
+							"width": 72,
+							"height": 110,
+							"defUid": 2008,
+							"px": [200,498],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Broadside Bess", "__tile": null, "defUid": 3018, "realEditorValues": [ { "id": "V_String", "params": ["Broadside Bess"] } ] },
+								{ "__identifier": "brain", "__type": "String", "__value": "pirate_heavy", "__tile": null, "defUid": 3019, "realEditorValues": [ { "id": "V_String", "params": ["pirate_heavy"] } ] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [35,31],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": -7440,
+							"__worldY": 498,
+							"iid": "EnemySpawn-4503",
+							"width": 72,
+							"height": 110,
+							"defUid": 2008,
+							"px": [560,498],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Iron Mary", "__tile": null, "defUid": 3018, "realEditorValues": [ { "id": "V_String", "params": ["Iron Mary"] } ] },
+								{ "__identifier": "brain", "__type": "String", "__value": "pirate_heavy", "__tile": null, "defUid": 3019, "realEditorValues": [ { "id": "V_String", "params": ["pirate_heavy"] } ] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [56,31],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": -7100,
+							"__worldY": 498,
+							"iid": "EnemySpawn-4504",
+							"width": 72,
+							"height": 110,
+							"defUid": 2008,
+							"px": [900,498],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Salt Annet", "__tile": null, "defUid": 3018, "realEditorValues": [ { "id": "V_String", "params": ["Salt Annet"] } ] },
+								{ "__identifier": "brain", "__type": "String", "__value": "pirate_heavy", "__tile": null, "defUid": 3019, "realEditorValues": [ { "id": "V_String", "params": ["pirate_heavy"] } ] }
+							]
 						}
 					]
 				},
@@ -26116,6 +26173,25 @@
 								{ "__identifier": "name", "__type": "String", "__value": "pirate_sky_lookout_descent_label", "__tile": null, "defUid": 3015, "realEditorValues": [ { "id": "V_String", "params": ["pirate_sky_lookout_descent_label"] } ] },
 								{ "__identifier": "text", "__type": "String", "__value": "[hatch back to cove on the lower deck]", "__tile": null, "defUid": 3016, "realEditorValues": [ { "id": "V_String", "params": ["[hatch back to cove on the lower deck]"] } ] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [45,20],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": -7280,
+							"__worldY": -1248,
+							"iid": "EnemySpawn-4505",
+							"width": 108,
+							"height": 96,
+							"defUid": 2008,
+							"px": [720,320],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Iron Mary on Shark", "__tile": null, "defUid": 3018, "realEditorValues": [ { "id": "V_String", "params": ["Iron Mary on Shark"] } ] },
+								{ "__identifier": "brain", "__type": "String", "__value": "pirate_heavy_on_shark", "__tile": null, "defUid": 3019, "realEditorValues": [ { "id": "V_String", "params": ["pirate_heavy_on_shark"] } ] }
 							]
 						}
 					]

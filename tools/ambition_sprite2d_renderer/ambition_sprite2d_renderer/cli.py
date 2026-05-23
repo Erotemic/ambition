@@ -94,6 +94,11 @@ _TACKON_TARGETS: dict[str, str] = {
     "pirate_quartermaster": "ambition_sprite2d_renderer.targets.pirate_quartermaster",
     "pirate_lookout": "ambition_sprite2d_renderer.targets.pirate_lookout",
     "pirate_navigator": "ambition_sprite2d_renderer.targets.pirate_navigator",
+    # Pirate heavy — bruiser archetype with three named variants
+    # (Broadside Bess, Iron Mary, Salt Annet). Render emits one
+    # subdir per variant; the target's custom `install` flattens
+    # them into the sandbox sprites folder.
+    "pirate_heavy": "ambition_sprite2d_renderer.targets.pirate_heavy",
     "interdimensional_gate": "ambition_sprite2d_renderer.targets.interdimensional_gate",
     "burning_flying_shark": "ambition_sprite2d_renderer.targets.burning_flying_shark",
     # Puppy slug — deep-dream Crawlid-style enemy that just walks the

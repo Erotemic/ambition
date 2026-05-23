@@ -658,6 +658,79 @@ def build_pose_rows() -> list[tuple[str, list[Pose]]]:
     return rows
 
 
+# --- tack-on registry hooks ---------------------------------------------------
+#
+# Hooks `render(out_dir, **opts)` into the standard
+# `tackon_sheet.build_sheet` pipeline so the sheet gets the same
+# treatment as every other procedural character: auto-cropped to the
+# union alpha bbox across all frames (the same crop is applied to
+# every frame, so poses within a row stay aligned), labeled with
+# per-row metadata, and shipped with the YAML + RON manifests the
+# sandbox's SheetRegistry expects at runtime.
+
+TARGET_NAME = "galwah"
+
+# Per-row frame counts come from `build_pose_rows()`; the durations
+# pace the visual feel (faster duel/walk, slower theorem/death).
+_ROW_DURATIONS_MS: dict[str, int] = {
+    "turn": 130,
+    "walk": 95,
+    "theorem": 110,
+    "duel": 85,
+    "death": 115,
+}
+
+
+def render(out_dir: str | Path, **opts) -> list[Path]:
+    """Render the galwah spritesheet bundle via `tackon_sheet.build_sheet`.
+
+    Optional kwargs:
+
+    * ``frame_width`` / ``frame_height`` (default 96 / 96) — pre-crop
+      frame size. Final sheet is auto-cropped to the union alpha bbox
+      across every frame.
+    * ``aa`` (default 4) — supersample factor for the renderer.
+    """
+    from ...tackon_sheet import build_sheet  # local import: heavy deps
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    frame_w = int(opts.get("frame_width", 96))
+    frame_h = int(opts.get("frame_height", 96))
+    aa = int(opts.get("aa", 4))
+
+    renderer = GalwahRenderer(frame_w=frame_w, frame_h=frame_h, aa=aa)
+    pose_rows = build_pose_rows()
+    # build_sheet needs `[(anim, nframes, duration_ms), ...]` rows AND
+    # a `render_fn(anim, frame_idx, nframes) -> Image`. We capture the
+    # pose lookup so the render_fn just resolves anim → poses → Pose.
+    poses_by_anim: dict[str, list[Pose]] = {anim: poses for anim, poses in pose_rows}
+    sheet_rows: list[tuple[str, int, int]] = [
+        (anim, len(poses), _ROW_DURATIONS_MS.get(anim, 110))
+        for anim, poses in pose_rows
+    ]
+
+    def render_fn(anim: str, frame_idx: int, nframes: int) -> Image.Image:
+        return renderer.render_pose(poses_by_anim[anim][frame_idx])
+
+    outputs = build_sheet(
+        target=TARGET_NAME,
+        rows=sheet_rows,
+        render_fn=render_fn,
+        out_dir=out_dir,
+        frame_size=(frame_w, frame_h),
+        auto_crop=True,
+    )
+    return [
+        outputs["spritesheet"],
+        outputs["yaml"],
+        outputs["ron"],
+        outputs["preview"],
+        outputs["canonical"],
+        outputs["canonical_transparent"],
+    ]
+
+
 # --- sheet assembly -----------------------------------------------------------
 def assemble_sheet(renderer: GalwahRenderer, rows: Sequence[tuple[str, list[Pose]]]) -> Image.Image:
     cols = max(len(row) for _, row in rows)

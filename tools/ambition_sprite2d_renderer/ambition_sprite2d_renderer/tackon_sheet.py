@@ -195,7 +195,14 @@ def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_di
                     meta = dict(extra)
             frames_data.append((frame, meta))
         rendered_rows.append((anim, nframes, duration_ms, frames_data))
-    canonical_raw = render_fn("idle", 1, 6)
+    # Canonical pose: use the first row (typically "idle", but pick the
+    # first row defensively so targets that name their default animation
+    # differently — e.g. galwah's "turn" — still get a useful canonical
+    # instead of crashing on a hardcoded "idle" lookup). Frame index 1
+    # rather than 0 because most idle cycles start at a neutral pose and
+    # frame 1 has a touch more character; falls back to 0 for single-frame rows.
+    canon_anim, canon_nframes, _ = rows[0]
+    canonical_raw = render_fn(canon_anim, min(1, canon_nframes - 1), canon_nframes)
 
     # ---- Auto-crop pass (optional) --------------------------------------
     # Union alpha bbox across every frame in the sheet AND the canonical.

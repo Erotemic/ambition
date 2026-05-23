@@ -312,11 +312,11 @@ def _cmd_draw_factions(args: argparse.Namespace) -> int:
 
 
 def _cmd_list_targets(args: argparse.Namespace) -> int:
-    print("# adapter targets (driven by configs/*.yaml):")
+    print("# adapter targets (driven by configs/*.yaml — renders via draw-character / draw-all):")
     for target in sorted(TARGETS):
         adapter = get_adapter(target)
         print(f"  {target}: {', '.join(adapter.default_animations())}")
-    print("# tack-on targets (render/install/render-publish):")
+    print("# tack-on targets (render/install/render-publish/render-publish-all):")
     by_category: dict[str, list[str]] = {cat: [] for cat in CATEGORIES}
     for name, tgt in _TACKON_TARGETS.items():
         by_category.setdefault(tgt.category, []).append(name)
@@ -327,6 +327,18 @@ def _cmd_list_targets(args: argparse.Namespace) -> int:
         print(f"  [{category}]")
         for name in names:
             print(f"    {name}")
+    # Review NPCs are toon-adapter jobs under configs/review/ that the
+    # runtime sprite registry expects at boot. They're not tack-ons and
+    # they don't show up under any adapter's animations list, so list
+    # them explicitly here — otherwise users grep for "mallory" or
+    # "oiler" and conclude (incorrectly) that they aren't registered.
+    if RUNTIME_REVIEW_NPCS:
+        print("# review NPCs (configs/review/*.yaml — render via draw-runtime-npcs):")
+        for name in sorted(RUNTIME_REVIEW_NPCS):
+            cfg = DEFAULT_REVIEW_CONFIG_DIR / f"{name}.yaml"
+            present = cfg.exists()
+            marker = "" if present else "  (MISSING CONFIG)"
+            print(f"  {name}{marker}")
     if _TACKON_REPORT.warnings:
         print("# warnings (files in targets/ that don't conform to the tack-on API):", file=sys.stderr)
         for line in _TACKON_REPORT.warnings:

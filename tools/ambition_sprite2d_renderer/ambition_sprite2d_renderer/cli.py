@@ -116,6 +116,30 @@ _TACKON_TARGETS: dict[str, str] = {
     # other intro slice rooms. Static-ish sprite (one idle row + a
     # blinking LED + small paper flutter).
     "news_board": "ambition_sprite2d_renderer.targets.news_board",
+    # 2026-05-23 character batch (Jon authored these directly under
+    # `targets/` using `pirates.common.build_sheet` instead of the
+    # adapter rig). Register them here so `list-targets`,
+    # `render-publish-all`, and the fresh-checkout bootstrap pick
+    # them up alongside the existing tack-on roster.
+    #
+    # Ghoul Skulker — crouched dark-lord-adjacent minion / wretch
+    # enemy (idle / skulk / claw / pounce / cackle / hurt / death).
+    "ghoul_skulker": "ambition_sprite2d_renderer.targets.ghoul_skulker",
+    # President Portrait — bust prop / scene-dressing painting used
+    # by lab rooms; single idle pose + subtle ambient frames.
+    "president_portrait": "ambition_sprite2d_renderer.targets.president_portrait",
+    # Weird Hermit — side-profile enemy; bespoke render path (no
+    # `_spritesheet` filename suffix, see the target's SHEET_FILES).
+    "weird_hermit": "ambition_sprite2d_renderer.targets.weird_hermit",
+    # Galwah — baked sheet shipped via `SHEET_STEM`-named files; not
+    # procedural at install time but registered for parity so the
+    # install path is identical to the other tack-ons.
+    "galwah": "ambition_sprite2d_renderer.targets.galwah",
+    # Smart House — domestic-prop enemy; idle + alert + attack rows.
+    "smart_house": "ambition_sprite2d_renderer.targets.smart_house",
+    # Viking pair — shieldmaiden and warrior; full combat rosters.
+    "viking_shieldmaiden": "ambition_sprite2d_renderer.targets.viking_shieldmaiden",
+    "viking_warrior": "ambition_sprite2d_renderer.targets.viking_warrior",
     # Sandbag stays last for parity with the pre-refactor ordering.
     "sandbag": "ambition_sprite2d_renderer.targets.sandbag",
 }

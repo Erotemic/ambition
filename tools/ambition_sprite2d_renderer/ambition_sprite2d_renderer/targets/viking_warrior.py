@@ -24,6 +24,13 @@ RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 TARGET_NAME = "viking_warrior"
+# Files the tack-on installer copies into the sandbox sprites dir.
+# Names match what `build_sheet` writes (target_spritesheet.{png,yaml,ron}).
+SHEET_FILES = [
+    f"{TARGET_NAME}_spritesheet.png",
+    f"{TARGET_NAME}_spritesheet.yaml",
+    f"{TARGET_NAME}_spritesheet.ron",
+]
 FRAME_SIZE = (320, 320)
 WORK_FRAME_SIZE = (640, 640)
 SUPER = 4

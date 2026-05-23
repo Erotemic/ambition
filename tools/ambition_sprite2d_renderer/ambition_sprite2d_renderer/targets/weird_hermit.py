@@ -20,6 +20,15 @@ RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 TARGET_BASENAME = "weird_hermit"
+# Files the tack-on installer copies into the sandbox sprites dir.
+# Weird Hermit's bespoke `_render_sheet` writes `{TARGET_BASENAME}.{png,yaml,ron}`
+# (no `_spritesheet` suffix), so the install list mirrors that — diverges
+# from the build_sheet-using targets on purpose.
+SHEET_FILES = [
+    f"{TARGET_BASENAME}.png",
+    f"{TARGET_BASENAME}.yaml",
+    f"{TARGET_BASENAME}.ron",
+]
 FRAME_SIZE = (240, 224)
 WORK_FRAME_SIZE = (480, 448)
 SUPER = 4

@@ -6,7 +6,7 @@ from ambition_sprite2d_renderer.adapters import get_adapter
 from ambition_sprite2d_renderer.animation_vocab import ADVANCED_PLAYER_ANIMATION_ORDER, EXTENDED_PLAYER_ANIMATION_ORDER
 from ambition_sprite2d_renderer.cli import draw_all, draw_canonicals
 from ambition_sprite2d_renderer.config import CharacterJob
-from ambition_sprite2d_renderer.entities import ENTITY_SPECS, write_entity_sprites
+from ambition_sprite2d_renderer.targets.props.entities import ENTITY_SPECS, write_entity_sprites
 from ambition_sprite2d_renderer.sheet import build_spritesheet
 
 
@@ -281,7 +281,7 @@ def test_sandbag_full_review_uses_shared_animation_vocabulary(tmp_path):
 
 
 def test_ability_item_icons_render(tmp_path):
-    from ambition_sprite2d_renderer.item_icons import ICON_SPECS, write_item_icons
+    from ambition_sprite2d_renderer.targets.icons.item_icons import ICON_SPECS, write_item_icons
 
     out_dir = tmp_path / "icons"
     outputs = write_item_icons(out_dir)

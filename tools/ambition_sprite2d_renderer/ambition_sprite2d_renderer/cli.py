@@ -42,8 +42,8 @@ from .adapters import TARGETS, get_adapter
 from .canonical import render_canonical, write_canonicals
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
-from .entities import write_entity_sprites
-from .item_icons import write_item_icons
+from .targets.props.entities import write_entity_sprites
+from .targets.icons.item_icons import write_item_icons
 from .faction_lineup import write_faction_lineup
 from .sheet import write_spritesheet
 from .target_registry import (

@@ -58,7 +58,7 @@ def downsample(img: Image.Image, size: Tuple[int, int]) -> Image.Image:
     return img.resize(size, RESAMPLING.LANCZOS)
 
 
-def render(
+def _render_supersampled(
     draw_fn: Callable[[ImageDraw.ImageDraw, float], None],
     size: Tuple[int, int] = (128, 128),
     supersample: int = 4,
@@ -868,7 +868,7 @@ def render_entity_sprite(spec: EntitySpriteSpec, supersample: int = 4) -> Image.
         draw_fn = DRAWERS[spec.key]
     except KeyError as ex:
         raise KeyError(f"no drawer registered for {spec.key!r}") from ex
-    return render(draw_fn, spec.size, supersample, tight_crop=spec.tight_crop)
+    return _render_supersampled(draw_fn, spec.size, supersample, tight_crop=spec.tight_crop)
 
 
 def build_entity_contact_sheet(tiles: List[Tuple[EntitySpriteSpec, Image.Image]]) -> Image.Image:
@@ -921,3 +921,25 @@ def write_entity_sprites(out_dir: str | Path = Path("assets/entities"), supersam
         yaml.safe_dump(manifest, file, sort_keys=False)
     outputs.append(manifest_path)
     return outputs
+
+
+# ---- Tack-on target API -------------------------------------------------------
+#
+# One module, one target ("entities") that batches every entity sprite
+# in `ENTITY_SPECS` into a single output dir. Discovery picks it up via
+# the `render()` hook; the explicit `SHEET_FILES` enumerates every
+# emitted filename so the default installer copies them all (not the
+# `{stem}_spritesheet.{png,yaml,ron}` convention).
+
+TARGET_NAME = "entities"
+SHEET_FILES = (
+    *[spec.filename for spec in ENTITY_SPECS],
+    "entity_contact_sheet.png",
+    "entity_manifest.yaml",
+)
+
+
+def render(out_dir: str | Path, **opts) -> List[Path]:
+    """Render every entity sprite in ``ENTITY_SPECS`` into ``out_dir``."""
+    supersample = int(opts.get("supersample", 4))
+    return write_entity_sprites(out_dir, supersample=supersample)

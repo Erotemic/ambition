@@ -279,3 +279,22 @@ def write_item_icons(out_dir: str | Path, *, size: Tuple[int, int] = (64, 64)) -
     outputs.append(manifest_path)
     outputs.append(write_icon_contact_sheet(out_dir, icon_paths))
     return outputs
+
+
+# ---- Tack-on target API -------------------------------------------------------
+#
+# One module, one target ("item_icons") that batches every ability/item
+# icon in `ICON_SPECS` into a single output dir.
+
+TARGET_NAME = "item_icons"
+SHEET_FILES = (
+    *[spec.filename for spec in ICON_SPECS],
+    "ability_icon_manifest.yaml",
+    "ability_icon_contact_sheet.png",
+)
+
+
+def render(out_dir: str | Path, **opts) -> List[Path]:
+    """Render every ability/item icon in ``ICON_SPECS`` into ``out_dir``."""
+    size = opts.get("size", (64, 64))
+    return write_item_icons(out_dir, size=size)

@@ -1,9 +1,16 @@
+"""GNU Ton boss character — multi-file tack-on target.
+
+A multi-file character package. Same shape as
+[`mockingbird_boss`](../mockingbird_boss/__init__.py): the package
+ships its own :mod:`.sprite_generator` and the ``__init__.py``
+exposes the discovery API on top of it.
+"""
 from __future__ import annotations
 
 from pathlib import Path
 from typing import List
 
-from ...gnu_ton import sprite_generator
+from . import sprite_generator
 
 TARGET_NAME = sprite_generator.TARGET_NAME
 SHEET_FILES = list(sprite_generator.OUTPUT_FILES)

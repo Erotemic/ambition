@@ -198,6 +198,12 @@ pub struct MovementTuning {
     pub parry_window_time: f32,
     /// Momentum-carry parameters for ledge getups. Set to
     /// `LedgeMomentumTuning::OFF` to disable the mechanic.
+    ///
+    /// `#[serde(default)]` so any tuning files serialized before this
+    /// field existed (e.g. `assets/ambition/sandbox.ron` baked at
+    /// boot) deserialize with `LedgeMomentumTuning::DEFAULT` instead
+    /// of panicking on `MissingStructField`.
+    #[serde(default)]
     pub ledge_momentum: LedgeMomentumTuning,
 }
 

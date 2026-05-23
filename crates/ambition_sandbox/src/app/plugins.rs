@@ -67,6 +67,12 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(crate::features::FeatureViewSyncSchedulePlugin);
     app.add_plugins(crate::runtime::reset::SandboxResetSchedulePlugin);
     app.add_plugins(crate::trace::TraceSchedulePlugin);
+    // Per-frame "what would each verb do right now?" table consumed
+    // by the touch / control-prompt HUD and (future) gameplay code.
+    // Registered alongside simulation so headless / RL builds can
+    // also inspect affordances; the resources are cheap and the
+    // compute systems no-op when no primary player exists.
+    app.add_plugins(crate::player::affordances::AffordancesPlugin);
 }
 
 // Core simulation, split into 6 finer-grained sub-sets that are

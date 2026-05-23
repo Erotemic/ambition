@@ -10,10 +10,10 @@
 //! - [`events`]     — player-domain message types.
 //! - [`systems`]    — frame systems that read or sync the player components.
 
+pub mod affordances;
 pub mod bubble_shield;
 pub mod bundles;
 pub mod components;
-pub mod contextual_actions;
 pub mod events;
 pub mod ledge_grab;
 pub mod queries;

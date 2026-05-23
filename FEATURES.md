@@ -45,6 +45,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Menu navigation, pause mode, inventory/map/pause UI routing | Available | `docs/systems/ui-navigation-and-pause.md` |
 | Settings persistence across audio/video/gameplay/controls | Available | `docs/systems/settings-and-persistence.md` |
 | Mobile touch controls | Available, platform-sensitive | `docs/systems/mobile-touch-controls.md` |
+| Context-sensitive control HUD (verb + per-device glyph + pressed-state) | Available | `docs/systems/control-affordances.md` |
 | Desktop, web, Android/mobile, controller, Steam Deck paths | Current targets | `docs/concepts/platform-targets.md`, `docs/recipes/index.md` |
 
 ## Validation and agent support

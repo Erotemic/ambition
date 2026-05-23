@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use bevy::input::mouse::MouseButton;
 use bevy::input::touch::Touches;
 use bevy::prelude::*;
@@ -11,7 +13,7 @@ use super::layout::{
 };
 use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
 use super::state::TouchInputState;
-use crate::input::MenuInputState;
+use crate::input::{KeyboardPreset, MenuInputState, SandboxAction};
 use crate::ui_nav::DragScrollState;
 
 /// Joystick id. The `virtual_joystick` plugin is generic over a
@@ -143,11 +145,33 @@ impl Plugin for MobileTouchPlugin {
                 )
                     .chain(),
             )
-            // Contextual button-label sync. Runs in Update,
-            // unchained from the input fold so it doesn't share
-            // ordering with anything else — it only reads player
-            // state and writes Text content.
-            .add_systems(Update, sync_touch_action_labels);
+            // Contextual button-label sync, decomposed into two
+            // narrow systems. `update_button_verb_from_affordances`
+            // reads `PlayerAffordances` (the per-frame "what would
+            // each press do" table) and writes the per-button
+            // `ButtonVerb`; `render_touch_button_text` folds whatever
+            // ButtonVerb/Glyph/Pressed components exist into the
+            // Text node. The split lets Phase 2 (glyph subtitle) and
+            // Phase 3 (pressed-state highlight) ride alongside
+            // without growing one god-system.
+            .add_systems(
+                Update,
+                (
+                    update_button_verb_from_affordances
+                        .after(crate::player::affordances::AffordancesSystemSet::Compute),
+                    update_button_glyph_from_active_input
+                        .after(crate::player::affordances::AffordancesSystemSet::Compute),
+                    update_button_pressed_from_actions
+                        .after(crate::player::affordances::AffordancesSystemSet::Compute),
+                    render_touch_button_text
+                        .after(update_button_verb_from_affordances)
+                        .after(update_button_glyph_from_active_input)
+                        .after(update_button_pressed_from_actions),
+                    sync_button_pressed_visual.after(update_button_pressed_from_actions),
+                    update_joystick_prompt_text
+                        .after(crate::player::affordances::AffordancesSystemSet::Compute),
+                ),
+            );
     }
 }
 
@@ -209,6 +233,43 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
         JoystickFixed,
         NoAction,
     );
+    // Movement prompt overlay: a small Text node sitting just
+    // above the joystick that shows "Move" + the current Aim
+    // direction as an arrow / verb. Mirrors the action-button
+    // verb/glyph idiom so the joystick reads as part of the same
+    // context-sensitive HUD rather than an opaque stick the player
+    // has to discover by waggling. Updated each frame by
+    // `update_joystick_prompt_text` from `PlayerIntent`.
+    cmd.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(stick_margin),
+            // Float just above the stick base. The +12 leaves a
+            // visible gap so the label doesn't kiss the outline.
+            bottom: Val::Px(stick_margin + stick_base + 12.0),
+            width: Val::Px(stick_base),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        Name::new("MobileTouchJoystickPrompt"),
+        MobileTouchUiRoot,
+    ))
+    .with_children(|parent| {
+        parent.spawn((
+            Text::new("Move"),
+            TextFont {
+                font_size: 14.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.96, 0.97, 1.0)),
+            TextLayout::new_with_justify(Justify::Center),
+            // Marker so `update_joystick_prompt_text` can find this
+            // text node and rewrite it. Carries no per-entity data;
+            // the per-frame value is read from `PlayerIntent`.
+            JoystickPromptText,
+        ));
+    });
     // Tag the joystick UI root with MobileTouchUiRoot so the
     // visibility-sync system hides it alongside the bezel and
     // button cluster when `TouchControlsVisible(false)`. The
@@ -469,7 +530,7 @@ fn spawn_touch_buttons(mut cmd: Commands) {
 fn spawn_action_button_at(
     parent: &mut ChildSpawnerCommands,
     action: TouchActionButton,
-    label: &str,
+    label: &'static str,
     left: f32,
     top: f32,
     size: f32,
@@ -492,6 +553,11 @@ fn spawn_action_button_at(
             BackgroundColor(Color::srgba(0.16, 0.19, 0.27, 0.38)),
             BorderColor::all(Color::srgba(0.68, 0.76, 0.92, 0.28)),
             action,
+            // Pressed-state flag (Phase 3) lives on the Button entity
+            // so `sync_button_pressed_visual` can mutate
+            // `BackgroundColor` on the same entity that carries the
+            // pressed bit — avoiding a parent-walk through ChildOf.
+            ButtonPressed(false),
             Name::new(format!("Touch{label}")),
         ))
         .with_children(|button| {
@@ -502,84 +568,283 @@ fn spawn_action_button_at(
                     ..default()
                 },
                 TextColor(Color::srgb(0.96, 0.97, 1.0)),
-                // Marker so `sync_touch_action_labels` can find
-                // this text node and overwrite its content when the
-                // button means something different right now —
-                // Shield → "Roll" on a ledge, Interact → the
-                // interactable's prompt, etc.
+                // Center both lines (verb + glyph) horizontally
+                // inside the circular button. Without this, the
+                // multiline text rendered by `render_touch_button_text`
+                // left-justifies and the glyph subtitle drifts to the
+                // left edge of the circle while the verb stays in its
+                // own line; the eye reads them as mis-aligned.
+                TextLayout::new_with_justify(Justify::Center),
+                // Marker so the rendering system can find this text
+                // node and rewrite it. Carries the canonical action
+                // identity; the ButtonVerb / ButtonGlyph components
+                // layered on top are what's actually rewritten each
+                // frame.
                 TouchActionLabel(action),
+                // Component-driven verb display. Updated by
+                // `update_button_verb_from_affordances` from the
+                // global `PlayerAffordances` resource; rendered into
+                // `Text` by `render_touch_button_text`. Splitting
+                // these concerns means each per-frame derived value
+                // (verb, glyph) gets its own narrow update system
+                // instead of one god-system.
+                ButtonVerb::Static(label),
+                // Per-device glyph subtitle (Phase 2). Empty until
+                // `update_button_glyph_from_active_input` writes the
+                // first frame's value, so cold-start renders the verb
+                // alone without a phantom "?" subtitle.
+                ButtonGlyph(Cow::Borrowed("")),
             ));
         });
 }
 
-/// Marker on the touch button's text node. Lets the
-/// `sync_touch_action_labels` system find the text widget for each
-/// action and overwrite its content with the contextual label
-/// without re-spawning the UI.
+/// Marker on the touch button's text node. Carries the
+/// `TouchActionButton` identity so the verb-update system can map it
+/// back to the correct affordance.
 #[derive(Component)]
 pub struct TouchActionLabel(pub TouchActionButton);
 
-fn touch_action_to_contextual(
-    action: TouchActionButton,
-) -> Option<crate::player::contextual_actions::ContextualAction> {
-    use crate::player::contextual_actions::ContextualAction as CA;
-    Some(match action {
-        TouchActionButton::Jump => CA::Jump,
-        TouchActionButton::Attack => CA::Attack,
-        TouchActionButton::Dash => CA::Dash,
-        TouchActionButton::Shield => CA::Shield,
-        TouchActionButton::Interact => CA::Interact,
-        TouchActionButton::Projectile | TouchActionButton::Blink => CA::Special,
-        // FlyToggle / Start / Reset have only one meaning today —
-        // no contextual swap.
-        TouchActionButton::FlyToggle | TouchActionButton::Start | TouchActionButton::Reset => {
-            return None
-        }
-    })
+/// The verb-text to render under each touch button. Updated each
+/// frame by [`update_button_verb_from_affordances`] from the global
+/// [`crate::player::affordances::PlayerAffordances`] table. Held as
+/// component data (not computed inline in the render system) so
+/// independent concerns — verb, future glyph subtitle, future
+/// pressed-state highlight — each own their own component + update
+/// system and compose at render.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub enum ButtonVerb {
+    /// Pre-affordance label baked in at spawn — used until the
+    /// affordance system populates the dynamic value, and as the
+    /// stable fallback for buttons that don't carry a contextual
+    /// meaning (FlyToggle / Start / Reset).
+    Static(&'static str),
+    /// Dynamic label written by the affordance update system.
+    /// `String` (not `&'static str`) so authored `InteractVariant::Custom`
+    /// prompts can flow through unchanged.
+    Dynamic(String),
 }
 
-/// Per-frame label sync: build a `PlayerActionContext` from the
-/// primary player's state and update each touch button's text.
-/// First concrete consumer of `player::contextual_actions`; the same
-/// context can drive on-screen prompts and tutorial overlays without
-/// re-deriving the rules anywhere else.
-pub fn sync_touch_action_labels(
-    player_q: Query<
-        &crate::player::PlayerMovementAuthority,
-        (
-            With<crate::player::PlayerEntity>,
-            With<crate::player::PrimaryPlayer>,
-        ),
-    >,
-    mut labels: Query<(&TouchActionLabel, &mut Text)>,
+impl ButtonVerb {
+    fn as_str(&self) -> &str {
+        match self {
+            ButtonVerb::Static(s) => s,
+            ButtonVerb::Dynamic(s) => s.as_str(),
+        }
+    }
+}
+
+/// Per-frame: read [`PlayerAffordances`] and write each button's
+/// [`ButtonVerb`].
+///
+/// One narrow system, one concern. The render system folds the verb
+/// (and, in later phases, the glyph / pressed-state components) into
+/// the actual `Text` node.
+pub fn update_button_verb_from_affordances(
+    affordances: Res<crate::player::affordances::PlayerAffordances>,
+    mut labels: Query<(&TouchActionLabel, &mut ButtonVerb)>,
 ) {
-    let Ok(authority) = player_q.single() else {
+    use crate::player::affordances::{InteractVariant, VariantLabel};
+    for (TouchActionLabel(action), mut verb) in &mut labels {
+        let next: Option<String> = match action {
+            TouchActionButton::Jump => Some(affordances.jump.text().to_owned()),
+            TouchActionButton::Attack => Some(affordances.attack.text().to_owned()),
+            TouchActionButton::Dash => Some(affordances.dash.text().to_owned()),
+            TouchActionButton::Shield => Some(affordances.shield.text().to_owned()),
+            TouchActionButton::Interact => {
+                // `display()` handles the `Custom(prompt)` case
+                // transparently; for typed variants it returns the
+                // canonical text from `VariantLabel`.
+                Some(match &affordances.interact {
+                    InteractVariant::Custom(prompt) => prompt.as_ref().to_owned(),
+                    v => v.text().to_owned(),
+                })
+            }
+            // Projectile is the contextual "special" — it picks up
+            // the aim-driven variant (N-Special / S-Special / U-Special
+            // / D-Special / Hadouken). Blink stays static because the
+            // touch HUD has a separate dedicated Blink button whose
+            // outcome doesn't vary with stick direction.
+            TouchActionButton::Projectile => Some(affordances.special.text().to_owned()),
+            TouchActionButton::Blink => None,
+            // FlyToggle / Start / Reset don't have a contextual
+            // meaning today — leave the static label alone.
+            TouchActionButton::FlyToggle | TouchActionButton::Start | TouchActionButton::Reset => {
+                None
+            }
+        };
+        if let Some(next) = next {
+            // Only flip when the string actually changes — keeps
+            // Bevy's change detection bit honest so the render
+            // system can filter on `Changed<ButtonVerb>` once
+            // performance matters.
+            let same = match &*verb {
+                ButtonVerb::Static(s) => *s == next,
+                ButtonVerb::Dynamic(s) => s == &next,
+            };
+            if !same {
+                *verb = ButtonVerb::Dynamic(next);
+            }
+        }
+    }
+}
+
+/// Per-frame: fold each button's [`ButtonVerb`] + [`ButtonGlyph`]
+/// into the actual `Text` widget. Verb on the first line, optional
+/// glyph in parentheses on the second line.
+///
+/// Re-runs only when one of the input components changed (the `Or<>`
+/// filter), so steady-state frames don't churn the `Text` change-
+/// detection bit.
+pub fn render_touch_button_text(
+    mut q: Query<
+        (&ButtonVerb, &ButtonGlyph, &mut Text),
+        Or<(Changed<ButtonVerb>, Changed<ButtonGlyph>)>,
+    >,
+) {
+    for (verb, glyph, mut text) in &mut q {
+        let verb_str = verb.as_str();
+        let glyph_str = glyph.0.as_ref();
+        let desired = if glyph_str.is_empty() {
+            verb_str.to_owned()
+        } else {
+            format!("{verb_str}\n({glyph_str})")
+        };
+        if text.0 != desired {
+            text.0 = desired;
+        }
+    }
+}
+
+/// Per-device glyph subtitle (Phase 2). Updated each frame from
+/// [`ActiveInputMethod`] + the active [`KeyboardPreset`].
+///
+/// Today the active preset is sourced from a default
+/// (`KeyboardPreset::arrows_zxc()`) because the sandbox does not yet
+/// expose the player's current preset as a resource. When that
+/// plumbing lands the `preset` local below can read from a
+/// `Res<ActiveKeyboardPreset>` (or similar) — the glyph adapter
+/// itself is already preset-agnostic.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct ButtonGlyph(pub Cow<'static, str>);
+
+/// Pressed-state flag (Phase 3). Set true while the underlying
+/// `SandboxAction` is held this frame; consumed by
+/// [`sync_button_pressed_visual`] to brighten the button background.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ButtonPressed(pub bool);
+
+/// Map a touch button to its canonical [`SandboxAction`]. Keeps the
+/// glyph + pressed-state systems honest — both compute against the
+/// same action mapping the touch fold uses for input contribution.
+fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
+    match action {
+        TouchActionButton::Jump => SandboxAction::Jump,
+        TouchActionButton::Attack => SandboxAction::Attack,
+        TouchActionButton::Dash => SandboxAction::Dash,
+        TouchActionButton::Blink => SandboxAction::Blink,
+        TouchActionButton::Interact => SandboxAction::Interact,
+        TouchActionButton::Projectile => SandboxAction::Projectile,
+        TouchActionButton::FlyToggle => SandboxAction::Utility,
+        TouchActionButton::Shield => SandboxAction::QuickAction,
+        TouchActionButton::Start => SandboxAction::Start,
+        TouchActionButton::Reset => SandboxAction::Reset,
+    }
+}
+
+/// Per-frame: write each button's glyph from the active input
+/// device. Reads [`ActiveInputMethod`] + a default
+/// [`KeyboardPreset`]; future hookup point for the player's chosen
+/// preset.
+pub fn update_button_glyph_from_active_input(
+    active: Res<crate::player::affordances::ActiveInputMethod>,
+    mut labels: Query<(&TouchActionLabel, &mut ButtonGlyph)>,
+) {
+    // TODO: when the sandbox exposes the player's selected
+    // KeyboardPreset (currently swapped via `sync_preset_input_map`
+    // but not surfaced as a Resource), read it here instead of
+    // hardcoding the default Arrows+ZXC preset. Until then desktop
+    // players who haven't rebound see Z/X/C glyphs, which match the
+    // out-of-the-box bindings.
+    let preset = KeyboardPreset::arrows_zxc();
+    for (TouchActionLabel(touch_action), mut glyph) in &mut labels {
+        let sa = touch_action_to_sandbox_action(*touch_action);
+        let next = crate::player::affordances::glyph_for(sa, &preset, active.0);
+        if glyph.0 != next {
+            glyph.0 = next;
+        }
+    }
+}
+
+/// Per-frame: write each button's pressed flag from
+/// `ActionState<SandboxAction>` on the primary player. Skips writing
+/// when the value is unchanged so the visual-sync system can filter
+/// on `Changed<ButtonPressed>`. Operates on the Button entity (which
+/// carries both `TouchActionButton` and `ButtonPressed`), so no
+/// parent walk is needed.
+pub fn update_button_pressed_from_actions(
+    actions_q: Query<
+        &leafwing_input_manager::prelude::ActionState<SandboxAction>,
+        With<crate::player::PrimaryPlayer>,
+    >,
+    mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,
+) {
+    let Ok(actions) = actions_q.single() else {
         return;
     };
-    let player = &authority.player;
-    let ctx = crate::player::contextual_actions::PlayerActionContext {
-        on_ledge: player.ledge_grab.is_some(),
-        // Interact prompts aren't wired through the touch path yet
-        // — Interact falls back to its generic label. When the
-        // nearest-interactable query exposes a prompt, plug it in
-        // here.
-        has_interactable: false,
-        interact_prompt: None,
-        is_aerial: !player.on_ground,
-        aim_down: false,
-        aim_up: false,
-        is_morphed: matches!(player.body_mode, ::ambition_engine::BodyMode::MorphBall),
-        is_swimming: player.water_contact.is_some(),
-    };
-    for (TouchActionLabel(action), mut text) in &mut labels {
-        let Some(ctx_action) = touch_action_to_contextual(*action) else {
-            continue;
+    for (touch_action, mut pressed) in &mut buttons {
+        let sa = touch_action_to_sandbox_action(*touch_action);
+        let held = actions.pressed(&sa);
+        if pressed.0 != held {
+            pressed.0 = held;
+        }
+    }
+}
+
+/// Per-frame: when [`ButtonPressed`] flips, swap the button's
+/// background color so the on-screen overlay doubles as a streamer-
+/// style input display.
+pub fn sync_button_pressed_visual(
+    mut buttons: Query<(&ButtonPressed, &mut BackgroundColor), Changed<ButtonPressed>>,
+) {
+    for (pressed, mut bg) in &mut buttons {
+        bg.0 = if pressed.0 {
+            // Brighter, opaque when held — reads as "this is the
+            // input I'm pressing right now."
+            Color::srgba(0.42, 0.58, 0.95, 0.78)
+        } else {
+            // Match the default authored in `spawn_action_button_at`.
+            Color::srgba(0.16, 0.19, 0.27, 0.38)
         };
-        let desired = crate::player::contextual_actions::label_for(ctx_action, &ctx);
-        // Only write when the label changes — avoids churning the
-        // Text component's change-detection bit every frame.
+    }
+}
+
+/// Marker on the joystick prompt text node. Lets
+/// [`update_joystick_prompt_text`] find it and rewrite the visible
+/// label each frame.
+#[derive(Component)]
+pub struct JoystickPromptText;
+
+/// Per-frame: render the current movement intent above the
+/// joystick. "Move" stays as the verb (the joystick's "general
+/// name"); the second line is the current [`crate::player::affordances::Aim`]
+/// direction as a compact arrow / cardinal label.
+///
+/// Mirrors `render_touch_button_text` in shape: read derived state
+/// (here `PlayerIntent`), produce a two-line string with the verb on
+/// top and the directional hint below.
+pub fn update_joystick_prompt_text(
+    intent: Res<crate::player::affordances::PlayerIntent>,
+    mut q: Query<&mut Text, With<JoystickPromptText>>,
+) {
+    let arrow = intent.aim.arrow_glyph();
+    let desired = if arrow.is_empty() {
+        "Move".to_owned()
+    } else {
+        format!("Move\n{arrow}")
+    };
+    for mut text in &mut q {
         if text.0 != desired {
-            text.0 = desired.into_owned();
+            text.0 = desired.clone();
         }
     }
 }

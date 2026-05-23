@@ -314,14 +314,17 @@ def _render_frame(anim: str, idx: int, n: int) -> Image.Image:
     for x in [-24, -4, 14, 30]:
         _line(draw, [P(x, -154), P(x + 4, -8)], DRESS_SHADE, 0.9)
 
-    chestplate = [P(-38, -244), P(18, -248), P(46, -228), P(44, -180), P(24, -138), P(-12, -126), P(-42, -154), P(-48, -206)]
+    chestplate = [P(-42, -244), P(22, -246), P(48, -226), P(46, -182), P(28, -136), P(-16, -128), P(-46, -156), P(-52, -206)]
     _poly(draw, chestplate, GOLD, OUTLINE, 0.9)
-    _circle(draw, P(-10, -186), 24, GOLD_SHADE, OUTLINE, 0.7)
-    _circle(draw, P(16, -178), 24, GOLD_SHADE, OUTLINE, 0.7)
-    for cc in [P(-10, -186), P(16, -178)]:
-        for rr in [4, 9, 14, 19]:
+    left_breast = P(-16, -188)
+    right_breast = P(18, -188)
+    _circle(draw, left_breast, 26, GOLD_SHADE, OUTLINE, 0.75)
+    _circle(draw, right_breast, 26, GOLD_SHADE, OUTLINE, 0.75)
+    _line(draw, [P(0, -230), P(0, -134)], GOLD_SHADE, 0.8)
+    for cc in [left_breast, right_breast]:
+        for rr in [5, 10, 15, 20]:
             _circle(draw, cc, rr, None, GOLD, 0.3)
-    collar = [P(-34, -248), P(-10, -268), P(16, -268), P(40, -248), P(26, -228), P(-10, -230)]
+    collar = [P(-36, -248), P(-12, -268), P(16, -268), P(42, -248), P(28, -228), P(-12, -230)]
     _poly(draw, collar, STEEL, OUTLINE, 0.7)
 
     # Back arm (weapon).

@@ -419,7 +419,22 @@ def _render_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
             ]
             _poly(draw, core, BEAM, None, 0)
     if anim == "hurt" and p.hurt > 0.1:
-        _ellipse(draw, root[0] - 4, root[1] - 10, 82, 58, HURT_RED, None, 0)
+        overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        overlay_draw = ImageDraw.Draw(overlay, "RGBA")
+
+        _ellipse(
+            overlay_draw,
+            root[0] - 4,
+            root[1] - 10,
+            82,
+            58,
+            HURT_RED,
+            None,
+            0,
+        )
+
+        img = Image.alpha_composite(img, overlay)
+        draw = ImageDraw.Draw(img, "RGBA")
 
     # Death smear / floor pile.
     if anim == "death" and p.collapse > 0.15:

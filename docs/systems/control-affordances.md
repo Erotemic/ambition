@@ -80,7 +80,7 @@ Files (all under `crates/ambition_sandbox/src/player/affordances/`):
 
 | File | What it owns |
 |---|---|
-| `intent.rs` | `Aim` 9-way enum, `compute_aim`, `PlayerIntent` resource, `compute_player_intent` system, `Aim::arrow_glyph` pure helper |
+| `intent.rs` | `Aim` 9-way enum, `compute_aim`, `PlayerIntent` resource, `compute_player_intent` system |
 | `variants.rs` | `AttackVariant` / `JumpVariant` / `ShieldVariant` / `DashVariant` / `InteractVariant` / `SpecialVariant` + `VariantLabel` trait |
 | `resolvers.rs` | Pure `resolve_attack / _jump / _shield / _dash / _interact / _special(intent, body, world)` |
 | `interactable_proximity.rs` | `NearestInteractable` resource (Talk / Open / Activate / Custom) |
@@ -95,7 +95,8 @@ The HUD consumer lives in `crates/ambition_sandbox/src/host/mobile_input/bevy_pl
 | `ButtonVerb` | Touch button Text child | `update_button_verb_from_affordances` (reads `PlayerAffordances`) |
 | `ButtonGlyph` | Touch button Text child | `update_button_glyph_from_active_input` (reads `ActiveInputMethod`) |
 | `ButtonPressed` | Touch button entity | `update_button_pressed_from_actions` (reads `ActionState<SandboxAction>` from primary player) |
-| `JoystickPromptText` | L-stick overlay Text | `update_joystick_prompt_text` (reads `PlayerIntent.aim.arrow_glyph()`) |
+
+The L-stick deliberately has no contextual label of its own: the knob's drag position is the directional indicator. Action buttons need verbs + glyphs because their appearance doesn't change with input state; the stick does.
 
 Each derived state has its own narrow update system; `render_touch_button_text` folds verb + glyph; `sync_button_pressed_visual` flips the `BackgroundColor` on press. Adding a new derived value (charge level, cooldown timer, etc.) means one new component + one new update system, not editing existing logic.
 
@@ -202,7 +203,7 @@ cargo test -p ambition_sandbox --lib affordances
 Unit tests cover:
 
 - `intent.rs::tests` — `compute_aim` for every cardinal + diagonal +
-  neutral combination, facing-relative behavior, `Aim::arrow_glyph`.
+  neutral combination, facing-relative behavior.
 - `variants.rs::tests` — every variant's `text()` and i18n-key prefix.
 - `resolvers.rs::tests` — each verb's resolver for every aim/state
   combination; pogo-target-below promotion; interact prompt forwarding.

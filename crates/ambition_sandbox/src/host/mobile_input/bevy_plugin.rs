@@ -168,8 +168,6 @@ impl Plugin for MobileTouchPlugin {
                         .after(update_button_glyph_from_active_input)
                         .after(update_button_pressed_from_actions),
                     sync_button_pressed_visual.after(update_button_pressed_from_actions),
-                    update_joystick_prompt_text
-                        .after(crate::player::affordances::AffordancesSystemSet::Compute),
                 ),
             );
     }
@@ -233,43 +231,14 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
         JoystickFixed,
         NoAction,
     );
-    // Movement prompt overlay: a small Text node sitting just
-    // above the joystick that shows "Move" + the current Aim
-    // direction as an arrow / verb. Mirrors the action-button
-    // verb/glyph idiom so the joystick reads as part of the same
-    // context-sensitive HUD rather than an opaque stick the player
-    // has to discover by waggling. Updated each frame by
-    // `update_joystick_prompt_text` from `PlayerIntent`.
-    cmd.spawn((
-        Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px(stick_margin),
-            // Float just above the stick base. The +12 leaves a
-            // visible gap so the label doesn't kiss the outline.
-            bottom: Val::Px(stick_margin + stick_base + 12.0),
-            width: Val::Px(stick_base),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
-        Name::new("MobileTouchJoystickPrompt"),
-        MobileTouchUiRoot,
-    ))
-    .with_children(|parent| {
-        parent.spawn((
-            Text::new("Move"),
-            TextFont {
-                font_size: 14.0,
-                ..default()
-            },
-            TextColor(Color::srgb(0.96, 0.97, 1.0)),
-            TextLayout::new_with_justify(Justify::Center),
-            // Marker so `update_joystick_prompt_text` can find this
-            // text node and rewrite it. Carries no per-entity data;
-            // the per-frame value is read from `PlayerIntent`.
-            JoystickPromptText,
-        ));
-    });
+    // No floating "Move" overlay above the stick — the knob's drag
+    // position is the directional indicator on its own. Per Jon
+    // 2026-05-23: "the control stick itself on the touch screen
+    // would be the thing that moves rather than having something
+    // drawn above it." The action buttons still carry verb / glyph
+    // labels because they don't visually change to show what they'd
+    // do; the stick does.
+    //
     // Tag the joystick UI root with MobileTouchUiRoot so the
     // visibility-sync system hides it alongside the bezel and
     // button cluster when `TouchControlsVisible(false)`. The
@@ -815,37 +784,6 @@ pub fn sync_button_pressed_visual(
             // Match the default authored in `spawn_action_button_at`.
             Color::srgba(0.16, 0.19, 0.27, 0.38)
         };
-    }
-}
-
-/// Marker on the joystick prompt text node. Lets
-/// [`update_joystick_prompt_text`] find it and rewrite the visible
-/// label each frame.
-#[derive(Component)]
-pub struct JoystickPromptText;
-
-/// Per-frame: render the current movement intent above the
-/// joystick. "Move" stays as the verb (the joystick's "general
-/// name"); the second line is the current [`crate::player::affordances::Aim`]
-/// direction as a compact arrow / cardinal label.
-///
-/// Mirrors `render_touch_button_text` in shape: read derived state
-/// (here `PlayerIntent`), produce a two-line string with the verb on
-/// top and the directional hint below.
-pub fn update_joystick_prompt_text(
-    intent: Res<crate::player::affordances::PlayerIntent>,
-    mut q: Query<&mut Text, With<JoystickPromptText>>,
-) {
-    let arrow = intent.aim.arrow_glyph();
-    let desired = if arrow.is_empty() {
-        "Move".to_owned()
-    } else {
-        format!("Move\n{arrow}")
-    };
-    for mut text in &mut q {
-        if text.0 != desired {
-            text.0 = desired.clone();
-        }
     }
 }
 

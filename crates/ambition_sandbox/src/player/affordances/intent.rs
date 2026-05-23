@@ -63,28 +63,6 @@ impl Aim {
     pub fn is_forward(self) -> bool {
         matches!(self, Aim::Forward | Aim::ForwardUp | Aim::ForwardDown)
     }
-
-    /// Render this aim as a compact directional arrow glyph. Returns
-    /// the empty string for `Neutral` so callers can decide whether
-    /// to omit the glyph entirely or fall back to a verb-only label.
-    ///
-    /// The arrows are facing-relative: `Forward` always points right
-    /// in the glyph (the player's facing direction) — the HUD doesn't
-    /// flip when the player turns around because the glyph encodes
-    /// *intent* relative to the actor, not world-space direction.
-    pub fn arrow_glyph(self) -> &'static str {
-        match self {
-            Aim::Neutral => "",
-            Aim::Forward => "→",
-            Aim::Back => "←",
-            Aim::Up => "↑",
-            Aim::Down => "↓",
-            Aim::ForwardUp => "↗",
-            Aim::ForwardDown => "↘",
-            Aim::BackUp => "↖",
-            Aim::BackDown => "↙",
-        }
-    }
 }
 
 /// Build an [`Aim`] from raw stick axes + the player's facing sign.
@@ -245,18 +223,5 @@ mod tests {
 
         assert!(Aim::ForwardUp.is_forward());
         assert!(Aim::ForwardUp.is_up());
-    }
-
-    #[test]
-    fn arrow_glyph_maps_each_direction() {
-        assert_eq!(Aim::Neutral.arrow_glyph(), "");
-        assert_eq!(Aim::Forward.arrow_glyph(), "→");
-        assert_eq!(Aim::Back.arrow_glyph(), "←");
-        assert_eq!(Aim::Up.arrow_glyph(), "↑");
-        assert_eq!(Aim::Down.arrow_glyph(), "↓");
-        assert_eq!(Aim::ForwardUp.arrow_glyph(), "↗");
-        assert_eq!(Aim::ForwardDown.arrow_glyph(), "↘");
-        assert_eq!(Aim::BackUp.arrow_glyph(), "↖");
-        assert_eq!(Aim::BackDown.arrow_glyph(), "↙");
     }
 }

@@ -440,3 +440,42 @@ the map. The Motiff is you find Alice and she needs you to send a message to
 Bob who is often in some situation. One situation might be that you find bob in
 a crypt and he jokes, So you found me in a crypt. Maybe you should call me a
 crypt-tographer instead of cartographer. 
+
+---
+
+Puppy slugs are enemies that serve a similar purpose to the crawlid.  Lorewise
+they are the byproduct of AI in other dimensions. Similar to the 2016-ish deep
+dream puppy slugs they crawl around and are general enemies. Slightly cute, but
+somewhat of a nuisance. It would be awesome to have a shader effect that could
+simulate the deep-dream-like behavior. I wonder if we could get it nice with a
+small neural network and have that as an option graphics setting depending on
+the available GPU.
+
+Oiler's attack if you try to kill him should be to spawn portals that cause
+falling sand oil to spill into the room filling it up, and causing you to
+drown, or he might light it on fire causing massive damage. Don't fuck with
+Oiler.
+
+---
+
+
+Would be cool to have a head bounce mechanic. Maybe it conflicts with the pogo
+mechanic too much? Or maybe it is like level 1 pogo. Maybe it doesn't hurt the
+thing you are bouncing off of, but it is more precise to hit. I just think it
+would be fun to headbounce off of NPCs.
+
+
+NPCs should have more than aggressiveness. They might have anger, and
+irritation.  You can irritate a character without making them aggressive. 
+
+
+The Flying Spaghetti Monster can be a false god and an excellent boss. The
+fight could end by Will Smith coming down to eat it.
+
+
+We should have Neil deGrasse Tyson encourage the character to touch grass. Not
+sure what the play on the name should be.
+
+Ramanujan probably makes an appearance, maybe with the FSM. as Rameneugene or
+something. Other mathy / science characters to add: Tyson, Ramanujan, Noether,
+Germain, Lovelace, Mirzakhani, Tao, Curie, probably Sagan.

@@ -251,24 +251,26 @@ def _draw_leg(draw: ImageDraw.ImageDraw, hip: Point, ang: float, lift: float, *,
 
 
 def _draw_beefy_arm(draw: ImageDraw.ImageDraw, shoulder: Point, elbow: Point, hand: Point, skin: RGBA) -> None:
-    _line(draw, [shoulder, elbow, hand], skin, 10.2)
-    _line(draw, [shoulder, elbow, hand], OUTLINE, 1.1)
+    _line(draw, [shoulder, elbow, hand], skin, 12.2)
+    _line(draw, [shoulder, elbow, hand], OUTLINE, 1.2)
     upper_mid = ((shoulder[0] + elbow[0]) / 2.0, (shoulder[1] + elbow[1]) / 2.0)
     fore_mid = ((elbow[0] + hand[0]) / 2.0, (elbow[1] + hand[1]) / 2.0)
-    _ellipse(draw, upper_mid[0], upper_mid[1], 10.0, 8.4, skin, OUTLINE, 0.45)
-    _ellipse(draw, fore_mid[0], fore_mid[1], 8.6, 7.0, skin, OUTLINE, 0.4)
-    _line(draw, [(upper_mid[0] - 7, upper_mid[1] - 4), (upper_mid[0] + 7, upper_mid[1] + 4)], GOLD, 0.9)
+    _ellipse(draw, shoulder[0], shoulder[1], 6.0, 6.0, skin, OUTLINE, 0.35)
+    _ellipse(draw, upper_mid[0], upper_mid[1], 12.2, 9.8, skin, OUTLINE, 0.5)
+    _ellipse(draw, elbow[0], elbow[1], 7.2, 6.2, skin, OUTLINE, 0.35)
+    _ellipse(draw, fore_mid[0], fore_mid[1], 10.0, 8.0, skin, OUTLINE, 0.45)
+    _line(draw, [(upper_mid[0] - 8, upper_mid[1] - 4), (upper_mid[0] + 8, upper_mid[1] + 4)], GOLD, 1.0)
 
 
 def _draw_saw_shield(draw: ImageDraw.ImageDraw, center: Point, r: float) -> None:
     teeth: List[Point] = []
-    for i in range(16):
-        ang = math.tau * i / 16.0
-        rr = r + (5 if i % 2 == 0 else 0)
+    for i in range(18):
+        ang = math.tau * i / 18.0
+        rr = r + (6 if i % 2 == 0 else 1)
         teeth.append((center[0] + rr * math.cos(ang), center[1] + rr * math.sin(ang)))
-    _poly(draw, teeth, SHIELD, OUTLINE, 0.7)
-    _circle(draw, center, r * 0.72, SHIELD_SHADE, OUTLINE, 0.4)
-    _circle(draw, center, r * 0.24, STEEL, OUTLINE, 0.25)
+    _poly(draw, teeth, SHIELD, OUTLINE, 0.8)
+    _circle(draw, center, r * 0.76, SHIELD_SHADE, OUTLINE, 0.45)
+    _circle(draw, center, r * 0.28, STEEL, OUTLINE, 0.3)
     for ang in [0.0, math.pi / 2, math.pi / 4, -math.pi / 4]:
         p1 = (center[0] + math.cos(ang) * r * 0.18, center[1] + math.sin(ang) * r * 0.18)
         p2 = (center[0] + math.cos(ang) * r * 0.56, center[1] + math.sin(ang) * r * 0.56)
@@ -278,14 +280,17 @@ def _draw_saw_shield(draw: ImageDraw.ImageDraw, center: Point, r: float) -> None
 def _draw_spear(draw: ImageDraw.ImageDraw, hand: Point, angle: float, length: float) -> Point:
     butt = (hand[0] - length * 0.25 * math.cos(math.radians(angle)), hand[1] - length * 0.25 * math.sin(math.radians(angle)))
     tip_base = (hand[0] + length * 0.75 * math.cos(math.radians(angle)), hand[1] + length * 0.75 * math.sin(math.radians(angle)))
-    _line(draw, [butt, tip_base], BROWN, 2.6)
-    _line(draw, [butt, tip_base], OUTLINE, 0.55)
-    tip = (tip_base[0] + 18 * math.cos(math.radians(angle)), tip_base[1] + 18 * math.sin(math.radians(angle)))
-    side = (tip_base[0] + 7 * math.cos(math.radians(angle + 90)), tip_base[1] + 7 * math.sin(math.radians(angle + 90)))
-    side2 = (tip_base[0] + 7 * math.cos(math.radians(angle - 90)), tip_base[1] + 7 * math.sin(math.radians(angle - 90)))
-    _poly(draw, [tip, side, side2], STEEL, OUTLINE, 0.6)
-    cap = (butt[0] - 8 * math.cos(math.radians(angle)), butt[1] - 8 * math.sin(math.radians(angle)))
-    _poly(draw, [cap, (butt[0] + 3, butt[1] + 4), (butt[0] - 3, butt[1] - 4)], STEEL_SHADE, OUTLINE, 0.25)
+    _line(draw, [butt, tip_base], BROWN, 6.2)
+    _line(draw, [butt, tip_base], OUTLINE, 0.9)
+    tip = (tip_base[0] + 24 * math.cos(math.radians(angle)), tip_base[1] + 24 * math.sin(math.radians(angle)))
+    side = (tip_base[0] + 14 * math.cos(math.radians(angle + 90)), tip_base[1] + 14 * math.sin(math.radians(angle + 90)))
+    side2 = (tip_base[0] + 14 * math.cos(math.radians(angle - 90)), tip_base[1] + 14 * math.sin(math.radians(angle - 90)))
+    _poly(draw, [tip, side, side2], STEEL, OUTLINE, 0.8)
+    ferrule_a = (tip_base[0] - 8 * math.cos(math.radians(angle)), tip_base[1] - 8 * math.sin(math.radians(angle)))
+    ferrule_b = (tip_base[0] - 16 * math.cos(math.radians(angle)), tip_base[1] - 16 * math.sin(math.radians(angle)))
+    _line(draw, [ferrule_b, ferrule_a], GOLD_SHADE, 1.8)
+    cap = (butt[0] - 12 * math.cos(math.radians(angle)), butt[1] - 12 * math.sin(math.radians(angle)))
+    _poly(draw, [cap, (butt[0] + 5, butt[1] + 6), (butt[0] - 5, butt[1] - 6)], STEEL_SHADE, OUTLINE, 0.35)
     return tip
 
 
@@ -309,22 +314,18 @@ def _render_frame(anim: str, idx: int, n: int) -> Image.Image:
 
     torso = [P(-56, -270), P(16, -274), P(60, -240), P(72, -168), P(48, -118), P(-10, -106), P(-56, -138), P(-72, -206)]
     _poly(draw, torso, CLOTH, OUTLINE, 1.2)
-    dress_front = [P(-48, -164), P(40, -164), P(50, -42), P(16, 0), P(-28, -2), P(-60, -54)]
-    _poly(draw, dress_front, DRESS, OUTLINE, 1.0)
-    for x in [-24, -4, 14, 30]:
-        _line(draw, [P(x, -154), P(x + 4, -8)], DRESS_SHADE, 0.9)
 
     chestplate = [P(-42, -244), P(22, -246), P(48, -226), P(46, -182), P(28, -136), P(-16, -128), P(-46, -156), P(-52, -206)]
     _poly(draw, chestplate, GOLD, OUTLINE, 0.9)
-    left_breast = P(-16, -188)
-    right_breast = P(18, -188)
+    left_breast = P(-18, -206)
+    right_breast = P(22, -206)
     _circle(draw, left_breast, 26, GOLD_SHADE, OUTLINE, 0.75)
     _circle(draw, right_breast, 26, GOLD_SHADE, OUTLINE, 0.75)
     _line(draw, [P(0, -230), P(0, -134)], GOLD_SHADE, 0.8)
     for cc in [left_breast, right_breast]:
         for rr in [5, 10, 15, 20]:
             _circle(draw, cc, rr, None, GOLD, 0.3)
-    collar = [P(-36, -248), P(-12, -268), P(16, -268), P(42, -248), P(28, -228), P(-12, -230)]
+    collar = [P(-34, -246), P(-10, -258), P(14, -258), P(38, -246), P(26, -234), P(-10, -236)]
     _poly(draw, collar, STEEL, OUTLINE, 0.7)
 
     # Back arm (weapon).
@@ -333,20 +334,26 @@ def _render_frame(anim: str, idx: int, n: int) -> Image.Image:
     far_hand = P(84 + pose.weapon_arm * 0.35, -122 + pose.weapon_arm * 0.24)
     _draw_beefy_arm(draw, far_shoulder, far_elbow, far_hand, SKIN_SHADE)
 
-    head_root = P(-4, -302)
+    head_root = P(-4, -270)
     head_ang = body_ang + pose.head
 
     def H(x: float, y: float) -> Point:
         rx, ry = _rot(x, y, head_ang)
         return (head_root[0] + rx, head_root[1] + ry)
 
-    # Horns behind helmet.
-    left_horn = [H(-16, -14), H(-42, -32), H(-54, -16), H(-44, 0), H(-22, -4)]
-    right_horn = [H(16, -16), H(42, -34), H(54, -18), H(44, 0), H(22, -6)]
-    _poly(draw, left_horn, HORN, OUTLINE, 0.55)
-    _poly(draw, right_horn, HORN, OUTLINE, 0.55)
-    _line(draw, [H(-34, -20), H(-46, -18)], HORN_SHADE, 0.45)
-    _line(draw, [H(34, -22), H(46, -20)], HORN_SHADE, 0.45)
+    # Horns behind helmet, shaped more like curved rib bones with pointed tips.
+    left_horn_base = [H(-16, -8), H(-24, -18), H(-32, -20), H(-28, -10), H(-18, -4)]
+    left_horn_mid1 = [H(-24, -18), H(-34, -28), H(-42, -32), H(-40, -22), H(-30, -16)]
+    left_horn_mid2 = [H(-34, -28), H(-46, -34), H(-56, -32), H(-50, -24), H(-40, -22)]
+    left_horn_tip = [H(-46, -34), H(-60, -30), H(-68, -20), H(-56, -18), H(-50, -24)]
+    right_horn_base = [H(16, -10), H(24, -20), H(32, -22), H(28, -12), H(18, -6)]
+    right_horn_mid1 = [H(24, -20), H(34, -30), H(42, -34), H(40, -24), H(30, -18)]
+    right_horn_mid2 = [H(34, -30), H(46, -36), H(56, -34), H(50, -26), H(40, -24)]
+    right_horn_tip = [H(46, -36), H(60, -32), H(68, -22), H(56, -20), H(50, -26)]
+    for pts in [left_horn_base, left_horn_mid1, left_horn_mid2, left_horn_tip, right_horn_base, right_horn_mid1, right_horn_mid2, right_horn_tip]:
+        _poly(draw, pts, HORN, OUTLINE, 0.42)
+    _line(draw, [H(-22, -14), H(-30, -20), H(-40, -26), H(-52, -27), H(-61, -24)], HORN_SHADE, 0.38)
+    _line(draw, [H(22, -16), H(30, -22), H(40, -28), H(52, -29), H(61, -26)], HORN_SHADE, 0.38)
 
     braid_l = [H(-28, 6), H(-42 + pose.braid * 0.16, 28), H(-44 + pose.braid * 0.22, 52), H(-34 + pose.braid * 0.20, 76)]
     braid_r = [H(26, 6), H(40 + pose.braid * 0.12, 30), H(40 + pose.braid * 0.20, 54), H(30 + pose.braid * 0.18, 76)]
@@ -362,10 +369,10 @@ def _render_frame(anim: str, idx: int, n: int) -> Image.Image:
 
     helmet = [H(-24, -8), H(-18, -34), H(18, -34), H(26, -8), H(24, 14), H(10, 24), H(-12, 24), H(-26, 10)]
     _poly(draw, helmet, STEEL, OUTLINE, 0.9)
-    crest = [H(-6, -34), H(0, -52), H(8, -34)]
-    _poly(draw, crest, GOLD, OUTLINE, 0.35)
     face = [H(-22, -2), H(-18, -22), H(12, -22), H(24, -4), H(22, 16), H(10, 30), H(-6, 30), H(-20, 16)]
     _poly(draw, face, SKIN, OUTLINE, 0.8)
+    _ellipse(draw, H(-9, 14)[0], H(-9, 14)[1], 4.8, 3.2, (232, 142, 150, 130), None, 0)
+    _ellipse(draw, H(13, 14)[0], H(13, 14)[1], 4.8, 3.2, (232, 142, 150, 130), None, 0)
 
     if pose.x_eye:
         _line(draw, [H(-10, 0), H(-3, 7)], OUTLINE, 0.8); _line(draw, [H(-10, 7), H(-3, 0)], OUTLINE, 0.8)
@@ -390,13 +397,19 @@ def _render_frame(anim: str, idx: int, n: int) -> Image.Image:
     # Front leg / arm.
     near_hip = P(-18, -118)
     near_foot = _draw_leg(draw, near_hip, 94 + pose.left_leg, pose.left_lift, front=True)
+    dress_front = [P(-48, -164), P(40, -164), P(50, -42), P(16, 0), P(-28, -2), P(-60, -54)]
+    _poly(draw, dress_front, DRESS, OUTLINE, 1.0)
+    for x in [-24, -4, 14, 30]:
+        _line(draw, [P(x, -154), P(x + 4, -8)], DRESS_SHADE, 0.9)
+    hem_cover = [P(-34, -86), P(8, -80), P(18, -12), P(-22, -8), P(-42, -42)]
+    _poly(draw, hem_cover, DRESS, OUTLINE, 0.6)
     near_shoulder = P(-44, -224)
     near_elbow = P(-70 + pose.shield_arm * 0.18, -176 + pose.shield_arm * 0.16)
     near_hand = P(-88 + pose.shield_arm * 0.32 - pose.shield_push * 10, -120 + pose.shield_arm * 0.12)
     _draw_beefy_arm(draw, near_shoulder, near_elbow, near_hand, SKIN)
-    shield_center = (near_hand[0] - 12 - pose.shield_push * 15, near_hand[1] + 2)
-    _draw_saw_shield(draw, shield_center, 25)
-    spear_tip = _draw_spear(draw, far_hand, -78 + pose.weapon_pitch, 132)
+    shield_center = near_hand
+    _draw_saw_shield(draw, shield_center, 46)
+    spear_tip = _draw_spear(draw, far_hand, -78 + pose.weapon_pitch, 146)
 
     # Feet dust / impact FX.
     if anim in {"march", "shield_barge"} and (pose.left_lift > 0.5 or pose.right_lift > 0.5):

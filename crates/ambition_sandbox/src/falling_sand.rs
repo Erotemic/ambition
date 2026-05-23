@@ -45,11 +45,28 @@ const TILE_SIZE: i32 = 16;
 /// single sim step; 16 has held up in practice where 2 did not.
 const FLOOR_WALL_THICKNESS: i32 = 16;
 const SIDE_WALL_THICKNESS: i32 = 8;
-const SAND_THRESHOLD: usize = 14;
-const LIQUID_THRESHOLD: usize = 10;
-const MATERIAL_VISUAL_THRESHOLD: usize = 6;
-const MAX_DYNAMIC_SAND_TILES: usize = 220;
-const MAX_DYNAMIC_LIQUID_TILES: usize = 180;
+/// Per-tile minimum particle counts before we promote the tile into
+/// Ambition's collision/visual world. Tuned for "flood the room"
+/// — the room is 64×40 = 2560 tiles, so the previous 14/10
+/// thresholds left huge swaths of low-density spread invisible.
+/// Each tile holds up to TILE_SIZE² = 256 particle cells, so a
+/// count of 4 means ~1.5% fill — enough for a thin liquid film to
+/// register, low enough not to flicker on stray particles. Sand
+/// settles densely so its threshold can stay a bit higher than
+/// liquid's.
+const SAND_THRESHOLD: usize = 6;
+const LIQUID_THRESHOLD: usize = 4;
+const MATERIAL_VISUAL_THRESHOLD: usize = 3;
+/// Maximum number of tile-sized collision blocks / water regions
+/// projected per material per frame. Sized to "the whole room
+/// flooded" — the room is 2560 tiles, so 2500 lets either material
+/// cover essentially every cell. The earlier ~200 cap was a perf
+/// safety net from when the prototype was first standing up; the
+/// movement world tolerates a few-thousand-block scan fine on
+/// desktop, and the alternative ("liquid invisible past the first
+/// pool") is worse than the collision-iter cost.
+const MAX_DYNAMIC_SAND_TILES: usize = 2500;
+const MAX_DYNAMIC_LIQUID_TILES: usize = 2500;
 
 #[derive(Resource, Default)]
 struct FallingSandRoomState {

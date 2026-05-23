@@ -13,7 +13,7 @@ use super::layout::{
 };
 use super::menu_bridge::{fold_to_control_frame, fold_to_menu_control_frame};
 use super::state::TouchInputState;
-use crate::input::{KeyboardPreset, MenuInputState, SandboxAction};
+use crate::input::{ControlFrame, KeyboardPreset, MenuInputState, SandboxAction};
 use crate::ui_nav::DragScrollState;
 
 /// Joystick id. The `virtual_joystick` plugin is generic over a
@@ -169,6 +169,18 @@ impl Plugin for MobileTouchPlugin {
                         .after(update_button_pressed_from_actions),
                     sync_button_pressed_visual.after(update_button_pressed_from_actions),
                 ),
+            )
+            // Mirror keyboard / gamepad axis input onto the joystick
+            // knob's visual position, so the on-screen joystick doubles
+            // as an input display for non-touch devices. Runs after
+            // `virtual_joystick`'s own `update_ui` (in
+            // `JoystickSystems::UpdateUI`) so it overrides the
+            // centered rest position the crate writes when no
+            // `touch_state` is active. A real mouse / touch drag still
+            // wins because we early-out when `touch_state.is_some()`.
+            .add_systems(
+                PostUpdate,
+                drive_joystick_knob_from_axis.after(JoystickSystems::UpdateUI),
             );
     }
 }
@@ -903,6 +915,90 @@ fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held
         TouchActionButton::Shield => edges.shield = true,
         TouchActionButton::Start => edges.start = true,
         TouchActionButton::Reset => edges.reset = true,
+    }
+}
+
+/// Mirror keyboard / gamepad axis input onto the on-screen joystick
+/// knob's visual position, so the touch HUD doubles as an input
+/// display for non-touch devices.
+///
+/// When a real drag is in progress (`state.touch_state.is_some()`),
+/// this system bails out and lets `virtual_joystick`'s built-in
+/// `update_ui` drive the knob from the actual touch / mouse cursor
+/// — the drag is the authoritative source. Otherwise, we override
+/// the centered rest position the crate wrote with a knob offset
+/// derived from `ControlFrame.axis_x` / `axis_y`, using the same
+/// circle-bounded math the crate's `update_ui` uses.
+///
+/// Convention: `ControlFrame.axis_*` already follows the sim's
+/// +Y-down convention, which matches Bevy UI's +Y-down `Node.top`
+/// axis, so no Y inversion is needed here.
+fn drive_joystick_knob_from_axis(
+    control_frame: Res<ControlFrame>,
+    joystick_q: Query<(&VirtualJoystickState, &Children), With<VirtualJoystickNode<MobileStick>>>,
+    base_q: Query<&ComputedNode, With<VirtualJoystickUIBackground>>,
+    mut knob_q: Query<(&mut Node, &ComputedNode), With<VirtualJoystickUIKnob>>,
+) {
+    for (state, children) in &joystick_q {
+        // Real drag wins. The crate's `update_ui` already placed the
+        // knob from `state.delta` based on the actual cursor.
+        if state.touch_state.is_some() {
+            continue;
+        }
+        let mut base_size: Option<Vec2> = None;
+        let mut knob_entity: Option<Entity> = None;
+        for child in children.iter() {
+            if let Ok(base) = base_q.get(child) {
+                base_size = Some(base.size());
+            }
+            if knob_q.contains(child) {
+                knob_entity = Some(child);
+            }
+        }
+        let (Some(base_size), Some(knob_entity)) = (base_size, knob_entity) else {
+            continue;
+        };
+        let Ok((mut knob_node, knob_computed)) = knob_q.get_mut(knob_entity) else {
+            continue;
+        };
+        let knob_size = knob_computed.size();
+        let base_half = base_size * 0.5;
+        let knob_half = knob_size * 0.5;
+
+        // Clamp the axis vector to the unit circle so diagonal inputs
+        // ride the rim of the base ring instead of overshooting into
+        // the corners (which would push the knob outside the visible
+        // circle). Matches the crate's `joystick_delta` circular
+        // clamp.
+        let axis = Vec2::new(
+            control_frame.axis_x.clamp(-1.0, 1.0),
+            control_frame.axis_y.clamp(-1.0, 1.0),
+        );
+        let mag_sq = axis.length_squared();
+        let axis = if mag_sq > 1.0 {
+            axis / mag_sq.sqrt()
+        } else {
+            axis
+        };
+
+        // Same geometry as `virtual_joystick`'s update_ui for an
+        // un-offset base + visual delta = axis (already in UI Y-down).
+        // Reduces to: top-left = knob_half + base_half * axis.
+        let target_left = knob_half.x + base_half.x * axis.x;
+        let target_top = knob_half.y + base_half.y * axis.y;
+        let new_left = Val::Px(target_left);
+        let new_top = Val::Px(target_top);
+        // Avoid thrashing Bevy's change-detection bit on idle frames
+        // where the axis hasn't moved.
+        if knob_node.left != new_left {
+            knob_node.left = new_left;
+        }
+        if knob_node.top != new_top {
+            knob_node.top = new_top;
+        }
+        if knob_node.position_type != PositionType::Absolute {
+            knob_node.position_type = PositionType::Absolute;
+        }
     }
 }
 

@@ -1091,13 +1091,21 @@ impl EnemyRuntime {
         // facing; brain-frame facing (when set) wins over both. This
         // ordering matches the pre-refactor behaviour.
         //
-        // Surface walkers (PuppySlug) opt OUT of every player-aware
-        // facing override: the slug doesn't seek and doesn't aim
-        // attacks, so the only legitimate facing source is its own
-        // surface-walker tangent. Letting the melee choreography's
-        // `face_x = face_toward(self, player)` win here is what
-        // previously made slugs appear to "track" the player.
-        if !is_surface_walker {
+        // Non-aggressive archetypes (PuppySlug + peaceful patrollers
+        // like PirateHeavy in the cove — anyone with
+        // `attacks_player() == false`) opt OUT of every player-aware
+        // facing override. The melee choreography's
+        // `face_x = face_toward(self, player)` runs unconditionally
+        // — leaving it enabled here means a peaceful patroller's
+        // facing flips toward the player every tick, and since
+        // `desired_x = facing * patrol_speed`, the patroller ends
+        // up *walking toward* the player rather than pacing in
+        // place. Gating on `attacks_player()` keeps cove crew
+        // visually "patrolling on their own beat" instead of
+        // shadowing the player. This is the stop-gap until the
+        // universal-brain refactor lands (see
+        // `docs/planning/universal-brain-interface.md`).
+        if self.archetype.attacks_player() {
             match ai.intent {
                 ae::CharacterAiIntent::Chase { direction_x }
                 | ae::CharacterAiIntent::Attack { direction_x }

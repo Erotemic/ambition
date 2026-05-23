@@ -143,6 +143,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // Mirror the current atlas frame into the overlay after the
                 // character animator has advanced for this frame.
                 deep_dream::sync_puppy_slug_deep_dream_overlays,
+                deep_dream::cleanup_puppy_slug_deep_dream_overlays,
                 actors::animate_props,
                 actors::animate_bosses,
                 // Mirror parent atlas index + tint onto the hands overlay

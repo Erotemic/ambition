@@ -209,7 +209,8 @@ pub fn sync_puppy_slug_deep_dream_overlays(
         let Some(render_size) = source_sprite.custom_size else {
             continue;
         };
-        let Some(uv_rect) = current_sprite_uv_rect(&source_sprite, &texture_layouts, &images) else {
+        let Some(uv_rect) = current_sprite_uv_rect(&source_sprite, &texture_layouts, &images)
+        else {
             continue;
         };
         let flip = flip_flag(&source_sprite);

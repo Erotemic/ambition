@@ -235,10 +235,29 @@ pub fn apply_feature_damage_events(
                                 && enemy.archetype != EnemyArchetype::InfiniteSandbag
                                 && enemy.archetype != EnemyArchetype::FiniteSandbag
                             {
-                                gameplay_effects.write(GameplayEffect::SetFlag {
-                                    id: format!("enemy_{}_dead", enemy.id),
-                                    on: true,
-                                });
+                                // Choose the persistent-flag id by
+                                // respawn policy. OnRoomReenter ⇒ no
+                                // flag at all (the next room load
+                                // gives a fresh enemy). OnRest ⇒ a
+                                // distinct suffix that the rest hook
+                                // can wipe. Never ⇒ the legacy
+                                // `_dead` flag that lives forever.
+                                use crate::features::EnemyRespawnPolicy as P;
+                                let flag_id = match enemy.archetype.respawn_policy() {
+                                    P::OnRoomReenter => None,
+                                    P::OnRest => Some(format!(
+                                        "enemy_{}{}",
+                                        enemy.id,
+                                        crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
+                                    )),
+                                    P::Never => Some(format!("enemy_{}_dead", enemy.id)),
+                                };
+                                if let Some(id) = flag_id {
+                                    gameplay_effects.write(GameplayEffect::SetFlag {
+                                        id,
+                                        on: true,
+                                    });
+                                }
                             }
                         }
                         vfx.write(VfxMessage::Burst {

@@ -42,7 +42,13 @@ pub fn sync_ecs_actors_with_save(
             ActorRuntime::Peaceful(npc) => {
                 if data.flag(&npc.flag_id()) {
                     let mut hostile = ActorRuntime::hostile_from_npc(npc);
-                    if data.flag(&format!("enemy_{}_dead", hostile.id)) {
+                    if data.flag(&format!("enemy_{}_dead", hostile.id))
+                        || data.flag(&format!(
+                            "enemy_{}{}",
+                            hostile.id,
+                            crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
+                        ))
+                    {
                         hostile.alive = false;
                         hostile.health.current = 0;
                     }
@@ -50,10 +56,21 @@ pub fn sync_ecs_actors_with_save(
                 }
             }
             ActorRuntime::Hostile(enemy) => {
+                // Respect both `_dead` (Never policy) and
+                // `_dead_until_rest` (OnRest policy) flags so an
+                // enemy killed in a previous session/room visit
+                // doesn't spring back to life when the room loads.
+                // OnRoomReenter enemies never write a flag in the
+                // first place, so they spawn alive by default.
                 if !enemy.id.starts_with("encounter:")
                     && enemy.archetype != EnemyArchetype::InfiniteSandbag
                     && enemy.archetype != EnemyArchetype::FiniteSandbag
-                    && data.flag(&format!("enemy_{}_dead", enemy.id))
+                    && (data.flag(&format!("enemy_{}_dead", enemy.id))
+                        || data.flag(&format!(
+                            "enemy_{}{}",
+                            enemy.id,
+                            crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
+                        )))
                 {
                     enemy.alive = false;
                     enemy.health.current = 0;

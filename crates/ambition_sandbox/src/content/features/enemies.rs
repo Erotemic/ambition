@@ -91,6 +91,36 @@ pub struct EnemyRuntime {
     pub surface_normal: ae::Vec2,
 }
 
+/// Authored rule for when a defeated enemy should reappear. Picked
+/// per-archetype today; a future EnemySpawn LDtk field can override
+/// it on a single spawn without touching the archetype default.
+///
+/// The kill hook in `damage.rs` writes one of two persistent flags
+/// (or none) depending on this policy; the room-load `save_sync`
+/// reads either flag back into `alive = false`. A "rest" event
+/// clears just the `_dead_until_rest` flags, so OnRest enemies come
+/// back at the next rest but OnRoomReenter ones come back on the
+/// next room load.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EnemyRespawnPolicy {
+    /// Fresh every time the player enters the room. Default for
+    /// trash grunts (skitters, lurkers, raiders, puppy slugs).
+    OnRoomReenter,
+    /// Stays dead until the player rests at a save point. Default
+    /// for mini-boss-tier presences (brutes, colossi, pirate
+    /// heavies, sharks-with-riders).
+    OnRest,
+    /// Permanent kill — only an explicit save reset brings them
+    /// back. Reserved for scripted one-off encounters that aren't
+    /// `encounter:*` ids (which have their own state machine).
+    Never,
+}
+
+/// Flag-id suffix used by `_dead_until_rest` flags. Constant so the
+/// kill hook, save sync, and `clear_dead_until_rest_flags` all
+/// agree on the spelling.
+pub const ENEMY_DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EnemyArchetype {
     Combatant,
@@ -543,6 +573,33 @@ impl EnemyArchetype {
     /// are larger because the shark sprite is 192×128.
     pub(super) fn default_size(self) -> Option<ae::Vec2> {
         self.spec().default_size
+    }
+
+    /// Default respawn cadence for this archetype. Grunts refresh
+    /// every visit (OnRoomReenter); heavier mini-boss-tier presences
+    /// (Heavies, Brutes, Colossi, sharks-with-rider) take a Rest to
+    /// come back. Sandbags handle their own respawn loop in `update`
+    /// and report OnRoomReenter as a stable default that the kill
+    /// hook ignores anyway.
+    pub fn respawn_policy(self) -> EnemyRespawnPolicy {
+        use EnemyArchetype::*;
+        match self {
+            Combatant
+            | SmallSkitter
+            | SmallLurker
+            | MediumStriker
+            | AggressiveSeeker
+            | PuppySlug
+            | PirateRaider
+            | BurningFlyingShark
+            | InfiniteSandbag
+            | FiniteSandbag => EnemyRespawnPolicy::OnRoomReenter,
+            LargeBrute
+            | LargeColossus
+            | PirateHeavy
+            | PirateOnShark
+            | PirateHeavyOnShark => EnemyRespawnPolicy::OnRest,
+        }
     }
 }
 
@@ -1015,20 +1072,29 @@ impl EnemyRuntime {
         // Facing: AI/choreography facing always wins over derived
         // facing; brain-frame facing (when set) wins over both. This
         // ordering matches the pre-refactor behaviour.
-        match ai.intent {
-            ae::CharacterAiIntent::Chase { direction_x }
-            | ae::CharacterAiIntent::Attack { direction_x }
-                if direction_x.abs() > 0.001 =>
-            {
-                self.facing = direction_x.signum();
+        //
+        // Surface walkers (PuppySlug) opt OUT of every player-aware
+        // facing override: the slug doesn't seek and doesn't aim
+        // attacks, so the only legitimate facing source is its own
+        // surface-walker tangent. Letting the melee choreography's
+        // `face_x = face_toward(self, player)` win here is what
+        // previously made slugs appear to "track" the player.
+        if !is_surface_walker {
+            match ai.intent {
+                ae::CharacterAiIntent::Chase { direction_x }
+                | ae::CharacterAiIntent::Attack { direction_x }
+                    if direction_x.abs() > 0.001 =>
+                {
+                    self.facing = direction_x.signum();
+                }
+                _ => {}
             }
-            _ => {}
-        }
-        if choreo_tick.face_x.abs() > 0.001 {
-            self.facing = choreo_tick.face_x;
-        }
-        if frame.facing.abs() > 0.001 {
-            self.facing = frame.facing.signum();
+            if choreo_tick.face_x.abs() > 0.001 {
+                self.facing = choreo_tick.face_x;
+            }
+            if frame.facing.abs() > 0.001 {
+                self.facing = frame.facing.signum();
+            }
         }
 
         // EFFECTS STAGE — translate the frame's attack intents into

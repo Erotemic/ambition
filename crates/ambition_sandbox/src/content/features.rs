@@ -89,7 +89,9 @@ pub use ecs::{
     update_ecs_hazards, ActorRuntime, BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity,
     FeatureViewIndex, HazardFeature,
 };
-pub use enemies::{EnemyArchetype, EnemyRuntime};
+pub use enemies::{
+    EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX,
+};
 pub use events::{
     DamageEvent, DamageSource, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,
     GameplayBannerRequested, GameplayEffect, NpcDialogueRequest, PlayerDamageEvent,

@@ -277,6 +277,22 @@ impl SandboxSaveData {
         }
     }
 
+    /// Clear every flag whose id ends with `_dead_until_rest`. Used
+    /// by the sandbox rest mechanic to revive enemies whose
+    /// archetype policy is OnRest. Returns the number of flags
+    /// dropped — useful for HUD feedback and tests.
+    ///
+    /// The suffix is duplicated as a literal here (rather than
+    /// imported from the sandbox crate) so the engine save module
+    /// stays free of sandbox dependencies; keep the two in sync —
+    /// the sandbox side declares it as
+    /// `crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX`.
+    pub fn clear_dead_until_rest_flags(&mut self) -> usize {
+        let before = self.flags.len();
+        self.flags.retain(|f| !f.id.ends_with("_dead_until_rest"));
+        before - self.flags.len()
+    }
+
     /// Wholesale clear all gameplay state. Keeps `version` so the
     /// schema remains current. Used by debug "reset save" hooks and
     /// tests.

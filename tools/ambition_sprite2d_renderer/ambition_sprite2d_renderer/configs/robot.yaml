@@ -34,6 +34,12 @@ animations:
   - air_back
   - air_down
   - air_up
+  # Appended 2026-05-23: Smash-Bros ledge options now have dedicated
+  # animation rows so roll / getup-attack don't share the plain
+  # mantle pop with `ledge_getup`. New rows go at the END so earlier
+  # flat-atlas indices stay stable (per the comment above).
+  - ledge_roll
+  - ledge_getup_attack
 render:
   frame_width: 128
   frame_height: 128

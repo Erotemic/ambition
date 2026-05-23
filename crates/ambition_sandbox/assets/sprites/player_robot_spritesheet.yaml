@@ -815,50 +815,38 @@ animations:
       y: 2250
       w: 128
       h: 125
-      duration_ms: 75
+      duration_ms: 40
     - index: 1
       x: 228
       y: 2250
       w: 128
       h: 125
-      duration_ms: 75
+      duration_ms: 40
     - index: 2
       x: 356
       y: 2250
       w: 128
       h: 125
-      duration_ms: 75
+      duration_ms: 40
     - index: 3
       x: 484
       y: 2250
       w: 128
       h: 125
-      duration_ms: 75
+      duration_ms: 40
     - index: 4
       x: 612
       y: 2250
       w: 128
       h: 125
-      duration_ms: 75
+      duration_ms: 40
     - index: 5
       x: 740
       y: 2250
       w: 128
       h: 125
-      duration_ms: 75
-    - index: 6
-      x: 868
-      y: 2250
-      w: 128
-      h: 125
-      duration_ms: 75
-    - index: 7
-      x: 996
-      y: 2250
-      w: 128
-      h: 125
-      duration_ms: 75
-    duration_ms: 75
+      duration_ms: 40
+    duration_ms: 40
   float_glide:
     frames:
     - index: 0
@@ -1294,6 +1282,108 @@ animations:
       h: 125
       duration_ms: 62
     duration_ms: 62
+  ledge_roll:
+    frames:
+    - index: 0
+      x: 100
+      y: 3500
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 1
+      x: 228
+      y: 3500
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 2
+      x: 356
+      y: 3500
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 3
+      x: 484
+      y: 3500
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 4
+      x: 612
+      y: 3500
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 5
+      x: 740
+      y: 3500
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 6
+      x: 868
+      y: 3500
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 7
+      x: 996
+      y: 3500
+      w: 128
+      h: 125
+      duration_ms: 37
+    duration_ms: 37
+  ledge_getup_attack:
+    frames:
+    - index: 0
+      x: 100
+      y: 3625
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 1
+      x: 228
+      y: 3625
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 2
+      x: 356
+      y: 3625
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 3
+      x: 484
+      y: 3625
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 4
+      x: 612
+      y: 3625
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 5
+      x: 740
+      y: 3625
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 6
+      x: 868
+      y: 3625
+      w: 128
+      h: 125
+      duration_ms: 37
+    - index: 7
+      x: 996
+      y: 3625
+      w: 128
+      h: 125
+      duration_ms: 37
+    duration_ms: 37
 body_metrics:
   frame_width: 128
   frame_height: 125

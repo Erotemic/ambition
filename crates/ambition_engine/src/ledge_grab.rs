@@ -53,6 +53,16 @@ pub const LEDGE_MIN_CLIMB_DELAY: f32 = 0.06;
 /// pipeline single-source.
 pub const LEDGE_GRAB_INVULN_TIME: f32 = 0.50;
 
+/// Cooldown blocking a fresh ledge grab right after the player
+/// voluntarily released a ledge (drop / ledge-jump / ledge-release).
+/// At typical gravity (~1500 px/s²) a player accelerating from rest
+/// clears the chin-band (≈30 px tall) in about 200 ms; pad to 250 ms
+/// so the same lip can't re-snap on the very next fall sample, and
+/// also so the player gets a clear "I'm dropping" beat before any
+/// auto-snap can re-engage. Tune up for stickier feel, down for
+/// snappier recovery.
+pub const LEDGE_REGRAB_COOLDOWN: f32 = 0.25;
+
 /// What surface, and where, does the probe accept a ledge grab?
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeContact {
@@ -453,6 +463,7 @@ pub fn tick_active_ledge_grab(
         player.on_wall = false;
         player.on_ground = false;
         player.ledge_grab = None;
+        player.ledge_release_cooldown = LEDGE_REGRAB_COOLDOWN;
         player.vel = Vec2::new(away_x * tuning.wall_jump_x, -tuning.jump_speed);
         player.refresh_movement_resources(tuning);
         events.op(player, MovementOp::LedgeJump);
@@ -471,6 +482,7 @@ pub fn tick_active_ledge_grab(
         player.on_wall = false;
         player.on_ground = false;
         player.ledge_grab = None;
+        player.ledge_release_cooldown = LEDGE_REGRAB_COOLDOWN;
         // Inboard drift is 35% of jump_speed — small enough that the
         // player can still air-control sideways, large enough that
         // the default trajectory lands on the platform.
@@ -484,6 +496,13 @@ pub fn tick_active_ledge_grab(
         player.wall_climbing = false;
         player.on_wall = false;
         player.ledge_grab = None;
+        // The drop is the option that triggered Jon's bug report
+        // (2026-05-23): without this cooldown, gravity needs ~3
+        // frames to push the player out of the chin-band, and
+        // `try_start_ledge_grab`'s auto-snap-on-fall path would
+        // re-snap the same ledge as soon as `vel.y > FALL_SNAP_MIN_VY`.
+        // Cooldown blocks that until the player is clearly clear.
+        player.ledge_release_cooldown = LEDGE_REGRAB_COOLDOWN;
         events.op(player, MovementOp::LedgeDrop);
         return true;
     }
@@ -562,6 +581,14 @@ pub fn try_start_ledge_grab(
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
     if !player.abilities.ledge_grab || player.ledge_grab.is_some() || player.on_ground {
+        return false;
+    }
+    // Honour the post-voluntary-release cooldown so a player who just
+    // pressed Down on a ledge doesn't insta-regrab while gravity is
+    // still pulling them clear of the chin-band. The cooldown is
+    // armed by every voluntary release option in `tick_active_ledge_grab`
+    // and decays in `update_simulation_timers`.
+    if player.ledge_release_cooldown > 0.0 {
         return false;
     }
     let mut contact: Option<LedgeContact> = None;
@@ -1082,6 +1109,131 @@ mod tests {
             "roll target must overshoot the climb target by ~{}px",
             LEDGE_ROLL_OVERSHOOT,
         );
+    }
+
+    /// Smash-Bros regrab guard: after the player voluntarily drops
+    /// from a ledge, `try_start_ledge_grab` must not re-snap the same
+    /// lip while the cooldown is still ticking. Without this the
+    /// auto-snap-on-fall path fires the moment gravity pushes
+    /// `vel.y` past `FALL_SNAP_MIN_VY` — roughly two frames after
+    /// release, while the player is still inside the chin-band.
+    #[test]
+    fn voluntary_drop_arms_a_regrab_cooldown() {
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        let mut player = make_hanging_player(contact);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = crate::movement::MovementTuning::default();
+        let input = InputState {
+            axis_y: 1.0, // down
+            ..InputState::default()
+        };
+        let consumed = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        assert!(consumed);
+        assert!(player.ledge_grab.is_none(), "drop should release the ledge");
+        assert!(
+            player.ledge_release_cooldown >= LEDGE_REGRAB_COOLDOWN - 0.001,
+            "drop should arm the regrab cooldown, got {}",
+            player.ledge_release_cooldown,
+        );
+    }
+
+    /// While the regrab cooldown is live, `try_start_ledge_grab` must
+    /// return false even if the player is falling fast past the same
+    /// ledge. This is the actual fix for Jon's 2026-05-23 instant-
+    /// regrab bug.
+    #[test]
+    fn regrab_cooldown_blocks_auto_snap_on_fall() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        player.abilities.ledge_grab = true;
+        // Player is falling fast — would normally trigger the
+        // Smash-style auto-snap path.
+        player.vel = Vec2::new(0.0, 200.0);
+        player.ledge_release_cooldown = LEDGE_REGRAB_COOLDOWN;
+        let mut events = crate::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
+        assert!(
+            !latched,
+            "regrab cooldown should block the auto-snap-on-fall path"
+        );
+        assert!(player.ledge_grab.is_none());
+    }
+
+    /// After the cooldown expires the player can grab again normally.
+    /// Guards against the cooldown being permanent / never decaying.
+    #[test]
+    fn regrab_cooldown_expires_and_allows_fresh_grab() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        player.abilities.ledge_grab = true;
+        player.vel = Vec2::new(0.0, 200.0);
+        // Cooldown has already expired (e.g. simulation_timers ticked
+        // it down past zero between frames). Auto-snap should be free
+        // to fire again.
+        player.ledge_release_cooldown = 0.0;
+        let mut events = crate::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
+        assert!(
+            latched,
+            "with cooldown cleared, the same fall trajectory should re-grab"
+        );
+    }
+
+    /// Both the outward ledge-release-jump and the vertical ledge-jump
+    /// also arm the cooldown — any voluntary release should prevent
+    /// instant regrab.
+    #[test]
+    fn ledge_jump_options_also_arm_regrab_cooldown() {
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        // Outward release (jump + away).
+        {
+            let mut player = make_hanging_player(contact);
+            let mut events = crate::movement::FrameEvents::default();
+            let tuning = crate::movement::MovementTuning::default();
+            let input = InputState {
+                jump_pressed: true,
+                axis_x: -1.0, // away from a -1 wall_normal
+                ..InputState::default()
+            };
+            let _ = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+            assert!(player.ledge_grab.is_none());
+            assert!(
+                player.ledge_release_cooldown >= LEDGE_REGRAB_COOLDOWN - 0.001,
+                "ledge release should arm cooldown",
+            );
+        }
+        // Vertical hop (jump alone).
+        {
+            let mut player = make_hanging_player(contact);
+            let mut events = crate::movement::FrameEvents::default();
+            let tuning = crate::movement::MovementTuning::default();
+            let input = InputState {
+                jump_pressed: true,
+                ..InputState::default()
+            };
+            let _ = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+            assert!(player.ledge_grab.is_none());
+            assert!(
+                player.ledge_release_cooldown >= LEDGE_REGRAB_COOLDOWN - 0.001,
+                "ledge jump should arm cooldown",
+            );
+        }
     }
 
     /// Grabbing a ledge grants brief intangibility via

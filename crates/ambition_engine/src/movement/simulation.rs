@@ -88,6 +88,7 @@ fn update_simulation_timers(player: &mut Player, dt: f32, tuning: MovementTuning
     player.dodge_roll_timer = dec(player.dodge_roll_timer, dt);
     player.dodge_roll_cooldown = dec(player.dodge_roll_cooldown, dt);
     player.parry_window_timer = dec(player.parry_window_timer, dt);
+    player.ledge_release_cooldown = dec(player.ledge_release_cooldown, dt);
 
     if player.on_ground {
         player.coyote_timer = tuning.coyote_time;

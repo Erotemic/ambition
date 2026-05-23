@@ -143,6 +143,15 @@ pub struct Player {
     /// wall contact, water, and gravity instead of being corrected by a later
     /// sandbox system.
     pub ledge_grab: Option<crate::ledge_grab::LedgeGrabState>,
+    /// Cooldown blocking a fresh ledge grab right after the player
+    /// voluntarily released a ledge (drop / ledge-jump / ledge-release).
+    /// Without this, the auto-snap-on-fall path in `try_start_ledge_grab`
+    /// would re-snap the same ledge two frames after the player let
+    /// go — gravity hasn't moved them out of the chin-band yet.
+    /// Smash-style: ANY voluntary ledge option arms this cooldown so
+    /// the same lip can't be regrabbed without first leaving its
+    /// neighborhood.
+    pub ledge_release_cooldown: f32,
     /// Remaining seconds of dodge-roll invulnerability. > 0 means the
     /// player is currently rolling and should not take contact damage.
     pub dodge_roll_timer: f32,
@@ -214,6 +223,7 @@ impl Player {
             water_contact: None,
             climbable_contact: None,
             ledge_grab: None,
+            ledge_release_cooldown: 0.0,
             dodge_roll_timer: 0.0,
             dodge_roll_cooldown: 0.0,
             shield_active: false,

@@ -165,20 +165,25 @@ pub struct SfxSpec {
     pub noise: f32,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+/// Minimal duration descriptor for a pre-rendered music track.
+///
+/// Originally this was a full `MusicSpec` describing the fundsp
+/// procedural synth path (chord progressions, lead notes, bass
+/// roots, per-section gains). That synth path was retired (see
+/// `docs/archive/retired/fundsp-audio.md`) and OGGs are now authored
+/// via `tools/ambition_music_renderer` from YAML cues. The only
+/// runtime-meaningful values left were `bpm` + `total_beats` —
+/// everything else was inert documentation that drifted from the
+/// real OGGs. Trimmed 2026-05-23 to just those two fields so the
+/// `sandbox.ron` track list stops carrying ~30-80 lines of dead
+/// data per entry.
+///
+/// Authoritative arrangement details for each track live in the
+/// renderer score: `tools/ambition_music_renderer/scores/active/<id>.music.yaml`.
+#[derive(Clone, Copy, Debug, Deserialize)]
 pub struct MusicSpec {
     pub bpm: f32,
     pub total_beats: f32,
-    pub root_hz: f32,
-    pub bass_root_hz: f32,
-    pub key_root_hz: f32,
-    pub master_gain: f32,
-    pub lowpass_alpha: f32,
-    pub tape_hiss: f32,
-    pub lead: Vec<NoteSpec>,
-    pub chords: Vec<[i32; 4]>,
-    pub bass_roots: Vec<i32>,
-    pub gains: MusicGainsSpec,
 }
 
 impl MusicSpec {
@@ -200,34 +205,8 @@ impl MusicSpec {
                 self.total_beats
             ));
         }
-        if self.root_hz <= 0.0 || self.bass_root_hz <= 0.0 || self.key_root_hz <= 0.0 {
-            return Err("root frequencies must be positive".to_string());
-        }
-        if self.chords.is_empty() {
-            return Err("chords must not be empty".to_string());
-        }
-        if self.bass_roots.is_empty() {
-            return Err("bass_roots must not be empty".to_string());
-        }
         Ok(())
     }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-pub struct NoteSpec {
-    pub start: f32,
-    pub duration: f32,
-    pub semitone: i32,
-    pub volume: f32,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize)]
-pub struct MusicGainsSpec {
-    pub chord_pad: f32,
-    pub lead: f32,
-    pub soft_keys: f32,
-    pub bass: f32,
-    pub drums: f32,
 }
 
 #[cfg(test)]
@@ -265,22 +244,6 @@ mod tests {
         MusicSpec {
             bpm: 72.0,
             total_beats: 32.0,
-            root_hz: 220.0,
-            bass_root_hz: 110.0,
-            key_root_hz: 220.0,
-            master_gain: 0.5,
-            lowpass_alpha: 0.5,
-            tape_hiss: 0.0,
-            lead: Vec::new(),
-            chords: vec![[0, 4, 7, 11]],
-            bass_roots: vec![0],
-            gains: MusicGainsSpec {
-                chord_pad: 1.0,
-                lead: 1.0,
-                soft_keys: 1.0,
-                bass: 1.0,
-                drums: 1.0,
-            },
         }
     }
 

@@ -130,29 +130,13 @@ fn embedded_music_tracks_all_have_asset_paths() {
 #[test]
 fn audio_library_skips_music_tracks_without_asset_path() {
     use crate::content::data::{
-        AudioSpec, MusicGainsSpec, MusicSpec, MusicTrackSpec, SfxSpec, SoundCueKey, WaveformSpec,
+        AudioSpec, MusicSpec, MusicTrackSpec, SfxSpec, SoundCueKey, WaveformSpec,
     };
 
     fn synthetic_arrangement() -> MusicSpec {
         MusicSpec {
             bpm: 72.0,
             total_beats: 32.0,
-            root_hz: 220.0,
-            bass_root_hz: 110.0,
-            key_root_hz: 220.0,
-            master_gain: 0.5,
-            lowpass_alpha: 0.5,
-            tape_hiss: 0.0,
-            lead: Vec::new(),
-            chords: vec![[0, 4, 7, 11]],
-            bass_roots: vec![0],
-            gains: MusicGainsSpec {
-                chord_pad: 1.0,
-                lead: 1.0,
-                soft_keys: 1.0,
-                bass: 1.0,
-                drums: 1.0,
-            },
         }
     }
 

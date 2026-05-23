@@ -138,15 +138,23 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         );
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
+        // Let Bevy's required-component machinery insert Transform's
+        // GlobalTransform and Visibility's InheritedVisibility +
+        // ViewVisibility with their proper defaults. Inserting them
+        // explicitly here was a stealth bug: `InheritedVisibility::default()`
+        // is `Self(false)` (HIDDEN), and once a tuple-insert assigns it,
+        // the visibility propagator's PostUpdate pass on the *same* tick
+        // can't override it before the render extraction reads
+        // `view_visibility.get()` and skips the entity. With the explicit
+        // default removed, the auto-inserted InheritedVisibility starts
+        // unset and the propagator computes it from `Visibility::Visible`
+        // immediately. Same reasoning for ViewVisibility.
         let overlay_entity = commands
             .spawn((
                 Mesh2d(mesh),
                 MeshMaterial2d(material),
                 overlay_transform,
-                GlobalTransform::default(),
                 Visibility::Visible,
-                InheritedVisibility::default(),
-                ViewVisibility::default(),
                 PuppySlugDeepDreamOverlay {
                     source: source_entity,
                 },

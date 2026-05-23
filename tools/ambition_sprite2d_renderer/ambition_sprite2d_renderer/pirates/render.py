@@ -40,7 +40,10 @@ def render_target(target: str, out_dir: Path, frame_size=BASE_FRAME):
 def publish_target(target: str, src_dir: Path, dest_root: Path):
     dest_root.mkdir(parents=True, exist_ok=True)
     copied = []
-    for suffix in ["spritesheet.png", "spritesheet.yaml"]:
+    # `.ron` is the runtime SheetRegistry manifest; without it the
+    # in-repo file goes stale relative to the regenerated `.png` /
+    # `.yaml` and the sheet-consts drift test starts failing.
+    for suffix in ["spritesheet.png", "spritesheet.yaml", "spritesheet.ron"]:
         src = src_dir / f"{target}_{suffix}"
         dst = dest_root / src.name
         shutil.copy2(src, dst)

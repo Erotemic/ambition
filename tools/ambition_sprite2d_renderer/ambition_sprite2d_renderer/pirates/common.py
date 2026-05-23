@@ -324,8 +324,13 @@ def animation_pose(anim, frame_idx, nframes):
         pose["root_x"] = s * 2.5
         pose["bob"] = abs(s) * 6.0 - 1.5
         pose["body_tilt"] = s * 5.0
-        pose["left_leg"] = -28.0 * s
-        pose["right_leg"] = 28.0 * s
+        # Dampened from ±28° to ±11.2°. With the anatomical knee
+        # offsets above, the full ±28° amplitude swept the upper leg
+        # past the body centerline at f2/8 and f6/8 — the pants would
+        # visibly cross. ±11° keeps the leg swing visible while
+        # leaving the feet on their own sides.
+        pose["left_leg"] = -11.2 * s
+        pose["right_leg"] = 11.2 * s
         pose["left_arm"] = 22.0 * s + 4.0
         pose["right_arm"] = -40.0 * s - 4.0
         pose["weapon"] = -24.0 - 24.0 * s
@@ -564,13 +569,20 @@ def draw_character(kind: str, anim: str, frame_idx: int, nframes: int, frame_siz
         back_shoulder = transform((24, -136), char_origin, deg=global_tilt)
         front_shoulder = transform((-26, -136), char_origin, deg=global_tilt)
 
-    # Legs.
+    # Legs. Upper-leg offsets put the knee mostly DOWN from the hip
+    # with only a small outward bias, so the pants render as columns
+    # instead of an inverted-V splay. Lower-leg offsets keep the same
+    # ~30 px drop, giving a roughly even thigh/shin split for the
+    # body's overall height. Previously the offsets were (-18, 4) and
+    # (12, 4) — near-horizontal "thighs" that produced the bow-legged
+    # silhouette and let leg-angle rotations sweep the upper leg
+    # across the body centerline.
     left_hip = transform((-16, -56), char_origin, deg=global_tilt)
     right_hip = transform((18, -56), char_origin, deg=global_tilt)
-    left_knee = transform((-18, 4), left_hip, deg=pose["left_leg"])
-    right_knee = transform((12, 4), right_hip, deg=pose["right_leg"])
-    left_foot = transform((-8, 52 - pose["left_foot_lift"]), left_knee, deg=pose["left_leg"] * 0.3)
-    right_foot = transform((10, 52 - pose["right_foot_lift"]), right_knee, deg=pose["right_leg"] * 0.3)
+    left_knee = transform((-4, 30), left_hip, deg=pose["left_leg"])
+    right_knee = transform((4, 30), right_hip, deg=pose["right_leg"])
+    left_foot = transform((-8, 30 - pose["left_foot_lift"]), left_knee, deg=pose["left_leg"] * 0.3)
+    right_foot = transform((8, 30 - pose["right_foot_lift"]), right_knee, deg=pose["right_leg"] * 0.3)
 
     for hip_pt, knee_pt, foot_pt, ang in [
         (left_hip, left_knee, left_foot, pose["left_leg"]),

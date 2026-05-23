@@ -72,6 +72,81 @@ pub const DODGE_ROLL_COOLDOWN: f32 = 0.42;
 /// Parry window: full invulnerability during the first moments of shield activation.
 pub const PARRY_WINDOW_TIME: f32 = 0.15;
 
+/// Ledge momentum-carry defaults. See [`LedgeMomentumTuning`] for the
+/// per-field semantics. Tuned for Jon's "moving → grab → quick getup
+/// gives a boost; sitting still on the ledge does not" feel:
+/// - 250 ms window matches the existing regrab cooldown so the
+///   "fresh grab" feel window is symmetric.
+/// - x_gain = 0.65 carries about two-thirds of incoming run speed.
+/// - y_gain = 0.45 keeps recovery boosts noticeable without
+///   catapulting double-jumped recoveries.
+/// - Caps pin the boost so an extreme dash → ledge approach doesn't
+///   exit at dash speed; ~jump_speed feels like the right ceiling.
+pub const LEDGE_BOOST_WINDOW: f32 = 0.25;
+pub const LEDGE_BOOST_X_GAIN: f32 = 0.65;
+pub const LEDGE_BOOST_Y_GAIN: f32 = 0.45;
+pub const LEDGE_BOOST_X_CAP: f32 = 320.0;
+pub const LEDGE_BOOST_Y_CAP: f32 = 540.0;
+
+/// Tunable momentum-carry parameters for ledge getups.
+///
+/// When the player grabs a ledge with non-trivial momentum and then
+/// commits to a getup option (climb / roll / attack / jump) within
+/// the boost window, the carried-over velocity is folded into the
+/// getup so the player exits with a leftover horizontal/vertical
+/// kick. The drop / outward-release options never get the boost —
+/// those are deliberate disengage actions.
+///
+/// Set [`window`] to `0.0` to disable the mechanic entirely.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct LedgeMomentumTuning {
+    /// Seconds after grab during which the incoming momentum is
+    /// still claimable by a getup. The boost is weighted linearly
+    /// across the window so an immediate action gets the full carry
+    /// and an action right at the edge gets near-zero.
+    pub window: f32,
+    /// Fraction of horizontal momentum carried into the getup, when
+    /// the player was moving INTO the platform at grab time. Momentum
+    /// opposite the into-platform axis is discarded — the player
+    /// wasn't "carrying forward speed," they were sliding backward.
+    pub x_gain: f32,
+    /// Fraction of upward (sim +Y-down → negative) vertical momentum
+    /// carried into the getup. Downward momentum is discarded — the
+    /// player was falling, not climbing.
+    pub y_gain: f32,
+    /// Per-axis cap on the carried boost so extreme approaches don't
+    /// catapult the player. Compared against the post-gain magnitude.
+    pub x_cap: f32,
+    pub y_cap: f32,
+}
+
+impl Default for LedgeMomentumTuning {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl LedgeMomentumTuning {
+    pub const DEFAULT: Self = Self {
+        window: LEDGE_BOOST_WINDOW,
+        x_gain: LEDGE_BOOST_X_GAIN,
+        y_gain: LEDGE_BOOST_Y_GAIN,
+        x_cap: LEDGE_BOOST_X_CAP,
+        y_cap: LEDGE_BOOST_Y_CAP,
+    };
+
+    /// Boost mechanic fully disabled. Set
+    /// `MovementTuning::ledge_momentum = LedgeMomentumTuning::OFF`
+    /// to fall back to the original "vel zeroed on grab" feel.
+    pub const OFF: Self = Self {
+        window: 0.0,
+        x_gain: 0.0,
+        y_gain: 0.0,
+        x_cap: 0.0,
+        y_cap: 0.0,
+    };
+}
+
 /// Tunable movement parameters.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct MovementTuning {
@@ -121,6 +196,9 @@ pub struct MovementTuning {
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
     pub parry_window_time: f32,
+    /// Momentum-carry parameters for ledge getups. Set to
+    /// `LedgeMomentumTuning::OFF` to disable the mechanic.
+    pub ledge_momentum: LedgeMomentumTuning,
 }
 
 impl Default for MovementTuning {
@@ -172,4 +250,5 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dodge_roll_speed: DODGE_ROLL_SPEED,
     dodge_roll_cooldown: DODGE_ROLL_COOLDOWN,
     parry_window_time: PARRY_WINDOW_TIME,
+    ledge_momentum: LedgeMomentumTuning::DEFAULT,
 };

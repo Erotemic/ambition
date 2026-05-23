@@ -732,6 +732,11 @@ impl EditableMovementTuning {
             dodge_roll_speed: self.dodge_roll_speed,
             dodge_roll_cooldown: self.dodge_roll_cooldown,
             parry_window_time: self.parry_window_time,
+            // Ledge momentum-carry isn't surfaced in EditableMovementTuning
+            // (yet). Pass the engine default through so the dev-tools
+            // panel doesn't accidentally disable the boost. If/when we
+            // add per-field sliders for it, swap in the editable copy.
+            ledge_momentum: ae::LedgeMomentumTuning::DEFAULT,
         }
     }
 }

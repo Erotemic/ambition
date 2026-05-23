@@ -117,6 +117,13 @@ pub struct LedgeGrabState {
     pub getup_kind: LedgeGetupKind,
     /// Seconds spent in the pull-up / roll transition.
     pub climb_elapsed: f32,
+    /// Velocity the player carried into the ledge at the moment of
+    /// grab. Used to grant a momentum-carry boost to early getup
+    /// options (climb / roll / attack / vertical jump) per the
+    /// `MovementTuning::ledge_momentum` parameters. Capped + decayed
+    /// by [`ledge_boost`]; pure data, no behavior change unless that
+    /// helper actually consumes it.
+    pub momentum_at_grab: Vec2,
 }
 
 impl LedgeGrabState {
@@ -127,6 +134,18 @@ impl LedgeGrabState {
             climbing: false,
             getup_kind: LedgeGetupKind::Climb,
             climb_elapsed: 0.0,
+            momentum_at_grab: Vec2::ZERO,
+        }
+    }
+
+    /// Convenience constructor for tests: hanging-on-ledge state with
+    /// a specific incoming-momentum vector, so boost-eligible getup
+    /// paths can be exercised without spelling out every field.
+    #[cfg(test)]
+    pub fn hanging_with_momentum(contact: LedgeContact, momentum: Vec2) -> Self {
+        Self {
+            momentum_at_grab: momentum,
+            ..Self::hanging(contact)
         }
     }
 
@@ -377,7 +396,12 @@ pub fn tick_active_ledge_grab(
 
         if progress >= 1.0 {
             player.pos = getup_end_position(state);
-            player.vel = Vec2::ZERO;
+            // Carry incoming momentum into the exit velocity so a
+            // moving-into-the-platform grab → quick climb / roll /
+            // attack chains keep the player's run momentum. Computed
+            // from the grab-to-initiation elapsed time so a player
+            // who lingered before acting gets no boost.
+            player.vel = ledge_boost_for_state(state, &tuning);
             player.on_ground = true;
             player.wall_clinging = false;
             player.wall_climbing = false;
@@ -486,7 +510,14 @@ pub fn tick_active_ledge_grab(
         // Inboard drift is 35% of jump_speed — small enough that the
         // player can still air-control sideways, large enough that
         // the default trajectory lands on the platform.
-        player.vel = Vec2::new(into_x * tuning.jump_speed * 0.35, -tuning.jump_speed);
+        let mut launch = Vec2::new(into_x * tuning.jump_speed * 0.35, -tuning.jump_speed);
+        // Quick getup → momentum carry: if the player still has a
+        // claim on the boost window, add the captured incoming
+        // velocity to the launch. For ledge-jump there's no
+        // transition; `climb_elapsed` is zero so the boost reads
+        // straight off `state.elapsed`.
+        launch += ledge_boost_for_state(state, &tuning);
+        player.vel = launch;
         player.refresh_movement_resources(tuning);
         events.op(player, MovementOp::LedgeJump);
         return true;
@@ -574,6 +605,72 @@ fn requested_wall_normal(player: &Player, input: InputState) -> Option<f32> {
 ///   Smash's auto-snap on a descending recovery — you don't have
 ///   to hold a stick into the wall to catch the lip you're already
 ///   trying to grab.
+/// Compute the momentum-carry boost vector for a getup option.
+///
+/// Returns a velocity to ADD to the launch / post-transition velocity
+/// of an eligible getup (climb / roll / attack / vertical ledge-jump).
+/// Returns zero when:
+/// - The mechanic is disabled via `tuning.ledge_momentum.window == 0.0`.
+/// - The window has elapsed (so a player who lingered on the ledge
+///   doesn't claim a stale boost when they finally act).
+/// - The carried component is in a direction that wouldn't count as
+///   "moving toward the platform" (backward X) or "rising" (downward Y).
+///
+/// `elapsed_at_initiation` is the grab-to-action time at the moment
+/// the getup was first committed to — for transitions, the state
+/// machine ticks `climb_elapsed` after that point, so subtract it
+/// from `state.elapsed` at the call site. (See [`ledge_boost_for_state`]
+/// which does that subtraction for you.)
+pub fn ledge_boost(
+    momentum_at_grab: Vec2,
+    contact: LedgeContact,
+    elapsed_at_initiation: f32,
+    tuning: &MovementTuning,
+) -> Vec2 {
+    let cfg = tuning.ledge_momentum;
+    if cfg.window <= 0.0 || elapsed_at_initiation > cfg.window {
+        return Vec2::ZERO;
+    }
+    // Linear decay across the window — full boost at t=0, zero at
+    // t=window. Easier to reason about while tuning than smoothstep.
+    let weight = 1.0 - (elapsed_at_initiation / cfg.window).clamp(0.0, 1.0);
+    let m = momentum_at_grab;
+    // Only count horizontal momentum that points INTO the platform.
+    // Reverse momentum at grab time meant the player wasn't carrying
+    // forward speed — they were sliding off the lip — no reward.
+    let into = into_platform_axis(contact);
+    let forward_into = m.x * into; // > 0 if pointing toward platform
+    let carried_x = if forward_into > 0.0 {
+        m.x * cfg.x_gain * weight
+    } else {
+        0.0
+    };
+    // Sim convention: +Y is down. Upward momentum is negative; only
+    // count that. Downward momentum was "falling," no boost.
+    let carried_y = if m.y < 0.0 {
+        m.y * cfg.y_gain * weight
+    } else {
+        0.0
+    };
+    Vec2::new(
+        carried_x.clamp(-cfg.x_cap, cfg.x_cap),
+        carried_y.clamp(-cfg.y_cap, cfg.y_cap),
+    )
+}
+
+/// Convenience: compute the boost from a [`LedgeGrabState`]. For
+/// transitions that have already started ticking `climb_elapsed`,
+/// subtracts that from `elapsed` to recover the grab-to-action time.
+pub fn ledge_boost_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> Vec2 {
+    let elapsed_at_initiation = (state.elapsed - state.climb_elapsed).max(0.0);
+    ledge_boost(
+        state.momentum_at_grab,
+        state.contact,
+        elapsed_at_initiation,
+        tuning,
+    )
+}
+
 pub fn try_start_ledge_grab(
     world: &World,
     player: &mut Player,
@@ -611,6 +708,11 @@ pub fn try_start_ledge_grab(
     let Some(contact) = contact else {
         return false;
     };
+    // Capture the incoming velocity BEFORE we zero it. Stashed on the
+    // ledge state so an early getup option can claim the boost. The
+    // grab still cleanly zeroes vel for the hang (animation stability,
+    // collision sanity), but the data isn't lost.
+    let momentum_at_grab = player.vel;
     player.pos = contact.anchor;
     player.vel = Vec2::ZERO;
     player.facing = into_platform_axis(contact);
@@ -618,7 +720,10 @@ pub fn try_start_ledge_grab(
     player.wall_climbing = false;
     player.on_wall = true;
     player.wall_normal_x = contact.wall_normal_x;
-    player.ledge_grab = Some(LedgeGrabState::hanging(contact));
+    player.ledge_grab = Some(LedgeGrabState {
+        momentum_at_grab,
+        ..LedgeGrabState::hanging(contact)
+    });
     // Smash-Bros style ledge intangibility: a brief invuln window on
     // grab so the player can't be edge-guarded the instant they
     // touch a corner. Reuses `dodge_roll_timer` because that field
@@ -797,6 +902,16 @@ mod tests {
     }
 
     fn make_hanging_player(contact: LedgeContact) -> crate::movement::Player {
+        make_hanging_player_with_momentum(contact, Vec2::ZERO)
+    }
+
+    /// Same as [`make_hanging_player`] but stamps an arbitrary
+    /// `momentum_at_grab` onto the state so boost-aware tests can
+    /// exercise the carry math without spelling out every field.
+    fn make_hanging_player_with_momentum(
+        contact: LedgeContact,
+        momentum: Vec2,
+    ) -> crate::movement::Player {
         let mut player = crate::movement::Player::new(Vec2::ZERO);
         player.abilities.ledge_grab = true;
         player.abilities.shield = true;
@@ -806,6 +921,7 @@ mod tests {
             climbing: false,
             getup_kind: LedgeGetupKind::Climb,
             climb_elapsed: 0.0,
+            momentum_at_grab: momentum,
         });
         player.wall_clinging = true;
         player.on_wall = true;
@@ -1258,6 +1374,326 @@ mod tests {
             "grab should arm at least {}s of invuln, got {}",
             LEDGE_GRAB_INVULN_TIME,
             player.dodge_roll_timer,
+        );
+    }
+
+    // ---- Momentum-carry boost tests (Jon 2026-05-23 feature) ----
+    //
+    // Invariants under test:
+    // 1. The boost is captured at grab time and rides the LedgeGrabState.
+    // 2. Eligible getup options (climb, roll, attack, ledge_jump) get
+    //    the boost folded into their exit velocity.
+    // 3. The DROP and outward LEDGE-RELEASE options DO NOT get the
+    //    boost — those are deliberate disengage actions.
+    // 4. The boost decays linearly across the configured window and
+    //    fires zero once the window has elapsed.
+    // 5. Setting `LedgeMomentumTuning::OFF` (or window=0.0) fully
+    //    disables the mechanic — restores the original "vel zeroed
+    //    on grab" feel.
+    // 6. Only INTO-platform horizontal and UPWARD vertical momentum
+    //    is counted; reverse / downward components are discarded.
+
+    fn into_platform_for(contact: LedgeContact) -> f32 {
+        // Helper so tests don't have to memoize the sign convention.
+        into_platform_axis(contact)
+    }
+
+    fn rightward_ledge_contact() -> LedgeContact {
+        // Wall on player's RIGHT (wall_normal_x = -1). Platform is to
+        // the right of the player, so into_platform_axis = +1.
+        LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        }
+    }
+
+    #[test]
+    fn try_start_ledge_grab_captures_incoming_velocity() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        player.abilities.ledge_grab = true;
+        // Player arriving at the ledge with rightward + upward momentum
+        // (i.e. running up against the wall during a jump).
+        player.vel = Vec2::new(180.0, -240.0);
+        player.wall_clinging = true;
+        player.wall_normal_x = -1.0;
+        let mut events = crate::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
+        assert!(latched);
+        // After grab, vel is zeroed for the hang animation...
+        assert_eq!(player.vel, Vec2::ZERO);
+        // ...but the state retains the pre-grab velocity for the
+        // boost path.
+        let state = player.ledge_grab.unwrap();
+        assert!(
+            (state.momentum_at_grab - Vec2::new(180.0, -240.0)).length() < 0.01,
+            "momentum_at_grab should mirror pre-grab vel, got {:?}",
+            state.momentum_at_grab,
+        );
+    }
+
+    #[test]
+    fn ledge_boost_decays_linearly_across_window() {
+        let tuning = MovementTuning::default();
+        let contact = rightward_ledge_contact();
+        let momentum = Vec2::new(200.0 * into_platform_for(contact), 0.0);
+        // t=0: full boost.
+        let early = ledge_boost(momentum, contact, 0.0, &tuning);
+        // t=window/2: roughly half.
+        let mid = ledge_boost(
+            momentum,
+            contact,
+            tuning.ledge_momentum.window * 0.5,
+            &tuning,
+        );
+        // t=window: zero (or right at zero per the linear weight).
+        let late = ledge_boost(momentum, contact, tuning.ledge_momentum.window, &tuning);
+        // t>window: zero.
+        let past = ledge_boost(
+            momentum,
+            contact,
+            tuning.ledge_momentum.window * 2.0,
+            &tuning,
+        );
+        assert!(
+            early.x.abs() > mid.x.abs(),
+            "early > mid: {} > {}",
+            early.x,
+            mid.x
+        );
+        assert!(
+            mid.x.abs() > late.x.abs(),
+            "mid > late: {} > {}",
+            mid.x,
+            late.x
+        );
+        assert!(late.x.abs() < 0.01, "late ≈ 0, got {}", late.x);
+        assert_eq!(past, Vec2::ZERO);
+    }
+
+    #[test]
+    fn ledge_boost_off_disables_mechanic() {
+        let mut tuning = MovementTuning::default();
+        tuning.ledge_momentum = crate::movement::LedgeMomentumTuning::OFF;
+        let contact = rightward_ledge_contact();
+        let momentum = Vec2::new(300.0 * into_platform_for(contact), -300.0);
+        let boost = ledge_boost(momentum, contact, 0.0, &tuning);
+        assert_eq!(boost, Vec2::ZERO, "OFF tuning must produce zero boost");
+    }
+
+    #[test]
+    fn ledge_boost_ignores_reverse_horizontal_momentum() {
+        let tuning = MovementTuning::default();
+        let contact = rightward_ledge_contact();
+        // Momentum AWAY from the platform — into_platform is +1 here,
+        // so a leftward (negative) vel doesn't earn a boost.
+        let momentum = Vec2::new(-200.0, -200.0);
+        let boost = ledge_boost(momentum, contact, 0.0, &tuning);
+        assert_eq!(boost.x, 0.0, "reverse momentum should produce zero x boost");
+        // Upward momentum is still rewarded though.
+        assert!(
+            boost.y < 0.0,
+            "upward momentum should still produce a y boost"
+        );
+    }
+
+    #[test]
+    fn ledge_boost_ignores_downward_vertical_momentum() {
+        let tuning = MovementTuning::default();
+        let contact = rightward_ledge_contact();
+        let momentum = Vec2::new(200.0 * into_platform_for(contact), 300.0); // falling
+        let boost = ledge_boost(momentum, contact, 0.0, &tuning);
+        assert_eq!(
+            boost.y, 0.0,
+            "downward (falling) y momentum should not boost"
+        );
+        // Forward horizontal momentum still counts.
+        assert!(boost.x.abs() > 0.0);
+    }
+
+    #[test]
+    fn ledge_boost_clamps_at_caps() {
+        let tuning = MovementTuning::default();
+        let contact = rightward_ledge_contact();
+        // Extreme incoming momentum (e.g. dash + air jump combo).
+        let momentum = Vec2::new(2_000.0 * into_platform_for(contact), -2_000.0);
+        let boost = ledge_boost(momentum, contact, 0.0, &tuning);
+        assert!(
+            boost.x.abs() <= tuning.ledge_momentum.x_cap + 0.01,
+            "x boost should clamp to x_cap"
+        );
+        assert!(
+            boost.y.abs() <= tuning.ledge_momentum.y_cap + 0.01,
+            "y boost should clamp to y_cap"
+        );
+    }
+
+    #[test]
+    fn ledge_jump_with_quick_action_carries_momentum() {
+        let contact = rightward_ledge_contact();
+        // Player came in with strong rightward (into-platform) momentum
+        // before grabbing.
+        let momentum = Vec2::new(220.0, -100.0);
+        let mut player = make_hanging_player_with_momentum(contact, momentum);
+        let baseline_player = make_hanging_player_with_momentum(contact, Vec2::ZERO);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = MovementTuning::default();
+        let input = InputState {
+            jump_pressed: true,
+            ..InputState::default()
+        };
+        let _ = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        // Replay the same input on the zero-momentum baseline so we
+        // can compare "with boost" vs "without boost" exit velocities.
+        let mut baseline = baseline_player;
+        let mut baseline_events = crate::movement::FrameEvents::default();
+        let _ = tick_active_ledge_grab(&mut baseline, input, 0.016, tuning, &mut baseline_events);
+        // The boosted exit velocity should be larger in magnitude
+        // along the carried axes than the unboosted one.
+        assert!(
+            player.vel.x.abs() > baseline.vel.x.abs(),
+            "expected boosted ledge-jump to exceed baseline x: {} vs {}",
+            player.vel.x,
+            baseline.vel.x,
+        );
+        assert!(
+            player.vel.y < baseline.vel.y,
+            "expected boosted ledge-jump to exceed baseline upward (more negative): {} vs {}",
+            player.vel.y,
+            baseline.vel.y,
+        );
+    }
+
+    #[test]
+    fn drop_does_not_apply_boost() {
+        let contact = rightward_ledge_contact();
+        let momentum = Vec2::new(220.0, -120.0);
+        let mut player = make_hanging_player_with_momentum(contact, momentum);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = MovementTuning::default();
+        let input = InputState {
+            axis_y: 1.0, // down
+            ..InputState::default()
+        };
+        let _ = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        assert!(player.ledge_grab.is_none());
+        // After a drop the player has no claimed launch velocity —
+        // the existing behavior is that vel is whatever it was when
+        // the ledge released, and for `want_drop` we leave it
+        // untouched (vel was ZERO from the hang). Importantly, we
+        // do NOT add any boost.
+        assert_eq!(
+            player.vel,
+            Vec2::ZERO,
+            "drop must not pick up momentum boost"
+        );
+    }
+
+    #[test]
+    fn outward_ledge_release_does_not_apply_boost() {
+        let contact = rightward_ledge_contact();
+        let momentum = Vec2::new(220.0, -120.0);
+        let mut player = make_hanging_player_with_momentum(contact, momentum);
+        let baseline_player = make_hanging_player_with_momentum(contact, Vec2::ZERO);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = MovementTuning::default();
+        // jump + AWAY from platform. away_from_platform here is -1
+        // (left) since wall_normal_x is -1.
+        let away = away_from_platform_axis(contact);
+        let input = InputState {
+            jump_pressed: true,
+            axis_x: away,
+            ..InputState::default()
+        };
+        let _ = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        // Replay with zero momentum to confirm both produce the SAME
+        // exit vel (i.e. no boost applied).
+        let mut baseline = baseline_player;
+        let mut baseline_events = crate::movement::FrameEvents::default();
+        let _ = tick_active_ledge_grab(&mut baseline, input, 0.016, tuning, &mut baseline_events);
+        assert!(
+            (player.vel - baseline.vel).length() < 0.5,
+            "outward release must produce identical vel with and without momentum, \
+             got boosted={:?} baseline={:?}",
+            player.vel,
+            baseline.vel,
+        );
+    }
+
+    #[test]
+    fn climb_finish_carries_momentum_when_grabbed_with_speed() {
+        let contact = rightward_ledge_contact();
+        let momentum = Vec2::new(220.0, -120.0);
+        let mut player = make_hanging_player_with_momentum(contact, momentum);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = MovementTuning::default();
+        // Start the climb (Up).
+        let input = InputState {
+            axis_y: -1.0,
+            ..InputState::default()
+        };
+        let _ = tick_active_ledge_grab(&mut player, input, 0.001, tuning, &mut events);
+        // Run the full climb in one big tick.
+        let _ = tick_active_ledge_grab(
+            &mut player,
+            InputState::default(),
+            LEDGE_CLIMB_TIME + 0.05,
+            tuning,
+            &mut events,
+        );
+        assert!(player.ledge_grab.is_none(), "climb should have finished");
+        // Carried x velocity into platform. The forward-into is +x
+        // here (right-side wall_normal, into = +1).
+        assert!(
+            player.vel.x > 0.0,
+            "expected positive x exit velocity from carry, got {}",
+            player.vel.x,
+        );
+    }
+
+    #[test]
+    fn boost_decays_to_zero_outside_window() {
+        // If the player lingers on the ledge past the boost window
+        // and THEN climbs, the carry should be zero. Verifies the
+        // window gate uses the grab-to-action time, not zero.
+        let contact = rightward_ledge_contact();
+        let momentum = Vec2::new(220.0, -120.0);
+        let mut player = make_hanging_player_with_momentum(contact, momentum);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = MovementTuning::default();
+        // Sit on the ledge for longer than the boost window with no
+        // input (so we don't auto-climb).
+        let dt = tuning.ledge_momentum.window + 0.05;
+        let _ = tick_active_ledge_grab(&mut player, InputState::default(), dt, tuning, &mut events);
+        // Now climb.
+        let _ = tick_active_ledge_grab(
+            &mut player,
+            InputState {
+                axis_y: -1.0,
+                ..InputState::default()
+            },
+            0.001,
+            tuning,
+            &mut events,
+        );
+        let _ = tick_active_ledge_grab(
+            &mut player,
+            InputState::default(),
+            LEDGE_CLIMB_TIME + 0.05,
+            tuning,
+            &mut events,
+        );
+        assert!(player.ledge_grab.is_none(), "climb should have finished");
+        assert_eq!(
+            player.vel,
+            Vec2::ZERO,
+            "post-window climb should NOT carry momentum, got {:?}",
+            player.vel,
         );
     }
 }

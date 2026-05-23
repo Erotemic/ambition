@@ -18,7 +18,7 @@ from typing import List, Sequence, Tuple
 
 from PIL import Image, ImageDraw
 
-from ...pirates.common import build_sheet
+from ...tackon_sheet import build_sheet
 
 RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]

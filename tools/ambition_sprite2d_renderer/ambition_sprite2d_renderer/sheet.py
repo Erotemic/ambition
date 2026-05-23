@@ -214,7 +214,7 @@ def write_spritesheet(job: CharacterJob, image_out: str | Path, manifest_out: st
     # Sidecar RON: same data, machine-readable shape for the sandbox's
     # SheetRegistry. The adapter pipeline's YAML is `animations:`-keyed,
     # so we translate to the row-ordered SheetRecord shape here. See
-    # `pirates/common::_emit_sheet_ron` for the tack-on equivalent.
+    # `tackon_sheet._emit_sheet_ron` for the tack-on equivalent.
     ron_path = manifest_out.with_suffix(".ron")
     ron_path.write_text(_adapter_manifest_to_ron(manifest))
     return image_out, manifest_out

@@ -36,7 +36,7 @@ and may optionally expose::
     SHEET_FILES: list[str]
         Files the installer copies into the sandbox sprites dir.
         Default: ``{stem}_spritesheet.{png,yaml,ron}`` (matches the
-        ``pirates.common.build_sheet`` output convention).
+        ``tackon_sheet.build_sheet`` output convention).
 
     def install(render_dir, dest_root) -> Iterable[Path]: ...
         Custom installer (overrides the default copy-each-of-SHEET_FILES).
@@ -143,7 +143,7 @@ def _walk_category(category: str) -> Iterator[Tuple[str, str]]:
 def default_sheet_files(stem: str) -> List[str]:
     """Default install set when a target doesn't declare ``SHEET_FILES``.
 
-    Matches the ``pirates.common.build_sheet`` output convention used
+    Matches the ``tackon_sheet.build_sheet`` output convention used
     by most tack-ons.
     """
     return [

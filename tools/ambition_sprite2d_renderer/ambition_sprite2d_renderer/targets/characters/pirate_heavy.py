@@ -2,8 +2,9 @@ from __future__ import annotations
 
 """Standalone generator for several pirate-heavy sprite variants.
 
-This target deliberately does NOT route through ``pirates.common.draw_character``.
-It only reuses ``build_sheet`` for the Ambition-compatible PNG/YAML/RON sheet
+This target deliberately does NOT route through the pirate-family
+``draw_character`` rig (see ``_pirate_common.draw_character``). It only
+reuses ``build_sheet`` (from ``tackon_sheet``) for the Ambition-compatible PNG/YAML/RON sheet
 layout. The art template is a bespoke heavy bruiser silhouette: huge shoulders,
 big arms, bandana hair, skirt, heavy boots, and a massive cleaver/anchor weapon.
 
@@ -21,7 +22,7 @@ from typing import Dict, List, Sequence, Tuple
 
 from PIL import Image, ImageDraw
 
-from ...pirates.common import build_sheet
+from ...tackon_sheet import build_sheet
 
 RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]

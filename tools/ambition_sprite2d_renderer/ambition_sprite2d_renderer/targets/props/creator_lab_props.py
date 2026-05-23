@@ -568,7 +568,7 @@ def _emit_props_ron(manifest: Dict[str, object]) -> str:
     with `y_offset` = `row_idx * FRAME_H` so it addresses its own row
     band of the shared `creator_lab_props_spritesheet.png`.
     """
-    from ...pirates.common import _ron_sheet_record  # local import: tooling-only dependency
+    from ...tackon_sheet import _ron_sheet_record  # local import: tooling-only dependency
 
     image = SHEET_FILES[0]
     props = manifest.get("props", {}) if isinstance(manifest, dict) else {}

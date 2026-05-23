@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ...pirates.render import render_target
+from ._pirate_common import render_target
 
 TARGET_NAME = "pirate_raider"
 SHEET_FILES = [f"{TARGET_NAME}_spritesheet.png", f"{TARGET_NAME}_spritesheet.yaml"]

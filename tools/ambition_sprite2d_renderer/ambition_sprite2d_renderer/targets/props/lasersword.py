@@ -26,7 +26,7 @@ from typing import List, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from ...pirates.common import build_sheet
+from ...tackon_sheet import build_sheet
 from ... import lasersword_common as lc
 
 TARGET_NAME = "lasersword"

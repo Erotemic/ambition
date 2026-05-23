@@ -104,9 +104,13 @@ impl LoadingZone {
 pub enum PortalPhase {
     #[default]
     Off,
-    Opening { elapsed: f32 },
+    Opening {
+        elapsed: f32,
+    },
     On,
-    Closing { elapsed: f32 },
+    Closing {
+        elapsed: f32,
+    },
 }
 
 impl PortalPhase {
@@ -509,12 +513,7 @@ pub struct Authored<T> {
 }
 
 impl<T> Authored<T> {
-    pub fn new(
-        id: impl Into<String>,
-        name: impl Into<String>,
-        aabb: ae::Aabb,
-        payload: T,
-    ) -> Self {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: ae::Aabb, payload: T) -> Self {
         Self {
             id: id.into(),
             name: name.into(),

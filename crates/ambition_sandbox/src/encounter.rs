@@ -33,9 +33,7 @@ pub use spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec}
 pub(super) use state::ENCOUNTER_INTER_WAVE_DELAY_SECONDS;
 pub use state::{EncounterPhase, EncounterRun, EncounterState};
 pub use switches::{rebuild_encounter_switch_index, EncounterSwitchIndex, SwitchActivationQueue};
-pub use systems::{
-    populate_encounter_registry, update_encounters_from_world,
-};
+pub use systems::{populate_encounter_registry, update_encounters_from_world};
 
 /// Module-local Bevy plugin: schedules the `EncounterSimulation`
 /// simulation set — moving-platform sweep + encounter tick +

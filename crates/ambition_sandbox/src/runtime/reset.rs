@@ -384,7 +384,9 @@ mod tests {
         // Save is wiped.
         let save = app.world().resource::<SandboxSave>();
         assert!(!save.data().flag("npc_kira_hostile"));
-        assert!(!save.data().flag("encounter_goblin_encounter_reward_dropped"));
+        assert!(!save
+            .data()
+            .flag("encounter_goblin_encounter_reward_dropped"));
         assert_eq!(
             save.data().encounter("goblin_encounter"),
             ae::PersistedEncounterState::Untouched

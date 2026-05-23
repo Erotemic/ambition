@@ -196,7 +196,7 @@ pub struct ScreenEffectSettings {
     /// x = robot static, y = robot tear, z = robot desaturation,
     /// w = robot scanlines.
     pub robot: Vec4,
-    /// x = underwater distortion, y/z/w = reserved.
+    /// x = underwater distortion, y = full-screen deep-dream strength, z/w = reserved.
     pub underwater: Vec4,
 }
 
@@ -249,7 +249,12 @@ impl ScreenEffectSettings {
                 shaders.robot_desaturate.clamp(0.0, 1.0),
                 shaders.robot_scanlines.clamp(0.0, 1.0),
             ),
-            underwater: Vec4::new(shaders.underwater_distortion.clamp(0.0, 1.0), 0.0, 0.0, 0.0),
+            underwater: Vec4::new(
+                shaders.underwater_distortion.clamp(0.0, 1.0),
+                active(shaders.deep_dream_strength),
+                0.0,
+                0.0,
+            ),
         }
     }
 }

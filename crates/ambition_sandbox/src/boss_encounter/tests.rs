@@ -65,4 +65,3 @@ fn mockingbird_profile_registers_and_links() {
         Some("MockingbirdSpawn-0")
     );
 }
-

@@ -292,10 +292,10 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
         LargeColossus => EnemyArchetypeSpec {
             max_health: 14,
             rider_max_health: None,
-            patrol_speed: 40.0, // barely moves; almost stationary
-            chase_speed: 80.0,  // never sprints
-            aggro_radius: 200.0, // narrow threat envelope
-            attack_range: 240.0, // big arms reach further
+            patrol_speed: 40.0,     // barely moves; almost stationary
+            chase_speed: 80.0,      // never sprints
+            aggro_radius: 200.0,    // narrow threat envelope
+            attack_range: 240.0,    // big arms reach further
             contact_strength: 1.50, // hits the hardest of any non-boss
             damage_amount: 3,
             is_aerial: false,
@@ -602,21 +602,13 @@ impl EnemyArchetype {
     pub fn respawn_policy(self) -> EnemyRespawnPolicy {
         use EnemyArchetype::*;
         match self {
-            Combatant
-            | SmallSkitter
-            | SmallLurker
-            | MediumStriker
-            | AggressiveSeeker
-            | PuppySlug
-            | PirateRaider
-            | BurningFlyingShark
-            | InfiniteSandbag
-            | FiniteSandbag => EnemyRespawnPolicy::OnRoomReenter,
-            LargeBrute
-            | LargeColossus
-            | PirateHeavy
-            | PirateOnShark
-            | PirateHeavyOnShark => EnemyRespawnPolicy::OnRest,
+            Combatant | SmallSkitter | SmallLurker | MediumStriker | AggressiveSeeker
+            | PuppySlug | PirateRaider | BurningFlyingShark | InfiniteSandbag | FiniteSandbag => {
+                EnemyRespawnPolicy::OnRoomReenter
+            }
+            LargeBrute | LargeColossus | PirateHeavy | PirateOnShark | PirateHeavyOnShark => {
+                EnemyRespawnPolicy::OnRest
+            }
         }
     }
 }
@@ -1159,10 +1151,8 @@ impl EnemyRuntime {
                 self.archetype,
                 EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
             ) {
-                let hand = crate::presentation::rendering::rider_hand_world_pos(
-                    self.pos,
-                    self.facing,
-                );
+                let hand =
+                    crate::presentation::rendering::rider_hand_world_pos(self.pos, self.facing);
                 let muzzle_origin = hand + fire.dir.normalize_or_zero() * 18.0;
                 (muzzle_origin, format!("lasersword:{}", self.id))
             } else {
@@ -1299,13 +1289,12 @@ impl EnemyRuntime {
     /// rendered, rotated sprite. All other archetypes report the
     /// authored AABB unchanged.
     pub fn aabb(&self) -> ae::Aabb {
-        let size = if self.archetype == EnemyArchetype::PuppySlug
-            && self.surface_normal.x.abs() > 0.5
-        {
-            ae::Vec2::new(self.size.y, self.size.x)
-        } else {
-            self.size
-        };
+        let size =
+            if self.archetype == EnemyArchetype::PuppySlug && self.surface_normal.x.abs() > 0.5 {
+                ae::Vec2::new(self.size.y, self.size.x)
+            } else {
+                self.size
+            };
         ae::Aabb::new(self.pos, size * 0.5)
     }
 
@@ -1361,8 +1350,7 @@ impl EnemyRuntime {
         let step_len = speed * dt;
         // tangent_base = 90° math-CCW rotation of normal; multiply by
         // facing to pick a direction along the surface.
-        let tangent =
-            ae::Vec2::new(-n.y * self.facing, n.x * self.facing);
+        let tangent = ae::Vec2::new(-n.y * self.facing, n.x * self.facing);
         let body_long = self.size.x * 0.5;
         let body_thick = self.size.y * 0.5;
 
@@ -1380,10 +1368,7 @@ impl EnemyRuntime {
             let delta = neighbor_pos - self.pos;
             let along = delta.x * tangent.x + delta.y * tangent.y;
             let perp = delta.x * n.x + delta.y * n.y;
-            if along > 0.0
-                && along < body_long + 6.0
-                && perp.abs() < body_thick + 4.0
-            {
+            if along > 0.0 && along < body_long + 6.0 && perp.abs() < body_thick + 4.0 {
                 self.facing = -self.facing;
                 self.vel = ae::Vec2::ZERO;
                 return;
@@ -1426,9 +1411,7 @@ impl EnemyRuntime {
         // the corner" so the snap cast in the new -normal direction
         // can actually hit the new wall face.
         let ccw_normal = ae::Vec2::new(-n.y, n.x);
-        let around_corner = original_pos
-            + tangent * body_long
-            + (-n) * body_long;
+        let around_corner = original_pos + tangent * body_long + (-n) * body_long;
         self.pos = around_corner;
         self.surface_normal = ccw_normal;
         if self.snap_pos_to_surface(world) {
@@ -1542,7 +1525,9 @@ impl EnemyRuntime {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
             },
-            ae::KinematicInputs { drop_through: false },
+            ae::KinematicInputs {
+                drop_through: false,
+            },
             dt,
         );
         self.pos = body.pos;
@@ -1603,9 +1588,7 @@ impl EnemyRuntime {
         }
         // PuppySlug: contact damage stays on (its only damage
         // source). PirateHeavy: contact damage off (cove crew).
-        if !self.archetype.attacks_player()
-            && self.archetype != EnemyArchetype::PuppySlug
-        {
+        if !self.archetype.attacks_player() && self.archetype != EnemyArchetype::PuppySlug {
             return None;
         }
         Some(self.aabb())

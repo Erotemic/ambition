@@ -150,7 +150,8 @@ fn hud_summary_shows_wave_progress() {
 
 #[test]
 fn switch_activation_parses_full_payload() {
-    let act = SwitchActivation::parse_custom("switch:reset:ResetEncounter:goblin_encounter").unwrap();
+    let act =
+        SwitchActivation::parse_custom("switch:reset:ResetEncounter:goblin_encounter").unwrap();
     assert_eq!(act.id, "reset");
     assert_eq!(act.action, "ResetEncounter");
     assert_eq!(act.target_encounter, "goblin_encounter");
@@ -254,7 +255,9 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
     // ("goblin_encounter_reset_switch"). That mismatch made switch state
     // updates a no-op and the switch sprite stayed stuck red.
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-    let room_set = project.to_room_set().expect("goblin_encounter world composes");
+    let room_set = project
+        .to_room_set()
+        .expect("goblin_encounter world composes");
     let goblin_encounter = room_set
         .rooms
         .iter()
@@ -551,10 +554,16 @@ fn sync_lock_walls_inserts_and_removes_block() {
     state.spec = Some(spec);
     state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
     sync_lock_walls(&mut world, &reg);
-    assert!(world.blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
+    assert!(world
+        .blocks
+        .iter()
+        .any(|b| b.name == "lockwall:goblin_encounter"));
     // Force back to Inactive — wall should be removed.
     let state = reg.ensure("goblin_encounter");
     state.phase = EncounterPhase::Inactive;
     sync_lock_walls(&mut world, &reg);
-    assert!(!world.blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
+    assert!(!world
+        .blocks
+        .iter()
+        .any(|b| b.name == "lockwall:goblin_encounter"));
 }

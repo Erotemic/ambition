@@ -1,4 +1,6 @@
-use bevy::prelude::{Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut, Update};
+use bevy::prelude::{
+    Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut, Update,
+};
 use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntityAppExt};
 
 use super::components::{

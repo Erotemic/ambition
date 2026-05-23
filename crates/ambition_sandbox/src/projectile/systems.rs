@@ -72,9 +72,7 @@ pub fn update_projectiles(
     // straight through — an earlier negation here was inverting the
     // sign and silently mapping every "press Down" sample to `Up`,
     // which made every QCF detection fail forever.
-    let control_frame = primary
-        .map(|(_, input)| input.frame)
-        .unwrap_or_default();
+    let control_frame = primary.map(|(_, input)| input.frame).unwrap_or_default();
     let dir = ae::MotionDirection::from_axis(control_frame.axis_x, control_frame.axis_y, 0.55);
     let now = state.clock;
     state.motion_buffer.push(dir, now);

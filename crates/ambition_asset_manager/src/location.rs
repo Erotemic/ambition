@@ -128,9 +128,7 @@ impl AssetLocation {
             Self::BevySourcePath { source, path } if source == "http" || source == "https" => {
                 Some(format!("{source}://{path}"))
             }
-            Self::IpfsGateway { gateway, cid, path } => {
-                Some(ipfs_gateway_url(gateway, cid, path))
-            }
+            Self::IpfsGateway { gateway, cid, path } => Some(ipfs_gateway_url(gateway, cid, path)),
             _ => None,
         }
     }

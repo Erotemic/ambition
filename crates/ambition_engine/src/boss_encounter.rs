@@ -69,7 +69,6 @@ impl BossEncounterPhase {
     pub fn is_attacking(self) -> bool {
         matches!(self, Self::Phase1 | Self::Phase2 | Self::Enrage)
     }
-
 }
 
 /// Authored thresholds + timings driving phase transitions.
@@ -606,5 +605,4 @@ mod tests {
         assert!(evs.is_empty());
         assert_eq!(s.hp, s.spec.max_hp);
     }
-
 }

@@ -169,7 +169,10 @@ fn sim_can_start_in_a_specific_room_via_options() {
         active, default_room,
         "start_room override should change the active room from the default"
     );
-    assert_eq!(active, "goblin_encounter", "expected to start in goblin_encounter");
+    assert_eq!(
+        active, "goblin_encounter",
+        "expected to start in goblin_encounter"
+    );
 }
 
 #[test]

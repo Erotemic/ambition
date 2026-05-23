@@ -36,4 +36,3 @@ proptest! {
         prop_assert!(path.speed > 0.0);
     }
 }
-

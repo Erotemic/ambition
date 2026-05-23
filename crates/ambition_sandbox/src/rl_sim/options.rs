@@ -42,7 +42,9 @@ impl SandboxSimOptions {
 pub enum TimestepMode {
     #[default]
     WallClock,
-    Fixed { dt: f32 },
+    Fixed {
+        dt: f32,
+    },
 }
 
 impl TimestepMode {

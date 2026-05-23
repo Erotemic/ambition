@@ -428,7 +428,10 @@ fn npc_hit_barks(key: &str, name: &str) -> &'static [&'static str] {
             "I'll plot ye a course straight to Davy Jones!",
             "Compass says: punch back!",
         ]
-    } else if key.contains("broadside_bess") || name.contains("broadside bess") || name.contains("bess") {
+    } else if key.contains("broadside_bess")
+        || name.contains("broadside bess")
+        || name.contains("bess")
+    {
         &[
             "Mind me cleaver, wee skipper!",
             "Aye, that smarts — but ye're worse off!",

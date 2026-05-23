@@ -532,9 +532,9 @@ fn touch_action_to_contextual(
         TouchActionButton::Projectile | TouchActionButton::Blink => CA::Special,
         // FlyToggle / Start / Reset have only one meaning today —
         // no contextual swap.
-        TouchActionButton::FlyToggle
-        | TouchActionButton::Start
-        | TouchActionButton::Reset => return None,
+        TouchActionButton::FlyToggle | TouchActionButton::Start | TouchActionButton::Reset => {
+            return None
+        }
     })
 }
 

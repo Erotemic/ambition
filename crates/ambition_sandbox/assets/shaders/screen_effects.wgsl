@@ -100,6 +100,85 @@ fn underwater_uv(uv: vec2<f32>, time: f32, amount: f32) -> vec2<f32> {
     return out_uv;
 }
 
+
+fn dream_hash21(p: vec2<f32>) -> f32 {
+    let q = vec2<f32>(
+        dot(p, vec2<f32>(127.1, 311.7)),
+        dot(p, vec2<f32>(269.5, 183.3))
+    );
+    return fract(sin(q.x + q.y) * 43758.5453123);
+}
+
+fn dream_noise(p: vec2<f32>) -> f32 {
+    let i = floor(p);
+    let f = fract(p);
+    let u = f * f * (3.0 - 2.0 * f);
+    let a = dream_hash21(i + vec2<f32>(0.0, 0.0));
+    let b = dream_hash21(i + vec2<f32>(1.0, 0.0));
+    let c = dream_hash21(i + vec2<f32>(0.0, 1.0));
+    let d = dream_hash21(i + vec2<f32>(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+fn dream_fbm(p0: vec2<f32>) -> f32 {
+    var p = p0;
+    var amp = 0.5;
+    var total = 0.0;
+    var norm = 0.0;
+    for (var i = 0; i < 5; i = i + 1) {
+        total += dream_noise(p) * amp;
+        norm += amp;
+        p = mat2x2<f32>(1.62, 1.11, -1.04, 1.71) * p + vec2<f32>(3.7, 1.9);
+        amp *= 0.53;
+    }
+    return total / max(norm, 0.001);
+}
+
+fn dream_hsv2rgb(c: vec3<f32>) -> vec3<f32> {
+    let p = abs(fract(c.xxx + vec3<f32>(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - vec3<f32>(3.0));
+    return c.z * mix(vec3<f32>(1.0), clamp(p - vec3<f32>(1.0), vec3<f32>(0.0), vec3<f32>(1.0)), c.y);
+}
+
+fn apply_deep_dream_screen(rgb_in: vec3<f32>, uv: vec2<f32>, time: f32, strength: f32) -> vec3<f32> {
+    let centred = uv - vec2<f32>(0.5, 0.5);
+    let radius = length(centred);
+    let angle = atan2(centred.y, centred.x);
+    let fold_count = 7.0;
+    let folded_angle = abs(fract(angle / (2.0 * PI) * fold_count + 0.5) - 0.5) * 2.0 * PI;
+    let folded = vec2<f32>(cos(folded_angle), sin(folded_angle)) * radius;
+
+    let dream_field = dream_fbm(folded * 7.0 + vec2<f32>(time * 0.42, -time * 0.28));
+    let fine_field = dream_fbm(uv * 28.0 + vec2<f32>(time * 1.3, time * -0.9));
+    let melt_gate = smoothstep(0.25, 0.92, dream_field + uv.y * 0.30);
+    let drip = vec2<f32>(
+        sin((uv.y * 18.0 + time * 2.1) * PI) * 0.020,
+        melt_gate * melt_gate * (0.060 + 0.050 * sin(time * 1.7 + uv.x * 10.0))
+    ) * strength;
+    let warped_uv = safe_uv(uv + drip + (fine_field - 0.5) * 0.035 * strength);
+
+    let split = (0.006 + 0.018 * dream_field) * strength;
+    let chroma_rgb = vec3<f32>(
+        sample_screen(warped_uv + vec2<f32>(split, -split * 0.35)).r,
+        sample_screen(warped_uv).g,
+        sample_screen(warped_uv - vec2<f32>(split * 0.7, split)).b
+    );
+
+    let hue = fract(dream_field * 0.82 + fine_field * 0.33 + time * 0.08);
+    let rainbow = dream_hsv2rgb(vec3<f32>(hue, 0.86, 1.12));
+    let luma = dot(rgb_in, vec3<f32>(0.299, 0.587, 0.114));
+    var rgb = mix(rgb_in, chroma_rgb, 0.45 * strength);
+    rgb = mix(rgb, rainbow * (0.38 + luma * 0.95), 0.68 * strength);
+
+    let ridge = 1.0 - smoothstep(0.020, 0.120, abs(fract((dream_field + fine_field) * 6.0) - 0.5));
+    rgb += rainbow * ridge * 0.34 * strength;
+
+    // Soft reappearing/melting rhythm, but never full-screen blinks to black.
+    let dissolve_noise = dream_fbm(uv * 12.0 + vec2<f32>(time * -0.7, time * 0.4));
+    let dissolve_wave = 0.5 + 0.5 * sin(time * 2.3 + uv.y * 13.0);
+    let dissolve = smoothstep(0.18, 0.74, dissolve_noise + dissolve_wave * 0.35);
+    return mix(rgb_in, rgb, mix(0.42, 0.92, dissolve) * strength);
+}
+
 fn crt_warp(uv: vec2<f32>, amount: f32) -> vec2<f32> {
     let centered = uv * 2.0 - vec2<f32>(1.0, 1.0);
     let r2 = dot(centered, centered);
@@ -263,6 +342,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let robot_scanlines = clamp(settings.robot.w, 0.0, 1.0);
 
     let underwater_distortion = clamp(settings.underwater.x, 0.0, 1.0);
+    let deep_dream_strength = clamp(settings.underwater.y, 0.0, 1.0);
 
     var uv = in.uv;
     if underwater_strength > 0.001 {
@@ -295,6 +375,10 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     if underwater_strength > 0.001 {
         rgb = mix(rgb, rgb * vec3<f32>(0.74, 0.96, 1.06), 0.55 * underwater_strength);
         rgb = mix(rgb, vec3<f32>(0.08, 0.22, 0.28), 0.07 * underwater_strength);
+    }
+
+    if deep_dream_strength > 0.001 {
+        rgb = apply_deep_dream_screen(rgb, uv, time, deep_dream_strength);
     }
 
     let size = screen_size();

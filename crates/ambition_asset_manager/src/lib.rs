@@ -54,4 +54,6 @@ pub use bevy_integration::{
 };
 
 #[cfg(feature = "sfx")]
-pub use sfx_integration::{build_provider_from_path, build_provider_from_resolved, SfxBankResolveError};
+pub use sfx_integration::{
+    build_provider_from_path, build_provider_from_resolved, SfxBankResolveError,
+};

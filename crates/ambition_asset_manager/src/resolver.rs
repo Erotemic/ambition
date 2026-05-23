@@ -333,12 +333,7 @@ mod tests {
     #[test]
     fn web_static_prefers_embedded_override() {
         let m = fixture_with_overrides();
-        let r = resolve(
-            &m,
-            &AssetId::new("audio.sfx_bank"),
-            AssetProfile::WebStatic,
-        )
-        .unwrap();
+        let r = resolve(&m, &AssetId::new("audio.sfx_bank"), AssetProfile::WebStatic).unwrap();
         assert_eq!(
             r.bevy_asset_path().as_deref(),
             Some("embedded://ambition/audio/sfx.bank"),
@@ -361,7 +356,9 @@ mod tests {
         // override, so the resolver picks that.
         assert_eq!(r.source_used, Some(AssetSourceProfile::LooseFilesystem));
         assert_eq!(
-            r.location.as_local_path().map(|p| p.to_string_lossy().to_string()),
+            r.location
+                .as_local_path()
+                .map(|p| p.to_string_lossy().to_string()),
             Some("/repo/assets/ambition/audio/sfx.bank".to_string()),
         );
     }
@@ -440,13 +437,11 @@ mod tests {
     fn authored_candidate_is_true_only_when_resolver_picks_an_explicit_candidate() {
         let m = fixture_with_overrides();
         // sfx_bank has an explicit Embedded candidate; WebStatic picks it.
-        let r = resolve(
-            &m,
-            &AssetId::new("audio.sfx_bank"),
-            AssetProfile::WebStatic,
-        )
-        .unwrap();
-        assert!(r.authored_candidate, "explicit Embedded candidate should be authored");
+        let r = resolve(&m, &AssetId::new("audio.sfx_bank"), AssetProfile::WebStatic).unwrap();
+        assert!(
+            r.authored_candidate,
+            "explicit Embedded candidate should be authored"
+        );
 
         // world.sandbox_ldtk has no candidate — DesktopDevLoose synthesizes
         // BevyPath from logical_path.
@@ -456,7 +451,10 @@ mod tests {
             AssetProfile::DesktopDevLoose,
         )
         .unwrap();
-        assert!(!r.authored_candidate, "synthesized default must not be authored");
+        assert!(
+            !r.authored_candidate,
+            "synthesized default must not be authored"
+        );
     }
 
     #[test]

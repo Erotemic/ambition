@@ -37,17 +37,17 @@ pub use registry::SheetRegistryPlugin;
 // they're already loaded at startup by SheetRegistryPlugin. Re-export
 // gated to silence the unused-import warning until something outside
 // the registry module actually queries them.
-#[allow(unused_imports)]
-pub use registry::{SheetRecord, SheetRegistry};
 pub use assets::{
     all_character_sprite_filenames, build_npc_sprite_asset, build_prop_sprite_asset,
     load_character_sprites_in, CharacterSpriteAssets,
 };
+#[allow(unused_imports)]
+pub use registry::{SheetRecord, SheetRegistry};
 pub use sheets::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
     feet_anchor_for_render_size, player_placeholder_render_size, sprite_render_size,
-    ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CharacterSheetSpec, CREATOR_SHEET,
-    ERDISH_SHEET, FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET,
-    KERNEL_GUIDE_SHEET, LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE,
-    LAB_PROP_REPAIR_CRADLE, LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET, OILER_SHEET,
+    CharacterSheetSpec, ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CREATOR_SHEET,
+    ERDISH_SHEET, FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
+    LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
+    LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET, OILER_SHEET,
 };

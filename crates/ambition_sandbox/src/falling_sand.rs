@@ -588,7 +588,12 @@ fn sync_falling_sand_spout_nozzles(
             SAND_SWITCH => (176.0, 90.0, 38.0, MaterialKind::Sand.visual_color()),
             WATER_SWITCH => (384.0, 90.0, 38.0, MaterialKind::Water.visual_color()),
             OIL_SWITCH => (592.0, 90.0, 38.0, MaterialKind::Oil.visual_color()),
-            MIXED_SWITCH => (792.0, 90.0, 86.0, crate::config::rgba(0.92, 0.80, 0.38, 0.90)),
+            MIXED_SWITCH => (
+                792.0,
+                90.0,
+                86.0,
+                crate::config::rgba(0.92, 0.80, 0.38, 0.90),
+            ),
             _ => continue,
         };
         commands.spawn((
@@ -933,7 +938,11 @@ fn project_sand(world: &mut ae::World, scratch: &mut ProjectionScratch) {
     let keys = sorted_tiles_by_count_desc(&scratch.sand_tiles);
     let mut added = 0;
     for (tile_x, tile_y) in keys {
-        let count = scratch.sand_tiles.get(&(tile_x, tile_y)).copied().unwrap_or(0);
+        let count = scratch
+            .sand_tiles
+            .get(&(tile_x, tile_y))
+            .copied()
+            .unwrap_or(0);
         if count >= MATERIAL_VISUAL_THRESHOLD {
             scratch
                 .desired_visuals
@@ -991,12 +1000,9 @@ fn project_liquid(
         if scratch.dense_sand.contains(&(tile_x, tile_y)) {
             continue;
         }
-        world.water_regions.push(water_tile_region(
-            tile_x,
-            tile_y,
-            water_kind,
-            spec,
-        ));
+        world
+            .water_regions
+            .push(water_tile_region(tile_x, tile_y, water_kind, spec));
         *added += 1;
     }
 }
@@ -1106,8 +1112,7 @@ fn log_falling_sand_diagnostics(
     let band_grid_y_high = (world.size.y * 0.5 - band_top_world_y).round() as i32;
     let band_grid_y_low = (world.size.y * 0.5 - band_bottom_world_y).round() as i32;
 
-    let mut counts: std::collections::BTreeMap<String, usize> =
-        std::collections::BTreeMap::new();
+    let mut counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     let mut sand_y_min = i32::MAX;
     let mut sand_y_max = i32::MIN;
     let mut sand_near_floor = 0usize;
@@ -1137,8 +1142,8 @@ fn log_falling_sand_diagnostics(
         format!("grid_y∈[{sand_y_min}, {sand_y_max}]")
     };
 
-    let total_particles = movement_ready.iter().count()
-        + no_density.iter().count().max(no_speed.iter().count());
+    let total_particles =
+        movement_ready.iter().count() + no_density.iter().count().max(no_speed.iter().count());
     bevy::log::info!(
         "fs-diag: counts={:?}  sand:{}  near_floor={}  below_floor={}  walls_in_band={}  band_grid_y∈[{}, {}]",
         counts,
@@ -1227,7 +1232,10 @@ fn sync_material_visuals(
         let center = tile_min(tile.0, tile.1)
             + ae::Vec2::new(TILE_SIZE as f32 * 0.5, TILE_SIZE as f32 * 0.5);
         commands.spawn((
-            Name::new(format!("falling sand projected {kind:?} tile {}:{}", tile.0, tile.1)),
+            Name::new(format!(
+                "falling sand projected {kind:?} tile {}:{}",
+                tile.0, tile.1
+            )),
             Sprite::from_color(kind.visual_color(), Vec2::splat(TILE_SIZE as f32)),
             Transform::from_translation(crate::config::world_to_bevy(
                 world,

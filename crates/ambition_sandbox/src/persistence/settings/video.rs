@@ -346,6 +346,12 @@ pub struct ScreenShaderSettings {
     #[serde(default = "default_underwater_distortion")]
     pub underwater_distortion: f32,
 
+    /// Full-screen version of the puppy-slug deep-dream shader. This is a
+    /// debug/reference view for validating the look independently of the
+    /// per-sprite atlas/material path.
+    #[serde(default)]
+    pub deep_dream_strength: f32,
+
     /// Shared edge darkening layered after the other effects.
     #[serde(default)]
     pub vignette_strength: f32,
@@ -378,6 +384,7 @@ impl Default for ScreenShaderSettings {
             robot_scanlines: default_robot_scanlines(),
             underwater_strength: 0.0,
             underwater_distortion: default_underwater_distortion(),
+            deep_dream_strength: 0.0,
             vignette_strength: 0.0,
         }
     }
@@ -394,6 +401,7 @@ impl ScreenShaderSettings {
             || self.film_grain_strength > 0.001
             || self.robot_death_strength > 0.001
             || self.underwater_strength > 0.001
+            || self.deep_dream_strength > 0.001
             || self.vignette_strength > 0.001
     }
 
@@ -457,6 +465,7 @@ impl ScreenShaderSettings {
         self.robot_scanlines = self.robot_scanlines.clamp(0.0, 1.0);
         self.underwater_strength = self.underwater_strength.clamp(0.0, 1.0);
         self.underwater_distortion = self.underwater_distortion.clamp(0.0, 1.0);
+        self.deep_dream_strength = self.deep_dream_strength.clamp(0.0, 1.0);
         self.vignette_strength = self.vignette_strength.clamp(0.0, 1.0);
     }
 }

@@ -111,7 +111,10 @@ mod tests {
 
     #[test]
     fn defaults_are_sensible() {
-        assert_eq!(MissingAssetPolicy::default(), MissingAssetPolicy::WarnAndPlaceholder);
+        assert_eq!(
+            MissingAssetPolicy::default(),
+            MissingAssetPolicy::WarnAndPlaceholder
+        );
         assert_eq!(CachePolicy::default(), CachePolicy::Refcounted);
     }
 }

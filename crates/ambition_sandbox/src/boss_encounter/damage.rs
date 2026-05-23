@@ -193,11 +193,8 @@ mod tests {
     fn record_boss_damage_reports_not_applied_during_invulnerable_phase() {
         let mut registry = fixture(10);
         // Flip to an invulnerable phase (Intro / Transition / Stagger).
-        registry
-            .encounters
-            .get_mut("test_boss")
-            .unwrap()
-            .phase = ae::BossEncounterPhase::Transition;
+        registry.encounters.get_mut("test_boss").unwrap().phase =
+            ae::BossEncounterPhase::Transition;
         let mut music = EncounterMusicRequest::default();
         let mut cutscene = CutsceneTriggerQueue::default();
         let mut banner = GameplayBanner::default();

@@ -253,10 +253,8 @@ pub fn apply_feature_damage_events(
                                     P::Never => Some(format!("enemy_{}_dead", enemy.id)),
                                 };
                                 if let Some(id) = flag_id {
-                                    gameplay_effects.write(GameplayEffect::SetFlag {
-                                        id,
-                                        on: true,
-                                    });
+                                    gameplay_effects
+                                        .write(GameplayEffect::SetFlag { id, on: true });
                                 }
                             }
                         }

@@ -838,16 +838,16 @@ const ALICE_AFTER_BOB_SURVEY_NODES: &[DialogNode] = &[
 // Bob is brief and not pleased.
 // ─────────────────────────────────────────────────────────────────
 
-const BOB_AFTER_REPORT_NODES: &[DialogNode] = &[
-    DialogNode {
-        speaker: "Bob",
-        line: "You filed the route. The route now files itself. Map labels we can't take back.",
-        options: &[DialogChoice {
-            label: "[move on]",
-            next_node: None,
-            note: Some("He doesn't ask for the survey back. The survey is already on somebody else's wall."),
-            close_after: true,
-        }],
-        default_next: None,
-    },
-];
+const BOB_AFTER_REPORT_NODES: &[DialogNode] = &[DialogNode {
+    speaker: "Bob",
+    line: "You filed the route. The route now files itself. Map labels we can't take back.",
+    options: &[DialogChoice {
+        label: "[move on]",
+        next_node: None,
+        note: Some(
+            "He doesn't ask for the survey back. The survey is already on somebody else's wall.",
+        ),
+        close_after: true,
+    }],
+    default_next: None,
+}];

@@ -4,7 +4,6 @@
 use ambition_engine as ae;
 use bevy::prelude::info;
 
-
 /// One-line summary of the motion buffer plus what the recognizer
 /// matched, emitted at INFO every time the player presses fire. The
 /// goal is concrete feedback when "the Hadouken won't come out": the
@@ -66,4 +65,3 @@ pub(super) fn motion_label(dir: ae::MotionDirection) -> &'static str {
         ae::MotionDirection::DownRight => "DownRight",
     }
 }
-

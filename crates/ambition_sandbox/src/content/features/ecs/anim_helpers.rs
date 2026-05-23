@@ -129,9 +129,9 @@ pub fn ecs_boss_name<'a>(
     id: &str,
     bosses: &'a Query<(&FeatureId, &BossFeature)>,
 ) -> Option<&'a str> {
-    bosses
-        .iter()
-        .find_map(|(feature_id, boss)| (feature_id.as_str() == id).then_some(boss.boss.name.as_str()))
+    bosses.iter().find_map(|(feature_id, boss)| {
+        (feature_id.as_str() == id).then_some(boss.boss.name.as_str())
+    })
 }
 
 pub fn ecs_boss_anim_state(

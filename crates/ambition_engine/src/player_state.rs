@@ -697,7 +697,9 @@ mod tests {
         let center = Vec2::new(100.0, 344.0);
         let solid_predicate = |b: &Block| matches!(b.kind, BlockKind::Solid);
         assert!(
-            BodyMode::MorphBall.shape(base).fits_at(center, &world, solid_predicate),
+            BodyMode::MorphBall
+                .shape(base)
+                .fits_at(center, &world, solid_predicate),
             "MorphBall must fit a 16-px tunnel — the morph_lab tunnel is sized exactly this way",
         );
         for non_fit in [

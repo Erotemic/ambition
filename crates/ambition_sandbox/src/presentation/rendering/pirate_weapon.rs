@@ -77,7 +77,10 @@ const RIDER_VERTICAL_OFFSET: f32 = -34.0; // mirror of `pirate_rider.rs`
 
 /// World-space hand position for a rider. Mirrors the rider visual's
 /// own anchor math so the weapon mounts where the visible hand is.
-pub fn rider_hand_world_pos(enemy_pos: ambition_engine::Vec2, facing: f32) -> ambition_engine::Vec2 {
+pub fn rider_hand_world_pos(
+    enemy_pos: ambition_engine::Vec2,
+    facing: f32,
+) -> ambition_engine::Vec2 {
     let facing_sign = if facing >= 0.0 { 1.0 } else { -1.0 };
     let hand_local_x = HAND_OFFSET_NORM.x * RIDER_RENDER_HEIGHT * facing_sign;
     let hand_local_y = HAND_OFFSET_NORM.y * RIDER_RENDER_HEIGHT;
@@ -205,7 +208,10 @@ mod tests {
         // World -Y is "up" in the sandbox; in Bevy that's +Y.
         // Aiming "up" should rotate the sprite +90°.
         let angle = dy_world_to_bevy_angle(0.0, -1.0);
-        assert!((angle - std::f32::consts::FRAC_PI_2).abs() < 1.0e-5, "got {angle}");
+        assert!(
+            (angle - std::f32::consts::FRAC_PI_2).abs() < 1.0e-5,
+            "got {angle}"
+        );
     }
 
     #[test]

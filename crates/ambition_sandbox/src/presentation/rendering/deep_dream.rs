@@ -1,16 +1,14 @@
 //! Per-sprite deep-dream shader experiment for the Puppy Slug enemy.
 //!
-//! The regular character sprite remains the authoritative animation source:
-//! `animate_characters` keeps advancing its atlas frame and facing bit. This
-//! module hides only that source sprite's pixels and mirrors the current atlas
-//! frame into a child `Material2d` quad. The shader then samples the same
-//! spritesheet frame, uses the frame alpha as a hard mask, and performs all of
-//! the surreal color/fractal/melt work inside the visible puppy-slug silhouette.
-//!
-//! Keeping this as an overlay child makes the experiment easy to delete if the
-//! look is wrong, and it avoids touching the generic character animator path.
+//! The regular character sprite remains visible and authoritative: the normal
+//! `animate_characters` system still advances its atlas frame, facing bit, and
+//! hit tint. This module adds a child `Material2d` quad that samples the same
+//! atlas frame and draws a vivid, semi-transparent surreal overlay on top. The
+//! source sprite is never hidden, so a material/shader failure cannot erase the
+//! enemy.
 
 use bevy::{
+    image::TextureAtlasLayout,
     prelude::*,
     reflect::TypePath,
     render::render_resource::AsBindGroup,
@@ -19,35 +17,15 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
-use crate::features::{ActorRuntime, EnemyArchetype, FeatureId};
-use crate::presentation::character_sprites::CharacterAnimator;
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
+use crate::features::{ActorRuntime, EnemyArchetype, FeatureId};
 
 const SHADER_ASSET_PATH: &str = "shaders/puppy_slug_deep_dream.wgsl";
 
-/// Alpha applied to the underlying character sprite while the deep-
-/// dream overlay child is alive. Originally `0.0` (source fully
-/// hidden, overlay assumed to take over) but that made every slug
-/// invisible whenever the overlay material itself failed to draw —
-/// e.g., a silent WGSL compile failure, a render-graph wiring issue,
-/// or an asset that hadn't loaded yet. Set to `1.0` so the source
-/// sprite stays visible and the overlay layers on top of it: the
-/// shader becomes additive flavor rather than a load-bearing
-/// renderer. If the shader works you see slug + dream blend; if it
-/// silently fails you see the regular slug.
-///
-/// TODO: drop back toward `0.0` once the overlay path is confirmed
-/// to render in-game and we have a way to detect material-load
-/// failures rather than fail silent. The shader was authored to
-/// be authoritative (its `discard` on transparent atlas padding
-/// expects to be the only renderer); double-sampling the source
-/// underneath will produce mild double-vision where both layers
-/// overlap.
-const SOURCE_ALPHA_WHILE_DREAMING: f32 = 1.0;
+/// Keep the local material strong enough to read over the original sprite.
+const EFFECT_STRENGTH: f32 = 1.0;
 
 /// Install the material plugin that backs the puppy-slug deep-dream overlay.
-/// Visible builds call this from `PresentationVisualAnimationPlugin`; headless
-/// builds never touch the sprite-render material pipeline.
 pub fn add_puppy_slug_deep_dream_material_plugin(app: &mut App) {
     app.add_plugins(Material2dPlugin::<PuppySlugDeepDreamMaterial>::default());
 }
@@ -57,7 +35,7 @@ pub fn add_puppy_slug_deep_dream_material_plugin(app: &mut App) {
 /// Bindings intentionally stay small and WebGL2-friendly:
 ///
 /// - `uv_rect.xy` / `uv_rect.zw`: current atlas frame, normalized into the
-///   spritesheet texture.
+///   loaded spritesheet texture.
 /// - `control.x`: elapsed seconds.
 /// - `control.y`: x-flip flag (0 or 1).
 /// - `control.z`: effect strength.
@@ -86,8 +64,7 @@ impl Material2d for PuppySlugDeepDreamMaterial {
     }
 }
 
-/// Marker on the normal character-sprite entity whose pixels are replaced by
-/// the deep-dream child overlay.
+/// Marker on the normal character-sprite entity that owns the overlay child.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct PuppySlugDeepDreamSource {
     seed: f32,
@@ -106,9 +83,11 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
+    texture_layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Res<Assets<Image>>,
     actors: Query<(&FeatureId, &ActorRuntime)>,
     candidates: Query<
-        (Entity, &FeatureVisual, &Sprite, Option<&Anchor>, &CharacterAnimator),
+        (Entity, &FeatureVisual, &Sprite, Option<&Anchor>),
         (
             Without<PlayerVisual>,
             Without<PropVisual>,
@@ -116,17 +95,20 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         ),
     >,
 ) {
-    for (entity, visual, sprite, anchor, animator) in &candidates {
+    for (entity, visual, sprite, anchor) in &candidates {
         if !is_puppy_slug_feature(&visual.id, &actors) {
             continue;
         }
         let Some(render_size) = sprite.custom_size else {
             continue;
         };
-        let uv_rect = current_sprite_uv_rect(sprite, animator);
+        let Some(uv_rect) = current_sprite_uv_rect(sprite, &texture_layouts, &images) else {
+            continue;
+        };
+        let seed = seed_from_id(&visual.id);
         let material = materials.add(PuppySlugDeepDreamMaterial {
             uv_rect,
-            control: Vec4::new(0.0, flip_flag(sprite), 1.0, seed_from_id(&visual.id)),
+            control: Vec4::new(0.0, flip_flag(sprite), EFFECT_STRENGTH, seed),
             tint: Vec4::ONE,
             color_texture: sprite.image.clone(),
         });
@@ -134,15 +116,17 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         let mesh = meshes.add(Rectangle::default());
         commands
             .entity(entity)
-            .insert(PuppySlugDeepDreamSource {
-                seed: seed_from_id(&visual.id),
-            })
+            .insert(PuppySlugDeepDreamSource { seed })
             .with_children(|parent| {
                 parent.spawn((
                     Mesh2d(mesh),
                     MeshMaterial2d(material),
-                    Transform::from_translation(anchor_offset.extend(0.01))
+                    Transform::from_translation(anchor_offset.extend(0.25))
                         .with_scale(render_size.extend(1.0)),
+                    GlobalTransform::default(),
+                    Visibility::Inherited,
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
                     PuppySlugDeepDreamOverlay,
                     Name::new("Puppy Slug Deep Dream Overlay"),
                 ));
@@ -150,24 +134,18 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     }
 }
 
-/// Mirror the hidden source sprite's current atlas frame into the overlay
+/// Mirror the visible source sprite's current atlas frame into the overlay
 /// material. This runs after `animate_characters`, so it sees the same atlas
-/// index and facing flip that the normal sprite would have drawn.
-///
-/// Also drives a guaranteed-visible rainbow tint on the source sprite by
-/// cycling its `color` through HSV every tick. This is a fail-safe for the
-/// custom-material overlay: if the WGSL pipeline silently isn't drawing
-/// (compile error, render-graph wiring, asset race) the slug still ends up
-/// surreal-looking instead of plain. When the overlay DOES render, the tint
-/// blends underneath the dream shader.
+/// index and facing flip that the normal sprite draws.
 pub fn sync_puppy_slug_deep_dream_overlays(
     world_time: Res<crate::WorldTime>,
     mut elapsed: Local<f32>,
-    mut parents: Query<(
-        &mut Sprite,
+    texture_layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Res<Assets<Image>>,
+    parents: Query<(
+        &Sprite,
         Option<&Anchor>,
         &Children,
-        &CharacterAnimator,
         &PuppySlugDeepDreamSource,
     )>,
     mut overlays: Query<
@@ -177,54 +155,27 @@ pub fn sync_puppy_slug_deep_dream_overlays(
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
 ) {
     *elapsed += world_time.wall_dt();
-    for (mut source_sprite, anchor, children, animator, source) in &mut parents {
+    for (source_sprite, anchor, children, source) in &parents {
         let Some(render_size) = source_sprite.custom_size else {
             continue;
         };
-        let uv_rect = current_sprite_uv_rect(&source_sprite, animator);
-        let flip = flip_flag(&source_sprite);
-
-        // Rainbow tint cycle. Hue scrolls at ~0.7 cycles/s, offset by the
-        // per-slug seed so multiple slugs aren't synchronised. Saturation
-        // and value are kept high enough that the texture's authored
-        // pattern still reads through the multiply. Alpha is held at
-        // `SOURCE_ALPHA_WHILE_DREAMING` (currently 1.0) until the overlay
-        // material is verified to draw — at that point this can drop and
-        // the shader takes over.
-        let hue = (*elapsed * 0.7 + source.seed * 0.91).rem_euclid(1.0);
-        let tint = hsv_to_rgb(hue, 0.78, 1.0);
-        source_sprite.color = Color::srgba(tint.x, tint.y, tint.z, SOURCE_ALPHA_WHILE_DREAMING);
+        let Some(uv_rect) = current_sprite_uv_rect(source_sprite, &texture_layouts, &images) else {
+            continue;
+        };
+        let flip = flip_flag(source_sprite);
 
         for child in children.iter() {
             let Ok((material_handle, mut transform)) = overlays.get_mut(child) else {
                 continue;
             };
-            transform.translation = anchor_to_mesh_offset(anchor, render_size).extend(0.01);
+            transform.translation = anchor_to_mesh_offset(anchor, render_size).extend(0.25);
             transform.scale = render_size.extend(1.0);
             if let Some(material) = materials.get_mut(&material_handle.0) {
                 material.uv_rect = uv_rect;
-                material.control = Vec4::new(*elapsed, flip, 1.0, source.seed);
+                material.control = Vec4::new(*elapsed, flip, EFFECT_STRENGTH, source.seed);
+                material.color_texture = source_sprite.image.clone();
             }
         }
-    }
-}
-
-/// Cheap HSV → linear RGB conversion. Used by the rainbow-tint fail-safe;
-/// doesn't need to be color-space-accurate, just lively.
-fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Vec3 {
-    let h = h.rem_euclid(1.0);
-    let i = (h * 6.0).floor() as i32;
-    let f = h * 6.0 - i as f32;
-    let p = v * (1.0 - s);
-    let q = v * (1.0 - s * f);
-    let t = v * (1.0 - s * (1.0 - f));
-    match i.rem_euclid(6) {
-        0 => Vec3::new(v, t, p),
-        1 => Vec3::new(q, v, p),
-        2 => Vec3::new(p, v, t),
-        3 => Vec3::new(p, q, v),
-        4 => Vec3::new(t, p, v),
-        _ => Vec3::new(v, p, q),
     }
 }
 
@@ -240,20 +191,26 @@ fn is_puppy_slug_feature(id: &str, actors: &Query<(&FeatureId, &ActorRuntime)>) 
     })
 }
 
-fn current_sprite_uv_rect(sprite: &Sprite, animator: &CharacterAnimator) -> Vec4 {
-    let Some(atlas) = sprite.texture_atlas.as_ref() else {
-        return Vec4::new(0.0, 0.0, 1.0, 1.0);
-    };
-    let Some(rect) = animator.spec.texture_rect_for_flat_index(atlas.index) else {
-        return Vec4::new(0.0, 0.0, 1.0, 1.0);
-    };
-    let size = animator.spec.atlas_texture_size().as_vec2().max(Vec2::ONE);
-    Vec4::new(
+fn current_sprite_uv_rect(
+    sprite: &Sprite,
+    texture_layouts: &Assets<TextureAtlasLayout>,
+    images: &Assets<Image>,
+) -> Option<Vec4> {
+    let atlas = sprite.texture_atlas.as_ref()?;
+    let layout = texture_layouts.get(&atlas.layout)?;
+    let rect = layout.textures.get(atlas.index)?;
+    let image = images.get(&sprite.image)?;
+    let texture_size = image.texture_descriptor.size;
+    let size = Vec2::new(
+        texture_size.width.max(1) as f32,
+        texture_size.height.max(1) as f32,
+    );
+    Some(Vec4::new(
         rect.min.x as f32 / size.x,
         rect.min.y as f32 / size.y,
         rect.max.x as f32 / size.x,
         rect.max.y as f32 / size.y,
-    )
+    ))
 }
 
 fn anchor_to_mesh_offset(anchor: Option<&Anchor>, render_size: Vec2) -> Vec2 {

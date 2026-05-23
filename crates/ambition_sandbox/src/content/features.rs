@@ -85,13 +85,10 @@ pub use ecs::{
     spawn_room_feature_entities, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
     sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
     tick_gameplay_banner, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests,
-    update_ecs_hazards, ActorRuntime, BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FeatureViewIndex, HazardFeature,
+    update_ecs_falling_chests, update_ecs_hazards, ActorRuntime, BossFeature,
+    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, HazardFeature,
 };
-pub use enemies::{
-    EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX,
-};
+pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{
     DamageEvent, DamageSource, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,
     GameplayBannerRequested, GameplayEffect, NpcDialogueRequest, PlayerDamageEvent,

@@ -393,8 +393,7 @@ pub fn tick_active_ledge_grab(
     //   4. Getup attack       — attack pressed
     //   5. Climb              — up / into-platform / interact
     //   6. Drop               — down / away
-    let want_roll =
-        climb_unlocked && input.shield_held && player.abilities.shield;
+    let want_roll = climb_unlocked && input.shield_held && player.abilities.shield;
     // Ledge release: jump + away → outward arc like a wall jump. Used to
     // bail outward when the player decided NOT to commit to the platform.
     let want_ledge_release =
@@ -404,8 +403,7 @@ pub fn tick_active_ledge_grab(
     // movement resources so double-jump / dash / blink come back), and
     // they typically land on the platform but retain the option to
     // air-control off.
-    let want_ledge_jump =
-        climb_unlocked && !want_roll && !want_ledge_release && input.jump_pressed;
+    let want_ledge_jump = climb_unlocked && !want_roll && !want_ledge_release && input.jump_pressed;
     // Getup attack: attack pressed from hang → swing onto platform.
     // Beats climb so a player holding "up" + tapping attack always gets
     // the attack rather than a plain climb.
@@ -577,15 +575,15 @@ pub fn try_start_ledge_grab(
         // ledge top / cling-side proximity that an arbitrary fall
         // past a wall doesn't latch — only a near-miss does.
         for trial_normal in [-1.0_f32, 1.0_f32] {
-            if let Some(found) =
-                probe_ledge_grab(player.pos, player.size, trial_normal, world)
-            {
+            if let Some(found) = probe_ledge_grab(player.pos, player.size, trial_normal, world) {
                 contact = Some(found);
                 break;
             }
         }
     }
-    let Some(contact) = contact else { return false; };
+    let Some(contact) = contact else {
+        return false;
+    };
     player.pos = contact.anchor;
     player.vel = Vec2::ZERO;
     player.facing = into_platform_axis(contact);
@@ -808,8 +806,16 @@ mod tests {
         assert!(consumed, "tick should consume the frame");
         assert!(player.ledge_grab.is_none(), "ledge should be released");
         // Player should move left (away from the right-side wall).
-        assert!(player.vel.x < -100.0, "should have leftward velocity, got {}", player.vel.x);
-        assert!(player.vel.y < -100.0, "should have upward velocity, got {}", player.vel.y);
+        assert!(
+            player.vel.x < -100.0,
+            "should have leftward velocity, got {}",
+            player.vel.x
+        );
+        assert!(
+            player.vel.y < -100.0,
+            "should have upward velocity, got {}",
+            player.vel.y
+        );
         assert!(!player.on_wall, "should not be on wall");
     }
 
@@ -834,10 +840,21 @@ mod tests {
         };
         let consumed = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
         assert!(consumed);
-        assert!(player.ledge_grab.is_none(), "ledge should be released by the hop");
-        assert!(player.vel.y < -100.0, "ledge jump should fling upward, got vy={}", player.vel.y);
+        assert!(
+            player.ledge_grab.is_none(),
+            "ledge should be released by the hop"
+        );
+        assert!(
+            player.vel.y < -100.0,
+            "ledge jump should fling upward, got vy={}",
+            player.vel.y
+        );
         // Inboard drift: for a -1 wall_normal, into_x = +1, so vx > 0.
-        assert!(player.vel.x > 0.0, "ledge jump should drift inboard, got vx={}", player.vel.x);
+        assert!(
+            player.vel.x > 0.0,
+            "ledge jump should drift inboard, got vx={}",
+            player.vel.x
+        );
         assert!(!player.on_wall);
     }
 
@@ -862,7 +879,11 @@ mod tests {
         let consumed = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
         assert!(consumed);
         assert!(player.ledge_grab.is_none());
-        assert!(player.vel.y < -100.0, "pure jump should still go up, got vy={}", player.vel.y);
+        assert!(
+            player.vel.y < -100.0,
+            "pure jump should still go up, got vy={}",
+            player.vel.y
+        );
     }
 
     /// `Up` (without jump) is still the slow climb path. The split
@@ -882,7 +903,9 @@ mod tests {
             ..InputState::default()
         };
         let _ = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
-        let state = player.ledge_grab.expect("climb should leave transitioning state");
+        let state = player
+            .ledge_grab
+            .expect("climb should leave transitioning state");
         assert!(state.climbing, "Up should start a climb");
         assert_eq!(state.getup_kind, LedgeGetupKind::Climb);
     }
@@ -975,7 +998,9 @@ mod tests {
         };
         let consumed = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
         assert!(consumed);
-        let state = player.ledge_grab.expect("roll should leave a transitioning state");
+        let state = player
+            .ledge_grab
+            .expect("roll should leave a transitioning state");
         assert!(state.climbing, "roll must enter the climbing state");
         assert_eq!(state.getup_kind, LedgeGetupKind::Roll);
         assert!(
@@ -1024,7 +1049,10 @@ mod tests {
         // Start the roll.
         let _ = tick_active_ledge_grab(
             &mut player,
-            InputState { shield_held: true, ..InputState::default() },
+            InputState {
+                shield_held: true,
+                ..InputState::default()
+            },
             0.001,
             tuning,
             &mut events,

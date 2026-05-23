@@ -128,7 +128,10 @@ fn every_published_sheet_static_loads() {
         ("FASCIST_ENFORCER_SHEET", &FASCIST_ENFORCER_SHEET),
         ("GATE_PORTAL_SHEET", &GATE_PORTAL_SHEET),
         ("GATE_RING_SHEET", &GATE_RING_SHEET),
-        ("GOBLIN_CANTINA_CHIEFTAIN_SHEET", &GOBLIN_CANTINA_CHIEFTAIN_SHEET),
+        (
+            "GOBLIN_CANTINA_CHIEFTAIN_SHEET",
+            &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
+        ),
         ("GOBLIN_SHEET", &GOBLIN_SHEET),
         ("KERNEL_GUIDE_SHEET", &KERNEL_GUIDE_SHEET),
         ("LAB_PROP_DRONE_CRADLE", &LAB_PROP_DRONE_CRADLE),
@@ -225,17 +228,37 @@ fn yaml_feet_anchor_norm_y(text: &str) -> Option<f32> {
 fn sheet_consts_match_their_yaml_manifests() {
     // (const, sheet, yaml_target_id_in_assets_dir)
     let cases: &[(&str, &CharacterSheetSpec, &str)] = &[
-        ("ABSURD_GENERAL_SHEET", &ABSURD_GENERAL_SHEET, "absurd_general"),
+        (
+            "ABSURD_GENERAL_SHEET",
+            &ABSURD_GENERAL_SHEET,
+            "absurd_general",
+        ),
         ("ALICE_SHEET", &ALICE_SHEET, "alice"),
         ("ARCHITECT_SHEET", &ARCHITECT_SHEET, "architect"),
         ("BOB_SHEET", &BOB_SHEET, "bob"),
-        ("BURNING_FLYING_SHARK_SHEET", &BURNING_FLYING_SHARK_SHEET, "burning_flying_shark"),
+        (
+            "BURNING_FLYING_SHARK_SHEET",
+            &BURNING_FLYING_SHARK_SHEET,
+            "burning_flying_shark",
+        ),
         ("CART_SHEET", &CART_SHEET, "intro_cart"),
         ("CREATOR_SHEET", &CREATOR_SHEET, "creator"),
         ("ERDISH_SHEET", &ERDISH_SHEET, "erdish"),
-        ("FASCIST_ENFORCER_SHEET", &FASCIST_ENFORCER_SHEET, "fascist_enforcer"),
-        ("GATE_PORTAL_SHEET", &GATE_PORTAL_SHEET, "interdimensional_gate_portal"),
-        ("GATE_RING_SHEET", &GATE_RING_SHEET, "interdimensional_gate_ring"),
+        (
+            "FASCIST_ENFORCER_SHEET",
+            &FASCIST_ENFORCER_SHEET,
+            "fascist_enforcer",
+        ),
+        (
+            "GATE_PORTAL_SHEET",
+            &GATE_PORTAL_SHEET,
+            "interdimensional_gate_portal",
+        ),
+        (
+            "GATE_RING_SHEET",
+            &GATE_RING_SHEET,
+            "interdimensional_gate_ring",
+        ),
         (
             "GOBLIN_CANTINA_CHIEFTAIN_SHEET",
             &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
@@ -243,7 +266,11 @@ fn sheet_consts_match_their_yaml_manifests() {
         ),
         ("GOBLIN_SHEET", &GOBLIN_SHEET, "goblin"),
         ("KERNEL_GUIDE_SHEET", &KERNEL_GUIDE_SHEET, "kernel_guide"),
-        ("MERCHANT_PROTOTYPE_SHEET", &MERCHANT_PROTOTYPE_SHEET, "merchant_prototype"),
+        (
+            "MERCHANT_PROTOTYPE_SHEET",
+            &MERCHANT_PROTOTYPE_SHEET,
+            "merchant_prototype",
+        ),
         ("NEWS_BOARD_SHEET", &NEWS_BOARD_SHEET, "news_board"),
         ("OILER_SHEET", &OILER_SHEET, "oiler"),
         // PIRATE_SHEET is shared by every pirate generator; admiral is the
@@ -251,10 +278,18 @@ fn sheet_consts_match_their_yaml_manifests() {
         // member matches if one does.
         ("PIRATE_SHEET", &PIRATE_SHEET, "pirate_admiral"),
         ("PLAYER_ROBOT_SHEET", &PLAYER_ROBOT_SHEET, "player_robot"),
-        ("PULSE_VOYAGER_CAPTAIN_SHEET", &PULSE_VOYAGER_CAPTAIN_SHEET, "pulse_voyager_captain"),
+        (
+            "PULSE_VOYAGER_CAPTAIN_SHEET",
+            &PULSE_VOYAGER_CAPTAIN_SHEET,
+            "pulse_voyager_captain",
+        ),
         ("ROBOT_SHEET", &ROBOT_SHEET, "robot"),
         ("SANDBAG_SHEET", &SANDBAG_SHEET, "sandbag"),
-        ("TECH_BRO_DISRUPTOR_SHEET", &TECH_BRO_DISRUPTOR_SHEET, "tech_bro_disruptor"),
+        (
+            "TECH_BRO_DISRUPTOR_SHEET",
+            &TECH_BRO_DISRUPTOR_SHEET,
+            "tech_bro_disruptor",
+        ),
         ("VAULT_KEEPER_SHEET", &VAULT_KEEPER_SHEET, "vault_keeper"),
     ];
 
@@ -269,8 +304,8 @@ fn sheet_consts_match_their_yaml_manifests() {
             missing_yamls.push(name);
             continue;
         }
-        let text = std::fs::read_to_string(&path)
-            .unwrap_or_else(|_| panic!("read {}", path.display()));
+        let text =
+            std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("read {}", path.display()));
         let yfw = yaml_top_u32(&text, "frame_width")
             .unwrap_or_else(|| panic!("frame_width missing in {}", path.display()));
         let yfh = yaml_top_u32(&text, "frame_height")
@@ -347,7 +382,9 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
     let mut failures: Vec<String> = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
-        let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
         if !name.ends_with("_spritesheet.ron") {
             continue;
         }
@@ -397,17 +434,37 @@ fn every_spritesheet_ron_parses_into_sheet_record() {
 #[test]
 fn sheet_consts_match_their_ron_manifests() {
     let cases: &[(&str, &CharacterSheetSpec, &str)] = &[
-        ("ABSURD_GENERAL_SHEET", &ABSURD_GENERAL_SHEET, "absurd_general"),
+        (
+            "ABSURD_GENERAL_SHEET",
+            &ABSURD_GENERAL_SHEET,
+            "absurd_general",
+        ),
         ("ALICE_SHEET", &ALICE_SHEET, "alice"),
         ("ARCHITECT_SHEET", &ARCHITECT_SHEET, "architect"),
         ("BOB_SHEET", &BOB_SHEET, "bob"),
-        ("BURNING_FLYING_SHARK_SHEET", &BURNING_FLYING_SHARK_SHEET, "burning_flying_shark"),
+        (
+            "BURNING_FLYING_SHARK_SHEET",
+            &BURNING_FLYING_SHARK_SHEET,
+            "burning_flying_shark",
+        ),
         ("CART_SHEET", &CART_SHEET, "intro_cart"),
         ("CREATOR_SHEET", &CREATOR_SHEET, "creator"),
         ("ERDISH_SHEET", &ERDISH_SHEET, "erdish"),
-        ("FASCIST_ENFORCER_SHEET", &FASCIST_ENFORCER_SHEET, "fascist_enforcer"),
-        ("GATE_PORTAL_SHEET", &GATE_PORTAL_SHEET, "interdimensional_gate_portal"),
-        ("GATE_RING_SHEET", &GATE_RING_SHEET, "interdimensional_gate_ring"),
+        (
+            "FASCIST_ENFORCER_SHEET",
+            &FASCIST_ENFORCER_SHEET,
+            "fascist_enforcer",
+        ),
+        (
+            "GATE_PORTAL_SHEET",
+            &GATE_PORTAL_SHEET,
+            "interdimensional_gate_portal",
+        ),
+        (
+            "GATE_RING_SHEET",
+            &GATE_RING_SHEET,
+            "interdimensional_gate_ring",
+        ),
         (
             "GOBLIN_CANTINA_CHIEFTAIN_SHEET",
             &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
@@ -415,15 +472,27 @@ fn sheet_consts_match_their_ron_manifests() {
         ),
         ("GOBLIN_SHEET", &GOBLIN_SHEET, "goblin"),
         ("KERNEL_GUIDE_SHEET", &KERNEL_GUIDE_SHEET, "kernel_guide"),
-        ("MERCHANT_PROTOTYPE_SHEET", &MERCHANT_PROTOTYPE_SHEET, "merchant_prototype"),
+        (
+            "MERCHANT_PROTOTYPE_SHEET",
+            &MERCHANT_PROTOTYPE_SHEET,
+            "merchant_prototype",
+        ),
         ("NEWS_BOARD_SHEET", &NEWS_BOARD_SHEET, "news_board"),
         ("OILER_SHEET", &OILER_SHEET, "oiler"),
         ("PIRATE_SHEET", &PIRATE_SHEET, "pirate_admiral"),
         ("PLAYER_ROBOT_SHEET", &PLAYER_ROBOT_SHEET, "player_robot"),
-        ("PULSE_VOYAGER_CAPTAIN_SHEET", &PULSE_VOYAGER_CAPTAIN_SHEET, "pulse_voyager_captain"),
+        (
+            "PULSE_VOYAGER_CAPTAIN_SHEET",
+            &PULSE_VOYAGER_CAPTAIN_SHEET,
+            "pulse_voyager_captain",
+        ),
         ("ROBOT_SHEET", &ROBOT_SHEET, "robot"),
         ("SANDBAG_SHEET", &SANDBAG_SHEET, "sandbag"),
-        ("TECH_BRO_DISRUPTOR_SHEET", &TECH_BRO_DISRUPTOR_SHEET, "tech_bro_disruptor"),
+        (
+            "TECH_BRO_DISRUPTOR_SHEET",
+            &TECH_BRO_DISRUPTOR_SHEET,
+            "tech_bro_disruptor",
+        ),
         ("VAULT_KEEPER_SHEET", &VAULT_KEEPER_SHEET, "vault_keeper"),
     ];
 
@@ -438,8 +507,8 @@ fn sheet_consts_match_their_ron_manifests() {
         }
         let text = std::fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-        let records: Vec<SheetRecord> = ron::from_str(&text)
-            .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
+        let records: Vec<SheetRecord> =
+            ron::from_str(&text).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
         // Every per-character RON ships as a single-record list. The
         // file's name is the index key (the in-file `target` may be a
         // generator archetype like `"toon"` shared across files — see

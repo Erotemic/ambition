@@ -88,7 +88,12 @@ impl PathMotion {
 
     pub(super) fn advance_segment(&mut self) {
         let last_segment = self.path.points.len().saturating_sub(2);
-        lookahead_advance(&mut self.segment, &mut self.dir, last_segment, self.path.mode);
+        lookahead_advance(
+            &mut self.segment,
+            &mut self.dir,
+            last_segment,
+            self.path.mode,
+        );
     }
 }
 
@@ -113,7 +118,11 @@ fn lookahead_advance(
         }
         ae::KinematicPathMode::Loop => {
             if *dir >= 0 {
-                *segment = if *segment >= last_segment { 0 } else { *segment + 1 };
+                *segment = if *segment >= last_segment {
+                    0
+                } else {
+                    *segment + 1
+                };
             } else if *segment == 0 {
                 *segment = last_segment;
             } else {

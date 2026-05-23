@@ -271,7 +271,9 @@ mod tests {
         assert!(quest.try_advance(&QuestAdvanceEvent::NpcTalked("hub_warden".into())));
         assert_eq!(quest.step, 1);
 
-        assert!(quest.try_advance(&QuestAdvanceEvent::EncounterCleared("goblin_encounter".into())));
+        assert!(quest.try_advance(&QuestAdvanceEvent::EncounterCleared(
+            "goblin_encounter".into()
+        )));
         assert_eq!(quest.step, 2);
 
         assert!(quest.try_advance(&QuestAdvanceEvent::BossDefeated("gradient_sentinel".into())));

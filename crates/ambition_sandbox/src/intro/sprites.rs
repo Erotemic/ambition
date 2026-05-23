@@ -16,7 +16,7 @@
 use ambition_asset_manager::AssetId;
 
 use crate::presentation::character_sprites::{
-    ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CharacterSheetSpec, CREATOR_SHEET,
+    CharacterSheetSpec, ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CREATOR_SHEET,
     ERDISH_SHEET, FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
     LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
     LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET, OILER_SHEET,
@@ -26,7 +26,11 @@ use crate::presentation::character_sprites::{
 /// intro NPCs. Filenames are relative to the configured
 /// `assets/<sprite_folder>/` directory — same convention as
 /// `crate::presentation::character_sprites::assets::NPC_SPRITE_REGISTRY`.
-pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<CharacterSheetSpec>)] = &[
+pub const INTRO_NPC_SPRITE_REGISTRY: &[(
+    &str,
+    &str,
+    &'static std::sync::LazyLock<CharacterSheetSpec>,
+)] = &[
     // Wake-room creator. Dedicated creator tack-on sheet — 160×192 with
     // a 108px label column, four authored rows (idle/speak/gesture/walk).
     ("Creator", "creator_spritesheet.png", &CREATOR_SHEET),
@@ -82,7 +86,11 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock
     // `news_board_spritesheet.png` renders a wall-mounted bulletin
     // board (Disruptor Industries header, pinned papers, blinking
     // LED) so it visibly reads as a board instead of a person.
-    ("News Board", "news_board_spritesheet.png", &NEWS_BOARD_SHEET),
+    (
+        "News Board",
+        "news_board_spritesheet.png",
+        &NEWS_BOARD_SHEET,
+    ),
     // Alice — unofficial cartographer. Dedicated toon-side sheet
     // (`alice_spritesheet.png` + `alice_spritesheet.yaml`); first
     // intro NPC with non-placeholder art.
@@ -94,8 +102,11 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock
     // `GameAssets.characters.props` instead of `npcs`.
 ];
 
-pub fn intro_npc_sprite_rows(
-) -> &'static [(&'static str, &'static str, &'static std::sync::LazyLock<CharacterSheetSpec>)] {
+pub fn intro_npc_sprite_rows() -> &'static [(
+    &'static str,
+    &'static str,
+    &'static std::sync::LazyLock<CharacterSheetSpec>,
+)] {
     INTRO_NPC_SPRITE_REGISTRY
 }
 
@@ -105,54 +116,58 @@ pub fn intro_npc_sprite_rows(
 /// prop in LDtk without re-pointing the sprite registry. Loaded into
 /// `GameAssets.characters.props` by
 /// [`crate::intro::plugin::load_intro_prop_sprites_system`].
-pub const INTRO_PROP_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<CharacterSheetSpec>)] = &[
-    // Diagnostic cart the player wakes on.
-    ("intro_cart", "intro_cart_spritesheet.png", &CART_SHEET),
-    // Creator lab props — each pulls a different row from the shared
-    // `creator_lab_props_spritesheet.png` via its `y_offset`.
-    (
-        "lab_genesis_vat",
-        "creator_lab_props_spritesheet.png",
-        &LAB_PROP_GENESIS_VAT,
-    ),
-    (
-        "lab_neural_console",
-        "creator_lab_props_spritesheet.png",
-        &LAB_PROP_NEURAL_CONSOLE,
-    ),
-    (
-        "lab_power_core",
-        "creator_lab_props_spritesheet.png",
-        &LAB_PROP_POWER_CORE,
-    ),
-    (
-        "lab_repair_cradle",
-        "creator_lab_props_spritesheet.png",
-        &LAB_PROP_REPAIR_CRADLE,
-    ),
-    (
-        "lab_resonance_coil",
-        "creator_lab_props_spritesheet.png",
-        &LAB_PROP_RESONANCE_COIL,
-    ),
-    // Interdimensional gate (legally distinct stargate). Ring is the
-    // always-on structural arch; portal renders the shimmering
-    // surface inside it. Both keyed as props so the gate stack scene
-    // never grows an interact prompt on them.
-    (
-        "gate_ring",
-        "interdimensional_gate_ring_spritesheet.png",
-        &GATE_RING_SHEET,
-    ),
-    (
-        "gate_portal",
-        "interdimensional_gate_portal_spritesheet.png",
-        &GATE_PORTAL_SHEET,
-    ),
-];
+pub const INTRO_PROP_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<CharacterSheetSpec>)] =
+    &[
+        // Diagnostic cart the player wakes on.
+        ("intro_cart", "intro_cart_spritesheet.png", &CART_SHEET),
+        // Creator lab props — each pulls a different row from the shared
+        // `creator_lab_props_spritesheet.png` via its `y_offset`.
+        (
+            "lab_genesis_vat",
+            "creator_lab_props_spritesheet.png",
+            &LAB_PROP_GENESIS_VAT,
+        ),
+        (
+            "lab_neural_console",
+            "creator_lab_props_spritesheet.png",
+            &LAB_PROP_NEURAL_CONSOLE,
+        ),
+        (
+            "lab_power_core",
+            "creator_lab_props_spritesheet.png",
+            &LAB_PROP_POWER_CORE,
+        ),
+        (
+            "lab_repair_cradle",
+            "creator_lab_props_spritesheet.png",
+            &LAB_PROP_REPAIR_CRADLE,
+        ),
+        (
+            "lab_resonance_coil",
+            "creator_lab_props_spritesheet.png",
+            &LAB_PROP_RESONANCE_COIL,
+        ),
+        // Interdimensional gate (legally distinct stargate). Ring is the
+        // always-on structural arch; portal renders the shimmering
+        // surface inside it. Both keyed as props so the gate stack scene
+        // never grows an interact prompt on them.
+        (
+            "gate_ring",
+            "interdimensional_gate_ring_spritesheet.png",
+            &GATE_RING_SHEET,
+        ),
+        (
+            "gate_portal",
+            "interdimensional_gate_portal_spritesheet.png",
+            &GATE_PORTAL_SHEET,
+        ),
+    ];
 
-pub fn intro_prop_sprite_rows(
-) -> &'static [(&'static str, &'static str, &'static std::sync::LazyLock<CharacterSheetSpec>)] {
+pub fn intro_prop_sprite_rows() -> &'static [(
+    &'static str,
+    &'static str,
+    &'static std::sync::LazyLock<CharacterSheetSpec>,
+)] {
     INTRO_PROP_REGISTRY
 }
 

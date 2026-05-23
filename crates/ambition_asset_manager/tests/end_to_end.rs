@@ -78,7 +78,7 @@ fn ambition_manifest() -> AssetManifest {
             ),
         )
         .build()
-    }
+}
 
 #[test]
 fn bootstrap_required_assets_resolve_under_every_real_profile() {
@@ -122,7 +122,12 @@ fn no_assets_disables_every_entry_including_required() {
         assert!(r.is_disabled(), "{} not disabled under NoAssets", r.id);
     }
     // Required asset is now required_but_missing.
-    let r = resolve(&manifest, &AssetId::new("world.sandbox_ldtk"), AssetProfile::NoAssets).unwrap();
+    let r = resolve(
+        &manifest,
+        &AssetId::new("world.sandbox_ldtk"),
+        AssetProfile::NoAssets,
+    )
+    .unwrap();
     assert!(r.required_but_missing());
 }
 
@@ -196,7 +201,10 @@ fn preload_groups_partition_the_catalog() {
         .collect();
     assert_eq!(
         core_ids,
-        vec!["audio.sfx_bank".to_string(), "sprite.entity.chest_closed".to_string()],
+        vec![
+            "audio.sfx_bank".to_string(),
+            "sprite.entity.chest_closed".to_string()
+        ],
     );
 }
 

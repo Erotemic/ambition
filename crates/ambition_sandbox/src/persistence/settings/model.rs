@@ -113,6 +113,7 @@ pub enum SettingsItem {
     ShaderRobotScanlines,
     ShaderUnderwaterStrength,
     ShaderUnderwaterDistortion,
+    ShaderDeepDreamStrength,
     ShaderVignetteStrength,
 
     // Audio page.
@@ -203,6 +204,7 @@ impl SettingsItem {
                 Self::ShaderRobotScanlines,
                 Self::ShaderUnderwaterStrength,
                 Self::ShaderUnderwaterDistortion,
+                Self::ShaderDeepDreamStrength,
                 Self::ShaderVignetteStrength,
                 Self::Back,
             ],
@@ -304,14 +306,31 @@ impl SettingsItem {
             Self::Flashes => format_cycle("Flashes", settings.video.flashes.label()),
             Self::Colorblind => format_cycle("Colorblind", settings.video.colorblind.label()),
             Self::ShowFps => format_toggle("FPS Overlay", settings.video.show_fps),
-            Self::ShaderStrength => format_shader_percent("Shader Strength", settings.video.shaders.strength),
-            Self::ShaderCrtStrength => format_shader_percent("CRT Strength", settings.video.shaders.crt_strength),
-            Self::ShaderCrtScanlines => format_shader_percent("CRT Scanlines", settings.video.shaders.crt_scanlines),
-            Self::ShaderCrtMask => format_shader_percent("CRT Phosphor Mask", settings.video.shaders.crt_mask),
-            Self::ShaderCrtCurvature => format_shader_percent("CRT Curvature", settings.video.shaders.crt_curvature),
-            Self::ShaderCrtBloom => format_shader_percent("CRT Bloom", settings.video.shaders.crt_bloom),
-            Self::ShaderCrtChroma => format_shader_percent("CRT Chroma Split", settings.video.shaders.crt_chroma),
-            Self::ShaderFilmGrainStrength => format_shader_percent("Film Grain Strength", settings.video.shaders.film_grain_strength),
+            Self::ShaderStrength => {
+                format_shader_percent("Shader Strength", settings.video.shaders.strength)
+            }
+            Self::ShaderCrtStrength => {
+                format_shader_percent("CRT Strength", settings.video.shaders.crt_strength)
+            }
+            Self::ShaderCrtScanlines => {
+                format_shader_percent("CRT Scanlines", settings.video.shaders.crt_scanlines)
+            }
+            Self::ShaderCrtMask => {
+                format_shader_percent("CRT Phosphor Mask", settings.video.shaders.crt_mask)
+            }
+            Self::ShaderCrtCurvature => {
+                format_shader_percent("CRT Curvature", settings.video.shaders.crt_curvature)
+            }
+            Self::ShaderCrtBloom => {
+                format_shader_percent("CRT Bloom", settings.video.shaders.crt_bloom)
+            }
+            Self::ShaderCrtChroma => {
+                format_shader_percent("CRT Chroma Split", settings.video.shaders.crt_chroma)
+            }
+            Self::ShaderFilmGrainStrength => format_shader_percent(
+                "Film Grain Strength",
+                settings.video.shaders.film_grain_strength,
+            ),
             Self::ShaderFilmGrainSize => format_cycle(
                 "Film Grain Size",
                 format!("{:.0}px", settings.video.shaders.film_grain_size),
@@ -320,17 +339,46 @@ impl SettingsItem {
                 "Film Grain Rate",
                 format!("{:.0} fps", settings.video.shaders.film_grain_fps),
             ),
-            Self::ShaderFilmGrainLumaBias => format_shader_percent("Film Grain Luma Bias", settings.video.shaders.film_grain_luma_bias),
-            Self::ShaderRobotDeathStrength => format_shader_percent("Robot Death Strength", settings.video.shaders.robot_death_strength),
-            Self::ShaderRobotStatic => format_shader_percent("Robot Static", settings.video.shaders.robot_static),
-            Self::ShaderRobotTear => format_shader_percent("Robot Tear", settings.video.shaders.robot_tear),
-            Self::ShaderRobotDesaturate => format_shader_percent("Robot Desaturate", settings.video.shaders.robot_desaturate),
-            Self::ShaderRobotScanlines => format_shader_percent("Robot Scanlines", settings.video.shaders.robot_scanlines),
-            Self::ShaderUnderwaterStrength => format_shader_percent("Underwater Strength", settings.video.shaders.underwater_strength),
-            Self::ShaderUnderwaterDistortion => format_shader_percent("Underwater Distortion", settings.video.shaders.underwater_distortion),
-            Self::ShaderVignetteStrength => format_shader_percent("Vignette Strength", settings.video.shaders.vignette_strength),
+            Self::ShaderFilmGrainLumaBias => format_shader_percent(
+                "Film Grain Luma Bias",
+                settings.video.shaders.film_grain_luma_bias,
+            ),
+            Self::ShaderRobotDeathStrength => format_shader_percent(
+                "Robot Death Strength",
+                settings.video.shaders.robot_death_strength,
+            ),
+            Self::ShaderRobotStatic => {
+                format_shader_percent("Robot Static", settings.video.shaders.robot_static)
+            }
+            Self::ShaderRobotTear => {
+                format_shader_percent("Robot Tear", settings.video.shaders.robot_tear)
+            }
+            Self::ShaderRobotDesaturate => {
+                format_shader_percent("Robot Desaturate", settings.video.shaders.robot_desaturate)
+            }
+            Self::ShaderRobotScanlines => {
+                format_shader_percent("Robot Scanlines", settings.video.shaders.robot_scanlines)
+            }
+            Self::ShaderUnderwaterStrength => format_shader_percent(
+                "Underwater Strength",
+                settings.video.shaders.underwater_strength,
+            ),
+            Self::ShaderUnderwaterDistortion => format_shader_percent(
+                "Underwater Distortion",
+                settings.video.shaders.underwater_distortion,
+            ),
+            Self::ShaderDeepDreamStrength => format_shader_percent(
+                "Deep Dream Strength",
+                settings.video.shaders.deep_dream_strength,
+            ),
+            Self::ShaderVignetteStrength => format_shader_percent(
+                "Vignette Strength",
+                settings.video.shaders.vignette_strength,
+            ),
 
-            Self::MasterVolume => format_audio_percent("Master Volume", settings.audio.master_volume),
+            Self::MasterVolume => {
+                format_audio_percent("Master Volume", settings.audio.master_volume)
+            }
             Self::MusicVolume => format_audio_percent("Music Volume", settings.audio.music_volume),
             Self::SfxVolume => format_audio_percent("SFX Volume", settings.audio.sfx_volume),
             Self::Mute => format!(
@@ -344,16 +392,29 @@ impl SettingsItem {
             Self::ControllerProfile => {
                 format_cycle("Controller", settings.controls.controller_profile.label())
             }
-            Self::LeftStickDeadzone => format_audio_percent("L-Stick Deadzone", settings.controls.left_stick_deadzone),
-            Self::RightStickDeadzone => format_audio_percent("R-Stick Deadzone", settings.controls.right_stick_deadzone),
-            Self::TriggerPress => format_audio_percent("Trigger Press", settings.controls.trigger_press_threshold),
-            Self::TriggerRelease => format_audio_percent("Trigger Release", settings.controls.trigger_release_threshold),
-            Self::DpadMenuNav => format_toggle("D-Pad Menu Nav", settings.controls.dpad_menu_navigation),
+            Self::LeftStickDeadzone => {
+                format_audio_percent("L-Stick Deadzone", settings.controls.left_stick_deadzone)
+            }
+            Self::RightStickDeadzone => {
+                format_audio_percent("R-Stick Deadzone", settings.controls.right_stick_deadzone)
+            }
+            Self::TriggerPress => {
+                format_audio_percent("Trigger Press", settings.controls.trigger_press_threshold)
+            }
+            Self::TriggerRelease => format_audio_percent(
+                "Trigger Release",
+                settings.controls.trigger_release_threshold,
+            ),
+            Self::DpadMenuNav => {
+                format_toggle("D-Pad Menu Nav", settings.controls.dpad_menu_navigation)
+            }
             Self::InvertAimY => format_toggle("Invert Aim Y", settings.controls.invert_aim_y),
             Self::DashInputMode => {
                 format_cycle("Dash Input", settings.controls.dash_input_mode.label())
             }
-            Self::TouchControls => format_toggle("Touch Controls", settings.controls.touch_controls_visible),
+            Self::TouchControls => {
+                format_toggle("Touch Controls", settings.controls.touch_controls_visible)
+            }
             Self::MenuTapMode => format_cycle("Menu Tap", settings.controls.menu_tap_mode.label()),
             Self::ResetControlFiltering => "Reset Filter Defaults".into(),
 
@@ -368,7 +429,9 @@ impl SettingsItem {
             }
             Self::DebugHud => format_toggle("Debug HUD", settings.gameplay.debug_hud_visible),
             Self::QuestHud => format_toggle("Quest HUD", settings.gameplay.quest_hud_visible),
-            Self::TraceAutoDump => format_toggle("Trace Auto-Dump", settings.gameplay.trace_auto_dump),
+            Self::TraceAutoDump => {
+                format_toggle("Trace Auto-Dump", settings.gameplay.trace_auto_dump)
+            }
 
             Self::DebugOverlay => format_toggle("Debug Overlay (F1)", dev.debug_overlay),
             Self::SlowMotion => format_toggle("Slow Motion (F2)", dev.slowmo),
@@ -381,9 +444,7 @@ impl SettingsItem {
             Self::FillDebugBoxes => format_toggle("Debug Fills", dev.fill_debug_boxes),
             Self::MicroGrid => format_toggle("Micro Grid (8px)", dev.micro_grid),
             Self::CameraFrame => format_toggle("Camera Frame", dev.camera_frame),
-            Self::PlayerBodyProfile => {
-                format_cycle("Player Body", dev.player_body_profile.label())
-            }
+            Self::PlayerBodyProfile => format_cycle("Player Body", dev.player_body_profile.label()),
             Self::MovementProfile => format_cycle("Movement Profile", dev.movement_profile.label()),
             Self::LdtkAutoApply => format_toggle("LDtk Auto-Reload (F12)", dev.ldtk_auto_apply),
         }
@@ -566,12 +627,7 @@ fn apply_toggle<F: FnOnce()>(action: SettingsAction, on: F) {
 /// Drive a `prev()` / `next()` cycle row: `Prev` runs `prev`,
 /// everything else runs `next`. The two function pointers come from
 /// the field's own enum (`CameraZoomPreset::prev` etc.).
-fn apply_cycle<T: Copy>(
-    action: SettingsAction,
-    field: &mut T,
-    prev: fn(T) -> T,
-    next: fn(T) -> T,
-) {
+fn apply_cycle<T: Copy>(action: SettingsAction, field: &mut T, prev: fn(T) -> T, next: fn(T) -> T) {
     *field = match action {
         SettingsAction::Prev => prev(*field),
         SettingsAction::Next | SettingsAction::Confirm => next(*field),
@@ -736,14 +792,14 @@ pub fn apply_action(
                 (settings.controls.left_stick_deadzone + nudge_delta(action, 0.02)).clamp(0.0, 0.6);
         }
         SettingsItem::RightStickDeadzone => {
-            settings.controls.right_stick_deadzone =
-                (settings.controls.right_stick_deadzone + nudge_delta(action, 0.02))
-                    .clamp(0.0, 0.6);
+            settings.controls.right_stick_deadzone = (settings.controls.right_stick_deadzone
+                + nudge_delta(action, 0.02))
+            .clamp(0.0, 0.6);
         }
         SettingsItem::TriggerPress => {
-            settings.controls.trigger_press_threshold =
-                (settings.controls.trigger_press_threshold + nudge_delta(action, 0.05))
-                    .clamp(0.05, 1.0);
+            settings.controls.trigger_press_threshold = (settings.controls.trigger_press_threshold
+                + nudge_delta(action, 0.05))
+            .clamp(0.05, 1.0);
             settings.controls.clamp_all();
         }
         SettingsItem::TriggerRelease => {
@@ -890,6 +946,18 @@ pub fn apply_action(
             &mut settings.video.shaders.underwater_distortion,
             ScreenShaderSettings::FINE_STEP,
         ),
+        SettingsItem::ShaderDeepDreamStrength => {
+            nudge_shader_unit(
+                action,
+                &mut settings.video.shaders.deep_dream_strength,
+                ScreenShaderSettings::UNIT_STEP,
+            );
+            if settings.video.shaders.deep_dream_strength > 0.001
+                && settings.video.shaders.strength <= 0.001
+            {
+                settings.video.shaders.strength = 1.0;
+            }
+        }
         SettingsItem::ShaderVignetteStrength => nudge_shader_unit(
             action,
             &mut settings.video.shaders.vignette_strength,
@@ -1041,6 +1109,7 @@ impl SettingsItem {
             Self::ShaderRobotScanlines => Some(settings.video.shaders.robot_scanlines),
             Self::ShaderUnderwaterStrength => Some(settings.video.shaders.underwater_strength),
             Self::ShaderUnderwaterDistortion => Some(settings.video.shaders.underwater_distortion),
+            Self::ShaderDeepDreamStrength => Some(settings.video.shaders.deep_dream_strength),
             Self::ShaderVignetteStrength => Some(settings.video.shaders.vignette_strength),
             Self::MasterVolume => Some(settings.audio.master_volume),
             Self::MusicVolume => Some(settings.audio.music_volume),
@@ -1091,6 +1160,12 @@ impl SettingsItem {
             Self::ShaderRobotScanlines => settings.video.shaders.robot_scanlines = v,
             Self::ShaderUnderwaterStrength => settings.video.shaders.underwater_strength = v,
             Self::ShaderUnderwaterDistortion => settings.video.shaders.underwater_distortion = v,
+            Self::ShaderDeepDreamStrength => {
+                settings.video.shaders.deep_dream_strength = v;
+                if v > 0.001 && settings.video.shaders.strength <= 0.001 {
+                    settings.video.shaders.strength = 1.0;
+                }
+            }
             Self::ShaderVignetteStrength => settings.video.shaders.vignette_strength = v,
             Self::MasterVolume => settings.audio.master_volume = v,
             Self::MusicVolume => settings.audio.music_volume = v,

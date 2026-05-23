@@ -558,10 +558,7 @@ mod conversion_tests {
     #[test]
     fn pirate_on_shark_fire_uses_lasersword_owner_and_hand_origin() {
         let world = enemy_test_world();
-        let aabb = ae::Aabb::new(
-            ae::Vec2::new(300.0, 300.0),
-            ae::Vec2::new(14.0, 23.0),
-        );
+        let aabb = ae::Aabb::new(ae::Vec2::new(300.0, 300.0), ae::Vec2::new(14.0, 23.0));
         let mut enemy = EnemyRuntime::new(
             "shark_a",
             "Burning Flying Shark",
@@ -597,7 +594,11 @@ mod conversion_tests {
         assert!(
             any_lasersword,
             "expected projectile owner_id to start with `lasersword:` (got {:?})",
-            outputs.projectile_spawns.iter().map(|s| &s.owner_id).collect::<Vec<_>>(),
+            outputs
+                .projectile_spawns
+                .iter()
+                .map(|s| &s.owner_id)
+                .collect::<Vec<_>>(),
         );
     }
 
@@ -608,10 +609,7 @@ mod conversion_tests {
     #[test]
     fn pirate_on_shark_fire_applies_backward_recoil() {
         let world = enemy_test_world();
-        let aabb = ae::Aabb::new(
-            ae::Vec2::new(300.0, 300.0),
-            ae::Vec2::new(14.0, 23.0),
-        );
+        let aabb = ae::Aabb::new(ae::Vec2::new(300.0, 300.0), ae::Vec2::new(14.0, 23.0));
         let mut enemy = EnemyRuntime::new(
             "shark_a",
             "Burning Flying Shark",
@@ -660,6 +658,9 @@ mod conversion_tests {
             }
         }
         let _ = vx_before_fire;
-        assert!(fire_seen, "no fire happened in 200 ticks — choreography may have changed");
+        assert!(
+            fire_seen,
+            "no fire happened in 200 ticks — choreography may have changed"
+        );
     }
 }

@@ -50,6 +50,7 @@ pub use actor::{
     Actor, ActorFaction, ActorKind, BossBrain, EnemyBrain, Health, KinematicPath,
     KinematicPathMode, RespawnPolicy,
 };
+pub use actor_control::{ActorControlFrame, ActorFireRequest};
 pub use attack_choreography::{
     evaluate_choreography, seed_from_id, AerialRole, AttackChoreography, ChoreographyAction,
     ChoreographyInput, ChoreographyPhase, ChoreographyState, ChoreographyTick,
@@ -63,10 +64,9 @@ pub use character_ai::{
     CharacterAiOutput, CharacterAiSnapshot,
 };
 pub use combat::{
-    attack_hitbox, attack_spec, resolve_attack_intent,
-    AttackIntent, AttackPhase, AttackSpec, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
+    attack_hitbox, attack_spec, resolve_attack_intent, AttackIntent, AttackPhase, AttackSpec,
+    Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
-pub use actor_control::{ActorControlFrame, ActorFireRequest};
 pub use combat_slots::{assign_slots, CombatSlot, CombatSlotBoard, SlotKind, SlotRequest};
 pub use cutscene::{CutsceneBeat, CutsceneEvent, CutsceneRuntime, CutsceneScript};
 pub use debug::{DebugLabel, DebugLabelKind};

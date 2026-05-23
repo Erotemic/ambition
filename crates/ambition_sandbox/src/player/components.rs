@@ -578,10 +578,13 @@ mod multiplayer_smoke_tests {
     #[test]
     fn primary_player_query_resolves_with_two_players_spawned() {
         let mut app = App::new();
-        app.world_mut().spawn((PlayerEntity, PlayerSlot(0), PrimaryPlayer));
+        app.world_mut()
+            .spawn((PlayerEntity, PlayerSlot(0), PrimaryPlayer));
         app.world_mut().spawn((PlayerEntity, PlayerSlot(1)));
 
-        let mut q = app.world_mut().query_filtered::<Entity, PrimaryPlayerOnly>();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Entity, PrimaryPlayerOnly>();
         let primaries: Vec<Entity> = q.iter(app.world()).collect();
         assert_eq!(
             primaries.len(),
@@ -598,11 +601,14 @@ mod multiplayer_smoke_tests {
     #[test]
     fn player_entity_query_iterates_all_spawned_players() {
         let mut app = App::new();
-        app.world_mut().spawn((PlayerEntity, PlayerSlot(0), PrimaryPlayer));
+        app.world_mut()
+            .spawn((PlayerEntity, PlayerSlot(0), PrimaryPlayer));
         app.world_mut().spawn((PlayerEntity, PlayerSlot(1)));
         app.world_mut().spawn((PlayerEntity, PlayerSlot(2)));
 
-        let mut q = app.world_mut().query_filtered::<&PlayerSlot, With<PlayerEntity>>();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&PlayerSlot, With<PlayerEntity>>();
         let mut slots: Vec<u8> = q.iter(app.world()).map(|s| s.0).collect();
         slots.sort_unstable();
         assert_eq!(slots, vec![0, 1, 2]);

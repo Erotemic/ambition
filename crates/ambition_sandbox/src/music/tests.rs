@@ -51,7 +51,10 @@ fn unknown_encounter_with_active_cue_returns_stop_now() {
 
 #[test]
 fn starting_phase_returns_starting_state_play() {
-    let registry = registry_with_phase("goblin_encounter", EncounterPhase::Starting { remaining: 1.0 });
+    let registry = registry_with_phase(
+        "goblin_encounter",
+        EncounterPhase::Starting { remaining: 1.0 },
+    );
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(

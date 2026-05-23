@@ -53,10 +53,7 @@ pub const INTRO_FLAG_CHAINS: &[(&str, &str)] = &[
         "switch_gate_official_report_used",
         "alice_route_note_reported",
     ),
-    (
-        "alice_route_note_reported",
-        "private_routes_compromised",
-    ),
+    ("alice_route_note_reported", "private_routes_compromised"),
 ];
 
 /// Watches the save layer for any chained trigger and emits the target
@@ -107,7 +104,11 @@ pub const INTRO_DIALOG_REDIRECTS: &[(
     use crate::intro::dialog::IntroDialog::*;
     &[
         (OilerIntro, "p1_stabilizer_received", OilerPostStabilizer),
-        (AliceIntroStub, "bob_field_survey_received", AliceAfterBobSurvey),
+        (
+            AliceIntroStub,
+            "bob_field_survey_received",
+            AliceAfterBobSurvey,
+        ),
         (BobIntroStub, "alice_route_note_reported", BobAfterReport),
     ]
 };
@@ -362,15 +363,18 @@ mod tests {
         }
         let save = ambition_engine::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
-        assert!(walls.is_empty(), "registered-id-only filter should exclude this");
+        assert!(
+            walls.is_empty(),
+            "registered-id-only filter should exclude this"
+        );
     }
 
     #[test]
     fn redirect_post_intro_dialog_swaps_oiler_after_stabilizer() {
-        use bevy::app::{App, Update};
         use crate::dialog::{DialogMode, DialogState};
         use crate::intro::dialog::IntroDialog;
         use crate::persistence::save::SandboxSave;
+        use bevy::app::{App, Update};
 
         let mut app = App::new();
         let mut dialog = DialogState::default();
@@ -405,15 +409,18 @@ mod tests {
 
     #[test]
     fn redirect_post_intro_dialog_swaps_alice_after_bob_survey() {
-        use bevy::app::{App, Update};
         use crate::dialog::{DialogMode, DialogState};
         use crate::intro::dialog::IntroDialog;
         use crate::persistence::save::SandboxSave;
+        use bevy::app::{App, Update};
 
         let mut app = App::new();
         let mut dialog = DialogState::default();
         dialog.start("alice_intro_stub", "Alice");
-        assert_eq!(dialog.mode(), DialogMode::Intro(IntroDialog::AliceIntroStub));
+        assert_eq!(
+            dialog.mode(),
+            DialogMode::Intro(IntroDialog::AliceIntroStub)
+        );
         app.insert_resource(dialog);
         app.insert_resource(SandboxSave::default());
         app.add_systems(Update, super::redirect_post_intro_dialog);
@@ -424,17 +431,14 @@ mod tests {
             .set_flag("bob_field_survey_received", true);
         app.update();
         let mode = app.world().resource::<DialogState>().mode();
-        assert_eq!(
-            mode,
-            DialogMode::Intro(IntroDialog::AliceAfterBobSurvey)
-        );
+        assert_eq!(mode, DialogMode::Intro(IntroDialog::AliceAfterBobSurvey));
     }
 
     #[test]
     fn redirect_post_intro_dialog_does_nothing_when_dialog_inactive() {
-        use bevy::app::{App, Update};
         use crate::dialog::DialogState;
         use crate::persistence::save::SandboxSave;
+        use bevy::app::{App, Update};
 
         let mut app = App::new();
         app.insert_resource(DialogState::default());
@@ -494,11 +498,11 @@ mod tests {
     /// `map_private_marks_unlocked` to save via the bus.
     #[test]
     fn emit_chains_promotes_bob_survey_to_private_marks() {
-        use bevy::app::{App, Update};
         use crate::content::features::apply_flag_effects;
         use crate::content::quest::QuestRegistry;
         use crate::features::GameplayEffect;
         use crate::persistence::save::SandboxSave;
+        use bevy::app::{App, Update};
 
         let mut app = App::new();
         app.insert_resource(SandboxSave::default());
@@ -537,13 +541,13 @@ mod tests {
     /// steps.
     #[test]
     fn cartography_quest_advances_through_alice_bob_p5() {
-        use bevy::app::{App, Update};
         use crate::content::features::{apply_flag_effects, apply_quest_effects};
         use crate::content::quest::{
             apply_quest_advance_events, default_quest_specs, QuestRegistry,
         };
         use crate::features::GameplayEffect;
         use crate::persistence::save::SandboxSave;
+        use bevy::app::{App, Update};
 
         let mut app = App::new();
         app.insert_resource(SandboxSave::default());
@@ -590,24 +594,24 @@ mod tests {
             .resource_mut::<SandboxSave>()
             .data_mut()
             .set_flag("alice_route_note_carried", true);
-        app.world_mut()
-            .resource_mut::<QuestRegistry>()
-            .push_event(ambition_engine::QuestAdvanceEvent::FlagSet(
-                "alice_route_note_carried".into(),
-            ));
+        app.world_mut().resource_mut::<QuestRegistry>().push_event(
+            ambition_engine::QuestAdvanceEvent::FlagSet("alice_route_note_carried".into()),
+        );
         app.update();
-        assert_eq!(step(&app), 1, "after alice carry, quest should be at step 1");
+        assert_eq!(
+            step(&app),
+            1,
+            "after alice carry, quest should be at step 1"
+        );
 
         // Step 2: bob's field survey.
         app.world_mut()
             .resource_mut::<SandboxSave>()
             .data_mut()
             .set_flag("bob_field_survey_received", true);
-        app.world_mut()
-            .resource_mut::<QuestRegistry>()
-            .push_event(ambition_engine::QuestAdvanceEvent::FlagSet(
-                "bob_field_survey_received".into(),
-            ));
+        app.world_mut().resource_mut::<QuestRegistry>().push_event(
+            ambition_engine::QuestAdvanceEvent::FlagSet("bob_field_survey_received".into()),
+        );
         app.update();
         assert_eq!(step(&app), 2, "after bob survey, quest should be at step 2");
         let save = app.world().resource::<SandboxSave>();
@@ -618,11 +622,9 @@ mod tests {
             .resource_mut::<SandboxSave>()
             .data_mut()
             .set_flag("intro_p5_route_memory_received", true);
-        app.world_mut()
-            .resource_mut::<QuestRegistry>()
-            .push_event(ambition_engine::QuestAdvanceEvent::FlagSet(
-                "intro_p5_route_memory_received".into(),
-            ));
+        app.world_mut().resource_mut::<QuestRegistry>().push_event(
+            ambition_engine::QuestAdvanceEvent::FlagSet("intro_p5_route_memory_received".into()),
+        );
         app.update();
         let registry = app.world().resource::<QuestRegistry>();
         let q = registry.quests.get("intro_cartography_route").unwrap();
@@ -636,11 +638,11 @@ mod tests {
     /// flag should see the FlagSet event through apply_flag_effects.
     #[test]
     fn emit_chains_promotes_p5_to_route_memory() {
-        use bevy::app::{App, Update};
         use crate::content::features::apply_flag_effects;
         use crate::content::quest::QuestRegistry;
         use crate::features::GameplayEffect;
         use crate::persistence::save::SandboxSave;
+        use bevy::app::{App, Update};
 
         let mut app = App::new();
         app.insert_resource(SandboxSave::default());

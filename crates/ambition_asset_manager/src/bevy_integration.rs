@@ -192,7 +192,10 @@ mod tests {
     fn path_for_returns_bevy_path_under_desktop_dev_loose() {
         let catalog = AmbitionAssetCatalog::new(fixture());
         let path = catalog
-            .path_for(&AssetId::new("world.sandbox_ldtk"), AssetProfile::DesktopDevLoose)
+            .path_for(
+                &AssetId::new("world.sandbox_ldtk"),
+                AssetProfile::DesktopDevLoose,
+            )
             .unwrap();
         assert_eq!(path, "ambition/worlds/sandbox.ldtk");
     }

@@ -589,8 +589,7 @@ fn evaluate_aerial_orbit(
             // flies up-and-away, never into the deck.
             // `heading_unit = -1` → -π (straight left), 0 → -π/2
             // (straight up), +1 → 0 (straight right).
-            let heading = -std::f32::consts::FRAC_PI_2
-                + heading_unit * std::f32::consts::FRAC_PI_2;
+            let heading = -std::f32::consts::FRAC_PI_2 + heading_unit * std::f32::consts::FRAC_PI_2;
             state.aerial_retreat_heading = heading;
             state.aerial_retreat_timer = AERIAL_RETREAT_DURATION * duration_jitter.max(0.50);
             state.aerial_retreat_cooldown = 0.0;
@@ -631,15 +630,18 @@ fn evaluate_aerial_orbit(
             ChoreographyPhase::Recover if state.phase_timer <= 0.0 => {
                 state.phase = ChoreographyPhase::Approach;
             }
-            ChoreographyPhase::Approach if state.shots_remaining == 0 && state.phase_timer <= 0.0
-            => {
+            ChoreographyPhase::Approach
+                if state.shots_remaining == 0 && state.phase_timer <= 0.0 =>
+            {
                 // Use shots_remaining as a "swoop interval"
                 // countdown latch: a fresh approach phase lasts
                 // `phase_timer` seconds before triggering a swoop.
                 state.shots_remaining = 1;
                 state.phase_timer = 2.5 + 0.5 * seed_jitter_unit(state.seed);
             }
-            ChoreographyPhase::Approach if state.phase_timer <= 0.0 && state.shots_remaining > 0 => {
+            ChoreographyPhase::Approach
+                if state.phase_timer <= 0.0 && state.shots_remaining > 0 =>
+            {
                 state.phase = ChoreographyPhase::Engage;
                 state.phase_timer = 0.6;
                 state.shots_remaining = 0;
@@ -649,20 +651,14 @@ fn evaluate_aerial_orbit(
         if state.phase == ChoreographyPhase::Engage {
             // Descend toward the player horizontally + vertically
             // for the duration of the engage phase.
-            engage_pos = Vec2::new(
-                input.target_pos.x,
-                input.target_pos.y - 24.0,
-            );
+            engage_pos = Vec2::new(input.target_pos.x, input.target_pos.y - 24.0);
             if state.phase_timer <= 0.0 {
                 state.phase = ChoreographyPhase::Recover;
                 state.phase_timer = 0.7;
             }
         } else if state.phase == ChoreographyPhase::Recover {
             // Pull back up above the slot anchor.
-            engage_pos = Vec2::new(
-                input.assigned_slot_pos.x,
-                input.assigned_slot_pos.y - 80.0,
-            );
+            engage_pos = Vec2::new(input.assigned_slot_pos.x, input.assigned_slot_pos.y - 80.0);
         }
     }
 
@@ -771,8 +767,8 @@ fn evaluate_dive_strike(
                 state.phase = ChoreographyPhase::Engage;
                 // Per-actor rest jitter so two sharks don't
                 // synchronize their dive timing.
-                state.phase_timer = (hover_rest.max(0.2))
-                    * (1.0 + 0.25 * seed_jitter_unit(state.seed));
+                state.phase_timer =
+                    (hover_rest.max(0.2)) * (1.0 + 0.25 * seed_jitter_unit(state.seed));
             }
             (hover_pos, None, None)
         }
@@ -786,7 +782,11 @@ fn evaluate_dive_strike(
                 if dist_to_target <= MELEE_ENGAGE_DISTANCE {
                     state.phase = ChoreographyPhase::Recover;
                     state.phase_timer = 0.6;
-                    (recover_pos, Some(ChoreographyAction::Melee), Some(dive_speed))
+                    (
+                        recover_pos,
+                        Some(ChoreographyAction::Melee),
+                        Some(dive_speed),
+                    )
                 } else {
                     (dive_pos, None, Some(dive_speed))
                 }
@@ -1039,7 +1039,9 @@ mod tests {
         // distribution actually hits all three variants — otherwise
         // the role pick would silently collapse to a single role and
         // the visual variety claim is false.
-        let ids = ["shark_a", "shark_b", "shark_c", "shark_d", "shark_e", "shark_f"];
+        let ids = [
+            "shark_a", "shark_b", "shark_c", "shark_d", "shark_e", "shark_f",
+        ];
         let mut hovers = 0;
         let mut swoops = 0;
         let mut retreats = 0;
@@ -1278,10 +1280,7 @@ mod tests {
         // Distinct heading count (within float tolerance).
         let mut distinct = 0;
         for i in 0..headings.len() {
-            if !headings[..i]
-                .iter()
-                .any(|h| (h - headings[i]).abs() < 0.01)
-            {
+            if !headings[..i].iter().any(|h| (h - headings[i]).abs() < 0.01) {
                 distinct += 1;
             }
         }
@@ -1349,9 +1348,7 @@ mod tests {
         // the "they all do it at the same time" bug.
         for i in 0..first_retreat_frames.len() {
             for j in i + 1..first_retreat_frames.len() {
-                let diff = (first_retreat_frames[i] as i64
-                    - first_retreat_frames[j] as i64)
-                    .abs();
+                let diff = (first_retreat_frames[i] as i64 - first_retreat_frames[j] as i64).abs();
                 assert!(
                     diff >= 6,
                     "first-retreat frames {} and {} too close: \
@@ -1428,7 +1425,7 @@ mod tests {
         let target = Vec2::new(0.0, 0.0);
         let slot = Vec2::new(100.0, -100.0);
         let actor = slot; // already at slot
-        // Without a neighbor, steering = slot + small wobble.
+                          // Without a neighbor, steering = slot + small wobble.
         let no_neighbor = evaluate_choreography(
             AttackChoreography::AerialOrbitAndFire {
                 altitude: 160.0,

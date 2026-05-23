@@ -434,7 +434,6 @@ impl RuntimeEntityEmission {
             ..Self::default()
         }
     }
-
 }
 
 fn entity_min_size(entity: &LdtkEntityInstance, offset: ae::Vec2) -> (ae::Vec2, ae::Vec2) {
@@ -619,12 +618,14 @@ fn convert_kinematic_path(
             .unwrap_or(0.0)
             .max(0.0),
     };
-    Ok(RuntimeEntityEmission::kinematic_path(KinematicPathSpec::new(
-        path_lookup_id(entity, &name),
-        name,
-        object_aabb(min, size),
-        path,
-    )))
+    Ok(RuntimeEntityEmission::kinematic_path(
+        KinematicPathSpec::new(
+            path_lookup_id(entity, &name),
+            name,
+            object_aabb(min, size),
+            path,
+        ),
+    ))
 }
 
 fn convert_prop(

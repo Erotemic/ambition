@@ -141,7 +141,6 @@ pub fn switch_on_color() -> Color {
     Color::srgba(0.20, 0.90, 0.30, 1.0)
 }
 
-
 pub(super) fn feature_z(kind: FeatureVisualKind) -> f32 {
     match kind {
         FeatureVisualKind::Hazard => WORLD_Z_BLOCK + 8.0,

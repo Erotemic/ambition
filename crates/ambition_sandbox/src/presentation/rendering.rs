@@ -26,9 +26,8 @@
 //!   encounter transitions ([`camera_follow`]).
 
 pub mod actors;
-#[cfg(feature = "visible")]
-mod deep_dream;
 mod camera;
+mod deep_dream;
 mod features;
 mod health;
 mod parallax;
@@ -48,8 +47,8 @@ pub use health::sync_health_overlays;
 // in `content/features/enemies.rs`) can place projectile-spawn
 // origins at the same hand position the visual lays the gun-sword
 // on. Keeps "where the muzzle is" defined in ONE module.
-pub use pirate_weapon::rider_hand_world_pos;
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
+pub use pirate_weapon::rider_hand_world_pos;
 pub use primitives::{
     HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,
@@ -122,7 +121,6 @@ pub struct PresentationVisualAnimationPlugin;
 impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
-        #[cfg(feature = "visible")]
         deep_dream::add_puppy_slug_deep_dream_material_plugin(app);
         app.add_systems(
             Update,
@@ -137,11 +135,13 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 actors::apply_gnu_ton_body_z,
                 actors::upgrade_enemy_sprites,
                 actors::upgrade_boss_sprites,
+                // Attach the experimental material overlay after enemy sprite
+                // upgrade has produced a real atlas-backed Puppy Slug sprite.
+                deep_dream::attach_puppy_slug_deep_dream_overlays,
                 actors::animate_player,
                 actors::animate_characters,
-                #[cfg(feature = "visible")]
-                deep_dream::attach_puppy_slug_deep_dream_overlays,
-                #[cfg(feature = "visible")]
+                // Mirror the current atlas frame into the overlay after the
+                // character animator has advanced for this frame.
                 deep_dream::sync_puppy_slug_deep_dream_overlays,
                 actors::animate_props,
                 actors::animate_bosses,

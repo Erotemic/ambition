@@ -533,9 +533,26 @@ def _render_sheet(renderer: GirdleRenderer, out_dir: Path) -> List[Path]:
 
 
 def render(out_dir: str | Path, **opts) -> List[Path]:
+    """Render the girdle spritesheet bundle via the shared
+    `tackon_sheet.build_sheet` pipeline (auto-cropped, with the
+    runtime-compatible YAML+RON shape). See `bear_mauler.render` for
+    the full rationale — same conversion."""
+    from ...tackon_sheet import build_sheet
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    return _render_sheet(GirdleRenderer(), out_dir)
+    renderer = GirdleRenderer()
+    outputs = build_sheet(
+        target=TARGET_BASENAME,
+        rows=ROWS,
+        render_fn=renderer.render_frame,
+        out_dir=out_dir,
+        frame_size=FRAME_SIZE,
+        auto_crop=True,
+    )
+    return [
+        outputs["spritesheet"], outputs["yaml"], outputs["ron"],
+        outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
+    ]
 
 
 def main(argv: List[str] | None = None) -> int:

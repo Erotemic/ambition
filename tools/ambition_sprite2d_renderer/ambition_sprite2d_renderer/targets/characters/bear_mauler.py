@@ -427,9 +427,35 @@ def _render_sheet(renderer: BearMaulerRenderer, out_dir: Path):
 
 
 def render(out_dir: str | Path, **opts):
+    """Render the bear_mauler spritesheet bundle via the shared
+    `tackon_sheet.build_sheet` pipeline.
+
+    Routes through the standard auto-cropped + manifested pipeline so
+    the sheet (a) gets the union-bbox crop that every other tack-on
+    character gets (frames keep uniform dimensions so poses stay
+    aligned within a row, and the sheet sheds the ~50% transparent
+    margin the bespoke 240×224 layout used to bake in), and (b) emits
+    the `body_metrics` + per-row `rects` shape the sandbox's
+    SheetRegistry parses at runtime. The bespoke `_render_sheet` +
+    `_write_yaml` + `_write_ron` helpers stay below for standalone-CLI
+    use, but discovery routes through here.
+    """
+    from ...tackon_sheet import build_sheet
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    return _render_sheet(BearMaulerRenderer(), out_dir)
+    renderer = BearMaulerRenderer()
+    outputs = build_sheet(
+        target=TARGET_BASENAME,
+        rows=ROWS,
+        render_fn=renderer.render_frame,
+        out_dir=out_dir,
+        frame_size=FRAME_SIZE,
+        auto_crop=True,
+    )
+    return [
+        outputs["spritesheet"], outputs["yaml"], outputs["ron"],
+        outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
+    ]
 
 
 def main(argv: List[str] | None = None) -> int:

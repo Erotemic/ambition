@@ -649,9 +649,12 @@ def render(out_dir: str | Path, variant: str = "bastion", **opts) -> List[Path]:
         out_dir=out_dir,
         frame_size=FRAME_SIZE,
         crop_margin=3,
-        auto_crop=False,
+        auto_crop=True,
     )
-    return [outputs["spritesheet"], outputs["yaml"], outputs["ron"], outputs["preview"], outputs["canonical"]]
+    return [
+        outputs["spritesheet"], outputs["yaml"], outputs["ron"],
+        outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
+    ]
 
 
 def render_many(out_dir: str | Path, variants: Iterable[str]) -> Dict[str, List[Path]]:

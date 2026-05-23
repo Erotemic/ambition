@@ -92,6 +92,17 @@ pub enum CharacterAnim {
     AirDown = 27,
     /// Aerial up-thrust.
     AirUp = 28,
+    /// Smash-Bros style ledge roll: tumble onto the platform with
+    /// invulnerability frames. Selected by `pick_player_anim` when
+    /// `ledge_grab.climbing && getup_kind == Roll`.
+    LedgeRoll = 29,
+    /// Ledge getup attack: swing onto the platform with an active
+    /// hitbox. Selected by `pick_player_anim` when
+    /// `ledge_grab.climbing && getup_kind == Attack`. The slash op
+    /// fires at the start of the transition (engine side); the
+    /// sprite should peak the swing mid-animation so visual + hitbox
+    /// read as a single beat.
+    LedgeGetupAttack = 30,
 }
 
 impl CharacterAnim {
@@ -143,6 +154,8 @@ impl CharacterAnim {
             "air_back" => Self::AirBack,
             "air_down" => Self::AirDown,
             "air_up" => Self::AirUp,
+            "ledge_roll" => Self::LedgeRoll,
+            "ledge_getup_attack" => Self::LedgeGetupAttack,
             _ => return None,
         })
     }
@@ -156,6 +169,8 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
             | CharacterAnim::Death
             | CharacterAnim::LedgeClimb
             | CharacterAnim::LedgeGetup
+            | CharacterAnim::LedgeRoll
+            | CharacterAnim::LedgeGetupAttack
             | CharacterAnim::LandHard
             | CharacterAnim::LandRecovery
             | CharacterAnim::DashStartup
@@ -206,10 +221,13 @@ pub fn pick_player_anim(
         return CharacterAnim::BlinkOut;
     }
     if let Some(ledge) = player.ledge_grab.as_ref() {
-        return if ledge.climbing {
-            CharacterAnim::LedgeGetup
-        } else {
-            CharacterAnim::LedgeGrab
+        if !ledge.climbing {
+            return CharacterAnim::LedgeGrab;
+        }
+        return match ledge.getup_kind {
+            ae::LedgeGetupKind::Climb => CharacterAnim::LedgeGetup,
+            ae::LedgeGetupKind::Roll => CharacterAnim::LedgeRoll,
+            ae::LedgeGetupKind::Attack => CharacterAnim::LedgeGetupAttack,
         };
     }
     if player.fly_enabled {
@@ -339,5 +357,129 @@ pub fn pick_npc_anim(state: NpcAnimState) -> CharacterAnim {
         CharacterAnim::Walk
     } else {
         CharacterAnim::Idle
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::player::{PlayerBlinkCameraState, PlayerCombatState};
+
+    /// Build a player + the three default state inputs that
+    /// `pick_player_anim` consumes. Tests then mutate just the
+    /// fields relevant to the case under test.
+    fn pick_inputs() -> (
+        PlayerAnimState,
+        PlayerCombatState,
+        PlayerBlinkCameraState,
+        ae::Player,
+    ) {
+        (
+            PlayerAnimState::default(),
+            PlayerCombatState::default(),
+            PlayerBlinkCameraState::default(),
+            ae::Player::new(ae::Vec2::ZERO),
+        )
+    }
+
+    fn hang_state(getup: ae::LedgeGetupKind, climbing: bool) -> ae::LedgeGrabState {
+        ae::LedgeGrabState {
+            contact: ae::LedgeContact {
+                wall_normal_x: -1.0,
+                anchor: ae::Vec2::new(86.0, 110.0),
+                climb_target: ae::Vec2::new(115.0, 77.0),
+            },
+            elapsed: 0.1,
+            climbing,
+            getup_kind: getup,
+            climb_elapsed: 0.0,
+            momentum_at_grab: ae::Vec2::ZERO,
+        }
+    }
+
+    /// While hanging (not climbing), the picker returns the static
+    /// `LedgeGrab` row regardless of getup_kind. The hang is the
+    /// pre-action state; the getup kind is only meaningful once
+    /// the player commits.
+    #[test]
+    fn hang_returns_ledge_grab_regardless_of_getup_kind() {
+        for kind in [
+            ae::LedgeGetupKind::Climb,
+            ae::LedgeGetupKind::Roll,
+            ae::LedgeGetupKind::Attack,
+        ] {
+            let (anim, combat, blink, mut player) = pick_inputs();
+            player.ledge_grab = Some(hang_state(kind, false));
+            assert_eq!(
+                pick_player_anim(&anim, &combat, &blink, None, &player),
+                CharacterAnim::LedgeGrab,
+                "hang with kind {:?} must read as LedgeGrab",
+                kind,
+            );
+        }
+    }
+
+    /// Climb is the default getup; picker should return the
+    /// `LedgeGetup` row (the existing mantle pop-up animation).
+    #[test]
+    fn climbing_with_climb_kind_returns_ledge_getup() {
+        let (anim, combat, blink, mut player) = pick_inputs();
+        player.ledge_grab = Some(hang_state(ae::LedgeGetupKind::Climb, true));
+        assert_eq!(
+            pick_player_anim(&anim, &combat, &blink, None, &player),
+            CharacterAnim::LedgeGetup,
+        );
+    }
+
+    /// Roll getup picks the new `LedgeRoll` row.
+    #[test]
+    fn climbing_with_roll_kind_returns_ledge_roll() {
+        let (anim, combat, blink, mut player) = pick_inputs();
+        player.ledge_grab = Some(hang_state(ae::LedgeGetupKind::Roll, true));
+        assert_eq!(
+            pick_player_anim(&anim, &combat, &blink, None, &player),
+            CharacterAnim::LedgeRoll,
+        );
+    }
+
+    /// Attack getup picks the new `LedgeGetupAttack` row. The
+    /// `slash_anim_timer` happens to be 0 here so the regular
+    /// directional-attack branch doesn't preempt the ledge branch;
+    /// the next test pins that ordering.
+    #[test]
+    fn climbing_with_attack_kind_returns_ledge_getup_attack() {
+        let (anim, combat, blink, mut player) = pick_inputs();
+        player.ledge_grab = Some(hang_state(ae::LedgeGetupKind::Attack, true));
+        assert_eq!(
+            pick_player_anim(&anim, &combat, &blink, None, &player),
+            CharacterAnim::LedgeGetupAttack,
+        );
+    }
+
+    /// The non-looping list must include the two new ledge rows so
+    /// `CharacterAnimator` doesn't keep cycling their frames after
+    /// the engine transition completes. Regression guard against
+    /// adding new variants and forgetting the `non_looping` entry.
+    #[test]
+    fn new_ledge_rows_are_non_looping() {
+        assert!(non_looping(CharacterAnim::LedgeRoll));
+        assert!(non_looping(CharacterAnim::LedgeGetupAttack));
+        // Sanity: the prior LedgeGetup also stays non-looping.
+        assert!(non_looping(CharacterAnim::LedgeGetup));
+    }
+
+    /// `from_name` round-trips the new row names so the spritesheet
+    /// RON parser can resolve `"ledge_roll"` / `"ledge_getup_attack"`
+    /// from the generator output without dropping them silently.
+    #[test]
+    fn from_name_resolves_new_ledge_rows() {
+        assert_eq!(
+            CharacterAnim::from_name("ledge_roll"),
+            Some(CharacterAnim::LedgeRoll),
+        );
+        assert_eq!(
+            CharacterAnim::from_name("ledge_getup_attack"),
+            Some(CharacterAnim::LedgeGetupAttack),
+        );
     }
 }

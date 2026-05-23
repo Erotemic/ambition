@@ -73,6 +73,12 @@ TRAVERSAL_POLISH_ANIMATION_ORDER: List[str] = [
     "wall_grab",
     "ledge_climb",
     "ledge_getup",
+    # Smash-Bros style ledge options. `ledge_roll` is the
+    # invuln-tumble option; `ledge_getup_attack` is the swing-onto-
+    # platform option. Runtime selection lives in `pick_player_anim`
+    # (`CharacterAnim::LedgeRoll` / `CharacterAnim::LedgeGetupAttack`).
+    "ledge_roll",
+    "ledge_getup_attack",
     "float_glide",
 ]
 
@@ -145,7 +151,19 @@ DEFAULT_TRAVERSAL_POLISH_TIMINGS: AnimationMap = {
     "land_recovery": {"frames": 6, "duration_ms": 75},
     "wall_grab": {"frames": 6, "duration_ms": 110},
     "ledge_climb": {"frames": 6, "duration_ms": 100},
-    "ledge_getup": {"frames": 8, "duration_ms": 75},
+    # `ledge_getup` previously ran 8 × 75 = 600 ms — 2.5x longer than
+    # the engine's `LEDGE_CLIMB_TIME = 0.24 s` transition, so the
+    # sprite only played its first three frames before the player
+    # snapped onto the platform. Retuned to 6 × 40 = 240 ms so frame
+    # playback completes exactly when the engine getup ends.
+    "ledge_getup": {"frames": 6, "duration_ms": 40},
+    # 8 × 37 = 296 ms ≈ `LEDGE_ROLL_TIME = 0.30 s`.
+    "ledge_roll": {"frames": 8, "duration_ms": 37},
+    # 8 × 37 = 296 ms ≈ `LEDGE_GETUP_ATTACK_TIME = 0.30 s`.
+    # The engine fires `MovementOp::Slash` at the START of the
+    # transition; sprite should peak the swing mid-animation (frames
+    # 4-5) so visual + hitbox read as one beat.
+    "ledge_getup_attack": {"frames": 8, "duration_ms": 37},
     "float_glide": {"frames": 8, "duration_ms": 110},
 }
 

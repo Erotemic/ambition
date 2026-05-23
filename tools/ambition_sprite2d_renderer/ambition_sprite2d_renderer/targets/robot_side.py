@@ -860,6 +860,92 @@ class SideRobotGenerator:
             p.near_leg_upper = lerp(92.0, 72.0, mantle)
             p.near_leg_lower = lerp(76.0, 88.0, mantle)
             p.eye_squint = 0.26 - 0.10 * mantle
+        elif animation == "ledge_roll":
+            # Smash-Bros style ledge roll: tumble onto the platform.
+            # Phase map (t = 0..1):
+            #   0.00 – 0.18 : hang, legs swinging forward to build momentum
+            #   0.18 – 0.55 : tuck into a tight ball mid-roll (limbs in)
+            #   0.55 – 0.85 : exit the tuck, body extending forward
+            #   0.85 – 1.00 : stand up low, ready to act
+            #
+            # The runtime arms `Player::dodge_roll_timer` for the
+            # whole transition + a 100ms tail, so this is also the
+            # invuln pose — the tuck keeps the silhouette small and
+            # round to read "rolling = not a target."
+            swing = smoothstep(clamp(t / 0.18, 0.0, 1.0))
+            tuck = smoothstep(clamp((t - 0.18) / 0.37, 0.0, 1.0))
+            untuck = smoothstep(clamp((t - 0.55) / 0.30, 0.0, 1.0))
+            stand = smoothstep(clamp((t - 0.85) / 0.15, 0.0, 1.0))
+            # Body rolls forward across the platform: root_x rides
+            # the full ~32 px from anchor side to climb_target side.
+            p.root_x = -2.0 + 32.0 * smoothstep(t)
+            # Vertical bob — up during swing, dips through tuck (low
+            # tumble), rises through untuck and stand.
+            p.root_y = -8.0 + 6.0 * swing - 2.0 * tuck + 4.0 * untuck + 6.0 * stand
+            # Body spins forward 360°: visualised as steep tilt that
+            # passes through horizontal at the mid-tuck.
+            spin = 360.0 * smoothstep(clamp(t / 0.85, 0.0, 1.0))
+            p.body_tilt = -10.0 + 0.5 * spin - 170.0 * stand
+            p.head_tilt = -5.0 + 0.3 * spin - 100.0 * stand
+            # Tucked limbs: arms hug close to the chest, legs fold in.
+            tight = max(tuck, 0.7 * untuck)
+            p.far_arm_upper = lerp(200.0, 48.0, swing) + 8.0 * tight
+            p.far_arm_lower = lerp(208.0, 32.0, swing) + 6.0 * tight
+            p.near_arm_upper = lerp(-52.0, 14.0, swing) - 12.0 * tight
+            p.near_arm_lower = lerp(-56.0, 6.0, swing) - 14.0 * tight
+            # Legs swing up, tuck under, extend forward, plant.
+            p.far_leg_upper = lerp(122.0, 64.0, swing) + 4.0 * tight + 18.0 * stand
+            p.far_leg_lower = lerp(92.0, 32.0, swing) + 6.0 * tight + 26.0 * stand
+            p.near_leg_upper = lerp(92.0, 78.0, swing) - 14.0 * tight + 28.0 * stand
+            p.near_leg_lower = lerp(76.0, 28.0, swing) - 16.0 * tight + 30.0 * stand
+            p.eye_squint = 0.30 + 0.18 * tuck - 0.10 * stand
+        elif animation == "ledge_getup_attack":
+            # Swing-onto-platform attack: the player vaults up while
+            # slashing in a single continuous motion. Engine fires
+            # `MovementOp::Slash` at frame 0; the visual swing peaks
+            # mid-animation so the hitbox and the sprite agree on
+            # "this is the slash beat."
+            #
+            # Phase map:
+            #   0.00 – 0.18 : windup, arm cocks back while body lifts
+            #   0.18 – 0.55 : swing peak (active hitbox window in
+            #                  the existing slash-anim timer)
+            #   0.55 – 0.80 : follow-through and body planting
+            #   0.80 – 1.00 : recovery into combat-ready standing
+            mantle = smoothstep(t)
+            wind = 1.0 - smoothstep(clamp(t / 0.18, 0.0, 1.0))
+            strike = smoothstep(clamp((t - 0.16) / 0.39, 0.0, 1.0))
+            recover = smoothstep(clamp((t - 0.78) / 0.22, 0.0, 1.0))
+            # Body rises from below-the-lip to standing, same arc as
+            # the regular getup but with a forward thrust at the
+            # strike peak.
+            p.root_x = -2.0 + 7.0 * mantle + 3.0 * strike - 1.5 * recover
+            p.root_y = -8.0 + 9.0 * mantle - 2.5 * strike
+            p.body_tilt = -10.0 + 16.0 * mantle - 6.0 * strike + 2.0 * recover
+            p.head_tilt = -5.0 + 8.0 * mantle - 4.0 * strike
+            # Far arm starts overhead-grip, transitions to chest-side
+            # over the mantle so it can pump back during recovery.
+            p.far_arm_upper = lerp(200.0, 162.0, mantle) + 8.0 * recover
+            p.far_arm_lower = lerp(208.0, 148.0, mantle) + 6.0 * recover
+            # Near (sword) arm: cocks high-back during wind, whips
+            # forward over the lip during strike, settles into a
+            # combat-ready guard during recovery.
+            p.near_arm_upper = lerp(-52.0, 12.0, mantle) - 36.0 * wind + 86.0 * strike - 28.0 * recover
+            p.near_arm_lower = lerp(-56.0, 0.0, mantle) - 30.0 * wind + 78.0 * strike - 22.0 * recover
+            # Legs mantle up; near leg drives forward at the strike
+            # peak (committed weight transfer).
+            p.far_leg_upper = lerp(122.0, 110.0, mantle) + 10.0 * strike
+            p.far_leg_lower = lerp(92.0, 96.0, mantle) + 6.0 * strike
+            p.near_leg_upper = lerp(92.0, 70.0, mantle) - 14.0 * wind + 8.0 * strike
+            p.near_leg_lower = lerp(76.0, 86.0, mantle) - 12.0 * wind + 6.0 * strike
+            # Slash overlay: peaks mid-strike (frame 4-5), trails into
+            # recovery. The "side" direction matches the engine's
+            # `AttackIntent::Forward` projection used for ledge-getup
+            # attack hitbox geometry.
+            p.slash = max(0.25, wind, strike)
+            p.slash_arc = strike
+            p.slash_dir = "side"
+            p.eye_squint = 0.24 + 0.22 * strike - 0.08 * recover
         elif animation == "attack_side":
             # Marth-style forehand: short windup, fast forward slash, brief
             # recovery. Re-uses the slash 3-phase shape but commits the body

@@ -36,6 +36,16 @@ use super::registry::{NormPoint, SheetRecord};
 pub struct AnimRow {
     pub frame_count: usize,
     pub duration_secs: f32,
+    /// Row's y-position in the PNG, measured in row units (multiply
+    /// by `frame_height` to get pixels). Copied verbatim from the
+    /// RON manifest so the atlas builder can address each row by
+    /// its authored y even when intermediate rows were filtered
+    /// out by `CharacterAnim::from_name`. Without this, dropping
+    /// any row (e.g. `wall_walk`, `chomp`) silently shifts every
+    /// later row's atlas y upward by one frame_height → sprites
+    /// tear because the GPU samples a totally different row's
+    /// pixels for the requested animation.
+    pub row_index: u32,
 }
 
 /// Frame layout for one of the generated sheets.
@@ -187,6 +197,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
                 AnimRow {
                     frame_count: row.frame_count as usize,
                     duration_secs: row.duration_secs,
+                    row_index: row.row_index as u32,
                 },
             ))
         })
@@ -595,19 +606,32 @@ impl CharacterSheetSpec {
             .max()
             .unwrap_or(0) as u32;
         let total_w = self.label_width + max_frames * self.frame_width;
-        // `total_h` includes `y_offset` so the atlas image-size matches
-        // the underlying PNG when this spec is for a sub-block of a
-        // larger sheet (lab props use this — each prop spec y_offsets
-        // into one shared PNG).
-        let total_h = self.y_offset + self.rows.len() as u32 * self.frame_height;
+        // `total_h` covers every authored row in the PNG, not just
+        // the rows we kept. We size to the highest `row_index + 1`
+        // so the atlas image-size matches the underlying PNG even
+        // when intermediate rows were filtered out (else Bevy
+        // panics in debug if a URect exceeds the layout extent).
+        let max_row_index = self
+            .rows
+            .iter()
+            .map(|(_, row)| row.row_index)
+            .max()
+            .map(|i| i + 1)
+            .unwrap_or(0);
+        let total_h = self.y_offset + max_row_index * self.frame_height;
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
         let inset = self
             .frame_sample_inset
             .min(self.frame_width.min(self.frame_height) / 4);
-        for (row_idx, (_, row)) in self.rows.iter().enumerate() {
+        for (_, row) in self.rows.iter() {
             for col in 0..row.frame_count {
                 let x = self.label_width + col as u32 * self.frame_width;
-                let y = self.y_offset + row_idx as u32 * self.frame_height;
+                // Use the row's AUTHORED y-position in the PNG, not
+                // its index in `self.rows`. Skipping any rows
+                // (e.g. `wall_walk`, `chomp`) leaves gaps in atlas
+                // y-coverage rather than shifting later rows
+                // upward into the wrong band of pixels.
+                let y = self.y_offset + row.row_index * self.frame_height;
                 // Inset on every side so bilinear filtering at the frame
                 // boundary cannot pull pixels from the next cell.
                 let min = UVec2::new(x + inset, y + inset);

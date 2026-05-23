@@ -6,6 +6,31 @@ use ambition_engine::AabbExt;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+/// Upper bound on `dt` for camera scale + target easing.
+///
+/// Smoothing is dt-correct in steady state — per-second movement is
+/// identical regardless of frame rate — but the eye perceives motion
+/// as deltas-per-rendered-frame, not deltas-per-second. A single
+/// 33 ms hitch (one 30 FPS frame in an otherwise 60 FPS session)
+/// makes the camera take a step that's roughly twice the size of a
+/// nominal frame's step. That's the "jump" Jon observed even when
+/// mean FPS was steady: the worst-frame `min` in the FPS overlay
+/// correlates exactly with the camera flick.
+///
+/// Capping `dt` at ~30 FPS' worth (33 ms) means a hitched frame
+/// produces *at most* the same camera step as a nominal frame. The
+/// camera lags by the unconsumed wall-clock fraction for one frame
+/// and recovers seamlessly over the next several frames as `dt`
+/// returns to nominal — that lag is below the visual threshold,
+/// the avoided jump is not.
+///
+/// Keep this small enough that genuine slowdowns (e.g. the player
+/// is actually running at 30 FPS) still produce per-frame motion;
+/// raise it if the camera starts to feel laggy on intentional
+/// slow-motion or bullet-time states (those go through
+/// `WorldTime::scaled_dt`, not this path, but worth flagging).
+const MAX_CAMERA_SMOOTH_DT: f32 = 1.0 / 30.0;
+
 use super::primitives::PlayerVisual;
 use crate::config::world_to_bevy;
 use crate::persistence::settings::CameraAspectPolicy;
@@ -133,7 +158,12 @@ pub fn camera_follow(
     // immediate "you're in it") vs. zoom-out (encounter ends;
     // slower, breathy "you survived"). Overview camera snaps because
     // it's a debug tool.
-    let dt = time.delta_secs().max(0.0);
+    //
+    // `dt` is clamped at `MAX_CAMERA_SMOOTH_DT` so a single hitched
+    // frame can't blow through the smoothing — see the constant's
+    // docs. Both the zoom easing below and the target easing in the
+    // follow branch consume this same `dt`.
+    let dt = time.delta_secs().clamp(0.0, MAX_CAMERA_SMOOTH_DT);
     let camera_scale = if developer_tools.overview_camera || snap_camera {
         camera_state.live_scale = target_scale;
         target_scale

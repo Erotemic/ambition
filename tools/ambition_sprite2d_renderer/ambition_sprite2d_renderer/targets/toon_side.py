@@ -23,7 +23,7 @@ from typing import Dict, Optional, Tuple
 
 from PIL import Image, ImageColor, ImageDraw
 
-from .common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
+from ..common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
 from ..rig import add, clamp, ease_in_out_sine, ease_out_cubic, smoothstep, vec
 
 Color = Tuple[int, int, int, int]

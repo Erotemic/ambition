@@ -23,7 +23,7 @@ from PIL import Image, ImageColor, ImageDraw
 
 from ..animation_vocab import CORE_CHARACTER_ANIMATION_ORDER, DEFAULT_CORE_TIMINGS, ordered_subset
 from ..rig import add, clamp, vec
-from .common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
+from ..common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
 
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]

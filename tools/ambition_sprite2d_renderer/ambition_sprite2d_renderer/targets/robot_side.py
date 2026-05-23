@@ -19,7 +19,7 @@ from typing import Dict, Optional, Tuple
 
 from PIL import Image, ImageDraw
 
-from .common_draw import RESAMPLING, draw_capsule, draw_rotated_rounded_rect
+from ..common_draw import RESAMPLING, draw_capsule, draw_rotated_rounded_rect
 from .robot25d import BotSpec, Pose, parse_background
 from ..animation_vocab import (
     DEFAULT_ADVANCED_TIMINGS,

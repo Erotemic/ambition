@@ -32,7 +32,7 @@ use super::anim::CharacterAnim;
 use super::assets::CharacterSpriteAsset;
 use super::registry::{NormPoint, SheetRecord};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct AnimRow {
     pub frame_count: usize,
     pub duration_secs: f32,
@@ -40,12 +40,21 @@ pub struct AnimRow {
     /// by `frame_height` to get pixels). Copied verbatim from the
     /// RON manifest so the atlas builder can address each row by
     /// its authored y even when intermediate rows were filtered
-    /// out by `CharacterAnim::from_name`. Without this, dropping
-    /// any row (e.g. `wall_walk`, `chomp`) silently shifts every
-    /// later row's atlas y upward by one frame_height → sprites
-    /// tear because the GPU samples a totally different row's
-    /// pixels for the requested animation.
+    /// out by `CharacterAnim::from_name`. Kept as a fallback for
+    /// when the RON omits `frame_rects` — the primary atlas-build
+    /// path uses `frame_rects` directly to honor inter-frame
+    /// padding (which uniform grid math misses).
     pub row_index: u32,
+    /// Per-frame source rectangles in the PNG, copied verbatim from
+    /// the RON `rects` field. Used as the authoritative atlas-cell
+    /// coordinates: many generated sheets pad between frames (the
+    /// toon target's row pitch is 93 even though frame_height = 89),
+    /// so deriving x/y from grid stride alone misaligns every cell
+    /// by the padding amount and the GPU samples adjacent-frame
+    /// pixels → visible tearing. `None` for legacy sheets that
+    /// pre-date the rects field — the builder falls back to grid
+    /// math (with `row_index`) for those.
+    pub frame_rects: Option<Vec<URect>>,
 }
 
 /// Frame layout for one of the generated sheets.
@@ -192,12 +201,34 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
         .iter()
         .filter_map(|row| {
             let anim = CharacterAnim::from_name(&row.animation)?;
+            // Convert RON `FrameRect` (i32 fields, may include
+            // negative authoring values for off-canvas placement)
+            // into UVec2-backed URects. Drop the whole vector if
+            // any rect has negative coords — fall back to grid
+            // math in `build_atlas` rather than panicking on the
+            // cast.
+            let frame_rects = if row.rects.is_empty() {
+                None
+            } else if row.rects.iter().any(|r| r.x < 0 || r.y < 0 || r.w <= 0 || r.h <= 0) {
+                None
+            } else {
+                Some(
+                    row.rects
+                        .iter()
+                        .map(|r| URect {
+                            min: UVec2::new(r.x as u32, r.y as u32),
+                            max: UVec2::new((r.x + r.w) as u32, (r.y + r.h) as u32),
+                        })
+                        .collect(),
+                )
+            };
             Some((
                 anim,
                 AnimRow {
                     frame_count: row.frame_count as usize,
                     duration_secs: row.duration_secs,
                     row_index: row.row_index as u32,
+                    frame_rects,
                 },
             ))
         })
@@ -587,56 +618,50 @@ impl CharacterSheetSpec {
         CharacterAnim::Idle
     }
 
-    pub(super) fn row(&self, anim: CharacterAnim) -> AnimRow {
+    pub(super) fn row(&self, anim: CharacterAnim) -> &AnimRow {
         let resolved = self.resolve_anim(anim);
         let idx = self
             .row_index(resolved)
             .expect("character sprite sheet must define an Idle row");
-        self.rows[idx].1
+        &self.rows[idx].1
     }
 
     /// Build the atlas layout for this sheet. Accounts for `y_offset`
     /// so multiple specs can share one PNG (e.g. lab-props), each
     /// addressing its own row block.
     pub fn build_atlas(&self) -> TextureAtlasLayout {
-        let max_frames = self
-            .rows
-            .iter()
-            .map(|(_, row)| row.frame_count)
-            .max()
-            .unwrap_or(0) as u32;
-        let total_w = self.label_width + max_frames * self.frame_width;
-        // `total_h` covers every authored row in the PNG, not just
-        // the rows we kept. We size to the highest `row_index + 1`
-        // so the atlas image-size matches the underlying PNG even
-        // when intermediate rows were filtered out (else Bevy
-        // panics in debug if a URect exceeds the layout extent).
-        let max_row_index = self
-            .rows
-            .iter()
-            .map(|(_, row)| row.row_index)
-            .max()
-            .map(|i| i + 1)
-            .unwrap_or(0);
-        let total_h = self.y_offset + max_row_index * self.frame_height;
+        // Atlas image size has to cover every cell — derive it from
+        // the rects when we have them (so inter-frame padding is
+        // included), and fall back to grid math (cells = frame_w ×
+        // frame_h, label inset on the left) otherwise.
+        let (total_w, total_h) = atlas_extent(self);
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
         let inset = self
             .frame_sample_inset
             .min(self.frame_width.min(self.frame_height) / 4);
         for (_, row) in self.rows.iter() {
+            // Authoritative path: use the RON's per-frame rects. The
+            // generator emits the EXACT pixel coords of every frame
+            // (including padding between cells), so any drift caused
+            // by inter-frame padding, label-column width changes, or
+            // row-stride ≠ frame_height vanishes.
+            if let Some(rects) = row.frame_rects.as_ref() {
+                for r in rects.iter().take(row.frame_count) {
+                    layout.add_texture(inset_rect(*r, inset));
+                }
+                continue;
+            }
+            // Legacy path: grid math, using the AUTHORED `row_index`
+            // so dropping intermediate rows doesn't shift later rows
+            // upward into the wrong band of pixels.
             for col in 0..row.frame_count {
                 let x = self.label_width + col as u32 * self.frame_width;
-                // Use the row's AUTHORED y-position in the PNG, not
-                // its index in `self.rows`. Skipping any rows
-                // (e.g. `wall_walk`, `chomp`) leaves gaps in atlas
-                // y-coverage rather than shifting later rows
-                // upward into the wrong band of pixels.
                 let y = self.y_offset + row.row_index * self.frame_height;
-                // Inset on every side so bilinear filtering at the frame
-                // boundary cannot pull pixels from the next cell.
-                let min = UVec2::new(x + inset, y + inset);
-                let max = UVec2::new(x + self.frame_width - inset, y + self.frame_height - inset);
-                layout.add_texture(URect { min, max });
+                let cell = URect {
+                    min: UVec2::new(x, y),
+                    max: UVec2::new(x + self.frame_width, y + self.frame_height),
+                };
+                layout.add_texture(inset_rect(cell, inset));
             }
         }
         layout
@@ -661,5 +686,60 @@ impl CharacterSheetSpec {
 
     pub fn frame_duration(&self, anim: CharacterAnim) -> f32 {
         self.row(anim).duration_secs
+    }
+}
+
+/// Compute the atlas image extent (width, height) that covers every
+/// cell, whether the spec carries per-frame rects (preferred) or
+/// only grid metadata. The atlas must be at least as large as the
+/// underlying PNG so URect coords don't overflow.
+fn atlas_extent(spec: &CharacterSheetSpec) -> (u32, u32) {
+    let mut max_x = 0u32;
+    let mut max_y = 0u32;
+    let mut any_rect = false;
+    for (_, row) in spec.rows.iter() {
+        if let Some(rects) = row.frame_rects.as_ref() {
+            for r in rects.iter().take(row.frame_count) {
+                max_x = max_x.max(r.max.x);
+                max_y = max_y.max(r.max.y);
+                any_rect = true;
+            }
+        }
+    }
+    if any_rect {
+        return (max_x, max_y);
+    }
+    // Grid fallback — same shape as the previous build_atlas extent
+    // math (now informed by AUTHORED row_index, so dropped rows
+    // don't shrink the y-coverage).
+    let max_frames = spec
+        .rows
+        .iter()
+        .map(|(_, row)| row.frame_count)
+        .max()
+        .unwrap_or(0) as u32;
+    let max_row_index_plus_one = spec
+        .rows
+        .iter()
+        .map(|(_, row)| row.row_index)
+        .max()
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    let w = spec.label_width + max_frames * spec.frame_width;
+    let h = spec.y_offset + max_row_index_plus_one * spec.frame_height;
+    (w, h)
+}
+
+/// Shrink a cell by `inset` on every side so bilinear filtering at
+/// the seam can't pull pixels from neighboring cells. Saturating
+/// math keeps a tiny cell from inverting (min > max) on a pathological
+/// inset.
+fn inset_rect(r: URect, inset: u32) -> URect {
+    URect {
+        min: UVec2::new(r.min.x + inset, r.min.y + inset),
+        max: UVec2::new(
+            r.max.x.saturating_sub(inset).max(r.min.x + 1),
+            r.max.y.saturating_sub(inset).max(r.min.y + 1),
+        ),
     }
 }

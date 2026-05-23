@@ -43,6 +43,7 @@ Use this index before refactors or when planning validation. Benchmark candidate
 | LDtk entity insertion does not acquire runtime collision | [`ldtk-runtime-collision-questions.md`](ldtk-runtime-collision-questions.md) |
 | LDtk area-spec `world_x` drifts from the live LDtk; `--replace-existing` silently re-anchors at the stale coord | [`ldtk-area-spec-drift-2026-05-21.md`](ldtk-area-spec-drift-2026-05-21.md) |
 | Sprite generator schema overlays clobber fields from earlier patches | [`sprite-generator-schema-questions.md`](sprite-generator-schema-questions.md) |
+| Atlas builder reinvents addressing math the manifest already encodes (silent `from_name` filter + grid math ignoring inter-frame padding) | [`sprite-atlas-grid-math-vs-authoritative-rects-2026-05-23.md`](sprite-atlas-grid-math-vs-authoritative-rects-2026-05-23.md) |
 | Procedural audio debugging without listening | [`procedural-audio-questions.md`](procedural-audio-questions.md) |
 | Music director module split needs item-complete extraction and re-export-visible helpers | [`music-director-module-split-question-2026-05-11.md`](music-director-module-split-question-2026-05-11.md) |
 

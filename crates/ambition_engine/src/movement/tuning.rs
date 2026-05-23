@@ -77,16 +77,24 @@ pub const PARRY_WINDOW_TIME: f32 = 0.15;
 /// gives a boost; sitting still on the ledge does not" feel:
 /// - 250 ms window matches the existing regrab cooldown so the
 ///   "fresh grab" feel window is symmetric.
-/// - x_gain = 0.65 carries about two-thirds of incoming run speed.
-/// - y_gain = 0.45 keeps recovery boosts noticeable without
-///   catapulting double-jumped recoveries.
+/// - x_gain = 0.85 carries most of the incoming run speed; the
+///   previous 0.65 left too little kick once the cap clipped a
+///   typical 270 px/s approach down to ~175 px/s.
+/// - y_gain = 0.45 — only meaningful for ledge-jump (vertical hop);
+///   climb / roll / attack finish zero this out entirely so they
+///   don't launch the player off the platform they just landed on.
 /// - Caps pin the boost so an extreme dash → ledge approach doesn't
 ///   exit at dash speed; ~jump_speed feels like the right ceiling.
+/// - getup_speedup_gain shortens the climb/roll/attack transition
+///   when momentum was carried, so the animation itself feels
+///   continuous instead of "stop and go." 1.0 = full momentum
+///   roughly halves the transition; 0.0 disables the speedup.
 pub const LEDGE_BOOST_WINDOW: f32 = 0.25;
-pub const LEDGE_BOOST_X_GAIN: f32 = 0.65;
+pub const LEDGE_BOOST_X_GAIN: f32 = 0.85;
 pub const LEDGE_BOOST_Y_GAIN: f32 = 0.45;
-pub const LEDGE_BOOST_X_CAP: f32 = 320.0;
+pub const LEDGE_BOOST_X_CAP: f32 = 420.0;
 pub const LEDGE_BOOST_Y_CAP: f32 = 540.0;
+pub const LEDGE_GETUP_SPEEDUP_GAIN: f32 = 1.0;
 
 /// Tunable momentum-carry parameters for ledge getups.
 ///
@@ -118,6 +126,17 @@ pub struct LedgeMomentumTuning {
     /// catapult the player. Compared against the post-gain magnitude.
     pub x_cap: f32,
     pub y_cap: f32,
+    /// Shortens the climb / roll / getup-attack transition duration
+    /// when momentum was carried into the getup. Full incoming
+    /// momentum (boost weight = 1.0) divides the base duration by
+    /// `1.0 + getup_speedup_gain`, so `gain = 1.0` halves the
+    /// animation; `gain = 0.0` leaves it untouched.
+    ///
+    /// This is the fix for "the getup animation doesn't feel any
+    /// faster, you stop and are sluggish, and then the boost doesn't
+    /// compensate for that initial sluggish feeling" — the boost is
+    /// applied across the duration, not just at the end.
+    pub getup_speedup_gain: f32,
 }
 
 impl Default for LedgeMomentumTuning {
@@ -133,6 +152,7 @@ impl LedgeMomentumTuning {
         y_gain: LEDGE_BOOST_Y_GAIN,
         x_cap: LEDGE_BOOST_X_CAP,
         y_cap: LEDGE_BOOST_Y_CAP,
+        getup_speedup_gain: LEDGE_GETUP_SPEEDUP_GAIN,
     };
 
     /// Boost mechanic fully disabled. Set
@@ -144,6 +164,7 @@ impl LedgeMomentumTuning {
         y_gain: 0.0,
         x_cap: 0.0,
         y_cap: 0.0,
+        getup_speedup_gain: 0.0,
     };
 }
 

@@ -143,6 +143,25 @@ pub struct Player {
     /// wall contact, water, and gravity instead of being corrected by a later
     /// sandbox system.
     pub ledge_grab: Option<crate::ledge_grab::LedgeGrabState>,
+    /// Most recent **airborne free-flight velocity** — `player.vel`
+    /// from the last frame the player was airborne AND not wall-
+    /// clinging AND not climbing. The ledge-grab momentum-carry
+    /// boost reads this instead of `player.vel` because by the time
+    /// `try_start_ledge_grab` fires, `sweep_player_x` has zeroed
+    /// `vel.x` on wall collision and `apply_wall_abilities` has
+    /// clamped `vel.y` to `wall_slide_speed` — both shred the
+    /// approach velocity the player actually carried in. Refreshed
+    /// by `update_simulation_timers`; persists across wall-cling
+    /// frames so a brief slide before the grab doesn't lose the
+    /// kick.
+    pub pre_wall_vel: Vec2,
+    /// Seconds since `pre_wall_vel` was last refreshed. Ticks up
+    /// while the player is wall-clinging or grounded; resets to 0
+    /// during airborne free flight. The grab path treats
+    /// `pre_wall_vel` as stale and falls back to `player.vel` once
+    /// this exceeds the boost window, so a player who clung the
+    /// wall for ages doesn't claim a fossil momentum reading.
+    pub pre_wall_vel_age: f32,
     /// Cooldown blocking a fresh ledge grab right after the player
     /// voluntarily released a ledge (drop / ledge-jump / ledge-release).
     /// Without this, the auto-snap-on-fall path in `try_start_ledge_grab`
@@ -223,6 +242,8 @@ impl Player {
             water_contact: None,
             climbable_contact: None,
             ledge_grab: None,
+            pre_wall_vel: Vec2::ZERO,
+            pre_wall_vel_age: 0.0,
             ledge_release_cooldown: 0.0,
             dodge_roll_timer: 0.0,
             dodge_roll_cooldown: 0.0,

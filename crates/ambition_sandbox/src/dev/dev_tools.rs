@@ -694,6 +694,10 @@ pub struct EditableMovementTuning {
     pub ledge_boost_y_gain: f32,
     pub ledge_boost_x_cap: f32,
     pub ledge_boost_y_cap: f32,
+    /// Shortens the climb / roll / attack transition when momentum
+    /// was carried. 1.0 = full momentum roughly halves the duration.
+    /// 0.0 disables the speedup.
+    pub ledge_boost_getup_speedup_gain: f32,
 }
 
 impl EditableMovementTuning {
@@ -747,6 +751,7 @@ impl EditableMovementTuning {
                 y_gain: self.ledge_boost_y_gain,
                 x_cap: self.ledge_boost_x_cap,
                 y_cap: self.ledge_boost_y_cap,
+                getup_speedup_gain: self.ledge_boost_getup_speedup_gain,
             },
         }
     }
@@ -802,6 +807,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             ledge_boost_y_gain: value.ledge_momentum.y_gain,
             ledge_boost_x_cap: value.ledge_momentum.x_cap,
             ledge_boost_y_cap: value.ledge_momentum.y_cap,
+            ledge_boost_getup_speedup_gain: value.ledge_momentum.getup_speedup_gain,
         }
     }
 }

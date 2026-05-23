@@ -385,7 +385,15 @@ pub fn tick_active_ledge_grab(
 
     if state.climbing {
         state.climb_elapsed += dt;
-        let duration = state.getup_duration();
+        // Speed up the transition when momentum was carried. Without
+        // this scale, the climb takes a full 0.24 s of dead-zero
+        // velocity which the player feels as "stop, sit, go" — the
+        // post-transition velocity bump can't compensate for the
+        // sluggish middle. Scaling the duration squeezes the
+        // animation so the boost arrives sooner AND the gap is
+        // shorter.
+        let duration_scale = ledge_getup_duration_scale(state, &tuning);
+        let duration = state.getup_duration() * duration_scale;
         let progress = (state.climb_elapsed / duration).clamp(0.0, 1.0);
         player.pos = getup_position(state, progress);
         player.vel = Vec2::ZERO;
@@ -396,12 +404,16 @@ pub fn tick_active_ledge_grab(
 
         if progress >= 1.0 {
             player.pos = getup_end_position(state);
-            // Carry incoming momentum into the exit velocity so a
-            // moving-into-the-platform grab → quick climb / roll /
-            // attack chains keep the player's run momentum. Computed
-            // from the grab-to-initiation elapsed time so a player
-            // who lingered before acting gets no boost.
-            player.vel = ledge_boost_for_state(state, &tuning);
+            // Carry incoming HORIZONTAL momentum into the exit
+            // velocity so a moving-into-the-platform grab → quick
+            // climb / roll / attack chains keep the player's run
+            // momentum. Y component dropped on purpose — the player
+            // just got placed standing on the platform; a residual
+            // upward boost would relaunch them off it. Ledge-jump
+            // keeps both components because that's a vertical hop
+            // and the y carry IS the recovery boost.
+            let boost = ledge_boost_for_state(state, &tuning);
+            player.vel = Vec2::new(boost.x, 0.0);
             player.on_ground = true;
             player.wall_clinging = false;
             player.wall_climbing = false;
@@ -671,6 +683,28 @@ pub fn ledge_boost_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> 
     )
 }
 
+/// The boost weight (0..1) at the time a getup was initiated. Used
+/// to scale both the launch velocity AND the transition duration —
+/// so a high-momentum getup runs faster AND exits faster, rather
+/// than just teleporting fast at the end of a frozen animation.
+pub fn ledge_boost_weight_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> f32 {
+    let cfg = tuning.ledge_momentum;
+    if cfg.window <= 0.0 {
+        return 0.0;
+    }
+    let elapsed_at_initiation = (state.elapsed - state.climb_elapsed).max(0.0);
+    (1.0 - (elapsed_at_initiation / cfg.window).clamp(0.0, 1.0)).max(0.0)
+}
+
+/// Scale a getup transition duration by the carried-momentum weight.
+/// `duration_scale = 1.0 / (1.0 + weight * gain)`. With `gain = 1.0`
+/// and full weight, a 0.24-s climb becomes ~0.12 s — exactly the
+/// "no stop-and-go" feel a quick getup should have.
+pub fn ledge_getup_duration_scale(state: LedgeGrabState, tuning: &MovementTuning) -> f32 {
+    let weight = ledge_boost_weight_for_state(state, tuning);
+    1.0 / (1.0 + weight * tuning.ledge_momentum.getup_speedup_gain)
+}
+
 pub fn try_start_ledge_grab(
     world: &World,
     player: &mut Player,
@@ -708,11 +742,21 @@ pub fn try_start_ledge_grab(
     let Some(contact) = contact else {
         return false;
     };
-    // Capture the incoming velocity BEFORE we zero it. Stashed on the
-    // ledge state so an early getup option can claim the boost. The
-    // grab still cleanly zeroes vel for the hang (animation stability,
-    // collision sanity), but the data isn't lost.
-    let momentum_at_grab = player.vel;
+    // Capture the incoming velocity for the momentum-carry boost.
+    // Prefer the pre-wall-resolution snapshot when it's fresh —
+    // `player.vel` at this point has been mangled by `sweep_player_x`
+    // (wall collision zero) and `apply_wall_abilities` (wall-slide
+    // clamp), so the actual approach velocity is gone. `pre_wall_vel`
+    // preserves the last airborne-free sample; `pre_wall_vel_age`
+    // tracks how recently it was refreshed so a player who clung
+    // the wall for ages can't claim a stale reading.
+    let pre_wall_fresh = player.pre_wall_vel_age <= LEDGE_REGRAB_COOLDOWN;
+    let momentum_at_grab =
+        if pre_wall_fresh && player.pre_wall_vel.length_squared() > player.vel.length_squared() {
+            player.pre_wall_vel
+        } else {
+            player.vel
+        };
     player.pos = contact.anchor;
     player.vel = Vec2::ZERO;
     player.facing = into_platform_axis(contact);
@@ -1653,6 +1697,166 @@ mod tests {
             player.vel.x > 0.0,
             "expected positive x exit velocity from carry, got {}",
             player.vel.x,
+        );
+    }
+
+    /// Regression for Jon's "horizontal getup shouldn't be adding
+    /// vertical boost" — the player just got placed standing on the
+    /// platform; a residual upward vel.y would relaunch them off
+    /// it. Climb / roll / attack finish must zero the Y component
+    /// of the boost; ledge-jump (a vertical hop) still keeps both.
+    #[test]
+    fn climb_finish_does_not_carry_vertical_boost() {
+        let contact = rightward_ledge_contact();
+        // Strong upward incoming momentum (e.g. recovery via double-jump).
+        let momentum = Vec2::new(220.0, -500.0);
+        let mut player = make_hanging_player_with_momentum(contact, momentum);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = MovementTuning::default();
+        // Start + complete the climb in two big ticks.
+        let _ = tick_active_ledge_grab(
+            &mut player,
+            InputState {
+                axis_y: -1.0,
+                ..InputState::default()
+            },
+            0.001,
+            tuning,
+            &mut events,
+        );
+        let _ = tick_active_ledge_grab(
+            &mut player,
+            InputState::default(),
+            LEDGE_CLIMB_TIME + 0.05,
+            tuning,
+            &mut events,
+        );
+        assert!(player.ledge_grab.is_none());
+        assert!(
+            player.vel.x > 0.0,
+            "horizontal carry should still apply, got vx={}",
+            player.vel.x,
+        );
+        assert_eq!(
+            player.vel.y, 0.0,
+            "climb-finish must NOT launch the player upward off the platform; got vy={}",
+            player.vel.y,
+        );
+    }
+
+    /// The boost mechanic now ALSO shortens the getup transition
+    /// when momentum was carried. Without this, a 0.24-s climb of
+    /// dead-zero velocity feels sluggish — the post-transition kick
+    /// can't compensate. Tests that a fresh-momentum getup completes
+    /// in noticeably less time than a baseline getup with the
+    /// speedup disabled.
+    #[test]
+    fn getup_transition_completes_faster_with_momentum_carry() {
+        let contact = rightward_ledge_contact();
+        let momentum = Vec2::new(220.0, -120.0);
+        let mut boosted = make_hanging_player_with_momentum(contact, momentum);
+        let mut baseline = make_hanging_player_with_momentum(contact, momentum);
+        let tuning = MovementTuning::default();
+        // Disable just the speedup on the baseline so the comparison
+        // isolates THIS knob.
+        let mut baseline_tuning = tuning;
+        baseline_tuning.ledge_momentum.getup_speedup_gain = 0.0;
+        let input = InputState {
+            axis_y: -1.0,
+            ..InputState::default()
+        };
+        // Start both climbs.
+        let mut events = crate::movement::FrameEvents::default();
+        let _ = tick_active_ledge_grab(&mut boosted, input, 0.001, tuning, &mut events);
+        let _ = tick_active_ledge_grab(&mut baseline, input, 0.001, baseline_tuning, &mut events);
+        // Step both forward by exactly the BASELINE climb time. The
+        // baseline should be ~done; the boosted player should be
+        // OFF the ledge already (we're past their shortened duration).
+        let _ = tick_active_ledge_grab(
+            &mut boosted,
+            InputState::default(),
+            LEDGE_CLIMB_TIME * 0.6,
+            tuning,
+            &mut events,
+        );
+        let _ = tick_active_ledge_grab(
+            &mut baseline,
+            InputState::default(),
+            LEDGE_CLIMB_TIME * 0.6,
+            baseline_tuning,
+            &mut events,
+        );
+        assert!(
+            boosted.ledge_grab.is_none(),
+            "boosted climb should have completed by 60% of base duration"
+        );
+        assert!(
+            baseline.ledge_grab.is_some(),
+            "baseline climb should still be in progress at 60% of base duration"
+        );
+    }
+
+    /// `try_start_ledge_grab` now prefers `pre_wall_vel` over
+    /// `player.vel` when the snapshot is fresh — because wall-cling
+    /// and wall-collision shred the actual approach velocity by the
+    /// time the grab fires. This was Jon's "I don't feel the boost
+    /// on jump option at all, even with gain > 1 and caps in
+    /// thousands" bug: vel was 0 at capture time, so any gain
+    /// multiplied to zero.
+    #[test]
+    fn grab_prefers_pre_wall_vel_when_fresh() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        player.abilities.ledge_grab = true;
+        // Simulate "wall-cling killed our approach velocity": current
+        // vel.x is zero (collision zeroed it), but pre_wall_vel
+        // still has the approach momentum from a frame ago.
+        player.vel = Vec2::new(0.0, 50.0);
+        player.pre_wall_vel = Vec2::new(260.0, -180.0);
+        player.pre_wall_vel_age = 0.05; // fresh
+        player.wall_clinging = true;
+        player.wall_normal_x = -1.0;
+        let mut events = crate::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
+        assert!(latched);
+        let state = player.ledge_grab.unwrap();
+        assert!(
+            (state.momentum_at_grab - Vec2::new(260.0, -180.0)).length() < 0.01,
+            "grab should snapshot the pre-wall vel, got {:?}",
+            state.momentum_at_grab,
+        );
+    }
+
+    /// Once `pre_wall_vel_age` exceeds the freshness threshold, the
+    /// grab falls back to `player.vel` so a player who clung the
+    /// wall for ages can't claim a fossil approach.
+    #[test]
+    fn grab_falls_back_to_current_vel_when_pre_wall_stale() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        player.abilities.ledge_grab = true;
+        player.vel = Vec2::new(0.0, 50.0);
+        player.pre_wall_vel = Vec2::new(260.0, -180.0);
+        player.pre_wall_vel_age = LEDGE_REGRAB_COOLDOWN * 4.0; // very stale
+        player.wall_clinging = true;
+        player.wall_normal_x = -1.0;
+        let mut events = crate::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
+        assert!(latched);
+        let state = player.ledge_grab.unwrap();
+        // Should fall back to current vel, NOT the stale pre_wall.
+        assert!(
+            (state.momentum_at_grab - Vec2::new(0.0, 50.0)).length() < 0.01,
+            "stale pre_wall must be discarded; got {:?}",
+            state.momentum_at_grab,
         );
     }
 

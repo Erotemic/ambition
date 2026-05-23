@@ -107,6 +107,17 @@ pub(super) fn integrate_velocity(
     // establishes wall contact for wall verbs without letting high-speed dash
     // or future knockback skip through a thin wall.
     player.on_wall = false;
+    // Snapshot the player's intended velocity BEFORE the X sweep
+    // collides them against any wall and BEFORE `apply_wall_abilities`
+    // clamps `vel.y` to `wall_slide_speed`. This is the "approach
+    // velocity" the ledge-grab momentum carry wants — by the time
+    // `try_start_ledge_grab` reads `player.vel` at the end of this
+    // function, both `vel.x` (wall collision zero) and `vel.y`
+    // (wall-slide clamp) have been mangled. Committed back into
+    // `pre_wall_vel` further down only if the frame ended airborne
+    // AND free (no wall-cling, no ground), so wall-clinging frames
+    // don't overwrite the last good airborne sample.
+    let pre_wall_snapshot = player.vel;
     player.wall_normal_x = 0.0;
     player.wall_climbing = false;
     let was_clinging = player.wall_clinging;
@@ -139,6 +150,16 @@ pub(super) fn integrate_velocity(
             player.rebound_cooldown = 0.18;
             events.op(player, MovementOp::Rebound);
         }
+    }
+
+    // End-of-integration: if the frame settled into airborne free
+    // flight (no ground, no wall-cling), commit the pre-wall snapshot
+    // as the most recent valid `pre_wall_vel`. The ledge-grab
+    // momentum-carry path reads this so wall-cling and wall-collision
+    // can't shred the approach velocity before the grab captures it.
+    if !player.on_ground && !player.wall_clinging {
+        player.pre_wall_vel = pre_wall_snapshot;
+        player.pre_wall_vel_age = 0.0;
     }
 }
 

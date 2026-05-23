@@ -96,7 +96,19 @@ sockets, and validator-friendly pose data.
 
 ## Package standards
 
-- Keep target code in `ambition_sprite2d_renderer/targets/`.
+- Keep target code under `ambition_sprite2d_renderer/targets/<category>/`
+  where category is one of `characters/`, `props/`, `tiles/`, `icons/`.
+  The registry walks these dirs at import time; see
+  [`target_registry.py`](../ambition_sprite2d_renderer/target_registry.py)
+  for the discovery contract and the README's "Adding a new sprite"
+  section for the practical walkthrough.
+- Generic helpers (drawing primitives, the `build_sheet` pipeline,
+  RON emitters) live at the package root —
+  [`tackon_sheet.py`](../ambition_sprite2d_renderer/tackon_sheet.py) and
+  [`common_draw.py`](../ambition_sprite2d_renderer/common_draw.py).
+- Character-family helpers (shared by several characters in a family,
+  e.g. pirates) live under `targets/characters/` with a leading
+  underscore so discovery skips them — see `_pirate_common.py`.
 - Keep historical prototypes in `ambition_sprite2d_renderer/legacy/`.
 - Keep the adapter API small: `animations`, `sample_spec`, `render_frame`.
 - Keep YAML jobs human-editable and deterministic.

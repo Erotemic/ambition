@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ambition_sprite2d_renderer.targets import burning_flying_shark
+from ambition_sprite2d_renderer.targets.characters import burning_flying_shark
 
 
 def test_burning_flying_shark_render_smoke(tmp_path: Path):

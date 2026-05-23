@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from ambition_sprite2d_renderer.targets import intro_lab_tileset
+from ambition_sprite2d_renderer.targets.tiles import intro_lab_tileset
 
 
 def test_intro_lab_tileset_render_smoke(tmp_path: Path):

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ambition_sprite2d_renderer.targets import intro_cart
+from ambition_sprite2d_renderer.targets.props import intro_cart
 
 
 def test_intro_cart_render_smoke(tmp_path: Path):

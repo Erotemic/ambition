@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ambition_sprite2d_renderer.targets import interdimensional_gate
+from ambition_sprite2d_renderer.targets.props import interdimensional_gate
 
 
 def test_interdimensional_gate_render_smoke(tmp_path: Path):

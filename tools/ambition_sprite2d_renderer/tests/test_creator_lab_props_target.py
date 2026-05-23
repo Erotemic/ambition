@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from ambition_sprite2d_renderer.targets import creator_lab_props
+from ambition_sprite2d_renderer.targets.props import creator_lab_props
 
 
 def test_creator_lab_props_render(tmp_path: Path):

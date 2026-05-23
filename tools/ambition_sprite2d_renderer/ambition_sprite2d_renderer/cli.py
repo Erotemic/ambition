@@ -35,7 +35,6 @@ from __future__ import annotations
 import argparse
 import shutil
 import sys
-from importlib import import_module
 from pathlib import Path
 from typing import List
 
@@ -48,8 +47,9 @@ from .item_icons import write_item_icons
 from .faction_lineup import write_faction_lineup
 from .sheet import write_spritesheet
 from .target_registry import (
+    CATEGORIES,
     DiscoveryReport,
-    default_sheet_files,
+    TackonTarget,
     discover_tackon_targets,
 )
 
@@ -77,13 +77,14 @@ DEFAULT_FACTION_CONFIG = DEFAULT_CONFIG_DIR / "factions" / "music_factions.yaml"
 
 # ---- Tack-on targets ----------------------------------------------------------
 #
-# `targets/*.py` is auto-discovered at import time (see
+# `targets/<category>/...` is auto-discovered at import time (see
 # `target_registry.discover_tackon_targets`). Adding a new tack-on is
-# just `targets/<name>.py` exposing a `render()` function — no edit to
-# this file is required.
+# just dropping a `.py` file (or a package directory with `__init__.py`)
+# into the right category subdir and exposing a `render()` function —
+# no edit to this file is required.
 
 _TACKON_REPORT: DiscoveryReport = discover_tackon_targets()
-_TACKON_TARGETS: dict[str, str] = _TACKON_REPORT.targets
+_TACKON_TARGETS: dict[str, TackonTarget] = _TACKON_REPORT.targets
 
 
 # Review configs whose generated spritesheets are loaded at runtime via
@@ -121,25 +122,11 @@ RUNTIME_REVIEW_NPCS: tuple[str, ...] = (
 )
 
 
-def _get_tackon_target(name: str):
+def _get_tackon(name: str) -> TackonTarget:
     try:
-        mod_path = _TACKON_TARGETS[name]
+        return _TACKON_TARGETS[name]
     except KeyError as ex:
         raise KeyError(f"unknown tack-on target: {name}") from ex
-    return import_module(mod_path)
-
-
-def _tackon_sheet_files(name: str) -> list[str]:
-    """Files the installer copies for ``name``.
-
-    Targets may declare ``SHEET_FILES`` explicitly; otherwise we fall
-    back to the convention used by ``pirates.common.build_sheet``.
-    """
-    mod = _get_tackon_target(name)
-    declared = getattr(mod, "SHEET_FILES", None)
-    if declared is not None:
-        return list(declared)
-    return default_sheet_files(name)
 
 
 def sandbox_sprites_dir() -> Path:
@@ -281,8 +268,16 @@ def _cmd_list_targets(args: argparse.Namespace) -> int:
         adapter = get_adapter(target)
         print(f"  {target}: {', '.join(adapter.default_animations())}")
     print("# tack-on targets (render/install/render-publish):")
-    for target in sorted(_TACKON_TARGETS):
-        print(f"  {target}")
+    by_category: dict[str, list[str]] = {cat: [] for cat in CATEGORIES}
+    for name, tgt in _TACKON_TARGETS.items():
+        by_category.setdefault(tgt.category, []).append(name)
+    for category in CATEGORIES:
+        names = sorted(by_category.get(category, []))
+        if not names:
+            continue
+        print(f"  [{category}]")
+        for name in names:
+            print(f"    {name}")
     if _TACKON_REPORT.warnings:
         print("# warnings (files in targets/ that don't conform to the tack-on API):", file=sys.stderr)
         for line in _TACKON_REPORT.warnings:
@@ -311,30 +306,31 @@ def _cmd_single(args: argparse.Namespace) -> int:
 # ---- Tack-on commands ---------------------------------------------------------
 
 def _render_tackon(target_name: str) -> List[Path]:
-    target = _get_tackon_target(target_name)
+    target = _get_tackon(target_name)
     out_dir = generated_dir(target_name)
-    paths = target.render(out_dir)
+    paths = list(target.render(out_dir))
     print_paths(paths)
     return paths
 
 
 def _install_tackon(target_name: str, dest_root: Path) -> List[Path]:
-    target = _get_tackon_target(target_name)
+    target = _get_tackon(target_name)
     out_dir = generated_dir(target_name)
     # Targets that need to install into a subdirectory (e.g. the
     # mockingbird boss, which ships a `mockingbird_boss/` folder with
-    # a manifest + per-part frames) expose a custom `install(render_dir,
-    # dest_root)` function. Falling back to the default SHEET_FILES
-    # copy when absent matches the pre-refactor behavior.
-    if hasattr(target, "install"):
+    # a manifest + per-part frames) expose a custom
+    # `install(render_dir, dest_root)` function. Falling back to the
+    # default SHEET_FILES copy when absent matches the historical
+    # behavior.
+    if target.install is not None:
         copied = list(target.install(out_dir, dest_root))
         print_paths(copied)
         return copied
 
     dest_root.mkdir(parents=True, exist_ok=True)
-    copied: List[Path] = []
+    copied = []
     missing: List[str] = []
-    for fname in _tackon_sheet_files(target_name):
+    for fname in target.sheet_files:
         src = out_dir / fname
         if not src.exists():
             missing.append(fname)

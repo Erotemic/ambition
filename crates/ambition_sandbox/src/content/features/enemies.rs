@@ -389,17 +389,22 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             default_size: Some(ae::Vec2::new(108.0, 96.0)),
         },
         PirateHeavy => EnemyArchetypeSpec {
-            // Slow, tanky bruiser. Bigger HP + damage than the
-            // baseline pirate raider, smaller aggro radius (commits
-            // to swings rather than chasing the player across the
-            // arena). Cleaver swing connects from further out.
+            // Cove crew member. Peaceful BY DEFAULT (aggro 0,
+            // attack range 0) — the heavy paces back and forth at
+            // patrol speed but never aggros, never swings, never
+            // deals contact damage. Player can walk past safely.
+            // Provoking-into-hostility is future work; right now
+            // the archetype reads as "tanky bruiser silhouette,
+            // crew disposition" until/unless we add a turn-hostile
+            // event hook. The aerial PirateHeavyOnShark variant is
+            // a separate archetype and keeps full aggression.
             max_health: 10,
             rider_max_health: None,
             patrol_speed: 75.0,
             chase_speed: 130.0,
-            aggro_radius: 380.0,
-            attack_range: 190.0,
-            contact_strength: 1.20,
+            aggro_radius: 0.0,
+            attack_range: 0.0,
+            contact_strength: 0.0,
             damage_amount: 2,
             is_aerial: false,
             is_sandbag: false,
@@ -573,6 +578,19 @@ impl EnemyArchetype {
     /// are larger because the shark sprite is 192×128.
     pub(super) fn default_size(self) -> Option<ae::Vec2> {
         self.spec().default_size
+    }
+
+    /// True when this archetype is hostile by default — initiates
+    /// attacks, deals contact damage, and tracks the player. False
+    /// for "peaceful patrol" archetypes (PuppySlug, PirateHeavy)
+    /// that exist as ambient threats / cove crew rather than active
+    /// combatants. The gate is applied uniformly in the EFFECTS
+    /// stage (no melee windups) and in `body_damage_aabb` (no
+    /// touch damage), so a peaceful patroller can pace around the
+    /// player without harming them.
+    pub fn attacks_player(self) -> bool {
+        use EnemyArchetype::*;
+        !matches!(self, PuppySlug | PirateHeavy)
     }
 
     /// Default respawn cadence for this archetype. Grunts refresh
@@ -1098,20 +1116,16 @@ impl EnemyRuntime {
         }
 
         // EFFECTS STAGE — translate the frame's attack intents into
-        // wind-up timers / projectile spawns. Same gating
-        // (cooldowns, archetype eligibility) as before.
-        //
-        // Surface walkers (PuppySlug) have no telegraphed attack —
-        // contact with the body is the only damage source.
-        // `MeleeContact` choreography fires `Melee` actions whenever
-        // the slug is near the player, which would otherwise leak
-        // through to `attack_windup_timer` and produce a forward
-        // hit-volume the player could be struck by. Skipping the
-        // EFFECTS gate is the simplest way to express "this
-        // archetype doesn't initiate attacks."
+        // wind-up timers / projectile spawns. Archetypes that don't
+        // attack by default (`PuppySlug`, `PirateHeavy`) skip this
+        // entirely so the `MeleeContact` choreography's reflexive
+        // "swing when player is close" can't leak through into a
+        // real hit-volume. The aerial PirateHeavyOnShark variant
+        // is a separate archetype with `attacks_player() == true`,
+        // so it still fires projectiles + recoil.
         if frame.melee_pressed
             && !self.archetype.is_sandbag()
-            && !is_surface_walker
+            && self.archetype.attacks_player()
             && self.attack_cooldown <= 0.0
         {
             self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
@@ -1529,16 +1543,33 @@ impl EnemyRuntime {
     /// player simply for being below an orbiting shark; its damage
     /// comes through projectile volleys.
     pub fn body_damage_aabb(&self) -> Option<ae::Aabb> {
+        // Sandbags are training dummies, not threats. The fused
+        // `*OnShark` actors damage through projectile volleys, not
+        // body contact (orbiting sharks would otherwise punish the
+        // player just for standing under one). Peaceful patrollers
+        // (PuppySlug & PirateHeavy by default — see
+        // `EnemyArchetype::attacks_player`) opt out of touch damage
+        // entirely so the player can walk past or through them
+        // without taking hits. PuppySlug is an intentional
+        // exception to that rule — its whole gimmick is "you take
+        // damage only on physical contact," so we re-enable its
+        // body hitbox below.
         if self.archetype.is_sandbag()
             || matches!(
                 self.archetype,
                 EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
             )
         {
-            None
-        } else {
-            Some(self.aabb())
+            return None;
         }
+        // PuppySlug: contact damage stays on (its only damage
+        // source). PirateHeavy: contact damage off (cove crew).
+        if !self.archetype.attacks_player()
+            && self.archetype != EnemyArchetype::PuppySlug
+        {
+            return None;
+        }
+        Some(self.aabb())
     }
 
     pub(super) fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {

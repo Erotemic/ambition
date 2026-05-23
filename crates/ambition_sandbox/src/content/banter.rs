@@ -69,6 +69,87 @@ impl CombatBanterRegistry {
     }
 }
 
+/// Install pirate-cove combat barks for every pirate variant
+/// (Admiral / Raider / Quartermaster / Lookout / Navigator and the
+/// heavy bruisers Broadside Bess / Iron Mary / Salt Annet). The
+/// peaceful crew use these lines when they go hostile via
+/// `hostile_from_npc`; the heavies (already `EnemyRuntime`) use
+/// them when the player strikes them. Keep flavor consistent with
+/// the matching arms in `npc_hit_barks` / `npc_hostile_bark` — the
+/// two paths fire on different actor types but should sound like
+/// the same character.
+pub fn install_pirate_banter(registry: &mut CombatBanterRegistry) {
+    registry.set_hit_barks(
+        "Pirate Admiral",
+        vec![
+            "Belay that, ye barnacle!",
+            "Mind the epaulettes, scallywag!",
+            "Avast — that be admiralty property!",
+            "I'll keelhaul yer cooldowns!",
+        ],
+    );
+    registry.set_hit_barks(
+        "Pirate Raider",
+        vec![
+            "Yarrrgh!",
+            "Quit pokin' me loot hand!",
+            "I'll swab the floor with ye!",
+            "Yo-ho-NO, ye landlubber!",
+        ],
+    );
+    registry.set_hit_barks(
+        "Pirate Quartermaster",
+        vec![
+            "Inventory says NO, ye dock-rat!",
+            "Yarr! Every coin's a-counted!",
+            "Tally that on yer hide, swabbie!",
+        ],
+    );
+    registry.set_hit_barks(
+        "Pirate Lookout",
+        vec![
+            "Land ho — an' I see YE comin'!",
+            "Spyglass to me eye, boots to yer head!",
+            "Crow's nest don't sit empty, savvy?",
+        ],
+    );
+    registry.set_hit_barks(
+        "Pirate Navigator",
+        vec![
+            "Wrong heading, ye chartless dog!",
+            "I'll plot ye a course straight to Davy Jones!",
+            "Compass says: punch back!",
+        ],
+    );
+    registry.set_hit_barks(
+        "Broadside Bess",
+        vec![
+            "Mind me cleaver, wee skipper!",
+            "Aye, that smarts — but ye're worse off!",
+            "Broadside Bess don't bend easy!",
+            "Yarrrr! Take that an' a barrel more!",
+        ],
+    );
+    registry.set_hit_barks(
+        "Iron Mary",
+        vec![
+            "Iron don't flinch, ye gull!",
+            "Pry harder, swab — I'll rust ye flat!",
+            "Yo-ho, an' a clout to the noggin!",
+            "Try me on a calmer sea, landlubber!",
+        ],
+    );
+    registry.set_hit_barks(
+        "Salt Annet",
+        vec![
+            "Salt in the eye, blood in the bilge!",
+            "Yargh! Watch yer manners on me deck!",
+            "Wee skipper thinks he's bold, does he?",
+            "Annet bites back, every time!",
+        ],
+    );
+}
+
 fn pick_line(
     table: &HashMap<String, Vec<&'static str>>,
     name: &str,

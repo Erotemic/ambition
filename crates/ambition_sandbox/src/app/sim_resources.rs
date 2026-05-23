@@ -138,6 +138,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource({
                 let mut reg = crate::content::banter::CombatBanterRegistry::default();
                 crate::boss_encounter::install_boss_banter(&mut reg);
+                crate::content::banter::install_pirate_banter(&mut reg);
                 reg
             })
             // World-clock dt mirror — `WorldTime::scaled_dt` is the

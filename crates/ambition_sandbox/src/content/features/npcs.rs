@@ -395,18 +395,59 @@ fn npc_hit_barks(key: &str, name: &str) -> &'static [&'static str] {
         || name.contains("admiral")
     {
         &[
-            "Mind the epaulettes.",
-            "Avast, that's admiralty property.",
-            "I'll keelhaul your cooldowns.",
+            "Belay that, ye barnacle!",
+            "Mind the epaulettes, scallywag!",
+            "Avast — that be admiralty property!",
+            "I'll keelhaul yer cooldowns!",
         ]
     } else if key.contains("pirate_raider")
         || name.contains("pirate raider")
         || name.contains("raider")
     {
         &[
-            "Yarrg!",
+            "Yarrrgh!",
             "Quit pokin' me loot hand!",
             "I'll swab the floor with ye!",
+            "Yo-ho-NO, ye landlubber!",
+        ]
+    } else if key.contains("pirate_lookout")
+        || name.contains("pirate lookout")
+        || name.contains("lookout")
+    {
+        &[
+            "Land ho — an' I see YE comin'!",
+            "Spyglass to me eye, boots to yer head!",
+            "Crow's nest don't sit empty, savvy?",
+        ]
+    } else if key.contains("pirate_navigator")
+        || name.contains("pirate navigator")
+        || name.contains("navigator")
+    {
+        &[
+            "Wrong heading, ye chartless dog!",
+            "I'll plot ye a course straight to Davy Jones!",
+            "Compass says: punch back!",
+        ]
+    } else if key.contains("broadside_bess") || name.contains("broadside bess") || name.contains("bess") {
+        &[
+            "Mind me cleaver, wee skipper!",
+            "Aye, that smarts — but ye're worse off!",
+            "Broadside Bess don't bend easy!",
+            "Yarrrr! Take that an' a barrel more!",
+        ]
+    } else if key.contains("iron_mary") || name.contains("iron mary") {
+        &[
+            "Iron don't flinch, ye gull!",
+            "Pry harder, swab — I'll rust ye flat!",
+            "Yo-ho, an' a clout to the noggin!",
+            "Try me on a calmer sea, landlubber!",
+        ]
+    } else if key.contains("salt_annet") || name.contains("salt annet") || name.contains("annet") {
+        &[
+            "Salt in the eye, blood in the bilge!",
+            "Yargh! Watch yer manners on me deck!",
+            "Wee skipper thinks he's bold, does he?",
+            "Annet bites back, every time!",
         ]
     } else if key.contains("ninja_leader") || name.contains("oni leader") || name.contains("leader")
     {
@@ -422,10 +463,11 @@ fn npc_hit_barks(key: &str, name: &str) -> &'static [&'static str] {
             "Now we duel.",
         ]
     } else if key.contains("quartermaster") || name.contains("quartermaster") {
+        // Pirate quartermaster lives in the cove — talk like one.
         &[
-            "Inventory says no.",
-            "Cut it out.",
-            "You're paying replacement cost.",
+            "Inventory says NO, ye dock-rat!",
+            "Yarr! Every coin's a-counted!",
+            "Tally that on yer hide, swabbie!",
         ]
     } else if key.contains("guard") || name.contains("guard") {
         &["Hey.", "Last warning.", "That's it!"]
@@ -463,14 +505,33 @@ fn npc_hostile_bark(key: &str, name: &str) -> &'static str {
         || name.contains("pirate raider")
         || name.contains("raider")
     {
-        "Board 'em!"
+        "Board 'em, lads — yo-ho!"
+    } else if key.contains("pirate_lookout")
+        || name.contains("pirate lookout")
+        || name.contains("lookout")
+    {
+        "Sound the alarm — all hands!"
+    } else if key.contains("pirate_navigator")
+        || name.contains("pirate navigator")
+        || name.contains("navigator")
+    {
+        "Heading set: yer skull!"
+    } else if key.contains("broadside_bess")
+        || name.contains("broadside bess")
+        || name.contains("bess")
+    {
+        "Cleaver's thirsty — yarrrgh!"
+    } else if key.contains("iron_mary") || name.contains("iron mary") {
+        "Iron Mary breaks ye in half!"
+    } else if key.contains("salt_annet") || name.contains("salt annet") || name.contains("annet") {
+        "Wee skipper picked the wrong deck!"
     } else if key.contains("ninja_leader") || name.contains("oni leader") || name.contains("leader")
     {
         "Silence them."
     } else if key.contains("ninja_duelist") || name.contains("duelist") {
         "Steel decides."
     } else if key.contains("quartermaster") || name.contains("quartermaster") {
-        "You owe me."
+        "Pay the toll in teeth, swab!"
     } else {
         // Generic shout for unnamed mobs (e.g. "guard"). Each named
         // archetype above has its own beat; everyone else gets the

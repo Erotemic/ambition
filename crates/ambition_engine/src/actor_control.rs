@@ -85,6 +85,37 @@ pub struct ActorControlFrame {
     /// Brain wants to fire a projectile this tick. `Some` carries the
     /// launch direction + speed; `None` is "no shot".
     pub fire: Option<ActorFireRequest>,
+    /// Direction-of-attack for melee. Zero = "use the actor's current
+    /// facing". A non-zero vector lets the ActionSet pick between
+    /// directional variants (up-tilt, down-air, back-air, …). Brains
+    /// that don't care about directional melee leave this zero.
+    pub attack_axis: Vec2,
+    /// Rising edge: brain wants to jump this tick.
+    pub jump_pressed: bool,
+    /// Sustain: jump button is currently held. Used by variable-
+    /// height jump integration to keep applying upward force while
+    /// the button is held during the rising phase.
+    pub jump_held: bool,
+    /// Falling edge: jump button was released this tick. Some
+    /// integrations cap upward velocity on release to make short
+    /// taps feel responsive.
+    pub jump_released: bool,
+    /// Rising edge: brain wants to dash this tick. The simulation
+    /// half handles cooldowns and direction selection.
+    pub dash_pressed: bool,
+    /// Rising edge: brain wants to interact with whatever is nearby
+    /// (doors, NPCs, switches). E / F / RB on player binding; AI
+    /// brains may toggle this for scripted door-opens or NPC chats.
+    pub interact_pressed: bool,
+    /// Sustain: shield / parry button is held. Brains that want a
+    /// bubble shield up keep this true; release triggers shield-
+    /// down behavior in the integration.
+    pub shield_held: bool,
+    /// Rising edge: brain wants to use its special / signature move.
+    /// What this resolves to is per-entity (ActionSet), so the same
+    /// `special_pressed=true` from a player brain and a possessed
+    /// goblin yield different concrete effects.
+    pub special_pressed: bool,
 }
 
 impl ActorControlFrame {
@@ -109,10 +140,38 @@ mod tests {
         assert_eq!(frame.facing, 0.0);
         assert!(!frame.melee_pressed);
         assert!(frame.fire.is_none());
+        assert_eq!(frame.attack_axis, Vec2::ZERO);
+        assert!(!frame.jump_pressed);
+        assert!(!frame.jump_held);
+        assert!(!frame.jump_released);
+        assert!(!frame.dash_pressed);
+        assert!(!frame.interact_pressed);
+        assert!(!frame.shield_held);
+        assert!(!frame.special_pressed);
     }
 
     #[test]
     fn neutral_matches_default() {
         assert_eq!(ActorControlFrame::neutral(), ActorControlFrame::default());
+    }
+
+    #[test]
+    fn extended_frame_defaults_are_inert() {
+        // Brain backends are free to set only the fields they care
+        // about; every other field must default to a value the
+        // integration treats as "no intent".
+        let frame = ActorControlFrame::neutral();
+        let unchanged = ActorControlFrame {
+            attack_axis: frame.attack_axis,
+            jump_pressed: frame.jump_pressed,
+            jump_held: frame.jump_held,
+            jump_released: frame.jump_released,
+            dash_pressed: frame.dash_pressed,
+            interact_pressed: frame.interact_pressed,
+            shield_held: frame.shield_held,
+            special_pressed: frame.special_pressed,
+            ..Default::default()
+        };
+        assert_eq!(frame, unchanged);
     }
 }

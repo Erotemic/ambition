@@ -56,6 +56,7 @@ impl ActionSet {
 /// its **own** animation timing (windup → active → recover) — there
 /// is no separate `TelegraphSpec`.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(dead_code, reason = "spec variants surface to daytime EFFECTS-flip consumers")]
 pub enum MeleeActionSpec {
     /// Generic short swing. Used by Striker / standard goblin melee.
     Swipe(SwipeSpec),
@@ -106,6 +107,46 @@ impl RangedActionSpec {
             | Self::Arrow { damage, .. }
             | Self::Pistol { damage, .. }
             | Self::Bolt { damage, .. } => damage,
+        }
+    }
+}
+
+impl MeleeActionSpec {
+    /// Total swing duration (windup + active + recover) in seconds.
+    /// Cooldown systems / animation pickers use this to gate the
+    /// "can swing again" question.
+    #[allow(dead_code, reason = "diagnostic helper for daytime EFFECTS-flip consumers")]
+    pub fn total_duration_s(self) -> f32 {
+        match self {
+            Self::Swipe(s) => s.windup_s + s.active_s + s.recover_s,
+            Self::Lunge(s) => s.windup_s + s.active_s + s.recover_s,
+            Self::Slam(s) => s.windup_s + s.active_s + s.recover_s,
+            Self::Bite(s) => s.windup_s + s.active_s + s.recover_s,
+            Self::PunchWeak(s) => s.windup_s + s.active_s + s.recover_s,
+        }
+    }
+
+    /// Damage dealt on a clean hit.
+    #[allow(dead_code, reason = "diagnostic helper for daytime EFFECTS-flip consumers")]
+    pub fn damage(self) -> i32 {
+        match self {
+            Self::Swipe(s) => s.damage,
+            Self::Lunge(s) => s.damage,
+            Self::Slam(s) => s.damage,
+            Self::Bite(s) => s.damage,
+            Self::PunchWeak(s) => s.damage,
+        }
+    }
+
+    /// Reach (hitbox forward extent) in px from the actor's anchor.
+    #[allow(dead_code, reason = "diagnostic helper for daytime EFFECTS-flip consumers")]
+    pub fn reach_px(self) -> f32 {
+        match self {
+            Self::Swipe(s) => s.reach_px,
+            Self::Lunge(s) => s.reach_px,
+            Self::Slam(s) => s.reach_px,
+            Self::Bite(s) => s.reach_px,
+            Self::PunchWeak(s) => s.reach_px,
         }
     }
 }
@@ -493,6 +534,22 @@ mod tests {
             spec: SpecialActionSpec::BubbleShield,
         };
         assert_eq!(special.label(), "special_bubble_shield");
+    }
+
+    #[test]
+    fn melee_spec_uniform_accessors_return_per_variant_fields() {
+        let s = MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT);
+        assert_eq!(s.damage(), SwipeSpec::STRIKER_DEFAULT.damage);
+        assert_eq!(s.reach_px(), SwipeSpec::STRIKER_DEFAULT.reach_px);
+        assert!(s.total_duration_s() > 0.0);
+
+        let l = MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT);
+        assert_eq!(l.damage(), LungeSpec::BRUTE_DEFAULT.damage);
+        assert_eq!(l.reach_px(), LungeSpec::BRUTE_DEFAULT.reach_px);
+
+        let p = MeleeActionSpec::PunchWeak(PunchSpec::SANDBAG_DEFAULT);
+        assert_eq!(p.damage(), PunchSpec::SANDBAG_DEFAULT.damage);
+        assert!(p.total_duration_s() > 0.0);
     }
 
     #[test]

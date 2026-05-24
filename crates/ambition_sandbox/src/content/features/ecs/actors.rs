@@ -203,11 +203,7 @@ pub fn update_ecs_actors(
     // decision at the query so a future per-actor `ActorTarget`
     // component lands as a query change, not a semantic shift.
     player_query: Query<
-        (
-            &crate::player::PlayerBody,
-            &crate::player::PlayerCombatState,
-            &crate::player::PlayerMovementAuthority,
-        ),
+        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
         crate::player::PrimaryPlayerOnly,
     >,
     mut actors: Query<
@@ -235,10 +231,14 @@ pub fn update_ecs_actors(
     // alongside the player. ADR 0010 + reference_lessons_learned.
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    let Ok((pb, combat, authority)) = player_query.single() else {
+    let Ok((pb, combat)) = player_query.single() else {
         return;
     };
-    let player = authority.player.clone();
+    // Read the player's targeting position off the read-model
+    // PlayerBody. The full ae::Player clone the pre-brain code used
+    // is overkill — only `pos` was consulted, and `pos` is mirrored
+    // into PlayerBody every frame.
+    let player_pos = pb.pos;
     let player_body = pb.aabb();
     let player_vulnerable =
         !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
@@ -263,7 +263,7 @@ pub fn update_ecs_actors(
             kind: *kind,
         })
         .collect();
-    ae::assign_slots(&mut slot_board.0, player.pos, &slot_requests);
+    ae::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
 
     // Per-kind holding-position fallback: when an actor doesn't win
     // a slot, distribute the leftover actors across the holding
@@ -304,7 +304,7 @@ pub fn update_ecs_actors(
             let slot_idx = kind_slots[rank % kind_slots.len()];
             holding_pos_by_id.insert(
                 id.to_string(),
-                slot_board.0.slots[slot_idx].holding_pos(player.pos),
+                slot_board.0.slots[slot_idx].holding_pos(player_pos),
             );
         }
     }

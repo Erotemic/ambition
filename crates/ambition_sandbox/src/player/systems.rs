@@ -147,3 +147,62 @@ pub fn apply_player_heal_requests(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::brain::{ActorControl, Brain};
+    use bevy::prelude::*;
+
+    /// End-to-end: spawn a player entity with the brain components,
+    /// populate ControlFrame, run sync_local_player_input_frame +
+    /// tick_player_brains, assert ActorControl reflects the input.
+    /// Pins the universal-brain seam on the player side.
+    #[test]
+    fn player_brain_seam_translates_control_frame_to_actor_control() {
+        let mut app = App::new();
+        app.init_resource::<ControlFrame>();
+        let mut player = ae::Player::new_with_abilities(
+            ae::Vec2::new(100.0, 100.0),
+            ae::AbilitySet::sandbox_all(),
+        );
+        player.refresh_movement_resources(ae::DEFAULT_TUNING);
+        let body = PlayerBody::from_player(&player);
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            LocalPlayer,
+            PlayerSlot::PRIMARY,
+            PlayerInputFrame::default(),
+            PlayerMovementAuthority::new(player),
+            body,
+            Brain::Player(PlayerSlot::PRIMARY),
+            ActorControl::default(),
+        ));
+        app.add_systems(Update, (sync_local_player_input_frame, tick_player_brains).chain());
+
+        // Stamp the control frame with a known input.
+        {
+            let mut cf = app.world_mut().resource_mut::<ControlFrame>();
+            cf.axis_x = 1.0;
+            cf.jump_pressed = true;
+            cf.attack_pressed = true;
+            cf.shield_held = true;
+        }
+        app.update();
+
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&ActorControl, With<PlayerEntity>>();
+        let control = q
+            .iter(app.world())
+            .next()
+            .expect("player entity should have ActorControl");
+        // axis_x → desired_vel.x, jump_pressed → jump_pressed, etc.
+        assert_eq!(control.0.desired_vel.x, 1.0);
+        assert!(control.0.jump_pressed);
+        assert!(control.0.melee_pressed);
+        assert!(control.0.shield_held);
+        assert_eq!(control.0.facing, 1.0);
+    }
+}

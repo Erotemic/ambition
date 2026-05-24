@@ -72,9 +72,9 @@ pattern:
 - **`robot_heavy`** — renders multiple variants
   (`robot_heavy_bastion`, `robot_heavy_arsenal`, …) but doesn't
   install them. `regen_sprites.sh` skips this target with `[skip]`.
-- **`weird_hermit`** — renders `weird_hermit.{ron,yaml}` (no
-  `_spritesheet` suffix) under the sprites dir. The catalog
-  entry's expected `weird_hermit_spritesheet.png` never lands.
+- ~~**`weird_hermit`**~~ — *fixed 2026-05-24*. Publisher now emits
+  `weird_hermit_spritesheet.{png,ron,yaml}` with the canonical
+  `SheetRow` schema. Catalog entry resolves.
 
 ## Why three patterns?
 
@@ -140,11 +140,11 @@ Remaining work, in order of value:
    etc.) so what's needed is either to drop the bare-name catalog
    entries or to have the publisher emit a "main" sheet (probably
    the first variant).
-2. **Give `weird_hermit` a publisher that installs
-   `weird_hermit_spritesheet.png`.** Today it generates
-   `weird_hermit.ron` / `.yaml` with no `_spritesheet` suffix and
-   no `.png`. Either rename the generator output or add a
-   conventional publisher.
+2. ~~**Give `weird_hermit` a publisher that installs
+   `weird_hermit_spritesheet.png`.**~~ *Landed 2026-05-24.*
+   Publisher now emits the canonical `<target>_spritesheet.{png,ron,yaml}`
+   filenames AND the runtime's `SheetRow` schema
+   (`animation`/`row_index`/`frame_count`/`duration_ms`/etc.).
 3. **Lift `mockingbird_boss_sprite_generator.py` into a regular
    tack-on target.** The standalone script predates the unified
    `targets/<name>.py` API; carrying it forward means

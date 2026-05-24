@@ -445,6 +445,27 @@ mod tests {
     }
 
     #[test]
+    fn resolve_with_only_ranged_capability_ignores_melee_intent() {
+        // ActionSet with ranged-only capability + frame intent
+        // melee_pressed+fire returns Ranged only. Pins the
+        // capability gate so a brain that emits melee intent on
+        // a ranged-only actor doesn't accidentally spawn a hitbox.
+        let actions = ActionSet {
+            ranged: Some(RangedActionSpec::Bolt { speed: 500.0, damage: 1 }),
+            ..Default::default()
+        };
+        let mut frame = ae::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        frame.fire = Some(ae::ActorFireRequest {
+            dir: ae::Vec2::new(1.0, 0.0),
+            speed: 0.0,
+        });
+        let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
+        assert_eq!(reqs.len(), 1);
+        assert!(matches!(reqs[0], ActionRequest::Ranged { .. }));
+    }
+
+    #[test]
     fn resolve_passes_attack_axis_through_to_melee_request() {
         // Player tilt (up-tilt / down-air / back-air) carries
         // direction in frame.attack_axis; resolver threads it

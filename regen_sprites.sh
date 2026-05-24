@@ -435,6 +435,22 @@ if [ "${#missing[@]}" -gt 0 ]; then
 fi
 echo "  ok: ${#expected_files[@]} expected files present"
 
+# --- Hall-of-Characters sprite census ------------------------------------
+# Quick check of which catalog entries the Hall will render vs fall
+# back to the colored-rectangle placeholder. Helpful as a final
+# "did the regen actually fix the Hall?" signal.
+echo "==> Hall-of-Characters sprite census:"
+if command -v "$python_bin" >/dev/null 2>&1 && \
+    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+        -c "import ambition_ldtk_tools" 2>/dev/null
+then
+    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
+        -m ambition_ldtk_tools.inspect_hall_sprites --only-issues \
+        2>&1 | sed 's/^/  /' || true
+else
+    echo "  (skipped — ambition_ldtk_tools not importable from $python_bin)"
+fi
+
 # --- Write fingerprint on success ----------------------------------------
 mkdir -p "$cache_dir"
 echo "$current_fingerprint" > "$fingerprint_file"

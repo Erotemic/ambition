@@ -117,7 +117,7 @@ no prefix for base characters (`player`, `goblin`, `robot`,
 when registering with the asset manifest.
 
 **Tier choice.** `Basement` is for visually-big sprites that get a
-256 px-wide pedestal in the Hall of Characters. Use it for bosses
+512 px-wide pedestal in the Hall of Characters. Use it for bosses
 (`gnu_ton_boss`, `mockingbird_boss`, `flying_spaghetti_monster_boss`)
 and large enemies (`trex_enemy`, `bear_mauler`). Everything else is
 `MainHall`.
@@ -127,15 +127,32 @@ and large enemies (`trex_enemy`, `bear_mauler`). Everything else is
 ranged enemies. See `character_catalog.ron` for the full list of
 named presets.
 
-**Sheet const wiring.** Until the Phase-7+ migration lands, the
-sprite spec (frame size, atlas layout) comes from a hardcoded
-`*_SHEET` const in `presentation/character_sprites/sheets.rs`. If
-your character uses a fresh art layout, add a row to
+**Sheet wiring — usually zero Rust.** As of 2026-05-24 the sprite
+loader has a manifest-driven fallback: if your character's
+`<target>_spritesheet.ron` exists at the path the catalog declares
+AND has an `idle`-equivalent row (`idle` / `opening` / `rest` /
+`front_idle` / `side_idle`), the runtime resolves a
+`CharacterSheetSpec` with a default tuning (`collision_scale = 1.5`,
+`frame_sample_inset = 1`) and renders the sprite. No Rust change
+needed for the common case.
+
+Touch Rust ONLY if you want bespoke tuning (different scale, a
+specific `feet_anchor_y_override`, a custom `frame_sample_inset` to
+fight bilinear bleed). Add a `*_SHEET` const + a `SheetTuning` in
+`presentation/character_sprites/sheets.rs`, then add a row to
 `sheet_for_character_id` in `presentation/character_sprites/assets.rs`
-to point at the matching const. If your character reuses an
-existing layout (most pirates share `PIRATE_SHEET`, most ninjas
-share `NINJA_SHEET`), add your `character_id` to the existing
-`match` arm.
+pointing at the const. The hardcoded path takes precedence over the
+manifest-driven fallback.
+
+**Idle row is mandatory.** The actor renderer's atlas indexer falls
+back to `Idle` for any animation that doesn't have its own row, then
+panics if no Idle row exists. The aliases above cover the common
+generator outputs; if your generator emits something else (e.g.
+`hover`, `run`, `walk`, `death`), rename the first row to one of the
+aliases — or better, give the character a stationary idle pose row.
+The catalog-side test
+`every_catalog_sprite_spec_has_idle_row_if_loaded` catches this
+before it crashes the renderer.
 
 **Validator failure?** The Startup panic message lists every error.
 Common ones:

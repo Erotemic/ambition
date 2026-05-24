@@ -480,56 +480,48 @@ Ship the headless trainer's brain backend. PyO3 binding from
 
 ## Open questions
 
-These are the parts the design isn't sure about — explicit so a
-reviewer can engage:
+These are the parts the design wasn't sure about up front.
+Several were resolved by the Chunk 1–4f implementation; the
+remaining unresolved questions land here for daytime work.
 
-1. **Where does `aggressiveness` actually live?** On `Actor`?
-   Inside `Brain::StateMachine`'s cfg? If a state-machine brain
-   transitions to "berserk," does it bump its own
-   `aggressiveness`, or does it switch to a more-aggressive cfg?
-   First instinct: on `Actor` (so the EFFECTS gate is uniform);
-   transitions adjust it via brain output. Open to other shapes.
+1. ~~**Where does `aggressiveness` actually live?**~~ **Resolved
+   (2026-05-24):** Inside `Brain::StateMachine`'s cfg per
+   template. Patrol, Wanderer, MeleeBrute, Skirmisher, Sniper,
+   BossPattern each carry an `aggressiveness: f32`. `Brain::
+   is_hostile()` aggregates and short-circuits via match.
 
-2. **Does the player brain still own input-edge state, or does the
-   `ActorControlFrame` carry rising/falling edges?** Today
-   `PlayerInputFrame` distinguishes `attack_pressed` (this tick)
-   from `attack_held` (still down). If we route through the same
-   frame as enemies, we either need to carry both, or move
-   edge-detection into the brain backend. Probably the latter —
-   enemies don't care about edges, and edges are a player-input
-   concept.
+2. ~~**Does the player brain still own input-edge state, or does
+   the `ActorControlFrame` carry rising/falling edges?**~~
+   **Resolved (2026-05-24):** Edges land on the frame (Chunk 1
+   added `jump_pressed/held/released`, `dash_pressed`,
+   `interact_pressed`, `shield_held`, `special_pressed`).
+   `ActorControlFrame::clear_edges()` helps integrators that
+   consume across multiple stages.
 
-3. **Cutscene puppets vs. story scripts.** Some cutscene moments
-   ("the raider runs three steps, swings, retreats") could be
-   `Brain::Scripted` with a track. Others ("two NPCs converse
-   off-screen") want a higher-level driver. Is `Scripted` a brain,
-   or do we have a `Director` layer that overrides any brain's
-   frame for the cutscene's duration? Suggestion: `Scripted` is a
-   brain backend; cross-actor choreography (whole cutscenes) is a
-   separate system that temporarily swaps each participant's brain.
+3. **Cutscene puppets vs. story scripts.** Still open. Suggestion
+   from 2026-05-24 plan: `Scripted` is a brain backend;
+   cross-actor choreography (whole cutscenes) is a separate
+   Director system that temporarily swaps each participant's
+   brain. No concrete consumer yet.
 
-4. **Determinism for RL training.** The RL trainer needs every
-   `Brain::RlPolicy` actor's tick to be fully reproducible given
-   (observation, policy_seed). Does the brain interface guarantee
-   that, or does the sim layer? Most of the determinism work has
-   to happen in the sim (no `Instant::now()`, no `HashMap` order
-   leaks into observations) — but the brain should be clear about
-   what it requires from its caller.
+4. **Determinism for RL training.** Still open at the policy
+   level. Sim-layer determinism work continues (no `Instant::now()`,
+   no `HashMap` order leaks into observations). The brain ABI
+   test `brain_tick_is_deterministic_given_same_snapshot` pins
+   the local guarantee.
 
-5. **Brain swapping mid-game.** A kernel guide turned hostile
-   today flips `NpcRuntime` → `EnemyRuntime`. Post-refactor, do
-   we swap `Brain::StateMachine(peaceful_cfg)` →
-   `Brain::StateMachine(hostile_cfg)`, or do we keep ONE state
-   machine and let it transition internally? First instinct:
-   internal transition; the brain is the state. But this means
-   the brain can be quite stateful, which complicates the
-   "Scripted" and "RlPolicy" backends. Open.
+5. ~~**Brain swapping mid-game.**~~ **Resolved (2026-05-24):**
+   Internal state transition for the NPC peaceful→hostile flip,
+   *and* the damage handler swaps both the brain template and
+   the ActionSet (`MeleeBrute::STRIKER_DEFAULT` + Swipe) so the
+   parallel shape is internally consistent. This keeps brains
+   stateful but contained — `Scripted` and `RlPolicy` get their
+   own stateful sub-types when they land.
 
-6. **Save-game shape.** What of a brain needs to survive a save?
-   Player input frame: no. State-machine current state: yes.
-   Scripted track cursor: yes. RL policy state: probably the
-   episode id, not the network weights. The `Brain` enum needs a
-   `Serializable` shape (or a separate `BrainSavable`).
+6. **Save-game shape.** Still open. Today's brains aren't
+   serialized; daytime work picks the savable shape per backend.
+   The plan in `TODO-controllable-entity.md` Chunk 3 notes save
+   version bumps come with this work.
 
 ## Out of scope (explicitly deferred)
 

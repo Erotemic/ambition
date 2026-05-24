@@ -182,6 +182,15 @@ impl bevy::app::Plugin for BrainPlugin {
     }
 }
 
+impl std::fmt::Display for Brain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Brain::Player(slot) => write!(f, "Player(slot={})", slot.0),
+            Brain::StateMachine(_) => write!(f, "StateMachine({})", self.label()),
+        }
+    }
+}
+
 /// Bevy `Message` emitted by the ActionSet resolver — one per
 /// concrete action the brain wants this tick. Consumers (combat
 /// spawn systems, projectile spawners, special-ability dispatchers)
@@ -521,6 +530,21 @@ mod tests {
         } else {
             unreachable!();
         }
+    }
+
+    #[test]
+    fn brain_display_includes_slot_for_player_and_label_for_state_machine() {
+        let p = Brain::Player(PlayerSlot(2));
+        assert_eq!(format!("{}", p), "Player(slot=2)");
+
+        let sm = Brain::StateMachine(StateMachineCfg::MeleeBrute {
+            cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+            state: MeleeBruteState::default(),
+        });
+        assert_eq!(format!("{}", sm), "StateMachine(melee_brute)");
+
+        let stand = Brain::stand_still();
+        assert_eq!(format!("{}", stand), "StateMachine(stand_still)");
     }
 
     #[test]

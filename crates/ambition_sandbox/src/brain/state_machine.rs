@@ -842,6 +842,30 @@ mod tests {
     }
 
     #[test]
+    fn boss_pattern_placeholder_ticks_to_neutral_frame() {
+        // BossPattern is a placeholder until the boss EFFECTS-flip
+        // lands. Ticking it should emit a neutral frame regardless
+        // of target / sim_time — pin that contract so the
+        // placeholder doesn't silently start producing intent.
+        let mut sm = StateMachineCfg::BossPattern {
+            cfg: BossPatternCfg {
+                aggressiveness: 1.0,
+                encounter_id: "test_boss".to_string(),
+            },
+            state: BossPatternState::default(),
+        };
+        let s = snap_at(0.0, 100.0);
+        let mut out = ae::ActorControlFrame::neutral();
+        out.melee_pressed = true; // pre-poisoned
+        out.desired_vel = ae::Vec2::new(99.0, 99.0);
+        tick_state_machine(&mut sm, &s, &mut out);
+        // Placeholder writes a neutral frame, overwriting the
+        // pre-poisoned values.
+        assert!(!out.melee_pressed);
+        assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    }
+
+    #[test]
     fn is_hostile_reports_per_cfg() {
         assert!(!StateMachineCfg::StandStill.is_hostile());
         assert!(!StateMachineCfg::Patrol {

@@ -116,6 +116,31 @@ def test_load_handles_some_wrapper():
     assert data["melee"] is not None
 
 
+def test_empty_dict_dumps_as_map_not_unit():
+    """Regression: `dumps({})` used to emit `()` (the RON unit type),
+    which the runtime's `ron::from_str` rejected as a value for any
+    `HashMap` field. The `synth_boss_manifest` script emitted
+    `anchors: {}` (empty per-frame anchors) → `anchors: ()` → boss
+    subdir manifests silently failed to parse → Hall pedestals for
+    gnu_ton + mockingbird rendered as colored-rectangle placeholders
+    for weeks (caught 2026-05-24)."""
+    out = dumps({})
+    assert "{}" in out, f"empty dict should serialize as `{{}}`, got: {out!r}"
+    assert "()" not in out, f"empty dict must not serialize as `()`, got: {out!r}"
+    # And it round-trips back to an empty dict.
+    # `load` on `{}` returns an empty dict.
+    assert load(out) == {}
+
+
+def test_dict_containing_empty_dict_field_dumps_correctly():
+    """The actual shape that broke: a dict with an `anchors` field
+    that is empty must serialize so the parent struct lands as
+    `(anchors: {})` (HashMap value), not `(anchors: ())`."""
+    out = dumps({"x": 0, "anchors": {}})
+    # The inner empty dict must be `{}` not `()`.
+    assert "anchors: {}" in out, f"empty anchors field should be {{}}, got: {out!r}"
+
+
 def test_load_handles_trailing_commas():
     text = """\
 (

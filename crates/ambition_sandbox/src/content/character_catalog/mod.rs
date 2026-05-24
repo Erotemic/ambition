@@ -164,6 +164,32 @@ mod tests {
         );
     }
 
+    /// Regression: the boss subdir manifests (gnu_ton_boss,
+    /// mockingbird_boss) must produce a working `CharacterSheetSpec`
+    /// at runtime. They reached the catalog via `synth_boss_manifest`,
+    /// but that script's `anchors: {}` was serialized as `anchors:
+    /// ()` by an in-house RON dumper bug — RON rejected `()` as a
+    /// HashMap value, the manifest failed to parse, and the Hall
+    /// silently rendered placeholders for both bosses (2026-05-24).
+    /// `inspect_hall_sprites.py` couldn't see the issue because its
+    /// `pyron.load` parser was more permissive than the Rust runtime's
+    /// `ron::from_str`. Pin both ids here so any future
+    /// reintroduction of the bug trips a focused diff.
+    #[test]
+    fn boss_subdir_manifests_resolve_through_catalog() {
+        use crate::presentation::character_sprites::sheet_for_character_id;
+        for cid in &["npc_gnu_ton_boss", "npc_mockingbird_boss"] {
+            let spec = sheet_for_character_id(cid);
+            assert!(
+                spec.is_some(),
+                "{cid}: sheet_for_character_id returned None — manifest \
+                 parse error or subdir scan miss. Runtime would render \
+                 as placeholder. Check the on-disk RON parses with \
+                 `ron::from_str::<Vec<SheetRecord>>`.",
+            );
+        }
+    }
+
     #[test]
     fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
         // The actor renderer's `flat_index` falls back to `Idle`

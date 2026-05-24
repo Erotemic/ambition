@@ -84,7 +84,14 @@ def _dump_value(value: Any, indent: int, indent_step: int) -> str:
         return "[\n" + items + f",\n{pad}]"
     if isinstance(value, dict):
         if not value:
-            return "()"
+            # Empty dict → `{}` (Map syntax). RON's `()` is the unit
+            # type / empty struct, which a `HashMap` field can't
+            # accept — that's how `synth_boss_manifest`'s empty
+            # `anchors: {}` produced `anchors: ()` and broke the
+            # gnu_ton_boss / mockingbird_boss sheet parse for weeks.
+            # `{}` parses cleanly as an empty `HashMap` and also as
+            # an empty struct-with-defaults.
+            return "{}"
         all_idents = all(
             isinstance(k, str)
             and k

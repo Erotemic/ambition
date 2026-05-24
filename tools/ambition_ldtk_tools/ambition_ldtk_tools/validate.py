@@ -1159,6 +1159,36 @@ def _check_intro_authoring_hygiene(project, warnings):
                             edge_exits.add("bottom")
         # Mid-air Door check: a `Door` activation should have a
         # walkable surface within STAND_GAP px below its bottom edge.
+        # Accepts entity-instance Solids/OneWayPlatforms OR IntGrid
+        # Collision cells with value 1 (Solid) / 2 (OneWayPlatform) —
+        # `area_authoring` lowers static-collision entities to IntGrid
+        # by default, so a strict entity-only check false-positives on
+        # every door over an IntGrid floor.
+        intgrid_layer = None
+        for layer in level.get("layerInstances") or []:
+            if layer.get("__identifier") == "Collision":
+                intgrid_layer = layer
+                break
+        ig_grid = int(intgrid_layer.get("__gridSize", 16)) if intgrid_layer else 16
+        ig_c_wid = int(intgrid_layer.get("__cWid", 0)) if intgrid_layer else 0
+        ig_c_hei = int(intgrid_layer.get("__cHei", 0)) if intgrid_layer else 0
+        ig_csv = intgrid_layer.get("intGridCsv", []) if intgrid_layer else []
+
+        def intgrid_rect_intersects_walkable(rect_xywh: tuple[float, float, float, float]) -> bool:
+            if not (intgrid_layer and ig_c_wid and ig_c_hei and ig_csv):
+                return False
+            rx, ry, rw, rh = rect_xywh
+            cx0 = max(0, int(rx) // ig_grid)
+            cy0 = max(0, int(ry) // ig_grid)
+            cx1 = min(ig_c_wid - 1, int(rx + rw - 1) // ig_grid)
+            cy1 = min(ig_c_hei - 1, int(ry + rh - 1) // ig_grid)
+            for cy in range(cy0, cy1 + 1):
+                for cx in range(cx0, cx1 + 1):
+                    v = ig_csv[cy * ig_c_wid + cx]
+                    if v in (1, 2):  # Solid or OneWayPlatform
+                        return True
+            return False
+
         for name, activation, (dx, dy, dw, dh) in doors:
             if activation != "Door":
                 continue
@@ -1170,7 +1200,7 @@ def _check_intro_authoring_hygiene(project, warnings):
             ) or any(
                 strict_rects_intersect(probe, (sx, sy, sw, sh))
                 for (sx, sy, sw, sh) in one_ways
-            )
+            ) or intgrid_rect_intersects_walkable(probe)
             if not supports:
                 warnings.append(
                     f"LoadingZone {name!r} in level {identifier!r} is a "
@@ -1179,8 +1209,36 @@ def _check_intro_authoring_hygiene(project, warnings):
                     f"Solid/OneWayPlatform under it or switch to EdgeExit."
                 )
         # Missing-wall check: every side of the level box that has no
-        # EdgeExit should be covered by a Solid that meets the level edge.
+        # EdgeExit should be covered by a Solid that meets the level
+        # edge. Also accept IntGrid Collision cells with `Solid` value
+        # (=1) since `area_authoring` lowers static-collision entities
+        # into IntGrid by default — checking only entity-instance
+        # Solids would false-positive on every level that uses
+        # canonical IntGrid collision.
         if width > 0 and height > 0:
+            intgrid_layer = None
+            for layer in level.get("layerInstances") or []:
+                if layer.get("__identifier") == "Collision":
+                    intgrid_layer = layer
+                    break
+            grid_size = int(intgrid_layer.get("__gridSize", 16)) if intgrid_layer else 16
+            c_wid = int(intgrid_layer.get("__cWid", 0)) if intgrid_layer else 0
+            c_hei = int(intgrid_layer.get("__cHei", 0)) if intgrid_layer else 0
+            csv = intgrid_layer.get("intGridCsv", []) if intgrid_layer else []
+
+            def intgrid_blocks_side(side: str) -> bool:
+                if not (intgrid_layer and c_wid and c_hei and csv):
+                    return False
+                if side == "left":
+                    return any(csv[y * c_wid] == 1 for y in range(c_hei))
+                if side == "right":
+                    return any(csv[y * c_wid + (c_wid - 1)] == 1 for y in range(c_hei))
+                if side == "top":
+                    return any(csv[x] == 1 for x in range(c_wid))
+                if side == "bottom":
+                    return any(csv[(c_hei - 1) * c_wid + x] == 1 for x in range(c_wid))
+                return False
+
             sides = (
                 ("left",   (0, 0, 1, height)),
                 ("right",  (max(0, width - 1), 0, 1, height)),
@@ -1193,7 +1251,7 @@ def _check_intro_authoring_hygiene(project, warnings):
                 blocks_side = any(
                     strict_rects_intersect(probe, (sx, sy, sw, sh))
                     for (sx, sy, sw, sh) in solids
-                )
+                ) or intgrid_blocks_side(side_name)
                 if not blocks_side:
                     warnings.append(
                         f"level {identifier!r} has no Solid blocking the "

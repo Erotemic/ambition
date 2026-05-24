@@ -260,4 +260,24 @@ crates/ambition_sandbox/src/content/features/conversion_tests.rs  # NPC patrol v
 crates/ambition_sandbox/src/content/features/ecs/spawn.rs::tests  # spawn regression
 crates/ambition_sandbox/src/player/systems.rs::tests              # player seam end-to-end
 crates/ambition_sandbox/src/audio/environment.rs::tests           # PlayerBody migration
+crates/ambition_sandbox/src/headless.rs::tests                    # full plugin integration
 ```
+
+## Quick reference
+
+| Thing | Where |
+| ----- | ----- |
+| Brain enum + ActorControl + ActorActionMessage | [`crates/ambition_sandbox/src/brain/mod.rs`](../../crates/ambition_sandbox/src/brain/mod.rs) |
+| Per-template state machines | [`crates/ambition_sandbox/src/brain/state_machine.rs`](../../crates/ambition_sandbox/src/brain/state_machine.rs) |
+| Per-entity ActionSet + resolver | [`crates/ambition_sandbox/src/brain/action_set.rs`](../../crates/ambition_sandbox/src/brain/action_set.rs) |
+| Player input → frame translator | [`crates/ambition_sandbox/src/brain/player.rs`](../../crates/ambition_sandbox/src/brain/player.rs) |
+| BrainSnapshot definition | [`crates/ambition_sandbox/src/brain/snapshot.rs`](../../crates/ambition_sandbox/src/brain/snapshot.rs) |
+| Player spawn bundle | [`crates/ambition_sandbox/src/player/bundles.rs`](../../crates/ambition_sandbox/src/player/bundles.rs) |
+| Enemy / boss spawn brain attach | [`crates/ambition_sandbox/src/content/features/ecs/spawn.rs`](../../crates/ambition_sandbox/src/content/features/ecs/spawn.rs) |
+| Enemy shadow tick | [`crates/ambition_sandbox/src/content/features/ecs/actors.rs`](../../crates/ambition_sandbox/src/content/features/ecs/actors.rs) |
+| Boss shadow tick | [`crates/ambition_sandbox/src/content/features/ecs/bosses.rs`](../../crates/ambition_sandbox/src/content/features/ecs/bosses.rs) |
+| NPC brain-driven tick | [`crates/ambition_sandbox/src/content/features/npcs.rs`](../../crates/ambition_sandbox/src/content/features/npcs.rs) |
+| Player tick_player_brains + resolver scheduling | [`crates/ambition_sandbox/src/app/plugins.rs`](../../crates/ambition_sandbox/src/app/plugins.rs) |
+| ae::Player decomposition audit | [`dev/journals/ae-player-field-usage-2026-05-24.md`](../../dev/journals/ae-player-field-usage-2026-05-24.md) |
+| Extension recipe | [`docs/recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md) |
+| Multi-chunk plan | [`TODO-controllable-entity.md`](../../TODO-controllable-entity.md) |

@@ -167,6 +167,28 @@ mod tests {
     }
 
     #[test]
+    fn tick_player_brain_without_snapshot_input_falls_back_to_neutral() {
+        // When snapshot.player_input is None, tick_player_brain
+        // emits a neutral frame + facing only (no garbage from
+        // uninitialized fields). Pins the safe-default path so
+        // an actor with Brain::Player but no input snapshot
+        // doesn't fire random actions.
+        let mut s = BrainSnapshot::idle();
+        s.actor_facing = -1.0;
+        s.player_input = None;
+        let mut out = ae::ActorControlFrame::default();
+        out.melee_pressed = true; // pre-poisoned
+        out.fire = Some(ae::ActorFireRequest {
+            dir: ae::Vec2::new(1.0, 0.0),
+            speed: 200.0,
+        });
+        tick_player_brain(PlayerSlot(0), &s, &mut out);
+        assert!(!out.melee_pressed);
+        assert!(out.fire.is_none());
+        assert_eq!(out.facing, -1.0);
+    }
+
+    #[test]
     fn attack_pressed_routes_to_melee_intent() {
         let input = input_with(|c| {
             c.attack_pressed = true;

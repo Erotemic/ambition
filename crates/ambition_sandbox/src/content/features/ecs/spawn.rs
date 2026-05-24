@@ -72,15 +72,16 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
     );
     let initial_phase = BossPhase::from_alive(boss.alive);
     // Parallel-shape Brain attachment for bosses, same pattern as
-    // enemies. The BossPattern template is a placeholder until
-    // daytime migration wires the encounter id and phase schedule
-    // through it; the ActorControl frame is dormant for bosses,
-    // BossRuntime still drives behavior.
+    // enemies. The BossPattern template threads through the real
+    // encounter id (matches the registry lookup the boss-encounter
+    // system already uses); the ActorControl frame is dormant for
+    // bosses today — BossRuntime still drives behavior.
+    let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
     let brain = crate::brain::Brain::StateMachine(
         crate::brain::StateMachineCfg::BossPattern {
             cfg: crate::brain::BossPatternCfg {
                 aggressiveness: 1.0,
-                encounter_id: 0,
+                encounter_id,
             },
             state: crate::brain::BossPatternState::default(),
         },

@@ -504,15 +504,17 @@ fn tick_sniper(
 /// Scripted multi-phase boss policy. The encounter id picks the
 /// concrete phase schedule; the brain is a pointer + a tick cursor.
 /// Today this is a placeholder — boss runtimes still drive
-/// themselves via the existing `BossRuntime` pattern. Chunk 3.5 /
-/// daytime work migrates each boss onto a BossPattern brain.
-#[derive(Clone, Copy, Debug)]
+/// themselves via the existing `BossRuntime` pattern. Daytime
+/// work migrates each boss onto a BossPattern brain and the
+/// encounter id then keys into the existing
+/// `BossEncounterRegistry`.
+#[derive(Clone, Debug)]
 pub struct BossPatternCfg {
     pub aggressiveness: f32,
-    /// Index into a future encounter table. `u32` here is a
-    /// placeholder; the daytime migration replaces it with a typed
-    /// id.
-    pub encounter_id: u32,
+    /// Encounter id (matches `boss_encounter::encounter_id_from_name`).
+    /// Stays a String so it can pull straight from the existing
+    /// registry instead of forcing a parallel id type.
+    pub encounter_id: String,
 }
 
 #[derive(Clone, Copy, Debug, Default)]

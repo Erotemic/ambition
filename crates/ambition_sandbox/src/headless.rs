@@ -233,6 +233,35 @@ mod tests {
         );
     }
 
+    /// Universal-brain integration check: spawning the
+    /// SandboxSimulationPlugin yields a player entity carrying
+    /// Brain::Player and an ActionSet — verifies the bundle
+    /// path injects the components even when the spawn flow
+    /// runs through the real Startup schedule.
+    #[test]
+    fn sim_spawns_player_with_brain_and_action_set() {
+        use crate::brain::{ActionSet, ActorControl, Brain};
+        use crate::player::PlayerEntity;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(AssetPlugin::default());
+        app.add_plugins(ImagePlugin::default());
+        app.add_plugins(TransformPlugin);
+        app.add_plugins(StatesPlugin);
+        app.init_state::<GameMode>();
+        app.add_plugins(crate::app::SandboxSimulationPlugin);
+        app.update();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(&Brain, &ActionSet, &ActorControl), With<PlayerEntity>>();
+        let count = q.iter(app.world()).count();
+        assert_eq!(count, 1, "player should spawn with Brain + ActionSet + ActorControl");
+        let (brain, action_set, _control) =
+            q.iter(app.world()).next().expect("player exists");
+        assert!(brain.is_player(), "player carries Brain::Player");
+        assert!(action_set.melee.is_some(), "player ActionSet has Swipe melee");
+    }
+
     /// Universal-brain integration check: with the full
     /// SandboxSimulationPlugin installed, the player carries a
     /// Brain + ActionSet + ActorControl, the brain ticks each

@@ -71,6 +71,20 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         authored.payload.clone(),
     );
     let initial_phase = BossPhase::from_alive(boss.alive);
+    // Parallel-shape Brain attachment for bosses, same pattern as
+    // enemies. The BossPattern template is a placeholder until
+    // daytime migration wires the encounter id and phase schedule
+    // through it; the ActorControl frame is dormant for bosses,
+    // BossRuntime still drives behavior.
+    let brain = crate::brain::Brain::StateMachine(
+        crate::brain::StateMachineCfg::BossPattern {
+            cfg: crate::brain::BossPatternCfg {
+                aggressiveness: 1.0,
+                encounter_id: 0,
+            },
+            state: crate::brain::BossPatternState::default(),
+        },
+    );
     commands.spawn((
         Name::new(format!("Feature boss: {}", authored.name)),
         FeatureSimEntity,
@@ -83,6 +97,9 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         super::ActorFaction::Boss,
         super::ActorTarget::default(),
         BossFeature::new(boss),
+        brain,
+        crate::brain::ActionSet::peaceful(),
+        crate::brain::ActorControl::default(),
     ));
 }
 

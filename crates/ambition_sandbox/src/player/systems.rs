@@ -154,6 +154,49 @@ mod tests {
     use crate::brain::{ActorControl, Brain};
     use bevy::prelude::*;
 
+    /// Default player ActionSet derives from AbilitySet — when
+    /// `attack` is on, the ActionSet has a Swipe melee; when off,
+    /// melee is None and the resolver emits nothing for melee
+    /// presses. Pins the ability-gated capability invariant.
+    #[test]
+    fn player_action_set_melee_disabled_when_attack_ability_off() {
+        use crate::brain::ActionSet;
+        let mut player = ae::Player::new_with_abilities(
+            ae::Vec2::new(0.0, 0.0),
+            ae::AbilitySet::sandbox_all(),
+        );
+        // Force-disable the attack ability.
+        player.abilities.attack = false;
+        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        // ActionSet on the bundle reflects the disabled ability.
+        let action_set: &ActionSet = &bundle.action_set;
+        assert!(
+            action_set.melee.is_none(),
+            "ActionSet.melee should be None when AbilitySet.attack is off"
+        );
+    }
+
+    /// Default player ActionSet has a Swipe melee + Bolt ranged +
+    /// BubbleShield special when the player has all abilities. Pins
+    /// the sandbox_all() default — daytime EFFECTS-flip consumers
+    /// can rely on these slots being filled.
+    #[test]
+    fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
+        use crate::brain::{ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec};
+        let player = ae::Player::new_with_abilities(
+            ae::Vec2::new(0.0, 0.0),
+            ae::AbilitySet::sandbox_all(),
+        );
+        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        let action_set: &ActionSet = &bundle.action_set;
+        assert!(matches!(action_set.melee, Some(MeleeActionSpec::Swipe(_))));
+        assert!(matches!(action_set.ranged, Some(RangedActionSpec::Bolt { .. })));
+        assert!(matches!(
+            action_set.special,
+            Some(SpecialActionSpec::BubbleShield)
+        ));
+    }
+
     /// End-to-end: player releases the projectile charge →
     /// tick_player_brains fills frame.fire → resolver emits a
     /// Ranged action message with the player's Bolt spec. Pins

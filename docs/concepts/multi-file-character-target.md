@@ -1,3 +1,15 @@
+---
+id: multi-file-character-target
+status: current
+aliases:
+  - multi-file tack-on
+  - mockingbird tack-on reference
+  - rich rig target
+last_verified: 2026-05-24
+implemented_by:
+  - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/mockingbird_boss/
+---
+
 # Multi-file character target (reference: `mockingbird_boss`)
 
 The `mockingbird_boss` sprite generator is the project's prototype

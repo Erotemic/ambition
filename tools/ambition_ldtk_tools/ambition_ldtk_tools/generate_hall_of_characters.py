@@ -66,9 +66,9 @@ MAIN_SLOT_WIDTH_PX = 128
 MAIN_SLOT_HEIGHT_PX = 192
 MAIN_FLOORS = 6
 MAIN_SLOTS_PER_FLOOR = 16
-BASEMENT_SLOT_WIDTH_PX = 256
-BASEMENT_SLOT_HEIGHT_PX = 320
-BASEMENT_SLOTS_PER_ROW = 8
+BASEMENT_SLOT_WIDTH_PX = 512
+BASEMENT_SLOT_HEIGHT_PX = 384
+BASEMENT_SLOTS_PER_ROW = 4
 CEILING_PX = 16
 FLOOR_THICKNESS_PX = 16
 HALL_WORLD_X = 40000  # to the right of every existing level (rightmost is x=39024)
@@ -79,12 +79,11 @@ def derived_dims() -> tuple[int, int]:
     """Return (pxWid, pxHei) for the hall."""
     width = HALL_WIDTH_PX
     main_section = MAIN_FLOORS * MAIN_SLOT_HEIGHT_PX
-    # Basement: assume 2 rows are enough for the current catalog
-    # (10 entries / 8 per row → 2 rows). The generator computes the
-    # actual basement-row count at emit time; the hall height adds a
-    # buffer of one extra basement row.
-    basement_rows_buffer = 2
-    basement_section = basement_rows_buffer * BASEMENT_SLOT_HEIGHT_PX
+    # Basement section sized to comfortably fit the current 10
+    # Basement-tier entries plus headroom. With 4 slots/row, a 3-row
+    # basement section yields 12 slot capacity.
+    basement_rows = 3
+    basement_section = basement_rows * BASEMENT_SLOT_HEIGHT_PX
     height = CEILING_PX + main_section + FLOOR_THICKNESS_PX + basement_section + FLOOR_THICKNESS_PX
     return width, height
 

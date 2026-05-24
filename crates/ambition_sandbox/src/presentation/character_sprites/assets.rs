@@ -226,10 +226,31 @@ pub fn load_character_sprites_in(
             continue;
         };
         match cid.as_str() {
-            "player" => out.player = Some(asset),
-            "robot" => out.robot = Some(asset),
-            "goblin" => out.goblin = Some(asset),
-            "sandbag" => out.sandbag = Some(asset),
+            "player" => {
+                // Store under the typed field for the runtime's
+                // fast-path consumers (`runtime/setup.rs`,
+                // `enemy_asset`). ALSO key the npcs HashMap by the
+                // display name so a hall pedestal with
+                // character_id="player" — whose Authored.name is the
+                // display "Player" — resolves through
+                // `npc_asset_for_name`. This double-keying applies
+                // to every base character that ships its own typed
+                // slot.
+                out.npcs.insert(entry.display_name.clone(), asset.clone());
+                out.player = Some(asset);
+            }
+            "robot" => {
+                out.npcs.insert(entry.display_name.clone(), asset.clone());
+                out.robot = Some(asset);
+            }
+            "goblin" => {
+                out.npcs.insert(entry.display_name.clone(), asset.clone());
+                out.goblin = Some(asset);
+            }
+            "sandbag" => {
+                out.npcs.insert(entry.display_name.clone(), asset.clone());
+                out.sandbag = Some(asset);
+            }
             _ => {
                 out.npcs.insert(entry.display_name.clone(), asset);
             }

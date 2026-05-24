@@ -95,18 +95,32 @@ Remaining work:
 - **Data-table cleanup** — archetype-specific speeds, aggro ranges,
   attack ranges, cooldown multipliers, and damage still live in
   sandbox enum matches. Pushing them out to a small data table is
-  Step B below.
+  Step B below. The brain templates (`MeleeBruteCfg::STRIKER_DEFAULT`
+  etc.) are already structured to pull from a table — wire it
+  through `enemy_default_brain()` to retire the match arms.
 - **Attack-pattern timer migration** — boss `Cycle` / `Scripted` and
-  the enemy wind-up / active / cooldown timers can become evaluator
-  outputs (or override fields into the snapshot) instead of
-  EFFECTS-stage timers. Optional; downgraded to shape-cleanup once
+  the enemy wind-up / active / cooldown timers can become brain
+  state machine outputs instead of EFFECTS-stage timers. The
+  `MeleeBruteState.mode` + `BossPatternState.phase/phase_elapsed`
+  fields are the target home. Downgraded to shape-cleanup once
   the movement seam landed.
-- **Player + multi-player on `ActorControlFrame`** — the player
-  still rides its own `update_player` path. Same seam, plus
-  per-character `AbilitySet`, unlocks "play as a goblin" + a second
-  player with a different ability set as the same operation. See
-  `docs/planning/player-singleton-audit.md` for the per-player audit
-  this work feeds.
+- **EFFECTS-stage consumer flip** (the universal-brain payoff) —
+  the `ActorActionMessage` resolver stream is emitted each frame
+  but no combat spawner reads from it; `EnemyRuntime` /
+  `BossRuntime` / `update_player` still drive hitbox + projectile
+  spawns from internal state. Daytime work flips spawners one
+  spec variant at a time. See
+  `docs/recipes/extending-brains-and-action-sets.md` (Daytime
+  EFFECTS-consumer flip — concrete procedure).
+- ~~**Player + multi-player on `ActorControlFrame`**~~ **2026-05-24
+  — partially landed.** Player carries `Brain::Player(slot)` +
+  `ActorControl` + `ActionSet`; `tick_player_brains` translates
+  `PlayerInputFrame` into the frame each tick. `update_player`
+  still reads `PlayerInputFrame` directly — the polarity flip
+  (consume `ActorControl` instead) is the final piece. Per-player
+  `AbilitySet` already feeds the ActionSet at spawn — "play as a
+  goblin" works conceptually today; needs `commands.insert` to
+  swap `Brain::Player` onto a goblin entity.
 
 ## Migration target
 

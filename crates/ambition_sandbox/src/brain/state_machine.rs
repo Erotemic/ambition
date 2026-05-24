@@ -700,6 +700,42 @@ mod tests {
     }
 
     #[test]
+    fn wanderer_resumes_walking_after_pause_expires() {
+        // Pause is time-bounded; once chatter_pause_s elapses past
+        // pause_until, the wanderer should resume forward motion.
+        let mut cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
+        cfg.climb_walls = false;
+        cfg.chatter_threshold = 1; // first reversal trips pause
+        cfg.chatter_window_s = 0.5;
+        cfg.chatter_pause_s = 1.0;
+        let mut sm = StateMachineCfg::Wanderer {
+            cfg,
+            state: WandererState::default(),
+        };
+        let mut s = BrainSnapshot::idle();
+        s.actor_facing = 1.0;
+        // Trip the chatter via a reversal at t=0.
+        s.wall_contact = Some(crate::brain::snapshot::WallContact {
+            normal: ae::Vec2::new(-1.0, 0.0),
+            is_climbable: false,
+        });
+        s.sim_time = 0.0;
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        // Pause is active.
+        if let StateMachineCfg::Wanderer { state, .. } = &sm {
+            assert!(state.pause_until > 0.5);
+        }
+        // Advance time past pause_until + remove wall contact.
+        s.sim_time = 2.0;
+        s.wall_contact = None;
+        let mut out2 = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out2);
+        // Forward motion resumed.
+        assert!(out2.desired_vel.x != 0.0, "wanderer should walk after pause expires");
+    }
+
+    #[test]
     fn wanderer_pauses_on_rapid_chatter() {
         let mut cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
         cfg.chatter_threshold = 3;

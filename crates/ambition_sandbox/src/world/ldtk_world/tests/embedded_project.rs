@@ -339,6 +339,60 @@ fn embedded_ldtk_hall_of_characters_has_expected_pedestals() {
     );
 }
 
+/// Companion to the pedestal-count test above: walks every NpcSpawn
+/// in the Hall of Characters and verifies its character_id resolves
+/// to either a sprite spec OR a graceful fallback (`None`). The
+/// runtime renderer panics on a half-built spec (no Idle row), so
+/// any failure mode here means the hall would crash on entry — which
+/// is exactly the regression Jon hit 2026-05-24.
+///
+/// This test is the closest we have to "walk into the room without
+/// crashing" without a full Bevy-app integration. Pairs with
+/// `every_catalog_sprite_spec_has_idle_row_if_loaded` (which checks
+/// the catalog->spec invariant) by checking it from the LDtk side
+/// (the hall's actual placements).
+#[test]
+fn embedded_ldtk_hall_of_characters_every_npc_resolves_a_safe_sprite_state() {
+    use crate::presentation::character_sprites::{sheet_for_character_id, CharacterAnim};
+
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let hall = project
+        .levels
+        .iter()
+        .find(|l| l.identifier == "hall_of_characters")
+        .expect("hall_of_characters level should exist");
+
+    let mut bad_specs: Vec<(String, String)> = Vec::new();
+    for layer in &hall.layer_instances {
+        for entity in &layer.entity_instances {
+            if entity.identifier != "NpcSpawn" {
+                continue;
+            }
+            let cid = field_string(entity, "character_id").unwrap_or_default();
+            if cid.is_empty() {
+                bad_specs.push(("(empty)".to_string(), "missing character_id".to_string()));
+                continue;
+            }
+            // None is acceptable (colored-rectangle fallback).
+            // Some(spec) MUST include an Idle row — otherwise
+            // `flat_index` would panic at first frame.
+            if let Some(spec) = sheet_for_character_id(&cid) {
+                if !spec
+                    .rows
+                    .iter()
+                    .any(|(anim, _)| matches!(anim, CharacterAnim::Idle))
+                {
+                    bad_specs.push((cid, "spec has no Idle row".to_string()));
+                }
+            }
+        }
+    }
+    assert!(
+        bad_specs.is_empty(),
+        "hall NpcSpawns with unsafe sprite specs (would crash on render): {bad_specs:?}",
+    );
+}
+
 #[test]
 fn embedded_ldtk_composes_central_hub_complex() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");

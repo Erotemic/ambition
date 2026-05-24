@@ -68,7 +68,7 @@ pub const NPC_TALK_RADIUS: f32 = 80.0;
 
 /// Patrol speed for NPCs. Slightly slower than the standard enemy
 /// patrol speed so peaceful NPCs read as casual rather than alert.
-/// Consumed by [`crate::brain::PatrolCfg::NPC_DEFAULT`] (the
+/// Consumed by `crate::brain::PatrolCfg::NPC_DEFAULT` (the
 /// brain-side mirror); kept here so the legacy NPC path that
 /// hasn't migrated yet (none today, but the daytime polarity flip
 /// preserves the value) stays in sync.
@@ -158,7 +158,7 @@ impl NpcRuntime {
     /// `evaluate_character_ai` and to flip `facing` toward the player
     /// while in `Chase` mode so dialogue prompts render on the
     /// correct side of the NPC sprite.
-    /// Per-tick NPC body update driven by a [`crate::brain::Brain`].
+    /// Per-tick NPC body update driven by a `crate::brain::Brain`.
     ///
     /// The brain (typically `Brain::StateMachine(Patrol)` for
     /// peaceful NPCs or `StandStill` for static ones) chooses what

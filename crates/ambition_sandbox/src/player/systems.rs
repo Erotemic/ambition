@@ -37,7 +37,7 @@ pub fn sync_local_player_input_frame(
 }
 
 /// Translate each player's input frame into their `ActorControl`
-/// frame via [`tick_player_brain_from_input`].
+/// frame via `crate::brain::tick_player_brain_from_input`.
 ///
 /// This is the producer for the universal-brain seam on the player
 /// side. Today nothing reads `ActorControl` for the player —

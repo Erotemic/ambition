@@ -154,6 +154,67 @@ mod tests {
     use crate::brain::{ActorControl, Brain};
     use bevy::prelude::*;
 
+    /// End-to-end: player releases the projectile charge →
+    /// tick_player_brains fills frame.fire → resolver emits a
+    /// Ranged action message with the player's Bolt spec. Pins
+    /// the ranged side of the seam alongside the melee test below.
+    #[test]
+    fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
+        use crate::brain::{
+            emit_brain_action_messages, ActionRequest, ActorActionMessage, RangedActionSpec,
+        };
+        use bevy::transform::components::Transform;
+        let mut app = App::new();
+        app.init_resource::<ControlFrame>();
+        app.add_message::<ActorActionMessage>();
+        let mut player = ae::Player::new_with_abilities(
+            ae::Vec2::new(40.0, 60.0),
+            ae::AbilitySet::sandbox_all(),
+        );
+        player.refresh_movement_resources(ae::DEFAULT_TUNING);
+        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        app.world_mut()
+            .spawn((bundle, Transform::from_xyz(40.0, 60.0, 0.0)));
+        app.add_systems(
+            Update,
+            (
+                sync_local_player_input_frame,
+                tick_player_brains,
+                emit_brain_action_messages,
+            )
+                .chain(),
+        );
+        {
+            let mut cf = app.world_mut().resource_mut::<ControlFrame>();
+            cf.projectile_released = true;
+            // aim diagonally up-right; brain reads aim when present
+            cf.aim_x = 0.8;
+            cf.aim_y = -0.6;
+        }
+        app.update();
+        let mut messages = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>();
+        let received: Vec<_> = messages.drain().collect();
+        let ranged: Vec<_> = received
+            .into_iter()
+            .filter(|m| matches!(m.request, ActionRequest::Ranged { .. }))
+            .collect();
+        assert_eq!(ranged.len(), 1, "expected exactly one Ranged message");
+        match ranged[0].request {
+            ActionRequest::Ranged {
+                spec: RangedActionSpec::Bolt { speed, .. },
+                dir,
+                ..
+            } => {
+                assert!(speed > 0.0, "Bolt has positive speed");
+                // dir is the aim vector normalized
+                assert!(dir.x > 0.0 && dir.y < 0.0, "aim diagonally up-right");
+            }
+            other => panic!("expected Ranged::Bolt, got {:?}", other),
+        }
+    }
+
     /// End-to-end: player presses attack → tick_player_brains fills
     /// ActorControl → emit_brain_action_messages produces an
     /// ActorActionMessage with a Swipe request. Pins the full

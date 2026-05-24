@@ -206,12 +206,18 @@ pub fn load_character_sprites_in(
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> CharacterSpriteAssets {
     let mut out = CharacterSpriteAssets::default();
+    let mut total = 0usize;
+    let mut loaded = 0usize;
+    let mut skipped_no_spec: Vec<&str> = Vec::new();
+    let mut skipped_no_path: Vec<&str> = Vec::new();
     for (cid, entry) in EMBEDDED_CATALOG.characters.iter() {
+        total += 1;
         let Some(sheet_spec) = sheet_for_character_id(cid) else {
             // Neither a hardcoded const nor a manifest in
             // `assets/sprites/` exists for this id — skip silently.
             // The character falls back to the colored-rectangle
             // visual until its sprite is published.
+            skipped_no_spec.push(cid.as_str());
             continue;
         };
         let asset_id = ids::character_sprite(cid);
@@ -223,8 +229,10 @@ pub fn load_character_sprites_in(
             &sheet_spec,
             Some(cid),
         ) else {
+            skipped_no_path.push(cid.as_str());
             continue;
         };
+        loaded += 1;
         match cid.as_str() {
             "player" => {
                 // Store under the typed field for the runtime's
@@ -255,6 +263,29 @@ pub fn load_character_sprites_in(
                 out.npcs.insert(entry.display_name.clone(), asset);
             }
         }
+    }
+    // Single-line startup census so a developer running the game
+    // can confirm at a glance whether the catalog→sprite chain is
+    // working. Bumped up to INFO so it appears under the default
+    // log filter without needing `RUST_LOG=debug`.
+    bevy::log::info!(
+        target: "ambition::character_sprites",
+        "character_sprites: {loaded}/{total} catalog entries loaded; \
+         {} no spec wired (placeholder), {} no asset path (placeholder)",
+        skipped_no_spec.len(),
+        skipped_no_path.len(),
+    );
+    if !skipped_no_spec.is_empty() {
+        bevy::log::debug!(
+            target: "ambition::character_sprites",
+            "character_sprites: no_spec ids: {skipped_no_spec:?}",
+        );
+    }
+    if !skipped_no_path.is_empty() {
+        bevy::log::debug!(
+            target: "ambition::character_sprites",
+            "character_sprites: no_path ids: {skipped_no_path:?}",
+        );
     }
     out
 }

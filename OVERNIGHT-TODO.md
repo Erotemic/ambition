@@ -498,8 +498,22 @@ is done. `ActivePlayerAttack`, `PlayerSafetyState`, target fields on
 `PlayerHealRequested` / `PlayerDamageEvent`, and the apply-damage reader
 are per-player. Multiplayer smoke tests pin the architectural invariants.
 
-What's left is the deeper chain — per-player input, shared actor facets,
-projectile faction, and per-target enemy AI. Each unlocks the next.
+**Update 2026-05-24:** The universal-brain interface (chunks 1-4f) added
+a per-player input → brain → ActorControl path that subsumes much of
+#17.5's intent: every player entity now carries a `Brain::Player(slot)` +
+`ActorControl` + `ActionSet`, and `tick_player_brains` writes the per-tick
+input into the brain. Per-archetype Brain + ActionSet attached to every
+actor (player / NPC / enemy / boss) via spawn-time wiring. ActorControl
+populated by shadow-tick for hostile actors + bosses. Resolver +
+`ActorActionMessage` stream emits per-tick concrete-action requests.
+Combat / projectile consumers are still on the legacy paths
+(EnemyRuntime / BossRuntime / update_player) — daytime work flips them.
+See [`docs/systems/brain-driver.md`](docs/systems/brain-driver.md) +
+[`TODO-controllable-entity.md`](TODO-controllable-entity.md) for the
+current shape and what's left.
+
+What's left in the multiplayer chain — per-player input is half done,
+plus shared actor facets, projectile faction, per-target enemy AI.
 
 ### 17.2 / 17.3 Shared actor facets
 

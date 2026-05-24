@@ -13,15 +13,15 @@ can stop at any checkpoint if budget runs out.
 ## Run progress (live updates)
 
 **Run started:** 2026-05-24T17:16:07+0000 (epoch 1779642967)
-**Current phase:** Phase 2 — NpcSpawn schema change 🏗️
-**Last green commit:** _Phase 1 commit pending_
+**Current phase:** Phase 3 — Sprite gap closure 🏗️
+**Last green commit:** _Phase 2 commit pending_
 
 ### Estimated vs Actual time
 
 | Phase | Estimated | Actual | Status | Notes |
 |---|---|---|---|---|
 | 1. Foundation (RON catalog + plugin + validator) | 2.0 h | 0.16 h | ✅ done | 24 chars; 771 lib tests + 8 new catalog tests all green; headless 60-tick clean. Fast because brain/action_set types already designed for this shape. |
-| 2. NpcSpawn schema change (`name` → `character_id`) | 1.5 h | _ | ⬜ pending | _ |
+| 2. NpcSpawn schema change (`name` → `character_id`) | 1.5 h | 0.16 h | ✅ done | 26 LDtk instances migrated (18 sandbox + 8 intro); +11 intro catalog entries; parser translates character_id → display_name so downstream sprite/banter/dialog keep working without churn; 10 catalog tests + 771 lib tests + 200-tick headless all green. |
 | 3. Sprite gap closure (every renderer entry → catalog) | 1.0 h | _ | ⬜ pending | _ |
 | 4. Area specs YAML → RON migration | 1.0 h | _ | ⬜ pending | _ |
 | 5. Hall of Characters generator + room | 1.5 h | _ | ⬜ pending | _ |

@@ -34,7 +34,9 @@ pub use entry::{
     CharacterTier, CompositionLayer, MeleePreset, MoveStylePreset, RangedPreset, SpecialPreset,
 };
 #[allow(unused_imports, reason = "CHARACTER_CATALOG_ASSET used by tooling that loads off disk")]
-pub use loader::{load_embedded, CHARACTER_CATALOG_ASSET};
+pub use loader::{
+    display_name_for_character_id, load_embedded, CHARACTER_CATALOG_ASSET, EMBEDDED_CATALOG,
+};
 pub use resolver::{action_set_from_preset, brain_from_preset};
 
 /// Bevy resource holding the parsed catalog. Inserted at Startup by
@@ -260,6 +262,33 @@ mod tests {
             }
             other => panic!("expected Patrol, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn display_name_resolves_for_every_catalog_entry() {
+        // Phase 2 pin: the LDtk parser reads `character_id` from
+        // NpcSpawn instances and looks up the display name via
+        // `display_name_for_character_id`. Every catalog entry must
+        // therefore round-trip — otherwise the Authored.name field
+        // ends up populated with the id (e.g. "npc_alice") instead
+        // of the human label ("Alice").
+        for (id, entry) in &EMBEDDED_CATALOG.characters {
+            let label = display_name_for_character_id(id);
+            assert_eq!(
+                label,
+                Some(entry.display_name.as_str()),
+                "display_name_for_character_id('{id}') should return '{}'",
+                entry.display_name,
+            );
+        }
+    }
+
+    #[test]
+    fn display_name_returns_none_for_unknown_id() {
+        // Negative: callers fall back to the id itself when a lookup
+        // misses. Pins the contract so a future panic-on-miss change
+        // doesn't sneak through.
+        assert!(display_name_for_character_id("npc_definitely_not_in_catalog").is_none());
     }
 
     #[test]

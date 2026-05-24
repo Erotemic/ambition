@@ -10,6 +10,8 @@
 //! The embedded path is relative to the sandbox crate root and lives
 //! under `assets/data/` so it ships with the sandbox.
 
+use std::sync::LazyLock;
+
 use super::entry::CharacterCatalogData;
 
 /// Path constant for tooling that loads the RON file off disk
@@ -23,4 +25,21 @@ pub const CHARACTER_CATALOG_ASSET: &str = "data/character_catalog.ron";
 pub fn load_embedded() -> CharacterCatalogData {
     ron::from_str(include_str!("../../../assets/data/character_catalog.ron"))
         .expect("embedded assets/data/character_catalog.ron should parse")
+}
+
+/// One-time parse cache so non-Bevy call sites (the LDtk parser,
+/// tests, headless tooling) can query the catalog without
+/// re-parsing. The Bevy `CharacterCatalog` resource always takes
+/// precedence when one is available, but the parser runs inside
+/// `convert_npc_spawn` which has no `Res<>` access.
+pub static EMBEDDED_CATALOG: LazyLock<CharacterCatalogData> = LazyLock::new(load_embedded);
+
+/// Look up the display name for a character id. Returns `None` if
+/// the id is not in the catalog; callers fall back to using the id
+/// itself as a label.
+pub fn display_name_for_character_id(character_id: &str) -> Option<&'static str> {
+    EMBEDDED_CATALOG
+        .characters
+        .get(character_id)
+        .map(|entry| entry.display_name.as_str())
 }

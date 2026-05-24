@@ -961,8 +961,8 @@
 			"pivotY": 0,
 			"fieldDefs": [
 				{
-					"identifier": "name",
-					"doc": "NPC display name.",
+					"identifier": "character_id",
+					"doc": "Stable character identifier; key into `assets/data/character_catalog.ron`. Replaced the legacy `name` field in Phase 2 of the character-catalog refactor.",
 					"__type": "String",
 					"uid": 3012,
 					"type": "F_String",
@@ -989,7 +989,7 @@
 					"acceptFileTypes": null,
 					"defaultOverride": {
 						"id": "V_String",
-						"params": ["NPC"]
+						"params": ["npc_unregistered"]
 					},
 					"textLanguageMode": null,
 					"symmetricalRef": false,
@@ -5295,7 +5295,7 @@
 							"defUid": 2006,
 							"px": [440,304],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Creator", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Creator"] } ] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_creator", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["npc_creator"] } ] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to the Creator", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Talk to the Creator"] } ] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "creator_intro", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["creator_intro"] } ] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
@@ -6195,7 +6195,7 @@
 							"defUid": 2006,
 							"px": [780,432],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Creator Final", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Creator Final"] } ] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_creator_final", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["npc_creator_final"] } ] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Hear the Creator's last words", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Hear the Creator's last words"] } ] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "creator_final_normal", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["creator_final_normal"] } ] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
@@ -10260,7 +10260,7 @@
 							"defUid": 2006,
 							"px": [320,688],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Alice", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Alice"] } ] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_alice", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["npc_alice"] } ] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to Alice", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Talk to Alice"] } ] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "alice_intro_stub", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["alice_intro_stub"] } ] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
@@ -11283,7 +11283,7 @@
 							"defUid": 2006,
 							"px": [848,576],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Bob", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Bob"] } ] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_bob", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["npc_bob"] } ] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to Bob", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Talk to Bob"] } ] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "bob_intro_stub", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["bob_intro_stub"] } ] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
@@ -13369,7 +13369,7 @@
 							"defUid": 2006,
 							"px": [320,560],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Oiler", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Oiler"] } ] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_oiler", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["npc_oiler"] } ] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to Oiler", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Talk to Oiler"] } ] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "oiler_intro", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["oiler_intro"] } ] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
@@ -13410,7 +13410,7 @@
 							"defUid": 2006,
 							"px": [560,560],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "News Board", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["News Board"] } ] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_news_board", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["npc_news_board"] } ] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Read the news board", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Read the news board"] } ] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "news_board_lab_incident", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["news_board_lab_incident"] } ] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
@@ -14889,7 +14889,7 @@
 							"defUid": 2006,
 							"px": [400,688],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Gate Janitor", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Gate Janitor"] } ] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_gate_janitor", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["npc_gate_janitor"] } ] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to the Gate Janitor", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Talk to the Gate Janitor"] } ] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "gate_janitor_ripple", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["gate_janitor_ripple"] } ] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
@@ -14911,7 +14911,7 @@
 							"defUid": 2006,
 							"px": [960,688],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Manifest Clerk", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Manifest Clerk"] } ] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_manifest_clerk", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["npc_manifest_clerk"] } ] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Approach the manifest kiosk", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Approach the manifest kiosk"] } ] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "manifest_kiosk_wrong_list", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["manifest_kiosk_wrong_list"] } ] },
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4123, "realEditorValues": [] },

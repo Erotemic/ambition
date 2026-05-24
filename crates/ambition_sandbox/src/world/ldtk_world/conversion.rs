@@ -657,6 +657,22 @@ fn convert_npc_spawn(
     min: ae::Vec2,
     size: ae::Vec2,
 ) -> RuntimeEntityEmission {
+    // Post-Phase 2: LDtk NpcSpawns carry a stable `character_id`
+    // field that keys into `assets/data/character_catalog.ron`. The
+    // resolved display name (`catalog.display_name`) becomes the
+    // `Authored.name` so downstream sprite / banter / dialog lookups
+    // — which still match on display name today — work unchanged.
+    // Phase 6 lifts those consumers off display-name lookups in
+    // favor of character_id keys; until then this translation is the
+    // bridge.
+    let character_id = field_string(entity, "character_id").unwrap_or_default();
+    let display_name = if character_id.is_empty() {
+        name
+    } else {
+        crate::content::character_catalog::display_name_for_character_id(&character_id)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| character_id.clone())
+    };
     let interactable = ae::Interactable::new(
         entity.iid.clone(),
         field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
@@ -670,7 +686,7 @@ fn convert_npc_spawn(
                 .or_else(|| field_string(entity, "patrol_path_id")),
         },
     );
-    let (id, name, aabb) = authored_triple(entity, name, min, size);
+    let (id, name, aabb) = authored_triple(entity, display_name, min, size);
     RuntimeEntityEmission::interactable(crate::rooms::Authored::new(id, name, aabb, interactable))
 }
 

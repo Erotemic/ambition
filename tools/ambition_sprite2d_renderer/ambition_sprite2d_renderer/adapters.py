@@ -20,7 +20,21 @@ from .targets.characters.alice_cryptographer import AliceCryptographerGenerator,
 
 
 def _dataclass_dict(obj: Any) -> Dict[str, Any]:
-    return asdict(obj) if is_dataclass(obj) else dict(obj)
+    data = asdict(obj) if is_dataclass(obj) else dict(obj)
+    return _strip_callables(data)
+
+
+def _strip_callables(value: Any) -> Any:
+    # Spec dataclasses may carry hook callables (e.g. ToonSpec.pose_override).
+    # asdict passes them through unchanged, and yaml/RON can't represent
+    # functions — drop them so the manifest stays serialisable.
+    if isinstance(value, dict):
+        return {k: _strip_callables(v) for k, v in value.items() if not callable(v)}
+    if isinstance(value, list):
+        return [_strip_callables(v) for v in value if not callable(v)]
+    if isinstance(value, tuple):
+        return tuple(_strip_callables(v) for v in value if not callable(v))
+    return value
 
 
 class BaseAdapter:

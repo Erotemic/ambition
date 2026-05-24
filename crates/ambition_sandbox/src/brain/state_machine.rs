@@ -558,6 +558,23 @@ mod tests {
     use super::*;
     use crate::brain::snapshot::{BrainSnapshot, WallContact};
 
+    /// Pin the SignumOr trait's "near-zero → fallback" semantics.
+    /// Many brain ticks lean on this to keep facing stable when
+    /// movement input is briefly neutral; a regression to plain
+    /// `signum()` would let actors snap to 0 facing on neutral
+    /// frames. Edge cases: positive, negative, exactly zero,
+    /// sub-epsilon positive.
+    #[test]
+    fn signum_or_falls_back_when_input_is_near_zero() {
+        assert_eq!((0.0_f32).signum_or(1.0), 1.0);
+        assert_eq!((0.0_f32).signum_or(-1.0), -1.0);
+        assert_eq!((f32::EPSILON * 0.5).signum_or(7.0), 7.0);
+        assert_eq!((-f32::EPSILON * 0.5).signum_or(7.0), 7.0);
+        // Clearly positive / negative → signum wins.
+        assert_eq!((0.5_f32).signum_or(99.0), 1.0);
+        assert_eq!((-0.5_f32).signum_or(99.0), -1.0);
+    }
+
     fn snap_at(pos_x: f32, target_x: f32) -> BrainSnapshot {
         let mut s = BrainSnapshot::idle();
         s.actor_pos = ae::Vec2::new(pos_x, 0.0);

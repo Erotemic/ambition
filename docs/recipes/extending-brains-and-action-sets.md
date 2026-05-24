@@ -305,6 +305,19 @@ pub mod scripted;
 - **Aggressiveness lives in the brain, not the actor.** There is
   no `ActorAggression` sibling component. Query
   `brain.is_hostile()` if you need the answer.
+- **Early-return tick branches must write neutral, not bail.**
+  `tick_state_machine` originally returned early on dead actors
+  without writing `out`, which let a pre-poisoned frame leak
+  through into the next stage. Always `*out = ActorControlFrame::
+  neutral();` before returning early. Pin the pre-poisoned case
+  in tests (set `out.melee_pressed = true` + `out.fire = Some(_)`
+  before the tick, then assert they were cleared).
+- **Brain swap must drag ActionSet with it.** When mutating an
+  entity's brain (e.g. NPC hostile flip), also `commands.insert`
+  the matching ActionSet. Otherwise the new brain emits intent
+  the old ActionSet can't resolve — the actor silently no-ops.
+  See `crates/ambition_sandbox/src/content/features/ecs/damage.rs`
+  for the pattern.
 
 ## Validation gates
 

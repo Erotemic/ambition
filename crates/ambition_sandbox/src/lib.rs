@@ -34,6 +34,7 @@ pub mod rl_sim;
 pub(crate) mod assets;
 pub(crate) mod body_mode;
 pub(crate) mod boss_encounter;
+pub(crate) mod brain;
 pub(crate) mod combat_slots;
 pub(crate) mod config;
 pub(crate) mod content;

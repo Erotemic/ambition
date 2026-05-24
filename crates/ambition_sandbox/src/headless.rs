@@ -232,4 +232,43 @@ mod tests {
             "expected at least one SfxMessage::Reset emitted by the sim; got {reset_count}",
         );
     }
+
+    /// Universal-brain integration check: with the full
+    /// SandboxSimulationPlugin installed, the player carries a
+    /// Brain + ActionSet + ActorControl, the brain ticks each
+    /// frame, and the ActionSet resolver writes an
+    /// ActorActionMessage when the input frame triggers attack.
+    /// Validates the production wiring (vs the synthetic mini-app
+    /// in `player/systems.rs` tests).
+    #[test]
+    fn sim_emits_action_messages_when_player_attacks() {
+        use crate::brain::{ActorActionMessage, BrainActionCounter};
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(AssetPlugin::default());
+        app.add_plugins(ImagePlugin::default());
+        app.add_plugins(TransformPlugin);
+        app.add_plugins(StatesPlugin);
+        app.init_state::<GameMode>();
+        app.add_plugins(crate::app::SandboxSimulationPlugin);
+        // First tick runs Startup (spawns the player entity).
+        app.update();
+        // Stamp an attack press into the control frame.
+        *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
+            attack_pressed: true,
+            ..ControlFrame::default()
+        };
+        app.update();
+        let counter = app.world().resource::<BrainActionCounter>();
+        let messages = app.world().resource::<Messages<ActorActionMessage>>();
+        let melee_count = messages
+            .iter_current_update_messages()
+            .filter(|m| m.is_melee())
+            .count();
+        assert!(
+            melee_count >= 1,
+            "expected at least one Melee ActorActionMessage; counter.last_frame={}",
+            counter.last_frame,
+        );
+    }
 }

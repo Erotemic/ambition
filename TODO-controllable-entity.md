@@ -1,6 +1,14 @@
 # TODO: Controllable-entity unification (Player / Enemy / NPC)
 
-**Status:** plan draft, 2026-05-24. Awaiting Jon's review before overnight execution.
+**Status:** plan draft, 2026-05-24. **Overnight session executed
+2026-05-24** — Chunks 1–4f landed plus extensive post-4f polish
+(per-archetype Brain + ActionSet wiring, ActorActionMessage
+resolver stream, BrainPlugin, BrainActionCounter, CombatTimers,
+end-to-end + 100-tick smoke + determinism + pause-safety tests,
+brain-driver.md overview, extending-brains recipe). 1054
+workspace tests green. Daytime continuation tracked in
+[`dev/journals/ae-player-field-usage-2026-05-24.md`](dev/journals/ae-player-field-usage-2026-05-24.md);
+plan below preserved as the original execution map.
 
 **Source design doc:** [docs/planning/universal-brain-interface.md](docs/planning/universal-brain-interface.md)
 **Source TODO entry:** [TODO.md](TODO.md) "Universal brain interface" (Proposed section, L230-235)

@@ -125,8 +125,13 @@ impl CharacterAnim {
         // Lowercase + strip nothing; we want exact matches against the
         // generator output strings.
         Some(match name {
-            "idle" | "opening" => Self::Idle,
-            "walk" | "stable" | "spin" => Self::Walk,
+            // `rest` (boss-encounter sheets), `front_idle` / `side_idle`
+            // (girdle's facing-split sheet) — alias to Idle so the
+            // catalog can pull every character in. A fully typed
+            // CharacterAnim::Rest can land later if a consumer
+            // distinguishes them.
+            "idle" | "opening" | "rest" | "front_idle" | "side_idle" => Self::Idle,
+            "walk" | "stable" | "spin" | "side_walk" => Self::Walk,
             "run" | "closing" => Self::Run,
             "jump" => Self::Jump,
             "fall" => Self::Fall,

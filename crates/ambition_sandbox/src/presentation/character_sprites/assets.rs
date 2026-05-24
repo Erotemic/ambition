@@ -160,7 +160,15 @@ pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> 
     if let Some(static_spec) = hardcoded {
         return Some((**static_spec).clone());
     }
-    super::sheets::try_load_spec_for_character_id(character_id)
+    let spec = super::sheets::try_load_spec_for_character_id(character_id);
+    if spec.is_none() {
+        bevy::log::debug!(
+            target: "ambition::character_sprites",
+            "character_sprites: no sheet wired (hardcoded or manifest) for catalog id '{character_id}' — \
+             actor will render the colored-rectangle placeholder",
+        );
+    }
+    spec
 }
 
 /// Return every `(character_id, on-disk filename)` pair the catalog

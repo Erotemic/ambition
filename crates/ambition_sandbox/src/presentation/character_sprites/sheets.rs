@@ -231,7 +231,29 @@ pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterShe
                 .strip_prefix("npc_")
                 .and_then(|stripped| index.get(stripped))
         })?;
-    Some(spec_from_record(record, &DEFAULT_TUNING))
+    let spec = spec_from_record(record, &DEFAULT_TUNING);
+    // The runtime atlas indexer (`flat_index`) falls back to
+    // `Idle` for any animation that doesn't have its own row.
+    // Without at least an Idle row, the actor renderer panics
+    // on the very first frame. Better to skip these manifests
+    // here — caller falls back to the colored-rectangle visual.
+    // The renderer-side fix is to ensure every published sheet
+    // exposes an `idle` row; until then we drop them safely.
+    if spec
+        .rows
+        .iter()
+        .any(|(anim, _)| *anim == CharacterAnim::Idle)
+    {
+        Some(spec)
+    } else {
+        bevy::log::warn!(
+            target: "ambition::character_sprites",
+            "character_sprites: skip spec for catalog id '{character_id}' \
+             (manifest has no recognized Idle row; rows = {:?})",
+            spec.rows.iter().map(|(a, _)| a).collect::<Vec<_>>(),
+        );
+        None
+    }
 }
 
 /// Fallback tuning for catalog entries that don't have a hardcoded

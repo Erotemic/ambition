@@ -161,6 +161,40 @@ mod tests {
     }
 
     #[test]
+    fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
+        // The actor renderer's `flat_index` falls back to `Idle`
+        // for any animation that doesn't have its own row. A spec
+        // *without* an Idle row crashes on the first frame. This
+        // test walks every catalog id, asks the sprite loader for
+        // a spec, and verifies the spec either declines to load
+        // (None) or includes an Idle row — never an Idle-less spec
+        // that the runtime would unwrap into a panic.
+        //
+        // Caught a real crash 2026-05-24 when the manifest-driven
+        // fallback loaded a spec for a character whose generated
+        // sheet only had run/walk rows (no idle).
+        use crate::presentation::character_sprites::sheet_for_character_id;
+        let data = load_embedded();
+        for cid in data.characters.keys() {
+            let Some(spec) = sheet_for_character_id(cid) else {
+                continue;
+            };
+            let has_idle = spec
+                .rows
+                .iter()
+                .any(|(anim, _)| matches!(
+                    anim,
+                    crate::presentation::character_sprites::CharacterAnim::Idle,
+                ));
+            assert!(
+                has_idle,
+                "catalog id '{cid}' loaded a spec without an Idle row; \
+                 sheet_for_character_id must return None or a spec with Idle",
+            );
+        }
+    }
+
+    #[test]
     fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
         // Phase 6 + manifest-driven fallback (2026-05-24): every
         // catalog id either resolves to a hardcoded `*_SHEET` const

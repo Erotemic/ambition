@@ -33,7 +33,6 @@ See ``target_registry.py`` for the tack-on API contract.
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 from pathlib import Path
 from typing import List
@@ -42,8 +41,8 @@ from .adapters import TARGETS, get_adapter
 from .canonical import (
     draw_canonical_of,
     render_canonical,
-    write_all_canonicals,
     write_canonicals,
+    write_gallery,
 )
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
@@ -54,8 +53,8 @@ from .sheet import write_spritesheet
 from .target_registry import (
     CATEGORIES,
     DiscoveryReport,
-    TackonTarget,
-    discover_tackon_targets,
+    Target,
+    discover_all_targets,
 )
 
 
@@ -80,16 +79,19 @@ DEFAULT_ASSET_DIR = (
 DEFAULT_FACTION_CONFIG = DEFAULT_CONFIG_DIR / "factions" / "music_factions.yaml"
 
 
-# ---- Tack-on targets ----------------------------------------------------------
+# ---- Target registry ---------------------------------------------------------
 #
-# `targets/<category>/...` is auto-discovered at import time (see
-# `target_registry.discover_tackon_targets`). Adding a new tack-on is
-# just dropping a `.py` file (or a package directory with `__init__.py`)
-# into the right category subdir and exposing a `render()` function —
-# no edit to this file is required.
+# Unified discovery across every surface: tack-on Python modules under
+# `targets/<category>/` AND YAML adapter configs under `configs/` /
+# `configs/review/`. See `target_registry.discover_all_targets`.
+#
+# Adding a tack-on: drop a `.py` (or package dir) into the right
+# category subdir. Adding an adapter target: drop a YAML config under
+# `configs/` or `configs/review/`. Either way, no edit to this file
+# is required.
 
-_TACKON_REPORT: DiscoveryReport = discover_tackon_targets()
-_TACKON_TARGETS: dict[str, TackonTarget] = _TACKON_REPORT.targets
+_REPORT: DiscoveryReport = discover_all_targets()
+_ALL_TARGETS: dict[str, Target] = _REPORT.targets
 
 
 # Review configs whose generated spritesheets are loaded at runtime via
@@ -127,31 +129,31 @@ RUNTIME_REVIEW_NPCS: tuple[str, ...] = (
 )
 
 
-def _get_tackon(name: str) -> TackonTarget:
-    """Look up a discovered tack-on target.
+def _get_target(name: str) -> Target:
+    """Look up a target from the unified registry.
 
-    If the name isn't in the registry but a matching file exists under
+    If the name isn't registered but a matching file exists under
     ``targets/<category>/<name>.py``, surface the discovery warning for
     it (typically "no `render()` function") so the user knows *why*
     their file isn't registered, instead of just "unknown target."
     """
-    if name in _TACKON_TARGETS:
-        return _TACKON_TARGETS[name]
+    if name in _ALL_TARGETS:
+        return _ALL_TARGETS[name]
     # Look for a discovery warning matching this name. Warnings are
     # formatted as "<category>/<stem>: <reason>" so an `endswith` /
     # `:` split is enough to find the relevant one.
-    for line in _TACKON_REPORT.warnings:
+    for line in _REPORT.warnings:
         head, _, reason = line.partition(":")
         if head.endswith(f"/{name}"):
             raise SystemExit(
                 f"error: target {name!r} is not registered.\n"
                 f"  reason: {reason.strip()}\n"
                 f"  location: {head.strip()}.py\n"
-                f"  see `target_registry.py` for the tack-on API contract."
+                f"  see `target_registry.py` for the Target protocol contract."
             )
     raise SystemExit(
-        f"error: unknown tack-on target: {name!r}\n"
-        f"  run `list-targets` to see the registered tack-ons."
+        f"error: unknown target: {name!r}\n"
+        f"  run `list-targets` to see the registered targets."
     )
 
 
@@ -222,13 +224,7 @@ def draw_canonicals(
     """
     if adapters_only:
         return write_canonicals(config_dir, out_dir)
-    outputs, warnings = write_all_canonicals(
-        out_dir,
-        config_dir=config_dir,
-        tackons=list(_TACKON_TARGETS.items()),
-        review_config_dir=DEFAULT_REVIEW_CONFIG_DIR,
-        review_npcs=RUNTIME_REVIEW_NPCS,
-    )
+    outputs, warnings = write_gallery(out_dir, _ALL_TARGETS.values())
     for line in warnings:
         print(f"warning: {line}", file=sys.stderr)
     return outputs
@@ -302,13 +298,8 @@ def _cmd_draw_canonicals(args: argparse.Namespace) -> int:
 
 def _cmd_canonical(args: argparse.Namespace) -> int:
     """Draw the canonical of a single target into ``--out-dir``."""
-    out = draw_canonical_of(
-        args.target,
-        args.out_dir,
-        tackons=_TACKON_TARGETS,
-        config_dir=DEFAULT_CONFIG_DIR,
-        review_config_dir=DEFAULT_REVIEW_CONFIG_DIR,
-    )
+    target = _get_target(args.target)
+    out = draw_canonical_of(target, args.out_dir)
     print_paths([out])
     return 0
 
@@ -334,13 +325,13 @@ def _cmd_draw_factions(args: argparse.Namespace) -> int:
 
 
 def _cmd_list_targets(args: argparse.Namespace) -> int:
-    print("# adapter targets (driven by configs/*.yaml — renders via draw-character / draw-all):")
+    print("# adapter rigs (driven by configs/*.yaml — renders via draw-character / draw-all):")
     for target in sorted(TARGETS):
         adapter = get_adapter(target)
         print(f"  {target}: {', '.join(adapter.default_animations())}")
-    print("# tack-on targets (render/install/render-publish/render-publish-all):")
+    print("# registered targets (unified — works with render/install/canonical):")
     by_category: dict[str, list[str]] = {cat: [] for cat in CATEGORIES}
-    for name, tgt in _TACKON_TARGETS.items():
+    for name, tgt in _ALL_TARGETS.items():
         by_category.setdefault(tgt.category, []).append(name)
     for category in CATEGORIES:
         names = sorted(by_category.get(category, []))
@@ -348,22 +339,18 @@ def _cmd_list_targets(args: argparse.Namespace) -> int:
             continue
         print(f"  [{category}]")
         for name in names:
-            print(f"    {name}")
-    # Review NPCs are toon-adapter jobs under configs/review/ that the
-    # runtime sprite registry expects at boot. They're not tack-ons and
-    # they don't show up under any adapter's animations list, so list
-    # them explicitly here — otherwise users grep for "mallory" or
-    # "oiler" and conclude (incorrectly) that they aren't registered.
-    if RUNTIME_REVIEW_NPCS:
-        print("# review NPCs (configs/review/*.yaml — render via draw-runtime-npcs):")
-        for name in sorted(RUNTIME_REVIEW_NPCS):
-            cfg = DEFAULT_REVIEW_CONFIG_DIR / f"{name}.yaml"
-            present = cfg.exists()
-            marker = "" if present else "  (MISSING CONFIG)"
-            print(f"  {name}{marker}")
-    if _TACKON_REPORT.warnings:
-        print("# warnings (files in targets/ that don't conform to the tack-on API):", file=sys.stderr)
-        for line in _TACKON_REPORT.warnings:
+            marker = (
+                "  (runtime)"
+                if category == "review_npcs" and name in RUNTIME_REVIEW_NPCS
+                else ""
+            )
+            print(f"    {name}{marker}")
+    if _REPORT.warnings:
+        print(
+            "# warnings (files in targets/ that don't conform to the Target API):",
+            file=sys.stderr,
+        )
+        for line in _REPORT.warnings:
             print(f"  {line}", file=sys.stderr)
     return 0
 
@@ -386,57 +373,35 @@ def _cmd_single(args: argparse.Namespace) -> int:
     return 0
 
 
-# ---- Tack-on commands ---------------------------------------------------------
+# ---- Target render / install commands ---------------------------------------
 
-def _render_tackon(target_name: str) -> List[Path]:
-    target = _get_tackon(target_name)
+def _render_target(target_name: str) -> List[Path]:
+    target = _get_target(target_name)
     out_dir = generated_dir(target_name)
-    paths = list(target.render(out_dir))
+    paths = list(target.render_sheet(out_dir))
     print_paths(paths)
     return paths
 
 
-def _install_tackon(target_name: str, dest_root: Path) -> List[Path]:
-    target = _get_tackon(target_name)
+def _install_target(target_name: str, dest_root: Path) -> List[Path]:
+    target = _get_target(target_name)
     out_dir = generated_dir(target_name)
-    # Targets that need to install into a subdirectory (e.g. the
-    # mockingbird boss, which ships a `mockingbird_boss/` folder with
-    # a manifest + per-part frames) expose a custom
-    # `install(render_dir, dest_root)` function. Falling back to the
-    # default SHEET_FILES copy when absent matches the historical
-    # behavior.
-    if target.install is not None:
-        copied = list(target.install(out_dir, dest_root))
-        print_paths(copied)
-        return copied
-
-    dest_root.mkdir(parents=True, exist_ok=True)
-    copied = []
-    missing: List[str] = []
-    for fname in target.sheet_files:
-        src = out_dir / fname
-        if not src.exists():
-            missing.append(fname)
-            continue
-        dst = dest_root / fname
-        shutil.copy2(src, dst)
-        copied.append(dst)
-    if missing:
-        print(
-            f"warning: {target_name} files not yet rendered: {', '.join(missing)}",
-            file=sys.stderr,
-        )
+    # Both TackonTarget and AdapterTarget implement `install` with a
+    # default copy-each-SHEET_FILES; targets that need custom behavior
+    # (e.g. mockingbird_boss with its subdirectory of part files)
+    # override the method.
+    copied = list(target.install(out_dir, dest_root))
     print_paths(copied)
     return copied
 
 
 def _cmd_render(args: argparse.Namespace) -> int:
-    _render_tackon(args.target)
+    _render_target(args.target)
     return 0
 
 
 def _cmd_preview(args: argparse.Namespace) -> int:
-    paths = _render_tackon(args.target)
+    paths = _render_target(args.target)
     if paths:
         print_paths([paths[0]])
     else:
@@ -445,27 +410,34 @@ def _cmd_preview(args: argparse.Namespace) -> int:
 
 
 def _cmd_install(args: argparse.Namespace) -> int:
-    copied = _install_tackon(args.target, args.dest_root)
+    copied = _install_target(args.target, args.dest_root)
     return 0 if copied else 1
 
 
 def _cmd_render_publish(args: argparse.Namespace) -> int:
-    _render_tackon(args.target)
-    copied = _install_tackon(args.target, args.dest_root)
+    _render_target(args.target)
+    copied = _install_target(args.target, args.dest_root)
     return 0 if copied else 1
 
 
 def _cmd_render_publish_all(args: argparse.Namespace) -> int:
-    """Render + install every tack-on target. Used to bring a fresh
-    checkout up to date in one command after a renderer change touches
-    multiple targets. Each target's errors are reported but don't abort
-    the rest of the run."""
+    """Render + install every tack-on target.
+
+    Scoped to the tack-on surface (characters/props/tiles/icons) — the
+    YAML adapter surface is published by `draw-all` and the runtime
+    review NPCs by `draw-runtime-npcs`, both via separate commands.
+    Each target's errors are reported but don't abort the rest.
+    """
+    tackon_categories = {"characters", "props", "tiles", "icons"}
+    tackon_names = sorted(
+        name for name, t in _ALL_TARGETS.items() if t.category in tackon_categories
+    )
     failures: list[str] = []
-    for target_name in sorted(_TACKON_TARGETS):
+    for target_name in tackon_names:
         print(f"\n# {target_name}")
         try:
-            _render_tackon(target_name)
-            if not _install_tackon(target_name, args.dest_root):
+            _render_target(target_name)
+            if not _install_target(target_name, args.dest_root):
                 failures.append(target_name)
         except Exception as ex:  # noqa: BLE001 - report and continue
             print(
@@ -575,14 +547,14 @@ def _cmd_draw_runtime_npcs(args: argparse.Namespace) -> int:
 
 def _add_tackon_target_arg(p: argparse.ArgumentParser) -> None:
     # No `choices=` constraint here. We want argparse to accept any
-    # string so `_get_tackon` can give a useful error when the name
+    # string so `_get_target` can give a useful error when the name
     # matches a file under `targets/<category>/` but the file is
     # missing the tack-on API. With `choices=` argparse would error
     # before our handler runs and we couldn't surface the warning.
     p.add_argument(
         "target",
         metavar="TARGET",
-        help="tack-on target id (run `list-targets` to see what's registered)",
+        help="target id (run `list-targets` to see what's registered)",
     )
 
 

@@ -9,8 +9,12 @@ is gone. The player carries `Brain::Player(slot)` + `ActorControl`
 with `tick_player_brains` filling the frame each tick (Chunks 4b/c,
 `c41997b`/`32c37e3`), but `update_player` still consumes
 `PlayerInputFrame` directly — the polarity flip is pending. Enemy
-+ boss runtimes still hand-roll their AI internals; their migration
-onto brain templates is the daytime continuation tracked in
++ boss runtimes also carry their per-archetype `Brain` +
+`ActionSet` via shadow ticks (`shadow_tick_brain` /
+`shadow_tick_brain_with_timers`), with the resolver writing
+`ActorActionMessage`s every frame; the messages are observed by
+`BrainActionCounter` only — no combat-spawn consumer reads them
+yet. Wiring the consumer is the daytime continuation tracked in
 [`../../TODO-controllable-entity.md`](../../TODO-controllable-entity.md).
 Data-table migration for per-brain knobs and attack-pattern timer
 migration remain deferred.

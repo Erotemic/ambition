@@ -29,6 +29,7 @@ pub use action_set::{
     MeleeActionSpec, MoveStyleSpec, PunchSpec, RangedActionSpec, SlamSpec, SpecialActionSpec,
     SwipeSpec,
 };
+pub use player::{tick_player_brain, tick_player_brain_from_input};
 pub use snapshot::{BrainSnapshot, WallContact};
 pub use state_machine::{
     tick_state_machine, BossPatternCfg, BossPatternState, MeleeBruteCfg, MeleeBruteState,

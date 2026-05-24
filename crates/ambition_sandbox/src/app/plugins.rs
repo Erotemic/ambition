@@ -135,6 +135,14 @@ fn register_player_input_systems(app: &mut App) {
             // PlayerInput phase so every input writer (leafwing, mobile
             // bridge, RL) has finalized the resource for this frame.
             crate::player::sync_local_player_input_frame,
+            // Universal-brain seam: translate PlayerInputFrame into
+            // the player's ActorControl frame. Runs after the input
+            // sync so the brain sees this frame's inputs. Today no
+            // sim consumer reads ActorControl on the player yet;
+            // running it now proves the brain → ActorControl path
+            // executes cleanly each tick and gives debug tooling a
+            // unified read model.
+            crate::player::tick_player_brains,
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),

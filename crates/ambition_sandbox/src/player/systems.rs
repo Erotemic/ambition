@@ -1,12 +1,14 @@
 //! Player ECS systems.
 
+use ambition_engine as ae;
 use bevy::prelude::*;
 
 use super::components::{
     ActivePlayerAttack, LocalPlayer, PlayerBody, PlayerCombatState, PlayerEntity, PlayerHealth,
-    PlayerInputFrame, PlayerMovementAuthority, PrimaryPlayer,
+    PlayerInputFrame, PlayerMovementAuthority, PlayerSlot, PrimaryPlayer,
 };
 use super::events::PlayerHealRequested;
+use crate::brain::{tick_player_brain_from_input, ActorControl, Brain, BrainSnapshot};
 use crate::input::ControlFrame;
 
 /// Mirror the global [`ControlFrame`] resource onto the local primary
@@ -31,6 +33,79 @@ pub fn sync_local_player_input_frame(
     let snapshot = *frame;
     for mut player_input in &mut players {
         player_input.frame = snapshot;
+    }
+}
+
+/// Translate each player's input frame into their `ActorControl`
+/// frame via [`tick_player_brain_from_input`].
+///
+/// This is the producer for the universal-brain seam on the player
+/// side. Today nothing reads `ActorControl` for the player —
+/// `update_player` still drives the body via `PlayerInputFrame`
+/// directly. The point of running it now is to:
+///
+/// - Prove the brain → ActorControl path executes every tick
+///   cleanly (no per-frame allocations or panics in the hot path).
+/// - Let presentation / debug systems observe the frame so the
+///   downstream EFFECTS-stage migration can be verified by reading
+///   the frame instead of inspecting `PlayerInputFrame` directly.
+///
+/// Runs after `sync_local_player_input_frame` so the input frame is
+/// already current. Iterates every PlayerEntity with a Brain — the
+/// system shape is multi-player ready even though only one player
+/// exists today.
+pub fn tick_player_brains(
+    mut players: Query<(
+        &PlayerSlot,
+        &PlayerInputFrame,
+        &PlayerBody,
+        &mut Brain,
+        &mut ActorControl,
+    )>,
+) {
+    for (slot, input, body, mut brain, mut control) in &mut players {
+        // Build a minimal snapshot from the player's read-model
+        // PlayerBody. The brain only reads `actor_facing` today; the
+        // rest is filled with sensible defaults so a future brain
+        // variant that asks for more (e.g. wall_contact for a player
+        // possessing a slug) doesn't see garbage.
+        let snapshot = BrainSnapshot {
+            actor_pos: body.pos,
+            actor_vel: body.vel,
+            actor_facing: body.facing,
+            actor_on_ground: body.on_ground,
+            alive: true,
+            target_pos: body.pos,
+            target_alive: true,
+            sim_time: 0.0,
+            dt: 0.0,
+            attack_cooldown_remaining: 0.0,
+            attack_windup_remaining: 0.0,
+            attack_active_remaining: 0.0,
+            attack_recover_remaining: 0.0,
+            stun_remaining: 0.0,
+            wall_contact: None,
+        };
+        // The Brain enum's tick() goes through `tick_player_brain`
+        // which today emits a neutral frame + facing — it doesn't
+        // have access to the input frame at the snapshot boundary
+        // yet. We bypass the enum dispatch here and call the
+        // input-aware variant directly so the frame actually
+        // populates from PlayerInputFrame. Once 4d wires the
+        // snapshot to carry the input frame, this can collapse to
+        // `brain.tick(&snapshot, &mut control.0)`.
+        let mut frame = ae::ActorControlFrame::neutral();
+        match brain.as_mut() {
+            Brain::Player(_) => {
+                tick_player_brain_from_input(input, &snapshot, &mut frame);
+            }
+            // Non-player brains on a PlayerEntity (e.g. possession)
+            // — tick through the normal dispatch.
+            other => other.tick(&snapshot, &mut frame),
+        }
+        control.0 = frame;
+        // Silence unused-var: slot is part of the multi-player seam.
+        let _ = slot;
     }
 }
 

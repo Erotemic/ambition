@@ -8,7 +8,7 @@
 //! variants, it can call `resolve_attack` itself instead of growing
 //! its own duplicate branching.
 //!
-//! The compute layer in [`super::mod`] is the only place that knows
+//! The compute layer in [`super`] is the only place that knows
 //! about ECS; it bridges queries to these resolvers.
 
 use super::intent::Aim;

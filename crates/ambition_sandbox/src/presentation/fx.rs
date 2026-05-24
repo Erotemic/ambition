@@ -65,7 +65,7 @@ pub enum ParticleKind {
 /// Typed sandbox-side visual-effects message (Bevy 0.18 buffered Message
 /// API; the pre-0.18 `Event`/`EventReader` names moved to observer-style
 /// one-shots). Emitted by simulation systems via the Vec collector and
-/// drained into `Messages<VfxMessage>` by `sandbox_update`. The
+/// drained into `Messages<VfxMessage>` by `player_control_system + player_simulation_system`. The
 /// presentation-side `vfx_spawn_messages` subscriber spawns the actual
 /// particle/impact/slash entities.
 ///

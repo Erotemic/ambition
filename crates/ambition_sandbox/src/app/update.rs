@@ -30,7 +30,7 @@ use super::*;
 /// clobbered by a same-frame sim integration.
 ///
 /// Replaces the early-return short-circuit that the deleted
-/// monolithic `sandbox_update` used to express via control flow.
+/// monolithic `player_control_system + player_simulation_system` used to express via control flow.
 pub fn clear_sandbox_reset_this_frame(mut flag: ResMut<SandboxResetThisFrame>) {
     flag.0 = false;
 }

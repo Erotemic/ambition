@@ -218,7 +218,7 @@ fn dash_active_blocks_crouch() {
 
 /// Double-tap-down on the ground from Standing curls into MorphBall.
 /// The signal is `PlayerInteractionState::double_tap_down_pending` (set
-/// by `input_timer_system` because `sandbox_update` consumes a local copy
+/// by `input_timer_system` because `player_control_system + player_simulation_system` consumes a local copy
 /// of ControlFrame that doesn't reach later Bevy systems).
 #[test]
 fn double_tap_down_grounded_enters_morph_ball() {
@@ -323,7 +323,7 @@ fn airborne_double_tap_down_does_not_morph() {
     assert_eq!(player(&mut app).body_mode, ae::BodyMode::Standing);
 }
 
-/// Repro for the ControlFrame-not-flowing-through-sandbox_update
+/// Repro for the ControlFrame-not-flowing-through-player_control_system + player_simulation_system
 /// bug: setting `controls.fast_fall_pressed = true` directly on
 /// the resource (mimicking what `input_timer_system` writes back to
 /// the resource) is NOT sufficient to enter MorphBall.
@@ -345,7 +345,7 @@ fn morph_ball_does_not_fire_from_control_frame_alone() {
         player(&mut app).body_mode,
         ae::BodyMode::Standing,
         "the body-mode driver must read PlayerInteractionState::double_tap_down_pending, \
-         not controls.fast_fall_pressed (which sandbox_update consumes \
+         not controls.fast_fall_pressed (which player_control_system + player_simulation_system consumes \
          on a local copy that doesn't reach later systems)"
     );
 }

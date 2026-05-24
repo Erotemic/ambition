@@ -13,7 +13,7 @@
 //!
 //! See `docs/systems/headless-simulation.md` for the sim/presentation contract this
 //! library is being shaped toward, and `docs/adr/0012-sim-presentation-split-and-events-refactor.md` for the
-//! longer-term events refactor that will let `sandbox_update` itself run
+//! longer-term events refactor that will let `player_control_system + player_simulation_system` itself run
 //! headless.
 
 // External API surface — bins, tests, and Android/wasm entry points reach
@@ -207,7 +207,7 @@ pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 
 /// Live platform-simulation state for the current room.
 ///
-/// Owned by the physics/rendering pipeline; `sandbox_update` advances each
+/// Owned by the physics/rendering pipeline; `player_control_system + player_simulation_system` advances each
 /// platform per frame and carries the player by its delta. The physics plugin
 /// registers this as a resource; the room-load path (setup, load_room,
 /// LDtk hot-reload, sandbox reset) replaces the Vec when the active room

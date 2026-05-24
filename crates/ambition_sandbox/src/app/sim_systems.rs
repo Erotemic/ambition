@@ -1,4 +1,4 @@
-//! Bevy systems extracted from `sandbox_update`.
+//! Bevy systems extracted from `player_control_system + player_simulation_system`.
 //!
 //! Each function here is a real Bevy system with a narrow query/resource
 //! signature. They live in the [`SandboxSet::CoreSimulation`] chain
@@ -27,9 +27,9 @@ use crate::{
 /// inspector resources onto the authoritative player. Runs every
 /// frame, including paused / dialogue / cutscene, so the F3 inspector
 /// keeps working when the sim is suspended — the previous procedural
-/// `sandbox_update` called this *before* its mode-gate early-return,
+/// `player_control_system + player_simulation_system` called this *before* its mode-gate early-return,
 /// so the same "always-on" behavior must be preserved now that
-/// `sandbox_update` itself only runs in `GameMode::Playing`.
+/// `player_control_system + player_simulation_system` itself only runs in `GameMode::Playing`.
 pub fn sync_live_player_dev_edits_system(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
@@ -56,7 +56,7 @@ pub fn sync_live_player_dev_edits_system(
 /// smoother doesn't ramp back up on the very next frame.
 ///
 /// The previous `mode_gate_phase` did the same thing at the top of
-/// `sandbox_update`; now that `sandbox_update` is gated by
+/// `player_control_system + player_simulation_system`; now that `player_control_system + player_simulation_system` is gated by
 /// `run_if(gameplay_allowed)`, this needs to live in its own system
 /// that runs only when gameplay is *not* allowed.
 ///
@@ -77,9 +77,9 @@ pub fn apply_suspended_time_scale_system(
 ///
 /// Registered with `run_if(gameplay_allowed)` so it only runs in
 /// `GameMode::Playing`. Writes `fast_fall_pressed` back to
-/// `Res<ControlFrame>` so `sandbox_update` sees the updated flag.
+/// `Res<ControlFrame>` so `player_control_system + player_simulation_system` sees the updated flag.
 /// Sets `PlayerInteractionState::double_tap_up_pending` so the
-/// subsequent interaction phase inside `sandbox_update` can activate
+/// subsequent interaction phase inside `player_control_system + player_simulation_system` can activate
 /// doors/NPCs.
 pub fn input_timer_system(
     time: Res<Time>,
@@ -128,7 +128,7 @@ pub fn input_timer_system(
 /// [`crate::player::PlayerInteractionState`].
 ///
 /// Replaces the historical inline `interaction_input_phase` that ran
-/// inside `sandbox_update`. Downstream code (notably
+/// inside `player_control_system + player_simulation_system`. Downstream code (notably
 /// `detect_room_transition_system`) no longer reads the buffered
 /// signal off `ControlFrame`; it reads `PlayerInteractionState::
 /// buffered()` directly off the component.
@@ -140,7 +140,7 @@ pub fn input_timer_system(
 /// Ordering: must run after `input_timer_system` (which decrements
 /// `combat.hitstun_timer` and sets `double_tap_up_pending` from
 /// `register_up_tap`) and before `detect_room_transition_system`
-/// (which consumes the buffered signal post-`sandbox_update`).
+/// (which consumes the buffered signal post-`player_control_system + player_simulation_system`).
 pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -181,7 +181,7 @@ pub fn interaction_input_system(
 /// Replaces the inline input-driven half of `reset_phase`. The
 /// engine-driven half (a reset surfaced by `update_player_control_with_tuning`
 /// or `update_player_simulation_with_tuning` returning `events.reset = true`)
-/// still runs inline inside `sandbox_update`'s `player_control_phase`
+/// still runs inline inside `player_control_system + player_simulation_system`'s `player_control_phase`
 /// / `player_simulation_phase` — those paths know the engine has
 /// already mutated the player and need to finish the sandbox-side
 /// cleanup in the same call.
@@ -260,8 +260,8 @@ pub fn apply_player_reset_input_system(
 /// runs immediately after this system in the `CoreSimulation` chain.
 ///
 /// Replaces the inline `room_transition_phase` that used to live inside
-/// `sandbox_update` and `PhaseOutcome::Return`-skip `attack_phase`. The
-/// extracted ordering — `sandbox_update` → `detect_room_transition_system`
+/// `player_control_system + player_simulation_system` and `PhaseOutcome::Return`-skip `attack_phase`. The
+/// extracted ordering — `player_control_system + player_simulation_system` → `detect_room_transition_system`
 /// → `apply_room_transition_system` — means `attack_phase` now always
 /// runs even on a transition frame; this is a tiny semantic change
 /// (the in-flight attack hitbox in the old room is wasted) but the
@@ -323,7 +323,7 @@ pub fn detect_room_transition_system(
 /// damage / pogo / sfx / vfx message channels.
 ///
 /// Replaces the inline `attack_phase` that used to run last inside
-/// `sandbox_update`. Runs after `detect_room_transition_system` in the
+/// `player_control_system + player_simulation_system`. Runs after `detect_room_transition_system` in the
 /// `CoreSimulation` chain so its sequencing relative to room transitions
 /// matches the prior ordering (detect first, then attack, then apply).
 ///
@@ -332,7 +332,7 @@ pub fn detect_room_transition_system(
 /// drains those local Vecs to the real `MessageWriter`s at the bottom,
 /// which is the same pattern the procedural `FrameFeedback` used to
 /// implement — but the channels are no longer threaded through the
-/// `sandbox_update` orchestrator.
+/// `player_control_system + player_simulation_system` orchestrator.
 pub fn attack_advance_system(
     time: Res<Time>,
     world: Res<GameWorld>,
@@ -412,7 +412,7 @@ pub fn attack_advance_system(
 
 /// Resolve this tick's `PlayerDamageEvent`s + remember the last
 /// safe-spawn position. Replaces the inline `damage_heal_dialogue_phase`
-/// that used to run inside `sandbox_update`.
+/// that used to run inside `player_control_system + player_simulation_system`.
 ///
 /// Reads `MessageReader<PlayerDamageEvent>` (no intermediate Vec
 /// needed), routes the first event through `handle_player_damage_events`
@@ -423,7 +423,7 @@ pub fn attack_advance_system(
 /// damaged this frame, isn't blinking, isn't in hitstun, and isn't
 /// mid-room-transition.
 ///
-/// Ordering: must run after `sandbox_update` (whose
+/// Ordering: must run after `player_control_system + player_simulation_system` (whose
 /// `player_simulation_phase` is the canonical producer of player state
 /// for this frame) and before `attack_advance_system` /
 /// `detect_room_transition_system` (which both read post-damage player

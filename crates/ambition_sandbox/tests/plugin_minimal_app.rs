@@ -219,16 +219,16 @@ fn sandbox_simulation_plugin_advances_ticks_without_presentation() {
 }
 
 /// Switching to a non-gameplay `GameMode` forces `time_scale = 0` and
-/// keeps `sandbox_update` gated off. Pins the contract that the small
+/// keeps `player_control_system + player_simulation_system` gated off. Pins the contract that the small
 /// `apply_suspended_time_scale_system` replaces the deleted
 /// `mode_gate_phase` early-return, so any future schedule shuffle can't
 /// silently revive ticking gameplay during pause/dialogue.
 #[test]
-fn non_gameplay_mode_zeroes_time_scale_and_skips_sandbox_update() {
+fn non_gameplay_mode_zeroes_time_scale_and_skips_player_simulation() {
     let mut app = minimal_sim_app();
 
     // Sanity: baseline gameplay tick keeps time_scale at the default of 1.0
-    // (sandbox_update's `update_time_scale` doesn't ramp down without a
+    // (player_control_system + player_simulation_system's `update_time_scale` doesn't ramp down without a
     // hitstop / bullet-time trigger).
     app.update();
     assert!(
@@ -237,7 +237,7 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_sandbox_update() {
     );
 
     // Capture the player's last engine-side position so we can assert
-    // `sandbox_update` is gated off — its `update_player_simulation` call
+    // `player_control_system + player_simulation_system` is gated off — its `update_player_simulation` call
     // is the only thing that integrates gravity / friction in our minimal
     // App, so a no-tick frame leaves the position pinned.
     let baseline_pos = {
@@ -266,7 +266,7 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_sandbox_update() {
     );
 
     // And the player must not have integrated any physics — proves
-    // sandbox_update's `update_player_simulation` did not run.
+    // player_control_system + player_simulation_system's `update_player_simulation` did not run.
     let paused_pos = {
         let mut q = app
             .world_mut()

@@ -90,7 +90,7 @@ pub fn draw_debug_overlay(
     }
 
     let world = &world.0;
-    // Mirror the gameplay input gate used by sandbox_update. Raw Leafwing
+    // Mirror the gameplay input gate used by player_control_system + player_simulation_system. Raw Leafwing
     // action state still records button presses while paused so pause/menu
     // UI can respond, but debug combat/blink previews are gameplay-facing and
     // should not light up from those paused-mode inputs.

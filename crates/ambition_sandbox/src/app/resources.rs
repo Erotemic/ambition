@@ -39,7 +39,7 @@ pub struct StartRoomOverride(pub String);
 /// `clear_sandbox_reset_this_frame` in the PlayerInput set.
 ///
 /// Replaces the early-return short-circuit that the deleted
-/// `sandbox_update` orchestrator used to express via control flow.
+/// `player_control_system + player_simulation_system` orchestrator used to express via control flow.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct SandboxResetThisFrame(pub bool);
 

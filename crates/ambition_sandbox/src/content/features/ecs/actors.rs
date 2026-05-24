@@ -403,24 +403,14 @@ pub fn update_ecs_actors(
                     None
                 };
                 let nearest_neighbor = neighbor_by_id.get(&enemy.id).copied();
-                // **Hostile actors: EnemyRuntime is the single intent
-                // producer.** The `StateMachine(MeleeBrute)` brain
-                // attached to the entity is a shape placeholder (it
-                // would correctly emit the same intent if the
-                // EnemyRuntime AI was lifted into it; the migration
-                // hasn't happened, see
-                // `dev/journals/actor-brain-migration-completion-2026-05-24.md`).
-                // We DO NOT shadow-tick the brain here — that would
-                // produce a second intent stream that we'd discard,
-                // and the previous "tick + overwrite" pattern was
-                // exactly the parallel-shadow concern the migration
-                // is eliminating.
-                //
-                // The runtime is the producer; `ActorControl` carries
-                // its frame; the resolver translates it into
-                // `ActorActionMessage`s for EFFECTS consumers.
-                let _ = brain; // Brain component stays attached for
-                               // future migration but isn't ticked.
+                // EnemyRuntime is the single intent producer for
+                // hostile actors. Its per-tick frame lands in
+                // `ActorControl` below; the resolver emits the
+                // matching `ActorActionMessage`s. The
+                // `StateMachine(MeleeBrute)` brain attached to the
+                // entity stays as a future migration handle for when
+                // the legacy AI lifts into the brain template.
+                let _ = brain;
                 let frame = enemy.update(
                     &feature_world,
                     target_pos,

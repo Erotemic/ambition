@@ -180,13 +180,14 @@ fn spawn_enemy(
         paths,
     );
     // Attach Brain + ActionSet + ActorControl to the enemy entity.
-    // The brain is shadow-ticked by `update_ecs_actors` and the
-    // legacy AI's frame ends up in ActorControl (the runtime is
-    // still where hostile fire intent originates today). The
-    // resolver translates the frame into ActorActionMessages
-    // consumed by EFFECTS systems (see
-    // `spawn_enemy_projectiles_from_brain_actions` for the ranged
-    // case).
+    // `update_ecs_actors` runs the runtime's per-tick frame and
+    // writes it into `ActorControl` — `EnemyRuntime` is the single
+    // intent producer for hostile actors today. The resolver
+    // translates the frame into `ActorActionMessage`s consumed by
+    // EFFECTS systems (see `spawn_enemy_projectiles_from_brain_actions`
+    // for the ranged case, `start_enemy_melee_from_brain_actions`
+    // for melee). The Brain component stays attached as a future
+    // migration handle for when the legacy AI lifts into the brain.
     let brain = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
     let actor = ActorRuntime::Hostile(enemy);

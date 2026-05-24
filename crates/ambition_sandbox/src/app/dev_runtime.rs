@@ -23,11 +23,11 @@ use super::*;
 
 /// Presentation-side debug hotkey reader.
 ///
-/// Slice 5 of the events refactor moved this out of `sandbox_update` so the
+/// Slice 5 of the events refactor moved this out of `player_control_system + player_simulation_system` so the
 /// gameplay loop no longer reads `Res<ButtonInput<KeyCode>>`. That lets
-/// `sandbox_update` run on the headless App-builder track.
+/// `player_control_system + player_simulation_system` run on the headless App-builder track.
 ///
-/// Runs before `sandbox_update` so preset/debug-flag mutations land before
+/// Runs before `player_control_system + player_simulation_system` so preset/debug-flag mutations land before
 /// the gameplay loop reads them this frame.
 pub(super) fn handle_debug_hotkeys(
     keys: Res<ButtonInput<KeyCode>>,

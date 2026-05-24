@@ -87,7 +87,7 @@ impl SandboxResetRequested {
 /// Bevy system: drains a pending reset request and rebuilds the
 /// sandbox state. Idempotent on `request = false` (early returns).
 ///
-/// Schedule: runs in `Update` AFTER `sandbox_update` so a reset
+/// Schedule: runs in `Update` AFTER `player_control_system + player_simulation_system` so a reset
 /// triggered mid-frame doesn't race with in-flight gameplay
 /// mutations, and BEFORE the populate systems so when they run on
 /// the next frame the cleared registries see fresh state.
@@ -142,7 +142,7 @@ pub fn process_sandbox_reset_request(
 
     // 3. Despawn all room visuals (and their physics colliders if
     //    Avian2D installed any). The room-visual respawn path that
-    //    sandbox_update / room-load already use will rebuild them
+    //    player_control_system + player_simulation_system / room-load already use will rebuild them
     //    once the active room flip below kicks in.
     for (entity, physics_entity) in &room_visuals {
         if physics_entity.is_some() {
@@ -162,7 +162,7 @@ pub fn process_sandbox_reset_request(
     // 6. Reset the player to the start room's spawn point.
     play_state.sim_state.time_scale = 1.0;
     play_state.sim_state.room_transition_cooldown = 0.0;
-    // Reset the ECS authority directly so the next sandbox_update frame
+    // Reset the ECS authority directly so the next player_control_system + player_simulation_system frame
     // starts from the spawn position. Also zero animation state so post-reset
     // frames don't continue a mid-air slash or dash-startup pose.
     if let Ok((mut authority, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =

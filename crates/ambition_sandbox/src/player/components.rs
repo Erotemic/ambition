@@ -335,7 +335,7 @@ pub struct PlayerInteractionState {
     /// door animation completes.
     pub interact_buffer_timer: f32,
     /// Set true by `input_timer_system` when a double-tap-down is detected;
-    /// consumed by the body-mode driver after `sandbox_update`.
+    /// consumed by the body-mode driver after `player_control_system + player_simulation_system`.
     pub double_tap_down_pending: bool,
     /// Set true by `input_timer_system` when a double-tap-up gesture is
     /// detected; consumed (via `mem::take`) by `interaction_input_system`

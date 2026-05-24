@@ -24,7 +24,7 @@
 //!   swim) own the player shape; the driver no-ops while any of them are
 //!   active.
 //!
-//! Runs in the progression chain after `sandbox_update` because body resize is
+//! Runs in the progression chain after `player_control_system + player_simulation_system` because body resize is
 //! still a sandbox-side affordance. Ledge grab and swim now live in the engine
 //! movement pipeline; this driver only avoids fighting their active states. The
 //! size/pos delta is constrained to the body-mode swap (no horizontal

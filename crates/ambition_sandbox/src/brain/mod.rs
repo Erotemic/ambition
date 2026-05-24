@@ -266,7 +266,7 @@ impl ActorActionMessage {
 /// Bevy system: walk every actor entity that has a Brain +
 /// ActionSet + ActorControl and emit one `ActorActionMessage` per
 /// resolved action request. Runs after the brain-driver systems
-/// (tick_player_brains, update_ecs_actors shadow tick) so the
+/// (tick_player_brains, update_ecs_actors's runtime tick) so the
 /// frame is current.
 pub fn emit_brain_action_messages(
     actors: Query<(

@@ -1,7 +1,7 @@
 //! Gameplay flight recorder / OOB debug logging.
 //!
 //! A rolling ring buffer of per-frame player snapshots and discrete gameplay
-//! events. The buffer is filled inside `sandbox_update` (simulation-side) so
+//! events. The buffer is filled inside `player_control_system + player_simulation_system` (simulation-side) so
 //! the recorder works in the headless binary as well as the visible game.
 //!
 //! See `docs/systems/gameplay-trace-recorder.md` for the workflow and bug-reporting

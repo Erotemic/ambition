@@ -1,6 +1,6 @@
 use super::*;
 
-/// SystemParam-friendly bundle: gives `sandbox_update` everything it
+/// SystemParam-friendly bundle: gives `player_control_system + player_simulation_system` everything it
 /// needs to record one frame and (if requested) write a dump.
 #[allow(clippy::too_many_arguments)]
 pub fn record_simulation_frame(
@@ -39,7 +39,7 @@ pub fn record_simulation_frame(
 }
 
 /// Bevy system: drains pending dump requests, writes JSON+MD if any.
-/// Ordered after `sandbox_update` so manual F8 presses recorded earlier
+/// Ordered after `player_control_system + player_simulation_system` so manual F8 presses recorded earlier
 /// in the frame still see the latest snapshot.
 ///
 /// Wasm (`target_arch = "wasm32"`): drains + clears the dump request
@@ -90,8 +90,8 @@ pub fn handle_trace_hotkey(
 }
 
 /// Bevy system: when in scope, writes one trace frame per Update tick by
-/// reading the resources `sandbox_update` already consumes. We keep this
-/// outside the phase pipeline so the recorder stays out of `sandbox_update`'s
+/// reading the resources `player_control_system + player_simulation_system` already consumes. We keep this
+/// outside the phase pipeline so the recorder stays out of `player_control_system + player_simulation_system`'s
 /// 16-system-param budget. Synthesizes per-frame events by diffing
 /// against the previous tick's snapshot (input edges, locomotion
 /// changes, dash/jump/blink heuristics, room transitions, resets,
@@ -99,7 +99,7 @@ pub fn handle_trace_hotkey(
 ///
 /// The trace's collision view (`nearby_collision`, `detect_oob`'s
 /// inside-solid check) uses the same `world_with_sandbox_solids` view
-/// that `sandbox_update` feeds to the engine. Without that, the trace
+/// that `player_control_system + player_simulation_system` feeds to the engine. Without that, the trace
 /// would miss feature-runtime solids the player can collide with —
 /// which is exactly what happened in the May 2026 wall-cling teleport
 /// trace, where `nearby_collision` was empty even though the player

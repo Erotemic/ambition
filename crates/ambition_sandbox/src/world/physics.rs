@@ -81,7 +81,7 @@ pub enum PhysicsDebrisCue {
 }
 
 /// Typed sandbox-side physics-debris message. Simulation systems push these
-/// into a per-frame `Vec<DebrisBurstMessage>`; `sandbox_update` drains the
+/// into a per-frame `Vec<DebrisBurstMessage>`; `player_control_system + player_simulation_system` drains the
 /// Vec into `Messages<DebrisBurstMessage>` and the presentation-side
 /// `physics_spawn_debris_messages` subscriber spawns the actual Avian2D
 /// debris bodies. Headless builds omit the subscriber.

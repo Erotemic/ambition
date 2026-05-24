@@ -613,11 +613,11 @@ mod tests {
             // Physics debris is cosmetic; it spawns from sim events
             // but its falling animation is independent of sim time.
             ("world/physics.rs", "debris fall is cosmetic / wall-clock by design"),
-            // Player-input timers + the legacy sandbox_update wrapper
+            // Player-input timers + the legacy player_control_system + player_simulation_system wrapper
             // compute their own scaled dt via `sandbox_dt(hitstop,
             // time_scale, frame_dt)`. Migration target for ADR 0011
             // (PlayerClock); allowed for now.
-            ("app/update.rs", "sandbox_update wraps its own sandbox_dt() — ADR 0011 follow-up"),
+            ("app/update.rs", "player_control_system + player_simulation_system wraps its own sandbox_dt() — ADR 0011 follow-up"),
             ("app/sim_systems.rs", "input timers + attack advance still compute scaled dt manually — ADR 0011 follow-up"),
             ("app/input_systems.rs", "input buffer decay; ADR 0011 player-clock follow-up"),
             // Hot reload polls disk in wall-clock cadence.

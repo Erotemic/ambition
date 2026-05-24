@@ -486,6 +486,61 @@ mod tests {
         }
     }
 
+    /// Coverage lint: every EnemyArchetype in COMBAT_ALL maps to a
+    /// usable Brain (no panic, non-empty per design). Catches a
+    /// future archetype addition that forgets to update
+    /// enemy_default_brain.
+    #[test]
+    fn enemy_default_brain_covers_every_combat_archetype() {
+        for archetype in EnemyArchetype::COMBAT_ALL {
+            let enemy = make_enemy(archetype);
+            let brain = enemy_default_brain(&enemy);
+            // Aggressiveness should match archetype.attacks_player.
+            // (Wanderer / StandStill / peaceful Patrol all return
+            // !is_hostile; everyone else returns is_hostile.)
+            assert_eq!(
+                brain.is_hostile(),
+                archetype.attacks_player(),
+                "{:?} brain.is_hostile mismatch with archetype.attacks_player",
+                archetype,
+            );
+        }
+    }
+
+    /// Coverage lint: every EnemyArchetype gets a non-None
+    /// ActionSet that respects its peaceful/hostile flag — hostile
+    /// archetypes have a melee or ranged spec, peaceful ones don't.
+    #[test]
+    fn enemy_default_action_set_covers_every_combat_archetype() {
+        for archetype in EnemyArchetype::COMBAT_ALL {
+            let enemy = make_enemy(archetype);
+            let set = enemy_default_action_set(&enemy);
+            if archetype.attacks_player() {
+                assert!(
+                    set.melee.is_some() || set.ranged.is_some(),
+                    "{:?} attacks_player but ActionSet has no melee or ranged",
+                    archetype,
+                );
+            } else {
+                // Peaceful archetypes (PuppySlug, PirateHeavy) have
+                // no melee. PirateHeavy has no ranged either.
+                if !matches!(
+                    archetype,
+                    EnemyArchetype::InfiniteSandbag | EnemyArchetype::FiniteSandbag
+                ) {
+                    // Sandbags are an exception: they have a weak
+                    // counter-punch (PunchWeak), so peaceful=false
+                    // but they still have melee.
+                    assert!(
+                        set.melee.is_none(),
+                        "{:?} is peaceful but has melee",
+                        archetype,
+                    );
+                }
+            }
+        }
+    }
+
     /// enemy_default_action_set picks a per-archetype concrete
     /// attack spec — daytime EFFECTS-flip code reads this to spawn
     /// distinct hitboxes per archetype.

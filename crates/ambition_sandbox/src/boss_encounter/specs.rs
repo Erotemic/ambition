@@ -84,4 +84,47 @@ mod tests {
     fn load_boss_specs_from_disk_finds_clockwork_warden() {
         assert_spec_matches_disk("clockwork_warden", ae::BossEncounterSpec::clockwork_warden());
     }
+
+    /// Every RON file under `boss_encounters/` must correspond to an
+    /// authored profile in `AUTHORED_BOSS_PROFILES`. A stray RON
+    /// (typo'd filename, leftover from a renamed boss) would be
+    /// silently ignored by the loader override loop; this test trips
+    /// instead. The reverse (profile without RON) is fine — the
+    /// hardcoded constructor stays the fallback.
+    #[test]
+    fn every_on_disk_ron_matches_an_authored_profile() {
+        let profile_ids: std::collections::BTreeSet<String> = default_boss_profiles()
+            .into_iter()
+            .map(|p| p.id)
+            .collect();
+        let orphans: Vec<String> = load_boss_specs_from_disk()
+            .into_iter()
+            .map(|s| s.id)
+            .filter(|id| !profile_ids.contains(id))
+            .collect();
+        assert!(
+            orphans.is_empty(),
+            "boss_encounters/<id>.ron files have no matching authored profile: {orphans:?}"
+        );
+    }
+
+    /// The loader produces no duplicate ids — a misnamed `.ron` file
+    /// (e.g. `gnu_ton_old.ron` with `id: \"gnu_ton\"`) would land
+    /// duplicate specs in the override map; the profile loop would
+    /// then nondeterministically pick whichever the BTreeMap collected
+    /// last. This test trips on that case.
+    #[test]
+    fn load_boss_specs_from_disk_has_no_duplicate_ids() {
+        let specs = load_boss_specs_from_disk();
+        let mut seen: std::collections::BTreeSet<String> =
+            std::collections::BTreeSet::new();
+        let dupes: Vec<String> = specs
+            .iter()
+            .filter_map(|s| if seen.insert(s.id.clone()) { None } else { Some(s.id.clone()) })
+            .collect();
+        assert!(
+            dupes.is_empty(),
+            "duplicate boss spec ids on disk: {dupes:?}"
+        );
+    }
 }

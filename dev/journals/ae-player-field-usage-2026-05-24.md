@@ -216,7 +216,9 @@ Captured here so the next daytime session picks up cleanly.
   attack spec ready for the consumer flip (`83ac40b`).
 - NPC hostile-flip also swaps the brain to MeleeBrute via
   commands.insert so the shadow shape tracks disposition
-  (`47564fa`).
+  (`47564fa`). Late-session refinement (`994a56f`) also swaps
+  the ActionSet to Swipe so a future EFFECTS-flip sees
+  hostile brain + offensive capability together.
 - ActionSet resolver wired with ActorActionMessage stream —
   emit_brain_action_messages runs in PlayerInput after
   tick_player_brains and writes one message per resolved

@@ -7,6 +7,71 @@ use std::collections::HashSet;
 
 use super::fixture_catalog;
 
+/// Every catalog character entry must register an asset manifest
+/// row whose logical path points at the actual on-disk file. Catches
+/// the failure mode Jon hit 2026-05-24: gnu_ton_boss + mockingbird
+/// catalog entries pointed at subdir paths
+/// (`sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png`) but the
+/// manifest registration silently dropped them, so the runtime
+/// `asset_server.load(...)` saw an empty asset chain and rendered
+/// placeholders.
+#[test]
+fn every_character_catalog_entry_registers_an_asset_path() {
+    let catalog = fixture_catalog();
+    let inner = catalog.catalog();
+    let manifest = inner.manifest();
+    let data = crate::content::character_catalog::load_embedded();
+    let mut missing: Vec<String> = Vec::new();
+    for (cid, _entry) in data.characters.iter() {
+        let id = ids::character_sprite(cid);
+        if manifest.get(&id).is_none() {
+            missing.push(cid.clone());
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "manifest missing character_sprite entries for catalog ids: {missing:?}",
+    );
+}
+
+/// Cousin of the manifest-registration test above: every catalog
+/// character entry must resolve a load-path under the default dev
+/// profile. The runtime `load_character_sprites_in` calls
+/// `try_path_for_load`; a `None` here means the sprite silently
+/// falls back to a colored rectangle even though the manifest row
+/// exists.
+#[test]
+fn every_character_catalog_entry_resolves_a_load_path() {
+    // Catalog entries whose publisher is known-divergent (see
+    // `docs/systems/sprite-rendering-surface.md`) are explicitly
+    // excluded. Pull these out of the catalog or fix their
+    // publisher and the exclusion goes away.
+    const EXPECTED_UNRESOLVABLE: &[&str] = &[
+        // weird_hermit's tackon publisher emits non-conventional
+        // filenames (`weird_hermit.{png,ron,yaml}`); regen_sprites.sh
+        // skips publishing it. Catalog entry kept so the renderer-
+        // unification ADR has a single source of truth.
+        "npc_weird_hermit",
+    ];
+    let catalog = fixture_catalog();
+    let data = crate::content::character_catalog::load_embedded();
+    let mut unresolved: Vec<(String, String)> = Vec::new();
+    for (cid, entry) in data.characters.iter() {
+        if EXPECTED_UNRESOLVABLE.contains(&cid.as_str()) {
+            continue;
+        }
+        let id = ids::character_sprite(cid);
+        if catalog.try_path_for_load(&id).is_none() {
+            unresolved.push((cid.clone(), entry.spritesheet.clone()));
+        }
+    }
+    assert!(
+        unresolved.is_empty(),
+        "catalog entries whose runtime load-path is None (would render \
+         as placeholder): {unresolved:?}",
+    );
+}
+
 #[test]
 fn every_well_known_id_resolves_to_an_entry() {
     let catalog = fixture_catalog();

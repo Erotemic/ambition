@@ -880,6 +880,26 @@ mod tests {
     }
 
     #[test]
+    fn skirmisher_holds_quiet_when_target_dead() {
+        // Skirmisher with dead target inside aggro range must emit
+        // a neutral frame — no fire, no strafe. Pins the
+        // target_alive=false early-return so an enemy can't keep
+        // shooting at a dropped player.
+        let cfg = SkirmisherCfg::RANGER_DEFAULT;
+        let mut sm = StateMachineCfg::Skirmisher {
+            cfg,
+            state: SkirmisherState::default(),
+        };
+        let mut s = snap_at(0.0, 200.0);
+        s.sim_time = 5.0; // way past any cooldown
+        s.target_alive = false;
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        assert!(out.fire.is_none());
+        assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    }
+
+    #[test]
     fn sniper_holds_and_fires_within_aggro() {
         let mut sm = StateMachineCfg::Sniper {
             cfg: SniperCfg::DEFAULT,

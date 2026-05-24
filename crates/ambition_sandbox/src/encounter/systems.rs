@@ -19,12 +19,20 @@ pub fn populate_encounter_registry(
         return;
     }
     let entries = load_encounter_specs_from_ldtk(&project.0, save.data());
+    let count = entries.len();
     for (id, spec, persisted) in entries {
         let state = registry.ensure(&id);
         state.spec = Some(spec);
         state.apply_persisted(persisted);
     }
     registry.specs_loaded = true;
+    // One-line census so "did encounters load?" is checkable from
+    // the log without grepping the LDtk. Mirrors the pattern in
+    // `populate_boss_encounter_registry` + the catalog sprite census.
+    bevy::log::info!(
+        target: "ambition::encounter",
+        "encounter registry: {count} spec(s) loaded from LDtk",
+    );
 }
 
 /// Encounter cancellation: encounters that are `Active` only persist

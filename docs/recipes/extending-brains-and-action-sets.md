@@ -376,6 +376,59 @@ do this **overlap-then-delete**, one consumer at a time:
   `player_projectile_release_emits_ranged_bolt_action_message_end_to_end`)
   are the canary patterns — fork them to test the new consumer.
 
+### Consumer skeleton (copy-paste starting point)
+
+```rust
+use crate::brain::{ActorActionMessage, MeleeActionSpec};
+use crate::content::features::components::ActorFaction;
+use bevy::prelude::*;
+
+/// Daytime EFFECTS-flip: spawn melee hitboxes from
+/// ActorActionMessage::Melee instead of from the legacy
+/// EnemyRuntime / update_player paths.
+pub fn spawn_melee_from_brain_actions(
+    mut messages: MessageReader<ActorActionMessage>,
+    actor_q: Query<&ActorFaction>,
+    // … other resources (world, hitbox registry, sfx writer, …)
+) {
+    for msg in messages.read() {
+        // Skip non-melee messages cheaply.
+        if !msg.is_melee() {
+            continue;
+        }
+        let crate::brain::ActionRequest::Melee {
+            spec,
+            origin,
+            facing,
+            attack_axis,
+        } = msg.request
+        else {
+            unreachable!("is_melee narrowed the request");
+        };
+        // Look up actor faction so we know which hurtbox set this
+        // hitbox should test against.
+        let Ok(faction) = actor_q.get(msg.actor) else {
+            continue;
+        };
+        match spec {
+            MeleeActionSpec::Swipe(swipe) => {
+                // … spawn a swipe hitbox at `origin + facing * swipe.reach_px * 0.5`
+                // for `swipe.active_s` seconds, tagged with `faction` so
+                // friendly fire is filtered.
+            }
+            MeleeActionSpec::Lunge(lunge) => { /* … */ }
+            MeleeActionSpec::Slam(slam) => { /* … */ }
+            MeleeActionSpec::Bite(bite) => { /* … */ }
+            MeleeActionSpec::PunchWeak(punch) => { /* … */ }
+        }
+    }
+}
+```
+
+Register the system **after** `emit_brain_action_messages` so the
+message channel is current. Add it via
+`app.add_systems(Update, spawn_melee_from_brain_actions.after(emit_brain_action_messages))`.
+
 ### Why this order
 
 Smallest blast radius first (sandbag counter is barely noticeable),

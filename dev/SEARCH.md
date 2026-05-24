@@ -25,6 +25,7 @@ rg -n "Android|APK|asset|manifest|logcat|android_main|Gradle" dev/journals dev/b
 rg -n "overlay|stale base|clobber|entrypoint|feature flag" dev/journals dev/benchmark-candidates
 rg -n "audio|music|director|adaptive|procedural|squeaky|cue" dev/journals dev/benchmark-candidates
 rg -n "input|ControlFrame|edge|held|touch|menu|semantic" dev/journals dev/benchmark-candidates
+rg -n "brain|ActorControl|ActionSet|ActorActionMessage|StateMachineCfg" dev/journals dev/benchmark-candidates
 ```
 
 ## Search protocol

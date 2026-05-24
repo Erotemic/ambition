@@ -202,6 +202,56 @@ mod tests {
         assert!(!out.melee_pressed);
     }
 
+    /// emit_brain_action_messages walks every Brain/ActionSet/
+    /// ActorControl entity and writes a message per resolved
+    /// ActionRequest. Pins that the resolver system, scheduled in
+    /// PlayerInput, observes the brain output correctly.
+    #[test]
+    fn emit_brain_action_messages_writes_one_message_per_request() {
+        use bevy::prelude::*;
+        let mut app = App::new();
+        app.add_message::<ActorActionMessage>();
+        app.add_systems(Update, emit_brain_action_messages);
+        let mut frame = ae::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        frame.facing = 1.0;
+        let actions = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ..Default::default()
+        };
+        let entity = app
+            .world_mut()
+            .spawn((
+                Brain::StateMachine(StateMachineCfg::MeleeBrute {
+                    cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+                    state: MeleeBruteState::default(),
+                }),
+                ActorControl(frame),
+                actions,
+                Transform::from_xyz(50.0, 100.0, 0.0),
+            ))
+            .id();
+        app.update();
+        let mut messages = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>();
+        let received: Vec<_> = messages.drain().collect();
+        assert_eq!(received.len(), 1, "expected one Melee message");
+        assert_eq!(received[0].actor, entity);
+        match received[0].request {
+            ActionRequest::Melee {
+                origin,
+                facing,
+                spec: MeleeActionSpec::Swipe(_),
+                ..
+            } => {
+                assert_eq!(origin, ae::Vec2::new(50.0, 100.0));
+                assert_eq!(facing, 1.0);
+            }
+            other => panic!("expected Melee::Swipe, got {:?}", other),
+        }
+    }
+
     /// End-to-end: a MeleeBrute brain ticks at attack range; its
     /// emitted frame routes through the actor's ActionSet to a
     /// concrete Melee request. Same brain + different ActionSet =

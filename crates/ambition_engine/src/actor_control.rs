@@ -48,6 +48,13 @@ use crate::Vec2;
 /// non-choreography brain (RL policy, dialogue-scripted skirmish,
 /// remote player) can emit one without going through the
 /// choreography path.
+///
+/// **Future narrowing:** The `speed` field is on track to disappear
+/// once the EFFECTS-stage resolver reads the actor's
+/// `ActionSet::ranged.speed()` instead — brains will only emit a
+/// direction. New brain backends should set `speed = 0.0` as a
+/// sentinel; callers that read speed today still consult this
+/// field as the source of truth.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ActorFireRequest {
     /// Launch direction (unit vector recommended; the sandbox

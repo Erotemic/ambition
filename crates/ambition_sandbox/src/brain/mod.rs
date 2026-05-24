@@ -123,4 +123,56 @@ mod tests {
         b.tick(&BrainSnapshot::idle(), &mut out);
         assert!(!out.melee_pressed);
     }
+
+    /// End-to-end: a MeleeBrute brain ticks at attack range; its
+    /// emitted frame routes through the actor's ActionSet to a
+    /// concrete Melee request. Same brain + different ActionSet =
+    /// different concrete attack (Swipe vs Lunge). This is the
+    /// possession / multi-body invariant: brains are policy,
+    /// ActionSets are capability.
+    #[test]
+    fn melee_brute_brain_resolves_through_action_set() {
+        let cfg = MeleeBruteCfg::STRIKER_DEFAULT;
+        let mut brain_a = Brain::StateMachine(StateMachineCfg::MeleeBrute {
+            cfg,
+            state: MeleeBruteState::default(),
+        });
+        let mut brain_b = brain_a.clone();
+        let mut snap = BrainSnapshot::idle();
+        snap.actor_pos = ae::Vec2::ZERO;
+        snap.target_pos = ae::Vec2::new(20.0, 0.0); // in attack range
+
+        let mut frame_a = ae::ActorControlFrame::neutral();
+        let mut frame_b = ae::ActorControlFrame::neutral();
+        brain_a.tick(&snap, &mut frame_a);
+        brain_b.tick(&snap, &mut frame_b);
+        assert!(frame_a.melee_pressed);
+        assert!(frame_b.melee_pressed);
+
+        let goblin_kit = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ..Default::default()
+        };
+        let brute_kit = ActionSet {
+            melee: Some(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT)),
+            ..Default::default()
+        };
+        let goblin_req = resolve_action_requests(&goblin_kit, &frame_a, snap.actor_pos);
+        let brute_req = resolve_action_requests(&brute_kit, &frame_b, snap.actor_pos);
+        assert_eq!(goblin_req.len(), 1);
+        assert_eq!(brute_req.len(), 1);
+        match (goblin_req[0], brute_req[0]) {
+            (
+                ActionRequest::Melee {
+                    spec: MeleeActionSpec::Swipe(_),
+                    ..
+                },
+                ActionRequest::Melee {
+                    spec: MeleeActionSpec::Lunge(_),
+                    ..
+                },
+            ) => {}
+            (a, b) => panic!("expected Swipe vs Lunge, got {:?} vs {:?}", a, b),
+        }
+    }
 }

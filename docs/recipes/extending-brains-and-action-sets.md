@@ -318,3 +318,67 @@ After every change:
 ~/.cargo/bin/cargo test  -p ambition_sandbox --lib
 ~/.cargo/bin/cargo run   -p ambition_sandbox --bin headless -- --ticks 30
 ```
+
+## Daytime EFFECTS-consumer flip — concrete procedure
+
+Today the brain produces `ActorActionMessage`s but combat /
+projectile spawns flow through `EnemyRuntime` / `BossRuntime` /
+`update_player`. Flipping a consumer means having a spawn system
+read the message stream and producing the same hitbox / projectile
+that the legacy path would, then disabling the legacy path.
+
+Per the [stale-component journal](../../dev/benchmark-candidates/bevy-ecs-stale-component-after-sync-removal-2026-05-15.md),
+do this **overlap-then-delete**, one consumer at a time:
+
+### Phase A — Write the new consumer, side-by-side
+
+1. Pick one bounded consumer (start small — a single `MeleeActionSpec`
+   variant for one archetype). Suggested order: `PunchWeak` (sandbag
+   counter — least visible), `Swipe` (Striker family), `Lunge`
+   (Brute family), `Bite` / `Bolt` (aerial variants), `BossPattern`
+   actions.
+2. Write a Bevy system that:
+   - Reads `MessageReader<ActorActionMessage>`
+   - Filters for the spec variant you're flipping
+   - Looks up the actor's components (Faction, Health, Position) to
+     decide which player to damage
+   - Spawns the hitbox / projectile via the same helper the legacy
+     path uses
+3. Schedule the system **after** `emit_brain_action_messages` in
+   the `PlayerInput` set (or in `CoreSimulation` if combat needs
+   it post-physics).
+4. Don't disable the legacy spawn yet.
+
+### Phase B — Verify parity
+
+5. Run the headless binary + sandbox lib tests. Both paths should
+   spawn — you'll see double hitboxes / projectiles. That's OK
+   for now.
+6. Compare positions / damage / timing in trace output. They
+   should match.
+7. Fix any drift by tuning the brain template / ActionSet spec.
+
+### Phase C — Delete the legacy path
+
+8. Disable the legacy spawn for the variant you flipped (comment
+   out, or `#[cfg(not(feature = "brain_consumer"))]`).
+9. Re-run tests + headless. The brain-driven spawn should be the
+   only one.
+10. Once stable for one variant, repeat Phase A for the next.
+
+### Tooling checkpoints
+
+- The `BrainActionCounter` resource (in `brain/mod.rs`) tracks
+  per-frame message counts. A non-zero `last_frame` means the
+  resolver is firing; verify before chasing missing-spawn bugs.
+- The end-to-end tests in `crates/ambition_sandbox/src/player/systems.rs::tests`
+  (`player_attack_press_emits_swipe_action_message_end_to_end`,
+  `player_projectile_release_emits_ranged_bolt_action_message_end_to_end`)
+  are the canary patterns — fork them to test the new consumer.
+
+### Why this order
+
+Smallest blast radius first (sandbag counter is barely noticeable),
+escalating to the bosses last because they have the richest
+choreography (multi-phase attack patterns) and that means the
+brain template needs the most refinement.

@@ -6,7 +6,7 @@ This module intentionally avoids the repo's human / toon rigs. Each target is a
 standalone custom creature or animated prop-creature rendered directly with PIL.
 
 Targets provided:
-- deepdream_puppy_slug  : psychedelic dog-face slug homage to DeepDream era.
+- puppy_slug_variant2   : psychedelic dog-face slug homage to DeepDream era (puppy_slug variant).
 - synthetic_friend      : uncanny social-face cocoon / deepfake portrait mimic.
 - hand_saint            : floating palm-idol diffusion-hand horror saint.
 - spaghetti_event       : unstable noodle-body-horror creature.
@@ -30,7 +30,7 @@ RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 TARGET_ROWS: Dict[str, List[Tuple[str, int, int]]] = {
-    "deepdream_puppy_slug": [
+    "puppy_slug_variant2": [
         ("idle", 6, 125),
         ("crawl", 8, 92),
         ("gaze", 6, 98),
@@ -251,7 +251,7 @@ def _noise_squiggles(draw: ImageDraw.ImageDraw, pts: Sequence[Point], color: RGB
 # DeepDream puppy slug
 
 
-def _pose_deepdream(anim: str, frame_idx: int, nframes: int) -> Dict[str, float]:
+def _pose_puppy_slug_v2(anim: str, frame_idx: int, nframes: int) -> Dict[str, float]:
     t = 0.0 if nframes <= 1 else frame_idx / float(max(1, nframes - 1))
     cyc = math.tau * frame_idx / max(1, nframes)
     s = math.sin(cyc)
@@ -323,8 +323,8 @@ def _draw_puppy_head(draw: ImageDraw.ImageDraw, cx: float, cy: float, scale: flo
     draw._image.alpha_composite(head)
 
 
-def _render_deepdream(anim: str, frame_idx: int, nframes: int) -> Image.Image:
-    pose = _pose_deepdream(anim, frame_idx, nframes)
+def _render_puppy_slug_v2(anim: str, frame_idx: int, nframes: int) -> Image.Image:
+    pose = _pose_puppy_slug_v2(anim, frame_idx, nframes)
     img, draw = _new_frame()
     body = (212, 196, 112, 255)
     body_hi = (234, 220, 150, 255)
@@ -1072,7 +1072,7 @@ def _entry(target: str, frame_fn: Callable[[str, int, int], Image.Image], label_
 
 
 TARGETS = {
-    "deepdream_puppy_slug": _entry("deepdream_puppy_slug", _render_deepdream, 142),
+    "puppy_slug_variant2": _entry("puppy_slug_variant2", _render_puppy_slug_v2, 142),
     "synthetic_friend": _entry("synthetic_friend", _render_synthetic_friend, 132),
     "hand_saint": _entry("hand_saint", _render_hand_saint, 124),
     "spaghetti_event": _entry("spaghetti_event", _render_spaghetti, 132),

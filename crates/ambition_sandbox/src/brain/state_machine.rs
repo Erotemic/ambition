@@ -836,6 +836,46 @@ mod tests {
     }
 
     #[test]
+    fn brain_templates_survive_zero_dt() {
+        // Zero dt is the "paused frame" case — bullet-time +
+        // hitstop both feed dt=0 to consumers. Every brain
+        // template should tick cleanly without panic / NaN
+        // propagation. Pins the pause-safety invariant.
+        let templates: Vec<StateMachineCfg> = vec![
+            StateMachineCfg::StandStill,
+            StateMachineCfg::Patrol {
+                cfg: PatrolCfg::NPC_DEFAULT,
+                state: PatrolState::default(),
+            },
+            StateMachineCfg::Wanderer {
+                cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
+                state: WandererState::default(),
+            },
+            StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+                state: MeleeBruteState::default(),
+            },
+            StateMachineCfg::Skirmisher {
+                cfg: SkirmisherCfg::RANGER_DEFAULT,
+                state: SkirmisherState::default(),
+            },
+            StateMachineCfg::Sniper {
+                cfg: SniperCfg::DEFAULT,
+                state: SniperState::default(),
+            },
+        ];
+        for template in templates {
+            let mut brain = StateMachineCfg::from(template);
+            let mut snap = crate::brain::snapshot::BrainSnapshot::idle();
+            snap.dt = 0.0;
+            let mut frame = ae::ActorControlFrame::neutral();
+            tick_state_machine(&mut brain, &snap, &mut frame);
+            assert!(frame.desired_vel.x.is_finite());
+            assert!(frame.desired_vel.y.is_finite());
+        }
+    }
+
+    #[test]
     fn boss_pattern_placeholder_ticks_to_neutral_frame() {
         // BossPattern is a placeholder until the boss EFFECTS-flip
         // lands. Ticking it should emit a neutral frame regardless

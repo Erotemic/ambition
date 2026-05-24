@@ -17,20 +17,12 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
     let player_size = ae::Vec2::new(20.0, 30.0);
     let body = crate::player::PlayerBody {
         pos: player_pos,
-        vel: ae::Vec2::ZERO,
         size: player_size,
         base_size: player_size,
         facing: 1.0,
         on_ground: true,
-        fly_enabled: false,
-        dash_charges_available: 0,
-        air_jumps_available: 0,
-        mana_current: 0.0,
         body_mode: ambition_engine::BodyMode::Standing,
-        invincible: false,
-        dodge_rolling: false,
-        shielding: false,
-        parrying: false,
+        ..Default::default()
     };
     let interaction = crate::player::PlayerInteractionState {
         interact_buffer_timer: 0.15,

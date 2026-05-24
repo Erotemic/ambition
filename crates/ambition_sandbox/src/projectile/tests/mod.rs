@@ -45,20 +45,12 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     let size = ae::Vec2::new(20.0, 30.0);
     let body = crate::player::PlayerBody {
         pos,
-        vel: ae::Vec2::ZERO,
         size,
         base_size: size,
         facing,
         on_ground: true,
-        fly_enabled: false,
-        dash_charges_available: 0,
-        air_jumps_available: 0,
-        mana_current: 0.0,
         body_mode: ae::BodyMode::Standing,
-        invincible: false,
-        dodge_rolling: false,
-        shielding: false,
-        parrying: false,
+        ..Default::default()
     };
     // Projectile spawn queries `PrimaryPlayerOnly` + `PlayerInputFrame`;
     // the test fixture must mark the spawned player as primary AND

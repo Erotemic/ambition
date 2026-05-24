@@ -70,20 +70,12 @@ mod tests {
     fn dummy_player_body(pos: ae::Vec2) -> PlayerBody {
         PlayerBody {
             pos,
-            vel: ae::Vec2::ZERO,
             size: ae::Vec2::new(28.0, 46.0),
             base_size: ae::Vec2::new(28.0, 46.0),
             facing: 1.0,
             on_ground: true,
-            fly_enabled: false,
-            dash_charges_available: 0,
-            air_jumps_available: 0,
-            mana_current: 0.0,
             body_mode: ae::BodyMode::Standing,
-            invincible: false,
-            dodge_rolling: false,
-            shielding: false,
-            parrying: false,
+            ..Default::default()
         }
     }
 

@@ -110,7 +110,21 @@ impl PlayerMovementAuthority {
 /// The full engine `ae::Player` state lives on `PlayerMovementAuthority`; this
 /// compact component is the query-friendly body/read model for systems that do
 /// not need every movement-internal field.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+///
+/// Expanded during Chunk 4d of the universal-brain interface
+/// roll-out so readers can leave `PlayerMovementAuthority` behind
+/// for `PlayerBody`. New fields:
+/// - `on_wall`, `wall_clinging`, `wall_climbing` (wall state cluster)
+/// - `water_contact`, `climbable_contact` (world-contact cluster)
+/// - `dash_timer` (dash cluster — the timer the existing dash-active
+///   readers need without owning the entire dash state machine)
+/// - `blink_aiming` (blink HUD cluster — true while the aim is held)
+///
+/// Writers stay on `PlayerMovementAuthority` for now; the sync
+/// system [`crate::player::write_player_ecs_components`] mirrors
+/// these into `PlayerBody` each frame. Chunk 4e+ migrates readers
+/// onto `PlayerBody`.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Default)]
 pub struct PlayerBody {
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
@@ -118,9 +132,20 @@ pub struct PlayerBody {
     pub base_size: ae::Vec2,
     pub facing: f32,
     pub on_ground: bool,
+    /// True iff the body is in contact with a wall this tick.
+    pub on_wall: bool,
+    /// Set while the body is wall-clinging (Hollow-Knight style).
+    pub wall_clinging: bool,
+    /// Set while the body is actively wall-climbing.
+    pub wall_climbing: bool,
     pub fly_enabled: bool,
     pub dash_charges_available: u8,
     pub air_jumps_available: u8,
+    /// `> 0` while a dash is mid-execution; the value is the
+    /// remaining dash-active seconds.
+    pub dash_timer: f32,
+    /// True while the blink aim is held (drives the blink HUD).
+    pub blink_aiming: bool,
     pub mana_current: f32,
     pub body_mode: ae::BodyMode,
     pub invincible: bool,
@@ -131,6 +156,12 @@ pub struct PlayerBody {
     /// True during the parry window: shield is active AND `parry_window_timer > 0`.
     /// Damage checks gate contact damage behind `!parrying`.
     pub parrying: bool,
+    /// Most-recent submerged-in-water contact, copied off
+    /// `ae::Player::water_contact`. `None` = dry.
+    pub water_contact: Option<ae::WaterContact>,
+    /// Most-recent climbable-region contact (ladders / vines).
+    /// `None` = not in a climbable region this tick.
+    pub climbable_contact: Option<ae::ClimbableContact>,
 }
 
 impl PlayerBody {
@@ -142,15 +173,22 @@ impl PlayerBody {
             base_size: player.base_size,
             facing: player.facing,
             on_ground: player.on_ground,
+            on_wall: player.on_wall,
+            wall_clinging: player.wall_clinging,
+            wall_climbing: player.wall_climbing,
             fly_enabled: player.fly_enabled,
             dash_charges_available: player.dash_charges_available,
             air_jumps_available: player.air_jumps_available,
+            dash_timer: player.dash_timer,
+            blink_aiming: player.blink_aiming,
             mana_current: player.mana.current,
             body_mode: player.body_mode,
             invincible: player.invincible,
             dodge_rolling: player.dodge_roll_timer > 0.0,
             shielding: player.shield_active,
             parrying: player.shield_active && player.parry_window_timer > 0.0,
+            water_contact: player.water_contact,
+            climbable_contact: player.climbable_contact,
         }
     }
 

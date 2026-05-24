@@ -148,11 +148,10 @@ pub fn apply_feature_damage_events(
                         banner.show(format!("{} turns hostile", npc.name), 2.6);
                         *actor = ActorRuntime::Hostile(hostile);
                         // Swap the brain + ActionSet alongside the
-                        // runtime so the parallel shadow tick aligns
-                        // with the actor's new disposition. Daytime
-                        // work that consumes the brain output then
-                        // sees a MeleeBrute brain + Swipe ActionSet
-                        // on hostile actors (instead of the original
+                        // runtime so the brain tick aligns with the
+                        // actor's new disposition. The resolver picks
+                        // up a MeleeBrute brain + Swipe ActionSet on
+                        // hostile actors (instead of the original
                         // peaceful Patrol brain + empty ActionSet
                         // that lingered after the ActorRuntime swap).
                         commands.entity(actor_entity).insert((

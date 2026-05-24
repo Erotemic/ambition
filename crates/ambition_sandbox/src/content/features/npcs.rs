@@ -70,7 +70,7 @@ pub const NPC_TALK_RADIUS: f32 = 80.0;
 /// patrol speed so peaceful NPCs read as casual rather than alert.
 /// Consumed by `crate::brain::PatrolCfg::NPC_DEFAULT` (the
 /// brain-side mirror); kept here so the legacy NPC path that
-/// hasn't migrated yet (none today, but the daytime polarity flip
+/// hasn't migrated yet (none today, but the player polarity flip
 /// preserves the value) stays in sync.
 pub const NPC_PATROL_SPEED: f32 = 60.0;
 

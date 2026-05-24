@@ -119,7 +119,7 @@ impl PlayerSimulationBundle {
 /// - `special = Some(BubbleShield)` iff `abilities.shield`
 ///
 /// The resolver won't emit `ActionRequest`s for capabilities the
-/// player doesn't have, so daytime EFFECTS-flip consumers can
+/// player doesn't have, so EFFECTS consumers can
 /// read the ActionSet as the authoritative "what can this player
 /// actually do right now" surface without re-checking AbilitySet.
 fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {

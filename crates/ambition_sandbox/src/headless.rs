@@ -236,11 +236,10 @@ mod tests {
     /// Sustained run check: drive the full sim for 60 ticks and
     /// verify the brain action counter is present and its
     /// `last_frame` is internally consistent (≤ total). Catches a
-    /// future regression where the brain shadow tick + resolver
-    /// path starts panicking somewhere mid-room (player loading
-    /// the wrong room and brain seeing inconsistent state) or
-    /// where the counter resource gets reset/leaked between
-    /// frames.
+    /// future regression where the brain tick + resolver path
+    /// starts panicking somewhere mid-room (player loading the wrong
+    /// room and brain seeing inconsistent state) or where the
+    /// counter resource gets reset/leaked between frames.
     #[test]
     fn sim_completes_60_ticks_with_counter_intact() {
         use crate::brain::BrainActionCounter;

@@ -191,7 +191,7 @@ mod tests {
 
     /// Default player ActionSet has a Swipe melee + Bolt ranged +
     /// BubbleShield special when the player has all abilities. Pins
-    /// the sandbox_all() default — daytime EFFECTS-flip consumers
+    /// the sandbox_all() default — EFFECTS consumers
     /// can rely on these slots being filled.
     #[test]
     fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {

@@ -17,17 +17,25 @@
 //! same `Brain::StateMachine(MeleeBrute(…))` can look completely
 //! different because their ActionSets differ.
 //!
-//! **Current shape (2026-05-24):** every actor type (player / NPC /
-//! enemy / boss) spawns with Brain + ActionSet + ActorControl
-//! sibling components. The brain ticks each frame and fills the
-//! frame. The [`emit_brain_action_messages`] resolver writes one
+//! **Current shape:** every actor type (player / NPC / enemy /
+//! boss) spawns with Brain + ActionSet + ActorControl sibling
+//! components. The brain ticks each frame and fills the frame. The
+//! [`emit_brain_action_messages`] resolver writes one
 //! [`ActorActionMessage`] per resolved [`action_set::ActionRequest`].
 //!
-//! **What's NOT wired (daytime continuation):** combat / projectile
-//! / FX consumers still read from the legacy `EnemyRuntime` /
-//! `BossRuntime` / `update_player` paths. The brain output is a
-//! parallel shadow. See the daytime EFFECTS-flip procedure in the
-//! recipe doc for the migration plan.
+//! **Live EFFECTS consumers:**
+//! - Enemy ranged projectiles flow through `ActorActionMessage::Ranged`
+//!   via `content::features::ecs::spawn_enemy_projectiles_from_brain_actions`.
+//! - Player input feeds `Brain::Player` → `ActorControl` → the
+//!   sandbox's `player_control_system` / `player_simulation_system`
+//!   via `engine_input_from_actor_control` (the polarity flip).
+//!
+//! **What's NOT wired yet:** player melee + enemy melee + boss
+//! special effects still come from the legacy
+//! `update_player` / `EnemyRuntime::update` / `BossRuntime::update`
+//! paths. The brain output is a real authority for player movement
+//! and for enemy ranged; melee/special are the remaining migrations.
+//! See the EFFECTS-flip procedure in the recipe doc.
 //!
 //! # Mini-example
 //!
@@ -59,11 +67,11 @@ pub mod player;
 pub mod snapshot;
 pub mod state_machine;
 
-// Re-exports are the brain module's public surface — many show
-// as "unused" inside the crate today because the EFFECTS-stage
-// consumer flip hasn't landed yet (only #[cfg(test)] code in
-// other modules reaches some). Allow that so the surface stays
-// documented + ready for daytime wiring.
+// Re-exports are the brain module's public surface. Some variants
+// (LungeSpec, SlamSpec, BiteSpec, PunchSpec) show as "unused"
+// inside the crate today because their EFFECTS consumers aren't
+// wired yet — only enemy ranged is. Allow that so the surface
+// stays documented + ready for the next migration slice.
 #[allow(unused_imports)]
 pub use action_set::{
     resolve as resolve_action_requests, ActionRequest, ActionSet, BiteSpec, LungeSpec,
@@ -188,7 +196,7 @@ pub struct ActorControl(pub ae::ActorControlFrame);
 /// Module-local Bevy plugin: registers the universal-brain
 /// message channel + counter resource. Use this in place of the
 /// raw `app.add_message::<ActorActionMessage>() + init_resource`
-/// calls so daytime extraction work (e.g. lifting the brain
+/// calls so extraction work (e.g. lifting the brain
 /// module into its own crate) is a single `app.add_plugins(...)`
 /// change at the call site.
 ///
@@ -221,15 +229,11 @@ impl std::fmt::Display for Brain {
 /// spawn systems, projectile spawners, special-ability dispatchers)
 /// read this to decide what hitboxes / projectiles / FX to spawn.
 ///
-/// Today only an observation channel — the player's existing
-/// combat pipeline still drives hitbox spawns via update_player +
-/// the projectile system. Daytime work flips those consumers off
-/// the legacy paths and onto this message stream.
+/// Live channel: enemy ranged projectiles already flow through this
+/// stream (see `content::features::ecs::spawn_enemy_projectiles_from_brain_actions`).
+/// Player melee and boss special effects still come from the legacy
+/// runtimes; the migration is ongoing.
 #[derive(Message, Clone, Copy, Debug)]
-#[allow(
-    dead_code,
-    reason = "fields read by daytime EFFECTS-consumer flip + test code"
-)]
 pub struct ActorActionMessage {
     /// The actor that wants the action.
     pub actor: Entity,
@@ -242,19 +246,18 @@ impl ActorActionMessage {
     /// True iff this message carries a melee request. Cheap
     /// shorthand for `matches!(self.request, ActionRequest::Melee
     /// { .. })`.
-    #[allow(dead_code, reason = "filter helper for daytime EFFECTS-flip consumers")]
+    #[allow(dead_code, reason = "filter helper for EFFECTS consumers")]
     pub fn is_melee(&self) -> bool {
         matches!(self.request, action_set::ActionRequest::Melee { .. })
     }
 
     /// True iff this message carries a ranged request.
-    #[allow(dead_code, reason = "filter helper for daytime EFFECTS-flip consumers")]
     pub fn is_ranged(&self) -> bool {
         matches!(self.request, action_set::ActionRequest::Ranged { .. })
     }
 
     /// True iff this message carries a special-ability request.
-    #[allow(dead_code, reason = "filter helper for daytime EFFECTS-flip consumers")]
+    #[allow(dead_code, reason = "filter helper for EFFECTS consumers")]
     pub fn is_special(&self) -> bool {
         matches!(self.request, action_set::ActionRequest::Special { .. })
     }
@@ -286,7 +289,7 @@ pub fn emit_brain_action_messages(
 }
 
 /// Resource: per-frame counter of `ActorActionMessage`s observed.
-/// Daytime EFFECTS-flip work uses this to confirm the resolver is
+/// EFFECTS consumers uses this to confirm the resolver is
 /// actually firing during gameplay before wiring real consumers.
 /// HUD / debug tooling can surface it as "brain actions/frame: N".
 #[derive(bevy::ecs::resource::Resource, Default, Clone, Copy, Debug)]
@@ -312,7 +315,7 @@ pub fn observe_brain_action_counter(
 /// Bevy system: log each `ActorActionMessage` at debug level using
 /// `tracing::debug!`. Gated by the standard tracing filter — set
 /// `RUST_LOG=ambition_sandbox::brain=debug` to see the per-tick
-/// resolver output. Useful for daytime EFFECTS-flip verification
+/// resolver output. Useful for EFFECTS-consumer verification
 /// without a HUD readout. Not registered by default.
 #[allow(dead_code, reason = "diagnostic system; off by default")]
 pub fn log_brain_action_messages(mut reader: MessageReader<ActorActionMessage>) {
@@ -561,7 +564,7 @@ mod tests {
     fn actor_control_default_is_neutral_frame() {
         // ActorControl Default = frame.neutral. Pins the
         // "fresh-spawn ActorControl has zero intent" baseline so
-        // a daytime EFFECTS consumer that reads it before any
+        // the EFFECTS consumer that reads it before any
         // brain tick has run won't spuriously fire actions.
         let ac = ActorControl::default();
         assert_eq!(ac.0, ae::ActorControlFrame::neutral());
@@ -910,7 +913,7 @@ mod tests {
     }
 
     /// observe_brain_action_counter sums per-frame messages into
-    /// the resource. Pins the counter system shape — daytime work
+    /// the resource. Pins the counter system shape — sandbox wiring
     /// or HUD readouts can rely on `last_frame` reflecting the
     /// resolver's per-frame output count.
     #[test]

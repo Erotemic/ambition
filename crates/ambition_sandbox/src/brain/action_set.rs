@@ -67,7 +67,7 @@ impl ActionSet {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[allow(
     dead_code,
-    reason = "spec variants surface to daytime EFFECTS-flip consumers"
+    reason = "spec variants surface to per-actor EFFECTS consumers"
 )]
 pub enum MeleeActionSpec {
     /// Generic short swing. Used by Striker / standard goblin melee.
@@ -129,7 +129,7 @@ impl MeleeActionSpec {
     /// "can swing again" question.
     #[allow(
         dead_code,
-        reason = "diagnostic helper for daytime EFFECTS-flip consumers"
+        reason = "diagnostic helper for EFFECTS consumers"
     )]
     pub fn total_duration_s(self) -> f32 {
         match self {
@@ -144,7 +144,7 @@ impl MeleeActionSpec {
     /// Damage dealt on a clean hit.
     #[allow(
         dead_code,
-        reason = "diagnostic helper for daytime EFFECTS-flip consumers"
+        reason = "diagnostic helper for EFFECTS consumers"
     )]
     pub fn damage(self) -> i32 {
         match self {
@@ -159,7 +159,7 @@ impl MeleeActionSpec {
     /// Reach (hitbox forward extent) in px from the actor's anchor.
     #[allow(
         dead_code,
-        reason = "diagnostic helper for daytime EFFECTS-flip consumers"
+        reason = "diagnostic helper for EFFECTS consumers"
     )]
     pub fn reach_px(self) -> f32 {
         match self {
@@ -346,7 +346,7 @@ impl ActionRequest {
     /// "ranged_bolt", "special_bubble_shield", …). Useful for
     /// trace logs, debug overlays, and grep-friendly diagnostics
     /// without the verbose Debug rendering.
-    #[allow(dead_code, reason = "diagnostic helper for daytime EFFECTS-flip work")]
+    #[allow(dead_code, reason = "diagnostic helper for the EFFECTS-flip migration")]
     pub fn label(&self) -> &'static str {
         match self {
             Self::Melee { spec, .. } => match spec {
@@ -478,7 +478,7 @@ mod tests {
     #[test]
     fn resolve_empty_when_frame_has_no_action_intent() {
         // wants_any_action()=false → resolver always returns empty.
-        // Pin the contract so daytime code that gates resolve()
+        // Pin the contract so sandbox code that gates resolve()
         // calls behind wants_any_action() can rely on it.
         let actions = ActionSet {
             melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
@@ -563,7 +563,7 @@ mod tests {
         // Default-constructed ActionSet is the peaceful baseline:
         // no attack capability, default move style. Pins the
         // contract that a fresh-spawn actor with default ActionSet
-        // can't attack — daytime code that constructs ActionSets
+        // can't attack — sandbox code that constructs ActionSets
         // via `..Default::default()` can rely on this.
         let s = ActionSet::default();
         assert!(s.melee.is_none());

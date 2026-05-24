@@ -61,7 +61,7 @@ pub fn tick_player_brain(
 ///
 /// Convenience wrapper that unwraps `PlayerInputFrame` and calls
 /// [`tick_player_brain_from_control`]. Used by tests that already
-/// have a `PlayerInputFrame` in scope and by daytime wiring that
+/// have a `PlayerInputFrame` in scope and by sandbox wiring that
 /// hasn't migrated to the snapshot-aware `tick_player_brain` yet.
 #[allow(
     dead_code,

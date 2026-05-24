@@ -39,6 +39,7 @@ pub fn update_ecs_bosses(
             &mut BossPhase,
             &super::super::components::ActorTarget,
             Option<&mut crate::brain::Brain>,
+            Option<&mut crate::brain::ActorControl>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -54,16 +55,19 @@ pub fn update_ecs_bosses(
     let player_body = pb.aabb();
     let player_vulnerable =
         !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (mut aabb, mut feature, mut pattern_timer, mut phase, target, mut brain) in &mut bosses {
+    for (mut aabb, mut feature, mut pattern_timer, mut phase, target, mut brain, mut control)
+        in &mut bosses
+    {
         let boss = &mut feature.boss;
         let target_pos = target.pos;
-        // Shadow brain tick (parallel-shape) — populates the boss's
-        // BossPattern brain state alongside the BossRuntime tick.
-        // No consumer reads the brain output today; daytime work
-        // migrates the boss-pattern state machine into the brain's
-        // internal sub-state and flips the consumer.
-        if let Some(brain) = brain.as_deref_mut() {
-            let _shadow = crate::brain::shadow_tick_brain(
+        // Tick the boss brain and write its output into `ActorControl`
+        // so `emit_brain_action_messages` sees the boss's intent. Today
+        // `BossPattern::tick` returns a neutral frame (the boss runtime
+        // still owns boss attack intent); when the BossPattern
+        // migration lands, the resolver picks up the boss's ranged /
+        // special intent automatically.
+        if let (Some(brain), Some(control)) = (brain.as_deref_mut(), control.as_deref_mut()) {
+            control.0 = crate::brain::shadow_tick_brain(
                 brain,
                 boss.pos,
                 ae::Vec2::ZERO,

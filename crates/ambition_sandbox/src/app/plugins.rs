@@ -141,23 +141,22 @@ fn register_player_input_systems(app: &mut App) {
             crate::player::sync_local_player_input_frame,
             // Universal-brain seam: translate PlayerInputFrame into
             // the player's ActorControl frame. Runs after the input
-            // sync so the brain sees this frame's inputs. Today no
-            // sim consumer reads ActorControl on the player yet;
-            // running it now proves the brain → ActorControl path
-            // executes cleanly each tick and gives debug tooling a
-            // unified read model.
+            // sync so the brain sees this frame's inputs. The
+            // ActorControl output is the polarity-flip authority for
+            // `player_control_system` / `player_simulation_system`
+            // (see `engine_input_from_actor_control`).
             crate::player::tick_player_brains,
             // Universal-brain effects resolver: walk every actor's
             // ActionSet against the actor's ActorControl frame and
             // emit ActorActionMessage entries for each concrete
-            // request. Consumers read the message channel to
-            // spawn hitboxes / projectiles / FX. Today no
-            // consumer reads — daytime work flips combat /
-            // projectile spawners onto this stream.
+            // request. Live consumer:
+            // `spawn_enemy_projectiles_from_brain_actions` (Combat
+            // set) reads the Ranged messages and spawns enemy
+            // projectiles. Player melee + boss specials are next.
             crate::brain::emit_brain_action_messages,
             // Observe the resolver output into a per-frame counter
-            // so daytime work + HUD have a quick read on whether
-            // any brain wants something this tick.
+            // so the HUD + debug tooling have a quick "any brain
+            // wants something this tick" signal.
             crate::brain::observe_brain_action_counter,
         )
             .chain()

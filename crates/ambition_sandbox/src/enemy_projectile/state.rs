@@ -3,9 +3,13 @@
 use ambition_engine as ae;
 use bevy::prelude::Resource;
 
-/// A spawn request emitted by an enemy choreography this frame.
-/// Collected by `EnemyRuntime::update` into `EnemyTickOutputs` and
-/// flushed into [`EnemyProjectileState::bodies`] by the system.
+/// A spawn request describing an enemy projectile. Built by the
+/// EFFECTS-stage consumer `spawn_enemy_projectiles_from_brain_actions`
+/// from an [`crate::brain::ActorActionMessage::Ranged`] and flushed
+/// into [`EnemyProjectileState::bodies`] by the same system. Boss
+/// projectiles still go through `BossRuntime::update`'s
+/// `outputs.projectile_spawns` field until the boss migration
+/// lands.
 #[derive(Clone, Debug)]
 pub struct EnemyProjectileSpawn {
     pub origin: ae::Vec2,

@@ -445,11 +445,12 @@ pub fn update_ecs_actors(
                 aabb.half_size = enemy.size * 0.5;
                 // Land the legacy AI's per-tick frame into ActorControl
                 // so `emit_brain_action_messages` and EFFECTS-stage
-                // consumers see the intent. The brain's earlier
-                // shadow-tick write to control.0 gets overridden here
-                // because today the runtime is still the authority
-                // for hostile fire/melee intent; the brain takes over
-                // in a later phase.
+                // consumers see the intent. The brain's earlier tick
+                // wrote to `control.0` first; the runtime overwrites
+                // it here because the runtime is still the source of
+                // truth for hostile fire/melee intent. When the brain
+                // takes over hostile intent (next migration), this
+                // second write disappears.
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;
                 }

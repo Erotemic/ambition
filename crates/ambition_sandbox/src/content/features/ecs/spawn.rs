@@ -85,11 +85,11 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         state: crate::brain::BossPatternState::default(),
     });
     // Bosses spawn with an offensive ActionSet — Bolt ranged +
-    // BossSpotlight special — so the parallel shape is internally
-    // consistent (hostile BossPattern brain + offensive
-    // capability). Today the resolver never sees this because
-    // BossPattern emits neutral; daytime EFFECTS-flip work picks
-    // up the variant per-encounter through `encounter_id`.
+    // BossSpotlight special. The BossPattern brain currently emits
+    // a neutral frame (see `state_machine::tick_boss_pattern`); the
+    // boss runtime still owns boss attack intent. When the
+    // BossPattern migration lands, this ActionSet becomes the
+    // capability the resolver translates into ActorActionMessages.
     let boss_action_set = crate::brain::ActionSet {
         ranged: Some(crate::brain::RangedActionSpec::Bolt {
             speed: 380.0,
@@ -179,12 +179,14 @@ fn spawn_enemy(
         authored.payload.clone(),
         paths,
     );
-    // Attach a parallel-shape Brain + ActionSet to the enemy entity
-    // so the universal-brain seam is wired even though EnemyRuntime
-    // still drives behavior. Today no system reads these on hostile
-    // actors — daytime work flips consumers off the choreography +
-    // EnemyRuntime AI loop and onto Brain.tick() + ActionSet
-    // resolution.
+    // Attach Brain + ActionSet + ActorControl to the enemy entity.
+    // The brain is shadow-ticked by `update_ecs_actors` and the
+    // legacy AI's frame ends up in ActorControl (the runtime is
+    // still where hostile fire intent originates today). The
+    // resolver translates the frame into ActorActionMessages
+    // consumed by EFFECTS systems (see
+    // `spawn_enemy_projectiles_from_brain_actions` for the ranged
+    // case).
     let brain = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
     let actor = ActorRuntime::Hostile(enemy);
@@ -216,16 +218,20 @@ fn spawn_enemy(
 /// uses. PuppySlug gets a Wanderer; sandbags get StandStill;
 /// everyone else gets a MeleeBrute keyed to their archetype.
 ///
-/// When daytime work flips the EFFECTS consumer to read the brain's
-/// ActorControl frame, the brain output will match the archetype's
-/// pre-flip behavior — no per-archetype tuning gap to retune.
+/// Today the hostile-actor pipeline writes the LEGACY AI's frame
+/// into `ActorControl` (the brain's shadow output is overwritten);
+/// see `update_ecs_actors`. The resolver still produces correct
+/// `ActorActionMessage`s because the legacy frame carries the same
+/// intent (melee_pressed / fire) that the brain would emit.
+/// Future work moves the brain's frame into the authority position
+/// for hostile actors too.
+///
 /// Map an `EnemyRuntime` to a default ActionSet keyed off its
 /// archetype. Sandbags + peaceful archetypes get
 /// [`ActionSet::peaceful`]; striker / brute archetypes get a Swipe
 /// (or Lunge for brutes); ranged archetypes get an Arrow / Pistol
-/// / Bolt where appropriate. Today no system consumes the resulting
-/// ActionRequests for hostile actors — daytime work flips combat
-/// spawners onto the resolver stream.
+/// / Bolt where appropriate. The resolver consumes these to
+/// produce ActorActionMessages for the EFFECTS-stage consumers.
 fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
     use crate::brain::{
         ActionSet, BiteSpec, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec,
@@ -504,9 +510,10 @@ mod tests {
             other => panic!("expected BossPattern brain, got {:?}", other),
         }
         // ActionSet carries an offensive baseline: Bolt ranged +
-        // BossSpotlight special — daytime EFFECTS-flip per-encounter
-        // overrides this, but the spawn default must be hostile-
-        // capable so a flipped boss can actually act.
+        // BossSpotlight special — per-encounter spec can override
+        // this once the BossPattern migration lands; the spawn
+        // default must be hostile-capable so a brain-driven boss
+        // can actually act.
         assert!(
             matches!(
                 action_set.ranged,
@@ -634,8 +641,8 @@ mod tests {
     }
 
     /// enemy_default_action_set picks a per-archetype concrete
-    /// attack spec — daytime EFFECTS-flip code reads this to spawn
-    /// distinct hitboxes per archetype.
+    /// attack spec — the EFFECTS consumers read these to spawn
+    /// distinct hitboxes / projectiles per archetype.
     #[test]
     fn enemy_default_action_set_picks_per_archetype_specs() {
         let slug = make_enemy(EnemyArchetype::PuppySlug);

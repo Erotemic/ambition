@@ -84,6 +84,21 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         },
         state: crate::brain::BossPatternState::default(),
     });
+    // Bosses spawn with an offensive ActionSet — Bolt ranged +
+    // BossSpotlight special — so the parallel shape is internally
+    // consistent (hostile BossPattern brain + offensive
+    // capability). Today the resolver never sees this because
+    // BossPattern emits neutral; daytime EFFECTS-flip work picks
+    // up the variant per-encounter through `encounter_id`.
+    let boss_action_set = crate::brain::ActionSet {
+        ranged: Some(crate::brain::RangedActionSpec::Bolt {
+            speed: 380.0,
+            damage: 1,
+        }),
+        special: Some(crate::brain::SpecialActionSpec::BossSpotlight),
+        move_style: crate::brain::MoveStyleSpec::Walk,
+        ..Default::default()
+    };
     commands.spawn((
         Name::new(format!("Feature boss: {}", authored.name)),
         FeatureSimEntity,
@@ -97,7 +112,7 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         super::ActorTarget::default(),
         BossFeature::new(boss),
         brain,
-        crate::brain::ActionSet::peaceful(),
+        boss_action_set,
         crate::brain::ActorControl::default(),
     ));
 }
@@ -480,7 +495,7 @@ mod tests {
             .query::<(&Brain, &ActionSet, &ActorControl)>();
         let count = q.iter(app.world()).count();
         assert_eq!(count, 1, "boss should carry Brain + ActionSet + ActorControl");
-        let (brain, _, _) = q.iter(app.world()).next().expect("boss exists");
+        let (brain, action_set, _) = q.iter(app.world()).next().expect("boss exists");
         // Brain is BossPattern with the real encounter id derived
         // from the boss name.
         match brain {
@@ -489,6 +504,24 @@ mod tests {
             }
             other => panic!("expected BossPattern brain, got {:?}", other),
         }
+        // ActionSet carries an offensive baseline: Bolt ranged +
+        // BossSpotlight special — daytime EFFECTS-flip per-encounter
+        // overrides this, but the spawn default must be hostile-
+        // capable so a flipped boss can actually act.
+        assert!(
+            matches!(
+                action_set.ranged,
+                Some(crate::brain::RangedActionSpec::Bolt { .. })
+            ),
+            "boss ActionSet should default to Bolt ranged",
+        );
+        assert!(
+            matches!(
+                action_set.special,
+                Some(crate::brain::SpecialActionSpec::BossSpotlight)
+            ),
+            "boss ActionSet should default to BossSpotlight special",
+        );
     }
 
     /// Regression net: every encounter-spawned hostile actor lands

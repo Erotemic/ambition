@@ -89,6 +89,44 @@ impl Brain {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct ActorControl(pub ae::ActorControlFrame);
 
+/// Bevy `Message` emitted by the ActionSet resolver — one per
+/// concrete action the brain wants this tick. Consumers (combat
+/// spawn systems, projectile spawners, special-ability dispatchers)
+/// read this to decide what hitboxes / projectiles / FX to spawn.
+///
+/// Today only an observation channel — the player's existing
+/// combat pipeline still drives hitbox spawns via update_player +
+/// the projectile system. Daytime work flips those consumers off
+/// the legacy paths and onto this message stream.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct ActorActionMessage {
+    /// The actor that wants the action.
+    pub actor: Entity,
+    /// The concrete action request produced by the actor's
+    /// ActionSet.
+    pub request: action_set::ActionRequest,
+}
+
+/// Bevy system: walk every actor entity that has a Brain +
+/// ActionSet + ActorControl and emit one `ActorActionMessage` per
+/// resolved action request. Runs after the brain-driver systems
+/// (tick_player_brains, update_ecs_actors shadow tick) so the
+/// frame is current.
+pub fn emit_brain_action_messages(
+    actors: Query<(Entity, &ActorControl, &ActionSet, &bevy::transform::components::Transform)>,
+    mut writer: MessageWriter<ActorActionMessage>,
+) {
+    for (entity, control, action_set, transform) in &actors {
+        let origin = ae::Vec2::new(transform.translation.x, transform.translation.y);
+        for request in action_set::resolve(action_set, &control.0, origin) {
+            writer.write(ActorActionMessage {
+                actor: entity,
+                request,
+            });
+        }
+    }
+}
+
 /// One-call "tick this brain with a snapshot built from these
 /// actor + target positions" helper. Used by every shadow-tick
 /// site (`update_ecs_actors` hostile branch, `update_ecs_bosses`)

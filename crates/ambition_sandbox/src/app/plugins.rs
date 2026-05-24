@@ -51,6 +51,11 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
     app.add_plugins(crate::features::WorldPrepSchedulePlugin);
+    // Universal-brain message channel: ActionRequests produced by
+    // the ActionSet resolver land here. Today only an observation
+    // channel — daytime work flips combat/projectile consumers off
+    // the legacy paths and onto this stream.
+    app.add_message::<crate::brain::ActorActionMessage>();
     register_player_input_systems(app);
     register_player_simulation_systems(app);
     register_room_transition_systems(app);
@@ -143,6 +148,14 @@ fn register_player_input_systems(app: &mut App) {
             // executes cleanly each tick and gives debug tooling a
             // unified read model.
             crate::player::tick_player_brains,
+            // Universal-brain effects resolver: walk every actor's
+            // ActionSet against the actor's ActorControl frame and
+            // emit ActorActionMessage entries for each concrete
+            // request. Consumers read the message channel to
+            // spawn hitboxes / projectiles / FX. Today no
+            // consumer reads — daytime work flips combat /
+            // projectile spawners onto this stream.
+            crate::brain::emit_brain_action_messages,
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),

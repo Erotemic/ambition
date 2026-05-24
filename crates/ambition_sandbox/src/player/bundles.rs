@@ -98,13 +98,43 @@ impl PlayerSimulationBundle {
             faction: ActorFaction::Player,
             name: Name::new("Player"),
             brain: Brain::Player(PlayerSlot::PRIMARY),
-            // Player ActionSet today is a placeholder; the player
-            // brain drives the existing update_player path, not
-            // ActionSet-resolved effects. When Chunk 4e+ pushes the
-            // player onto the unified effect-resolve path, this
-            // ActionSet will carry the player's full moveset.
-            action_set: ActionSet::peaceful(),
+            // Player ActionSet carries the abstract shape of the
+            // player's moveset. Today nothing reads it for combat
+            // effects — update_player still spawns hitboxes via the
+            // existing pipeline. The set lights up when the
+            // ActionSet effect-resolver flip lands (daytime). For
+            // now we seed with the default attack specs so
+            // possession ("player inhabits a goblin") swaps Brain
+            // alone, not ActionSet.
+            action_set: default_player_action_set(),
             actor_control: ActorControl::default(),
         }
+    }
+}
+
+/// Default player moveset — `MeleeActionSpec::Swipe` for melee,
+/// `RangedActionSpec::Bolt` for projectile. Seeds the player's
+/// ActionSet at spawn so the resolver returns sensible
+/// `ActionRequest`s pre-EFFECTS-flip. Per the universal-brain
+/// design, possession of a non-player body keeps that body's
+/// ActionSet — this default fires only for actual player entities.
+fn default_player_action_set() -> ActionSet {
+    use crate::brain::{MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SwipeSpec};
+    ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+            // Player swipe is faster than enemy Striker default —
+            // the player's combat tempo runs ~2× snappier.
+            windup_s: 0.12,
+            active_s: 0.10,
+            recover_s: 0.18,
+            damage: 1,
+            reach_px: 36.0,
+        })),
+        ranged: Some(RangedActionSpec::Bolt {
+            speed: 600.0,
+            damage: 1,
+        }),
+        move_style: MoveStyleSpec::Walk,
+        special: None,
     }
 }

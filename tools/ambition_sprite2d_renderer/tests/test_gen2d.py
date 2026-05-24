@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from ambition_sprite2d_renderer.adapters import get_adapter
@@ -29,6 +30,7 @@ def _alpha_bbox_metrics(img):
     }
 
 
+@pytest.mark.slow_render
 def test_render_default_assets(tmp_path):
     out_dir = tmp_path / "assets"
     outputs = draw_all(str(CONFIGS), out_dir)
@@ -58,6 +60,7 @@ def test_animation_sets_include_blink_parts_and_dash():
         assert "dash" in adapter.animations()
 
 
+@pytest.mark.slow_render
 def test_death_frames_keep_visible_mass_and_anchor():
     for cfg in ["robot.yaml", "goblin.yaml", "boss.yaml"]:
         job = CharacterJob.load(Path(str(CONFIGS)) / cfg)
@@ -88,6 +91,7 @@ def test_blink_parts_are_teleport_not_eyelid_blink():
                 assert not pose.blink
 
 
+@pytest.mark.slow_render
 def test_entity_sprites_render(tmp_path):
     out_dir = tmp_path / "entities"
     outputs = write_entity_sprites(out_dir)
@@ -102,6 +106,7 @@ def test_entity_sprites_render(tmp_path):
             assert img.getchannel("A").getbbox() is not None, path
 
 
+@pytest.mark.slow_render
 def test_entity_manifest_contains_current_feature_families(tmp_path):
     out_dir = tmp_path / "entities"
     write_entity_sprites(out_dir)
@@ -110,6 +115,7 @@ def test_entity_manifest_contains_current_feature_families(tmp_path):
         assert token in manifest
 
 
+@pytest.mark.slow_render
 def test_tight_crop_eliminates_transparent_edges_on_entity_sprites(tmp_path):
     """Pin the post-crop content density. The whole reason we
     auto-crop is so a 30%-canvas-fill drawer doesn't render as a
@@ -141,6 +147,7 @@ def test_tight_crop_eliminates_transparent_edges_on_entity_sprites(tmp_path):
         )
 
 
+@pytest.mark.slow_render
 def test_tile_sprites_match_authored_dimensions_and_skip_crop(tmp_path):
     """Tile sprites must keep their full authored canvas — Bevy's
     `Sprite::image_mode = Tiled` repeats the texture at native
@@ -184,6 +191,7 @@ def test_boss_animation_set_matches_rust_boss_attack_kind():
     assert "teleport_out" not in keys
 
 
+@pytest.mark.slow_render
 def test_boss_attack_rows_render_non_empty():
     job = CharacterJob.load(CONFIGS / "boss.yaml")
     adapter = get_adapter("boss")
@@ -194,6 +202,7 @@ def test_boss_attack_rows_render_non_empty():
         assert img.getchannel("A").getbbox() is not None, name
 
 
+@pytest.mark.slow_render
 def test_spritesheet_emits_body_metrics():
     """Sprite manifests must carry measured body extent so Rust can align
     sprites with collision boxes without hand-tuned anchor constants."""
@@ -220,6 +229,7 @@ def test_spritesheet_emits_body_metrics():
         assert -0.5 <= anchor_y < 0.0, (cfg_name, anchor_y)
 
 
+@pytest.mark.slow_render
 def test_sandbag_adapter_participates_in_character_pipeline(tmp_path):
     job = CharacterJob.load(CONFIGS / "sandbag.yaml")
     adapter = get_adapter("sandbag")
@@ -234,6 +244,7 @@ def test_sandbag_adapter_participates_in_character_pipeline(tmp_path):
     assert manifest["frame_height"] == 128
 
 
+@pytest.mark.slow_render
 def test_extended_player_review_rows_render_non_empty(tmp_path):
     job = CharacterJob.load(REVIEW_CONFIGS / "player_extended.yaml")
     adapter = get_adapter(job.target)
@@ -244,6 +255,7 @@ def test_extended_player_review_rows_render_non_empty(tmp_path):
         assert img.getchannel("A").getbbox() is not None, name
 
 
+@pytest.mark.slow_render
 def test_draw_all_renders_core_runtime_configs(tmp_path):
     outputs = draw_all(str(CONFIGS), tmp_path)
     output_names = {Path(p).name for p in outputs}
@@ -254,6 +266,7 @@ def test_draw_all_renders_core_runtime_configs(tmp_path):
     assert "player_extended_spritesheet.png" not in output_names
 
 
+@pytest.mark.slow_render
 def test_review_configs_do_not_overwrite_variants(tmp_path):
     # Render a compact temporary subset so this contract stays fast while the
     # full review directory can continue growing.
@@ -269,6 +282,7 @@ def test_review_configs_do_not_overwrite_variants(tmp_path):
     assert "sandbag_full_review_spritesheet.png" in output_names
 
 
+@pytest.mark.slow_render
 def test_sandbag_full_review_uses_shared_animation_vocabulary(tmp_path):
     job = CharacterJob.load(REVIEW_CONFIGS / "sandbag_full_review.yaml")
     adapter = get_adapter(job.target)
@@ -280,6 +294,7 @@ def test_sandbag_full_review_uses_shared_animation_vocabulary(tmp_path):
         assert img.getchannel("A").getbbox() is not None, name
 
 
+@pytest.mark.slow_render
 def test_ability_item_icons_render(tmp_path):
     from ambition_sprite2d_renderer.targets.icons.item_icons import ICON_SPECS, write_item_icons
 
@@ -296,6 +311,7 @@ def test_ability_item_icons_render(tmp_path):
         assert img.getchannel("A").getbbox() is not None, spec.key
 
 
+@pytest.mark.slow_render
 def test_review_npc_variants_have_distinct_specs_and_render(tmp_path):
     samples = [
         "goblin_brute_hammer.yaml",
@@ -319,6 +335,7 @@ def test_review_npc_variants_have_distinct_specs_and_render(tmp_path):
     assert len(fingerprints) == len(samples)
 
 
+@pytest.mark.slow_render
 def test_music_faction_lineup_renders_selective_animation_sets(tmp_path):
     from ambition_sprite2d_renderer.faction_lineup import FactionLineup, write_faction_lineup
 

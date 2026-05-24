@@ -1,3 +1,8 @@
+import pytest
+
+# Full-resolution render path; opt in with --run-slow-render (see GOALS.md).
+pytestmark = pytest.mark.slow_render
+
 from pathlib import Path
 
 from ambition_sprite2d_renderer.targets.characters import creator

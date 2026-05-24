@@ -1,3 +1,8 @@
+import pytest
+
+# Full-resolution render path; opt in with --run-slow-render (see GOALS.md).
+pytestmark = pytest.mark.slow_render
+
 from pathlib import Path
 
 from PIL import Image

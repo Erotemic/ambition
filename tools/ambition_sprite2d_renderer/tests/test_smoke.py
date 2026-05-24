@@ -1,5 +1,11 @@
 """Smoke tests for the basic per-target sheet + canonical render pipelines.
 
+These tests deliberately render at minimal config (``supersample=1``,
+single animation) so they're already fast — no ``slow_render`` marker
+needed. They form the bottom rung of the regression net: prove the
+core adapter pipelines (robot/goblin/ninja/canonical) can render end
+to end from a clean checkout.
+
 The previous generation of these tests imported a `render_spritesheet`
 helper that has since been split into `build_spritesheet` (in-memory
 result) and `write_spritesheet` (on-disk result). Updated to the current

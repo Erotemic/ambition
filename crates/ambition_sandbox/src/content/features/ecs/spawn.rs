@@ -430,6 +430,39 @@ mod tests {
         enemy
     }
 
+    /// Regression net: spawn_boss attaches Brain (BossPattern) +
+    /// ActionSet + ActorControl alongside BossFeature. Pins the
+    /// parallel-shape invariant.
+    #[test]
+    fn boss_spawn_attaches_brain_components() {
+        use crate::brain::{ActionSet, ActorControl, Brain, StateMachineCfg};
+        let mut app = App::new();
+        app.add_systems(Update, |mut commands: Commands| {
+            let authored = crate::rooms::Authored {
+                id: "test_boss".to_string(),
+                name: "Test Warden".to_string(),
+                aabb: ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(40.0, 50.0)),
+                payload: ae::BossBrain::Dormant,
+            };
+            spawn_boss(&mut commands, &authored);
+        });
+        app.update();
+        let mut q = app
+            .world_mut()
+            .query::<(&Brain, &ActionSet, &ActorControl)>();
+        let count = q.iter(app.world()).count();
+        assert_eq!(count, 1, "boss should carry Brain + ActionSet + ActorControl");
+        let (brain, _, _) = q.iter(app.world()).next().expect("boss exists");
+        // Brain is BossPattern with the real encounter id derived
+        // from the boss name.
+        match brain {
+            Brain::StateMachine(StateMachineCfg::BossPattern { cfg, .. }) => {
+                assert_eq!(cfg.encounter_id, "test_warden");
+            }
+            other => panic!("expected BossPattern brain, got {:?}", other),
+        }
+    }
+
     /// Regression net: every encounter-spawned hostile actor lands
     /// with the universal-brain components attached. Pins the
     /// parallel-shape invariant so a future spawn-site refactor

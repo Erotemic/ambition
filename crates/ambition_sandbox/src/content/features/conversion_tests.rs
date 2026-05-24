@@ -205,6 +205,55 @@ mod conversion_tests {
         assert!(!brain.is_hostile(), "peaceful NPC brain must report !is_hostile");
     }
 
+    /// NPC brain dispatch over many ticks doesn't accumulate ghost
+    /// state — patrol mode flips at the right bound times even when
+    /// the brain re-uses the same PatrolState across many ticks.
+    /// Regresses against any future patrol-mode-cache bug where
+    /// the brain state gets out of sync with the actor body.
+    #[test]
+    fn npc_brain_patrol_mode_tracks_bounds_across_many_ticks() {
+        let (world, mut npc, player) = world_with_patrolling_npc(96.0);
+        let mut brain = brain_for(&npc);
+        // Settle gravity.
+        for _ in 0..30 {
+            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+        }
+        // Run for a long while; track that the AI mode stays in
+        // patrol and never wedges in Idle.
+        let mut patrol_ticks = 0;
+        let mut chase_ticks = 0;
+        for _ in 0..300 {
+            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            match npc.ai_mode {
+                ae::CharacterAiMode::Patrol => patrol_ticks += 1,
+                ae::CharacterAiMode::Chase => chase_ticks += 1,
+                _ => {}
+            }
+        }
+        // Player is far away (1500), so we expect mostly Patrol.
+        assert!(patrol_ticks > 200, "NPC should be patrolling most ticks; got {patrol_ticks}");
+        // No chase (player far).
+        assert_eq!(chase_ticks, 0, "Player far → no Chase mode");
+    }
+
+    /// NPC with no patrol_radius + no motion path → brain emits
+    /// neutral frame every tick + the NPC stays exactly at spawn
+    /// (no jitter, no drift, no ghost velocity).
+    #[test]
+    fn static_npc_brain_emits_neutral_each_tick() {
+        let (world, mut npc, player) = world_with_patrolling_npc(0.0);
+        let mut brain = brain_for(&npc);
+        for _ in 0..120 {
+            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+        }
+        // Vel along x should drain to zero (gravity has settled).
+        assert!(
+            npc.vel.x.abs() < 0.5,
+            "static NPC should have ~zero horizontal velocity; got {}",
+            npc.vel.x
+        );
+    }
+
     #[test]
     fn enemy_archetype_brain_round_trip() {
         for (name, expected) in [

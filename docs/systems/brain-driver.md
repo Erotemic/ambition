@@ -137,9 +137,13 @@ Every controllable entity carries a `Brain` + `ActionSet` +
 - **Bosses** carry `Brain::StateMachine(BossPattern{encounter_id})`
   where `encounter_id` is the same `String` the boss-encounter
   registry uses (computed via `encounter_id_from_name(boss.name)`
-  at spawn). `update_ecs_bosses` shadow-ticks similarly. BossRuntime
-  still drives behavior; daytime work threads the registry through
-  `BossPattern.tick` to drive the phase schedule from the brain.
+  at spawn). The matching ActionSet defaults to `Bolt` ranged +
+  `BossSpotlight` special so the parallel shape carries an
+  offensive baseline; daytime EFFECTS-flip work narrows this per
+  encounter. `update_ecs_bosses` shadow-ticks similarly.
+  BossRuntime still drives behavior; daytime work threads the
+  registry through `BossPattern.tick` to drive the phase schedule
+  from the brain.
 
 When a peaceful NPC turns hostile (strike-threshold flip in
 `damage.rs`), the entity's `ActorRuntime::Peaceful → Hostile` swap

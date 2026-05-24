@@ -76,11 +76,15 @@ def shift_overlapping_labels_in_level(level: dict) -> list[tuple[str, str, tuple
             rb = current_rect(label_refs[j])
             if not rects_overlap(ra, rb):
                 continue
-            # Shift j down by (ra.height + PADDING) so its top sits
-            # below ra's bottom.
-            shift_dy = ra[3] + PADDING_PX
+            # Place j's top below ra's bottom + padding so the two
+            # rects no longer overlap vertically. Computing from
+            # ra's position (rather than incrementally from rb's
+            # current y) is necessary when rb starts overlapping ra
+            # by only a few pixels — incrementing by ra.height +
+            # padding from rb's y over-shoots when rb already
+            # starts mid-ra.
             old_px = (rb[0], rb[1])
-            new_y = rb[1] + shift_dy
+            new_y = ra[1] + ra[3] + PADDING_PX
             if new_y + rb[3] > px_hei:
                 # Would push out the bottom of the level — try
                 # shifting up instead.

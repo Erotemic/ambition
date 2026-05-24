@@ -7,19 +7,13 @@
 //! stage, the same way an enemy brain decides "I want to fire" but
 //! the projectile-spawner system handles the cooldown gating.
 //!
-//! Chunk 2 (this file's introduction) keeps the function pure and
-//! standalone — no actor uses it yet. Chunk 4 wires it into the
-//! per-tick player pipeline.
-//!
-//! Inputs the player brain *doesn't* touch (and the player tick
-//! still reads off `PlayerInputFrame` directly for now):
-//!   - `blink_pressed/held/released` — blink is its own subsystem
-//!   - `pogo_pressed` — pogo target detection is integration-side
-//!   - `projectile_pressed/held/released` — fireball charge is its
-//!     own state machine; once the brain owns it, `fire` carries the
-//!     resolved direction.
-//!   - `fast_fall_pressed`, `fly_toggle_pressed` — niche; promote
-//!     these onto the frame only when a non-player brain wants them.
+//! Every `ControlFrame` field the player simulation needs survives
+//! this translation, including the player-specific verbs
+//! (`pogo_pressed`, `blink_*`, `fast_fall_pressed`, `fly_toggle_pressed`,
+//! `projectile_*`, `aim`). The sandbox's `engine_input_from_actor_control`
+//! builds the engine's `InputState` purely from `ActorControl`; the
+//! raw `ControlFrame` is no longer consulted inside the player
+//! simulation phases.
 
 use ambition_engine as ae;
 
@@ -123,10 +117,10 @@ pub fn tick_player_brain_from_control(
     out.jump_held = c.jump_held;
     out.jump_released = c.jump_released;
 
-    // Drop-through: the existing ControlFrame doesn't have a
-    // dedicated drop-through; the sandbox computes it from down+jump
-    // on the integration side. The player brain leaves it false so
-    // the existing logic still owns the decision.
+    // Drop-through: the engine derives this from `down + jump_pressed`
+    // inside `engine_input_from_actor_control`. The brain leaves
+    // `drop_through` at its default; the engine's gesture-detection
+    // logic owns the final flag.
     out.drop_through = false;
 
     // Dash, interact, shield, special.
@@ -138,6 +132,22 @@ pub fn tick_player_brain_from_control(
     // Promote that to `special_pressed` so a `Brain::Player` driving
     // a different actor's ActionSet can resolve special there.
     out.special_pressed = c.blink_pressed;
+
+    // Player-specific verbs (pogo, blink, fly_toggle, fast_fall,
+    // projectile charge, aim). Promoted onto the frame so the
+    // sandbox's player simulation can read `ActorControl` only and
+    // drop the raw `ControlFrame` dependency. AI brains leave
+    // these at their defaults.
+    out.pogo_pressed = c.pogo_pressed;
+    out.fast_fall_pressed = c.fast_fall_pressed;
+    out.fly_toggle_pressed = c.fly_toggle_pressed;
+    out.projectile_pressed = c.projectile_pressed;
+    out.projectile_held = c.projectile_held;
+    out.projectile_released = c.projectile_released;
+    out.blink_pressed = c.blink_pressed;
+    out.blink_held = c.blink_held;
+    out.blink_released = c.blink_released;
+    out.aim = ae::Vec2::new(c.aim_x, c.aim_y);
 }
 
 #[cfg(test)]

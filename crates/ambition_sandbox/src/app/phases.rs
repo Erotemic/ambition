@@ -32,7 +32,6 @@ use super::*;
 /// real time (jump buffers, blink aim, dash chains) belong here. Returns
 /// `Return` if the engine asked for a sandbox reset.
 pub(super) fn player_control_phase(
-    controls: ControlFrame,
     actor_control: ae::ActorControlFrame,
     world: &ae::World,
     player: &mut ae::Player,
@@ -57,14 +56,14 @@ pub(super) fn player_control_phase(
     // - control_dt is real time for responsive inputs and precision-blink aim;
     // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
     //
-    // Per the actor/brain migration, `ActorControl` is the authority
-    // for the abstract verbs (movement, jump, attack, dash, interact,
-    // shield). Raw `controls` is still consulted for player-specific
-    // verbs (pogo/blink/fly_toggle/fast_fall) until the player brain
-    // grows them. The hitstun gate applies to the combined frame.
+    // Per the actor/brain migration, `ActorControl` is the single
+    // source of truth for player input. The player brain translates
+    // every `ControlFrame` verb the simulation needs (movement, jump,
+    // dash, attack, interact, shield, pogo, blink, fly_toggle,
+    // fast_fall, projectile-charge, aim) so this phase never reads
+    // raw input. Hitstun gate applies inside the helper.
     let input = engine_input_from_actor_control(
         actor_control,
-        controls,
         feel,
         combat.hitstun_timer,
         frame_dt,
@@ -128,7 +127,6 @@ pub(super) fn player_control_phase(
 /// This phase observes the smoothed `sim_state.time_scale` set by
 /// the PlayerInput pipeline.
 pub(super) fn player_simulation_phase(
-    controls: ControlFrame,
     actor_control: ae::ActorControlFrame,
     world: &ae::World,
     player: &mut ae::Player,
@@ -152,7 +150,6 @@ pub(super) fn player_simulation_phase(
 ) -> PhaseOutcome {
     let input = engine_input_from_actor_control(
         actor_control,
-        controls,
         feel,
         combat.hitstop_timer,
         frame_dt,

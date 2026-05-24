@@ -123,6 +123,43 @@ pub struct ActorControlFrame {
     /// `special_pressed=true` from a player brain and a possessed
     /// goblin yield different concrete effects.
     pub special_pressed: bool,
+    /// Rising edge: brain wants to trigger a pogo bounce this tick.
+    /// Today only the human player binds a verb here (the dedicated
+    /// pogo input + attack+down combo); AI brains leave it false.
+    /// Promoted onto the frame so the sandbox's player polarity flip
+    /// can drop its raw `ControlFrame` dependency.
+    pub pogo_pressed: bool,
+    /// Rising edge: brain wants to enter / refresh fast-fall this
+    /// tick (player-side dedicated input; AI brains ignore today).
+    pub fast_fall_pressed: bool,
+    /// Rising edge: brain wants to toggle fly mode (player-side
+    /// dev/movement verb today).
+    pub fly_toggle_pressed: bool,
+    /// Rising edge: brain wants to start charging a projectile (player-
+    /// side fireball/hadouken; the integration owns the charge state
+    /// machine). When the charge releases, `fire = Some(...)` carries
+    /// the resolved direction.
+    pub projectile_pressed: bool,
+    /// Sustain: charge button held this tick. Mirror of the player's
+    /// projectile-held input; integration uses it to grow the charge
+    /// preview.
+    pub projectile_held: bool,
+    /// Falling edge: charge button released — the integration spawns
+    /// the projectile. `fire` carries the launch direction.
+    pub projectile_released: bool,
+    /// Rising edge: brain wants to initiate a blink/teleport
+    /// (player-side signature ability; today translated from raw
+    /// `blink_pressed`).
+    pub blink_pressed: bool,
+    /// Sustain: blink-aim input held — the player's precision-blink
+    /// path uses this during aiming.
+    pub blink_held: bool,
+    /// Falling edge: blink released — commit the blink target.
+    pub blink_released: bool,
+    /// Aim direction for charged ranged attacks. `(0,0)` = use
+    /// actor's facing; non-zero = explicit twin-stick / mouse aim
+    /// vector. Mirror of the player's `(aim_x, aim_y)`.
+    pub aim: Vec2,
 }
 
 impl ActorControlFrame {

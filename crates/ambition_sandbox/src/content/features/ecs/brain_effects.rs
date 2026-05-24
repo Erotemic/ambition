@@ -29,7 +29,6 @@ use crate::audio::SfxMessage;
 use crate::brain::{ActorActionMessage, action_set::ActionRequest};
 use crate::content::features::ecs::actors::ActorRuntime;
 use crate::content::features::enemies::EnemyArchetype;
-use crate::content::features::events::FeatureCombatTuning;
 use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
 use crate::time::feel::SandboxFeelTuning;
 
@@ -170,7 +169,7 @@ pub fn start_enemy_melee_from_brain_actions(
 /// the helper available to the unit tests below without leaking
 /// `SandboxFeelTuning` through the public API.
 #[cfg(test)]
-fn default_combat_tuning() -> FeatureCombatTuning {
+fn default_combat_tuning() -> crate::content::features::events::FeatureCombatTuning {
     SandboxFeelTuning::default().feature_combat_tuning()
 }
 

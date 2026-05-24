@@ -55,7 +55,7 @@ pub fn update_ecs_bosses(
     let player_body = pb.aabb();
     let player_vulnerable =
         !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (mut aabb, mut feature, mut pattern_timer, mut phase, target, mut brain, mut control)
+    for (mut aabb, mut feature, mut pattern_timer, mut phase, target, brain, mut control)
         in &mut bosses
     {
         let boss = &mut feature.boss;

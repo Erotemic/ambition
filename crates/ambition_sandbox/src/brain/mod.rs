@@ -329,109 +329,6 @@ pub fn log_brain_action_messages(mut reader: MessageReader<ActorActionMessage>) 
     }
 }
 
-/// Combat-timer state passed into a shadow tick so the brain's
-/// AI evaluator sees correct windup / active / recover / cooldown
-/// values. Use `CombatTimers::CLEAR` for actors that don't track
-/// attack state (NPCs, sandbags).
-#[derive(Clone, Copy, Debug, Default)]
-pub struct CombatTimers {
-    pub cooldown_remaining: f32,
-    pub windup_remaining: f32,
-    pub active_remaining: f32,
-    pub recover_remaining: f32,
-    pub stun_remaining: f32,
-}
-
-impl CombatTimers {
-    /// No active attack / stun — all zeros. The brain template
-    /// reads "can begin attack windup" as true.
-    pub const CLEAR: Self = Self {
-        cooldown_remaining: 0.0,
-        windup_remaining: 0.0,
-        active_remaining: 0.0,
-        recover_remaining: 0.0,
-        stun_remaining: 0.0,
-    };
-}
-
-/// One-call "tick this brain with a snapshot built from these
-/// actor + target positions" helper. Used by every shadow-tick
-/// site (`update_ecs_actors` hostile branch, `update_ecs_bosses`)
-/// so the snapshot construction lives in one place. Daytime
-/// migration tightens this — once a real consumer reads the
-/// resulting `ActorControl`, the per-actor brain-driver fills the
-/// snapshot's combat-timer / wall-contact fields too.
-///
-/// Default variant uses `CombatTimers::CLEAR` — see
-/// [`shadow_tick_brain_with_timers`] for the variant that passes
-/// real attack-timer values.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "intentional flat helper; the snapshot it builds is what's deduped"
-)]
-pub fn shadow_tick_brain(
-    brain: &mut Brain,
-    actor_pos: ae::Vec2,
-    actor_vel: ae::Vec2,
-    actor_facing: f32,
-    actor_on_ground: bool,
-    alive: bool,
-    target_pos: ae::Vec2,
-    dt: f32,
-) -> ae::ActorControlFrame {
-    shadow_tick_brain_with_timers(
-        brain,
-        actor_pos,
-        actor_vel,
-        actor_facing,
-        actor_on_ground,
-        alive,
-        target_pos,
-        dt,
-        CombatTimers::CLEAR,
-    )
-}
-
-/// Like [`shadow_tick_brain`] but threads real combat timers into
-/// the snapshot. Use this from actor systems that track windup /
-/// active / recover / cooldown (e.g. the enemy shadow tick — its
-/// EnemyRuntime carries those timers and they let the brain
-/// correctly emit Telegraph / Attack / Recover modes).
-#[allow(clippy::too_many_arguments, reason = "intentional flat helper")]
-pub fn shadow_tick_brain_with_timers(
-    brain: &mut Brain,
-    actor_pos: ae::Vec2,
-    actor_vel: ae::Vec2,
-    actor_facing: f32,
-    actor_on_ground: bool,
-    alive: bool,
-    target_pos: ae::Vec2,
-    dt: f32,
-    timers: CombatTimers,
-) -> ae::ActorControlFrame {
-    let snap = BrainSnapshot {
-        actor_pos,
-        actor_vel,
-        actor_facing,
-        actor_on_ground,
-        alive,
-        target_pos,
-        target_alive: true,
-        sim_time: 0.0,
-        dt,
-        attack_cooldown_remaining: timers.cooldown_remaining,
-        attack_windup_remaining: timers.windup_remaining,
-        attack_active_remaining: timers.active_remaining,
-        attack_recover_remaining: timers.recover_remaining,
-        stun_remaining: timers.stun_remaining,
-        wall_contact: None,
-        player_input: None,
-    };
-    let mut out = ae::ActorControlFrame::neutral();
-    brain.tick(&snap, &mut out);
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -509,19 +406,6 @@ mod tests {
             0,
             "partial entities should produce zero messages",
         );
-    }
-
-    #[test]
-    fn combat_timers_clear_const_matches_default() {
-        // CombatTimers::CLEAR is the sentinel "no active attack /
-        // stun" baseline; it should equal Default::default().
-        let clear = CombatTimers::CLEAR;
-        let default = CombatTimers::default();
-        assert_eq!(clear.cooldown_remaining, default.cooldown_remaining);
-        assert_eq!(clear.windup_remaining, default.windup_remaining);
-        assert_eq!(clear.active_remaining, default.active_remaining);
-        assert_eq!(clear.recover_remaining, default.recover_remaining);
-        assert_eq!(clear.stun_remaining, default.stun_remaining);
     }
 
     #[test]
@@ -698,88 +582,10 @@ mod tests {
         assert_eq!(frame_a, frame_b, "same brain + same snapshot → same frame");
     }
 
-    #[test]
-    fn shadow_tick_brain_handles_dead_actors_without_emitting_intent() {
-        // shadow_tick_brain on a dead actor should emit a neutral
-        // frame regardless of brain template — pins the "dead
-        // actors don't move or attack" rule across the helper.
-        for template in [
-            StateMachineCfg::StandStill,
-            StateMachineCfg::Patrol {
-                cfg: PatrolCfg::NPC_DEFAULT,
-                state: PatrolState::default(),
-            },
-            StateMachineCfg::MeleeBrute {
-                cfg: MeleeBruteCfg::STRIKER_DEFAULT,
-                state: MeleeBruteState::default(),
-            },
-            StateMachineCfg::Skirmisher {
-                cfg: SkirmisherCfg::RANGER_DEFAULT,
-                state: SkirmisherState::default(),
-            },
-        ] {
-            let mut brain = Brain::StateMachine(template);
-            let frame = shadow_tick_brain(
-                &mut brain,
-                ae::Vec2::ZERO,
-                ae::Vec2::ZERO,
-                1.0,
-                true,
-                false, // alive = false
-                ae::Vec2::new(20.0, 0.0),
-                1.0 / 60.0,
-            );
-            assert_eq!(
-                frame.desired_vel,
-                ae::Vec2::ZERO,
-                "dead actor should not move"
-            );
-            assert!(!frame.melee_pressed, "dead actor should not attack");
-            assert!(frame.fire.is_none(), "dead actor should not fire");
-        }
-    }
-
-    #[test]
-    fn shadow_tick_with_timers_routes_active_attack_to_brain_mode() {
-        // A MeleeBrute brain ticked with an active attack timer
-        // should see CharacterAiMode::Attack and emit no fresh
-        // melee_pressed (the integration is mid-attack). Pins the
-        // CombatTimers → BrainSnapshot threading.
-        let mut brain = Brain::StateMachine(StateMachineCfg::MeleeBrute {
-            cfg: MeleeBruteCfg::STRIKER_DEFAULT,
-            state: MeleeBruteState::default(),
-        });
-        let timers = CombatTimers {
-            cooldown_remaining: 0.5,
-            windup_remaining: 0.0,
-            active_remaining: 0.05, // mid-swing
-            recover_remaining: 0.0,
-            stun_remaining: 0.0,
-        };
-        let frame = shadow_tick_brain_with_timers(
-            &mut brain,
-            ae::Vec2::ZERO,
-            ae::Vec2::ZERO,
-            1.0,
-            true,
-            true,
-            ae::Vec2::new(20.0, 0.0),
-            1.0 / 60.0,
-            timers,
-        );
-        // Mid-active: brain should NOT re-emit melee_pressed
-        // because a swing is already in progress. The integration
-        // half tracks the active hitbox.
-        assert!(!frame.melee_pressed);
-        // And the MeleeBrute state's cached mode should reflect
-        // CharacterAiMode::Attack — the engine evaluator returns
-        // Attack when active_remaining > 0.
-        if let Brain::StateMachine(StateMachineCfg::MeleeBrute { state, .. }) = &brain {
-            assert_eq!(state.mode, ae::CharacterAiMode::Attack);
-        } else {
-            unreachable!();
-        }
-    }
+    // Note: `shadow_tick_brain*` helpers + the `CombatTimers` struct
+    // were removed when the hostile/boss runtimes became the
+    // single-producer-of-intent path; the tests that pinned their
+    // behavior went with them.
 
     #[test]
     fn brain_display_includes_slot_for_player_and_label_for_state_machine() {

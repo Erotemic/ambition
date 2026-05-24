@@ -86,14 +86,14 @@ pub fn player_control_system(
     let player = &mut authority.player;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    let controls = input.frame;
     let frame_dt = time.delta_secs();
-    // Pause/resume toggle handling is in `pause_menu::pause_menu_toggle`;
-    // touching `start_pressed` here keeps the field's discoverability.
-    let _ = controls.start_pressed;
+    // PlayerInputFrame is still kept on the player entity (story-
+    // content systems read it for upstream input edge cases like
+    // start-press for pause menu). The player simulation no longer
+    // touches it directly — `ActorControl` is the sole input source.
+    let _ = input;
     if matches!(
         player_control_phase(
-            controls,
             actor_control.0,
             &world.0,
             player,
@@ -171,11 +171,13 @@ pub fn player_simulation_system(
     let player = &mut authority.player;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    let controls = input.frame;
     let frame_dt = time.delta_secs();
+    // Same polarity flip as the control phase — ActorControl is the
+    // sole input source. PlayerInputFrame stays attached for legacy
+    // story-content callers but isn't read here.
+    let _ = input;
     if matches!(
         player_simulation_phase(
-            controls,
             actor_control.0,
             &world.0,
             player,

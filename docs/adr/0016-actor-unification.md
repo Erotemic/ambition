@@ -55,3 +55,27 @@ combat-side semantics — `ProjectileFaction::Player` and
 `ActorFaction::Player` describe the same side — so a future "is this
 projectile hostile to this actor?" predicate can compose the two
 without translation.
+
+## Universal-brain (2026-05-24 update)
+
+Beyond the faction tag, the actor-unification work extended to a
+universal-brain interface (`crates/ambition_sandbox/src/brain/`):
+every controllable entity now carries `Brain` + `ActionSet` +
+`ActorControl` sibling components. Brains tick each frame to fill
+the abstract intent frame; ActionSets resolve abstract intent into
+concrete combat/effect requests. Today consumers still flow
+through the legacy `EnemyRuntime` / `BossRuntime` /
+`update_player` paths but `ActorActionMessage` is the resolver
+output channel that daytime consumer-flip work plugs into.
+
+The brain + faction layers compose:
+- `ActorFaction` answers "which side owns this actor" (immutable
+  identity).
+- `Brain::is_hostile()` answers "does this actor want to attack
+  right now" (per-tick, brain-derived).
+- Damage routing reads faction; per-tick attack gating reads
+  brain hostility.
+
+See `docs/systems/brain-driver.md` for the brain shape +
+`docs/recipes/extending-brains-and-action-sets.md` for the
+extension procedure.

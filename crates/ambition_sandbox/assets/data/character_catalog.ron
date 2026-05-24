@@ -884,17 +884,11 @@
             default_action_set: "striker_swipe",
             tags: ["enemy"],
         ),
-        "npc_pirate_heavy": (
-            display_name: "Pirate Heavy",
-            spritesheet: "sprites/pirate_heavy_spritesheet.png",
-            manifest: "sprites/pirate_heavy_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Wide,
-            composition: None,
-            default_brain: "melee_brute_brute",
-            default_action_set: "brute_lunge",
-            tags: ["enemy", "heavy"],
-        ),
+        // npc_pirate_heavy intentionally removed: the renderer's
+        // `pirate_heavy` target is an internal multi-variant rig
+        // that ships three named characters (broadside_bess, iron_mary,
+        // salt_annet) — those are the real catalog entries. The bare
+        // name is not a character; it's an authoring shorthand.
         "npc_player_combat_review": (
             display_name: "Player Combat Review",
             spritesheet: "sprites/player_combat_review_spritesheet.png",
@@ -1027,17 +1021,11 @@
             default_action_set: "brute_lunge",
             tags: ["enemy", "heavy"],
         ),
-        "npc_robot_heavy": (
-            display_name: "Robot Heavy",
-            spritesheet: "sprites/robot_heavy_spritesheet.png",
-            manifest: "sprites/robot_heavy_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Wide,
-            composition: None,
-            default_brain: "melee_brute_brute",
-            default_action_set: "brute_lunge",
-            tags: ["enemy", "heavy"],
-        ),
+        // npc_robot_heavy intentionally removed: the renderer's
+        // `robot_heavy` target is a multi-variant rig that ships
+        // bastion/arsenal/etc. The bare name isn't a real
+        // character — graduate the variants to individual catalog
+        // entries when the publisher is fixed to install them.
         "npc_robot_medic": (
             display_name: "Robot Medic",
             spritesheet: "sprites/robot_medic_spritesheet.png",

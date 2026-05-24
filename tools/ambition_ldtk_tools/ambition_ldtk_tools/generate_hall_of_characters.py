@@ -227,6 +227,26 @@ def build_spec(main_ids: list[str], basement_ids: list[str], display_names: dict
         {"name": "floor_1_solid_right"},
     ))
 
+    # --- Basement floors: one Solid floor per basement row so each
+    # boss/large-character pedestal has something to stand on.
+    # Without these the wide bosses (gnu_ton, trex_enemy) render
+    # mid-air with the next row's sprite below them. Floor top is
+    # placed at the slot's foot_y so the sprite's foot anchor lands
+    # flush on the surface.
+    basement_floor_thickness = 16
+    basement_rows_total = 3  # match `derived_dims()` basement allocation
+    for row in range(basement_rows_total):
+        # Slot foot_y is at slot_top + BASEMENT_SLOT_HEIGHT_PX. The
+        # floor's *top* sits at that y so the foot anchors directly
+        # on the surface (rather than inside it).
+        floor_top_y = basement_section_top + (row + 1) * BASEMENT_SLOT_HEIGHT_PX
+        entities.append(make_entity(
+            "Solid",
+            (16, floor_top_y),
+            (px_wid - 32, basement_floor_thickness),
+            {"name": f"basement_row_{row + 1}_floor"},
+        ))
+
     # --- PlayerStart at the hub-entry floor (left side) ---
     floor1_slot_y = main_section_top + (MAIN_FLOORS - 1) * MAIN_SLOT_HEIGHT_PX
     entities.append(make_entity(

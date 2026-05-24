@@ -1083,6 +1083,49 @@ def _check_intro_authoring_hygiene(project, warnings):
                         f"text is readable in the debug overlay"
                     )
 
+    # --- Spawn entity overlap (NpcSpawn / EnemySpawn / BossSpawn) ------
+    # Two spawn AABBs that overlap or sit within a few pixels of each
+    # other will render their sprites stacked — flagged as a soft
+    # warning so authors notice (e.g. the Hall of Characters basement
+    # bosses with wide-frame sprites that bleed across slot
+    # boundaries). The threshold is a small "personal-space" buffer
+    # rather than literal AABB intersection.
+    SPAWN_GAP_PX = 4.0  # min separation between spawn AABBs
+    spawn_kinds = ("NpcSpawn", "EnemySpawn", "BossSpawn")
+    spawns_by_level = defaultdict(list)
+    for level in project.get("levels") or []:
+        identifier = level.get("identifier", "<unknown>")
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances") or []:
+                ident = entity.get("__identifier")
+                if ident not in spawn_kinds:
+                    continue
+                ex, ey, ew, eh = rect(entity)
+                label = entity_name(entity) or entity.get("iid", "<no-iid>")
+                spawns_by_level[identifier].append((ident, label, ex, ey, ew, eh))
+    for level_name, items in spawns_by_level.items():
+        for i in range(len(items)):
+            for j in range(i + 1, len(items)):
+                ka, la, ax, ay, aw, ah = items[i]
+                kb, lb, bx, by, bw, bh = items[j]
+                # Inflate each rect by half the gap so the
+                # intersection test rejects too-close pairs as well
+                # as outright overlaps.
+                inflate = SPAWN_GAP_PX / 2.0
+                if strict_rects_intersect(
+                    (ax - inflate, ay - inflate, aw + 2 * inflate, ah + 2 * inflate),
+                    (bx - inflate, by - inflate, bw + 2 * inflate, bh + 2 * inflate),
+                ):
+                    warnings.append(
+                        f"{ka} {la!r} and {kb} {lb!r} in level "
+                        f"{level_name!r} overlap or sit within "
+                        f"{SPAWN_GAP_PX:g}px of each other "
+                        f"(rects: a=({ax:g},{ay:g},{aw:g},{ah:g}) "
+                        f"b=({bx:g},{by:g},{bw:g},{bh:g})) — wide "
+                        f"sprite render bleeds across slot "
+                        f"boundaries"
+                    )
+
     # --- Mid-air Doors + missing room walls --------------------------
     for level in project.get("levels") or []:
         identifier = level.get("identifier", "<unknown>")

@@ -266,6 +266,48 @@
             ),
         ),
         (
+            type: "Solid",
+            px: [
+                16,
+                1568,
+            ],
+            size: [
+                2016,
+                16,
+            ],
+            fields: (
+                name: "basement_row_1_floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                1952,
+            ],
+            size: [
+                2016,
+                16,
+            ],
+            fields: (
+                name: "basement_row_2_floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                2336,
+            ],
+            size: [
+                2016,
+                16,
+            ],
+            fields: (
+                name: "basement_row_3_floor",
+            ),
+        ),
+        (
             type: "PlayerStart",
             px: [
                 96,
@@ -2256,7 +2298,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_pirate_heavy",
+                character_id: "npc_player_combat_review",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -2273,39 +2315,6 @@
                 20,
             ],
             fields: (
-                name: "hall_label_npc_pirate_heavy",
-                text: "Pirate Heavy",
-                category: "Custom",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1584,
-                544,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "npc_player_combat_review",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                1540,
-                404,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
                 name: "hall_label_npc_player_combat_review",
                 text: "Player Combat Review",
                 category: "Custom",
@@ -2314,7 +2323,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1584,
                 544,
             ],
             size: [
@@ -2331,7 +2340,7 @@
         (
             type: "DebugLabel",
             px: [
-                1668,
+                1540,
                 404,
             ],
             size: [
@@ -2347,7 +2356,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1712,
                 544,
             ],
             size: [
@@ -2364,7 +2373,7 @@
         (
             type: "DebugLabel",
             px: [
-                1796,
+                1668,
                 404,
             ],
             size: [
@@ -2380,7 +2389,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
+                1840,
                 544,
             ],
             size: [
@@ -2397,7 +2406,7 @@
         (
             type: "DebugLabel",
             px: [
-                1924,
+                1796,
                 404,
             ],
             size: [
@@ -2413,8 +2422,8 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
-                352,
+                1968,
+                544,
             ],
             size: [
                 32,
@@ -2430,8 +2439,8 @@
         (
             type: "DebugLabel",
             px: [
-                4,
-                212,
+                1924,
+                404,
             ],
             size: [
                 120,
@@ -2446,7 +2455,7 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
+                48,
                 352,
             ],
             size: [
@@ -2463,7 +2472,7 @@
         (
             type: "DebugLabel",
             px: [
-                132,
+                4,
                 212,
             ],
             size: [
@@ -2479,7 +2488,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                176,
                 352,
             ],
             size: [
@@ -2496,7 +2505,7 @@
         (
             type: "DebugLabel",
             px: [
-                260,
+                132,
                 212,
             ],
             size: [
@@ -2512,7 +2521,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                304,
                 352,
             ],
             size: [
@@ -2529,7 +2538,7 @@
         (
             type: "DebugLabel",
             px: [
-                388,
+                260,
                 212,
             ],
             size: [
@@ -2545,7 +2554,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                432,
                 352,
             ],
             size: [
@@ -2562,7 +2571,7 @@
         (
             type: "DebugLabel",
             px: [
-                516,
+                388,
                 212,
             ],
             size: [
@@ -2578,7 +2587,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                560,
                 352,
             ],
             size: [
@@ -2595,7 +2604,7 @@
         (
             type: "DebugLabel",
             px: [
-                644,
+                516,
                 212,
             ],
             size: [
@@ -2611,7 +2620,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                688,
                 352,
             ],
             size: [
@@ -2628,7 +2637,7 @@
         (
             type: "DebugLabel",
             px: [
-                772,
+                644,
                 212,
             ],
             size: [
@@ -2644,40 +2653,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
-                352,
-            ],
-            size: [
-                32,
-                48,
-            ],
-            fields: (
-                character_id: "npc_robot_heavy",
-                prompt: "Inspect",
-                dialogue_id: "",
-                patrol_radius: 0,
-            ),
-        ),
-        (
-            type: "DebugLabel",
-            px: [
-                900,
-                212,
-            ],
-            size: [
-                120,
-                20,
-            ],
-            fields: (
-                name: "hall_label_npc_robot_heavy",
-                text: "Robot Heavy",
-                category: "Custom",
-            ),
-        ),
-        (
-            type: "NpcSpawn",
-            px: [
-                1072,
+                816,
                 352,
             ],
             size: [
@@ -2694,7 +2670,7 @@
         (
             type: "DebugLabel",
             px: [
-                1028,
+                772,
                 212,
             ],
             size: [
@@ -2710,7 +2686,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1200,
+                944,
                 352,
             ],
             size: [
@@ -2727,7 +2703,7 @@
         (
             type: "DebugLabel",
             px: [
-                1156,
+                900,
                 212,
             ],
             size: [
@@ -2743,7 +2719,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1328,
+                1072,
                 352,
             ],
             size: [
@@ -2760,7 +2736,7 @@
         (
             type: "DebugLabel",
             px: [
-                1284,
+                1028,
                 212,
             ],
             size: [
@@ -2776,7 +2752,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1456,
+                1200,
                 352,
             ],
             size: [
@@ -2793,7 +2769,7 @@
         (
             type: "DebugLabel",
             px: [
-                1412,
+                1156,
                 212,
             ],
             size: [
@@ -2809,7 +2785,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1584,
+                1328,
                 352,
             ],
             size: [
@@ -2826,7 +2802,7 @@
         (
             type: "DebugLabel",
             px: [
-                1540,
+                1284,
                 212,
             ],
             size: [
@@ -2842,7 +2818,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1712,
+                1456,
                 352,
             ],
             size: [
@@ -2859,7 +2835,7 @@
         (
             type: "DebugLabel",
             px: [
-                1668,
+                1412,
                 212,
             ],
             size: [
@@ -2875,7 +2851,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1840,
+                1584,
                 352,
             ],
             size: [
@@ -2892,7 +2868,7 @@
         (
             type: "DebugLabel",
             px: [
-                1796,
+                1540,
                 212,
             ],
             size: [
@@ -2908,7 +2884,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1968,
+                1712,
                 352,
             ],
             size: [
@@ -2925,7 +2901,7 @@
         (
             type: "DebugLabel",
             px: [
-                1924,
+                1668,
                 212,
             ],
             size: [
@@ -2941,8 +2917,8 @@
         (
             type: "NpcSpawn",
             px: [
-                48,
-                160,
+                1840,
+                352,
             ],
             size: [
                 32,
@@ -2958,8 +2934,8 @@
         (
             type: "DebugLabel",
             px: [
-                4,
-                20,
+                1796,
+                212,
             ],
             size: [
                 120,
@@ -2974,8 +2950,8 @@
         (
             type: "NpcSpawn",
             px: [
-                176,
-                160,
+                1968,
+                352,
             ],
             size: [
                 32,
@@ -2991,8 +2967,8 @@
         (
             type: "DebugLabel",
             px: [
-                132,
-                20,
+                1924,
+                212,
             ],
             size: [
                 120,
@@ -3007,7 +2983,7 @@
         (
             type: "NpcSpawn",
             px: [
-                304,
+                48,
                 160,
             ],
             size: [
@@ -3024,7 +3000,7 @@
         (
             type: "DebugLabel",
             px: [
-                260,
+                4,
                 20,
             ],
             size: [
@@ -3040,7 +3016,7 @@
         (
             type: "NpcSpawn",
             px: [
-                432,
+                176,
                 160,
             ],
             size: [
@@ -3057,7 +3033,7 @@
         (
             type: "DebugLabel",
             px: [
-                388,
+                132,
                 20,
             ],
             size: [
@@ -3073,7 +3049,7 @@
         (
             type: "NpcSpawn",
             px: [
-                560,
+                304,
                 160,
             ],
             size: [
@@ -3090,7 +3066,7 @@
         (
             type: "DebugLabel",
             px: [
-                516,
+                260,
                 20,
             ],
             size: [
@@ -3106,7 +3082,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                432,
                 160,
             ],
             size: [
@@ -3123,7 +3099,7 @@
         (
             type: "DebugLabel",
             px: [
-                644,
+                388,
                 20,
             ],
             size: [
@@ -3139,7 +3115,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                560,
                 160,
             ],
             size: [
@@ -3156,7 +3132,7 @@
         (
             type: "DebugLabel",
             px: [
-                772,
+                516,
                 20,
             ],
             size: [
@@ -3172,7 +3148,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                688,
                 160,
             ],
             size: [
@@ -3189,7 +3165,7 @@
         (
             type: "DebugLabel",
             px: [
-                900,
+                644,
                 20,
             ],
             size: [
@@ -3205,7 +3181,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1072,
+                816,
                 160,
             ],
             size: [
@@ -3222,7 +3198,7 @@
         (
             type: "DebugLabel",
             px: [
-                1028,
+                772,
                 20,
             ],
             size: [

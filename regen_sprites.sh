@@ -126,6 +126,11 @@ expected_files=(
     pirate_heavy_broadside_bess_spritesheet.png pirate_heavy_broadside_bess_spritesheet.yaml pirate_heavy_broadside_bess_spritesheet.ron
     pirate_heavy_iron_mary_spritesheet.png pirate_heavy_iron_mary_spritesheet.yaml pirate_heavy_iron_mary_spritesheet.ron
     pirate_heavy_salt_annet_spritesheet.png pirate_heavy_salt_annet_spritesheet.yaml pirate_heavy_salt_annet_spritesheet.ron
+    # No flat `pirate_heavy_spritesheet.png` ships: pirate_heavy is
+    # a multi-variant rig (broadside_bess/iron_mary/salt_annet are the
+    # real characters). Per Jon's 2026-05-24 feedback the catalog
+    # dropped its bare `npc_pirate_heavy` entry rather than
+    # shoehorning a placeholder.
     # Small enemy sprites.
     puppy_slug_spritesheet.png puppy_slug_spritesheet.yaml puppy_slug_spritesheet.ron
     # Phase 6 + bonus follow-up: every catalog-referenced tackon
@@ -360,7 +365,10 @@ tackon_targets=(
     puppy_slug_variant2
     raptor_stalker
     robot_guardian
-    robot_heavy
+    # robot_heavy is a multi-variant rig whose publisher doesn't
+    # install (renders only to generated/, no install method).
+    # Skipping it here keeps the working tree clean. Catalog
+    # entry was dropped along with the publisher work.
     robot_runner
     smart_house
     spaghetti_event

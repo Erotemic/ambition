@@ -354,7 +354,10 @@ mod tests {
         "npc_ninja_shadow_oni_leader",
         "npc_pirate_admiral",
         "npc_pirate_cutlass_viper",
-        "npc_pirate_heavy",
+        // pirate_heavy is a multi-variant rig — its real catalog
+        // entries are npc_pirate_heavy_broadside_bess /
+        // _iron_mary / _salt_annet. The bare name has no catalog
+        // entry intentionally.
         "npc_pirate_lookout",
         "npc_pirate_navigator",
         "npc_pirate_quartermaster",
@@ -367,7 +370,9 @@ mod tests {
         "npc_raptor_stalker",
         "robot",
         "npc_robot_guardian",
-        "npc_robot_heavy",
+        // robot_heavy is a multi-variant rig like pirate_heavy —
+        // the bare name has no catalog entry by design (variants
+        // would be the real characters once a publisher exists).
         "npc_robot_runner",
         "sandbag",
         "npc_smart_house",

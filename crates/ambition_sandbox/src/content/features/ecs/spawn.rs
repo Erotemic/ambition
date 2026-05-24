@@ -175,13 +175,19 @@ fn spawn_interactable(
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let interactable = &authored.payload;
     if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
-        let actor = ActorRuntime::Peaceful(NpcRuntime::new_with_paths(
+        let npc = NpcRuntime::new_with_paths(
             authored.id.clone(),
             authored.name.clone(),
             authored.aabb,
             interactable.clone(),
             paths,
-        ));
+        );
+        // Build the brain from the authored NPC fields before
+        // wrapping into the ActorRuntime variant. Patrol-radius > 0
+        // or an authored motion path → Patrol brain; otherwise
+        // StandStill. ActionSet stays peaceful by default.
+        let brain = npc.build_brain();
+        let actor = ActorRuntime::Peaceful(npc);
         let (identity, disposition, health, combat, intent, cooldowns) =
             actor_component_snapshot(&actor);
         commands.spawn((
@@ -198,6 +204,9 @@ fn spawn_interactable(
                 cooldowns,
             },
             actor,
+            brain,
+            crate::brain::ActionSet::peaceful(),
+            crate::brain::ActorControl::default(),
         ));
     } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {

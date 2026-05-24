@@ -38,6 +38,13 @@ mod conversion_tests {
         (world, npc, player)
     }
 
+    /// Build a brain matching the NPC's authored fields. Convenience
+    /// for the conversion tests so each scenario doesn't repeat the
+    /// `let mut brain = npc.build_brain();` setup boilerplate.
+    fn brain_for(npc: &NpcRuntime) -> crate::brain::Brain {
+        npc.build_brain()
+    }
+
     /// Bug the user reported: NPCs floated wherever LDtk placed them
     /// because the runtime didn't tick gravity / collision on them.
     /// Pin: after a few ticks an NPC spawned in mid-air lands on the
@@ -48,8 +55,9 @@ mod conversion_tests {
         // Lift the NPC into mid-air so gravity has work to do.
         npc.pos.y = 200.0;
         npc.spawn.y = 200.0;
+        let mut brain = brain_for(&npc);
         for _ in 0..120 {
-            npc.update(&world, player.pos, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
         }
         assert!(npc.on_ground, "NPC must land on the floor under gravity");
         // Body bottom should rest on the floor's top edge (y=600).
@@ -66,16 +74,17 @@ mod conversion_tests {
     #[test]
     fn patrolling_npc_paces_within_radius() {
         let (world, mut npc, player) = world_with_patrolling_npc(96.0);
+        let mut brain = brain_for(&npc);
         // Settle gravity first so we're testing horizontal motion,
         // not the freefall.
         for _ in 0..30 {
-            npc.update(&world, player.pos, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
         }
         let spawn_x = npc.spawn.x;
         let mut min_x = npc.pos.x;
         let mut max_x = npc.pos.x;
         for _ in 0..600 {
-            npc.update(&world, player.pos, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
             min_x = min_x.min(npc.pos.x);
             max_x = max_x.max(npc.pos.x);
         }
@@ -108,9 +117,10 @@ mod conversion_tests {
     #[test]
     fn patrolling_npc_stops_when_player_is_within_talk_radius() {
         let (world, mut npc, mut player) = world_with_patrolling_npc(120.0);
+        let mut brain = brain_for(&npc);
         // Settle physics.
         for _ in 0..30 {
-            npc.update(&world, player.pos, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
         }
         // Park the player right next to the NPC — within talk_radius.
         player.pos = ae::Vec2::new(npc.pos.x + 30.0, npc.pos.y);
@@ -118,7 +128,7 @@ mod conversion_tests {
         // left from the patrol step must drain to ~0 inside the
         // talk radius.
         for _ in 0..30 {
-            npc.update(&world, player.pos, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
         }
         assert!(
             matches!(npc.ai_mode, ae::CharacterAiMode::Chase),
@@ -144,8 +154,9 @@ mod conversion_tests {
     fn npc_with_zero_patrol_radius_stays_at_spawn_x() {
         let (world, mut npc, player) = world_with_patrolling_npc(0.0);
         let original_x = npc.pos.x;
+        let mut brain = brain_for(&npc);
         for _ in 0..300 {
-            npc.update(&world, player.pos, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
         }
         assert!(
             (npc.pos.x - original_x).abs() < 1.0,
@@ -157,6 +168,41 @@ mod conversion_tests {
             npc.ai_mode,
             ae::CharacterAiMode::Idle | ae::CharacterAiMode::Chase
         ));
+    }
+
+    /// build_brain() picks Patrol vs StandStill based on the NPC's
+    /// authored fields. Pins the spawn-time mapping the actors
+    /// system depends on.
+    #[test]
+    fn npc_build_brain_picks_template_from_authored_fields() {
+        let (_, npc_static, _) = world_with_patrolling_npc(0.0);
+        match npc_static.build_brain() {
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {}
+            other => panic!("expected StandStill for zero-radius NPC, got {:?}", other),
+        }
+        let (_, npc_patrol, _) = world_with_patrolling_npc(64.0);
+        match npc_patrol.build_brain() {
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol { cfg, .. }) => {
+                assert_eq!(cfg.radius, 64.0);
+                // Peaceful NPC: aggressiveness zero.
+                assert_eq!(cfg.aggressiveness, 0.0);
+                // talk_radius mirrors into aggro_radius so the
+                // engine evaluator returns Chase when in range.
+                assert!(cfg.aggro_radius > 0.0);
+            }
+            other => panic!("expected Patrol for nonzero-radius NPC, got {:?}", other),
+        }
+    }
+
+    /// Pre-hostile NPC's brain reports not-hostile; the EFFECTS-stage
+    /// attack gate uses this to skip melee even if the brain ever
+    /// emitted `melee_pressed=true`. Locks in the "aggressiveness in
+    /// the brain" decision.
+    #[test]
+    fn peaceful_npc_brain_is_not_hostile() {
+        let (_, npc, _) = world_with_patrolling_npc(96.0);
+        let brain = npc.build_brain();
+        assert!(!brain.is_hostile(), "peaceful NPC brain must report !is_hostile");
     }
 
     #[test]

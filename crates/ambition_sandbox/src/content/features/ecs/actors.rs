@@ -221,6 +221,11 @@ pub fn update_ecs_actors(
             &mut ActorIntent,
             &mut ActorCooldowns,
             &super::super::components::ActorTarget,
+            // Brain components attached at NPC spawn; missing for
+            // legacy hostile actors that still run through
+            // EnemyRuntime / BossRuntime. The peaceful tick reads
+            // these; the hostile tick ignores them today.
+            Option<&mut crate::brain::Brain>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -243,7 +248,7 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, ae::SlotKind)> = Vec::new();
-    for (_, actor, _, _, _, _, _, _, _) in &actors {
+    for (_, actor, _, _, _, _, _, _, _, _) in &actors {
         if let ActorRuntime::Hostile(enemy) = actor {
             if enemy.alive {
                 requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
@@ -330,6 +335,13 @@ pub fn update_ecs_actors(
     // back to the slot's holding-ring position when this actor didn't
     // win a slot so it still has a sensible steering target.
     let combat_tuning = feel_tuning.feature_combat_tuning();
+    // Brain templates with persistent timers (Wanderer's chatter
+    // window, Skirmisher's fire cooldown) need an absolute clock.
+    // No actor uses those today through this system — NPCs run
+    // Patrol / StandStill which don't read sim_time — so 0.0 is
+    // safe. The seam will accept a real clock when the first
+    // Wanderer-driven actor migrates (puppy slug, daytime).
+    let sim_time = 0.0;
     for (
         mut aabb,
         mut actor,
@@ -340,6 +352,7 @@ pub fn update_ecs_actors(
         mut intent,
         mut cooldowns,
         target,
+        mut brain,
     ) in &mut actors
     {
         // `target.pos` is populated by `select_actor_targets`
@@ -350,7 +363,16 @@ pub fn update_ecs_actors(
         let target_pos = target.pos;
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
-                npc.update(&feature_world, target_pos, dt);
+                if let Some(brain) = brain.as_deref_mut() {
+                    npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt);
+                } else {
+                    // Brainless peaceful actor — should not happen
+                    // post-Chunk 3 (spawn attaches a brain), but
+                    // fall back to building one inline so the tick
+                    // is never skipped if components drift.
+                    let mut fallback = npc.build_brain();
+                    npc.tick_via_brain(&mut fallback, &feature_world, target_pos, sim_time, dt);
+                }
                 aabb.center = npc.pos;
                 aabb.half_size = npc.size * 0.5;
             }

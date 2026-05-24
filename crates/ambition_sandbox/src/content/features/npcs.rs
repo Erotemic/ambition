@@ -154,56 +154,85 @@ impl NpcRuntime {
     /// `evaluate_character_ai` and to flip `facing` toward the player
     /// while in `Chase` mode so dialogue prompts render on the
     /// correct side of the NPC sprite.
-    pub fn update(&mut self, world: &ae::World, target_pos: ae::Vec2, dt: f32) {
+    /// Per-tick NPC body update driven by a [`crate::brain::Brain`].
+    ///
+    /// The brain (typically `Brain::StateMachine(Patrol)` for
+    /// peaceful NPCs or `StandStill` for static ones) chooses what
+    /// the actor wants to do this tick by writing an
+    /// `ae::ActorControlFrame`. The body update then:
+    /// - Caches `ai_mode` for HUD / sprite picker compat (Patrol
+    ///   state carries the engine's CharacterAiMode internally).
+    /// - Applies the brain's `facing` and `desired_vel.x` (with the
+    ///   same approach-smoothing the pre-brain code used so the gait
+    ///   reads identically to before the refactor).
+    /// - Advances any authored `PathMotion` along its curve when in
+    ///   Patrol mode — paths bypass the brain's `desired_vel.x` and
+    ///   take over directly. The brain still owns mode + facing in
+    ///   the path case.
+    /// - Bridges into `ae::step_kinematic` for gravity, OneWay, and
+    ///   solid collision (unchanged from the pre-brain path).
+    ///
+    /// `target_pos` is the actor's "look at" target (typically the
+    /// primary player). `sim_time` is the current scaled sim clock
+    /// (seconds), used by brain templates that maintain timers.
+    pub fn tick_via_brain(
+        &mut self,
+        brain: &mut crate::brain::Brain,
+        world: &ae::World,
+        target_pos: ae::Vec2,
+        sim_time: f32,
+        dt: f32,
+    ) {
         self.hit_flash = (self.hit_flash - dt).max(0.0);
 
-        // Re-evaluate AI mode each tick. We feed `talk_radius` as
-        // the `aggro_radius` so "player in range" → `Chase` mode
-        // (which the NPC interprets as "hold position"). Attack
-        // ranges / windups all stay at zero — peaceful NPCs don't
-        // attack. `patrol_enabled` toggles whether the
-        // out-of-range fallback is `Patrol` or `Idle`.
-        self.ai_mode = ae::evaluate_character_ai(ae::CharacterAiSnapshot {
+        // Build the brain snapshot from the actor's current body
+        // state plus the target. The Patrol brain template handles
+        // the talk-radius hold + bound-flip + facing flip from the
+        // engine evaluator; we just feed it the right inputs.
+        let snapshot = crate::brain::BrainSnapshot {
             actor_pos: self.pos,
-            player_pos: target_pos,
-            aggro_radius: self.talk_radius,
-            attack_range: 0.0,
+            actor_vel: self.vel,
+            actor_facing: self.facing,
+            actor_on_ground: self.on_ground,
+            alive: true,
+            target_pos,
+            target_alive: true,
+            sim_time,
+            dt,
+            attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,
             attack_recover_remaining: 0.0,
             stun_remaining: 0.0,
-            alive: true,
-            patrol_enabled: self.motion.is_some() || self.patrol_radius > 0.0,
-        });
+            // NPCs don't surface-walk — the Wanderer brain reads
+            // this; Patrol / StandStill ignore it.
+            wall_contact: None,
+        };
+        let mut frame = ae::ActorControlFrame::neutral();
+        brain.tick(&snapshot, &mut frame);
 
-        // Pick a horizontal target velocity from the AI mode. The
-        // patrol step also flips `facing` on bound contact so the
-        // NPC doesn't freeze when it reaches the patrol edge.
-        let target_x = match self.ai_mode {
-            // Player is close → stop and face the player so the
-            // interact prompt lands. The actual facing flip
-            // happens after movement so the NPC reads a fresh
-            // delta this frame.
-            ae::CharacterAiMode::Chase => 0.0,
-            ae::CharacterAiMode::Patrol if self.motion.is_some() => 0.0,
-            ae::CharacterAiMode::Patrol => {
-                // Reverse at patrol bounds.
-                let from_spawn = self.pos.x - self.spawn.x;
-                if from_spawn > self.patrol_radius {
-                    self.facing = -1.0;
-                } else if from_spawn < -self.patrol_radius {
-                    self.facing = 1.0;
-                }
-                self.facing * NPC_PATROL_SPEED
+        // Cache ai_mode for HUD / sprite picker. Patrol's internal
+        // state mirrors `ae::CharacterAiMode`; StandStill is always
+        // Idle.
+        self.ai_mode = match brain {
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
+                state,
+                ..
+            }) => state.mode,
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {
+                ae::CharacterAiMode::Idle
             }
-            // Idle / Dead / Stunned / Telegraph / Attack / Recover
-            // → no horizontal motion. (NPCs never enter Stunned /
-            // attack states today; left here for completeness so
-            // future patches can extend without re-shaping the
-            // match.)
-            _ => 0.0,
+            _ => ae::CharacterAiMode::Idle,
         };
 
+        // Apply brain's facing intent (zero = leave alone).
+        if frame.facing.abs() > 0.001 {
+            self.facing = frame.facing;
+        }
+
+        // Path motion overrides the brain's `desired_vel` when we're
+        // in Patrol mode — the curve is the authored intent, not a
+        // raw horizontal step.
         if matches!(self.ai_mode, ae::CharacterAiMode::Patrol) {
             if let Some(motion) = &mut self.motion {
                 let old = self.pos;
@@ -217,19 +246,13 @@ impl NpcRuntime {
             }
         }
 
-        // Velocity smoothing — same shape as EnemyRuntime so the
-        // NPC accelerates / decelerates at a similar pace and the
-        // patrol pacing reads as a deliberate gait.
+        // Smooth the brain's desired horizontal velocity into our
+        // body velocity. Same smoothing constant the pre-brain path
+        // used so the gait feels unchanged.
+        let target_x = frame.desired_vel.x;
         self.vel.x = approach(self.vel.x, target_x, 650.0 * dt);
 
-        // Bridge into the engine's shared kinematic sweep so NPCs
-        // hit the same OneWay / Solid / BlinkWall rules the player
-        // does (the predecessor's per-NPC sweep had OneWay-as-wall
-        // semantics that diverged from the player and broke
-        // hostile-NPC chase paths). Peaceful NPCs never set
-        // `drop_through` — they are not trying to navigate
-        // vertically toward the player, so OneWay platforms stay as
-        // floors.
+        // Engine kinematic sweep — gravity, OneWay, Solid collision.
         let mut body = ae::KinematicBody {
             pos: self.pos,
             vel: self.vel,
@@ -253,6 +276,9 @@ impl NpcRuntime {
         self.on_ground = body.on_ground;
 
         // Patrol-style facing flip when we hit a wall horizontally.
+        // The brain's Patrol template handles geometric bound flips
+        // via `cfg.spawn_x ± radius`; this catches the "I bumped a
+        // solid mid-patrol" case which the brain doesn't see.
         if matches!(self.ai_mode, ae::CharacterAiMode::Patrol)
             && prev_vel_x.abs() > 1.0
             && self.vel.x.abs() < 0.01
@@ -260,13 +286,33 @@ impl NpcRuntime {
             self.facing *= -1.0;
         }
 
-        // After moving, re-face the player while in talk range so
-        // the dialog prompt sits on the correct side of the NPC.
+        // While in talk range, re-face the player so dialogue
+        // prompts render on the right side of the NPC. The brain
+        // already set facing once; if the player has moved we
+        // refresh it.
         if matches!(self.ai_mode, ae::CharacterAiMode::Chase) {
             let dx = target_pos.x - self.pos.x;
             if dx.abs() > 4.0 {
                 self.facing = dx.signum();
             }
+        }
+    }
+
+    /// Build a fresh brain reflecting the NPC's authored fields.
+    /// Used by both the spawn path and tests so the construction is
+    /// not duplicated.
+    pub fn build_brain(&self) -> crate::brain::Brain {
+        if self.patrol_radius > 0.0 || self.motion.is_some() {
+            let mut cfg = crate::brain::PatrolCfg::NPC_DEFAULT;
+            cfg.spawn_x = self.spawn.x;
+            cfg.radius = self.patrol_radius;
+            cfg.aggro_radius = self.talk_radius;
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
+                cfg,
+                state: crate::brain::PatrolState::default(),
+            })
+        } else {
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill)
         }
     }
 

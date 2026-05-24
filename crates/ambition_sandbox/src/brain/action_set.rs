@@ -16,6 +16,7 @@
 //! full windup → active → recover animation timing.
 
 use ambition_engine as ae;
+use bevy::ecs::component::Component;
 
 /// Per-entity capability set. Resolves abstract brain intent
 /// (control-frame fields) into concrete effect requests
@@ -23,7 +24,7 @@ use ambition_engine as ae;
 ///
 /// Construct via [`ActionSet::peaceful`] for a "no attacks" baseline
 /// and override only the slots that exist for this actor.
-#[derive(Clone, Debug, Default)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct ActionSet {
     /// What `frame.melee_pressed = true` resolves to. `None` means
     /// the actor has no melee at all (peaceful patroller, puppy slug,

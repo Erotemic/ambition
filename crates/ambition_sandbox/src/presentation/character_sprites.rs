@@ -37,6 +37,10 @@ pub use registry::SheetRegistryPlugin;
 // they're already loaded at startup by SheetRegistryPlugin. Re-export
 // gated to silence the unused-import warning until something outside
 // the registry module actually queries them.
+#[allow(
+    unused_imports,
+    reason = "sheet_for_character_id is the public catalog→spec entry; consumed by tests under content::character_catalog::tests (not by non-test crate code today). Public surface for future spawn-site callers."
+)]
 pub use assets::{
     all_character_sprite_filenames, build_npc_sprite_asset, build_prop_sprite_asset,
     load_character_sprites_in, sheet_for_character_id, CharacterSpriteAssets,

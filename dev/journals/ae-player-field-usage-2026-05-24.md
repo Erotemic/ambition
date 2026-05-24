@@ -254,9 +254,11 @@ Captured here so the next daytime session picks up cleanly.
   inline choreography → integration call with one that consumes
   brain.tick + ActionSet.resolve. Per-archetype attack specs
   (Swipe / Lunge / Bite / Arrow / Pistol / etc.) need authoring.
-- Boss EFFECTS consumer flip: same shape; thread the real
-  encounter id through BossPatternCfg (today everyone gets
-  encounter_id = 0 as a sentinel).
+- Boss EFFECTS consumer flip: same shape. BossPatternCfg
+  already carries the real `encounter_id: String` mirroring
+  `encounter_id_from_name(boss.name)` — daytime work threads it
+  through `BossPattern.tick` to drive per-phase schedules from
+  the brain rather than from `BossRuntime`.
 - update_player consumes ActorControl: today the player brain
   fills the frame but update_player still reads PlayerInputFrame
   directly. Flipping the consumer is the biggest single risk in

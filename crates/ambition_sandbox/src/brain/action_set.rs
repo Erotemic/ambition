@@ -265,6 +265,35 @@ pub enum ActionRequest {
     Special { spec: SpecialActionSpec },
 }
 
+impl ActionRequest {
+    /// Short label naming the request kind ("melee_swipe",
+    /// "ranged_bolt", "special_bubble_shield", …). Useful for
+    /// trace logs, debug overlays, and grep-friendly diagnostics
+    /// without the verbose Debug rendering.
+    #[allow(dead_code, reason = "diagnostic helper for daytime EFFECTS-flip work")]
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Melee { spec, .. } => match spec {
+                MeleeActionSpec::Swipe(_) => "melee_swipe",
+                MeleeActionSpec::Lunge(_) => "melee_lunge",
+                MeleeActionSpec::Slam(_) => "melee_slam",
+                MeleeActionSpec::Bite(_) => "melee_bite",
+                MeleeActionSpec::PunchWeak(_) => "melee_punch_weak",
+            },
+            Self::Ranged { spec, .. } => match spec {
+                RangedActionSpec::Rock { .. } => "ranged_rock",
+                RangedActionSpec::Arrow { .. } => "ranged_arrow",
+                RangedActionSpec::Pistol { .. } => "ranged_pistol",
+                RangedActionSpec::Bolt { .. } => "ranged_bolt",
+            },
+            Self::Special { spec } => match spec {
+                SpecialActionSpec::BubbleShield => "special_bubble_shield",
+                SpecialActionSpec::BossSpotlight => "special_boss_spotlight",
+            },
+        }
+    }
+}
+
 /// Resolve a brain's abstract control frame into 0..N concrete
 /// action requests using the actor's `ActionSet`. Pure function;
 /// no Bevy, no side effects. Most ticks emit zero or one request;
@@ -433,6 +462,37 @@ mod tests {
         assert!(l.windup_s > 0.0 && l.active_s > 0.0 && l.recover_s > 0.0);
         let p = PunchSpec::SANDBAG_DEFAULT;
         assert!(p.windup_s > 0.0 && p.active_s > 0.0 && p.recover_s > 0.0);
+    }
+
+    #[test]
+    fn action_request_label_returns_per_variant_string() {
+        let melee = ActionRequest::Melee {
+            spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
+            origin: ae::Vec2::ZERO,
+            facing: 1.0,
+            attack_axis: ae::Vec2::ZERO,
+        };
+        assert_eq!(melee.label(), "melee_swipe");
+
+        let lunge = ActionRequest::Melee {
+            spec: MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT),
+            origin: ae::Vec2::ZERO,
+            facing: 1.0,
+            attack_axis: ae::Vec2::ZERO,
+        };
+        assert_eq!(lunge.label(), "melee_lunge");
+
+        let ranged = ActionRequest::Ranged {
+            spec: RangedActionSpec::Bolt { speed: 380.0, damage: 1 },
+            origin: ae::Vec2::ZERO,
+            dir: ae::Vec2::new(1.0, 0.0),
+        };
+        assert_eq!(ranged.label(), "ranged_bolt");
+
+        let special = ActionRequest::Special {
+            spec: SpecialActionSpec::BubbleShield,
+        };
+        assert_eq!(special.label(), "special_bubble_shield");
     }
 
     #[test]

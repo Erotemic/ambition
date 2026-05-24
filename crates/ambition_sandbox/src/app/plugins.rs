@@ -51,12 +51,10 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
     app.add_plugins(crate::features::WorldPrepSchedulePlugin);
-    // Universal-brain message channel: ActionRequests produced by
-    // the ActionSet resolver land here. Today only an observation
-    // channel — daytime work flips combat/projectile consumers off
-    // the legacy paths and onto this stream.
-    app.add_message::<crate::brain::ActorActionMessage>();
-    app.init_resource::<crate::brain::BrainActionCounter>();
+    // Universal-brain plugin: registers ActorActionMessage +
+    // BrainActionCounter resource. Scheduling of the per-tick
+    // systems lives in register_player_input_systems below.
+    app.add_plugins(crate::brain::BrainPlugin);
     register_player_input_systems(app);
     register_player_simulation_systems(app);
     register_room_transition_systems(app);

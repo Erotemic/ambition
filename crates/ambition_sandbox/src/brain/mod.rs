@@ -131,6 +131,28 @@ impl Brain {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct ActorControl(pub ae::ActorControlFrame);
 
+/// Module-local Bevy plugin: registers the universal-brain
+/// message channel + counter resource. Use this in place of the
+/// raw `app.add_message::<ActorActionMessage>() + init_resource`
+/// calls so daytime extraction work (e.g. lifting the brain
+/// module into its own crate) is a single `app.add_plugins(...)`
+/// change at the call site.
+///
+/// Scheduling of the per-tick systems (tick_player_brains,
+/// emit_brain_action_messages, observe_brain_action_counter) is
+/// still done explicitly in `app/plugins.rs` because they need to
+/// chain after sandbox-side input systems — the plugin owns
+/// resources, not schedule.
+#[derive(Default)]
+pub struct BrainPlugin;
+
+impl bevy::app::Plugin for BrainPlugin {
+    fn build(&self, app: &mut bevy::app::App) {
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<BrainActionCounter>();
+    }
+}
+
 /// Bevy `Message` emitted by the ActionSet resolver — one per
 /// concrete action the brain wants this tick. Consumers (combat
 /// spawn systems, projectile spawners, special-ability dispatchers)

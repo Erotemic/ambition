@@ -872,6 +872,33 @@ mod tests {
     }
 
     #[test]
+    fn brain_tick_cost_is_well_under_one_millisecond() {
+        // Smoke check on per-tick brain dispatch cost. Ten ticks
+        // of a MeleeBrute brain should complete well under 1ms on
+        // any reasonable hardware. A regression that adds heap
+        // allocation or expensive math inside the brain hot path
+        // would trip this — it'd grow per-tick by orders of
+        // magnitude.
+        let mut sm = StateMachineCfg::MeleeBrute {
+            cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+            state: MeleeBruteState::default(),
+        };
+        let snap = crate::brain::snapshot::BrainSnapshot::idle();
+        let start = std::time::Instant::now();
+        let mut frame = ae::ActorControlFrame::neutral();
+        for _ in 0..10 {
+            tick_state_machine(&mut sm, &snap, &mut frame);
+        }
+        let elapsed = start.elapsed();
+        // 10 ticks should finish in well under 1ms (generous;
+        // typically a few microseconds total).
+        assert!(
+            elapsed < std::time::Duration::from_millis(10),
+            "10 MeleeBrute ticks should be << 10ms, took {elapsed:?}",
+        );
+    }
+
+    #[test]
     fn brain_templates_survive_zero_dt() {
         // Zero dt is the "paused frame" case — bullet-time +
         // hitstop both feed dt=0 to consumers. Every brain

@@ -14,8 +14,8 @@ can stop at any checkpoint if budget runs out.
 
 **Run started:** 2026-05-24T17:16:07+0000 (epoch 1779642967)
 **Plan complete:** all 7 main phases + Phase 8 stretch landed in 1.10 h wall-clock.
-**Last green commit:** 6356892 (Phase 8 — Sprite-regen cache fingerprint)
-**Bonus work:** continuing with deferred follow-ups (SheetRegistry-driven sprite specs is the most impactful remaining item; boss_encounters/<id>.ron is the next scoped task).
+**Bonus work landed:** 9.A–9.E in ~1.2 h additional wall-clock (manifest-driven specs, crash fix, base-4 wiring, boss synth, basement floors, spawn overlap validator, publish-catalog driver, renderer-surface doc).
+**Last green commit:** 893e499 (Bonus 9.D — hall basement floors + spawn-overlap validator)
 
 ### Estimated vs Actual time
 
@@ -31,6 +31,12 @@ can stop at any checkpoint if budget runs out.
 | **Total (planned 1–7)** | **8.5 h** | **0.94 h** | | All 7 phases landed in roughly one ninth of the estimate. Every phase shaped largely by foundational design work already in place: brain/action-set vocabulary from the universal-brain run, LDtk runtime spine, and the renderer's existing target enumeration. Estimates were padded for the worst case (unexpected coupling, EMFILE retries); none of those materialized. |
 | 8. (stretch) Sprite-regen caching | ~0.75 h | 0.08 h | ✅ done | regen_sprites.sh now fingerprints every renderer .py + .yaml + .sh into `.cache/regen-fingerprint`; on next run, if fingerprint matches AND every expected output sheet exists, skips all rendering. `--force` bypasses cache. Cache-hit verified (112 renders skipped); `--force` bypass verified. `.cache/` already gitignored at repo root. |
 | **Grand total (1–8)** | **9.25 h** | **1.10 h** | | ~12% of budgeted time used. Remaining time being spent on deferred follow-ups (see below). |
+| 9.A Bonus: SheetRegistry-driven sprite specs | — | 0.50 h | ✅ done | `try_load_spec_for_character_id` manifest-driven fallback so catalog entries without a hardcoded `*_SHEET` const still get a real sprite. Bumped Hall coverage 24/99 → 96/99 entries. Subdir scan added to `record_index` so gnu_ton_boss / mockingbird_boss manifests reach the loader. |
+| 9.B Bonus: hall rendering crash fix | — | 0.20 h | ✅ done | Jon hit `character sprite sheet must define an Idle row` panic walking into the hall. Fix: `try_load_spec` validates Idle row presence before returning Some. +new test `every_catalog_sprite_spec_has_idle_row_if_loaded`. Idle aliases added (`rest`, `front_idle`, `side_idle`, `side_walk`). |
+| 9.C Bonus: base-4 + boss sprite wiring | — | 0.30 h | ✅ done | Hall placeholders for player/robot/goblin/sandbag fixed (double-key into npcs HashMap by display_name). New `synth_boss_manifest.py` converts gnu_ton/mockingbird JSON → RON SheetRecord so those bosses render via the catalog path. |
+| 9.D Bonus: basement layout + spawn-overlap validator | — | 0.30 h | ✅ done | Widened basement slots to 512px × 4 per row + 3 rows; added Solid floor under each basement row (was floating mid-air). Drop bare-name rollup catalog entries (`npc_pirate_heavy` / `npc_robot_heavy`). New spawn-overlap warning in `validate` covers NpcSpawn/EnemySpawn/BossSpawn pair-wise overlap (was DebugLabel-only). |
+| 9.E Bonus: publish-catalog driver + sprite-rendering-surface doc | — | 0.20 h | ✅ done | `publish_catalog_sprites.py` bridges the three renderer publish patterns (tackon / adapter / bespoke) into one catalog-driven driver. New `docs/systems/sprite-rendering-surface.md` documents the divergence + 4 ranked follow-ups (pirate_heavy / robot_heavy / weird_hermit / mockingbird publishers). |
+| **Grand total incl. bonus** | — | **~2.3 h** | | Remaining slack tracked against 8 h MISSION_DURATION; continued working through deferred follow-ups in response to Jon's mid-run QA. |
 
 Status legend: ⬜ pending · 🏗️ in progress · ✅ done · ⏭️ deferred · ❌ blocked
 

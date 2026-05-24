@@ -458,3 +458,50 @@ def _ron_sheet_record(manifest):
         f"{rows_field}"
         f")"
     )
+
+
+def write_canonical(
+    target: str,
+    rows: List[Tuple[str, int, int]],
+    render_fn,
+    out_dir: Path,
+    *,
+    frame_size: Tuple[int, int] = BASE_FRAME,
+    crop_margin: int = 4,
+) -> Path:
+    """Render ONLY the canonical frame for ``target`` and save it.
+
+    Companion to [`build_sheet`] for callers that want just the
+    canonical pose without paying for the full sheet build. Renders
+    one frame (first row, frame index 1 — same pose `build_sheet` uses
+    for its `*_canonical_transparent.png` side-output), auto-crops to
+    the alpha bbox + ``crop_margin``, and saves it as a transparent
+    PNG to ``out_dir/{target}_canonical_transparent.png``.
+
+    Returns the saved path. This is the function each tack-on target's
+    ``render_canonical(out_dir, **opts)`` hook should call.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if not rows:
+        raise ValueError(f"{target}: cannot render canonical with no rows")
+    anim, nframes, _duration_ms = rows[0]
+    frame_idx = min(1, nframes - 1)
+    img = render_fn(anim, frame_idx, nframes)
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+    bbox = img.getchannel("A").getbbox()
+    if bbox is not None:
+        x1, y1, x2, y2 = bbox
+        x1 = max(0, x1 - crop_margin)
+        y1 = max(0, y1 - crop_margin)
+        x2 = min(img.width, x2 + crop_margin)
+        y2 = min(img.height, y2 + crop_margin)
+        img = img.crop((x1, y1, x2, y2))
+    # Silence unused-arg warning while keeping the signature future-
+    # proof for callers that want to pass through frame_size for a
+    # custom pre-crop pipeline.
+    del frame_size
+    out = out_dir / f"{target}_canonical_transparent.png"
+    img.save(out)
+    return out

@@ -681,6 +681,29 @@ _ROW_DURATIONS_MS: dict[str, int] = {
 }
 
 
+def _build_setup(**opts):
+    """Resolve the (sheet_rows, render_fn, frame_size) tuple from kwargs.
+
+    Shared by both `render` and `render_canonical` so the canonical
+    pose uses the exact same rig + frame size as the full sheet.
+    """
+    frame_w = int(opts.get("frame_width", 96))
+    frame_h = int(opts.get("frame_height", 96))
+    aa = int(opts.get("aa", 4))
+    renderer = GalwahRenderer(frame_w=frame_w, frame_h=frame_h, aa=aa)
+    pose_rows = build_pose_rows()
+    poses_by_anim: dict[str, list[Pose]] = {anim: poses for anim, poses in pose_rows}
+    sheet_rows: list[tuple[str, int, int]] = [
+        (anim, len(poses), _ROW_DURATIONS_MS.get(anim, 110))
+        for anim, poses in pose_rows
+    ]
+
+    def render_fn(anim: str, frame_idx: int, nframes: int) -> Image.Image:
+        return renderer.render_pose(poses_by_anim[anim][frame_idx])
+
+    return sheet_rows, render_fn, (frame_w, frame_h)
+
+
 def render(out_dir: str | Path, **opts) -> list[Path]:
     """Render the galwah spritesheet bundle via `tackon_sheet.build_sheet`.
 
@@ -695,30 +718,14 @@ def render(out_dir: str | Path, **opts) -> list[Path]:
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    frame_w = int(opts.get("frame_width", 96))
-    frame_h = int(opts.get("frame_height", 96))
-    aa = int(opts.get("aa", 4))
-
-    renderer = GalwahRenderer(frame_w=frame_w, frame_h=frame_h, aa=aa)
-    pose_rows = build_pose_rows()
-    # build_sheet needs `[(anim, nframes, duration_ms), ...]` rows AND
-    # a `render_fn(anim, frame_idx, nframes) -> Image`. We capture the
-    # pose lookup so the render_fn just resolves anim → poses → Pose.
-    poses_by_anim: dict[str, list[Pose]] = {anim: poses for anim, poses in pose_rows}
-    sheet_rows: list[tuple[str, int, int]] = [
-        (anim, len(poses), _ROW_DURATIONS_MS.get(anim, 110))
-        for anim, poses in pose_rows
-    ]
-
-    def render_fn(anim: str, frame_idx: int, nframes: int) -> Image.Image:
-        return renderer.render_pose(poses_by_anim[anim][frame_idx])
+    sheet_rows, render_fn, frame_size = _build_setup(**opts)
 
     outputs = build_sheet(
         target=TARGET_NAME,
         rows=sheet_rows,
         render_fn=render_fn,
         out_dir=out_dir,
-        frame_size=(frame_w, frame_h),
+        frame_size=frame_size,
         auto_crop=True,
     )
     return [
@@ -729,6 +736,21 @@ def render(out_dir: str | Path, **opts) -> list[Path]:
         outputs["canonical"],
         outputs["canonical_transparent"],
     ]
+
+
+def render_canonical(out_dir: str | Path, **opts) -> Path:
+    """Fast canonical-only path: render + save just the canonical frame.
+
+    Doesn't pay for the full sheet build — uses
+    [`tackon_sheet.write_canonical`] which renders one frame, crops to
+    alpha bbox, and saves it. Shares `_build_setup` with `render()`
+    so the canonical pose matches what the full sheet would produce.
+    """
+    from ...tackon_sheet import write_canonical
+    sheet_rows, render_fn, frame_size = _build_setup(**opts)
+    return write_canonical(
+        TARGET_NAME, sheet_rows, render_fn, Path(out_dir), frame_size=frame_size,
+    )
 
 
 # --- sheet assembly -----------------------------------------------------------

@@ -111,6 +111,16 @@ class TackonTarget:
     install: Optional[Callable] = None
     """Custom installer (overrides default copy-each-of-SHEET_FILES) when set."""
 
+    render_canonical: Optional[Callable] = None
+    """Optional fast canonical-only hook: ``render_canonical(out_dir, **opts) -> Path``.
+
+    When present, ``draw-canonicals`` calls this instead of running the
+    full sheet build to grab a canonical pose. Targets built on
+    [`tackon_sheet.build_sheet`] should expose one (it's a 3-line
+    wrapper around [`tackon_sheet.write_canonical`]). When absent, the
+    canonical collector falls back to a slow ``render()`` + pluck path.
+    """
+
 
 class DiscoveryReport(NamedTuple):
     """Outcome of walking ``targets/`` once."""
@@ -160,6 +170,9 @@ def _register_single(
     install = getattr(mod, "install", None)
     if not callable(install):
         install = None
+    render_canonical = getattr(mod, "render_canonical", None)
+    if not callable(render_canonical):
+        render_canonical = None
     return TackonTarget(
         name=stem,
         category=category,
@@ -167,6 +180,7 @@ def _register_single(
         render=render,
         sheet_files=sheet_files,
         install=install,
+        render_canonical=render_canonical,
     )
 
 
@@ -186,6 +200,9 @@ def _register_multi(
         install = spec.get("install")
         if install is not None and not callable(install):
             install = None
+        render_canonical = spec.get("render_canonical")
+        if render_canonical is not None and not callable(render_canonical):
+            render_canonical = None
         results.append(TackonTarget(
             name=sub_name,
             category=category,
@@ -193,6 +210,7 @@ def _register_multi(
             render=render,
             sheet_files=sheet_files,
             install=install,
+            render_canonical=render_canonical,
         ))
     return results
 

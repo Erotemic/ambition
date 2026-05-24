@@ -39,7 +39,12 @@ from pathlib import Path
 from typing import List
 
 from .adapters import TARGETS, get_adapter
-from .canonical import render_canonical, write_all_canonicals, write_canonicals
+from .canonical import (
+    draw_canonical_of,
+    render_canonical,
+    write_all_canonicals,
+    write_canonicals,
+)
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
 from .targets.props.entities import write_entity_sprites
@@ -189,8 +194,12 @@ def draw_review(
     config_dir: str | Path = DEFAULT_REVIEW_CONFIG_DIR,
     out_dir: str | Path = DEFAULT_ASSET_DIR / "review",
 ) -> List[Path]:
+    # Scoped to `config_dir` — use the adapter-only `write_canonicals`
+    # path rather than `draw_canonicals` (which now does the full
+    # adapters + tack-ons + review-NPCs gallery and would balloon a
+    # review-of-this-dir into a full-roster render).
     outputs = draw_all(config_dir, out_dir)
-    outputs += draw_canonicals(config_dir, Path(out_dir) / "canonicals")
+    outputs += write_canonicals(config_dir, Path(out_dir) / "canonicals")
     return outputs
 
 
@@ -199,25 +208,26 @@ def draw_canonicals(
     out_dir: str | Path = DEFAULT_ASSET_DIR / "canonicals",
     *,
     adapters_only: bool = False,
-    render_if_missing: bool = True,
 ) -> List[Path]:
-    """Render every adapter + tack-on canonical pose into ``out_dir``.
+    """Draw the full canonical gallery: adapters + tack-ons + review NPCs.
 
-    Tack-on canonicals come from each target's cached
-    ``generated/<name>/<name>_canonical.png`` (rendered on demand if
-    missing and ``render_if_missing`` is true).
+    Every canonical is drawn fresh by invoking the per-target renderer
+    — does NOT read from any cached ``generated/<name>/`` files. Tiles
+    are composited onto a consistent gallery backdrop with per-category
+    section headers (Adapter targets, Review NPCs, Tack-on
+    characters/props/tiles/icons) so it reads as one unified review piece.
 
     Set ``adapters_only=True`` for the legacy behavior that walks
-    ``configs/*.yaml`` only.
+    ``configs/*.yaml`` only (adapter targets, no tack-ons or review NPCs).
     """
     if adapters_only:
         return write_canonicals(config_dir, out_dir)
     outputs, warnings = write_all_canonicals(
         out_dir,
         config_dir=config_dir,
-        tackons=_TACKON_TARGETS.items(),
-        generated_root=DEFAULT_ASSET_DIR,
-        render_if_missing=render_if_missing,
+        tackons=list(_TACKON_TARGETS.items()),
+        review_config_dir=DEFAULT_REVIEW_CONFIG_DIR,
+        review_npcs=RUNTIME_REVIEW_NPCS,
     )
     for line in warnings:
         print(f"warning: {line}", file=sys.stderr)
@@ -286,8 +296,20 @@ def _cmd_draw_canonicals(args: argparse.Namespace) -> int:
         args.config_dir,
         args.out_dir,
         adapters_only=args.adapters_only,
-        render_if_missing=not args.no_render,
     ))
+    return 0
+
+
+def _cmd_canonical(args: argparse.Namespace) -> int:
+    """Draw the canonical of a single target into ``--out-dir``."""
+    out = draw_canonical_of(
+        args.target,
+        args.out_dir,
+        tackons=_TACKON_TARGETS,
+        config_dir=DEFAULT_CONFIG_DIR,
+        review_config_dir=DEFAULT_REVIEW_CONFIG_DIR,
+    )
+    print_paths([out])
     return 0
 
 
@@ -608,24 +630,37 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "draw-canonicals",
         help=(
-            "Render every adapter + tack-on canonical pose + a grid contact sheet. "
-            "Tack-on canonicals are read from generated/<name>/ if cached, or "
-            "rendered on demand. Pass --adapters-only for the legacy adapter-only "
-            "behavior, or --no-render to skip rendering missing tack-on canonicals."
+            "Draw every adapter + tack-on + review-NPC canonical pose fresh, "
+            "compose a gallery with per-category sections. Always renders from "
+            "the per-target renderer — never reads cached generated/<name>/ files. "
+            "Pass --adapters-only for the legacy adapter-only behavior."
         ),
     )
     _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "canonicals")
     p.add_argument(
         "--adapters-only",
         action="store_true",
-        help="Render only adapter (YAML-driven) canonicals; skip tack-on targets",
-    )
-    p.add_argument(
-        "--no-render",
-        action="store_true",
-        help="Skip the on-demand render fallback for tack-on canonicals missing from generated/",
+        help="Render only adapter (YAML-driven) canonicals; skip tack-on + review NPC targets",
     )
     p.set_defaults(func=_cmd_draw_canonicals)
+
+    p = sub.add_parser(
+        "canonical",
+        help=(
+            "Draw the canonical of a single target (any surface: tack-on, "
+            "adapter config, or review NPC) into --out-dir."
+        ),
+    )
+    p.add_argument(
+        "target",
+        metavar="TARGET",
+        help="target id — name from `list-targets`, a config stem under configs/, or a review NPC stem",
+    )
+    p.add_argument(
+        "--out-dir",
+        default=str(DEFAULT_ASSET_DIR / "canonicals"),
+    )
+    p.set_defaults(func=_cmd_canonical)
 
     p = sub.add_parser("draw-character", help="Render one config's canonical image, spritesheet, and YAML")
     p.add_argument("config")

@@ -82,13 +82,6 @@ mod tests {
 
     #[test]
     fn load_boss_specs_from_disk_finds_clockwork_warden() {
-        // The Rust profile starts from `gradient_sentinel()` and
-        // overrides id/name/max_hp. The RON authors the final state
-        // directly.
-        let mut hardcoded = ae::BossEncounterSpec::gradient_sentinel();
-        hardcoded.id = "clockwork_warden".into();
-        hardcoded.name = "Clockwork Warden".into();
-        hardcoded.max_hp = 36;
-        assert_spec_matches_disk("clockwork_warden", hardcoded);
+        assert_spec_matches_disk("clockwork_warden", ae::BossEncounterSpec::clockwork_warden());
     }
 }

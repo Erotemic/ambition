@@ -106,6 +106,20 @@ pub struct BossEncounterSpec {
 }
 
 impl BossEncounterSpec {
+    /// Clockwork Warden — a renamed reskin of `gradient_sentinel` with
+    /// a different display name + tighter HP pool. The sandbox-side
+    /// `BossProfile::clockwork_warden` returns the same numeric body;
+    /// shipping a dedicated constructor lets the on-disk RON pin
+    /// against a single source of truth instead of duplicating the
+    /// gradient_sentinel-then-mutate sequence.
+    pub fn clockwork_warden() -> Self {
+        let mut spec = Self::gradient_sentinel();
+        spec.id = "clockwork_warden".into();
+        spec.name = "Clockwork Warden".into();
+        spec.max_hp = 36;
+        spec
+    }
+
     pub fn gradient_sentinel() -> Self {
         Self {
             id: "gradient_sentinel".into(),

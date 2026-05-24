@@ -27,10 +27,7 @@ pub enum BossRewardProfile {
 
 impl BossProfile {
     pub fn clockwork_warden() -> Self {
-        let mut encounter = ae::BossEncounterSpec::gradient_sentinel();
-        encounter.id = "clockwork_warden".into();
-        encounter.name = "Clockwork Warden".into();
-        encounter.max_hp = 36;
+        let encounter = ae::BossEncounterSpec::clockwork_warden();
         Self {
             id: encounter.id.clone(),
             display_name: encounter.name.clone(),
@@ -199,10 +196,6 @@ mod tests {
 
     #[test]
     fn clockwork_warden_profile_encounter_matches_hardcoded_constructor() {
-        let mut expected = ae::BossEncounterSpec::gradient_sentinel();
-        expected.id = "clockwork_warden".into();
-        expected.name = "Clockwork Warden".into();
-        expected.max_hp = 36;
-        assert_profile_matches("clockwork_warden", expected);
+        assert_profile_matches("clockwork_warden", ae::BossEncounterSpec::clockwork_warden());
     }
 }

@@ -430,7 +430,6 @@ mod tests {
     use crate::brain::{
         ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
     };
-    use bevy::prelude::*;
 
     fn make_enemy(archetype: EnemyArchetype) -> EnemyRuntime {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));

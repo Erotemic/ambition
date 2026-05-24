@@ -803,7 +803,6 @@ mod tests {
     fn wanderer_climbs_when_able() {
         let mut cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
         cfg.climb_walls = true;
-        let mut state = WandererState::default();
         let mut s = BrainSnapshot::idle();
         s.actor_facing = 1.0;
         s.wall_contact = Some(WallContact {
@@ -812,7 +811,7 @@ mod tests {
         });
         let mut sm = StateMachineCfg::Wanderer {
             cfg,
-            state: state.clone(),
+            state: WandererState::default(),
         };
         let mut out = ae::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);

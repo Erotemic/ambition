@@ -68,7 +68,8 @@ Landed or scaffolded mechanics include:
 - shield/parry state and bubble-shield presentation;
 - actors, health/damage, interactions, breakables, pickups, projectiles, encounters, and boss-pattern vocabulary;
 - LDtk-authored goblin encounter / encounter-style areas and transition validation;
-- unified `ActorControlFrame` brain→sim seam for enemies + bosses (`crates/ambition_engine/src/actor_control.rs`): brains output desired velocity, a single `step_kinematic` call resolves collision for aerial, grounded, patrol, and boss bodies. Player still rides its own path; converging it is the next unification step.
+- unified `ActorControlFrame` brain→sim seam for enemies + bosses (`crates/ambition_engine/src/actor_control.rs`): brains output desired velocity, a single `step_kinematic` call resolves collision for aerial, grounded, patrol, and boss bodies.
+- universal-brain interface (`crates/ambition_sandbox/src/brain/`, 2026-05-24): every controllable entity (player / NPC / enemy / boss) carries Brain + ActionSet + ActorControl sibling components; brains tick each frame to fill ActorControl; ActionSet resolver emits per-tick `ActorActionMessage`s for combat / projectile spawns. Players carry `Brain::Player(slot)`; peaceful NPCs run through `Patrol`; enemies through per-archetype `MeleeBrute` / `Skirmisher` / `Wanderer` / `StandStill`; bosses through `BossPattern(encounter_id)`. Combat / projectile spawners still flow through `EnemyRuntime` / `BossRuntime` / `update_player` — daytime work flips them onto the message stream. See `docs/systems/brain-driver.md`.
 
 The mechanics are still sandbox-grade. Treat mechanics docs as expressibility and validation guides, not as promises of final tuning or animation polish.
 

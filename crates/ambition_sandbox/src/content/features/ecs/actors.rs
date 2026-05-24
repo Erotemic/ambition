@@ -220,14 +220,15 @@ pub fn update_ecs_actors(
             &mut ActorIntent,
             &mut ActorCooldowns,
             &super::super::components::ActorTarget,
-            // Brain components attached at every actor spawn (NPC,
-            // enemy, boss). The peaceful tick reads the brain
-            // directly; the hostile tick shadow-ticks it alongside
-            // EnemyRuntime so the parallel shape stays current.
-            // `Option` because dynamically-spawned actors (debug
-            // tools, future scripted spawns) might skip brain
-            // attachment.
+            // Brain + ActorControl. The hostile tick runs the brain
+            // and writes its `ActorControlFrame` output into
+            // `ActorControl` so the downstream
+            // `emit_brain_action_messages` resolver and the EFFECTS-
+            // stage consumers see the brain's intent. `Option` on
+            // both because dynamically-spawned actors (debug tools,
+            // scripted spawns) might skip brain attachment.
             Option<&mut crate::brain::Brain>,
+            Option<&mut crate::brain::ActorControl>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -254,7 +255,7 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, ae::SlotKind)> = Vec::new();
-    for (_, actor, _, _, _, _, _, _, _, _) in &actors {
+    for (_, actor, _, _, _, _, _, _, _, _, _) in &actors {
         if let ActorRuntime::Hostile(enemy) = actor {
             if enemy.alive {
                 requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
@@ -359,6 +360,7 @@ pub fn update_ecs_actors(
         mut cooldowns,
         target,
         mut brain,
+        mut control,
     ) in &mut actors
     {
         // `target.pos` is populated by `select_actor_targets`
@@ -369,15 +371,21 @@ pub fn update_ecs_actors(
         let target_pos = target.pos;
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
-                if let Some(brain) = brain.as_deref_mut() {
-                    npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt);
+                let frame = if let Some(brain) = brain.as_deref_mut() {
+                    npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt)
                 } else {
                     // Brainless peaceful actor — should not happen
                     // post-Chunk 3 (spawn attaches a brain), but
                     // fall back to building one inline so the tick
                     // is never skipped if components drift.
                     let mut fallback = npc.build_brain();
-                    npc.tick_via_brain(&mut fallback, &feature_world, target_pos, sim_time, dt);
+                    npc.tick_via_brain(&mut fallback, &feature_world, target_pos, sim_time, dt)
+                };
+                // Land the brain's frame in ActorControl so
+                // `emit_brain_action_messages` and downstream
+                // EFFECTS consumers see it.
+                if let Some(control) = control.as_deref_mut() {
+                    control.0 = frame;
                 }
                 aabb.center = npc.pos;
                 aabb.half_size = npc.size * 0.5;
@@ -396,17 +404,17 @@ pub fn update_ecs_actors(
                     None
                 };
                 let nearest_neighbor = neighbor_by_id.get(&enemy.id).copied();
-                // Shadow brain tick — populates the parallel
-                // ActorControl frame even though EnemyRuntime still
-                // drives behavior. Lets daytime work compare the
-                // brain's intent vs the existing choreography
-                // output before flipping the consumer. No-op when
-                // no brain component is attached (legacy spawn
-                // sites not yet upgraded). Passes real combat
-                // timers so the brain's AI mode (Telegraph /
-                // Attack / Recover) matches the enemy's actual
-                // attack-phase state.
-                if let Some(brain) = brain.as_deref_mut() {
+                // Tick the brain and write its `ActorControlFrame`
+                // output into `ActorControl` so the downstream
+                // `emit_brain_action_messages` resolver and EFFECTS-
+                // stage consumers see the brain's intent. Passes
+                // real combat timers so the brain's AI mode
+                // (Telegraph / Attack / Recover) matches the
+                // enemy's actual attack-phase state. No-op when no
+                // brain component is attached (debug spawns).
+                if let (Some(brain), Some(control)) =
+                    (brain.as_deref_mut(), control.as_deref_mut())
+                {
                     let timers = crate::brain::CombatTimers {
                         cooldown_remaining: enemy.attack_cooldown,
                         windup_remaining: enemy.attack_windup_timer,
@@ -414,7 +422,7 @@ pub fn update_ecs_actors(
                         recover_remaining: 0.0,
                         stun_remaining: 0.0,
                     };
-                    let _shadow = crate::brain::shadow_tick_brain_with_timers(
+                    control.0 = crate::brain::shadow_tick_brain_with_timers(
                         brain,
                         enemy.pos,
                         enemy.vel,

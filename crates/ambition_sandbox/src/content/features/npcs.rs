@@ -179,6 +179,11 @@ impl NpcRuntime {
     /// `target_pos` is the actor's "look at" target (typically the
     /// primary player). `sim_time` is the current scaled sim clock
     /// (seconds), used by brain templates that maintain timers.
+    /// Tick the brain and apply the result to the NPC's body.
+    /// Returns the `ActorControlFrame` the brain emitted so the
+    /// caller can also stash it in the entity's `ActorControl`
+    /// component for downstream `emit_brain_action_messages`
+    /// consumers (the EFFECTS-stage pipeline).
     pub fn tick_via_brain(
         &mut self,
         brain: &mut crate::brain::Brain,
@@ -186,7 +191,7 @@ impl NpcRuntime {
         target_pos: ae::Vec2,
         sim_time: f32,
         dt: f32,
-    ) {
+    ) -> ae::ActorControlFrame {
         self.hit_flash = (self.hit_flash - dt).max(0.0);
 
         // Build the brain snapshot from the actor's current body
@@ -251,7 +256,7 @@ impl NpcRuntime {
                 if delta.x.abs() > 0.001 {
                     self.facing = delta.x.signum();
                 }
-                return;
+                return frame;
             }
         }
 
@@ -305,6 +310,7 @@ impl NpcRuntime {
                 self.facing = dx.signum();
             }
         }
+        frame
     }
 
     /// Build a fresh brain reflecting the NPC's authored fields.

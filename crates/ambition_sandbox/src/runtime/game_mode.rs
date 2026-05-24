@@ -11,7 +11,7 @@ use bevy::prelude::*;
 /// Use this to gate simulation systems that must not run while paused,
 /// in dialogue, in a room transition, or in a cutscene.
 ///
-/// ```
+/// ```ignore
 /// app.add_systems(Update, my_system.run_if(gameplay_allowed));
 /// ```
 pub fn gameplay_allowed(mode: Res<State<GameMode>>) -> bool {

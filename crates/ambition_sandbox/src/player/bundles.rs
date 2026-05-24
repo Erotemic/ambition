@@ -8,6 +8,7 @@ use super::components::{
     PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
     PlayerMovementAuthority, PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
+use crate::brain::{ActionSet, ActorControl, Brain};
 use crate::features::ActorFaction;
 
 /// All simulation components required on the player entity.
@@ -52,6 +53,16 @@ pub struct PlayerSimulationBundle {
     pub input: PlayerInputFrame,
     pub faction: ActorFaction,
     pub name: Name,
+    /// Universal-brain seam. The player entity carries a
+    /// `Brain::Player(slot)`, an `ActionSet` (its full moveset), and
+    /// an `ActorControl` that the brain-driver system fills each
+    /// frame from `PlayerInputFrame`. Until Chunk 4d/e wires the
+    /// authority to consume the frame, the brain and control
+    /// component are *parallel* state — they're built but nothing
+    /// reads them yet.
+    pub brain: Brain,
+    pub action_set: ActionSet,
+    pub actor_control: ActorControl,
 }
 
 impl PlayerSimulationBundle {
@@ -86,6 +97,14 @@ impl PlayerSimulationBundle {
             input: PlayerInputFrame::default(),
             faction: ActorFaction::Player,
             name: Name::new("Player"),
+            brain: Brain::Player(PlayerSlot::PRIMARY),
+            // Player ActionSet today is a placeholder; the player
+            // brain drives the existing update_player path, not
+            // ActionSet-resolved effects. When Chunk 4e+ pushes the
+            // player onto the unified effect-resolve path, this
+            // ActionSet will carry the player's full moveset.
+            action_set: ActionSet::peaceful(),
+            actor_control: ActorControl::default(),
         }
     }
 }

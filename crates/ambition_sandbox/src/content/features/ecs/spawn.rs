@@ -232,76 +232,76 @@ fn spawn_enemy(
 /// (or Lunge for brutes); ranged archetypes get an Arrow / Pistol
 /// / Bolt where appropriate. The resolver consumes these to
 /// produce ActorActionMessages for the EFFECTS-stage consumers.
+/// Build the enemy's default `ActionSet` from its archetype spec.
+/// Reads `attack_kind()` + `move_style()` off the consolidated
+/// `EnemyArchetypeSpec` so adding a new archetype is a single
+/// `archetype_spec` row, not a parallel match here.
 fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
     use crate::brain::{
-        ActionSet, BiteSpec, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec,
-        RangedActionSpec, SwipeSpec,
+        ActionSet, BiteSpec, LungeSpec, MeleeActionSpec, PunchSpec, RangedActionSpec, SwipeSpec,
     };
+    use super::super::enemies::EnemyAttackKind;
     let archetype = enemy.archetype;
+    let move_style = archetype.move_style();
+    let damage = archetype.damage_amount();
+    // PuppySlug / PirateHeavy stay peaceful by default (no melee /
+    // no ranged). The brain still ticks; the resolver sees an empty
+    // ActionSet and emits no messages. Provoking-into-hostility
+    // (Patrol → MeleeBrute swap, ActionSet swap) is handled by the
+    // hostile-flip path in `content/features/ecs/damage.rs`.
     if !archetype.attacks_player() {
-        // PuppySlug / PirateHeavy in peaceful disposition.
         return ActionSet {
-            move_style: match archetype {
-                EnemyArchetype::PuppySlug => MoveStyleSpec::Slither,
-                _ => MoveStyleSpec::Walk,
-            },
+            move_style,
             ..ActionSet::default()
         };
     }
-    match archetype {
-        EnemyArchetype::LargeBrute | EnemyArchetype::LargeColossus => ActionSet {
-            melee: Some(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT)),
-            move_style: MoveStyleSpec::WalkHeavy,
-            ..Default::default()
-        },
-        EnemyArchetype::InfiniteSandbag | EnemyArchetype::FiniteSandbag => ActionSet {
-            melee: Some(MeleeActionSpec::PunchWeak(PunchSpec::SANDBAG_DEFAULT)),
-            ..Default::default()
-        },
-        EnemyArchetype::BurningFlyingShark => ActionSet {
-            melee: Some(MeleeActionSpec::Bite(BiteSpec {
+    let (melee, ranged) = match archetype.attack_kind() {
+        EnemyAttackKind::None => (None, None),
+        EnemyAttackKind::MeleeSwipe => (Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)), None),
+        EnemyAttackKind::MeleeLunge => (Some(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT)), None),
+        EnemyAttackKind::MeleeBite => (
+            Some(MeleeActionSpec::Bite(BiteSpec {
                 windup_s: 0.18,
                 active_s: 0.10,
                 recover_s: 0.30,
-                damage: archetype.damage_amount(),
+                damage,
                 reach_px: 42.0,
             })),
-            move_style: MoveStyleSpec::Float,
-            ..Default::default()
-        },
-        EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark => ActionSet {
-            ranged: Some(RangedActionSpec::Bolt {
-                speed: 500.0,
-                damage: archetype.damage_amount(),
-            }),
-            move_style: MoveStyleSpec::Float,
-            ..Default::default()
-        },
-        // Default melee striker — covers Combatant / SmallSkitter /
-        // MediumStriker / AggressiveSeeker / SmallLurker /
-        // PirateRaider.
-        _ => ActionSet {
-            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
-            move_style: MoveStyleSpec::Walk,
-            ..Default::default()
-        },
+            None,
+        ),
+        EnemyAttackKind::MeleePunchWeak => (
+            Some(MeleeActionSpec::PunchWeak(PunchSpec::SANDBAG_DEFAULT)),
+            None,
+        ),
+        EnemyAttackKind::RangedBolt => (
+            None,
+            Some(RangedActionSpec::Bolt { speed: 500.0, damage }),
+        ),
+    };
+    ActionSet {
+        melee,
+        ranged,
+        move_style,
+        ..Default::default()
     }
 }
 
+/// Build the enemy's default `Brain` from its archetype spec.
+/// Reads `brain_template()` off the consolidated `EnemyArchetypeSpec`
+/// so adding a new archetype is a single row, not a parallel match.
 fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
     use crate::brain::{
         Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg, WandererCfg, WandererState,
     };
+    use super::super::enemies::EnemyBrainTemplate;
     let archetype = enemy.archetype;
-    match archetype {
-        EnemyArchetype::InfiniteSandbag | EnemyArchetype::FiniteSandbag => {
-            Brain::StateMachine(StateMachineCfg::StandStill)
-        }
-        EnemyArchetype::PuppySlug => Brain::StateMachine(StateMachineCfg::Wanderer {
+    match archetype.brain_template() {
+        EnemyBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
+        EnemyBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
             state: WandererState::default(),
         }),
-        _ => Brain::StateMachine(StateMachineCfg::MeleeBrute {
+        EnemyBrainTemplate::MeleeBrute => Brain::StateMachine(StateMachineCfg::MeleeBrute {
             cfg: MeleeBruteCfg {
                 aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
                 aggro_radius: archetype.aggro_radius(),

@@ -200,6 +200,13 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
 /// Adding a new archetype is one new entry in the table plus one new
 /// `Custom("…")` arm in [`EnemyArchetype::from_brain`] — no more
 /// hunting through ten parallel `match` blocks.
+///
+/// Behavior fields (`brain_template`, `attack`, `move_style`) collapse
+/// what used to be three independent per-archetype matches
+/// (`enemy_default_brain`, `enemy_default_action_set`, and the
+/// peaceful-vs-hostile move-style branches) into one source of truth.
+/// Any new archetype now defines its full behavior shape in a single
+/// `archetype_spec` arm.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct EnemyArchetypeSpec {
     pub max_health: i32,
@@ -213,6 +220,57 @@ pub(super) struct EnemyArchetypeSpec {
     pub is_aerial: bool,
     pub is_sandbag: bool,
     pub default_size: Option<ae::Vec2>,
+    /// Brain template the spawn site instantiates for this archetype.
+    /// MeleeBrute reads the archetype's tunings (chase_speed,
+    /// aggro_radius, attack_range) for its cfg; Wanderer + StandStill
+    /// ignore them.
+    pub brain_template: EnemyBrainTemplate,
+    /// Concrete attack capability the spawn site puts on this
+    /// archetype's `ActionSet`. `None` for peaceful disposition or
+    /// passive archetypes; `Melee*` / `Ranged*` variants pick the
+    /// `MeleeActionSpec` / `RangedActionSpec` shape.
+    pub attack: EnemyAttackKind,
+    /// Locomotion style for the actor's `ActionSet.move_style`.
+    pub move_style: crate::brain::MoveStyleSpec,
+}
+
+/// Brain template choice keyed off `EnemyArchetype`. Sandbox-side
+/// enum because the brain module is the universal-actor abstraction
+/// and shouldn't know about enemies.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum EnemyBrainTemplate {
+    /// No motion / no AI — the actor only reacts to events
+    /// (sandbag's PunchWeak counter, dialogue-only NPCs that become
+    /// hostile).
+    StandStill,
+    /// Surface-walking idle wanderer. Used by the puppy slug.
+    Wanderer,
+    /// Approach-then-strike melee policy. The default for almost
+    /// every hostile archetype — variety comes from per-archetype
+    /// chase_speed / attack_range / aggro_radius pulled into the
+    /// cfg.
+    MeleeBrute,
+}
+
+/// Concrete attack capability for an enemy archetype. Mapped at
+/// spawn into a `crate::brain::ActionSet`'s melee / ranged slots.
+/// Add a variant only when a new archetype needs a distinct attack
+/// flavor.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum EnemyAttackKind {
+    /// Peaceful disposition. No melee, no ranged. ActionSet keeps
+    /// both slots None.
+    None,
+    /// Generic short swing. Used by Striker / standard goblin melee.
+    MeleeSwipe,
+    /// Heavy lunging step + strike. Used by Brute / Colossus.
+    MeleeLunge,
+    /// Jaw-snap bite. Used by BurningFlyingShark.
+    MeleeBite,
+    /// Reactive light punch — used by Sandbag when struck.
+    MeleePunchWeak,
+    /// Magical bolt projectile. Used by the aerial-pirate combos.
+    RangedBolt,
 }
 
 /// Table indexed by [`EnemyArchetype`]; built via a single `match`
@@ -235,6 +293,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: false,
             default_size: None,
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::MeleeSwipe,
+            move_style: crate::brain::MoveStyleSpec::Walk,
         },
         SmallSkitter => EnemyArchetypeSpec {
             max_health: 2,
@@ -248,6 +309,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: false,
             default_size: None,
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::MeleeSwipe,
+            move_style: crate::brain::MoveStyleSpec::Walk,
         },
         SmallLurker => EnemyArchetypeSpec {
             max_health: 2,
@@ -261,6 +325,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: false,
             default_size: None,
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::MeleeSwipe,
+            move_style: crate::brain::MoveStyleSpec::Walk,
         },
         MediumStriker => EnemyArchetypeSpec {
             max_health: 5,
@@ -274,6 +341,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: false,
             default_size: None,
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::MeleeSwipe,
+            move_style: crate::brain::MoveStyleSpec::Walk,
         },
         LargeBrute => EnemyArchetypeSpec {
             max_health: 9,
@@ -287,6 +357,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: false,
             default_size: None,
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::MeleeLunge,
+            move_style: crate::brain::MoveStyleSpec::WalkHeavy,
         },
         LargeColossus => EnemyArchetypeSpec {
             max_health: 14,
@@ -300,6 +373,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: false,
             default_size: None,
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::MeleeLunge,
+            move_style: crate::brain::MoveStyleSpec::WalkHeavy,
         },
         AggressiveSeeker => EnemyArchetypeSpec {
             max_health: 4,
@@ -313,6 +389,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: false,
             default_size: None,
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::MeleeSwipe,
+            move_style: crate::brain::MoveStyleSpec::Walk,
         },
         InfiniteSandbag => EnemyArchetypeSpec {
             max_health: 9999,
@@ -326,6 +405,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: true,
             default_size: None,
+            brain_template: EnemyBrainTemplate::StandStill,
+            attack: EnemyAttackKind::MeleePunchWeak,
+            move_style: crate::brain::MoveStyleSpec::Walk,
         },
         FiniteSandbag => EnemyArchetypeSpec {
             max_health: 6,
@@ -339,6 +421,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: true,
             default_size: None,
+            brain_template: EnemyBrainTemplate::StandStill,
+            attack: EnemyAttackKind::MeleePunchWeak,
+            move_style: crate::brain::MoveStyleSpec::Walk,
         },
         PirateRaider => EnemyArchetypeSpec {
             max_health: 5,
@@ -352,6 +437,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: false,
             is_sandbag: false,
             default_size: Some(ae::Vec2::new(44.0, 78.0)),
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::MeleeSwipe,
+            move_style: crate::brain::MoveStyleSpec::Walk,
         },
         BurningFlyingShark => EnemyArchetypeSpec {
             // Shark hp (the body pool); no rider on this dismounted form.
@@ -371,6 +459,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: true,
             is_sandbag: false,
             default_size: Some(ae::Vec2::new(108.0, 96.0)),
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::MeleeBite,
+            move_style: crate::brain::MoveStyleSpec::Float,
         },
         PirateOnShark => EnemyArchetypeSpec {
             // Shark hp (the body pool). Rider has its own pool — see
@@ -386,6 +477,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: true,
             is_sandbag: false,
             default_size: Some(ae::Vec2::new(108.0, 96.0)),
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::RangedBolt,
+            move_style: crate::brain::MoveStyleSpec::Float,
         },
         PirateHeavy => EnemyArchetypeSpec {
             // Cove crew member. Peaceful BY DEFAULT (aggro 0,
@@ -413,6 +507,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             // so all three variants share a hitbox; tuning by
             // variant can come later if combat asks for it.
             default_size: Some(ae::Vec2::new(72.0, 110.0)),
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::None,
+            move_style: crate::brain::MoveStyleSpec::Walk,
         },
         PirateHeavyOnShark => EnemyArchetypeSpec {
             // Aerial fused actor. Same envelope as PirateOnShark
@@ -430,6 +527,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             is_aerial: true,
             is_sandbag: false,
             default_size: Some(ae::Vec2::new(108.0, 96.0)),
+            brain_template: EnemyBrainTemplate::MeleeBrute,
+            attack: EnemyAttackKind::RangedBolt,
+            move_style: crate::brain::MoveStyleSpec::Float,
         },
         PuppySlug => EnemyArchetypeSpec {
             // Crawlid-style grunt: 2 HP, slow, body-contact damage,
@@ -450,6 +550,9 @@ const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
             // sprite is 128×95 with body bbox ~120×31). The collider
             // hugs the dorsal-ridge silhouette.
             default_size: Some(ae::Vec2::new(48.0, 22.0)),
+            brain_template: EnemyBrainTemplate::Wanderer,
+            attack: EnemyAttackKind::None,
+            move_style: crate::brain::MoveStyleSpec::Slither,
         },
     }
 }
@@ -496,6 +599,23 @@ impl EnemyArchetype {
     /// `gravity_scale` field on `EnemyRuntime`.
     pub(super) fn is_aerial(self) -> bool {
         self.spec().is_aerial
+    }
+
+    /// Brain template the spawn site instantiates for this archetype.
+    /// See [`EnemyBrainTemplate`].
+    pub(super) fn brain_template(self) -> EnemyBrainTemplate {
+        self.spec().brain_template
+    }
+
+    /// Concrete attack capability this archetype's `ActionSet` carries
+    /// at spawn. See [`EnemyAttackKind`].
+    pub(super) fn attack_kind(self) -> EnemyAttackKind {
+        self.spec().attack
+    }
+
+    /// Locomotion style for this archetype's `ActionSet.move_style`.
+    pub(super) fn move_style(self) -> crate::brain::MoveStyleSpec {
+        self.spec().move_style
     }
 
     /// Slot kind this archetype requests from the combat slot board.

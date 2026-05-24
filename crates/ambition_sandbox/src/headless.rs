@@ -234,11 +234,13 @@ mod tests {
     }
 
     /// Sustained run check: drive the full sim for 60 ticks and
-    /// verify the brain action counter accumulates non-negatively
-    /// + the headless tick completes without panicking. Catches a
+    /// verify the brain action counter is present and its
+    /// `last_frame` is internally consistent (≤ total). Catches a
     /// future regression where the brain shadow tick + resolver
     /// path starts panicking somewhere mid-room (player loading
-    /// the wrong room and brain seeing inconsistent state).
+    /// the wrong room and brain seeing inconsistent state) or
+    /// where the counter resource gets reset/leaked between
+    /// frames.
     #[test]
     fn sim_completes_60_ticks_with_counter_intact() {
         use crate::brain::BrainActionCounter;
@@ -254,13 +256,17 @@ mod tests {
         for _ in 0..60 {
             app.update();
         }
-        // Counter should have ticked at least 60 times even if
-        // no actor produced any messages.
         let counter = app.world().resource::<BrainActionCounter>();
-        // total can be zero if no actor wants action, but
-        // last_frame should be 0..N and well-defined.
-        let _ = counter.total;
-        let _ = counter.last_frame;
+        // Total is a running sum, last_frame is per-frame count;
+        // last_frame must never exceed total (would indicate the
+        // observer is double-counting or the reset got out of
+        // order).
+        assert!(
+            counter.last_frame as u64 <= counter.total,
+            "last_frame={} exceeds total={}",
+            counter.last_frame,
+            counter.total,
+        );
     }
 
     /// Verify the BrainPlugin is installed by SandboxSimulationPlugin

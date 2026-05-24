@@ -136,6 +136,78 @@ def _cmd_summarize(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_paint(args: argparse.Namespace) -> int:
+    """Set every IntGrid cell overlapping a px/size rect to a target value.
+
+    Symmetric with `_cmd_erase` (which sets cells to 0). Use this to add
+    a Solid floor / wall to a level whose IntGrid is empty in that
+    region without resorting to entity-instance Solids (which then need
+    to lower).
+    """
+    px = _parse_pair(args.px, "px")
+    size = _parse_pair(args.size, "size")
+    project = load_project(args.ldtk)
+    level = find_level(project, args.level)
+    layer = find_intgrid_layer(level, args.layer)
+    c_wid = int(layer["__cWid"])
+    csv = list(layer.get("intGridCsv") or [])
+    value = int(args.value)
+    painted = 0
+    overwrote = 0
+    detail: list[tuple[int, int, int]] = []
+    for cx, cy in _iter_overlap_cells(layer, px[0], px[1], size[0], size[1]):
+        idx = cy * c_wid + cx
+        prev = csv[idx]
+        if prev == value:
+            continue
+        csv[idx] = value
+        painted += 1
+        if prev != 0:
+            overwrote += 1
+        detail.append((cx, cy, prev))
+    layer["intGridCsv"] = csv
+    print(
+        f"intgrid paint: level={args.level} layer={args.layer} "
+        f"rect px={list(px)} size={list(size)} value={value} "
+        f"painted {painted} cell(s) ({overwrote} overwrote a non-zero value)"
+    )
+    if args.verbose and detail:
+        names = LAYER_VALUE_NAMES.get(args.layer, {})
+        target_name = names.get(value, f"value{value}")
+        for cx, cy, prev in detail:
+            prev_name = names.get(prev, f"value{prev}")
+            print(f"  cell ({cx},{cy}) {prev} ({prev_name}) -> {value} ({target_name})")
+    if painted == 0:
+        return 0  # no-op is still success
+    if args.dry_run:
+        return 0
+
+    target = args.output or args.ldtk
+    write_project(target, project)
+    if args.no_repair:
+        return 0
+    import subprocess
+
+    rc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ambition_ldtk_tools.repair",
+            str(target),
+            "--in-place",
+        ]
+    ).returncode
+    if rc != 0:
+        return rc
+    cmd_val = [
+        sys.executable,
+        "-m",
+        "ambition_ldtk_tools.validate",
+        str(target),
+    ]
+    return subprocess.run(cmd_val).returncode
+
+
 def _cmd_erase(args: argparse.Namespace) -> int:
     px = _parse_pair(args.px, "px")
     size = _parse_pair(args.size, "size")
@@ -254,6 +326,32 @@ def main(argv=None) -> int:
     sp_erase.add_argument("--dry-run", action="store_true")
     sp_erase.add_argument("--no-repair", action="store_true")
     sp_erase.set_defaults(func=_cmd_erase)
+
+    sp_paint = sub.add_parser(
+        "paint",
+        help="Set every cell overlapping the given px/size rect to "
+        "--value (1 Solid, 2 OneWayPlatform, etc.)",
+    )
+    _add_shared_args(sp_paint)
+    sp_paint.add_argument("--level", required=True)
+    sp_paint.add_argument("--px", required=True, help="top-left X,Y of the rect")
+    sp_paint.add_argument("--size", required=True, help="W,H of the rect")
+    sp_paint.add_argument(
+        "--value",
+        required=True,
+        type=int,
+        help="IntGrid value (1=Solid, 2=OneWayPlatform, 3=BlinkSoft, "
+        "4=BlinkHard, 5=Hazard) — see edit/intgrid.py::LAYER_VALUE_NAMES.",
+    )
+    sp_paint.add_argument(
+        "--verbose",
+        action="store_true",
+        help="print every painted cell (otherwise only the count)",
+    )
+    sp_paint.add_argument("--output", type=Path, default=None)
+    sp_paint.add_argument("--dry-run", action="store_true")
+    sp_paint.add_argument("--no-repair", action="store_true")
+    sp_paint.set_defaults(func=_cmd_paint)
 
     args = parser.parse_args(argv)
     return args.func(args) or 0

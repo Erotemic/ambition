@@ -38,7 +38,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
 
     intgrid summarize <level>     Print per-value cell counts + bboxes for a layer.
     intgrid erase     <rect>      Zero out cells overlapping a px/size rect.
-    intgrid paint    [TODO]       (reserved — add when a real authoring need lands)
+    intgrid paint    <rect>       Set cells overlapping the rect to --value (1=Solid).
 
 The TODO subcommands are placeholders — the package was migrated from
 several standalone scripts and these slots are reserved so the surface
@@ -201,10 +201,10 @@ def cmd_link(args, rest):
 
 
 def cmd_intgrid(args, rest):
-    if args.intgrid_action in {"summarize", "erase"}:
+    if args.intgrid_action in {"summarize", "erase", "paint"}:
         # Forward the action + leftover argv (the --layer / --level /
-        # --px / --size flags) to the dedicated module so its own
-        # argparse owns the surface.
+        # --px / --size / --value flags) to the dedicated module so its
+        # own argparse owns the surface.
         return _delegate(
             "ambition_ldtk_tools.edit.intgrid",
             [args.intgrid_action, *rest],
@@ -406,7 +406,11 @@ def build_parser() -> argparse.ArgumentParser:
         "erase",
         help="Zero out every IntGrid cell overlapping a given px/size rect",
     )
-    intgrid_sub.add_parser("paint", help="[TODO] reserved")
+    intgrid_sub.add_parser(
+        "paint",
+        help="Set every IntGrid cell overlapping a given px/size rect to "
+        "--value (1=Solid, 2=OneWayPlatform, etc.)",
+    )
     sp_intgrid.set_defaults(func=cmd_intgrid)
 
     return ap

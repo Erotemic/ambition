@@ -60,27 +60,16 @@ pub fn update_ecs_bosses(
         // migrates the boss-pattern state machine into the brain's
         // internal sub-state and flips the consumer.
         if let Some(brain) = brain.as_deref_mut() {
-            let snap = crate::brain::BrainSnapshot {
-                actor_pos: boss.pos,
-                actor_vel: ae::Vec2::ZERO,
-                actor_facing: 1.0,
-                actor_on_ground: false,
-                alive: boss.alive,
+            let _shadow = crate::brain::shadow_tick_brain(
+                brain,
+                boss.pos,
+                ae::Vec2::ZERO,
+                1.0,
+                false,
+                boss.alive,
                 target_pos,
-                target_alive: true,
-                sim_time: 0.0,
                 dt,
-                attack_cooldown_remaining: 0.0,
-                attack_windup_remaining: 0.0,
-                attack_active_remaining: 0.0,
-                attack_recover_remaining: 0.0,
-                stun_remaining: 0.0,
-                wall_contact: None,
-                player_input: None,
-            };
-            let mut shadow = ae::ActorControlFrame::neutral();
-            brain.tick(&snap, &mut shadow);
-            let _ = shadow;
+            );
         }
         // Forward this boss's current encounter phase into the runtime
         // so `Scripted` attack patterns can pick the right phase

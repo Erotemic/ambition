@@ -89,6 +89,46 @@ impl Brain {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct ActorControl(pub ae::ActorControlFrame);
 
+/// One-call "tick this brain with a snapshot built from these
+/// actor + target positions" helper. Used by every shadow-tick
+/// site (`update_ecs_actors` hostile branch, `update_ecs_bosses`)
+/// so the snapshot construction lives in one place. Daytime
+/// migration tightens this — once a real consumer reads the
+/// resulting `ActorControl`, the per-actor brain-driver fills the
+/// snapshot's combat-timer / wall-contact fields too.
+pub fn shadow_tick_brain(
+    brain: &mut Brain,
+    actor_pos: ae::Vec2,
+    actor_vel: ae::Vec2,
+    actor_facing: f32,
+    actor_on_ground: bool,
+    alive: bool,
+    target_pos: ae::Vec2,
+    dt: f32,
+) -> ae::ActorControlFrame {
+    let snap = BrainSnapshot {
+        actor_pos,
+        actor_vel,
+        actor_facing,
+        actor_on_ground,
+        alive,
+        target_pos,
+        target_alive: true,
+        sim_time: 0.0,
+        dt,
+        attack_cooldown_remaining: 0.0,
+        attack_windup_remaining: 0.0,
+        attack_active_remaining: 0.0,
+        attack_recover_remaining: 0.0,
+        stun_remaining: 0.0,
+        wall_contact: None,
+        player_input: None,
+    };
+    let mut out = ae::ActorControlFrame::neutral();
+    brain.tick(&snap, &mut out);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

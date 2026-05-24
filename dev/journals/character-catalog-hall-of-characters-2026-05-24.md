@@ -1,17 +1,34 @@
 # Character catalog refactor + Hall of Characters
 
 **Date:** 2026-05-24
-**Duration:** ~2.5 h wall-clock for plan (1.10 h) + bonus follow-ups (1.4 h)
+**Duration:** ~3.5 h wall-clock for plan (1.10 h) + bonus follow-ups (2.4 h)
 **Plan doc:** [`TODO-character-catalog-and-hall.md`](../../TODO-character-catalog-and-hall.md)
 **ADR:** [`docs/adr/0017-rust-behavior-ron-content-ldtk-space.md`](../../docs/adr/0017-rust-behavior-ron-content-ldtk-space.md)
 **System doc:** [`docs/systems/character-catalog.md`](../../docs/systems/character-catalog.md)
+**Final state:** 100% Hall sprite coverage (97/97), 0 sandbox.ldtk validator warnings (down from 185), 3 intentional intro.ldtk warnings.
 
 ## What landed
 
-Eight planned phases plus five follow-up sprints in response to
-mid-run QA from Jon. Final commit count: 21. Final line count delta:
-many thousands of additions (most are auto-generated sprite manifests
-and the regenerated Hall LDtk level).
+Eight planned phases plus fourteen bonus follow-up sprints in
+response to mid-run QA from Jon. Final commit count: 44. Final line
+count delta: many thousands of additions (most are auto-generated
+sprite manifests and the regenerated Hall LDtk level).
+
+### Headline results
+
+- **97/97 Hall pedestals render** real sprites (was 24/99 at the
+  start of the run, before any catalog work).
+- **0 sandbox.ldtk validator warnings** (was 185, mostly false
+  positives from the validator not recognizing IntGrid Collision
+  cells as walls; cleaned up by extending the validator + filling
+  one genuinely-missing floor row in goblin_encounter via the new
+  `intgrid paint` tool).
+- **3 intro.ldtk warnings** remain — all are genuine spatial-
+  authoring decisions that need human judgment (pirate_sky_arena
+  top edge, two mid-air doors in drain_alley / under_town_pipes).
+- **779 sandbox lib tests + 265 engine tests + 22 Python ldtk_tools
+  tests pass.** Added ~25 tests this run.
+- **42 commits**, all green.
 
 Single sentence: every spawnable character in the sandbox now lives
 in one RON file (`character_catalog.ron`), with a Bevy plugin that

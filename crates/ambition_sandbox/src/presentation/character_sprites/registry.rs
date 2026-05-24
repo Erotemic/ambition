@@ -43,6 +43,16 @@
 //! The baked path is currently a `todo!()` stub — see [`init_baked`]
 //! for the migration recipe.
 
+// SheetRecord / SheetRow / BodyMetrics / FrameRect / PixelRect /
+// PixelPoint / NormPoint carry the full generator-emitted schema.
+// Several fields are diagnostic or reserved for future consumers
+// (atlas viewer, per-frame anchor probes) — silence the unused-field
+// warnings at the module level so the schema stays whole.
+#![allow(
+    dead_code,
+    reason = "deserialize surface that mirrors the on-disk RON schema; not every field is queried at runtime yet"
+)]
+
 use std::collections::HashMap;
 
 use bevy::prelude::*;

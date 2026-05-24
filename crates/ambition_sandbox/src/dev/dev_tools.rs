@@ -499,6 +499,10 @@ pub fn inspector_visible(tools: Res<DeveloperTools>) -> bool {
 /// These are design-space estimates, not an engine replay. They are meant to
 /// answer questions like "how many tiles/body-heights is this jump?" while
 /// swapping chassis profiles from the F3 menu.
+#[allow(
+    dead_code,
+    reason = "Design-space movement readout exposed for the F3 debug HUD chassis-profile swap; pre-existing dev surface that's wired into a HUD subscreen that hasn't landed yet."
+)]
 pub fn feel_metrics_summary(base_size: ae::Vec2, tuning: ae::MovementTuning) -> String {
     const TILE: f32 = 16.0;
     let body_w = base_size.x.max(1.0);

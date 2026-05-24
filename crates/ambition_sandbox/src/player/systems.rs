@@ -174,6 +174,22 @@ mod tests {
         );
     }
 
+    /// Similarly: with shield ability off, special slot is None.
+    /// Pins the same gating discipline for special-ability slots.
+    #[test]
+    fn player_action_set_special_disabled_when_shield_ability_off() {
+        use crate::brain::ActionSet;
+        let mut player =
+            ae::Player::new_with_abilities(ae::Vec2::new(0.0, 0.0), ae::AbilitySet::sandbox_all());
+        player.abilities.shield = false;
+        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        let action_set: &ActionSet = &bundle.action_set;
+        assert!(
+            action_set.special.is_none(),
+            "ActionSet.special should be None when AbilitySet.shield is off"
+        );
+    }
+
     /// Default player ActionSet has a Swipe melee + Bolt ranged +
     /// BubbleShield special when the player has all abilities. Pins
     /// the sandbox_all() default — daytime EFFECTS-flip consumers

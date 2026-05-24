@@ -112,13 +112,16 @@ impl PlayerSimulationBundle {
     }
 }
 
-/// Default player moveset derived from an `AbilitySet`. A player
-/// without the `attack` ability gets `melee: None`; without `blink`
-/// or `precision_blink` they get `special: None`. The resolver
-/// won't emit `ActionRequest`s for capabilities the player
-/// doesn't have, so daytime EFFECTS-flip consumers can read the
-/// ActionSet as the authoritative "what can this player actually
-/// do right now" surface without re-checking AbilitySet.
+/// Default player moveset derived from an `AbilitySet`:
+/// - `melee = Some(Swipe)` iff `abilities.attack`
+/// - `ranged = Some(Bolt)` unconditionally today (the existing
+///   fireball / hadouken path is itself gated by `projectile`)
+/// - `special = Some(BubbleShield)` iff `abilities.shield`
+///
+/// The resolver won't emit `ActionRequest`s for capabilities the
+/// player doesn't have, so daytime EFFECTS-flip consumers can
+/// read the ActionSet as the authoritative "what can this player
+/// actually do right now" surface without re-checking AbilitySet.
 fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
     use crate::brain::{
         MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec,
@@ -143,10 +146,9 @@ fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
             damage: 1,
         }),
         move_style: MoveStyleSpec::Walk,
-        // Special slot: today we map to BubbleShield since shield is
-        // a player-only signature ability. When the player is in
-        // possession of a different body, the body's ActionSet would
-        // override.
-        special: Some(SpecialActionSpec::BubbleShield),
+        // Special slot: BubbleShield, gated by the shield ability.
+        // A possessed non-player body keeps that body's ActionSet so
+        // this default fires only for actual player entities.
+        special: abilities.shield.then_some(SpecialActionSpec::BubbleShield),
     }
 }

@@ -229,6 +229,14 @@ fn register_combat_systems(app: &mut App) {
             // the pre-migration latency.
             crate::features::spawn_enemy_projectiles_from_brain_actions
                 .run_if(gameplay_allowed),
+            // EFFECTS-stage consumer: reads ActorActionMessage::Melee
+            // and starts the enemy's attack windup + cooldown.
+            // Replaces the legacy `if frame.melee_pressed` gate inside
+            // `EnemyRuntime::update`. The active-window damage check
+            // stays in `update_ecs_actors` (per-tick overlap; integration
+            // state).
+            crate::features::start_enemy_melee_from_brain_actions
+                .run_if(gameplay_allowed),
             crate::projectile::update_projectiles,
             crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
             crate::features::apply_feature_damage_events,

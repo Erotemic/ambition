@@ -74,7 +74,9 @@ pub use anim_helpers::{
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use bosses::update_ecs_bosses;
-pub use brain_effects::spawn_enemy_projectiles_from_brain_actions;
+pub use brain_effects::{
+    spawn_enemy_projectiles_from_brain_actions, start_enemy_melee_from_brain_actions,
+};
 pub use breakables::update_ecs_breakables;
 pub use chests::open_ecs_chests;
 pub use damage::{

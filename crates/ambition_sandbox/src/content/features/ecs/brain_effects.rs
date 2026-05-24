@@ -29,7 +29,9 @@ use crate::audio::SfxMessage;
 use crate::brain::{ActorActionMessage, action_set::ActionRequest};
 use crate::content::features::ecs::actors::ActorRuntime;
 use crate::content::features::enemies::EnemyArchetype;
+use crate::content::features::events::FeatureCombatTuning;
 use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
+use crate::time::feel::SandboxFeelTuning;
 
 /// Recoil applied to the firing enemy along the negative fire
 /// direction. Per-archetype because PirateOnShark visibly knocks
@@ -117,6 +119,59 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         let kick = dir.normalize_or_zero() * -recoil_strength;
         enemy.vel += kick;
     }
+}
+
+/// Read every `ActorActionMessage::Melee` addressed to a hostile
+/// actor and start that enemy's melee windup/cooldown via
+/// `EnemyRuntime::begin_melee_attack`. The active hitbox lifecycle
+/// (windup → active → cooldown) stays on `EnemyRuntime` because the
+/// timers are integration-side state per the actor/brain mandate
+/// ("Runtimes own state, not policy"). Only the START of the
+/// attack — the policy decision — moves through the message stream.
+///
+/// Damage application during the active window stays in
+/// `update_ecs_actors` (which polls `enemy.player_damage(player_body)`
+/// each tick); that's a per-tick overlap check, not a discrete
+/// spawn, and the runtime's body/attack-timer pair is the right
+/// integration surface for it.
+pub fn start_enemy_melee_from_brain_actions(
+    mut messages: MessageReader<ActorActionMessage>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    mut actors: Query<&mut ActorRuntime>,
+) {
+    let combat_tuning = feel_tuning.feature_combat_tuning();
+    for msg in messages.read() {
+        let ActionRequest::Melee { .. } = msg.request else {
+            continue;
+        };
+        let Ok(mut actor) = actors.get_mut(msg.actor) else {
+            continue;
+        };
+        let ActorRuntime::Hostile(enemy) = &mut *actor else {
+            // Peaceful actors never produce Melee messages today
+            // (their ActionSet is empty); skip defensively.
+            continue;
+        };
+        // `attacks_player()` and the cooldown gate live inside
+        // `begin_melee_attack` so a future "every actor that can
+        // attack does so via this consumer" world doesn't have to
+        // re-check policy here. The default ActionSet wiring already
+        // refuses to emit Melee for peaceful archetypes (their
+        // ActionSet.melee is None), so this gate is the safety net,
+        // not the primary filter.
+        if !enemy.archetype.attacks_player() {
+            continue;
+        }
+        enemy.begin_melee_attack(combat_tuning);
+    }
+}
+
+/// Helper: combat-tuning lookup. Lives on the test side to make
+/// the helper available to the unit tests below without leaking
+/// `SandboxFeelTuning` through the public API.
+#[cfg(test)]
+fn default_combat_tuning() -> FeatureCombatTuning {
+    SandboxFeelTuning::default().feature_combat_tuning()
 }
 
 #[cfg(test)]
@@ -268,4 +323,119 @@ mod tests {
     /// Suppress unused-import noise from the test-only `ActionSet`
     /// reference — kept for callers that grow this module's tests.
     fn _silence_action_set_import(_: ActionSet) {}
+
+    /// `start_enemy_melee_from_brain_actions` pin: the consumer
+    /// starts the enemy's melee windup + cooldown when a
+    /// `ActorActionMessage::Melee` arrives. Today the same trigger
+    /// flowed through `EnemyRuntime::update` directly; the consumer
+    /// replaces that gate without changing the windup/cooldown
+    /// timings.
+    #[test]
+    fn melee_message_starts_enemy_windup_and_cooldown() {
+        use crate::brain::{MeleeActionSpec, SwipeSpec};
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<SandboxFeelTuning>();
+        app.add_systems(Update, start_enemy_melee_from_brain_actions);
+
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
+        let mut enemy = crate::content::features::enemies::EnemyRuntime::new(
+            "striker_a",
+            "Striker",
+            aabb,
+            ae::EnemyBrain::Custom("medium_striker".into()),
+            &[],
+        );
+        enemy.archetype = EnemyArchetype::MediumStriker;
+        enemy.attack_cooldown = 0.0;
+        let pre_windup = enemy.attack_windup_timer;
+        let actor = app.world_mut().spawn((ActorRuntime::Hostile(enemy),)).id();
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Melee {
+                    spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
+                    origin: actor_pos,
+                    facing: 1.0,
+                    attack_axis: ae::Vec2::new(1.0, 0.0),
+                },
+            });
+        app.update();
+        let actor_runtime = app.world().entity(actor).get::<ActorRuntime>().unwrap();
+        let ActorRuntime::Hostile(enemy_after) = actor_runtime else {
+            panic!("expected Hostile");
+        };
+        assert!(
+            enemy_after.attack_windup_timer > pre_windup,
+            "windup timer should start after the message: was {pre_windup}, now {}",
+            enemy_after.attack_windup_timer,
+        );
+        assert!(
+            enemy_after.attack_cooldown > 0.0,
+            "cooldown should be primed after the message: got {}",
+            enemy_after.attack_cooldown,
+        );
+        assert!(
+            matches!(enemy_after.ai_mode, ae::CharacterAiMode::Telegraph),
+            "ai_mode should flip to Telegraph; got {:?}",
+            enemy_after.ai_mode,
+        );
+    }
+
+    /// Cooldown still gates the consumer — a Melee message arriving
+    /// while the enemy is mid-cooldown is a no-op. Mirrors the
+    /// pre-migration legacy gate.
+    #[test]
+    fn melee_message_during_cooldown_is_dropped() {
+        use crate::brain::{MeleeActionSpec, SwipeSpec};
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<SandboxFeelTuning>();
+        app.add_systems(Update, start_enemy_melee_from_brain_actions);
+
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
+        let mut enemy = crate::content::features::enemies::EnemyRuntime::new(
+            "striker_a",
+            "Striker",
+            aabb,
+            ae::EnemyBrain::Custom("medium_striker".into()),
+            &[],
+        );
+        enemy.archetype = EnemyArchetype::MediumStriker;
+        // Pre-set cooldown so begin_melee_attack refuses.
+        enemy.attack_cooldown = 0.5;
+        let pre_windup = enemy.attack_windup_timer;
+        let actor = app.world_mut().spawn((ActorRuntime::Hostile(enemy),)).id();
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Melee {
+                    spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
+                    origin: actor_pos,
+                    facing: 1.0,
+                    attack_axis: ae::Vec2::new(1.0, 0.0),
+                },
+            });
+        app.update();
+        let actor_runtime = app.world().entity(actor).get::<ActorRuntime>().unwrap();
+        let ActorRuntime::Hostile(enemy_after) = actor_runtime else {
+            panic!("expected Hostile");
+        };
+        assert_eq!(
+            enemy_after.attack_windup_timer, pre_windup,
+            "cooldown should prevent the windup from starting",
+        );
+    }
+
+    /// Silence the test-only helper.
+    #[test]
+    fn default_combat_tuning_helper_exists() {
+        let _ = default_combat_tuning();
+    }
 }

@@ -449,15 +449,26 @@ mod conversion_tests {
         enemy.attack_cooldown = 0.0;
         let mut player = ae::Player::new(ae::Vec2::new(130.0, 536.0));
         player.size = ae::Vec2::new(28.0, 46.0);
-        enemy.update(
+        // Post-actor-brain-migration: `enemy.update()` returns the
+        // intent frame; the EFFECTS-stage consumer
+        // `start_enemy_melee_from_brain_actions` reads
+        // `ActorActionMessage::Melee` and calls `begin_melee_attack`.
+        // Here we drive both halves directly to keep the test as a
+        // unit test rather than a full-pipeline integration test.
+        let frame = enemy.update(
             &world,
             player.pos,
             FeatureCombatTuning::default(),
             Some(player.pos),
             None,
-
             0.10,
         );
+        assert!(
+            frame.melee_pressed,
+            "intent frame must request a melee when the player is in range"
+        );
+        let started = enemy.begin_melee_attack(FeatureCombatTuning::default());
+        assert!(started, "begin_melee_attack should accept the intent");
         assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Telegraph);
         assert!(enemy.attack_windup_timer > 0.0);
         assert_eq!(

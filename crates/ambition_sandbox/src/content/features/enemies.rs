@@ -1256,30 +1256,17 @@ impl EnemyRuntime {
         // real hit-volume. The aerial PirateHeavyOnShark variant
         // is a separate archetype with `attacks_player() == true`,
         // so it still fires projectiles + recoil.
-        if frame.melee_pressed
-            && !self.archetype.is_sandbag()
-            && self.archetype.attacks_player()
-            && self.attack_cooldown <= 0.0
-        {
-            self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
-            self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
-                * if self.archetype == EnemyArchetype::SmallSkitter {
-                    0.75
-                } else if self.archetype == EnemyArchetype::LargeBrute {
-                    1.35
-                } else {
-                    1.0
-                };
-            self.ai_mode = ae::CharacterAiMode::Telegraph;
-        }
-        // Brief telegraph for the HUD so the volley reads as a
-        // "shot" — kept here because `ai_mode` is integration-side
-        // state (HUD reads it via `EnemyRuntime`). The projectile
-        // spawn + recoil moved out to the EFFECTS consumer
-        // `spawn_enemy_projectiles_from_brain_actions`; this method
-        // now only returns the frame so the consumer (and the
-        // catch-all `emit_brain_action_messages` resolver) can see
-        // the legacy AI's intent.
+        // Melee windup/cooldown start moved to the EFFECTS consumer
+        // `start_enemy_melee_from_brain_actions`. The legacy gate
+        // (`frame.melee_pressed && !is_sandbag && attacks_player &&
+        // cooldown<=0`) is now expressed as: the resolver only emits
+        // `ActorActionMessage::Melee` when the archetype's ActionSet
+        // has a Melee spec (peaceful archetypes get no melee in
+        // their ActionSet); the consumer adds the cooldown check.
+        // Sandbags are also gated by their action_kind = PunchWeak —
+        // their attack_windup runs through the same consumer.
+        // `update` keeps `ai_mode = Attack` when `frame.fire.is_some()`
+        // since that HUD signal is integration-side state.
         if frame.fire.is_some() {
             self.ai_mode = ae::CharacterAiMode::Attack;
         }
@@ -1652,6 +1639,29 @@ impl EnemyRuntime {
             self.pos + ae::Vec2::new(self.facing * (self.size.x * 0.55 + 24.0), -4.0),
             ae::Vec2::new(34.0, 28.0),
         )
+    }
+
+    /// Begin a melee attack windup + cooldown. Called by the EFFECTS
+    /// consumer `start_enemy_melee_from_brain_actions` in response
+    /// to an `ActorActionMessage::Melee`. Returns `true` if the
+    /// attack actually started (the cooldown gate passed). Sandbag
+    /// archetypes deliberately accept this — their PunchWeak counter
+    /// is the legitimate use case.
+    pub fn begin_melee_attack(&mut self, tuning: FeatureCombatTuning) -> bool {
+        if self.attack_cooldown > 0.0 || !self.alive {
+            return false;
+        }
+        self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
+        self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
+            * if self.archetype == EnemyArchetype::SmallSkitter {
+                0.75
+            } else if self.archetype == EnemyArchetype::LargeBrute {
+                1.35
+            } else {
+                1.0
+            };
+        self.ai_mode = ae::CharacterAiMode::Telegraph;
+        true
     }
 
     pub fn attack_telegraph_aabb(&self) -> ae::Aabb {

@@ -302,3 +302,22 @@ parallel-shape / additive, no behavior change):
 - Per-archetype enemy_default_brain + enemy_default_action_set
   coverage lints
 - Player ActionSet derived from AbilitySet at spawn
+
+Late-session stability round (catches future-regression
+land-mines without changing today's behavior):
+- `tick_state_machine` dead-actor branch now explicitly writes
+  `ActorControlFrame::neutral()` instead of returning early —
+  catches a pre-poisoned frame leaking through dead-actor ticks.
+- Sniper + Skirmisher pin the `target_alive=false` branch
+  (dead target in aggro must not emit fire).
+- Hostile Patrol (aggressiveness > 0) pin tests: Chase emits
+  movement, Attack emits melee with cooldown clear, Attack
+  honors `attack_cooldown_remaining > 0` and holds off.
+- MeleeBrute attack gate table-driven test exercises each of
+  the four phase timers (cooldown / windup / active / recover)
+  individually — drops in one would have slipped past the
+  single-windup test.
+- `RangedActionSpec::damage()` per-variant pin mirrors the
+  existing `speed()` accessor test.
+- `BrainActionCounter` headless test now asserts
+  `last_frame ≤ total` instead of a no-op `let _ = …`.

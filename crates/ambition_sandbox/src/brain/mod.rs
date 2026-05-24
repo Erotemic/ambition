@@ -368,6 +368,48 @@ mod tests {
     }
 
     #[test]
+    fn shadow_tick_with_timers_routes_active_attack_to_brain_mode() {
+        // A MeleeBrute brain ticked with an active attack timer
+        // should see CharacterAiMode::Attack and emit no fresh
+        // melee_pressed (the integration is mid-attack). Pins the
+        // CombatTimers → BrainSnapshot threading.
+        let mut brain = Brain::StateMachine(StateMachineCfg::MeleeBrute {
+            cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+            state: MeleeBruteState::default(),
+        });
+        let timers = CombatTimers {
+            cooldown_remaining: 0.5,
+            windup_remaining: 0.0,
+            active_remaining: 0.05, // mid-swing
+            recover_remaining: 0.0,
+            stun_remaining: 0.0,
+        };
+        let frame = shadow_tick_brain_with_timers(
+            &mut brain,
+            ae::Vec2::ZERO,
+            ae::Vec2::ZERO,
+            1.0,
+            true,
+            true,
+            ae::Vec2::new(20.0, 0.0),
+            1.0 / 60.0,
+            timers,
+        );
+        // Mid-active: brain should NOT re-emit melee_pressed
+        // because a swing is already in progress. The integration
+        // half tracks the active hitbox.
+        assert!(!frame.melee_pressed);
+        // And the MeleeBrute state's cached mode should reflect
+        // CharacterAiMode::Attack — the engine evaluator returns
+        // Attack when active_remaining > 0.
+        if let Brain::StateMachine(StateMachineCfg::MeleeBrute { state, .. }) = &brain {
+            assert_eq!(state.mode, ae::CharacterAiMode::Attack);
+        } else {
+            unreachable!();
+        }
+    }
+
+    #[test]
     fn brain_stand_still_ctor_matches_variant() {
         let b = Brain::stand_still();
         assert!(matches!(

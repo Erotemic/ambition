@@ -428,6 +428,28 @@ mod tests {
     }
 
     #[test]
+    fn resolve_peaceful_action_set_emits_nothing_for_full_intent() {
+        // ActionSet::peaceful() has no melee/ranged/special. Even
+        // if the brain emits every intent verb, the resolver
+        // returns an empty vec — peaceful actors stay peaceful
+        // even under arbitrary brain input. Pins the "ActionSet
+        // is the authority on capability" invariant.
+        let actions = ActionSet::peaceful();
+        let mut frame = ae::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        frame.fire = Some(ae::ActorFireRequest {
+            dir: ae::Vec2::new(1.0, 0.0),
+            speed: 0.0,
+        });
+        frame.special_pressed = true;
+        let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
+        assert!(
+            reqs.is_empty(),
+            "ActionSet::peaceful produces no requests regardless of intent"
+        );
+    }
+
+    #[test]
     fn action_set_can_attack_detects_melee_or_ranged() {
         let mut s = ActionSet::peaceful();
         assert!(!s.can_attack());

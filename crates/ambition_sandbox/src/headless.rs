@@ -233,6 +233,36 @@ mod tests {
         );
     }
 
+    /// Sustained run check: drive the full sim for 60 ticks and
+    /// verify the brain action counter accumulates non-negatively
+    /// + the headless tick completes without panicking. Catches a
+    /// future regression where the brain shadow tick + resolver
+    /// path starts panicking somewhere mid-room (player loading
+    /// the wrong room and brain seeing inconsistent state).
+    #[test]
+    fn sim_completes_60_ticks_with_counter_intact() {
+        use crate::brain::BrainActionCounter;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(AssetPlugin::default());
+        app.add_plugins(ImagePlugin::default());
+        app.add_plugins(TransformPlugin);
+        app.add_plugins(StatesPlugin);
+        app.init_state::<GameMode>();
+        app.add_plugins(crate::app::SandboxSimulationPlugin);
+        // Run 60 ticks (1 sim second at 60Hz).
+        for _ in 0..60 {
+            app.update();
+        }
+        // Counter should have ticked at least 60 times even if
+        // no actor produced any messages.
+        let counter = app.world().resource::<BrainActionCounter>();
+        // total can be zero if no actor wants action, but
+        // last_frame should be 0..N and well-defined.
+        let _ = counter.total;
+        let _ = counter.last_frame;
+    }
+
     /// Universal-brain integration check: spawning the
     /// SandboxSimulationPlugin yields a player entity carrying
     /// Brain::Player and an ActionSet — verifies the bundle

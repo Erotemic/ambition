@@ -411,7 +411,7 @@ follow-up sweep.
 
 - [`docs/systems/brain-driver.md`](../systems/brain-driver.md) — brain seam this builds on
 - [`docs/recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md) — current "add a new brain" procedure
-- [`tools/ambition_ldtk_tools/specs/hall_of_bosses_area.yaml`](../../tools/ambition_ldtk_tools/specs/hall_of_bosses_area.yaml) — precedent hall room
+- [`tools/ambition_ldtk_tools/specs/hall_of_bosses_area.ron`](../../tools/ambition_ldtk_tools/specs/hall_of_bosses_area.ron) — precedent hall room (post-Phase-4 YAML→RON migration)
 - [`crates/ambition_sandbox/src/presentation/character_sprites/assets.rs`](../../crates/ambition_sandbox/src/presentation/character_sprites/assets.rs) — current registry
 - [[feedback-pre-release-no-compat]] — save-format break policy
 - [[feedback-design-balance]] — narrow types beat wide generic ones; add knobs only when use cases land

@@ -94,7 +94,7 @@ sheet:
    `crates/ambition_sandbox/src/presentation/character_sprites/assets.rs`)
    iterates the embedded `character_catalog.ron`.
 2. For each entry, `sheet_for_character_id(cid)` resolves a
-   [`CharacterSheetSpec`]:
+   `CharacterSheetSpec`:
    - Hardcoded `*_SHEET` consts for characters that need bespoke
      `collision_scale` / `feet_anchor_y` tuning.
    - Otherwise, the manifest-driven fallback

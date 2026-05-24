@@ -156,6 +156,42 @@ would catch the next class of issue.
     basement platforms. The conversation latency was fine — a 5-10
     minute round-trip with explicit findings.
 
+## Postscript — phases 9.O through 9.V (2026-05-24, second half)
+
+After the initial 9.A-9.N batch, the run continued through the
+"deferred follow-ups" list. The post-9.N work:
+
+- **9.O–9.Q** drained the "`boss_encounters/<id>.ron` per-boss phase
+  schedules" deferred follow-up. All three authored bosses
+  (`gnu_ton`, `mockingbird`, `clockwork_warden`) now ship an
+  `assets/data/boss_encounters/<id>.ron` that overrides the
+  hardcoded `BossEncounterSpec` constructor's numeric fields via
+  `default_boss_profiles`. The Rust profile constructors still own
+  the behavior wiring (`BossBehaviorProfile`, `BossRewardProfile`);
+  only numeric fields move to RON. Pinned on both layers (Python
+  schema + Rust field equivalence). Added
+  `BossEncounterSpec::clockwork_warden()` to centralize the
+  gradient_sentinel-mutation pattern.
+
+- **9.R** closed follow-up #4 of `sprite-rendering-surface.md` with
+  a publish-time Idle-row warning. `tackon_sheet.diagnose_idle_coverage`
+  emits a stderr warning during `regen_sprites.sh` when a sheet
+  has ≥1 `CharacterAnim` row but no Idle alias (the placeholder-
+  fallback case the runtime would silently exhibit). 7 unit tests
+  including a galwah-pre-rename regression marker.
+
+- **9.S–9.V** are smaller cleanups: cleared the last 3 test-compile
+  warnings, pinned `publish_catalog_sprites` helpers (5 tests), and
+  fixed pytest-discovery in `test_area_authoring_features` (5 tests
+  recovered).
+
+State at 2026-05-24, second half checkpoint:
+- 785 sandbox lib tests + 265 engine lib tests + 64 ambition_ldtk_tools
+  Python tests + 27 ambition_sprite2d_renderer tests, all green.
+- Sandbox lib+tests compile with zero warnings.
+- Boss-encounters numeric-fields RON migration complete (all 3 bosses).
+- 100% Hall sprite coverage held since 9.N.
+
 ## Cross-refs
 
 - [`TODO-character-catalog-and-hall.md`](../../TODO-character-catalog-and-hall.md) — the run's plan + progress table.

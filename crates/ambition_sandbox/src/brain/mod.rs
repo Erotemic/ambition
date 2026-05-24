@@ -378,6 +378,25 @@ mod tests {
     }
 
     #[test]
+    fn brain_tick_is_deterministic_given_same_snapshot() {
+        // The brain interface is pure(-ish): same brain + same
+        // snapshot → same output (modulo internal state mutation).
+        // Pin determinism so RL training + trace replay can rely
+        // on reproducibility.
+        let snap = BrainSnapshot::idle();
+        let mut a = Brain::StateMachine(StateMachineCfg::MeleeBrute {
+            cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+            state: MeleeBruteState::default(),
+        });
+        let mut b = a.clone();
+        let mut frame_a = ae::ActorControlFrame::neutral();
+        let mut frame_b = ae::ActorControlFrame::neutral();
+        a.tick(&snap, &mut frame_a);
+        b.tick(&snap, &mut frame_b);
+        assert_eq!(frame_a, frame_b, "same brain + same snapshot → same frame");
+    }
+
+    #[test]
     fn shadow_tick_brain_handles_dead_actors_without_emitting_intent() {
         // shadow_tick_brain on a dead actor should emit a neutral
         // frame regardless of brain template — pins the "dead

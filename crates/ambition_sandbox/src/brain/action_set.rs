@@ -306,6 +306,28 @@ pub enum ActionRequest {
     Special { spec: SpecialActionSpec },
 }
 
+impl std::fmt::Display for ActionRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Melee { origin, facing, .. } => write!(
+                f,
+                "{}(at {:?} facing {:+.0})",
+                self.label(),
+                origin,
+                facing,
+            ),
+            Self::Ranged { origin, dir, .. } => write!(
+                f,
+                "{}(from {:?} dir {:?})",
+                self.label(),
+                origin,
+                dir,
+            ),
+            Self::Special { .. } => write!(f, "{}", self.label()),
+        }
+    }
+}
+
 impl ActionRequest {
     /// Short label naming the request kind ("melee_swipe",
     /// "ranged_bolt", "special_bubble_shield", …). Useful for
@@ -534,6 +556,24 @@ mod tests {
             spec: SpecialActionSpec::BubbleShield,
         };
         assert_eq!(special.label(), "special_bubble_shield");
+    }
+
+    #[test]
+    fn action_request_display_includes_kind_and_origin() {
+        let req = ActionRequest::Melee {
+            spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
+            origin: ae::Vec2::new(10.0, 20.0),
+            facing: 1.0,
+            attack_axis: ae::Vec2::ZERO,
+        };
+        let s = format!("{}", req);
+        assert!(s.contains("melee_swipe"));
+        assert!(s.contains("facing"));
+
+        let req2 = ActionRequest::Special {
+            spec: SpecialActionSpec::BubbleShield,
+        };
+        assert_eq!(format!("{}", req2), "special_bubble_shield");
     }
 
     #[test]

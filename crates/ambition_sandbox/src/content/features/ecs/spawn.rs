@@ -344,3 +344,35 @@ pub fn despawn_encounter_mobs(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::brain::{ActionSet, ActorControl, Brain};
+    use bevy::prelude::*;
+
+    /// Regression net: every encounter-spawned hostile actor lands
+    /// with the universal-brain components attached. Pins the
+    /// parallel-shape invariant so a future spawn-site refactor
+    /// can't silently lose the brain.
+    #[test]
+    fn encounter_mob_spawns_with_brain_components() {
+        let mut app = App::new();
+        app.add_systems(Update, |mut commands: Commands| {
+            spawn_encounter_mob(
+                &mut commands,
+                "test_encounter",
+                "test_mob".to_string(),
+                ae::EnemyBrain::Custom("medium_striker".into()),
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 30.0),
+            );
+        });
+        app.update();
+        let mut q = app
+            .world_mut()
+            .query::<(&Brain, &ActionSet, &ActorControl)>();
+        let count = q.iter(app.world()).count();
+        assert_eq!(count, 1, "encounter mob should carry Brain + ActionSet + ActorControl");
+    }
+}

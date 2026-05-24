@@ -147,22 +147,29 @@ pub fn apply_feature_damage_events(
                         });
                         banner.show(format!("{} turns hostile", npc.name), 2.6);
                         *actor = ActorRuntime::Hostile(hostile);
-                        // Swap the brain alongside the runtime so
-                        // the parallel shadow tick aligns with the
-                        // actor's new disposition. Daytime work
-                        // that consumes the brain output then sees
-                        // a MeleeBrute brain on hostile actors
-                        // (instead of the original peaceful
-                        // Patrol brain that lingered after the
-                        // ActorRuntime swap).
-                        commands
-                            .entity(actor_entity)
-                            .insert(crate::brain::Brain::StateMachine(
+                        // Swap the brain + ActionSet alongside the
+                        // runtime so the parallel shadow tick aligns
+                        // with the actor's new disposition. Daytime
+                        // work that consumes the brain output then
+                        // sees a MeleeBrute brain + Swipe ActionSet
+                        // on hostile actors (instead of the original
+                        // peaceful Patrol brain + empty ActionSet
+                        // that lingered after the ActorRuntime swap).
+                        commands.entity(actor_entity).insert((
+                            crate::brain::Brain::StateMachine(
                                 crate::brain::StateMachineCfg::MeleeBrute {
                                     cfg: crate::brain::MeleeBruteCfg::STRIKER_DEFAULT,
                                     state: crate::brain::MeleeBruteState::default(),
                                 },
-                            ));
+                            ),
+                            crate::brain::ActionSet {
+                                melee: Some(crate::brain::MeleeActionSpec::Swipe(
+                                    crate::brain::SwipeSpec::STRIKER_DEFAULT,
+                                )),
+                                move_style: crate::brain::MoveStyleSpec::Walk,
+                                ..Default::default()
+                            },
+                        ));
                     } else {
                         vfx.write(VfxMessage::SpeechBubble {
                             pos: npc.bark_anchor(),

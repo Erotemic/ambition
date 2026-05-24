@@ -13,7 +13,17 @@
 #     generated/ dir then installed into crates/ambition_sandbox/assets/sprites/.
 #
 # Usage:
-#   ./regen_sprites.sh   # render + install everything
+#   ./regen_sprites.sh           # render + install everything (cache-skipped if fresh)
+#   ./regen_sprites.sh --force   # bypass the cache, re-render unconditionally
+#
+# Caching:
+#   The renderer's Python sources + configs are fingerprinted into
+#   `tools/ambition_sprite2d_renderer/.cache/regen-fingerprint`. On the
+#   next run, if the fingerprint matches AND every expected output sheet
+#   already exists in assets/sprites/, the script exits early with no
+#   rendering work. Fingerprint mismatch (a renderer source edit) or
+#   a missing expected output (someone deleted a sheet) triggers a full
+#   re-render. `--force` always re-renders.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,9 +54,11 @@ print_help() {
     ' "$0"
 }
 
+force_regen=0
 for arg in "$@"; do
     case "$arg" in
         -h|--help) print_help; exit 0 ;;
+        --force|-f) force_regen=1 ;;
         *) echo "unknown arg: $arg" >&2; exit 2 ;;
     esac
 done
@@ -62,6 +74,112 @@ if ! "$python_bin" -c 'import ambition_sprite2d_renderer' >/dev/null 2>&1; then
     echo "ambition_sprite2d_renderer is not installed in: $python_bin" >&2
     echo "run ./run_developer_setup.sh, activate the configured venv, or set PYTHON=/path/to/python" >&2
     exit 1
+fi
+
+# --- Fingerprint cache ----------------------------------------------------
+# Hash every .py and .yaml under the renderer module + the boss generator
+# script. If the hash matches the cached value AND every expected sheet
+# is already present in $sprites_dir, skip the whole regen.
+#
+# The expected-files list is the same one the postcondition validates at
+# the end. Keeping a single source of truth means a hand-deletion of one
+# sheet trips both the fast-path check and the postcondition.
+expected_files=(
+    # Adapter targets (draw-all).
+    boss_spritesheet.png boss_spritesheet.yaml boss_spritesheet.ron
+    fascist_enforcer_spritesheet.png fascist_enforcer_spritesheet.yaml fascist_enforcer_spritesheet.ron
+    goblin_spritesheet.png goblin_spritesheet.yaml goblin_spritesheet.ron
+    ninja_shadow_duelist_spritesheet.png ninja_shadow_duelist_spritesheet.yaml ninja_shadow_duelist_spritesheet.ron
+    ninja_shadow_oni_leader_spritesheet.png ninja_shadow_oni_leader_spritesheet.yaml ninja_shadow_oni_leader_spritesheet.ron
+    player_robot_spritesheet.png player_robot_spritesheet.yaml player_robot_spritesheet.ron
+    robot_spritesheet.png robot_spritesheet.yaml robot_spritesheet.ron
+    sandbag_spritesheet.png sandbag_spritesheet.yaml sandbag_spritesheet.ron
+    # Review-config NPCs (draw-review → copied).
+    absurd_general_spritesheet.png absurd_general_spritesheet.yaml absurd_general_spritesheet.ron
+    alice_spritesheet.png alice_spritesheet.yaml alice_spritesheet.ron
+    architect_spritesheet.png architect_spritesheet.yaml architect_spritesheet.ron
+    bob_spritesheet.png bob_spritesheet.yaml bob_spritesheet.ron
+    erdish_spritesheet.png erdish_spritesheet.yaml erdish_spritesheet.ron
+    kernel_guide_spritesheet.png kernel_guide_spritesheet.yaml kernel_guide_spritesheet.ron
+    merchant_prototype_spritesheet.png merchant_prototype_spritesheet.yaml merchant_prototype_spritesheet.ron
+    oiler_spritesheet.png oiler_spritesheet.yaml oiler_spritesheet.ron
+    vault_keeper_spritesheet.png vault_keeper_spritesheet.yaml vault_keeper_spritesheet.ron
+    # Faction-leader sheets (draw-factions → copied).
+    goblin_cantina_chieftain_spritesheet.png goblin_cantina_chieftain_spritesheet.yaml goblin_cantina_chieftain_spritesheet.ron
+    pulse_voyager_captain_spritesheet.png pulse_voyager_captain_spritesheet.yaml pulse_voyager_captain_spritesheet.ron
+    tech_bro_disruptor_spritesheet.png tech_bro_disruptor_spritesheet.yaml tech_bro_disruptor_spritesheet.ron
+    # Tack-on targets that produce character sheets.
+    burning_flying_shark_spritesheet.png burning_flying_shark_spritesheet.yaml burning_flying_shark_spritesheet.ron
+    creator_spritesheet.png creator_spritesheet.yaml creator_spritesheet.ron
+    creator_lab_props_spritesheet.png creator_lab_props_spritesheet.yaml creator_lab_props_spritesheet.ron
+    interdimensional_gate_portal_spritesheet.png interdimensional_gate_portal_spritesheet.yaml interdimensional_gate_portal_spritesheet.ron
+    interdimensional_gate_ring_spritesheet.png interdimensional_gate_ring_spritesheet.yaml interdimensional_gate_ring_spritesheet.ron
+    intro_cart_spritesheet.png intro_cart_spritesheet.yaml intro_cart_spritesheet.ron
+    news_board_spritesheet.png news_board_spritesheet.yaml news_board_spritesheet.ron
+    # Pirate sheets (standalone publisher).
+    pirate_admiral_spritesheet.png pirate_admiral_spritesheet.yaml pirate_admiral_spritesheet.ron
+    pirate_lookout_spritesheet.png pirate_lookout_spritesheet.yaml pirate_lookout_spritesheet.ron
+    pirate_navigator_spritesheet.png pirate_navigator_spritesheet.yaml pirate_navigator_spritesheet.ron
+    pirate_quartermaster_spritesheet.png pirate_quartermaster_spritesheet.yaml pirate_quartermaster_spritesheet.ron
+    pirate_raider_spritesheet.png pirate_raider_spritesheet.yaml pirate_raider_spritesheet.ron
+    # Pirate-heavy variants (three named bruisers sharing one rig).
+    pirate_heavy_broadside_bess_spritesheet.png pirate_heavy_broadside_bess_spritesheet.yaml pirate_heavy_broadside_bess_spritesheet.ron
+    pirate_heavy_iron_mary_spritesheet.png pirate_heavy_iron_mary_spritesheet.yaml pirate_heavy_iron_mary_spritesheet.ron
+    pirate_heavy_salt_annet_spritesheet.png pirate_heavy_salt_annet_spritesheet.yaml pirate_heavy_salt_annet_spritesheet.ron
+    # Small enemy sprites.
+    puppy_slug_spritesheet.png puppy_slug_spritesheet.yaml puppy_slug_spritesheet.ron
+    # Boss subdirectories (custom install paths).
+    gnu_ton_boss/gnu_ton_boss_spritesheet.png
+    gnu_ton_boss/gnu_ton_boss_body_spritesheet.png
+    gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png
+    mockingbird_boss/mockingbird_boss_spritesheet.png
+)
+
+cache_dir="$renderer_dir/.cache"
+fingerprint_file="$cache_dir/regen-fingerprint"
+
+compute_fingerprint() {
+    # `cd` into renderer dir so the file paths in `sha256sum` output
+    # are relative; absolute paths would make the hash depend on the
+    # filesystem location.
+    (
+        cd "$renderer_dir" || exit 1
+        {
+            find ambition_sprite2d_renderer -type f \( -name '*.py' -o -name '*.yaml' \) -print0 \
+                | sort -z \
+                | xargs -0 sha256sum
+            find . -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' \) -print0 \
+                | sort -z \
+                | xargs -0 sha256sum
+        }
+    ) | sha256sum | awk '{print $1}'
+}
+
+all_outputs_present() {
+    local rel
+    for rel in "${expected_files[@]}"; do
+        if [ ! -f "$sprites_dir/$rel" ]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+cached_fingerprint=""
+if [ -f "$fingerprint_file" ]; then
+    cached_fingerprint="$(cat "$fingerprint_file")"
+fi
+current_fingerprint="$(compute_fingerprint)"
+
+if [ "$force_regen" -ne 1 ] \
+    && [ -n "$cached_fingerprint" ] \
+    && [ "$cached_fingerprint" = "$current_fingerprint" ] \
+    && all_outputs_present
+then
+    echo "==> regen cache hit: renderer sources + outputs unchanged — skipping ${#expected_files[@]} sheet renders."
+    echo "    Cache key: $fingerprint_file"
+    echo "    Pass --force to re-render anyway."
+    exit 0
 fi
 
 echo "==> adapter targets (robot / goblin / boss) → $sprites_dir"
@@ -182,66 +300,9 @@ echo "==> postcondition: every runtime-required sprite file present"
 # and fail loudly if any are missing after regen. Keeps the regen
 # pipeline honest as new sprite consumers are added.
 #
-# Expected file list is derived from:
-#   - every `*_SHEET` / `LAB_PROP_*` static in
-#     `crates/ambition_sandbox/src/presentation/character_sprites/sheets.rs`
-#     (each implies `{root}_spritesheet.{png,yaml,ron}` for single-record
-#     files, or just the shared sheet for multi-record files like
-#     creator_lab_props),
-#   - the gnu_ton_boss / mockingbird_boss subdir PNG sets referenced
-#     by `boss_encounter/sprites.rs`.
-#
-# If you add a new sprite consumer, append the filename here.
-expected_files=(
-    # Adapter targets (draw-all).
-    boss_spritesheet.png boss_spritesheet.yaml boss_spritesheet.ron
-    fascist_enforcer_spritesheet.png fascist_enforcer_spritesheet.yaml fascist_enforcer_spritesheet.ron
-    goblin_spritesheet.png goblin_spritesheet.yaml goblin_spritesheet.ron
-    ninja_shadow_duelist_spritesheet.png ninja_shadow_duelist_spritesheet.yaml ninja_shadow_duelist_spritesheet.ron
-    ninja_shadow_oni_leader_spritesheet.png ninja_shadow_oni_leader_spritesheet.yaml ninja_shadow_oni_leader_spritesheet.ron
-    player_robot_spritesheet.png player_robot_spritesheet.yaml player_robot_spritesheet.ron
-    robot_spritesheet.png robot_spritesheet.yaml robot_spritesheet.ron
-    sandbag_spritesheet.png sandbag_spritesheet.yaml sandbag_spritesheet.ron
-    # Review-config NPCs (draw-review → copied).
-    absurd_general_spritesheet.png absurd_general_spritesheet.yaml absurd_general_spritesheet.ron
-    alice_spritesheet.png alice_spritesheet.yaml alice_spritesheet.ron
-    architect_spritesheet.png architect_spritesheet.yaml architect_spritesheet.ron
-    bob_spritesheet.png bob_spritesheet.yaml bob_spritesheet.ron
-    erdish_spritesheet.png erdish_spritesheet.yaml erdish_spritesheet.ron
-    kernel_guide_spritesheet.png kernel_guide_spritesheet.yaml kernel_guide_spritesheet.ron
-    merchant_prototype_spritesheet.png merchant_prototype_spritesheet.yaml merchant_prototype_spritesheet.ron
-    oiler_spritesheet.png oiler_spritesheet.yaml oiler_spritesheet.ron
-    vault_keeper_spritesheet.png vault_keeper_spritesheet.yaml vault_keeper_spritesheet.ron
-    # Faction-leader sheets (draw-factions → copied).
-    goblin_cantina_chieftain_spritesheet.png goblin_cantina_chieftain_spritesheet.yaml goblin_cantina_chieftain_spritesheet.ron
-    pulse_voyager_captain_spritesheet.png pulse_voyager_captain_spritesheet.yaml pulse_voyager_captain_spritesheet.ron
-    tech_bro_disruptor_spritesheet.png tech_bro_disruptor_spritesheet.yaml tech_bro_disruptor_spritesheet.ron
-    # Tack-on targets that produce character sheets.
-    burning_flying_shark_spritesheet.png burning_flying_shark_spritesheet.yaml burning_flying_shark_spritesheet.ron
-    creator_spritesheet.png creator_spritesheet.yaml creator_spritesheet.ron
-    creator_lab_props_spritesheet.png creator_lab_props_spritesheet.yaml creator_lab_props_spritesheet.ron
-    interdimensional_gate_portal_spritesheet.png interdimensional_gate_portal_spritesheet.yaml interdimensional_gate_portal_spritesheet.ron
-    interdimensional_gate_ring_spritesheet.png interdimensional_gate_ring_spritesheet.yaml interdimensional_gate_ring_spritesheet.ron
-    intro_cart_spritesheet.png intro_cart_spritesheet.yaml intro_cart_spritesheet.ron
-    news_board_spritesheet.png news_board_spritesheet.yaml news_board_spritesheet.ron
-    # Pirate sheets (standalone publisher).
-    pirate_admiral_spritesheet.png pirate_admiral_spritesheet.yaml pirate_admiral_spritesheet.ron
-    pirate_lookout_spritesheet.png pirate_lookout_spritesheet.yaml pirate_lookout_spritesheet.ron
-    pirate_navigator_spritesheet.png pirate_navigator_spritesheet.yaml pirate_navigator_spritesheet.ron
-    pirate_quartermaster_spritesheet.png pirate_quartermaster_spritesheet.yaml pirate_quartermaster_spritesheet.ron
-    pirate_raider_spritesheet.png pirate_raider_spritesheet.yaml pirate_raider_spritesheet.ron
-    # Pirate-heavy variants (three named bruisers sharing one rig).
-    pirate_heavy_broadside_bess_spritesheet.png pirate_heavy_broadside_bess_spritesheet.yaml pirate_heavy_broadside_bess_spritesheet.ron
-    pirate_heavy_iron_mary_spritesheet.png pirate_heavy_iron_mary_spritesheet.yaml pirate_heavy_iron_mary_spritesheet.ron
-    pirate_heavy_salt_annet_spritesheet.png pirate_heavy_salt_annet_spritesheet.yaml pirate_heavy_salt_annet_spritesheet.ron
-    # Small enemy sprites.
-    puppy_slug_spritesheet.png puppy_slug_spritesheet.yaml puppy_slug_spritesheet.ron
-    # Boss subdirectories (custom install paths).
-    gnu_ton_boss/gnu_ton_boss_spritesheet.png
-    gnu_ton_boss/gnu_ton_boss_body_spritesheet.png
-    gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png
-    mockingbird_boss/mockingbird_boss_spritesheet.png
-)
+# The expected-files list is defined near the top of this script
+# (it's also consumed by the cache-skip check). When adding a new
+# sprite consumer, update that list.
 missing=()
 for rel in "${expected_files[@]}"; do
     if [ ! -f "$sprites_dir/$rel" ]; then
@@ -256,5 +317,10 @@ if [ "${#missing[@]}" -gt 0 ]; then
     exit 1
 fi
 echo "  ok: ${#expected_files[@]} expected files present"
+
+# --- Write fingerprint on success ----------------------------------------
+mkdir -p "$cache_dir"
+echo "$current_fingerprint" > "$fingerprint_file"
+echo "  cached regen fingerprint at $fingerprint_file"
 
 echo "==> done"

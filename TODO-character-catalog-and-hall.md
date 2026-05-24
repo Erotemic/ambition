@@ -14,7 +14,7 @@ can stop at any checkpoint if budget runs out.
 
 **Run started:** 2026-05-24T17:16:07+0000 (epoch 1779642967)
 **Current phase:** Phase 8 (stretch) — sprite-regen cache 🏗️
-**Last green commit:** _Phase 7 commit pending_
+**Last green commit:** 41754df (Phase 7 — Docs + ADR 0017)
 
 ### Estimated vs Actual time
 
@@ -28,7 +28,7 @@ can stop at any checkpoint if budget runs out.
 | 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | 0.24 h | ✅ done | Three sub-commits: 6A drop YAML support + archive one-shots (def5b2f); 6B delete NPC_SPRITE_REGISTRY + npc_sprite_label, sprite loader iterates catalog via sheet_for_character_id (26000cd, -298+151 lines); 6C renderer review_npcs → characters merge (9ed4a39). |
 | 7. Documentation + ADR 0017 | 0.5 h | 0.07 h | ✅ done | ADR 0017, character-catalog system doc, adding-a-character recipe, FEATURES.md row, TODO.md "landed" entry with deferred follow-ups, docs/recipes/index.md + docs/systems/index.md updates, dev/SEARCH.md grep tip. |
 | **Total (planned)** | **8.5 h** | _ | | over budget by 0.5 h — trim Phase 6 if needed |
-| 8. (stretch) Sprite-regen caching | ~0.75 h | _ | ⬜ optional | only if >45 min slack after Phase 7 |
+| 8. (stretch) Sprite-regen caching | ~0.75 h | 0.08 h | ✅ done | regen_sprites.sh now fingerprints every renderer .py + .yaml + .sh into `.cache/regen-fingerprint`; on next run, if fingerprint matches AND every expected output sheet exists, skips all rendering. `--force` bypasses cache. Cache-hit verified (112 renders skipped); `--force` bypass verified. `.cache/` already gitignored at repo root. |
 
 Status legend: ⬜ pending · 🏗️ in progress · ✅ done · ⏭️ deferred · ❌ blocked
 

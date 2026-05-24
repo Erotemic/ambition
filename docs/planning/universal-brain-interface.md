@@ -1,20 +1,33 @@
 # Universal Brain Interface — design doc
 
-**Status (2026-05-24):** PARTIALLY LANDED via overnight Chunks 1–4f.
-What's live: `crates/ambition_sandbox/src/brain/` carries the Brain
-enum + 7 templates (StandStill/Patrol/Wanderer/MeleeBrute/Skirmisher
-/Sniper/BossPattern) + ActionSet + tick_player_brain. Peaceful NPCs
-tick through `Brain::StateMachine(Patrol/StandStill)`. Players carry
-`Brain::Player(slot)` + `ActorControl`; tick_player_brains fills the
-frame each tick. PlayerBody expanded to cover the migration surface.
-audio/env + ECS actor tick migrated off PlayerMovementAuthority.
-What remains (daytime): enemies + bosses onto Brain (templates +
-ActionSets exist but EnemyRuntime / BossRuntime still drive
-themselves); EFFECTS-stage ActionSet effect-resolve wiring;
-`update_player` consume the ActorControl frame; delete `ae::Player`.
+**Status (2026-05-24):** PARTIALLY LANDED via overnight Chunks 1–4f
++ a late-session stability polish round.
+
+What's live: every controllable entity (player / NPC / enemy /
+boss) carries `Brain` + `ActionSet` + `ActorControl` sibling
+components. `crates/ambition_sandbox/src/brain/` defines the Brain
+enum + 7 templates (StandStill/Patrol/Wanderer/MeleeBrute/
+Skirmisher/Sniper/BossPattern) + ActionSet (Swipe/Lunge/Slam/Bite/
+PunchWeak/Rock/Arrow/Pistol/Bolt/BubbleShield/BossSpotlight). The
+`emit_brain_action_messages` resolver writes one
+`ActorActionMessage` per tick per resolved request; today the
+stream is observed by `BrainActionCounter` only — no combat
+spawner reads from it yet. Hostile NPC flip swaps brain +
+ActionSet together. Tests: 762 sandbox lib + 265 engine = 1091
+green.
+
+What remains (daytime): EFFECTS-stage consumer flip (one melee
+variant at a time, overlap-then-delete per the stale-component
+benchmark); `update_player` consume the ActorControl frame instead
+of `PlayerInputFrame`; `ae::Player` decomposition (38 reads still
+exist); narrow `ActorControlFrame::fire` to `Option<Vec2>` once
+ActionSet owns speed.
+
 See [`../../TODO-controllable-entity.md`](../../TODO-controllable-entity.md)
-for the multi-chunk plan and `dev/journals/ae-player-field-usage-
-2026-05-24.md` for the field-usage audit.
+for the multi-chunk plan, `dev/journals/ae-player-field-usage-
+2026-05-24.md` for the field-usage audit + landed inventory, and
+[`../recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md)
+for the daytime EFFECTS-flip procedure.
 
 **Original design (2026-05-23):** Continuation of the
 controllable-entity unification arc that already merged

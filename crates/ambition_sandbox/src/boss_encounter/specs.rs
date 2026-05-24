@@ -56,31 +56,39 @@ pub fn load_boss_specs_from_disk() -> Vec<ae::BossEncounterSpec> {
 mod tests {
     use super::*;
 
+    /// Asserts the on-disk RON for the named boss is field-by-field
+    /// equivalent to the supplied hardcoded constructor's output.
+    /// Used by every per-boss RON pin test so a drift in any single
+    /// field (HP, timing, music id) trips a focused diff.
+    #[track_caller]
+    fn assert_spec_matches_disk(id: &str, hardcoded: ae::BossEncounterSpec) {
+        let specs = load_boss_specs_from_disk();
+        let on_disk = specs
+            .iter()
+            .find(|s| s.id == id)
+            .unwrap_or_else(|| panic!("{id}.ron should load"));
+        assert_eq!(*on_disk, hardcoded, "boss_encounters/{id}.ron drifted from constructor");
+    }
+
     #[test]
     fn load_boss_specs_from_disk_finds_gnu_ton() {
-        let specs = load_boss_specs_from_disk();
-        let gnu_ton = specs
-            .iter()
-            .find(|s| s.id == "gnu_ton")
-            .expect("gnu_ton.ron should load");
-        // The on-disk RON should match the hardcoded constructor's
-        // values so a future runtime swap is a no-op.
-        let hardcoded = ae::BossEncounterSpec::gnu_ton();
-        assert_eq!(gnu_ton.id, hardcoded.id);
-        assert_eq!(gnu_ton.name, hardcoded.name);
-        assert_eq!(gnu_ton.max_hp, hardcoded.max_hp);
-        assert_eq!(gnu_ton.phase1_to_transition_hp, hardcoded.phase1_to_transition_hp);
-        assert_eq!(gnu_ton.transition_to_phase2_hp, hardcoded.transition_to_phase2_hp);
-        assert_eq!(gnu_ton.phase2_to_enrage_hp, hardcoded.phase2_to_enrage_hp);
-        assert_eq!(gnu_ton.intro_seconds, hardcoded.intro_seconds);
-        assert_eq!(gnu_ton.transition_seconds, hardcoded.transition_seconds);
-        assert_eq!(gnu_ton.stagger_seconds, hardcoded.stagger_seconds);
-        assert_eq!(gnu_ton.death_seconds, hardcoded.death_seconds);
-        assert_eq!(gnu_ton.stagger_threshold, hardcoded.stagger_threshold);
-        assert_eq!(gnu_ton.stagger_window_seconds, hardcoded.stagger_window_seconds);
-        assert_eq!(gnu_ton.music_intro, hardcoded.music_intro);
-        assert_eq!(gnu_ton.music_phase1, hardcoded.music_phase1);
-        assert_eq!(gnu_ton.music_phase2, hardcoded.music_phase2);
-        assert_eq!(gnu_ton.music_enrage, hardcoded.music_enrage);
+        assert_spec_matches_disk("gnu_ton", ae::BossEncounterSpec::gnu_ton());
+    }
+
+    #[test]
+    fn load_boss_specs_from_disk_finds_mockingbird() {
+        assert_spec_matches_disk("mockingbird", ae::BossEncounterSpec::mockingbird());
+    }
+
+    #[test]
+    fn load_boss_specs_from_disk_finds_clockwork_warden() {
+        // The Rust profile starts from `gradient_sentinel()` and
+        // overrides id/name/max_hp. The RON authors the final state
+        // directly.
+        let mut hardcoded = ae::BossEncounterSpec::gradient_sentinel();
+        hardcoded.id = "clockwork_warden".into();
+        hardcoded.name = "Clockwork Warden".into();
+        hardcoded.max_hp = 36;
+        assert_spec_matches_disk("clockwork_warden", hardcoded);
     }
 }

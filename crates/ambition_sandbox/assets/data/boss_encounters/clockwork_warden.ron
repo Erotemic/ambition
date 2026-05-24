@@ -1,0 +1,35 @@
+// Boss encounter spec — Clockwork Warden.
+//
+// Renamed boss derived from `gradient_sentinel`; the profile
+// constructor in Rust still starts from `gradient_sentinel`'s
+// numbers and overrides id/name/max_hp. The on-disk RON
+// authors the *final* state directly — id and max_hp are
+// authoritative when this file exists.
+//
+// Mirrors `BossProfile::clockwork_warden()` in
+// `crates/ambition_sandbox/src/boss_encounter/profile.rs`; the
+// spec equivalence is pinned by
+// `clockwork_warden_profile_encounter_matches_hardcoded_constructor`.
+
+(
+    id: "clockwork_warden",
+    name: "Clockwork Warden",
+    max_hp: 36,
+    phase1_to_transition_hp: 0.66,
+    transition_to_phase2_hp: 0.66,
+    phase2_to_enrage_hp: 0.22,
+    intro_seconds: 2.4,
+    transition_seconds: 1.6,
+    stagger_seconds: 1.8,
+    death_seconds: 2.4,
+    stagger_threshold: 6,
+    stagger_window_seconds: 1.5,
+    // Reuse existing sandbox tracks until dedicated boss music
+    // ships. Per-phase string ids exercise the swap mechanism
+    // end-to-end; future audio can swap these strings without
+    // code changes.
+    music_intro: "pulse_drift_voyage",
+    music_phase1: "pulse_drift_voyage",
+    music_phase2: "original_lofi_loop",
+    music_enrage: "original_lofi_loop",
+)

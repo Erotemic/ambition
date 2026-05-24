@@ -1,0 +1,31 @@
+// Boss encounter spec — Mockingbird.
+//
+// Pirate-faction arena boss. Shorter HP pool than the gradient
+// sentinel — design intent is "swooping aerial pressure" rather
+// than attrition. Uses the `how_to_kill_a_mockingbird` audio
+// score (rendered separately by the music renderer); falls back
+// to existing boss tracks if the audio asset isn't on disk.
+//
+// Mirrors `ae::BossEncounterSpec::mockingbird()` in
+// `crates/ambition_engine/src/boss_encounter.rs`; the spec
+// equivalence is pinned by
+// `mockingbird_profile_encounter_matches_hardcoded_constructor`.
+
+(
+    id: "mockingbird",
+    name: "Mockingbird",
+    max_hp: 28,
+    phase1_to_transition_hp: 0.60,
+    transition_to_phase2_hp: 0.60,
+    phase2_to_enrage_hp: 0.25,
+    intro_seconds: 2.0,
+    transition_seconds: 1.4,
+    stagger_seconds: 1.6,
+    death_seconds: 2.2,
+    stagger_threshold: 5,
+    stagger_window_seconds: 1.4,
+    music_intro: "how_to_kill_a_mockingbird",
+    music_phase1: "how_to_kill_a_mockingbird",
+    music_phase2: "how_to_kill_a_mockingbird",
+    music_enrage: "how_to_kill_a_mockingbird",
+)

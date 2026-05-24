@@ -170,21 +170,39 @@ mod tests {
         ));
     }
 
-    /// Smoke test for the RON-overrides-hardcoded path: gnu_ton has a
-    /// `boss_encounters/gnu_ton.ron` on disk, so `default_boss_profiles`
-    /// must produce an encounter spec equivalent to the hardcoded
-    /// constructor (they're pinned identical by the specs.rs test).
-    /// Catches regressions where the RON drifts from the constructor
-    /// or where the override loop accidentally drops the spec.
-    #[test]
-    fn gnu_ton_profile_encounter_matches_hardcoded_constructor() {
+    /// Smoke tests for the RON-overrides-hardcoded path: each boss
+    /// has a `boss_encounters/<id>.ron` on disk, so
+    /// `default_boss_profiles` must produce an encounter spec
+    /// equivalent to the hardcoded constructor (the per-field diff
+    /// is pinned in `specs::tests::load_boss_specs_from_disk_finds_*`).
+    /// These tests catch regressions where the RON drifts from the
+    /// constructor or where the override loop accidentally drops the
+    /// spec for a particular id.
+    #[track_caller]
+    fn assert_profile_matches(id: &str, hardcoded: ae::BossEncounterSpec) {
         let profile = default_boss_profiles()
             .into_iter()
-            .find(|p| p.id == "gnu_ton")
-            .expect("gnu_ton profile is registered");
-        let hardcoded = ae::BossEncounterSpec::gnu_ton();
-        // The on-disk RON must round-trip identically (the per-field
-        // diff is pinned in `specs::tests::load_boss_specs_from_disk_finds_gnu_ton`).
+            .find(|p| p.id == id)
+            .unwrap_or_else(|| panic!("{id} profile is registered"));
         assert_eq!(profile.encounter, hardcoded);
+    }
+
+    #[test]
+    fn gnu_ton_profile_encounter_matches_hardcoded_constructor() {
+        assert_profile_matches("gnu_ton", ae::BossEncounterSpec::gnu_ton());
+    }
+
+    #[test]
+    fn mockingbird_profile_encounter_matches_hardcoded_constructor() {
+        assert_profile_matches("mockingbird", ae::BossEncounterSpec::mockingbird());
+    }
+
+    #[test]
+    fn clockwork_warden_profile_encounter_matches_hardcoded_constructor() {
+        let mut expected = ae::BossEncounterSpec::gradient_sentinel();
+        expected.id = "clockwork_warden".into();
+        expected.name = "Clockwork Warden".into();
+        expected.max_hp = 36;
+        assert_profile_matches("clockwork_warden", expected);
     }
 }

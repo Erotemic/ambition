@@ -18,11 +18,19 @@ state.mode tracking, SignumOr fallback) and 2 consistency fixes
 - [dev/journals/ae-player-field-usage-2026-05-24.md](dev/journals/ae-player-field-usage-2026-05-24.md) — audit + landed inventory + daytime continuation list
 - [docs/adr/0016-actor-unification.md](docs/adr/0016-actor-unification.md) — actor unification ADR (universal-brain section added)
 
-**Daytime continuation (high-leverage):**
-1. EFFECTS-stage consumer flip — read `ActorActionMessage` instead of `EnemyRuntime`/`BossRuntime`/`update_player` for combat spawns. Overlap-then-delete per the stale-component benchmark.
-2. `ae::Player` decomposition — 38 `authority.player.*` reads still in the sandbox; walk reader clusters per the audit doc.
-3. `update_player` consume `ActorControl` frame instead of `PlayerInputFrame` directly.
-4. Narrow `ActorControlFrame::fire` to `Option<Vec2>` once `RangedActionSpec` owns speed.
+**Status (2026-05-24, second session):** SUBSTANTIALLY LANDED. The
+actor/brain migration's structural goals are met. `sandbox_update` is
+gone; player consumes `ActorControl`; enemy ranged + player melee
+flow through `ActorActionMessage`; `EnemyArchetypeSpec` consolidates
+behavior. See [`dev/journals/actor-brain-migration-completion-2026-05-24.md`](dev/journals/actor-brain-migration-completion-2026-05-24.md)
+for the completion journal + architectural checks.
+
+**Remaining (suggested order):**
+1. Enemy melee hitbox lifecycle — `EnemyRuntime::player_damage()` per-tick overlap → discrete hitbox entities spawned from `ActorActionMessage::Melee`. Estimated 2-3h.
+2. BossPattern brain emits real frames — pattern moves from `BossRuntime` into brain + per-encounter RON schedule. Estimated 4-6h.
+3. Player special/blink/pogo onto ActorControlFrame — eliminates the raw `ControlFrame` arg in the polarity flip. Estimated 1-2h.
+4. `ae::Player` decomposition — 38 `authority.player.*` reads still in the sandbox; walk reader clusters per the audit doc.
+5. Narrow `ActorControlFrame::fire` to `Option<Vec2>` once `RangedActionSpec` owns speed.
 
 Plan below preserved as the original execution map.
 

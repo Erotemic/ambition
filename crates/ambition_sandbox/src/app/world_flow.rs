@@ -720,30 +720,6 @@ pub(super) fn apply_player_knockback(
     });
 }
 
-pub(super) fn controls_for_hitstun(
-    mut controls: ControlFrame,
-    feel: SandboxFeelTuning,
-    hitstun_timer: f32,
-) -> ControlFrame {
-    if hitstun_timer <= 0.0 {
-        return controls;
-    }
-    let scale = feel.hitstun_control_scale.clamp(0.0, 1.0);
-    controls.axis_x *= scale;
-    controls.axis_y *= scale;
-    controls.jump_pressed = false;
-    controls.dash_pressed = false;
-    controls.fast_fall_pressed = false;
-    controls.blink_pressed = false;
-    controls.blink_held = false;
-    controls.blink_released = false;
-    controls.attack_pressed = false;
-    controls.pogo_pressed = false;
-    controls.fly_toggle_pressed = false;
-    controls.interact_pressed = false;
-    controls
-}
-
 /// Build the engine's `InputState` from the player's brain output
 /// (`ActorControl`, the post-Brain::Player intent) combined with the
 /// raw `ControlFrame` (for player-specific verbs the player brain

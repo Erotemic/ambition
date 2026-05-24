@@ -309,6 +309,23 @@ pub fn observe_brain_action_counter(
     counter.total = counter.total.wrapping_add(this_frame as u64);
 }
 
+/// Bevy system: log each `ActorActionMessage` at debug level using
+/// `tracing::debug!`. Gated by the standard tracing filter — set
+/// `RUST_LOG=ambition_sandbox::brain=debug` to see the per-tick
+/// resolver output. Useful for daytime EFFECTS-flip verification
+/// without a HUD readout. Not registered by default.
+#[allow(dead_code, reason = "diagnostic system; off by default")]
+pub fn log_brain_action_messages(mut reader: MessageReader<ActorActionMessage>) {
+    for msg in reader.read() {
+        bevy::log::debug!(
+            target: "ambition_sandbox::brain",
+            "brain action: actor={:?} req={}",
+            msg.actor,
+            msg.request,
+        );
+    }
+}
+
 /// Combat-timer state passed into a shadow tick so the brain's
 /// AI evaluator sees correct windup / active / recover / cooldown
 /// values. Use `CombatTimers::CLEAR` for actors that don't track

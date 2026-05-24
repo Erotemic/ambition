@@ -111,9 +111,13 @@ Landed:
   iterates the catalog via `sheet_for_character_id`.
 
 Deferred for follow-up work:
-- `boss_encounters/<id>.ron` per-boss phase schedules (the catalog's
-  `BossPattern` brain preset references encounter ids but the
-  schedules are still hardcoded in Rust today).
+- `boss_encounters/<id>.ron` per-boss phase schedules — **proof of
+  concept landed 2026-05-24**: `gnu_ton.ron` overrides the hardcoded
+  `BossEncounterSpec::gnu_ton()` constructor's numeric fields via
+  `default_boss_profiles`. Remaining work is to author RON for
+  `mockingbird` and `clockwork_warden` (mechanical) and to move the
+  per-phase brain schedules (a richer schema item) once `BossPattern`
+  has hooks for it.
 - `SheetRegistry`-driven sprite specs — once the per-character
   `CharacterSheetSpec` consts come from the manifest at startup,
   `sheet_for_character_id` disappears entirely.

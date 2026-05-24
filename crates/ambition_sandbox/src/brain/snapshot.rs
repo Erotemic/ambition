@@ -162,6 +162,7 @@ mod tests {
         assert_eq!(s.stun_remaining, 0.0);
         assert!(s.wall_contact.is_none());
         assert!(s.alive);
+        assert!(s.player_input.is_none(), "idle snapshot has no input");
     }
 
     #[test]

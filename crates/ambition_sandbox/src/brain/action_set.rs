@@ -428,6 +428,23 @@ mod tests {
     }
 
     #[test]
+    fn resolve_empty_when_frame_has_no_action_intent() {
+        // wants_any_action()=false → resolver always returns empty.
+        // Pin the contract so daytime code that gates resolve()
+        // calls behind wants_any_action() can rely on it.
+        let actions = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ranged: Some(RangedActionSpec::Bolt { speed: 500.0, damage: 1 }),
+            special: Some(SpecialActionSpec::BubbleShield),
+            move_style: MoveStyleSpec::Walk,
+        };
+        let frame = ae::ActorControlFrame::neutral();
+        assert!(!frame.wants_any_action());
+        let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
+        assert!(reqs.is_empty());
+    }
+
+    #[test]
     fn resolve_passes_attack_axis_through_to_melee_request() {
         // Player tilt (up-tilt / down-air / back-air) carries
         // direction in frame.attack_axis; resolver threads it

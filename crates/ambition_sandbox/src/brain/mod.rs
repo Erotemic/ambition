@@ -150,6 +150,25 @@ pub struct ActorActionMessage {
     pub request: action_set::ActionRequest,
 }
 
+impl ActorActionMessage {
+    /// True iff this message carries a melee request. Cheap
+    /// shorthand for `matches!(self.request, ActionRequest::Melee
+    /// { .. })`.
+    pub fn is_melee(&self) -> bool {
+        matches!(self.request, action_set::ActionRequest::Melee { .. })
+    }
+
+    /// True iff this message carries a ranged request.
+    pub fn is_ranged(&self) -> bool {
+        matches!(self.request, action_set::ActionRequest::Ranged { .. })
+    }
+
+    /// True iff this message carries a special-ability request.
+    pub fn is_special(&self) -> bool {
+        matches!(self.request, action_set::ActionRequest::Special { .. })
+    }
+}
+
 /// Bevy system: walk every actor entity that has a Brain +
 /// ActionSet + ActorControl and emit one `ActorActionMessage` per
 /// resolved action request. Runs after the brain-driver systems
@@ -254,6 +273,36 @@ mod tests {
         let sm = Brain::StateMachine(StateMachineCfg::StandStill);
         assert!(!sm.is_player());
         assert!(sm.player_slot().is_none());
+    }
+
+    #[test]
+    fn actor_action_message_predicates_match_request_variant() {
+        use bevy::prelude::*;
+        // Use World::spawn() to get a real Entity since Bevy 0.18
+        // removed Entity::from_raw from the public API.
+        let mut world = World::new();
+        let actor = world.spawn(()).id();
+        let m_melee = ActorActionMessage {
+            actor,
+            request: ActionRequest::Melee {
+                spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
+                origin: ae::Vec2::ZERO,
+                facing: 1.0,
+                attack_axis: ae::Vec2::ZERO,
+            },
+        };
+        assert!(m_melee.is_melee());
+        assert!(!m_melee.is_ranged());
+        assert!(!m_melee.is_special());
+
+        let m_special = ActorActionMessage {
+            actor,
+            request: ActionRequest::Special {
+                spec: SpecialActionSpec::BubbleShield,
+            },
+        };
+        assert!(m_special.is_special());
+        assert!(!m_special.is_melee());
     }
 
     #[test]

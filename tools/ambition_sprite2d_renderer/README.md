@@ -24,37 +24,36 @@ Tack-on targets are split across four category subdirs:
 
 ## Modal CLI
 
-Adapter (character lab) commands:
+**Unified Target commands** (take an optional `<TARGET>` from `list`; no arg = bulk):
 
 ```
-python -m ambition_sprite2d_renderer list-targets        # adapter + tack-on targets (grouped by category)
-python -m ambition_sprite2d_renderer draw-all            # render every job in configs/
-python -m ambition_sprite2d_renderer draw-canonicals     # every adapter + tack-on canonical + grid contact sheet
-                                                          #   (--adapters-only to skip tack-ons; --no-render to read cache only)
-python -m ambition_sprite2d_renderer draw-review         # curated general-character + NPC review pass
-python -m ambition_sprite2d_renderer draw-character <cfg> # one config: canonical + spritesheet + YAML
-python -m ambition_sprite2d_renderer draw-entities       # batch render every entity sprite
-python -m ambition_sprite2d_renderer draw-icons          # batch render every ability/item icon
-python -m ambition_sprite2d_renderer draw-runtime-npcs   # render+install the review NPCs the sandbox loads at boot
-python -m ambition_sprite2d_renderer spritesheet <cfg> <out>
-python -m ambition_sprite2d_renderer single <cfg> <out> --animation idle --frame-index 0
+python -m ambition_sprite2d_renderer list                   # every registered target, grouped by category
+python -m ambition_sprite2d_renderer canonical [<target>]   # one canonical, or the full gallery
+python -m ambition_sprite2d_renderer sheet     [<target>]   # one full sheet, or every tack-on sheet
+python -m ambition_sprite2d_renderer install   [<target>]   # one install, or every tack-on install
+python -m ambition_sprite2d_renderer publish   [<target>]   # sheet + install (one, or every tack-on)
 ```
 
-Tack-on commands:
+**Adapter-pipeline commands** (take config paths or have unique semantics):
 
 ```
-python -m ambition_sprite2d_renderer render <target>           # write to generated/<target>/
-python -m ambition_sprite2d_renderer preview <target>          # render and report paths
-python -m ambition_sprite2d_renderer install <target>          # copy into sandbox assets
-python -m ambition_sprite2d_renderer render-publish <target>   # render then install
-python -m ambition_sprite2d_renderer render-publish-all        # render+install every tack-on target
-python -m ambition_sprite2d_renderer regenerate-all            # draw-all + render-publish-all + draw-runtime-npcs
+python -m ambition_sprite2d_renderer draw-all                # render every config in configs/
+python -m ambition_sprite2d_renderer draw-review             # render every config in configs/review/
+python -m ambition_sprite2d_renderer draw-character <cfg>    # one config: canonical + spritesheet + YAML
+python -m ambition_sprite2d_renderer draw-factions           # music-faction lineup review render
+python -m ambition_sprite2d_renderer draw-runtime-npcs       # render+install the curated runtime-NPC subset
+python -m ambition_sprite2d_renderer spritesheet <cfg> <out> # one config's sheet to a specific path
+python -m ambition_sprite2d_renderer single <cfg> <out>      # one frame from a config
+python -m ambition_sprite2d_renderer regenerate-all          # draw-all + publish + draw-runtime-npcs
 ```
 
-`render` writes the sheet into
-`tools/ambition_sprite2d_renderer/generated/<target>/`. `install` copies the
-canonical sheet files into `crates/ambition_sandbox/assets/sprites/`.
-`render-publish` does both.
+`sheet` writes to `tools/ambition_sprite2d_renderer/generated/<target>/`.
+`install` copies the canonical sheet files into
+`crates/ambition_sandbox/assets/sprites/`. `publish` does both.
+
+The bulk forms of `sheet` / `install` / `publish` are scoped to the tack-on
+surface (characters/props/tiles/icons); main YAML configs and review NPCs
+have their own bulk paths (`draw-all` / `draw-runtime-npcs`).
 
 ## Adding a new sprite
 

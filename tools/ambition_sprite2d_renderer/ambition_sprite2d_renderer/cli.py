@@ -1,34 +1,34 @@
 """Modal CLI for ambition_sprite2d_renderer.
 
-Two surfaces live here:
+Two command families:
 
-(a) The procedural character lab — formerly ``proc2d_character_lab``.
-    Targets defined under ``targets/`` (robot_side, goblin_side, boss_side,
-    toon_side, robot25d) are driven by YAML jobs in ``configs/`` and the
-    ``adapters.TARGETS`` registry.
+(1) **Unified Target commands** — work with any registered target
+    (tack-ons under ``targets/<category>/``, main configs under
+    ``configs/``, review-NPC configs under ``configs/review/``). Each
+    takes an optional ``<TARGET>`` name. With a name: act on that
+    target. Without: bulk over every tack-on target.
 
-      list-targets               Show registered character adapters.
-      draw-all                   Render core runtime jobs in ``configs/``.
-      draw-review                Render review/variant jobs in ``configs/review/``.
-      draw-canonicals            Render canonical poses + contact sheet.
-      draw-character <config>    Render canonical + spritesheet + YAML for one job.
-      draw-entities              Render non-character gameplay entity sprites.
-      spritesheet <config> <out> Render one job's sheet.
-      single <config> <out>      Render one frame.
+      list                        Show every registered target, grouped by category.
+      canonical [<target>]        One canonical pose, or the full gallery.
+      sheet [<target>]            One full sprite sheet, or every tack-on sheet.
+      install [<target>]          Copy one target's files to sandbox assets, or all.
+      publish [<target>]          sheet + install (one, or every tack-on).
 
-(b) Tack-on targets (e.g. sandbag, ghoul_skulker) that ship their own
-    ``render(out_dir, **opts) -> Iterable[Path]`` function. They are
-    auto-discovered from ``targets/*.py`` via
-    :mod:`ambition_sprite2d_renderer.target_registry` — there is no
-    central registration list to edit, so dropping a new file in
-    ``targets/`` is the entire integration step.
+(2) **Adapter-pipeline commands** — take config paths instead of
+    target names, scoped to the YAML adapter pipeline. Useful for
+    one-off art iteration with custom configs and for the curated
+    runtime-NPC publishing path.
 
-      render <target>            Render into ``generated/<target>/``.
-      preview <target>           Render and print the resulting paths.
-      install <target>           Copy generated files into sandbox assets.
-      render-publish <target>    Render then install.
+      draw-all                    Render every config in ``configs/``.
+      draw-review                 Render every config in ``configs/review/``.
+      draw-character <config>     One config: canonical + spritesheet + YAML.
+      draw-factions               Music-faction lineup review render.
+      draw-runtime-npcs           Render + install the curated review-NPC subset.
+      regenerate-all              draw-all + publish + draw-runtime-npcs.
+      spritesheet <config> <out>  One config's sheet to a specific path.
+      single <config> <out>       One frame from a config.
 
-See ``target_registry.py`` for the tack-on API contract.
+See ``target_registry.py`` for the Target protocol contract.
 """
 from __future__ import annotations
 
@@ -46,8 +46,6 @@ from .canonical import (
 )
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
-from .targets.props.entities import write_entity_sprites
-from .targets.icons.item_icons import write_item_icons
 from .faction_lineup import write_faction_lineup
 from .sheet import write_spritesheet
 from .target_registry import (
@@ -153,7 +151,7 @@ def _get_target(name: str) -> Target:
             )
     raise SystemExit(
         f"error: unknown target: {name!r}\n"
-        f"  run `list-targets` to see the registered targets."
+        f"  run `list` to see the registered targets."
     )
 
 
@@ -262,14 +260,6 @@ def draw_character(config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR) 
     return [canonical_out, image_out, yaml_out]
 
 
-def draw_entities(out_dir: str | Path = DEFAULT_ASSET_DIR / "entities") -> List[Path]:
-    return write_entity_sprites(out_dir)
-
-
-def draw_icons(out_dir: str | Path = DEFAULT_ASSET_DIR / "icons") -> List[Path]:
-    return write_item_icons(out_dir)
-
-
 def draw_factions(
     config: str | Path = DEFAULT_FACTION_CONFIG,
     out_dir: str | Path = DEFAULT_ASSET_DIR / "factions",
@@ -287,7 +277,13 @@ def _cmd_draw_review(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_draw_canonicals(args: argparse.Namespace) -> int:
+def _cmd_canonical(args: argparse.Namespace) -> int:
+    """`canonical [<name>]` — draw one canonical, or the full gallery."""
+    if args.target:
+        target = _get_target(args.target)
+        out = draw_canonical_of(target, args.out_dir)
+        print_paths([out])
+        return 0
     print_canonical_outputs(draw_canonicals(
         args.config_dir,
         args.out_dir,
@@ -296,26 +292,8 @@ def _cmd_draw_canonicals(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_canonical(args: argparse.Namespace) -> int:
-    """Draw the canonical of a single target into ``--out-dir``."""
-    target = _get_target(args.target)
-    out = draw_canonical_of(target, args.out_dir)
-    print_paths([out])
-    return 0
-
-
 def _cmd_draw_character(args: argparse.Namespace) -> int:
     print_paths(draw_character(args.config, args.out_dir))
-    return 0
-
-
-def _cmd_draw_entities(args: argparse.Namespace) -> int:
-    print_paths(draw_entities(args.out_dir))
-    return 0
-
-
-def _cmd_draw_icons(args: argparse.Namespace) -> int:
-    print_paths(draw_icons(args.out_dir))
     return 0
 
 
@@ -373,7 +351,22 @@ def _cmd_single(args: argparse.Namespace) -> int:
     return 0
 
 
-# ---- Target render / install commands ---------------------------------------
+# ---- Target sheet / install / publish commands -------------------------------
+
+# Tack-on categories that bulk operations scope to. The adapter
+# surface (`characters` includes both tack-on and main-config targets;
+# `review_npcs` is its own thing) has its own bulk paths via
+# `draw-all` / `draw-runtime-npcs`.
+_TACKON_CATEGORIES = frozenset({"characters", "props", "tiles", "icons"})
+
+
+def _tackon_target_names() -> list[str]:
+    """Names of every tack-on (non-AdapterTarget) target, sorted."""
+    from .target_registry import TackonTarget
+    return sorted(
+        name for name, t in _ALL_TARGETS.items() if isinstance(t, TackonTarget)
+    )
+
 
 def _render_target(target_name: str) -> List[Path]:
     target = _get_target(target_name)
@@ -395,64 +388,62 @@ def _install_target(target_name: str, dest_root: Path) -> List[Path]:
     return copied
 
 
-def _cmd_render(args: argparse.Namespace) -> int:
-    _render_target(args.target)
-    return 0
-
-
-def _cmd_preview(args: argparse.Namespace) -> int:
-    paths = _render_target(args.target)
-    if paths:
-        print_paths([paths[0]])
-    else:
-        print("\npreview written: <none>")
-    return 0
-
-
-def _cmd_install(args: argparse.Namespace) -> int:
-    copied = _install_target(args.target, args.dest_root)
-    return 0 if copied else 1
-
-
-def _cmd_render_publish(args: argparse.Namespace) -> int:
-    _render_target(args.target)
-    copied = _install_target(args.target, args.dest_root)
-    return 0 if copied else 1
-
-
-def _cmd_render_publish_all(args: argparse.Namespace) -> int:
-    """Render + install every tack-on target.
-
-    Scoped to the tack-on surface (characters/props/tiles/icons) — the
-    YAML adapter surface is published by `draw-all` and the runtime
-    review NPCs by `draw-runtime-npcs`, both via separate commands.
-    Each target's errors are reported but don't abort the rest.
-    """
-    tackon_categories = {"characters", "props", "tiles", "icons"}
-    tackon_names = sorted(
-        name for name, t in _ALL_TARGETS.items() if t.category in tackon_categories
-    )
+def _bulk_over(
+    op_name: str,
+    target_names: list[str],
+    op: "callable",
+) -> int:
+    """Run ``op(name)`` over each ``target_names``; report failures, return rc."""
     failures: list[str] = []
-    for target_name in tackon_names:
-        print(f"\n# {target_name}")
+    for name in target_names:
+        print(f"\n# {name}")
         try:
-            _render_target(target_name)
-            if not _install_target(target_name, args.dest_root):
-                failures.append(target_name)
+            op(name)
         except Exception as ex:  # noqa: BLE001 - report and continue
-            print(
-                f"error: tack-on target {target_name!r} failed: {ex}",
-                file=sys.stderr,
-            )
-            failures.append(target_name)
+            print(f"error: target {name!r} failed: {ex}", file=sys.stderr)
+            failures.append(name)
     if failures:
         print(
-            f"\nrender-publish-all completed with {len(failures)} failure(s): "
+            f"\n{op_name} completed with {len(failures)} failure(s): "
             + ", ".join(failures),
             file=sys.stderr,
         )
         return 1
     return 0
+
+
+def _cmd_sheet(args: argparse.Namespace) -> int:
+    """`sheet [<name>]` — render one sheet, or every tack-on sheet."""
+    if args.target:
+        _render_target(args.target)
+        return 0
+    return _bulk_over("sheet", _tackon_target_names(), _render_target)
+
+
+def _cmd_install(args: argparse.Namespace) -> int:
+    """`install [<name>]` — install one target's files, or every tack-on's."""
+    if args.target:
+        copied = _install_target(args.target, args.dest_root)
+        return 0 if copied else 1
+    return _bulk_over(
+        "install",
+        _tackon_target_names(),
+        lambda name: _install_target(name, args.dest_root),
+    )
+
+
+def _cmd_publish(args: argparse.Namespace) -> int:
+    """`publish [<name>]` — sheet + install for one target, or all tack-ons."""
+    if args.target:
+        _render_target(args.target)
+        copied = _install_target(args.target, args.dest_root)
+        return 0 if copied else 1
+
+    def _publish_one(name: str) -> None:
+        _render_target(name)
+        _install_target(name, args.dest_root)
+
+    return _bulk_over("publish", _tackon_target_names(), _publish_one)
 
 
 def _cmd_regenerate_all(args: argparse.Namespace) -> int:
@@ -465,8 +456,7 @@ def _cmd_regenerate_all(args: argparse.Namespace) -> int:
     1. `draw-all --out-dir <sandbox assets>` — adapter-driven sheets
        (player_robot, robot, goblin, ninja, ninja_leader, sandbag,
        boss, fascist_enforcer).
-    2. `render-publish-all` — every tack-on target discovered under
-       `targets/`.
+    2. `publish` (no target) — every tack-on target under `targets/`.
     3. `draw-runtime-npcs` — review-config toon NPCs that the runtime
        sprite registry expects (architect, kernel_guide, vault_keeper,
        merchant_prototype, absurd_general, oiler, erdish).
@@ -483,11 +473,11 @@ def _cmd_regenerate_all(args: argparse.Namespace) -> int:
         print(f"error: draw-all failed: {ex}", file=sys.stderr)
         failures.append("draw-all")
 
-    print("\n# step 2/3: render-publish-all (tack-on targets)")
-    publish_args = argparse.Namespace(dest_root=dest)
-    rc = _cmd_render_publish_all(publish_args)
+    print("\n# step 2/3: publish (every tack-on target)")
+    publish_args = argparse.Namespace(target=None, dest_root=dest)
+    rc = _cmd_publish(publish_args)
     if rc != 0:
-        failures.append("render-publish-all")
+        failures.append("publish")
 
     print("\n# step 3/3: draw-runtime-npcs (review-config NPCs)")
     npc_args = argparse.Namespace(
@@ -545,25 +535,28 @@ def _cmd_draw_runtime_npcs(args: argparse.Namespace) -> int:
     return 0
 
 
-def _add_tackon_target_arg(p: argparse.ArgumentParser) -> None:
-    # No `choices=` constraint here. We want argparse to accept any
-    # string so `_get_target` can give a useful error when the name
-    # matches a file under `targets/<category>/` but the file is
-    # missing the tack-on API. With `choices=` argparse would error
-    # before our handler runs and we couldn't surface the warning.
+def _add_optional_target_arg(p: argparse.ArgumentParser) -> None:
+    """Optional TARGET positional — empty means bulk over every tack-on.
+
+    No ``choices=`` constraint here so that ``_get_target`` can surface
+    a useful error when the name matches a file under
+    ``targets/<category>/`` but the file is missing the tack-on API.
+    With ``choices=`` argparse would error before our handler runs
+    and we couldn't show the warning.
+    """
     p.add_argument(
         "target",
         metavar="TARGET",
-        help="target id (run `list-targets` to see what's registered)",
+        nargs="?",
+        default=None,
+        help=(
+            "target id — name from `list`. Omit to bulk over every "
+            "registered tack-on target (characters/props/tiles/icons)."
+        ),
     )
 
 
-def _add_tackon_install_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument(
-        "target",
-        metavar="TARGET",
-        help="tack-on target id (run `list-targets` to see what's registered)",
-    )
+def _add_dest_root_arg(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--dest-root",
         type=Path,
@@ -590,118 +583,98 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    # Adapter (character lab) commands.
-    p = sub.add_parser("draw-all", help="Render all default sprite sheets")
-    _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR)
-    p.set_defaults(func=_cmd_draw_all)
-
-    p = sub.add_parser("draw-review", help="Render review/variant sprite sheets")
-    _add_config_dir_args(p, config_default=DEFAULT_REVIEW_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "review")
-    p.set_defaults(func=_cmd_draw_review)
-
-    p = sub.add_parser(
-        "draw-canonicals",
-        help=(
-            "Draw every adapter + tack-on + review-NPC canonical pose fresh, "
-            "compose a gallery with per-category sections. Always renders from "
-            "the per-target renderer — never reads cached generated/<name>/ files. "
-            "Pass --adapters-only for the legacy adapter-only behavior."
-        ),
-    )
-    _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "canonicals")
-    p.add_argument(
-        "--adapters-only",
-        action="store_true",
-        help="Render only adapter (YAML-driven) canonicals; skip tack-on + review NPC targets",
-    )
-    p.set_defaults(func=_cmd_draw_canonicals)
+    # ---- Unified Target commands (take an optional <TARGET> name) ----------
+    #
+    # With a name: act on that target. Without a name: bulk over every
+    # tack-on target (characters/props/tiles/icons). The YAML adapter
+    # surface is bulk-rendered separately via `draw-all` /
+    # `draw-runtime-npcs` because those have surface-specific semantics.
 
     p = sub.add_parser(
         "canonical",
         help=(
-            "Draw the canonical of a single target (any surface: tack-on, "
-            "adapter config, or review NPC) into --out-dir."
+            "Draw a single target's canonical pose, or the full gallery if "
+            "no target is given. Sources canonicals from every surface "
+            "(tack-ons, main configs, review NPCs)."
         ),
     )
+    _add_optional_target_arg(p)
+    _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "canonicals")
     p.add_argument(
-        "target",
-        metavar="TARGET",
-        help="target id — name from `list-targets`, a config stem under configs/, or a review NPC stem",
-    )
-    p.add_argument(
-        "--out-dir",
-        default=str(DEFAULT_ASSET_DIR / "canonicals"),
+        "--adapters-only",
+        action="store_true",
+        help="(bulk mode only) skip tack-on + review NPC targets",
     )
     p.set_defaults(func=_cmd_canonical)
 
-    p = sub.add_parser("draw-character", help="Render one config's canonical image, spritesheet, and YAML")
+    p = sub.add_parser(
+        "sheet",
+        help=(
+            "Render a single target's full sprite sheet bundle into generated/, "
+            "or bulk-render every tack-on target if no name is given."
+        ),
+    )
+    _add_optional_target_arg(p)
+    p.set_defaults(func=_cmd_sheet)
+
+    p = sub.add_parser(
+        "install",
+        help=(
+            "Copy a single target's rendered files into the sandbox sprites "
+            "dir, or bulk-install every tack-on target if no name is given."
+        ),
+    )
+    _add_optional_target_arg(p)
+    _add_dest_root_arg(p)
+    p.set_defaults(func=_cmd_install)
+
+    p = sub.add_parser(
+        "publish",
+        help=(
+            "sheet + install for one target, or bulk for every tack-on target "
+            "if no name is given."
+        ),
+    )
+    _add_optional_target_arg(p)
+    _add_dest_root_arg(p)
+    p.set_defaults(func=_cmd_publish)
+
+    p = sub.add_parser("list", help="Show every registered target, grouped by category.")
+    p.set_defaults(func=_cmd_list_targets)
+    sub.add_parser("list-targets", help="alias of `list`").set_defaults(func=_cmd_list_targets)
+
+    # ---- Adapter-pipeline commands (take config paths, not target names) ----
+
+    p = sub.add_parser("draw-all", help="Render every main adapter config in configs/.")
+    _add_config_dir_args(p, config_default=DEFAULT_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR)
+    p.set_defaults(func=_cmd_draw_all)
+
+    p = sub.add_parser("draw-review", help="Render every review config in configs/review/.")
+    _add_config_dir_args(p, config_default=DEFAULT_REVIEW_CONFIG_DIR, out_default=DEFAULT_ASSET_DIR / "review")
+    p.set_defaults(func=_cmd_draw_review)
+
+    p = sub.add_parser("draw-character", help="Render one config's canonical + spritesheet + YAML.")
     p.add_argument("config")
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR))
     p.set_defaults(func=_cmd_draw_character)
 
-    p = sub.add_parser("draw-entities", help="Render non-character gameplay entity sprites")
-    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "entities"))
-    p.set_defaults(func=_cmd_draw_entities)
-
-    p = sub.add_parser("draw-icons", help="Render ability/item icon review sprites")
-    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "icons"))
-    p.set_defaults(func=_cmd_draw_icons)
-
-    p = sub.add_parser("draw-factions", help="Render music-faction leader/NPC review sprites")
+    p = sub.add_parser("draw-factions", help="Render music-faction leader/NPC review sprites.")
     p.add_argument("--config", default=str(DEFAULT_FACTION_CONFIG))
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "factions"))
     p.set_defaults(func=_cmd_draw_factions)
 
-    p = sub.add_parser("list-targets", help="Show registered targets (adapter + tack-on)")
-    p.set_defaults(func=_cmd_list_targets)
-    sub.add_parser("list", help="alias of list-targets").set_defaults(func=_cmd_list_targets)
-
-    p = sub.add_parser("spritesheet", help="Render one job's sheet")
+    p = sub.add_parser("spritesheet", help="Render one config's sheet to a specific path.")
     p.add_argument("config")
     p.add_argument("output")
     p.add_argument("--manifest-out", default=None)
     p.set_defaults(func=_cmd_spritesheet)
 
-    p = sub.add_parser("single", help="Render one frame from a job")
+    p = sub.add_parser("single", help="Render one frame from a config.")
     p.add_argument("config")
     p.add_argument("output")
     p.add_argument("--animation", default="idle")
     p.add_argument("--frame-index", type=int, default=0)
     p.set_defaults(func=_cmd_single)
-
-    # Tack-on commands.
-    p = sub.add_parser("render", help="Render a tack-on target into generated/")
-    _add_tackon_target_arg(p)
-    p.set_defaults(func=_cmd_render)
-
-    p = sub.add_parser("preview", help="Render a tack-on target and report paths")
-    _add_tackon_target_arg(p)
-    p.set_defaults(func=_cmd_preview)
-
-    p = sub.add_parser("install", help="Copy a tack-on target's files into sandbox assets")
-    _add_tackon_install_args(p)
-    p.set_defaults(func=_cmd_install)
-
-    p = sub.add_parser("render-publish", help="Render then install a tack-on target")
-    _add_tackon_target_arg(p)
-    p.add_argument(
-        "--dest-root",
-        type=Path,
-        default=sandbox_sprites_dir(),
-    )
-    p.set_defaults(func=_cmd_render_publish)
-
-    p = sub.add_parser(
-        "render-publish-all",
-        help="Render + install every discovered tack-on target in one shot",
-    )
-    p.add_argument(
-        "--dest-root",
-        type=Path,
-        default=sandbox_sprites_dir(),
-        help="install destination (default: crates/ambition_sandbox/assets/sprites)",
-    )
-    p.set_defaults(func=_cmd_render_publish_all)
 
     p = sub.add_parser(
         "draw-runtime-npcs",
@@ -728,9 +701,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "regenerate-all",
         help=(
-            "One-shot: draw-all + render-publish-all + draw-runtime-npcs, "
-            "all installed into sandbox assets. Brings a fresh checkout's "
-            "sprite directory up to date in one command."
+            "One-shot: draw-all + publish + draw-runtime-npcs, all installed "
+            "into sandbox assets. Brings a fresh checkout's sprite directory "
+            "up to date in one command."
         ),
     )
     p.add_argument(

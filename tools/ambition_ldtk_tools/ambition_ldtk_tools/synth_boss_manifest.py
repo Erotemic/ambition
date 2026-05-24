@@ -47,9 +47,21 @@ def normalize_frame_size(v: Any) -> tuple[int, int]:
     raise ValueError(f"unexpected frame_size: {v!r}")
 
 
-def normalize_row(row: dict, frame_w: int, frame_h: int) -> dict:
-    """Return a SheetRow-shaped dict with rects filled in."""
+def normalize_row(row: dict, frame_w: int, frame_h: int, is_first_row: bool) -> dict:
+    """Return a SheetRow-shaped dict with rects filled in.
+
+    When the source animation name isn't one the runtime's
+    `CharacterAnim::from_name` maps to `Idle` (including its aliases:
+    `idle`, `opening`, `rest`, `front_idle`, `side_idle`) AND this is
+    the first row of the sheet, rename the row to `rest` so the
+    Hall-of-Characters pedestal has a static pose to play. Real
+    runtime consumers (boss encounter driver, etc.) still drive the
+    sheet via their own row indices, not by name.
+    """
     animation = row.get("animation") or row.get("name")
+    idle_aliases = {"idle", "opening", "rest", "front_idle", "side_idle"}
+    if is_first_row and animation not in idle_aliases:
+        animation = "rest"
     row_index = int(row.get("row_index", row.get("row", 0)))
     frame_count = int(row.get("frames", row.get("frame_count", 1)))
     duration_ms = int(row.get("duration_ms", 100))
@@ -91,7 +103,10 @@ def synthesize(json_path: Path) -> Path:
     target = data["target"]
     frame_w, frame_h = normalize_frame_size(data["frame_size"])
     rows_in = data.get("rows", [])
-    rows_out = [normalize_row(r, frame_w, frame_h) for r in rows_in]
+    rows_out = [
+        normalize_row(r, frame_w, frame_h, is_first_row=(i == 0))
+        for i, r in enumerate(rows_in)
+    ]
     record = {
         "target": target,
         "image": f"{target}_spritesheet.png",

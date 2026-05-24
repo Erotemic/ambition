@@ -272,11 +272,25 @@
                 1568,
             ],
             size: [
-                2016,
+                960,
                 16,
             ],
             fields: (
-                name: "basement_row_1_floor",
+                name: "basement_row_1_floor_left",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1072,
+                1568,
+            ],
+            size: [
+                960,
+                16,
+            ],
+            fields: (
+                name: "basement_row_1_floor_right",
             ),
         ),
         (
@@ -286,11 +300,25 @@
                 1952,
             ],
             size: [
-                2016,
+                960,
                 16,
             ],
             fields: (
-                name: "basement_row_2_floor",
+                name: "basement_row_2_floor_left",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1072,
+                1952,
+            ],
+            size: [
+                960,
+                16,
+            ],
+            fields: (
+                name: "basement_row_2_floor_right",
             ),
         ),
         (

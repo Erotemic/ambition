@@ -7,7 +7,7 @@
         frame_height: 216,
         rows: [
             (
-                animation: "hover",
+                animation: "rest",
                 row_index: 0,
                 frame_count: 6,
                 duration_ms: 110,

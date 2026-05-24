@@ -227,25 +227,46 @@ def build_spec(main_ids: list[str], basement_ids: list[str], display_names: dict
         {"name": "floor_1_solid_right"},
     ))
 
-    # --- Basement floors: one Solid floor per basement row so each
+    # --- Basement floors: one platform per basement row so each
     # boss/large-character pedestal has something to stand on.
     # Without these the wide bosses (gnu_ton, trex_enemy) render
     # mid-air with the next row's sprite below them. Floor top is
     # placed at the slot's foot_y so the sprite's foot anchor lands
     # flush on the surface.
+    #
+    # Each floor is split into two Solid segments with a center
+    # drop-through gap so the player can navigate down to lower
+    # rows. The bottom-most basement row's floor stays whole as
+    # the room's terminal floor.
     basement_floor_thickness = 16
-    basement_rows_total = 3  # match `derived_dims()` basement allocation
+    basement_rows_total = 3
+    drop_hole_w = 96
+    drop_hole_x = (px_wid - drop_hole_w) // 2
     for row in range(basement_rows_total):
-        # Slot foot_y is at slot_top + BASEMENT_SLOT_HEIGHT_PX. The
-        # floor's *top* sits at that y so the foot anchors directly
-        # on the surface (rather than inside it).
         floor_top_y = basement_section_top + (row + 1) * BASEMENT_SLOT_HEIGHT_PX
-        entities.append(make_entity(
-            "Solid",
-            (16, floor_top_y),
-            (px_wid - 32, basement_floor_thickness),
-            {"name": f"basement_row_{row + 1}_floor"},
-        ))
+        is_last_row = row == basement_rows_total - 1
+        if is_last_row:
+            # Terminal floor — no drop hole.
+            entities.append(make_entity(
+                "Solid",
+                (16, floor_top_y),
+                (px_wid - 32, basement_floor_thickness),
+                {"name": f"basement_row_{row + 1}_floor"},
+            ))
+        else:
+            # Two-segment floor with a center drop hole.
+            entities.append(make_entity(
+                "Solid",
+                (16, floor_top_y),
+                (drop_hole_x - 16, basement_floor_thickness),
+                {"name": f"basement_row_{row + 1}_floor_left"},
+            ))
+            entities.append(make_entity(
+                "Solid",
+                (drop_hole_x + drop_hole_w, floor_top_y),
+                (px_wid - 16 - (drop_hole_x + drop_hole_w), basement_floor_thickness),
+                {"name": f"basement_row_{row + 1}_floor_right"},
+            ))
 
     # --- PlayerStart at the hub-entry floor (left side) ---
     floor1_slot_y = main_section_top + (MAIN_FLOORS - 1) * MAIN_SLOT_HEIGHT_PX

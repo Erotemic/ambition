@@ -195,16 +195,19 @@ impl ActorActionMessage {
     /// True iff this message carries a melee request. Cheap
     /// shorthand for `matches!(self.request, ActionRequest::Melee
     /// { .. })`.
+    #[allow(dead_code, reason = "filter helper for daytime EFFECTS-flip consumers")]
     pub fn is_melee(&self) -> bool {
         matches!(self.request, action_set::ActionRequest::Melee { .. })
     }
 
     /// True iff this message carries a ranged request.
+    #[allow(dead_code, reason = "filter helper for daytime EFFECTS-flip consumers")]
     pub fn is_ranged(&self) -> bool {
         matches!(self.request, action_set::ActionRequest::Ranged { .. })
     }
 
     /// True iff this message carries a special-ability request.
+    #[allow(dead_code, reason = "filter helper for daytime EFFECTS-flip consumers")]
     pub fn is_special(&self) -> bool {
         matches!(self.request, action_set::ActionRequest::Special { .. })
     }

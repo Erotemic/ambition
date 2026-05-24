@@ -607,6 +607,10 @@ mod tests {
     /// Coverage lint: every EnemyArchetype gets a non-None
     /// ActionSet that respects its peaceful/hostile flag — hostile
     /// archetypes have a melee or ranged spec, peaceful ones don't.
+    /// `attacks_player()` returns false only for `PuppySlug` and
+    /// `PirateHeavy`; every other archetype (including sandbags,
+    /// which have a `PunchWeak` counter-attack) is hostile by this
+    /// gate.
     #[test]
     fn enemy_default_action_set_covers_every_combat_archetype() {
         for archetype in EnemyArchetype::COMBAT_ALL {
@@ -619,21 +623,13 @@ mod tests {
                     archetype,
                 );
             } else {
-                // Peaceful archetypes (PuppySlug, PirateHeavy) have
-                // no melee. PirateHeavy has no ranged either.
-                if !matches!(
+                // Only PuppySlug + PirateHeavy reach this branch —
+                // both peaceful, both expected to have no melee.
+                assert!(
+                    set.melee.is_none(),
+                    "{:?} is peaceful but has melee",
                     archetype,
-                    EnemyArchetype::InfiniteSandbag | EnemyArchetype::FiniteSandbag
-                ) {
-                    // Sandbags are an exception: they have a weak
-                    // counter-punch (PunchWeak), so peaceful=false
-                    // but they still have melee.
-                    assert!(
-                        set.melee.is_none(),
-                        "{:?} is peaceful but has melee",
-                        archetype,
-                    );
-                }
+                );
             }
         }
     }

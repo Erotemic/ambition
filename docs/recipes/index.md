@@ -19,6 +19,7 @@ Recipes are current procedures: commands, workflows, or repeatable edit protocol
 | Add a showcase room | `add-showcase-room.md` |
 | Mob lab encounter | `goblin-encounter.md` |
 | Generated music | `generated-music-workflow.md` |
+| Extending brains and ActionSets | `extending-brains-and-action-sets.md` |
 
 ## Planning moved out of recipes
 

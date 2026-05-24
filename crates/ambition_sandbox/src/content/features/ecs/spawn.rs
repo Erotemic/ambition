@@ -430,6 +430,34 @@ mod tests {
         enemy
     }
 
+    /// Regression net: spawning an encounter mob attaches a
+    /// per-archetype Brain (MeleeBrute by default since
+    /// medium_striker is hostile). Verifies the spawn_encounter_mob
+    /// path threads the brain through end-to-end.
+    #[test]
+    fn encounter_mob_brain_is_per_archetype_melee_brute() {
+        use crate::brain::{Brain, StateMachineCfg};
+        let mut app = App::new();
+        app.add_systems(Update, |mut commands: Commands| {
+            spawn_encounter_mob(
+                &mut commands,
+                "test_encounter",
+                "test_mob".to_string(),
+                ae::EnemyBrain::Custom("medium_striker".into()),
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 30.0),
+            );
+        });
+        app.update();
+        let mut q = app.world_mut().query::<&Brain>();
+        let brain = q.iter(app.world()).next().expect("encounter mob exists");
+        // medium_striker is a hostile archetype → MeleeBrute brain.
+        assert!(matches!(
+            brain,
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { .. })
+        ));
+    }
+
     /// Regression net: spawn_boss attaches Brain (BossPattern) +
     /// ActionSet + ActorControl alongside BossFeature. Pins the
     /// parallel-shape invariant.

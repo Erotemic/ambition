@@ -111,13 +111,13 @@ Landed:
   iterates the catalog via `sheet_for_character_id`.
 
 Deferred for follow-up work:
-- `boss_encounters/<id>.ron` per-boss phase schedules — **proof of
-  concept landed 2026-05-24**: `gnu_ton.ron` overrides the hardcoded
-  `BossEncounterSpec::gnu_ton()` constructor's numeric fields via
-  `default_boss_profiles`. Remaining work is to author RON for
-  `mockingbird` and `clockwork_warden` (mechanical) and to move the
-  per-phase brain schedules (a richer schema item) once `BossPattern`
-  has hooks for it.
+- `boss_encounters/<id>.ron` per-boss phase schedules — **numeric-
+  fields half landed 2026-05-24**: all three authored bosses
+  (`gnu_ton`, `mockingbird`, `clockwork_warden`) ship an `<id>.ron`
+  that overrides their hardcoded `BossEncounterSpec` constructor
+  via `default_boss_profiles`. Remaining: move the per-phase brain
+  schedules (a richer schema item) once `BossPattern` has hooks
+  for them.
 - `SheetRegistry`-driven sprite specs — once the per-character
   `CharacterSheetSpec` consts come from the manifest at startup,
   `sheet_for_character_id` disappears entirely.

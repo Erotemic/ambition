@@ -1,0 +1,271 @@
+//! EFFECTS-stage consumers for `ActorActionMessage`.
+//!
+//! Per the actor/brain migration mandate (see
+//! `dev/journals/brain-pipeline-bypass-audit-2026-05-24.md`):
+//! hitboxes, projectiles, SFX, VFX, and recoil should be driven from
+//! resolved action messages, not from legacy runtime spawn loops.
+//!
+//! This module owns the consumer Bevy systems that read
+//! `MessageReader<ActorActionMessage>` and produce effects. Each
+//! system is one variant of `ActionRequest`; the upstream
+//! `emit_brain_action_messages` resolver translates the actor's
+//! `ActorControl` frame + `ActionSet` into the per-request stream
+//! these systems consume.
+//!
+//! Schedule:
+//! - `emit_brain_action_messages` runs first
+//! - these systems run after, reading the same message stream
+//! - the `BrainActionCounter` observer is unaffected (it counts but
+//!   doesn't consume)
+//!
+//! The legacy paths (`EnemyRuntime::update`'s `outputs.projectile_spawns`,
+//! `update_player`'s direct hitbox spawn, etc.) are deleted as each
+//! consumer here takes over.
+
+use ambition_engine as ae;
+use bevy::prelude::*;
+
+use crate::audio::SfxMessage;
+use crate::brain::{ActorActionMessage, action_set::ActionRequest};
+use crate::content::features::ecs::actors::ActorRuntime;
+use crate::content::features::enemies::EnemyArchetype;
+use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
+
+/// Recoil applied to the firing enemy along the negative fire
+/// direction. Per-archetype because PirateOnShark visibly knocks
+/// back the rider+shark combo.
+const RANGED_RECOIL_PIRATE: f32 = 380.0;
+const RANGED_RECOIL_DEFAULT: f32 = 60.0;
+
+/// Projectile envelope shared by every ranged enemy. Future
+/// per-archetype overrides (slower arrows, gravity-arc rocks)
+/// will move this into an `ActionSet`-derived parameter.
+const PROJECTILE_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(10.0, 8.0);
+const PROJECTILE_MAX_LIFETIME: f32 = 2.4;
+
+/// Read every `ActorActionMessage::Ranged` and spawn the matching
+/// enemy projectile. Applies recoil to the firing actor's velocity.
+///
+/// Only handles **hostile** actors today — player projectiles still
+/// flow through the legacy `update_player` path. Player migration is
+/// the next slice in the mandate.
+pub fn spawn_enemy_projectiles_from_brain_actions(
+    mut messages: MessageReader<ActorActionMessage>,
+    mut enemy_projectiles: ResMut<EnemyProjectileState>,
+    mut sfx: MessageWriter<SfxMessage>,
+    mut actors: Query<&mut ActorRuntime>,
+) {
+    for msg in messages.read() {
+        let ActionRequest::Ranged { spec, origin: _, dir } = msg.request else {
+            continue;
+        };
+        let Ok(mut actor) = actors.get_mut(msg.actor) else {
+            // Message references an actor that no longer exists
+            // (despawned this frame). Skip silently.
+            continue;
+        };
+        let ActorRuntime::Hostile(enemy) = &mut *actor else {
+            // Peaceful actor emitting a Ranged action — would happen
+            // only via test fixtures or a future "possessed-NPC"
+            // path. Not in scope for this consumer.
+            continue;
+        };
+        if !enemy.alive {
+            continue;
+        }
+        let is_pirate_shark = matches!(
+            enemy.archetype,
+            EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
+        );
+        let (spawn_origin, owner_id) = if is_pirate_shark {
+            // PirateOnShark fires from the rider's hand so the
+            // projectile looks like it's leaving the gun-sword muzzle.
+            // The `lasersword:` prefix on `owner_id` routes the
+            // projectile to the lasersword visual in
+            // `enemy_projectile/visuals.rs`.
+            let hand =
+                crate::presentation::rendering::rider_hand_world_pos(enemy.pos, enemy.facing);
+            let muzzle = hand + dir.normalize_or_zero() * 18.0;
+            (muzzle, format!("lasersword:{}", enemy.id))
+        } else {
+            (enemy.pos + ae::Vec2::new(0.0, -8.0), enemy.id.clone())
+        };
+        let spawn = EnemyProjectileSpawn {
+            origin: spawn_origin,
+            dir,
+            speed: spec.speed(),
+            damage: spec.damage(),
+            max_lifetime: PROJECTILE_MAX_LIFETIME,
+            half_extent: PROJECTILE_HALF_EXTENT,
+            owner_id: owner_id.clone(),
+            gravity: 0.0,
+        };
+        if owner_id.starts_with("lasersword:") {
+            sfx.write(SfxMessage::Play {
+                id: ambition_sfx::SfxId::from_static("weapon.lasersword.fire"),
+                pos: spawn.origin,
+            });
+        }
+        enemy_projectiles.spawn(spawn);
+        // Recoil: push the firing actor backward along the negative
+        // fire direction.
+        let recoil_strength = if is_pirate_shark {
+            RANGED_RECOIL_PIRATE
+        } else {
+            RANGED_RECOIL_DEFAULT
+        };
+        let kick = dir.normalize_or_zero() * -recoil_strength;
+        enemy.vel += kick;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::brain::{ActionSet, RangedActionSpec};
+    use crate::content::features::enemies::EnemyRuntime;
+    use bevy::prelude::*;
+
+    fn pirate_on_shark_actor(pos: ae::Vec2) -> ActorRuntime {
+        let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
+        let mut enemy = EnemyRuntime::new(
+            "shark_a",
+            "Burning Flying Shark",
+            aabb,
+            ae::EnemyBrain::Custom("pirate_on_shark".into()),
+            &[],
+        );
+        enemy.archetype = EnemyArchetype::PirateOnShark;
+        ActorRuntime::Hostile(enemy)
+    }
+
+    fn build_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.add_message::<SfxMessage>();
+        app.init_resource::<EnemyProjectileState>();
+        app.add_systems(Update, spawn_enemy_projectiles_from_brain_actions);
+        app
+    }
+
+    #[test]
+    fn ranged_message_spawns_projectile_and_applies_recoil() {
+        let mut app = build_app();
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let actor = app
+            .world_mut()
+            .spawn((pirate_on_shark_actor(actor_pos),))
+            .id();
+        let vel_before = match app.world().entity(actor).get::<ActorRuntime>().unwrap() {
+            ActorRuntime::Hostile(e) => e.vel,
+            _ => panic!("expected Hostile"),
+        };
+        // Player to the right → +x fire dir.
+        let dir = ae::Vec2::new(1.0, 0.0);
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+            actor,
+            request: ActionRequest::Ranged {
+                spec: RangedActionSpec::Bolt { speed: 500.0, damage: 1 },
+                origin: actor_pos,
+                dir,
+            },
+        });
+        app.update();
+        let projectiles = app.world().resource::<EnemyProjectileState>();
+        assert_eq!(
+            projectiles.bodies.len(),
+            1,
+            "exactly one projectile should have spawned"
+        );
+        // Owner id must reflect lasersword routing for PirateOnShark.
+        let owner = &projectiles.bodies[0].owner_id;
+        assert!(
+            owner.starts_with("lasersword:"),
+            "PirateOnShark owner_id should carry the lasersword: prefix; got {owner:?}",
+        );
+        // Recoil: vel.x reduced by ~RANGED_RECOIL_PIRATE.
+        let vel_after = match app.world().entity(actor).get::<ActorRuntime>().unwrap() {
+            ActorRuntime::Hostile(e) => e.vel,
+            _ => panic!("expected Hostile"),
+        };
+        let kick = vel_before.x - vel_after.x;
+        assert!(
+            kick > 300.0,
+            "expected pirate recoil > 300 px/s; got {kick} (before={vel_before:?} after={vel_after:?})",
+        );
+    }
+
+    #[test]
+    fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
+        let mut app = build_app();
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        // Use Combatant (a melee archetype) — its spec is irrelevant
+        // here; the consumer only branches on archetype for origin
+        // and owner_id formatting.
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
+        let mut enemy = EnemyRuntime::new(
+            "skitter_a",
+            "Skitter",
+            aabb,
+            ae::EnemyBrain::Custom("small_skitter".into()),
+            &[],
+        );
+        enemy.archetype = EnemyArchetype::SmallSkitter;
+        let actor = app
+            .world_mut()
+            .spawn((ActorRuntime::Hostile(enemy),))
+            .id();
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+            actor,
+            request: ActionRequest::Ranged {
+                spec: RangedActionSpec::Rock { speed: 300.0, damage: 1 },
+                origin: actor_pos,
+                dir: ae::Vec2::new(1.0, 0.0),
+            },
+        });
+        app.update();
+        let projectiles = app.world().resource::<EnemyProjectileState>();
+        assert_eq!(projectiles.bodies.len(), 1);
+        let owner = &projectiles.bodies[0].owner_id;
+        assert!(
+            !owner.starts_with("lasersword:"),
+            "non-pirate archetype must not get lasersword owner_id; got {owner:?}",
+        );
+    }
+
+    #[test]
+    fn ranged_message_for_dead_actor_is_dropped() {
+        let mut app = build_app();
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let mut actor_runtime = pirate_on_shark_actor(actor_pos);
+        if let ActorRuntime::Hostile(ref mut e) = actor_runtime {
+            e.alive = false;
+        }
+        let actor = app.world_mut().spawn((actor_runtime,)).id();
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+            actor,
+            request: ActionRequest::Ranged {
+                spec: RangedActionSpec::Bolt { speed: 500.0, damage: 1 },
+                origin: actor_pos,
+                dir: ae::Vec2::new(1.0, 0.0),
+            },
+        });
+        app.update();
+        let projectiles = app.world().resource::<EnemyProjectileState>();
+        assert!(
+            projectiles.bodies.is_empty(),
+            "dead actor must not spawn a projectile",
+        );
+    }
+
+    /// Suppress unused-import noise from the test-only `ActionSet`
+    /// reference — kept for callers that grow this module's tests.
+    fn _silence_action_set_import(_: ActionSet) {}
+}

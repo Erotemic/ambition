@@ -17,17 +17,6 @@ const ENEMY_PATROL_SPEED: f32 = 105.0;
 const ENEMY_CHASE_SPEED: f32 = 155.0;
 const ENEMY_ATTACK_RANGE: f32 = 150.0;
 const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
-/// Velocity kick applied along the negative fire direction when a
-/// non-pirate enemy discharges a projectile. Modest because most
-/// enemies fire melee-range bolts and don't need the screen-shake
-/// equivalent of a cannon.
-const ENEMY_FIRE_RECOIL_DEFAULT: f32 = 60.0;
-/// Recoil for `PirateOnShark`. Larger because the pirate's
-/// gun-sword fires hurled laser-sword projectiles — the user spec
-/// asks for "recoil that pushes the pirate (and its shark) back a
-/// fair bit". The brain's velocity ramp will reel the shark back
-/// toward its orbit slot over the next ~half second.
-const ENEMY_FIRE_RECOIL_PIRATE: f32 = 380.0;
 const BOSS_ATTACK_COOLDOWN: f32 = 1.35;
 const BREAK_ON_STAND_SECONDS: f32 = 0.85;
 
@@ -82,11 +71,12 @@ pub use ecs::{
     ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name, interact_ecs_actors_and_switches,
     open_ecs_chests, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
-    spawn_room_feature_entities, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
-    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
-    tick_gameplay_banner, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorRuntime, BossFeature,
-    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, HazardFeature,
+    spawn_enemy_projectiles_from_brain_actions, spawn_room_feature_entities,
+    sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
+    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, tick_gameplay_banner,
+    update_ecs_actors, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
+    update_ecs_hazards, ActorRuntime, BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity,
+    FeatureViewIndex, HazardFeature,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{

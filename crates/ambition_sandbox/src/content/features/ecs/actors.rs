@@ -192,7 +192,6 @@ pub fn update_ecs_actors(
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut slot_board: ResMut<crate::combat_slots::CombatSlotsRes>,
-    mut enemy_projectiles: ResMut<crate::enemy_projectile::EnemyProjectileState>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -434,32 +433,31 @@ pub fn update_ecs_actors(
                         timers,
                     );
                 }
-                let mut outputs = super::super::enemies::EnemyTickOutputs::default();
-                enemy.update(
+                let frame = enemy.update(
                     &feature_world,
                     target_pos,
                     combat_tuning,
                     slot_pos,
                     nearest_neighbor,
-                    &mut outputs,
                     dt,
                 );
                 aabb.center = enemy.pos;
                 aabb.half_size = enemy.size * 0.5;
-                // Flush projectile spawns this enemy emitted this tick.
-                // Stamp a dedicated "laser-sword fire" SFX cue when
-                // the owner is the pirate-on-shark gun-sword (owner
-                // ids carry the `lasersword:` prefix for that
-                // archetype — see `EnemyRuntime::update`).
-                for spawn in outputs.projectile_spawns {
-                    if spawn.owner_id.starts_with("lasersword:") {
-                        sfx.write(crate::audio::SfxMessage::Play {
-                            id: ambition_sfx::SfxId::from_static("weapon.lasersword.fire"),
-                            pos: spawn.origin,
-                        });
-                    }
-                    enemy_projectiles.spawn(spawn);
+                // Land the legacy AI's per-tick frame into ActorControl
+                // so `emit_brain_action_messages` and EFFECTS-stage
+                // consumers see the intent. The brain's earlier
+                // shadow-tick write to control.0 gets overridden here
+                // because today the runtime is still the authority
+                // for hostile fire/melee intent; the brain takes over
+                // in a later phase.
+                if let Some(control) = control.as_deref_mut() {
+                    control.0 = frame;
                 }
+                // Projectile spawns moved to the EFFECTS-stage
+                // consumer `spawn_enemy_projectiles_from_brain_actions`
+                // (Combat set, runs after `emit_brain_action_messages`).
+                // The runtime is no longer the spawn authority — its
+                // role is to integrate body state.
                 if player_vulnerable && enemy.alive {
                     if let Some(damage) = enemy.player_damage(player_body) {
                         let pos = damage.impact_pos;

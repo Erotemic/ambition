@@ -1,5 +1,4 @@
 use super::*;
-use crate::enemy_projectile::EnemyProjectileSpawn;
 
 /// Predicate matching any tile a surface-walker (PuppySlug) can
 /// CLING TO — both solid blocks and one-way platforms count, mirroring
@@ -614,13 +613,13 @@ impl EnemyArchetype {
 }
 
 /// Per-tick outputs the caller (`update_ecs_actors`) flushes into
-/// world resources. Today this is just enemy-fired projectile spawn
-/// requests; future patterns (telegraph SFX events, area-of-effect
-/// hazards) will land here too without further signature churn.
+/// world resources. Empty today — projectile spawns moved to the
+/// EFFECTS-stage consumer `spawn_enemy_projectiles_from_brain_actions`
+/// per the actor/brain migration. Kept as a placeholder so future
+/// runtime-internal side effects (telegraph SFX requests, area-of-
+/// effect hazards) can land without churning the `update` signature.
 #[derive(Default)]
-pub struct EnemyTickOutputs {
-    pub projectile_spawns: Vec<EnemyProjectileSpawn>,
-}
+pub struct EnemyTickOutputs;
 
 /// Outcome of [`EnemyRuntime::apply_damage_at`]. Callers branch on
 /// this to know whether to play a hit SFX, despawn the actor, or
@@ -888,6 +887,14 @@ impl EnemyRuntime {
     /// single-player build it's always the player's `pos`; a future
     /// co-op build varies it per-enemy without changing this
     /// function's shape.
+    /// Tick the enemy's AI + integration. Returns the per-tick
+    /// `ActorControlFrame` the runtime's legacy choreography
+    /// computed; the caller writes it into the entity's
+    /// `ActorControl` component so `emit_brain_action_messages`
+    /// + EFFECTS-stage consumers see the intent. Per the
+    /// actor/brain migration mandate, this is the seam the brain
+    /// will eventually take over from — for now the legacy AI is
+    /// the authority for fire/melee intent on hostile actors.
     pub(super) fn update(
         &mut self,
         world: &ae::World,
@@ -895,9 +902,13 @@ impl EnemyRuntime {
         tuning: FeatureCombatTuning,
         slot_pos: Option<ae::Vec2>,
         nearest_neighbor: Option<ae::Vec2>,
-        outputs: &mut EnemyTickOutputs,
         dt: f32,
-    ) {
+    ) -> ae::ActorControlFrame {
+        // `EnemyTickOutputs` is gone — projectile spawns flow through
+        // the EFFECTS-stage consumer per the actor/brain migration.
+        // The struct is preserved for future runtime-internal side
+        // effects (telegraph SFX requests, area-of-effect hazards).
+        let _ = EnemyTickOutputs;
         // Seed is derived from the actor id and cached on the
         // choreography state. Done lazily here (rather than in
         // `new`) so reset_to_spawn — which `Default`s the state —
@@ -916,7 +927,7 @@ impl EnemyRuntime {
                 self.hit_flash = 0.24;
             }
             self.ai_mode = ae::CharacterAiMode::Dead;
-            return;
+            return ae::ActorControlFrame::neutral();
         }
 
         let was_winding_up = self.attack_windup_timer > 0.0;
@@ -1141,50 +1152,18 @@ impl EnemyRuntime {
                 };
             self.ai_mode = ae::CharacterAiMode::Telegraph;
         }
-        if let Some(fire) = frame.fire {
-            // PirateOnShark fires from the rider's hand (where the
-            // visible gun-sword's muzzle sits) so the projectile
-            // looks like it's leaving the barrel. The `lasersword:`
-            // prefix on `owner_id` routes the projectile to the
-            // lasersword visual in `enemy_projectile/visuals.rs`.
-            let (origin, owner_id) = if matches!(
-                self.archetype,
-                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
-            ) {
-                let hand =
-                    crate::presentation::rendering::rider_hand_world_pos(self.pos, self.facing);
-                let muzzle_origin = hand + fire.dir.normalize_or_zero() * 18.0;
-                (muzzle_origin, format!("lasersword:{}", self.id))
-            } else {
-                (self.pos + ae::Vec2::new(0.0, -8.0), self.id.clone())
-            };
-            outputs.projectile_spawns.push(EnemyProjectileSpawn {
-                origin,
-                dir: fire.dir,
-                speed: fire.speed,
-                damage: self.archetype.damage_amount(),
-                max_lifetime: 2.4,
-                half_extent: ae::Vec2::new(10.0, 8.0),
-                owner_id,
-                gravity: 0.0,
-            });
-            // Recoil kick: push the firing actor backward along the
-            // negative fire direction. For the PirateOnShark this
-            // shoves both rider and shark (one fused actor) so the
-            // discharge reads as a noticeable knock-back.
-            let recoil_strength = if matches!(
-                self.archetype,
-                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
-            ) {
-                ENEMY_FIRE_RECOIL_PIRATE
-            } else {
-                ENEMY_FIRE_RECOIL_DEFAULT
-            };
-            let kick = fire.dir.normalize_or_zero() * -recoil_strength;
-            self.vel += kick;
-            // Brief telegraph for the HUD so the volley reads as a "shot".
+        // Brief telegraph for the HUD so the volley reads as a
+        // "shot" — kept here because `ai_mode` is integration-side
+        // state (HUD reads it via `EnemyRuntime`). The projectile
+        // spawn + recoil moved out to the EFFECTS consumer
+        // `spawn_enemy_projectiles_from_brain_actions`; this method
+        // now only returns the frame so the consumer (and the
+        // catch-all `emit_brain_action_messages` resolver) can see
+        // the legacy AI's intent.
+        if frame.fire.is_some() {
             self.ai_mode = ae::CharacterAiMode::Attack;
         }
+        frame
     }
 
     /// Pack the per-tick AI + choreography decision into a flat

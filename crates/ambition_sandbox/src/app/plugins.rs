@@ -202,6 +202,14 @@ fn register_combat_systems(app: &mut App) {
         Update,
         (
             attack_advance_system.run_if(gameplay_allowed),
+            // EFFECTS-stage consumer: reads ActorActionMessage::Ranged
+            // emitted upstream by `emit_brain_action_messages`
+            // (PlayerInput set) and spawns enemy projectiles. Runs
+            // BEFORE `update_enemy_projectiles` so projectiles spawned
+            // this tick already advance one step this frame, matching
+            // the pre-migration latency.
+            crate::features::spawn_enemy_projectiles_from_brain_actions
+                .run_if(gameplay_allowed),
             crate::projectile::update_projectiles,
             crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
             crate::features::apply_feature_damage_events,

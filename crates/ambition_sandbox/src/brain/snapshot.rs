@@ -128,7 +128,7 @@ impl BrainSnapshot {
     /// / chase / attack decisions; this helper threads the fields
     /// through without copy-pasting in each tick fn.
     pub fn to_character_ai_snapshot(
-        &self,
+        self,
         aggro_radius: f32,
         attack_range: f32,
         patrol_enabled: bool,

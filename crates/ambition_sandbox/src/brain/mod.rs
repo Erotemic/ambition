@@ -24,13 +24,22 @@ pub mod player;
 pub mod snapshot;
 pub mod state_machine;
 
+// Re-exports are the brain module's public surface — many show
+// as "unused" inside the crate today because the EFFECTS-stage
+// consumer flip hasn't landed yet (only #[cfg(test)] code in
+// other modules reaches some). Allow that so the surface stays
+// documented + ready for daytime wiring.
+#[allow(unused_imports)]
 pub use action_set::{
     resolve as resolve_action_requests, ActionRequest, ActionSet, BiteSpec, LungeSpec,
     MeleeActionSpec, MoveStyleSpec, PunchSpec, RangedActionSpec, SlamSpec, SpecialActionSpec,
     SwipeSpec,
 };
+#[allow(unused_imports)]
 pub use player::{tick_player_brain, tick_player_brain_from_input};
+#[allow(unused_imports)]
 pub use snapshot::{BrainSnapshot, WallContact};
+#[allow(unused_imports)]
 pub use state_machine::{
     tick_state_machine, BossPatternCfg, BossPatternState, MeleeBruteCfg, MeleeBruteState,
     PatrolCfg, PatrolState, SkirmisherCfg, SkirmisherState, SniperCfg, SniperState,
@@ -99,6 +108,7 @@ pub struct ActorControl(pub ae::ActorControlFrame);
 /// the projectile system. Daytime work flips those consumers off
 /// the legacy paths and onto this message stream.
 #[derive(Message, Clone, Copy, Debug)]
+#[allow(dead_code, reason = "fields read by daytime EFFECTS-consumer flip + test code")]
 pub struct ActorActionMessage {
     /// The actor that wants the action.
     pub actor: Entity,
@@ -134,6 +144,7 @@ pub fn emit_brain_action_messages(
 /// migration tightens this — once a real consumer reads the
 /// resulting `ActorControl`, the per-actor brain-driver fills the
 /// snapshot's combat-timer / wall-contact fields too.
+#[allow(clippy::too_many_arguments, reason = "intentional flat helper; the snapshot it builds is what's deduped")]
 pub fn shadow_tick_brain(
     brain: &mut Brain,
     actor_pos: ae::Vec2,

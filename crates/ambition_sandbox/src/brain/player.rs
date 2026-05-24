@@ -61,7 +61,9 @@ pub fn tick_player_brain(
 ///
 /// Convenience wrapper that unwraps `PlayerInputFrame` and calls
 /// [`tick_player_brain_from_control`]. Used by tests that already
-/// have a `PlayerInputFrame` in scope.
+/// have a `PlayerInputFrame` in scope and by daytime wiring that
+/// hasn't migrated to the snapshot-aware `tick_player_brain` yet.
+#[allow(dead_code, reason = "test-only convenience + daytime wiring entry-point")]
 pub fn tick_player_brain_from_input(
     input: &PlayerInputFrame,
     snapshot: &BrainSnapshot,

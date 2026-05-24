@@ -27,7 +27,8 @@ can stop at any checkpoint if budget runs out.
 | 5. Hall of Characters generator + room | 1.5 h | _ | ⬜ pending | _ |
 | 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | _ | ⬜ pending | _ |
 | 7. Documentation + ADR 0017 | 0.5 h | _ | ⬜ pending | _ |
-| **Total** | **8.5 h** | _ | | _ |
+| **Total (planned)** | **8.5 h** | _ | | over budget by 0.5 h — trim Phase 6 if needed |
+| 8. (stretch) Sprite-regen caching | ~0.75 h | _ | ⬜ optional | only if >45 min slack after Phase 7 |
 
 Status legend: ⬜ pending · 🏗️ in progress · ✅ done · ⏭️ deferred · ❌ blocked
 
@@ -78,6 +79,39 @@ piece of state should live answers to it.
 | Boss display | Standees only — `Brain::stand_still()` + peaceful | Hall is a gallery, not an arena |
 | Commit target | Directly to `main`; no push, no amend, no force-push | Standard autonomous rules |
 | Budget | 8 h; stop at any green checkpoint if exhausted | [[feedback-never-stop-during-long-run]] |
+
+## Hard invariants (must hold across the refactor)
+
+1. **`regen_sprites.sh` must work on a fresh clone.** Jon recently stabilized
+   it (commits `4b66bc3`, `29205ee`); the script regenerates every sprite the
+   game needs from a clean tree. Any refactor that touches sprite authoring,
+   target discovery, manifests, or `NPC_SPRITE_REGISTRY` MUST preserve this:
+   after the run, `./regen_sprites.sh` on a clean checkout still produces the
+   full sprite set. Details of *how* it generates them can change — the
+   invariant is the end state.
+2. **`regen_assets.sh` must still drive the full asset refresh.** Same shape
+   as (1) but for the broader asset pipeline.
+3. **Validation gate added to every phase that touches sprite plumbing**
+   (Phase 3 mandatory; Phases 5, 6 if they touch renderer code): run
+   `./regen_sprites.sh --dry-run` (or a no-op subset) before commit; if the
+   script changed shape, run a full regen against `/tmp/regen-smoke/` to
+   verify exit code 0 and non-zero output.
+4. **No new binary blobs committed.** Generated sprites stay gitignored
+   per [[feedback-no-binary-data]]; `regen_sprites.sh` reproduces them.
+
+### Stretch goal — sprite-regen caching (if time permits, post-Phase 7)
+
+Jon noted: "consider having the main regen command implement caching for the
+sprites so it has a faster regen of modified sprites." Concrete shape if
+attempted:
+
+- Hash each target's source (the Python `_render_*` function bytecode +
+  any RON timing config it consults) into `tools/ambition_sprite2d_renderer/.cache/<target>.hash`.
+- Skip re-rendering if the hash matches and the generated PNG/manifest still
+  exists.
+- `regen_sprites.sh --force` bypasses cache.
+- Only attempt this if Phases 1–7 finish with >45 min remaining in the budget.
+- Out of scope: cross-machine cache (host file hashes are enough).
 
 ## Hall of Characters layout
 

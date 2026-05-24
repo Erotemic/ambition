@@ -154,6 +154,23 @@ def _ellipse(draw: ImageDraw.ImageDraw, cx: float, cy: float, rx: float, ry: flo
     draw.ellipse(_box(cx, cy, rx, ry), fill=fill, outline=outline, width=max(1, _s(width)) if outline is not None else 0)
 
 
+def _alpha_ellipse(target: Image.Image, cx: float, cy: float, rx: float, ry: float, fill: RGBA) -> None:
+    """Alpha-composite a translucent ellipse onto ``target``.
+
+    PIL's ``ImageDraw.ellipse(fill=(r, g, b, a<255))`` writes the
+    translucent RGBA into the destination pixels directly — it does
+    NOT blend against whatever was already there. For damage flashes
+    and other wash overlays that must sit ON TOP of the existing
+    body pixels, draw onto a fresh transparent layer first and
+    ``Image.alpha_composite`` it onto the target. Without this the
+    hurt tint erases the body wherever the ellipse covers.
+    """
+    overlay = Image.new("RGBA", target.size, (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay, "RGBA")
+    od.ellipse(_box(cx, cy, rx, ry), fill=fill)
+    target.alpha_composite(overlay)
+
+
 def _circle(draw: ImageDraw.ImageDraw, p: Point, r: float, fill: RGBA, outline: RGBA = OUTLINE, width: float = 1.0) -> None:
     _ellipse(draw, p[0], p[1], r, r, fill, outline, width)
 
@@ -558,7 +575,7 @@ def _render_hand_saint(anim: str, frame_idx: int, nframes: int) -> Image.Image:
             pts = _bezier((cx + side * 12, cy + 6), (cx + side * 26, cy + 4), (cx + side * 34, cy + 14), (cx + side * 42, cy + 4), 12)
             _ribbon(rd, pts, 1.6, (255, 236, 170, 148), None)
     if pose["hurt"] > 0.0:
-        _ellipse(rd, cx, cy + 10, 26, 30, (255, 94, 112, int(80 * pose["hurt"])), None, 0)
+        _alpha_ellipse(robe, cx, cy + 10, 26, 30, (255, 94, 112, int(80 * pose["hurt"])))
     robe = robe.rotate(pose["tilt"], center=_pt((cx, cy + 10)))
     draw._image.alpha_composite(robe)
     return _downsample(img)
@@ -646,7 +663,7 @@ def _render_spaghetti(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         drip_y = cy + 2 + (xoff % 3) * 2
         _ribbon(draw, [(cx + xoff, cy - 12), (cx + xoff + math.sin(frame_idx + xoff) * 1.0, drip_y)], 1.9, sauce, (126, 62, 42, 220))
     if pose["hurt"]:
-        _ellipse(draw, cx, cy + 6, 30, 18, (255, 92, 108, int(75 * pose["hurt"])), None, 0)
+        _alpha_ellipse(img, cx, cy + 6, 30, 18, (255, 92, 108, int(75 * pose["hurt"])))
     return _downsample(img)
 
 
@@ -734,7 +751,7 @@ def _render_helpful_liar(anim: str, frame_idx: int, nframes: int) -> Image.Image
         _ribbon(bd, [(cx + 2, cy - 18), (arrow_c[0] - 6, arrow_c[1]), arrow_c], 2.3, MAGENTA, OUTLINE)
         _triangle(bd, arrow_c, 4.0, MAGENTA, 90)
     if pose["hurt"] > 0:
-        _ellipse(bd, cx, cy - 2, 30, 26, (255, 96, 110, int(70 * pose["hurt"])), None, 0)
+        _alpha_ellipse(body, cx, cy - 2, 30, 26, (255, 96, 110, int(70 * pose["hurt"])))
     body = body.rotate(pose["tilt"], center=_pt((cx, cy + 12)))
     draw._image.alpha_composite(body)
     return _downsample(img)
@@ -938,7 +955,7 @@ def _render_ai_slop(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         _triangle(bd, (cx + 17, cy - 41), 2.2, RED, 90)
 
     if pose["hurt"] > 0.0:
-        _ellipse(bd, cx, cy + 2, 20, 16, (255, 92, 110, int(62 * pose["hurt"])), None, 0)
+        _alpha_ellipse(body_layer, cx, cy + 2, 20, 16, (255, 92, 110, int(62 * pose["hurt"])))
 
     body_layer = body_layer.rotate(pose["tilt"], center=_pt((cx, cy + 8)))
     draw._image.alpha_composite(body_layer)
@@ -1029,7 +1046,7 @@ def _render_agent_swarm(anim: str, frame_idx: int, nframes: int) -> Image.Image:
         for side in (-1, 1):
             _capsule(draw, (cx + side * 4, cy + 16), (cx + side * (18 + pose["deploy"] * 18), cy + 32), 2.0, (160, 188, 236, 190), OUTLINE, None)
     if pose["hurt"] > 0.0:
-        _ellipse(draw, cx, cy + 2, 34, 26, (255, 92, 110, int(70 * pose["hurt"])), None, 0)
+        _alpha_ellipse(img, cx, cy + 2, 34, 26, (255, 92, 110, int(70 * pose["hurt"])))
     return _downsample(img)
 
 

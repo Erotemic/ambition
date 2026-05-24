@@ -423,6 +423,34 @@ mod tests {
     }
 
     #[test]
+    fn brain_display_contains_label() {
+        // Display impl for state-machine brains embeds the label —
+        // a future label rename should automatically reflect in
+        // Display output. Pin the relationship.
+        for template in [
+            StateMachineCfg::StandStill,
+            StateMachineCfg::Patrol {
+                cfg: PatrolCfg::NPC_DEFAULT,
+                state: PatrolState::default(),
+            },
+            StateMachineCfg::Wanderer {
+                cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
+                state: WandererState::default(),
+            },
+        ] {
+            let b = Brain::StateMachine(template);
+            let display = format!("{}", b);
+            let label = b.label();
+            assert!(
+                display.contains(label),
+                "Display '{}' should contain label '{}'",
+                display,
+                label,
+            );
+        }
+    }
+
+    #[test]
     fn combat_timers_clear_const_matches_default() {
         // CombatTimers::CLEAR is the sentinel "no active attack /
         // stun" baseline; it should equal Default::default().

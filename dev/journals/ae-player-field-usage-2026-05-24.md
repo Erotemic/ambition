@@ -267,10 +267,20 @@ Captured here so the next daytime session picks up cleanly.
 - Narrow `ActorControlFrame::fire` to `Option<Vec2>` once
   ActionSet's RangedActionSpec is the speed source.
 
-Test counts at session end: 717 sandbox lib tests + 264 engine
-lib tests + 55/4/5 in other workspace crates = 1045 total tests
-green. Headless + rl_smoke binaries both run clean. Brain module
-clippy-clean. Doc-link / agent-index checks pass.
+Test counts at session end: 753+ sandbox lib tests + 265 engine
+lib tests + 55/4/5 in other workspace crates = 1082+ total
+tests green. Headless / rl_smoke / rl_random_walker binaries all
+clean (verified at 60, 100, 200, 300, 500, 800, 1000 ticks at
+various points). Brain module clippy-clean. Doc-link check
+passes. Agent KB check fails on a pre-existing missing path
+unrelated to brain work.
+
+Session-end note: the dev environment hit EMFILE pressure during
+intense test-runner phases (parallel cargo test workers opening
+many bevy crate FDs). Mitigation: run `cargo test
+-p ambition_sandbox --lib -- --test-threads=2` instead of
+default parallelism; documented in
+docs/recipes/extending-brains-and-action-sets.md.
 
 Additional polish past the initial Chunk 4f wrap (all
 parallel-shape / additive, no behavior change):

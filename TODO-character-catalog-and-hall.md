@@ -12,15 +12,15 @@ can stop at any checkpoint if budget runs out.
 
 ## Run progress (live updates)
 
-**Run started:** _not started_
-**Current phase:** _not started_
-**Last green commit:** _none yet_
+**Run started:** 2026-05-24T17:16:07+0000 (epoch 1779642967)
+**Current phase:** Phase 2 — NpcSpawn schema change 🏗️
+**Last green commit:** _Phase 1 commit pending_
 
 ### Estimated vs Actual time
 
 | Phase | Estimated | Actual | Status | Notes |
 |---|---|---|---|---|
-| 1. Foundation (RON catalog + plugin + validator) | 2.0 h | _ | ⬜ pending | _ |
+| 1. Foundation (RON catalog + plugin + validator) | 2.0 h | 0.16 h | ✅ done | 24 chars; 771 lib tests + 8 new catalog tests all green; headless 60-tick clean. Fast because brain/action_set types already designed for this shape. |
 | 2. NpcSpawn schema change (`name` → `character_id`) | 1.5 h | _ | ⬜ pending | _ |
 | 3. Sprite gap closure (every renderer entry → catalog) | 1.0 h | _ | ⬜ pending | _ |
 | 4. Area specs YAML → RON migration | 1.0 h | _ | ⬜ pending | _ |

@@ -7,6 +7,7 @@
 //! via the framework, but the specific entities/dialog/quests do not.
 
 pub mod banter;
+pub mod character_catalog;
 pub mod content_validation;
 pub mod data;
 pub mod features;

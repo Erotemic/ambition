@@ -75,6 +75,12 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(crate::features::FeatureEcsWorldOverlay::default())
             .insert_resource(crate::features::FeatureViewIndex::default())
             .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
+            // CharacterCatalogPlugin installs the parsed character
+            // catalog as a Bevy resource and runs a Startup validator
+            // that panics on broken references. See
+            // `crate::content::character_catalog` and ADR 0017
+            // (Rust = behavior, RON = content, LDtk = space).
+            .add_plugins(crate::content::character_catalog::CharacterCatalogPlugin)
             .add_systems(
                 Startup,
                 (

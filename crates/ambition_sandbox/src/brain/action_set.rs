@@ -50,6 +50,15 @@ impl ActionSet {
     pub fn peaceful() -> Self {
         Self::default()
     }
+
+    /// True iff this ActionSet has at least one offensive capability
+    /// (melee or ranged). Daytime HUD / faction logic uses this to
+    /// distinguish "passive observer" actors from "could attack
+    /// if asked" actors without re-checking three Option<>s.
+    #[allow(dead_code, reason = "diagnostic + daytime-consumer helper")]
+    pub fn can_attack(&self) -> bool {
+        self.melee.is_some() || self.ranged.is_some()
+    }
 }
 
 /// Concrete melee actions an actor can perform. Each variant carries
@@ -411,6 +420,22 @@ mod tests {
         assert!(s.ranged.is_none());
         assert!(s.special.is_none());
         assert_eq!(s.move_style, MoveStyleSpec::Walk);
+        assert!(!s.can_attack());
+    }
+
+    #[test]
+    fn action_set_can_attack_detects_melee_or_ranged() {
+        let mut s = ActionSet::peaceful();
+        assert!(!s.can_attack());
+        s.melee = Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT));
+        assert!(s.can_attack());
+        s.melee = None;
+        s.ranged = Some(RangedActionSpec::Bolt { speed: 380.0, damage: 1 });
+        assert!(s.can_attack());
+        // Special alone doesn't count as "attacks".
+        s.ranged = None;
+        s.special = Some(SpecialActionSpec::BubbleShield);
+        assert!(!s.can_attack());
     }
 
     #[test]

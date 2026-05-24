@@ -198,6 +198,33 @@ mod tests {
     }
 
     #[test]
+    fn frames_differing_in_any_new_field_are_not_equal() {
+        // PartialEq must cover every field. A future field added
+        // to ActorControlFrame whose derive omits the field would
+        // silently break frame equality checks. Pin that adding
+        // each new field changes equality.
+        let baseline = ActorControlFrame::neutral();
+        let mut a = baseline;
+        a.attack_axis = Vec2::new(1.0, 0.0);
+        assert_ne!(baseline, a);
+        let mut b = baseline;
+        b.jump_pressed = true;
+        assert_ne!(baseline, b);
+        let mut c = baseline;
+        c.dash_pressed = true;
+        assert_ne!(baseline, c);
+        let mut d = baseline;
+        d.interact_pressed = true;
+        assert_ne!(baseline, d);
+        let mut e = baseline;
+        e.shield_held = true;
+        assert_ne!(baseline, e);
+        let mut f = baseline;
+        f.special_pressed = true;
+        assert_ne!(baseline, f);
+    }
+
+    #[test]
     fn clear_edges_zeros_per_tick_edges_keeps_sustains() {
         let mut frame = ActorControlFrame::neutral();
         frame.jump_pressed = true;

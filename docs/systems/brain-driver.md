@@ -103,12 +103,16 @@ windup phase of an attack is its telegraph.
 Every controllable entity carries a `Brain` + `ActionSet` +
 `ActorControl` sibling component:
 
-- **Players** spawn with `Brain::Player(PlayerSlot::PRIMARY)`. The
+- **Players** spawn with `Brain::Player(PlayerSlot::PRIMARY)` +
+  the default player `ActionSet` (Swipe melee + Bolt ranged). The
   `tick_player_brains` system (runs in the `PlayerInput` phase
   after `sync_local_player_input_frame`) translates the
   per-player `PlayerInputFrame` into the actor's `ActorControl`
-  frame each tick. Nothing reads the frame yet — `update_player`
-  still consumes `PlayerInputFrame` directly.
+  frame each tick; `emit_brain_action_messages` then runs the
+  resolver and writes `ActorActionMessage`s for each concrete
+  request. Nothing consumes those messages yet — `update_player`
+  still drives combat / projectile spawns from `PlayerInputFrame`
+  directly.
 - **NPCs** carry `Brain::StateMachine(Patrol{NPC_DEFAULT})` or
   `Brain::StateMachine(StandStill)` per their authored fields.
   `NpcRuntime::tick_via_brain` builds a snapshot, calls
@@ -119,12 +123,23 @@ Every controllable entity carries a `Brain` + `ActionSet` +
   or `StandStill` for sandbags or `Wanderer{PUPPY_SLUG_DEFAULT}` for
   puppy slugs. The brain's chase_speed / aggro_radius / attack_range
   are read off `EnemyArchetype` so the brain matches the archetype's
-  pre-flip tunings. `update_ecs_actors` shadow-ticks the brain
-  alongside the existing `EnemyRuntime::update`; the frame is
-  produced but discarded — EnemyRuntime still drives behavior.
-- **Bosses** carry `Brain::StateMachine(BossPattern{placeholder})`.
-  `update_ecs_bosses` shadow-ticks similarly. BossRuntime still
-  drives behavior.
+  pre-flip tunings. The matching `ActionSet` carries the archetype's
+  concrete attack spec — Striker family gets `Swipe`, Brute /
+  Colossus get `Lunge`, BurningFlyingShark gets `Bite + Float`,
+  PirateOnShark family gets `Bolt + Float`, Sandbag gets a weak
+  `PunchWeak` counter, PuppySlug and peaceful PirateHeavy get
+  no melee. `update_ecs_actors` shadow-ticks the brain alongside
+  the existing `EnemyRuntime::update`; the frame is produced and
+  the resolver emits matching `ActorActionMessage`s, but
+  EnemyRuntime still drives behavior — the messages are an
+  observation channel until daytime EFFECTS-flip wires combat
+  spawns to consume them.
+- **Bosses** carry `Brain::StateMachine(BossPattern{encounter_id})`
+  where `encounter_id` is the same `String` the boss-encounter
+  registry uses (computed via `encounter_id_from_name(boss.name)`
+  at spawn). `update_ecs_bosses` shadow-ticks similarly. BossRuntime
+  still drives behavior; daytime work threads the registry through
+  `BossPattern.tick` to drive the phase schedule from the brain.
 
 When a peaceful NPC turns hostile (strike-threshold flip in
 `damage.rs`), the entity's `ActorRuntime::Peaceful → Hostile` swap

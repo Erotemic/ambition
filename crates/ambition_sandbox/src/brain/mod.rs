@@ -28,6 +28,31 @@
 //! `BossRuntime` / `update_player` paths. The brain output is a
 //! parallel shadow. See the daytime EFFECTS-flip procedure in the
 //! recipe doc for the migration plan.
+//!
+//! # Mini-example
+//!
+//! ```ignore
+//! use ambition_sandbox::brain::{Brain, BrainSnapshot, ActionSet, resolve_action_requests};
+//! use ambition_sandbox::brain::{StateMachineCfg, MeleeBruteCfg, MeleeBruteState};
+//!
+//! // 1) Spawn an enemy with a Brain + ActionSet.
+//! let mut brain = Brain::StateMachine(StateMachineCfg::MeleeBrute {
+//!     cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+//!     state: MeleeBruteState::default(),
+//! });
+//! let actions = ActionSet::peaceful(); // or per-archetype set
+//!
+//! // 2) Build a snapshot from the actor's per-tick state.
+//! let mut snap = BrainSnapshot::idle();
+//! snap.target_pos = ambition_engine::Vec2::new(20.0, 0.0); // in range
+//!
+//! // 3) Tick the brain → fills an ActorControlFrame.
+//! let mut frame = ambition_engine::ActorControlFrame::neutral();
+//! brain.tick(&snap, &mut frame);
+//!
+//! // 4) Resolve abstract intent into concrete ActionRequests.
+//! let requests = resolve_action_requests(&actions, &frame, snap.actor_pos);
+//! ```
 
 pub mod action_set;
 pub mod player;

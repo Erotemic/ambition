@@ -161,27 +161,24 @@ mod tests {
     }
 
     #[test]
-    fn every_npc_sprite_registry_entry_has_catalog_entry() {
-        // Transitional coverage gate: during Phase 1 the catalog
-        // ships alongside `NPC_SPRITE_REGISTRY`. The catalog must
-        // cover every label the registry currently registers — this
-        // is the bridge that lets Phase 2 swap LDtk NpcSpawn.name
-        // for character_id and have it resolve.
-        use crate::presentation::character_sprites::all_character_sprite_filenames;
+    fn sprite_loader_iterates_catalog_with_every_id_having_a_wired_sheet_or_skipping() {
+        // Phase 6 pin: after deleting NPC_SPRITE_REGISTRY, the sprite
+        // loader now iterates the catalog directly. Every catalog id
+        // either has a `sheet_for_character_id` mapping (so the
+        // sprite loads) or is silently skipped (placeholder fallback).
+        // This test confirms `sheet_for_character_id` covers enough
+        // of the catalog to keep the existing renderer surface alive
+        // — drop below this floor and visible regressions follow.
+        use crate::presentation::character_sprites::sheet_for_character_id;
         let data = load_embedded();
-        let mut missing: Vec<String> = Vec::new();
-        for (label, _filename) in all_character_sprite_filenames() {
-            if data.characters.get(label).is_none() {
-                missing.push(label.to_string());
-            }
-        }
-        // `BASE_CHARACTER_FILENAMES` contributes labels like "player"
-        // / "robot" / "goblin" / "sandbag" that the catalog should
-        // also cover. Phase 3 closes any remaining gaps; Phase 1
-        // pins coverage for the current registry roster.
+        let covered = data
+            .characters
+            .keys()
+            .filter(|cid| sheet_for_character_id(cid).is_some())
+            .count();
         assert!(
-            missing.is_empty(),
-            "character_catalog.ron is missing entries for sprite labels: {missing:?}"
+            covered >= 20,
+            "expected >=20 catalog ids to be wired to a sheet const; got {covered}",
         );
     }
 

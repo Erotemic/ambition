@@ -39,7 +39,7 @@ pub use registry::SheetRegistryPlugin;
 // the registry module actually queries them.
 pub use assets::{
     all_character_sprite_filenames, build_npc_sprite_asset, build_prop_sprite_asset,
-    load_character_sprites_in, CharacterSpriteAssets,
+    load_character_sprites_in, sheet_for_character_id, CharacterSpriteAssets,
 };
 #[allow(unused_imports)]
 pub use registry::{SheetRecord, SheetRegistry};

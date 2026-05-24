@@ -1,13 +1,31 @@
 //! Spritesheet asset bundle + on-disk loading.
 //!
-//! Each character target has its own PNG; missing files are not errors
-//! — callers fall back to colored rectangles (the game must always run
-//! regardless of asset state). All path/existence policy goes through
-//! [`crate::assets::sandbox_assets::SandboxAssetCatalog`]; this module no
-//! longer owns any `target_os = "android"` cfg branches or
+//! Each character is identified by a stable `character_id` keyed in
+//! `assets/data/character_catalog.ron` (loaded by
+//! [`crate::content::character_catalog`]). The catalog provides the
+//! display name + on-disk path; the per-character `CharacterSheetSpec`
+//! (frame/grid/anchor metadata) is resolved at startup by
+//! [`sheet_for_character_id`] — a single table that maps
+//! catalog ids to the hardcoded `*_SHEET` consts in `sheets.rs`.
+//!
+//! Missing files are not errors — callers fall back to colored
+//! rectangles (the game must always run regardless of asset state).
+//! All path/existence policy goes through
+//! [`crate::assets::sandbox_assets::SandboxAssetCatalog`]; this module
+//! no longer owns any `target_os = "android"` cfg branches or
 //! `BEVY_ASSET_ROOT` probes.
+//!
+//! ## Phase 6 cleanup (2026-05-24)
+//!
+//! Before Phase 6 this module duplicated character metadata in a
+//! `NPC_SPRITE_REGISTRY` table (display name + filename + sheet
+//! const) and a parallel `npc_sprite_label` display-name → catalog-
+//! id mapper. Both are gone now: the catalog is the single source
+//! of `display_name` and on-disk path, while `sheet_for_character_id`
+//! is the only place that pairs a catalog id with its sheet const.
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use bevy::prelude::*;
 
@@ -21,6 +39,7 @@ use super::sheets::{
     PUPPY_SLUG_SHEET, ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::content::character_catalog::EMBEDDED_CATALOG;
 use crate::features::FeatureVisualKind;
 
 #[derive(Clone)]
@@ -45,25 +64,19 @@ pub struct CharacterSpriteAssets {
     pub robot: Option<CharacterSpriteAsset>,
     pub goblin: Option<CharacterSpriteAsset>,
     pub sandbag: Option<CharacterSpriteAsset>,
-    /// Per-NPC sprite sheets keyed by the LDtk `NpcSpawn.name` field.
-    /// Adding a new faction-leader or hub NPC means adding a row to
-    /// `NPC_SPRITE_REGISTRY` below — no struct field churn or
-    /// dispatcher match-arm needed. Once LDtk grows a `category`
-    /// field on `NpcSpawn`, the key swaps from name to category.
-    pub npcs: HashMap<&'static str, CharacterSpriteAsset>,
+    /// Per-NPC sprite sheets keyed by the NPC's display name (which
+    /// is `Authored.name` post-Phase-2 — the LDtk parser translates
+    /// `NpcSpawn.character_id` to `display_name` via the catalog,
+    /// then downstream consumers look up sprites by display name).
+    /// Phase-7+ work can flip this to `character_id` keys to drop
+    /// the display-name indirection.
+    pub npcs: HashMap<String, CharacterSpriteAsset>,
     /// Per-prop sprite sheets keyed by the LDtk `Prop.kind` field
     /// (e.g. `intro_cart`, `lab_genesis_vat`, `gate_ring`,
     /// `gate_portal`). Story-content plugins extend this via
     /// `build_prop_sprite_asset` — the sandbox itself doesn't ship
-    /// any props in its base registry. Keying by `kind` (rather than
-    /// display `name`) means an author can rename a prop in LDtk
-    /// without re-pointing the sprite registry.
+    /// any props in its base registry.
     pub props: HashMap<String, CharacterSpriteAsset>,
-    // The boss uses the entity-sprite path (`EntitySprite::BossCore`) rather
-    // than the character-spritesheet path: its generator emits non-standard
-    // animation rows (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/
-    // death) that don't fit `CharacterAnim`'s 8-variant grid. When/if the
-    // boss gets a CharacterAnim-compatible sheet, add a `boss` field here.
 }
 
 impl CharacterSpriteAssets {
@@ -90,275 +103,117 @@ impl CharacterSpriteAssets {
     }
 }
 
-pub(crate) const PLAYER_FILENAME: &str = "player_robot_spritesheet.png";
-pub(crate) const ROBOT_FILENAME: &str = "robot_spritesheet.png";
-pub(crate) const GOBLIN_FILENAME: &str = "goblin_spritesheet.png";
-pub(crate) const SANDBAG_FILENAME: &str = "sandbag_spritesheet.png";
+/// Look up the hardcoded [`CharacterSheetSpec`] const associated with
+/// a catalog `character_id`. Returns `None` for catalog ids that
+/// don't yet have a wired sheet const — those characters spawn with
+/// colored-rectangle fallback until a const is added here.
+///
+/// This is the only place that pairs a catalog id with a sheet const.
+/// Phase 7+ work can replace these consts with `SheetRegistry`
+/// lookups (manifest-driven specs), at which point this function
+/// disappears entirely.
+pub fn sheet_for_character_id(character_id: &str) -> Option<&'static LazyLock<CharacterSheetSpec>> {
+    Some(match character_id {
+        // Base characters.
+        "player" => &PLAYER_ROBOT_SHEET,
+        "robot" => &ROBOT_SHEET,
+        "goblin" => &GOBLIN_SHEET,
+        "sandbag" => &SANDBAG_SHEET,
+        // Hub faction leaders.
+        "npc_general" => &ABSURD_GENERAL_SHEET,
+        "npc_goblin_cantina_chieftain" => &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
+        "npc_pulse_voyager_captain" => &PULSE_VOYAGER_CAPTAIN_SHEET,
+        "npc_tech_bro_disruptor" => &TECH_BRO_DISRUPTOR_SHEET,
+        // Pirate-faction (Pirate Cove). Same PIRATE_SHEET layout for
+        // every standard pirate; visual variety lives in the toon-
+        // adapter palette per variant.
+        "npc_pirate_admiral"
+        | "npc_pirate_raider"
+        | "npc_pirate_quartermaster"
+        | "npc_pirate_lookout"
+        | "npc_pirate_navigator" => &PIRATE_SHEET,
+        // Pirate Heavy bruisers — per-variant sheets.
+        "npc_pirate_heavy_broadside_bess" => &PIRATE_HEAVY_BROADSIDE_BESS_SHEET,
+        "npc_pirate_heavy_iron_mary" => &PIRATE_HEAVY_IRON_MARY_SHEET,
+        "npc_pirate_heavy_salt_annet" => &PIRATE_HEAVY_SALT_ANNET_SHEET,
+        // Aerial pirate enemy + wanderer crawlid.
+        "npc_burning_flying_shark" => &BURNING_FLYING_SHARK_SHEET,
+        "npc_puppy_slug" => &PUPPY_SLUG_SHEET,
+        // Ninja dojo (shared NINJA_SHEET layout).
+        "npc_ninja_shadow_oni_leader" | "npc_ninja_shadow_duelist" => &NINJA_SHEET,
+        // Hub dialogue NPCs.
+        "npc_architect" => &ARCHITECT_SHEET,
+        "npc_kernel_guide" => &KERNEL_GUIDE_SHEET,
+        "npc_vault_keeper" => &VAULT_KEEPER_SHEET,
+        "npc_merchant_prototype" => &MERCHANT_PROTOTYPE_SHEET,
+        _ => return None,
+    })
+}
 
-/// Sandbox-side label used in `sprite.character.<label>` catalog ids,
-/// paired with the on-disk filename relative to the sprite folder.
-/// The catalog aggregator (`crate::sandbox_assets`) walks this list
-/// and the [`NPC_SPRITE_REGISTRY`] below to register one
-/// `AssetEntry` per spritesheet.
-const BASE_CHARACTER_FILENAMES: &[(&str, &str)] = &[
-    ("player", PLAYER_FILENAME),
-    ("robot", ROBOT_FILENAME),
-    ("goblin", GOBLIN_FILENAME),
-    ("sandbag", SANDBAG_FILENAME),
-];
-
-/// Source-of-truth registry mapping `(LDtk NpcSpawn.name → asset
-/// filename, sheet spec)`. Add a row here to wire a new NPC sprite;
-/// `load_character_sprites_in` walks the table and inserts each
-/// present sheet into `CharacterSpriteAssets::npcs`.
-const NPC_SPRITE_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<CharacterSheetSpec>)] = &[
-    // Faction leaders.
-    (
-        "General",
-        "absurd_general_spritesheet.png",
-        &ABSURD_GENERAL_SHEET,
-    ),
-    (
-        "Fretjaw, Cantina Chieftain",
-        "goblin_cantina_chieftain_spritesheet.png",
-        &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
-    ),
-    (
-        "Captain Pulse",
-        "pulse_voyager_captain_spritesheet.png",
-        &PULSE_VOYAGER_CAPTAIN_SHEET,
-    ),
-    (
-        "Chadwick Disruptor III",
-        "tech_bro_disruptor_spritesheet.png",
-        &TECH_BRO_DISRUPTOR_SHEET,
-    ),
-    // Pirate-faction characters in the Pirate Cove. Same sheet layout
-    // (idle/walk/slash/taunt/hurt/death) for both — see PIRATE_SHEET.
-    (
-        "Pirate Admiral",
-        "pirate_admiral_spritesheet.png",
-        &PIRATE_SHEET,
-    ),
-    (
-        "Pirate Raider",
-        "pirate_raider_spritesheet.png",
-        &PIRATE_SHEET,
-    ),
-    // Third pirate variant — same silhouette family as Raider but a
-    // distinctly darker skin tone (see `pirates/common.py::PALETTES`
-    // entry for `pirate_quartermaster`). Quartermaster role keeps the
-    // crew lineup readable (Admiral / Raider / Quartermaster) and
-    // gives the cove a third base pirate for combat / dialogue tests.
-    (
-        "Pirate Quartermaster",
-        "pirate_quartermaster_spritesheet.png",
-        &PIRATE_SHEET,
-    ),
-    // Lady pirate variants — same PIRATE_SHEET 128×128 layout, six
-    // animations. Visual gendering happens entirely in the toon-
-    // target palette (no beard; warmer scarf / coat colors). See
-    // `tools/ambition_sprite2d_renderer/.../pirates/common.py`
-    // `pirate_lookout` (deep-brown skin) and `pirate_navigator`
-    // (pale-warm skin) palette entries.
-    (
-        "Pirate Lookout",
-        "pirate_lookout_spritesheet.png",
-        &PIRATE_SHEET,
-    ),
-    (
-        "Pirate Navigator",
-        "pirate_navigator_spritesheet.png",
-        &PIRATE_SHEET,
-    ),
-    // Burning Flying Shark — enemy mount used by the pirate sky
-    // arena. Registered through the NPC sprite registry because the
-    // current enemy-sprite resolver falls through to NPC sheets
-    // first; this matches the pattern used by hostile-NPC migrations.
-    (
-        "Burning Flying Shark",
-        "burning_flying_shark_spritesheet.png",
-        &BURNING_FLYING_SHARK_SHEET,
-    ),
-    // Puppy Slug — small deep-dream Crawlid-style enemy. Same
-    // NPC-fallthrough pattern as the burning flying shark: the
-    // EnemySpawn's display name "Puppy Slug" is what the resolver
-    // hashes to find this sheet.
-    (
-        "Puppy Slug",
-        "puppy_slug_spritesheet.png",
-        &PUPPY_SLUG_SHEET,
-    ),
-    // Pirate Heavy bruiser variants. Each has palette/proportion
-    // tweaks (see `pirate_heavy_variants` Python target) but shares
-    // the heavy-bruiser silhouette: bandana hair, massive shoulders,
-    // skirt, cleaver weapon. Spawned as ground enemies in the
-    // pirate cove and as the rider on a `PirateHeavyOnShark`.
-    (
-        "Broadside Bess",
-        "pirate_heavy_broadside_bess_spritesheet.png",
-        &PIRATE_HEAVY_BROADSIDE_BESS_SHEET,
-    ),
-    (
-        "Iron Mary",
-        "pirate_heavy_iron_mary_spritesheet.png",
-        &PIRATE_HEAVY_IRON_MARY_SHEET,
-    ),
-    (
-        "Salt Annet",
-        "pirate_heavy_salt_annet_spritesheet.png",
-        &PIRATE_HEAVY_SALT_ANNET_SHEET,
-    ),
-    // Ninja-faction characters in the Shadow Dojo. Same sheet layout
-    // (idle/walk/run/jump/fall/slash/hit/death/blink_out/blink_in/
-    // dash) for both — see NINJA_SHEET.
-    (
-        "Shadow Oni Leader",
-        "ninja_shadow_oni_leader_spritesheet.png",
-        &NINJA_SHEET,
-    ),
-    (
-        "Shadow Duelist",
-        "ninja_shadow_duelist_spritesheet.png",
-        &NINJA_SHEET,
-    ),
-    // Hub NPCs already authored in LDtk; we just point them at the
-    // toon-target sheets rendered for them.
-    (
-        "Architect NPC",
-        "architect_spritesheet.png",
-        &ARCHITECT_SHEET,
-    ),
-    (
-        "Kernel Guide NPC",
-        "kernel_guide_spritesheet.png",
-        &KERNEL_GUIDE_SHEET,
-    ),
-    (
-        "Vault Keeper NPC",
-        "vault_keeper_spritesheet.png",
-        &VAULT_KEEPER_SHEET,
-    ),
-    (
-        "Merchant Prototype NPC",
-        "merchant_prototype_spritesheet.png",
-        &MERCHANT_PROTOTYPE_SHEET,
-    ),
-];
-
-/// Sandbox-side label + filename for every character spritesheet the
-/// sandbox knows about — base (player / robot / goblin / sandbag) +
-/// every NPC sheet in [`NPC_SPRITE_REGISTRY`]. The sandbox-assets
-/// aggregator walks this so adding a new character row in either
-/// table auto-registers its catalog id.
-pub fn all_character_sprite_filenames() -> Vec<(&'static str, &'static str)> {
-    let mut out: Vec<(&'static str, &'static str)> = BASE_CHARACTER_FILENAMES.to_vec();
-    for (name, filename, _spec) in NPC_SPRITE_REGISTRY {
-        out.push((npc_sprite_label(name), *filename));
+/// Return every `(character_id, on-disk filename)` pair the catalog
+/// declares, for asset-manifest registration. Used by the sandbox-
+/// assets aggregator (`builders/visuals.rs::extend_with_character_entries`)
+/// so adding a row to the catalog auto-registers the catalog id.
+///
+/// Filename is the basename of the catalog entry's `spritesheet`
+/// field (stripped of the `sprites/` prefix the catalog stores them
+/// under).
+pub fn all_character_sprite_filenames() -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = Vec::with_capacity(EMBEDDED_CATALOG.characters.len());
+    for (cid, entry) in EMBEDDED_CATALOG.characters.iter() {
+        let filename = entry
+            .spritesheet
+            .strip_prefix("sprites/")
+            .unwrap_or(entry.spritesheet.as_str())
+            .to_string();
+        out.push((cid.clone(), filename));
     }
     out
 }
 
-/// Convert an LDtk NPC name (e.g. `"Pirate Raider"`) into a stable
-/// `sprite.character.<lower_snake>` label. The mapping is reversible
-/// for the current NPC roster — the caller passes the same name when
-/// resolving via the catalog at load time.
-pub fn npc_sprite_label(npc_name: &str) -> &'static str {
-    // Static lookup table so we hand back `&'static str` values that
-    // can be stored in the catalog id without allocations. Adding a
-    // new NPC entails one row here AND one row in [`NPC_SPRITE_REGISTRY`].
-    match npc_name {
-        "General" => "npc_general",
-        "Fretjaw, Cantina Chieftain" => "npc_goblin_cantina_chieftain",
-        "Captain Pulse" => "npc_pulse_voyager_captain",
-        "Chadwick Disruptor III" => "npc_tech_bro_disruptor",
-        "Pirate Admiral" => "npc_pirate_admiral",
-        "Pirate Raider" => "npc_pirate_raider",
-        "Pirate Quartermaster" => "npc_pirate_quartermaster",
-        "Pirate Lookout" => "npc_pirate_lookout",
-        "Pirate Navigator" => "npc_pirate_navigator",
-        "Burning Flying Shark" => "npc_burning_flying_shark",
-        "Shadow Oni Leader" => "npc_ninja_shadow_oni_leader",
-        "Shadow Duelist" => "npc_ninja_shadow_duelist",
-        "Puppy Slug" => "npc_puppy_slug",
-        "Broadside Bess" => "npc_pirate_heavy_broadside_bess",
-        "Iron Mary" => "npc_pirate_heavy_iron_mary",
-        "Salt Annet" => "npc_pirate_heavy_salt_annet",
-        "Architect NPC" => "npc_architect",
-        "Kernel Guide NPC" => "npc_kernel_guide",
-        "Vault Keeper NPC" => "npc_vault_keeper",
-        "Merchant Prototype NPC" => "npc_merchant_prototype",
-        // Story-content plugins (e.g. intro) author their own NPC
-        // sprites by calling [`build_npc_sprite_asset`] directly; the
-        // generic-id branch is only reached when the catalog doesn't
-        // have a label registered for `npc_name`.
-        _ => "npc_unregistered",
-    }
-}
-
 /// Probe the sandbox `assets/<sprite_folder>/` directory for spritesheets.
 ///
-/// Resolves each filename through [`SandboxAssetCatalog::path_for`] and
-/// gates the load on
-/// [`SandboxAssetCatalog::should_attempt_optional_load`]. Missing files
-/// produce `None` — callers fall back to colored rectangles.
+/// Iterates the embedded character catalog and, for each entry, looks
+/// up its [`CharacterSheetSpec`] via [`sheet_for_character_id`]. Asset
+/// availability gates through
+/// [`SandboxAssetCatalog::should_attempt_optional_load`]; missing
+/// files produce no map entry (callers fall back to colored
+/// rectangles).
 pub fn load_character_sprites_in(
     catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> CharacterSpriteAssets {
-    let player = build_optional_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        &ids::character_sprite("player"),
-        &PLAYER_ROBOT_SHEET,
-        Some("player"),
-    );
-    let robot = build_optional_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        &ids::character_sprite("robot"),
-        &ROBOT_SHEET,
-        Some("robot"),
-    );
-    let goblin = build_optional_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        &ids::character_sprite("goblin"),
-        &GOBLIN_SHEET,
-        Some("goblin"),
-    );
-    let sandbag = build_optional_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        &ids::character_sprite("sandbag"),
-        &SANDBAG_SHEET,
-        Some("sandbag"),
-    );
-
-    let mut npcs: HashMap<&'static str, CharacterSpriteAsset> = HashMap::new();
-    for (name, _filename, spec) in NPC_SPRITE_REGISTRY {
-        let label = npc_sprite_label(name);
-        let id = ids::character_sprite(label);
-        if let Some(asset) =
-            build_optional_via_catalog(catalog, asset_server, layouts, &id, *spec, Some(name))
-        {
-            npcs.insert(*name, asset);
+    let mut out = CharacterSpriteAssets::default();
+    for (cid, entry) in EMBEDDED_CATALOG.characters.iter() {
+        let Some(sheet) = sheet_for_character_id(cid) else {
+            // No sheet wired for this catalog entry yet — skip
+            // silently. Phase 7+ work either wires a sheet here or
+            // (better) drives the spec from the manifest at startup.
+            continue;
+        };
+        let asset_id = ids::character_sprite(cid);
+        let Some(asset) = build_optional_via_catalog(
+            catalog,
+            asset_server,
+            layouts,
+            &asset_id,
+            sheet,
+            Some(cid),
+        ) else {
+            continue;
+        };
+        match cid.as_str() {
+            "player" => out.player = Some(asset),
+            "robot" => out.robot = Some(asset),
+            "goblin" => out.goblin = Some(asset),
+            "sandbag" => out.sandbag = Some(asset),
+            _ => {
+                out.npcs.insert(entry.display_name.clone(), asset);
+            }
         }
     }
-
-    CharacterSpriteAssets {
-        player,
-        robot,
-        goblin,
-        sandbag,
-        npcs,
-        props: HashMap::new(),
-    }
+    out
 }
 
 /// Resolve the catalog id, gate on profile policy via

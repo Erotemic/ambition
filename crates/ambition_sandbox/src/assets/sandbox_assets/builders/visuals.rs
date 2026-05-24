@@ -88,14 +88,15 @@ pub(in super::super) fn extend_with_character_entries(
     manifest: &mut AssetManifest,
     sprite_folder: &str,
 ) {
-    for (name, filename) in crate::presentation::character_sprites::all_character_sprite_filenames()
+    for (name, filename) in
+        crate::presentation::character_sprites::all_character_sprite_filenames()
     {
-        let id = ids::character_sprite(name);
+        let id = ids::character_sprite(&name);
         let logical_path = format!("{sprite_folder}/{filename}");
         let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)
             .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
             .with_preload_group(PreloadGroup::SandboxCore);
-        if let Some(embedded_url) = character_sprite_embedded_url(name) {
+        if let Some(embedded_url) = character_sprite_embedded_url(&name) {
             entry = with_embedded_core_candidate(entry, embedded_url);
         }
         manifest.insert(entry);

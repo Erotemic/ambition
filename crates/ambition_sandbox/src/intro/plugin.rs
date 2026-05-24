@@ -213,7 +213,7 @@ pub(crate) fn load_intro_npc_sprites_system(
         if let Some(asset) =
             build_npc_sprite_asset(&catalog, &asset_server, &mut layouts, &id, spec)
         {
-            game_assets.characters.npcs.insert(*name, asset);
+            game_assets.characters.npcs.insert(name.to_string(), asset);
         } else {
             eprintln!(
                 "[intro] NPC sheet '{name}' (catalog id {id}) not loadable under {} \

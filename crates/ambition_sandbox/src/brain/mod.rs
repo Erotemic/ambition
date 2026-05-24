@@ -464,6 +464,42 @@ mod tests {
     }
 
     #[test]
+    fn emit_brain_action_messages_handles_many_actors() {
+        // Stress: 50 actors with Brain + ActionSet + Transform all
+        // wanting to attack this tick. The resolver should emit
+        // 50 messages in one update with no panic or quadratic
+        // slowdown.
+        use bevy::prelude::*;
+        let mut app = App::new();
+        app.add_message::<ActorActionMessage>();
+        app.add_systems(Update, emit_brain_action_messages);
+        let mut frame = ae::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        let actions = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ..Default::default()
+        };
+        for i in 0..50 {
+            app.world_mut().spawn((
+                Brain::stand_still(),
+                ActorControl(frame),
+                actions.clone(),
+                bevy::transform::components::Transform::from_xyz(
+                    i as f32 * 10.0,
+                    0.0,
+                    0.0,
+                ),
+            ));
+        }
+        app.update();
+        let messages = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>();
+        let count = messages.iter_current_update_messages().count();
+        assert_eq!(count, 50, "expected 50 messages, got {count}");
+    }
+
+    #[test]
     fn actor_control_default_is_neutral_frame() {
         // ActorControl Default = frame.neutral. Pins the
         // "fresh-spawn ActorControl has zero intent" baseline so

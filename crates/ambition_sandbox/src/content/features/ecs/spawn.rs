@@ -414,8 +414,23 @@ pub fn despawn_encounter_mobs(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::{ActionSet, ActorControl, Brain};
+    use crate::brain::{
+        ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
+    };
     use bevy::prelude::*;
+
+    fn make_enemy(archetype: EnemyArchetype) -> EnemyRuntime {
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
+        let mut enemy = EnemyRuntime::new(
+            "test".to_string(),
+            "test".to_string(),
+            aabb,
+            ae::EnemyBrain::Custom("medium_striker".into()),
+            &[],
+        );
+        enemy.archetype = archetype;
+        enemy
+    }
 
     /// Regression net: every encounter-spawned hostile actor lands
     /// with the universal-brain components attached. Pins the
@@ -440,5 +455,65 @@ mod tests {
             .query::<(&Brain, &ActionSet, &ActorControl)>();
         let count = q.iter(app.world()).count();
         assert_eq!(count, 1, "encounter mob should carry Brain + ActionSet + ActorControl");
+    }
+
+    /// enemy_default_brain picks a per-archetype template — pins
+    /// the mapping so a future refactor that re-keys archetypes
+    /// can't silently lose the Wanderer/StandStill assignments
+    /// PuppySlug and Sandbag rely on.
+    #[test]
+    fn enemy_default_brain_picks_per_archetype_template() {
+        let slug = make_enemy(EnemyArchetype::PuppySlug);
+        assert!(matches!(
+            enemy_default_brain(&slug),
+            Brain::StateMachine(StateMachineCfg::Wanderer { .. })
+        ));
+
+        let sandbag = make_enemy(EnemyArchetype::InfiniteSandbag);
+        assert!(matches!(
+            enemy_default_brain(&sandbag),
+            Brain::StateMachine(StateMachineCfg::StandStill)
+        ));
+
+        let striker = make_enemy(EnemyArchetype::MediumStriker);
+        match enemy_default_brain(&striker) {
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
+                assert!(cfg.aggressiveness > 0.0);
+                // Brain's chase_speed mirrors the archetype tuning.
+                assert!((cfg.chase_speed - EnemyArchetype::MediumStriker.chase_speed()).abs() < 0.01);
+            }
+            other => panic!("expected MeleeBrute for MediumStriker, got {:?}", other),
+        }
+    }
+
+    /// enemy_default_action_set picks a per-archetype concrete
+    /// attack spec — daytime EFFECTS-flip code reads this to spawn
+    /// distinct hitboxes per archetype.
+    #[test]
+    fn enemy_default_action_set_picks_per_archetype_specs() {
+        let slug = make_enemy(EnemyArchetype::PuppySlug);
+        let set = enemy_default_action_set(&slug);
+        assert!(set.melee.is_none(), "peaceful PuppySlug has no melee");
+        assert!(matches!(set.move_style, MoveStyleSpec::Slither));
+
+        let brute = make_enemy(EnemyArchetype::LargeBrute);
+        let set = enemy_default_action_set(&brute);
+        assert!(matches!(
+            set.melee,
+            Some(MeleeActionSpec::Lunge(_))
+        ));
+        assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
+
+        let striker = make_enemy(EnemyArchetype::MediumStriker);
+        let set = enemy_default_action_set(&striker);
+        assert!(matches!(
+            set.melee,
+            Some(MeleeActionSpec::Swipe(_))
+        ));
+
+        let pirate_shark = make_enemy(EnemyArchetype::PirateOnShark);
+        let set = enemy_default_action_set(&pirate_shark);
+        assert!(set.ranged.is_some(), "PirateOnShark has ranged");
+        assert!(matches!(set.move_style, MoveStyleSpec::Float));
     }
 }

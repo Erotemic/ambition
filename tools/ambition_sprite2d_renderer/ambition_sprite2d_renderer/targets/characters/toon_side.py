@@ -19,7 +19,7 @@ Design goals:
 import math
 import random
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 from PIL import Image, ImageColor, ImageDraw
 
@@ -115,6 +115,17 @@ class ToonSpec:
     # brim upward in image space; positive Y lowers it.
     hat_brim_offset_x: float = 0.0
     hat_brim_offset_y: float = 0.0
+    # ---- Per-archetype rig flags ---------------------------------------
+    # Set on the preset rather than checked against a hardcoded set of
+    # archetype names in the rig. New "feminine-coded" toons just set
+    # `feminine_coded: True` in their preset; no rig edit required.
+    feminine_coded: bool = False
+    # Optional callable run AFTER `pose_for_animation` builds the base
+    # pose, signature `(pose: ToonPose, animation: str) -> None` that
+    # mutates the pose for archetype-specific touch-ups (e.g.
+    # fascist_enforcer's stiffer posture). Avoids `if archetype == "X":`
+    # blocks inside the rig.
+    pose_override: Optional[Callable[["ToonPose", str], None]] = None
 
 
 @dataclass
@@ -372,40 +383,11 @@ class ToonSideGenerator:
             p.near_leg_lower = 72.0 - 8.0 * collapse
             p.collapse = collapse
             p.dead = collapse > 0.75
-        if spec.archetype == "fascist_enforcer":
-            if animation == "idle":
-                p.body_bob *= 0.25
-                p.torso_tilt -= 1.2
-                p.head_tilt += 0.4
-                p.eye_squint = max(p.eye_squint, 0.18)
-            elif animation in {"walk", "run"}:
-                p.torso_tilt -= 1.8
-                p.head_tilt -= 0.6
-                p.eye_squint = max(p.eye_squint, 0.16)
-                p.far_arm_lower -= 3.0
-                p.near_arm_lower += 3.0
-            elif animation == "talk":
-                p.torso_tilt -= 0.8
-                p.head_tilt += 0.3
-                p.eye_squint = max(p.eye_squint, 0.14)
-                p.mouth_open = max(p.mouth_open, 0.25)
-            elif animation == "interact":
-                p.torso_tilt -= 2.0
-                p.head_tilt -= 0.5
-                p.gesture = max(p.gesture, 0.4)
-            elif animation == "slash":
-                p.root_x += 1.5
-                p.torso_tilt -= 3.5
-                p.head_tilt -= 1.5
-                p.prop_swing = max(p.prop_swing, 0.75)
-            elif animation == "dash":
-                p.torso_tilt -= 2.0
-                p.head_tilt -= 0.5
-            elif animation == "hit":
-                p.head_tilt += 1.4
-            elif animation == "death":
-                p.torso_tilt += 8.0 * p.collapse
-                p.head_tilt += 6.0 * p.collapse
+        # Archetype-specific pose touch-ups (e.g. fascist_enforcer's
+        # stiffer posture) live on the preset as a callable so the rig
+        # stays archetype-agnostic. See `_toon_presets/fascist_enforcer.py`.
+        if spec.pose_override is not None:
+            spec.pose_override(p, animation)
         return p
 
     # --- render helpers --------------------------------------------------------
@@ -805,13 +787,11 @@ class ToonSideGenerator:
             d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.78 + spec.hair_volume * 0.45) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
         # Face.
         d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
-        # Chin/jaw shadow. Suppressed for feminine-coded archetypes
+        # Chin/jaw shadow. Suppressed for `feminine_coded` archetypes
         # because the skin_shadow ellipse against the lighter face
         # reads as a beard/goatee at the runtime downsample. Hair
         # length is the main feminine cue; this avoids fighting it.
-        # Keep the list explicit so adding a new feminine-coded
-        # archetype is a one-line edit, matching the eyelash list.
-        if spec.archetype not in {"alice", "mallory", "trudy", "sybil", "peggy", "olivia"}:
+        if not spec.feminine_coded:
             d.ellipse(_bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.18 * S), (spec.head_w * 0.70) * S, (spec.chin_h * 1.9) * S), fill=pal["skin_shadow"], outline=None)
         # Front hair / features.
         if spec.hair_style == "swoop":
@@ -1097,14 +1077,12 @@ class ToonSideGenerator:
                 # suggest the head tilt from the 3/4 angle).
                 d.ellipse(_bbox((far_eye_x, eye_y - 0.1 * S), far_w, far_h), fill=pal["white"], outline=outline, width=max(1, int(0.9 * S)))
                 d.ellipse(_bbox((far_eye_x + 0.45 * S, pupil_y - 0.05 * S), 1.05 * S, 2.0 * S), fill=outline)
-                # Eyelash cue for archetypes that opt in. One short
+                # Eyelash cue for `feminine_coded` archetypes. One short
                 # outer-corner tick per eye — read as a hint of lash
                 # at the runtime downsample without sliding into
                 # "make-up trope" territory. Hair length is the
                 # primary feminine cue; this is the subtle finish.
-                # Keep the list explicit so adding a new feminine-
-                # coded archetype is a one-line edit.
-                if spec.archetype in {"alice", "mallory", "trudy", "sybil", "peggy", "olivia"}:
+                if spec.feminine_coded:
                     # Single short stroke at the outer corner of the
                     # near eye only.
                     lash_root = (near_eye_x + 2.0 * S, eye_y - near_h)

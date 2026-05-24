@@ -11,6 +11,7 @@ from __future__ import annotations
 
 
 PRESET = {
+        "feminine_coded": True,
         "name": "Sybil",
         "role": "npc",
         "palette_name": "sybil",

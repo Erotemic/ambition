@@ -1,13 +1,61 @@
 """Toon archetype preset: fascist_enforcer.
 
-One archetype per file so adding / editing a single character
-doesn't require touching the shared preset module. The
-``_toon_presets/__init__.py`` collects every ``PRESET`` exported
-here into a single dict for the rig to consume.
+Antagonist preset. Includes a `pose_override` callable that adjusts
+the base pose per-animation to read as "rigid, stiff military
+posture" — the rig doesn't have any archetype-specific branches;
+all per-archetype touch-ups land here.
 
 See GOALS.md goal #1.
 """
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..toon_side import ToonPose
+
+
+def _override_pose(p: "ToonPose", animation: str) -> None:
+    """Stiffer, more upright pose for the fascist_enforcer.
+
+    Called from `ToonSideGenerator.pose_for_animation` AFTER the base
+    pose is built. Mutates in place — return value ignored. Each
+    `elif` is a per-animation tweak; default (no clause) leaves the
+    pose unchanged.
+    """
+    if animation == "idle":
+        p.body_bob *= 0.25
+        p.torso_tilt -= 1.2
+        p.head_tilt += 0.4
+        p.eye_squint = max(p.eye_squint, 0.18)
+    elif animation in {"walk", "run"}:
+        p.torso_tilt -= 1.8
+        p.head_tilt -= 0.6
+        p.eye_squint = max(p.eye_squint, 0.16)
+        p.far_arm_lower -= 3.0
+        p.near_arm_lower += 3.0
+    elif animation == "talk":
+        p.torso_tilt -= 0.8
+        p.head_tilt += 0.3
+        p.eye_squint = max(p.eye_squint, 0.14)
+        p.mouth_open = max(p.mouth_open, 0.25)
+    elif animation == "interact":
+        p.torso_tilt -= 2.0
+        p.head_tilt -= 0.5
+        p.gesture = max(p.gesture, 0.4)
+    elif animation == "slash":
+        p.root_x += 1.5
+        p.torso_tilt -= 3.5
+        p.head_tilt -= 1.5
+        p.prop_swing = max(p.prop_swing, 0.75)
+    elif animation == "dash":
+        p.torso_tilt -= 2.0
+        p.head_tilt -= 0.5
+    elif animation == "hit":
+        p.head_tilt += 1.4
+    elif animation == "death":
+        p.torso_tilt += 8.0 * p.collapse
+        p.head_tilt += 6.0 * p.collapse
 
 
 PRESET = {
@@ -41,4 +89,5 @@ PRESET = {
         "hair_volume": 2.6,
         "nose_len": 3.8,
         "satchel_size": 0.0,
+        "pose_override": _override_pose,
     }

@@ -263,6 +263,31 @@ crates/ambition_sandbox/src/audio/environment.rs::tests           # PlayerBody m
 crates/ambition_sandbox/src/headless.rs::tests                    # full plugin integration
 ```
 
+## Helper API
+
+Convenience methods exposed for daytime work:
+
+| Type                  | Helper                                  | Returns                            |
+| --------------------- | --------------------------------------- | ---------------------------------- |
+| `Brain`               | `stand_still()`                         | `Brain::StateMachine(StandStill)`  |
+| `Brain`               | `npc_patrol(spawn_x, radius)`           | `Brain::StateMachine(Patrol{...})` |
+| `Brain`               | `is_player()`                           | `bool`                             |
+| `Brain`               | `player_slot()`                         | `Option<PlayerSlot>`               |
+| `Brain`               | `is_hostile()`                          | `bool`                             |
+| `Brain`               | `label()`                               | `&'static str`                     |
+| `Brain` Display       | `format!("{}", brain)`                  | `"Player(slot=N)"` / `"StateMachine(label)"` |
+| `ActorActionMessage`  | `is_melee()` / `is_ranged()` / `is_special()` | `bool`                       |
+| `ActionRequest`       | `label()`                               | `"melee_swipe"`, `"ranged_bolt"`, …|
+| `ActionRequest` Display | `format!("{}", req)`                  | `"melee_swipe(at … facing +1)"`    |
+| `MeleeActionSpec`     | `damage()` / `reach_px()` / `total_duration_s()` | `i32` / `f32` / `f32`     |
+| `RangedActionSpec`    | `speed()` / `damage()`                  | `f32` / `i32`                      |
+| `ActionSet`           | `peaceful()` / `can_attack()`           | `Self` / `bool`                    |
+| `BrainSnapshot`       | `idle()` / `to_character_ai_snapshot(...)` | `Self` / `ae::CharacterAiSnapshot` |
+| `ActorControlFrame`   | `neutral()` / `wants_any_action()` / `clear_edges()` | `Self` / `bool` / `()`   |
+| `shadow_tick_brain` / `shadow_tick_brain_with_timers` | free fn | `ae::ActorControlFrame` |
+| `CombatTimers`        | `CLEAR` const                            | `Self` (all zeros)                 |
+| `log_brain_action_messages` | Bevy system (optional)             | debug! log per message              |
+
 ## Quick reference
 
 | Thing | Where |

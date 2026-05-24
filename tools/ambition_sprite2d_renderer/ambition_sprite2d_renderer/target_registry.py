@@ -39,6 +39,7 @@ from typing import (
     NamedTuple,
     Optional,
     Protocol,
+    Sequence,
     Tuple,
     runtime_checkable,
 )
@@ -68,6 +69,42 @@ ADAPTER_HELPER_STEMS: frozenset[str] = frozenset({
     "toon_side",
     "trent_elder",
 })
+
+
+# ---- Shared install helpers --------------------------------------------------
+
+
+def _copy_sheet_files(
+    sheet_files: "Sequence[str]", render_dir: Path, dest_root: Path,
+) -> List[Path]:
+    """Copy every entry in ``sheet_files`` from ``render_dir`` to ``dest_root``,
+    plus the matching ``.ron`` sidecar for any ``.yaml`` entry that has one.
+
+    Targets emitted via `tackon_sheet.build_sheet` (and similar) always
+    produce a `<stem>.ron` next to each `<stem>.yaml`, but many tack-on
+    modules predate the RON sidecar convention and don't list the .ron
+    in their `SHEET_FILES`. Pair them automatically so the sandbox
+    runtime always gets the RON the SheetRegistry expects.
+    """
+    copied: List[Path] = []
+    listed = set(sheet_files)
+    for fname in sheet_files:
+        src = render_dir / fname
+        if not src.exists():
+            continue
+        dst = dest_root / fname
+        shutil.copy2(src, dst)
+        copied.append(dst)
+        if fname.endswith(".yaml"):
+            ron_name = fname[:-5] + ".ron"
+            if ron_name in listed:
+                continue
+            ron_src = render_dir / ron_name
+            if ron_src.exists():
+                ron_dst = dest_root / ron_name
+                shutil.copy2(ron_src, ron_dst)
+                copied.append(ron_dst)
+    return copied
 
 
 # ---- Target protocol ---------------------------------------------------------
@@ -173,15 +210,7 @@ class TackonTarget:
         if self._install_fn is not None:
             return list(self._install_fn(render_dir, dest_root))
         dest_root.mkdir(parents=True, exist_ok=True)
-        copied: List[Path] = []
-        for fname in self.sheet_files:
-            src = render_dir / fname
-            if not src.exists():
-                continue
-            dst = dest_root / fname
-            shutil.copy2(src, dst)
-            copied.append(dst)
-        return copied
+        return _copy_sheet_files(self.sheet_files, render_dir, dest_root)
 
 
 # ---- AdapterTarget -----------------------------------------------------------
@@ -241,15 +270,7 @@ class AdapterTarget:
         render_dir = Path(render_dir)
         dest_root = Path(dest_root)
         dest_root.mkdir(parents=True, exist_ok=True)
-        copied: List[Path] = []
-        for fname in self.sheet_files:
-            src = render_dir / fname
-            if not src.exists():
-                continue
-            dst = dest_root / fname
-            shutil.copy2(src, dst)
-            copied.append(dst)
-        return copied
+        return _copy_sheet_files(self.sheet_files, render_dir, dest_root)
 
 
 # ---- Discovery ---------------------------------------------------------------

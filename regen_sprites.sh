@@ -68,7 +68,7 @@ echo "==> adapter targets (robot / goblin / boss) → $sprites_dir"
 (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir")
 
 echo "==> entity sprites → $entities_dir"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-entities --out-dir "$entities_dir")
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish entities --dest-root "$entities_dir")
 
 echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # `draw-review` renders configs/review/*.yaml (toon-target NPC
@@ -148,11 +148,23 @@ tackon_targets=(
     town_tileset
 )
 for target in "${tackon_targets[@]}"; do
-    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer render-publish "$target" --dest-root "$sprites_dir")
+    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir")
 done
 
-echo "==> standalone pirate sheets (render-publish into $sprites_dir)"
-PYTHON="$python_bin" bash "$repo_root/scripts/publish_pirate_spritesheets.sh"
+echo "==> standalone pirate sheets (publish into $sprites_dir)"
+# Pirates are registered as tack-on `[characters]` targets and publish
+# through the same machinery as the other tack-ons above. Kept as its
+# own loop so the runtime-required pirate list stays explicit.
+pirate_targets=(
+    pirate_admiral
+    pirate_lookout
+    pirate_navigator
+    pirate_quartermaster
+    pirate_raider
+)
+for target in "${pirate_targets[@]}"; do
+    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir")
+done
 
 echo "==> tack-on: mockingbird boss (render-publish into $sprites_dir/mockingbird_boss)"
 "$python_bin" "$renderer_dir/mockingbird_boss_sprite_generator.py" render-publish \

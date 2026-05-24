@@ -133,6 +133,21 @@ impl ActorControlFrame {
     pub fn neutral() -> Self {
         Self::default()
     }
+
+    /// True iff any action verb (melee / fire / jump / dash /
+    /// interact / shield / special) is requested this tick. Useful
+    /// for debug HUD ("brain is asking for something"), perf
+    /// counters, and trace recording predicates.
+    pub fn wants_any_action(&self) -> bool {
+        self.melee_pressed
+            || self.fire.is_some()
+            || self.jump_pressed
+            || self.jump_held
+            || self.dash_pressed
+            || self.interact_pressed
+            || self.shield_held
+            || self.special_pressed
+    }
 }
 
 #[cfg(test)]
@@ -160,6 +175,31 @@ mod tests {
     #[test]
     fn neutral_matches_default() {
         assert_eq!(ActorControlFrame::neutral(), ActorControlFrame::default());
+    }
+
+    #[test]
+    fn wants_any_action_reports_false_for_neutral_frame() {
+        let frame = ActorControlFrame::neutral();
+        assert!(!frame.wants_any_action());
+    }
+
+    #[test]
+    fn wants_any_action_reports_true_when_any_verb_is_set() {
+        let mut frame = ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        assert!(frame.wants_any_action());
+        let mut frame = ActorControlFrame::neutral();
+        frame.jump_held = true;
+        assert!(frame.wants_any_action());
+        let mut frame = ActorControlFrame::neutral();
+        frame.fire = Some(ActorFireRequest { dir: Vec2::new(1.0, 0.0), speed: 0.0 });
+        assert!(frame.wants_any_action());
+        let mut frame = ActorControlFrame::neutral();
+        frame.shield_held = true;
+        assert!(frame.wants_any_action());
+        let mut frame = ActorControlFrame::neutral();
+        frame.special_pressed = true;
+        assert!(frame.wants_any_action());
     }
 
     #[test]

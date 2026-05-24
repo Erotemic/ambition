@@ -170,11 +170,9 @@ fn spawn_enemy(
     // still drives behavior. Today no system reads these on hostile
     // actors — daytime work flips consumers off the choreography +
     // EnemyRuntime AI loop and onto Brain.tick() + ActionSet
-    // resolution. Picking a per-archetype brain mapping is daytime
-    // work; for now every enemy carries a placeholder MeleeBrute
-    // (since enemies are hostile) plus a peaceful ActionSet (no
-    // attacks resolve off the brain yet).
+    // resolution.
     let brain = enemy_default_brain(&enemy);
+    let action_set = enemy_default_action_set(&enemy);
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
@@ -193,7 +191,7 @@ fn spawn_enemy(
         },
         actor,
         brain,
-        crate::brain::ActionSet::peaceful(),
+        action_set,
         crate::brain::ActorControl::default(),
     ));
 }
@@ -207,6 +205,69 @@ fn spawn_enemy(
 /// When daytime work flips the EFFECTS consumer to read the brain's
 /// ActorControl frame, the brain output will match the archetype's
 /// pre-flip behavior — no per-archetype tuning gap to retune.
+/// Map an `EnemyRuntime` to a default ActionSet keyed off its
+/// archetype. Sandbags + peaceful archetypes get
+/// [`ActionSet::peaceful`]; striker / brute archetypes get a Swipe
+/// (or Lunge for brutes); ranged archetypes get an Arrow / Pistol
+/// / Bolt where appropriate. Today no system consumes the resulting
+/// ActionRequests for hostile actors — daytime work flips combat
+/// spawners onto the resolver stream.
+fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
+    use crate::brain::{
+        ActionSet, BiteSpec, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec,
+        RangedActionSpec, SwipeSpec,
+    };
+    let archetype = enemy.archetype;
+    if !archetype.attacks_player() {
+        // PuppySlug / PirateHeavy in peaceful disposition.
+        return ActionSet {
+            move_style: match archetype {
+                EnemyArchetype::PuppySlug => MoveStyleSpec::Slither,
+                _ => MoveStyleSpec::Walk,
+            },
+            ..ActionSet::default()
+        };
+    }
+    match archetype {
+        EnemyArchetype::LargeBrute | EnemyArchetype::LargeColossus => ActionSet {
+            melee: Some(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT)),
+            move_style: MoveStyleSpec::WalkHeavy,
+            ..Default::default()
+        },
+        EnemyArchetype::InfiniteSandbag | EnemyArchetype::FiniteSandbag => ActionSet {
+            melee: Some(MeleeActionSpec::PunchWeak(PunchSpec::SANDBAG_DEFAULT)),
+            ..Default::default()
+        },
+        EnemyArchetype::BurningFlyingShark => ActionSet {
+            melee: Some(MeleeActionSpec::Bite(BiteSpec {
+                windup_s: 0.18,
+                active_s: 0.10,
+                recover_s: 0.30,
+                damage: archetype.damage_amount(),
+                reach_px: 42.0,
+            })),
+            move_style: MoveStyleSpec::Float,
+            ..Default::default()
+        },
+        EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark => ActionSet {
+            ranged: Some(RangedActionSpec::Bolt {
+                speed: 500.0,
+                damage: archetype.damage_amount(),
+            }),
+            move_style: MoveStyleSpec::Float,
+            ..Default::default()
+        },
+        // Default melee striker — covers Combatant / SmallSkitter /
+        // MediumStriker / AggressiveSeeker / SmallLurker /
+        // PirateRaider.
+        _ => ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            move_style: MoveStyleSpec::Walk,
+            ..Default::default()
+        },
+    }
+}
+
 fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
     use crate::brain::{
         Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg, WandererCfg, WandererState,
@@ -310,6 +371,7 @@ pub fn spawn_encounter_mob(
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.respawn_timer = 999_999.0;
     let brain = enemy_default_brain(&enemy);
+    let action_set = enemy_default_action_set(&enemy);
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
@@ -330,7 +392,7 @@ pub fn spawn_encounter_mob(
         actor,
         EncounterMob::new(encounter_id),
         brain,
-        crate::brain::ActionSet::peaceful(),
+        action_set,
         crate::brain::ActorControl::default(),
     ));
 }

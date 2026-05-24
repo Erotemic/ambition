@@ -143,8 +143,11 @@ Every controllable entity carries a `Brain` + `ActionSet` +
 
 When a peaceful NPC turns hostile (strike-threshold flip in
 `damage.rs`), the entity's `ActorRuntime::Peaceful → Hostile` swap
-also swaps the brain to `Brain::StateMachine(MeleeBrute::STRIKER_DEFAULT)`
-so the shadow shape stays aligned.
+also swaps both the brain *and* the ActionSet — brain becomes
+`Brain::StateMachine(MeleeBrute::STRIKER_DEFAULT)` and ActionSet
+gains a `Swipe(SwipeSpec::STRIKER_DEFAULT)` melee — so the shadow
+shape stays internally consistent (hostile brain + offensive
+capability, not hostile brain + empty capability).
 
 ## What's NOT wired (daytime continuation)
 

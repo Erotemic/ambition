@@ -220,10 +220,13 @@ pub fn update_ecs_actors(
             &mut ActorIntent,
             &mut ActorCooldowns,
             &super::super::components::ActorTarget,
-            // Brain components attached at NPC spawn; missing for
-            // legacy hostile actors that still run through
-            // EnemyRuntime / BossRuntime. The peaceful tick reads
-            // these; the hostile tick ignores them today.
+            // Brain components attached at every actor spawn (NPC,
+            // enemy, boss). The peaceful tick reads the brain
+            // directly; the hostile tick shadow-ticks it alongside
+            // EnemyRuntime so the parallel shape stays current.
+            // `Option` because dynamically-spawned actors (debug
+            // tools, future scripted spawns) might skip brain
+            // attachment.
             Option<&mut crate::brain::Brain>,
         ),
         With<FeatureSimEntity>,

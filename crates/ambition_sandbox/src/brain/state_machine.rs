@@ -626,6 +626,74 @@ mod tests {
     }
 
     #[test]
+    fn hostile_patrol_chases_target_in_aggro() {
+        // Patrol with aggressiveness > 0 should chase the target
+        // when it's inside aggro_radius but outside attack_range.
+        // Pins the Chase branch's movement vs the peaceful "hold +
+        // face target" branch.
+        let mut cfg = PatrolCfg::NPC_DEFAULT;
+        cfg.spawn_x = 0.0;
+        cfg.radius = 200.0;
+        cfg.aggressiveness = 1.0;
+        cfg.aggro_radius = 120.0;
+        cfg.attack_range = 24.0;
+        let mut sm = StateMachineCfg::Patrol {
+            cfg,
+            state: PatrolState::default(),
+        };
+        // Actor at 0, target at +80 → inside aggro, outside attack.
+        let s = snap_at(0.0, 80.0);
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        // Chase: closes the gap toward target_x.
+        assert!(out.desired_vel.x > 0.0, "hostile patrol should chase right");
+        assert_eq!(out.facing, 1.0);
+        assert!(!out.melee_pressed);
+    }
+
+    #[test]
+    fn hostile_patrol_attacks_target_in_melee_range() {
+        // Patrol inside attack_range with cooldown clear → emit
+        // melee intent. Pins the Attack branch.
+        let mut cfg = PatrolCfg::NPC_DEFAULT;
+        cfg.spawn_x = 0.0;
+        cfg.radius = 200.0;
+        cfg.aggressiveness = 1.0;
+        cfg.aggro_radius = 120.0;
+        cfg.attack_range = 24.0;
+        let mut sm = StateMachineCfg::Patrol {
+            cfg,
+            state: PatrolState::default(),
+        };
+        let mut s = snap_at(0.0, 15.0); // inside attack_range
+        s.attack_cooldown_remaining = 0.0;
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        assert!(out.melee_pressed, "hostile patrol in melee range should attack");
+        assert_eq!(out.facing, 1.0);
+    }
+
+    #[test]
+    fn hostile_patrol_holds_attack_during_cooldown() {
+        // Attack branch must not emit melee when cooldown is active.
+        // Pins the timer gate so an enemy can't spam attacks every
+        // tick by virtue of always being in range.
+        let mut cfg = PatrolCfg::NPC_DEFAULT;
+        cfg.aggressiveness = 1.0;
+        cfg.aggro_radius = 120.0;
+        cfg.attack_range = 24.0;
+        let mut sm = StateMachineCfg::Patrol {
+            cfg,
+            state: PatrolState::default(),
+        };
+        let mut s = snap_at(0.0, 15.0);
+        s.attack_cooldown_remaining = 0.5; // mid-cooldown
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        assert!(!out.melee_pressed, "must respect attack_cooldown_remaining");
+    }
+
+    #[test]
     fn peaceful_patrol_in_talk_range_holds_and_faces_target() {
         let mut cfg = PatrolCfg::NPC_DEFAULT;
         cfg.spawn_x = 0.0;

@@ -1,4 +1,8 @@
-//! Universal brain interface — see `docs/planning/universal-brain-interface.md`.
+//! Universal brain interface — see
+//! [`docs/systems/brain-driver.md`](../../../docs/systems/brain-driver.md)
+//! for the overview and
+//! [`docs/recipes/extending-brains-and-action-sets.md`](../../../docs/recipes/extending-brains-and-action-sets.md)
+//! for the extension recipe.
 //!
 //! Every controllable actor in the sandbox carries a [`Brain`]. The
 //! brain reads a [`BrainSnapshot`] each tick and writes intent into
@@ -13,11 +17,17 @@
 //! same `Brain::StateMachine(MeleeBrute(…))` can look completely
 //! different because their ActionSets differ.
 //!
-//! Chunk 2 (this module's introduction) is a *parallel shape*: the
-//! brain components are wired into the type system but no actor
-//! uses them yet. NPCs/enemies/bosses still run through their
-//! existing runtimes. Chunk 3 migrates NpcRuntime; later chunks
-//! follow.
+//! **Current shape (2026-05-24):** every actor type (player / NPC /
+//! enemy / boss) spawns with Brain + ActionSet + ActorControl
+//! sibling components. The brain ticks each frame and fills the
+//! frame. The [`emit_brain_action_messages`] resolver writes one
+//! [`ActorActionMessage`] per resolved [`action_set::ActionRequest`].
+//!
+//! **What's NOT wired (daytime continuation):** combat / projectile
+//! / FX consumers still read from the legacy `EnemyRuntime` /
+//! `BossRuntime` / `update_player` paths. The brain output is a
+//! parallel shadow. See the daytime EFFECTS-flip procedure in the
+//! recipe doc for the migration plan.
 
 pub mod action_set;
 pub mod player;

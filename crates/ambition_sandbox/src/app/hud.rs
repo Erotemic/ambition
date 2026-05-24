@@ -62,13 +62,13 @@ pub(super) fn update_hud(
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,
     camera_params: HudCameraParams,
-    ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
+    _ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
     progression: ProgressionResources,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
-    let quest_registry = &progression.quests;
+    let _quest_registry = &progression.quests;
     let cutscene = &progression.cutscene;
     let boss_registry = &progression.bosses;
     let encounter_registry = &progression.encounters;

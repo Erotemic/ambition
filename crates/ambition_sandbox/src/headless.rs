@@ -263,6 +263,40 @@ mod tests {
         let _ = counter.last_frame;
     }
 
+    /// Verify the BrainPlugin is installed by SandboxSimulationPlugin
+    /// — adding the plugin should mean ActorActionMessage +
+    /// BrainActionCounter are both registered. Catches a future
+    /// app-plugin refactor that accidentally drops the
+    /// `app.add_plugins(crate::brain::BrainPlugin)` call.
+    #[test]
+    fn sim_includes_brain_plugin_registration() {
+        use crate::brain::{ActorActionMessage, BrainActionCounter};
+        use bevy::ecs::message::Messages;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(AssetPlugin::default());
+        app.add_plugins(ImagePlugin::default());
+        app.add_plugins(TransformPlugin);
+        app.add_plugins(StatesPlugin);
+        app.init_state::<GameMode>();
+        app.add_plugins(crate::app::SandboxSimulationPlugin);
+        // First tick runs Startup.
+        app.update();
+        // Both resources should be present.
+        assert!(
+            app.world()
+                .get_resource::<Messages<ActorActionMessage>>()
+                .is_some(),
+            "ActorActionMessage registered via BrainPlugin",
+        );
+        assert!(
+            app.world()
+                .get_resource::<BrainActionCounter>()
+                .is_some(),
+            "BrainActionCounter registered via BrainPlugin",
+        );
+    }
+
     /// Sustained run with multiple player attack presses: stamp
     /// attack on every other tick for 20 ticks and verify the
     /// counter accumulates at least 10 melee messages. Pins that

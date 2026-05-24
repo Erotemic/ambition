@@ -20,17 +20,25 @@ def test_top_level_sprite_strips_prefix_and_suffix():
     assert renderer_target_for_catalog_entry("sprites/architect_spritesheet.png") == "architect"
 
 
-def test_subdir_sprite_returns_none():
-    """Boss sprites under a subdir (gnu_ton_boss/, mockingbird_boss/)
-    have bespoke publishers, not a unified tack-on target. The
-    catalog driver explicitly skips them and lets the bespoke
-    publisher handle the file."""
-    assert renderer_target_for_catalog_entry(
+def test_subdir_sprite_returns_target_name():
+    """Multi-file subdir tack-on targets (gnu_ton_boss,
+    mockingbird_boss) DO publish via the unified `publish <target>`
+    path now — their `install()` function lays files into
+    `<dest>/<target>/`. The driver returns the target name and
+    `is_subdir_target` carries the layout hint."""
+    from ambition_ldtk_tools.publish_catalog_sprites import is_subdir_target
+
+    target = renderer_target_for_catalog_entry(
         "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png"
-    ) is None
-    assert renderer_target_for_catalog_entry(
+    )
+    assert target == "gnu_ton_boss"
+    assert is_subdir_target(target, "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png")
+
+    target = renderer_target_for_catalog_entry(
         "sprites/mockingbird_boss/mockingbird_boss_spritesheet.png"
-    ) is None
+    )
+    assert target == "mockingbird_boss"
+    assert is_subdir_target(target, "sprites/mockingbird_boss/mockingbird_boss_spritesheet.png")
 
 
 def test_underscore_target_names_round_trip():
@@ -60,3 +68,18 @@ def test_non_spritesheet_filename_returns_none():
     `<target>_spritesheet.png`."""
     assert renderer_target_for_catalog_entry("sprites/architect_canonical.png") is None
     assert renderer_target_for_catalog_entry("sprites/architect.png") is None
+
+
+def test_expected_outputs_subdir_layout():
+    """Subdir targets install into `<sprites_dir>/<target>/<files>`,
+    so the post-publish coverage check must look in the subdir."""
+    from ambition_ldtk_tools.publish_catalog_sprites import expected_outputs
+
+    top = expected_outputs("architect", subdir=False)
+    assert top == ["architect_spritesheet.png", "architect_spritesheet.ron"]
+
+    sub = expected_outputs("mockingbird_boss", subdir=True)
+    assert sub == [
+        "mockingbird_boss/mockingbird_boss_spritesheet.png",
+        "mockingbird_boss/mockingbird_boss_spritesheet.ron",
+    ]

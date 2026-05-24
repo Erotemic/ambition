@@ -145,11 +145,19 @@ Remaining work, in order of value:
    Publisher now emits the canonical `<target>_spritesheet.{png,ron,yaml}`
    filenames AND the runtime's `SheetRow` schema
    (`animation`/`row_index`/`frame_count`/`duration_ms`/etc.).
-3. **Lift `mockingbird_boss_sprite_generator.py` into a regular
+3. ~~**Lift `mockingbird_boss_sprite_generator.py` into a regular
    tack-on target.** The standalone script predates the unified
    `targets/<name>.py` API; carrying it forward means
    `regen_sprites.sh` needs a special-case invocation that
-   `publish_catalog_sprites.py` can't drive.
+   `publish_catalog_sprites.py` can't drive.~~ *Landed 2026-05-24
+   as a hybrid.* The generator lives in
+   `targets/characters/mockingbird_boss/` as a multi-file tack-on
+   target with the standard `render()` / `install()` API; the
+   scenegraph + part-editor authoring affordances stay (these
+   will likely be the prototype for a future bone-based rig
+   system, see `docs/concepts/multi-file-character-target.md`).
+   `publish_catalog_sprites` now drives both top-level and subdir
+   targets uniformly via the layout-aware coverage check.
 4. ~~**Document the per-target row layout requirements.** The
    runtime's `CharacterAnim::from_name` expects `idle` / `walk` /
    etc.; sheets that ship only `run` / `attack` / `death` (no

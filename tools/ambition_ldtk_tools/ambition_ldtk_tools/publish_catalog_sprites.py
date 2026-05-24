@@ -64,43 +64,69 @@ SPRITES_DIR = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "sprites"
 
 def renderer_target_for_catalog_entry(spritesheet_path: str) -> str | None:
     """Derive the renderer target name from a catalog entry's
-    `spritesheet:` field. Returns `None` for catalog entries whose
-    sprite lives in a special subdir (gnu_ton_boss/, mockingbird_boss/)
-    — those need their own publisher and are skipped here.
+    `spritesheet:` field. Returns the target name for both top-level
+    sprites and subdir multi-file targets (gnu_ton_boss/,
+    mockingbird_boss/) — both publish via `publish <target>` with
+    the unified tack-on API. `expected_outputs` knows how to find
+    each target's files.
 
     Examples:
       "sprites/architect_spritesheet.png"        -> "architect"
       "sprites/player_robot_spritesheet.png"     -> "player_robot"
-      "sprites/gnu_ton_boss/gnu_ton_boss_*.png"  -> None (subdir)
+      "sprites/gnu_ton_boss/gnu_ton_boss_*.png"  -> "gnu_ton_boss"
     """
     if not spritesheet_path.startswith("sprites/"):
         return None
     relative = spritesheet_path.removeprefix("sprites/")
     if "/" in relative:
-        # Subdir cases (gnu_ton_boss, mockingbird_boss) — bespoke
-        # publishers handle these. The caller invokes them
-        # explicitly.
-        return None
+        # Subdir case: `gnu_ton_boss/gnu_ton_boss_spritesheet.png`
+        # → target name is the subdir name. Multi-file tack-on
+        # targets (currently mockingbird_boss + gnu_ton_boss) use
+        # this pattern; the `publish <target>` command still works
+        # uniformly because the target's `install()` function lays
+        # files into `<dest-root>/<target>/`.
+        subdir, _, filename = relative.partition("/")
+        if not filename.endswith("_spritesheet.png"):
+            return None
+        return subdir
     if not relative.endswith("_spritesheet.png"):
         return None
     return relative.removesuffix("_spritesheet.png")
 
 
-def expected_outputs(target: str) -> list[str]:
-    """List the runtime files publishing `target` should produce.
-    Used by the post-publish coverage check."""
-    return [
+def is_subdir_target(target: str, catalog_path_for_target: str) -> bool:
+    """Detect subdir-vs-top-level layout from the catalog's
+    `spritesheet:` path. Subdir targets publish into
+    `<sprites_dir>/<target>/<files>` rather than
+    `<sprites_dir>/<files>`. The publish command is identical;
+    only the post-publish file-existence check needs to know."""
+    relative = catalog_path_for_target.removeprefix("sprites/")
+    return "/" in relative
+
+
+def expected_outputs(target: str, subdir: bool = False) -> list[str]:
+    """List the runtime files publishing `target` should produce
+    (relative to the sprites dir). Used by the post-publish coverage
+    check. Subdir targets (multi-file tack-ons like
+    `mockingbird_boss`) install into `<target>/<file>` per their
+    `install()` function."""
+    base_files = [
         f"{target}_spritesheet.png",
         f"{target}_spritesheet.ron",
     ]
+    if subdir:
+        return [f"{target}/{name}" for name in base_files]
+    return base_files
 
 
 def publish_target(
-    target: str, renderer_dir: Path, sprites_dir: Path, dry_run: bool, verbose: bool
+    target: str, renderer_dir: Path, sprites_dir: Path, dry_run: bool, verbose: bool,
+    subdir: bool = False,
 ) -> tuple[bool, str]:
     """Run `publish <target> --dest-root <sprites_dir>`. Returns
     `(ok, summary)` where `ok` is True iff the runtime files now
-    exist on disk."""
+    exist on disk. `subdir=True` looks for files under
+    `<sprites_dir>/<target>/` (multi-file tack-on layout)."""
     cmd = [
         sys.executable,
         "-m",
@@ -126,7 +152,7 @@ def publish_target(
     # Verify the expected outputs landed.
     missing = [
         rel
-        for rel in expected_outputs(target)
+        for rel in expected_outputs(target, subdir=subdir)
         if not (sprites_dir / rel).exists()
     ]
     if missing:
@@ -134,11 +160,16 @@ def publish_target(
     return True, "ok"
 
 
-def load_catalog_targets(catalog_path: Path) -> Iterable[tuple[str, str]]:
-    """Yield (character_id, renderer_target) pairs for catalog
-    entries whose sprite is publishable via the standard
-    `publish <target>` path. Subdir entries and entries without
-    a `sprites/<name>_spritesheet.png` path are filtered out."""
+def load_catalog_targets(catalog_path: Path) -> Iterable[tuple[str, str, bool]]:
+    """Yield (character_id, renderer_target, is_subdir) tuples for
+    catalog entries whose sprite is publishable via the standard
+    `publish <target>` path. Entries without a recognized
+    `sprites/...` shape are filtered out.
+
+    The third element flags whether the target uses the multi-file
+    subdir layout (e.g. `gnu_ton_boss`, `mockingbird_boss`) so the
+    caller can look for outputs under `<sprites_dir>/<target>/`.
+    """
     from .ron_parse import load as ron_load
 
     data = ron_load(catalog_path.read_text())
@@ -146,7 +177,7 @@ def load_catalog_targets(catalog_path: Path) -> Iterable[tuple[str, str]]:
         target = renderer_target_for_catalog_entry(entry["spritesheet"])
         if target is None:
             continue
-        yield cid, target
+        yield cid, target, is_subdir_target(target, entry["spritesheet"])
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -159,24 +190,30 @@ def main(argv: list[str] | None = None) -> int:
                         help="Print stderr from each renderer publish on failure.")
     args = parser.parse_args(argv)
 
-    pairs = sorted(set(load_catalog_targets(args.catalog)))
-    print(f"# {len(pairs)} catalog entries map to a standard renderer target.")
+    triples = sorted(set(load_catalog_targets(args.catalog)))
+    subdir_count = sum(1 for _, _, sd in triples if sd)
+    print(
+        f"# {len(triples)} catalog entries map to a renderer target "
+        f"({subdir_count} multi-file subdir, {len(triples) - subdir_count} top-level)."
+    )
 
     ok_count = 0
     fail_count = 0
     skipped_count = 0
     failures: list[tuple[str, str, str]] = []
-    for cid, target in pairs:
+    for cid, target, subdir in triples:
         ok, summary = publish_target(
-            target, args.renderer_dir, args.sprites_dir, args.dry_run, args.verbose
+            target, args.renderer_dir, args.sprites_dir, args.dry_run, args.verbose,
+            subdir=subdir,
         )
+        layout = "subdir" if subdir else "top"
         if ok:
             ok_count += 1
-            print(f"  [ok] {cid:40s} target={target} ({summary})")
+            print(f"  [ok] {cid:40s} target={target} layout={layout} ({summary})")
         else:
             fail_count += 1
             failures.append((cid, target, summary))
-            print(f"  [fail] {cid:40s} target={target} ({summary})")
+            print(f"  [fail] {cid:40s} target={target} layout={layout} ({summary})")
 
     print(
         f"\n# summary: {ok_count} published, {fail_count} failed, "

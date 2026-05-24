@@ -139,8 +139,10 @@ fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
                 reach_px: 36.0,
             })),
         // The player's "ranged" today is the fireball / hadouken
-        // path, gated by the `projectile` ability (sandbox-all
-        // players have it).
+        // path. There's no separate `projectile` ability in
+        // AbilitySet — ranged is always available on the player.
+        // If a future ability flag gates fireball, narrow this
+        // slot the same way melee + special are.
         ranged: Some(RangedActionSpec::Bolt {
             speed: 600.0,
             damage: 1,

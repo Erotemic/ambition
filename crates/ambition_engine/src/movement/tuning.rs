@@ -105,7 +105,7 @@ pub const LEDGE_GETUP_SPEEDUP_GAIN: f32 = 1.0;
 /// kick. The drop / outward-release options never get the boost —
 /// those are deliberate disengage actions.
 ///
-/// Set [`window`] to `0.0` to disable the mechanic entirely.
+/// Set [`Self::window`] to `0.0` to disable the mechanic entirely.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct LedgeMomentumTuning {
     /// Seconds after grab during which the incoming momentum is

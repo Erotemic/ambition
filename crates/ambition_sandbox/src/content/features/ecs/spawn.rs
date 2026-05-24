@@ -198,14 +198,21 @@ fn spawn_enemy(
     ));
 }
 
-/// Map an `EnemyRuntime` to a placeholder Brain template. Hostile
-/// archetypes get a MeleeBrute; sandbags get StandStill; PuppySlug
-/// gets a Wanderer with its puppy-slug defaults. Daytime migration
-/// will deepen this mapping per archetype + author per-entity
-/// ActionSets carrying real attack specs.
+/// Map an `EnemyRuntime` to a Brain template. Reads the archetype's
+/// actual tunings (chase_speed / aggro_radius / attack_range) so
+/// the brain's MeleeBrute cfg matches what the existing AI loop
+/// uses. PuppySlug gets a Wanderer; sandbags get StandStill;
+/// everyone else gets a MeleeBrute keyed to their archetype.
+///
+/// When daytime work flips the EFFECTS consumer to read the brain's
+/// ActorControl frame, the brain output will match the archetype's
+/// pre-flip behavior — no per-archetype tuning gap to retune.
 fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
-    use crate::brain::{Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg, WandererCfg, WandererState};
-    match enemy.archetype {
+    use crate::brain::{
+        Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg, WandererCfg, WandererState,
+    };
+    let archetype = enemy.archetype;
+    match archetype {
         EnemyArchetype::InfiniteSandbag | EnemyArchetype::FiniteSandbag => {
             Brain::StateMachine(StateMachineCfg::StandStill)
         }
@@ -213,17 +220,13 @@ fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
             state: WandererState::default(),
         }),
-        EnemyArchetype::LargeBrute | EnemyArchetype::LargeColossus => {
-            Brain::StateMachine(StateMachineCfg::MeleeBrute {
-                cfg: MeleeBruteCfg::BRUTE_DEFAULT,
-                state: MeleeBruteState::default(),
-            })
-        }
-        // Everyone else falls back to the Striker template. Daytime
-        // work refines this per archetype + adds Skirmisher for
-        // ranged variants (PirateOnShark, BurningFlyingShark, …).
         _ => Brain::StateMachine(StateMachineCfg::MeleeBrute {
-            cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+            cfg: MeleeBruteCfg {
+                aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+                aggro_radius: archetype.aggro_radius(),
+                attack_range: archetype.attack_range(),
+                chase_speed: archetype.chase_speed(),
+            },
             state: MeleeBruteState::default(),
         }),
     }

@@ -25,7 +25,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Actor, faction, damage, interactable, pickup, breakable vocabulary | Available | `docs/systems/progression-systems.md`, `docs/systems/factions.md` |
 | Enemy archetypes, boss profiles, encounter lock walls/rewards | Partial but playable | `docs/systems/boss-behavior-profiles.md`, `docs/systems/boss-encounter-architecture.md`, `docs/planning/tech-debt-log.md` |
 | Unified brain→sim seam (`ActorControlFrame`) for enemies + bosses | Available; player wired into ActorControl via Brain::Player (2026-05-24), polarity flip pending | `crates/ambition_engine/src/actor_control.rs`, `docs/systems/character-ai-refactor.md` |
-| Universal Brain interface — Brain enum + 7 reusable templates + per-entity ActionSet, peaceful NPCs migrated | Partial: NPCs through brain; enemies/bosses/player polarity-flip pending | `crates/ambition_sandbox/src/brain/`, `docs/planning/universal-brain-interface.md`, `TODO-controllable-entity.md` |
+| Universal Brain interface — Brain enum + 7 reusable templates + per-entity ActionSet + ActorActionMessage resolver, every actor type wired (player/NPC/enemy/boss) | Available; consumer-flip pending | `crates/ambition_sandbox/src/brain/`, `docs/systems/brain-driver.md`, `docs/recipes/extending-brains-and-action-sets.md`, `TODO-controllable-entity.md` |
 | Dialogue/commerce hooks | Scaffolded | `docs/systems/progression-systems.md`, `docs/adr/0008-dialogue-and-commerce-architecture.md` |
 
 ## World authoring and runtime projection

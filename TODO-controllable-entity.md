@@ -1,14 +1,30 @@
 # TODO: Controllable-entity unification (Player / Enemy / NPC)
 
-**Status:** plan draft, 2026-05-24. **Overnight session executed
-2026-05-24** — Chunks 1–4f landed plus extensive post-4f polish
-(per-archetype Brain + ActionSet wiring, ActorActionMessage
-resolver stream, BrainPlugin, BrainActionCounter, CombatTimers,
-end-to-end + 100-tick smoke + determinism + pause-safety tests,
-brain-driver.md overview, extending-brains recipe). 1054
-workspace tests green. Daytime continuation tracked in
-[`dev/journals/ae-player-field-usage-2026-05-24.md`](dev/journals/ae-player-field-usage-2026-05-24.md);
-plan below preserved as the original execution map.
+**Status (2026-05-24):** ✅ Chunks 1–4f LANDED via overnight
+autonomous run. Every controllable actor (player / NPC / enemy /
+boss) carries `Brain` + `ActionSet` + `ActorControl` sibling
+components. `ActorActionMessage` resolver stream emits one message
+per concrete `ActionRequest`. Late-session stability polish round
+added ~12 pin tests (dead-actor pre-poison, dead-target paths,
+hostile-patrol chase/attack/cooldown, melee-brute timer table,
+state.mode tracking, SignumOr fallback) and 2 consistency fixes
+(hostile-flip ActionSet swap, boss spawn offensive ActionSet).
+1141 workspace tests green at session end.
+
+**Where to read next:**
+- [docs/systems/brain-driver.md](docs/systems/brain-driver.md) — overview
+- [docs/recipes/extending-brains-and-action-sets.md](docs/recipes/extending-brains-and-action-sets.md) — extension recipe + daytime EFFECTS-flip procedure
+- [docs/planning/universal-brain-interface.md](docs/planning/universal-brain-interface.md) — original design doc (open questions 1, 2, 5 resolved)
+- [dev/journals/ae-player-field-usage-2026-05-24.md](dev/journals/ae-player-field-usage-2026-05-24.md) — audit + landed inventory + daytime continuation list
+- [docs/adr/0016-actor-unification.md](docs/adr/0016-actor-unification.md) — actor unification ADR (universal-brain section added)
+
+**Daytime continuation (high-leverage):**
+1. EFFECTS-stage consumer flip — read `ActorActionMessage` instead of `EnemyRuntime`/`BossRuntime`/`update_player` for combat spawns. Overlap-then-delete per the stale-component benchmark.
+2. `ae::Player` decomposition — 38 `authority.player.*` reads still in the sandbox; walk reader clusters per the audit doc.
+3. `update_player` consume `ActorControl` frame instead of `PlayerInputFrame` directly.
+4. Narrow `ActorControlFrame::fire` to `Option<Vec2>` once `RangedActionSpec` owns speed.
+
+Plan below preserved as the original execution map.
 
 **Source design doc:** [docs/planning/universal-brain-interface.md](docs/planning/universal-brain-interface.md)
 **Source TODO entry:** [TODO.md](TODO.md) "Universal brain interface" (Proposed section, L230-235)

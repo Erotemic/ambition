@@ -116,7 +116,8 @@ to the bottom under "Closed" with the commit that fixed them.
     types — a future system could violate it.
 
 - **MED — `EnemyRuntime` and `BossRuntime` attack-pattern timers
-  still hand-rolled** (downgraded from HIGH 2026-05-21)
+  still hand-rolled** (downgraded from HIGH 2026-05-21; brain shadow
+  landed 2026-05-24)
   - File: `crates/ambition_sandbox/src/content/features/`
   - Movement and collision are now unified through the
     `ActorControlFrame` brain→sim seam (commits `155171c`, `66c8b0b`),
@@ -126,11 +127,21 @@ to the bottom under "Closed" with the commit that fixed them.
     These timers run in the EFFECTS stage after the frame is
     integrated, not before, so they no longer block the collision
     unification.
-  - Real refactor (deferred): swap the timer branches over to
-    `evaluate_character_ai` + a small `tick(snapshot) → events`
-    API so all combatants share one state machine. Boss patterns
-    then layer on top via `BossPatternStep` writing override fields
-    into the snapshot.
+  - **2026-05-24 universal-brain landing:** every enemy + boss now
+    also carries `Brain::StateMachine(...)` + `ActionSet` +
+    `ActorControl` sibling components. The brain shadow-ticks
+    alongside `EnemyRuntime` / `BossRuntime` and the resolver emits
+    `ActorActionMessage`s, but the legacy timer fields still drive
+    combat spawns. The shape is now ready for the EFFECTS-flip:
+    swap one melee variant (e.g. PunchWeak for sandbags, Swipe for
+    Striker) at a time onto the message stream, then delete the
+    matching legacy spawn path. See
+    `docs/recipes/extending-brains-and-action-sets.md` (Daytime
+    EFFECTS-consumer flip).
+  - Real refactor (in flight): swap the timer branches over to
+    `MeleeBruteState` / `BossPatternState` so all combatants share
+    one state machine. The brain templates already exist; the work
+    is wiring consumers + per-archetype attack-spec authoring.
   - Downgraded because the position-space write that was the
     actually-incorrect part of the hand-rolled state machine is gone;
     what's left is shape-cleanup, not a correctness bug.

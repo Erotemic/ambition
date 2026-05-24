@@ -63,6 +63,27 @@ See `docs/systems/character-ai-refactor.md` for the parallel enemy
 migration and `crates/ambition_engine/src/actor_control.rs` for the
 shared frame definition.
 
+## Universal-brain shadow (2026-05-24)
+
+Bosses now also carry a sandbox-side
+`Brain::StateMachine(BossPattern{encounter_id})` + `ActionSet`
+shadow alongside `BossRuntime`. The shadow runs each frame, fills
+the actor's `ActorControl` frame, and the `emit_brain_action_messages`
+resolver writes `ActorActionMessage`s for each resolved
+`ActionRequest`. The default boss `ActionSet` carries a `Bolt`
+ranged + `BossSpotlight` special so a possessed-then-released boss
+has an offensive baseline; per-encounter overrides land during the
+daytime EFFECTS-flip.
+
+Today the messages aren't consumed by combat spawners — the
+`BossRuntime` apple-rain / scripted-pattern path still drives
+behavior. Daytime work threads each boss's encounter id through
+`BossPattern.tick` to drive the phase schedule from the brain, then
+flips combat spawns to read `ActorActionMessage`. See
+`docs/systems/brain-driver.md` and
+`docs/recipes/extending-brains-and-action-sets.md` (Daytime
+EFFECTS-consumer flip — concrete procedure).
+
 ## Charged fireball test tuning
 
 For rapid boss-battle iteration, charged fireball damage now ramps

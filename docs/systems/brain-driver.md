@@ -200,6 +200,42 @@ When the last reader is gone, delete `ae::Player` and
 or may not be needed depending on how far PlayerBody can stretch
 — the audit doc captures the full field map.
 
+## What the seam enables
+
+Because *what an actor wants* (Brain) and *what an actor can do*
+(ActionSet) are decomposed onto separate components, a wide range
+of "Elder-Scrolls-class" behaviors fall out as ECS operations
+rather than new code paths:
+
+- **Possession** — any entity becomes player-controlled by
+  swapping the `Brain` component. The body keeps its
+  `ActionSet`, so pressing Attack still resolves to that body's
+  signature move (Leap for goblins, Bite for sharks, BossSpotlight
+  for a possessed boss).
+- **Hostility / disposition shifts at runtime** — a peaceful NPC
+  turning hostile is a Brain swap (`Patrol{NPC_DEFAULT}` →
+  `MeleeBrute{STRIKER_DEFAULT}`) + an ActionSet swap (peaceful →
+  Swipe), all via `commands.entity(...).insert(...)`. The
+  damage handler already does this for the strike-threshold flip;
+  the same shape supports faction reputation, mind-control
+  abilities, or scripted betrayals.
+- **Wide variety from shared templates** — adding a "leaping
+  goblin" doesn't need a new brain template, just a new
+  `MeleeActionSpec::Lunge` configuration on its ActionSet. Same
+  `MeleeBrute` brain template can drive Striker, Brute, Colossus,
+  and future variants — they look distinct because their
+  ActionSets resolve differently.
+- **Inheritable / template behaviors** — copy an entity's brain
+  to spawn a "lieutenant" mob that mirrors the boss's combat
+  style. Strip its `ActionSet.special` to make it less dangerous.
+- **Possessable cutscene actors** — a `Brain::Scripted` backend
+  (deferred) plays back authored input frames. A Director system
+  temporarily swaps any actor's brain to `Scripted` for a
+  cutscene, restores the original after.
+- **RL agents, networked co-op, AI test harnesses** — all become
+  new `Brain` variants (`RlPolicy`, `Remote`, `Scripted`) without
+  touching enemy code or player code.
+
 ## Possession and multi-player
 
 Possession is cheap because of brain + ActionSet decomposition:

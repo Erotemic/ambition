@@ -150,9 +150,19 @@ panics if no Idle row exists. The aliases above cover the common
 generator outputs; if your generator emits something else (e.g.
 `hover`, `run`, `walk`, `death`), rename the first row to one of the
 aliases — or better, give the character a stationary idle pose row.
-The catalog-side test
-`every_catalog_sprite_spec_has_idle_row_if_loaded` catches this
-before it crashes the renderer.
+Three layered checks catch this:
+- *Publish-time:* `tackon_sheet.build_sheet` calls
+  `diagnose_idle_coverage` and prints a stderr warning during the
+  renderer run if your sheet has CharacterAnim rows but no Idle alias.
+  The warning fires during `regen_sprites.sh` so you see it before
+  shipping the sheet.
+- *Load-time:* `try_load_spec_for_character_id` returns `None` for
+  manifests that lack an Idle row; the catalog logs the skipped id
+  in the one-line startup census so the placeholder fallback is
+  diagnosable.
+- *Test-time:* `every_catalog_sprite_spec_has_idle_row_if_loaded`
+  trips at `cargo test` time on any catalog entry whose manifest
+  loads but doesn't define an Idle alias.
 
 **Validator failure?** The Startup panic message lists every error.
 Common ones:

@@ -77,7 +77,9 @@ pub fn tick_state_machine(
     out: &mut ae::ActorControlFrame,
 ) {
     if !snapshot.alive {
-        // Dead actors emit a neutral frame regardless of brain.
+        // Dead actors emit a neutral frame regardless of brain. Write
+        // explicitly so a pre-poisoned `out` doesn't leak through.
+        *out = ae::ActorControlFrame::neutral();
         return;
     }
     match sm {
@@ -581,10 +583,20 @@ mod tests {
         };
         let mut s = snap_at(0.0, 4.0);
         s.alive = false;
+        // Pre-poison `out` so the test catches the early-return-
+        // without-write path (a previously-leaked frame surviving
+        // into a dead-actor tick).
         let mut out = ae::ActorControlFrame::neutral();
+        out.melee_pressed = true;
+        out.desired_vel = ae::Vec2::new(99.0, 99.0);
+        out.fire = Some(ae::ActorFireRequest {
+            dir: ae::Vec2::new(1.0, 0.0),
+            speed: 100.0,
+        });
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(!out.melee_pressed);
         assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+        assert!(out.fire.is_none());
     }
 
     #[test]

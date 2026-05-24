@@ -342,6 +342,7 @@ pub fn attack_advance_system(
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     mut player_q: Query<
         (
+            Entity,
             &mut crate::player::PlayerMovementAuthority,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
@@ -350,12 +351,15 @@ pub fn attack_advance_system(
         ),
         With<crate::player::PlayerEntity>,
     >,
+    mut brain_actions: MessageReader<crate::brain::ActorActionMessage>,
     mut damage_events: MessageWriter<FeatureDamageEvent>,
     mut pogo_bounces: MessageWriter<PogoBounceEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
 ) {
-    let Ok((mut authority, mut anim, mut combat, mut attack, input)) = player_q.single_mut() else {
+    let Ok((player_entity, mut authority, mut anim, mut combat, mut attack, input)) =
+        player_q.single_mut()
+    else {
         return;
     };
     let player = &mut authority.player;
@@ -368,7 +372,17 @@ pub fn attack_advance_system(
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 
-    if combat.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
+    // Player melee migration: the start-attack gate reads
+    // `ActorActionMessage::Melee` for this player rather than the raw
+    // `controls.attack_pressed`. The player brain produces the message
+    // upstream (PlayerInput set) from the same input axis; the
+    // EFFECTS consumer (this gate) decides whether to spawn the
+    // hitbox. Pogo stays raw because it's a player-specific verb
+    // ActorControlFrame doesn't yet carry.
+    let melee_requested = brain_actions
+        .read()
+        .any(|msg| msg.actor == player_entity && msg.is_melee());
+    if combat.hitstun_timer <= 0.0 && (melee_requested || controls.pogo_pressed) {
         super::world_flow::start_attack(
             &mut sfx_writer,
             &mut vfx_writer,

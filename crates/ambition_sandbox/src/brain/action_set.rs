@@ -645,6 +645,55 @@ mod tests {
     }
 
     #[test]
+    fn action_request_label_covers_all_melee_variants() {
+        // Every MeleeActionSpec variant maps to a distinct
+        // "melee_*" label. Future Spec variants must update
+        // ActionRequest::label() too — this test catches a drop.
+        let specs = [
+            MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
+            MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT),
+            MeleeActionSpec::Slam(SlamSpec {
+                windup_s: 0.3,
+                active_s: 0.1,
+                recover_s: 0.4,
+                damage: 2,
+                reach_px: 40.0,
+                hop_height_px: 60.0,
+            }),
+            MeleeActionSpec::Bite(BiteSpec {
+                windup_s: 0.18,
+                active_s: 0.08,
+                recover_s: 0.25,
+                damage: 1,
+                reach_px: 22.0,
+            }),
+            MeleeActionSpec::PunchWeak(PunchSpec::SANDBAG_DEFAULT),
+        ];
+        let mut labels = Vec::new();
+        for spec in specs {
+            let req = ActionRequest::Melee {
+                spec,
+                origin: ae::Vec2::ZERO,
+                facing: 1.0,
+                attack_axis: ae::Vec2::ZERO,
+            };
+            let label = req.label();
+            assert!(label.starts_with("melee_"), "{}", label);
+            labels.push(label);
+        }
+        // Ensure all labels are distinct (no two variants share
+        // a label — would break grep-friendly diagnostics).
+        let mut sorted = labels.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(
+            sorted.len(),
+            labels.len(),
+            "every melee variant should have a distinct label"
+        );
+    }
+
+    #[test]
     fn action_request_label_returns_per_variant_string() {
         let melee = ActionRequest::Melee {
             spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),

@@ -154,6 +154,66 @@ mod tests {
     use crate::brain::{ActorControl, Brain};
     use bevy::prelude::*;
 
+    /// End-to-end: player presses attack → tick_player_brains fills
+    /// ActorControl → emit_brain_action_messages produces an
+    /// ActorActionMessage with a Swipe request. Pins the full
+    /// player-side universal-brain seam from input to resolved
+    /// concrete action.
+    #[test]
+    fn player_attack_press_emits_swipe_action_message_end_to_end() {
+        use crate::brain::{
+            emit_brain_action_messages, ActionRequest, ActorActionMessage, MeleeActionSpec,
+        };
+        use bevy::transform::components::Transform;
+        let mut app = App::new();
+        app.init_resource::<ControlFrame>();
+        app.add_message::<ActorActionMessage>();
+        let mut player = ae::Player::new_with_abilities(
+            ae::Vec2::new(40.0, 60.0),
+            ae::AbilitySet::sandbox_all(),
+        );
+        player.refresh_movement_resources(ae::DEFAULT_TUNING);
+        // Use the canonical bundle so the player's ActionSet is the
+        // production default (Swipe melee + Bolt ranged). Bundle
+        // already includes a PlayerBody synced off the authority.
+        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        app.world_mut()
+            .spawn((bundle, Transform::from_xyz(40.0, 60.0, 0.0)));
+        app.add_systems(
+            Update,
+            (
+                sync_local_player_input_frame,
+                tick_player_brains,
+                emit_brain_action_messages,
+            )
+                .chain(),
+        );
+
+        {
+            let mut cf = app.world_mut().resource_mut::<ControlFrame>();
+            cf.attack_pressed = true;
+            cf.axis_x = 1.0;
+        }
+        app.update();
+        let mut messages = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>();
+        let received: Vec<_> = messages.drain().collect();
+        assert_eq!(received.len(), 1, "expected one Swipe message");
+        match received[0].request {
+            ActionRequest::Melee {
+                spec: MeleeActionSpec::Swipe(_),
+                facing,
+                origin,
+                ..
+            } => {
+                assert!(facing > 0.0, "facing should be right (+1)");
+                assert_eq!(origin, ae::Vec2::new(40.0, 60.0));
+            }
+            other => panic!("expected Melee::Swipe, got {:?}", other),
+        }
+    }
+
     /// End-to-end: spawn a player entity with the brain components,
     /// populate ControlFrame, run sync_local_player_input_frame +
     /// tick_player_brains, assert ActorControl reflects the input.

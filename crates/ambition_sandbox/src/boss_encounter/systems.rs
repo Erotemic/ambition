@@ -16,7 +16,26 @@ pub fn populate_boss_encounter_registry(
     if registry.specs_loaded {
         return;
     }
-    for profile in default_boss_profiles() {
+    // Per ADR 0017: boss-encounter numeric fields can come from
+    // `assets/data/boss_encounters/<id>.ron` (override) or the
+    // hardcoded `ae::BossEncounterSpec::<id>()` constructor
+    // (fallback). Log a one-time startup census so a regression where
+    // a RON file silently fails to parse (loader returns empty) is
+    // visible in dev logs without paging through every spec field.
+    let ron_ids: std::collections::BTreeSet<String> =
+        super::specs::load_boss_specs_from_disk()
+            .into_iter()
+            .map(|s| s.id)
+            .collect();
+    let profiles = default_boss_profiles();
+    let ron_count = profiles.iter().filter(|p| ron_ids.contains(&p.id)).count();
+    let total = profiles.len();
+    bevy::log::info!(
+        target: "ambition::boss_encounter",
+        "boss_encounter registry: {total} profile(s) loaded ({ron_count} RON-overridden, {} constructor-only)",
+        total - ron_count
+    );
+    for profile in profiles {
         registry.ensure_profile(profile);
     }
     let save_data = save.data();

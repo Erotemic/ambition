@@ -1,9 +1,19 @@
 # Character AI refactor
 
-Status: enemy + boss MOVEMENT now route through the shared
-`ActorControlFrame` brain→sim seam (commits `155171c`, `66c8b0b`,
-2026-05-21). Data-table migration for per-brain knobs is still
-pending. Attack-pattern timer migration is deferred.
+Status (2026-05-24 update): enemy + boss MOVEMENT route through the
+shared `ActorControlFrame` brain→sim seam (commits `155171c`,
+`66c8b0b`, 2026-05-21). Peaceful NPCs route through `Brain::
+StateMachine(Patrol/StandStill)` after the universal-brain Chunk 3
+migration (`0aa526a`, 2026-05-24); the bespoke `NpcRuntime::update`
+is gone. The player carries `Brain::Player(slot)` + `ActorControl`
+with `tick_player_brains` filling the frame each tick (Chunks 4b/c,
+`c41997b`/`32c37e3`), but `update_player` still consumes
+`PlayerInputFrame` directly — the polarity flip is pending. Enemy
++ boss runtimes still hand-roll their AI internals; their migration
+onto brain templates is the daytime continuation tracked in
+[`../../TODO-controllable-entity.md`](../../TODO-controllable-entity.md).
+Data-table migration for per-brain knobs and attack-pattern timer
+migration remain deferred.
 
 This is the companion doc referenced from
 `crates/ambition_engine/src/character_ai.rs`. It captures the current

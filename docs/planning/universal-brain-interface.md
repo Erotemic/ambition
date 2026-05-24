@@ -1,6 +1,22 @@
 # Universal Brain Interface — design doc
 
-**Status:** Proposal (2026-05-23). Continuation of the
+**Status (2026-05-24):** PARTIALLY LANDED via overnight Chunks 1–4f.
+What's live: `crates/ambition_sandbox/src/brain/` carries the Brain
+enum + 7 templates (StandStill/Patrol/Wanderer/MeleeBrute/Skirmisher
+/Sniper/BossPattern) + ActionSet + tick_player_brain. Peaceful NPCs
+tick through `Brain::StateMachine(Patrol/StandStill)`. Players carry
+`Brain::Player(slot)` + `ActorControl`; tick_player_brains fills the
+frame each tick. PlayerBody expanded to cover the migration surface.
+audio/env + ECS actor tick migrated off PlayerMovementAuthority.
+What remains (daytime): enemies + bosses onto Brain (templates +
+ActionSets exist but EnemyRuntime / BossRuntime still drive
+themselves); EFFECTS-stage ActionSet effect-resolve wiring;
+`update_player` consume the ActorControl frame; delete `ae::Player`.
+See [`../../TODO-controllable-entity.md`](../../TODO-controllable-entity.md)
+for the multi-chunk plan and `dev/journals/ae-player-field-usage-
+2026-05-24.md` for the field-usage audit.
+
+**Original design (2026-05-23):** Continuation of the
 controllable-entity unification arc that already merged
 `EnemyRuntime` + `BossRuntime` behind `ActorControlFrame`
 (commits `155171c`, `66c8b0b`, 2026-05-21). This doc proposes

@@ -872,6 +872,50 @@ mod tests {
     }
 
     #[test]
+    fn brain_dispatch_50_actors_under_one_millisecond() {
+        // Sustained dispatch perf: tick 50 brains' state machine
+        // once, all variants represented, total under 1ms. Pins
+        // the "brain dispatch is monomorphic per-variant" property
+        // — a regression to dyn dispatch or boxed brains would
+        // blow this.
+        let mut sm_list = vec![
+            StateMachineCfg::StandStill,
+            StateMachineCfg::Patrol {
+                cfg: PatrolCfg::NPC_DEFAULT,
+                state: PatrolState::default(),
+            },
+            StateMachineCfg::Wanderer {
+                cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
+                state: WandererState::default(),
+            },
+            StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+                state: MeleeBruteState::default(),
+            },
+            StateMachineCfg::Skirmisher {
+                cfg: SkirmisherCfg::RANGER_DEFAULT,
+                state: SkirmisherState::default(),
+            },
+        ];
+        // Duplicate to reach 50.
+        while sm_list.len() < 50 {
+            sm_list.extend_from_slice(&sm_list.clone());
+        }
+        sm_list.truncate(50);
+        let snap = crate::brain::snapshot::BrainSnapshot::idle();
+        let start = std::time::Instant::now();
+        let mut frame = ae::ActorControlFrame::neutral();
+        for sm in &mut sm_list {
+            tick_state_machine(sm, &snap, &mut frame);
+        }
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < std::time::Duration::from_millis(5),
+            "50 brain ticks should be < 5ms, took {elapsed:?}",
+        );
+    }
+
+    #[test]
     fn brain_tick_cost_is_well_under_one_millisecond() {
         // Smoke check on per-tick brain dispatch cost. Ten ticks
         // of a MeleeBrute brain should complete well under 1ms on

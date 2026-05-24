@@ -378,6 +378,54 @@ mod tests {
     }
 
     #[test]
+    fn brain_tick_survives_100_ticks_for_every_template() {
+        // Smoke test: tick each brain template 100 times with a
+        // moving target and verify no panic / NaN propagation /
+        // state corruption. Pins that the brain dispatch is safe
+        // for a sustained game-length tick run, not just one
+        // tick.
+        let templates: Vec<StateMachineCfg> = vec![
+            StateMachineCfg::StandStill,
+            StateMachineCfg::Patrol {
+                cfg: PatrolCfg::NPC_DEFAULT,
+                state: PatrolState::default(),
+            },
+            StateMachineCfg::Wanderer {
+                cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
+                state: WandererState::default(),
+            },
+            StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+                state: MeleeBruteState::default(),
+            },
+            StateMachineCfg::Skirmisher {
+                cfg: SkirmisherCfg::RANGER_DEFAULT,
+                state: SkirmisherState::default(),
+            },
+            StateMachineCfg::Sniper {
+                cfg: SniperCfg::DEFAULT,
+                state: SniperState::default(),
+            },
+        ];
+        for template in templates {
+            let mut brain = Brain::StateMachine(template);
+            for i in 0..100 {
+                let mut snap = BrainSnapshot::idle();
+                snap.actor_pos = ae::Vec2::new((i as f32) * 0.5, 0.0);
+                snap.target_pos = ae::Vec2::new(100.0 + (i as f32) * 0.5, 0.0);
+                snap.sim_time = (i as f32) / 60.0;
+                snap.dt = 1.0 / 60.0;
+                let mut frame = ae::ActorControlFrame::neutral();
+                brain.tick(&snap, &mut frame);
+                // No NaN propagation.
+                assert!(frame.desired_vel.x.is_finite());
+                assert!(frame.desired_vel.y.is_finite());
+                assert!(frame.facing.is_finite());
+            }
+        }
+    }
+
+    #[test]
     fn brain_tick_is_deterministic_given_same_snapshot() {
         // The brain interface is pure(-ish): same brain + same
         // snapshot → same output (modulo internal state mutation).

@@ -263,6 +263,42 @@ mod tests {
         let _ = counter.last_frame;
     }
 
+    /// Sustained run with multiple player attack presses: stamp
+    /// attack on every other tick for 20 ticks and verify the
+    /// counter accumulates at least 10 melee messages. Pins that
+    /// the seam survives sustained brain-message production
+    /// (not just single-tick poison).
+    #[test]
+    fn sim_accumulates_messages_across_repeated_attacks() {
+        use crate::brain::BrainActionCounter;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(AssetPlugin::default());
+        app.add_plugins(ImagePlugin::default());
+        app.add_plugins(TransformPlugin);
+        app.add_plugins(StatesPlugin);
+        app.init_state::<GameMode>();
+        app.add_plugins(crate::app::SandboxSimulationPlugin);
+        app.update();
+        for i in 0..20 {
+            let attack = i % 2 == 0;
+            *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
+                attack_pressed: attack,
+                ..ControlFrame::default()
+            };
+            app.update();
+        }
+        let counter = app.world().resource::<BrainActionCounter>();
+        // 10 attack-press ticks × 1 melee message each = 10 total.
+        // Other ticks may emit zero or other actions; assert
+        // floor.
+        assert!(
+            counter.total >= 10,
+            "expected ≥ 10 ActorActionMessages over 20-tick mix; got {}",
+            counter.total,
+        );
+    }
+
     /// Universal-brain integration check: spawning the
     /// SandboxSimulationPlugin yields a player entity carrying
     /// Brain::Player and an ActionSet — verifies the bundle

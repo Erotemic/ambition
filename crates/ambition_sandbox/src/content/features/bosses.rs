@@ -624,6 +624,14 @@ impl BossRuntime {
     /// `outputs` accumulates spawn requests that the calling system
     /// is expected to flush into the relevant world resources
     /// (e.g. `EnemyProjectileState` for apple-rain apples).
+    /// Tick the boss's AI + integration. Returns the per-tick
+    /// `ActorControlFrame` so the caller can land it in
+    /// `ActorControl` — that's the seam the resolver / EFFECTS
+    /// consumers read. Today `build_control_frame` only fills
+    /// `desired_vel` (movement intent); when the BossPattern brain
+    /// migration lands, this frame will also carry melee/fire/
+    /// special intent and the bespoke spawn loops (apple-rain etc.)
+    /// in this module collapse into message-driven consumers.
     pub(super) fn update(
         &mut self,
         world: &ae::World,
@@ -631,9 +639,9 @@ impl BossRuntime {
         tuning: FeatureCombatTuning,
         outputs: &mut BossTickOutputs,
         dt: f32,
-    ) {
+    ) -> ae::ActorControlFrame {
         if !self.alive {
-            return;
+            return ae::ActorControlFrame::neutral();
         }
         self.pattern_timer += dt;
         self.movement_timer += dt;
@@ -645,7 +653,7 @@ impl BossRuntime {
         // sway/dodge math and the clamp to world bounds; the
         // simulation half decides what's actually possible against
         // collision.
-        let frame = self.build_control_frame(world, target_pos, dt);
+        let mut frame = self.build_control_frame(world, target_pos, dt);
 
         // INTEGRATION STAGE — gravity=0 (bosses float; ground state
         // is irrelevant for current bosses), max_fall_speed=0. The
@@ -696,6 +704,27 @@ impl BossRuntime {
             // a burst at t=0 from leftover dt.
             self.apple_spawn_accum = 0.0;
         }
+        // Tag the frame with the boss's per-tick attack intent so the
+        // resolver (PlayerInput set) sees the boss's state via
+        // `ActorActionMessage`. `melee_pressed` fires during the
+        // active hit-window of a melee strike; `fire = Some(...)`
+        // fires during the apple-rain (ranged-shaped) strike. The
+        // effect itself is still produced by the bespoke spawn loops
+        // above — this attribution is the architectural seam the
+        // BossPattern brain migration uses when it lands. Per the
+        // mandate ("boss output should still be routed toward
+        // ActorControl, not left as an unrelated effects island").
+        if self.attack_timer > 0.0 {
+            if matches!(self.active_strike_profile, Some(BossAttackProfile::GnuAppleRain)) {
+                frame.fire = Some(ae::ActorFireRequest {
+                    dir: ae::Vec2::new(0.0, 1.0),
+                    speed: APPLE_RAIN_SPAWN_SPEED,
+                });
+            } else if self.active_strike_profile.is_some() {
+                frame.melee_pressed = true;
+            }
+        }
+        frame
     }
 
     /// Pack the boss's per-tick movement decision into a flat

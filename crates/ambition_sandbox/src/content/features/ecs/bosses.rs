@@ -96,16 +96,28 @@ pub fn update_ecs_bosses(
             }
         }
         let mut outputs = crate::features::BossTickOutputs::default();
-        boss.update(
+        let boss_frame = boss.update(
             &feature_world,
             target_pos,
             feel_tuning.feature_combat_tuning(),
             &mut outputs,
             dt,
         );
+        // Land the boss's runtime-computed frame into ActorControl,
+        // overriding the brain's earlier write. Today the BossPattern
+        // brain emits a neutral frame; the runtime is the authority
+        // for boss intent. The frame carries `desired_vel` plus
+        // `melee_pressed` / `fire = Some(...)` during active strike
+        // windows so the resolver emits `ActorActionMessage::Melee` /
+        // `Ranged` and the bypass is no longer a bespoke island.
+        if let Some(control) = control.as_deref_mut() {
+            control.0 = boss_frame;
+        }
         // Flush any spawn requests the strike emitted this tick
-        // (today: GNU-ton's apple rain). Same shape as the enemy
-        // projectile flush in `update_ecs_actors`.
+        // (today: GNU-ton's apple rain). Boss attacks keep the
+        // BossTickOutputs path for now per the migration's softer
+        // boss constraint; the BOSS INTENT is already visible in
+        // the message stream via ActorControl above.
         for spawn in outputs.projectile_spawns {
             enemy_projectiles.spawn(spawn);
         }

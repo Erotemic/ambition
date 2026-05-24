@@ -1,0 +1,457 @@
+// combat_calibration_lab — combat verb calibration room (intro-v1 Task 06).
+//
+// Builds out the stub Task 05 left in place. Layout is a left-to-right
+// encounter ladder:
+//
+//   tutorial pocket -> hazard read -> small arena -> route console -> boss exit
+//
+// Width 1280 / height 768 keeps the room in step with the rest of the
+// gate-stack row (worldY=0). Boss exit on the right edge forwards to
+// Task 07's first_system_boss.
+//
+// Transitions:
+// - Left-edge EdgeExit `combat_lab_from_gate` ← gate_stack_lower/gate_to_combat_lab
+// - Right-edge EdgeExit `combat_lab_to_boss` → first_system_boss/boss_from_combat_lab
+//
+// Map / route hooks:
+// - MAP_DANGER label on the hazard-read steam vent.
+// - MAP_SECRET label on the side ledge (a recovery / bypass route).
+// - MAP_OFFICIAL label on the calibration route (floor walking line).
+// - Route-variant Switch acts as the lawful "classify all targets"
+//   hook; Task 08 will branch on its toggle state.
+//
+// Layout (1280×768):
+//
+//   +------------------------------------------------------------+
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+//   |                                                            |
+//   |       ▒▒▒▒▒▒[MAP_SECRET: side ledge]▒▒▒▒                   |
+//   |                                                            |
+//   |   ▒▒▒▒▒          ░░░░░░ MAP_DANGER ░░░░░  ▒▒▒▒    Switch  |
+//   |   [P4 ReboundPad]              [arena]       [classify]    |
+//   |   ←entry           [steam vent]                     boss→  |
+//   |  [Patrol]                [Spitter]   [Striker]             |
+//   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ floor + MAP_OFFICIAL ▒▒▒▒▒▒▒▒▒▒▒▒▒▒|
+//   +------------------------------------------------------------+
+
+(
+    id: "combat_calibration_lab",
+    level_id: "combat_calibration_lab",
+    world_x: 6528,
+    world_y: 0,
+    px_wid: 1280,
+    px_hei: 768,
+    fill_collision: "empty",
+    bg_color: "#1A1620",
+    biome: "lab",
+    music_track: "tech_bros_disruption",
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                736,
+            ],
+            size: [
+                1280,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                1248,
+                32,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                120,
+                690,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "combat_calibration_lab_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                0,
+                560,
+            ],
+            size: [
+                16,
+                176,
+            ],
+            fields: (
+                id: "combat_lab_from_gate",
+                name: "combat_lab_from_gate",
+                activation: "EdgeExit",
+                target_room: "gate_stack_lower",
+                target_zone: "gate_to_combat_lab",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                1264,
+                560,
+            ],
+            size: [
+                16,
+                176,
+            ],
+            fields: (
+                id: "combat_lab_to_boss",
+                name: "combat_lab_to_boss",
+                activation: "EdgeExit",
+                target_room: "first_system_boss",
+                target_zone: "boss_from_combat_lab",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                144,
+                688,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "p4_calibration_pad_floor",
+            ),
+        ),
+        (
+            type: "ReboundPad",
+            px: [
+                144,
+                672,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "p4_rebound_pad",
+                impulseX: 0,
+                impulseY: -780,
+            ),
+        ),
+        (
+            type: "PickupSpawn",
+            px: [
+                200,
+                640,
+            ],
+            size: [
+                24,
+                24,
+            ],
+            fields: (
+                name: "p4_calibration_pickup",
+                kind: "flag:intro_p4_combat_calibrated",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                144,
+                616,
+            ],
+            size: [
+                256,
+                24,
+            ],
+            fields: (
+                name: "p4_calibration_label",
+                text: "P4: Combat Calibration",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "EnemySpawn",
+            px: [
+                400,
+                688,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                name: "lab_patrol_dummy",
+                brain: "Patrol:lab_patrol_line",
+            ),
+        ),
+        (
+            type: "KinematicPath",
+            px: [
+                200,
+                716,
+            ],
+            size: [
+                400,
+                8,
+            ],
+            fields: (
+                id: "lab_patrol_line",
+                name: "lab_patrol_line",
+                points: "256,712;528,712",
+                speed: 110,
+                mode: "PingPong",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                336,
+                664,
+            ],
+            size: [
+                240,
+                24,
+            ],
+            fields: (
+                name: "lab_patrol_label",
+                text: "tutorial: patrol read",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "HazardBlock",
+            px: [
+                592,
+                704,
+            ],
+            size: [
+                96,
+                16,
+            ],
+            fields: (
+                name: "lab_steam_vent",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                560,
+                672,
+            ],
+            size: [
+                240,
+                24,
+            ],
+            fields: (
+                name: "lab_hazard_danger_label",
+                text: "MAP_DANGER: arena hazard cycle",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "PickupSpawn",
+            px: [
+                1184,
+                688,
+            ],
+            size: [
+                24,
+                24,
+            ],
+            fields: (
+                name: "lab_pre_boss_health_pickup",
+                kind: "health:2",
+            ),
+        ),
+        (
+            type: "EnemySpawn",
+            px: [
+                800,
+                688,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                name: "lab_spitter",
+                brain: "Guard:96",
+            ),
+        ),
+        (
+            type: "EnemySpawn",
+            px: [
+                992,
+                688,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                name: "lab_striker",
+                brain: "medium_striker",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                768,
+                96,
+            ],
+            size: [
+                320,
+                24,
+            ],
+            fields: (
+                name: "lab_arena_title_label",
+                text: "[arena: spitter + striker pair]",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                368,
+                416,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "lab_secret_ledge_left",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                720,
+                416,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "lab_secret_ledge_right",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                368,
+                384,
+            ],
+            size: [
+                320,
+                24,
+            ],
+            fields: (
+                name: "lab_secret_ledge_label",
+                text: "MAP_SECRET: side ledge bypass",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "Switch",
+            px: [
+                1120,
+                704,
+            ],
+            size: [
+                24,
+                32,
+            ],
+            fields: (
+                id: "combat_lab_classify_switch",
+                name: "combat_lab_classify_switch",
+                prompt: "Classify all targets",
+                target_encounter: "",
+                action: "ResetEncounter",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                1088,
+                664,
+            ],
+            size: [
+                192,
+                24,
+            ],
+            fields: (
+                name: "lab_classify_label",
+                text: "MAP_WATCHED: classify console",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                712,
+            ],
+            size: [
+                400,
+                24,
+            ],
+            fields: (
+                name: "lab_official_route_label",
+                text: "MAP_OFFICIAL: calibration route",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                64,
+            ],
+            size: [
+                480,
+                24,
+            ],
+            fields: (
+                name: "combat_lab_title_label",
+                text: "// COMBAT CALIBRATION LAB — parry / pogo / projectile verb",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                1280,
+                768,
+            ],
+            fields: (
+                id: "combat_calibration_lab_camera",
+                name: "combat_calibration_lab_camera",
+                mode: "Default",
+            ),
+        ),
+    ],
+)

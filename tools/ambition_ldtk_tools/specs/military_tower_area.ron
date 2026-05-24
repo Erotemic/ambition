@@ -1,0 +1,362 @@
+// Military faction lair — a vertical platforming tower with the
+// General as the faction leader at the top. (The sprite asset id
+// stays `absurd_general` because that's the generator archetype;
+// the in-game display name is just "General".)
+//
+// Layout (480 wide × 1280 tall — taller than other labs to feel like a tower):
+//
+//   +--------------------+  y = 0
+//   |  ▒▒▒ ceiling ▒▒▒  |
+//   |   trophy ┐        |
+//   |  alcove  │ [General NPC]
+//   |   ▒▒▒▒▒▒▒│         |
+//   |          ▒▒        |  trophy floor
+//   | ▒▒                 |  ── floor 4 (kite-shaped)
+//   |        ▒▒ ▒▒       |  ── floor 3 (jump-up gap)
+//   | ▒▒                 |  ── floor 2
+//   |        ▒▒          |  ── floor 1.5 (one-way landing)
+//   |  ║                 |  ── ladder column
+//   |  ║                 |
+//   |  ║   [Ent door]    |
+//   |  ║                 |
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|  y = 1248 (floor)
+//   |  ▒▒▒▒▒ floor ▒▒▒▒  |
+//   +--------------------+  y = 1280
+//
+// Movement contract:
+// - Player spawns near the entry door (left-bottom).
+// - Climb ladder to floor 2 (left platform).
+// - Jump right + up to one-way platform (floor 1.5) -> floor 3 staggered platforms.
+// - Jump up to floor 4 (right side), then across to trophy alcove.
+// - General is in the trophy alcove with patrol_radius=0 (stationary).
+//
+// Music: fighters_guild_oath_of_steel — published by the radio cue
+// pipeline (`ambition_music_renderer radio publish`). The level's
+// `music_track` field is what `RoomMetadata` reads to drive
+// `RoomMusicRequest` when the player enters.
+
+(
+    id: "military_tower",
+    level_id: "military_tower",
+    world_x: 32000,
+    world_y: 1024,
+    px_wid: 480,
+    px_hei: 1280,
+    fill_collision: "empty",
+    biome: "tower",
+    music_track: "fighters_guild_oath_of_steel",
+    ambient_profile: "barracks",
+    visual_theme: "red",
+    connect_to: [
+        (
+            target_room: "central_hub_main",
+            px: [
+                1176,
+                880,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            id: "military_tower_door",
+            target_zone: "military_tower_entry",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    intgrid: (
+        climbable: [
+            (
+                kind: "Ladder",
+                px: [
+                    96,
+                    1024,
+                ],
+                size: [
+                    32,
+                    224,
+                ],
+            ),
+        ],
+    ),
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                1248,
+            ],
+            size: [
+                480,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                1248,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                464,
+                0,
+            ],
+            size: [
+                16,
+                1248,
+            ],
+            fields: (
+                name: "right_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                448,
+                16,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                80,
+                1024,
+            ],
+            size: [
+                80,
+                16,
+            ],
+            fields: (
+                name: "ladder_top_landing",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                928,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "floor_2_left",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                240,
+                832,
+            ],
+            size: [
+                96,
+                16,
+            ],
+            fields: (
+                name: "floor_2_5_mid",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                336,
+                736,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "floor_3_right",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                176,
+                624,
+            ],
+            size: [
+                96,
+                16,
+            ],
+            fields: (
+                name: "floor_3_5_mid",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                512,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "floor_4_left",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                288,
+                416,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "floor_4_5_right",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                304,
+            ],
+            size: [
+                240,
+                16,
+            ],
+            fields: (
+                name: "trophy_floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                144,
+            ],
+            size: [
+                16,
+                160,
+            ],
+            fields: (
+                name: "trophy_back_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                144,
+            ],
+            size: [
+                240,
+                16,
+            ],
+            fields: (
+                name: "trophy_ceiling",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                240,
+                1202,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "military_tower_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                380,
+                1152,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "military_tower_entry",
+                name: "military_tower_entry",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "military_tower_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                120,
+                234,
+            ],
+            size: [
+                42,
+                70,
+            ],
+            fields: (
+                name: "General",
+                prompt: "Talk",
+                dialogue_id: "military_general",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                480,
+                1280,
+            ],
+            fields: (
+                id: "military_tower_camera",
+                name: "military_tower_camera",
+                mode: "Default",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                1180,
+            ],
+            size: [
+                400,
+                20,
+            ],
+            fields: (
+                name: "military_tower_intro_label",
+                text: "Tower of the General — climb to the top.",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

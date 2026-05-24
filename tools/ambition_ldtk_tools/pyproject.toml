@@ -11,6 +11,11 @@ dependencies = [
   "PyYAML",
   "jsonschema",
   "requests",
+  # python-ron wraps the Rust `ron` crate so the Python side parses
+  # exactly what the Rust side does. Used by `area_authoring` (post-
+  # Phase 4 RON spec format) and any future Python tooling that
+  # consumes RON. See `ambition_ldtk_tools/ron_parse.py`.
+  "python-ron>=0.2.5",
 ]
 
 [project.scripts]

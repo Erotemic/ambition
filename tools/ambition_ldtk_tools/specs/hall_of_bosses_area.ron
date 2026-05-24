@@ -1,0 +1,336 @@
+// Hall of Bosses — a grand pantheon connecting the three boss arenas.
+//
+// This is the in-world boss hub: accessible from central_hub_main via a
+// door at x=1357, y=880.  Three shrine zones — one per boss — open onto
+// portals to the individual arenas.
+//
+// Layout (1200 wide × 512 tall):
+//
+//   +--------------------------------------------------------------------+  y = 0
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+//   |  Clockwork Warden shrine  ▒pillar▒  Mockingbird shrine  ▒pillar▒  |
+//   |                                                       GNU-ton shrine|
+//   |     ░░░░░░░░░░░░░░              ░░░░░░░░░░░░░░░       ░░░░░░░░░░░  |  ← perches
+//   |                                                                      |
+//   | [hub door] [warden portal]    [mockingbird portal]  [gnu-ton portal]|
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |  y = 480
+//   +--------------------------------------------------------------------+
+//
+// Clockwork Warden and Mockingbird portals are one-way outbound: the
+// player enters the arena via the hall and returns via that arena's own
+// exit door (back to the basement hub or pirate cove respectively).
+// The GNU-ton portal is bidirectional: gnu_ton_arena's exit returns
+// the player to the hall.
+
+(
+    id: "hall_of_bosses",
+    level_id: "hall_of_bosses",
+    world_x: 5600,
+    world_y: 0,
+    px_wid: 1200,
+    px_hei: 512,
+    fill_collision: "empty",
+    biome: "boss",
+    music_track: "pulse_drift_voyage",
+    ambient_profile: "hum",
+    visual_theme: "default",
+    connect_to: [
+        (
+            target_room: "central_hub_main",
+            px: [
+                1410,
+                880,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            id: "hall_of_bosses_door",
+            target_zone: "hall_entry",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                480,
+            ],
+            size: [
+                1200,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                480,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1184,
+                0,
+            ],
+            size: [
+                16,
+                480,
+            ],
+            fields: (
+                name: "right_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                1168,
+                16,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                428,
+                48,
+            ],
+            size: [
+                48,
+                432,
+            ],
+            fields: (
+                name: "pillar_warden_mockingbird",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                780,
+                48,
+            ],
+            size: [
+                48,
+                432,
+            ],
+            fields: (
+                name: "pillar_mockingbird_gnu_ton",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                152,
+                336,
+            ],
+            size: [
+                160,
+                16,
+            ],
+            fields: (
+                name: "perch_warden",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                504,
+                336,
+            ],
+            size: [
+                160,
+                16,
+            ],
+            fields: (
+                name: "perch_mockingbird",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                856,
+                336,
+            ],
+            size: [
+                160,
+                16,
+            ],
+            fields: (
+                name: "perch_gnu_ton",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                108,
+                434,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "hall_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                16,
+                384,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "hall_entry",
+                name: "hall_entry",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "hall_of_bosses_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                220,
+                384,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "hall_to_warden_portal",
+                name: "hall_to_warden_portal",
+                activation: "Door",
+                target_room: "basement_boss",
+                target_zone: "return_door",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                572,
+                384,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "hall_to_mockingbird_portal",
+                name: "hall_to_mockingbird_portal",
+                activation: "Door",
+                target_room: "mockingbird_arena",
+                target_zone: "mockingbird_arena_entry",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                924,
+                384,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "hall_gnu_ton_portal",
+                name: "hall_gnu_ton_portal",
+                activation: "Door",
+                target_room: "gnu_ton_arena",
+                target_zone: "gnu_ton_arena_exit",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                1200,
+                512,
+            ],
+            fields: (
+                id: "hall_of_bosses_camera",
+                name: "hall_of_bosses_camera",
+                mode: "Default",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                56,
+                32,
+            ],
+            size: [
+                364,
+                20,
+            ],
+            fields: (
+                name: "hall_label_warden",
+                text: "Clockwork Warden — gradient sentinel phase-script boss.",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                476,
+                32,
+            ],
+            size: [
+                296,
+                20,
+            ],
+            fields: (
+                name: "hall_label_mockingbird",
+                text: "Mockingbird — swooping fireball boss.",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                828,
+                32,
+            ],
+            size: [
+                356,
+                20,
+            ],
+            fields: (
+                name: "hall_label_gnu_ton",
+                text: "GNU-ton — scholar atop a giant wildebeest.",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

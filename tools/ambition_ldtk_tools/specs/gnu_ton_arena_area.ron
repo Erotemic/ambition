@@ -1,0 +1,385 @@
+// GNU-ton boss arena — tall underground chamber for the giant wildebeest fight.
+//
+// Rev: bumped to 1792×1280 (was 1536×896) so the player drops in from a
+// ledge near the top and sees the whole GNU-ton silhouette before
+// descending into striking range. The body sprite is z-layered behind
+// platforms (see `presentation::rendering::actors::GnuTonBodyLayer`)
+// so the player can read jump targets through the giant.
+//
+// Encounter flow:
+//   1. Player enters from `hall_of_bosses` via the top-left LoadingZone.
+//   2. Lands on the entry ledge, walks right onto a BreakablePlatform.
+//   3. The platform breaks under their weight, forcing a descent into
+//      the fight (they fall through a column of perches that catches
+//      them safely before the floor).
+//   4. Boss fight at floor level. GNU-ton's head is always damageable
+//      but high up at rest — climb the perches to reach it, or wait for
+//      the head-descent windows that bring it to player level.
+//   5. After defeat, the player climbs back up the ladder column near
+//      the spawn (the ladder is painted Climbable in IntGrid).
+//
+// Layout (1792 wide x 1280 tall):
+//
+//   +------------------------------------------------------------+ y=0
+//   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|
+//   | [door]   [ledge───][BreakablePad]                          | ← top entry
+//   |  ▓ladder▓                                                  |
+//   |  ▓ladder▓               ░░░░top perch░░░░                  |
+//   |  ▓ladder▓                                                  |
+//   |  ▓ladder▓        ┌─────[BossSpawn]─────┐                   | ← GNU-ton centered
+//   |  ▓ladder▓        │   (220×220 box)     │                   |
+//   |  ▓ladder▓        └─────────────────────┘                   |
+//   |  ▓ladder▓   ░░perch left       perch right░░               |
+//   |  ▓ladder▓                                                  |
+//   |  ▓ladder▓       ░░perch mid-left   perch mid-right░░       |
+//   |  ▓ladder▓                                                  |
+//   |  ▓ladder▓                                                  |
+//   |  ▓floor ▓░░perch left low    perch right low░░             |
+//   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ floor ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒| y=1248
+//   +------------------------------------------------------------+
+//
+// Ladder gating: the Climbable IntGrid below is painted unconditionally
+// at world-load time, but the sandbox-side `gate_gnu_ton_arena_ladder`
+// system (boss_encounter/gnu_ton.rs) removes the Ladder regions from
+// `world.climbable_regions` on entry and re-adds them the frame the
+// gnu_ton boss is defeated. So the cells exist in LDtk but only count
+// at runtime once the player has earned the retreat.
+
+(
+    id: "gnu_ton_arena",
+    level_id: "gnu_ton_arena",
+    world_x: 36000,
+    world_y: 0,
+    px_wid: 1792,
+    px_hei: 1280,
+    fill_collision: "empty",
+    biome: "boss",
+    music_track: "standing_on_shoulders",
+    ambient_profile: "hum",
+    visual_theme: "default",
+    intgrid: (
+        climbable: [
+            (
+                kind: "Ladder",
+                px: [
+                    120,
+                    224,
+                ],
+                size: [
+                    32,
+                    1024,
+                ],
+            ),
+        ],
+    ),
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                1248,
+            ],
+            size: [
+                1792,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                1248,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1776,
+                0,
+            ],
+            size: [
+                16,
+                1248,
+            ],
+            fields: (
+                name: "right_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                1760,
+                16,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                208,
+            ],
+            size: [
+                288,
+                16,
+            ],
+            fields: (
+                name: "entry_ledge",
+            ),
+        ),
+        (
+            type: "BreakablePlatform",
+            px: [
+                304,
+                208,
+            ],
+            size: [
+                160,
+                16,
+            ],
+            fields: (
+                name: "spawn_descent_pad",
+                collision: "Solid",
+                trigger: "OnStand",
+                respawn: "Never",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                752,
+                432,
+            ],
+            size: [
+                288,
+                16,
+            ],
+            fields: (
+                name: "perch_top_center",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                240,
+                560,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "perch_left_high",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1360,
+                560,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "perch_right_high",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                528,
+                720,
+            ],
+            size: [
+                160,
+                16,
+            ],
+            fields: (
+                name: "perch_left_mid_high",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1104,
+                720,
+            ],
+            size: [
+                160,
+                16,
+            ],
+            fields: (
+                name: "perch_right_mid_high",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                752,
+                832,
+            ],
+            size: [
+                288,
+                16,
+            ],
+            fields: (
+                name: "perch_center_main",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                336,
+                944,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "perch_left_mid",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1264,
+                944,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "perch_right_mid",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                192,
+                1088,
+            ],
+            size: [
+                224,
+                16,
+            ],
+            fields: (
+                name: "perch_left_low",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1376,
+                1088,
+            ],
+            size: [
+                224,
+                16,
+            ],
+            fields: (
+                name: "perch_right_low",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                368,
+                162,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "gnu_ton_arena_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                64,
+                112,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "gnu_ton_arena_exit",
+                name: "gnu_ton_arena_exit",
+                activation: "Door",
+                target_room: "hall_of_bosses",
+                target_zone: "hall_gnu_ton_portal",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "BossSpawn",
+            px: [
+                786,
+                832,
+            ],
+            size: [
+                220,
+                220,
+            ],
+            fields: (
+                name: "GNU-ton",
+                brain: "PhaseScript:gnu_ton",
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                1792,
+                1280,
+            ],
+            fields: (
+                id: "gnu_ton_arena_camera",
+                name: "gnu_ton_arena_camera",
+                mode: "Default",
+                zoom: 1.25,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                128,
+                1216,
+            ],
+            size: [
+                1536,
+                20,
+            ],
+            fields: (
+                name: "gnu_ton_arena_label",
+                text: "GNU-ton — drop in from above; strike the head when it descends.",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

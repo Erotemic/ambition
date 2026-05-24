@@ -1,0 +1,541 @@
+// gate_stack_lower — Right Utility Switchback (intro-v1 Task 05).
+//
+// Beat: route-choice junction. Drain Market on the left, official
+// gate signage and a portal mechanic in the middle, a sky tease at
+// the top, a private side entrance from the Alice/Bob route at the
+// bottom (forward-declared), and the combat calibration lab on the
+// right. The room shows multiple access models side by side so the
+// player understands official/private/neutral/chaotic before any
+// dialogue explains them.
+//
+// Identifier kept as `gate_stack_lower` so existing LoadingZone
+// targets in drain_alley and central_hub_complex do not need
+// rewriting. Comments / debug labels carry the utility-switchback
+// reinterpretation. worldX corrected from the stale spec value
+// 108000 to the live value 4928.
+//
+// Transitions:
+// - Left-edge EdgeExit `gate_stack_from_drain` ← drain_alley
+// - Right-edge EdgeExit `gate_to_combat_lab` → combat_calibration_lab
+//   (Task 05 stub; Task 06 fills out the lab interior.)
+// - Mid-room Door `pirate_sky_up` → pirate_sky_arena (existing).
+// - Mid-room Door `intro_portal_zone` → central_hub_complex
+//   (existing, gated by `intro_portal_switch` via `GatedZoneRegistry`).
+// - Forward-declared: a `gate_from_alice_private` connection from
+//   alice_relay's `alice_private_return_lock` once Task 08 wires
+//   `bob_field_survey_received` into the gating registry. For now a
+//   LockWall + label holds the slot.
+
+(
+    id: "gate_stack_lower",
+    level_id: "gate_stack_lower",
+    world_x: 4928,
+    world_y: 0,
+    px_wid: 1600,
+    px_hei: 768,
+    fill_collision: "empty",
+    bg_color: "#161D29",
+    biome: "lab",
+    music_track: "tech_bros_disruption",
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                736,
+            ],
+            size: [
+                1600,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                1568,
+                32,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                128,
+                320,
+            ],
+            size: [
+                256,
+                16,
+            ],
+            fields: (
+                name: "gate_stack_left_balcony",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1216,
+                320,
+            ],
+            size: [
+                256,
+                16,
+            ],
+            fields: (
+                name: "gate_stack_right_balcony",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                736,
+            ],
+            fields: (
+                id: "gate_stack_from_drain",
+                name: "gate_stack_from_drain",
+                activation: "EdgeExit",
+                target_room: "drain_alley",
+                target_zone: "drain_to_gate_stack",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                160,
+                0,
+            ],
+            size: [
+                96,
+                16,
+            ],
+            fields: (
+                id: "pirate_sky_up",
+                name: "pirate_sky_up",
+                activation: "EdgeExit",
+                target_room: "pirate_sky_arena",
+                target_zone: "sky_arrival",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                120,
+                690,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "gate_stack_spawn",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                400,
+                688,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                name: "Gate Janitor",
+                prompt: "Talk to the Gate Janitor",
+                dialogue_id: "gate_janitor_ripple",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                960,
+                688,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                name: "Manifest Clerk",
+                prompt: "Approach the manifest kiosk",
+                dialogue_id: "manifest_kiosk_wrong_list",
+            ),
+        ),
+        (
+            type: "Prop",
+            px: [
+                620,
+                544,
+            ],
+            size: [
+                192,
+                192,
+            ],
+            fields: (
+                name: "Interdimensional Gate Ring",
+                kind: "gate_ring",
+            ),
+        ),
+        (
+            type: "Prop",
+            px: [
+                620,
+                544,
+            ],
+            size: [
+                192,
+                192,
+            ],
+            fields: (
+                name: "Interdimensional Gate Portal",
+                kind: "gate_portal",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                668,
+                544,
+            ],
+            size: [
+                96,
+                192,
+            ],
+            fields: (
+                id: "intro_portal_zone",
+                name: "intro_portal_zone",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "intro_wake_door",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "Switch",
+            px: [
+                560,
+                704,
+            ],
+            size: [
+                24,
+                32,
+            ],
+            fields: (
+                id: "intro_portal_switch",
+                name: "intro_portal_switch",
+                prompt: "Toggle gate power",
+                target_encounter: "",
+                action: "ResetEncounter",
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                1600,
+                768,
+            ],
+            fields: (
+                id: "gate_stack_camera",
+                name: "gate_stack_camera",
+                mode: "Default",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                64,
+            ],
+            size: [
+                320,
+                24,
+            ],
+            fields: (
+                name: "gate_stack_sign_delayed",
+                text: "GATE 6 DELAYED: SHARK TRAFFIC",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                96,
+            ],
+            size: [
+                320,
+                24,
+            ],
+            fields: (
+                name: "gate_stack_sign_nazi_suspended",
+                text: "Nazi Dimension passenger service remains suspended",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                128,
+            ],
+            size: [
+                320,
+                24,
+            ],
+            fields: (
+                name: "gate_stack_sign_tolls",
+                text: "Stable gate tolls increased by 3%",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                160,
+            ],
+            size: [
+                320,
+                24,
+            ],
+            fields: (
+                name: "gate_stack_sign_impossible_luggage",
+                text: "Please declare all impossible luggage",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                192,
+            ],
+            size: [
+                320,
+                24,
+            ],
+            fields: (
+                name: "gate_stack_sign_unauthorized",
+                text: "Unauthorized arrival is still arrival",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                1260,
+                640,
+            ],
+            size: [
+                180,
+                24,
+            ],
+            fields: (
+                name: "gate_stack_manifest_label",
+                text: "→ Manifest Office (TBD)",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                128,
+                280,
+            ],
+            size: [
+                256,
+                24,
+            ],
+            fields: (
+                name: "gate_stack_pirate_label",
+                text: "[pirate sky route — blocked]",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                1216,
+                280,
+            ],
+            size: [
+                256,
+                24,
+            ],
+            fields: (
+                name: "gate_stack_ninja_label",
+                text: "[ninja shadow — vanishes]",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                640,
+            ],
+            size: [
+                180,
+                24,
+            ],
+            fields: (
+                name: "gate_stack_lab_return_label",
+                text: "[lab ruins — collapsed]",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                1584,
+                560,
+            ],
+            size: [
+                16,
+                176,
+            ],
+            fields: (
+                id: "gate_to_combat_lab",
+                name: "gate_to_combat_lab",
+                activation: "EdgeExit",
+                target_room: "combat_calibration_lab",
+                target_zone: "combat_lab_from_gate",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                1380,
+                536,
+            ],
+            size: [
+                200,
+                24,
+            ],
+            fields: (
+                name: "gate_combat_lab_exit_label",
+                text: "→ Combat Calibration",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "LockWall",
+            px: [
+                880,
+                656,
+            ],
+            size: [
+                96,
+                80,
+            ],
+            fields: (
+                id: "gate_alice_private_lock",
+                name: "gate_alice_private_lock",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                840,
+                632,
+            ],
+            size: [
+                256,
+                24,
+            ],
+            fields: (
+                name: "gate_alice_private_label",
+                text: "MAP_PRIVATE: opens after Bob survey",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                880,
+                664,
+            ],
+            size: [
+                240,
+                24,
+            ],
+            fields: (
+                name: "gate_scanner_label",
+                text: "MAP_WATCHED: scanner beam",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                560,
+                664,
+            ],
+            size: [
+                240,
+                24,
+            ],
+            fields: (
+                name: "gate_official_terminal_label",
+                text: "MAP_OFFICIAL: portal terminal",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "Switch",
+            px: [
+                1024,
+                704,
+            ],
+            size: [
+                24,
+                32,
+            ],
+            fields: (
+                id: "gate_official_report",
+                name: "gate_official_report",
+                prompt: "Submit private route data",
+                target_encounter: "",
+                action: "ResetEncounter",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                968,
+                664,
+            ],
+            size: [
+                240,
+                24,
+            ],
+            fields: (
+                name: "gate_official_report_label",
+                text: "[official report — Alice/Bob route]",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

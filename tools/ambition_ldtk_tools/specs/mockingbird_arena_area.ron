@@ -1,0 +1,220 @@
+// Mockingbird boss arena — open vertical room behind the pirate cove.
+// The Mockingbird floats in the center of the room and uses the
+// `mockingbird` BossPatternSchedule (Hover → Swoop → Fireball →
+// Swoop) registered in `crates/ambition_engine/src/boss_patterns.rs`.
+//
+// Layout (960 wide × 768 tall — wide enough for the dash-distance
+// swoops, tall enough that hover beats read as "above the player"):
+//
+//   +------------------------------------------+  y = 0
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+//   |                                          |
+//   |               [BossSpawn]                |  ← boss spawns here,
+//   |                                          |    free-flying
+//   |                                          |
+//   |                                          |
+//   |  ░░ one-way perch ░░    ░░ perch ░░     |  ← player platforming
+//   |                                          |
+//   |  [exit door]                             |  ← back to cove
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  | y = 736 (floor)
+//   +------------------------------------------+
+//
+// Music: `how_to_kill_a_mockingbird` — the mockingbird-specific
+// track defined in `tools/ambition_music_renderer/scores/active/`.
+// When the audio asset is rendered + installed the boss encounter
+// spec will pick it up; until then the music system falls back to
+// whatever is registered as "default boss" in the cue catalog.
+
+(
+    id: "mockingbird_arena",
+    level_id: "mockingbird_arena",
+    world_x: -10000,
+    world_y: 0,
+    px_wid: 960,
+    px_hei: 768,
+    fill_collision: "empty",
+    biome: "cove",
+    music_track: "how_to_kill_a_mockingbird",
+    ambient_profile: "tide",
+    visual_theme: "blue",
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                736,
+            ],
+            size: [
+                960,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                736,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                944,
+                0,
+            ],
+            size: [
+                16,
+                736,
+            ],
+            fields: (
+                name: "right_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                928,
+                16,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                640,
+            ],
+            size: [
+                40,
+                96,
+            ],
+            fields: (
+                name: "arena_lock_door",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                144,
+                480,
+            ],
+            size: [
+                176,
+                16,
+            ],
+            fields: (
+                name: "perch_left",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                640,
+                480,
+            ],
+            size: [
+                176,
+                16,
+            ],
+            fields: (
+                name: "perch_right",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                120,
+                690,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "mockingbird_arena_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                56,
+                640,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "mockingbird_arena_entry",
+                name: "mockingbird_arena_entry",
+                activation: "Door",
+                target_room: "pirate_cove",
+                target_zone: "pirate_cove_to_arena",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "BossSpawn",
+            px: [
+                430,
+                256,
+            ],
+            size: [
+                150,
+                185,
+            ],
+            fields: (
+                name: "Mockingbird",
+                brain: "PhaseScript:mockingbird",
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                960,
+                768,
+            ],
+            fields: (
+                id: "mockingbird_arena_camera",
+                name: "mockingbird_arena_camera",
+                mode: "Default",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                660,
+            ],
+            size: [
+                800,
+                20,
+            ],
+            fields: (
+                name: "mockingbird_arena_intro_label",
+                text: "Mockingbird Arena — the boss circles overhead.",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

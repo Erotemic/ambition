@@ -1,0 +1,258 @@
+// intro_wake_room — first room of the intro sequence.
+//
+// Beat: Wake / control handoff. Player wakes on the diagnostic cart
+// in the creator's basement lab. Creator says "Hey you, you're
+// finally awake."
+//
+// Transitions:
+// - Incoming: hub-side door (sandbox.ldtk central_hub_main upper
+//   platform) targets `wake_room_arrival`, which sits on top of the
+//   cart so the entry beat reads as "the door opens and you are
+//   already on the cart."
+// - Outgoing: right-edge EdgeExit zone `wake_to_raid` (a thin slice
+//   at x=1008) so walking off the right edge scrolls into
+//   `intro_raid_corridor` without a door prompt. EdgeExit is the
+//   sandbox's walk-through equivalent — no Interact press required.
+//
+// Layout (1024×384):
+//
+//   +-------------------------------------------------+
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒ |
+//   |                                                 |
+//   |                                                 |
+//   |   ▢[cart+player]    [Creator]               →→  | ← right
+//   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│   edge exit
+//   +-------------------------------------------------+
+
+(
+    id: "intro_wake_room",
+    level_id: "intro_wake_room",
+    world_x: 0,
+    world_y: 0,
+    px_wid: 1024,
+    px_hei: 384,
+    fill_collision: "empty",
+    bg_color: "#0F1218",
+    biome: "lab",
+    music_track: "tech_bros_disruption",
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                352,
+            ],
+            size: [
+                1024,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                352,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                992,
+                32,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "Prop",
+            px: [
+                120,
+                224,
+            ],
+            size: [
+                192,
+                128,
+            ],
+            fields: (
+                name: "Diagnostic Cart",
+                kind: "intro_cart",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                200,
+                178,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "wake_room_spawn",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                440,
+                304,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                name: "Creator",
+                prompt: "Talk to the Creator",
+                dialogue_id: "creator_intro",
+            ),
+        ),
+        (
+            type: "Prop",
+            px: [
+                336,
+                224,
+            ],
+            size: [
+                128,
+                128,
+            ],
+            fields: (
+                name: "Neural Console",
+                kind: "lab_neural_console",
+            ),
+        ),
+        (
+            type: "Prop",
+            px: [
+                560,
+                224,
+            ],
+            size: [
+                128,
+                128,
+            ],
+            fields: (
+                name: "Genesis Vat",
+                kind: "lab_genesis_vat",
+            ),
+        ),
+        (
+            type: "Prop",
+            px: [
+                744,
+                224,
+            ],
+            size: [
+                128,
+                128,
+            ],
+            fields: (
+                name: "Power Core",
+                kind: "lab_power_core",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                180,
+                224,
+            ],
+            size: [
+                48,
+                128,
+            ],
+            fields: (
+                id: "wake_room_arrival",
+                name: "wake_room_arrival",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "intro_wake_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                1008,
+                0,
+            ],
+            size: [
+                16,
+                352,
+            ],
+            fields: (
+                id: "wake_to_raid",
+                name: "wake_to_raid",
+                activation: "EdgeExit",
+                target_room: "intro_raid_corridor",
+                target_zone: "raid_from_wake",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                1024,
+                384,
+            ],
+            fields: (
+                id: "intro_wake_camera",
+                name: "intro_wake_camera",
+                mode: "Default",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                16,
+                64,
+            ],
+            size: [
+                320,
+                24,
+            ],
+            fields: (
+                name: "wake_room_creator_lab_label",
+                text: "creator's basement lab",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                800,
+                320,
+            ],
+            size: [
+                200,
+                24,
+            ],
+            fields: (
+                name: "wake_room_exit_arrow",
+                text: "→ corridor",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

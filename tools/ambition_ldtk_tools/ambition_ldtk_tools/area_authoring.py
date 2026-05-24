@@ -126,6 +126,10 @@ PKG_DIR = Path(__file__).resolve().parent
 
 def load_spec(path: Path) -> dict:
     text = path.read_text()
+    if path.suffix.lower() == ".ron":
+        from .ron_parse import load as ron_load
+
+        return ron_load(text)
     if path.suffix.lower() in {".yaml", ".yml"}:
         try:
             import yaml  # type: ignore

@@ -1,0 +1,311 @@
+// Pirate-faction lair — a wide horizontal cove tucked under the hub
+// floor, with the entry to the Mockingbird boss arena at the far end.
+//
+// Layout (1280 wide × 640 tall):
+//
+//   +---------------------------------------------------+  y = 0
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+//   |                                                   |
+//   |        ░░ one-way ledge ░░                        |
+//   |                              ░░ one-way ledge ░░  |
+//   |                                                   |
+//   |  [hub door]                          [arena door] |
+//   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  | y = 608 (floor)
+//   +---------------------------------------------------+
+//
+// Movement contract:
+// - Player enters from the hub door on the left, lands on the floor.
+// - Walks right past two one-way platforms (purely cosmetic / lookout
+//   ledges; the boss room entry is on the floor at the far right).
+// - Steps into the mockingbird arena door to drop into the boss fight.
+//
+// Music: a placeholder ambient track for the cove itself; the boss
+// music swap happens when the player enters the arena room.
+
+(
+    id: "pirate_cove",
+    level_id: "pirate_cove",
+    world_x: -8000,
+    world_y: 0,
+    px_wid: 1280,
+    px_hei: 640,
+    fill_collision: "empty",
+    biome: "cove",
+    music_track: "pirates_guild_black_flag_jig",
+    ambient_profile: "tide",
+    visual_theme: "blue",
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                608,
+            ],
+            size: [
+                1280,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                608,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1264,
+                0,
+            ],
+            size: [
+                16,
+                608,
+            ],
+            fields: (
+                name: "right_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                1248,
+                16,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                320,
+                384,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "lookout_ledge_left",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                720,
+                320,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "lookout_ledge_right",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                80,
+                562,
+            ],
+            size: [
+                28,
+                46,
+            ],
+            fields: (
+                name: "pirate_cove_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                56,
+                512,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "pirate_cove_entry",
+                name: "pirate_cove_entry",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "pirate_cove_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                1180,
+                512,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "pirate_cove_to_arena",
+                name: "pirate_cove_to_arena",
+                activation: "Door",
+                target_room: "mockingbird_arena",
+                target_zone: "mockingbird_arena_entry",
+                bidirectional: false,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                220,
+                538,
+            ],
+            size: [
+                42,
+                70,
+            ],
+            fields: (
+                name: "Pirate Admiral",
+                prompt: "Talk",
+                dialogue_id: "pirate_admiral",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                560,
+                538,
+            ],
+            size: [
+                42,
+                70,
+            ],
+            fields: (
+                name: "Pirate Raider",
+                prompt: "Talk",
+                dialogue_id: "pirate_raider",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                880,
+                538,
+            ],
+            size: [
+                42,
+                70,
+            ],
+            fields: (
+                name: "Pirate Quartermaster",
+                prompt: "Talk",
+                dialogue_id: "pirate_quartermaster",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                712,
+                538,
+            ],
+            size: [
+                42,
+                70,
+            ],
+            fields: (
+                name: "Pirate Lookout",
+                prompt: "Talk",
+                dialogue_id: "pirate_lookout",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                830,
+                250,
+            ],
+            size: [
+                42,
+                70,
+            ],
+            fields: (
+                name: "Pirate Navigator",
+                prompt: "Talk",
+                dialogue_id: "pirate_navigator",
+                patrol_radius: 0,
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                768,
+                224,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "pirate_cove_sky_hatch",
+                name: "pirate_cove_sky_hatch",
+                activation: "Door",
+                target_room: "pirate_sky_lookout",
+                target_zone: "pirate_sky_lookout_entry",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                1280,
+                640,
+            ],
+            fields: (
+                id: "pirate_cove_camera",
+                name: "pirate_cove_camera",
+                mode: "Default",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [
+                40,
+                540,
+            ],
+            size: [
+                600,
+                20,
+            ],
+            fields: (
+                name: "pirate_cove_intro_label",
+                text: "Pirate Cove — the Mockingbird is through the far door.",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

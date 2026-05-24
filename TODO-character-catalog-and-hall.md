@@ -13,8 +13,8 @@ can stop at any checkpoint if budget runs out.
 ## Run progress (live updates)
 
 **Run started:** 2026-05-24T17:16:07+0000 (epoch 1779642967)
-**Current phase:** Phase 4 — Area specs YAML → RON migration 🏗️
-**Last green commit:** _Phase 3 commit pending_
+**Current phase:** Phase 5 — Hall of Characters 🏗️
+**Last green commit:** _Phase 4 commit pending_
 
 ### Estimated vs Actual time
 
@@ -23,7 +23,7 @@ can stop at any checkpoint if budget runs out.
 | 1. Foundation (RON catalog + plugin + validator) | 2.0 h | 0.16 h | ✅ done | 24 chars; 771 lib tests + 8 new catalog tests all green; headless 60-tick clean. Fast because brain/action_set types already designed for this shape. |
 | 2. NpcSpawn schema change (`name` → `character_id`) | 1.5 h | 0.16 h | ✅ done | 26 LDtk instances migrated (18 sandbox + 8 intro); +11 intro catalog entries; parser translates character_id → display_name so downstream sprite/banter/dialog keep working without churn; 10 catalog tests + 771 lib tests + 200-tick headless all green. |
 | 3. Sprite gap closure (every renderer entry → catalog) | 1.0 h | 0.09 h | ✅ done | Codegen script `codegen_character_catalog.py` synthesized 64 entries from renderer's list-targets via heuristic table. Catalog at 114 entries total. +1 coverage gate test pinning the renderer snapshot. 774 lib tests + headless 100-tick all green. Skipped regen smoke: this phase touched no sprite plumbing. |
-| 4. Area specs YAML → RON migration | 1.0 h | _ | ⬜ pending | _ |
+| 4. Area specs YAML → RON migration | 1.0 h | 0.10 h | ✅ done | 28 YAML specs converted to RON in-place. Initially hand-rolled a 200-LOC RON parser; per Jon's mid-run guidance switched to upstream `python-ron` (wraps the Rust `ron` crate) so the Python side parses exactly what Rust does. Keeps in-house struct-style `dumps` for idiomatic output. 774 lib tests green. |
 | 5. Hall of Characters generator + room | 1.5 h | _ | ⬜ pending | _ |
 | 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | _ | ⬜ pending | _ |
 | 7. Documentation + ADR 0017 | 0.5 h | _ | ⬜ pending | _ |

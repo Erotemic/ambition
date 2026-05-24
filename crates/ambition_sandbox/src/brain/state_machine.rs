@@ -700,6 +700,40 @@ mod tests {
     }
 
     #[test]
+    fn wanderer_climbing_to_walking_transition_via_wall_clear() {
+        // Wanderer that engaged climb mode (climb_walls=true,
+        // climbable wall) should keep climbing while wall stays;
+        // when wall clears, brain returns to forward walk.
+        let cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
+        let mut sm = StateMachineCfg::Wanderer {
+            cfg,
+            state: WandererState::default(),
+        };
+        let mut s = BrainSnapshot::idle();
+        s.actor_facing = 1.0;
+        s.wall_contact = Some(crate::brain::snapshot::WallContact {
+            normal: ae::Vec2::new(-1.0, 0.0),
+            is_climbable: true,
+        });
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        // Engaged climb mode → zero motion.
+        assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+        if let StateMachineCfg::Wanderer { state, .. } = &sm {
+            assert!(state.climbing);
+        }
+        // Clear wall — wanderer returns to forward walking.
+        s.wall_contact = None;
+        let mut out2 = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out2);
+        // Note: brain's climbing flag persists until next wall
+        // contact resolves; what we test is that with NO wall
+        // the brain emits forward walk (per the early-return
+        // logic in tick_wanderer).
+        assert!(out2.desired_vel.x > 0.0);
+    }
+
+    #[test]
     fn wanderer_resumes_walking_after_pause_expires() {
         // Pause is time-bounded; once chatter_pause_s elapses past
         // pause_until, the wanderer should resume forward motion.

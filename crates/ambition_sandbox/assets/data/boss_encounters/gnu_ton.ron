@@ -1,0 +1,34 @@
+// Boss encounter spec — GNU-ton.
+//
+// First per-boss spec authored in RON (2026-05-24) per ADR 0017
+// (Rust = behavior, RON = content). This file mirrors what
+// `ae::BossEncounterSpec::gnu_ton()` returns in
+// `crates/ambition_engine/src/boss_encounter.rs`; the runtime
+// `BossEncounterRegistry::load_boss_specs_from_disk` parses it as
+// a `BossEncounterSpec` and registers it alongside the hardcoded
+// `default_boss_profiles()` set.
+//
+// To migrate another boss: copy this file, rename the `id` /
+// `name` / numeric fields, add the new file's filename to the
+// loader's known-set (or have the loader iterate the dir). Keep
+// the hardcoded `BossEncounterSpec::<name>()` constructor around
+// as a compile-time fallback until every spec is RON-driven.
+
+(
+    id: "gnu_ton",
+    name: "GNU-ton",
+    max_hp: 42,
+    phase1_to_transition_hp: 0.65,
+    transition_to_phase2_hp: 0.65,
+    phase2_to_enrage_hp: 0.28,
+    intro_seconds: 2.8,
+    transition_seconds: 2.0,
+    stagger_seconds: 2.2,
+    death_seconds: 3.0,
+    stagger_threshold: 8,
+    stagger_window_seconds: 2.0,
+    music_intro: "standing_on_shoulders",
+    music_phase1: "standing_on_shoulders",
+    music_phase2: "standing_on_shoulders",
+    music_enrage: "standing_on_shoulders",
+)

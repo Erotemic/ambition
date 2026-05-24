@@ -468,6 +468,47 @@ mod tests {
     }
 
     #[test]
+    fn emit_brain_action_messages_skips_entities_missing_components() {
+        // Resolver queries Brain + ActionSet + ActorControl +
+        // Transform. Entities missing any one are skipped silently
+        // (Bevy query filter). Pins this behavior so a future
+        // refactor that loosens the filter doesn't accidentally
+        // process partially-spawned entities and panic on the
+        // missing fields.
+        use bevy::prelude::*;
+        let mut app = App::new();
+        app.add_message::<ActorActionMessage>();
+        app.add_systems(Update, emit_brain_action_messages);
+        // Entity 1: missing ActionSet.
+        let _e1 = app
+            .world_mut()
+            .spawn((
+                Brain::stand_still(),
+                ActorControl::default(),
+                bevy::transform::components::Transform::IDENTITY,
+            ))
+            .id();
+        // Entity 2: missing Transform.
+        let _e2 = app
+            .world_mut()
+            .spawn((
+                Brain::stand_still(),
+                ActorControl::default(),
+                ActionSet::peaceful(),
+            ))
+            .id();
+        app.update();
+        let messages = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>();
+        assert_eq!(
+            messages.iter_current_update_messages().count(),
+            0,
+            "partial entities should produce zero messages",
+        );
+    }
+
+    #[test]
     fn combat_timers_clear_const_matches_default() {
         // CombatTimers::CLEAR is the sentinel "no active attack /
         // stun" baseline; it should equal Default::default().

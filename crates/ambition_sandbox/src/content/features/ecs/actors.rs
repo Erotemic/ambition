@@ -403,36 +403,24 @@ pub fn update_ecs_actors(
                     None
                 };
                 let nearest_neighbor = neighbor_by_id.get(&enemy.id).copied();
-                // Tick the brain and write its `ActorControlFrame`
-                // output into `ActorControl` so the downstream
-                // `emit_brain_action_messages` resolver and EFFECTS-
-                // stage consumers see the brain's intent. Passes
-                // real combat timers so the brain's AI mode
-                // (Telegraph / Attack / Recover) matches the
-                // enemy's actual attack-phase state. No-op when no
-                // brain component is attached (debug spawns).
-                if let (Some(brain), Some(control)) =
-                    (brain.as_deref_mut(), control.as_deref_mut())
-                {
-                    let timers = crate::brain::CombatTimers {
-                        cooldown_remaining: enemy.attack_cooldown,
-                        windup_remaining: enemy.attack_windup_timer,
-                        active_remaining: enemy.attack_timer,
-                        recover_remaining: 0.0,
-                        stun_remaining: 0.0,
-                    };
-                    control.0 = crate::brain::shadow_tick_brain_with_timers(
-                        brain,
-                        enemy.pos,
-                        enemy.vel,
-                        enemy.facing,
-                        enemy.on_ground,
-                        enemy.alive,
-                        target_pos,
-                        dt,
-                        timers,
-                    );
-                }
+                // **Hostile actors: EnemyRuntime is the single intent
+                // producer.** The `StateMachine(MeleeBrute)` brain
+                // attached to the entity is a shape placeholder (it
+                // would correctly emit the same intent if the
+                // EnemyRuntime AI was lifted into it; the migration
+                // hasn't happened, see
+                // `dev/journals/actor-brain-migration-completion-2026-05-24.md`).
+                // We DO NOT shadow-tick the brain here — that would
+                // produce a second intent stream that we'd discard,
+                // and the previous "tick + overwrite" pattern was
+                // exactly the parallel-shadow concern the migration
+                // is eliminating.
+                //
+                // The runtime is the producer; `ActorControl` carries
+                // its frame; the resolver translates it into
+                // `ActorActionMessage`s for EFFECTS consumers.
+                let _ = brain; // Brain component stays attached for
+                               // future migration but isn't ticked.
                 let frame = enemy.update(
                     &feature_world,
                     target_pos,
@@ -443,14 +431,6 @@ pub fn update_ecs_actors(
                 );
                 aabb.center = enemy.pos;
                 aabb.half_size = enemy.size * 0.5;
-                // Land the legacy AI's per-tick frame into ActorControl
-                // so `emit_brain_action_messages` and EFFECTS-stage
-                // consumers see the intent. The brain's earlier tick
-                // wrote to `control.0` first; the runtime overwrites
-                // it here because the runtime is still the source of
-                // truth for hostile fire/melee intent. When the brain
-                // takes over hostile intent (next migration), this
-                // second write disappears.
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;
                 }

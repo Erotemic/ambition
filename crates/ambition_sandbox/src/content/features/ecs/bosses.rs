@@ -60,24 +60,13 @@ pub fn update_ecs_bosses(
     {
         let boss = &mut feature.boss;
         let target_pos = target.pos;
-        // Tick the boss brain and write its output into `ActorControl`
-        // so `emit_brain_action_messages` sees the boss's intent. Today
-        // `BossPattern::tick` returns a neutral frame (the boss runtime
-        // still owns boss attack intent); when the BossPattern
-        // migration lands, the resolver picks up the boss's ranged /
-        // special intent automatically.
-        if let (Some(brain), Some(control)) = (brain.as_deref_mut(), control.as_deref_mut()) {
-            control.0 = crate::brain::shadow_tick_brain(
-                brain,
-                boss.pos,
-                ae::Vec2::ZERO,
-                1.0,
-                false,
-                boss.alive,
-                target_pos,
-                dt,
-            );
-        }
+        // **Bosses: BossRuntime is the single intent producer.** The
+        // `BossPattern(encounter_id)` brain stays attached as a
+        // future migration handle, but we don't tick it — it would
+        // return a neutral frame today and the runtime would
+        // immediately overwrite the result. Skip the wasted work +
+        // the parallel-shadow pattern.
+        let _ = brain;
         // Forward this boss's current encounter phase into the runtime
         // so `Scripted` attack patterns can pick the right phase
         // timeline. Look up by the semantic encounter id derived from

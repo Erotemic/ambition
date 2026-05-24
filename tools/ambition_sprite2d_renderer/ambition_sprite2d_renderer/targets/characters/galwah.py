@@ -575,9 +575,14 @@ class GalwahRenderer:
 def build_pose_rows() -> list[tuple[str, list[Pose]]]:
     rows: list[tuple[str, list[Pose]]] = []
 
-    # Row 1: turn / orientation set.
+    # Row 1: stationary front/quarter/side orientation poses.
+    # Named `rest` (mapped to CharacterAnim::Idle at runtime) so the
+    # catalog-driven sprite loader treats this row as the character's
+    # idle animation. Previously named `turn`, which the runtime
+    # didn't recognize as an idle equivalent and which left the Hall
+    # of Characters pedestal as a colored-rectangle placeholder.
     rows.append((
-        "turn",
+        "rest",
         [
             Pose("front", facing=1, yaw=0.0, mouth=-0.15, right_hand=(13, 9), left_hand=(-12, 10)),
             Pose("front_talk", facing=1, yaw=0.0, mouth=0.45, head_tilt=-0.05, right_hand=(14, 8), left_hand=(-11, 10)),
@@ -673,7 +678,7 @@ TARGET_NAME = "galwah"
 # Per-row frame counts come from `build_pose_rows()`; the durations
 # pace the visual feel (faster duel/walk, slower theorem/death).
 _ROW_DURATIONS_MS: dict[str, int] = {
-    "turn": 130,
+    "rest": 130,
     "walk": 95,
     "theorem": 110,
     "duel": 85,

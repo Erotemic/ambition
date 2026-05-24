@@ -161,10 +161,17 @@ pirate_targets=(
     pirate_navigator
     pirate_quartermaster
     pirate_raider
+    # pirate_heavy fans out into three variants (broadside_bess, iron_mary,
+    # salt_annet) — its module-level install copies all three flat into
+    # $sprites_dir as `pirate_heavy_<slug>_spritesheet.{png,yaml,ron}`.
+    pirate_heavy
 )
 for target in "${pirate_targets[@]}"; do
     (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir")
 done
+
+echo "==> small enemy sprites (puppy_slug → $sprites_dir)"
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish puppy_slug --dest-root "$sprites_dir")
 
 echo "==> tack-on: mockingbird boss (render-publish into $sprites_dir/mockingbird_boss)"
 "$python_bin" "$renderer_dir/mockingbird_boss_sprite_generator.py" render-publish \
@@ -223,6 +230,12 @@ expected_files=(
     pirate_navigator_spritesheet.png pirate_navigator_spritesheet.yaml pirate_navigator_spritesheet.ron
     pirate_quartermaster_spritesheet.png pirate_quartermaster_spritesheet.yaml pirate_quartermaster_spritesheet.ron
     pirate_raider_spritesheet.png pirate_raider_spritesheet.yaml pirate_raider_spritesheet.ron
+    # Pirate-heavy variants (three named bruisers sharing one rig).
+    pirate_heavy_broadside_bess_spritesheet.png pirate_heavy_broadside_bess_spritesheet.yaml pirate_heavy_broadside_bess_spritesheet.ron
+    pirate_heavy_iron_mary_spritesheet.png pirate_heavy_iron_mary_spritesheet.yaml pirate_heavy_iron_mary_spritesheet.ron
+    pirate_heavy_salt_annet_spritesheet.png pirate_heavy_salt_annet_spritesheet.yaml pirate_heavy_salt_annet_spritesheet.ron
+    # Small enemy sprites.
+    puppy_slug_spritesheet.png puppy_slug_spritesheet.yaml puppy_slug_spritesheet.ron
     # Boss subdirectories (custom install paths).
     gnu_ton_boss/gnu_ton_boss_spritesheet.png
     gnu_ton_boss/gnu_ton_boss_body_spritesheet.png

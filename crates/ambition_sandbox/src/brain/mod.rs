@@ -423,6 +423,17 @@ mod tests {
     }
 
     #[test]
+    fn actor_control_default_is_neutral_frame() {
+        // ActorControl Default = frame.neutral. Pins the
+        // "fresh-spawn ActorControl has zero intent" baseline so
+        // a daytime EFFECTS consumer that reads it before any
+        // brain tick has run won't spuriously fire actions.
+        let ac = ActorControl::default();
+        assert_eq!(ac.0, ae::ActorControlFrame::neutral());
+        assert!(!ac.0.wants_any_action());
+    }
+
+    #[test]
     fn brain_plugin_registers_message_and_counter_resource() {
         // Pins the BrainPlugin contract: installs ActorActionMessage
         // + BrainActionCounter resource. A future refactor that

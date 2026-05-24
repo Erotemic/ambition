@@ -177,3 +177,59 @@ follow-up.
 `crates/ambition_engine/src/movement/player.rs::Player` deleted.
 `PlayerMovementAuthority` deleted. Every reader in the file list
 above queries one of the new components instead.
+
+## Update (2026-05-24): overnight session outcome
+
+Stopped at end of Chunk 4f after additional consolidation work.
+Captured here so the next daytime session picks up cleanly.
+
+**Landed:**
+- ActorControlFrame extended with player verbs (`6d04715`).
+- crates/ambition_sandbox/src/brain/ scaffolded with Brain enum,
+  ActionSet, 7 brain templates, BrainSnapshot, player brain
+  translator (`8e06032`).
+- NpcRuntime ticks through Brain::StateMachine — bespoke
+  NpcRuntime::update gone, brain-built per NPC at spawn
+  (`0aa526a`).
+- Player entity carries Brain::Player + ActionSet + ActorControl;
+  tick_player_brains fills ActorControl each frame via the
+  PlayerInput phase (`c41997b`, `32c37e3`).
+- PlayerBody expanded to cover wall state, water/climbable
+  contact, dash timer, blink_aiming (`506b06c`).
+- audio/environment.rs reader migrated off authority onto
+  PlayerBody (`923ad65`).
+- ECS actor + boss tick systems drop unused PlayerMovementAuthority
+  reads (`f9bf1fe`, `40dc3b4`).
+- Brain components attach at spawn for hostile actors (`4518a41`)
+  + bosses (`61fd1a0`). Shadow brain tick runs each frame for
+  enemies + bosses; BossRuntime / EnemyRuntime still drive
+  behavior, but the brain output populates ActorControl as a
+  parallel shape.
+- shadow_tick_brain helper extracted (`3b3a147`) so the per-actor
+  snapshot construction lives in one place.
+- Regression test asserts encounter-mob spawns carry Brain +
+  ActionSet + ActorControl (`46c5f29`).
+
+**Remaining for daytime:**
+- Reader-side polarity flip: 38 `authority.player.*` reads still
+  in the sandbox, most of them co-located with writes. Walk the
+  dev_tools / debug_overlay / runtime/reset.rs / body_mode/tests
+  clusters per the table above.
+- Enemy EFFECTS consumer flip: today the brain's ActorControl
+  output is discarded for hostile actors. Replace EnemyRuntime's
+  inline choreography → integration call with one that consumes
+  brain.tick + ActionSet.resolve. Per-archetype attack specs
+  (Swipe / Lunge / Bite / Arrow / Pistol / etc.) need authoring.
+- Boss EFFECTS consumer flip: same shape; thread the real
+  encounter id through BossPatternCfg (today everyone gets
+  encounter_id = 0 as a sentinel).
+- update_player consumes ActorControl: today the player brain
+  fills the frame but update_player still reads PlayerInputFrame
+  directly. Flipping the consumer is the biggest single risk in
+  the remaining work — overlap-then-delete per the journal.
+- Delete `ae::Player` once no reader remains.
+- Narrow `ActorControlFrame::fire` to `Option<Vec2>` once
+  ActionSet's RangedActionSpec is the speed source.
+
+Test counts at session end: 690 sandbox lib tests + 261 engine
+lib tests green. Headless + rl_smoke binaries both run clean.

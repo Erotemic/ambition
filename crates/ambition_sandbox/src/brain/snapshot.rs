@@ -166,6 +166,20 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_player_input_roundtrips() {
+        // Snapshot must round-trip player_input correctly so the
+        // player brain reads the same values the driver set.
+        let mut input = crate::input::ControlFrame::default();
+        input.axis_x = 0.6;
+        input.jump_pressed = true;
+        let mut snap = BrainSnapshot::idle();
+        snap.player_input = Some(input);
+        let extracted = snap.player_input.expect("player_input set");
+        assert_eq!(extracted.axis_x, 0.6);
+        assert!(extracted.jump_pressed);
+    }
+
+    #[test]
     fn to_character_ai_snapshot_handles_negative_inputs_without_panic() {
         // Defensive: negative aggro / attack ranges should pass
         // through to the engine evaluator (which clamps via

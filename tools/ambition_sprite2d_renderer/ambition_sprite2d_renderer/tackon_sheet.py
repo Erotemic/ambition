@@ -496,6 +496,12 @@ def _ron_sheet_record(manifest):
         rows_field = "    rows: [],\n"
     y_offset = int(manifest.get("y_offset", 0))
     y_offset_field = f"    y_offset: {y_offset},\n" if y_offset else ""
+    # Per the V3/D4 migration plan (Rust = behavior, RON = content): if
+    # the target's render_fn put `tuning` into the manifest, serialize
+    # it. The Rust runtime prefers manifest-authored tuning over its
+    # legacy hardcoded `SheetTuning` const. Targets that don't author
+    # tuning here keep their Rust-side fallback for now.
+    tuning_field = _ron_tuning(manifest.get("tuning"))
     return (
         f"(\n"
         f'    target: "{_ron_escape(target)}",\n'
@@ -505,8 +511,26 @@ def _ron_sheet_record(manifest):
         f"    frame_height: {int(manifest['frame_height'])},\n"
         f"{y_offset_field}"
         f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
+        f"{tuning_field}"
         f"{rows_field}"
         f")"
+    )
+
+
+def _ron_tuning(tuning):
+    """Serialize the optional `tuning` field. `None` → no field
+    emitted (Rust's `#[serde(default)]` leaves the field `None` and
+    the loader falls back to the hardcoded `SheetTuning` const).
+    Otherwise → `tuning: Some((collision_scale: ..., frame_sample_inset: ...))`."""
+    if not isinstance(tuning, dict):
+        return ""
+    scale = float(tuning.get("collision_scale", 1.0))
+    inset = int(tuning.get("frame_sample_inset", 0))
+    return (
+        f"    tuning: Some((\n"
+        f"        collision_scale: {scale},\n"
+        f"        frame_sample_inset: {inset},\n"
+        f"    )),\n"
     )
 
 

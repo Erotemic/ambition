@@ -95,7 +95,38 @@ pub struct SheetRecord {
     /// `CharacterSheetSpec::feet_anchor_y` mirrors today).
     #[serde(default)]
     pub body_metrics: Option<BodyMetrics>,
+    /// Per-target gameplay tuning authored alongside the sheet. When
+    /// present, [`super::sheets::spec_from_record`] uses it; absent →
+    /// fall back to the legacy `*_SHEET` const's `SheetTuning` so
+    /// existing characters keep their hand-tuned values during the
+    /// migration. The end-state (V3/D4 follow-up from
+    /// `TODO-character-catalog-and-hall.md`): every manifest carries
+    /// tuning, every hardcoded `*_SHEET` const disappears, adding a
+    /// character is a renderer-only operation.
+    #[serde(default)]
+    pub tuning: Option<SheetTuningSpec>,
     pub rows: Vec<SheetRow>,
+}
+
+/// Per-target gameplay-tuning fields embedded in the spritesheet
+/// manifest. Mirrors the internal `super::sheets::SheetTuning` but
+/// authored as content (RON), not as a Rust constant. Optional —
+/// targets that haven't been migrated keep their hardcoded
+/// `LazyLock<CharacterSheetSpec>` and ignore this.
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct SheetTuningSpec {
+    /// Multiplier on the actor's collision AABB when computing the
+    /// rendered sprite size. `1.0` = sprite exactly fills the AABB;
+    /// `2.1` (the robot's tuning) = sprite is much larger than the
+    /// hitbox. Authored per-character to compensate for the fraction
+    /// of each frame the actual character art occupies after
+    /// auto-crop.
+    pub collision_scale: f32,
+    /// Inset (pixels) applied to each frame rect when sampling the
+    /// atlas. `1` (the common case) trims one pixel from every edge
+    /// to avoid bilinear bleed from neighboring frames. `0` for
+    /// pixel-perfect sheets that don't need the inset.
+    pub frame_sample_inset: u32,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]

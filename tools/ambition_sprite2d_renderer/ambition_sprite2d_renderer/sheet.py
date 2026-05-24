@@ -166,6 +166,8 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         },
         "animations": {},
     }
+    if isinstance(getattr(job, "sheet_tuning", None), dict):
+        manifest["tuning"] = dict(job.sheet_tuning)
     body_metric_frame: Image.Image | None = None
     for row_idx, animation in enumerate(selected):
         info = animations[animation]
@@ -318,6 +320,7 @@ def _adapter_manifest_to_ron(manifest: dict) -> str:
         rows_field = "    rows: [],\n"
     y_offset = int(manifest.get("y_offset", 0))
     y_offset_field = f"    y_offset: {y_offset},\n" if y_offset else ""
+    tuning_field = _adapter_tuning_to_ron(manifest.get("tuning"))
     return (
         f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
         f"// `presentation::character_sprites::registry`.\n"
@@ -330,7 +333,24 @@ def _adapter_manifest_to_ron(manifest: dict) -> str:
         f"    frame_height: {int(manifest['frame_height'])},\n"
         f"{y_offset_field}"
         f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
+        f"{tuning_field}"
         f"{rows_field}"
         f"),\n"
         f"]\n"
+    )
+
+
+def _adapter_tuning_to_ron(tuning):
+    """Emit the optional `tuning:` block. None / missing → no field
+    (the Rust runtime falls back to the hardcoded `SheetTuning` const
+    for backwards compat). Mirrors `tackon_sheet._ron_tuning`."""
+    if not isinstance(tuning, dict):
+        return ""
+    scale = float(tuning.get("collision_scale", 1.0))
+    inset = int(tuning.get("frame_sample_inset", 0))
+    return (
+        f"    tuning: Some((\n"
+        f"        collision_scale: {scale},\n"
+        f"        frame_sample_inset: {inset},\n"
+        f"    )),\n"
     )

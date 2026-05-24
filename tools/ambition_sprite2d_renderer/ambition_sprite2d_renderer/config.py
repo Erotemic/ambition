@@ -53,12 +53,19 @@ class CharacterJob:
     role: Optional[str] = None
     music_cue: Optional[str] = None
     tags: List[str] = field(default_factory=list)
+    # Optional per-target gameplay tuning that propagates into the
+    # sidecar RON manifest as `tuning: Some(...)`. Per ADR 0017's
+    # V3/D4 migration: when present, the Rust runtime prefers this
+    # over its hardcoded `*_SHEET` const's `SheetTuning`. Authoring-
+    # facing keys: `collision_scale` (f32) + `frame_sample_inset` (u32).
+    sheet_tuning: Optional[Dict[str, Any]] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "CharacterJob":
         render = RenderConfig(**dict(data.get("render") or {}))
         animations = list(data.get("animations") or DEFAULT_ANIMATIONS)
         spec_overrides = dict(data.get("spec") or data.get("spec_overrides") or {})
+        sheet_tuning = data.get("sheet_tuning") or data.get("tuning")
         return cls(
             target=str(data["target"]),
             name=data.get("name"),
@@ -74,6 +81,7 @@ class CharacterJob:
             role=data.get("role"),
             music_cue=data.get("music_cue"),
             tags=list(data.get("tags") or []),
+            sheet_tuning=dict(sheet_tuning) if isinstance(sheet_tuning, dict) else None,
         )
 
     @classmethod

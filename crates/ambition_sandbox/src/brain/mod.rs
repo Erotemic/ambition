@@ -306,6 +306,31 @@ mod tests {
     }
 
     #[test]
+    fn brain_stand_still_ctor_matches_variant() {
+        let b = Brain::stand_still();
+        assert!(matches!(
+            b,
+            Brain::StateMachine(StateMachineCfg::StandStill)
+        ));
+        assert!(!b.is_hostile());
+        assert_eq!(b.label(), "stand_still");
+    }
+
+    #[test]
+    fn brain_npc_patrol_ctor_inherits_spawn_and_radius() {
+        let b = Brain::npc_patrol(120.0, 40.0);
+        match &b {
+            Brain::StateMachine(StateMachineCfg::Patrol { cfg, .. }) => {
+                assert_eq!(cfg.spawn_x, 120.0);
+                assert_eq!(cfg.radius, 40.0);
+                assert_eq!(cfg.aggressiveness, 0.0);
+            }
+            other => panic!("expected Patrol, got {:?}", other),
+        }
+        assert!(!b.is_hostile());
+    }
+
+    #[test]
     fn brain_is_player_predicate_distinguishes_backends() {
         let p = Brain::Player(PlayerSlot(2));
         assert!(p.is_player());

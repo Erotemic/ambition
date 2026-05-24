@@ -312,6 +312,8 @@ impl NpcRuntime {
     /// not duplicated.
     pub fn build_brain(&self) -> crate::brain::Brain {
         if self.patrol_radius > 0.0 || self.motion.is_some() {
+            // Talk radius drives Chase mode (which the brain
+            // interprets as Hold for peaceful NPCs).
             let mut cfg = crate::brain::PatrolCfg::NPC_DEFAULT;
             cfg.spawn_x = self.spawn.x;
             cfg.radius = self.patrol_radius;
@@ -321,7 +323,7 @@ impl NpcRuntime {
                 state: crate::brain::PatrolState::default(),
             })
         } else {
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill)
+            crate::brain::Brain::stand_still()
         }
     }
 

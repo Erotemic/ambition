@@ -69,6 +69,25 @@ pub enum Brain {
 }
 
 impl Brain {
+    /// Construct a `Brain::StateMachine(StandStill)`. Used by spawn
+    /// sites that want a no-op AI brain (sandbags, dialogue-only
+    /// NPCs).
+    pub fn stand_still() -> Self {
+        Self::StateMachine(StateMachineCfg::StandStill)
+    }
+
+    /// Construct a peaceful NPC patrol brain at the given spawn
+    /// position. Convenience wrapper for the spawn-time mapping.
+    pub fn npc_patrol(spawn_x: f32, radius: f32) -> Self {
+        let mut cfg = PatrolCfg::NPC_DEFAULT;
+        cfg.spawn_x = spawn_x;
+        cfg.radius = radius;
+        Self::StateMachine(StateMachineCfg::Patrol {
+            cfg,
+            state: PatrolState::default(),
+        })
+    }
+
     /// Tick the brain: read the snapshot, mutate any internal state,
     /// and write the abstract intent into `out`.
     pub fn tick(&mut self, snapshot: &BrainSnapshot, out: &mut ae::ActorControlFrame) {

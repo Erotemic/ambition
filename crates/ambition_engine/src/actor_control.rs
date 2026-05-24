@@ -148,6 +148,20 @@ impl ActorControlFrame {
             || self.shield_held
             || self.special_pressed
     }
+
+    /// Clear all rising-edge flags (pressed / released) without
+    /// touching sustains. Used by integrations that consume the
+    /// frame in multiple stages and need to prevent a single edge
+    /// from re-firing across stages.
+    pub fn clear_edges(&mut self) {
+        self.jump_pressed = false;
+        self.jump_released = false;
+        self.dash_pressed = false;
+        self.interact_pressed = false;
+        self.special_pressed = false;
+        self.melee_pressed = false;
+        self.fire = None;
+    }
 }
 
 #[cfg(test)]
@@ -181,6 +195,35 @@ mod tests {
     fn wants_any_action_reports_false_for_neutral_frame() {
         let frame = ActorControlFrame::neutral();
         assert!(!frame.wants_any_action());
+    }
+
+    #[test]
+    fn clear_edges_zeros_per_tick_edges_keeps_sustains() {
+        let mut frame = ActorControlFrame::neutral();
+        frame.jump_pressed = true;
+        frame.jump_held = true;
+        frame.jump_released = true;
+        frame.dash_pressed = true;
+        frame.interact_pressed = true;
+        frame.special_pressed = true;
+        frame.melee_pressed = true;
+        frame.shield_held = true;
+        frame.fire = Some(ActorFireRequest {
+            dir: Vec2::new(1.0, 0.0),
+            speed: 0.0,
+        });
+        // Also set a sustain that should NOT clear: jump_held + shield_held.
+        frame.clear_edges();
+        assert!(!frame.jump_pressed);
+        assert!(!frame.jump_released);
+        assert!(!frame.dash_pressed);
+        assert!(!frame.interact_pressed);
+        assert!(!frame.special_pressed);
+        assert!(!frame.melee_pressed);
+        assert!(frame.fire.is_none());
+        // Sustains preserved.
+        assert!(frame.jump_held);
+        assert!(frame.shield_held);
     }
 
     #[test]

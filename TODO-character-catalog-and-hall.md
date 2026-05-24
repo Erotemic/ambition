@@ -13,8 +13,8 @@ can stop at any checkpoint if budget runs out.
 ## Run progress (live updates)
 
 **Run started:** 2026-05-24T17:16:07+0000 (epoch 1779642967)
-**Current phase:** Phase 5 — Hall of Characters 🏗️
-**Last green commit:** _Phase 4 commit pending_
+**Current phase:** Phase 6 — Cleanup 🏗️
+**Last green commit:** _Phase 5 commit pending_
 
 ### Estimated vs Actual time
 
@@ -24,7 +24,7 @@ can stop at any checkpoint if budget runs out.
 | 2. NpcSpawn schema change (`name` → `character_id`) | 1.5 h | 0.16 h | ✅ done | 26 LDtk instances migrated (18 sandbox + 8 intro); +11 intro catalog entries; parser translates character_id → display_name so downstream sprite/banter/dialog keep working without churn; 10 catalog tests + 771 lib tests + 200-tick headless all green. |
 | 3. Sprite gap closure (every renderer entry → catalog) | 1.0 h | 0.09 h | ✅ done | Codegen script `codegen_character_catalog.py` synthesized 64 entries from renderer's list-targets via heuristic table. Catalog at 114 entries total. +1 coverage gate test pinning the renderer snapshot. 774 lib tests + headless 100-tick all green. Skipped regen smoke: this phase touched no sprite plumbing. |
 | 4. Area specs YAML → RON migration | 1.0 h | 0.10 h | ✅ done | 28 YAML specs converted to RON in-place. Initially hand-rolled a 200-LOC RON parser; per Jon's mid-run guidance switched to upstream `python-ron` (wraps the Rust `ron` crate) so the Python side parses exactly what Rust does. Keeps in-house struct-style `dumps` for idiomatic output. 774 lib tests green. |
-| 5. Hall of Characters generator + room | 1.5 h | _ | ⬜ pending | _ |
+| 5. Hall of Characters generator + room | 1.5 h | 0.19 h | ✅ done | Generator: `generate_hall_of_characters.py` reads catalog, partitions by tier (pyron drops Rust enum discriminators on unit variants so regex extracts `tier:` directly), lays out 6 floors × 16 main slots + 2 basement rows × 8 = 112 capacity. Spec: 2048×1840 at world (40000, 0). 89 main + 10 basement pedestals (each = NpcSpawn + DebugLabel). LDtk pin test added. 775 lib tests + headless 200 ticks all green. |
 | 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | _ | ⬜ pending | _ |
 | 7. Documentation + ADR 0017 | 0.5 h | _ | ⬜ pending | _ |
 | **Total (planned)** | **8.5 h** | _ | | over budget by 0.5 h — trim Phase 6 if needed |

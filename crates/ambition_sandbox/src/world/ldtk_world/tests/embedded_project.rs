@@ -282,6 +282,63 @@ fn embedded_ldtk_goblin_encounter_does_not_carry_music_track() {
     );
 }
 
+/// Phase 5 of the character-catalog refactor (see
+/// `TODO-character-catalog-and-hall.md`). The Hall of Characters
+/// room is auto-generated from `character_catalog.ron` and ships
+/// one pedestal per spawnable character. Pins the room into
+/// `sandbox.ldtk` so a future "delete the file by accident" trips
+/// here rather than at runtime, and ensures every NpcSpawn the
+/// generator emitted resolves to a catalog id.
+#[test]
+fn embedded_ldtk_hall_of_characters_has_expected_pedestals() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let hall = project
+        .levels
+        .iter()
+        .find(|l| l.identifier == "hall_of_characters")
+        .expect("hall_of_characters level should exist (Phase 5)");
+
+    // Count NpcSpawn entities in the hall; every catalog entry
+    // gets one. The catalog covers 99 characters today (89 main
+    // hall + 10 basement); future additions should bump this
+    // number, not break the room.
+    let npc_count = hall
+        .layer_instances
+        .iter()
+        .flat_map(|layer| &layer.entity_instances)
+        .filter(|e| e.identifier == "NpcSpawn")
+        .count();
+    assert!(
+        npc_count >= 80,
+        "hall_of_characters should hold one NpcSpawn per catalog entry; got {npc_count}",
+    );
+
+    // Every NpcSpawn must carry a `character_id` field that
+    // resolves in the embedded catalog.
+    let catalog =
+        crate::content::character_catalog::load_embedded();
+    let mut unresolved: Vec<String> = Vec::new();
+    for layer in &hall.layer_instances {
+        for entity in &layer.entity_instances {
+            if entity.identifier != "NpcSpawn" {
+                continue;
+            }
+            let cid = field_string(entity, "character_id").unwrap_or_default();
+            if cid.is_empty() {
+                unresolved.push(format!("(empty) iid={}", entity.iid));
+                continue;
+            }
+            if !catalog.characters.contains_key(&cid) {
+                unresolved.push(cid);
+            }
+        }
+    }
+    assert!(
+        unresolved.is_empty(),
+        "hall NpcSpawns reference character_ids not in the catalog: {unresolved:?}",
+    );
+}
+
 #[test]
 fn embedded_ldtk_composes_central_hub_complex() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");

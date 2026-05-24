@@ -150,13 +150,18 @@ Remaining work, in order of value:
    `targets/<name>.py` API; carrying it forward means
    `regen_sprites.sh` needs a special-case invocation that
    `publish_catalog_sprites.py` can't drive.
-4. **Document the per-target row layout requirements.** The
+4. ~~**Document the per-target row layout requirements.** The
    runtime's `CharacterAnim::from_name` expects `idle` / `walk` /
    etc.; sheets that ship only `run` / `attack` / `death` (no
    idle) fall back gracefully now (see
    `try_load_spec_for_character_id`) but render as colored
    rectangles. A linter that warns "this manifest will not produce
-   a working sprite" would catch the issue at render time.
+   a working sprite" would catch the issue at render time.~~
+   *Landed 2026-05-24.* `tackon_sheet.diagnose_idle_coverage`
+   prints a stderr warning at publish time when a sheet has
+   ≥1 `CharacterAnim` row but no Idle alias. Pinned by
+   `test_diagnose_idle_coverage.py` (7 tests, including the
+   galwah-pre-rename regression marker).
 
 Each of these is small (1–3 hour). Doing all four would let
 `publish_catalog_sprites.py` cover 100% of catalog entries.

@@ -53,6 +53,48 @@ ANIMATIONS = [
     ("death", 8, 110),
 ]
 
+# Mirror of the Rust `CharacterAnim::from_name` alias table at
+# `crates/ambition_sandbox/src/presentation/character_sprites/anim.rs`.
+# Two sets so `is_character_sheet` can detect *any* CharacterAnim row
+# while `IDLE_ALIASES` flags the missing-Idle case specifically.
+IDLE_ALIASES = frozenset(("idle", "opening", "rest", "front_idle", "side_idle"))
+CHARACTER_ANIM_NAMES = frozenset((
+    *IDLE_ALIASES,
+    "walk", "stable", "spin", "side_walk",
+    "run", "closing",
+    "jump", "fall", "slash", "hit", "hurt", "death",
+    "blink_out", "blink_in", "dash", "fly", "hover", "taunt",
+    "ledge_grab", "ledge_climb", "ledge_getup", "wall_grab",
+    "float_glide", "land_hard", "land_recovery", "dash_startup",
+    "attack_side", "attack_up", "attack_down",
+    "air_neutral", "air_forward", "air_back", "air_down", "air_up",
+    "ledge_roll", "ledge_getup_attack",
+))
+
+
+def diagnose_idle_coverage(target: str, anim_names: List[str]) -> Optional[str]:
+    """Return a publish-time warning string when the sheet's row names
+    look like a character sheet (≥1 row maps to `CharacterAnim`) but
+    none of them is an Idle alias. Returns `None` if the sheet is
+    either non-character (props/gates: zero CharacterAnim hits) or
+    already has an Idle row.
+
+    Mirroring the runtime's `try_load_spec_for_character_id` filter:
+    a character sheet without an Idle row renders as a placeholder
+    in-game. Surfacing this at publish time turns the silent failure
+    into a visible warning for the renderer author.
+    """
+    has_character_row = any(n in CHARACTER_ANIM_NAMES for n in anim_names)
+    has_idle = any(n in IDLE_ALIASES for n in anim_names)
+    if has_character_row and not has_idle:
+        return (
+            f"[tackon_sheet] WARN: {target!r} sheet has character-anim rows "
+            f"{[n for n in anim_names if n in CHARACTER_ANIM_NAMES]!r} but no Idle alias "
+            f"(any of {sorted(IDLE_ALIASES)}). The runtime will render this character "
+            f"as a colored-rectangle placeholder. Add or rename one row to an Idle alias."
+        )
+    return None
+
 
 def font(size: int = 14):
     try:
@@ -331,6 +373,14 @@ def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_di
     # what gameplay code deserializes. Keep both in lockstep — they
     # encode the same data structure.
     ron_path.write_text(_emit_sheet_ron(manifest))
+    # Surface the most common silent-publish-failure mode (character
+    # sheets that lack any Idle alias and would render as a
+    # colored-rectangle placeholder in-game) as a stderr warning so
+    # the renderer author sees it during `regen_sprites.sh`.
+    warning = diagnose_idle_coverage(target, [name for name, _, _ in rows])
+    if warning:
+        import sys as _sys
+        print(warning, file=_sys.stderr)
     return {
         "canonical": canonical_path,
         "canonical_transparent": canonical_transparent_path,

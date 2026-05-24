@@ -987,6 +987,46 @@ mod tests {
     }
 
     #[test]
+    fn skirmisher_state_mode_tracks_engagement_phase() {
+        // tick_skirmisher writes state.mode = Idle when outside
+        // aggro, Chase when inside aggro pre-fire, Attack when
+        // firing. Pin all three transitions — the NPC consumer
+        // reads state.mode for HUD / sprite picking, so a future
+        // refactor that drops a mode write would silently break
+        // the HUD without tripping any other test.
+        let mut sm = StateMachineCfg::Skirmisher {
+            cfg: SkirmisherCfg::RANGER_DEFAULT,
+            state: SkirmisherState::default(),
+        };
+        // Far outside aggro → Idle.
+        let mut s = snap_at(0.0, 5000.0);
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        if let StateMachineCfg::Skirmisher { state, .. } = &sm {
+            assert_eq!(state.mode, ae::CharacterAiMode::Idle);
+        } else {
+            unreachable!();
+        }
+        // Inside aggro at sim_time=0 → Chase (cooldown not satisfied,
+        // 0 - 0 < fire_cooldown_s 0.8).
+        s = snap_at(0.0, 200.0);
+        s.sim_time = 0.0;
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        if let StateMachineCfg::Skirmisher { state, .. } = &sm {
+            assert_eq!(state.mode, ae::CharacterAiMode::Chase);
+        }
+        // Advance sim_time past the first cooldown → Attack on fire.
+        s.sim_time = 1.0; // > fire_cooldown_s 0.8
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        if let StateMachineCfg::Skirmisher { state, .. } = &sm {
+            assert_eq!(state.mode, ae::CharacterAiMode::Attack);
+        }
+        assert!(out.fire.is_some(), "should fire after cooldown");
+    }
+
+    #[test]
     fn skirmisher_holds_quiet_when_target_dead() {
         // Skirmisher with dead target inside aggro range must emit
         // a neutral frame — no fire, no strafe. Pins the

@@ -13,23 +13,17 @@ pub fn default_boss_specs() -> Vec<ae::BossEncounterSpec> {
 
 /// Per-boss spec read from `assets/data/boss_encounters/<id>.ron`.
 ///
-/// Proof-of-concept (2026-05-24) for the deferred follow-up in
-/// `TODO-character-catalog-and-hall.md` — the catalog's
-/// `BossPattern` brain preset references encounter ids by string,
-/// and per ADR 0017 the per-encounter schedule belongs in RON.
-/// Today only `gnu_ton.ron` exists; this loader silently returns an
-/// empty `Vec` when the directory is missing so hot reload + the
-/// hardcoded `default_boss_specs()` path still work.
+/// Per ADR 0017 (Rust = behavior, RON = content). Called by
+/// [`super::profile::default_boss_profiles`]: any RON file whose
+/// `id` matches an authored profile overrides the hardcoded
+/// `ae::BossEncounterSpec::<id>()` constructor's numeric fields.
+/// The Rust profile constructor still owns the behavior wiring
+/// (`BossBehaviorProfile`, `BossRewardProfile`); only the encounter-
+/// spec numbers come from disk.
 ///
-/// Future work: replace the hardcoded
-/// `ae::BossEncounterSpec::{gradient_sentinel, mockingbird, gnu_ton}`
-/// constructors with calls to this loader. Until then, the RON
-/// file is the *authoritative* source for any boss whose RON exists
-/// and `default_boss_specs()` is the fallback for the rest.
-#[allow(
-    dead_code,
-    reason = "Proof-of-concept loader for the boss_encounters RON migration; wired by a future PR that flips BossEncounterRegistry from hardcoded specs to RON-loaded."
-)]
+/// Returns an empty `Vec` when the directory is missing or unreadable
+/// so the build runs cleanly on a fresh clone before any RON has
+/// been authored.
 pub fn load_boss_specs_from_disk() -> Vec<ae::BossEncounterSpec> {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/data/boss_encounters");
     let Ok(entries) = std::fs::read_dir(&dir) else {

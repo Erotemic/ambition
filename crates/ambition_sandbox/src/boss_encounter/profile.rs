@@ -119,9 +119,26 @@ const AUTHORED_BOSS_PROFILES: &[(&str, fn() -> BossProfile)] = &[
 ];
 
 pub fn default_boss_profiles() -> Vec<BossProfile> {
+    // Per ADR 0017 (Rust = behavior, RON = content): if a boss has
+    // an `assets/data/boss_encounters/<id>.ron`, it overrides the
+    // hardcoded `ae::BossEncounterSpec::<id>()` constructor's numeric
+    // fields. The Rust profile constructor still owns the behavior
+    // wiring (`BossBehaviorProfile`, `BossRewardProfile`) — only the
+    // encounter-spec numbers come from disk.
+    let on_disk: std::collections::BTreeMap<String, ae::BossEncounterSpec> =
+        super::specs::load_boss_specs_from_disk()
+            .into_iter()
+            .map(|s| (s.id.clone(), s))
+            .collect();
     AUTHORED_BOSS_PROFILES
         .iter()
-        .map(|(_, ctor)| ctor())
+        .map(|(_, ctor)| {
+            let mut profile = ctor();
+            if let Some(spec) = on_disk.get(&profile.id) {
+                profile.encounter = spec.clone();
+            }
+            profile
+        })
         .collect()
 }
 
@@ -151,5 +168,23 @@ mod tests {
             profile.reward,
             BossRewardProfile::DropChest { .. }
         ));
+    }
+
+    /// Smoke test for the RON-overrides-hardcoded path: gnu_ton has a
+    /// `boss_encounters/gnu_ton.ron` on disk, so `default_boss_profiles`
+    /// must produce an encounter spec equivalent to the hardcoded
+    /// constructor (they're pinned identical by the specs.rs test).
+    /// Catches regressions where the RON drifts from the constructor
+    /// or where the override loop accidentally drops the spec.
+    #[test]
+    fn gnu_ton_profile_encounter_matches_hardcoded_constructor() {
+        let profile = default_boss_profiles()
+            .into_iter()
+            .find(|p| p.id == "gnu_ton")
+            .expect("gnu_ton profile is registered");
+        let hardcoded = ae::BossEncounterSpec::gnu_ton();
+        // The on-disk RON must round-trip identically (the per-field
+        // diff is pinned in `specs::tests::load_boss_specs_from_disk_finds_gnu_ton`).
+        assert_eq!(profile.encounter, hardcoded);
     }
 }

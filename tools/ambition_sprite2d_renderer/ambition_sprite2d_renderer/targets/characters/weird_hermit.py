@@ -21,13 +21,13 @@ Point = Tuple[float, float]
 
 TARGET_BASENAME = "weird_hermit"
 # Files the tack-on installer copies into the sandbox sprites dir.
-# Weird Hermit's bespoke `_render_sheet` writes `{TARGET_BASENAME}.{png,yaml,ron}`
-# (no `_spritesheet` suffix), so the install list mirrors that — diverges
-# from the build_sheet-using targets on purpose.
+# Aligned with the rest of the project's `<target>_spritesheet.{ext}`
+# convention as of 2026-05-24 — the previous bare-name output was a
+# divergence from the runtime's manifest scanner expectations.
 SHEET_FILES = [
-    f"{TARGET_BASENAME}.png",
-    f"{TARGET_BASENAME}.yaml",
-    f"{TARGET_BASENAME}.ron",
+    f"{TARGET_BASENAME}_spritesheet.png",
+    f"{TARGET_BASENAME}_spritesheet.yaml",
+    f"{TARGET_BASENAME}_spritesheet.ron",
 ]
 FRAME_SIZE = (240, 224)
 WORK_FRAME_SIZE = (480, 448)
@@ -409,15 +409,63 @@ class WeirdHermitRenderer:
 
 
 def _write_yaml(path: Path) -> None:
-    lines = [f"target: {TARGET_BASENAME}", f"frame_width: {FRAME_SIZE[0]}", f"frame_height: {FRAME_SIZE[1]}", "rows:"]
-    for name, frames, ms in ROWS:
-        lines += [f"  - name: {name}", f"    frames: {frames}", f"    frame_ms: {ms}"]
+    # Emit the SheetRow shape the rest of the project uses:
+    # animation/row_index/frame_count/duration_ms/duration_secs/rects.
+    fw, fh = FRAME_SIZE
+    lines = [
+        f"target: {TARGET_BASENAME}",
+        f"image: {TARGET_BASENAME}_spritesheet.png",
+        "label_width: 0",
+        f"frame_width: {fw}",
+        f"frame_height: {fh}",
+        "rows:",
+    ]
+    for row_index, (name, frames, ms) in enumerate(ROWS):
+        lines += [
+            f"  - animation: {name}",
+            f"    row_index: {row_index}",
+            f"    frame_count: {frames}",
+            f"    duration_ms: {ms}",
+            f"    duration_secs: {ms / 1000.0}",
+            "    rects:",
+        ]
+        for fi in range(frames):
+            lines += [
+                f"      - x: {fi * fw}",
+                f"        y: {row_index * fh}",
+                f"        w: {fw}",
+                f"        h: {fh}",
+            ]
     path.write_text("\n".join(lines) + "\n")
 
 
 def _write_ron(path: Path) -> None:
-    rows = [f'        (name: "{name}", frames: {frames}, frame_ms: {ms}),' for name, frames, ms in ROWS]
-    path.write_text("\n".join(["(", f'    target: "{TARGET_BASENAME}",', f"    frame_width: {FRAME_SIZE[0]},", f"    frame_height: {FRAME_SIZE[1]},", "    rows: [", *rows, "    ],", ")"]) + "\n")
+    # Vec<SheetRecord>-shaped RON so the runtime + record_index can
+    # consume the file without special-casing weird_hermit.
+    fw, fh = FRAME_SIZE
+    out_lines = ["[", "(", f'    target: "{TARGET_BASENAME}",',
+                 f'    image: "{TARGET_BASENAME}_spritesheet.png",',
+                 "    label_width: 0,",
+                 f"    frame_width: {fw},",
+                 f"    frame_height: {fh},",
+                 "    rows: ["]
+    for row_index, (name, frames, ms) in enumerate(ROWS):
+        out_lines.append("        (")
+        out_lines.append(f'            animation: "{name}",')
+        out_lines.append(f"            row_index: {row_index},")
+        out_lines.append(f"            frame_count: {frames},")
+        out_lines.append(f"            duration_ms: {ms},")
+        out_lines.append(f"            duration_secs: {ms / 1000.0},")
+        out_lines.append("            rects: [")
+        for fi in range(frames):
+            out_lines.append(
+                f"                (x: {fi * fw}, y: {row_index * fh}, "
+                f"w: {fw}, h: {fh}, anchors: {{}}),"
+            )
+        out_lines.append("            ],")
+        out_lines.append("        ),")
+    out_lines += ["    ],", ")", "]"]
+    path.write_text("\n".join(out_lines) + "\n")
 
 
 def _render_sheet(renderer: WeirdHermitRenderer, out_dir: Path) -> List[Path]:
@@ -441,9 +489,9 @@ def _render_sheet(renderer: WeirdHermitRenderer, out_dir: Path) -> List[Path]:
     if canonical is None:
         canonical = renderer.render_frame(ROWS[0][0], 0, ROWS[0][1])
     paths = [
-        out_dir / f"{TARGET_BASENAME}.png",
-        out_dir / f"{TARGET_BASENAME}.yaml",
-        out_dir / f"{TARGET_BASENAME}.ron",
+        out_dir / f"{TARGET_BASENAME}_spritesheet.png",
+        out_dir / f"{TARGET_BASENAME}_spritesheet.yaml",
+        out_dir / f"{TARGET_BASENAME}_spritesheet.ron",
         out_dir / f"{TARGET_BASENAME}_preview_labeled.png",
         out_dir / f"{TARGET_BASENAME}_canonical.png",
     ]

@@ -42,17 +42,12 @@ fn every_character_catalog_entry_registers_an_asset_path() {
 /// exists.
 #[test]
 fn every_character_catalog_entry_resolves_a_load_path() {
-    // Catalog entries whose publisher is known-divergent (see
-    // `docs/systems/sprite-rendering-surface.md`) are explicitly
-    // excluded. Pull these out of the catalog or fix their
-    // publisher and the exclusion goes away.
-    const EXPECTED_UNRESOLVABLE: &[&str] = &[
-        // weird_hermit's tackon publisher emits non-conventional
-        // filenames (`weird_hermit.{png,ron,yaml}`); regen_sprites.sh
-        // skips publishing it. Catalog entry kept so the renderer-
-        // unification ADR has a single source of truth.
-        "npc_weird_hermit",
-    ];
+    // All current catalog entries resolve to a load path. If a
+    // future renderer-divergent publisher lands, add its
+    // character_id here with a comment explaining the divergence
+    // and a follow-up reference in
+    // `docs/systems/sprite-rendering-surface.md`.
+    const EXPECTED_UNRESOLVABLE: &[&str] = &[];
     let catalog = fixture_catalog();
     let data = crate::content::character_catalog::load_embedded();
     let mut unresolved: Vec<(String, String)> = Vec::new();

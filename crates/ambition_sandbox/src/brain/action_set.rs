@@ -885,6 +885,46 @@ mod tests {
     }
 
     #[test]
+    fn ranged_spec_damage_accessor_returns_per_variant_damage() {
+        // Mirror of the speed accessor test: damage() must pull
+        // from each variant's `damage` field independently. Pins
+        // the per-variant routing so a future field rename can't
+        // silently return the wrong variant's damage.
+        assert_eq!(
+            RangedActionSpec::Rock {
+                speed: 0.0,
+                damage: 1,
+            }
+            .damage(),
+            1,
+        );
+        assert_eq!(
+            RangedActionSpec::Arrow {
+                speed: 0.0,
+                damage: 3,
+            }
+            .damage(),
+            3,
+        );
+        assert_eq!(
+            RangedActionSpec::Pistol {
+                speed: 0.0,
+                damage: 2,
+            }
+            .damage(),
+            2,
+        );
+        assert_eq!(
+            RangedActionSpec::Bolt {
+                speed: 0.0,
+                damage: 4,
+            }
+            .damage(),
+            4,
+        );
+    }
+
+    #[test]
     fn resolve_multi_intent_emits_multi_request() {
         let actions = ActionSet {
             melee: Some(MeleeActionSpec::Bite(BiteSpec {

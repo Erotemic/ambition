@@ -918,6 +918,26 @@ mod tests {
     }
 
     #[test]
+    fn sniper_holds_quiet_when_target_dead() {
+        // Pin the target_alive=false early-return path: even when
+        // the dead target is inside aggro range and the cooldown
+        // is satisfied, the sniper emits a neutral frame (no fire,
+        // no facing change).
+        let mut sm = StateMachineCfg::Sniper {
+            cfg: SniperCfg::DEFAULT,
+            state: SniperState::default(),
+        };
+        let mut s = snap_at(0.0, 200.0); // well within aggro
+        s.sim_time = 2.0; // past cooldown
+        s.target_alive = false;
+        s.actor_facing = 1.0;
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        assert!(out.fire.is_none(), "Sniper must not fire at dead target");
+        assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    }
+
+    #[test]
     fn brain_tick_overwrites_prior_frame_intent() {
         // Brain.tick treats `out` as a write target, not an
         // accumulator. Pre-poisoned intent (melee_pressed=true,

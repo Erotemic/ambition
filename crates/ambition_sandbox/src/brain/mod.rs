@@ -88,6 +88,39 @@ impl Brain {
             Brain::StateMachine(cfg) => cfg.is_hostile(),
         }
     }
+
+    /// True iff this brain backend is the player input translator.
+    /// Useful for systems that need to special-case the human-driven
+    /// path — e.g. multi-player input routing or HUD focus rules.
+    pub fn is_player(&self) -> bool {
+        matches!(self, Brain::Player(_))
+    }
+
+    /// The PlayerSlot this brain reads input for, if any. `None` for
+    /// state-machine brains.
+    pub fn player_slot(&self) -> Option<PlayerSlot> {
+        match self {
+            Brain::Player(slot) => Some(*slot),
+            Brain::StateMachine(_) => None,
+        }
+    }
+
+    /// Short label for this brain backend — useful in debug overlays
+    /// and trace dumps. Single word per backend.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Brain::Player(_) => "player",
+            Brain::StateMachine(cfg) => match cfg {
+                StateMachineCfg::StandStill => "stand_still",
+                StateMachineCfg::Patrol { .. } => "patrol",
+                StateMachineCfg::Wanderer { .. } => "wanderer",
+                StateMachineCfg::MeleeBrute { .. } => "melee_brute",
+                StateMachineCfg::Skirmisher { .. } => "skirmisher",
+                StateMachineCfg::Sniper { .. } => "sniper",
+                StateMachineCfg::BossPattern { .. } => "boss_pattern",
+            },
+        }
+    }
 }
 
 /// Sibling component holding the actor's last-tick control frame.
@@ -210,6 +243,42 @@ mod tests {
     fn brain_player_is_always_hostile() {
         let b = Brain::Player(PlayerSlot(0));
         assert!(b.is_hostile());
+    }
+
+    #[test]
+    fn brain_is_player_predicate_distinguishes_backends() {
+        let p = Brain::Player(PlayerSlot(2));
+        assert!(p.is_player());
+        assert_eq!(p.player_slot(), Some(PlayerSlot(2)));
+
+        let sm = Brain::StateMachine(StateMachineCfg::StandStill);
+        assert!(!sm.is_player());
+        assert!(sm.player_slot().is_none());
+    }
+
+    #[test]
+    fn brain_label_is_per_backend() {
+        assert_eq!(Brain::Player(PlayerSlot(0)).label(), "player");
+        assert_eq!(
+            Brain::StateMachine(StateMachineCfg::StandStill).label(),
+            "stand_still"
+        );
+        assert_eq!(
+            Brain::StateMachine(StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+                state: MeleeBruteState::default()
+            })
+            .label(),
+            "melee_brute"
+        );
+        assert_eq!(
+            Brain::StateMachine(StateMachineCfg::Wanderer {
+                cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
+                state: WandererState::default()
+            })
+            .label(),
+            "wanderer"
+        );
     }
 
     #[test]

@@ -60,3 +60,35 @@ boss damage without re-routing through the registry.
 the runtime id has no registered encounter — gracefully degrades
 when test fixtures don't install the boss machine). Unit tests in
 `boss_encounter::damage::tests` lock in the four outcome paths.
+
+## Boss encounter spec as content (2026-05-24, ADR 0017)
+
+The encounter's numeric fields (HP, phase thresholds, timings,
+music ids) are now content rather than Rust constants. Each
+authored boss ships `crates/ambition_sandbox/assets/data/boss_encounters/<id>.ron`;
+`load_boss_specs_from_disk()` loads them at profile assembly time
+and any RON whose id matches an authored profile overrides the
+hardcoded `ae::BossEncounterSpec::<id>()` constructor's numeric
+fields. The Rust profile constructor still owns the behavior
+wiring (`BossBehaviorProfile`, `BossRewardProfile`).
+
+This implements the "boss encounter scripts" half of ADR 0017
+(`Rust = behavior, RON = content, LDtk = space`). Adding a new
+boss tunings pass is now a `<id>.ron` edit + no Rust patch.
+Renaming a boss requires keeping the constructor as a compile-
+time fallback for fresh clones; the on-disk RON is the live
+source of truth.
+
+Layered guards keep the migration honest:
+
+- `specs::tests::load_boss_specs_from_disk_finds_*` — per-boss
+  field-by-field equivalence against the hardcoded constructor.
+- `specs::tests::every_on_disk_ron_matches_an_authored_profile` —
+  orphan RON files (typo'd filename, leftover from rename) trip
+  with a focused diff.
+- `specs::tests::load_boss_specs_from_disk_has_no_duplicate_ids` —
+  two files with the same `id:` would let the override map
+  nondeterministically pick one.
+- Python `tests/test_boss_encounters_ron.py` — 7 schema pins
+  fire without compilation (catches missing field / out-of-range
+  fraction / negative timing / filename↔id mismatch).

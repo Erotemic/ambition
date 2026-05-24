@@ -265,6 +265,28 @@ Captured here so the next daytime session picks up cleanly.
 - Narrow `ActorControlFrame::fire` to `Option<Vec2>` once
   ActionSet's RangedActionSpec is the speed source.
 
-Test counts at session end: 695 sandbox lib tests + 261 engine
-lib tests green. Headless + rl_smoke binaries both run clean.
-Brain module clippy-clean. Doc-link / agent-index checks pass.
+Test counts at session end: 717 sandbox lib tests + 264 engine
+lib tests + 55/4/5 in other workspace crates = 1045 total tests
+green. Headless + rl_smoke binaries both run clean. Brain module
+clippy-clean. Doc-link / agent-index checks pass.
+
+Additional polish past the initial Chunk 4f wrap (all
+parallel-shape / additive, no behavior change):
+- Brain.is_player / .player_slot / .label / .stand_still /
+  .npc_patrol convenience helpers
+- ActorActionMessage.is_melee / .is_ranged / .is_special filters
+  + .label() diagnostic string
+- ActionRequest.label() diagnostic string
+- MeleeActionSpec uniform .damage() / .reach_px() /
+  .total_duration_s() accessors
+- ActorControlFrame.wants_any_action() / .clear_edges() helpers
+- BrainPlugin (message + counter registration in one plugin)
+- BrainActionCounter resource + observe_brain_action_counter
+  system + observe test
+- CombatTimers POD + shadow_tick_brain_with_timers variant
+- Brain ABI determinism + dead-actor + 100-tick smoke tests
+- Headless integration test (full plugin) for player spawn +
+  attack press → ActorActionMessage
+- Per-archetype enemy_default_brain + enemy_default_action_set
+  coverage lints
+- Player ActionSet derived from AbilitySet at spawn

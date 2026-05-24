@@ -872,6 +872,29 @@ mod tests {
     }
 
     #[test]
+    fn brain_tick_overwrites_prior_frame_intent() {
+        // Brain.tick treats `out` as a write target, not an
+        // accumulator. Pre-poisoned intent (melee_pressed=true,
+        // fire=Some) must be cleared before the brain writes its
+        // own intent. Pins this so a future stale-state bug
+        // doesn't sneak through.
+        let mut sm = StateMachineCfg::StandStill;
+        let mut frame = ae::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        frame.fire = Some(ae::ActorFireRequest {
+            dir: ae::Vec2::new(1.0, 0.0),
+            speed: 200.0,
+        });
+        frame.jump_pressed = true;
+        let snap = crate::brain::snapshot::BrainSnapshot::idle();
+        tick_state_machine(&mut sm, &snap, &mut frame);
+        // StandStill = neutral frame; pre-poisoned intent gone.
+        assert!(!frame.melee_pressed);
+        assert!(frame.fire.is_none());
+        assert!(!frame.jump_pressed);
+    }
+
+    #[test]
     fn brain_dispatch_50_actors_under_one_millisecond() {
         // Sustained dispatch perf: tick 50 brains' state machine
         // once, all variants represented, total under 1ms. Pins

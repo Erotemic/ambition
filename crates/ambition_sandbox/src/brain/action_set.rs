@@ -428,6 +428,54 @@ mod tests {
     }
 
     #[test]
+    fn resolve_returns_predictable_request_count_per_intent_subset() {
+        // Table-driven coverage: every combo of melee/fire/special
+        // bits → predictable request count when ActionSet has all
+        // capabilities. Pins per-intent independence.
+        let actions = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ranged: Some(RangedActionSpec::Bolt {
+                speed: 500.0,
+                damage: 1,
+            }),
+            special: Some(SpecialActionSpec::BubbleShield),
+            ..Default::default()
+        };
+        let cases = [
+            (false, false, false, 0),
+            (true, false, false, 1),
+            (false, true, false, 1),
+            (false, false, true, 1),
+            (true, true, false, 2),
+            (true, false, true, 2),
+            (false, true, true, 2),
+            (true, true, true, 3),
+        ];
+        for (melee, fire, special, expected) in cases {
+            let mut frame = ae::ActorControlFrame::neutral();
+            frame.melee_pressed = melee;
+            frame.fire = if fire {
+                Some(ae::ActorFireRequest {
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    speed: 0.0,
+                })
+            } else {
+                None
+            };
+            frame.special_pressed = special;
+            let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
+            assert_eq!(
+                reqs.len(),
+                expected,
+                "melee={} fire={} special={}",
+                melee,
+                fire,
+                special,
+            );
+        }
+    }
+
+    #[test]
     fn resolve_empty_when_frame_has_no_action_intent() {
         // wants_any_action()=false → resolver always returns empty.
         // Pin the contract so daytime code that gates resolve()

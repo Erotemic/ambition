@@ -150,3 +150,31 @@ Without seeing the panic, the agent has to know:
 ```
 
 Should fail before the fix lands, pass after.
+
+## Post-mortem (2026-05-24, second-half wins)
+
+The fix shipped in Phase 9.B (catalog-loader filter) and was extended
+in 9.R with a third defensive layer:
+
+1. **Publish-time (9.R, 2026-05-24).**
+   `tackon_sheet.diagnose_idle_coverage` prints a stderr warning during
+   `regen_sprites.sh` when a sheet has ≥1 `CharacterAnim` row but no
+   Idle alias. The renderer author sees the issue at sheet-emit time,
+   before the catalog even loads the manifest.
+2. **Load-time (9.A/9.B, 2026-05-24).**
+   `try_load_spec_for_character_id` returns `None` for manifests
+   that lack an Idle row; the catalog logs the skipped id in the
+   one-line startup INFO census so the placeholder fallback is
+   diagnosable.
+3. **Test-time (9.B, 2026-05-24).**
+   `every_catalog_sprite_spec_has_idle_row_if_loaded` trips at
+   `cargo test` time on any catalog entry whose manifest loads but
+   doesn't define an Idle alias.
+
+The recipe doc at `docs/recipes/adding-a-character.md` lists all
+three layers under "**Idle row is mandatory**" so future authors
+know where each catches the omission.
+
+This benchmark candidate stays in the candidates dir as a frozen
+record of the mistake; the layered fix is the answer the benchmark
+question is looking for.

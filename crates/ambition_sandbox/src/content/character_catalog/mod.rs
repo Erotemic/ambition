@@ -161,14 +161,20 @@ mod tests {
     }
 
     #[test]
-    fn sprite_loader_iterates_catalog_with_every_id_having_a_wired_sheet_or_skipping() {
-        // Phase 6 pin: after deleting NPC_SPRITE_REGISTRY, the sprite
-        // loader now iterates the catalog directly. Every catalog id
-        // either has a `sheet_for_character_id` mapping (so the
-        // sprite loads) or is silently skipped (placeholder fallback).
-        // This test confirms `sheet_for_character_id` covers enough
-        // of the catalog to keep the existing renderer surface alive
-        // — drop below this floor and visible regressions follow.
+    fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
+        // Phase 6 + manifest-driven fallback (2026-05-24): every
+        // catalog id either resolves to a hardcoded `*_SHEET` const
+        // (for the entries that need bespoke tuning) or falls back
+        // to the manifest-driven `try_load_spec_for_character_id`
+        // path (everything else with a sheet on disk).
+        //
+        // The Hall of Characters is the visible consumer of this
+        // coverage — every pedestal whose `sheet_for_character_id`
+        // returns `None` shows a colored-rectangle fallback. Pin
+        // a generous lower bound (>=70 of ~99) so the Hall stays
+        // mostly populated; the few stragglers (robot_heavy and
+        // similar variant-only targets) ship later when their
+        // publisher lands.
         use crate::presentation::character_sprites::sheet_for_character_id;
         let data = load_embedded();
         let covered = data
@@ -177,8 +183,9 @@ mod tests {
             .filter(|cid| sheet_for_character_id(cid).is_some())
             .count();
         assert!(
-            covered >= 20,
-            "expected >=20 catalog ids to be wired to a sheet const; got {covered}",
+            covered >= 70,
+            "expected >=70 catalog ids to resolve to a sheet spec (hardcoded const \
+             or manifest); got {covered}",
         );
     }
 

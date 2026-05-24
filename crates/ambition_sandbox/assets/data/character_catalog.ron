@@ -699,8 +699,8 @@
         ),
         "npc_gnu_ton_boss": (
             display_name: "Gnu Ton Boss",
-            spritesheet: "sprites/gnu_ton_boss_spritesheet.png",
-            manifest: "sprites/gnu_ton_boss_spritesheet.ron",
+            spritesheet: "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png",
+            manifest: "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
             composition: None,
@@ -831,8 +831,8 @@
         ),
         "npc_mockingbird_boss": (
             display_name: "Mockingbird Boss",
-            spritesheet: "sprites/mockingbird_boss_spritesheet.png",
-            manifest: "sprites/mockingbird_boss_spritesheet.ron",
+            spritesheet: "sprites/mockingbird_boss/mockingbird_boss_spritesheet.png",
+            manifest: "sprites/mockingbird_boss/mockingbird_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
             composition: None,

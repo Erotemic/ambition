@@ -1,0 +1,382 @@
+target: goblin
+name: goblin_cave_dagger
+output_name: null
+seed: 81
+archetype: cave_skulker
+variant: cave_skulker
+held_item: dagger
+faction: null
+role: null
+music_cue: null
+tags: []
+frame_width: 116
+frame_height: 116
+label_width: 132
+border: 0
+spec:
+  target: goblin
+  seed: 81
+  archetype: cave_skulker
+  held_item: dagger
+  palette_name: cave
+  head_w: 30.51782124131074
+  head_h: 24.633211782911566
+  snout_len: 7.836956238726503
+  ear_w: 15.768441758735829
+  ear_h: 12.669042274614448
+  body_w: 21.318817513418946
+  body_h: 18.900675351512977
+  arm_upper: 12.644396996229279
+  arm_lower: 11.40914018826298
+  leg_upper: 12.811745454626536
+  leg_lower: 10.933017552501079
+  hand_r: 3.4147340650331643
+  foot_w: 10.957110516904464
+  foot_h: 4.905790529270574
+  eye_w: 4.56780158497794
+  eye_h: 8.022286304835642
+  tooth_size: 2.638326375932821
+crop:
+  source_frame_width: 128
+  source_frame_height: 128
+  offset:
+    x: 12
+    y: 12
+  enabled: true
+  padding_px: 2
+animations:
+  idle:
+    frames:
+    - index: 0
+      x: 132
+      y: 0
+      w: 116
+      h: 116
+      duration_ms: 120
+    - index: 1
+      x: 248
+      y: 0
+      w: 116
+      h: 116
+      duration_ms: 120
+    - index: 2
+      x: 364
+      y: 0
+      w: 116
+      h: 116
+      duration_ms: 120
+    - index: 3
+      x: 480
+      y: 0
+      w: 116
+      h: 116
+      duration_ms: 120
+    - index: 4
+      x: 596
+      y: 0
+      w: 116
+      h: 116
+      duration_ms: 120
+    - index: 5
+      x: 712
+      y: 0
+      w: 116
+      h: 116
+      duration_ms: 120
+    - index: 6
+      x: 828
+      y: 0
+      w: 116
+      h: 116
+      duration_ms: 120
+    - index: 7
+      x: 944
+      y: 0
+      w: 116
+      h: 116
+      duration_ms: 120
+    duration_ms: 120
+  walk:
+    frames:
+    - index: 0
+      x: 132
+      y: 116
+      w: 116
+      h: 116
+      duration_ms: 95
+    - index: 1
+      x: 248
+      y: 116
+      w: 116
+      h: 116
+      duration_ms: 95
+    - index: 2
+      x: 364
+      y: 116
+      w: 116
+      h: 116
+      duration_ms: 95
+    - index: 3
+      x: 480
+      y: 116
+      w: 116
+      h: 116
+      duration_ms: 95
+    - index: 4
+      x: 596
+      y: 116
+      w: 116
+      h: 116
+      duration_ms: 95
+    - index: 5
+      x: 712
+      y: 116
+      w: 116
+      h: 116
+      duration_ms: 95
+    - index: 6
+      x: 828
+      y: 116
+      w: 116
+      h: 116
+      duration_ms: 95
+    - index: 7
+      x: 944
+      y: 116
+      w: 116
+      h: 116
+      duration_ms: 95
+    duration_ms: 95
+  run:
+    frames:
+    - index: 0
+      x: 132
+      y: 232
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 1
+      x: 248
+      y: 232
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 2
+      x: 364
+      y: 232
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 3
+      x: 480
+      y: 232
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 4
+      x: 596
+      y: 232
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 5
+      x: 712
+      y: 232
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 6
+      x: 828
+      y: 232
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 7
+      x: 944
+      y: 232
+      w: 116
+      h: 116
+      duration_ms: 75
+    duration_ms: 75
+  slash:
+    frames:
+    - index: 0
+      x: 132
+      y: 348
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 1
+      x: 248
+      y: 348
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 2
+      x: 364
+      y: 348
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 3
+      x: 480
+      y: 348
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 4
+      x: 596
+      y: 348
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 5
+      x: 712
+      y: 348
+      w: 116
+      h: 116
+      duration_ms: 75
+    - index: 6
+      x: 828
+      y: 348
+      w: 116
+      h: 116
+      duration_ms: 75
+    duration_ms: 75
+  dash:
+    frames:
+    - index: 0
+      x: 132
+      y: 464
+      w: 116
+      h: 116
+      duration_ms: 65
+    - index: 1
+      x: 248
+      y: 464
+      w: 116
+      h: 116
+      duration_ms: 65
+    - index: 2
+      x: 364
+      y: 464
+      w: 116
+      h: 116
+      duration_ms: 65
+    - index: 3
+      x: 480
+      y: 464
+      w: 116
+      h: 116
+      duration_ms: 65
+    - index: 4
+      x: 596
+      y: 464
+      w: 116
+      h: 116
+      duration_ms: 65
+    - index: 5
+      x: 712
+      y: 464
+      w: 116
+      h: 116
+      duration_ms: 65
+    duration_ms: 65
+  hit:
+    frames:
+    - index: 0
+      x: 132
+      y: 580
+      w: 116
+      h: 116
+      duration_ms: 90
+    - index: 1
+      x: 248
+      y: 580
+      w: 116
+      h: 116
+      duration_ms: 90
+    - index: 2
+      x: 364
+      y: 580
+      w: 116
+      h: 116
+      duration_ms: 90
+    - index: 3
+      x: 480
+      y: 580
+      w: 116
+      h: 116
+      duration_ms: 90
+    - index: 4
+      x: 596
+      y: 580
+      w: 116
+      h: 116
+      duration_ms: 90
+    duration_ms: 90
+  death:
+    frames:
+    - index: 0
+      x: 132
+      y: 696
+      w: 116
+      h: 116
+      duration_ms: 110
+    - index: 1
+      x: 248
+      y: 696
+      w: 116
+      h: 116
+      duration_ms: 110
+    - index: 2
+      x: 364
+      y: 696
+      w: 116
+      h: 116
+      duration_ms: 110
+    - index: 3
+      x: 480
+      y: 696
+      w: 116
+      h: 116
+      duration_ms: 110
+    - index: 4
+      x: 596
+      y: 696
+      w: 116
+      h: 116
+      duration_ms: 110
+    - index: 5
+      x: 712
+      y: 696
+      w: 116
+      h: 116
+      duration_ms: 110
+    - index: 6
+      x: 828
+      y: 696
+      w: 116
+      h: 116
+      duration_ms: 110
+    - index: 7
+      x: 944
+      y: 696
+      w: 116
+      h: 116
+      duration_ms: 110
+    duration_ms: 110
+body_metrics:
+  frame_width: 116
+  frame_height: 116
+  body_pixel_bbox:
+    x: 17
+    y: 2
+    w: 79
+    h: 94
+  feet_pixel:
+    x: 56.0
+    y: 95.0
+  feet_anchor_norm:
+    x: -0.017241379310344807
+    y: -0.31896551724137934

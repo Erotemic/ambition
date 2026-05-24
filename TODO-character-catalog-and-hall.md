@@ -13,8 +13,9 @@ can stop at any checkpoint if budget runs out.
 ## Run progress (live updates)
 
 **Run started:** 2026-05-24T17:16:07+0000 (epoch 1779642967)
-**Current phase:** Phase 8 (stretch) — sprite-regen cache 🏗️
-**Last green commit:** 41754df (Phase 7 — Docs + ADR 0017)
+**Plan complete:** all 7 main phases + Phase 8 stretch landed in 1.10 h wall-clock.
+**Last green commit:** 6356892 (Phase 8 — Sprite-regen cache fingerprint)
+**Bonus work:** continuing with deferred follow-ups (SheetRegistry-driven sprite specs is the most impactful remaining item; boss_encounters/<id>.ron is the next scoped task).
 
 ### Estimated vs Actual time
 
@@ -27,8 +28,9 @@ can stop at any checkpoint if budget runs out.
 | 5. Hall of Characters generator + room | 1.5 h | 0.19 h | ✅ done | Generator: `generate_hall_of_characters.py` reads catalog, partitions by tier (pyron drops Rust enum discriminators on unit variants so regex extracts `tier:` directly), lays out 6 floors × 16 main slots + 2 basement rows × 8 = 112 capacity. Spec: 2048×1840 at world (40000, 0). 89 main + 10 basement pedestals (each = NpcSpawn + DebugLabel). LDtk pin test added. 775 lib tests + headless 200 ticks all green. |
 | 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | 0.24 h | ✅ done | Three sub-commits: 6A drop YAML support + archive one-shots (def5b2f); 6B delete NPC_SPRITE_REGISTRY + npc_sprite_label, sprite loader iterates catalog via sheet_for_character_id (26000cd, -298+151 lines); 6C renderer review_npcs → characters merge (9ed4a39). |
 | 7. Documentation + ADR 0017 | 0.5 h | 0.07 h | ✅ done | ADR 0017, character-catalog system doc, adding-a-character recipe, FEATURES.md row, TODO.md "landed" entry with deferred follow-ups, docs/recipes/index.md + docs/systems/index.md updates, dev/SEARCH.md grep tip. |
-| **Total (planned)** | **8.5 h** | _ | | over budget by 0.5 h — trim Phase 6 if needed |
+| **Total (planned 1–7)** | **8.5 h** | **0.94 h** | | All 7 phases landed in roughly one ninth of the estimate. Every phase shaped largely by foundational design work already in place: brain/action-set vocabulary from the universal-brain run, LDtk runtime spine, and the renderer's existing target enumeration. Estimates were padded for the worst case (unexpected coupling, EMFILE retries); none of those materialized. |
 | 8. (stretch) Sprite-regen caching | ~0.75 h | 0.08 h | ✅ done | regen_sprites.sh now fingerprints every renderer .py + .yaml + .sh into `.cache/regen-fingerprint`; on next run, if fingerprint matches AND every expected output sheet exists, skips all rendering. `--force` bypasses cache. Cache-hit verified (112 renders skipped); `--force` bypass verified. `.cache/` already gitignored at repo root. |
+| **Grand total (1–8)** | **9.25 h** | **1.10 h** | | ~12% of budgeted time used. Remaining time being spent on deferred follow-ups (see below). |
 
 Status legend: ⬜ pending · 🏗️ in progress · ✅ done · ⏭️ deferred · ❌ blocked
 

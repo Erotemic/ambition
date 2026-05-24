@@ -1,0 +1,500 @@
+target: robot
+name: robot_archivist
+output_name: null
+seed: 75
+archetype: archivist
+variant: map_keeper
+held_item: null
+faction: null
+role: null
+music_cue: null
+tags: []
+frame_width: 116
+frame_height: 128
+label_width: 132
+border: 0
+spec:
+  target: robot
+  seed: 75
+  archetype: archivist
+  palette_name: archivist
+  head_w: 40.90169026829002
+  head_h: 33.87323913655217
+  body_w: 25.266615113363248
+  body_h: 25.428203612733547
+  arm_upper: 13.940800892093156
+  arm_lower: 11.703771786641274
+  leg_upper: 13.472665488047443
+  leg_lower: 12.272731114024884
+  visor_w: 23.958977504197055
+  visor_h: 12.153617953190682
+  antenna_h: 11.753027881384362
+  blade_len: 31.691970594800186
+  vertical_scale: 1.0
+crop:
+  source_frame_width: 128
+  source_frame_height: 128
+  offset:
+    x: 9
+    y: 0
+  enabled: true
+  padding_px: 2
+animations:
+  idle:
+    frames:
+    - index: 0
+      x: 132
+      y: 0
+      w: 116
+      h: 128
+      duration_ms: 120
+    - index: 1
+      x: 248
+      y: 0
+      w: 116
+      h: 128
+      duration_ms: 120
+    - index: 2
+      x: 364
+      y: 0
+      w: 116
+      h: 128
+      duration_ms: 120
+    - index: 3
+      x: 480
+      y: 0
+      w: 116
+      h: 128
+      duration_ms: 120
+    - index: 4
+      x: 596
+      y: 0
+      w: 116
+      h: 128
+      duration_ms: 120
+    - index: 5
+      x: 712
+      y: 0
+      w: 116
+      h: 128
+      duration_ms: 120
+    - index: 6
+      x: 828
+      y: 0
+      w: 116
+      h: 128
+      duration_ms: 120
+    - index: 7
+      x: 944
+      y: 0
+      w: 116
+      h: 128
+      duration_ms: 120
+    duration_ms: 120
+  walk:
+    frames:
+    - index: 0
+      x: 132
+      y: 128
+      w: 116
+      h: 128
+      duration_ms: 95
+    - index: 1
+      x: 248
+      y: 128
+      w: 116
+      h: 128
+      duration_ms: 95
+    - index: 2
+      x: 364
+      y: 128
+      w: 116
+      h: 128
+      duration_ms: 95
+    - index: 3
+      x: 480
+      y: 128
+      w: 116
+      h: 128
+      duration_ms: 95
+    - index: 4
+      x: 596
+      y: 128
+      w: 116
+      h: 128
+      duration_ms: 95
+    - index: 5
+      x: 712
+      y: 128
+      w: 116
+      h: 128
+      duration_ms: 95
+    - index: 6
+      x: 828
+      y: 128
+      w: 116
+      h: 128
+      duration_ms: 95
+    - index: 7
+      x: 944
+      y: 128
+      w: 116
+      h: 128
+      duration_ms: 95
+    duration_ms: 95
+  talk:
+    frames:
+    - index: 0
+      x: 132
+      y: 256
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 1
+      x: 248
+      y: 256
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 2
+      x: 364
+      y: 256
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 3
+      x: 480
+      y: 256
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 4
+      x: 596
+      y: 256
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 5
+      x: 712
+      y: 256
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 6
+      x: 828
+      y: 256
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 7
+      x: 944
+      y: 256
+      w: 116
+      h: 128
+      duration_ms: 110
+    duration_ms: 110
+  interact:
+    frames:
+    - index: 0
+      x: 132
+      y: 384
+      w: 116
+      h: 128
+      duration_ms: 90
+    - index: 1
+      x: 248
+      y: 384
+      w: 116
+      h: 128
+      duration_ms: 90
+    - index: 2
+      x: 364
+      y: 384
+      w: 116
+      h: 128
+      duration_ms: 90
+    - index: 3
+      x: 480
+      y: 384
+      w: 116
+      h: 128
+      duration_ms: 90
+    - index: 4
+      x: 596
+      y: 384
+      w: 116
+      h: 128
+      duration_ms: 90
+    - index: 5
+      x: 712
+      y: 384
+      w: 116
+      h: 128
+      duration_ms: 90
+    duration_ms: 90
+  pickup:
+    frames:
+    - index: 0
+      x: 132
+      y: 512
+      w: 116
+      h: 128
+      duration_ms: 82
+    - index: 1
+      x: 248
+      y: 512
+      w: 116
+      h: 128
+      duration_ms: 82
+    - index: 2
+      x: 364
+      y: 512
+      w: 116
+      h: 128
+      duration_ms: 82
+    - index: 3
+      x: 480
+      y: 512
+      w: 116
+      h: 128
+      duration_ms: 82
+    - index: 4
+      x: 596
+      y: 512
+      w: 116
+      h: 128
+      duration_ms: 82
+    - index: 5
+      x: 712
+      y: 512
+      w: 116
+      h: 128
+      duration_ms: 82
+    - index: 6
+      x: 828
+      y: 512
+      w: 116
+      h: 128
+      duration_ms: 82
+    duration_ms: 82
+  throw:
+    frames:
+    - index: 0
+      x: 132
+      y: 640
+      w: 116
+      h: 128
+      duration_ms: 72
+    - index: 1
+      x: 248
+      y: 640
+      w: 116
+      h: 128
+      duration_ms: 72
+    - index: 2
+      x: 364
+      y: 640
+      w: 116
+      h: 128
+      duration_ms: 72
+    - index: 3
+      x: 480
+      y: 640
+      w: 116
+      h: 128
+      duration_ms: 72
+    - index: 4
+      x: 596
+      y: 640
+      w: 116
+      h: 128
+      duration_ms: 72
+    - index: 5
+      x: 712
+      y: 640
+      w: 116
+      h: 128
+      duration_ms: 72
+    - index: 6
+      x: 828
+      y: 640
+      w: 116
+      h: 128
+      duration_ms: 72
+    duration_ms: 72
+  blink_out:
+    frames:
+    - index: 0
+      x: 132
+      y: 768
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 1
+      x: 248
+      y: 768
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 2
+      x: 364
+      y: 768
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 3
+      x: 480
+      y: 768
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 4
+      x: 596
+      y: 768
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 5
+      x: 712
+      y: 768
+      w: 116
+      h: 128
+      duration_ms: 62
+    duration_ms: 62
+  blink_in:
+    frames:
+    - index: 0
+      x: 132
+      y: 896
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 1
+      x: 248
+      y: 896
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 2
+      x: 364
+      y: 896
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 3
+      x: 480
+      y: 896
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 4
+      x: 596
+      y: 896
+      w: 116
+      h: 128
+      duration_ms: 62
+    - index: 5
+      x: 712
+      y: 896
+      w: 116
+      h: 128
+      duration_ms: 62
+    duration_ms: 62
+  hit:
+    frames:
+    - index: 0
+      x: 132
+      y: 1024
+      w: 116
+      h: 128
+      duration_ms: 90
+    - index: 1
+      x: 248
+      y: 1024
+      w: 116
+      h: 128
+      duration_ms: 90
+    - index: 2
+      x: 364
+      y: 1024
+      w: 116
+      h: 128
+      duration_ms: 90
+    - index: 3
+      x: 480
+      y: 1024
+      w: 116
+      h: 128
+      duration_ms: 90
+    - index: 4
+      x: 596
+      y: 1024
+      w: 116
+      h: 128
+      duration_ms: 90
+    duration_ms: 90
+  death:
+    frames:
+    - index: 0
+      x: 132
+      y: 1152
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 1
+      x: 248
+      y: 1152
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 2
+      x: 364
+      y: 1152
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 3
+      x: 480
+      y: 1152
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 4
+      x: 596
+      y: 1152
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 5
+      x: 712
+      y: 1152
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 6
+      x: 828
+      y: 1152
+      w: 116
+      h: 128
+      duration_ms: 110
+    - index: 7
+      x: 944
+      y: 1152
+      w: 116
+      h: 128
+      duration_ms: 110
+    duration_ms: 110
+body_metrics:
+  frame_width: 116
+  frame_height: 128
+  body_pixel_bbox:
+    x: 23
+    y: 1
+    w: 66
+    h: 104
+  feet_pixel:
+    x: 55.5
+    y: 104.0
+  feet_anchor_norm:
+    x: -0.02155172413793105
+    y: -0.3125

@@ -128,6 +128,60 @@ expected_files=(
     pirate_heavy_salt_annet_spritesheet.png pirate_heavy_salt_annet_spritesheet.yaml pirate_heavy_salt_annet_spritesheet.ron
     # Small enemy sprites.
     puppy_slug_spritesheet.png puppy_slug_spritesheet.yaml puppy_slug_spritesheet.ron
+    # Phase 6 + bonus follow-up: every catalog-referenced tackon
+    # character sprite, published by the tackon_targets loop below.
+    agent_swarm_spritesheet.png agent_swarm_spritesheet.ron
+    ai_slop_spritesheet.png ai_slop_spritesheet.ron
+    bear_mauler_spritesheet.png bear_mauler_spritesheet.ron
+    colonial_statesman_spritesheet.png colonial_statesman_spritesheet.ron
+    dark_lord_spritesheet.png dark_lord_spritesheet.ron
+    flying_spaghetti_monster_boss_spritesheet.png flying_spaghetti_monster_boss_spritesheet.ron
+    galwah_spritesheet.png galwah_spritesheet.ron
+    ghoul_skulker_spritesheet.png ghoul_skulker_spritesheet.ron
+    girdle_spritesheet.png girdle_spritesheet.ron
+    goblin_forest_spear_spritesheet.png goblin_forest_spear_spritesheet.ron
+    hand_saint_spritesheet.png hand_saint_spritesheet.ron
+    helpful_liar_spritesheet.png helpful_liar_spritesheet.ron
+    mantis_lancer_spritesheet.png mantis_lancer_spritesheet.ron
+    ninja_heavy_spritesheet.png ninja_heavy_spritesheet.ron
+    pirate_cutlass_viper_spritesheet.png pirate_cutlass_viper_spritesheet.ron
+    player_extended_spritesheet.png player_extended_spritesheet.ron
+    president_portrait_spritesheet.png president_portrait_spritesheet.ron
+    puppy_slug_variant2_spritesheet.png puppy_slug_variant2_spritesheet.ron
+    raptor_stalker_spritesheet.png raptor_stalker_spritesheet.ron
+    robot_guardian_spritesheet.png robot_guardian_spritesheet.ron
+    # robot_heavy publishes as variants (bastion/arsenal/...); main
+    # spritesheet doesn't ship until a publisher like pirate_heavy
+    # lands. Catalog entry falls back to colored rectangle.
+    robot_runner_spritesheet.png robot_runner_spritesheet.ron
+    smart_house_spritesheet.png smart_house_spritesheet.ron
+    spaghetti_event_spritesheet.png spaghetti_event_spritesheet.ron
+    synthetic_friend_spritesheet.png synthetic_friend_spritesheet.ron
+    trex_enemy_spritesheet.png trex_enemy_spritesheet.ron
+    viking_heavy_shieldmaiden_spritesheet.png viking_heavy_shieldmaiden_spritesheet.ron
+    viking_heavy_warrior_spritesheet.png viking_heavy_warrior_spritesheet.ron
+    viking_shieldmaiden_spritesheet.png viking_shieldmaiden_spritesheet.ron
+    viking_warrior_spritesheet.png viking_warrior_spritesheet.ron
+    # weird_hermit's publisher renders but doesn't install — catalog
+    # entry falls back to colored rectangle until a real publisher
+    # lands.
+    # Review-config NPCs added to review_cues for full hall coverage.
+    goblin_brute_hammer_spritesheet.png goblin_brute_hammer_spritesheet.ron
+    goblin_cave_dagger_spritesheet.png goblin_cave_dagger_spritesheet.ron
+    goblin_desert_bow_spritesheet.png goblin_desert_bow_spritesheet.ron
+    goblin_frost_sword_spritesheet.png goblin_frost_sword_spritesheet.ron
+    goblin_shaman_staff_spritesheet.png goblin_shaman_staff_spritesheet.ron
+    player_combat_review_spritesheet.png player_combat_review_spritesheet.ron
+    player_social_review_spritesheet.png player_social_review_spritesheet.ron
+    player_traversal_review_spritesheet.png player_traversal_review_spritesheet.ron
+    robot_archivist_spritesheet.png robot_archivist_spritesheet.ron
+    robot_caster_spritesheet.png robot_caster_spritesheet.ron
+    robot_diver_spritesheet.png robot_diver_spritesheet.ron
+    robot_engineer_spritesheet.png robot_engineer_spritesheet.ron
+    robot_medic_spritesheet.png robot_medic_spritesheet.ron
+    robot_miner_spritesheet.png robot_miner_spritesheet.ron
+    sandbag_armored_review_spritesheet.png sandbag_armored_review_spritesheet.ron
+    sandbag_full_review_spritesheet.png sandbag_full_review_spritesheet.ron
     # Boss subdirectories (custom install paths).
     gnu_ton_boss/gnu_ton_boss_spritesheet.png
     gnu_ton_boss/gnu_ton_boss_body_spritesheet.png
@@ -151,6 +205,12 @@ compute_fingerprint() {
             find . -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' \) -print0 \
                 | sort -z \
                 | xargs -0 sha256sum
+            # The orchestrator script itself: changes to the install
+            # loops, expected-files list, or the cache logic must
+            # invalidate the cache too. Hash relative to repo root
+            # to keep stability across filesystem locations.
+            sha256sum "$repo_root/regen_sprites.sh" \
+                | awk -v root="$repo_root/" '{sub(root, "", $2); print}'
         }
     ) | sha256sum | awk '{print $1}'
 }
@@ -208,6 +268,15 @@ review_cues=(
     # Named characters whose YAML manifests already live in $sprites_dir.
     alice bob craig eve general_hero judy mallory olivia
     peggy sybil trent trudy victor walter
+    # Phase 6 + bonus follow-up: every review config is now an
+    # actual catalog character. Install the rest so the Hall of
+    # Characters has a sprite for each.
+    goblin_brute_hammer goblin_cave_dagger goblin_desert_bow
+    goblin_frost_sword goblin_shaman_staff
+    player_combat_review player_social_review player_traversal_review
+    robot_archivist robot_caster robot_diver robot_engineer
+    robot_medic robot_miner
+    sandbag_armored_review sandbag_full_review
 )
 # `ron` is included because the sandbox SheetRegistry parses RON at
 # startup (see `presentation::character_sprites::registry`). Without
@@ -264,9 +333,48 @@ tackon_targets=(
     lasersword_with_guns
     news_board
     town_tileset
+    # Phase 6 + bonus follow-up: every tack-on character listed by
+    # `list-targets` now has a catalog entry; publish them all so the
+    # Hall of Characters has a sprite for each.
+    agent_swarm
+    ai_slop
+    bear_mauler
+    colonial_statesman
+    dark_lord
+    flying_spaghetti_monster_boss
+    galwah
+    ghoul_skulker
+    girdle
+    goblin_forest_spear
+    hand_saint
+    helpful_liar
+    mantis_lancer
+    ninja_heavy
+    pirate_cutlass_viper
+    player_extended
+    president_portrait
+    puppy_slug_variant2
+    raptor_stalker
+    robot_guardian
+    robot_heavy
+    robot_runner
+    smart_house
+    spaghetti_event
+    synthetic_friend
+    trex_enemy
+    viking_heavy_shieldmaiden
+    viking_heavy_warrior
+    viking_shieldmaiden
+    viking_warrior
+    weird_hermit
 )
 for target in "${tackon_targets[@]}"; do
-    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir")
+    # Per-target failure is non-fatal — some targets (e.g.
+    # robot_heavy / viking_warrior variants) don't have a publish
+    # path implemented yet and exit non-zero. The postcondition
+    # check below catches anything that actually needs to ship.
+    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir") \
+        || echo "  [skip] tack-on target '$target' publish failed (publisher not implemented?)"
 done
 
 echo "==> standalone pirate sheets (publish into $sprites_dir)"

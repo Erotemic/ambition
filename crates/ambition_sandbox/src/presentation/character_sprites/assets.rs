@@ -103,27 +103,36 @@ impl CharacterSpriteAssets {
     }
 }
 
-/// Look up the hardcoded [`CharacterSheetSpec`] const associated with
-/// a catalog `character_id`. Returns `None` for catalog ids that
-/// don't yet have a wired sheet const — those characters spawn with
-/// colored-rectangle fallback until a const is added here.
+/// Look up the [`CharacterSheetSpec`] for a catalog `character_id`.
 ///
-/// This is the only place that pairs a catalog id with a sheet const.
-/// Phase 7+ work can replace these consts with `SheetRegistry`
-/// lookups (manifest-driven specs), at which point this function
-/// disappears entirely.
-pub fn sheet_for_character_id(character_id: &str) -> Option<&'static LazyLock<CharacterSheetSpec>> {
-    Some(match character_id {
+/// Resolves in two stages:
+///
+/// 1. **Hardcoded constants** (the `match` arms below). Characters
+///    that need bespoke `collision_scale` / `frame_sample_inset` /
+///    feet-anchor overrides live in `sheets.rs` as
+///    `LazyLock<CharacterSheetSpec>` statics; the match arm here
+///    clones the spec.
+/// 2. **Manifest-driven fallback** ([`super::sheets::try_load_spec_for_character_id`]).
+///    For catalog ids without a hardcoded const, load the spec from
+///    the on-disk `<target>_spritesheet.ron` manifest under
+///    `assets/sprites/` (recursive into boss subdirs) with a
+///    default tuning.
+///
+/// Returns `None` only when neither path produces a spec — usually
+/// because the manifest file doesn't exist yet (e.g. the renderer
+/// hasn't been run for that target).
+pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {
+    let hardcoded: Option<&'static LazyLock<CharacterSheetSpec>> = match character_id {
         // Base characters.
-        "player" => &PLAYER_ROBOT_SHEET,
-        "robot" => &ROBOT_SHEET,
-        "goblin" => &GOBLIN_SHEET,
-        "sandbag" => &SANDBAG_SHEET,
+        "player" => Some(&PLAYER_ROBOT_SHEET),
+        "robot" => Some(&ROBOT_SHEET),
+        "goblin" => Some(&GOBLIN_SHEET),
+        "sandbag" => Some(&SANDBAG_SHEET),
         // Hub faction leaders.
-        "npc_general" => &ABSURD_GENERAL_SHEET,
-        "npc_goblin_cantina_chieftain" => &GOBLIN_CANTINA_CHIEFTAIN_SHEET,
-        "npc_pulse_voyager_captain" => &PULSE_VOYAGER_CAPTAIN_SHEET,
-        "npc_tech_bro_disruptor" => &TECH_BRO_DISRUPTOR_SHEET,
+        "npc_general" => Some(&ABSURD_GENERAL_SHEET),
+        "npc_goblin_cantina_chieftain" => Some(&GOBLIN_CANTINA_CHIEFTAIN_SHEET),
+        "npc_pulse_voyager_captain" => Some(&PULSE_VOYAGER_CAPTAIN_SHEET),
+        "npc_tech_bro_disruptor" => Some(&TECH_BRO_DISRUPTOR_SHEET),
         // Pirate-faction (Pirate Cove). Same PIRATE_SHEET layout for
         // every standard pirate; visual variety lives in the toon-
         // adapter palette per variant.
@@ -131,23 +140,27 @@ pub fn sheet_for_character_id(character_id: &str) -> Option<&'static LazyLock<Ch
         | "npc_pirate_raider"
         | "npc_pirate_quartermaster"
         | "npc_pirate_lookout"
-        | "npc_pirate_navigator" => &PIRATE_SHEET,
+        | "npc_pirate_navigator" => Some(&PIRATE_SHEET),
         // Pirate Heavy bruisers — per-variant sheets.
-        "npc_pirate_heavy_broadside_bess" => &PIRATE_HEAVY_BROADSIDE_BESS_SHEET,
-        "npc_pirate_heavy_iron_mary" => &PIRATE_HEAVY_IRON_MARY_SHEET,
-        "npc_pirate_heavy_salt_annet" => &PIRATE_HEAVY_SALT_ANNET_SHEET,
+        "npc_pirate_heavy_broadside_bess" => Some(&PIRATE_HEAVY_BROADSIDE_BESS_SHEET),
+        "npc_pirate_heavy_iron_mary" => Some(&PIRATE_HEAVY_IRON_MARY_SHEET),
+        "npc_pirate_heavy_salt_annet" => Some(&PIRATE_HEAVY_SALT_ANNET_SHEET),
         // Aerial pirate enemy + wanderer crawlid.
-        "npc_burning_flying_shark" => &BURNING_FLYING_SHARK_SHEET,
-        "npc_puppy_slug" => &PUPPY_SLUG_SHEET,
+        "npc_burning_flying_shark" => Some(&BURNING_FLYING_SHARK_SHEET),
+        "npc_puppy_slug" => Some(&PUPPY_SLUG_SHEET),
         // Ninja dojo (shared NINJA_SHEET layout).
-        "npc_ninja_shadow_oni_leader" | "npc_ninja_shadow_duelist" => &NINJA_SHEET,
+        "npc_ninja_shadow_oni_leader" | "npc_ninja_shadow_duelist" => Some(&NINJA_SHEET),
         // Hub dialogue NPCs.
-        "npc_architect" => &ARCHITECT_SHEET,
-        "npc_kernel_guide" => &KERNEL_GUIDE_SHEET,
-        "npc_vault_keeper" => &VAULT_KEEPER_SHEET,
-        "npc_merchant_prototype" => &MERCHANT_PROTOTYPE_SHEET,
-        _ => return None,
-    })
+        "npc_architect" => Some(&ARCHITECT_SHEET),
+        "npc_kernel_guide" => Some(&KERNEL_GUIDE_SHEET),
+        "npc_vault_keeper" => Some(&VAULT_KEEPER_SHEET),
+        "npc_merchant_prototype" => Some(&MERCHANT_PROTOTYPE_SHEET),
+        _ => None,
+    };
+    if let Some(static_spec) = hardcoded {
+        return Some((**static_spec).clone());
+    }
+    super::sheets::try_load_spec_for_character_id(character_id)
 }
 
 /// Return every `(character_id, on-disk filename)` pair the catalog
@@ -186,10 +199,11 @@ pub fn load_character_sprites_in(
 ) -> CharacterSpriteAssets {
     let mut out = CharacterSpriteAssets::default();
     for (cid, entry) in EMBEDDED_CATALOG.characters.iter() {
-        let Some(sheet) = sheet_for_character_id(cid) else {
-            // No sheet wired for this catalog entry yet — skip
-            // silently. Phase 7+ work either wires a sheet here or
-            // (better) drives the spec from the manifest at startup.
+        let Some(sheet_spec) = sheet_for_character_id(cid) else {
+            // Neither a hardcoded const nor a manifest in
+            // `assets/sprites/` exists for this id — skip silently.
+            // The character falls back to the colored-rectangle
+            // visual until its sprite is published.
             continue;
         };
         let asset_id = ids::character_sprite(cid);
@@ -198,7 +212,7 @@ pub fn load_character_sprites_in(
             asset_server,
             layouts,
             &asset_id,
-            sheet,
+            &sheet_spec,
             Some(cid),
         ) else {
             continue;

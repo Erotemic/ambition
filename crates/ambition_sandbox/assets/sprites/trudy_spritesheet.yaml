@@ -49,6 +49,8 @@ spec:
   satchel_size: 6.5
   hat_brim_offset_x: 0.0
   hat_brim_offset_y: 0.0
+  feminine_coded: true
+  pose_override: null
 crop:
   source_frame_width: 128
   source_frame_height: 128

@@ -150,36 +150,55 @@ fn record_index() -> &'static HashMap<String, SheetRecord> {
     INDEX.get_or_init(|| {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
         let mut index: HashMap<String, SheetRecord> = HashMap::new();
-        let entries = std::fs::read_dir(&dir)
-            .unwrap_or_else(|e| panic!("record_index: read {}: {e}", dir.display()));
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            let Some(filename_root) = name.strip_suffix("_spritesheet.ron") else {
-                continue;
-            };
-            let text = std::fs::read_to_string(&path)
-                .unwrap_or_else(|e| panic!("record_index: read {}: {e}", path.display()));
-            let records: Vec<SheetRecord> = ron::from_str(&text)
-                .unwrap_or_else(|e| panic!("record_index: parse {}: {e}", path.display()));
-            if records.len() == 1 {
-                let mut record = records.into_iter().next().unwrap();
-                // Rewrite the in-memory `target` to match the filename
-                // root so downstream code that inspects `record.target`
-                // gets the stable id (the on-disk `target` is the
-                // generator archetype, not the sheet id).
-                record.target = filename_root.to_owned();
-                index.insert(filename_root.to_owned(), record);
-            } else {
-                for record in records {
-                    index.insert(record.target.clone(), record);
+        scan_dir_into_index(&dir, &mut index);
+        // Bosses (and any other multi-sheet character) publish into
+        // subdirs (`sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.ron`,
+        // `sprites/mockingbird_boss/...`). Scan one level deep so
+        // those manifests reach the index too.
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let sub = entry.path();
+                if sub.is_dir() {
+                    scan_dir_into_index(&sub, &mut index);
                 }
             }
         }
         index
     })
+}
+
+fn scan_dir_into_index(dir: &std::path::Path, index: &mut HashMap<String, SheetRecord>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        let Some(filename_root) = name.strip_suffix("_spritesheet.ron") else {
+            continue;
+        };
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(records) = ron::from_str::<Vec<SheetRecord>>(&text) else {
+            // Skip malformed RON quietly — the
+            // `every_spritesheet_ron_parses_into_sheet_record` test
+            // catches these in CI. Avoid panicking at runtime so a
+            // hand-edited file under a subdir doesn't kill startup.
+            continue;
+        };
+        if records.len() == 1 {
+            let mut record = records.into_iter().next().unwrap();
+            record.target = filename_root.to_owned();
+            index.insert(filename_root.to_owned(), record);
+        } else {
+            for record in records {
+                index.insert(record.target.clone(), record);
+            }
+        }
+    }
 }
 
 /// Build a `CharacterSheetSpec` from the RON record for `target`,
@@ -193,6 +212,35 @@ fn load_spec(target: &str, tuning: &SheetTuning) -> CharacterSheetSpec {
     });
     spec_from_record(record, tuning)
 }
+
+/// Public counterpart to [`load_spec`] for callers that don't have a
+/// hardcoded `*_SHEET` const for the target. Returns `None` when the
+/// manifest isn't on disk (rather than panicking) so the catalog-
+/// driven sprite loader can fall back to colored rectangles.
+///
+/// Used by [`super::sheet_for_character_id`] when no `*_SHEET` const
+/// is wired for a catalog id. Resolves the manifest target via two
+/// fallbacks: the bare id ("goblin"), then the id with the `npc_`
+/// prefix stripped ("npc_gnu_ton_boss" → "gnu_ton_boss").
+pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {
+    let index = record_index();
+    let record = index
+        .get(character_id)
+        .or_else(|| {
+            character_id
+                .strip_prefix("npc_")
+                .and_then(|stripped| index.get(stripped))
+        })?;
+    Some(spec_from_record(record, &DEFAULT_TUNING))
+}
+
+/// Fallback tuning for catalog entries that don't have a hardcoded
+/// `SheetTuning`. The values are middle-of-the-road — `collision_scale
+/// = 1.5` keeps the sprite from being microscopic or overscaled, and
+/// `frame_sample_inset = 1` is the same value most existing tunings
+/// use. Catalog entries that need different visuals can graduate to
+/// a hardcoded const + an explicit `SheetTuning::new(...)` later.
+const DEFAULT_TUNING: SheetTuning = SheetTuning::new(1.5, 1);
 
 fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterSheetSpec {
     let rows: Vec<(CharacterAnim, AnimRow)> = record

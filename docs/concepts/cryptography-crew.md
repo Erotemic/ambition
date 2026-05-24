@@ -7,7 +7,7 @@ aliases:
   - cryptography NPCs
   - crypto roster
 implemented_by:
-  - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/toon_side.py
+  - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/toon_side.py
   - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/review/
   - crates/ambition_sandbox/assets/sprites/
 related_docs:
@@ -141,7 +141,7 @@ file conventions.
 
 Two adapters serve the crew today:
 
-- **`toon`** (`targets/toon_side.py`) — the shared cartoon
+- **`toon`** (`targets/characters/toon_side.py`) — the shared cartoon
   template that ships Bob, Alice, Eve, Mallory, Judy. Stick-figure
   construction underneath: capsule limbs + oval head + applied
   hair/outfit/prop dispatch tables. Easy to add new characters by
@@ -193,7 +193,7 @@ from preset tuning alone.
 ## Pipeline notes
 
 - The toon PRESETS live in
-  `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/toon_side.py`.
+  `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/toon_side.py`.
   They mix existing primitives (body plans, the `hood` hair, the
   `tablet`/`medals`/`scarf`/`satchel` props) with new ones added in
   the same patch: hairs `tousled_crop`, `long_side_braid`,

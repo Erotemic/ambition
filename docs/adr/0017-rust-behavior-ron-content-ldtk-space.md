@@ -125,6 +125,34 @@ Deferred for follow-up work:
   / `brain_overrides` fields (planned in the original RFC but no
   use case has landed yet).
 
+## Current implications for agents
+
+- **New character or boss** → author RON first, write Rust only when
+  the asset needs a bespoke `*_SHEET` tuning or behavior hook. The
+  character catalog (`assets/data/character_catalog.ron`) covers the
+  common case with zero Rust changes; boss-encounter numeric fields
+  (HP, phase thresholds, timings, music ids) live in
+  `assets/data/boss_encounters/<id>.ron` and override the hardcoded
+  constructor when a matching profile exists.
+- **New room or arena** → LDtk file, never Rust. Use the
+  `ambition_ldtk_tools` subcommands (`area create`, `intgrid paint`,
+  `space_debug_labels`) — never hand-edit the LDtk JSON
+  (see [[feedback-ldtk-tools-only]] memory).
+- **Tuning a number** (HP, speed, timing, threshold) → check first
+  whether it lives in a `.ron` file under `crates/ambition_sandbox/
+  assets/data/` (catalog, boss encounters, area specs). If it's in
+  RON, edit the RON; don't add a Rust override. The Rust constructor
+  is a compile-time fallback for fresh clones, not the authoritative
+  source.
+- **Hardcoded fallback discipline** — the constructor pattern
+  (`BossEncounterSpec::gnu_ton()`) stays around as a fresh-clone
+  fallback. RON overrides it when present. Never delete the
+  constructor; never delete the RON.
+- **Validator hierarchy** — both Python (schema pin) and Rust
+  (field-equivalence pin) layers exist. When adding new RON content,
+  add a Python schema test first (fires without compile) and a Rust
+  pin test second (catches drift against the hardcoded fallback).
+
 ## Cross-references
 
 - [`TODO-character-catalog-and-hall.md`](../../TODO-character-catalog-and-hall.md)

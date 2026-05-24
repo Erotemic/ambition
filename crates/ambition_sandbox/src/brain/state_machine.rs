@@ -1277,8 +1277,7 @@ mod tests {
                 state: SniperState::default(),
             },
         ];
-        for template in templates {
-            let mut brain = StateMachineCfg::from(template);
+        for mut brain in templates {
             let mut snap = crate::brain::snapshot::BrainSnapshot::idle();
             snap.dt = 0.0;
             let mut frame = ae::ActorControlFrame::neutral();

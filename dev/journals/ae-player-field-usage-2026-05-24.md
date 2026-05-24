@@ -209,6 +209,40 @@ Captured here so the next daytime session picks up cleanly.
   snapshot construction lives in one place.
 - Regression test asserts encounter-mob spawns carry Brain +
   ActionSet + ActorControl (`46c5f29`).
+- Per-archetype tunings threaded through enemy MeleeBrute brain
+  cfg so daytime EFFECTS-flip preserves behavior (`540c401`).
+- Per-archetype ActionSet defaults wired (Swipe / Lunge / Bite /
+  Bolt / PunchWeak / Slither) — every enemy carries a concrete
+  attack spec ready for the consumer flip (`83ac40b`).
+- NPC hostile-flip also swaps the brain to MeleeBrute via
+  commands.insert so the shadow shape tracks disposition
+  (`47564fa`).
+- ActionSet resolver wired with ActorActionMessage stream —
+  emit_brain_action_messages runs in PlayerInput after
+  tick_player_brains and writes one message per resolved
+  ActionRequest. Nothing consumes the stream yet but daytime
+  EFFECTS-flip plugs in here (`4a7efc5`).
+- BossPatternCfg encounter_id is a String mirroring
+  boss_encounter::encounter_id_from_name (`fd1f63b`).
+- End-to-end test: player attack press emits a Swipe
+  ActorActionMessage through the full input → brain → resolver
+  pipeline (`9587b23`).
+- End-to-end test: player projectile release emits a Bolt
+  ActorActionMessage (`a67f553`).
+- Per-archetype brain + ActionSet mapping tests pin the
+  PuppySlug → Wanderer, Sandbag → StandStill, Brute → Lunge,
+  PirateOnShark → Float+Ranged assignments (`705d21d`).
+- NPC_PATROL_SPEED wired through PatrolCfg::NPC_DEFAULT.speed
+  so the brain-side default tracks the legacy const (`86e7b66`).
+- Brain module clippy-clean with explicit reason-tagged
+  #[allow]s for the intentionally-unused daytime surface
+  (`d5c4d54`).
+- Comprehensive docs: docs/systems/brain-driver.md overview,
+  docs/recipes/extending-brains-and-action-sets.md (`eb38a2f`,
+  `de39167`). Existing docs (character-ai-refactor.md,
+  universal-brain-interface.md, OVERNIGHT-TODO.md, TODO.md,
+  FEATURES.md) updated to reflect what landed
+  (`f86b7a7`, `551ec8a`, `5c83587`).
 
 **Remaining for daytime:**
 - Reader-side polarity flip: 38 `authority.player.*` reads still
@@ -231,5 +265,6 @@ Captured here so the next daytime session picks up cleanly.
 - Narrow `ActorControlFrame::fire` to `Option<Vec2>` once
   ActionSet's RangedActionSpec is the speed source.
 
-Test counts at session end: 690 sandbox lib tests + 261 engine
+Test counts at session end: 695 sandbox lib tests + 261 engine
 lib tests green. Headless + rl_smoke binaries both run clean.
+Brain module clippy-clean. Doc-link / agent-index checks pass.

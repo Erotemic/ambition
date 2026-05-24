@@ -423,6 +423,29 @@ mod tests {
     }
 
     #[test]
+    fn brain_plugin_registers_message_and_counter_resource() {
+        // Pins the BrainPlugin contract: installs ActorActionMessage
+        // + BrainActionCounter resource. A future refactor that
+        // splits the plugin or accidentally drops a registration
+        // trips this test.
+        use bevy::prelude::*;
+        let mut app = App::new();
+        app.add_plugins(BrainPlugin);
+        // Message resource present.
+        let _msg = app
+            .world()
+            .get_resource::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .expect("ActorActionMessage registered");
+        // Counter resource present + default-initialized.
+        let counter = app
+            .world()
+            .get_resource::<BrainActionCounter>()
+            .expect("BrainActionCounter registered");
+        assert_eq!(counter.total, 0);
+        assert_eq!(counter.last_frame, 0);
+    }
+
+    #[test]
     fn brain_swap_via_commands_replaces_existing_component() {
         // Pins the runtime brain-swap contract — Bevy's
         // commands.entity(e).insert(Brain) replaces the existing

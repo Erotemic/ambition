@@ -8,7 +8,7 @@ use super::components::{
     PlayerInputFrame, PlayerMovementAuthority, PlayerSlot, PrimaryPlayer,
 };
 use super::events::PlayerHealRequested;
-use crate::brain::{tick_player_brain_from_input, ActorControl, Brain, BrainSnapshot};
+use crate::brain::{ActorControl, Brain, BrainSnapshot};
 use crate::input::ControlFrame;
 
 /// Mirror the global [`ControlFrame`] resource onto the local primary
@@ -64,11 +64,10 @@ pub fn tick_player_brains(
     )>,
 ) {
     for (slot, input, body, mut brain, mut control) in &mut players {
-        // Build a minimal snapshot from the player's read-model
-        // PlayerBody. The brain only reads `actor_facing` today; the
-        // rest is filled with sensible defaults so a future brain
-        // variant that asks for more (e.g. wall_contact for a player
-        // possessing a slug) doesn't see garbage.
+        // Build the snapshot from the player's read-model PlayerBody
+        // plus the per-tick input frame. The input is what makes
+        // Brain::Player's translation deterministic: same input +
+        // same body snapshot → same ActorControlFrame.
         let snapshot = BrainSnapshot {
             actor_pos: body.pos,
             actor_vel: body.vel,
@@ -85,24 +84,10 @@ pub fn tick_player_brains(
             attack_recover_remaining: 0.0,
             stun_remaining: 0.0,
             wall_contact: None,
+            player_input: Some(input.frame),
         };
-        // The Brain enum's tick() goes through `tick_player_brain`
-        // which today emits a neutral frame + facing — it doesn't
-        // have access to the input frame at the snapshot boundary
-        // yet. We bypass the enum dispatch here and call the
-        // input-aware variant directly so the frame actually
-        // populates from PlayerInputFrame. Once 4d wires the
-        // snapshot to carry the input frame, this can collapse to
-        // `brain.tick(&snapshot, &mut control.0)`.
         let mut frame = ae::ActorControlFrame::neutral();
-        match brain.as_mut() {
-            Brain::Player(_) => {
-                tick_player_brain_from_input(input, &snapshot, &mut frame);
-            }
-            // Non-player brains on a PlayerEntity (e.g. possession)
-            // — tick through the normal dispatch.
-            other => other.tick(&snapshot, &mut frame),
-        }
+        brain.tick(&snapshot, &mut frame);
         control.0 = frame;
         // Silence unused-var: slot is part of the multi-player seam.
         let _ = slot;

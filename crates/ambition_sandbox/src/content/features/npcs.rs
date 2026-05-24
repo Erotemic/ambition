@@ -207,6 +207,11 @@ impl NpcRuntime {
             // NPCs don't surface-walk — the Wanderer brain reads
             // this; Patrol / StandStill ignore it.
             wall_contact: None,
+            // NPCs don't carry an input frame (their brain is a
+            // state machine, not a translator). Brain::Player on an
+            // NPC entity would not fire today; possession is
+            // future work.
+            player_input: None,
         };
         let mut frame = ae::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);

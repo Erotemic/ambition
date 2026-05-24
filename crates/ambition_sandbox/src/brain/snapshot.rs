@@ -74,6 +74,12 @@ pub struct BrainSnapshot {
     /// system computes this only for brains that care (currently
     /// `Wanderer`); other actors leave it `None`.
     pub wall_contact: Option<WallContact>,
+    /// Per-tick input snapshot for [`crate::brain::Brain::Player`].
+    /// `None` for non-player actors. The player-brain-driver system
+    /// fills this from the actor entity's `PlayerInputFrame`; the
+    /// player brain reads it to populate jump / dash / fire / etc.
+    /// edges of the control frame.
+    pub player_input: Option<crate::input::ControlFrame>,
 }
 
 /// Info about a wall the actor pressed against this tick.
@@ -111,6 +117,7 @@ impl BrainSnapshot {
             attack_recover_remaining: 0.0,
             stun_remaining: 0.0,
             wall_contact: None,
+            player_input: None,
         }
     }
 

@@ -43,39 +43,43 @@ pub fn tick_player_brain(
     snapshot: &BrainSnapshot,
     out: &mut ae::ActorControlFrame,
 ) {
-    // The brain-driver system (not yet built) fills the snapshot
-    // with the per-player input frame at construction time via a
-    // sibling field. For Chunk 2 we test the brain by passing in
-    // a synthesized `PlayerInputFrame` via the standalone
-    // `tick_player_brain_from_input` helper below; the
-    // signature-matching version takes only what's in the snapshot.
-    //
-    // Today the snapshot doesn't carry the input frame because no
-    // actor uses Brain::Player yet — Chunk 4 adds the input frame
-    // to the snapshot (or to a sibling component the driver
-    // reads). For now we emit a neutral frame so the function
-    // compiles and the tests exercise the translator directly.
+    // Per Chunk 4e: BrainSnapshot now carries the player's input
+    // frame as an Option. When present we delegate to the
+    // input-aware translator. When absent (e.g. an actor that has
+    // a `Brain::Player(slot)` brain but no PlayerInputFrame in
+    // scope), emit a neutral frame + facing so the integration
+    // doesn't see garbage.
+    if let Some(ref input) = snapshot.player_input {
+        tick_player_brain_from_control(input, snapshot, out);
+        return;
+    }
     *out = ae::ActorControlFrame::neutral();
     out.facing = snapshot.actor_facing;
 }
 
 /// Translate the player's per-tick input into the abstract frame.
 ///
-/// This is the testable form of the player brain — it accepts the
-/// raw input frame directly so unit tests can exercise the
-/// translation without spinning up an App.
-///
-/// When Chunk 4 wires the player brain into the per-tick pipeline,
-/// the driver system will call this with the player entity's
-/// `PlayerInputFrame` and write the result into the actor's
-/// `ActorControl` sibling component.
+/// Convenience wrapper that unwraps `PlayerInputFrame` and calls
+/// [`tick_player_brain_from_control`]. Used by tests that already
+/// have a `PlayerInputFrame` in scope.
 pub fn tick_player_brain_from_input(
     input: &PlayerInputFrame,
     snapshot: &BrainSnapshot,
     out: &mut ae::ActorControlFrame,
 ) {
+    tick_player_brain_from_control(&input.frame, snapshot, out);
+}
+
+/// Translate a raw [`ControlFrame`] into the abstract intent fields
+/// of an `ActorControlFrame`. This is the core of the player brain
+/// — the wrappers above add convenient input-shape adapters but
+/// every translation goes through this function.
+pub fn tick_player_brain_from_control(
+    c: &ControlFrame,
+    snapshot: &BrainSnapshot,
+    out: &mut ae::ActorControlFrame,
+) {
     *out = ae::ActorControlFrame::neutral();
-    let c: &ControlFrame = &input.frame;
 
     // Movement axis → desired velocity (player speed is fixed by the
     // integration; brain just signals direction × magnitude).

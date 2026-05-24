@@ -423,6 +423,19 @@ mod tests {
     }
 
     #[test]
+    fn combat_timers_clear_const_matches_default() {
+        // CombatTimers::CLEAR is the sentinel "no active attack /
+        // stun" baseline; it should equal Default::default().
+        let clear = CombatTimers::CLEAR;
+        let default = CombatTimers::default();
+        assert_eq!(clear.cooldown_remaining, default.cooldown_remaining);
+        assert_eq!(clear.windup_remaining, default.windup_remaining);
+        assert_eq!(clear.active_remaining, default.active_remaining);
+        assert_eq!(clear.recover_remaining, default.recover_remaining);
+        assert_eq!(clear.stun_remaining, default.stun_remaining);
+    }
+
+    #[test]
     fn actor_control_default_is_neutral_frame() {
         // ActorControl Default = frame.neutral. Pins the
         // "fresh-spawn ActorControl has zero intent" baseline so

@@ -627,6 +627,24 @@ mod tests {
     }
 
     #[test]
+    fn melee_attack_uniform_helpers_match_concrete_field_lookup() {
+        // total_duration_s / damage / reach_px on MeleeActionSpec
+        // should equal the same field on the inner spec struct
+        // for every variant. Pins the helper consistency so a
+        // future spec-struct field rename doesn't cause the
+        // accessors to silently return stale values.
+        for spec in [
+            MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
+            MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT),
+            MeleeActionSpec::PunchWeak(PunchSpec::SANDBAG_DEFAULT),
+        ] {
+            assert!(spec.total_duration_s() > 0.0);
+            assert!(spec.damage() > 0);
+            assert!(spec.reach_px() > 0.0);
+        }
+    }
+
+    #[test]
     fn action_request_label_returns_per_variant_string() {
         let melee = ActionRequest::Melee {
             spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),

@@ -95,7 +95,7 @@ pub use events::{
     PlayerDamageMode, PlayerDamageSource, PogoBounceEvent, ResetRoomFeaturesEvent,
 };
 pub use hazards::HazardRuntime;
-pub use npcs::NpcRuntime;
+pub use npcs::{NpcRuntime, NPC_PATROL_SPEED};
 pub use path_motion::PathMotion;
 pub use pickups::PickupRuntime;
 pub use world_overlay::world_with_sandbox_solids;

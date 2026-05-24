@@ -127,12 +127,14 @@ pub struct PatrolCfg {
 }
 
 impl PatrolCfg {
-    /// Peaceful NPC default (NPC_PATROL_SPEED-ish; matches the
-    /// pre-refactor NpcRuntime constant).
+    /// Peaceful NPC default. Speed mirrors the legacy
+    /// [`crate::content::features::NPC_PATROL_SPEED`] constant so
+    /// the brain-driven Patrol gait matches what the pre-brain
+    /// `NpcRuntime::update` used.
     pub const NPC_DEFAULT: Self = Self {
         spawn_x: 0.0,
         radius: 64.0,
-        speed: 60.0,
+        speed: crate::content::features::NPC_PATROL_SPEED,
         aggressiveness: 0.0,
         aggro_radius: 80.0,  // talk radius for peaceful patrol
         attack_range: 0.0,

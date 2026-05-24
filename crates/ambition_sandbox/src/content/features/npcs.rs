@@ -68,6 +68,10 @@ pub const NPC_TALK_RADIUS: f32 = 80.0;
 
 /// Patrol speed for NPCs. Slightly slower than the standard enemy
 /// patrol speed so peaceful NPCs read as casual rather than alert.
+/// Consumed by [`crate::brain::PatrolCfg::NPC_DEFAULT`] (the
+/// brain-side mirror); kept here so the legacy NPC path that
+/// hasn't migrated yet (none today, but the daytime polarity flip
+/// preserves the value) stays in sync.
 pub const NPC_PATROL_SPEED: f32 = 60.0;
 
 impl NpcRuntime {

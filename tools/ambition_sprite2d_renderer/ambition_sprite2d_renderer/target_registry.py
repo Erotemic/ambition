@@ -50,9 +50,15 @@ CATEGORIES: Tuple[str, ...] = (
     "props",
     "tiles",
     "icons",
-    # YAML-config categories — adapter pipeline over `configs/`.
-    "review_npcs",
 )
+# Note: there used to be a separate `review_npcs` category for YAML-
+# config-driven characters that lived in `configs/review/*.yaml`. As
+# of the Phase 6 character-catalog cleanup (2026-05-24) those targets
+# merge into `characters` — the split was an internal authoring
+# detail that didn't map to runtime behavior (many "review NPCs"
+# ship to the runtime via the same sprite registry as everyone else).
+# The `configs/review/` directory still exists for backwards-
+# compat authoring, but its contents now register under `characters`.
 
 # Modules under `targets/characters/` that are imported by
 # `adapters.py` and driven by YAML configs instead of a `render()`
@@ -441,8 +447,11 @@ def discover_all_targets() -> DiscoveryReport:
     reachable via `draw-character <config>` for one-off use.
     """
     tackon_report = discover_tackon_targets()
+    # `configs/review/*.yaml` joins `characters` (Phase 6 cleanup —
+    # the split was internal renderer-bookkeeping). Adapter rigs and
+    # tack-ons both surface under one category.
     review_targets, review_warnings = _discover_yaml_configs(
-        _configs_dir() / "review", "review_npcs",
+        _configs_dir() / "review", "characters",
     )
     main_targets, main_warnings = _discover_yaml_configs(
         _configs_dir(), "characters",

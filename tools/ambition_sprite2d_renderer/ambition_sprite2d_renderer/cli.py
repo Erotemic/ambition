@@ -319,7 +319,7 @@ def _cmd_list_targets(args: argparse.Namespace) -> int:
         for name in names:
             marker = (
                 "  (runtime)"
-                if category == "review_npcs" and name in RUNTIME_REVIEW_NPCS
+                if category == "characters" and name in RUNTIME_REVIEW_NPCS
                 else ""
             )
             print(f"    {name}{marker}")

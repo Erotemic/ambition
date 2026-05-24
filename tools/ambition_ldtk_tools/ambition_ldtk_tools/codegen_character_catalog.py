@@ -191,7 +191,10 @@ def character_id_for(target: str) -> str:
 
 
 def read_renderer_targets() -> tuple[list[str], list[str]]:
-    """Return (characters, review_npcs) lists."""
+    """Return (characters, []) — the renderer's review_npcs category
+    was merged into `characters` during Phase 6, so this only emits
+    the one list. The second return slot stays for ABI stability
+    with old callers."""
     result = subprocess.run(
         [sys.executable, "-m", "ambition_sprite2d_renderer", "list-targets"],
         cwd=str(RENDERER_DIR),
@@ -201,7 +204,6 @@ def read_renderer_targets() -> tuple[list[str], list[str]]:
         check=True,
     )
     chars: list[str] = []
-    reviews: list[str] = []
     section: str | None = None
     for line in result.stdout.splitlines():
         if line.startswith("  [characters]"):
@@ -210,13 +212,10 @@ def read_renderer_targets() -> tuple[list[str], list[str]]:
         if line.startswith("  [props]") or line.startswith("  [tiles]") or line.startswith("  [icons]"):
             section = None
             continue
-        if line.startswith("  [review_npcs]"):
-            section = "review"
-            continue
-        if section and line.startswith("    "):
+        if section == "characters" and line.startswith("    "):
             tok = line.strip().split()[0]
-            (chars if section == "characters" else reviews).append(tok)
-    return chars, reviews
+            chars.append(tok)
+    return chars, []
 
 
 def read_existing_ids(catalog_path: Path) -> set[str]:

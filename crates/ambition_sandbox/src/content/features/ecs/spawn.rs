@@ -141,13 +141,24 @@ fn spawn_enemy(
     paths: &[(String, ae::KinematicPath)],
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
-    let actor = ActorRuntime::Hostile(EnemyRuntime::new(
+    let enemy = EnemyRuntime::new(
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
         authored.payload.clone(),
         paths,
-    ));
+    );
+    // Attach a parallel-shape Brain + ActionSet to the enemy entity
+    // so the universal-brain seam is wired even though EnemyRuntime
+    // still drives behavior. Today no system reads these on hostile
+    // actors — daytime work flips consumers off the choreography +
+    // EnemyRuntime AI loop and onto Brain.tick() + ActionSet
+    // resolution. Picking a per-archetype brain mapping is daytime
+    // work; for now every enemy carries a placeholder MeleeBrute
+    // (since enemies are hostile) plus a peaceful ActionSet (no
+    // attacks resolve off the brain yet).
+    let brain = enemy_default_brain(&enemy);
+    let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
     commands.spawn((
@@ -164,7 +175,41 @@ fn spawn_enemy(
             cooldowns,
         },
         actor,
+        brain,
+        crate::brain::ActionSet::peaceful(),
+        crate::brain::ActorControl::default(),
     ));
+}
+
+/// Map an `EnemyRuntime` to a placeholder Brain template. Hostile
+/// archetypes get a MeleeBrute; sandbags get StandStill; PuppySlug
+/// gets a Wanderer with its puppy-slug defaults. Daytime migration
+/// will deepen this mapping per archetype + author per-entity
+/// ActionSets carrying real attack specs.
+fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
+    use crate::brain::{Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg, WandererCfg, WandererState};
+    match enemy.archetype {
+        EnemyArchetype::InfiniteSandbag | EnemyArchetype::FiniteSandbag => {
+            Brain::StateMachine(StateMachineCfg::StandStill)
+        }
+        EnemyArchetype::PuppySlug => Brain::StateMachine(StateMachineCfg::Wanderer {
+            cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
+            state: WandererState::default(),
+        }),
+        EnemyArchetype::LargeBrute | EnemyArchetype::LargeColossus => {
+            Brain::StateMachine(StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg::BRUTE_DEFAULT,
+                state: MeleeBruteState::default(),
+            })
+        }
+        // Everyone else falls back to the Striker template. Daytime
+        // work refines this per archetype + adds Skirmisher for
+        // ranged variants (PirateOnShark, BurningFlyingShark, …).
+        _ => Brain::StateMachine(StateMachineCfg::MeleeBrute {
+            cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+            state: MeleeBruteState::default(),
+        }),
+    }
 }
 
 fn spawn_interactable(
@@ -244,6 +289,7 @@ pub fn spawn_encounter_mob(
     enemy.health = ae::Health::new(archetype.max_health());
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.respawn_timer = 999_999.0;
+    let brain = enemy_default_brain(&enemy);
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
@@ -263,6 +309,9 @@ pub fn spawn_encounter_mob(
         },
         actor,
         EncounterMob::new(encounter_id),
+        brain,
+        crate::brain::ActionSet::peaceful(),
+        crate::brain::ActorControl::default(),
     ));
 }
 

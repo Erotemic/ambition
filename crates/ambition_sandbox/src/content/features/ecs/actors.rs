@@ -390,6 +390,39 @@ pub fn update_ecs_actors(
                     None
                 };
                 let nearest_neighbor = neighbor_by_id.get(&enemy.id).copied();
+                // Shadow brain tick — populates the parallel
+                // ActorControl frame even though EnemyRuntime still
+                // drives behavior. Lets daytime work compare the
+                // brain's intent vs the existing choreography
+                // output before flipping the consumer. No-op when
+                // no brain component is attached (legacy spawn
+                // sites not yet upgraded).
+                if let Some(brain) = brain.as_deref_mut() {
+                    let snap = crate::brain::BrainSnapshot {
+                        actor_pos: enemy.pos,
+                        actor_vel: enemy.vel,
+                        actor_facing: enemy.facing,
+                        actor_on_ground: enemy.on_ground,
+                        alive: enemy.alive,
+                        target_pos,
+                        target_alive: true,
+                        sim_time,
+                        dt,
+                        attack_cooldown_remaining: enemy.attack_cooldown,
+                        attack_windup_remaining: enemy.attack_windup_timer,
+                        attack_active_remaining: enemy.attack_timer,
+                        attack_recover_remaining: 0.0,
+                        stun_remaining: 0.0,
+                        wall_contact: None,
+                        player_input: None,
+                    };
+                    let mut shadow = ae::ActorControlFrame::neutral();
+                    brain.tick(&snap, &mut shadow);
+                    // Frame discarded — EnemyRuntime drives behavior.
+                    // Daytime work will wire this into ActorControl
+                    // and have the integration consume it.
+                    let _ = shadow;
+                }
                 let mut outputs = super::super::enemies::EnemyTickOutputs::default();
                 enemy.update(
                     &feature_world,

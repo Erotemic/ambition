@@ -162,9 +162,13 @@ expected_files=(
     viking_heavy_warrior_spritesheet.png viking_heavy_warrior_spritesheet.ron
     viking_shieldmaiden_spritesheet.png viking_shieldmaiden_spritesheet.ron
     viking_warrior_spritesheet.png viking_warrior_spritesheet.ron
-    # weird_hermit's publisher renders but doesn't install — catalog
-    # entry falls back to colored rectangle until a real publisher
-    # lands.
+    # weird_hermit ships a non-conventional filename
+    # (`weird_hermit.{png,ron,yaml}`) AND a non-standard SheetRow
+    # schema (field names `name`/`frames`/`frame_ms` vs the runtime's
+    # `animation`/`frame_count`/`duration_ms`). Fixing either is a
+    # renderer-side change — listed as a follow-up in
+    # `docs/systems/sprite-rendering-surface.md`. Catalog falls back
+    # to the colored-rectangle placeholder until then.
     # Review-config NPCs added to review_cues for full hall coverage.
     goblin_brute_hammer_spritesheet.png goblin_brute_hammer_spritesheet.ron
     goblin_cave_dagger_spritesheet.png goblin_cave_dagger_spritesheet.ron
@@ -366,7 +370,11 @@ tackon_targets=(
     viking_heavy_warrior
     viking_shieldmaiden
     viking_warrior
-    weird_hermit
+    # weird_hermit's publisher emits non-conventional filenames
+    # (`weird_hermit.{png,ron,yaml}` — no `_spritesheet` suffix)
+    # AND a non-standard SheetRow schema. Skipping it here keeps
+    # the working tree clean. Catalog entry falls back to colored
+    # rectangle. Fix listed in docs/systems/sprite-rendering-surface.md.
 )
 for target in "${tackon_targets[@]}"; do
     # Per-target failure is non-fatal — some targets (e.g.

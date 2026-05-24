@@ -34,6 +34,10 @@ pub enum CharacterBodyKind {
 /// Dormant scaffolding — the renderer still emits a composed sheet
 /// today, so the runtime ignores this field. Reserved for future
 /// layered-render work without breaking the catalog schema.
+#[allow(
+    dead_code,
+    reason = "Reserved for future layered-rendering of multi-part sprites; ships as schema-stable scaffolding so adding composition to a catalog entry is forwards-compatible."
+)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct CompositionLayer {
     pub id: String,
@@ -42,6 +46,10 @@ pub struct CompositionLayer {
 }
 
 /// One character entry in `character_catalog.ron`.
+#[allow(
+    dead_code,
+    reason = "Public catalog schema; future consumers (Hall layout generator, dialogue UI, faction-aware spawn rules) read tier / body_kind / composition / tags. Today the validator + sprite loader use a subset."
+)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct CharacterCatalogEntry {
     /// Human-facing label (UI, dialogue, debug overlays).

@@ -17,6 +17,10 @@ use super::entry::CharacterCatalogData;
 /// Path constant for tooling that loads the RON file off disk
 /// (codegen scripts, hall generator). Relative to the sandbox crate's
 /// asset root.
+#[allow(
+    dead_code,
+    reason = "Public path constant for codegen + hall-generator tooling that loads the catalog off disk; the runtime uses include_str! via load_embedded."
+)]
 pub const CHARACTER_CATALOG_ASSET: &str = "data/character_catalog.ron";
 
 /// Parse the embedded `character_catalog.ron`. Panics on parse error

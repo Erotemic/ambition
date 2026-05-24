@@ -27,6 +27,10 @@ use super::entry::{
 /// NPC's actual spawn position in world coordinates; it is added to
 /// `Patrol.spawn_local_x` to derive the patrol center. For non-patrol
 /// brains it is ignored.
+#[allow(
+    dead_code,
+    reason = "Public resolver API used by future spawn-site catalog consumers; today exercised via tests."
+)]
 pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
     let cfg = match preset {
         BrainPreset::StandStill => return Brain::StateMachine(StateMachineCfg::StandStill),
@@ -123,6 +127,10 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
 }
 
 /// Build a runtime [`ActionSet`] from a preset.
+#[allow(
+    dead_code,
+    reason = "Public resolver API used by future spawn-site catalog consumers; today exercised via tests."
+)]
 pub fn action_set_from_preset(preset: &ActionSetPreset) -> ActionSet {
     ActionSet {
         move_style: move_style_from_preset(preset.move_style),

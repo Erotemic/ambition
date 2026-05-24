@@ -44,6 +44,10 @@ pub use resolver::{action_set_from_preset, brain_from_preset};
 #[derive(Resource, Clone, Debug)]
 pub struct CharacterCatalog(pub CharacterCatalogData);
 
+#[allow(
+    dead_code,
+    reason = "Public catalog API for future spawn-site consumers (EnemySpawn / BossSpawn migrations, custom spawn paths). Tested but not yet wired into a runtime call site."
+)]
 impl CharacterCatalog {
     /// Look up a character by id. Returns `None` if the id is not
     /// in the catalog — callers fall back to a placeholder spawn.

@@ -319,6 +319,16 @@ After every change:
 ~/.cargo/bin/cargo run   -p ambition_sandbox --bin headless -- --ticks 30
 ```
 
+If the full sandbox lib test hits EMFILE under high parallelism
+(common on shared dev VMs), run single-threaded:
+
+```bash
+~/.cargo/bin/cargo test -p ambition_sandbox --lib -- --test-threads=2
+```
+
+The tests themselves are deterministic; intermittent failures
+under default parallelism are virtiofs-side noise.
+
 ## Daytime EFFECTS-consumer flip — concrete procedure
 
 Today the brain produces `ActorActionMessage`s but combat /

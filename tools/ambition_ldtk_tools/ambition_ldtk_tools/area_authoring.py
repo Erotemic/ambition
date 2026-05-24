@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Author a new Ambition LDtk active area / level from a small YAML/JSON spec.
+"""Author a new Ambition LDtk active area / level from a small RON/JSON spec.
 
 The pain of hand-authoring an LDtk level is:
 
@@ -16,37 +16,47 @@ to the existing `ambition_ldtk_tools repair` pass. The resulting file is
 guaranteed to validate cleanly with `ambition_ldtk_tools validate` (both
 Ambition semantic + LDtk JSON schema) before this tool exits.
 
-Spec format (YAML or JSON; YAML preferred for readability):
+Spec format (RON — see existing files under
+`tools/ambition_ldtk_tools/specs/*.ron` for working examples):
 
-    id: mob_lab                    # required: activeArea string
-    level_id: mob_lab              # required: level identifier
-    world_x: 14000                 # required: placement
-    world_y: 1024
-    px_wid: 1800                   # required: level pixel size
-    px_hei: 900
-    grid_size: 16                  # optional, defaults to project defaultGridSize
-    fill_collision: solid_border   # optional: 'empty' | 'solid_border' | 'solid_floor'
-    bg_color: "#1a1a24"            # optional, defaults to project defaultLevelBgColor
-    entities:
-      - type: PlayerStart
-        px: [60, 60]
-        size: [28, 46]             # optional, defaults from defs
-        fields:
-          name: lab_start
-      - type: Solid                # ← *static-collision* type: lowered to IntGrid
-        px: [0, 800]
-        size: [1800, 100]
-        fields: { name: floor }
-      - type: LoadingZone
-        px: [0, 600]
-        size: [60, 100]
-        fields:
-          id: lab_exit
-          name: lab_exit
-          activation: walk
-          target_room: central_hub_complex
-          target_zone: lab_door
-          bidirectional: true
+    (
+        id: "mob_lab",                    // activeArea string
+        level_id: "mob_lab",              // level identifier
+        world_x: 14000,                   // placement
+        world_y: 1024,
+        px_wid: 1800,                     // level pixel size
+        px_hei: 900,
+        grid_size: 16,                    // optional: project defaultGridSize
+        fill_collision: "solid_border",   // 'empty' | 'solid_border' | 'solid_floor'
+        bg_color: "#1a1a24",              // optional
+        entities: [
+            (
+                type: "PlayerStart",
+                px: [60, 60],
+                size: [28, 46],
+                fields: (name: "lab_start"),
+            ),
+            (
+                type: "Solid",            // *static-collision* type: lowered to IntGrid
+                px: [0, 800],
+                size: [1800, 100],
+                fields: (name: "floor"),
+            ),
+            (
+                type: "LoadingZone",
+                px: [0, 600],
+                size: [60, 100],
+                fields: (
+                    id: "lab_exit",
+                    name: "lab_exit",
+                    activation: "walk",
+                    target_room: "central_hub_complex",
+                    target_zone: "lab_door",
+                    bidirectional: true,
+                ),
+            ),
+        ],
+    )
 
 Field values are coerced to the type declared in `defs.entities[*].fieldDefs`
 so the spec can stay loose (`true` / `1.5` / `"hello"`).
@@ -54,26 +64,29 @@ so the spec can stay loose (`true` / `1.5` / `"hello"`).
 Optional biome / audio metadata (added to the project's
 `defs.levelFields` by `tools/add_biome_level_fields.py`):
 
-    biome: cave            # → biome label, drives ambient selection
-    music_track: cave_loop # → MusicTrack.id from sandbox.ron
-    ambient_profile: damp  # → ambient sfx / particle profile id
-    visual_theme: blue     # → palette / shader-variant id
+    biome: "cave",            // biome label, drives ambient selection
+    music_track: "cave_loop", // MusicTrack.id from sandbox.ron
+    ambient_profile: "damp",  // ambient sfx / particle profile id
+    visual_theme: "blue",     // palette / shader-variant id
 
-These are top-level spec keys (not under `entities:`) and are
+These are top-level spec keys (not under `entities`) and are
 written as level field instances. The validator/runtime treat them
 as optional, so omitting any of them is safe.
 
-Optional `connect_to:` list creates reciprocal `LoadingZone` entities
+Optional `connect_to` list creates reciprocal `LoadingZone` entities
 in existing target levels:
 
-    connect_to:
-      - target_room: central_hub_complex   # required
-        px: [240, 600]                     # required: target-side pos
-        size: [16, 96]                     # required: target-side size
-        id: lab_door                       # optional: source `LoadingZone.id`
-        target_zone: lab_entry             # optional: source-side LoadingZone
-        activation: Door                   # optional, defaults to Door
-        bidirectional: true                # optional, defaults to true
+    connect_to: [
+        (
+            target_room: "central_hub_complex",   // required
+            px: [240, 600],                       // target-side pos
+            size: [16, 96],                       // target-side size
+            id: "lab_door",                       // optional: source LoadingZone.id
+            target_zone: "lab_entry",             // optional: source-side LoadingZone
+            activation: "Door",                   // optional, defaults to Door
+            bidirectional: true,                  // optional, defaults to true
+        ),
+    ]
 
 The helper rejects connecting to a missing target_room or placing the
 new LoadingZone on top of an existing entity rectangle in the target
@@ -125,17 +138,22 @@ PKG_DIR = Path(__file__).resolve().parent
 
 
 def load_spec(path: Path) -> dict:
+    """Read an area spec from disk. RON is the canonical format
+    (per Phase 4 of the character-catalog refactor); JSON is also
+    accepted for ad-hoc tooling that emits JSON-shaped specs. YAML
+    support was dropped in Phase 6 — convert any leftover .yaml
+    specs with `dev/migration-scripts/migrate_specs_to_ron.py`."""
     text = path.read_text()
     if path.suffix.lower() == ".ron":
         from .ron_parse import load as ron_load
 
         return ron_load(text)
     if path.suffix.lower() in {".yaml", ".yml"}:
-        try:
-            import yaml  # type: ignore
-        except ImportError as ex:  # pragma: no cover
-            raise SystemExit(f"YAML spec but pyyaml not installed: {ex}")
-        return yaml.safe_load(text)
+        raise SystemExit(
+            f"YAML area specs are no longer supported (Phase 6). "
+            f"Migrate '{path}' to RON with "
+            f"dev/migration-scripts/migrate_specs_to_ron.py"
+        )
     return json.loads(text)
 
 

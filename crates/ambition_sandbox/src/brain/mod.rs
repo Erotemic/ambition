@@ -398,6 +398,43 @@ mod tests {
     }
 
     #[test]
+    fn brain_swap_via_commands_replaces_existing_component() {
+        // Pins the runtime brain-swap contract — Bevy's
+        // commands.entity(e).insert(Brain) replaces the existing
+        // Brain component in place rather than producing a
+        // duplicate-component panic or silently ignoring the
+        // insert. This is the path damage.rs hostile-flip uses.
+        use bevy::prelude::*;
+        let mut app = App::new();
+        let entity = app
+            .world_mut()
+            .spawn((Brain::stand_still(), ActorControl::default()))
+            .id();
+        // Initially StandStill.
+        let world = app.world();
+        let brain = world.get::<Brain>(entity).expect("Brain attached");
+        assert!(matches!(
+            brain,
+            Brain::StateMachine(StateMachineCfg::StandStill)
+        ));
+        // Swap to MeleeBrute via the same commands.insert path.
+        app.world_mut().entity_mut(entity).insert(Brain::StateMachine(
+            StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+                state: MeleeBruteState::default(),
+            },
+        ));
+        let brain = app
+            .world()
+            .get::<Brain>(entity)
+            .expect("Brain still attached");
+        assert!(matches!(
+            brain,
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { .. })
+        ));
+    }
+
+    #[test]
     fn brain_tick_survives_100_ticks_for_every_template() {
         // Smoke test: tick each brain template 100 times with a
         // moving target and verify no panic / NaN propagation /

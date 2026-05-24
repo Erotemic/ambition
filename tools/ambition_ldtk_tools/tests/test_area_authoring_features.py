@@ -53,7 +53,8 @@ def fail(msg: str) -> None:
     raise SystemExit(1)
 
 
-def test_dry_run_does_not_modify_file(td: Path) -> None:
+def test_dry_run_does_not_modify_file(tmp_path: Path) -> None:
+    td = tmp_path
     spec_path = td / "dry.json"
     spec_path.write_text(json.dumps({
         "id": "dryrun_area",
@@ -95,7 +96,8 @@ def test_dry_run_does_not_modify_file(td: Path) -> None:
     print("ok: dry-run does not modify file or insert level")
 
 
-def test_biome_metadata_lands_as_level_fields(td: Path) -> None:
+def test_biome_metadata_lands_as_level_fields(tmp_path: Path) -> None:
+    td = tmp_path
     ldtk_copy = td / "sandbox_biome.ldtk"
     shutil.copy2(LDTK_PATH, ldtk_copy)
 
@@ -149,7 +151,8 @@ def test_biome_metadata_lands_as_level_fields(td: Path) -> None:
     print("ok: biome / music / ambient / theme land as level field instances")
 
 
-def test_connect_to_inserts_reciprocal_loading_zone(td: Path) -> None:
+def test_connect_to_inserts_reciprocal_loading_zone(tmp_path: Path) -> None:
+    td = tmp_path
     ldtk_copy = td / "sandbox_connect.ldtk"
     shutil.copy2(LDTK_PATH, ldtk_copy)
 
@@ -235,15 +238,20 @@ def test_connect_to_inserts_reciprocal_loading_zone(td: Path) -> None:
     print("ok: connect_to inserts reciprocal LoadingZone into the target level")
 
 
-def test_unknown_entity_type_suggestion(td: Path) -> None:
+def test_unknown_entity_type_suggestion(tmp_path: Path) -> None:
+    td = tmp_path
     ldtk_copy = td / "sandbox_typo.ldtk"
     shutil.copy2(LDTK_PATH, ldtk_copy)
     spec_path = td / "typo_spec.json"
     spec_path.write_text(json.dumps({
         "id": "typo_area",
         "level_id": "typo_level",
-        "world_x": 26000,
-        "world_y": 1024,
+        # Far from any authored level so the overlap check passes and
+        # we reach the entity-type validation. Tests in this file
+        # used to land at (26000, 1024) — that's now `crawl_lab`'s
+        # footprint.
+        "world_x": 100_000,
+        "world_y": 0,
         "px_wid": 256,
         "px_hei": 128,
         "fill_collision": "empty",
@@ -260,15 +268,17 @@ def test_unknown_entity_type_suggestion(td: Path) -> None:
     print("ok: unknown entity type produces 'Did you mean ...' suggestion")
 
 
-def test_unknown_field_rejected(td: Path) -> None:
+def test_unknown_field_rejected(tmp_path: Path) -> None:
+    td = tmp_path
     ldtk_copy = td / "sandbox_field.ldtk"
     shutil.copy2(LDTK_PATH, ldtk_copy)
     spec_path = td / "field_spec.json"
     spec_path.write_text(json.dumps({
         "id": "field_area",
         "level_id": "field_level",
-        "world_x": 26500,
-        "world_y": 1024,
+        # Far from any authored level — see `test_unknown_entity_type_suggestion`.
+        "world_x": 100_000,
+        "world_y": 256,
         "px_wid": 256,
         "px_hei": 128,
         "fill_collision": "empty",
@@ -295,13 +305,16 @@ def main() -> int:
         print(f"error: missing source LDtk file {LDTK_PATH}", file=sys.stderr)
         return 1
 
+    # Both forms supported: pytest provides `tmp_path` per-test, the
+    # script form below mints a single TemporaryDirectory and reuses
+    # it for the whole batch.
     with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        test_dry_run_does_not_modify_file(td)
-        test_biome_metadata_lands_as_level_fields(td)
-        test_connect_to_inserts_reciprocal_loading_zone(td)
-        test_unknown_entity_type_suggestion(td)
-        test_unknown_field_rejected(td)
+        td_path = Path(td)
+        test_dry_run_does_not_modify_file(td_path)
+        test_biome_metadata_lands_as_level_fields(td_path)
+        test_connect_to_inserts_reciprocal_loading_zone(td_path)
+        test_unknown_entity_type_suggestion(td_path)
+        test_unknown_field_rejected(td_path)
     print("PASS: all author_ldtk_area feature tests")
     return 0
 

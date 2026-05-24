@@ -14,8 +14,25 @@ can stop at any checkpoint if budget runs out.
 
 **Run started:** 2026-05-24T17:16:07+0000 (epoch 1779642967)
 **Plan complete:** all 7 main phases + Phase 8 stretch landed in 1.10 h wall-clock.
-**Bonus work landed:** 9.A–9.E in ~1.2 h additional wall-clock (manifest-driven specs, crash fix, base-4 wiring, boss synth, basement floors, spawn overlap validator, publish-catalog driver, renderer-surface doc).
-**Last green commit:** 893e499 (Bonus 9.D — hall basement floors + spawn-overlap validator)
+**Bonus work landed:** 9.A–9.N in ~2.5 h additional wall-clock — see rows below.
+**Last green commit:** b755855 (benchmark-candidate for runtime-invariant-not-enforced-at-load-time)
+
+### Headline state at end of run
+
+  - **97/97 Hall pedestals render real sprites** (was 24/99 pre-run).
+  - **0 sandbox.ldtk validator warnings** (was 185).
+  - **3 intro.ldtk warnings remain** — all genuine spatial-authoring
+    decisions that need human judgment (pirate_sky_arena top edge,
+    two mid-air doors in drain_alley / under_town_pipes).
+  - **779 sandbox lib tests + 265 engine + 22 Python tests pass**;
+    ~25 added this run.
+  - **45+ commits**, all green; tree clean.
+  - New documentation: ADR 0017, system doc, recipe doc, sprite-
+    rendering-surface doc, journal entry, benchmark-candidate.
+  - New tools: codegen_character_catalog, generate_hall_of_characters,
+    publish_catalog_sprites, inspect_hall_sprites, synth_boss_manifest,
+    space_debug_labels, intgrid paint, rename_npc_field (archived),
+    migrate_specs_to_ron (archived).
 
 ### Estimated vs Actual time
 

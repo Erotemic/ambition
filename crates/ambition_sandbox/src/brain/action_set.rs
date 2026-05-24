@@ -490,6 +490,24 @@ mod tests {
     }
 
     #[test]
+    fn action_set_default_is_peaceful_baseline() {
+        // Default-constructed ActionSet is the peaceful baseline:
+        // no attack capability, default move style. Pins the
+        // contract that a fresh-spawn actor with default ActionSet
+        // can't attack — daytime code that constructs ActionSets
+        // via `..Default::default()` can rely on this.
+        let s = ActionSet::default();
+        assert!(s.melee.is_none());
+        assert!(s.ranged.is_none());
+        assert!(s.special.is_none());
+        assert!(!s.can_attack());
+        assert_eq!(s.move_style, MoveStyleSpec::default());
+        // ActionSet::default() == ActionSet::peaceful().
+        let p = ActionSet::peaceful();
+        assert!(p.melee.is_none() && s.melee.is_none());
+    }
+
+    #[test]
     fn action_set_can_attack_detects_melee_or_ranged() {
         let mut s = ActionSet::peaceful();
         assert!(!s.can_attack());

@@ -13,8 +13,8 @@ can stop at any checkpoint if budget runs out.
 ## Run progress (live updates)
 
 **Run started:** 2026-05-24T17:16:07+0000 (epoch 1779642967)
-**Current phase:** Phase 6 — Cleanup 🏗️
-**Last green commit:** _Phase 5 commit pending_
+**Current phase:** Phase 8 (stretch) — sprite-regen cache 🏗️
+**Last green commit:** _Phase 7 commit pending_
 
 ### Estimated vs Actual time
 
@@ -25,8 +25,8 @@ can stop at any checkpoint if budget runs out.
 | 3. Sprite gap closure (every renderer entry → catalog) | 1.0 h | 0.09 h | ✅ done | Codegen script `codegen_character_catalog.py` synthesized 64 entries from renderer's list-targets via heuristic table. Catalog at 114 entries total. +1 coverage gate test pinning the renderer snapshot. 774 lib tests + headless 100-tick all green. Skipped regen smoke: this phase touched no sprite plumbing. |
 | 4. Area specs YAML → RON migration | 1.0 h | 0.10 h | ✅ done | 28 YAML specs converted to RON in-place. Initially hand-rolled a 200-LOC RON parser; per Jon's mid-run guidance switched to upstream `python-ron` (wraps the Rust `ron` crate) so the Python side parses exactly what Rust does. Keeps in-house struct-style `dumps` for idiomatic output. 774 lib tests green. |
 | 5. Hall of Characters generator + room | 1.5 h | 0.19 h | ✅ done | Generator: `generate_hall_of_characters.py` reads catalog, partitions by tier (pyron drops Rust enum discriminators on unit variants so regex extracts `tier:` directly), lays out 6 floors × 16 main slots + 2 basement rows × 8 = 112 capacity. Spec: 2048×1840 at world (40000, 0). 89 main + 10 basement pedestals (each = NpcSpawn + DebugLabel). LDtk pin test added. 775 lib tests + headless 200 ticks all green. |
-| 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | _ | ⬜ pending | _ |
-| 7. Documentation + ADR 0017 | 0.5 h | _ | ⬜ pending | _ |
+| 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | 0.24 h | ✅ done | Three sub-commits: 6A drop YAML support + archive one-shots (def5b2f); 6B delete NPC_SPRITE_REGISTRY + npc_sprite_label, sprite loader iterates catalog via sheet_for_character_id (26000cd, -298+151 lines); 6C renderer review_npcs → characters merge (9ed4a39). |
+| 7. Documentation + ADR 0017 | 0.5 h | 0.07 h | ✅ done | ADR 0017, character-catalog system doc, adding-a-character recipe, FEATURES.md row, TODO.md "landed" entry with deferred follow-ups, docs/recipes/index.md + docs/systems/index.md updates, dev/SEARCH.md grep tip. |
 | **Total (planned)** | **8.5 h** | _ | | over budget by 0.5 h — trim Phase 6 if needed |
 | 8. (stretch) Sprite-regen caching | ~0.75 h | _ | ⬜ optional | only if >45 min slack after Phase 7 |
 

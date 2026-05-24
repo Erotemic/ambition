@@ -19,7 +19,7 @@ System docs describe current subsystem behavior. If a file reads like a landed m
 | Collision / geometry / secondary physics | `collision-geometry-and-secondary-physics.md` |
 | Movement verbs | `blink-and-fastfall.md`, `blink-motion-policy.md` |
 | Abilities/combat/actors | `factions.md`, `boss-behavior-profiles.md`, `boss-encounter-architecture.md` |
-| Controllable-entity unification (brain) | `brain-driver.md`, `character-ai-refactor.md` |
+| Controllable-entity unification (brain) | `brain-driver.md`, `character-ai-refactor.md`, `character-catalog.md` |
 | UI/input/settings | `input-and-control-frame.md`, `ui-navigation-and-pause.md`, `settings-and-persistence.md`, `mobile-touch-controls.md`, `control-affordances.md` |
 | Presentation/assets/audio | `asset-manager.md`, `parallax-backgrounds.md`, `camera-and-visual-profiles.md`, `audio-particles.md`, `audio-underwater.md`, `display-modes.md` |
 | Time/progression/AI | `time-reference-platform.md`, `two-clock-simulation.md`, `progression-systems.md`, `ai-generation-contract.md` |

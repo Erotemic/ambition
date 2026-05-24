@@ -20,6 +20,7 @@ Recipes are current procedures: commands, workflows, or repeatable edit protocol
 | Mob lab encounter | `goblin-encounter.md` |
 | Generated music | `generated-music-workflow.md` |
 | Extending brains and ActionSets | `extending-brains-and-action-sets.md` |
+| Adding a character (catalog-driven) | `adding-a-character.md` |
 
 ## Planning moved out of recipes
 

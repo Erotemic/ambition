@@ -26,6 +26,8 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Enemy archetypes, boss profiles, encounter lock walls/rewards | Partial but playable | `docs/systems/boss-behavior-profiles.md`, `docs/systems/boss-encounter-architecture.md`, `docs/planning/tech-debt-log.md` |
 | Unified brain→sim seam (`ActorControlFrame`) for enemies + bosses | Available; player wired into ActorControl via Brain::Player (2026-05-24), polarity flip pending | `crates/ambition_engine/src/actor_control.rs`, `docs/systems/character-ai-refactor.md` |
 | Universal Brain interface — Brain enum + 7 reusable templates + per-entity ActionSet + ActorActionMessage resolver, every actor type wired (player/NPC/enemy/boss) | Available; consumer-flip pending | `crates/ambition_sandbox/src/brain/`, `docs/systems/brain-driver.md`, `docs/recipes/extending-brains-and-action-sets.md`, `TODO-controllable-entity.md` |
+| Character catalog (RON-driven authoring) — 99 entries, `character_id` keyed; LDtk NpcSpawns + sprite loader + Hall of Characters all consume the catalog | Available (2026-05-24) | `crates/ambition_sandbox/assets/data/character_catalog.ron`, `docs/systems/character-catalog.md`, `docs/recipes/adding-a-character.md`, `docs/adr/0017-rust-behavior-ron-content-ldtk-space.md` |
+| Hall of Characters room — auto-generated multi-level pantheon, one pedestal per catalog entry | Available (2026-05-24) | `tools/ambition_ldtk_tools/specs/hall_of_characters_area.ron`, `tools/ambition_ldtk_tools/ambition_ldtk_tools/generate_hall_of_characters.py` |
 | Dialogue/commerce hooks | Scaffolded | `docs/systems/progression-systems.md`, `docs/adr/0008-dialogue-and-commerce-architecture.md` |
 
 ## World authoring and runtime projection

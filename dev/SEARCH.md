@@ -26,6 +26,7 @@ rg -n "overlay|stale base|clobber|entrypoint|feature flag" dev/journals dev/benc
 rg -n "audio|music|director|adaptive|procedural|squeaky|cue" dev/journals dev/benchmark-candidates
 rg -n "input|ControlFrame|edge|held|touch|menu|semantic" dev/journals dev/benchmark-candidates
 rg -n "brain|ActorControl|ActionSet|ActorActionMessage|StateMachineCfg" dev/journals dev/benchmark-candidates
+rg -n "character_catalog|character_id|sheet_for_character_id|hall_of_characters" dev/journals dev/benchmark-candidates
 ```
 
 ## Search protocol

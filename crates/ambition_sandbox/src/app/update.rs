@@ -21,49 +21,37 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
-/// Bevy gameplay system that drives the sandbox simulation.
+/// Pre-tick coordinator for the two-system player update.
 ///
-/// What's left inline is the two-clock player update — control then
-/// simulation — because both halves share `&mut ae::Player` and both
-/// can early-return on an engine-driven reset (`update_player_*_with_tuning`
-/// returning `events.reset = true`). Extracting either half would require
-/// either a player-borrow split or a deferred reset message, both of
-/// which carry more risk than the current minor inline orchestration.
+/// Cleared at the start of each frame; either `player_control_system`
+/// or `player_simulation_system` may set it via the
+/// `SandboxResetThisFrame` resource. When set, the simulation
+/// system short-circuits so the reset's state changes aren't
+/// clobbered by a same-frame sim integration.
 ///
-/// `FrameFeedback` is gone — `player_control_phase` and
-/// `player_simulation_phase` now take `&mut MessageWriter<SfxMessage>`
-/// and `&mut MessageWriter<VfxMessage>` directly via
-/// [`SandboxEventWriters`]'s split borrows.
+/// Replaces the early-return short-circuit that the deleted
+/// monolithic `sandbox_update` used to express via control flow.
+pub fn clear_sandbox_reset_this_frame(mut flag: ResMut<SandboxResetThisFrame>) {
+    flag.0 = false;
+}
+
+/// Control-clock player update. Runs first in the player tick.
 ///
-/// Pre-tick (in `SandboxSet::PlayerInput`, before this system):
-/// - `sync_live_player_dev_edits_system` — F3 inspector edits, always-on.
-/// - `apply_player_reset_input_system` — input-driven reset; clears
-///   `controls.reset_pressed` so the engine path here doesn't double-fire.
-/// - `input_timer_system` — gameplay timer decay + double-tap detection.
-/// - `interaction_input_system` — fold raw Interact + double-tap-up,
-///   gate by hit-stun, update `PlayerInteractionState`'s interact buffer.
-/// - `apply_suspended_time_scale_system` — zeros `time_scale` while
-///   gameplay is suspended (complement of this system's `gameplay_allowed`
-///   run-condition).
+/// Reads the player's brain output (`ActorControl`) as the authority
+/// for the abstract intent verbs (movement, jump, attack, dash,
+/// interact, shield) and the raw `PlayerInputFrame` for the player-
+/// specific verbs not yet translated by the player brain. The
+/// `engine_input_from_actor_control` helper builds the resulting
+/// `ae::InputState` for `update_player_control_with_tuning`.
 ///
-/// Inside `sandbox_update` (gated by `run_if(gameplay_allowed)`):
-/// 1. `player_control_phase` — control-clock player update + pogo
-///    routing. Returns early on engine-driven reset.
-/// 2. `player_simulation_phase` — sim-clock player update + landing dust.
-///    Returns early on engine-driven reset.
-///
-/// Post-tick (in `SandboxSet::PlayerSimulation` / `RoomTransition` /
-/// `Combat` / `PresentationSync`, after this system):
-/// - `apply_player_damage_system` — drains `MessageReader<PlayerDamageEvent>`,
-///   runs `handle_player_damage_events` + `remember_safe_player_position`.
-/// - `detect_room_transition_system` / `apply_room_transition_system`.
-/// - `attack_advance_system` — slash / pogo attack lifecycle.
-/// - `write_player_ecs_components` + `cleanup_timers_system`.
-pub fn sandbox_update(
+/// Sets `SandboxResetThisFrame` when the engine reports a reset so
+/// the simulation system can skip this frame.
+pub fn player_control_system(
     time: Res<Time>,
     world: Res<GameWorld>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
+    mut reset_this_frame: ResMut<SandboxResetThisFrame>,
     mut event_writers: SandboxEventWriters,
     mut queues: SandboxQueues,
     mut player_q: Query<
@@ -73,10 +61,10 @@ pub fn sandbox_update(
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerBlinkCameraState,
-            &mut crate::player::PlayerPlatformRideState,
             &mut crate::player::ActivePlayerAttack,
             &mut crate::player::PlayerSafetyState,
             &crate::player::PlayerInputFrame,
+            &crate::brain::ActorControl,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -87,10 +75,10 @@ pub fn sandbox_update(
         mut combat,
         mut interaction,
         mut blink_cam,
-        mut ride,
         mut attack,
         mut safety,
         input,
+        actor_control,
     )) = player_q.single_mut()
     else {
         return;
@@ -98,30 +86,15 @@ pub fn sandbox_update(
     let player = &mut authority.player;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    // Player input now lives on `PlayerInputFrame` (OVERNIGHT-TODO
-    // #17.5). The single global `Res<ControlFrame>` is mirrored onto
-    // the local primary player's component by
-    // `sync_local_player_input_frame` in the PlayerInput phase; this
-    // tick reads from the component so a future co-op build can have
-    // each player carry their own input frame.
     let controls = input.frame;
     let frame_dt = time.delta_secs();
-
-    // Pause/resume toggling has moved to `pause_menu::pause_menu_toggle`,
-    // which runs `.before(SandboxSet::CoreSimulation)`. The
-    // `start_pressed` flag is still read here for compile-completeness.
+    // Pause/resume toggle handling is in `pause_menu::pause_menu_toggle`;
+    // touching `start_pressed` here keeps the field's discoverability.
     let _ = controls.start_pressed;
-
-    // Input-driven reset (controls.reset_pressed) was extracted to
-    // `apply_player_reset_input_system` in sim_systems, which runs
-    // pre-tick and clears `controls.reset_pressed` so the engine
-    // path inside player_control_phase doesn't double-trigger.
-    // Engine-driven resets (control_events.reset / sim_events.reset)
-    // still run inline below.
-
     if matches!(
         player_control_phase(
             controls,
+            actor_control.0,
             &world.0,
             player,
             &mut queues.sim_state,
@@ -143,12 +116,67 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
+        reset_this_frame.0 = true;
+    }
+}
+
+/// Sim-clock player update. Runs after `player_control_system`.
+///
+/// Short-circuits when `SandboxResetThisFrame` is set so a reset
+/// fired in the control phase doesn't get partially overwritten by
+/// the sim phase this frame. Otherwise runs the sim-clock player
+/// update and updates the flag itself if its own reset fires.
+pub fn player_simulation_system(
+    time: Res<Time>,
+    world: Res<GameWorld>,
+    editable_tuning: Res<EditableMovementTuning>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    mut reset_this_frame: ResMut<SandboxResetThisFrame>,
+    mut event_writers: SandboxEventWriters,
+    mut queues: SandboxQueues,
+    mut player_q: Query<
+        (
+            &mut crate::player::PlayerMovementAuthority,
+            &mut crate::player::PlayerAnimState,
+            &mut crate::player::PlayerCombatState,
+            &mut crate::player::PlayerInteractionState,
+            &mut crate::player::PlayerBlinkCameraState,
+            &mut crate::player::PlayerPlatformRideState,
+            &mut crate::player::ActivePlayerAttack,
+            &mut crate::player::PlayerSafetyState,
+            &crate::player::PlayerInputFrame,
+            &crate::brain::ActorControl,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    if reset_this_frame.0 {
         return;
     }
-
+    let Ok((
+        mut authority,
+        mut anim,
+        mut combat,
+        mut interaction,
+        mut blink_cam,
+        mut ride,
+        mut attack,
+        mut safety,
+        input,
+        actor_control,
+    )) = player_q.single_mut()
+    else {
+        return;
+    };
+    let player = &mut authority.player;
+    let tuning = editable_tuning.as_engine();
+    let feel = *feel_tuning;
+    let controls = input.frame;
+    let frame_dt = time.delta_secs();
     if matches!(
         player_simulation_phase(
             controls,
+            actor_control.0,
             &world.0,
             player,
             &queues.dev_state,
@@ -171,6 +199,6 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
-        return;
+        reset_this_frame.0 = true;
     }
 }

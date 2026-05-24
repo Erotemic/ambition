@@ -33,6 +33,7 @@ use super::*;
 /// `Return` if the engine asked for a sandbox reset.
 pub(super) fn player_control_phase(
     controls: ControlFrame,
+    actor_control: ae::ActorControlFrame,
     world: &ae::World,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
@@ -55,8 +56,19 @@ pub(super) fn player_control_phase(
     // Two-clock update:
     // - control_dt is real time for responsive inputs and precision-blink aim;
     // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
-    let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
-    let input = filtered.engine_input(frame_dt);
+    //
+    // Per the actor/brain migration, `ActorControl` is the authority
+    // for the abstract verbs (movement, jump, attack, dash, interact,
+    // shield). Raw `controls` is still consulted for player-specific
+    // verbs (pogo/blink/fly_toggle/fast_fall) until the player brain
+    // grows them. The hitstun gate applies to the combined frame.
+    let input = engine_input_from_actor_control(
+        actor_control,
+        controls,
+        feel,
+        combat.hitstun_timer,
+        frame_dt,
+    );
     let control_world =
         features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
     let control_events =
@@ -117,6 +129,7 @@ pub(super) fn player_control_phase(
 /// the PlayerInput pipeline.
 pub(super) fn player_simulation_phase(
     controls: ControlFrame,
+    actor_control: ae::ActorControlFrame,
     world: &ae::World,
     player: &mut ae::Player,
     dev_state: &crate::SandboxDevState,
@@ -137,8 +150,13 @@ pub(super) fn player_simulation_phase(
     blink_cam: &mut crate::player::PlayerBlinkCameraState,
     ride: &mut crate::player::PlayerPlatformRideState,
 ) -> PhaseOutcome {
-    let filtered = controls_for_hitstun(controls, feel, combat.hitstop_timer);
-    let input = filtered.engine_input(frame_dt);
+    let input = engine_input_from_actor_control(
+        actor_control,
+        controls,
+        feel,
+        combat.hitstop_timer,
+        frame_dt,
+    );
 
     // sim_state.time_scale was set this frame by the time-control
     // pipeline in SandboxSet::PlayerInput (emit → apply → smooth).

@@ -744,6 +744,62 @@ pub(super) fn controls_for_hitstun(
     controls
 }
 
+/// Build the engine's `InputState` from the player's brain output
+/// (`ActorControl`, the post-Brain::Player intent) combined with the
+/// raw `ControlFrame` (for player-specific verbs the player brain
+/// doesn't yet translate). Per the actor/brain migration: `ActorControl`
+/// is the authority for the abstract verbs (movement, jump, attack,
+/// dash, interact, shield); raw `ControlFrame` carries the rest as
+/// upstream compatibility input.
+///
+/// The hitstun gate is applied to the FINAL `InputState` so verbs
+/// sourced from either side are zeroed uniformly.
+pub(super) fn engine_input_from_actor_control(
+    actor: ae::ActorControlFrame,
+    raw: ControlFrame,
+    feel: SandboxFeelTuning,
+    hitstun_timer: f32,
+    control_dt: f32,
+) -> ae::InputState {
+    // Start from `raw.engine_input` to capture the player-specific
+    // verbs (`pogo_pressed`, `blink_*`, `fly_toggle_pressed`,
+    // `fast_fall_pressed`) that the player brain doesn't currently
+    // translate.
+    let mut input = raw.engine_input(control_dt);
+    // ActorControl wins for the abstract verbs the player brain
+    // translates from raw input. These are the brain's authoritative
+    // outputs; reading them here (instead of raw) is the polarity
+    // flip the migration mandates.
+    input.axis_x = actor.desired_vel.x;
+    input.axis_y = actor.desired_vel.y;
+    input.jump_pressed = actor.jump_pressed;
+    input.jump_held = actor.jump_held;
+    input.jump_released = actor.jump_released;
+    input.dash_pressed = actor.dash_pressed;
+    input.attack_pressed = actor.melee_pressed;
+    input.interact_pressed = actor.interact_pressed;
+    input.shield_held = actor.shield_held;
+    // `drop_through_pressed` stays raw-derived because the brain
+    // explicitly delegates the down+jump gesture to the integration
+    // (see `brain::player::tick_player_brain_from_control` notes).
+    if hitstun_timer > 0.0 {
+        let scale = feel.hitstun_control_scale.clamp(0.0, 1.0);
+        input.axis_x *= scale;
+        input.axis_y *= scale;
+        input.jump_pressed = false;
+        input.dash_pressed = false;
+        input.fast_fall_pressed = false;
+        input.blink_pressed = false;
+        input.blink_held = false;
+        input.blink_released = false;
+        input.attack_pressed = false;
+        input.pogo_pressed = false;
+        input.fly_toggle_pressed = false;
+        input.interact_pressed = false;
+    }
+    input
+}
+
 pub(super) fn start_attack(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,

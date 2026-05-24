@@ -117,7 +117,7 @@ pub use plugins::{
     add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, SandboxLdtkPlugin,
     SandboxPresentationPlugin, SandboxSimulationPlugin,
 };
-pub use resources::{init_sandbox_resources, StartRoomOverride};
+pub use resources::{init_sandbox_resources, SandboxResetThisFrame, StartRoomOverride};
 pub use schedule::{configure_sandbox_sets, SandboxSet};
 pub(crate) use setup_systems::setup_presentation_system;
 pub use sim_systems::{
@@ -125,5 +125,5 @@ pub use sim_systems::{
     attack_advance_system, cleanup_timers_system, detect_room_transition_system,
     input_timer_system, interaction_input_system, sync_live_player_dev_edits_system,
 };
-pub use update::sandbox_update;
+pub use update::{clear_sandbox_reset_this_frame, player_control_system, player_simulation_system};
 pub use world_flow::apply_room_transition_system;

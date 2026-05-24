@@ -167,11 +167,31 @@ fn register_player_input_systems(app: &mut App) {
 
 /// Main player tick (two-clock control + simulation) plus post-sim
 /// damage / safe-respawn.
+///
+/// Per the actor/brain migration, the player tick is no longer
+/// a monolithic `sandbox_update` orchestrator. Instead:
+///
+/// 1. `clear_sandbox_reset_this_frame` zeros the per-frame reset
+///    flag at the start of the player tick.
+/// 2. `player_control_system` runs the control-clock half. If
+///    `update_player_control_with_tuning` reports a reset, the
+///    `SandboxResetThisFrame` flag is set.
+/// 3. `player_simulation_system` runs the sim-clock half. It
+///    short-circuits when the flag is set so the same-frame reset
+///    isn't clobbered. May set the flag itself if its own engine
+///    call reports a reset.
+/// 4. `apply_player_damage_system` drains pending damage events.
+///
+/// Both systems read `ActorControl` as the brain-output authority +
+/// `PlayerInputFrame` for player-specific verbs (the polarity flip).
 fn register_player_simulation_systems(app: &mut App) {
+    app.init_resource::<crate::app::SandboxResetThisFrame>();
     app.add_systems(
         Update,
         (
-            sandbox_update.run_if(gameplay_allowed),
+            clear_sandbox_reset_this_frame,
+            player_control_system.run_if(gameplay_allowed),
+            player_simulation_system.run_if(gameplay_allowed),
             apply_player_damage_system.run_if(gameplay_allowed),
         )
             .chain()

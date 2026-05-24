@@ -132,7 +132,7 @@ impl Plugin for MobileTouchPlugin {
                         // happened to work only because `held` and
                         // `released` persist across frames in the
                         // touch state, masking the ordering bug.
-                        .before(crate::app::sandbox_update)
+                        .before(crate::app::player_control_system)
                         // ALSO run before pause_menu_toggle so the
                         // touch Start press is in ControlFrame before
                         // pause_menu_toggle reads it. The pause /

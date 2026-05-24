@@ -29,6 +29,20 @@ use super::*;
 #[derive(Resource, Clone, Debug)]
 pub struct StartRoomOverride(pub String);
 
+/// Per-frame flag set by `player_control_system` when an engine-
+/// driven reset fired (control or simulation phase asked for one).
+/// `player_simulation_system` reads it; when set, the simulation
+/// phase short-circuits this frame so the reset's state changes
+/// don't get clobbered by a same-frame sim integration.
+///
+/// Cleared at the start of each frame by
+/// `clear_sandbox_reset_this_frame` in the PlayerInput set.
+///
+/// Replaces the early-return short-circuit that the deleted
+/// `sandbox_update` orchestrator used to express via control flow.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct SandboxResetThisFrame(pub bool);
+
 pub fn init_sandbox_resources(app: &mut App) {
     let sandbox_data = data::SandboxDataSpec::load_embedded();
 

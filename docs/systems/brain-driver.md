@@ -104,7 +104,9 @@ Every controllable entity carries a `Brain` + `ActionSet` +
 `ActorControl` sibling component:
 
 - **Players** spawn with `Brain::Player(PlayerSlot::PRIMARY)` +
-  the default player `ActionSet` (Swipe melee + Bolt ranged). The
+  the default player `ActionSet` (Swipe melee gated by
+  `abilities.attack`, Bolt ranged unconditionally, BubbleShield
+  special gated by `abilities.shield`). The
   `tick_player_brains` system (runs in the `PlayerInput` phase
   after `sync_local_player_input_frame`) translates the
   per-player `PlayerInputFrame` into the actor's `ActorControl`

@@ -137,6 +137,30 @@ pub fn emit_brain_action_messages(
     }
 }
 
+/// Resource: per-frame counter of `ActorActionMessage`s observed.
+/// Daytime EFFECTS-flip work uses this to confirm the resolver is
+/// actually firing during gameplay before wiring real consumers.
+/// HUD / debug tooling can surface it as "brain actions/frame: N".
+#[derive(bevy::ecs::resource::Resource, Default, Clone, Copy, Debug)]
+pub struct BrainActionCounter {
+    /// Total messages observed since last reset (sum across actors).
+    pub total: u64,
+    /// Messages observed this frame.
+    pub last_frame: u32,
+}
+
+/// Bevy system: observe the `ActorActionMessage` stream and update
+/// the counter. Runs after `emit_brain_action_messages`. Doesn't
+/// consume the messages — other readers still see them.
+pub fn observe_brain_action_counter(
+    mut counter: bevy::ecs::system::ResMut<BrainActionCounter>,
+    mut reader: MessageReader<ActorActionMessage>,
+) {
+    let this_frame = reader.read().count() as u32;
+    counter.last_frame = this_frame;
+    counter.total = counter.total.wrapping_add(this_frame as u64);
+}
+
 /// One-call "tick this brain with a snapshot built from these
 /// actor + target positions" helper. Used by every shadow-tick
 /// site (`update_ecs_actors` hostile branch, `update_ecs_bosses`)
@@ -211,6 +235,46 @@ mod tests {
         out.melee_pressed = true; // pre-poisoned
         b.tick(&BrainSnapshot::idle(), &mut out);
         assert!(!out.melee_pressed);
+    }
+
+    /// observe_brain_action_counter sums per-frame messages into
+    /// the resource. Pins the counter system shape — daytime work
+    /// or HUD readouts can rely on `last_frame` reflecting the
+    /// resolver's per-frame output count.
+    #[test]
+    fn observe_brain_action_counter_sums_per_frame_messages() {
+        use bevy::prelude::*;
+        let mut app = App::new();
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<BrainActionCounter>();
+        app.add_systems(
+            Update,
+            (emit_brain_action_messages, observe_brain_action_counter).chain(),
+        );
+        let actions = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ..Default::default()
+        };
+        let mut frame = ae::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        app.world_mut().spawn((
+            Brain::StateMachine(StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+                state: MeleeBruteState::default(),
+            }),
+            ActorControl(frame),
+            actions,
+            bevy::transform::components::Transform::IDENTITY,
+        ));
+        app.update();
+        let counter = app.world().resource::<BrainActionCounter>();
+        assert_eq!(counter.last_frame, 1);
+        assert_eq!(counter.total, 1);
+        // Run another tick — counter accumulates.
+        app.update();
+        let counter = app.world().resource::<BrainActionCounter>();
+        assert_eq!(counter.last_frame, 1);
+        assert_eq!(counter.total, 2);
     }
 
     /// emit_brain_action_messages walks every Brain/ActionSet/

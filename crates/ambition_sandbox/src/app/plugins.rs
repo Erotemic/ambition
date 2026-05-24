@@ -56,6 +56,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // channel — daytime work flips combat/projectile consumers off
     // the legacy paths and onto this stream.
     app.add_message::<crate::brain::ActorActionMessage>();
+    app.init_resource::<crate::brain::BrainActionCounter>();
     register_player_input_systems(app);
     register_player_simulation_systems(app);
     register_room_transition_systems(app);
@@ -156,6 +157,10 @@ fn register_player_input_systems(app: &mut App) {
             // consumer reads — daytime work flips combat /
             // projectile spawners onto this stream.
             crate::brain::emit_brain_action_messages,
+            // Observe the resolver output into a per-frame counter
+            // so daytime work + HUD have a quick read on whether
+            // any brain wants something this tick.
+            crate::brain::observe_brain_action_counter,
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),

@@ -626,6 +626,39 @@ mod tests {
     }
 
     #[test]
+    fn patrol_state_mode_mirrors_evaluator_intent() {
+        // tick_patrol writes state.mode = ai.mode from the engine
+        // evaluator. The NPC code at npcs.rs:230 reads PatrolState
+        // .mode to pick HUD sprites — pin that a Patrol tick with
+        // a far target gets mode = Patrol (i.e. the actor paces).
+        let cfg = PatrolCfg::NPC_DEFAULT;
+        let mut sm = StateMachineCfg::Patrol {
+            cfg,
+            state: PatrolState::default(),
+        };
+        let s = snap_at(0.0, 5000.0); // target far away
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        if let StateMachineCfg::Patrol { state, .. } = &sm {
+            // Far target → evaluator picks Patrol (not Idle/Chase/Attack).
+            assert_eq!(state.mode, ae::CharacterAiMode::Patrol);
+        } else {
+            unreachable!();
+        }
+        // With a close target the evaluator switches to Chase (or
+        // Attack if in range) — mode follows.
+        let close = snap_at(0.0, 30.0);
+        tick_state_machine(&mut sm, &close, &mut out);
+        if let StateMachineCfg::Patrol { state, .. } = &sm {
+            assert_ne!(
+                state.mode,
+                ae::CharacterAiMode::Patrol,
+                "close target should leave Patrol",
+            );
+        }
+    }
+
+    #[test]
     fn hostile_patrol_chases_target_in_aggro() {
         // Patrol with aggressiveness > 0 should chase the target
         // when it's inside aggro_radius but outside attack_range.

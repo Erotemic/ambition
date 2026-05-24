@@ -927,6 +927,45 @@ mod tests {
     }
 
     #[test]
+    fn melee_brute_attack_gate_respects_each_phase_timer() {
+        // The Attack branch ANDs four timer gates: cooldown, windup,
+        // active, recover. Any of them positive must suppress
+        // melee_pressed. Walks each one individually to catch a
+        // future refactor that drops one of the gates.
+        let cfg = MeleeBruteCfg::STRIKER_DEFAULT;
+        let cases: [(&str, fn(&mut BrainSnapshot)); 4] = [
+            ("cooldown", |s| s.attack_cooldown_remaining = 0.1),
+            ("windup", |s| s.attack_windup_remaining = 0.1),
+            ("active", |s| s.attack_active_remaining = 0.1),
+            ("recover", |s| s.attack_recover_remaining = 0.1),
+        ];
+        for (name, poke) in cases {
+            let mut sm = StateMachineCfg::MeleeBrute {
+                cfg,
+                state: MeleeBruteState::default(),
+            };
+            let mut s = snap_at(0.0, 20.0); // inside attack range
+            poke(&mut s);
+            let mut out = ae::ActorControlFrame::neutral();
+            tick_state_machine(&mut sm, &s, &mut out);
+            assert!(
+                !out.melee_pressed,
+                "{} timer > 0 should suppress melee_pressed",
+                name,
+            );
+        }
+        // Sanity: with all timers clear, melee_pressed = true.
+        let mut sm = StateMachineCfg::MeleeBrute {
+            cfg,
+            state: MeleeBruteState::default(),
+        };
+        let s = snap_at(0.0, 20.0);
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        assert!(out.melee_pressed, "all timers clear → should attack");
+    }
+
+    #[test]
     fn skirmisher_holds_standoff_then_fires() {
         let cfg = SkirmisherCfg::RANGER_DEFAULT;
         let mut sm = StateMachineCfg::Skirmisher {

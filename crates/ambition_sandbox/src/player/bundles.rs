@@ -77,6 +77,7 @@ impl PlayerSimulationBundle {
     /// this helper, since the second player should not inherit
     /// `PrimaryPlayer` and may not be `LocalPlayer`.
     pub fn new(player: ae::Player, health: ae::Health) -> Self {
+        let action_set = default_player_action_set(player.abilities);
         let authority = PlayerMovementAuthority::new(player);
         let body = authority.body();
         let initial_safe_pos = authority.player.pos;
@@ -98,43 +99,52 @@ impl PlayerSimulationBundle {
             faction: ActorFaction::Player,
             name: Name::new("Player"),
             brain: Brain::Player(PlayerSlot::PRIMARY),
-            // Player ActionSet carries the abstract shape of the
-            // player's moveset. Today nothing reads it for combat
-            // effects — update_player still spawns hitboxes via the
-            // existing pipeline. The set lights up when the
-            // ActionSet effect-resolver flip lands (daytime). For
-            // now we seed with the default attack specs so
-            // possession ("player inhabits a goblin") swaps Brain
-            // alone, not ActionSet.
-            action_set: default_player_action_set(),
+            // Player ActionSet derived from the player's AbilitySet.
+            // Today nothing reads it for combat effects —
+            // update_player still spawns hitboxes via the existing
+            // pipeline. The set lights up when the ActionSet
+            // effect-resolver flip lands (daytime). Possession of a
+            // non-player body keeps that body's ActionSet — this
+            // default fires only for actual player entities.
+            action_set,
             actor_control: ActorControl::default(),
         }
     }
 }
 
-/// Default player moveset — `MeleeActionSpec::Swipe` for melee,
-/// `RangedActionSpec::Bolt` for projectile. Seeds the player's
-/// ActionSet at spawn so the resolver returns sensible
-/// `ActionRequest`s pre-EFFECTS-flip. Per the universal-brain
-/// design, possession of a non-player body keeps that body's
-/// ActionSet — this default fires only for actual player entities.
-fn default_player_action_set() -> ActionSet {
-    use crate::brain::{MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SwipeSpec};
+/// Default player moveset derived from an `AbilitySet`. A player
+/// without the `attack` ability gets `melee: None`; without `blink`
+/// or `precision_blink` they get `special: None`. The resolver
+/// won't emit `ActionRequest`s for capabilities the player
+/// doesn't have, so daytime EFFECTS-flip consumers can read the
+/// ActionSet as the authoritative "what can this player actually
+/// do right now" surface without re-checking AbilitySet.
+fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
+    use crate::brain::{MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec};
     ActionSet {
-        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-            // Player swipe is faster than enemy Striker default —
-            // the player's combat tempo runs ~2× snappier.
-            windup_s: 0.12,
-            active_s: 0.10,
-            recover_s: 0.18,
-            damage: 1,
-            reach_px: 36.0,
-        })),
+        melee: abilities.attack.then(|| {
+            MeleeActionSpec::Swipe(SwipeSpec {
+                // Player swipe is faster than enemy Striker default
+                // — the player's combat tempo runs ~2× snappier.
+                windup_s: 0.12,
+                active_s: 0.10,
+                recover_s: 0.18,
+                damage: 1,
+                reach_px: 36.0,
+            })
+        }),
+        // The player's "ranged" today is the fireball / hadouken
+        // path, gated by the `projectile` ability (sandbox-all
+        // players have it).
         ranged: Some(RangedActionSpec::Bolt {
             speed: 600.0,
             damage: 1,
         }),
         move_style: MoveStyleSpec::Walk,
-        special: None,
+        // Special slot: today we map to BubbleShield since shield is
+        // a player-only signature ability. When the player is in
+        // possession of a different body, the body's ActionSet would
+        // override.
+        special: Some(SpecialActionSpec::BubbleShield),
     }
 }

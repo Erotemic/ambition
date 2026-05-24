@@ -269,11 +269,11 @@ Captured here so the next daytime session picks up cleanly.
 - Narrow `ActorControlFrame::fire` to `Option<Vec2>` once
   ActionSet's RangedActionSpec is the speed source.
 
-Test counts at session end: 762 sandbox lib tests + 265 engine
-lib tests + 55/4/5 in other workspace crates = 1091 total
+Test counts at session end: 763 sandbox lib tests + 265 engine
+lib tests + 55/4/5 in other workspace crates = 1092 total
 tests green (up from the original 720 at the start of the
-session — ~40 new pin tests + 1 latent bug fix landed in the
-late-session stability round). Headless / rl_smoke / rl_random_walker binaries all
+session — ~43 new pin tests + 1 latent bug fix landed across
+the universal-brain landing + late-session stability round). Headless / rl_smoke / rl_random_walker binaries all
 clean (verified at 60, 100, 200, 300, 500, 800, 1000 ticks at
 various points). Brain module clippy-clean. Doc-link check
 passes. Agent KB check fails on a pre-existing missing path

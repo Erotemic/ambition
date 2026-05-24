@@ -180,6 +180,14 @@ mod conversion_tests {
     /// Every combat archetype reports finite, non-NaN tunings. A
     /// regression here would mean a numerical typo in the per-archetype
     /// match arms (most likely an `f32::NAN` literal slipped in).
+    ///
+    /// Hostile archetypes additionally must have positive
+    /// `attack_range` + `contact_strength`. Peaceful archetypes
+    /// (PuppySlug, PirateHeavy — see `EnemyArchetype::attacks_player`)
+    /// are allowed to have `attack_range == 0.0` because they don't
+    /// emit a melee windup; the universal-brain refactor moves this
+    /// into `Brain::is_hostile()` long-term, but the per-archetype
+    /// signal is the source of truth for now.
     #[test]
     fn enemy_archetype_tunings_are_finite() {
         for archetype in EnemyArchetype::COMBAT_ALL {
@@ -189,10 +197,22 @@ mod conversion_tests {
             assert!(archetype.aggro_radius().is_finite());
             assert!(archetype.aggro_radius() >= 0.0);
             assert!(archetype.attack_range().is_finite());
-            assert!(archetype.attack_range() > 0.0);
+            assert!(archetype.attack_range() >= 0.0);
             assert!(archetype.contact_strength().is_finite());
-            assert!(archetype.contact_strength() > 0.0);
+            assert!(archetype.contact_strength() >= 0.0);
             assert!(archetype.damage_amount() > 0);
+            if archetype.attacks_player() {
+                assert!(
+                    archetype.attack_range() > 0.0,
+                    "{:?} reports it attacks but has zero attack_range",
+                    archetype,
+                );
+                assert!(
+                    archetype.contact_strength() > 0.0,
+                    "{:?} reports it attacks but has zero contact_strength",
+                    archetype,
+                );
+            }
         }
     }
 

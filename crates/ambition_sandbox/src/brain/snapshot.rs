@@ -166,6 +166,19 @@ mod tests {
     }
 
     #[test]
+    fn to_character_ai_snapshot_handles_negative_inputs_without_panic() {
+        // Defensive: negative aggro / attack ranges should pass
+        // through to the engine evaluator (which clamps via
+        // .max(0.0)). Pin that the helper doesn't try to
+        // pre-validate or panic.
+        let s = BrainSnapshot::idle();
+        let ai = s.to_character_ai_snapshot(-10.0, -5.0, false);
+        assert_eq!(ai.aggro_radius, -10.0);
+        assert_eq!(ai.attack_range, -5.0);
+        assert!(!ai.patrol_enabled);
+    }
+
+    #[test]
     fn to_character_ai_snapshot_threads_timers() {
         let mut s = BrainSnapshot::idle();
         s.attack_windup_remaining = 0.25;

@@ -257,6 +257,31 @@ pub fn observe_brain_action_counter(
     counter.total = counter.total.wrapping_add(this_frame as u64);
 }
 
+/// Combat-timer state passed into a shadow tick so the brain's
+/// AI evaluator sees correct windup / active / recover / cooldown
+/// values. Use `CombatTimers::CLEAR` for actors that don't track
+/// attack state (NPCs, sandbags).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CombatTimers {
+    pub cooldown_remaining: f32,
+    pub windup_remaining: f32,
+    pub active_remaining: f32,
+    pub recover_remaining: f32,
+    pub stun_remaining: f32,
+}
+
+impl CombatTimers {
+    /// No active attack / stun — all zeros. The brain template
+    /// reads "can begin attack windup" as true.
+    pub const CLEAR: Self = Self {
+        cooldown_remaining: 0.0,
+        windup_remaining: 0.0,
+        active_remaining: 0.0,
+        recover_remaining: 0.0,
+        stun_remaining: 0.0,
+    };
+}
+
 /// One-call "tick this brain with a snapshot built from these
 /// actor + target positions" helper. Used by every shadow-tick
 /// site (`update_ecs_actors` hostile branch, `update_ecs_bosses`)
@@ -264,6 +289,10 @@ pub fn observe_brain_action_counter(
 /// migration tightens this — once a real consumer reads the
 /// resulting `ActorControl`, the per-actor brain-driver fills the
 /// snapshot's combat-timer / wall-contact fields too.
+///
+/// Default variant uses `CombatTimers::CLEAR` — see
+/// [`shadow_tick_brain_with_timers`] for the variant that passes
+/// real attack-timer values.
 #[allow(clippy::too_many_arguments, reason = "intentional flat helper; the snapshot it builds is what's deduped")]
 pub fn shadow_tick_brain(
     brain: &mut Brain,
@@ -275,6 +304,36 @@ pub fn shadow_tick_brain(
     target_pos: ae::Vec2,
     dt: f32,
 ) -> ae::ActorControlFrame {
+    shadow_tick_brain_with_timers(
+        brain,
+        actor_pos,
+        actor_vel,
+        actor_facing,
+        actor_on_ground,
+        alive,
+        target_pos,
+        dt,
+        CombatTimers::CLEAR,
+    )
+}
+
+/// Like [`shadow_tick_brain`] but threads real combat timers into
+/// the snapshot. Use this from actor systems that track windup /
+/// active / recover / cooldown (e.g. the enemy shadow tick — its
+/// EnemyRuntime carries those timers and they let the brain
+/// correctly emit Telegraph / Attack / Recover modes).
+#[allow(clippy::too_many_arguments, reason = "intentional flat helper")]
+pub fn shadow_tick_brain_with_timers(
+    brain: &mut Brain,
+    actor_pos: ae::Vec2,
+    actor_vel: ae::Vec2,
+    actor_facing: f32,
+    actor_on_ground: bool,
+    alive: bool,
+    target_pos: ae::Vec2,
+    dt: f32,
+    timers: CombatTimers,
+) -> ae::ActorControlFrame {
     let snap = BrainSnapshot {
         actor_pos,
         actor_vel,
@@ -285,11 +344,11 @@ pub fn shadow_tick_brain(
         target_alive: true,
         sim_time: 0.0,
         dt,
-        attack_cooldown_remaining: 0.0,
-        attack_windup_remaining: 0.0,
-        attack_active_remaining: 0.0,
-        attack_recover_remaining: 0.0,
-        stun_remaining: 0.0,
+        attack_cooldown_remaining: timers.cooldown_remaining,
+        attack_windup_remaining: timers.windup_remaining,
+        attack_active_remaining: timers.active_remaining,
+        attack_recover_remaining: timers.recover_remaining,
+        stun_remaining: timers.stun_remaining,
         wall_contact: None,
         player_input: None,
     };

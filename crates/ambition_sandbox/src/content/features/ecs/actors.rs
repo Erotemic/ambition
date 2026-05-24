@@ -396,9 +396,19 @@ pub fn update_ecs_actors(
                 // brain's intent vs the existing choreography
                 // output before flipping the consumer. No-op when
                 // no brain component is attached (legacy spawn
-                // sites not yet upgraded).
+                // sites not yet upgraded). Passes real combat
+                // timers so the brain's AI mode (Telegraph /
+                // Attack / Recover) matches the enemy's actual
+                // attack-phase state.
                 if let Some(brain) = brain.as_deref_mut() {
-                    let _shadow = crate::brain::shadow_tick_brain(
+                    let timers = crate::brain::CombatTimers {
+                        cooldown_remaining: enemy.attack_cooldown,
+                        windup_remaining: enemy.attack_windup_timer,
+                        active_remaining: enemy.attack_timer,
+                        recover_remaining: 0.0,
+                        stun_remaining: 0.0,
+                    };
+                    let _shadow = crate::brain::shadow_tick_brain_with_timers(
                         brain,
                         enemy.pos,
                         enemy.vel,
@@ -407,6 +417,7 @@ pub fn update_ecs_actors(
                         enemy.alive,
                         target_pos,
                         dt,
+                        timers,
                     );
                 }
                 let mut outputs = super::super::enemies::EnemyTickOutputs::default();

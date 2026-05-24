@@ -25,11 +25,7 @@ pub fn update_ecs_bosses(
     // at the query rather than leaving it as an implicit
     // `single()` semantic.
     player_query: Query<
-        (
-            &crate::player::PlayerBody,
-            &crate::player::PlayerCombatState,
-            &crate::player::PlayerMovementAuthority,
-        ),
+        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
         crate::player::PrimaryPlayerOnly,
     >,
     mut bosses: Query<
@@ -39,6 +35,7 @@ pub fn update_ecs_bosses(
             &mut BossPatternTimer,
             &mut BossPhase,
             &super::super::components::ActorTarget,
+            Option<&mut crate::brain::Brain>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -48,20 +45,43 @@ pub fn update_ecs_bosses(
     // the player triggers bullet-time mid-pattern.
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    // `authority` is unused after the #17.8 migration — bosses read
-    // their `target_pos` from `ActorTarget` (populated by
-    // `select_actor_targets`) and no longer need the full `Player`
-    // value. The `pb` / `combat` reads are still required for
-    // contact-damage vulnerability + impact AABB.
-    let Ok((pb, combat, _authority)) = player_query.single() else {
+    let Ok((pb, combat)) = player_query.single() else {
         return;
     };
     let player_body = pb.aabb();
     let player_vulnerable =
         !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (mut aabb, mut feature, mut pattern_timer, mut phase, target) in &mut bosses {
+    for (mut aabb, mut feature, mut pattern_timer, mut phase, target, mut brain) in &mut bosses {
         let boss = &mut feature.boss;
         let target_pos = target.pos;
+        // Shadow brain tick (parallel-shape) — populates the boss's
+        // BossPattern brain state alongside the BossRuntime tick.
+        // No consumer reads the brain output today; daytime work
+        // migrates the boss-pattern state machine into the brain's
+        // internal sub-state and flips the consumer.
+        if let Some(brain) = brain.as_deref_mut() {
+            let snap = crate::brain::BrainSnapshot {
+                actor_pos: boss.pos,
+                actor_vel: ae::Vec2::ZERO,
+                actor_facing: 1.0,
+                actor_on_ground: false,
+                alive: boss.alive,
+                target_pos,
+                target_alive: true,
+                sim_time: 0.0,
+                dt,
+                attack_cooldown_remaining: 0.0,
+                attack_windup_remaining: 0.0,
+                attack_active_remaining: 0.0,
+                attack_recover_remaining: 0.0,
+                stun_remaining: 0.0,
+                wall_contact: None,
+                player_input: None,
+            };
+            let mut shadow = ae::ActorControlFrame::neutral();
+            brain.tick(&snap, &mut shadow);
+            let _ = shadow;
+        }
         // Forward this boss's current encounter phase into the runtime
         // so `Scripted` attack patterns can pick the right phase
         // timeline. Look up by the semantic encounter id derived from

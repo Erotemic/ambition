@@ -378,6 +378,43 @@ mod tests {
     }
 
     #[test]
+    fn shadow_tick_brain_handles_dead_actors_without_emitting_intent() {
+        // shadow_tick_brain on a dead actor should emit a neutral
+        // frame regardless of brain template — pins the "dead
+        // actors don't move or attack" rule across the helper.
+        for template in [
+            StateMachineCfg::StandStill,
+            StateMachineCfg::Patrol {
+                cfg: PatrolCfg::NPC_DEFAULT,
+                state: PatrolState::default(),
+            },
+            StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg::STRIKER_DEFAULT,
+                state: MeleeBruteState::default(),
+            },
+            StateMachineCfg::Skirmisher {
+                cfg: SkirmisherCfg::RANGER_DEFAULT,
+                state: SkirmisherState::default(),
+            },
+        ] {
+            let mut brain = Brain::StateMachine(template);
+            let frame = shadow_tick_brain(
+                &mut brain,
+                ae::Vec2::ZERO,
+                ae::Vec2::ZERO,
+                1.0,
+                true,
+                false, // alive = false
+                ae::Vec2::new(20.0, 0.0),
+                1.0 / 60.0,
+            );
+            assert_eq!(frame.desired_vel, ae::Vec2::ZERO, "dead actor should not move");
+            assert!(!frame.melee_pressed, "dead actor should not attack");
+            assert!(frame.fire.is_none(), "dead actor should not fire");
+        }
+    }
+
+    #[test]
     fn shadow_tick_with_timers_routes_active_attack_to_brain_mode() {
         // A MeleeBrute brain ticked with an active attack timer
         // should see CharacterAiMode::Attack and emit no fresh

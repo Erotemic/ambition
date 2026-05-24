@@ -428,6 +428,29 @@ mod tests {
     }
 
     #[test]
+    fn resolve_passes_attack_axis_through_to_melee_request() {
+        // Player tilt (up-tilt / down-air / back-air) carries
+        // direction in frame.attack_axis; resolver threads it
+        // through so the EFFECTS-stage spawn picks the right
+        // hitbox shape.
+        let actions = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ..Default::default()
+        };
+        let mut frame = ae::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        frame.facing = 1.0;
+        frame.attack_axis = ae::Vec2::new(0.0, -1.0); // up-tilt
+        let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
+        match reqs[0] {
+            ActionRequest::Melee { attack_axis, .. } => {
+                assert_eq!(attack_axis, ae::Vec2::new(0.0, -1.0));
+            }
+            _ => panic!("expected Melee"),
+        }
+    }
+
+    #[test]
     fn resolve_peaceful_action_set_emits_nothing_for_full_intent() {
         // ActionSet::peaceful() has no melee/ranged/special. Even
         // if the brain emits every intent verb, the resolver

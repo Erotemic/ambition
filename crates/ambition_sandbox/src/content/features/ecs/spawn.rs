@@ -77,15 +77,13 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
     // system already uses); the ActorControl frame is dormant for
     // bosses today — BossRuntime still drives behavior.
     let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
-    let brain = crate::brain::Brain::StateMachine(
-        crate::brain::StateMachineCfg::BossPattern {
-            cfg: crate::brain::BossPatternCfg {
-                aggressiveness: 1.0,
-                encounter_id,
-            },
-            state: crate::brain::BossPatternState::default(),
+    let brain = crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::BossPattern {
+        cfg: crate::brain::BossPatternCfg {
+            aggressiveness: 1.0,
+            encounter_id,
         },
-    );
+        state: crate::brain::BossPatternState::default(),
+    });
     commands.spawn((
         Name::new(format!("Feature boss: {}", authored.name)),
         FeatureSimEntity,
@@ -454,7 +452,10 @@ mod tests {
             .world_mut()
             .query::<(&Brain, &ActionSet, &ActorControl)>();
         let count = q.iter(app.world()).count();
-        assert_eq!(count, 1, "encounter mob should carry Brain + ActionSet + ActorControl");
+        assert_eq!(
+            count, 1,
+            "encounter mob should carry Brain + ActionSet + ActorControl"
+        );
     }
 
     /// enemy_default_brain picks a per-archetype template — pins
@@ -480,7 +481,9 @@ mod tests {
             Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
                 assert!(cfg.aggressiveness > 0.0);
                 // Brain's chase_speed mirrors the archetype tuning.
-                assert!((cfg.chase_speed - EnemyArchetype::MediumStriker.chase_speed()).abs() < 0.01);
+                assert!(
+                    (cfg.chase_speed - EnemyArchetype::MediumStriker.chase_speed()).abs() < 0.01
+                );
             }
             other => panic!("expected MeleeBrute for MediumStriker, got {:?}", other),
         }
@@ -553,18 +556,12 @@ mod tests {
 
         let brute = make_enemy(EnemyArchetype::LargeBrute);
         let set = enemy_default_action_set(&brute);
-        assert!(matches!(
-            set.melee,
-            Some(MeleeActionSpec::Lunge(_))
-        ));
+        assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
         assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
 
         let striker = make_enemy(EnemyArchetype::MediumStriker);
         let set = enemy_default_action_set(&striker);
-        assert!(matches!(
-            set.melee,
-            Some(MeleeActionSpec::Swipe(_))
-        ));
+        assert!(matches!(set.melee, Some(MeleeActionSpec::Swipe(_))));
 
         let pirate_shark = make_enemy(EnemyArchetype::PirateOnShark);
         let set = enemy_default_action_set(&pirate_shark);

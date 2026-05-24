@@ -235,7 +235,10 @@ mod tests {
         frame.jump_held = true;
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
-        frame.fire = Some(ActorFireRequest { dir: Vec2::new(1.0, 0.0), speed: 0.0 });
+        frame.fire = Some(ActorFireRequest {
+            dir: Vec2::new(1.0, 0.0),
+            speed: 0.0,
+        });
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
         frame.shield_held = true;

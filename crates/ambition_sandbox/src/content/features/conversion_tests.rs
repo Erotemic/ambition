@@ -182,7 +182,10 @@ mod conversion_tests {
         }
         let (_, npc_patrol, _) = world_with_patrolling_npc(64.0);
         match npc_patrol.build_brain() {
-            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol { cfg, .. }) => {
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
+                cfg,
+                ..
+            }) => {
                 assert_eq!(cfg.radius, 64.0);
                 // Peaceful NPC: aggressiveness zero.
                 assert_eq!(cfg.aggressiveness, 0.0);
@@ -202,7 +205,10 @@ mod conversion_tests {
     fn peaceful_npc_brain_is_not_hostile() {
         let (_, npc, _) = world_with_patrolling_npc(96.0);
         let brain = npc.build_brain();
-        assert!(!brain.is_hostile(), "peaceful NPC brain must report !is_hostile");
+        assert!(
+            !brain.is_hostile(),
+            "peaceful NPC brain must report !is_hostile"
+        );
     }
 
     /// NPC brain dispatch over many ticks doesn't accumulate ghost
@@ -231,7 +237,10 @@ mod conversion_tests {
             }
         }
         // Player is far away (1500), so we expect mostly Patrol.
-        assert!(patrol_ticks > 200, "NPC should be patrolling most ticks; got {patrol_ticks}");
+        assert!(
+            patrol_ticks > 200,
+            "NPC should be patrolling most ticks; got {patrol_ticks}"
+        );
         // No chase (player far).
         assert_eq!(chase_ticks, 0, "Player far → no Chase mode");
     }

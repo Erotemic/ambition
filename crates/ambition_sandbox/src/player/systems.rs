@@ -161,10 +161,8 @@ mod tests {
     #[test]
     fn player_action_set_melee_disabled_when_attack_ability_off() {
         use crate::brain::ActionSet;
-        let mut player = ae::Player::new_with_abilities(
-            ae::Vec2::new(0.0, 0.0),
-            ae::AbilitySet::sandbox_all(),
-        );
+        let mut player =
+            ae::Player::new_with_abilities(ae::Vec2::new(0.0, 0.0), ae::AbilitySet::sandbox_all());
         // Force-disable the attack ability.
         player.abilities.attack = false;
         let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
@@ -183,14 +181,15 @@ mod tests {
     #[test]
     fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
         use crate::brain::{ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec};
-        let player = ae::Player::new_with_abilities(
-            ae::Vec2::new(0.0, 0.0),
-            ae::AbilitySet::sandbox_all(),
-        );
+        let player =
+            ae::Player::new_with_abilities(ae::Vec2::new(0.0, 0.0), ae::AbilitySet::sandbox_all());
         let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
         let action_set: &ActionSet = &bundle.action_set;
         assert!(matches!(action_set.melee, Some(MeleeActionSpec::Swipe(_))));
-        assert!(matches!(action_set.ranged, Some(RangedActionSpec::Bolt { .. })));
+        assert!(matches!(
+            action_set.ranged,
+            Some(RangedActionSpec::Bolt { .. })
+        ));
         assert!(matches!(
             action_set.special,
             Some(SpecialActionSpec::BubbleShield)
@@ -343,7 +342,10 @@ mod tests {
             Brain::Player(PlayerSlot::PRIMARY),
             ActorControl::default(),
         ));
-        app.add_systems(Update, (sync_local_player_input_frame, tick_player_brains).chain());
+        app.add_systems(
+            Update,
+            (sync_local_player_input_frame, tick_player_brains).chain(),
+        );
 
         // Stamp the control frame with a known input.
         {

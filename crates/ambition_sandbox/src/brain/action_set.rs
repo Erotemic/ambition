@@ -65,7 +65,10 @@ impl ActionSet {
 /// its **own** animation timing (windup → active → recover) — there
 /// is no separate `TelegraphSpec`.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[allow(dead_code, reason = "spec variants surface to daytime EFFECTS-flip consumers")]
+#[allow(
+    dead_code,
+    reason = "spec variants surface to daytime EFFECTS-flip consumers"
+)]
 pub enum MeleeActionSpec {
     /// Generic short swing. Used by Striker / standard goblin melee.
     Swipe(SwipeSpec),
@@ -124,7 +127,10 @@ impl MeleeActionSpec {
     /// Total swing duration (windup + active + recover) in seconds.
     /// Cooldown systems / animation pickers use this to gate the
     /// "can swing again" question.
-    #[allow(dead_code, reason = "diagnostic helper for daytime EFFECTS-flip consumers")]
+    #[allow(
+        dead_code,
+        reason = "diagnostic helper for daytime EFFECTS-flip consumers"
+    )]
     pub fn total_duration_s(self) -> f32 {
         match self {
             Self::Swipe(s) => s.windup_s + s.active_s + s.recover_s,
@@ -136,7 +142,10 @@ impl MeleeActionSpec {
     }
 
     /// Damage dealt on a clean hit.
-    #[allow(dead_code, reason = "diagnostic helper for daytime EFFECTS-flip consumers")]
+    #[allow(
+        dead_code,
+        reason = "diagnostic helper for daytime EFFECTS-flip consumers"
+    )]
     pub fn damage(self) -> i32 {
         match self {
             Self::Swipe(s) => s.damage,
@@ -148,7 +157,10 @@ impl MeleeActionSpec {
     }
 
     /// Reach (hitbox forward extent) in px from the actor's anchor.
-    #[allow(dead_code, reason = "diagnostic helper for daytime EFFECTS-flip consumers")]
+    #[allow(
+        dead_code,
+        reason = "diagnostic helper for daytime EFFECTS-flip consumers"
+    )]
     pub fn reach_px(self) -> f32 {
         match self {
             Self::Swipe(s) => s.reach_px,
@@ -318,20 +330,12 @@ pub enum ActionRequest {
 impl std::fmt::Display for ActionRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Melee { origin, facing, .. } => write!(
-                f,
-                "{}(at {:?} facing {:+.0})",
-                self.label(),
-                origin,
-                facing,
-            ),
-            Self::Ranged { origin, dir, .. } => write!(
-                f,
-                "{}(from {:?} dir {:?})",
-                self.label(),
-                origin,
-                dir,
-            ),
+            Self::Melee { origin, facing, .. } => {
+                write!(f, "{}(at {:?} facing {:+.0})", self.label(), origin, facing,)
+            }
+            Self::Ranged { origin, dir, .. } => {
+                write!(f, "{}(from {:?} dir {:?})", self.label(), origin, dir,)
+            }
             Self::Special { .. } => write!(f, "{}", self.label()),
         }
     }
@@ -430,7 +434,10 @@ mod tests {
         s.melee = Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT));
         assert!(s.can_attack());
         s.melee = None;
-        s.ranged = Some(RangedActionSpec::Bolt { speed: 380.0, damage: 1 });
+        s.ranged = Some(RangedActionSpec::Bolt {
+            speed: 380.0,
+            damage: 1,
+        });
         assert!(s.can_attack());
         // Special alone doesn't count as "attacks".
         s.ranged = None;
@@ -461,7 +468,12 @@ mod tests {
         let reqs = resolve(&actions, &frame, ae::Vec2::new(10.0, 5.0));
         assert_eq!(reqs.len(), 1);
         match reqs[0] {
-            ActionRequest::Melee { spec, origin, facing, .. } => {
+            ActionRequest::Melee {
+                spec,
+                origin,
+                facing,
+                ..
+            } => {
                 assert!(matches!(spec, MeleeActionSpec::Swipe(_)));
                 assert_eq!(origin, ae::Vec2::new(10.0, 5.0));
                 assert_eq!(facing, 1.0);
@@ -571,7 +583,10 @@ mod tests {
         assert_eq!(lunge.label(), "melee_lunge");
 
         let ranged = ActionRequest::Ranged {
-            spec: RangedActionSpec::Bolt { speed: 380.0, damage: 1 },
+            spec: RangedActionSpec::Bolt {
+                speed: 380.0,
+                damage: 1,
+            },
             origin: ae::Vec2::ZERO,
             dir: ae::Vec2::new(1.0, 0.0),
         };
@@ -619,10 +634,38 @@ mod tests {
 
     #[test]
     fn ranged_spec_speed_accessor_returns_per_variant_speed() {
-        assert_eq!(RangedActionSpec::Rock { speed: 410.0, damage: 1 }.speed(), 410.0);
-        assert_eq!(RangedActionSpec::Arrow { speed: 520.0, damage: 2 }.speed(), 520.0);
-        assert_eq!(RangedActionSpec::Pistol { speed: 600.0, damage: 1 }.speed(), 600.0);
-        assert_eq!(RangedActionSpec::Bolt { speed: 380.0, damage: 1 }.speed(), 380.0);
+        assert_eq!(
+            RangedActionSpec::Rock {
+                speed: 410.0,
+                damage: 1
+            }
+            .speed(),
+            410.0
+        );
+        assert_eq!(
+            RangedActionSpec::Arrow {
+                speed: 520.0,
+                damage: 2
+            }
+            .speed(),
+            520.0
+        );
+        assert_eq!(
+            RangedActionSpec::Pistol {
+                speed: 600.0,
+                damage: 1
+            }
+            .speed(),
+            600.0
+        );
+        assert_eq!(
+            RangedActionSpec::Bolt {
+                speed: 380.0,
+                damage: 1
+            }
+            .speed(),
+            380.0
+        );
     }
 
     #[test]

@@ -201,7 +201,10 @@ impl std::fmt::Display for Brain {
 /// the projectile system. Daytime work flips those consumers off
 /// the legacy paths and onto this message stream.
 #[derive(Message, Clone, Copy, Debug)]
-#[allow(dead_code, reason = "fields read by daytime EFFECTS-consumer flip + test code")]
+#[allow(
+    dead_code,
+    reason = "fields read by daytime EFFECTS-consumer flip + test code"
+)]
 pub struct ActorActionMessage {
     /// The actor that wants the action.
     pub actor: Entity,
@@ -238,7 +241,12 @@ impl ActorActionMessage {
 /// (tick_player_brains, update_ecs_actors shadow tick) so the
 /// frame is current.
 pub fn emit_brain_action_messages(
-    actors: Query<(Entity, &ActorControl, &ActionSet, &bevy::transform::components::Transform)>,
+    actors: Query<(
+        Entity,
+        &ActorControl,
+        &ActionSet,
+        &bevy::transform::components::Transform,
+    )>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
     for (entity, control, action_set, transform) in &actors {
@@ -312,7 +320,10 @@ impl CombatTimers {
 /// Default variant uses `CombatTimers::CLEAR` — see
 /// [`shadow_tick_brain_with_timers`] for the variant that passes
 /// real attack-timer values.
-#[allow(clippy::too_many_arguments, reason = "intentional flat helper; the snapshot it builds is what's deduped")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "intentional flat helper; the snapshot it builds is what's deduped"
+)]
 pub fn shadow_tick_brain(
     brain: &mut Brain,
     actor_pos: ae::Vec2,
@@ -484,7 +495,11 @@ mod tests {
                 ae::Vec2::new(20.0, 0.0),
                 1.0 / 60.0,
             );
-            assert_eq!(frame.desired_vel, ae::Vec2::ZERO, "dead actor should not move");
+            assert_eq!(
+                frame.desired_vel,
+                ae::Vec2::ZERO,
+                "dead actor should not move"
+            );
             assert!(!frame.melee_pressed, "dead actor should not attack");
             assert!(frame.fire.is_none(), "dead actor should not fire");
         }

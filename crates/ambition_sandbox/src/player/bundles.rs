@@ -120,17 +120,21 @@ impl PlayerSimulationBundle {
 /// ActionSet as the authoritative "what can this player actually
 /// do right now" surface without re-checking AbilitySet.
 fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
-    use crate::brain::{MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec};
+    use crate::brain::{
+        MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec,
+    };
     ActionSet {
-        melee: abilities.attack.then_some(MeleeActionSpec::Swipe(SwipeSpec {
-            // Player swipe is faster than enemy Striker default
-            // — the player's combat tempo runs ~2× snappier.
-            windup_s: 0.12,
-            active_s: 0.10,
-            recover_s: 0.18,
-            damage: 1,
-            reach_px: 36.0,
-        })),
+        melee: abilities
+            .attack
+            .then_some(MeleeActionSpec::Swipe(SwipeSpec {
+                // Player swipe is faster than enemy Striker default
+                // — the player's combat tempo runs ~2× snappier.
+                windup_s: 0.12,
+                active_s: 0.10,
+                recover_s: 0.18,
+                damage: 1,
+                reach_px: 36.0,
+            })),
         // The player's "ranged" today is the fireball / hadouken
         // path, gated by the `projectile` ability (sandbox-all
         // players have it).

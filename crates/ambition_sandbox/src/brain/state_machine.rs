@@ -26,10 +26,7 @@ pub enum StateMachineCfg {
     /// No motion. Used by static NPCs and sandbag-style targets.
     StandStill,
     /// Fixed waypoint loop. `aggressiveness` controls engagement.
-    Patrol {
-        cfg: PatrolCfg,
-        state: PatrolState,
-    },
+    Patrol { cfg: PatrolCfg, state: PatrolState },
     /// Move forward; on wall, climb-if-able else reverse; pause on
     /// rapid chatter. Drives the puppy slug today.
     Wanderer {
@@ -47,10 +44,7 @@ pub enum StateMachineCfg {
         state: SkirmisherState,
     },
     /// Hold position + long-range fire.
-    Sniper {
-        cfg: SniperCfg,
-        state: SniperState,
-    },
+    Sniper { cfg: SniperCfg, state: SniperState },
     /// Scripted multi-phase boss policy — looked up by encounter id.
     BossPattern {
         cfg: BossPatternCfg,
@@ -136,7 +130,7 @@ impl PatrolCfg {
         radius: 64.0,
         speed: crate::content::features::NPC_PATROL_SPEED,
         aggressiveness: 0.0,
-        aggro_radius: 80.0,  // talk radius for peaceful patrol
+        aggro_radius: 80.0, // talk radius for peaceful patrol
         attack_range: 0.0,
     };
 }

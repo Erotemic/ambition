@@ -203,7 +203,10 @@ pub fn update_ecs_actors(
     // decision at the query so a future per-actor `ActorTarget`
     // component lands as a query change, not a semantic shift.
     player_query: Query<
-        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
+        (
+            &crate::player::PlayerBody,
+            &crate::player::PlayerCombatState,
+        ),
         crate::player::PrimaryPlayerOnly,
     >,
     mut actors: Query<

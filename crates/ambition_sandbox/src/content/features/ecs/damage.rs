@@ -155,14 +155,14 @@ pub fn apply_feature_damage_events(
                         // (instead of the original peaceful
                         // Patrol brain that lingered after the
                         // ActorRuntime swap).
-                        commands.entity(actor_entity).insert(
-                            crate::brain::Brain::StateMachine(
+                        commands
+                            .entity(actor_entity)
+                            .insert(crate::brain::Brain::StateMachine(
                                 crate::brain::StateMachineCfg::MeleeBrute {
                                     cfg: crate::brain::MeleeBruteCfg::STRIKER_DEFAULT,
                                     state: crate::brain::MeleeBruteState::default(),
                                 },
-                            ),
-                        );
+                            ));
                     } else {
                         vfx.write(VfxMessage::SpeechBubble {
                             pos: npc.bark_anchor(),

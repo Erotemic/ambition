@@ -25,7 +25,10 @@ pub fn update_ecs_bosses(
     // at the query rather than leaving it as an implicit
     // `single()` semantic.
     player_query: Query<
-        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
+        (
+            &crate::player::PlayerBody,
+            &crate::player::PlayerCombatState,
+        ),
         crate::player::PrimaryPlayerOnly,
     >,
     mut bosses: Query<

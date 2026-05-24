@@ -285,11 +285,16 @@ mod tests {
             .world_mut()
             .query_filtered::<(&Brain, &ActionSet, &ActorControl), With<PlayerEntity>>();
         let count = q.iter(app.world()).count();
-        assert_eq!(count, 1, "player should spawn with Brain + ActionSet + ActorControl");
-        let (brain, action_set, _control) =
-            q.iter(app.world()).next().expect("player exists");
+        assert_eq!(
+            count, 1,
+            "player should spawn with Brain + ActionSet + ActorControl"
+        );
+        let (brain, action_set, _control) = q.iter(app.world()).next().expect("player exists");
         assert!(brain.is_player(), "player carries Brain::Player");
-        assert!(action_set.melee.is_some(), "player ActionSet has Swipe melee");
+        assert!(
+            action_set.melee.is_some(),
+            "player ActionSet has Swipe melee"
+        );
     }
 
     /// Universal-brain integration check: with the full

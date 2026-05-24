@@ -420,6 +420,30 @@ mod tests {
     }
 
     #[test]
+    fn melee_spec_defaults_have_positive_durations() {
+        // Every authored default's phase timings (windup + active +
+        // recover) must be strictly positive — a zero windup means
+        // the attack has no telegraph for the player to read, and a
+        // zero active means no hitbox window. Pins the design
+        // requirement that telegraphs live inside the attack
+        // animation rather than in a separate spec.
+        let s = SwipeSpec::STRIKER_DEFAULT;
+        assert!(s.windup_s > 0.0 && s.active_s > 0.0 && s.recover_s > 0.0);
+        let l = LungeSpec::BRUTE_DEFAULT;
+        assert!(l.windup_s > 0.0 && l.active_s > 0.0 && l.recover_s > 0.0);
+        let p = PunchSpec::SANDBAG_DEFAULT;
+        assert!(p.windup_s > 0.0 && p.active_s > 0.0 && p.recover_s > 0.0);
+    }
+
+    #[test]
+    fn ranged_spec_speed_accessor_returns_per_variant_speed() {
+        assert_eq!(RangedActionSpec::Rock { speed: 410.0, damage: 1 }.speed(), 410.0);
+        assert_eq!(RangedActionSpec::Arrow { speed: 520.0, damage: 2 }.speed(), 520.0);
+        assert_eq!(RangedActionSpec::Pistol { speed: 600.0, damage: 1 }.speed(), 600.0);
+        assert_eq!(RangedActionSpec::Bolt { speed: 380.0, damage: 1 }.speed(), 380.0);
+    }
+
+    #[test]
     fn resolve_multi_intent_emits_multi_request() {
         let actions = ActionSet {
             melee: Some(MeleeActionSpec::Bite(BiteSpec {

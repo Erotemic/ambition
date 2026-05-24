@@ -222,6 +222,12 @@ mod tests {
         let mut f = baseline;
         f.special_pressed = true;
         assert_ne!(baseline, f);
+        let mut g = baseline;
+        g.jump_held = true;
+        assert_ne!(baseline, g, "jump_held should be in PartialEq");
+        let mut h = baseline;
+        h.jump_released = true;
+        assert_ne!(baseline, h, "jump_released should be in PartialEq");
     }
 
     #[test]
@@ -259,6 +265,9 @@ mod tests {
         frame.melee_pressed = true;
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
+        frame.jump_pressed = true;
+        assert!(frame.wants_any_action(), "jump_pressed should count");
+        let mut frame = ActorControlFrame::neutral();
         frame.jump_held = true;
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
@@ -267,6 +276,12 @@ mod tests {
             speed: 0.0,
         });
         assert!(frame.wants_any_action());
+        let mut frame = ActorControlFrame::neutral();
+        frame.dash_pressed = true;
+        assert!(frame.wants_any_action(), "dash_pressed should count");
+        let mut frame = ActorControlFrame::neutral();
+        frame.interact_pressed = true;
+        assert!(frame.wants_any_action(), "interact_pressed should count");
         let mut frame = ActorControlFrame::neutral();
         frame.shield_held = true;
         assert!(frame.wants_any_action());

@@ -10,6 +10,30 @@ ran successfully as the universal-brain overnight). Pattern:
 phase-by-phase plan, each phase exits at a green commit, the run
 can stop at any checkpoint if budget runs out.
 
+## Run progress (live updates)
+
+**Run started:** _not started_
+**Current phase:** _not started_
+**Last green commit:** _none yet_
+
+### Estimated vs Actual time
+
+| Phase | Estimated | Actual | Status | Notes |
+|---|---|---|---|---|
+| 1. Foundation (RON catalog + plugin + validator) | 2.0 h | _ | ⬜ pending | _ |
+| 2. NpcSpawn schema change (`name` → `character_id`) | 1.5 h | _ | ⬜ pending | _ |
+| 3. Sprite gap closure (every renderer entry → catalog) | 1.0 h | _ | ⬜ pending | _ |
+| 4. Area specs YAML → RON migration | 1.0 h | _ | ⬜ pending | _ |
+| 5. Hall of Characters generator + room | 1.5 h | _ | ⬜ pending | _ |
+| 6. Cleanup (delete legacy registries, merge review_npcs) | 1.0 h | _ | ⬜ pending | _ |
+| 7. Documentation + ADR 0017 | 0.5 h | _ | ⬜ pending | _ |
+| **Total** | **8.5 h** | _ | | _ |
+
+Status legend: ⬜ pending · 🏗️ in progress · ✅ done · ⏭️ deferred · ❌ blocked
+
+Notes column: capture *why* a phase diverged from estimate (unexpected
+coupling, EMFILE retries, validation-gate failures, scope changes).
+
 ## TL;DR
 
 Refactor character authoring away from hand-maintained Rust

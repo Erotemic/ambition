@@ -41,7 +41,11 @@ pub struct BrainSnapshot {
     /// Whether the actor is grounded (touching a `Solid` / `OneWay`
     /// floor this tick).
     pub actor_on_ground: bool,
-    /// Whether the actor is alive. Dead actors emit a neutral frame.
+    /// Whether the actor is alive. State-machine brain templates
+    /// emit a neutral frame when `alive == false`; the player brain
+    /// (`Brain::Player`) currently doesn't gate on this — dead
+    /// players still translate their input. The integration layer
+    /// ignores dead actors regardless.
     pub alive: bool,
 
     /// Position the actor is "interested in" — typically the player,

@@ -804,6 +804,44 @@ mod tests {
     }
 
     #[test]
+    fn sniper_holds_and_fires_within_aggro() {
+        let mut sm = StateMachineCfg::Sniper {
+            cfg: SniperCfg::DEFAULT,
+            state: SniperState::default(),
+        };
+        // Target well within aggro_radius (480.0).
+        let mut s = snap_at(0.0, 200.0);
+        // last_fire_t defaults to 0; first fire requires
+        // sim_time >= fire_cooldown_s (default 1.5).
+        s.sim_time = 2.0;
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        // Sniper never moves (no desired_vel).
+        assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+        // Fired (sim_time past cooldown threshold).
+        assert!(out.fire.is_some());
+        // After firing, cooldown gates re-fire.
+        s.sim_time = 2.1;
+        let mut out2 = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out2);
+        assert!(out2.fire.is_none(), "Sniper should respect fire_cooldown_s");
+    }
+
+    #[test]
+    fn sniper_holds_quiet_outside_aggro() {
+        let mut sm = StateMachineCfg::Sniper {
+            cfg: SniperCfg::DEFAULT,
+            state: SniperState::default(),
+        };
+        // Target way outside aggro (default 480).
+        let s = snap_at(0.0, 5000.0);
+        let mut out = ae::ActorControlFrame::neutral();
+        tick_state_machine(&mut sm, &s, &mut out);
+        assert!(out.fire.is_none(), "Sniper out of aggro should not fire");
+        assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    }
+
+    #[test]
     fn is_hostile_reports_per_cfg() {
         assert!(!StateMachineCfg::StandStill.is_hostile());
         assert!(!StateMachineCfg::Patrol {

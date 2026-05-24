@@ -31,13 +31,35 @@ firing, no parallel shadow channels.
 |---|---|
 | `sandbox_update` is gone | ✅ |
 | Bevy schedule owns the player tick | ✅ (`clear_sandbox_reset_this_frame` → `player_control_system` → `player_simulation_system` → `apply_player_damage_system`) |
-| Player simulation consumes `ActorControl` as the behavior contract | ✅ via `engine_input_from_actor_control` |
-| Enemy/boss brain ticks write real `ActorControl`, not discarded shadow frames | ✅ both `update_ecs_actors` and `update_ecs_bosses` |
-| `ActorActionMessage` has real gameplay consumers | ✅ enemy ranged projectiles; player melee start-attack gate |
-| At least melee and ranged effects are no longer primarily driven by legacy runtime/input paths | ✅ enemy ranged (full); player melee (gate flipped to message-driven); enemy melee deferred per cost |
-| `ActionSet` is the capability contract for player/enemy/boss actions | ✅ players + every enemy archetype + every boss carry one |
-| Enemy/boss behavior specs are consolidated enough that external data migration is straightforward | ✅ `EnemyArchetypeSpec` now bundles brain_template + attack + move_style alongside stats |
-| Old comments describing shadow/parallel/unconsumed paths are removed or rewritten | ✅ sweep landed |
+| Player simulation consumes `ActorControl` as the behavior contract | ✅ — `ActorControl` is the SOLE input source after the second-pass polarity finish; raw `ControlFrame` dropped from phase signatures entirely |
+| Enemy/boss runtime is the single intent producer (no parallel shadow brain ticks) | ✅ — both `update_ecs_actors` and `update_ecs_bosses` dropped the shadow ticks; `shadow_tick_brain*` + `CombatTimers` deleted as dead code |
+| `ActorActionMessage` has real gameplay consumers | ✅ — enemy ranged projectiles, enemy melee start, player melee start; player ranged + boss specials still come from legacy paths |
+| At least melee and ranged effects are no longer primarily driven by legacy runtime/input paths | ✅ — enemy ranged (full effect-flip), enemy melee START (damage lifecycle still per-tick polled), player melee (gate flipped) |
+| `ActionSet` is the capability contract for player/enemy/boss actions | ✅ — players + every enemy archetype + every boss carry one |
+| Enemy/boss behavior specs are consolidated enough that external data migration is straightforward | ✅ — `EnemyArchetypeSpec` now bundles `brain_template` + `attack` + `move_style` alongside stats; one row per archetype |
+| Old comments describing shadow/parallel/unconsumed paths are removed or rewritten | ✅ — full sweep landed (~30 files) |
+
+### Remaining work (called out explicitly, not "future" handwaving)
+
+These are not blockers on the migration shape — the architecture is
+real and the bypass paths are gone. They are the next concrete
+slices:
+
+1. **Enemy melee damage lifecycle.** `EnemyRuntime::player_damage()`
+   is still polled per-tick for AABB overlap. The melee START moved
+   to a consumer; the active-window DAMAGE check needs hitbox-
+   entity lifecycle (spawn entity on melee start, despawn after
+   `active_s`, separate system tests overlap). Estimated 2-3h.
+
+2. **BossPattern brain per-phase schedule.** `tick_boss_pattern`
+   still emits neutral; the boss runtime tags its frame with
+   `melee_pressed` / `fire = Some(...)` during active windows, so
+   the resolver SEES the intent, but the boss pattern decisions
+   (when to apple-rain, when to head-down, scripted phase timelines)
+   live in `BossRuntime`. To migrate, `BossPatternCfg` extends with
+   a schedule and `tick_boss_pattern` reads encounter phase +
+   schedule. The encounter-spec RON path (ADR 0017 follow-up)
+   feeds this. Estimated 4-6h — schema design + per-boss migration.
 
 ## Commit list (this session)
 
@@ -52,6 +74,11 @@ green sandbox lib tests.)
 | `7a79acf` | brain: stop discarding boss brain tick + sweep stale shadow comments |
 | `e02ee71` | brain: route player melee through ActorActionMessage::Melee |
 | `eeff7f0` | content: collapse enemy behavior specs into EnemyArchetypeSpec |
+| `b921070` | brain: route enemy melee start through ActorActionMessage::Melee |
+| `6f3353d` | boss: route boss runtime's intent into ActorControl |
+| `3222fdb` | brain: make hostile-enemy + boss runtime the single intent producer |
+| `3b92d24` | brain: finish player polarity — ActorControl is the sole input source |
+| `dd5d524` | docs(sweep): rewrite stale sandbox_update + shadow-brain references |
 
 ## What's left (per the original bypass audit)
 

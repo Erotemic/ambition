@@ -34,6 +34,70 @@ ROWS: List[Tuple[str, int, int]] = [
     ("death", 8, 110),
 ]
 
+ACTOR_METADATA = {
+    "actor": {
+        "character_id": "npc_mantis_lancer",
+        "display_name": "Mantis Lancer",
+    },
+    "body": {
+        "body_plan": "InsectoidBiped",
+        "body_kind": "Standard",
+        "mass_class": "Medium",
+        "locomotion_hint": "Walk",
+        "traits": ["enemy", "insectoid", "blade_arms", "lancer"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": {"height_px": None, "distance_px": None, "source": "mantis_pounce_animation"},
+            "climb": True,
+            "crawl": None,
+            "fly": None,
+            "swim": None,
+            "use_lifts": None,
+            "door_access": [],
+        },
+        "interactions": {
+            "talk": None,
+            "trade": None,
+            "carry": None,
+            "open_doors": [],
+        },
+    },
+    "brain": {"default_preset": "melee_brute_striker"},
+    "actions": {"default_preset": "brute_lunge"},
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.walk": {"animation": "walk", "events": []},
+        "action.melee.primary": {
+            "animation": "stab",
+            "events": [
+                {"t": 0.36, "event": "hitbox_active_start", "source": "mantis_lancer.stab"},
+                {"t": 0.60, "event": "hitbox_active_end", "source": "mantis_lancer.stab"},
+            ],
+        },
+        "action.melee.sweep": {
+            "animation": "slash",
+            "events": [
+                {"t": 0.30, "event": "hitbox_active_start", "source": "mantis_lancer.slash"},
+                {"t": 0.62, "event": "hitbox_active_end", "source": "mantis_lancer.slash"},
+            ],
+        },
+        "action.special.pounce": {"animation": "pounce", "events": [{"t": 0.40, "event": "leap_commit", "source": "mantis_lancer.pounce"}]},
+        "damage.hit": {"animation": "hurt", "events": []},
+        "lifecycle.death": {"animation": "death", "events": []},
+    },
+    "sockets": {
+        "head": {"source": "mantis_lancer.geometry", "point": {"x": 144.0, "y": 58.0}},
+        "thorax": {"source": "mantis_lancer.geometry", "point": {"x": 112.0, "y": 96.0}},
+        "blade_l": {"source": "mantis_lancer.geometry", "point": {"x": 95.0, "y": 102.0}},
+        "blade_r": {"source": "mantis_lancer.geometry", "point": {"x": 172.0, "y": 100.0}},
+        "blade_tip": {"source": "mantis_lancer.geometry", "point": {"x": 210.0, "y": 88.0}},
+        "pounce_origin": {"source": "mantis_lancer.geometry", "point": {"x": 124.0, "y": 170.0}},
+    },
+    "tags": ["enemy", "insectoid", "lancer"],
+}
+
 OUTLINE = (16, 18, 18, 255)
 CHITIN_DARK = (38, 56, 34, 255)
 CHITIN = (72, 108, 62, 255)
@@ -514,10 +578,11 @@ def render(out_dir: str | Path, **opts):
         out_dir=out_dir,
         frame_size=FRAME_SIZE,
         auto_crop=True,
+        actor_metadata=ACTOR_METADATA,
     )
     return [
         outputs["spritesheet"], outputs["yaml"], outputs["ron"],
-        outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
+        outputs["actor"], outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
     ]
 
 

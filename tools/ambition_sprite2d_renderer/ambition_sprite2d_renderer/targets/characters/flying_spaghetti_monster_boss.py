@@ -41,6 +41,67 @@ ROWS: List[Tuple[str, int, int]] = [
     ("death", 8, 112),
 ]
 
+ACTOR_METADATA = {
+    "actor": {
+        "character_id": "npc_flying_spaghetti_monster_boss",
+        "display_name": "Flying Spaghetti Monster Boss",
+    },
+    "body": {
+        "body_plan": "BossMultipart",
+        "body_kind": "Wide",
+        "mass_class": "Boss",
+        "locomotion_hint": "BossFloat",
+        "traits": ["boss", "floating", "multipart", "no_hands", "noodle", "ranged"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": False,
+            "jump": None,
+            "climb": None,
+            "crawl": None,
+            "fly": True,
+            "swim": None,
+            "use_lifts": None,
+            "door_access": [],
+        },
+        "interactions": {
+            "talk": None,
+            "trade": None,
+            "carry": None,
+            "open_doors": [],
+        },
+    },
+    "brain": {"default_preset": "boss_pattern"},
+    "actions": {"default_preset": "fsm_boss_specials"},
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.hover": {"animation": "drift", "events": []},
+        "action.melee.primary": {
+            "animation": "noodle_whip",
+            "events": [
+                {"t": 0.34, "event": "hitbox_active_start", "source": "flying_spaghetti_monster_boss.noodle_whip"},
+                {"t": 0.62, "event": "hitbox_active_end", "source": "flying_spaghetti_monster_boss.noodle_whip"},
+            ],
+        },
+        "action.ranged.primary": {"animation": "meatball_volley", "events": [{"t": 0.48, "event": "projectile_release", "source": "flying_spaghetti_monster_boss.meatball_volley"}]},
+        "action.special.eye_beam": {"animation": "eye_beam", "events": [{"t": 0.44, "event": "beam_active_start", "source": "flying_spaghetti_monster_boss.eye_beam"}, {"t": 0.72, "event": "beam_active_end", "source": "flying_spaghetti_monster_boss.eye_beam"}]},
+        "damage.hit": {"animation": "hurt", "events": []},
+        "lifecycle.death": {"animation": "death", "events": []},
+    },
+    "sockets": {
+        "core": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 160.0, "y": 136.0}},
+        "meatball_l": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 126.0, "y": 140.0}},
+        "meatball_r": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 192.0, "y": 138.0}},
+        "eye_l": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 116.0, "y": 40.0}},
+        "eye_r": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 220.0, "y": 42.0}},
+        "beam_l": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 116.0, "y": 40.0}},
+        "beam_r": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 220.0, "y": 42.0}},
+        "noodle_tip": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 252.0, "y": 150.0}},
+        "projectile_origin": {"source": "flying_spaghetti_monster_boss.geometry", "point": {"x": 190.0, "y": 132.0}},
+    },
+    "tags": ["boss", "floating", "multipart"],
+}
+
 OUTLINE = (52, 42, 34, 255)
 NOODLE = (234, 220, 182, 255)
 NOODLE_SHADE = (202, 184, 146, 255)
@@ -455,8 +516,9 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=18,
         auto_crop=True,
+        actor_metadata=ACTOR_METADATA,
     )
-    return [outputs[k] for k in ["spritesheet", "yaml", "ron", "preview", "canonical", "canonical_transparent"]]
+    return [outputs[k] for k in ["spritesheet", "yaml", "ron", "actor", "preview", "canonical", "canonical_transparent"]]
 
 
 def main(argv: list[str] | None = None) -> int:

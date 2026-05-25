@@ -35,6 +35,70 @@ ROWS: List[Tuple[str, int, int]] = [
     ("death", 8, 110),
 ]
 
+ACTOR_METADATA = {
+    "actor": {
+        "character_id": "npc_raptor_stalker",
+        "display_name": "Raptor Stalker",
+    },
+    "body": {
+        "body_plan": "BeastBiped",
+        "body_kind": "Standard",
+        "mass_class": "Medium",
+        "locomotion_hint": "Run",
+        "traits": ["enemy", "beast", "dinosaur", "stalker", "no_hands"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": {"height_px": None, "distance_px": None, "source": "raptor_pounce_animation"},
+            "climb": None,
+            "crawl": None,
+            "fly": None,
+            "swim": None,
+            "use_lifts": None,
+            "door_access": [],
+        },
+        "interactions": {
+            "talk": None,
+            "trade": None,
+            "carry": None,
+            "open_doors": [],
+        },
+    },
+    "brain": {"default_preset": "melee_brute_striker"},
+    "actions": {"default_preset": "striker_swipe"},
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.run": {"animation": "walk", "events": []},
+        "action.melee.primary": {
+            "animation": "bite",
+            "events": [
+                {"t": 0.34, "event": "hitbox_active_start", "source": "raptor_stalker.bite"},
+                {"t": 0.56, "event": "hitbox_active_end", "source": "raptor_stalker.bite"},
+            ],
+        },
+        "action.melee.tail_sweep": {
+            "animation": "tail_sweep",
+            "events": [
+                {"t": 0.32, "event": "hitbox_active_start", "source": "raptor_stalker.tail_sweep"},
+                {"t": 0.64, "event": "hitbox_active_end", "source": "raptor_stalker.tail_sweep"},
+            ],
+        },
+        "action.special.pounce": {"animation": "pounce", "events": [{"t": 0.42, "event": "leap_commit", "source": "raptor_stalker.pounce"}]},
+        "damage.hit": {"animation": "hurt", "events": []},
+        "lifecycle.death": {"animation": "death", "events": []},
+    },
+    "sockets": {
+        "head": {"source": "raptor_stalker.geometry", "point": {"x": 166.0, "y": 60.0}},
+        "mouth": {"source": "raptor_stalker.geometry", "point": {"x": 194.0, "y": 76.0}},
+        "tail_base": {"source": "raptor_stalker.geometry", "point": {"x": 72.0, "y": 118.0}},
+        "tail_tip": {"source": "raptor_stalker.geometry", "point": {"x": 32.0, "y": 106.0}},
+        "foreclaw": {"source": "raptor_stalker.geometry", "point": {"x": 164.0, "y": 118.0}},
+        "pounce_origin": {"source": "raptor_stalker.geometry", "point": {"x": 116.0, "y": 172.0}},
+    },
+    "tags": ["enemy", "beast", "dinosaur"],
+}
+
 OUTLINE = (18, 22, 18, 255)
 SCALE_DARK = (44, 74, 50, 255)
 SCALE = (84, 138, 90, 255)
@@ -559,10 +623,11 @@ def render(out_dir: str | Path, **opts):
         out_dir=out_dir,
         frame_size=FRAME_SIZE,
         auto_crop=True,
+        actor_metadata=ACTOR_METADATA,
     )
     return [
         outputs["spritesheet"], outputs["yaml"], outputs["ron"],
-        outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
+        outputs["actor"], outputs["preview"], outputs["canonical"], outputs["canonical_transparent"],
     ]
 
 

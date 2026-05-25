@@ -39,6 +39,67 @@ ROWS: List[Tuple[str, int, int]] = [
     ("death", 8, 110),
 ]
 
+ACTOR_METADATA = {
+    "actor": {
+        "character_id": "npc_trex_enemy",
+        "display_name": "T-Rex Enemy",
+    },
+    "body": {
+        "body_plan": "BeastBiped",
+        "body_kind": "Wide",
+        "mass_class": "Heavy",
+        "locomotion_hint": "HeavyWalk",
+        "traits": ["enemy", "beast", "dinosaur", "heavy", "no_hands", "stomper"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": None,
+            "climb": None,
+            "crawl": None,
+            "fly": None,
+            "swim": None,
+            "use_lifts": None,
+            "door_access": [],
+        },
+        "interactions": {
+            "talk": None,
+            "trade": None,
+            "carry": None,
+            "open_doors": [],
+        },
+    },
+    "brain": {"default_preset": "melee_brute_brute"},
+    "actions": {"default_preset": "brute_lunge"},
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.walk_heavy": {"animation": "walk", "events": []},
+        "action.special.charge": {"animation": "charge", "events": [{"t": 0.20, "event": "charge_commit", "source": "trex_enemy.charge"}]},
+        "action.melee.primary": {
+            "animation": "bite",
+            "events": [
+                {"t": 0.32, "event": "hitbox_active_start", "source": "trex_enemy.bite"},
+                {"t": 0.55, "event": "hitbox_active_end", "source": "trex_enemy.bite"},
+            ],
+        },
+        "action.melee.tail_sweep": {"animation": "tail_swipe", "events": [{"t": 0.36, "event": "hitbox_active_start", "source": "trex_enemy.tail_swipe"}, {"t": 0.66, "event": "hitbox_active_end", "source": "trex_enemy.tail_swipe"}]},
+        "action.melee.stomp": {"animation": "stomp", "events": [{"t": 0.48, "event": "ground_impact", "source": "trex_enemy.stomp"}]},
+        "interaction.roar": {"animation": "roar", "events": [{"t": 0.44, "event": "sfx_cue", "source": "trex_enemy.roar"}]},
+        "damage.hit": {"animation": "hurt", "events": []},
+        "lifecycle.death": {"animation": "death", "events": []},
+    },
+    "sockets": {
+        "head": {"source": "trex_enemy.geometry", "point": {"x": 296.0, "y": 82.0}},
+        "mouth": {"source": "trex_enemy.geometry", "point": {"x": 346.0, "y": 108.0}},
+        "roar_origin": {"source": "trex_enemy.geometry", "point": {"x": 360.0, "y": 110.0}},
+        "tail_base": {"source": "trex_enemy.geometry", "point": {"x": 130.0, "y": 158.0}},
+        "tail_tip": {"source": "trex_enemy.geometry", "point": {"x": 48.0, "y": 164.0}},
+        "foot_l": {"source": "trex_enemy.geometry", "point": {"x": 180.0, "y": 286.0}},
+        "foot_r": {"source": "trex_enemy.geometry", "point": {"x": 244.0, "y": 286.0}},
+    },
+    "tags": ["enemy", "heavy", "dinosaur"],
+}
+
 OUTLINE = (22, 16, 12, 255)
 GREEN_DARK = (54, 109, 44, 255)
 GREEN = (74, 148, 58, 255)
@@ -495,8 +556,9 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=10,
         auto_crop=True,
+        actor_metadata=ACTOR_METADATA,
     )
-    return [outputs["spritesheet"], outputs["yaml"], outputs["ron"], outputs["preview"], outputs["canonical"], outputs["canonical_transparent"]]
+    return [outputs["spritesheet"], outputs["yaml"], outputs["ron"], outputs["actor"], outputs["preview"], outputs["canonical"], outputs["canonical_transparent"]]
 
 
 def main(argv: list[str] | None = None) -> int:

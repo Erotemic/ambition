@@ -31,6 +31,7 @@ SHEET_FILES = [
     f"{TARGET_NAME}_spritesheet.png",
     f"{TARGET_NAME}_spritesheet.yaml",
     f"{TARGET_NAME}_spritesheet.ron",
+    f"{TARGET_NAME}_actor.ron",
 ]
 FRAME_SIZE = (320, 320)
 WORK_FRAME_SIZE = (640, 640)
@@ -45,6 +46,61 @@ ROWS: List[Tuple[str, int, int]] = [
     ("hurt", 4, 90),
     ("death", 8, 112),
 ]
+
+ACTOR_METADATA = {
+    "actor": {
+        "character_id": "npc_smart_house",
+        "display_name": "Smart House",
+    },
+    "body": {
+        "body_plan": "PropActor",
+        "body_kind": "PropLike",
+        "mass_class": "Heavy",
+        "locomotion_hint": "StompyWalk",
+        "traits": ["story", "prop_actor", "building", "speaker", "mobile_house"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": None,
+            "climb": None,
+            "crawl": None,
+            "fly": None,
+            "swim": None,
+            "use_lifts": None,
+            "door_access": ["public"],
+        },
+        "interactions": {
+            "talk": True,
+            "trade": None,
+            "carry": None,
+            "open_doors": [],
+        },
+    },
+    "brain": {"default_preset": "stand_still"},
+    "actions": {"default_preset": "peaceful"},
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.stompy_walk": {"animation": "walk", "events": []},
+        "interaction.ponder": {"animation": "ponder", "events": []},
+        "interaction.lecture": {"animation": "lecture", "events": [{"t": 0.42, "event": "speech_cue", "source": "smart_house.lecture"}]},
+        "interaction.idea": {"animation": "idea", "events": [{"t": 0.48, "event": "vfx_cue", "source": "smart_house.idea"}]},
+        "action.special.ram": {"animation": "ram", "events": [{"t": 0.44, "event": "hitbox_active_start", "source": "smart_house.ram"}, {"t": 0.62, "event": "hitbox_active_end", "source": "smart_house.ram"}]},
+        "damage.hit": {"animation": "hurt", "events": []},
+        "lifecycle.death": {"animation": "death", "events": []},
+    },
+    "sockets": {
+        "door_center": {"source": "smart_house.geometry", "point": {"x": 160.0, "y": 210.0}},
+        "face_center": {"source": "smart_house.geometry", "point": {"x": 160.0, "y": 132.0}},
+        "speech_bubble": {"source": "smart_house.geometry", "point": {"x": 160.0, "y": 48.0}},
+        "chimney": {"source": "smart_house.geometry", "point": {"x": 112.0, "y": 48.0}},
+        "lightbulb": {"source": "smart_house.geometry", "point": {"x": 160.0, "y": 38.0}},
+        "book_origin": {"source": "smart_house.geometry", "point": {"x": 114.0, "y": 172.0}},
+        "paper_origin": {"source": "smart_house.geometry", "point": {"x": 210.0, "y": 172.0}},
+        "ram_front": {"source": "smart_house.geometry", "point": {"x": 248.0, "y": 146.0}},
+    },
+    "tags": ["story", "prop_actor", "speaker", "mobile_house"],
+}
 
 OUTLINE = (30, 24, 20, 255)
 WOOD = (198, 162, 104, 255)
@@ -427,11 +483,13 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=10,
         auto_crop=True,
+        actor_metadata=ACTOR_METADATA,
     )
     return [
         outputs["spritesheet"],
         outputs["yaml"],
         outputs["ron"],
+        outputs["actor"],
         outputs["preview"],
         outputs["canonical"],
         outputs["canonical_transparent"],

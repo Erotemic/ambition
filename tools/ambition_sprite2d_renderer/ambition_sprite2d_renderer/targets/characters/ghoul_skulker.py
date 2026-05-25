@@ -35,6 +35,7 @@ SHEET_FILES = [
     f"{TARGET_NAME}_spritesheet.png",
     f"{TARGET_NAME}_spritesheet.yaml",
     f"{TARGET_NAME}_spritesheet.ron",
+    f"{TARGET_NAME}_actor.ron",
 ]
 FRAME_SIZE = (320, 320)
 WORK_FRAME_SIZE = (640, 640)
@@ -48,6 +49,71 @@ ROWS: List[Tuple[str, int, int]] = [
     ("hurt", 4, 90),
     ("death", 8, 112),
 ]
+
+ACTOR_METADATA = {
+    "actor": {
+        "character_id": "npc_ghoul_skulker",
+        "display_name": "Ghoul Skulker",
+    },
+    "body": {
+        "body_plan": "HumanoidBiped",
+        "body_kind": "LowProfile",
+        "mass_class": "Light",
+        "locomotion_hint": "Skulk",
+        "traits": ["enemy", "undead", "skulker", "clawed", "low_profile"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": {"height_px": None, "distance_px": None, "source": "ghoul_pounce_animation"},
+            "climb": None,
+            "crawl": True,
+            "fly": None,
+            "swim": None,
+            "use_lifts": None,
+            "door_access": [],
+        },
+        "interactions": {
+            "talk": None,
+            "trade": None,
+            "carry": None,
+            "open_doors": [],
+        },
+    },
+    "brain": {"default_preset": "melee_brute_striker"},
+    "actions": {"default_preset": "striker_swipe"},
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.skulk": {"animation": "skulk", "events": []},
+        "action.melee.primary": {
+            "animation": "claw",
+            "events": [
+                {"t": 0.34, "event": "hitbox_active_start", "source": "ghoul_skulker.claw"},
+                {"t": 0.58, "event": "hitbox_active_end", "source": "ghoul_skulker.claw"},
+            ],
+        },
+        "action.special.pounce": {
+            "animation": "pounce",
+            "events": [
+                {"t": 0.25, "event": "leap_commit", "source": "ghoul_skulker.pounce"},
+                {"t": 0.54, "event": "hitbox_active_start", "source": "ghoul_skulker.pounce"},
+                {"t": 0.70, "event": "hitbox_active_end", "source": "ghoul_skulker.pounce"},
+            ],
+        },
+        "interaction.cackle": {"animation": "cackle", "events": []},
+        "damage.hit": {"animation": "hurt", "events": []},
+        "lifecycle.death": {"animation": "death", "events": []},
+    },
+    "sockets": {
+        "head": {"source": "ghoul_skulker.geometry", "point": {"x": 166.0, "y": 82.0}},
+        "mouth": {"source": "ghoul_skulker.geometry", "point": {"x": 188.0, "y": 102.0}},
+        "hand_l": {"source": "ghoul_skulker.geometry", "point": {"x": 90.0, "y": 198.0}},
+        "hand_r": {"source": "ghoul_skulker.geometry", "point": {"x": 238.0, "y": 194.0}},
+        "claw_tip": {"source": "ghoul_skulker.geometry", "point": {"x": 254.0, "y": 202.0}},
+        "pounce_origin": {"source": "ghoul_skulker.geometry", "point": {"x": 170.0, "y": 245.0}},
+    },
+    "tags": ["enemy", "undead", "skulker"],
+}
 
 OUTLINE = (24, 20, 19, 255)
 SKIN = (214, 205, 192, 255)
@@ -412,11 +478,13 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=10,
         auto_crop=True,
+        actor_metadata=ACTOR_METADATA,
     )
     return [
         outputs["spritesheet"],
         outputs["yaml"],
         outputs["ron"],
+        outputs["actor"],
         outputs["preview"],
         outputs["canonical"],
         outputs["canonical_transparent"],

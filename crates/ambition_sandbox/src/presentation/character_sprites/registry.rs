@@ -132,7 +132,7 @@ pub struct SheetTuningSpec {
 /// Body / hurtbox metadata emitted alongside the sprite sheet.
 ///
 /// `body_pixel_bbox` is the single overall bbox (alpha-bbox of the
-/// rendered body) — the common case for single-piece characters
+/// idle/rest frame) — the common case for single-piece characters
 /// (player, goblins, small bosses).
 ///
 /// `body_pixel_parts` is the multi-rect representation for
@@ -141,9 +141,17 @@ pub struct SheetTuningSpec {
 /// individually. Each part carries a `name` so consumers can target
 /// "head" vs "left_hand" by string. Defaults to empty.
 ///
-/// Consumer rule: when `body_pixel_parts` is non-empty, prefer it;
-/// otherwise fall back to a single-element list built from
-/// `body_pixel_bbox`. See
+/// `animations` carries **per-animation** hurtbox + hitbox data
+/// keyed by animation name (e.g. `"floor_slam"`, `"side_sweep"`).
+/// Each entry overrides the static body bbox for that animation
+/// so a boss whose arms extend out only during attack frames gets
+/// the right hurtbox during those frames, and so attack
+/// hitboxes are positioned where the sprite author intended.
+///
+/// Consumer rule (hurtbox): when the current animation has a
+/// `AnimationMetrics::hurtbox`, use it. Else when
+/// `body_pixel_parts` is non-empty, prefer it. Else fall back to a
+/// single-element list built from `body_pixel_bbox`. See
 /// [`super::super::super::content::features::boss_attack_geometry::world_space_body_aabbs_from_metrics`]
 /// for the canonical derivation.
 #[derive(Debug, Clone, Deserialize)]
@@ -155,10 +163,64 @@ pub struct BodyMetrics {
     /// as the single body.
     #[serde(default)]
     pub body_pixel_parts: Vec<NamedPixelRect>,
+    /// Per-animation hurtbox + hitbox overrides. Keyed by the same
+    /// animation name the spritesheet rows use (`"rest"`,
+    /// `"floor_slam"`, `"side_sweep"`, …). The renderer emits one
+    /// entry per animation in the sheet; consumers look up by the
+    /// boss's currently-playing animation name.
+    #[serde(default)]
+    pub animations: std::collections::HashMap<String, AnimationMetrics>,
     #[serde(default)]
     pub feet_pixel: Option<PixelPoint>,
     #[serde(default)]
     pub feet_anchor_norm: Option<NormPoint>,
+}
+
+/// Per-animation authored / derived hit + hurt box data. The
+/// renderer fills `hurtbox` from each animation's alpha-bbox by
+/// default; adapters declare `hitbox` rectangles explicitly for
+/// each attack animation. Either may be `None` (meaning "fall
+/// back to the static `body_pixel_bbox`" or "this animation has
+/// no attack hitbox").
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct AnimationMetrics {
+    /// Hurtbox for this animation (where the *player's* attacks
+    /// register hits on this actor). Multi-rect if the sprite has
+    /// disjoint body parts; single-rect via `bbox` for simple
+    /// bodies. `None` = fall back to `BodyMetrics::body_pixel_bbox`.
+    #[serde(default)]
+    pub hurtbox: Option<AnimationBox>,
+    /// Hitbox for this animation (where *this actor's* attack
+    /// damages the player). Non-attack animations leave this `None`.
+    /// Attack-flavored animations (`floor_slam`, `side_sweep`,
+    /// `spike_halo`, etc.) author one or more rects.
+    #[serde(default)]
+    pub hitbox: Option<AnimationBox>,
+}
+
+/// One animation's hit-or-hurt box, expressed as multi-rect parts
+/// + an optional fallback single bbox. Mirrors the
+/// `body_pixel_parts` / `body_pixel_bbox` split.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct AnimationBox {
+    /// Multi-rect representation. Use `parts` when the sprite has
+    /// disjoint pieces (head + arms + body). Empty = fall back to
+    /// `bbox`.
+    #[serde(default)]
+    pub parts: Vec<NamedPixelRect>,
+    /// Single-rect fallback. Most attack hitboxes are one box;
+    /// most hurtboxes derived from alpha bounds are one box.
+    #[serde(default)]
+    pub bbox: Option<PixelRect>,
+}
+
+impl AnimationBox {
+    /// True iff this box has at least one rectangle (either parts
+    /// or bbox populated). Used by consumers as the "should I use
+    /// this or fall back?" gate.
+    pub fn is_populated(&self) -> bool {
+        !self.parts.is_empty() || self.bbox.is_some()
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]

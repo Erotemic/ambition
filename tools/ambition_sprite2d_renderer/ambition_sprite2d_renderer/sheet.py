@@ -169,6 +169,12 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         "animations": {},
     }
     body_metric_frame: Image.Image | None = None
+    # Per-animation union alpha bboxes in **source canvas** coords
+    # (before the sheet-wide crop). Becomes per-animation hurtboxes
+    # so the gameplay can use the right hurtbox extent for the
+    # active animation — important when arms or other extensions
+    # appear only during attack frames.
+    anim_union_bbox_src: Dict[str, Tuple[int, int, int, int] | None] = {}
     for row_idx, animation in enumerate(selected):
         info = animations[animation]
         y = border + row_idx * (fh + border)
@@ -176,6 +182,7 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
             draw.text((8, y + 8), animation, fill=(255, 255, 255, 255), font=font)
             draw.text((8, y + 23), f"{info['frames']}f/{info['duration_ms']}ms", fill=(190, 190, 190, 255), font=load_font(10))
         frame_records: List[Dict[str, Any]] = []
+        anim_bbox: Tuple[int, int, int, int] | None = None
         for frame_index, src_frame in enumerate(rendered[row_idx]):
             cropped = src_frame.crop((crop_min_x, crop_min_y, crop_max_x, crop_max_y))
             x = label_w + border + frame_index * (fw + border)
@@ -188,6 +195,18 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                 "h": fh,
                 "duration_ms": info["duration_ms"],
             })
+            # Per-animation alpha-bbox accumulator (source canvas coords).
+            src_bbox = src_frame.getbbox()
+            if src_bbox is not None:
+                if anim_bbox is None:
+                    anim_bbox = src_bbox
+                else:
+                    anim_bbox = (
+                        min(anim_bbox[0], src_bbox[0]),
+                        min(anim_bbox[1], src_bbox[1]),
+                        max(anim_bbox[2], src_bbox[2]),
+                        max(anim_bbox[3], src_bbox[3]),
+                    )
             # Use the first frame of the first emitted animation as the
             # canonical reference pose for body-extent measurement. Idle/Rest
             # is what the gameplay code shows when the entity is at rest, so
@@ -195,9 +214,85 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
             # cropped-frame pixel coordinates.
             if body_metric_frame is None:
                 body_metric_frame = cropped
+        anim_union_bbox_src[animation] = anim_bbox
         manifest["animations"][animation] = {"frames": frame_records, "duration_ms": info["duration_ms"]}
     metrics = _measure_body_extent(body_metric_frame) if body_metric_frame is not None else None
     if metrics is not None:
+        # Per-animation hurtbox: each animation's alpha-bbox in
+        # cropped-frame coords (subtract the sheet crop offset).
+        # Per-animation hitbox: adapter-declared rects, also
+        # translated to cropped-frame coords. Together they give
+        # the gameplay layer a clean per-animation
+        # {hurtbox, hitbox} pair for each row in the sheet.
+        anim_metrics: Dict[str, Dict[str, Any]] = {}
+        for animation, src_bbox in anim_union_bbox_src.items():
+            entry: Dict[str, Any] = {}
+            if src_bbox is not None:
+                x0, y0, x1, y1 = src_bbox
+                # Translate from source canvas → cropped frame.
+                cx0 = max(0, x0 - crop_min_x)
+                cy0 = max(0, y0 - crop_min_y)
+                cw = min(fw, x1 - crop_min_x) - cx0
+                ch = min(fh, y1 - crop_min_y) - cy0
+                if cw > 0 and ch > 0:
+                    entry["hurtbox"] = {
+                        "bbox": {"x": int(cx0), "y": int(cy0), "w": int(cw), "h": int(ch)}
+                    }
+            anim_metrics[animation] = entry
+        # Adapter-declared per-animation hitboxes (attack damage
+        # geometry). Translated source canvas → cropped frame.
+        try:
+            hitboxes_by_anim = adapter.attack_hitboxes((src_fw, src_fh))
+        except Exception:
+            hitboxes_by_anim = {}
+        for anim_name, hitbox in (hitboxes_by_anim or {}).items():
+            if anim_name not in anim_metrics:
+                anim_metrics[anim_name] = {}
+            hitbox_out: Dict[str, Any] = {}
+            if isinstance(hitbox, dict):
+                if isinstance(hitbox.get("bbox"), tuple):
+                    x, y, w, h = hitbox["bbox"]
+                    cx0 = max(0, int(x) - crop_min_x)
+                    cy0 = max(0, int(y) - crop_min_y)
+                    cw = min(fw, int(x) + int(w) - crop_min_x) - cx0
+                    ch = min(fh, int(y) + int(h) - crop_min_y) - cy0
+                    if cw > 0 and ch > 0:
+                        hitbox_out["bbox"] = {
+                            "x": int(cx0),
+                            "y": int(cy0),
+                            "w": int(cw),
+                            "h": int(ch),
+                        }
+                if isinstance(hitbox.get("parts"), list):
+                    cropped_parts = []
+                    for part in hitbox["parts"]:
+                        if not isinstance(part, dict):
+                            continue
+                        x = int(part.get("x", 0))
+                        y = int(part.get("y", 0))
+                        w = int(part.get("w", 0))
+                        h = int(part.get("h", 0))
+                        cx0 = max(0, x - crop_min_x)
+                        cy0 = max(0, y - crop_min_y)
+                        cw = min(fw, x + w - crop_min_x) - cx0
+                        ch = min(fh, y + h - crop_min_y) - cy0
+                        if cw > 0 and ch > 0:
+                            cropped_parts.append({
+                                "name": str(part.get("name", "")),
+                                "x": int(cx0),
+                                "y": int(cy0),
+                                "w": int(cw),
+                                "h": int(ch),
+                            })
+                    if cropped_parts:
+                        hitbox_out["parts"] = cropped_parts
+            if hitbox_out:
+                anim_metrics[anim_name]["hitbox"] = hitbox_out
+        # Drop animations with no data (rest, hit, death may end up empty
+        # if the adapter declared no hitbox and the alpha bbox was empty).
+        anim_metrics = {k: v for k, v in anim_metrics.items() if v}
+        if anim_metrics:
+            metrics["animations"] = anim_metrics
         manifest["body_metrics"] = metrics
     return sheet, manifest
 
@@ -265,7 +360,58 @@ def _ron_body_metrics(bm):
         f"feet_pixel: {_ron_optional_point(bm.get('feet_pixel'))}",
         f"feet_anchor_norm: {_ron_optional_point(bm.get('feet_anchor_norm'))}",
     ]
+    anim_metrics = bm.get("animations")
+    if isinstance(anim_metrics, dict) and anim_metrics:
+        parts.append(f"animations: {_ron_anim_metrics_map(anim_metrics)}")
     return _ron_some(f"({', '.join(parts)})")
+
+
+def _ron_anim_metrics_map(metrics):
+    """RON-serialize per-animation hit + hurt box metadata.
+
+    Shape of each entry::
+
+        {
+          "hurtbox": {"bbox": {x, y, w, h}, "parts": [...]},
+          "hitbox":  {"bbox": {x, y, w, h}, "parts": [...]},
+        }
+
+    Either `hurtbox` or `hitbox` may be absent; within each,
+    either `bbox` or `parts` may be absent. Empty entries are
+    skipped by `build_spritesheet` upstream.
+    """
+    if not isinstance(metrics, dict) or not metrics:
+        return "{}"
+    items = []
+    for anim_name, entry in sorted(metrics.items()):
+        if not isinstance(entry, dict):
+            continue
+        inner = []
+        for kind in ("hurtbox", "hitbox"):
+            box = entry.get(kind)
+            if not isinstance(box, dict):
+                continue
+            inner.append(f"{kind}: Some({_ron_animation_box(box)})")
+        items.append(f'"{_ron_escape(anim_name)}": ({", ".join(inner)})')
+    return "{" + ", ".join(items) + "}"
+
+
+def _ron_animation_box(box):
+    """Serialize one animation's hit-or-hurt box (parts + bbox)."""
+    inner = []
+    parts = box.get("parts")
+    if isinstance(parts, list) and parts:
+        formatted = ", ".join(
+            f'(name: "{_ron_escape(str(p.get("name", "")))}", '
+            f'x: {int(p["x"])}, y: {int(p["y"])}, w: {int(p["w"])}, h: {int(p["h"])})'
+            for p in parts
+            if isinstance(p, dict)
+        )
+        inner.append(f"parts: [{formatted}]")
+    bbox = box.get("bbox")
+    if isinstance(bbox, dict):
+        inner.append(f"bbox: {_ron_optional_rect(bbox)}")
+    return "(" + ", ".join(inner) + ")"
 
 
 def _ron_anchors(anchors):

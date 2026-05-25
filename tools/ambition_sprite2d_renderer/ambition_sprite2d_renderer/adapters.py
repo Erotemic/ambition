@@ -58,6 +58,41 @@ class BaseAdapter:
     def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
         raise NotImplementedError
 
+    def attack_hitboxes(self, size: Tuple[int, int]) -> Dict[str, Dict[str, Any]]:
+        """Per-animation attack-hitbox metadata.
+
+        Returns a dict mapping animation name to a hitbox descriptor:
+
+            {
+                "floor_slam": {
+                    "bbox": (x, y, w, h),
+                },
+                "side_sweep": {
+                    "parts": [
+                        {"name": "left",  "x": ..., "y": ..., "w": ..., "h": ...},
+                        {"name": "right", "x": ..., "y": ..., "w": ..., "h": ...},
+                    ],
+                },
+            }
+
+        Coordinates are in **source canvas** pixel space (before
+        the renderer's auto-crop). The renderer translates to
+        cropped-frame coordinates before emitting.
+
+        Override per adapter to author attack-hitbox shapes that
+        match the sprite's pose during the strike beat. Default
+        empty (no attack hitboxes; gameplay falls back to its
+        hardcoded volume math).
+
+        ``size`` is the source render canvas the adapter is using
+        (e.g. ``(128, 128)``) so coordinates can be specified in
+        absolute pixels rather than normalized. Adapters that
+        prefer normalized coords can compute against ``size`` and
+        return absolute pixels.
+        """
+        del size
+        return {}
+
     def render_single(self, spec: Any, animation: str, frame_index: int, job: CharacterJob) -> Image.Image:
         r = job.render
         return self.render_frame(spec, animation, frame_index, (r.single_width, r.single_height), job)
@@ -134,6 +169,57 @@ class BossAdapter(BaseAdapter):
             supersample=job.render.supersample,
             downsample=job.render.downsample,
         )
+
+    def attack_hitboxes(self, size: Tuple[int, int]) -> Dict[str, Dict[str, Any]]:
+        """Per-attack hitbox shapes for the Gradient Sentinel boss.
+        Coordinates are in source canvas pixels (128×128 by default).
+
+        Animation → attack mapping (gameplay-side
+        ``BossAttackProfile`` → animation name):
+
+        - ``floor_slam``  → FloorSlam (broad slap below the body)
+        - ``side_sweep``  → SideSweep (two arm sweeps left + right)
+        - ``spike_halo``  → OverfitVolley / SaddlePoint anchor
+                            (ring around the body)
+        - ``dash_echo``   → GradientLane (a tall horizontal lane
+                            following the dash)
+
+        Tuned to the AI Slop Zeta's 128×128 frame; the renderer
+        translates these to cropped-frame coordinates and the
+        gameplay code rescales them by the spawn AABB.
+        """
+        canvas_w, canvas_h = size
+        # The boss sprite sits roughly centered in the 128×128
+        # canvas. Body alpha-bbox is (8, 5, 106, 83); arms reach
+        # ±35 px out from the body center during attacks.
+        return {
+            # FloorSlam: a wide ground-level slap below the body's
+            # visual feet position (around y=87 in canvas coords).
+            "floor_slam": {
+                "bbox": (4, 88, canvas_w - 8, 30),
+            },
+            # SideSweep: two arm hitboxes — one to each side of
+            # the body. The animation has arms extending fully
+            # outward during the active middle frames.
+            "side_sweep": {
+                "parts": [
+                    {"name": "left", "x": 0, "y": 40, "w": 32, "h": 50},
+                    {"name": "right", "x": canvas_w - 32, "y": 40, "w": 32, "h": 50},
+                ],
+            },
+            # SpikeHalo: a ring around the boss. Approximated as
+            # an annular set of corners + edges via a single
+            # outer bbox (the gameplay code can read this as
+            # one big box).
+            "spike_halo": {
+                "bbox": (0, 0, canvas_w, canvas_h),
+            },
+            # DashEcho: an elongated horizontal lane tracking
+            # the dash; the boss sprite stretches sideways.
+            "dash_echo": {
+                "bbox": (0, 50, canvas_w, 40),
+            },
+        }
 
 
 class RobotAdapter(BaseAdapter):

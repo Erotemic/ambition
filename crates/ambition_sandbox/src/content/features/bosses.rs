@@ -966,12 +966,24 @@ mod boss_special_resolver_tests {
 /// `frame_width` / `frame_height` are the sprite-frame dimensions
 /// (e.g. 128×128 for clockwork_warden) used to scale pixel-space
 /// coordinates into world-space via the boss's render size.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub struct BossSpriteMetrics {
     pub frame_width: u32,
     pub frame_height: u32,
     pub body_pixel_bbox: Option<crate::presentation::character_sprites::registry::PixelRect>,
     pub body_pixel_parts: Vec<crate::presentation::character_sprites::registry::NamedPixelRect>,
+    /// Per-animation `{hurtbox, hitbox}` data keyed by animation
+    /// name (matches the spritesheet rows: `"rest"`,
+    /// `"floor_slam"`, `"side_sweep"`, …). The renderer fills
+    /// `hurtbox` from each animation's union alpha-bbox; the
+    /// adapter declares `hitbox` rects for attack animations.
+    /// Consumers (`damageable_volumes`, `volumes_for_profile`)
+    /// look up by current animation name to scale hurtboxes /
+    /// hitboxes with the on-screen sprite pose.
+    pub animations: std::collections::HashMap<
+        String,
+        crate::presentation::character_sprites::registry::AnimationMetrics,
+    >,
 }
 
 impl BossSpriteMetrics {
@@ -979,6 +991,64 @@ impl BossSpriteMetrics {
     /// derivation can use.
     pub fn has_body(&self) -> bool {
         !self.body_pixel_parts.is_empty() || self.body_pixel_bbox.is_some()
+    }
+
+    /// Per-animation hurtbox lookup. Used by `damageable_volumes`
+    /// to size the hurtbox to the *currently-playing* animation
+    /// (so attack frames with extended arms get a wider hurtbox
+    /// than the rest pose). Returns `None` if the animation has
+    /// no per-animation override; the caller falls back to
+    /// `body_pixel_parts` / `body_pixel_bbox`.
+    pub fn hurtbox_for_animation(
+        &self,
+        animation: &str,
+    ) -> Option<&crate::presentation::character_sprites::registry::AnimationBox> {
+        self.animations.get(animation)?.hurtbox.as_ref()
+    }
+
+    /// Per-animation hitbox lookup. Used by `volumes_for_profile`
+    /// to read the sprite-author-declared damage geometry for an
+    /// attack animation (so a side-sweep's hitbox covers both
+    /// extended arms, not the generic bounding rect). Returns
+    /// `None` if the animation has no authored hitbox; the
+    /// caller falls back to its hardcoded volume math.
+    pub fn hitbox_for_animation(
+        &self,
+        animation: &str,
+    ) -> Option<&crate::presentation::character_sprites::registry::AnimationBox> {
+        self.animations.get(animation)?.hitbox.as_ref()
+    }
+}
+
+/// Map a [`crate::brain::BossAttackProfile`] to the boss sprite's
+/// animation name. Used by `volumes_for_profile` /
+/// `damageable_volumes` to look up per-animation hit + hurt box
+/// data in [`BossSpriteMetrics::animations`]. Returns `None` for
+/// profiles whose sheet isn't the AI-Slop-Zeta clockwork
+/// (mockingbird / gnu_ton); the consumer falls back to its
+/// hardcoded math in that case.
+pub fn boss_animation_for_profile(
+    profile: &crate::brain::BossAttackProfile,
+) -> Option<&'static str> {
+    use crate::brain::BossAttackProfile;
+    match profile {
+        BossAttackProfile::FloorSlam => Some("floor_slam"),
+        BossAttackProfile::SideSweep => Some("side_sweep"),
+        BossAttackProfile::FullBodyPulse => Some("spike_halo"),
+        BossAttackProfile::GradientLane => Some("dash_echo"),
+        // Gradient Sentinel specials don't have a dedicated row
+        // in the AI-Slop-Zeta sheet; route them to `spike_halo`
+        // (closest visual: a ring of damage around the boss) so
+        // the player still sees an anim cue during the strike.
+        BossAttackProfile::OverfitVolley
+        | BossAttackProfile::MinimaTrap
+        | BossAttackProfile::SaddlePoint
+        | BossAttackProfile::GradientCascade => Some("spike_halo"),
+        // Other-boss profiles (mockingbird / gnu_ton) aren't part
+        // of the clockwork sheet; return None so the consumer
+        // falls back to hardcoded math if they accidentally land
+        // on a clockwork-sheet boss.
+        _ => None,
     }
 }
 

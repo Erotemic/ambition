@@ -206,10 +206,22 @@ impl<'a> BossVolumeContext<'a> {
 /// Active strike volumes — drawn red in the debug overlay and tested
 /// against the player body by the damage system. Returns empty when
 /// no strike is live (`attack_state.active_profile == None`).
+///
+/// Priority: sprite-author-declared per-animation hitbox (from
+/// `BossSpriteMetrics::animations[animation_name].hitbox`) wins
+/// over the hardcoded `volumes_for_profile` math. So when an
+/// adapter declares the FloorSlam hitbox as `(4, 88, 120, 30)` in
+/// pixel-frame coords, that's what damages the player — scaled to
+/// world by the boss's render size. Falls back to
+/// `volumes_for_profile` when the sprite has no per-animation
+/// hitbox for this profile.
 pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     let Some(profile) = ctx.attack_state.active_profile.as_ref() else {
         return Vec::new();
     };
+    if let Some(volumes) = sprite_authored_volumes(ctx, profile) {
+        return volumes;
+    }
     volumes_for_profile(
         profile,
         ctx.pos,
@@ -221,11 +233,16 @@ pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
 }
 
 /// Telegraph volumes — drawn yellow in the debug overlay. Returns
-/// empty when nothing is currently telegraphing.
+/// empty when nothing is currently telegraphing. Uses the same
+/// sprite-authored-then-fallback priority as
+/// [`active_attack_volumes`].
 pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     let Some(profile) = ctx.attack_state.telegraph_profile.as_ref() else {
         return Vec::new();
     };
+    if let Some(volumes) = sprite_authored_volumes(ctx, profile) {
+        return volumes;
+    }
     volumes_for_profile(
         profile,
         ctx.pos,
@@ -236,6 +253,37 @@ pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     )
 }
 
+/// Pull sprite-author-declared hitbox rectangles for the given
+/// attack profile from `ctx.sprite_metrics.animations`. Returns
+/// `None` (not empty) when the sprite has no hitbox for this
+/// animation; the caller falls back to the hardcoded
+/// `volumes_for_profile` math. Returns an empty `Vec` when the
+/// sprite has an entry but no usable rects (defensive).
+fn sprite_authored_volumes(
+    ctx: &BossVolumeContext,
+    profile: &BossAttackProfile,
+) -> Option<Vec<ae::Aabb>> {
+    let metrics = ctx.sprite_metrics?;
+    let animation = super::bosses::boss_animation_for_profile(profile)?;
+    let hitbox = metrics.hitbox_for_animation(animation)?;
+    if !hitbox.is_populated() {
+        return None;
+    }
+    let aabbs = world_space_body_aabbs_from_parts(
+        &hitbox.parts,
+        hitbox.bbox,
+        metrics.frame_width,
+        metrics.frame_height,
+        ctx.pos,
+        ctx.size,
+    );
+    if aabbs.is_empty() {
+        None
+    } else {
+        Some(aabbs)
+    }
+}
+
 /// Damageable hurtbox volumes — where the player's attacks register
 /// as hits. Single-piece bosses use one AABB derived from
 /// combat_size; multi-part bosses (sprite RON carrying
@@ -243,14 +291,53 @@ pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
 /// hit independently. GNU-ton's hand-tuned head/descent path
 /// stays as-is until the multi-rect metadata is authored.
 pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
-    // Sprite-driven multi-rect hurtboxes win when available. The
-    // sprite RON's `body_pixel_parts` is the authored multi-part
-    // representation for disjointed-piece characters (giant boss
-    // with head + body + arms). Each part becomes its own
-    // hurtbox so the player's attacks register on each piece
-    // independently.
+    // Priority:
+    //   1. Per-animation hurtbox for the currently-playing animation
+    //      (attack frames with extended arms get a wider hurtbox
+    //      than the rest pose).
+    //   2. Static `body_pixel_parts` (multi-rect body for disjointed
+    //      characters).
+    //   3. Static `body_pixel_bbox` (single-rect alpha bbox).
+    //   4. `combat_size`-driven fallback (legacy bosses without
+    //      sprite metadata).
     if !ctx.is_gnu_ton {
         if let Some(metrics) = ctx.sprite_metrics {
+            // (1) Per-animation hurtbox. The current animation is
+            // derived from the boss's `BossAttackState` —
+            // `active_profile`'s animation when a strike is live,
+            // `telegraph_profile`'s when a windup is showing,
+            // `"rest"` otherwise. This matches the visible sprite
+            // pose so a side-sweep's extended arms register as
+            // damageable, while the rest pose's tight body bbox
+            // wins when the boss is idle.
+            let active_anim = ctx
+                .attack_state
+                .active_profile
+                .as_ref()
+                .and_then(super::bosses::boss_animation_for_profile)
+                .or_else(|| {
+                    ctx.attack_state
+                        .telegraph_profile
+                        .as_ref()
+                        .and_then(super::bosses::boss_animation_for_profile)
+                })
+                .unwrap_or("rest");
+            if let Some(box_) = metrics.hurtbox_for_animation(active_anim) {
+                if box_.is_populated() {
+                    let aabbs = world_space_body_aabbs_from_parts(
+                        &box_.parts,
+                        box_.bbox,
+                        metrics.frame_width,
+                        metrics.frame_height,
+                        ctx.pos,
+                        ctx.size,
+                    );
+                    if !aabbs.is_empty() {
+                        return aabbs;
+                    }
+                }
+            }
+            // (2) Static multi-part body.
             if !metrics.body_pixel_parts.is_empty() {
                 let mut parts = Vec::with_capacity(metrics.body_pixel_parts.len());
                 for part in &metrics.body_pixel_parts {
@@ -264,6 +351,7 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
                 }
                 return parts;
             }
+            // (3) Static single-rect body.
             if let Some(bbox) = metrics.body_pixel_bbox {
                 return vec![world_aabb_from_pixel_rect(
                     bbox,
@@ -274,7 +362,7 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
                 )];
             }
         }
-        // Legacy fallback: combat_size-driven single AABB.
+        // (4) Legacy fallback: combat_size-driven single AABB.
         return vec![ae::Aabb::new(ctx.pos, ctx.combat_size * 0.5)];
     }
     // GNU-ton's head is always damageable (the descent windows just

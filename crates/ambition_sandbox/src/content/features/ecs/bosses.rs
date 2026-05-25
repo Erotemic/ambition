@@ -105,6 +105,7 @@ pub fn derive_boss_sprite_metrics(
             frame_height: frame_h,
             body_pixel_bbox: metrics.body_pixel_bbox,
             body_pixel_parts: metrics.body_pixel_parts.clone(),
+            animations: metrics.animations.clone(),
         };
         let has_body = snapshot.has_body();
         boss.sprite_metrics = Some(snapshot);

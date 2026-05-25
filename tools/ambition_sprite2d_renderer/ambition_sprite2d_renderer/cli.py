@@ -47,6 +47,7 @@ from .canonical import (
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
 from .faction_lineup import write_faction_lineup
+from .debug_hitboxes import render_debug_overlay
 from .sheet import write_spritesheet
 from .target_registry import (
     CATEGORIES,
@@ -501,6 +502,26 @@ def _cmd_regenerate_all(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_debug_hitboxes(args: argparse.Namespace) -> int:
+    """Overlay per-animation hurt + hit boxes on a rendered spritesheet.
+
+    Reads the sheet's YAML manifest, finds the matching PNG, and
+    writes a sibling ``*_debug.png`` with cyan hurtbox + red hitbox
+    outlines (+ legend) over every frame. Sprite authors run this
+    after a render to verify the boxes line up with the visible
+    body / strike pose.
+    """
+    yaml_path = args.yaml_path
+    out_path = args.out
+    try:
+        written = render_debug_overlay(yaml_path, out_path)
+    except FileNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    print(f"wrote debug overlay: {written}")
+    return 0
+
+
 def _cmd_draw_runtime_npcs(args: argparse.Namespace) -> int:
     """Render + install every review-config NPC that the runtime sprite
     registry expects at boot. These configs live under `configs/review/`
@@ -717,6 +738,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="install destination (default: crates/ambition_sandbox/assets/sprites)",
     )
     p.set_defaults(func=_cmd_regenerate_all)
+
+    p = sub.add_parser(
+        "debug-hitboxes",
+        help=(
+            "Overlay per-animation hurt + hit boxes on a rendered "
+            "spritesheet. Writes a sibling `<sheet>_debug.png`."
+        ),
+    )
+    p.add_argument(
+        "yaml_path",
+        type=Path,
+        help=(
+            "Path to the sheet's YAML manifest "
+            "(e.g. `crates/ambition_sandbox/assets/sprites/boss_spritesheet.yaml`)."
+        ),
+    )
+    p.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help=(
+            "Output PNG path. Default: sibling of the sheet PNG with "
+            "`_debug.png` suffix."
+        ),
+    )
+    p.set_defaults(func=_cmd_debug_hitboxes)
 
     return parser
 

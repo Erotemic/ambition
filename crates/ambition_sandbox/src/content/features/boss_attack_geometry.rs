@@ -860,6 +860,97 @@ mod sprite_metadata_derivation_tests {
     /// scale 2× in both dimensions. If this test breaks the
     /// sprite-metadata-driven body math diverged from the spawn
     /// AABB.
+    /// End-to-end pin: `damageable_volumes` MUST return the
+    /// per-animation hurtbox when the boss's sprite metrics
+    /// carries one for the current animation. If a future change
+    /// breaks the wire (derive doesn't copy `animations`, the
+    /// consumer's lookup falls through silently, the
+    /// boss_animation_for_profile mapping drops, etc.) the cyan
+    /// debug box stops growing during attacks — which is the
+    /// exact regression the user just reported.
+    ///
+    /// Builds a fake `BossSpriteMetrics` with a clearly-distinct
+    /// per-animation hurtbox for `side_sweep`, sets
+    /// `attack_state.active_profile = Some(SideSweep)`, and
+    /// asserts the consumer returns an AABB matching the wide
+    /// `side_sweep` hurtbox (~128 wide) rather than the static
+    /// `body_pixel_bbox` (~106 wide).
+    #[test]
+    fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
+        use crate::brain::{BossAttackProfile, BossAttackState};
+        use crate::content::features::bosses::{
+            BossBehaviorProfile, BossRuntime, BossSpriteMetrics,
+        };
+        use crate::presentation::character_sprites::registry::{
+            AnimationBox, AnimationMetrics, PixelRect,
+        };
+        use std::collections::HashMap;
+
+        // Build a sprite-metrics snapshot with a distinct
+        // `side_sweep` hurtbox (much wider than the static body
+        // bbox) so we can prove the consumer picked the
+        // per-animation one.
+        let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+        animations.insert(
+            "side_sweep".to_string(),
+            AnimationMetrics {
+                hurtbox: Some(AnimationBox {
+                    parts: Vec::new(),
+                    bbox: Some(PixelRect {
+                        x: 1,
+                        y: 5,
+                        w: 127,
+                        h: 86,
+                    }),
+                }),
+                hitbox: None,
+            },
+        );
+        let metrics = BossSpriteMetrics {
+            frame_width: 128,
+            frame_height: 128,
+            body_pixel_bbox: Some(PixelRect {
+                x: 8,
+                y: 5,
+                w: 106,
+                h: 83,
+            }),
+            body_pixel_parts: Vec::new(),
+            animations,
+        };
+
+        let mut behavior = BossBehaviorProfile::clockwork_warden();
+        behavior.combat_size = Some(ae::Vec2::new(54.0, 56.0));
+        let mut attack_state = BossAttackState::default();
+        attack_state.active_profile = Some(BossAttackProfile::SideSweep);
+
+        let _ = BossRuntime::new(
+            "test_boss",
+            "Test Boss",
+            ae::Aabb::new(ae::Vec2::new(640.0, 656.0), ae::Vec2::new(64.0, 80.0)),
+            ambition_engine::BossBrain::Dormant,
+        );
+        let ctx = BossVolumeContext {
+            pos: ae::Vec2::new(640.0, 656.0),
+            size: ae::Vec2::new(128.0, 160.0),
+            combat_size: ae::Vec2::new(54.0, 56.0),
+            is_gnu_ton: false,
+            behavior: &behavior,
+            attack_state: &attack_state,
+            sprite_metrics: Some(&metrics),
+        };
+        let volumes = damageable_volumes(&ctx);
+        assert_eq!(volumes.len(), 1);
+        let half = volumes[0].half_size();
+        // side_sweep hurtbox: 127 wide / 128 frame × 128 world = 127.
+        // Half = 63.5. Static body bbox would give 106/2 = 53.
+        assert!(
+            half.x > 60.0,
+            "expected per-animation side_sweep hurtbox (wider than static body); got half.x = {} (would be ~53 if falling back to body_pixel_bbox)",
+            half.x,
+        );
+    }
+
     #[test]
     fn world_space_body_aabbs_doubles_when_spawn_doubles() {
         let bbox = PixelRect {

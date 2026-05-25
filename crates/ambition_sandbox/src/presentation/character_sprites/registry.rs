@@ -452,3 +452,111 @@ fn init_baked(_registry: &mut SheetRegistry) {
          The runtime loader in this file should be the reference for what to deserialize."
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The Python renderer emits `body_metrics.animations` as a
+    /// map keyed by animation name. This test pins that the
+    /// Rust deserializer reads it back — regressing this would
+    /// silently fall back to the legacy `body_pixel_bbox`
+    /// (cyan box stays at idle-pose size during attacks).
+    #[test]
+    fn body_metrics_animations_round_trip_from_renderer_emit() {
+        // Matches the shape emitted by
+        // `_ron_anim_metrics_map` in `sheet.py` for the boss.
+        let ron_text = r#"
+        (
+            body_pixel_bbox: Some((x: 8, y: 5, w: 106, h: 83)),
+            feet_pixel: Some((x: 60.5, y: 87.0)),
+            feet_anchor_norm: Some((x: -0.02734375, y: -0.1796875)),
+            animations: {
+                "rest": (hurtbox: Some((bbox: Some((x: 8, y: 4, w: 106, h: 84))))),
+                "floor_slam": (
+                    hurtbox: Some((bbox: Some((x: 5, y: 0, w: 111, h: 110)))),
+                    hitbox: Some((bbox: Some((x: 4, y: 88, w: 120, h: 30))))
+                ),
+                "side_sweep": (
+                    hurtbox: Some((bbox: Some((x: 1, y: 5, w: 127, h: 86)))),
+                    hitbox: Some((parts: [
+                        (name: "left", x: 0, y: 40, w: 32, h: 50),
+                        (name: "right", x: 96, y: 40, w: 32, h: 50)
+                    ]))
+                )
+            }
+        )
+        "#;
+        let metrics: BodyMetrics = ron::from_str(ron_text)
+            .expect("BodyMetrics should deserialize from renderer-emitted RON");
+
+        assert_eq!(metrics.animations.len(), 3);
+        let rest = metrics.animations.get("rest").expect("`rest` present");
+        let rest_hurt = rest.hurtbox.as_ref().expect("`rest` hurtbox");
+        assert!(rest_hurt.bbox.is_some(), "rest hurtbox has bbox");
+        assert!(rest.hitbox.is_none(), "rest has no hitbox (idle pose)");
+
+        let floor = metrics
+            .animations
+            .get("floor_slam")
+            .expect("`floor_slam` present");
+        let floor_hit = floor.hitbox.as_ref().expect("`floor_slam` hitbox");
+        let bbox = floor_hit.bbox.expect("floor_slam hitbox bbox");
+        assert_eq!(bbox.w, 120);
+        assert_eq!(bbox.h, 30);
+
+        let sweep = metrics
+            .animations
+            .get("side_sweep")
+            .expect("`side_sweep` present");
+        let sweep_hit = sweep.hitbox.as_ref().expect("`side_sweep` hitbox");
+        assert_eq!(
+            sweep_hit.parts.len(),
+            2,
+            "side_sweep has left + right parts"
+        );
+        assert_eq!(sweep_hit.parts[0].name, "left");
+        assert_eq!(sweep_hit.parts[1].name, "right");
+    }
+
+    /// Verify the actual on-disk boss sheet RON parses. If the
+    /// Python renderer + Rust schema ever drift this test catches
+    /// it on the spot rather than at runtime via a silent
+    /// "animations: empty" fallback.
+    #[test]
+    fn live_boss_spritesheet_ron_round_trips() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("assets/sprites/boss_spritesheet.ron");
+        if !path.exists() {
+            // Sprites are gitignored; if a clean checkout hasn't
+            // regenerated yet, skip rather than fail.
+            return;
+        }
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        let records: Vec<SheetRecord> =
+            ron::from_str(&text).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
+        let record = records
+            .into_iter()
+            .find(|r| r.target == "boss")
+            .expect("boss record");
+        let metrics = record.body_metrics.expect("body_metrics");
+        assert!(
+            !metrics.animations.is_empty(),
+            "expected per-animation metadata in boss_spritesheet.ron — \
+             check that the Python renderer emitted `animations:` and that \
+             this test is reading the regenerated file"
+        );
+        // Spot-check the floor_slam hitbox (adapter-declared) so a
+        // future renderer change that drops author-declared hitboxes
+        // trips this guard.
+        let floor_slam = metrics
+            .animations
+            .get("floor_slam")
+            .expect("floor_slam animation present");
+        assert!(
+            floor_slam.hitbox.is_some(),
+            "floor_slam should have an authored hitbox (boss adapter declares it)"
+        );
+    }
+}

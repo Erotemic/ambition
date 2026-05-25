@@ -1,208 +1,16 @@
 use super::*;
 
-/// Movement family for a live boss actor. Encounter phases decide *when* a boss
-/// is active; this profile decides how the authored actor moves while active.
-#[derive(Clone, Debug, PartialEq)]
-pub enum BossMovementProfile {
-    /// Existing grounded/hovering sentinel feel: stay near the authored spawn,
-    /// sway horizontally, and chase the player a little without abandoning the
-    /// arena anchor.
-    AnchorSway {
-        x_radius: f32,
-        y_bob: f32,
-        x_frequency: f32,
-        y_frequency: f32,
-        chase_scale: f32,
-        chase_limit: f32,
-        speed: f32,
-    },
-    /// Wide airborne arcs for ship/bird-like bosses. Keeps a stable home anchor
-    /// but spends more of the fight sweeping across it.
-    AirSwoop {
-        x_radius: f32,
-        y_radius: f32,
-        x_frequency: f32,
-        y_frequency: f32,
-        chase_scale: f32,
-        chase_limit: f32,
-        speed: f32,
-    },
-    /// Stationary giant: the entity barely moves — only a slow breath-like
-    /// sway. The hands and head do the attacking via hitbox volumes computed
-    /// relative to spawn; the entity itself stays nearly fixed so the large
-    /// background body sprite reads as immovable.
-    StationaryGiant {
-        sway_amplitude: f32,
-        sway_frequency: f32,
-        speed: f32,
-    },
-}
-
-impl BossMovementProfile {
-    fn target(&self, boss: &BossRuntime, target_pos: ae::Vec2) -> ae::Vec2 {
-        let anchor_to_player = target_pos - boss.spawn;
-        match *self {
-            Self::AnchorSway {
-                x_radius,
-                y_bob,
-                x_frequency,
-                y_frequency,
-                chase_scale,
-                chase_limit,
-                ..
-            } => {
-                let chase = (anchor_to_player.x * chase_scale).clamp(-chase_limit, chase_limit);
-                ae::Vec2::new(
-                    boss.spawn.x + (boss.movement_timer * x_frequency).sin() * x_radius + chase,
-                    boss.spawn.y - (boss.movement_timer * y_frequency).sin().abs() * y_bob,
-                )
-            }
-            Self::AirSwoop {
-                x_radius,
-                y_radius,
-                x_frequency,
-                y_frequency,
-                chase_scale,
-                chase_limit,
-                ..
-            } => {
-                let chase = (anchor_to_player.x * chase_scale).clamp(-chase_limit, chase_limit);
-                ae::Vec2::new(
-                    boss.spawn.x + (boss.movement_timer * x_frequency).sin() * x_radius + chase,
-                    boss.spawn.y + (boss.movement_timer * y_frequency).sin() * y_radius
-                        - y_radius * 0.35,
-                )
-            }
-            Self::StationaryGiant {
-                sway_amplitude,
-                sway_frequency,
-                ..
-            } => {
-                // Minimal sway around spawn — the GNU-ton body stays nearly fixed.
-                let _ = anchor_to_player; // giant ignores player for movement
-                ae::Vec2::new(
-                    boss.spawn.x + (boss.movement_timer * sway_frequency).sin() * sway_amplitude,
-                    boss.spawn.y,
-                )
-            }
-        }
-    }
-
-    fn speed(&self) -> f32 {
-        match *self {
-            Self::AnchorSway { speed, .. }
-            | Self::AirSwoop { speed, .. }
-            | Self::StationaryGiant { speed, .. } => speed,
-        }
-    }
-}
-
-/// One beat in a scripted boss attack timeline. Patterns built from these
-/// steps give each boss a memorizable rhythm — explicit rest beats let the
-/// player read the telegraph, react, and then learn the sequence over time.
-/// Bosses without a scripted pattern fall back to the older
-/// `attack_cooldown`-driven cycle through `BossBehaviorProfile::attacks`.
-#[derive(Clone, Debug, PartialEq)]
-pub enum BossPatternStep {
-    /// Boss is winding up: telegraph volumes draw, no damage yet.
-    Telegraph {
-        profile: BossAttackProfile,
-        duration: f32,
-    },
-    /// Hitbox is live: active volumes draw, contact damages the player.
-    Strike {
-        profile: BossAttackProfile,
-        duration: f32,
-    },
-    /// No volume. Pure breathing room so the player can reposition or punish.
-    Rest { duration: f32 },
-}
-
-/// A full attack script for one boss phase. Loops when it reaches the end.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct BossPattern {
-    pub steps: Vec<BossPatternStep>,
-}
-
-impl BossPattern {
-    pub fn total_duration(&self) -> f32 {
-        self.steps
-            .iter()
-            .map(|step| match step {
-                BossPatternStep::Telegraph { duration, .. }
-                | BossPatternStep::Strike { duration, .. }
-                | BossPatternStep::Rest { duration } => *duration,
-            })
-            .sum()
-    }
-}
-
-/// How a boss decides which attack hitbox is active each frame.
-#[derive(Clone, Debug, PartialEq)]
-pub enum BossAttackPattern {
-    /// Legacy cycle: rotate through `BossBehaviorProfile::attacks` using the
-    /// flat windup / active / cooldown durations on the profile. Cheap, but
-    /// every attack uses the same rhythm.
-    Cycle,
-    /// Scripted timeline keyed off `BossEncounterPhase`. Each phase carries
-    /// its own ordered list of telegraph / strike / rest beats. Missing
-    /// phases fall back to `phase1`.
-    Scripted {
-        intro: BossPattern,
-        phase1: BossPattern,
-        transition: BossPattern,
-        phase2: BossPattern,
-        enrage: BossPattern,
-    },
-}
-
-impl BossAttackPattern {
-    pub fn pattern_for(&self, phase: ae::BossEncounterPhase) -> Option<&BossPattern> {
-        match self {
-            BossAttackPattern::Cycle => None,
-            BossAttackPattern::Scripted {
-                intro,
-                phase1,
-                transition,
-                phase2,
-                enrage,
-            } => match phase {
-                ae::BossEncounterPhase::Intro => Some(intro),
-                ae::BossEncounterPhase::Phase1 => Some(phase1),
-                ae::BossEncounterPhase::Transition => Some(transition),
-                ae::BossEncounterPhase::Phase2 => Some(phase2),
-                ae::BossEncounterPhase::Enrage => Some(enrage),
-                // Dormant / Stagger / Death don't run patterns; the caller
-                // already skips attacks in those phases.
-                _ => Some(phase1),
-            },
-        }
-    }
-}
-
-/// Attack hitbox vocabulary used by `BossRuntime`.
-#[derive(Clone, Debug, PartialEq)]
-pub enum BossAttackProfile {
-    FloorSlam,
-    SideSweep,
-    FullBodyPulse,
-    WingSweep,
-    DiveLane,
-    Broadside,
-    // GNU-ton specific: giant hands slam from above
-    GnuHandSlam,
-    // GNU-ton specific: hands sweep in from the far sides
-    GnuHandSweep,
-    // GNU-ton specific: the head descends into player space (vulnerability + hazard)
-    GnuHeadDescent,
-    // GNU-ton specific: shockwave from both hands meeting in the center
-    GnuShockwave,
-    // GNU-ton specific: apples fall from the ceiling around the player.
-    // Direct contact damage comes from spawned enemy projectiles
-    // (gravity > 0), not a single AABB, so `volumes_for` returns empty
-    // for this profile and damage routes through the projectile path.
-    GnuAppleRain,
-}
+// Boss policy vocabulary (`BossMovementProfile`, `BossPatternStep`,
+// `BossPattern`, `BossAttackPattern`, `BossAttackProfile`,
+// `step_duration`) moved to `crate::brain::boss_pattern` per the
+// "move boss policy out of BossRuntime" migration. Re-exported here
+// because `BossBehaviorProfile` and the volumes / construction code
+// below still reference them by their old `content::features::bosses`
+// path — those references stay legal via the re-export while call
+// sites migrate to the brain-module path at their leisure.
+pub use crate::brain::boss_pattern::{
+    BossAttackPattern, BossAttackProfile, BossMovementProfile, BossPattern, BossPatternStep,
+};
 
 // `BossTickOutputs` (previously: `projectile_spawns: Vec<…>`) was
 // deleted with Task B of the actor/brain follow-up plan. Apple-rain
@@ -530,13 +338,7 @@ impl BossBehaviorProfile {
     }
 }
 
-fn step_duration(step: &BossPatternStep) -> f32 {
-    match step {
-        BossPatternStep::Telegraph { duration, .. }
-        | BossPatternStep::Strike { duration, .. }
-        | BossPatternStep::Rest { duration } => *duration,
-    }
-}
+// `step_duration` moved to `crate::brain::boss_pattern`.
 
 #[derive(Clone, Debug)]
 pub struct BossRuntime {
@@ -556,18 +358,19 @@ pub struct BossRuntime {
     pub attack_cooldown: f32,
     pub hit_flash: f32,
     /// Active encounter phase. Forwarded by `update_ecs_bosses` from
-    /// `BossEncounterRegistry` so scripted patterns can pick the right
-    /// phase timeline. `Dormant` until the encounter wakes up.
+    /// `BossEncounterRegistry`. `Dormant` until the encounter wakes
+    /// up. The brain reads this via `BossPatternContext`; pattern
+    /// selection happens in the brain, not here.
     pub encounter_phase: ae::BossEncounterPhase,
-    /// Cursor into the active scripted pattern. Cycle-mode bosses leave
-    /// this at 0. Resets to 0 on phase change.
-    pub scripted_step_index: usize,
-    /// Seconds spent in the current scripted step. Reset on step advance.
-    pub scripted_step_elapsed: f32,
-    /// Active strike's attack profile (set while the runtime is inside a
-    /// `Strike` step). `None` outside Strike.
+    /// **Mirror of [`BossAttackState::active_profile`].** Written by
+    /// `tick_boss_brains_system` after each brain tick so legacy
+    /// readers (`attack_volumes`, `player_damage`, debug overlay) can
+    /// keep reading off `BossRuntime`. Do not set this from inside
+    /// `BossRuntime` — the brain owns the policy decision.
     pub active_strike_profile: Option<BossAttackProfile>,
-    /// Telegraphed attack profile (set while inside a `Telegraph` step).
+    /// **Mirror of [`BossAttackState::telegraph_profile`].** Same
+    /// "brain-written, runtime-readable" contract as
+    /// `active_strike_profile`.
     pub telegraph_profile: Option<BossAttackProfile>,
 }
 
@@ -596,8 +399,6 @@ impl BossRuntime {
             attack_cooldown: 0.35,
             hit_flash: 0.0,
             encounter_phase: ae::BossEncounterPhase::Dormant,
-            scripted_step_index: 0,
-            scripted_step_elapsed: 0.0,
             active_strike_profile: None,
             telegraph_profile: None,
         }
@@ -607,45 +408,28 @@ impl BossRuntime {
     /// component by `select_actor_targets` (OVERNIGHT-TODO #17.8).
     /// The boss movement profile reads it for anchor-sway / air-swoop
     /// chase math; scripted patterns (`StationaryGiant`) ignore it.
-    /// Tick the boss's AI + integration. Returns the per-tick
-    /// `ActorControlFrame` so the caller can land it in
-    /// `ActorControl` — that's the seam the resolver / EFFECTS
-    /// consumers read. `build_control_frame` fills `desired_vel`
-    /// (movement intent), and the active-strike branch below tags
-    /// `melee_pressed` / `special_pressed` so consumers spawn the
-    /// matching effects.
-    pub(super) fn update(
-        &mut self,
-        world: &ae::World,
-        target_pos: ae::Vec2,
-        tuning: FeatureCombatTuning,
-        dt: f32,
-    ) -> ae::ActorControlFrame {
-        if !self.alive {
-            return ae::ActorControlFrame::neutral();
+    /// Integrate the boss's body using the brain-emitted `desired_vel`
+    /// from `ActorControl`. **Integration only** — the brain
+    /// (`tick_boss_brains_system` → `boss_pattern::tick_boss_pattern`)
+    /// owns the policy decision and writes `ActorControl` upstream;
+    /// this method only translates that desired velocity into a
+    /// collision-resolved position change.
+    ///
+    /// `BossRuntime::update` (the old policy + integration combo)
+    /// was deleted by the "move boss policy out of BossRuntime"
+    /// migration. The runtime no longer ticks the scripted cursor
+    /// or chooses Telegraph/Strike/Rest; it just integrates the
+    /// velocity the brain produced.
+    pub fn integrate_body(&mut self, world: &ae::World, desired_vel: ae::Vec2, dt: f32) {
+        if !self.alive || dt <= 0.0 {
+            return;
         }
-        self.pattern_timer += dt;
-        self.movement_timer += dt;
-
-        // BRAIN STAGE — scripted boss pattern + movement profile pack
-        // their per-tick decision into an `ActorControlFrame`. Same
-        // contract enemies use; same one a future player-controlled
-        // boss or RL-driven boss would fill in. The brain owns the
-        // sway/dodge math and the clamp to world bounds; the
-        // simulation half decides what's actually possible against
-        // collision.
-        let mut frame = self.build_control_frame(world, target_pos, dt);
-
-        // INTEGRATION STAGE — gravity=0 (bosses float; ground state
-        // is irrelevant for current bosses), max_fall_speed=0. The
-        // single `step_kinematic` call replaces the bespoke per-axis
-        // `boss_space_is_free` sweep `move_toward_target` used to do
-        // by hand. Multi-part bosses like GNU-ton expose a
-        // `combat_size` distinct from the sprite `size`; that's the
-        // size we collide against, matching the previous behavior.
+        // Bosses float (gravity = 0, max_fall_speed = 0). Multi-part
+        // bosses like GNU-ton expose a `combat_size` distinct from
+        // the sprite `size`; that's the size we collide against.
         let mut body = ae::KinematicBody {
             pos: self.pos,
-            vel: frame.desired_vel,
+            vel: desired_vel,
             size: self.combat_size(),
             on_ground: false,
             facing: 1.0,
@@ -658,111 +442,25 @@ impl BossRuntime {
                 max_fall_speed: 0.0,
             },
             ae::KinematicInputs {
-                drop_through: frame.drop_through,
+                drop_through: false,
             },
             dt,
         );
         self.pos = body.pos;
         self.hit_flash = (self.hit_flash - dt).max(0.0);
-
-        // EFFECTS STAGE — attack pattern state machine and apple-rain
-        // tick. These are time-driven self-state mutations (not
-        // per-tick brain intents), so they live outside the frame and
-        // run after integration.
-        match &self.behavior.attack_pattern {
-            BossAttackPattern::Cycle => self.update_cycle_attacks(tuning, dt),
-            BossAttackPattern::Scripted { .. } => self.update_scripted_attacks(dt),
-        }
-
-        // Apple-rain spawning moved to the EFFECTS-stage consumer
-        // `spawn_gnu_apple_rain_from_special_messages` per the
-        // actor/brain follow-up plan Task B. The runtime now only
-        // tags `frame.special_pressed` below; the consumer reads the
-        // resolved `Special` message and owns spawn cadence +
-        // golden-ratio x distribution + self-aabb dodge.
-        // Tag the frame with the boss's per-tick attack intent so the
-        // resolver sees the boss's state via `ActorActionMessage`.
-        // `melee_pressed` fires during the active hit-window of a
-        // melee strike; `special_pressed` fires during a Special-typed
-        // strike (apple-rain, future spotlight) and the per-effect
-        // EFFECTS consumer (e.g. `spawn_gnu_apple_rain_from_special_messages`)
-        // owns the actual spawn loop. Per the actor/brain follow-up
-        // plan Task B: the schedule names abstract intent, the
-        // ActionSet binds it to a concrete `SpecialActionSpec`, and
-        // the consumer emits the concrete effect entities.
-        if self.attack_timer > 0.0 {
-            if matches!(self.active_strike_profile, Some(BossAttackProfile::GnuAppleRain)) {
-                frame.special_pressed = true;
-            } else if self.active_strike_profile.is_some() {
-                frame.melee_pressed = true;
-            }
-        }
-        frame
     }
 
-    /// Pack the boss's per-tick movement decision into a flat
-    /// `ActorControlFrame`. This is the brain-to-sim seam for bosses
-    /// — a future RL policy or remote-player driver fills the SAME
-    /// frame and the integration code in `update` is unchanged.
-    ///
-    /// Currently emits only `desired_vel`. Bosses don't melee-press
-    /// or fire individual projectiles through this seam yet —
-    /// scripted attack patterns + apple-rain tick handle those via
-    /// internal state, not per-tick intents. When bosses gain
-    /// brain-driven attack timing those signals will land on the
-    /// same frame.
-    fn build_control_frame(
-        &self,
-        world: &ae::World,
-        target_pos: ae::Vec2,
-        dt: f32,
-    ) -> ae::ActorControlFrame {
-        let mut frame = ae::ActorControlFrame::neutral();
-        if dt <= 0.0 {
-            return frame;
+    /// Advance the free-running clocks the legacy
+    /// `cycle_pattern_volumes` path reads (`pattern_timer`). The
+    /// brain owns its own `movement_timer` inside `BossPatternState`;
+    /// this clock is the runtime's tiny share that cycle-mode volume
+    /// rendering still consults until Cycle volumes also migrate.
+    pub fn tick_runtime_clocks(&mut self, dt: f32) {
+        if !self.alive {
+            return;
         }
-
-        // Where the movement profile would like to be this tick,
-        // before the apple-rain dodge layer.
-        let mut target = self.behavior.movement.target(self, target_pos);
-        // While the giant is raining apples on the arena, add a
-        // visible horizontal dodge so it reads as "stepping aside to
-        // avoid its own experiment" instead of standing perfectly
-        // still under a deathstorm of fruit. Layered over (not
-        // replacing) the baseline StationaryGiant sway so the
-        // silhouette already moving for `sway_amplitude` keeps its
-        // phase while the amplitude swells.
-        if matches!(
-            self.active_strike_profile,
-            Some(BossAttackProfile::GnuAppleRain)
-        ) {
-            let dodge_amp = 70.0;
-            let dodge_freq = 1.6;
-            target.x += (self.movement_timer * dodge_freq).sin() * dodge_amp;
-        }
-
-        // Soft world-bounds clamp: keep the brain from asking to walk
-        // off the map. Real collision is still enforced by
-        // `step_kinematic` against world blocks; this clamp matches
-        // the previous `move_toward_target` margin semantics.
-        let half = self.combat_size() * 0.5;
-        let margin = 8.0;
-        let max_x = (world.size.x - half.x - margin).max(half.x + margin);
-        let max_y = (world.size.y - half.y - margin).max(half.y + margin);
-        let clamped_target = ae::Vec2::new(
-            target.x.clamp(half.x + margin, max_x),
-            target.y.clamp(half.y + margin, max_y),
-        );
-
-        let delta = clamped_target - self.pos;
-        let speed = self.behavior.movement.speed();
-        let max_step = speed * dt;
-        frame.desired_vel = if delta.length() > max_step && max_step > 0.0 {
-            delta.normalize_or_zero() * speed
-        } else {
-            delta / dt
-        };
-        frame
+        self.pattern_timer += dt;
+        self.movement_timer += dt;
     }
 
     // `tick_apple_rain` was deleted with Task B of the actor/brain
@@ -772,100 +470,16 @@ impl BossRuntime {
     // Per-boss accumulator state moved to the
     // `AppleRainSpawnState` component on the boss entity.
 
-    fn update_cycle_attacks(&mut self, tuning: FeatureCombatTuning, dt: f32) {
-        let was_winding_up = self.attack_windup_timer > 0.0;
-        self.attack_windup_timer = (self.attack_windup_timer - dt).max(0.0);
-        self.attack_timer = (self.attack_timer - dt).max(0.0);
-        self.attack_cooldown = (self.attack_cooldown - dt).max(0.0);
-        if was_winding_up && self.attack_windup_timer <= 0.0 {
-            self.attack_timer = self
-                .behavior
-                .attack_active
-                .max(tuning.boss_attack_active)
-                .max(0.01);
-        }
-        if self.attack_cooldown <= 0.0
-            && self.attack_windup_timer <= 0.0
-            && self.attack_timer <= 0.0
-        {
-            self.attack_windup_timer = self.behavior.attack_windup.max(0.01);
-            self.attack_cooldown = self.behavior.attack_cooldown.max(0.05);
-        }
-    }
-
-    fn update_scripted_attacks(&mut self, dt: f32) {
-        // Scripted timelines must only fire during attacking phases —
-        // Dormant / Stagger / Death / pre-intro outros are explicit
-        // breathing room. Without this gate, `pattern_for(Dormant)`
-        // falls back to `phase1` and the boss keeps telegraphing/
-        // striking through what should be a stagger window.
-        if !self.encounter_phase.is_attacking() {
-            self.active_strike_profile = None;
-            self.telegraph_profile = None;
-            self.attack_timer = 0.0;
-            self.attack_windup_timer = 0.0;
-            return;
-        }
-        // Clone the active pattern's steps so we can mutate the cursor
-        // without aliasing the immutable behavior borrow. Scripts are
-        // small (~10 steps) so the per-frame clone cost is negligible.
-        let phase = self.encounter_phase;
-        let steps: Vec<BossPatternStep> = match self.behavior.attack_pattern.pattern_for(phase) {
-            Some(pattern) if !pattern.steps.is_empty() => pattern.steps.clone(),
-            _ => {
-                self.active_strike_profile = None;
-                self.telegraph_profile = None;
-                self.attack_timer = 0.0;
-                self.attack_windup_timer = 0.0;
-                return;
-            }
-        };
-
-        self.scripted_step_elapsed += dt;
-        // Wrap the cursor if a phase transition shrunk the script under
-        // our feet, then advance through any completed steps this frame.
-        if self.scripted_step_index >= steps.len() {
-            self.scripted_step_index = 0;
-            self.scripted_step_elapsed = 0.0;
-        }
-        loop {
-            let current = &steps[self.scripted_step_index];
-            let duration = step_duration(current).max(0.01);
-            if self.scripted_step_elapsed < duration {
-                break;
-            }
-            self.scripted_step_elapsed -= duration;
-            self.scripted_step_index = (self.scripted_step_index + 1) % steps.len();
-        }
-
-        // Drive the legacy `attack_windup_timer` / `attack_timer` mirror
-        // and the live profile slots from the active step. This keeps
-        // existing consumers (`attack_volumes()`, `attack_telegraph_volumes()`,
-        // `player_damage()`) working without per-call match arms.
-        let current = &steps[self.scripted_step_index];
-        let remaining = (step_duration(current) - self.scripted_step_elapsed).max(0.0);
-        match current {
-            BossPatternStep::Telegraph { profile, .. } => {
-                self.telegraph_profile = Some(profile.clone());
-                self.active_strike_profile = None;
-                self.attack_windup_timer = remaining;
-                self.attack_timer = 0.0;
-            }
-            BossPatternStep::Strike { profile, .. } => {
-                self.telegraph_profile = None;
-                self.active_strike_profile = Some(profile.clone());
-                self.attack_windup_timer = 0.0;
-                self.attack_timer = remaining;
-            }
-            BossPatternStep::Rest { .. } => {
-                self.telegraph_profile = None;
-                self.active_strike_profile = None;
-                self.attack_windup_timer = 0.0;
-                self.attack_timer = 0.0;
-            }
-        }
-        self.attack_cooldown = 0.0;
-    }
+    // The old per-tick `update_scripted_attacks` / `update_cycle_attacks`
+    // methods (cursor advancement, telegraph/strike/rest profile
+    // choice, attack_timer/windup mirror) all moved to
+    // `brain/boss_pattern.rs::tick_boss_pattern`. The boss tick
+    // system (`content/features/ecs/bosses.rs::tick_boss_brains_system`)
+    // mirrors the brain's chosen profile + remaining time into
+    // `active_strike_profile` / `telegraph_profile` /
+    // `attack_timer` / `attack_windup_timer` so legacy volume /
+    // damage readers (`attack_volumes`, `attack_telegraph_volumes`,
+    // `player_damage`) keep working without per-call changes.
 
     pub fn is_mockingbird(&self) -> bool {
         self.behavior.id == "mockingbird" || self.name.eq_ignore_ascii_case("mockingbird")
@@ -1239,48 +853,15 @@ mod scripted_pattern_tests {
         );
     }
 
-    #[test]
-    fn gnu_ton_scripted_advance_cycles_telegraph_strike_rest() {
-        let mut boss = gnu_ton_runtime();
-        let world = ae::World::new(
-            "test_arena",
-            ae::Vec2::new(2_000.0, 2_000.0),
-            ae::Vec2::ZERO,
-            Vec::new(),
-        );
-        let player = ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default());
-        let mut observed: Vec<&'static str> = Vec::new();
-        let dt = 0.05;
-        let mut ticks = 0;
-        let mut last: &'static str = "";
-        while observed.len() < 6 && ticks < 4_000 {
-            boss.update(
-                &world,
-                player.pos,
-                FeatureCombatTuning::default(),
-                dt,
-            );
-            let now = if boss.telegraph_profile.is_some() {
-                "telegraph"
-            } else if boss.active_strike_profile.is_some() {
-                "strike"
-            } else {
-                "rest"
-            };
-            if now != last {
-                observed.push(now);
-                last = now;
-            }
-            ticks += 1;
-        }
-        // Phase 1 always begins on a Telegraph; we should see at least
-        // one telegraph -> strike transition AND one rest beat before
-        // looping. This catches regressions where the scripted runtime
-        // gets stuck inside one step type.
-        assert!(observed.contains(&"telegraph"), "{observed:?}");
-        assert!(observed.contains(&"strike"), "{observed:?}");
-        assert!(observed.contains(&"rest"), "{observed:?}");
-    }
+    // `gnu_ton_scripted_advance_cycles_telegraph_strike_rest` deleted:
+    // the cursor-through-steps invariant moved to
+    // `brain::boss_pattern::tests::{boss_pattern_telegraph_step_updates_telegraph_profile_state,
+    // boss_pattern_strike_step_emits_melee_intent,
+    // boss_pattern_resets_cursor_on_phase_change}`. The runtime no
+    // longer ticks the cursor (the brain does), so polling
+    // `boss.update(...)` and reading `boss.telegraph_profile` is no
+    // longer a meaningful exercise — those mirror fields are written
+    // by the boss tick system, not advanced by the runtime.
 
     #[test]
     fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
@@ -1322,38 +903,13 @@ mod scripted_pattern_tests {
         );
     }
 
-    #[test]
-    fn gnu_ton_scripted_patterns_skip_non_attacking_phases() {
-        // `BossAttackPattern::pattern_for(Dormant)` falls back to
-        // `phase1` (so phase enum drift doesn't crash), but the runtime
-        // must not actually *run* that pattern during Dormant / Stagger /
-        // Death — those are explicit breathing/punish windows. Without
-        // the `is_attacking()` gate the boss would keep telegraphing
-        // through a stagger window. Repro: tick the runtime in Dormant
-        // for the duration of a full pattern and assert no strike/
-        // telegraph profile is ever assigned.
-        let mut boss = gnu_ton_runtime();
-        boss.encounter_phase = ae::BossEncounterPhase::Dormant;
-        let world = ae::World::new(
-            "test_arena",
-            ae::Vec2::new(2_000.0, 2_000.0),
-            ae::Vec2::ZERO,
-            Vec::new(),
-        );
-        let player = ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default());
-        for _ in 0..200 {
-            boss.update(
-                &world,
-                player.pos,
-                FeatureCombatTuning::default(),
-                0.05,
-            );
-            assert!(boss.active_strike_profile.is_none());
-            assert!(boss.telegraph_profile.is_none());
-            assert_eq!(boss.attack_timer, 0.0);
-            assert_eq!(boss.attack_windup_timer, 0.0);
-        }
-    }
+    // `gnu_ton_scripted_patterns_skip_non_attacking_phases` deleted:
+    // the "Dormant / Stagger / Death emit neutral intent + clear
+    // attack-state mirror" invariant moved to
+    // `brain::boss_pattern::tests::boss_pattern_brain_emits_neutral_in_non_attacking_phase`.
+    // The runtime no longer chooses the pattern step, so polling
+    // `boss.update(...)` and reading the mirror fields is no longer
+    // the right exercise — the brain owns the gate.
 
     // The `gnu_ton_apple_rain_strike_emits_falling_apple_spawns`,
     // `gnu_ton_apple_rain_spawns_avoid_self_aabb`,
@@ -1465,13 +1021,49 @@ mod scripted_pattern_tests {
         // AnchorSway profile pulls the boss as far right as its
         // chase_limit allows.
         let player_pos = ae::Vec2::new(1000.0, 400.0);
+        // Build the brain cfg + state directly — the runtime no
+        // longer ticks scripted attacks, so we drive
+        // `tick_boss_pattern` ourselves and hand the resulting
+        // `desired_vel` to `integrate_body`. This mirrors what
+        // `tick_boss_brains_system` + `update_ecs_bosses` do in the
+        // real schedule.
+        use crate::brain::{
+            tick_boss_pattern, BossPatternCfg, BossPatternContext, BossPatternState,
+            BossAttackState,
+        };
+        let mut cfg = BossPatternCfg::neutral_test();
+        cfg.aggressiveness = 1.0;
+        cfg.pattern = boss.behavior.attack_pattern.clone();
+        cfg.movement = boss.behavior.movement.clone();
+        cfg.spawn = boss.spawn;
+        cfg.combat_size = boss.combat_size();
+        cfg.cycle_attack_windup = boss.behavior.attack_windup.max(0.01);
+        cfg.cycle_attack_active = boss
+            .behavior
+            .attack_active
+            .max(FeatureCombatTuning::default().boss_attack_active)
+            .max(0.01);
+        cfg.cycle_attack_cooldown = boss.behavior.attack_cooldown.max(0.05);
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let dt = 1.0 / 60.0;
         for _ in 0..600 {
-            boss.update(
-                &world,
-                player_pos,
-                FeatureCombatTuning::default(),
-                1.0 / 60.0,
+            boss.tick_runtime_clocks(dt);
+            let mut frame = ae::ActorControlFrame::neutral();
+            tick_boss_pattern(
+                &cfg,
+                &mut state,
+                &BossPatternContext {
+                    encounter_phase: boss.encounter_phase,
+                    actor_pos: boss.pos,
+                    target_pos: player_pos,
+                    world_size: world.size,
+                    dt,
+                },
+                &mut frame,
+                &mut attack_state,
             );
+            boss.integrate_body(&world, frame.desired_vel, dt);
         }
         let boss_right_edge = boss.pos.x + boss.combat_size().x * 0.5;
         let wall_left_edge = 400.0;

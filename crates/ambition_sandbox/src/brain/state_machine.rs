@@ -45,10 +45,13 @@ pub enum StateMachineCfg {
     },
     /// Hold position + long-range fire.
     Sniper { cfg: SniperCfg, state: SniperState },
-    /// Scripted multi-phase boss policy — looked up by encounter id.
+    /// Scripted multi-phase boss policy. The cfg + state live in
+    /// `brain/boss_pattern.rs`; this variant carries them but the
+    /// real tick driver is `tick_boss_brains_system` in
+    /// `content/features/ecs/bosses.rs` (see the dispatch fn below).
     BossPattern {
-        cfg: BossPatternCfg,
-        state: BossPatternState,
+        cfg: super::BossPatternCfg,
+        state: super::BossPatternState,
     },
 }
 
@@ -89,7 +92,9 @@ pub fn tick_state_machine(
         StateMachineCfg::MeleeBrute { cfg, state } => tick_melee_brute(cfg, state, snapshot, out),
         StateMachineCfg::Skirmisher { cfg, state } => tick_skirmisher(cfg, state, snapshot, out),
         StateMachineCfg::Sniper { cfg, state } => tick_sniper(cfg, state, snapshot, out),
-        StateMachineCfg::BossPattern { cfg, state } => tick_boss_pattern(cfg, state, snapshot, out),
+        StateMachineCfg::BossPattern { cfg, state } => {
+            tick_boss_pattern_via_state_machine(cfg, state, snapshot, out)
+        }
     }
 }
 
@@ -498,38 +503,26 @@ fn tick_sniper(
 }
 
 // ===== BossPattern =====
-
-/// Scripted multi-phase boss policy. The encounter id picks the
-/// concrete phase schedule; the brain is a pointer + a tick cursor.
-/// Today this is a placeholder — boss runtimes still drive
-/// themselves via the existing `BossRuntime` pattern. Daytime
-/// work migrates each boss onto a BossPattern brain and the
-/// encounter id then keys into the existing
-/// `BossEncounterRegistry`.
-#[derive(Clone, Debug)]
-pub struct BossPatternCfg {
-    pub aggressiveness: f32,
-    /// Encounter id (matches `boss_encounter::encounter_id_from_name`).
-    /// Stays a String so it can pull straight from the existing
-    /// registry instead of forcing a parallel id type.
-    pub encounter_id: String,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct BossPatternState {
-    pub phase: u32,
-    pub phase_elapsed: f32,
-}
-
-fn tick_boss_pattern(
-    _cfg: &BossPatternCfg,
-    _state: &mut BossPatternState,
+//
+// `BossPatternCfg` / `BossPatternState` / `tick_boss_pattern` moved
+// to `brain/boss_pattern.rs`. They are re-exported from `brain::*`.
+// The real boss-tick driver lives in `content/features/ecs/bosses.rs`
+// (`tick_boss_brains_system`) because it needs boss-entity context
+// — encounter phase, target pos, world bounds — that doesn't fit
+// inside the generic `BrainSnapshot`.
+//
+// The `tick_state_machine` dispatch arm below emits a neutral frame
+// for `BossPattern` because this generic path is the wrong driver
+// for bosses; the boss tick system bypasses it and calls
+// `boss_pattern::tick_boss_pattern` directly with the full
+// `BossPatternContext`. The arm exists only so a possessed-boss
+// actor in a non-boss code path doesn't crash the dispatch.
+fn tick_boss_pattern_via_state_machine(
+    _cfg: &super::BossPatternCfg,
+    _state: &mut super::BossPatternState,
     _snapshot: &BrainSnapshot,
     out: &mut ae::ActorControlFrame,
 ) {
-    // Placeholder until the boss migration lands. A neutral frame
-    // means a possessed BossPattern actor wouldn't fight — which is
-    // safe behavior for the parallel-shape introduction in Chunk 2.
     *out = ae::ActorControlFrame::neutral();
 }
 
@@ -1287,25 +1280,22 @@ mod tests {
     }
 
     #[test]
-    fn boss_pattern_placeholder_ticks_to_neutral_frame() {
-        // BossPattern is a placeholder until the boss EFFECTS-flip
-        // lands. Ticking it should emit a neutral frame regardless
-        // of target / sim_time — pin that contract so the
-        // placeholder doesn't silently start producing intent.
+    fn boss_pattern_via_state_machine_emits_neutral_frame() {
+        // The generic `tick_state_machine` path is intentionally a
+        // no-op for `BossPattern`: bosses bypass it via
+        // `tick_boss_brains_system` (which has access to
+        // encounter_phase / world bounds / target). If the dispatch
+        // path here ever starts producing intent, the boss tick
+        // system would race with it. Pin the contract.
         let mut sm = StateMachineCfg::BossPattern {
-            cfg: BossPatternCfg {
-                aggressiveness: 1.0,
-                encounter_id: "test_boss".to_string(),
-            },
-            state: BossPatternState::default(),
+            cfg: crate::brain::BossPatternCfg::neutral_test(),
+            state: crate::brain::BossPatternState::default(),
         };
         let s = snap_at(0.0, 100.0);
         let mut out = ae::ActorControlFrame::neutral();
         out.melee_pressed = true; // pre-poisoned
         out.desired_vel = ae::Vec2::new(99.0, 99.0);
         tick_state_machine(&mut sm, &s, &mut out);
-        // Placeholder writes a neutral frame, overwriting the
-        // pre-poisoned values.
         assert!(!out.melee_pressed);
         assert_eq!(out.desired_vel, ae::Vec2::ZERO);
     }

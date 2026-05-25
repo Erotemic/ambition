@@ -63,6 +63,7 @@
 //! ```
 
 pub mod action_set;
+pub mod boss_pattern;
 pub mod player;
 pub mod snapshot;
 pub mod state_machine;
@@ -83,10 +84,15 @@ pub use player::{tick_player_brain, tick_player_brain_from_input};
 #[allow(unused_imports)]
 pub use snapshot::{BrainSnapshot, WallContact};
 #[allow(unused_imports)]
+pub use boss_pattern::{
+    tick_boss_pattern, BossAttackPattern, BossAttackProfile, BossAttackState, BossMovementProfile,
+    BossPattern, BossPatternCfg, BossPatternContext, BossPatternState, BossPatternStep,
+    CyclePhase,
+};
+#[allow(unused_imports)]
 pub use state_machine::{
-    tick_state_machine, BossPatternCfg, BossPatternState, MeleeBruteCfg, MeleeBruteState,
-    PatrolCfg, PatrolState, SkirmisherCfg, SkirmisherState, SniperCfg, SniperState,
-    StateMachineCfg, WandererCfg, WandererState,
+    tick_state_machine, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg,
+    SkirmisherState, SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
 };
 
 use ambition_engine as ae;

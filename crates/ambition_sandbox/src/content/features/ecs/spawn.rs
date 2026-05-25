@@ -71,30 +71,50 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         authored.payload.clone(),
     );
     let initial_phase = BossPhase::from_alive(boss.alive);
-    // Parallel-shape Brain attachment for bosses, same pattern as
-    // enemies. The BossPattern template threads through the real
-    // encounter id (matches the registry lookup the boss-encounter
-    // system already uses); the ActorControl frame is dormant for
-    // bosses today — BossRuntime still drives behavior.
+    // BossPattern brain owns boss intent. The cfg snapshots the
+    // authored behavior profile's pattern + movement at spawn
+    // time, plus the per-boss spawn anchor and combat collision
+    // size the movement / dodge math reads. The brain's
+    // `tick_boss_pattern` (driven by `tick_boss_brains_system`)
+    // is the single intent producer; `BossRuntime::integrate_body`
+    // only consumes the resulting `desired_vel`.
     let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
+    let combat_tuning = crate::time::feel::SandboxFeelTuning::default().feature_combat_tuning();
+    let cycle_attack_active = boss
+        .behavior
+        .attack_active
+        .max(combat_tuning.boss_attack_active)
+        .max(0.01);
+    // GNU-ton dodges its own apple rain by side-stepping during the
+    // strike window. Other bosses don't have a self-dodge.
+    let (apple_rain_dodge_amp, apple_rain_dodge_freq) =
+        if encounter_id == crate::content::features::bosses::GNU_TON_ENCOUNTER_ID {
+            (70.0, 1.6)
+        } else {
+            (0.0, 0.0)
+        };
+    let brain_cfg = crate::brain::BossPatternCfg {
+        aggressiveness: 1.0,
+        encounter_id: encounter_id.clone(),
+        pattern: boss.behavior.attack_pattern.clone(),
+        movement: boss.behavior.movement.clone(),
+        spawn: boss.spawn,
+        combat_size: boss.combat_size(),
+        cycle_attack_windup: boss.behavior.attack_windup.max(0.01),
+        cycle_attack_active,
+        cycle_attack_cooldown: boss.behavior.attack_cooldown.max(0.05),
+        apple_rain_dodge_amp,
+        apple_rain_dodge_freq,
+    };
     let brain = crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::BossPattern {
-        cfg: crate::brain::BossPatternCfg {
-            aggressiveness: 1.0,
-            encounter_id: encounter_id.clone(),
-        },
+        cfg: brain_cfg,
         state: crate::brain::BossPatternState::default(),
     });
     // Bosses spawn with an offensive ActionSet — Bolt ranged + a
-    // per-encounter special slot. The BossPattern brain still emits
-    // a neutral frame today; the boss runtime drives intent and tags
-    // `frame.special_pressed` when its scripted apple-rain (or
-    // future spotlight) strike fires. The resolver translates that
-    // into `ActorActionMessage::Special { spec }` and the
-    // `spawn_*_from_special_messages` EFFECTS consumers spawn the
-    // concrete effect entities. Per-boss `special` mapping is the
-    // ownership rule the follow-up plan calls out: the schedule
-    // names abstract intent, the ActionSet binds it to a concrete
-    // `SpecialActionSpec`.
+    // per-encounter special slot. The brain emits abstract intent
+    // (melee_pressed / special_pressed); the ActionSet binds the
+    // special slot to a concrete `SpecialActionSpec`; EFFECTS
+    // consumers spawn the concrete effect entities.
     let boss_special = match encounter_id.as_str() {
         crate::content::features::bosses::GNU_TON_ENCOUNTER_ID => {
             Some(crate::brain::SpecialActionSpec::GnuAppleRain {
@@ -126,10 +146,19 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         super::ActorFaction::Boss,
         super::ActorTarget::default(),
         BossFeature::new(boss),
-        brain,
-        boss_action_set,
-        crate::brain::ActorControl::default(),
-        super::AppleRainSpawnState::default(),
+        (
+            // Sub-tuple keeps the outer bundle under Bevy's
+            // 15-tuple Bundle arity limit. The brain bundle stays
+            // grouped because each piece is required for the boss
+            // tick chain (Brain produces ActorControl + BossAttackState;
+            // ActionSet binds intent to specs; AppleRainSpawnState
+            // is the per-boss apple-rain accumulator).
+            brain,
+            boss_action_set,
+            crate::brain::ActorControl::default(),
+            crate::brain::BossAttackState::default(),
+            super::AppleRainSpawnState::default(),
+        ),
     ));
 }
 

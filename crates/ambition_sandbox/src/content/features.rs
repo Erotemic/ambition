@@ -75,9 +75,10 @@ pub use ecs::{
     spawn_melee_hitbox, spawn_room_feature_entities,
     start_enemy_melee_from_brain_actions, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
     sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
-    tick_and_despawn_hitboxes, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
-    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorRuntime,
-    BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, HazardFeature,
+    sync_boss_encounter_phase, tick_and_despawn_hitboxes, tick_boss_brains_system,
+    tick_gameplay_banner, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
+    update_ecs_falling_chests, update_ecs_hazards, ActorRuntime, BossFeature,
+    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, HazardFeature,
     AppleRainSpawnState, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
@@ -121,6 +122,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // consult `ActorTarget` (OVERNIGHT-TODO #17.8).
                 select_actor_targets,
                 update_ecs_actors,
+                // Boss tick chain (post "move boss policy out of
+                // BossRuntime"): the brain decides intent first, then
+                // the integration system consumes its `desired_vel`.
+                // `sync_boss_encounter_phase` runs before the brain
+                // tick so this frame's phase is the one
+                // `BossPatternContext` carries.
+                sync_boss_encounter_phase,
+                tick_boss_brains_system,
                 update_ecs_bosses,
             )
                 .chain()

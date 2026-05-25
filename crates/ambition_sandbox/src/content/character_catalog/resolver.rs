@@ -13,10 +13,10 @@ use crate::brain::action_set::{
     SlamSpec, SpecialActionSpec, SwipeSpec,
 };
 use crate::brain::state_machine::{
-    BossPatternCfg, BossPatternState, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState,
-    SkirmisherCfg, SkirmisherState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
-    WandererState,
+    MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg, SkirmisherState,
+    SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
 };
+use crate::brain::{BossPatternCfg, BossPatternState};
 use crate::brain::Brain;
 
 use super::entry::{
@@ -116,9 +116,19 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             aggressiveness,
             encounter_id,
         } => StateMachineCfg::BossPattern {
-            cfg: BossPatternCfg {
-                aggressiveness: *aggressiveness,
-                encounter_id: encounter_id.clone(),
+            cfg: {
+                // Catalog-built preview brains use the neutral test
+                // cfg + the authored preset's encounter_id /
+                // aggressiveness. Real spawn-time bosses build their
+                // full `BossPatternCfg` (pattern, movement, spawn,
+                // combat_size, cycle timings) in `spawn.rs::spawn_boss`
+                // from `BossBehaviorProfile`; the preview path here
+                // is for character-catalog displays where there is
+                // no live boss runtime to read from.
+                let mut cfg = BossPatternCfg::neutral_test();
+                cfg.aggressiveness = *aggressiveness;
+                cfg.encounter_id = encounter_id.clone();
+                cfg
             },
             state: BossPatternState::default(),
         },

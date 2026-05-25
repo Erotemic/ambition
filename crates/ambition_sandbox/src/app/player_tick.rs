@@ -1,3 +1,26 @@
+//! Per-frame player tick: the scheduled control-clock and sim-clock
+//! systems that integrate the player entity each frame.
+//!
+//! Two systems live here, chained in this order inside the
+//! `PlayerSimulation` set:
+//!
+//! 1. [`clear_sandbox_reset_this_frame`] — resets the per-frame
+//!    `SandboxResetThisFrame` flag so the two systems below can use
+//!    it as a one-way signal that a reset fired this frame.
+//! 2. [`player_control_system`] — control-clock pass. Reads
+//!    `ActorControl` (the brain's intent frame) and the engine
+//!    tuning, then runs the control phase. Sets
+//!    `SandboxResetThisFrame` if the engine reports a reset.
+//! 3. [`player_simulation_system`] — sim-clock pass. Short-circuits
+//!    when `SandboxResetThisFrame` is set; otherwise runs the
+//!    sim-clock player update.
+//!
+//! Module groups both because they share the player query shape,
+//! the engine tuning lookups, and the `SandboxResetThisFrame`
+//! coordination protocol; splitting them across two files would
+//! force the protocol into a public API surface without buying
+//! anything.
+
 #[allow(unused_imports)]
 use super::cli::*;
 #[allow(unused_imports)]
@@ -21,16 +44,16 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
-/// Pre-tick coordinator for the two-system player update.
+/// First system in the player tick chain: clear the per-frame
+/// `SandboxResetThisFrame` flag.
 ///
-/// Cleared at the start of each frame; either `player_control_system`
-/// or `player_simulation_system` may set it via the
-/// `SandboxResetThisFrame` resource. When set, the simulation
+/// Either [`player_control_system`] or [`player_simulation_system`]
+/// may set the flag during this frame. When set, the simulation
 /// system short-circuits so the reset's state changes aren't
-/// clobbered by a same-frame sim integration.
-///
-/// Replaces the early-return short-circuit that the deleted
-/// monolithic `player_control_system + player_simulation_system` used to express via control flow.
+/// clobbered by a same-frame sim integration. Centralizing the
+/// clear here keeps the protocol obvious in the schedule —
+/// previously the two systems had no shared state and the
+/// short-circuit was an in-function early-return.
 pub fn clear_sandbox_reset_this_frame(mut flag: ResMut<SandboxResetThisFrame>) {
     flag.0 = false;
 }

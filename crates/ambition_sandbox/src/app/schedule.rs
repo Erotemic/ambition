@@ -37,8 +37,9 @@ pub enum SandboxSet {
     /// reset, gameplay timer decay, interaction buffer update, and
     /// the suspended-time fallback.
     PlayerInput,
-    /// Main player tick: `player_control_system + player_simulation_system` (control + simulation) plus
-    /// the post-sim damage / safe-respawn resolver.
+    /// Main player tick: `player_control_system` + `player_simulation_system`
+    /// (control + simulation) plus the post-sim damage / safe-respawn
+    /// resolver.
     PlayerSimulation,
     /// Room transition detection + apply + per-room feature reset.
     RoomTransition,

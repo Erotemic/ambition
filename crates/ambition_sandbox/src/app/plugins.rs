@@ -19,7 +19,7 @@ use super::setup_systems::*;
 #[allow(unused_imports)]
 use super::sim_systems::*;
 #[allow(unused_imports)]
-use super::update::*;
+use super::player_tick::*;
 #[allow(unused_imports)]
 use super::world_flow::*;
 #[allow(unused_imports)]
@@ -168,7 +168,7 @@ fn register_player_input_systems(app: &mut App) {
 /// damage / safe-respawn.
 ///
 /// Per the actor/brain migration, the player tick is no longer
-/// a monolithic `player_control_system + player_simulation_system` orchestrator. Instead:
+/// a monolithic `sandbox_update` orchestrator. Instead:
 ///
 /// 1. `clear_sandbox_reset_this_frame` zeros the per-frame reset
 ///    flag at the start of the player tick.

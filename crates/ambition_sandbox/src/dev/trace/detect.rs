@@ -68,7 +68,7 @@ fn nearby_collision(world: &ae::World, player: &ae::Player) -> Vec<CollisionTrac
 
 /// Build a `GameplayTraceFrame` from current sim resources. This lives
 /// next to `record_frame_in_simulation` so the sandbox phase pipeline
-/// can call it once per `player_control_system + player_simulation_system` tick.
+/// can call it once per player tick.
 #[allow(clippy::too_many_arguments)]
 pub fn build_frame(
     player: &ae::Player,

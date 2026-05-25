@@ -195,7 +195,7 @@ mod tests {
 
     /// ADR 0012 step B stop gate: with `MinimalPlugins` only and no
     /// AudioPlugin / RenderPlugin / inspector, can we drive
-    /// `player_control_system + player_simulation_system` end-to-end and observe `SfxMessage` flow? This
+    /// the player tick end-to-end and observe `SfxMessage` flow? This
     /// proves the sim/presentation seam holds for the input + sfx
     /// channels. Reset is the cheapest path: pressing Reset emits
     /// `SfxMessage::Reset` synchronously, no spawn-position dependence.

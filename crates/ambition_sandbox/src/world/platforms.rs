@@ -391,7 +391,7 @@ pub fn sync_moving_platform(
 
     // Refresh only when the authored source changes, not every time RoomSet or
     // GameWorld gets marked changed by an unrelated system. The runtime copies
-    // are live state: `player_control_system + player_simulation_system` advances them and carries the player by
+    // are live state: the player tick advances them and carries the player by
     // their frame deltas. Resetting them every frame turns invisible collision
     // platforms into conveyor belts while visuals stay pinned at authored starts.
     let source_changed = active_platform_room.as_deref() != Some(active_spec.id.as_str())

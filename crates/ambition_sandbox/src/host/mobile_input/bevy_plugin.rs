@@ -118,16 +118,16 @@ impl Plugin for MobileTouchPlugin {
                         // resets ControlFrame to defaults / leafwing's
                         // values and stomps the touch button merge.
                         .after(crate::app::populate_control_frame_from_actions)
-                        // ALSO run before `player_control_system + player_simulation_system` so the
+                        // ALSO run before the player tick so the
                         // merged ControlFrame is visible to the sim
                         // on the same frame. Without this, Bevy is
-                        // free to schedule fold after player_control_system + player_simulation_system,
+                        // free to schedule fold after the player tick,
                         // and one-frame `pressed` edges (Jump /
                         // Attack / Dash / Blink / Interact / Reset /
                         // Start) never reach the engine -- they vanish
                         // when populate resets ControlFrame the next
                         // frame. Held axes have the same issue:
-                        // player_control_system + player_simulation_system sees axis_x = 0 because the
+                        // the player tick sees axis_x = 0 because the
                         // touch fold hasn't written yet. Projectile
                         // happened to work only because `held` and
                         // `released` persist across frames in the

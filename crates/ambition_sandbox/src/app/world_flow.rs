@@ -19,7 +19,7 @@ use super::resources::*;
 #[allow(unused_imports)]
 use super::setup_systems::*;
 #[allow(unused_imports)]
-use super::update::*;
+use super::player_tick::*;
 #[allow(unused_imports)]
 use super::*;
 
@@ -182,11 +182,11 @@ pub(super) fn load_room(
 }
 
 /// Bevy system: reads `RoomTransitionRequested` messages written by
-/// `player_control_system + player_simulation_system` / `room_transition_phase` and applies the room load.
+/// `detect_room_transition_system` and applies the room load.
 ///
-/// Runs immediately after `player_control_system + player_simulation_system` in the `CoreSimulation` chain so
-/// the player position, world, and room_set are updated before any other
-/// post-sim systems run in the same frame.
+/// Runs immediately after the player tick in the `CoreSimulation` chain
+/// so the player position, world, and room_set are updated before any
+/// other post-sim systems run in the same frame.
 pub fn apply_room_transition_system(
     mut commands: Commands,
     mut requests: MessageReader<rooms::RoomTransitionRequested>,
@@ -907,7 +907,7 @@ pub(super) fn advance_attack(
                 ignored_targets: attack_state.hit_targets.clone(),
             });
         }
-        // Damage is resolved by the ECS damage queue after `player_control_system + player_simulation_system`.
+        // Damage is resolved by the ECS damage queue after the player tick.
         // Keep this phase responsible only for spawning the one-frame hitbox
         // and for immediate pogo/world-contact feedback.
         let landed = false;

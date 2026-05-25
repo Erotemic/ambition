@@ -15,17 +15,17 @@ use super::resources::*;
 #[allow(unused_imports)]
 use super::setup_systems::*;
 #[allow(unused_imports)]
-use super::update::*;
+use super::player_tick::*;
 #[allow(unused_imports)]
 use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
 /// Bundled `MessageWriter`s for the sim → presentation event channels
-/// `player_control_system + player_simulation_system` (and the inline `*_phase` helpers it calls) writes
+/// the player tick (and the inline `*_phase` helpers it calls) writes
 /// to during the gameplay tick.
 ///
-/// Bundling them in a single `SystemParam` keeps `player_control_system + player_simulation_system`'s
+/// Bundling them in a single `SystemParam` keeps the player tick's
 /// signature under Bevy's 16-`SystemParam` budget. The inline phase
 /// helpers (`player_control_phase`, `player_simulation_phase`) take
 /// `&mut event_writers.sfx` / `&mut event_writers.vfx` via split
@@ -66,12 +66,12 @@ impl<'w> CombatRoomReset<'w> {
     }
 }
 
-/// Mutable producer streams `player_control_system + player_simulation_system` writes into during the gameplay
+/// Mutable producer streams the player tick writes into during the gameplay
 /// tick.
 ///
 /// Phase-1 strangler rule: typed gameplay effects now travel through Bevy
 /// `Message<GameplayEffect>` rather than a custom `FeatureEventBus` resource.
-/// Bundling the writer here keeps `player_control_system + player_simulation_system` under Bevy's
+/// Bundling the writer here keeps the player tick under Bevy's
 /// 16-`SystemParam` budget while making the new cross-system transport
 /// explicit.
 ///
@@ -100,7 +100,7 @@ pub struct SandboxQueues<'w> {
 /// behind a single param both keeps the budget headroom and documents
 /// the intentional read-only contract: HUD systems must not mutate
 /// progression state. Mutators live in the producer side
-/// (`player_control_system + player_simulation_system`, `crate::quest`, `crate::boss_encounter`, etc.).
+/// (the player tick, `crate::quest`, `crate::boss_encounter`, etc.).
 #[derive(SystemParam)]
 pub struct ProgressionResources<'w> {
     pub quests: Res<'w, crate::content::quest::QuestRegistry>,
@@ -112,8 +112,8 @@ pub struct ProgressionResources<'w> {
     pub banner: Res<'w, crate::features::GameplayBanner>,
 }
 
-/// Local control-flow signal for `player_control_system + player_simulation_system`'s inline `*_phase`
-/// helpers. `Return` means the phase wants `player_control_system + player_simulation_system` to stop the
+/// Local control-flow signal for the player tick's inline `*_phase`
+/// helpers. `Return` means the phase wants the player tick to stop the
 /// frame here; `Continue` means proceed to the next phase. Only used
 /// by the two-clock inline phases that can short-circuit on an
 /// engine-driven reset.

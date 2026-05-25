@@ -99,7 +99,7 @@ mod schedule;
 mod setup_systems;
 mod sim_resources;
 mod sim_systems;
-mod update;
+mod player_tick;
 mod world_flow;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -125,5 +125,7 @@ pub use sim_systems::{
     attack_advance_system, cleanup_timers_system, detect_room_transition_system,
     input_timer_system, interaction_input_system, sync_live_player_dev_edits_system,
 };
-pub use update::{clear_sandbox_reset_this_frame, player_control_system, player_simulation_system};
+pub use player_tick::{
+    clear_sandbox_reset_this_frame, player_control_system, player_simulation_system,
+};
 pub use world_flow::apply_room_transition_system;

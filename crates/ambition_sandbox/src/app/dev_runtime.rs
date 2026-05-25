@@ -15,7 +15,7 @@ use super::resources::*;
 #[allow(unused_imports)]
 use super::setup_systems::*;
 #[allow(unused_imports)]
-use super::update::*;
+use super::player_tick::*;
 #[allow(unused_imports)]
 use super::world_flow::*;
 #[allow(unused_imports)]
@@ -23,12 +23,13 @@ use super::*;
 
 /// Presentation-side debug hotkey reader.
 ///
-/// Slice 5 of the events refactor moved this out of `player_control_system + player_simulation_system` so the
-/// gameplay loop no longer reads `Res<ButtonInput<KeyCode>>`. That lets
-/// `player_control_system + player_simulation_system` run on the headless App-builder track.
+/// Slice 5 of the events refactor moved this out of the legacy
+/// `sandbox_update` orchestrator so the gameplay loop no longer
+/// reads `Res<ButtonInput<KeyCode>>`. That lets the player tick run
+/// on the headless App-builder track.
 ///
-/// Runs before `player_control_system + player_simulation_system` so preset/debug-flag mutations land before
-/// the gameplay loop reads them this frame.
+/// Runs before the player tick so preset/debug-flag mutations land
+/// before the gameplay loop reads them this frame.
 pub(super) fn handle_debug_hotkeys(
     keys: Res<ButtonInput<KeyCode>>,
     mut dev_state: ResMut<SandboxDevState>,

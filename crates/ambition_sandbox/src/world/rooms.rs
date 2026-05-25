@@ -584,7 +584,7 @@ pub struct RoomTransition {
 
 /// Bevy message emitted when a room transition is triggered (player walks through
 /// a loading zone or door). The actual `load_room` call happens in
-/// `apply_room_transition_system`, which runs after `player_control_system + player_simulation_system` in the
+/// `apply_room_transition_system`, which runs after the player tick in the
 /// `CoreSimulation` chain.
 ///
 /// Carries the resolved `RoomTransition` payload and the optional SFX id for the

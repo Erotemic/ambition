@@ -138,8 +138,8 @@ pub fn dialog_input() {}
 /// registered by content code — and let the system iterate. Until
 /// then, the pair-of-conditions is small enough to inline.
 ///
-/// Runs each frame `.after(player_control_system + player_simulation_system).before(sync_dialog_ui)` so
-/// the redirected mode is the one the renderer reads.
+/// Runs each frame `.after(player_simulation_system).before(sync_dialog_ui)`
+/// so the redirected mode is the one the renderer reads.
 pub fn redirect_post_quest_dialog(
     mut dialogue: ResMut<DialogState>,
     save: Res<crate::persistence::save::SandboxSave>,

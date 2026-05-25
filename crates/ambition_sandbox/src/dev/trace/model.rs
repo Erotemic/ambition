@@ -311,7 +311,7 @@ impl OobReason {
 
 /// Snapshot of the gameplay state we diff against on each tick to
 /// synthesize per-frame events without threading a Vec collector
-/// through every `player_control_system + player_simulation_system` phase. Stored on the buffer so the
+/// through every player-tick phase. Stored on the buffer so the
 /// recorder is the single owner of trace state.
 ///
 /// `fly_enabled` and `fast_falling` are recorded for future event

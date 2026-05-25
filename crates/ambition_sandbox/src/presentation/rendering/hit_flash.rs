@@ -49,10 +49,15 @@ const FLASH_HOLD_FRACTION: f32 = 0.80;
 /// longer.
 const REFERENCE_FLASH_SECONDS: f32 = 0.24;
 
-/// Z bias for the overlay mesh — sits in front of the source sprite
-/// (and the gnu-ton hands child sprite) but behind the gradient-lane
-/// telegraph quad which lives at +1.0 of the boss z.
-const FLASH_OVERLAY_Z_BIAS: f32 = 0.45;
+/// Z bias for the overlay mesh — must sit IN FRONT of every other
+/// per-character overlay so the white silhouette is never covered.
+/// The Puppy Slug deep-dream sibling material sits at
+/// `super::deep_dream::LOCAL_OVERLAY_Z_BIAS = 0.9`, so a flash bias
+/// below that gets the white blanked out by the rainbow tint. 1.5
+/// gives a comfortable margin over both deep_dream (0.9) and the
+/// GradientLane telegraph quad (+1.0 of boss z) without colliding
+/// with HUD layers, which live in the hundreds.
+const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;
 
 /// Install the material plugin behind the hit-flash overlay.
 pub fn add_hit_flash_material_plugin(app: &mut App) {
@@ -166,9 +171,13 @@ pub fn attach_hit_flash_overlays(
                 Mesh2d(mesh),
                 MeshMaterial2d(material),
                 overlay_transform,
-                // Hidden by default — the sync system flips this to
-                // `Visible` for the frames where `intensity > 0`.
-                Visibility::Hidden,
+                // Stay `Visible` always — the shader's `discard`
+                // arm zero-cost-culls fragments when `intensity == 0`,
+                // and starting with `Hidden` can stick the auto-inserted
+                // `InheritedVisibility` at false in a way that
+                // PostUpdate's propagator can't fix on the same tick
+                // (see the deep-dream comment for the same gotcha).
+                Visibility::Visible,
                 HitFlashOverlay {
                     source: source_entity,
                 },
@@ -200,28 +209,18 @@ pub fn sync_hit_flash_overlays(
             Option<&FeatureVisual>,
             Option<&PlayerVisual>,
             &HitFlashSource,
-            Option<&Visibility>,
         ),
         Without<HitFlashOverlay>,
     >,
     mut overlays: Query<(
         &mut Transform,
-        &mut Visibility,
         &MeshMaterial2d<HitFlashMaterial>,
         &HitFlashOverlay,
     )>,
     mut materials: ResMut<Assets<HitFlashMaterial>>,
 ) {
-    for (
-        source_entity,
-        source_transform,
-        source_sprite,
-        anchor,
-        feature,
-        player,
-        source,
-        source_visibility,
-    ) in &sources
+    for (source_entity, source_transform, source_sprite, anchor, feature, player, source) in
+        &sources
     {
         let Some(render_size) = source_sprite.custom_size else {
             continue;
@@ -244,9 +243,8 @@ pub fn sync_hit_flash_overlays(
         let intensity = hit_flash_secs
             .map(normalize_hit_flash)
             .unwrap_or(0.0);
-        let source_visible = !matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
 
-        let Ok((mut overlay_transform, mut overlay_visibility, material_handle, overlay)) =
+        let Ok((mut overlay_transform, material_handle, overlay)) =
             overlays.get_mut(source.overlay)
         else {
             continue;
@@ -254,14 +252,10 @@ pub fn sync_hit_flash_overlays(
         if overlay.source != source_entity {
             continue;
         }
-        // Hide the overlay when intensity drops to zero. Bevy culls
-        // hidden meshes from rendering, so we don't pay GPU cost
-        // for resting characters.
-        *overlay_visibility = if source_visible && intensity > 0.001 {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
+        // Visibility stays `Visible` permanently; the shader's
+        // `discard` arm makes the overlay free when intensity == 0,
+        // and we sidestep the InheritedVisibility-propagation gotcha
+        // documented at the spawn site.
         *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
         if let Some(material) = materials.get_mut(&material_handle.0) {
             material.uv_rect = uv_rect;
@@ -316,8 +310,11 @@ fn hit_flash_secs_for_source(
     // Player path: the entity that carries `PlayerVisual` is the
     // same one that carries `PlayerCombatState`, so the
     // `PrimaryPlayerOnly` filter picks up the only matching state.
+    // Use `iter().next()` over `single()` so a future MP regime that
+    // adds a secondary local player won't crash the overlay sync
+    // — first match wins for SP today.
     if player.is_some() {
-        return player_state.single().ok().map(|state| state.flash_timer);
+        return player_state.iter().next().map(|state| state.flash_timer);
     }
     let visual = feature?;
     let id = visual.id.as_str();

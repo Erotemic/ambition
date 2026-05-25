@@ -67,7 +67,10 @@ mod tests {
             .iter()
             .find(|s| s.id == id)
             .unwrap_or_else(|| panic!("{id}.ron should load"));
-        assert_eq!(*on_disk, hardcoded, "boss_encounters/{id}.ron drifted from constructor");
+        assert_eq!(
+            *on_disk, hardcoded,
+            "boss_encounters/{id}.ron drifted from constructor"
+        );
     }
 
     #[test]
@@ -82,7 +85,10 @@ mod tests {
 
     #[test]
     fn load_boss_specs_from_disk_finds_clockwork_warden() {
-        assert_spec_matches_disk("clockwork_warden", ae::BossEncounterSpec::clockwork_warden());
+        assert_spec_matches_disk(
+            "clockwork_warden",
+            ae::BossEncounterSpec::clockwork_warden(),
+        );
     }
 
     /// Every RON file under `boss_encounters/` must correspond to an
@@ -93,10 +99,8 @@ mod tests {
     /// hardcoded constructor stays the fallback.
     #[test]
     fn every_on_disk_ron_matches_an_authored_profile() {
-        let profile_ids: std::collections::BTreeSet<String> = default_boss_profiles()
-            .into_iter()
-            .map(|p| p.id)
-            .collect();
+        let profile_ids: std::collections::BTreeSet<String> =
+            default_boss_profiles().into_iter().map(|p| p.id).collect();
         let orphans: Vec<String> = load_boss_specs_from_disk()
             .into_iter()
             .map(|s| s.id)
@@ -116,11 +120,16 @@ mod tests {
     #[test]
     fn load_boss_specs_from_disk_has_no_duplicate_ids() {
         let specs = load_boss_specs_from_disk();
-        let mut seen: std::collections::BTreeSet<String> =
-            std::collections::BTreeSet::new();
+        let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         let dupes: Vec<String> = specs
             .iter()
-            .filter_map(|s| if seen.insert(s.id.clone()) { None } else { Some(s.id.clone()) })
+            .filter_map(|s| {
+                if seen.insert(s.id.clone()) {
+                    None
+                } else {
+                    Some(s.id.clone())
+                }
+            })
             .collect();
         assert!(
             dupes.is_empty(),

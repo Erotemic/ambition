@@ -283,10 +283,10 @@ fn spawn_enemy(
 /// `EnemyArchetypeSpec` so adding a new archetype is a single
 /// `archetype_spec` row, not a parallel match here.
 fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
+    use super::super::enemies::EnemyAttackKind;
     use crate::brain::{
         ActionSet, BiteSpec, LungeSpec, MeleeActionSpec, PunchSpec, RangedActionSpec, SwipeSpec,
     };
-    use super::super::enemies::EnemyAttackKind;
     let archetype = enemy.archetype;
     let move_style = archetype.move_style();
     let damage = archetype.damage_amount();
@@ -303,8 +303,13 @@ fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
     }
     let (melee, ranged) = match archetype.attack_kind() {
         EnemyAttackKind::None => (None, None),
-        EnemyAttackKind::MeleeSwipe => (Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)), None),
-        EnemyAttackKind::MeleeLunge => (Some(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT)), None),
+        EnemyAttackKind::MeleeSwipe => (
+            Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            None,
+        ),
+        EnemyAttackKind::MeleeLunge => {
+            (Some(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT)), None)
+        }
         EnemyAttackKind::MeleeBite => (
             Some(MeleeActionSpec::Bite(BiteSpec {
                 windup_s: 0.18,
@@ -321,7 +326,10 @@ fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
         ),
         EnemyAttackKind::RangedBolt => (
             None,
-            Some(RangedActionSpec::Bolt { speed: 500.0, damage }),
+            Some(RangedActionSpec::Bolt {
+                speed: 500.0,
+                damage,
+            }),
         ),
     };
     ActionSet {
@@ -336,10 +344,10 @@ fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
 /// Reads `brain_template()` off the consolidated `EnemyArchetypeSpec`
 /// so adding a new archetype is a single row, not a parallel match.
 fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
+    use super::super::enemies::EnemyBrainTemplate;
     use crate::brain::{
         Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg, WandererCfg, WandererState,
     };
-    use super::super::enemies::EnemyBrainTemplate;
     let archetype = enemy.archetype;
     match archetype.brain_template() {
         EnemyBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
@@ -545,7 +553,10 @@ mod tests {
             .world_mut()
             .query::<(&Brain, &ActionSet, &ActorControl)>();
         let count = q.iter(app.world()).count();
-        assert_eq!(count, 1, "boss should carry Brain + ActionSet + ActorControl");
+        assert_eq!(
+            count, 1,
+            "boss should carry Brain + ActionSet + ActorControl"
+        );
         let (brain, action_set, _) = q.iter(app.world()).next().expect("boss exists");
         // Brain is BossPattern with the real encounter id derived
         // from the boss name.

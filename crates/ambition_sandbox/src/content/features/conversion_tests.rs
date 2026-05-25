@@ -414,7 +414,6 @@ mod conversion_tests {
             FeatureCombatTuning::default(),
             Some(player.pos),
             None,
-
             0.05,
         );
         assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Chase);
@@ -601,7 +600,6 @@ mod conversion_tests {
                 FeatureCombatTuning::default(),
                 Some(player_pos),
                 None,
-
                 1.0 / 60.0,
             );
         }
@@ -665,7 +663,6 @@ mod conversion_tests {
                 FeatureCombatTuning::default(),
                 Some(player_pos_far),
                 None,
-
                 1.0 / 60.0,
             );
         }
@@ -713,12 +710,15 @@ mod conversion_tests {
                 FeatureCombatTuning::default(),
                 Some(player_pos),
                 None,
-
                 1.0 / 60.0,
             );
             if let Some(req) = frame.fire {
                 // Player is to the right; fire direction should be +x.
-                assert!(req.dir.x > 0.0, "fire dir should point at player (+x), got {}", req.dir.x);
+                assert!(
+                    req.dir.x > 0.0,
+                    "fire dir should point at player (+x), got {}",
+                    req.dir.x
+                );
                 fire_seen = true;
                 break;
             }

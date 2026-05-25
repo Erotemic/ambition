@@ -88,8 +88,7 @@ pub(in super::super) fn extend_with_character_entries(
     manifest: &mut AssetManifest,
     sprite_folder: &str,
 ) {
-    for (name, filename) in
-        crate::presentation::character_sprites::all_character_sprite_filenames()
+    for (name, filename) in crate::presentation::character_sprites::all_character_sprite_filenames()
     {
         let id = ids::character_sprite(&name);
         let logical_path = format!("{sprite_folder}/{filename}");

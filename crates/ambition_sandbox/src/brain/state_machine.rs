@@ -712,7 +712,10 @@ mod tests {
         s.attack_cooldown_remaining = 0.0;
         let mut out = ae::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
-        assert!(out.melee_pressed, "hostile patrol in melee range should attack");
+        assert!(
+            out.melee_pressed,
+            "hostile patrol in melee range should attack"
+        );
         assert_eq!(out.facing, 1.0);
     }
 
@@ -888,7 +891,10 @@ mod tests {
         let mut out2 = ae::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out2);
         // Forward motion resumed.
-        assert!(out2.desired_vel.x != 0.0, "wanderer should walk after pause expires");
+        assert!(
+            out2.desired_vel.x != 0.0,
+            "wanderer should walk after pause expires"
+        );
     }
 
     #[test]

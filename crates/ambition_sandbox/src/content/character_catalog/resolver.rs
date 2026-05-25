@@ -16,8 +16,8 @@ use crate::brain::state_machine::{
     MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg, SkirmisherState,
     SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
 };
-use crate::brain::{BossPatternCfg, BossPatternState};
 use crate::brain::Brain;
+use crate::brain::{BossPatternCfg, BossPatternState};
 
 use super::entry::{
     ActionSetPreset, BrainPreset, MeleePreset, MoveStylePreset, RangedPreset, SpecialPreset,

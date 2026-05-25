@@ -60,7 +60,12 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     mut actors: Query<&mut ActorRuntime>,
 ) {
     for msg in messages.read() {
-        let ActionRequest::Ranged { spec, origin: _, dir } = msg.request else {
+        let ActionRequest::Ranged {
+            spec,
+            origin: _,
+            dir,
+        } = msg.request
+        else {
             continue;
         };
         let Ok(mut actor) = actors.get_mut(msg.actor) else {
@@ -221,10 +226,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
     world: Res<crate::GameWorld>,
     mut messages: MessageReader<ActorActionMessage>,
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
-    mut bosses: Query<
-        (Entity, &mut AppleRainSpawnState, &BossFeature),
-        With<FeatureSimEntity>,
-    >,
+    mut bosses: Query<(Entity, &mut AppleRainSpawnState, &BossFeature), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.sim_dt();
     // Bosses with a `Special::GnuAppleRain` request this tick.
@@ -360,13 +362,16 @@ mod tests {
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
-            actor,
-            request: ActionRequest::Ranged {
-                spec: RangedActionSpec::Bolt { speed: 500.0, damage: 1 },
-                origin: actor_pos,
-                dir,
-            },
-        });
+                actor,
+                request: ActionRequest::Ranged {
+                    spec: RangedActionSpec::Bolt {
+                        speed: 500.0,
+                        damage: 1,
+                    },
+                    origin: actor_pos,
+                    dir,
+                },
+            });
         app.update();
         let projectiles = app.world().resource::<EnemyProjectileState>();
         assert_eq!(
@@ -408,20 +413,20 @@ mod tests {
             &[],
         );
         enemy.archetype = EnemyArchetype::SmallSkitter;
-        let actor = app
-            .world_mut()
-            .spawn((ActorRuntime::Hostile(enemy),))
-            .id();
+        let actor = app.world_mut().spawn((ActorRuntime::Hostile(enemy),)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
-            actor,
-            request: ActionRequest::Ranged {
-                spec: RangedActionSpec::Rock { speed: 300.0, damage: 1 },
-                origin: actor_pos,
-                dir: ae::Vec2::new(1.0, 0.0),
-            },
-        });
+                actor,
+                request: ActionRequest::Ranged {
+                    spec: RangedActionSpec::Rock {
+                        speed: 300.0,
+                        damage: 1,
+                    },
+                    origin: actor_pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                },
+            });
         app.update();
         let projectiles = app.world().resource::<EnemyProjectileState>();
         assert_eq!(projectiles.bodies.len(), 1);
@@ -444,13 +449,16 @@ mod tests {
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
-            actor,
-            request: ActionRequest::Ranged {
-                spec: RangedActionSpec::Bolt { speed: 500.0, damage: 1 },
-                origin: actor_pos,
-                dir: ae::Vec2::new(1.0, 0.0),
-            },
-        });
+                actor,
+                request: ActionRequest::Ranged {
+                    spec: RangedActionSpec::Bolt {
+                        speed: 500.0,
+                        damage: 1,
+                    },
+                    origin: actor_pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                },
+            });
         app.update();
         let projectiles = app.world().resource::<EnemyProjectileState>();
         assert!(

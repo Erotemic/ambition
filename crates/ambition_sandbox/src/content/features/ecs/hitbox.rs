@@ -26,9 +26,7 @@
 //! `HitboxAnchor::World` (Task B groundwork) is a fixed
 //! world-space rectangle for hazards / boss specials.
 
-use bevy::prelude::{
-    Commands, Component, Entity, MessageWriter, Query, Res, With,
-};
+use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, Res, With};
 use std::collections::HashSet;
 
 use ambition_engine as ae;
@@ -441,4 +439,3 @@ mod tests {
         );
     }
 }
-

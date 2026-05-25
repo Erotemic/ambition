@@ -1028,8 +1028,8 @@ mod scripted_pattern_tests {
         // `tick_boss_brains_system` + `update_ecs_bosses` do in the
         // real schedule.
         use crate::brain::{
-            tick_boss_pattern, BossPatternCfg, BossPatternContext, BossPatternState,
-            BossAttackState,
+            tick_boss_pattern, BossAttackState, BossPatternCfg, BossPatternContext,
+            BossPatternState,
         };
         let mut cfg = BossPatternCfg::neutral_test();
         cfg.aggressiveness = 1.0;

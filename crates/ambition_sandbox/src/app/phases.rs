@@ -9,13 +9,13 @@ use super::hud::*;
 #[allow(unused_imports)]
 use super::input_systems::*;
 #[allow(unused_imports)]
+use super::player_tick::*;
+#[allow(unused_imports)]
 use super::plugins::*;
 #[allow(unused_imports)]
 use super::resources::*;
 #[allow(unused_imports)]
 use super::setup_systems::*;
-#[allow(unused_imports)]
-use super::player_tick::*;
 #[allow(unused_imports)]
 use super::world_flow::*;
 #[allow(unused_imports)]
@@ -62,12 +62,8 @@ pub(super) fn player_control_phase(
     // dash, attack, interact, shield, pogo, blink, fly_toggle,
     // fast_fall, projectile-charge, aim) so this phase never reads
     // raw input. Hitstun gate applies inside the helper.
-    let input = engine_input_from_actor_control(
-        actor_control,
-        feel,
-        combat.hitstun_timer,
-        frame_dt,
-    );
+    let input =
+        engine_input_from_actor_control(actor_control, feel, combat.hitstun_timer, frame_dt);
     let control_world =
         features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
     let control_events =
@@ -148,12 +144,8 @@ pub(super) fn player_simulation_phase(
     blink_cam: &mut crate::player::PlayerBlinkCameraState,
     ride: &mut crate::player::PlayerPlatformRideState,
 ) -> PhaseOutcome {
-    let input = engine_input_from_actor_control(
-        actor_control,
-        feel,
-        combat.hitstop_timer,
-        frame_dt,
-    );
+    let input =
+        engine_input_from_actor_control(actor_control, feel, combat.hitstop_timer, frame_dt);
 
     // sim_state.time_scale was set this frame by the time-control
     // pipeline in SandboxSet::PlayerInput (emit → apply → smooth).

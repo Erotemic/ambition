@@ -11,11 +11,11 @@ use super::input_systems::*;
 #[allow(unused_imports)]
 use super::phases::*;
 #[allow(unused_imports)]
+use super::player_tick::*;
+#[allow(unused_imports)]
 use super::plugins::*;
 #[allow(unused_imports)]
 use super::resources::*;
-#[allow(unused_imports)]
-use super::player_tick::*;
 #[allow(unused_imports)]
 use super::world_flow::*;
 #[allow(unused_imports)]

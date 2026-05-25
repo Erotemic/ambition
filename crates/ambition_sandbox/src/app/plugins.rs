@@ -11,6 +11,8 @@ use super::input_systems::*;
 #[allow(unused_imports)]
 use super::phases::*;
 #[allow(unused_imports)]
+use super::player_tick::*;
+#[allow(unused_imports)]
 use super::resources::*;
 #[allow(unused_imports)]
 use super::schedule::*;
@@ -18,8 +20,6 @@ use super::schedule::*;
 use super::setup_systems::*;
 #[allow(unused_imports)]
 use super::sim_systems::*;
-#[allow(unused_imports)]
-use super::player_tick::*;
 #[allow(unused_imports)]
 use super::world_flow::*;
 #[allow(unused_imports)]
@@ -227,8 +227,7 @@ fn register_combat_systems(app: &mut App) {
             // BEFORE `update_enemy_projectiles` so projectiles spawned
             // this tick already advance one step this frame, matching
             // the pre-migration latency.
-            crate::features::spawn_enemy_projectiles_from_brain_actions
-                .run_if(gameplay_allowed),
+            crate::features::spawn_enemy_projectiles_from_brain_actions.run_if(gameplay_allowed),
             // EFFECTS-stage consumer: reads ActorActionMessage::Melee
             // and starts the enemy's attack windup + cooldown.
             // Replaces the legacy `if frame.melee_pressed` gate inside
@@ -236,8 +235,7 @@ fn register_combat_systems(app: &mut App) {
             // happens upstream in `update_ecs_actors` (the runtime is
             // the only place that owns the windup → active transition);
             // `apply_hitbox_damage` below resolves the overlap.
-            crate::features::start_enemy_melee_from_brain_actions
-                .run_if(gameplay_allowed),
+            crate::features::start_enemy_melee_from_brain_actions.run_if(gameplay_allowed),
             // EFFECTS-stage consumer: reads
             // `ActorActionMessage::Special { SpecialActionSpec::GnuAppleRain }`
             // and accumulates per-boss apple-rain spawn cadence.
@@ -247,8 +245,7 @@ fn register_combat_systems(app: &mut App) {
             // advance one step this frame, matching the legacy
             // ordering of `outputs.projectile_spawns` flush →
             // projectile tick.
-            crate::features::spawn_gnu_apple_rain_from_special_messages
-                .run_if(gameplay_allowed),
+            crate::features::spawn_gnu_apple_rain_from_special_messages.run_if(gameplay_allowed),
             crate::projectile::update_projectiles,
             crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
             // Hitbox-entity lifecycle for melee strikes (Task A of the

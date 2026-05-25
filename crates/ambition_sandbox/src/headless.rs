@@ -295,9 +295,7 @@ mod tests {
             "ActorActionMessage registered via BrainPlugin",
         );
         assert!(
-            app.world()
-                .get_resource::<BrainActionCounter>()
-                .is_some(),
+            app.world().get_resource::<BrainActionCounter>().is_some(),
             "BrainActionCounter registered via BrainPlugin",
         );
     }

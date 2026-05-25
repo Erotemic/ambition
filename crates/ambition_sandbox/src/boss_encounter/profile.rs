@@ -196,6 +196,9 @@ mod tests {
 
     #[test]
     fn clockwork_warden_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches("clockwork_warden", ae::BossEncounterSpec::clockwork_warden());
+        assert_profile_matches(
+            "clockwork_warden",
+            ae::BossEncounterSpec::clockwork_warden(),
+        );
     }
 }

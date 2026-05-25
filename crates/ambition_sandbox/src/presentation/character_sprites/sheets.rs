@@ -224,13 +224,11 @@ fn load_spec(target: &str, tuning: &SheetTuning) -> CharacterSheetSpec {
 /// prefix stripped ("npc_gnu_ton_boss" → "gnu_ton_boss").
 pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {
     let index = record_index();
-    let record = index
-        .get(character_id)
-        .or_else(|| {
-            character_id
-                .strip_prefix("npc_")
-                .and_then(|stripped| index.get(stripped))
-        })?;
+    let record = index.get(character_id).or_else(|| {
+        character_id
+            .strip_prefix("npc_")
+            .and_then(|stripped| index.get(stripped))
+    })?;
     let spec = spec_from_record(record, &DEFAULT_TUNING);
     // The runtime atlas indexer (`flat_index`) falls back to
     // `Idle` for any animation that doesn't have its own row.
@@ -985,8 +983,7 @@ mod tests {
                 ],
             )
         "#;
-        let record: SheetRecord =
-            ron::from_str(ron_text).expect("tuning-omitted record parses");
+        let record: SheetRecord = ron::from_str(ron_text).expect("tuning-omitted record parses");
         assert!(record.tuning.is_none());
         let legacy_tuning = SheetTuning::new(2.1, 1);
         let spec = spec_from_record(&record, &legacy_tuning);

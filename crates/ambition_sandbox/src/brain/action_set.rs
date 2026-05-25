@@ -127,10 +127,7 @@ impl MeleeActionSpec {
     /// Total swing duration (windup + active + recover) in seconds.
     /// Cooldown systems / animation pickers use this to gate the
     /// "can swing again" question.
-    #[allow(
-        dead_code,
-        reason = "diagnostic helper for EFFECTS consumers"
-    )]
+    #[allow(dead_code, reason = "diagnostic helper for EFFECTS consumers")]
     pub fn total_duration_s(self) -> f32 {
         match self {
             Self::Swipe(s) => s.windup_s + s.active_s + s.recover_s,
@@ -142,10 +139,7 @@ impl MeleeActionSpec {
     }
 
     /// Damage dealt on a clean hit.
-    #[allow(
-        dead_code,
-        reason = "diagnostic helper for EFFECTS consumers"
-    )]
+    #[allow(dead_code, reason = "diagnostic helper for EFFECTS consumers")]
     pub fn damage(self) -> i32 {
         match self {
             Self::Swipe(s) => s.damage,
@@ -157,10 +151,7 @@ impl MeleeActionSpec {
     }
 
     /// Reach (hitbox forward extent) in px from the actor's anchor.
-    #[allow(
-        dead_code,
-        reason = "diagnostic helper for EFFECTS consumers"
-    )]
+    #[allow(dead_code, reason = "diagnostic helper for EFFECTS consumers")]
     pub fn reach_px(self) -> f32 {
         match self {
             Self::Swipe(s) => s.reach_px,
@@ -498,7 +489,10 @@ mod tests {
         // calls behind wants_any_action() can rely on it.
         let actions = ActionSet {
             melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
-            ranged: Some(RangedActionSpec::Bolt { speed: 500.0, damage: 1 }),
+            ranged: Some(RangedActionSpec::Bolt {
+                speed: 500.0,
+                damage: 1,
+            }),
             special: Some(SpecialActionSpec::BubbleShield),
             move_style: MoveStyleSpec::Walk,
         };
@@ -515,7 +509,10 @@ mod tests {
         // capability gate so a brain that emits melee intent on
         // a ranged-only actor doesn't accidentally spawn a hitbox.
         let actions = ActionSet {
-            ranged: Some(RangedActionSpec::Bolt { speed: 500.0, damage: 1 }),
+            ranged: Some(RangedActionSpec::Bolt {
+                speed: 500.0,
+                damage: 1,
+            }),
             ..Default::default()
         };
         let mut frame = ae::ActorControlFrame::neutral();

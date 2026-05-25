@@ -650,15 +650,15 @@ fn emit_desired_vel(
         return;
     }
 
-    let mut target = cfg.movement.target(cfg.spawn, state.movement_timer, ctx.target_pos);
+    let mut target = cfg
+        .movement
+        .target(cfg.spawn, state.movement_timer, ctx.target_pos);
 
     // While a GnuAppleRain strike is live, layer a horizontal dodge
     // on top of the baseline sway so the giant reads as stepping
     // aside to avoid its own experiment.
-    let apple_rain_active = matches!(
-        cfg.movement,
-        BossMovementProfile::StationaryGiant { .. }
-    ) && cfg.apple_rain_dodge_amp > 0.0
+    let apple_rain_active = matches!(cfg.movement, BossMovementProfile::StationaryGiant { .. })
+        && cfg.apple_rain_dodge_amp > 0.0
         && ctx.encounter_phase.is_attacking();
     if apple_rain_active {
         // Cheap proxy for "is GnuAppleRain active right now?": we

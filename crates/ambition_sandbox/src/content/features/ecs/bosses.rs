@@ -27,7 +27,7 @@
 use super::*;
 
 use crate::brain::{
-    boss_pattern::tick_boss_pattern, ActorControl, Brain, BossAttackState, BossPatternContext,
+    boss_pattern::tick_boss_pattern, ActorControl, BossAttackState, BossPatternContext, Brain,
     StateMachineCfg,
 };
 

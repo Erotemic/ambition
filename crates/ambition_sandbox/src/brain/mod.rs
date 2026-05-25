@@ -80,15 +80,14 @@ pub use action_set::{
     SwipeSpec,
 };
 #[allow(unused_imports)]
+pub use boss_pattern::{
+    tick_boss_pattern, BossAttackPattern, BossAttackProfile, BossAttackState, BossMovementProfile,
+    BossPattern, BossPatternCfg, BossPatternContext, BossPatternState, BossPatternStep, CyclePhase,
+};
+#[allow(unused_imports)]
 pub use player::{tick_player_brain, tick_player_brain_from_input};
 #[allow(unused_imports)]
 pub use snapshot::{BrainSnapshot, WallContact};
-#[allow(unused_imports)]
-pub use boss_pattern::{
-    tick_boss_pattern, BossAttackPattern, BossAttackProfile, BossAttackState, BossMovementProfile,
-    BossPattern, BossPatternCfg, BossPatternContext, BossPatternState, BossPatternStep,
-    CyclePhase,
-};
 #[allow(unused_imports)]
 pub use state_machine::{
     tick_state_machine, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg,
@@ -435,11 +434,7 @@ mod tests {
                 Brain::stand_still(),
                 ActorControl(frame),
                 actions.clone(),
-                bevy::transform::components::Transform::from_xyz(
-                    i as f32 * 10.0,
-                    0.0,
-                    0.0,
-                ),
+                bevy::transform::components::Transform::from_xyz(i as f32 * 10.0, 0.0, 0.0),
             ));
         }
         app.update();
@@ -505,12 +500,12 @@ mod tests {
             Brain::StateMachine(StateMachineCfg::StandStill)
         ));
         // Swap to MeleeBrute via the same commands.insert path.
-        app.world_mut().entity_mut(entity).insert(Brain::StateMachine(
-            StateMachineCfg::MeleeBrute {
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(Brain::StateMachine(StateMachineCfg::MeleeBrute {
                 cfg: MeleeBruteCfg::STRIKER_DEFAULT,
                 state: MeleeBruteState::default(),
-            },
-        ));
+            }));
         let brain = app
             .world()
             .get::<Brain>(entity)

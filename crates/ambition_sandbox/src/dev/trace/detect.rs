@@ -91,7 +91,10 @@ fn collect_state_flips(prev: &PreviousFrameSnapshot, player: &ae::Player) -> Vec
     let mut flips = Vec::new();
     let cur_ledge = player.ledge_grab.is_some();
     if cur_ledge != prev.ledge_grabbing {
-        flips.push(format!("ledge_grabbing: {} → {}", prev.ledge_grabbing, cur_ledge));
+        flips.push(format!(
+            "ledge_grabbing: {} → {}",
+            prev.ledge_grabbing, cur_ledge
+        ));
     }
     if player.fly_enabled != prev.fly_enabled {
         flips.push(format!(

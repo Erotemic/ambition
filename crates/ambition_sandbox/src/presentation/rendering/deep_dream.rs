@@ -263,8 +263,13 @@ pub fn sync_puppy_slug_deep_dream_overlays(
             existing.alpha,
         );
 
-        let Ok((overlay_entity, mut overlay_transform, mut overlay_visibility, material_handle, overlay)) =
-            overlays.get_mut(source.overlay)
+        let Ok((
+            overlay_entity,
+            mut overlay_transform,
+            mut overlay_visibility,
+            material_handle,
+            overlay,
+        )) = overlays.get_mut(source.overlay)
         else {
             if should_diagnose {
                 println!(

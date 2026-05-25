@@ -28,12 +28,18 @@ pub mod loader;
 pub mod resolver;
 pub mod validator;
 
-#[allow(unused_imports, reason = "public surface; downstream phases consume these as they land")]
+#[allow(
+    unused_imports,
+    reason = "public surface; downstream phases consume these as they land"
+)]
 pub use entry::{
     ActionSetPreset, BrainPreset, CharacterBodyKind, CharacterCatalogData, CharacterCatalogEntry,
     CharacterTier, CompositionLayer, MeleePreset, MoveStylePreset, RangedPreset, SpecialPreset,
 };
-#[allow(unused_imports, reason = "CHARACTER_CATALOG_ASSET used by tooling that loads off disk")]
+#[allow(
+    unused_imports,
+    reason = "CHARACTER_CATALOG_ASSET used by tooling that loads off disk"
+)]
 pub use loader::{
     display_name_for_character_id, load_embedded, CHARACTER_CATALOG_ASSET, EMBEDDED_CATALOG,
 };
@@ -209,13 +215,12 @@ mod tests {
             let Some(spec) = sheet_for_character_id(cid) else {
                 continue;
             };
-            let has_idle = spec
-                .rows
-                .iter()
-                .any(|(anim, _)| matches!(
+            let has_idle = spec.rows.iter().any(|(anim, _)| {
+                matches!(
                     anim,
                     crate::presentation::character_sprites::CharacterAnim::Idle,
-                ));
+                )
+            });
             assert!(
                 has_idle,
                 "catalog id '{cid}' loaded a spec without an Idle row; \
@@ -298,10 +303,7 @@ mod tests {
         let mut data = load_embedded();
         // Pick the first character and break its default_brain.
         let first_id = data.characters.keys().next().cloned().unwrap();
-        data.characters
-            .get_mut(&first_id)
-            .unwrap()
-            .default_brain = "DOES_NOT_EXIST".to_string();
+        data.characters.get_mut(&first_id).unwrap().default_brain = "DOES_NOT_EXIST".to_string();
         let errors = validator::validate(&data);
         assert!(
             errors.iter().any(|e| e.contains("DOES_NOT_EXIST")),

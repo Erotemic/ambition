@@ -22,11 +22,10 @@ pub fn populate_boss_encounter_registry(
     // (fallback). Log a one-time startup census so a regression where
     // a RON file silently fails to parse (loader returns empty) is
     // visible in dev logs without paging through every spec field.
-    let ron_ids: std::collections::BTreeSet<String> =
-        super::specs::load_boss_specs_from_disk()
-            .into_iter()
-            .map(|s| s.id)
-            .collect();
+    let ron_ids: std::collections::BTreeSet<String> = super::specs::load_boss_specs_from_disk()
+        .into_iter()
+        .map(|s| s.id)
+        .collect();
     let profiles = default_boss_profiles();
     let ron_count = profiles.iter().filter(|p| ron_ids.contains(&p.id)).count();
     let total = profiles.len();

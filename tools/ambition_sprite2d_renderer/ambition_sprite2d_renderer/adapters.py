@@ -93,6 +93,35 @@ class BaseAdapter:
         del size
         return {}
 
+    def hurtbox_parts(self, size: Tuple[int, int]) -> Dict[str, Dict[str, Any]]:
+        """Per-animation hurtbox-parts override.
+
+        Returns a dict mapping animation name → ``{"parts": [...]}``.
+        When declared, the listed parts REPLACE the renderer's
+        auto-derived alpha-bbox hurtbox for that animation, letting
+        the adapter carve a multi-rect hurtbox that excludes
+        cosmetic / unsafe extensions (e.g. extended arms during
+        an attack). The parts shape mirrors ``attack_hitboxes``:
+
+            {
+                "rest": {
+                    "parts": [
+                        {"name": "head", "x": ..., "y": ..., "w": ..., "h": ...},
+                        {"name": "body", "x": ..., "y": ..., "w": ..., "h": ...},
+                    ],
+                },
+                ...
+            }
+
+        Coordinates are in source canvas pixel space; the renderer
+        translates to cropped-frame coordinates and clips against
+        the frame.
+
+        Default empty (no override → use auto-derived alpha bbox).
+        """
+        del size
+        return {}
+
     def render_single(self, spec: Any, animation: str, frame_index: int, job: CharacterJob) -> Image.Image:
         r = job.render
         return self.render_frame(spec, animation, frame_index, (r.single_width, r.single_height), job)
@@ -193,32 +222,88 @@ class BossAdapter(BaseAdapter):
         # canvas. Body alpha-bbox is (8, 5, 106, 83); arms reach
         # ±35 px out from the body center during attacks.
         return {
-            # FloorSlam: a wide ground-level slap below the body's
-            # visual feet position (around y=87 in canvas coords).
+            # FloorSlam: ground-level slap centered below the body.
+            # Tightened width from 120 → 96 so the slam only damages
+            # players standing directly under / near the boss; the
+            # outer 16 px on each side were "safe lateral space"
+            # nobody could read as damaging.
             "floor_slam": {
-                "bbox": (4, 88, canvas_w - 8, 30),
+                "bbox": (16, 90, canvas_w - 32, 28),
             },
             # SideSweep: two arm hitboxes — one to each side of
-            # the body. The animation has arms extending fully
-            # outward during the active middle frames.
+            # the body. Tightened to match the visible arm reach:
+            # arms swing roughly y=46..82 (mid-body height, not
+            # full-body), and the inner edge of the swing reads as
+            # solidly part of the arm at x≈28 / x≈100.
             "side_sweep": {
                 "parts": [
-                    {"name": "left", "x": 0, "y": 40, "w": 32, "h": 50},
-                    {"name": "right", "x": canvas_w - 32, "y": 40, "w": 32, "h": 50},
+                    {"name": "left", "x": 0, "y": 46, "w": 30, "h": 38},
+                    {"name": "right", "x": canvas_w - 30, "y": 46, "w": 30, "h": 38},
                 ],
             },
-            # SpikeHalo: a ring around the boss. Approximated as
-            # an annular set of corners + edges via a single
-            # outer bbox (the gameplay code can read this as
-            # one big box).
+            # SpikeHalo: a ring around the boss. Approximated by
+            # four quadrant boxes inset from each edge so the
+            # absolute corners (which the spike sprites don't
+            # actually reach) aren't damaging. The four parts
+            # together cover the spike radius without leaving a
+            # safe inner zone (each box bumps up against the body
+            # center).
             "spike_halo": {
-                "bbox": (0, 0, canvas_w, canvas_h),
+                "parts": [
+                    {"name": "top", "x": 8, "y": 0, "w": canvas_w - 16, "h": 36},
+                    {"name": "bottom", "x": 8, "y": canvas_h - 36, "w": canvas_w - 16, "h": 36},
+                    {"name": "left", "x": 0, "y": 24, "w": 36, "h": canvas_h - 48},
+                    {"name": "right", "x": canvas_w - 36, "y": 24, "w": 36, "h": canvas_h - 48},
+                ],
             },
-            # DashEcho: an elongated horizontal lane tracking
-            # the dash; the boss sprite stretches sideways.
+            # DashEcho: an elongated horizontal lane tracking the
+            # dash. Tightened vertically (50→56 start, 40→28 tall)
+            # so the player can jump over the dash with reasonable
+            # timing instead of needing pixel-perfect height.
             "dash_echo": {
-                "bbox": (0, 50, canvas_w, 40),
+                "bbox": (0, 56, canvas_w, 28),
             },
+        }
+
+    def hurtbox_parts(self, size: Tuple[int, int]) -> Dict[str, Dict[str, Any]]:
+        """Per-animation hurtbox parts for the Gradient Sentinel boss.
+
+        Splits the auto-derived alpha-bbox hurtbox into two parts —
+        head + body — so the player's attacks register on the
+        central head/torso area but NOT on the arms (which extend
+        far out during ``side_sweep`` and ``floor_slam``). This
+        forces the player to position close to the body to score
+        hits, rather than tagging an extended arm from across the
+        arena.
+
+        Coordinates are in source canvas pixels (128×128). The
+        head + body parts overlap by 1-2 pixels in y so there's no
+        gap between them.
+        """
+        del size
+        # Body alpha-bbox at rest: (8, 5, 106, 83). The visible
+        # body occupies y=5..88 in canvas coords. Split into:
+        # - head: y≈5..30 (height ~25 px), narrow (skull/face only)
+        # - body: y≈28..86 (height ~58 px), narrow torso (no arms)
+        head = {"name": "head", "x": 46, "y": 5, "w": 36, "h": 25}
+        body = {"name": "body", "x": 42, "y": 28, "w": 44, "h": 58}
+        # All combat animations share the same head + body parts —
+        # the boss doesn't move its head/torso between poses, only
+        # its arms (which we deliberately exclude). `hit` reuses
+        # the rest pair so the player can keep attacking the
+        # stunned boss; `death` skips parts (boss is dying, not
+        # damageable).
+        per_anim_parts = [head, body]
+        return {
+            anim: {"parts": [dict(p) for p in per_anim_parts]}
+            for anim in (
+                "rest",
+                "floor_slam",
+                "side_sweep",
+                "spike_halo",
+                "dash_echo",
+                "hit",
+            )
         }
 
 

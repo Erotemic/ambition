@@ -239,6 +239,51 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                         "bbox": {"x": int(cx0), "y": int(cy0), "w": int(cw), "h": int(ch)}
                     }
             anim_metrics[animation] = entry
+        # Adapter-declared per-animation hurtbox parts override
+        # (head + body split for bosses, etc.). When present, the
+        # parts REPLACE the auto-derived bbox above so the player's
+        # attack registration only triggers on the central body —
+        # not on cosmetic extensions like outstretched arms.
+        try:
+            hurtboxes_by_anim = adapter.hurtbox_parts((src_fw, src_fh))
+        except Exception:
+            hurtboxes_by_anim = {}
+        for anim_name, hurtbox in (hurtboxes_by_anim or {}).items():
+            if not isinstance(hurtbox, dict):
+                continue
+            parts_in = hurtbox.get("parts")
+            if not isinstance(parts_in, list) or not parts_in:
+                continue
+            cropped_parts = []
+            for part in parts_in:
+                if not isinstance(part, dict):
+                    continue
+                x = int(part.get("x", 0))
+                y = int(part.get("y", 0))
+                w = int(part.get("w", 0))
+                h = int(part.get("h", 0))
+                cx0 = max(0, x - crop_min_x)
+                cy0 = max(0, y - crop_min_y)
+                cw = min(fw, x + w - crop_min_x) - cx0
+                ch = min(fh, y + h - crop_min_y) - cy0
+                if cw > 0 and ch > 0:
+                    cropped_parts.append({
+                        "name": str(part.get("name", "")),
+                        "x": int(cx0),
+                        "y": int(cy0),
+                        "w": int(cw),
+                        "h": int(ch),
+                    })
+            if not cropped_parts:
+                continue
+            if anim_name not in anim_metrics:
+                anim_metrics[anim_name] = {}
+            # Replace the auto-derived single-bbox hurtbox with the
+            # adapter-declared multi-rect parts. Drop the bbox so
+            # consumers (which prefer `parts` over `bbox`) get only
+            # the authored shapes.
+            anim_metrics[anim_name]["hurtbox"] = {"parts": cropped_parts}
+
         # Adapter-declared per-animation hitboxes (attack damage
         # geometry). Translated source canvas → cropped frame.
         try:

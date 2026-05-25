@@ -3,11 +3,11 @@
 [
 (
     target: "ninja",
-    image: "ninja_spritesheet.png",
+    image: "ninja_shadow_duelist_spritesheet.png",
     label_width: 100,
     frame_width: 128,
     frame_height: 128,
-    body_metrics: Some((body_pixel_bbox: Some((x: 13, y: 0, w: 96, h: 128)), feet_pixel: Some((x: 60.5, y: 127.0)), feet_anchor_norm: Some((x: -0.02734375, y: -0.4921875)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 13, y: 0, w: 96, h: 128)), feet_pixel: Some((x: 60.5, y: 127.0)), feet_anchor_norm: Some((x: -0.02734375, y: -0.4921875)), animations: {"blink_in": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 115, h: 128))))), "blink_out": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 126, h: 128))))), "dash": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 126, h: 128))))), "death": (hurtbox: Some((bbox: Some((x: 0, y: 4, w: 110, h: 124))))), "fall": (hurtbox: Some((bbox: Some((x: 7, y: 0, w: 101, h: 128))))), "hit": (hurtbox: Some((bbox: Some((x: 0, y: 0, w: 109, h: 128))))), "idle": (hurtbox: Some((bbox: Some((x: 13, y: 0, w: 96, h: 128))))), "jump": (hurtbox: Some((bbox: Some((x: 11, y: 0, w: 102, h: 128))))), "run": (hurtbox: Some((bbox: Some((x: 19, y: 0, w: 95, h: 128))))), "slash": (hurtbox: Some((bbox: Some((x: 0, y: 0, w: 128, h: 128))))), "walk": (hurtbox: Some((bbox: Some((x: 13, y: 0, w: 100, h: 128)))))})),
     rows: [
     (
         animation: "idle",

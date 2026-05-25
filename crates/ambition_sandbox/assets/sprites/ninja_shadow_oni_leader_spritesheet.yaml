@@ -9,10 +9,16 @@ faction: ninja
 role: leader
 music_cue: null
 tags:
+- story
+- humanoid
+- enemy
+- combatant
 - ninja
 - leader
+- oni
 - oni_mask
 - horned_silhouette
+sheet_tuning: null
 frame_width: 128
 frame_height: 128
 label_width: 100
@@ -556,3 +562,81 @@ body_metrics:
   feet_anchor_norm:
     x: 0.05078125
     y: -0.4921875
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 14
+          y: 0
+          w: 114
+          h: 128
+    walk:
+      hurtbox:
+        bbox:
+          x: 15
+          y: 0
+          w: 113
+          h: 128
+    run:
+      hurtbox:
+        bbox:
+          x: 17
+          y: 0
+          w: 111
+          h: 128
+    jump:
+      hurtbox:
+        bbox:
+          x: 9
+          y: 0
+          w: 119
+          h: 128
+    fall:
+      hurtbox:
+        bbox:
+          x: 13
+          y: 0
+          w: 115
+          h: 128
+    slash:
+      hurtbox:
+        bbox:
+          x: 4
+          y: 0
+          w: 124
+          h: 128
+    hit:
+      hurtbox:
+        bbox:
+          x: 1
+          y: 0
+          w: 127
+          h: 128
+    death:
+      hurtbox:
+        bbox:
+          x: 0
+          y: 0
+          w: 128
+          h: 128
+    blink_out:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 126
+          h: 128
+    blink_in:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 126
+          h: 128
+    dash:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 126
+          h: 128

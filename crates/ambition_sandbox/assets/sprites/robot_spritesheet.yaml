@@ -8,7 +8,10 @@ held_item: null
 faction: null
 role: null
 music_cue: null
-tags: []
+tags:
+- robot
+- player_candidate
+sheet_tuning: null
 frame_width: 128
 frame_height: 128
 label_width: 100
@@ -1398,3 +1401,214 @@ body_metrics:
   feet_anchor_norm:
     x: 0.00390625
     y: -0.3125
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 30
+          y: 0
+          w: 70
+          h: 105
+    walk:
+      hurtbox:
+        bbox:
+          x: 29
+          y: 0
+          w: 74
+          h: 107
+    run:
+      hurtbox:
+        bbox:
+          x: 29
+          y: 0
+          w: 75
+          h: 107
+    jump:
+      hurtbox:
+        bbox:
+          x: 25
+          y: 0
+          w: 80
+          h: 104
+    fall:
+      hurtbox:
+        bbox:
+          x: 23
+          y: 0
+          w: 80
+          h: 105
+    slash:
+      hurtbox:
+        bbox:
+          x: 23
+          y: 0
+          w: 105
+          h: 105
+    hit:
+      hurtbox:
+        bbox:
+          x: 19
+          y: 0
+          w: 80
+          h: 107
+    death:
+      hurtbox:
+        bbox:
+          x: 26
+          y: 0
+          w: 91
+          h: 128
+    blink_out:
+      hurtbox:
+        bbox:
+          x: 10
+          y: 0
+          w: 97
+          h: 106
+    blink_in:
+      hurtbox:
+        bbox:
+          x: 16
+          y: 0
+          w: 101
+          h: 107
+    dash:
+      hurtbox:
+        bbox:
+          x: 11
+          y: 0
+          w: 98
+          h: 99
+    hover:
+      hurtbox:
+        bbox:
+          x: 23
+          y: 0
+          w: 80
+          h: 114
+    ledge_grab:
+      hurtbox:
+        bbox:
+          x: 22
+          y: 0
+          w: 76
+          h: 98
+    dash_startup:
+      hurtbox:
+        bbox:
+          x: 20
+          y: 0
+          w: 82
+          h: 105
+    land_hard:
+      hurtbox:
+        bbox:
+          x: 26
+          y: 0
+          w: 77
+          h: 116
+    land_recovery:
+      hurtbox:
+        bbox:
+          x: 25
+          y: 0
+          w: 77
+          h: 111
+    wall_grab:
+      hurtbox:
+        bbox:
+          x: 43
+          y: 0
+          w: 64
+          h: 105
+    ledge_climb:
+      hurtbox:
+        bbox:
+          x: 21
+          y: 0
+          w: 77
+          h: 102
+    ledge_getup:
+      hurtbox:
+        bbox:
+          x: 22
+          y: 0
+          w: 84
+          h: 103
+    float_glide:
+      hurtbox:
+        bbox:
+          x: 26
+          y: 0
+          w: 74
+          h: 99
+    attack_side:
+      hurtbox:
+        bbox:
+          x: 22
+          y: 0
+          w: 106
+          h: 105
+    attack_up:
+      hurtbox:
+        bbox:
+          x: 25
+          y: 0
+          w: 96
+          h: 108
+    attack_down:
+      hurtbox:
+        bbox:
+          x: 22
+          y: 0
+          w: 106
+          h: 112
+    air_neutral:
+      hurtbox:
+        bbox:
+          x: 22
+          y: 0
+          w: 106
+          h: 101
+    air_forward:
+      hurtbox:
+        bbox:
+          x: 20
+          y: 0
+          w: 108
+          h: 99
+    air_back:
+      hurtbox:
+        bbox:
+          x: 0
+          y: 0
+          w: 103
+          h: 100
+    air_down:
+      hurtbox:
+        bbox:
+          x: 22
+          y: 0
+          w: 78
+          h: 120
+    air_up:
+      hurtbox:
+        bbox:
+          x: 22
+          y: 0
+          w: 80
+          h: 95
+    ledge_roll:
+      hurtbox:
+        bbox:
+          x: 22
+          y: 0
+          w: 106
+          h: 111
+    ledge_getup_attack:
+      hurtbox:
+        bbox:
+          x: 22
+          y: 0
+          w: 106
+          h: 104

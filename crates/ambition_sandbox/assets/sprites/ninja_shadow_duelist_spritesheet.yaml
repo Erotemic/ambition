@@ -9,9 +9,14 @@ faction: ninja
 role: duelist
 music_cue: null
 tags:
+- story
+- humanoid
+- enemy
+- combatant
 - ninja
 - duelist
 - masked
+sheet_tuning: null
 frame_width: 128
 frame_height: 128
 label_width: 100
@@ -555,3 +560,81 @@ body_metrics:
   feet_anchor_norm:
     x: -0.02734375
     y: -0.4921875
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 13
+          y: 0
+          w: 96
+          h: 128
+    walk:
+      hurtbox:
+        bbox:
+          x: 13
+          y: 0
+          w: 100
+          h: 128
+    run:
+      hurtbox:
+        bbox:
+          x: 19
+          y: 0
+          w: 95
+          h: 128
+    jump:
+      hurtbox:
+        bbox:
+          x: 11
+          y: 0
+          w: 102
+          h: 128
+    fall:
+      hurtbox:
+        bbox:
+          x: 7
+          y: 0
+          w: 101
+          h: 128
+    slash:
+      hurtbox:
+        bbox:
+          x: 0
+          y: 0
+          w: 128
+          h: 128
+    hit:
+      hurtbox:
+        bbox:
+          x: 0
+          y: 0
+          w: 109
+          h: 128
+    death:
+      hurtbox:
+        bbox:
+          x: 0
+          y: 4
+          w: 110
+          h: 124
+    blink_out:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 126
+          h: 128
+    blink_in:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 115
+          h: 128
+    dash:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 126
+          h: 128

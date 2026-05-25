@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "fascist_enforcer_spritesheet.png",
     label_width: 112,
     frame_width: 128,
     frame_height: 122,
-    body_metrics: Some((body_pixel_bbox: Some((x: 7, y: 0, w: 115, h: 114)), feet_pixel: Some((x: 64.0, y: 113.0)), feet_anchor_norm: Some((x: 0.0, y: -0.42622950819672134)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 7, y: 0, w: 115, h: 114)), feet_pixel: Some((x: 64.0, y: 113.0)), feet_anchor_norm: Some((x: 0.0, y: -0.42622950819672134)), animations: {"dash": (hurtbox: Some((bbox: Some((x: 2, y: 1, w: 126, h: 112))))), "death": (hurtbox: Some((bbox: Some((x: 4, y: 0, w: 106, h: 120))))), "hit": (hurtbox: Some((bbox: Some((x: 0, y: 0, w: 116, h: 115))))), "idle": (hurtbox: Some((bbox: Some((x: 7, y: 0, w: 115, h: 114))))), "interact": (hurtbox: Some((bbox: Some((x: 7, y: 0, w: 117, h: 114))))), "run": (hurtbox: Some((bbox: Some((x: 7, y: 0, w: 119, h: 113))))), "slash": (hurtbox: Some((bbox: Some((x: 5, y: 1, w: 122, h: 112))))), "talk": (hurtbox: Some((bbox: Some((x: 6, y: 0, w: 118, h: 114))))), "walk": (hurtbox: Some((bbox: Some((x: 7, y: 0, w: 117, h: 113)))))})),
     rows: [
     (
         animation: "idle",

@@ -36,8 +36,14 @@ const EFFECT_STRENGTH: f32 = 1.0;
 /// to avoid same-z ordering surprises in the transparent 2D phase.
 const LOCAL_OVERLAY_Z_BIAS: f32 = 0.9;
 
+/// Emit a compact runtime diagnostic often enough to capture copy/paste logs,
+/// but not every frame. These are plain `println!` calls on purpose so they
+/// show up even when `RUST_LOG` filters out the `deep_dream` tracing target.
+const DIAGNOSTIC_INTERVAL_SECS: f32 = 1.0;
+
 /// Install the material plugin that backs the puppy-slug deep-dream overlay.
 pub fn add_puppy_slug_deep_dream_material_plugin(app: &mut App) {
+    println!("[deep_dream] installing PuppySlugDeepDreamMaterial Material2dPlugin");
     app.add_plugins(Material2dPlugin::<PuppySlugDeepDreamMaterial>::default());
 }
 
@@ -136,6 +142,21 @@ pub fn attach_puppy_slug_deep_dream_overlays(
             render_size.x, render_size.y,
             seed,
         );
+        println!(
+            "[deep_dream] attach source={:?} feature={} image={:?} \
+             atlas_uv=({:.3},{:.3},{:.3},{:.3}) render_size=({:.1},{:.1}) z={:.2} seed={:.3}",
+            source_entity,
+            visual.id,
+            sprite.image,
+            uv_rect.x,
+            uv_rect.y,
+            uv_rect.z,
+            uv_rect.w,
+            render_size.x,
+            render_size.y,
+            transform.translation.z + LOCAL_OVERLAY_Z_BIAS,
+            seed,
+        );
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
         // Let Bevy's required-component machinery insert Transform's
@@ -180,6 +201,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
 pub fn sync_puppy_slug_deep_dream_overlays(
     world_time: Res<crate::WorldTime>,
     mut elapsed: Local<f32>,
+    mut diagnostic_elapsed: Local<f32>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
     mut sources: Query<
@@ -202,7 +224,14 @@ pub fn sync_puppy_slug_deep_dream_overlays(
     )>,
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
 ) {
-    *elapsed += world_time.wall_dt();
+    let dt = world_time.wall_dt();
+    *elapsed += dt;
+    *diagnostic_elapsed += dt;
+    let should_diagnose = *diagnostic_elapsed >= DIAGNOSTIC_INTERVAL_SECS;
+    if should_diagnose {
+        *diagnostic_elapsed = 0.0;
+    }
+
     for (source_entity, source_transform, mut source_sprite, anchor, source, source_visibility) in
         &mut sources
     {
@@ -234,9 +263,15 @@ pub fn sync_puppy_slug_deep_dream_overlays(
             existing.alpha,
         );
 
-        let Ok((_, mut overlay_transform, mut overlay_visibility, material_handle, overlay)) =
+        let Ok((overlay_entity, mut overlay_transform, mut overlay_visibility, material_handle, overlay)) =
             overlays.get_mut(source.overlay)
         else {
+            if should_diagnose {
+                println!(
+                    "[deep_dream] missing overlay source={:?} expected_overlay={:?}",
+                    source_entity, source.overlay,
+                );
+            }
             continue;
         };
         if overlay.source != source_entity {
@@ -252,6 +287,35 @@ pub fn sync_puppy_slug_deep_dream_overlays(
             material.uv_rect = uv_rect;
             material.control = Vec4::new(*elapsed, flip, EFFECT_STRENGTH, source.seed);
             material.color_texture = source_sprite.image.clone();
+            if should_diagnose {
+                println!(
+                    "[deep_dream] sync source={:?} overlay={:?} visible={} \
+                     atlas_uv=({:.3},{:.3},{:.3},{:.3}) source_pos=({:.1},{:.1},{:.2}) \
+                     overlay_pos=({:.1},{:.1},{:.2}) overlay_scale=({:.1},{:.1}) flip={} time={:.2}",
+                    source_entity,
+                    overlay_entity,
+                    source_visible,
+                    uv_rect.x,
+                    uv_rect.y,
+                    uv_rect.z,
+                    uv_rect.w,
+                    source_transform.translation.x,
+                    source_transform.translation.y,
+                    source_transform.translation.z,
+                    overlay_transform.translation.x,
+                    overlay_transform.translation.y,
+                    overlay_transform.translation.z,
+                    overlay_transform.scale.x,
+                    overlay_transform.scale.y,
+                    flip,
+                    *elapsed,
+                );
+            }
+        } else if should_diagnose {
+            println!(
+                "[deep_dream] missing material source={:?} overlay={:?} handle={:?}",
+                source_entity, overlay_entity, material_handle.0,
+            );
         }
     }
 }
@@ -265,6 +329,10 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
 ) {
     for (overlay_entity, overlay) in &overlays {
         if sources.get(overlay.source).is_err() {
+            println!(
+                "[deep_dream] cleanup orphan overlay={:?} missing_source={:?}",
+                overlay_entity, overlay.source,
+            );
             commands.entity(overlay_entity).despawn();
         }
     }

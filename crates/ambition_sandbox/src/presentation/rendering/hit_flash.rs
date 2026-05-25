@@ -231,19 +231,16 @@ pub fn sync_hit_flash_overlays(
         };
         let flip = flip_flag(source_sprite);
 
-        // Resolve the source's current hit_flash seconds. Bosses and
-        // ActorRuntime are queried by FeatureId; the player carries
-        // its own component. A `None` here means the source isn't
-        // a damageable character right now (between spawn and the
-        // FeatureId getting attached, or a presentation-only
-        // sibling) — leave the overlay hidden.
-        let hit_flash_secs = if player.is_some() {
-            player_state.single().ok().map(|state| state.flash_timer)
-        } else if let Some(visual) = feature {
-            actor_or_boss_hit_flash_secs(visual.id.as_str(), &actors, &bosses)
-        } else {
-            None
-        };
+        // Single dispatch covers every character type the universal
+        // Brain/ActorControl architecture knows about — player, NPC,
+        // enemy, boss. Each routes through a different per-entity
+        // storage today (PlayerCombatState vs ActorRuntime vs
+        // BossFeature) but they all converge on one shader uniform
+        // through this lookup. A future refactor that unifies them
+        // into a single `HitFlash` component can collapse this to
+        // one query without changing the overlay sync.
+        let hit_flash_secs =
+            hit_flash_secs_for_source(feature, player, &actors, &bosses, &player_state);
         let intensity = hit_flash_secs
             .map(normalize_hit_flash)
             .unwrap_or(0.0);
@@ -291,14 +288,42 @@ pub fn cleanup_hit_flash_overlays(
     }
 }
 
-/// Look up the raw hit_flash seconds for a character by feature id.
-/// Tries the actor list first (enemies + NPCs), then the boss query.
-/// Returns `None` for an id that isn't a damageable character.
-fn actor_or_boss_hit_flash_secs(
-    id: &str,
+/// Unified hit_flash seconds dispatch.
+///
+/// One entry point for every character type the
+/// universal-Brain unification covers — caller doesn't need
+/// to know whether the source is a player, enemy, NPC, or
+/// boss. All four arms read the per-tick countdown that
+/// damage code already maintains, so adding hit feedback to
+/// a new actor type is just "give it one of these timers and
+/// the overlay attaches itself".
+///
+/// Source-of-truth per type:
+///
+/// | type | timer storage | set by damage |
+/// |------|---------------|---------------|
+/// | player | `PlayerCombatState::flash_timer` | `world_flow` damage paths |
+/// | enemy  | `EnemyRuntime::hit_flash` (via `ActorRuntime::Hostile`) | `enemies::apply_damage_at` |
+/// | NPC    | `NpcRuntime::hit_flash` (via `ActorRuntime::Peaceful`)   | NPC damage paths |
+/// | boss   | `BossRuntime::hit_flash` (via `BossFeature.boss`)        | boss damage paths |
+fn hit_flash_secs_for_source(
+    feature: Option<&FeatureVisual>,
+    player: Option<&PlayerVisual>,
     actors: &Query<(&FeatureId, &ActorRuntime)>,
     bosses: &Query<(&FeatureId, &BossFeature)>,
+    player_state: &Query<&crate::player::PlayerCombatState, crate::player::PrimaryPlayerOnly>,
 ) -> Option<f32> {
+    // Player path: the entity that carries `PlayerVisual` is the
+    // same one that carries `PlayerCombatState`, so the
+    // `PrimaryPlayerOnly` filter picks up the only matching state.
+    if player.is_some() {
+        return player_state.single().ok().map(|state| state.flash_timer);
+    }
+    let visual = feature?;
+    let id = visual.id.as_str();
+    // Feature path: cross-reference the visual entity's id against
+    // the sim entity's `FeatureId`. Tries the actor list first
+    // (enemies + NPCs share `ActorRuntime`), then bosses.
     if let Some(secs) = actors.iter().find_map(|(feature_id, actor)| {
         if feature_id.as_str() != id {
             return None;

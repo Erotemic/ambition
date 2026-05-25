@@ -253,11 +253,40 @@ fn render_markdown(payload: &DumpPayload<'_>) -> String {
                 before,
                 after,
                 reason,
+                nearby_after,
+                state_flips,
                 ..
-            } => out.push_str(&format!(
-                "({:.1},{:.1}) → ({:.1},{:.1}) [{reason}]",
-                before.x, before.y, after.x, after.y
-            )),
+            } => {
+                out.push_str(&format!(
+                    "({:.1},{:.1}) → ({:.1},{:.1}) [{reason}]",
+                    before.x, before.y, after.x, after.y
+                ));
+                if !state_flips.is_empty() {
+                    out.push_str(" flips=[");
+                    out.push_str(&state_flips.join(", "));
+                    out.push(']');
+                }
+                if !nearby_after.is_empty() {
+                    out.push_str(" snapped_near=[");
+                    let parts: Vec<String> = nearby_after
+                        .iter()
+                        .take(3)
+                        .map(|s| {
+                            format!(
+                                "{} ({:.0},{:.0})→({:.0},{:.0}) d={:.1}",
+                                s.kind,
+                                s.aabb.min.x,
+                                s.aabb.min.y,
+                                s.aabb.max.x,
+                                s.aabb.max.y,
+                                s.distance,
+                            )
+                        })
+                        .collect();
+                    out.push_str(&parts.join("; "));
+                    out.push(']');
+                }
+            }
             GameplayTraceEvent::Sfx { label, .. } | GameplayTraceEvent::Vfx { label, .. } => {
                 out.push_str(label)
             }

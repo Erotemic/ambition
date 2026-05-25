@@ -157,6 +157,7 @@ pub fn record_frame_system(
         &active_area,
         locomotion_state,
         body_mode_state,
+        &augmented_world,
     );
 
     record_simulation_frame(

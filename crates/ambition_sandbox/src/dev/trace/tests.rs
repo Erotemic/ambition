@@ -63,6 +63,8 @@ fn ring_buffer_caps_at_capacity() {
                 last_safe_pos: TracePoint::default(),
                 time_alive: 0.0,
                 resets: 0,
+                wall_normal_x: 0.0,
+                ledge_grabbing: false,
             },
             controls: ControlFrameTrace::default(),
             nearby_collision: Vec::new(),
@@ -281,6 +283,7 @@ fn synthesizes_input_edge_event_on_button_press() {
         "test",
         ae::LocomotionState::Grounded,
         ae::BodyMode::Standing,
+        &dummy_world(),
     );
     let edges: Vec<_> = buf
         .events()
@@ -327,6 +330,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
         "square_arena",
         ae::LocomotionState::Grounded,
         ae::BodyMode::Standing,
+        &dummy_world(),
     );
     let teleports: Vec<_> = buf
         .events()
@@ -367,6 +371,7 @@ fn reset_emits_event_and_suppresses_teleport_event() {
         "test",
         ae::LocomotionState::Grounded,
         ae::BodyMode::Standing,
+        &dummy_world(),
     );
     let resets: Vec<_> = buf
         .events()

@@ -99,6 +99,21 @@ pub struct PlayerTraceState {
     pub last_safe_pos: TracePoint,
     pub time_alive: f32,
     pub resets: u32,
+    /// X-component of the wall normal the player is currently in
+    /// contact with (`-1` = wall on player's right, `+1` = wall on
+    /// player's left, `0` = no wall contact). Captured so the trace
+    /// can attribute a `CollisionCorrection` snap to the wall side
+    /// the snap aligned with — the canonical case is "body.left ==
+    /// wall.right" (wall_normal_x = +1) or "body.right == wall.left"
+    /// (wall_normal_x = -1).
+    pub wall_normal_x: f32,
+    /// True iff the player has an active `LedgeGrabState`. The
+    /// ledge-grab path writes `player.pos = contact.anchor` which is
+    /// the most-likely source of a teleporting position snap; having
+    /// the boolean per-frame lets the trace post-hoc check whether a
+    /// `CollisionCorrection` tick coincides with a `false → true`
+    /// transition of this flag.
+    pub ledge_grabbing: bool,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -196,6 +211,23 @@ pub enum GameplayTraceEvent {
         before: TracePoint,
         after: TracePoint,
         reason: String,
+        /// Blocks the player's AABB overlaps (or touches within 1 px)
+        /// at the post-teleport position. Captures the snap target
+        /// directly so the next OOB trace can attribute the snap to
+        /// a specific wall edge instead of forcing a re-derivation
+        /// from world geometry. Empty when the player is in clear
+        /// space after the snap (unusual — typically a snap means
+        /// "edge-aligned with something").
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        nearby_after: Vec<CollisionTraceShape>,
+        /// State flags that flipped between the previous frame and
+        /// this one. Each entry is `"<field>: <prev>→<curr>"`. The
+        /// big two: `ledge_grabbing: false→true` is the smoking gun
+        /// for a `try_start_ledge_grab` snap; `fly_enabled:
+        /// false→true` (or `body_mode:` flip) is the smoking gun
+        /// for a body-mode resize snap.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        state_flips: Vec<String>,
     },
     Sfx {
         tick: u64,
@@ -336,4 +368,10 @@ pub(super) struct PreviousFrameSnapshot {
     pub(super) body_mode: ae::BodyMode,
     pub(super) active_area: String,
     pub(super) controls: ControlFrame,
+    /// Snapshot of `player.ledge_grab.is_some()` and `wall_normal_x`
+    /// so `synthesize_events_from_diff` can attribute a teleporting
+    /// position snap to a ledge-grab entry or a wall-side flip.
+    pub(super) ledge_grabbing: bool,
+    pub(super) wall_normal_x: f32,
+    pub(super) on_wall: bool,
 }

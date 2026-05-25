@@ -40,6 +40,83 @@ pub fn detect_oob(player: &ae::Player, world: &ae::World, margin: f32) -> Option
     }
 }
 
+/// Collect blocks whose AABB is within `radius` px of `body` (player
+/// AABB) — used by `CollisionCorrection` event enrichment so the trace
+/// shows exactly which wall/edge a snap aligned with. Distance is
+/// box-to-box rather than centre-to-centre so an edge-touching wall
+/// (distance = 0) sorts first.
+fn nearby_collision_around(
+    world: &ae::World,
+    body: ae::Aabb,
+    radius: f32,
+) -> Vec<CollisionTraceShape> {
+    use ambition_engine::AabbExt;
+    let mut hits: Vec<CollisionTraceShape> = world
+        .blocks
+        .iter()
+        .map(|block| {
+            let bx = block.aabb;
+            let dx = (body.left() - bx.right())
+                .max(bx.left() - body.right())
+                .max(0.0);
+            let dy = (body.top() - bx.bottom())
+                .max(bx.top() - body.bottom())
+                .max(0.0);
+            let distance = (dx * dx + dy * dy).sqrt();
+            CollisionTraceShape {
+                kind: format!("{:?}", block.kind),
+                name: block.name.clone(),
+                aabb: bx.into(),
+                distance,
+            }
+        })
+        .filter(|shape| shape.distance < radius)
+        .collect();
+    hits.sort_by(|a, b| {
+        a.distance
+            .partial_cmp(&b.distance)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    hits.truncate(MAX_NEARBY_COLLISION);
+    hits
+}
+
+/// Diff important player flags against the previous frame and emit
+/// `"<field>: <prev>→<curr>"` strings for any that flipped this tick.
+/// Used by the `CollisionCorrection` event so a teleport trace shows
+/// state transitions that coincide with the snap — most notably
+/// `ledge_grabbing: false→true` (the canonical "I just grabbed a
+/// ledge and snapped to its anchor" attribution).
+fn collect_state_flips(prev: &PreviousFrameSnapshot, player: &ae::Player) -> Vec<String> {
+    let mut flips = Vec::new();
+    let cur_ledge = player.ledge_grab.is_some();
+    if cur_ledge != prev.ledge_grabbing {
+        flips.push(format!("ledge_grabbing: {} → {}", prev.ledge_grabbing, cur_ledge));
+    }
+    if player.fly_enabled != prev.fly_enabled {
+        flips.push(format!(
+            "fly_enabled: {} → {}",
+            prev.fly_enabled, player.fly_enabled
+        ));
+    }
+    if player.on_wall != prev.on_wall {
+        flips.push(format!("on_wall: {} → {}", prev.on_wall, player.on_wall));
+    }
+    if (player.wall_normal_x - prev.wall_normal_x).abs() > 1.0e-3 {
+        flips.push(format!(
+            "wall_normal_x: {:+.0} → {:+.0}",
+            prev.wall_normal_x, player.wall_normal_x
+        ));
+    }
+    if player.on_ground != prev.on_ground {
+        flips.push(format!(
+            "on_ground: {} → {}",
+            prev.on_ground, player.on_ground
+        ));
+    }
+    flips
+}
+
 fn nearby_collision(world: &ae::World, player: &ae::Player) -> Vec<CollisionTraceShape> {
     let center = player.pos;
     let mut hits: Vec<CollisionTraceShape> = world
@@ -117,6 +194,8 @@ pub fn build_frame(
             last_safe_pos: safety.last_safe_pos.into(),
             time_alive: player.time_alive,
             resets: player.resets,
+            wall_normal_x: player.wall_normal_x,
+            ledge_grabbing: player.ledge_grab.is_some(),
         },
         controls: controls.into(),
         nearby_collision: nearby_collision(world, player),
@@ -178,6 +257,7 @@ pub(crate) fn synthesize_events_from_diff(
     active_area: &str,
     locomotion: ae::LocomotionState,
     body_mode: ae::BodyMode,
+    world: &ae::World,
 ) {
     let Some(prev) = buffer.previous.clone() else {
         return;
@@ -210,6 +290,12 @@ pub(crate) fn synthesize_events_from_diff(
     let max_speed = prev.vel.length().max(cur_vel.length());
     let budget = max_speed * real_dt.max(0.0) + TELEPORT_DETECTION_SLACK_PX;
     if !suppressed_teleport && dlen > budget && dlen > TELEPORT_DETECTION_SLACK_PX {
+        // Enrich the event with attribution data so the next OOB
+        // trace can answer "which wall snapped me?" and "did
+        // ledge_grab fire on the snap tick?" without rerunning the
+        // game.
+        let nearby_after = nearby_collision_around(world, player.aabb(), 64.0);
+        let state_flips = collect_state_flips(&prev, player);
         buffer.push_event(GameplayTraceEvent::CollisionCorrection {
             tick,
             before: prev.pos.into(),
@@ -218,6 +304,8 @@ pub(crate) fn synthesize_events_from_diff(
                 "unexplained delta {:.1}px (vel-budget {:.1}px)",
                 dlen, budget
             ),
+            nearby_after,
+            state_flips,
         });
     }
 
@@ -393,5 +481,8 @@ pub(crate) fn update_previous_snapshot(
         body_mode,
         active_area: active_area.into(),
         controls,
+        ledge_grabbing: player.ledge_grab.is_some(),
+        wall_normal_x: player.wall_normal_x,
+        on_wall: player.on_wall,
     });
 }

@@ -44,7 +44,7 @@ from .canonical import (
     write_canonicals,
     write_gallery,
 )
-from .console import print_canonical_outputs, print_paths
+from .console import print_canonical_outputs, print_path, print_paths
 from .config import CharacterJob, load_jobs
 from .faction_lineup import write_faction_lineup
 from .debug_hitboxes import render_debug_overlay
@@ -353,7 +353,7 @@ def _cmd_draw_character(args: argparse.Namespace) -> int:
         except FileNotFoundError as e:
             print(f"error: debug overlay failed: {e}", file=sys.stderr)
             return 1
-        print(f"  debug overlay: {written}")
+        print_path(written, prefix="  debug overlay: ")
     return 0
 
 
@@ -580,7 +580,7 @@ def _cmd_debug_hitboxes(args: argparse.Namespace) -> int:
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-    print(f"wrote debug overlay: {written}")
+    print_path(written, prefix="wrote debug overlay: ")
     return 0
 
 

@@ -16,6 +16,39 @@ from typing import List, Sequence, Tuple
 
 from PIL import Image, ImageDraw
 
+ACTOR_METADATA = {'actor': {'character_id': 'npc_bear_mauler', 'display_name': 'Bear Mauler'},
+ 'body': {'body_plan': 'Quadruped',
+          'body_kind': 'Wide',
+          'mass_class': 'Heavy',
+          'traits': ['enemy', 'beast', 'no_hands', 'bear', 'mauler'],
+          'locomotion_hint': 'Walk'},
+ 'capabilities': {'traversal': {'walk': True,
+                                'jump': None,
+                                'climb': None,
+                                'fly': None,
+                                'swim': None,
+                                'crawl': None,
+                                'use_lifts': None,
+                                'door_access': []},
+                  'interactions': {'talk': None, 'trade': None, 'carry': None, 'open_doors': []}},
+ 'brain': {'default_preset': 'melee_brute_brute'},
+ 'actions': {'default_preset': 'beast_bite'},
+ 'visual': {'default_pose': 'idle'},
+ 'tags': ['enemy', 'beast', 'no_hands', 'bear', 'mauler'],
+ 'sockets': {'mouth': {'source': 'explicit.profile.beast', 'point': {'x': 96.0, 'y': 54.0}},
+             'tail_tip': {'source': 'explicit.profile.beast', 'point': {'x': 28.0, 'y': 66.0}},
+             'center': {'source': 'explicit.profile.beast', 'point': {'x': 64.0, 'y': 64.0}}},
+ 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
+                        'locomotion.walk': {'animation': 'walk', 'events': []},
+                        'action.melee.primary': {'animation': 'bite',
+                                                 'events': [{'t': 0.35,
+                                                             'event': 'hitbox_active_start',
+                                                             'source': 'explicit.profile.beast'},
+                                                            {'t': 0.58,
+                                                             'event': 'hitbox_active_end',
+                                                             'source': 'explicit.profile.beast'}]}}}
+
+
 RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 

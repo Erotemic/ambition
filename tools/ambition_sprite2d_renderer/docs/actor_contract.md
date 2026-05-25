@@ -122,9 +122,18 @@ missing_information:
   - "bite active frames still renderer-defaulted"
 ```
 
-Any omitted blocks are inferred conservatively from the generated sheet rows,
-job target/archetype/role/tags, catalog defaults, and body metrics. The current
-contract builder now populates several runtime-useful fields automatically:
+Every registered character now carries its own authored metadata at the
+character authoring surface:
+
+- YAML/adapter characters put sparse `actor`, `body`, `capabilities`, `brain`,
+  `actions`, `animation_bindings`, and `sockets` blocks directly in the YAML.
+- Single Python tack-ons expose module-level `ACTOR_METADATA`.
+- Multi-target Python modules attach per-target `actor_metadata` inside their
+  local `TARGETS` table.
+
+Omitted low-level geometry is still derived conservatively from generated sheet
+rows and body metrics. The contract builder currently populates several
+runtime-useful fallback fields automatically:
 
 - collision and fallback hurtbox rectangles from `body_metrics.body_pixel_bbox`
   when a non-boss/non-prop body has opaque pixels,
@@ -140,8 +149,9 @@ contract builder now populates several runtime-useful fields automatically:
 `missing_information` is now conditional: it records facts that are still truly
 absent for the enabled capabilities/actions, not every possible future field.
 
-Tack-on targets can either rely on inference or expose module-level
-`ACTOR_METADATA`, or pass `actor_metadata=` into `tackon_sheet.build_sheet`.
+Tack-on targets should expose module-level `ACTOR_METADATA` for single-target
+modules, or pass/attach per-target `actor_metadata` for multi-target modules.
+The test suite fails if a registered character target has no local metadata.
 
 ## Known gaps to fill over time
 
@@ -153,6 +163,6 @@ Tack-on targets can either rely on inference or expose module-level
   instead of only approximate `feet/head/center` sockets from body metrics.
 - Authoritative action animation events from each generator instead of default
   timeline guesses for melee/ranged rows.
-- Actor-specific brain/action defaults that come from the future ActorSpec
-  registry rather than heuristics.
+- Replacing remaining approximate socket coordinates with measured rig/anchor
+  output from the drawing code itself.
 

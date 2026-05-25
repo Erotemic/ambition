@@ -4,12 +4,12 @@ seed: 17
 archetype: heavy_dummy
 variant: armored
 animations:
-  - idle
-  - hit
-  - block
-  - land
-  - stomp
-  - death
+- idle
+- hit
+- block
+- land
+- stomp
+- death
 render:
   frame_width: 128
   frame_height: 128
@@ -22,3 +22,60 @@ render:
   border: 0
   label_width: 132
   crop: false
+actor:
+  character_id: sandbag_armored_review
+  display_name: Armored Sandbag
+visual:
+  default_pose: idle
+body:
+  body_plan: TrainingDummy
+  body_kind: Wide
+  mass_class: Heavy
+  traits:
+  - training
+  - dummy
+  - armored
+capabilities:
+  traversal:
+    walk: false
+    jump: null
+    climb: null
+    fly: null
+    swim: null
+    crawl: null
+    use_lifts: null
+    door_access: []
+  interactions:
+    talk: null
+    trade: null
+    carry: null
+    open_doors: []
+brain:
+  default_preset: stand_still
+actions:
+  default_preset: sandbag_punch
+animation_bindings:
+  default:
+    animation: idle
+    events: []
+  damage.hit:
+    animation: hit
+    events: []
+  action.defend.block:
+    animation: block
+    events: []
+sockets:
+  center:
+    source: explicit.profile.dummy
+    point:
+      x: 64.0
+      y: 64.0
+  top:
+    source: explicit.profile.dummy
+    point:
+      x: 64.0
+      y: 18.0
+tags:
+- training
+- dummy
+- armored

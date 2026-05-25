@@ -46,6 +46,8 @@ from typing import (
     runtime_checkable,
 )
 
+from .actor_profiles import merge_actor_metadata
+
 CATEGORIES: Tuple[str, ...] = (
     # Tack-on categories — Python authoring under `targets/<category>/`.
     "characters",
@@ -485,7 +487,7 @@ def _build_tackon_multi(
             sheet_files=sheet_files,
             install=install_fn,
             render_canonical=render_canonical_fn,
-            actor_metadata=spec.get("actor_metadata") or getattr(mod, "ACTOR_METADATA", None),
+            actor_metadata=merge_actor_metadata(getattr(mod, "ACTOR_METADATA", None), spec.get("actor_metadata")),
         ))
     return results
 

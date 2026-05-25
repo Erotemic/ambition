@@ -20,6 +20,51 @@ from PIL import Image, ImageDraw
 
 from ...tackon_sheet import build_sheet
 
+ACTOR_METADATA = {'actor': {'character_id': 'npc_ninja_heavy', 'display_name': 'Ninja Heavy'},
+ 'body': {'body_plan': 'HumanoidBiped',
+          'body_kind': 'Wide',
+          'mass_class': 'Heavy',
+          'traits': ['story', 'humanoid', 'enemy', 'combatant', 'ninja', 'heavy'],
+          'locomotion_hint': 'Walk'},
+ 'capabilities': {'traversal': {'walk': True,
+                                'jump': None,
+                                'climb': None,
+                                'fly': None,
+                                'swim': None,
+                                'crawl': None,
+                                'use_lifts': True,
+                                'door_access': ['public']},
+                  'interactions': {'talk': True,
+                                   'trade': None,
+                                   'carry': None,
+                                   'open_doors': ['public']}},
+ 'brain': {'default_preset': 'melee_brute_brute'},
+ 'actions': {'default_preset': 'brute_lunge'},
+ 'visual': {'default_pose': 'idle'},
+ 'tags': ['story', 'humanoid', 'enemy', 'combatant', 'ninja', 'heavy'],
+ 'sockets': {'head': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 24.0}},
+             'chest': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 54.0}},
+             'hand_l': {'source': 'explicit.profile.humanoid', 'point': {'x': 48.0, 'y': 64.0}},
+             'hand_r': {'source': 'explicit.profile.humanoid', 'point': {'x': 80.0, 'y': 64.0}},
+             'speech_bubble': {'source': 'explicit.profile.humanoid',
+                               'point': {'x': 64.0, 'y': 8.0}},
+             'weapon_grip': {'source': 'explicit.profile.combat_humanoid',
+                             'point': {'x': 80.0, 'y': 64.0}},
+             'weapon_tip': {'source': 'explicit.profile.combat_humanoid',
+                            'point': {'x': 104.0, 'y': 60.0}}},
+ 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
+                        'locomotion.walk': {'animation': 'walk', 'events': []},
+                        'interaction.talk': {'animation': 'talk', 'events': []},
+                        'interaction.use': {'animation': 'interact', 'events': []},
+                        'action.melee.primary': {'animation': 'slash',
+                                                 'events': [{'t': 0.34,
+                                                             'event': 'hitbox_active_start',
+                                                             'source': 'explicit.profile.combat_humanoid'},
+                                                            {'t': 0.58,
+                                                             'event': 'hitbox_active_end',
+                                                             'source': 'explicit.profile.combat_humanoid'}]}}}
+
+
 RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 

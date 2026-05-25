@@ -4,10 +4,10 @@ output_name: erdish
 seed: 731
 archetype: erdish
 animations:
-  - idle
-  - walk
-  - talk
-  - interact
+- idle
+- walk
+- talk
+- interact
 render:
   frame_width: 128
   frame_height: 128
@@ -21,20 +21,34 @@ render:
   label_width: 112
 actor:
   character_id: npc_erdish
-  actor_id: erdish
   display_name: Erdish
+  actor_id: erdish
 body:
   body_plan: HumanoidBiped
   body_kind: Standard
-  traits: [intro, story, scheduled_candidate]
+  mass_class: Medium
+  traits:
+  - intro
+  - story
+  - scheduled_candidate
+  locomotion_hint: Walk
 capabilities:
   traversal:
     walk: true
     jump: null
+    climb: null
+    fly: null
+    swim: null
+    crawl: null
     use_lifts: true
-    door_access: [public]
+    door_access:
+    - public
   interactions:
     talk: true
+    trade: null
+    carry: null
+    open_doors:
+    - public
 brain:
   default_preset: patrol_peaceful
 actions:
@@ -42,5 +56,49 @@ actions:
 visual:
   default_pose: idle
 missing_information:
-  - "Erdish schedule/worldline is intentionally not modeled in this renderer sidecar yet."
-  - "Exact collision and jump numbers should come from future ActorSpec authoring."
+- Erdish schedule/worldline is intentionally not modeled in this renderer sidecar yet.
+- Exact collision and jump numbers should come from future ActorSpec authoring.
+animation_bindings:
+  default:
+    animation: idle
+    events: []
+  locomotion.walk:
+    animation: walk
+    events: []
+  interaction.talk:
+    animation: talk
+    events: []
+  interaction.use:
+    animation: interact
+    events: []
+sockets:
+  head:
+    source: explicit.profile.humanoid
+    point:
+      x: 64.0
+      y: 24.0
+  chest:
+    source: explicit.profile.humanoid
+    point:
+      x: 64.0
+      y: 54.0
+  hand_l:
+    source: explicit.profile.humanoid
+    point:
+      x: 48.0
+      y: 64.0
+  hand_r:
+    source: explicit.profile.humanoid
+    point:
+      x: 80.0
+      y: 64.0
+  speech_bubble:
+    source: explicit.profile.humanoid
+    point:
+      x: 64.0
+      y: 8.0
+tags:
+- story
+- humanoid
+- intro
+- scheduled_candidate

@@ -22,6 +22,7 @@ import re
 from typing import Any, Dict, Iterable, Mapping, MutableMapping, Sequence
 
 
+
 # ---- Tiny RON emitter -------------------------------------------------------
 #
 # Kept local for the same reason as the sheet emitters: the shape is small and
@@ -802,6 +803,10 @@ def build_actor_contract(
     deliberately loose dictionaries so old configs stay compatible.
     """
     job_data = dict(job_data or {})
+    # Actor metadata now lives with the character authoring file itself:
+    # YAML configs pass their blocks via `CharacterJob`, and Python tack-ons pass
+    # local `ACTOR_METADATA` / per-target `actor_metadata`. No central profile
+    # table participates here.
     authoring = dict(authoring or {})
     actor_block = _normalize_authoring_block(authoring.get("actor"))
     rows = _rows_from_manifest(manifest)

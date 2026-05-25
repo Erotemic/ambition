@@ -338,3 +338,37 @@ def test_bespoke_flying_spaghetti_monster_boss_actor_metadata():
     assert 'walk: Some(false)' in ron
     assert '"beam_l"' in ron
     assert '"action.special.eye_beam"' in ron
+
+
+def test_every_registered_character_target_has_local_actor_metadata():
+    targets = discover_all_targets().targets
+    missing = []
+    for name, target in targets.items():
+        if target.category != "characters":
+            continue
+        if type(target).__name__ == "AdapterTarget":
+            job = getattr(target, "_job")
+            local_metadata = bool(
+                job.actor
+                or job.body
+                or job.capabilities
+                or job.brain
+                or job.actions
+                or job.animation_bindings
+                or job.sockets
+            )
+        else:
+            local_metadata = bool(getattr(target, "_actor_metadata", None))
+        if not local_metadata:
+            missing.append(name)
+    assert missing == []
+
+
+def test_adapter_actor_metadata_is_authored_in_yaml_not_central_profile():
+    from ambition_sprite2d_renderer.target_registry import discover_all_targets
+
+    target = discover_all_targets().targets["robot_runner"]
+    job = getattr(target, "_job")
+    assert job.actor["character_id"] == "npc_robot_runner"
+    assert job.capabilities["traversal"]["jump"]["height_px"] == 48.0
+    assert job.brain["default_preset"] == "patrol_peaceful"

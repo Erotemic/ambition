@@ -24,6 +24,30 @@ from ...animation_vocab import DEFAULT_ADVANCED_TIMINGS
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+ACTOR_METADATA = {'actor': {'character_id': 'sandbag', 'display_name': 'Sandbag'},
+ 'body': {'body_plan': 'TrainingDummy',
+          'body_kind': 'Standard',
+          'mass_class': 'Static',
+          'traits': ['training', 'dummy']},
+ 'capabilities': {'traversal': {'walk': False,
+                                'jump': None,
+                                'climb': None,
+                                'fly': None,
+                                'swim': None,
+                                'crawl': None,
+                                'use_lifts': None,
+                                'door_access': []},
+                  'interactions': {'talk': None, 'trade': None, 'carry': None, 'open_doors': []}},
+ 'brain': {'default_preset': 'stand_still'},
+ 'actions': {'default_preset': 'sandbag_punch'},
+ 'visual': {'default_pose': 'idle'},
+ 'tags': ['training', 'dummy'],
+ 'sockets': {'center': {'source': 'explicit.profile.dummy', 'point': {'x': 64.0, 'y': 64.0}},
+             'top': {'source': 'explicit.profile.dummy', 'point': {'x': 64.0, 'y': 18.0}}},
+ 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
+                        'damage.hit': {'animation': 'hit', 'events': []}}}
+
+
 try:
     from PIL import Image, ImageDraw, ImageFont
 except ImportError as ex:  # pragma: no cover

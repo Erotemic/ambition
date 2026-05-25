@@ -2,44 +2,36 @@ target: robot
 seed: 7
 archetype: cute_scout
 animations:
-  # The order of this list is the PNG row order for the generated sheet,
-  # which is the source of truth for ROBOT_SHEET in
-  # crates/ambition_sandbox/src/character_sprites/sheets.rs. Append new
-  # rows at the end so existing flat-atlas indices stay stable.
-  - idle
-  - walk
-  - run
-  - jump
-  - fall
-  - slash
-  - hit
-  - death
-  - blink_out
-  - blink_in
-  - dash
-  - hover
-  - ledge_grab
-  - dash_startup
-  - land_hard
-  - land_recovery
-  - wall_grab
-  - ledge_climb
-  - ledge_getup
-  - float_glide
-  - attack_side
-  - attack_up
-  - attack_down
-  - air_neutral
-  - air_forward
-  - air_back
-  - air_down
-  - air_up
-  # Appended 2026-05-23: Smash-Bros ledge options now have dedicated
-  # animation rows so roll / getup-attack don't share the plain
-  # mantle pop with `ledge_getup`. New rows go at the END so earlier
-  # flat-atlas indices stay stable (per the comment above).
-  - ledge_roll
-  - ledge_getup_attack
+- idle
+- walk
+- run
+- jump
+- fall
+- slash
+- hit
+- death
+- blink_out
+- blink_in
+- dash
+- hover
+- ledge_grab
+- dash_startup
+- land_hard
+- land_recovery
+- wall_grab
+- ledge_climb
+- ledge_getup
+- float_glide
+- attack_side
+- attack_up
+- attack_down
+- air_neutral
+- air_forward
+- air_back
+- air_down
+- air_up
+- ledge_roll
+- ledge_getup_attack
 render:
   frame_width: 128
   frame_height: 128
@@ -57,17 +49,89 @@ actor:
 body:
   body_plan: HumanoidBiped
   body_kind: Standard
-  traits: [base]
+  mass_class: Medium
+  traits:
+  - base
+  locomotion_hint: Walk
 capabilities:
   traversal:
     walk: true
     jump: true
     climb: true
+    fly: null
+    swim: null
+    crawl: null
+    use_lifts: true
+    door_access:
+    - public
   interactions:
     talk: true
+    trade: null
+    carry: null
+    open_doors:
+    - public
 brain:
   default_preset: stand_still
 actions:
   default_preset: peaceful
 visual:
   default_pose: idle
+animation_bindings:
+  default:
+    animation: idle
+    events: []
+  locomotion.walk:
+    animation: walk
+    events: []
+  locomotion.run:
+    animation: run
+    events: []
+  action.melee.primary:
+    animation: slash
+    events:
+    - t: 0.35
+      event: hitbox_active_start
+      source: explicit.profile.robot
+    - t: 0.55
+      event: hitbox_active_end
+      source: explicit.profile.robot
+  action.ranged.primary:
+    animation: shoot
+    events:
+    - t: 0.5
+      event: projectile_release
+      source: explicit.profile.robot
+sockets:
+  head:
+    source: explicit.profile.robot
+    point:
+      x: 64.0
+      y: 24.0
+  chest:
+    source: explicit.profile.robot
+    point:
+      x: 64.0
+      y: 54.0
+  hand_l:
+    source: explicit.profile.robot
+    point:
+      x: 48.0
+      y: 64.0
+  hand_r:
+    source: explicit.profile.robot
+    point:
+      x: 80.0
+      y: 64.0
+  muzzle:
+    source: explicit.profile.robot
+    point:
+      x: 90.0
+      y: 58.0
+  projectile_origin:
+    source: explicit.profile.robot
+    point:
+      x: 90.0
+      y: 58.0
+tags:
+- robot
+- player_candidate

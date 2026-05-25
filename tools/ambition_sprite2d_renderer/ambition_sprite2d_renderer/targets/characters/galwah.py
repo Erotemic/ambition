@@ -20,6 +20,40 @@ from typing import Iterable, Sequence
 
 from PIL import Image, ImageDraw, ImageFont
 
+ACTOR_METADATA = {'actor': {'character_id': 'npc_galwah', 'display_name': 'Galwah'},
+ 'body': {'body_plan': 'HumanoidBiped',
+          'body_kind': 'Standard',
+          'mass_class': 'Medium',
+          'traits': ['story', 'humanoid', 'story', 'mystic'],
+          'locomotion_hint': 'Walk'},
+ 'capabilities': {'traversal': {'walk': True,
+                                'jump': None,
+                                'climb': None,
+                                'fly': None,
+                                'swim': None,
+                                'crawl': None,
+                                'use_lifts': True,
+                                'door_access': ['public']},
+                  'interactions': {'talk': True,
+                                   'trade': None,
+                                   'carry': None,
+                                   'open_doors': ['public']}},
+ 'brain': {'default_preset': 'patrol_peaceful'},
+ 'actions': {'default_preset': 'peaceful'},
+ 'visual': {'default_pose': 'idle'},
+ 'tags': ['story', 'humanoid', 'story', 'mystic'],
+ 'sockets': {'head': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 24.0}},
+             'chest': {'source': 'explicit.profile.humanoid', 'point': {'x': 64.0, 'y': 54.0}},
+             'hand_l': {'source': 'explicit.profile.humanoid', 'point': {'x': 48.0, 'y': 64.0}},
+             'hand_r': {'source': 'explicit.profile.humanoid', 'point': {'x': 80.0, 'y': 64.0}},
+             'speech_bubble': {'source': 'explicit.profile.humanoid',
+                               'point': {'x': 64.0, 'y': 8.0}}},
+ 'animation_bindings': {'default': {'animation': 'turn', 'events': []},
+                        'locomotion.walk': {'animation': 'walk', 'events': []},
+                        'interaction.talk': {'animation': 'talk', 'events': []},
+                        'interaction.use': {'animation': 'interact', 'events': []}}}
+
+
 
 # --- palette -----------------------------------------------------------------
 BG = (0, 0, 0, 0)

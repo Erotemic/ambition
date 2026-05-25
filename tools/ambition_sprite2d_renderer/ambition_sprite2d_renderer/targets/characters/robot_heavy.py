@@ -18,6 +18,53 @@ from PIL import Image, ImageDraw
 
 from ...tackon_sheet import build_sheet
 
+ACTOR_METADATA = {'actor': {'character_id': 'npc_robot_heavy', 'display_name': 'Robot Heavy'},
+ 'body': {'body_plan': 'HumanoidBiped',
+          'body_kind': 'Wide',
+          'mass_class': 'Heavy',
+          'traits': ['robot', 'enemy', 'heavy'],
+          'locomotion_hint': 'Walk'},
+ 'capabilities': {'traversal': {'walk': True,
+                                'jump': {'height_px': 24.0,
+                                         'distance_px': 48.0,
+                                         'source': 'explicit.profile.robot'},
+                                'climb': None,
+                                'fly': None,
+                                'swim': None,
+                                'crawl': None,
+                                'use_lifts': True,
+                                'door_access': ['public']},
+                  'interactions': {'talk': True,
+                                   'trade': None,
+                                   'carry': None,
+                                   'open_doors': ['public']}},
+ 'brain': {'default_preset': 'melee_brute_brute'},
+ 'actions': {'default_preset': 'brute_lunge'},
+ 'visual': {'default_pose': 'idle'},
+ 'tags': ['robot', 'enemy', 'heavy'],
+ 'sockets': {'head': {'source': 'explicit.profile.robot', 'point': {'x': 64.0, 'y': 24.0}},
+             'chest': {'source': 'explicit.profile.robot', 'point': {'x': 64.0, 'y': 54.0}},
+             'hand_l': {'source': 'explicit.profile.robot', 'point': {'x': 48.0, 'y': 64.0}},
+             'hand_r': {'source': 'explicit.profile.robot', 'point': {'x': 80.0, 'y': 64.0}},
+             'muzzle': {'source': 'explicit.profile.robot', 'point': {'x': 90.0, 'y': 58.0}},
+             'projectile_origin': {'source': 'explicit.profile.robot',
+                                   'point': {'x': 90.0, 'y': 58.0}}},
+ 'animation_bindings': {'default': {'animation': 'idle', 'events': []},
+                        'locomotion.walk': {'animation': 'walk', 'events': []},
+                        'locomotion.run': {'animation': 'run', 'events': []},
+                        'action.melee.primary': {'animation': 'slash',
+                                                 'events': [{'t': 0.35,
+                                                             'event': 'hitbox_active_start',
+                                                             'source': 'explicit.profile.robot'},
+                                                            {'t': 0.55,
+                                                             'event': 'hitbox_active_end',
+                                                             'source': 'explicit.profile.robot'}]},
+                        'action.ranged.primary': {'animation': 'shoot',
+                                                  'events': [{'t': 0.5,
+                                                              'event': 'projectile_release',
+                                                              'source': 'explicit.profile.robot'}]}}}
+
+
 RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 

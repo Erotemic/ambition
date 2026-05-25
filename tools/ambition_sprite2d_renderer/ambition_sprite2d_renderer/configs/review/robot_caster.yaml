@@ -4,18 +4,18 @@ seed: 53
 archetype: caster
 variant: spell_review
 animations:
-  - idle
-  - walk
-  - run
-  - aim
-  - shoot
-  - charge
-  - cast
-  - blink_out
-  - blink_in
-  - dash
-  - hit
-  - death
+- idle
+- walk
+- run
+- aim
+- shoot
+- charge
+- cast
+- blink_out
+- blink_in
+- dash
+- hit
+- death
 render:
   frame_width: 128
   frame_height: 128
@@ -28,3 +28,101 @@ render:
   border: 0
   label_width: 132
   crop: true
+actor:
+  character_id: npc_robot_caster
+  display_name: Robot Caster
+visual:
+  default_pose: idle
+body:
+  body_plan: HumanoidBiped
+  body_kind: Standard
+  mass_class: Medium
+  traits:
+  - robot
+  - enemy
+  - caster
+  locomotion_hint: Walk
+capabilities:
+  traversal:
+    walk: true
+    jump:
+      height_px: 24.0
+      distance_px: 48.0
+      source: explicit.profile.robot
+    climb: null
+    fly: null
+    swim: null
+    crawl: null
+    use_lifts: true
+    door_access:
+    - public
+  interactions:
+    talk: true
+    trade: null
+    carry: null
+    open_doors:
+    - public
+brain:
+  default_preset: skirmisher_ranger
+actions:
+  default_preset: boss_bolt
+animation_bindings:
+  default:
+    animation: idle
+    events: []
+  locomotion.walk:
+    animation: walk
+    events: []
+  locomotion.run:
+    animation: run
+    events: []
+  action.melee.primary:
+    animation: slash
+    events:
+    - t: 0.35
+      event: hitbox_active_start
+      source: explicit.profile.robot
+    - t: 0.55
+      event: hitbox_active_end
+      source: explicit.profile.robot
+  action.ranged.primary:
+    animation: shoot
+    events:
+    - t: 0.5
+      event: projectile_release
+      source: explicit.profile.robot
+sockets:
+  head:
+    source: explicit.profile.robot
+    point:
+      x: 64.0
+      y: 24.0
+  chest:
+    source: explicit.profile.robot
+    point:
+      x: 64.0
+      y: 54.0
+  hand_l:
+    source: explicit.profile.robot
+    point:
+      x: 48.0
+      y: 64.0
+  hand_r:
+    source: explicit.profile.robot
+    point:
+      x: 80.0
+      y: 64.0
+  muzzle:
+    source: explicit.profile.robot
+    point:
+      x: 90.0
+      y: 58.0
+  projectile_origin:
+    source: explicit.profile.robot
+    point:
+      x: 90.0
+      y: 58.0
+tags:
+- robot
+- enemy
+- caster

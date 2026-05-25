@@ -1431,6 +1431,23 @@ impl EnemyRuntime {
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
     ) {
+        // ---- AIR PATH ---------------------------------------------
+        // If the slug isn't already pinned to a surface, gravity
+        // wins. Crawling logic only runs while `on_ground` is true.
+        // Without this gate, the surface-clinging steps below kept
+        // resetting `vel` to `tangent * speed` each tick, wiping out
+        // the gravity accumulator from `fall_until_landed` — the
+        // visible bug was the slug "gliding" slowly downward after
+        // walking off something instead of falling. By short-circuiting
+        // into the regular kinematic fall, the slug accelerates the
+        // same way any other actor does until it touches a surface;
+        // `fall_until_landed` re-pins the slug to a floor on landing
+        // so crawling resumes next tick.
+        if !self.on_ground {
+            self.fall_until_landed(world, dt);
+            return;
+        }
+
         let n = self.surface_normal;
         let speed = self.archetype.patrol_speed();
         let step_len = speed * dt;
@@ -1463,18 +1480,21 @@ impl EnemyRuntime {
 
         // ---- 1. Pre-step wall check -------------------------------
         if self.wall_ahead(world, tangent, body_long, body_thick) {
-            // Rotate CW (math): (x, y) → (y, -x). Picks the
-            // orientation where the obstructing surface becomes the
-            // new "down".
-            self.surface_normal = ae::Vec2::new(n.y, -n.x);
+            // Concave corner: the wall in `+tangent` becomes the new
+            // floor. Its surface normal points back at the slug, i.e.
+            // `-tangent`. Using a hardcoded CW rotation here used to
+            // give the wrong direction for slugs facing -x (a slug
+            // crawling left into a left wall rotated onto a phantom
+            // wall on its right, snap_pos_to_surface failed because
+            // there's no surface there, and the slug oscillated
+            // between vertical and horizontal stuck in the corner).
+            // `-tangent` works for both facings without branching.
+            self.surface_normal = -tangent;
             if self.snap_pos_to_surface(world) {
                 self.vel = ae::Vec2::ZERO;
                 self.on_ground = true;
                 return;
             }
-            // Snap failed (no actual surface in the CW direction —
-            // edge case, e.g. a single-tile-wide bump). Revert and
-            // try the step anyway.
             self.surface_normal = n;
         }
 
@@ -1489,30 +1509,29 @@ impl EnemyRuntime {
             return;
         }
 
-        // ---- 4. Try CCW rotation (convex wrap) --------------------
-        // Slug walked off the surface in the direction of motion;
-        // the wall just past the corner is the new surface. Before
-        // snapping, slide pos a half-body along the OLD tangent +
-        // OLD -normal direction — that puts the slug center "around
-        // the corner" so the snap cast in the new -normal direction
-        // can actually hit the new wall face.
-        let ccw_normal = ae::Vec2::new(-n.y, n.x);
+        // ---- 4. Convex wrap (forward) -----------------------------
+        // Slug walked off the surface in the tangent direction; the
+        // cliff face past the corner is the new surface. Its normal
+        // points the direction the slug was moving — i.e. `tangent`.
+        // Same facing-direction story as step 1: the original
+        // hardcoded CCW rotation only worked for facing=+1.
+        let new_normal = tangent;
         let around_corner = original_pos + tangent * body_long + (-n) * body_long;
         self.pos = around_corner;
-        self.surface_normal = ccw_normal;
+        self.surface_normal = new_normal;
         if self.snap_pos_to_surface(world) {
             self.vel = ae::Vec2::ZERO;
             self.on_ground = true;
             return;
         }
 
-        // ---- 5. Try CW rotation (back-wrap) -----------------------
+        // ---- 5. Concave wrap retry (back) -------------------------
         // Very rare — the slug ran straight into a concave corner
         // that the pre-step probe missed because the geometry sat
-        // just outside the probe envelope. Try the opposite
-        // rotation from the same pre-step pos.
+        // just outside the probe envelope. Same rotation as step 1,
+        // applied from the un-stepped position.
         self.pos = original_pos;
-        self.surface_normal = ae::Vec2::new(n.y, -n.x);
+        self.surface_normal = -tangent;
         if self.snap_pos_to_surface(world) {
             self.vel = ae::Vec2::ZERO;
             self.on_ground = true;
@@ -1520,8 +1539,12 @@ impl EnemyRuntime {
         }
 
         // ---- 6. Fall -----------------------------------------------
+        // No surface in any direction — drop. The air-path early
+        // return at the top of this function keeps gravity
+        // accumulating each tick once we land here.
         self.surface_normal = n;
         self.pos = original_pos;
+        self.on_ground = false;
         self.fall_until_landed(world, dt);
     }
 

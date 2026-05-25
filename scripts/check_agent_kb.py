@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -46,20 +47,24 @@ REQUIRED_FILES = [
     "dev/benchmark-candidates/index.md",
     ".agent/manifest.yaml",
     ".agent/retrieval_evals.yaml",
-    ".agent/index/file_summaries.json",
-    ".agent/index/symbol_index.json",
-    ".agent/index/test_map.json",
-    ".agent/index/concept_index.json",
-    ".agent/index/adr_index.json",
-    ".agent/index/tool_index.json",
-    ".agent/index/archive_index.json",
-    ".agent/index/doc_health.json",
     "scripts/generate_agent_index.py",
 ]
 
 ALLOWED_TOP_LEVEL_DOCS = {"README.md"}
 CONCEPT_REQUIRED_KEYS = {"id", "aliases", "last_verified"}
 AGENTS_MAX_LINES = 150
+
+GENERATE_AGENT_INDEX_COMMAND = "python scripts/generate_agent_index.py"
+GENERATED_INDEX_FILES = {
+    ".agent/index/file_summaries.json": "files",
+    ".agent/index/symbol_index.json": "symbols",
+    ".agent/index/test_map.json": "tests",
+    ".agent/index/concept_index.json": "concepts",
+    ".agent/index/adr_index.json": "adrs",
+    ".agent/index/tool_index.json": "tools",
+    ".agent/index/archive_index.json": "archive_docs",
+    ".agent/index/doc_health.json": "doc_count",
+}
 
 FORBIDDEN_LIVE_PATHS = [
     "docs/AGENT_HANDOFF.md",
@@ -214,21 +219,46 @@ def check_agents_size(errors: list[str]) -> None:
         fail(errors, f"AGENTS.md has {len(lines)} lines; keep it <= {AGENTS_MAX_LINES} and route to docs instead")
 
 
-def check_json_indexes(errors: list[str]) -> None:
-    required_keys = {
-        ".agent/index/file_summaries.json": "files",
-        ".agent/index/symbol_index.json": "symbols",
-        ".agent/index/test_map.json": "tests",
-        ".agent/index/concept_index.json": "concepts",
-        ".agent/index/adr_index.json": "adrs",
-        ".agent/index/tool_index.json": "tools",
-        ".agent/index/archive_index.json": "archive_docs",
-        ".agent/index/doc_health.json": "doc_count",
-    }
-    for relpath, payload_key in required_keys.items():
+def git_tracked_paths(pathspec: str) -> list[str]:
+    try:
+        proc = subprocess.run(
+            ["git", "ls-files", "--", pathspec],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except OSError:
+        return []
+    if proc.returncode != 0:
+        return []
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def check_generated_indexes(errors: list[str]) -> None:
+    tracked = git_tracked_paths(".agent/index")
+    if tracked:
+        shown = ", ".join(tracked[:5])
+        suffix = "" if len(tracked) <= 5 else f", ... and {len(tracked) - 5} more"
+        fail(
+            errors,
+            ".agent/index/ is generated and must not be tracked by Git; "
+            f"remove it with `git rm -r --cached .agent/index` ({shown}{suffix})",
+        )
+
+    missing = [relpath for relpath in GENERATED_INDEX_FILES if not (ROOT / relpath).exists()]
+    if missing:
+        fail(
+            errors,
+            ".agent/index/ is generated, ignored by Git, and currently missing or incomplete. "
+            f"Run `{GENERATE_AGENT_INDEX_COMMAND}` before using agent file/symbol/test lookup "
+            "or before running this check. Missing: " + ", ".join(missing),
+        )
+        return
+
+    for relpath, payload_key in GENERATED_INDEX_FILES.items():
         path = ROOT / relpath
-        if not path.exists():
-            continue
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception as ex:
@@ -370,7 +400,7 @@ def main() -> int:
     check_top_level_docs(errors)
     check_stale_active_references(errors)
     check_agents_size(errors)
-    check_json_indexes(errors)
+    check_generated_indexes(errors)
     check_concepts(errors)
     check_markdown_links(errors)
     check_retrieval_evals(errors)

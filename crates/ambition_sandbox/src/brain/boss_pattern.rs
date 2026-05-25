@@ -372,6 +372,12 @@ pub struct BossPatternCfg {
     /// Apple-rain horizontal dodge frequency (Hz-ish, fed into a
     /// `sin(movement_timer * freq)` oscillator).
     pub apple_rain_dodge_freq: f32,
+    /// Chase/engage/retreat macro tuning. Use
+    /// [`BossMacroTuning::disabled`] for legacy behavior (boss
+    /// stays in `Engage` permanently and movement = movement
+    /// profile). Set non-zero thresholds to opt into the
+    /// chase/retreat dance.
+    pub macro_tuning: BossMacroTuning,
 }
 
 impl BossPatternCfg {
@@ -399,6 +405,7 @@ impl BossPatternCfg {
             cycle_attacks: Vec::new(),
             apple_rain_dodge_amp: 0.0,
             apple_rain_dodge_freq: 0.0,
+            macro_tuning: BossMacroTuning::disabled(),
         }
     }
 
@@ -448,6 +455,12 @@ pub struct BossPatternState {
     /// Seconds remaining in the current cycle phase. Drained by
     /// `dt`; transition to the next cycle phase happens at 0.
     pub cycle_phase_remaining: f32,
+    /// High-level chase/engage/retreat state. Defaults to `Engage`.
+    pub macro_state: BossMacroState,
+    /// Seconds spent in the current `Engage` window. Reset to 0
+    /// when a non-Engage state is exited; drives the periodic
+    /// `engage_max_duration_s` retreat trigger.
+    pub engage_timer: f32,
 }
 
 /// Three-state cycle-mode attack lifecycle.
@@ -460,6 +473,119 @@ pub enum CyclePhase {
     Windup,
     /// Boss attack is live; `frame.melee_pressed` emits.
     Active,
+}
+
+/// High-level "what is the boss doing right now?" state, layered
+/// over the scripted attack schedule. The schedule still ticks
+/// independently; the macro state decides where the boss *wants*
+/// to be in the arena so the fight has a chase/disengage rhythm:
+///
+/// - [`Engage`] — default. Movement uses the per-phase
+///   [`BossMovementProfile`].
+/// - [`Approach`] — boss closes distance to the player; movement
+///   target = player position, speed scaled up. Triggered when the
+///   player has run too far away or the boss has been in Engage
+///   too long.
+/// - [`Retreat`] — boss pulls back from the player; movement
+///   target = a retreat anchor on the opposite side of the arena.
+///   Triggered when the player is too close (anti-cornering) or
+///   periodically so the player sees the boss "prepare something"
+///   and wants to chase.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BossMacroState {
+    Engage,
+    Approach {
+        remaining_s: f32,
+    },
+    Retreat {
+        remaining_s: f32,
+        retreat_pos: ae::Vec2,
+    },
+}
+
+impl Default for BossMacroState {
+    fn default() -> Self {
+        Self::Engage
+    }
+}
+
+impl BossMacroState {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Engage => "engage",
+            Self::Approach { .. } => "approach",
+            Self::Retreat { .. } => "retreat",
+        }
+    }
+}
+
+/// Tuning knobs for the macro state machine. Held inside
+/// [`BossPatternCfg`] so each boss can author its own
+/// engagement-distance feel. Bosses that don't need a chase/retreat
+/// dance leave these at the zero defaults — the state machine then
+/// permanently stays in `Engage` and the legacy "always move via
+/// movement profile" behavior holds.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BossMacroTuning {
+    /// Distance (px) below which the boss flees the player to
+    /// avoid cornering. Set to 0 to disable the too-close trigger.
+    pub too_close_distance: f32,
+    /// Distance (px) above which the boss commits to chasing the
+    /// player. Set to 0 to disable the too-far trigger.
+    pub too_far_distance: f32,
+    /// Target distance (px) the boss tries to settle at during
+    /// Approach — once within this radius the boss returns to
+    /// Engage.
+    pub engage_distance: f32,
+    /// Seconds the boss spends in Approach before automatically
+    /// returning to Engage (cap so a player who keeps running
+    /// doesn't keep the boss in chase forever).
+    pub approach_duration_s: f32,
+    /// Seconds the boss spends in Retreat. Long enough to feel like
+    /// preparation; short enough that the player gets a real
+    /// "chase" window before the next engage.
+    pub retreat_duration_s: f32,
+    /// Max seconds in Engage before the boss force-triggers a
+    /// Retreat (the "preparing something" beat). 0 disables the
+    /// periodic retreat.
+    pub engage_max_duration_s: f32,
+    /// Multiplier applied to movement speed during Approach. > 1.0
+    /// makes the boss commit visually to the chase.
+    pub approach_speed_scale: f32,
+    /// Multiplier applied to movement speed during Retreat. < 1.0
+    /// makes the boss feel like it's pulling away deliberately.
+    pub retreat_speed_scale: f32,
+    /// How far (px) the boss retreats from the player along the
+    /// player→boss axis. Larger = bigger retreat arc.
+    pub retreat_distance: f32,
+}
+
+impl BossMacroTuning {
+    /// Disabled tuning — the boss permanently stays in `Engage`.
+    /// Returned for bosses that don't carry their own macro tuning
+    /// so the existing fights don't change behavior.
+    pub fn disabled() -> Self {
+        Self {
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        }
+    }
+
+    /// True iff this tuning has at least one transition trigger
+    /// enabled. Used as the gate to skip the macro state machine
+    /// entirely for bosses that opted out.
+    pub fn is_enabled(&self) -> bool {
+        self.too_close_distance > 0.0
+            || self.too_far_distance > 0.0
+            || self.engage_max_duration_s > 0.0
+    }
 }
 
 /// Per-tick read-only inputs to [`tick_boss_pattern`]. The boss tick
@@ -562,6 +688,18 @@ pub fn tick_boss_pattern(
         state.cycle_phase = CyclePhase::Cooldown;
         state.cycle_phase_remaining = 0.0;
         state.last_phase = Some(ctx.encounter_phase);
+        // Reset to Engage on phase change so the macro timer
+        // doesn't carry stale duration across the music swap.
+        state.macro_state = BossMacroState::Engage;
+        state.engage_timer = 0.0;
+    }
+
+    // Advance the chase/engage/retreat macro state machine BEFORE
+    // emitting desired_vel so the movement override (Approach
+    // chases the player, Retreat pulls away) is in lockstep with
+    // the current macro state.
+    if cfg.macro_tuning.is_enabled() && ctx.encounter_phase.is_attacking() {
+        advance_macro_state(cfg, state, ctx);
     }
 
     // Non-attacking phases (Dormant / Stagger / Death) emit no intent
@@ -716,6 +854,82 @@ fn advance_cycle(
     }
 }
 
+/// Advance the chase/engage/retreat macro state machine. Transitions:
+///
+/// - `Engage` → `Approach` if distance > too_far_distance
+/// - `Engage` → `Retreat` if distance < too_close_distance (anti-corner)
+///   OR engage_timer >= engage_max_duration_s (periodic "preparing"
+///   beat).
+/// - `Approach` → `Engage` if distance < engage_distance OR timer expired
+/// - `Retreat` → `Engage` if timer expired
+///
+/// Retreat picks `retreat_pos` along the player→boss axis (so the
+/// boss visibly retreats *away* from the player rather than just
+/// drifting toward an arbitrary anchor).
+fn advance_macro_state(
+    cfg: &BossPatternCfg,
+    state: &mut BossPatternState,
+    ctx: &BossPatternContext,
+) {
+    let distance = (ctx.target_pos - ctx.actor_pos).length();
+    let tuning = &cfg.macro_tuning;
+    match &mut state.macro_state {
+        BossMacroState::Engage => {
+            state.engage_timer += ctx.dt;
+            let too_close = tuning.too_close_distance > 0.0 && distance < tuning.too_close_distance;
+            let too_far = tuning.too_far_distance > 0.0 && distance > tuning.too_far_distance;
+            let prep_due = tuning.engage_max_duration_s > 0.0
+                && state.engage_timer >= tuning.engage_max_duration_s;
+            if too_close || prep_due {
+                state.macro_state = BossMacroState::Retreat {
+                    remaining_s: tuning.retreat_duration_s.max(0.5),
+                    retreat_pos: compute_retreat_pos(cfg, ctx),
+                };
+                state.engage_timer = 0.0;
+            } else if too_far {
+                state.macro_state = BossMacroState::Approach {
+                    remaining_s: tuning.approach_duration_s.max(0.5),
+                };
+                state.engage_timer = 0.0;
+            }
+        }
+        BossMacroState::Approach { remaining_s } => {
+            *remaining_s -= ctx.dt;
+            let close_enough = tuning.engage_distance > 0.0 && distance < tuning.engage_distance;
+            if close_enough || *remaining_s <= 0.0 {
+                state.macro_state = BossMacroState::Engage;
+                state.engage_timer = 0.0;
+            }
+        }
+        BossMacroState::Retreat { remaining_s, .. } => {
+            *remaining_s -= ctx.dt;
+            if *remaining_s <= 0.0 {
+                state.macro_state = BossMacroState::Engage;
+                state.engage_timer = 0.0;
+            }
+        }
+    }
+}
+
+/// Pick a retreat anchor `retreat_distance` px from the player,
+/// along the player→boss axis (with a fallback when the boss and
+/// player are coincident). Clamped to the world bounds upstream by
+/// `emit_desired_vel`.
+fn compute_retreat_pos(cfg: &BossPatternCfg, ctx: &BossPatternContext) -> ae::Vec2 {
+    let away = ctx.actor_pos - ctx.target_pos;
+    let dir = if away.length_squared() < 1e-3 {
+        ae::Vec2::new(1.0, 0.0)
+    } else {
+        away.normalize()
+    };
+    // Anchor near the boss spawn so retreat doesn't drift the boss
+    // toward arena edges over many encounters. Blend the away-dir
+    // with the spawn offset so the retreat curves back toward the
+    // spawn anchor rather than off into a wall.
+    let target = ctx.actor_pos + dir * cfg.macro_tuning.retreat_distance.max(60.0);
+    target * 0.6 + cfg.spawn * 0.4
+}
+
 /// Movement-profile → frame.desired_vel translation. Runs even in
 /// non-attacking phases so a dormant boss keeps its sway phase.
 fn emit_desired_vel(
@@ -734,7 +948,16 @@ fn emit_desired_vel(
     // anchored sway to a wide AirSwoop without growing the profile
     // enum.
     let movement = cfg.movement_for_phase(ctx.encounter_phase);
-    let mut target = movement.target(cfg.spawn, state.movement_timer, ctx.target_pos);
+    // Macro state overrides the movement target: Approach chases
+    // the player directly, Retreat heads toward the chosen retreat
+    // anchor. `Engage` falls through to the normal sway/swoop
+    // target. The speed scaling for Approach/Retreat is applied
+    // farther down via `macro_speed_scale`.
+    let mut target = match state.macro_state {
+        BossMacroState::Approach { .. } => ctx.target_pos,
+        BossMacroState::Retreat { retreat_pos, .. } => retreat_pos,
+        BossMacroState::Engage => movement.target(cfg.spawn, state.movement_timer, ctx.target_pos),
+    };
 
     // While a GnuAppleRain strike is live, layer a horizontal dodge
     // on top of the baseline sway so the giant reads as stepping
@@ -778,17 +1001,27 @@ fn emit_desired_vel(
         .active_profile
         .as_ref()
         .map_or(false, |p| p.is_special());
-    let speed = movement.speed()
-        * if in_special_strike {
-            cfg.strike_speed_scale.clamp(0.0, 1.0)
-        } else {
-            1.0
-        };
+    // Macro-state speed scaling. Approach commits visually with
+    // `> 1.0` speed; Retreat backs off deliberately with `< 1.0`.
+    // Engage keeps the legacy speed (1.0).
+    let macro_scale = match state.macro_state {
+        BossMacroState::Approach { .. } => cfg.macro_tuning.approach_speed_scale.max(0.0),
+        BossMacroState::Retreat { .. } => cfg.macro_tuning.retreat_speed_scale.max(0.0),
+        BossMacroState::Engage => 1.0,
+    };
+    let strike_scale = if in_special_strike {
+        cfg.strike_speed_scale.clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
+    let speed = movement.speed() * macro_scale * strike_scale;
     let max_step = speed * ctx.dt;
     out.desired_vel = if delta.length() > max_step && max_step > 0.0 {
         delta.normalize_or_zero() * speed
-    } else {
+    } else if ctx.dt > 0.0 {
         delta / ctx.dt
+    } else {
+        ae::Vec2::ZERO
     };
 }
 
@@ -1154,6 +1387,186 @@ mod tests {
         assert!(
             vel_in_strike < vel_no_strike * 0.5,
             "expected speed during active special strike to be much lower than no-strike speed: {vel_in_strike} vs {vel_no_strike}",
+        );
+    }
+
+    // -----------------------------------------------------------
+    // Macro state machine tests — chase / engage / retreat
+    // -----------------------------------------------------------
+
+    fn macro_cfg() -> BossPatternCfg {
+        let mut cfg = cfg_with(BossAttackPattern::Cycle);
+        cfg.spawn = ae::Vec2::new(640.0, 400.0);
+        cfg.movement = BossMovementProfile::AnchorSway {
+            x_radius: 100.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 200.0,
+        };
+        cfg.macro_tuning = BossMacroTuning {
+            too_close_distance: 100.0,
+            too_far_distance: 400.0,
+            engage_distance: 200.0,
+            approach_duration_s: 3.0,
+            retreat_duration_s: 2.0,
+            engage_max_duration_s: 8.0,
+            approach_speed_scale: 1.5,
+            retreat_speed_scale: 0.8,
+            retreat_distance: 250.0,
+        };
+        cfg
+    }
+
+    fn macro_ctx(actor_pos: ae::Vec2, target_pos: ae::Vec2, dt: f32) -> BossPatternContext {
+        BossPatternContext {
+            encounter_phase: ae::BossEncounterPhase::Phase1,
+            actor_pos,
+            target_pos,
+            world_size: ae::Vec2::new(1_280.0, 768.0),
+            dt,
+        }
+    }
+
+    /// Player far away → boss enters Approach state and moves
+    /// toward the player on the next tick.
+    #[test]
+    fn macro_state_transitions_to_approach_when_player_too_far() {
+        let cfg = macro_cfg();
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let mut out = ae::ActorControlFrame::neutral();
+        let actor_pos = ae::Vec2::new(640.0, 400.0);
+        let target_pos = ae::Vec2::new(1_100.0, 400.0); // ~460 px away > too_far(400)
+        tick_boss_pattern(
+            &cfg,
+            &mut state,
+            &macro_ctx(actor_pos, target_pos, 0.05),
+            &mut out,
+            &mut attack_state,
+        );
+        assert!(
+            matches!(state.macro_state, BossMacroState::Approach { .. }),
+            "expected Approach with player far; got {:?}",
+            state.macro_state,
+        );
+        // desired_vel should head toward the player (+x direction).
+        assert!(
+            out.desired_vel.x > 0.0,
+            "Approach should chase toward player (positive x); got {:?}",
+            out.desired_vel,
+        );
+    }
+
+    /// Player very close → boss enters Retreat (anti-corner) and
+    /// moves AWAY from the player on the next tick.
+    #[test]
+    fn macro_state_transitions_to_retreat_when_player_too_close() {
+        let cfg = macro_cfg();
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let mut out = ae::ActorControlFrame::neutral();
+        let actor_pos = ae::Vec2::new(640.0, 400.0);
+        let target_pos = ae::Vec2::new(700.0, 400.0); // 60 px away < too_close(100)
+        tick_boss_pattern(
+            &cfg,
+            &mut state,
+            &macro_ctx(actor_pos, target_pos, 0.05),
+            &mut out,
+            &mut attack_state,
+        );
+        assert!(
+            matches!(state.macro_state, BossMacroState::Retreat { .. }),
+            "expected Retreat with player too close; got {:?}",
+            state.macro_state,
+        );
+        // desired_vel should head AWAY from the player (-x direction).
+        assert!(
+            out.desired_vel.x <= 0.0,
+            "Retreat should move away from player (non-positive x); got {:?}",
+            out.desired_vel,
+        );
+    }
+
+    /// Boss in Engage for engage_max_duration_s automatically
+    /// transitions to Retreat — the "preparing something" beat
+    /// the player can read as "go chase the boss now."
+    #[test]
+    fn macro_state_periodically_retreats_after_engage_max_duration() {
+        let cfg = macro_cfg();
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let mut out = ae::ActorControlFrame::neutral();
+        // Mid-range distance — no too_close / too_far triggers.
+        let actor_pos = ae::Vec2::new(640.0, 400.0);
+        let target_pos = ae::Vec2::new(820.0, 400.0); // 180 px — within engage range
+                                                      // Walk past engage_max_duration_s (8s) in 0.5s ticks.
+        for _ in 0..18 {
+            tick_boss_pattern(
+                &cfg,
+                &mut state,
+                &macro_ctx(actor_pos, target_pos, 0.5),
+                &mut out,
+                &mut attack_state,
+            );
+        }
+        assert!(
+            matches!(state.macro_state, BossMacroState::Retreat { .. }),
+            "expected periodic Retreat after engage_max_duration_s; got {:?}",
+            state.macro_state,
+        );
+    }
+
+    /// Approach ends and returns to Engage when the boss closes to
+    /// within `engage_distance` of the player.
+    #[test]
+    fn macro_state_approach_returns_to_engage_at_engage_distance() {
+        let cfg = macro_cfg();
+        let mut state = BossPatternState::default();
+        state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
+        let mut attack_state = BossAttackState::default();
+        let mut out = ae::ActorControlFrame::neutral();
+        let actor_pos = ae::Vec2::new(640.0, 400.0);
+        let target_pos = ae::Vec2::new(740.0, 400.0); // 100 px < engage(200)
+        tick_boss_pattern(
+            &cfg,
+            &mut state,
+            &macro_ctx(actor_pos, target_pos, 0.05),
+            &mut out,
+            &mut attack_state,
+        );
+        assert!(
+            matches!(state.macro_state, BossMacroState::Engage),
+            "Approach should drop back to Engage once within engage_distance",
+        );
+    }
+
+    /// Disabled macro tuning → boss permanently stays in Engage.
+    #[test]
+    fn macro_state_stays_engage_when_tuning_disabled() {
+        let mut cfg = macro_cfg();
+        cfg.macro_tuning = BossMacroTuning::disabled();
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let mut out = ae::ActorControlFrame::neutral();
+        // Player very far — would normally trigger Approach.
+        let actor_pos = ae::Vec2::new(0.0, 0.0);
+        let target_pos = ae::Vec2::new(2_000.0, 0.0);
+        for _ in 0..200 {
+            tick_boss_pattern(
+                &cfg,
+                &mut state,
+                &macro_ctx(actor_pos, target_pos, 0.1),
+                &mut out,
+                &mut attack_state,
+            );
+        }
+        assert_eq!(
+            state.macro_state,
+            BossMacroState::Engage,
+            "disabled tuning must never transition out of Engage",
         );
     }
 

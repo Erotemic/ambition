@@ -109,6 +109,7 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         cycle_attacks: boss.behavior.attacks.clone(),
         apple_rain_dodge_amp,
         apple_rain_dodge_freq,
+        macro_tuning: boss.behavior.macro_tuning,
     };
     let brain = crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::BossPattern {
         cfg: brain_cfg,

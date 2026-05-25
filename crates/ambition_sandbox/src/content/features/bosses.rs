@@ -135,6 +135,12 @@ pub struct BossBehaviorProfile {
     /// don't slide out from under the visual telegraph. `1.0` keeps
     /// pre-Gradient-Sentinel behavior.
     pub strike_speed_scale: f32,
+    /// Macro state machine tuning — when enabled, the boss runs an
+    /// Engage / Approach / Retreat dance on top of the scripted
+    /// attack schedule. See [`crate::brain::BossMacroTuning`].
+    /// Use `BossMacroTuning::disabled()` for legacy "stand and
+    /// fight" behavior.
+    pub macro_tuning: crate::brain::BossMacroTuning,
     pub attacks: Vec<BossAttackProfile>,
     pub attack_cooldown: f32,
     pub attack_windup: f32,
@@ -230,6 +236,28 @@ impl BossBehaviorProfile {
             // World-anchored at the boss pos and shouldn't drift
             // mid-strike.
             strike_speed_scale: 0.20,
+            // Chase / engage / retreat dance.
+            //
+            // Engage distance ~200 px is "middle range": the player
+            // can read attacks but isn't pinned. too_close (110 px)
+            // triggers Retreat to avoid cornering the player into
+            // the wall. too_far (480 px) triggers Approach so a
+            // player who runs to the corner of the 1280-wide arena
+            // gets chased rather than ignored. engage_max=9 s
+            // creates a periodic "preparing something" retreat
+            // beat even when distance is fine — the player learns
+            // to chase the boss to maintain pressure.
+            macro_tuning: crate::brain::BossMacroTuning {
+                too_close_distance: 110.0,
+                too_far_distance: 480.0,
+                engage_distance: 220.0,
+                approach_duration_s: 3.2,
+                retreat_duration_s: 2.4,
+                engage_max_duration_s: 9.0,
+                approach_speed_scale: 1.50,
+                retreat_speed_scale: 0.80,
+                retreat_distance: 280.0,
+            },
             // Legacy `attacks` is unused for Scripted bosses, but kept
             // populated with the full attack vocabulary for
             // diagnostics so `boss inspect`-style tooling can list
@@ -445,6 +473,7 @@ impl BossBehaviorProfile {
             movement_phase2: None,
             movement_enrage: None,
             strike_speed_scale: 1.0,
+            macro_tuning: crate::brain::BossMacroTuning::disabled(),
             attacks: vec![
                 BossAttackProfile::WingSweep,
                 BossAttackProfile::DiveLane,
@@ -493,6 +522,7 @@ impl BossBehaviorProfile {
             movement_phase2: None,
             movement_enrage: None,
             strike_speed_scale: 1.0,
+            macro_tuning: crate::brain::BossMacroTuning::disabled(),
             // Legacy `attacks` is unused for Scripted bosses — keep it for
             // diagnostics so `boss inspect` style tooling can still list
             // the attack vocabulary.

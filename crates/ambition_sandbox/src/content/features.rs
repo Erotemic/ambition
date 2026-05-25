@@ -29,6 +29,7 @@ const CHEST_FALL_GRAVITY: f32 = 1400.0;
 /// blast through the floor sweep before the sub-step kicks in.
 const CHEST_FALL_MAX_SPEED: f32 = 900.0;
 
+mod boss_attack_geometry;
 mod bosses;
 mod breakables;
 mod bus;
@@ -44,6 +45,10 @@ mod pickups;
 mod util;
 mod world_overlay;
 
+pub use boss_attack_geometry::{
+    active_attack_volumes, body_damage_aabb, boss_attack_damage, damageable_volumes,
+    telegraph_volumes, volumes_for_profile, BossVolumeContext,
+};
 pub use bosses::{
     BossAttackProfile, BossBehaviorProfile, BossMovementProfile, BossRuntime,
     GNU_TON_APPLE_OWNER_PREFIX,

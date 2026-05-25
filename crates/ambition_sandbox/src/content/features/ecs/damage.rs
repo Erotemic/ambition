@@ -59,7 +59,15 @@ pub fn apply_feature_damage_events(
         ),
         With<FeatureSimEntity>,
     >,
-    mut bosses: Query<(&FeatureId, &FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
+    mut bosses: Query<
+        (
+            &FeatureId,
+            &FeatureAabb,
+            &mut BossFeature,
+            &crate::brain::BossAttackState,
+        ),
+        With<FeatureSimEntity>,
+    >,
     // Hitstop / flash on a successful player attack apply to the
     // primary player today. A future per-attacker version
     // (OVERNIGHT-TODO #17.6) would carry the attacker entity on the
@@ -306,7 +314,7 @@ pub fn apply_feature_damage_events(
             );
         }
         let mut boss_hit_this_event = false;
-        for (id, _aabb, mut feature) in &mut bosses {
+        for (id, _aabb, mut feature, attack_state) in &mut bosses {
             let key = format!("boss:{}", id.as_str());
             if event.ignored_targets.iter().any(|ignored| ignored == &key) {
                 continue;
@@ -315,7 +323,14 @@ pub fn apply_feature_damage_events(
             if !boss.alive {
                 continue;
             }
-            let damageable = boss.damageable_aabbs();
+            // Damageable volumes read from BossAttackState (the
+            // brain's source of truth for which strike profile is
+            // live) so GNU-ton's head-descent vulnerability window
+            // and the standard whole-body hurtbox agree on a single
+            // attack-state source.
+            let damageable = crate::features::damageable_volumes(
+                &crate::features::BossVolumeContext::from_runtime(boss, attack_state),
+            );
             let Some(hit_aabb) = damageable
                 .iter()
                 .find(|part| event.volume.strict_intersects(**part))
@@ -515,15 +530,25 @@ pub fn ecs_damage_event_hits_actor(
 
 pub fn ecs_damage_event_hits_boss(
     event: &DamageEvent,
-    bosses: &Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
+    bosses: &Query<
+        (
+            &FeatureId,
+            &FeatureAabb,
+            &BossFeature,
+            &crate::brain::BossAttackState,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) -> bool {
-    // Check against damageable_aabbs so the hit-check matches what
-    // apply_feature_damage_events will actually apply damage to.
-    // Multi-part bosses (e.g. GNU-ton) have a gross FeatureAabb covering
-    // the whole creature but only the head is actually damageable —
-    // checking against the gross AABB would over-trigger projectile
-    // termination on the body without ever applying damage.
-    bosses.iter().any(|(id, _aabb, feature)| {
+    // Check against `damageable_volumes` so the hit-check matches
+    // what `apply_feature_damage_events` will actually apply damage
+    // to. Multi-part bosses (e.g. GNU-ton) have a gross
+    // `FeatureAabb` covering the whole creature but only the head
+    // is actually damageable — checking against the gross AABB
+    // would over-trigger projectile termination on the body without
+    // ever applying damage. `damageable_volumes` reads the brain's
+    // `BossAttackState` to decide head-descent vs rest position.
+    bosses.iter().any(|(id, _aabb, feature, attack_state)| {
         let key = format!("boss:{}", id.as_str());
         if event.ignored_targets.iter().any(|ignored| ignored == &key) {
             return false;
@@ -531,11 +556,11 @@ pub fn ecs_damage_event_hits_boss(
         if !feature.boss.alive {
             return false;
         }
-        feature
-            .boss
-            .damageable_aabbs()
-            .iter()
-            .any(|part| event.volume.strict_intersects(*part))
+        crate::features::damageable_volumes(
+            &crate::features::BossVolumeContext::from_runtime(&feature.boss, attack_state),
+        )
+        .iter()
+        .any(|part| event.volume.strict_intersects(*part))
     })
 }
 

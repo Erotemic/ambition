@@ -103,6 +103,7 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         cycle_attack_windup: boss.behavior.attack_windup.max(0.01),
         cycle_attack_active,
         cycle_attack_cooldown: boss.behavior.attack_cooldown.max(0.05),
+        cycle_attacks: boss.behavior.attacks.clone(),
         apple_rain_dodge_amp,
         apple_rain_dodge_freq,
     };
@@ -141,7 +142,11 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         FeatureId::new(authored.id.clone()),
         FeatureName::new(authored.name.clone()),
         FeatureAabb::from_center_size(boss.pos, boss.render_size()),
-        BossPatternTimer(boss.pattern_timer),
+        // BossPatternTimer is a presentation-side mirror of the brain's
+        // `BossPatternState.pattern_timer`; updated each tick by
+        // `update_ecs_bosses`. Initial value is 0.0 because the brain
+        // state defaults to a fresh `BossPatternState`.
+        BossPatternTimer(0.0),
         initial_phase,
         super::ActorFaction::Boss,
         super::ActorTarget::default(),

@@ -127,28 +127,42 @@ pub fn ecs_breakable_state(
 
 pub fn ecs_boss_name<'a>(
     id: &str,
-    bosses: &'a Query<(&FeatureId, &BossFeature)>,
+    bosses: &'a Query<(&FeatureId, &BossFeature, &crate::brain::BossAttackState)>,
 ) -> Option<&'a str> {
-    bosses.iter().find_map(|(feature_id, boss)| {
+    bosses.iter().find_map(|(feature_id, boss, _)| {
         (feature_id.as_str() == id).then_some(boss.boss.name.as_str())
     })
 }
 
 pub fn ecs_boss_anim_state(
     id: &str,
-    bosses: &Query<(&FeatureId, &BossFeature)>,
+    bosses: &Query<(
+        &FeatureId,
+        &BossFeature,
+        &crate::brain::BossAttackState,
+        &crate::brain::Brain,
+    )>,
 ) -> Option<crate::boss_encounter::sprites::BossAnimState> {
-    bosses.iter().find_map(|(feature_id, boss)| {
+    bosses.iter().find_map(|(feature_id, boss, attack_state, brain)| {
         if feature_id.as_str() != id {
             return None;
         }
         let boss = &boss.boss;
+        // attack_active / attack_windup read the brain's
+        // BossAttackState (single source of truth) instead of
+        // mirror fields on BossRuntime. pattern_timer comes from
+        // the brain's BossPatternState; non-BossPattern brains
+        // (test fixtures) fall back to 0.0.
+        let pattern_timer = brain
+            .boss_pattern_state()
+            .map(|s| s.pattern_timer)
+            .unwrap_or(0.0);
         Some(crate::boss_encounter::sprites::BossAnimState {
             alive: boss.alive,
-            attack_active: boss.attack_timer > 0.0,
-            attack_windup: boss.attack_windup_timer > 0.0,
+            attack_active: attack_state.active_profile.is_some(),
+            attack_windup: attack_state.telegraph_profile.is_some(),
             hit_flash: boss.hit_flash > 0.0,
-            pattern_timer: boss.pattern_timer,
+            pattern_timer,
         })
     })
 }

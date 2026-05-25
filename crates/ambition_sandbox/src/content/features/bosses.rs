@@ -43,16 +43,17 @@ pub const APPLE_RAIN_DAMAGE: i32 = 1;
 /// `enemy_projectile::visuals::is_apple_owner`.
 pub const GNU_TON_APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
 
-const GNU_TON_COLLISION_SCALE: f32 = 4.5;
-const GNU_TON_FRAME_HEIGHT: f32 = 576.0;
-// Design-space anchor sits at the shoulder ridge (REST_BODY_Y 60 - 62 = -2)
-// in the regenerated 768×576 sprite. Must stay in lockstep with
-// `boss_encounter::sprites::GNU_TON_SHEET::feet_anchor_y`.
-const GNU_TON_ANCHOR_Y: f32 = -2.0;
+/// Design-space y anchor on the shoulder ridge in the regenerated
+/// 768×576 GNU-ton sprite (REST_BODY_Y 60 - 62 = -2). Public so the
+/// pure volume helpers in `boss_attack_geometry` can read it without
+/// duplicating the constant. Must stay in lockstep with
+/// `boss_encounter::sprites::GNU_TON_SHEET::feet_anchor_y`.
+pub const GNU_TON_ANCHOR_Y: f32 = -2.0;
 
-fn gnu_ton_sprite_scale(collision_size: ae::Vec2) -> f32 {
-    collision_size.x.max(collision_size.y).max(8.0) * GNU_TON_COLLISION_SCALE / GNU_TON_FRAME_HEIGHT
-}
+// `GNU_TON_COLLISION_SCALE`, `GNU_TON_FRAME_HEIGHT`, and
+// `gnu_ton_sprite_scale` live in
+// `crate::content::features::boss_attack_geometry` next to the
+// part-AABB math that consumes them.
 
 /// Live sandbox-side behavior tuning for a boss. This is deliberately separate
 /// from `ae::BossEncounterSpec`: the engine spec owns phase progression and HP
@@ -340,6 +341,12 @@ impl BossBehaviorProfile {
 
 // `step_duration` moved to `crate::brain::boss_pattern`.
 
+/// Live boss state owned by the simulation: body, HP, alive flag,
+/// encounter-phase mirror, and a few cosmetic-timer scalars.
+/// **Attack policy and attack execution state live elsewhere:** the
+/// brain layer's `BossPatternState` owns the cursor / clocks and the
+/// `BossAttackState` component owns the live telegraph/active
+/// profile. `BossRuntime` carries body fields only.
 #[derive(Clone, Debug)]
 pub struct BossRuntime {
     pub id: String,
@@ -351,27 +358,12 @@ pub struct BossRuntime {
     pub brain: ae::BossBrain,
     pub behavior: BossBehaviorProfile,
     pub alive: bool,
-    pub pattern_timer: f32,
-    pub movement_timer: f32,
-    pub attack_windup_timer: f32,
-    pub attack_timer: f32,
-    pub attack_cooldown: f32,
     pub hit_flash: f32,
-    /// Active encounter phase. Forwarded by `update_ecs_bosses` from
-    /// `BossEncounterRegistry`. `Dormant` until the encounter wakes
-    /// up. The brain reads this via `BossPatternContext`; pattern
-    /// selection happens in the brain, not here.
+    /// Active encounter phase. Forwarded by `sync_boss_encounter_phase`
+    /// from `BossEncounterRegistry`. `Dormant` until the encounter
+    /// wakes up. The brain reads this via `BossPatternContext`;
+    /// pattern selection happens in the brain, not here.
     pub encounter_phase: ae::BossEncounterPhase,
-    /// **Mirror of [`BossAttackState::active_profile`].** Written by
-    /// `tick_boss_brains_system` after each brain tick so legacy
-    /// readers (`attack_volumes`, `player_damage`, debug overlay) can
-    /// keep reading off `BossRuntime`. Do not set this from inside
-    /// `BossRuntime` — the brain owns the policy decision.
-    pub active_strike_profile: Option<BossAttackProfile>,
-    /// **Mirror of [`BossAttackState::telegraph_profile`].** Same
-    /// "brain-written, runtime-readable" contract as
-    /// `active_strike_profile`.
-    pub telegraph_profile: Option<BossAttackProfile>,
 }
 
 impl BossRuntime {
@@ -392,15 +384,8 @@ impl BossRuntime {
             name,
             brain,
             alive: true,
-            pattern_timer: 0.0,
-            movement_timer: 0.0,
-            attack_windup_timer: 0.0,
-            attack_timer: 0.0,
-            attack_cooldown: 0.35,
             hit_flash: 0.0,
             encounter_phase: ae::BossEncounterPhase::Dormant,
-            active_strike_profile: None,
-            telegraph_profile: None,
         }
     }
 
@@ -450,36 +435,27 @@ impl BossRuntime {
         self.hit_flash = (self.hit_flash - dt).max(0.0);
     }
 
-    /// Advance the free-running clocks the legacy
-    /// `cycle_pattern_volumes` path reads (`pattern_timer`). The
-    /// brain owns its own `movement_timer` inside `BossPatternState`;
-    /// this clock is the runtime's tiny share that cycle-mode volume
-    /// rendering still consults until Cycle volumes also migrate.
-    pub fn tick_runtime_clocks(&mut self, dt: f32) {
-        if !self.alive {
-            return;
-        }
-        self.pattern_timer += dt;
-        self.movement_timer += dt;
-    }
-
-    // `tick_apple_rain` was deleted with Task B of the actor/brain
-    // follow-up plan. The spawn loop, golden-ratio x distribution,
-    // and self-aabb dodge live in
-    // `content/features/ecs/brain_effects.rs::spawn_gnu_apple_rain_from_special_messages`.
-    // Per-boss accumulator state moved to the
-    // `AppleRainSpawnState` component on the boss entity.
-
-    // The old per-tick `update_scripted_attacks` / `update_cycle_attacks`
-    // methods (cursor advancement, telegraph/strike/rest profile
-    // choice, attack_timer/windup mirror) all moved to
-    // `brain/boss_pattern.rs::tick_boss_pattern`. The boss tick
-    // system (`content/features/ecs/bosses.rs::tick_boss_brains_system`)
-    // mirrors the brain's chosen profile + remaining time into
-    // `active_strike_profile` / `telegraph_profile` /
-    // `attack_timer` / `attack_windup_timer` so legacy volume /
-    // damage readers (`attack_volumes`, `attack_telegraph_volumes`,
-    // `player_damage`) keep working without per-call changes.
+    // `tick_runtime_clocks`, `tick_apple_rain`, `update_scripted_attacks`,
+    // `update_cycle_attacks`, `pattern_timer`, `movement_timer`,
+    // `attack_windup_timer`, `attack_timer`, `attack_cooldown`,
+    // `active_strike_profile`, `telegraph_profile` all moved out of
+    // `BossRuntime` and into the brain layer:
+    //
+    // * Cursor / clocks / pattern-step decision live in
+    //   `crate::brain::boss_pattern::{BossPatternCfg, BossPatternState,
+    //   tick_boss_pattern}` (brain).
+    // * Live telegraph/active profile + remaining time live on the
+    //   `BossAttackState` component (still in brain).
+    // * Volume math is pure functions in
+    //   `crate::content::features::boss_attack_geometry`
+    //   (`active_attack_volumes`, `telegraph_volumes`,
+    //   `damageable_volumes`, `volumes_for_profile`, `body_damage_aabb`).
+    // * Boss → player damage is the pure `boss_attack_damage` helper
+    //   in the same module; `update_ecs_bosses` calls it from a
+    //   `BossVolumeContext` built off `BossRuntime` + `BossAttackState`.
+    //
+    // Anything that needs to look at "what attack is live right now?"
+    // queries `BossAttackState` directly, not `BossRuntime`.
 
     pub fn is_mockingbird(&self) -> bool {
         self.behavior.id == "mockingbird" || self.name.eq_ignore_ascii_case("mockingbird")
@@ -521,273 +497,16 @@ impl BossRuntime {
         ae::Aabb::new(self.pos, self.combat_size() * 0.5)
     }
 
-    pub fn attack_volumes(&self) -> Vec<ae::Aabb> {
-        if self.attack_timer <= 0.0 {
-            return Vec::new();
-        }
-        match &self.behavior.attack_pattern {
-            BossAttackPattern::Cycle => self.cycle_pattern_volumes(),
-            BossAttackPattern::Scripted { .. } => self
-                .active_strike_profile
-                .as_ref()
-                .map(|profile| self.volumes_for(profile))
-                .unwrap_or_default(),
-        }
-    }
-
-    pub fn attack_telegraph_volumes(&self) -> Vec<ae::Aabb> {
-        if self.attack_windup_timer <= 0.0 {
-            return Vec::new();
-        }
-        match &self.behavior.attack_pattern {
-            BossAttackPattern::Cycle => self.cycle_pattern_volumes(),
-            BossAttackPattern::Scripted { .. } => self
-                .telegraph_profile
-                .as_ref()
-                .map(|profile| self.volumes_for(profile))
-                .unwrap_or_default(),
-        }
-    }
-
-    pub fn body_damage_aabb(&self) -> ae::Aabb {
-        self.aabb()
-    }
-
-    pub fn damageable_aabbs(&self) -> Vec<ae::Aabb> {
-        if !self.is_gnu_ton() {
-            return vec![self.aabb()];
-        }
-        // GNU-ton's head is the only vulnerable target, but it is ALWAYS
-        // hittable — the head_descent windows just move it down to player
-        // level so the player doesn't have to climb. Previously this
-        // returned an empty list outside the GnuHeadDescent strike, which
-        // made the boss permanently invulnerable in Phase1 (no descent
-        // beat exists in that phase) and therefore unkillable, since HP
-        // never dropped enough to unlock Phase2. Repro: spawn the boss
-        // and watch it sit at full HP forever in Phase1.
-        let head_design_y = if matches!(
-            self.active_strike_profile,
-            Some(BossAttackProfile::GnuHeadDescent)
-        ) || matches!(
-            self.telegraph_profile,
-            Some(BossAttackProfile::GnuHeadDescent)
-        ) {
-            // Held-low position during the descent telegraph and strike.
-            // Matches the generator's `_draw_head_down` target y=30.
-            30.0
-        } else {
-            // Rest position high above the shoulder. Hard to reach but
-            // not impossible — the player can climb the perches and jump.
-            // Matches the generator's REST_HEAD_Y.
-            -75.0
-        };
-        vec![self.gnu_ton_part_aabb(ae::Vec2::new(0.0, head_design_y), ae::Vec2::new(92.0, 74.0))]
-    }
-
-    /// Cycle-mode dispatch — picks the next attack profile from the flat
-    /// `attacks` list using `pattern_timer / attack_cooldown` and renders
-    /// its volumes via `volumes_for`. Used only when `attack_pattern` is
-    /// `BossAttackPattern::Cycle`.
-    pub(super) fn cycle_pattern_volumes(&self) -> Vec<ae::Aabb> {
-        let attack_count = self.behavior.attacks.len().max(1);
-        let phase = ((self.pattern_timer / self.behavior.attack_cooldown.max(0.05)) as usize)
-            % attack_count;
-        let attack = self
-            .behavior
-            .attacks
-            .get(phase)
-            .cloned()
-            .unwrap_or(BossAttackProfile::FullBodyPulse);
-        self.volumes_for(&attack)
-    }
-
-    /// Pure-data dispatch: given a specific attack profile, produce its
-    /// world-space hitbox volumes. Ordinary bosses use
-    /// `self.pos + attack_origin_offset`; GNU-ton overrides this path with
-    /// part-specific boxes derived from the generated sprite design coordinates.
-    pub(super) fn volumes_for(&self, attack: &BossAttackProfile) -> Vec<ae::Aabb> {
-        if self.is_gnu_ton() {
-            // Design-space anchors match the regenerated 768×576 GNU-ton
-            // sprite: hands rest at x=±235, slam strike peaks at y=195
-            // (below the leg hooves at design +175), shockwave fires at
-            // floor level. Group B will replace these constants with
-            // values pulled from `gnu_ton_boss_parts.json`.
-            match attack {
-                BossAttackProfile::GnuHandSlam => {
-                    return vec![
-                        self.gnu_ton_part_aabb(
-                            ae::Vec2::new(-235.0, 195.0),
-                            ae::Vec2::new(78.0, 60.0),
-                        ),
-                        self.gnu_ton_part_aabb(
-                            ae::Vec2::new(235.0, 195.0),
-                            ae::Vec2::new(78.0, 60.0),
-                        ),
-                    ];
-                }
-                BossAttackProfile::GnuHandSweep => {
-                    return vec![
-                        self.gnu_ton_part_aabb(
-                            ae::Vec2::new(-185.0, 20.0),
-                            ae::Vec2::new(140.0, 60.0),
-                        ),
-                        self.gnu_ton_part_aabb(
-                            ae::Vec2::new(185.0, 20.0),
-                            ae::Vec2::new(140.0, 60.0),
-                        ),
-                    ];
-                }
-                BossAttackProfile::GnuHeadDescent => {
-                    return vec![
-                        self.gnu_ton_part_aabb(ae::Vec2::new(0.0, 30.0), ae::Vec2::new(92.0, 74.0))
-                    ];
-                }
-                BossAttackProfile::GnuShockwave => {
-                    return vec![self
-                        .gnu_ton_part_aabb(ae::Vec2::new(0.0, 195.0), ae::Vec2::new(300.0, 18.0))];
-                }
-                // Apple rain damage routes through the spawned projectile
-                // bodies, not a stationary AABB on the boss. Returning
-                // empty here keeps `player_damage` from double-counting
-                // contact-on-boss while the apples are in flight, and
-                // the debug overlay correctly draws no active strike
-                // volume (the apples themselves are the threat).
-                BossAttackProfile::GnuAppleRain => {
-                    return Vec::new();
-                }
-                _ => {}
-            }
-        }
-        let size = self.combat_size();
-        let origin = self.pos + self.behavior.attack_origin_offset;
-        match attack {
-            BossAttackProfile::FloorSlam => vec![ae::Aabb::new(
-                origin + ae::Vec2::new(0.0, size.y * 0.5 + 22.0),
-                ae::Vec2::new(size.x * 0.75, 18.0),
-            )],
-            BossAttackProfile::SideSweep => vec![
-                ae::Aabb::new(
-                    origin + ae::Vec2::new(-size.x * 0.50, 0.0),
-                    ae::Vec2::new(size.x * 0.25, size.y * 0.72),
-                ),
-                ae::Aabb::new(
-                    origin + ae::Vec2::new(size.x * 0.50, 0.0),
-                    ae::Vec2::new(size.x * 0.25, size.y * 0.72),
-                ),
-            ],
-            BossAttackProfile::FullBodyPulse => vec![ae::Aabb::new(origin, size * 0.70)],
-            BossAttackProfile::WingSweep => vec![ae::Aabb::new(
-                origin + ae::Vec2::new(0.0, size.y * 0.08),
-                ae::Vec2::new(size.x * 0.56, size.y * 0.42),
-            )],
-            BossAttackProfile::DiveLane => vec![ae::Aabb::new(
-                origin + ae::Vec2::new(0.0, size.y * 0.42),
-                ae::Vec2::new(size.x * 0.22, size.y * 0.72),
-            )],
-            BossAttackProfile::Broadside => vec![
-                ae::Aabb::new(
-                    origin + ae::Vec2::new(-size.x * 0.34, 0.0),
-                    ae::Vec2::new(size.x * 0.18, size.y * 0.84),
-                ),
-                ae::Aabb::new(
-                    origin + ae::Vec2::new(size.x * 0.34, 0.0),
-                    ae::Vec2::new(size.x * 0.18, size.y * 0.84),
-                ),
-            ],
-            // GNU-ton: two giant hands slam down from the top of the arena.
-            // Hitboxes appear at the far left and right of the combat zone,
-            // extending from near the top down to the floor. (Unused for
-            // gnu_ton bosses — they take the part-anchored branch above.)
-            BossAttackProfile::GnuHandSlam => vec![
-                ae::Aabb::new(
-                    origin + ae::Vec2::new(-size.x * 0.40, size.y * 0.25),
-                    ae::Vec2::new(size.x * 0.14, size.y * 0.60),
-                ),
-                ae::Aabb::new(
-                    origin + ae::Vec2::new(size.x * 0.40, size.y * 0.25),
-                    ae::Vec2::new(size.x * 0.14, size.y * 0.60),
-                ),
-            ],
-            // GNU-ton: hands sweep from the far sides inward.
-            // A wide horizontal hitbox covers most of the arena width at mid-height.
-            BossAttackProfile::GnuHandSweep => vec![ae::Aabb::new(
-                origin + ae::Vec2::new(0.0, size.y * 0.15),
-                ae::Vec2::new(size.x * 0.85, size.y * 0.28),
-            )],
-            // GNU-ton: the GNU head descends into player space.
-            // Contact with the center-top region is dangerous; this is also
-            // the window where the head becomes the vulnerable target.
-            BossAttackProfile::GnuHeadDescent => vec![ae::Aabb::new(
-                origin + ae::Vec2::new(0.0, size.y * 0.05),
-                ae::Vec2::new(size.x * 0.32, size.y * 0.38),
-            )],
-            // GNU-ton: shockwave when both hands meet in the center.
-            // Floor-level shockwave spanning the full arena width.
-            BossAttackProfile::GnuShockwave => vec![ae::Aabb::new(
-                origin + ae::Vec2::new(0.0, size.y * 0.48),
-                ae::Vec2::new(size.x * 0.90, size.y * 0.08),
-            )],
-            // Apple rain damages via spawned projectiles, not a static
-            // AABB on the boss. Empty here mirrors the gnu_ton branch
-            // above so ordinary bosses that ever inherit the profile
-            // (none today) behave the same.
-            BossAttackProfile::GnuAppleRain => Vec::new(),
-        }
-    }
-
-    fn gnu_ton_part_aabb(&self, design_center: ae::Vec2, design_half_size: ae::Vec2) -> ae::Aabb {
-        let scale = gnu_ton_sprite_scale(self.size);
-        let center = self.pos
-            + ae::Vec2::new(
-                design_center.x * scale,
-                (design_center.y - GNU_TON_ANCHOR_Y) * scale,
-            );
-        ae::Aabb::new(center, design_half_size * scale)
-    }
-
-    pub(super) fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
-        if self.attack_timer > 0.0 {
-            if let Some(volume) = self
-                .attack_volumes()
-                .into_iter()
-                .find(|volume| volume.strict_intersects(player_body))
-            {
-                return Some(PlayerDamageEvent {
-                    mode: PlayerDamageMode::Knockback,
-                    source: PlayerDamageSource::BossAttack,
-                    source_pos: self.pos,
-                    impact_pos: midpoint(player_body.center(), volume.center()),
-                    knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
-                    strength: 1.25,
-                    amount: self.behavior.attack_damage.max(1),
-                    // Boss AI targets primary player (PrimaryPlayerOnly
-                    // at the call site) — leave routing on the legacy
-                    // primary-receives path until #17.8 lands per-target
-                    // AI.
-                    target: None,
-                });
-            }
-        }
-        let body_damage_amount = self.behavior.body_damage;
-        if body_damage_amount > 0 {
-            let body_damage = self.body_damage_aabb();
-            if body_damage.strict_intersects(player_body) {
-                return Some(PlayerDamageEvent {
-                    mode: PlayerDamageMode::Knockback,
-                    source: PlayerDamageSource::BossBody,
-                    source_pos: self.pos,
-                    impact_pos: midpoint(player_body.center(), body_damage.center()),
-                    knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
-                    strength: 1.0,
-                    amount: body_damage_amount,
-                    // Same as the attack arm: boss body contact routes
-                    // to primary via the call-site filter.
-                    target: None,
-                });
-            }
-        }
-        None
-    }
+    // All attack-volume / telegraph-volume / damageable-volume /
+    // player_damage / cycle_pattern_volumes / volumes_for /
+    // gnu_ton_part_aabb / body_damage_aabb methods moved out of
+    // `BossRuntime`. They are now pure functions in
+    // `crate::content::features::boss_attack_geometry` that take a
+    // `BossVolumeContext` (built from `&BossRuntime` + `&BossAttackState`)
+    // and read the brain's `BossAttackState` instead of mirror fields.
+    //
+    // If you need "the boss's live hitbox volumes right now" call
+    // `features::active_attack_volumes(&BossVolumeContext::from_runtime(boss, attack_state))`.
 }
 
 #[cfg(test)]
@@ -874,7 +593,14 @@ mod scripted_pattern_tests {
         // broke the test even though the visual / hitbox correspondence
         // stayed correct. Stick to invariants instead of magic numbers.
         let boss = gnu_ton_runtime();
-        let slam = boss.volumes_for(&BossAttackProfile::GnuHandSlam);
+        let slam = crate::features::volumes_for_profile(
+            &BossAttackProfile::GnuHandSlam,
+            boss.pos,
+            boss.size,
+            boss.combat_size(),
+            &boss.behavior,
+            true,
+        );
         assert_eq!(slam.len(), 2);
         let (left, right) = if slam[0].center().x < slam[1].center().x {
             (&slam[0], &slam[1])
@@ -892,13 +618,16 @@ mod scripted_pattern_tests {
         // `body_damage: 0` on the gnu_ton behavior is the authored
         // statement "no contact damage from the offscreen body". A prior
         // revision still dealt 1 damage because `player_damage` used
-        // `body_damage.max(1)` after the intersect test. Guard the whole
-        // block on `body_damage > 0` instead. Concrete repro: the player
-        // hitbox identical to the boss body AABB must produce no event.
+        // `body_damage.max(1)` after the intersect test. Now guarded by
+        // the `body_damage > 0` check inside `boss_attack_damage`.
+        // Concrete repro: a player AABB identical to the boss body
+        // AABB with no active strike must produce no event.
         let boss = gnu_ton_runtime();
-        let player_body = boss.body_damage_aabb();
+        let attack_state = crate::brain::BossAttackState::default();
+        let ctx = crate::features::BossVolumeContext::from_runtime(&boss, &attack_state);
+        let player_body = crate::features::body_damage_aabb(boss.pos, boss.combat_size());
         assert!(
-            boss.player_damage(player_body).is_none(),
+            crate::features::boss_attack_damage(&ctx, player_body).is_none(),
             "gnu_ton must not deal contact damage when body_damage = 0"
         );
     }
@@ -926,14 +655,21 @@ mod scripted_pattern_tests {
     #[test]
     fn gnu_ton_apple_rain_volumes_are_empty_so_contact_does_not_double_count() {
         // The strike's damage path goes through enemy projectiles, not
-        // a stationary boss AABB. `volumes_for(GnuAppleRain)` must
-        // return an empty list so the regular contact-damage check in
-        // `player_damage` doesn't ALSO hit the player at the boss's
-        // position while apples are in flight.
+        // a stationary boss AABB. `volumes_for_profile(GnuAppleRain, …)`
+        // must return an empty list so the regular contact-damage
+        // check in `boss_attack_damage` doesn't ALSO hit the player
+        // at the boss's position while apples are in flight.
         let boss = gnu_ton_runtime();
         assert!(
-            boss.volumes_for(&BossAttackProfile::GnuAppleRain)
-                .is_empty(),
+            crate::features::volumes_for_profile(
+                &BossAttackProfile::GnuAppleRain,
+                boss.pos,
+                boss.size,
+                boss.combat_size(),
+                &boss.behavior,
+                true,
+            )
+            .is_empty(),
             "apple-rain volumes must be empty — damage routes through projectiles"
         );
     }
@@ -944,11 +680,15 @@ mod scripted_pattern_tests {
         // damageable during head_descent strike" rule made the boss
         // permanently invulnerable in Phase1 (no descent beat) and
         // therefore unkillable. Now the head is always hittable; the
-        // descent window just moves it down to player level so the
-        // player doesn't have to climb. Both states must produce
+        // descent window (signaled by `BossAttackState.active_profile
+        // == GnuHeadDescent`) just moves it down to player level so
+        // the player doesn't have to climb. Both states must produce
         // exactly one head AABB.
-        let mut boss = gnu_ton_runtime();
-        let rest_head = boss.damageable_aabbs();
+        let boss = gnu_ton_runtime();
+        let mut attack_state = crate::brain::BossAttackState::default();
+        let rest_head = crate::features::damageable_volumes(
+            &crate::features::BossVolumeContext::from_runtime(&boss, &attack_state),
+        );
         assert_eq!(
             rest_head.len(),
             1,
@@ -962,8 +702,10 @@ mod scripted_pattern_tests {
             boss.pos.y
         );
 
-        boss.active_strike_profile = Some(BossAttackProfile::GnuHeadDescent);
-        let descent_head = boss.damageable_aabbs();
+        attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
+        let descent_head = crate::features::damageable_volumes(
+            &crate::features::BossVolumeContext::from_runtime(&boss, &attack_state),
+        );
         assert_eq!(descent_head.len(), 1);
         let descent_y = descent_head[0].center().y;
         // Descended head sits BELOW the shoulder anchor (at player level).
@@ -1048,7 +790,6 @@ mod scripted_pattern_tests {
         let mut attack_state = BossAttackState::default();
         let dt = 1.0 / 60.0;
         for _ in 0..600 {
-            boss.tick_runtime_clocks(dt);
             let mut frame = ae::ActorControlFrame::neutral();
             tick_boss_pattern(
                 &cfg,

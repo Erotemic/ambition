@@ -172,6 +172,18 @@ impl Brain {
         }
     }
 
+    /// Read-only access to the actor's `BossPatternState` if this is
+    /// a `BossPattern` brain. Returns `None` for every other brain
+    /// backend. Convenience for presentation / debug code that needs
+    /// the brain's `pattern_timer` clock without match-deconstructing
+    /// the variant by hand.
+    pub fn boss_pattern_state(&self) -> Option<&boss_pattern::BossPatternState> {
+        match self {
+            Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) => Some(state),
+            _ => None,
+        }
+    }
+
     /// Short label for this brain backend — useful in debug overlays
     /// and trace dumps. Single word per backend.
     pub fn label(&self) -> &'static str {

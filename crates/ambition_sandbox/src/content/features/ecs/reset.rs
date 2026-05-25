@@ -31,7 +31,15 @@ pub fn reset_ecs_room_features(
         With<FeatureSimEntity>,
     >,
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
-    mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
+    mut bosses: Query<
+        (
+            &mut BossFeature,
+            &mut crate::brain::Brain,
+            &mut crate::brain::BossAttackState,
+            &mut crate::brain::ActorControl,
+        ),
+        With<FeatureSimEntity>,
+    >,
     mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
     mut enemy_projectiles: ResMut<crate::enemy_projectile::EnemyProjectileState>,
     mut combat_slots: ResMut<crate::combat_slots::CombatSlotsRes>,
@@ -104,17 +112,27 @@ pub fn reset_ecs_room_features(
             &mut cooldowns,
         );
     }
-    for mut boss_feature in &mut bosses {
+    for (mut boss_feature, mut brain, mut attack_state, mut control) in &mut bosses {
         let boss = &mut boss_feature.boss;
         boss.pos = boss.spawn;
         boss.alive = true;
         boss.health.reset();
-        boss.pattern_timer = 0.0;
-        boss.movement_timer = 0.0;
-        boss.attack_windup_timer = 0.0;
-        boss.attack_timer = 0.0;
-        boss.attack_cooldown = 0.35;
         boss.hit_flash = 0.0;
+        // Brain-owned state: zero the per-actor `BossPatternState`
+        // (cursor / clocks / cycle phase / last_phase) and the
+        // `BossAttackState` mirror (live telegraph + active profile
+        // + remaining time). `ActorControl` is cleared too so a
+        // stale `desired_vel` from the previous attempt doesn't
+        // integrate on the post-reset frame.
+        if let crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::BossPattern {
+            state,
+            ..
+        }) = &mut *brain
+        {
+            *state = crate::brain::BossPatternState::default();
+        }
+        attack_state.clear();
+        control.0 = ae::ActorControlFrame::neutral();
     }
     for mut hazard_feature in &mut hazards {
         let spawn = hazard_feature.spawn;

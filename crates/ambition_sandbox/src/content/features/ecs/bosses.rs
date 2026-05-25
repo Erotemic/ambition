@@ -11,18 +11,16 @@
 //!    `Brain::StateMachine(BossPattern)`, build a
 //!    [`BossPatternContext`], call [`tick_boss_pattern`], and
 //!    write the resulting [`ActorControlFrame`] + [`BossAttackState`].
-//!    Also syncs `BossAttackState` → `BossRuntime` mirror fields
-//!    (`active_strike_profile`, `telegraph_profile`, `attack_timer`,
-//!    `attack_windup_timer`) so legacy volume / damage readers
-//!    keep working without per-call changes.
+//!    `BossAttackState` is the single source of truth for boss
+//!    attack state — debug overlay, damage application, and
+//!    vulnerable-volume rendering all read from it via the pure
+//!    helpers in `content/features/boss_attack_geometry`.
 //! 3. [`update_ecs_bosses`] — **integration only**. Reads
 //!    `ActorControl::0.desired_vel`, integrates the boss body via
-//!    `BossRuntime::integrate_body`, syncs `FeatureAabb` /
-//!    `BossPatternTimer` / `BossPhase`, and publishes body-contact
-//!    damage. Does NOT call `boss.update(...)`, does NOT overwrite
-//!    `ActorControl`, does NOT choose pattern steps. Per the
-//!    "move boss policy out of BossRuntime" migration: the brain
-//!    decides; the runtime integrates.
+//!    `BossRuntime::integrate_body`, syncs presentation mirrors,
+//!    and publishes both strike and body-contact damage by calling
+//!    `boss_attack_damage` against the boss's `BossAttackState` —
+//!    no runtime attack-state fields are involved.
 
 use super::*;
 
@@ -30,6 +28,7 @@ use crate::brain::{
     boss_pattern::tick_boss_pattern, ActorControl, BossAttackState, BossPatternContext, Brain,
     StateMachineCfg,
 };
+use crate::features::{boss_attack_damage, BossVolumeContext};
 
 /// Sync each boss's `encounter_phase` mirror from `BossEncounterRegistry`.
 /// Runs before [`tick_boss_brains_system`] so the brain sees this
@@ -49,15 +48,16 @@ pub fn sync_boss_encounter_phase(
 
 /// Tick every boss's `BossPattern` brain: advance the cursor, emit
 /// `ActorControlFrame` intent (movement + melee/special edges), and
-/// update the `BossAttackState` component. Then mirror
-/// `BossAttackState` → `BossRuntime` execution fields so legacy
-/// volume / damage readers keep working.
+/// update the `BossAttackState` component. `BossAttackState` is the
+/// single source of truth for boss attack state from this point on;
+/// the runtime no longer carries mirror fields and the volume /
+/// damage / debug-overlay paths all query it.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
     mut bosses: Query<
         (
-            &mut BossFeature,
+            &BossFeature,
             &mut Brain,
             &mut ActorControl,
             &mut BossAttackState,
@@ -67,28 +67,22 @@ pub fn tick_boss_brains_system(
     >,
 ) {
     let dt = world_time.sim_dt();
-    for (mut feature, mut brain, mut control, mut attack_state, target) in &mut bosses {
-        let boss = &mut feature.boss;
+    for (feature, mut brain, mut control, mut attack_state, target) in &mut bosses {
+        let boss = &feature.boss;
         if !boss.alive {
             // Dead boss: zero out frame + attack state so any
             // downstream consumer sees a coherent "no intent".
             control.0 = ae::ActorControlFrame::neutral();
             attack_state.clear();
-            sync_runtime_mirror_from_attack_state(boss, &attack_state);
             continue;
         }
 
-        // Free-running clocks the runtime still owns (legacy
-        // cycle-mode volume rendering reads `pattern_timer`).
-        boss.tick_runtime_clocks(dt);
-
         let StateMachineCfg::BossPattern { cfg, state } = pattern_brain_mut(&mut brain) else {
-            // Boss has a non-BossPattern brain (e.g. test fixture
-            // attaches StandStill). Skip the tick + mirror clear so
-            // the brain's neutral output stays authoritative.
+            // Boss has a non-BossPattern brain (test fixture). Leave
+            // ActorControl + BossAttackState neutral so a future
+            // brain swap doesn't leak stale intent.
             control.0 = ae::ActorControlFrame::neutral();
             attack_state.clear();
-            sync_runtime_mirror_from_attack_state(boss, &attack_state);
             continue;
         };
 
@@ -102,51 +96,30 @@ pub fn tick_boss_brains_system(
         let mut frame = ae::ActorControlFrame::neutral();
         tick_boss_pattern(cfg, state, &ctx, &mut frame, &mut attack_state);
         control.0 = frame;
-        sync_runtime_mirror_from_attack_state(boss, &attack_state);
     }
 }
 
-/// Helper: dig out the `&mut BossPattern { cfg, state }` from a
-/// `Brain`. Returns `None` for non-BossPattern brains.
+/// Helper: dig out the `&mut StateMachineCfg` from a `Brain`.
+/// Bosses never spawn with `Brain::Player`; the `unreachable!` arm
+/// is a safety net for that invariant.
 fn pattern_brain_mut(brain: &mut Brain) -> &mut StateMachineCfg {
     match brain {
         Brain::StateMachine(cfg) => cfg,
-        // Player-brain bosses aren't a thing today; treat as the
-        // empty path. The caller's match below handles it as a
-        // non-`BossPattern` variant.
-        Brain::Player(_) => {
-            // Compile-error proxy: we can't return a real ref to a
-            // non-existent inner type, so we cheat with a static
-            // mut wouldn't compile either. Instead use the slightly
-            // ugly trick of stashing a StandStill in place. This
-            // branch is unreachable in production (only spawn paths
-            // attach BossPattern) but we want a safe fallback.
-            unreachable!("Boss entities are never spawned with Brain::Player")
-        }
+        Brain::Player(_) => unreachable!("Boss entities are never spawned with Brain::Player"),
     }
 }
 
-/// Push `BossAttackState` into the `BossRuntime` mirror fields the
-/// legacy volume / damage readers (`attack_volumes`,
-/// `attack_telegraph_volumes`, `player_damage`) still consult. Once
-/// those readers migrate to query the `BossAttackState` component
-/// directly, this sync goes away.
-fn sync_runtime_mirror_from_attack_state(boss: &mut BossRuntime, attack_state: &BossAttackState) {
-    boss.active_strike_profile = attack_state.active_profile.clone();
-    boss.telegraph_profile = attack_state.telegraph_profile.clone();
-    boss.attack_timer = attack_state.active_remaining;
-    boss.attack_windup_timer = attack_state.telegraph_remaining;
-}
-
-/// Integrate ECS-authored bosses + publish body-contact damage.
+/// Integrate ECS-authored bosses + publish damage. The brain
+/// (`tick_boss_brains_system`) owns intent and has already written
+/// `ActorControl` + `BossAttackState` by the time this system runs.
 ///
-/// **Integration only.** The brain (`tick_boss_brains_system`) owns
-/// the intent decision and has already written `ActorControl` +
-/// `BossAttackState` by the time this system runs. This system reads
-/// `ActorControl::0.desired_vel`, hands it to
-/// `BossRuntime::integrate_body`, syncs presentation mirrors
-/// (`FeatureAabb`, `BossPatternTimer`, `BossPhase`), and emits
-/// `PlayerDamageEvent` on body contact.
+/// This system:
+/// 1. Integrates the boss body using `ActorControl::0.desired_vel`.
+/// 2. Syncs presentation mirrors (`FeatureAabb`, `BossPatternTimer`,
+///    `BossPhase`).
+/// 3. Publishes attack + body-contact damage via the pure
+///    `boss_attack_damage` helper, which reads `BossAttackState`
+///    directly (no runtime mirror fields involved).
 pub fn update_ecs_bosses(
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
@@ -178,6 +151,8 @@ pub fn update_ecs_bosses(
             &mut BossPatternTimer,
             &mut BossPhase,
             &ActorControl,
+            &BossAttackState,
+            &Brain,
         ),
         With<FeatureSimEntity>,
     >,
@@ -193,7 +168,9 @@ pub fn update_ecs_bosses(
     let player_body = pb.aabb();
     let player_vulnerable =
         !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (mut aabb, mut feature, mut pattern_timer, mut phase, control) in &mut bosses {
+    for (mut aabb, mut feature, mut pattern_timer, mut phase, control, attack_state, brain) in
+        &mut bosses
+    {
         let boss = &mut feature.boss;
         // Integration: take the brain-emitted desired_vel and let
         // `step_kinematic` translate it into a collision-resolved
@@ -202,10 +179,19 @@ pub fn update_ecs_bosses(
         boss.integrate_body(&feature_world, control.0.desired_vel, dt);
         aabb.center = boss.pos;
         aabb.half_size = boss.render_size() * 0.5;
-        pattern_timer.0 = boss.pattern_timer;
+        // Mirror the brain's pattern_timer (now living in
+        // `BossPatternState`) into the presentation-side
+        // `BossPatternTimer` component for sprite-animation
+        // consumers. Defaults to 0 when the boss has a non-BossPattern
+        // brain (test fixtures).
+        pattern_timer.0 = match brain {
+            Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) => state.pattern_timer,
+            _ => 0.0,
+        };
         *phase = BossPhase::from_alive(boss.alive);
         if player_vulnerable && boss.alive {
-            if let Some(damage) = boss.player_damage(player_body) {
+            let ctx = BossVolumeContext::from_runtime(boss, attack_state);
+            if let Some(damage) = boss_attack_damage(&ctx, player_body) {
                 let pos = damage.impact_pos;
                 sfx.write(crate::audio::SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_DAMAGE,

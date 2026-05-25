@@ -47,7 +47,15 @@ pub fn update_projectiles(
         ),
         With<FeatureSimEntity>,
     >,
-    ecs_bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
+    ecs_bosses: Query<
+        (
+            &FeatureId,
+            &FeatureAabb,
+            &BossFeature,
+            &crate::brain::BossAttackState,
+        ),
+        With<FeatureSimEntity>,
+    >,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {

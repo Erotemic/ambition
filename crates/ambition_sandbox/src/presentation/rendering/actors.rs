@@ -535,7 +535,7 @@ pub fn upgrade_boss_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
-    ecs_bosses: Query<(&FeatureId, &BossFeature)>,
+    ecs_bosses: Query<(&FeatureId, &BossFeature, &crate::brain::BossAttackState)>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
         (Without<CharacterAnimator>, Without<BossAnimator>),
@@ -545,19 +545,21 @@ pub fn upgrade_boss_sprites(
         return;
     };
     for (entity, visual) in &new_bosses {
-        let Some(view) = ecs_bosses.iter().find_map(|(feature_id, boss)| {
+        let Some(view) = ecs_bosses.iter().find_map(|(feature_id, boss, attack_state)| {
             if feature_id.as_str() != visual.id.as_str() {
                 return None;
             }
             let boss = &boss.boss;
+            // `flash` reads `BossAttackState` instead of the deleted
+            // `attack_timer` / `attack_windup_timer` mirror fields.
             Some(crate::features::FeatureView {
                 pos: boss.pos,
                 size: boss.render_size(),
                 kind: FeatureVisualKind::Boss,
                 visible: boss.alive,
                 flash: boss.hit_flash > 0.0
-                    || boss.attack_windup_timer > 0.0
-                    || boss.attack_timer > 0.0,
+                    || attack_state.telegraph_profile.is_some()
+                    || attack_state.active_profile.is_some(),
                 switch_on: false,
                 rotation_rad: 0.0,
             })
@@ -694,7 +696,12 @@ pub fn sync_gnu_ton_hands(
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
     world_time: Res<crate::WorldTime>,
-    ecs_bosses: Query<(&FeatureId, &BossFeature)>,
+    ecs_bosses: Query<(
+        &FeatureId,
+        &BossFeature,
+        &crate::brain::BossAttackState,
+        &crate::brain::Brain,
+    )>,
     mut query: Query<
         (
             &FeatureVisual,

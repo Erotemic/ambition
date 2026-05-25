@@ -309,6 +309,12 @@ pub struct BossPatternCfg {
     /// Cycle-mode cooldown duration (seconds). Built from
     /// `BossBehaviorProfile::attack_cooldown.max(0.05)`.
     pub cycle_attack_cooldown: f32,
+    /// Cycle-mode rotation of attack profiles. The brain picks
+    /// `cycle_attacks[(pattern_timer / cycle_attack_cooldown).floor() % len]`
+    /// each tick and writes that into `BossAttackState.active_profile`
+    /// (during Active phase) or `BossAttackState.telegraph_profile`
+    /// (during Windup phase). Empty for `Scripted` bosses.
+    pub cycle_attacks: Vec<BossAttackProfile>,
     /// Apple-rain horizontal dodge amplitude (px). The GNU-ton brain
     /// adds a horizontal sway during an active GnuAppleRain strike
     /// so the giant reads as "stepping aside to avoid its own
@@ -339,6 +345,7 @@ impl BossPatternCfg {
             cycle_attack_windup: 0.5,
             cycle_attack_active: 0.2,
             cycle_attack_cooldown: 0.5,
+            cycle_attacks: Vec::new(),
             apple_rain_dodge_amp: 0.0,
             apple_rain_dodge_freq: 0.0,
         }
@@ -608,22 +615,26 @@ fn advance_cycle(
         };
     }
 
-    // Cycle-mode bosses don't carry a per-profile schedule; the
-    // attack identity is computed by `BossRuntime::cycle_pattern_volumes`
-    // from the boss's `attacks` list + pattern_timer. Mirror the
-    // phase into BossAttackState so debug overlay / damage have a
-    // single source of truth ("there's a hot hitbox right now"),
-    // but leave `active_profile` as `None` — the volume math is
-    // pattern_timer-driven, not profile-driven, for Cycle.
+    // Pick the active profile from the cycle rotation. Matches the
+    // historic `BossRuntime::cycle_pattern_volumes` math
+    // `(pattern_timer / attack_cooldown).floor() % attacks.len()`
+    // — preserved for parity. Cfg with an empty `cycle_attacks`
+    // (defensively) falls back to `FullBodyPulse`.
+    let profile = if cfg.cycle_attacks.is_empty() {
+        BossAttackProfile::FullBodyPulse
+    } else {
+        let cooldown = cfg.cycle_attack_cooldown.max(0.05);
+        let idx = ((state.pattern_timer / cooldown) as usize) % cfg.cycle_attacks.len();
+        cfg.cycle_attacks[idx].clone()
+    };
     match state.cycle_phase {
         CyclePhase::Windup => {
-            // Legacy cycle path historically rendered the telegraph
-            // and the strike using the SAME `cycle_pattern_volumes`
-            // call (see `attack_telegraph_volumes`). Mark the
-            // telegraph mirror so the gate is true; the profile
-            // stays `None` (the volume rendering doesn't read it
-            // for Cycle).
-            attack_state.telegraph_profile = Some(BossAttackProfile::FullBodyPulse);
+            // Cycle telegraph and strike share the same profile —
+            // the legacy `attack_telegraph_volumes` and
+            // `attack_volumes` both routed through
+            // `cycle_pattern_volumes`. Mirror that here by writing
+            // the rotation's current profile into telegraph_profile.
+            attack_state.telegraph_profile = Some(profile);
             attack_state.telegraph_remaining = state.cycle_phase_remaining;
             attack_state.active_profile = None;
             attack_state.active_remaining = 0.0;
@@ -631,7 +642,7 @@ fn advance_cycle(
         CyclePhase::Active => {
             attack_state.telegraph_profile = None;
             attack_state.telegraph_remaining = 0.0;
-            attack_state.active_profile = Some(BossAttackProfile::FullBodyPulse);
+            attack_state.active_profile = Some(profile);
             attack_state.active_remaining = state.cycle_phase_remaining;
         }
         CyclePhase::Cooldown => attack_state.clear(),

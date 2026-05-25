@@ -31,12 +31,14 @@ import importlib
 import shutil
 from pathlib import Path
 from typing import (
+    Any,
     Callable,
     Dict,
     Iterable,
     Iterator,
     List,
     NamedTuple,
+    Mapping,
     Optional,
     Protocol,
     Sequence,
@@ -83,33 +85,47 @@ ADAPTER_HELPER_STEMS: frozenset[str] = frozenset({
 def _copy_sheet_files(
     sheet_files: "Sequence[str]", render_dir: Path, dest_root: Path,
 ) -> List[Path]:
-    """Copy every entry in ``sheet_files`` from ``render_dir`` to ``dest_root``,
-    plus the matching ``.ron`` sidecar for any ``.yaml`` entry that has one.
+    """Copy every listed sheet file plus optional generated sidecars.
 
-    Targets emitted via `tackon_sheet.build_sheet` (and similar) always
-    produce a `<stem>.ron` next to each `<stem>.yaml`, but many tack-on
-    modules predate the RON sidecar convention and don't list the .ron
-    in their `SHEET_FILES`. Pair them automatically so the sandbox
-    runtime always gets the RON the SheetRegistry expects.
+    Runtime-compatible sheets have long shipped ``*_spritesheet.ron`` next to
+    their YAML manifests. The renderer now also emits optional
+    ``*_actor.ron`` contracts; copy them opportunistically so old targets and
+    old manifests keep working while new metadata can ride along.
     """
     copied: List[Path] = []
+    copied_names: set[str] = set()
     listed = set(sheet_files)
-    for fname in sheet_files:
+
+    def copy_if_exists(fname: str) -> None:
+        if fname in copied_names:
+            return
         src = render_dir / fname
         if not src.exists():
-            continue
+            return
         dst = dest_root / fname
+        dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
         copied.append(dst)
+        copied_names.add(fname)
+
+    def companions_for(fname: str) -> List[str]:
+        out: List[str] = []
         if fname.endswith(".yaml"):
-            ron_name = fname[:-5] + ".ron"
-            if ron_name in listed:
-                continue
-            ron_src = render_dir / ron_name
-            if ron_src.exists():
-                ron_dst = dest_root / ron_name
-                shutil.copy2(ron_src, ron_dst)
-                copied.append(ron_dst)
+            out.append(fname[:-5] + ".ron")
+        stem = None
+        for suffix in ("_spritesheet.yaml", "_spritesheet.ron", "_spritesheet.png"):
+            if fname.endswith(suffix):
+                stem = fname[: -len(suffix)]
+                break
+        if stem:
+            out.append(f"{stem}_actor.ron")
+        return out
+
+    for fname in sheet_files:
+        copy_if_exists(fname)
+        for companion in companions_for(fname):
+            if companion not in listed:
+                copy_if_exists(companion)
     return copied
 
 
@@ -147,6 +163,54 @@ class Target(Protocol):
         ...
 
 
+# ---- Optional actor-contract sidecar hook -----------------------------------
+
+
+def _ensure_actor_sidecars(
+    *,
+    target_name: str,
+    render_dir: Path,
+    paths: Sequence[Path],
+    actor_metadata: Mapping[str, Any] | None = None,
+) -> List[Path]:
+    """Ensure every rendered ``*_spritesheet.yaml`` has ``*_actor.ron``.
+
+    Most modern targets already emit the sidecar from ``tackon_sheet``. This
+    post-render hook covers older/custom tack-ons and lets module-level
+    ``ACTOR_METADATA`` enrich the inferred contract without forcing every
+    bespoke renderer through the generic sheet builder immediately.
+    """
+    from .actor_contract import write_actor_contract_for_tackon
+    import yaml
+
+    extras: List[Path] = []
+    for path in list(paths):
+        path = Path(path)
+        if path.suffix != ".yaml" or not path.name.endswith("_spritesheet.yaml"):
+            continue
+        actor_path = path.with_name(path.name.replace("_spritesheet.yaml", "_actor.ron"))
+        if actor_path.exists() and not actor_metadata:
+            continue
+        try:
+            manifest = yaml.safe_load(path.read_text(encoding="utf8")) or {}
+        except Exception:
+            continue
+        if not isinstance(manifest, dict):
+            continue
+        image_name = str(manifest.get("image") or path.name.replace(".yaml", ".png"))
+        ron_path = path.with_suffix(".ron")
+        write_actor_contract_for_tackon(
+            target=target_name,
+            image_out=path.with_name(image_name),
+            sheet_ron_out=ron_path,
+            manifest=manifest,
+            actor_metadata=actor_metadata or {},
+        )
+        if actor_path.exists():
+            extras.append(actor_path)
+    return extras
+
+
 # ---- TackonTarget ------------------------------------------------------------
 
 
@@ -163,6 +227,7 @@ class TackonTarget:
         sheet_files: Tuple[str, ...],
         install: Optional[Callable] = None,
         render_canonical: Optional[Callable] = None,
+        actor_metadata: Mapping[str, Any] | None = None,
     ) -> None:
         self.name = name
         self.category = category
@@ -171,11 +236,19 @@ class TackonTarget:
         self._render_sheet_fn = render
         self._install_fn = install
         self._render_canonical_fn = render_canonical
+        self._actor_metadata = dict(actor_metadata or {})
 
     def render_sheet(self, out_dir: Path, **opts) -> List[Path]:
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
-        return list(self._render_sheet_fn(out_dir, **opts))
+        paths = list(self._render_sheet_fn(out_dir, **opts))
+        paths.extend(_ensure_actor_sidecars(
+            target_name=self.name,
+            render_dir=out_dir,
+            paths=paths,
+            actor_metadata=self._actor_metadata,
+        ))
+        return paths
 
     def render_canonical(self, out_dir: Path, **opts) -> Path:
         """Draw just the canonical pose into ``out_dir``.
@@ -244,6 +317,7 @@ class AdapterTarget:
             f"{self.name}_spritesheet.png",
             f"{self.name}_spritesheet.yaml",
             f"{self.name}_spritesheet.ron",
+            f"{self.name}_actor.ron",
         )
 
     def render_canonical(self, out_dir: Path, **opts) -> Path:
@@ -269,7 +343,11 @@ class AdapterTarget:
         out_dir.mkdir(parents=True, exist_ok=True)
         image_out = out_dir / f"{self.name}_spritesheet.png"
         manifest_out = out_dir / f"{self.name}_spritesheet.yaml"
-        return list(write_spritesheet(self._job, image_out, manifest_out))
+        paths = list(write_spritesheet(self._job, image_out, manifest_out, source_config=self._config_path))
+        actor_out = out_dir / f"{self.name}_actor.ron"
+        if actor_out.exists():
+            paths.append(actor_out)
+        return paths
 
     def install(self, render_dir: Path, dest_root: Path) -> List[Path]:
         """Default copy of `sheet_files`; same default as TackonTarget."""
@@ -320,6 +398,7 @@ def default_sheet_files(stem: str) -> List[str]:
         f"{stem}_spritesheet.png",
         f"{stem}_spritesheet.yaml",
         f"{stem}_spritesheet.ron",
+        f"{stem}_actor.ron",
     ]
 
 
@@ -341,6 +420,7 @@ def _build_tackon_single(
         sheet_files=sheet_files,
         install=install_fn,
         render_canonical=render_canonical_fn,
+        actor_metadata=getattr(mod, "ACTOR_METADATA", None),
     )
 
 
@@ -371,6 +451,7 @@ def _build_tackon_multi(
             sheet_files=sheet_files,
             install=install_fn,
             render_canonical=render_canonical_fn,
+            actor_metadata=spec.get("actor_metadata") or getattr(mod, "ACTOR_METADATA", None),
         ))
     return results
 

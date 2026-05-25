@@ -53,19 +53,35 @@ class CharacterJob:
     role: Optional[str] = None
     music_cue: Optional[str] = None
     tags: List[str] = field(default_factory=list)
-    # Optional per-target gameplay tuning that propagates into the
-    # sidecar RON manifest as `tuning: Some(...)`. Per ADR 0017's
-    # V3/D4 migration: when present, the Rust runtime prefers this
-    # over its hardcoded `*_SHEET` const's `SheetTuning`. Authoring-
-    # facing keys: `collision_scale` (f32) + `frame_sample_inset` (u32).
+    # Optional legacy sheet tuning emitted into the SheetRecord RON.
+    # `sheet_tuning:` is canonical; `tuning:` is accepted as a YAML alias.
     sheet_tuning: Optional[Dict[str, Any]] = None
+    # Optional sidecar contract fields. These are emitted into
+    # <stem>_actor.ron and ignored by current sandbox builds. Keep them
+    # loose dictionaries so existing configs remain compatible while the
+    # renderer grows a richer actor-spec vocabulary.
+    actor: Dict[str, Any] = field(default_factory=dict)
+    visual: Dict[str, Any] = field(default_factory=dict)
+    body: Dict[str, Any] = field(default_factory=dict)
+    capabilities: Dict[str, Any] = field(default_factory=dict)
+    brain: Dict[str, Any] = field(default_factory=dict)
+    actions: Dict[str, Any] = field(default_factory=dict)
+    animation_bindings: Dict[str, Any] = field(default_factory=dict)
+    sockets: Dict[str, Any] = field(default_factory=dict)
+    missing_information: List[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "CharacterJob":
         render = RenderConfig(**dict(data.get("render") or {}))
         animations = list(data.get("animations") or DEFAULT_ANIMATIONS)
         spec_overrides = dict(data.get("spec") or data.get("spec_overrides") or {})
-        sheet_tuning = data.get("sheet_tuning") or data.get("tuning")
+        # Preserve the existing sheet-tuning contract used by Rust SheetRecord
+        # loading. Prefer the explicit `sheet_tuning:` key when both are
+        # present; accept `tuning:` as a short alias for hand-authored YAML.
+        raw_sheet_tuning = data.get("sheet_tuning")
+        if raw_sheet_tuning is None:
+            raw_sheet_tuning = data.get("tuning")
+        sheet_tuning = dict(raw_sheet_tuning) if isinstance(raw_sheet_tuning, dict) else None
         return cls(
             target=str(data["target"]),
             name=data.get("name"),
@@ -81,7 +97,16 @@ class CharacterJob:
             role=data.get("role"),
             music_cue=data.get("music_cue"),
             tags=list(data.get("tags") or []),
-            sheet_tuning=dict(sheet_tuning) if isinstance(sheet_tuning, dict) else None,
+            sheet_tuning=sheet_tuning,
+            actor=dict(data.get("actor") or {}),
+            visual=dict(data.get("visual") or {}),
+            body=dict(data.get("body") or {}),
+            capabilities=dict(data.get("capabilities") or {}),
+            brain=dict(data.get("brain") or {}),
+            actions=dict(data.get("actions") or {}),
+            animation_bindings=dict(data.get("animation_bindings") or {}),
+            sockets=dict(data.get("sockets") or {}),
+            missing_information=list(data.get("missing_information") or []),
         )
 
     @classmethod
@@ -117,6 +142,16 @@ class CharacterJob:
             "role": self.role,
             "music_cue": self.music_cue,
             "tags": list(self.tags),
+            "sheet_tuning": dict(self.sheet_tuning) if self.sheet_tuning is not None else None,
+            "actor": dict(self.actor),
+            "visual": dict(self.visual),
+            "body": dict(self.body),
+            "capabilities": dict(self.capabilities),
+            "brain": dict(self.brain),
+            "actions": dict(self.actions),
+            "animation_bindings": dict(self.animation_bindings),
+            "sockets": dict(self.sockets),
+            "missing_information": list(self.missing_information),
         }
 
 

@@ -1,0 +1,582 @@
+"""Sparse actor-contract sidecars for generated sprite sheets.
+
+The renderer's long-standing ``*_spritesheet.ron`` files describe pixel
+layout: image path, frame rectangles, row names, durations, body metrics.
+This module emits a *second*, optional sidecar, ``*_actor.ron``, that describes
+how those pixels may be used by the game: stable character identity, optional
+body/capability hints, sparse sockets, default brain/action presets, and
+animation/action bindings.
+
+The sandbox does not consume these files yet. The design goal is to let the
+renderer start producing rich, inspectable data without disturbing the current
+runtime loader. Every field is intentionally optional or inferred: generated
+characters can be zombies with no hands, props with no traversal, bosses with
+bespoke sheets, or humanoids with conventional locomotion rows.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Iterable, Mapping, MutableMapping, Sequence
+
+
+# ---- Tiny RON emitter -------------------------------------------------------
+#
+# Kept local for the same reason as the sheet emitters: the shape is small and
+# easy to inspect in diffs, and the renderer intentionally avoids a python-ron
+# dependency.  These wrapper classes let us distinguish RON structs, maps, and
+# Some(...) options while still building the contract as ordinary Python data.
+
+
+@dataclass(frozen=True)
+class RonSome:
+    value: Any
+
+
+@dataclass(frozen=True)
+class RonStruct:
+    fields: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
+class RonMap:
+    values: Mapping[str, Any]
+
+
+def some(value: Any) -> RonSome:
+    return RonSome(value)
+
+
+def struct(**fields: Any) -> RonStruct:
+    return RonStruct({k: v for k, v in fields.items()})
+
+
+def ron_map(values: Mapping[str, Any] | None = None) -> RonMap:
+    return RonMap(dict(values or {}))
+
+
+def _ron_escape(s: str) -> str:
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _ron_atom(value: Any, indent: int = 0) -> str:
+    pad = " " * indent
+    child = indent + 4
+    if isinstance(value, RonSome):
+        return f"Some({_ron_atom(value.value, indent)})"
+    if isinstance(value, RonStruct):
+        if not value.fields:
+            return "()"
+        lines = ["("]
+        for key, item in value.fields.items():
+            lines.append(f"{' ' * child}{key}: {_ron_atom(item, child)},")
+        lines.append(f"{pad})")
+        return "\n".join(lines)
+    if isinstance(value, RonMap):
+        if not value.values:
+            return "{}"
+        lines = ["{"]
+        for key in sorted(value.values):
+            lines.append(
+                f"{' ' * child}\"{_ron_escape(str(key))}\": {_ron_atom(value.values[key], child)},"
+            )
+        lines.append(f"{pad}}}")
+        return "\n".join(lines)
+    if value is None:
+        return "None"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        # Always include a decimal point so RON/Rust readers don't infer int.
+        text = f"{value:.6f}".rstrip("0").rstrip(".")
+        if "." not in text:
+            text += ".0"
+        return text
+    if isinstance(value, str):
+        return f'"{_ron_escape(value)}"'
+    if isinstance(value, Mapping):
+        return _ron_atom(ron_map(value), indent)
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return "[]"
+        lines = ["["]
+        for item in value:
+            lines.append(f"{' ' * child}{_ron_atom(item, child)},")
+        lines.append(f"{pad}]")
+        return "\n".join(lines)
+    raise TypeError(f"unsupported RON value {value!r} ({type(value).__name__})")
+
+
+def to_ron(value: RonStruct) -> str:
+    return (
+        "// Auto-emitted optional actor contract. Current sandbox builds ignore\n"
+        "// this file; it is the renderer -> engine sidecar for future actor\n"
+        "// spec ingestion. Keep fields sparse: capabilities create requirements,\n"
+        "// and missing data should be explicit rather than guessed silently.\n"
+        f"{_ron_atom(value)}\n"
+    )
+
+
+# ---- Contract inference -----------------------------------------------------
+
+
+BASE_CHARACTER_IDS = {
+    "player_robot": "player",
+    "robot": "robot",
+    "goblin": "goblin",
+    "sandbag": "sandbag",
+}
+
+IDLE_CANDIDATES = ("idle", "rest", "front_idle", "side_idle", "opening", "stable")
+WALK_CANDIDATES = ("walk", "side_walk", "shamble", "stable")
+MELEE_CANDIDATES = (
+    "slash",
+    "attack_side",
+    "bite",
+    "floor_slam",
+    "side_sweep",
+    "stomp",
+)
+RANGED_CANDIDATES = ("shoot", "aim", "cast", "spike_halo")
+HIT_CANDIDATES = ("hit", "hurt")
+DEATH_CANDIDATES = ("death",)
+
+
+def _spritesheet_stem(path: str | Path) -> str:
+    stem = Path(path).stem
+    return stem[:-12] if stem.endswith("_spritesheet") else stem
+
+
+def actor_sidecar_path_for_image(image_path: str | Path) -> Path:
+    path = Path(image_path)
+    return path.with_name(f"{_spritesheet_stem(path)}_actor.ron")
+
+
+def _humanize(stem: str) -> str:
+    return " ".join(part.capitalize() for part in stem.replace("npc_", "").split("_") if part)
+
+
+def _as_mapping(value: Any) -> Dict[str, Any]:
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _deep_merge(base: Dict[str, Any], overlay: Mapping[str, Any]) -> Dict[str, Any]:
+    result = dict(base)
+    for key, value in overlay.items():
+        if isinstance(value, Mapping) and isinstance(result.get(key), Mapping):
+            result[key] = _deep_merge(dict(result[key]), value)
+        else:
+            result[key] = value
+    return result
+
+
+def _rows_from_manifest(manifest: Mapping[str, Any]) -> list[str]:
+    if isinstance(manifest.get("rows"), list):
+        return [str(row.get("animation")) for row in manifest["rows"] if isinstance(row, Mapping) and row.get("animation")]
+    anims = manifest.get("animations")
+    if isinstance(anims, Mapping):
+        return [str(name) for name in anims.keys()]
+    return []
+
+
+def _first_present(rows: Iterable[str], candidates: Sequence[str]) -> str | None:
+    row_set = set(rows)
+    for cand in candidates:
+        if cand in row_set:
+            return cand
+    return None
+
+
+def _character_id_for(stem: str, target: str | None, explicit: str | None = None) -> str:
+    if explicit:
+        return explicit
+    if stem in BASE_CHARACTER_IDS:
+        return BASE_CHARACTER_IDS[stem]
+    if stem.startswith("npc_"):
+        return stem
+    # Base adapter config sheets keep their short IDs. Named/configured
+    # characters become catalog-style NPC IDs by default.
+    if target and stem == target and target in {"robot", "goblin", "sandbag", "ninja", "boss"}:
+        return stem
+    return f"npc_{stem}"
+
+
+def _derive_body_plan(stem: str, target: str | None, tags: Sequence[str], rows: Sequence[str]) -> str | None:
+    hay = " ".join([stem, target or "", *tags]).lower()
+    if "boss" in hay or stem in {"boss", "gnu_ton_boss", "mockingbird_boss"}:
+        return "BossMultipart"
+    if "house" in hay or "portrait" in hay or "prop" in hay or "board" in hay:
+        return "PropActor"
+    if "slug" in hay:
+        return "Crawler"
+    if "shark" in hay or "flying" in hay or "fly" in rows or "hover" in rows:
+        return "Flyer"
+    if target in {"robot", "goblin", "toon", "ninja", "sandbag", "trent_elder"}:
+        return "HumanoidBiped"
+    if any(row in rows for row in ("walk", "run", "slash", "talk", "interact")):
+        return "HumanoidBiped"
+    return None
+
+
+def _derive_body_kind(body_plan: str | None, stem: str, tags: Sequence[str]) -> str | None:
+    hay = " ".join([stem, *(tags or [])]).lower()
+    if body_plan == "BossMultipart":
+        return "Wide"
+    if "heavy" in hay or "brute" in hay or "mauler" in hay or "trex" in hay:
+        return "Wide"
+    if body_plan == "Crawler":
+        return "LowProfile"
+    if body_plan == "PropActor":
+        return "PropLike"
+    if body_plan:
+        return "Standard"
+    return None
+
+
+def _derive_locomotion(rows: Sequence[str], body_plan: str | None, target: str | None) -> str | None:
+    row_set = set(rows)
+    if body_plan == "Flyer" or {"fly", "hover", "float_glide"} & row_set:
+        return "Fly"
+    if body_plan == "Crawler":
+        return "Slither"
+    if target == "boss" or body_plan == "BossMultipart":
+        return "BossKinematic"
+    if {"walk", "run", "side_walk", "shamble", "stable"} & row_set:
+        return "Walk"
+    return None
+
+
+def _derive_animation_bindings(rows: Sequence[str]) -> Dict[str, RonStruct]:
+    bindings: Dict[str, RonStruct] = {}
+    default = _first_present(rows, IDLE_CANDIDATES) or (rows[0] if rows else None)
+    if default:
+        bindings["default"] = struct(animation=default, events=[])
+    walk = _first_present(rows, WALK_CANDIDATES)
+    if walk:
+        bindings["locomotion.walk"] = struct(animation=walk, events=[])
+    if "run" in rows:
+        bindings["locomotion.run"] = struct(animation="run", events=[])
+    if "hover" in rows:
+        bindings["locomotion.hover"] = struct(animation="hover", events=[])
+    if "fly" in rows:
+        bindings["locomotion.fly"] = struct(animation="fly", events=[])
+    melee = _first_present(rows, MELEE_CANDIDATES)
+    if melee:
+        bindings["action.melee.primary"] = struct(
+            animation=melee,
+            events=[
+                struct(t=0.35, event="hitbox_active_start", source="renderer_default"),
+                struct(t=0.55, event="hitbox_active_end", source="renderer_default"),
+            ],
+        )
+    ranged = _first_present(rows, RANGED_CANDIDATES)
+    if ranged:
+        bindings["action.ranged.primary"] = struct(
+            animation=ranged,
+            events=[struct(t=0.5, event="projectile_release", source="renderer_default")],
+        )
+    if "talk" in rows:
+        bindings["interaction.talk"] = struct(animation="talk", events=[])
+    if "interact" in rows:
+        bindings["interaction.use"] = struct(animation="interact", events=[])
+    hit = _first_present(rows, HIT_CANDIDATES)
+    if hit:
+        bindings["damage.hit"] = struct(animation=hit, events=[])
+    death = _first_present(rows, DEATH_CANDIDATES)
+    if death:
+        bindings["lifecycle.death"] = struct(animation=death, events=[])
+    return bindings
+
+
+def _derive_sockets(manifest: Mapping[str, Any]) -> Dict[str, RonStruct]:
+    sockets: Dict[str, RonStruct] = {}
+    bm = manifest.get("body_metrics")
+    if not isinstance(bm, Mapping):
+        return sockets
+    feet = bm.get("feet_pixel")
+    if isinstance(feet, Mapping) and "x" in feet and "y" in feet:
+        sockets["feet"] = struct(
+            source="body_metrics.feet_pixel",
+            animation=None,
+            frame=None,
+            point=struct(x=float(feet["x"]), y=float(feet["y"])),
+        )
+    bbox = bm.get("body_pixel_bbox")
+    if isinstance(bbox, Mapping) and all(k in bbox for k in ("x", "y", "w", "h")):
+        x = float(bbox["x"])
+        y = float(bbox["y"])
+        w = float(bbox["w"])
+        h = float(bbox["h"])
+        sockets["center"] = struct(
+            source="body_metrics.body_pixel_bbox",
+            animation=None,
+            frame=None,
+            point=struct(x=x + w * 0.5, y=y + h * 0.5),
+        )
+        sockets["head"] = struct(
+            source="body_metrics.body_pixel_bbox",
+            animation=None,
+            frame=None,
+            point=struct(x=x + w * 0.5, y=y),
+        )
+    return sockets
+
+
+def _derive_presets(target: str | None, archetype: str | None, role: str | None, tags: Sequence[str], held_item: str | None) -> tuple[str | None, str | None]:
+    words = {str(x).lower() for x in [target, archetype, role, held_item, *tags] if x}
+    if "training_dummy" in words or target == "sandbag":
+        return "stand_still", "sandbag_punch"
+    if "boss" in words:
+        return "stand_still", "peaceful"
+    if "enemy" in words or target in {"goblin", "ninja"}:
+        if held_item in {"bow", "staff"} or "ranger" in words or "shaman" in words:
+            return "skirmisher_ranger", "ranger_arrow"
+        if "brute" in words or "hammer" in words or "guardian" in words or "heavy" in words:
+            return "melee_brute_brute", "brute_lunge"
+        return "melee_brute_striker", "striker_swipe"
+    if target == "robot" and ("runner" in words or "guardian" in words):
+        return "melee_brute_striker", "striker_swipe"
+    return "patrol_peaceful", "peaceful"
+
+
+def _traversal(rows: Sequence[str], body_plan: str | None) -> RonStruct:
+    row_set = set(rows)
+    walk = bool({"walk", "run", "side_walk", "shamble", "stable"} & row_set or body_plan in {"HumanoidBiped", "Crawler"})
+    fly = bool(body_plan == "Flyer" or {"fly", "hover", "float_glide"} & row_set)
+    return struct(
+        walk=some(walk) if walk else None,
+        jump=some(struct(height_px=None, distance_px=None, source="animation_rows")) if {"jump", "wall_jump"} & row_set else None,
+        climb=some(True) if {"climb", "ledge_climb", "ledge_grab", "wall_grab"} & row_set else None,
+        fly=some(True) if fly else None,
+        swim=some(True) if "swim" in row_set else None,
+        crawl=None,
+        use_lifts=None,
+        door_access=[],
+    )
+
+
+def _interactions(rows: Sequence[str], stem: str, tags: Sequence[str]) -> RonStruct:
+    hay = " ".join([stem, *tags]).lower()
+    return struct(
+        talk=some(True) if "talk" in rows else None,
+        trade=some(True) if "merchant" in hay or "shop" in hay else None,
+        carry=None,
+        open_doors=[],
+    )
+
+
+def _normalize_authoring_block(block: Mapping[str, Any] | None) -> Dict[str, Any]:
+    return dict(block or {})
+
+
+def _mapping_to_struct_map(values: Mapping[str, Any]) -> RonMap:
+    converted: Dict[str, Any] = {}
+    for key, value in values.items():
+        if isinstance(value, RonStruct):
+            converted[key] = value
+        elif isinstance(value, Mapping):
+            converted[key] = _mapping_to_struct(value)
+        else:
+            converted[key] = value
+    return ron_map(converted)
+
+
+
+def _capability_override_struct(value: Mapping[str, Any]) -> RonStruct:
+    fields = {}
+    for key, item in value.items():
+        if isinstance(item, Mapping):
+            fields[key] = some(_capability_override_struct(item))
+        elif item is None:
+            fields[key] = None
+        elif isinstance(item, list):
+            fields[key] = item
+        else:
+            fields[key] = some(item)
+    return struct(**fields)
+
+def _mapping_to_struct(value: Mapping[str, Any]) -> RonStruct:
+    fields = {}
+    for key, item in value.items():
+        if isinstance(item, Mapping):
+            fields[key] = _mapping_to_struct(item)
+        elif isinstance(item, list):
+            fields[key] = [_mapping_to_struct(x) if isinstance(x, Mapping) else x for x in item]
+        else:
+            fields[key] = item
+    return struct(**fields)
+
+
+def build_actor_contract(
+    *,
+    stem: str,
+    target: str | None,
+    image: str,
+    sheet_manifest: str,
+    manifest: Mapping[str, Any],
+    job_data: Mapping[str, Any] | None = None,
+    authoring: Mapping[str, Any] | None = None,
+) -> RonStruct:
+    """Build the sparse actor contract for one rendered sheet.
+
+    ``job_data`` is the flattened CharacterJob-style metadata; ``authoring`` is
+    the optional nested override block from YAML or a tack-on target. Both are
+    deliberately loose dictionaries so old configs stay compatible.
+    """
+    job_data = dict(job_data or {})
+    authoring = dict(authoring or {})
+    actor_block = _normalize_authoring_block(authoring.get("actor"))
+    rows = _rows_from_manifest(manifest)
+    tags = list(dict.fromkeys([*(job_data.get("tags") or []), *(actor_block.get("tags") or authoring.get("tags") or [])]))
+    explicit_character_id = actor_block.get("character_id") or authoring.get("character_id")
+    character_id = _character_id_for(stem, target, explicit_character_id)
+    display_name = actor_block.get("display_name") or authoring.get("display_name") or job_data.get("name") or _humanize(stem)
+    body_plan = actor_block.get("body_plan") or _as_mapping(authoring.get("body")).get("body_plan") or _derive_body_plan(stem, target, tags, rows)
+    body_kind = _as_mapping(authoring.get("body")).get("body_kind") or _derive_body_kind(body_plan, stem, tags)
+    locomotion = _as_mapping(authoring.get("body")).get("locomotion_hint") or _derive_locomotion(rows, body_plan, target)
+    brain_preset, action_preset = _derive_presets(
+        target,
+        job_data.get("archetype"),
+        job_data.get("role"),
+        tags,
+        job_data.get("held_item"),
+    )
+    explicit_brain = _as_mapping(authoring.get("brain")).get("default_preset") or authoring.get("brain")
+    explicit_actions = _as_mapping(authoring.get("actions")).get("default_preset") or authoring.get("actions")
+    anim_bindings = _derive_animation_bindings(rows)
+    anim_bindings = _deep_merge(anim_bindings, _as_mapping(authoring.get("animation_bindings")))
+    sockets = _derive_sockets(manifest)
+    sockets = _deep_merge(sockets, _as_mapping(authoring.get("sockets")))
+    body_override = _as_mapping(authoring.get("body"))
+    capabilities_override = _as_mapping(authoring.get("capabilities"))
+    visual_override = _as_mapping(authoring.get("visual"))
+    missing = [
+        "collision: not authored; engine should derive from sheet body_metrics or LDtk AABB",
+        "hurtbox: not authored; fallback to collision/body metrics",
+        "socket hand_r: absent unless renderer provides it; actions must use fallback or another socket",
+        "socket muzzle: absent unless renderer provides it; ranged actions must use fallback or another socket",
+        "capability numbers: traversal booleans inferred from rows; jump height/distance not measured",
+    ]
+    missing.extend(str(x) for x in (authoring.get("missing_information") or []))
+    visual = struct(
+        sheet_id=visual_override.get("sheet_id", stem),
+        spritesheet=visual_override.get("spritesheet", image),
+        sheet_manifest=visual_override.get("sheet_manifest", sheet_manifest),
+        default_pose=some(visual_override.get("default_pose") or _first_present(rows, IDLE_CANDIDATES) or (rows[0] if rows else "")),
+        facing_policy=visual_override.get("facing_policy", None),
+        scale=visual_override.get("scale", None),
+    )
+    body = struct(
+        body_kind=some(body_kind) if body_kind else None,
+        body_plan=some(body_plan) if body_plan else None,
+        collision=body_override.get("collision", None),
+        hurtbox=body_override.get("hurtbox", None),
+        mass_class=some(body_override.get("mass_class")) if body_override.get("mass_class") else None,
+        locomotion_hint=some(locomotion) if locomotion else None,
+        body_metrics_source=some("sheet.body_metrics") if manifest.get("body_metrics") else None,
+        traits=list(dict.fromkeys(body_override.get("traits") or [])),
+    )
+    capabilities = struct(
+        traversal=some(_capability_override_struct(capabilities_override.get("traversal"))) if isinstance(capabilities_override.get("traversal"), Mapping) else some(_traversal(rows, body_plan)),
+        interactions=some(_capability_override_struct(capabilities_override.get("interactions"))) if isinstance(capabilities_override.get("interactions"), Mapping) else some(_interactions(rows, stem, tags)),
+    )
+    return struct(
+        schema_version=1,
+        character_id=character_id,
+        actor_id=actor_block.get("actor_id", None),
+        display_name=some(str(display_name)) if display_name else None,
+        provenance=some(struct(
+            surface=job_data.get("surface", "adapter" if job_data else "tackon"),
+            renderer_target=target or stem,
+            output_stem=stem,
+            seed=job_data.get("seed", None),
+            archetype=job_data.get("archetype", None),
+            variant=job_data.get("variant", None),
+            held_item=job_data.get("held_item", None),
+            source_config=job_data.get("source_config", None),
+        )),
+        visual=some(visual),
+        body=some(body),
+        capabilities=some(capabilities),
+        brain=some(struct(default_preset=some(str(explicit_brain or brain_preset)) if (explicit_brain or brain_preset) else None)),
+        actions=some(struct(default_preset=some(str(explicit_actions or action_preset)) if (explicit_actions or action_preset) else None)),
+        animation_bindings=_mapping_to_struct_map(anim_bindings),
+        sockets=_mapping_to_struct_map(sockets),
+        tags=tags,
+        missing_information=missing,
+    )
+
+
+def write_actor_contract(path: str | Path, contract: RonStruct) -> Path:
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(to_ron(contract), encoding="utf8")
+    return out
+
+
+def write_actor_contract_for_adapter(
+    *,
+    image_out: str | Path,
+    sheet_ron_out: str | Path,
+    manifest: Mapping[str, Any],
+    job: Any,
+    source_config: str | Path | None = None,
+) -> Path:
+    image_out = Path(image_out)
+    stem = _spritesheet_stem(image_out)
+    job_data = {
+        "surface": "adapter",
+        "source_config": str(source_config) if source_config is not None else None,
+        "name": getattr(job, "name", None),
+        "seed": getattr(job, "seed", None),
+        "archetype": getattr(job, "archetype", None),
+        "variant": getattr(job, "variant", None),
+        "held_item": getattr(job, "held_item", None),
+        "role": getattr(job, "role", None),
+        "tags": list(getattr(job, "tags", []) or []),
+    }
+    authoring = {
+        "actor": getattr(job, "actor", {}) or {},
+        "visual": getattr(job, "visual", {}) or {},
+        "body": getattr(job, "body", {}) or {},
+        "capabilities": getattr(job, "capabilities", {}) or {},
+        "brain": getattr(job, "brain", {}) or {},
+        "actions": getattr(job, "actions", {}) or {},
+        "animation_bindings": getattr(job, "animation_bindings", {}) or {},
+        "sockets": getattr(job, "sockets", {}) or {},
+        "missing_information": getattr(job, "missing_information", []) or [],
+    }
+    contract = build_actor_contract(
+        stem=stem,
+        target=str(getattr(job, "target", stem)),
+        image=image_out.name,
+        sheet_manifest=Path(sheet_ron_out).name,
+        manifest=manifest,
+        job_data=job_data,
+        authoring=authoring,
+    )
+    return write_actor_contract(actor_sidecar_path_for_image(image_out), contract)
+
+
+def write_actor_contract_for_tackon(
+    *,
+    target: str,
+    image_out: str | Path,
+    sheet_ron_out: str | Path,
+    manifest: Mapping[str, Any],
+    actor_metadata: Mapping[str, Any] | None = None,
+) -> Path:
+    image_out = Path(image_out)
+    stem = _spritesheet_stem(image_out)
+    contract = build_actor_contract(
+        stem=stem,
+        target=target,
+        image=image_out.name,
+        sheet_manifest=Path(sheet_ron_out).name,
+        manifest=manifest,
+        job_data={"surface": "tackon", "tags": []},
+        authoring=actor_metadata or {},
+    )
+    return write_actor_contract(actor_sidecar_path_for_image(image_out), contract)

@@ -20,3 +20,22 @@ render:
   sheet_background: transparent
   border: 0
   label_width: 100
+actor:
+  character_id: npc_ai_slop_zeta
+  display_name: AI Slop Zeta
+body:
+  body_plan: BossMultipart
+  body_kind: Wide
+  traits: [boss]
+capabilities:
+  traversal:
+    walk: false
+  interactions: {}
+brain:
+  default_preset: stand_still
+actions:
+  default_preset: peaceful
+visual:
+  default_pose: rest
+missing_information:
+  - "Boss schedule and special-effect bindings belong in the future boss ActorSpec, not this placeholder renderer contract."

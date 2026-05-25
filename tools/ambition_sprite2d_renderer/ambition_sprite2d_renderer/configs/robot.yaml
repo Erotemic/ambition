@@ -51,14 +51,23 @@ render:
   sheet_background: transparent
   border: 0
   label_width: 100
-# Per ADR 0017 (Rust = behavior, RON = content): manifest-authored
-# gameplay tuning. The Rust runtime's `spec_from_record` prefers this
-# over the hardcoded `ROBOT_TUNING` const in
-# `crates/ambition_sandbox/src/presentation/character_sprites/sheets.rs`.
-# Values mirror the legacy `SheetTuning::new(2.1, 1)` — robot sprite
-# is much larger than its hitbox after auto-crop, so collision_scale
-# > 1 keeps the visible body roughly matched to the gameplay AABB.
-# First migrated character (2026-05-24); see TODO.md V3/D4 entry.
-sheet_tuning:
-  collision_scale: 2.1
-  frame_sample_inset: 1
+actor:
+  character_id: robot
+  display_name: Robot
+body:
+  body_plan: HumanoidBiped
+  body_kind: Standard
+  traits: [base]
+capabilities:
+  traversal:
+    walk: true
+    jump: true
+    climb: true
+  interactions:
+    talk: true
+brain:
+  default_preset: stand_still
+actions:
+  default_preset: peaceful
+visual:
+  default_pose: idle

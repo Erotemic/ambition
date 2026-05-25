@@ -38,6 +38,8 @@ from typing import List, Optional, Tuple
 import yaml
 from PIL import Image, ImageDraw, ImageFont
 
+from .actor_contract import write_actor_contract_for_tackon
+
 RGBA = Tuple[int, int, int, int]
 
 SCALE = 4
@@ -203,7 +205,18 @@ def alpha_bbox_metrics(frame: Image.Image):
         },
     }
 
-def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_dir: Path, frame_size=BASE_FRAME, label_width=LABEL_WIDTH, frame_meta_fn=None, auto_crop: bool = True, crop_margin: int = 2):
+def build_sheet(
+    target: str,
+    rows: List[Tuple[str, int, int]],
+    render_fn,
+    out_dir: Path,
+    frame_size=BASE_FRAME,
+    label_width=LABEL_WIDTH,
+    frame_meta_fn=None,
+    auto_crop: bool = True,
+    crop_margin: int = 2,
+    actor_metadata=None,
+):
     """Build a labeled spritesheet + companion YAML manifest.
 
     ``frame_meta_fn`` is an optional callable ``(animation, frame_idx,
@@ -373,6 +386,16 @@ def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_di
     # what gameplay code deserializes. Keep both in lockstep — they
     # encode the same data structure.
     ron_path.write_text(_emit_sheet_ron(manifest))
+    # Optional future-facing actor contract sidecar. Targets may pass
+    # an `actor_metadata` dict to `build_sheet`; absent metadata is fine,
+    # and the sidecar will record sparse inferred facts plus explicit gaps.
+    actor_path = write_actor_contract_for_tackon(
+        target=target,
+        image_out=sheet_path,
+        sheet_ron_out=ron_path,
+        manifest=manifest,
+        actor_metadata=actor_metadata,
+    )
     # Surface the most common silent-publish-failure mode (character
     # sheets that lack any Idle alias and would render as a
     # colored-rectangle placeholder in-game) as a stderr warning so
@@ -387,6 +410,7 @@ def build_sheet(target: str, rows: List[Tuple[str, int, int]], render_fn, out_di
         "spritesheet": sheet_path,
         "yaml": yaml_path,
         "ron": ron_path,
+        "actor": actor_path,
         "preview": preview_path,
     }
 
@@ -422,6 +446,56 @@ def _ron_body_metrics(bm):
         f"feet_anchor_norm: {_ron_optional_point(bm.get('feet_anchor_norm'))}",
     ]
     return _ron_some(f"({', '.join(parts)})")
+
+def _ron_tuning(manifest_or_tuning):
+    """Serialize optional tack-on sheet tuning into a full RON field.
+
+    Compatibility helper used by the sheet-tuning tests and older callers.
+    Callers may pass either a full sheet manifest containing `sheet_tuning:`
+    / `tuning:` or the tuning dictionary itself. Missing tuning returns the
+    empty string sentinel so emitters can omit the `tuning:` field. An explicit
+    empty tuning dict is meaningful: it emits default tuning values.
+    """
+    if not isinstance(manifest_or_tuning, dict):
+        return ""
+
+    full_manifest_keys = {
+        "target",
+        "image",
+        "rows",
+        "animations",
+        "frame_width",
+        "frame_height",
+        "label_width",
+        "body_metrics",
+    }
+    has_sheet_tuning_key = "sheet_tuning" in manifest_or_tuning
+    has_tuning_key = "tuning" in manifest_or_tuning
+
+    if has_sheet_tuning_key:
+        tuning = manifest_or_tuning.get("sheet_tuning")
+    elif has_tuning_key:
+        tuning = manifest_or_tuning.get("tuning")
+    elif any(key in manifest_or_tuning for key in full_manifest_keys):
+        return ""
+    else:
+        tuning = manifest_or_tuning
+
+    if tuning is None or not isinstance(tuning, dict):
+        return ""
+
+    collision_scale = float(tuning.get("collision_scale", 1.0))
+    frame_sample_inset = int(tuning.get("frame_sample_inset", 0))
+    feet_anchor_y = tuning.get("feet_anchor_y_override", tuning.get("feet_anchor_y"))
+
+    fields = [f"collision_scale: {collision_scale}"]
+    if feet_anchor_y is not None:
+        fields.append(f"feet_anchor_y_override: Some({float(feet_anchor_y)})")
+    fields.append(f"frame_sample_inset: {frame_sample_inset}")
+
+    inner = "\n".join(f"        {field}," for field in fields)
+    return f"    tuning: Some((\n{inner}\n    )),\n"
+
 
 
 def _ron_anchors(anchors):
@@ -496,12 +570,7 @@ def _ron_sheet_record(manifest):
         rows_field = "    rows: [],\n"
     y_offset = int(manifest.get("y_offset", 0))
     y_offset_field = f"    y_offset: {y_offset},\n" if y_offset else ""
-    # Per the V3/D4 migration plan (Rust = behavior, RON = content): if
-    # the target's render_fn put `tuning` into the manifest, serialize
-    # it. The Rust runtime prefers manifest-authored tuning over its
-    # legacy hardcoded `SheetTuning` const. Targets that don't author
-    # tuning here keep their Rust-side fallback for now.
-    tuning_field = _ron_tuning(manifest.get("tuning"))
+    tuning_field = _ron_tuning(manifest)
     return (
         f"(\n"
         f'    target: "{_ron_escape(target)}",\n'
@@ -510,27 +579,10 @@ def _ron_sheet_record(manifest):
         f"    frame_width: {int(manifest['frame_width'])},\n"
         f"    frame_height: {int(manifest['frame_height'])},\n"
         f"{y_offset_field}"
-        f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
         f"{tuning_field}"
+        f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
         f"{rows_field}"
         f")"
-    )
-
-
-def _ron_tuning(tuning):
-    """Serialize the optional `tuning` field. `None` → no field
-    emitted (Rust's `#[serde(default)]` leaves the field `None` and
-    the loader falls back to the hardcoded `SheetTuning` const).
-    Otherwise → `tuning: Some((collision_scale: ..., frame_sample_inset: ...))`."""
-    if not isinstance(tuning, dict):
-        return ""
-    scale = float(tuning.get("collision_scale", 1.0))
-    inset = int(tuning.get("frame_sample_inset", 0))
-    return (
-        f"    tuning: Some((\n"
-        f"        collision_scale: {scale},\n"
-        f"        frame_sample_inset: {inset},\n"
-        f"    )),\n"
     )
 
 

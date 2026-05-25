@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 from dataclasses import asdict, dataclass
 
+from ...actor_contract import write_actor_contract_for_tackon
 from ...animation_vocab import DEFAULT_ADVANCED_TIMINGS
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -809,7 +810,20 @@ def write_outputs(out_dir: Path) -> Tuple[Path, Path, Path]:
     manifest_for_ron = dict(manifest)
     manifest_for_ron["image"] = png_path.name
     ron_path.write_text(_adapter_manifest_to_ron(manifest_for_ron), encoding="utf8")
-    return png_path, yaml_path, ron_path
+    actor_path = write_actor_contract_for_tackon(
+        target=TARGET_NAME,
+        image_out=png_path,
+        sheet_ron_out=ron_path,
+        manifest=manifest_for_ron,
+        actor_metadata={
+            "actor": {"character_id": "sandbag", "display_name": "Sandbag"},
+            "brain": {"default_preset": "stand_still"},
+            "actions": {"default_preset": "sandbag_punch"},
+            "body": {"body_plan": "TrainingDummy", "body_kind": "Standard", "traits": ["training"]},
+            "tags": ["training"],
+        },
+    )
+    return png_path, yaml_path, ron_path, actor_path
 
 
 TARGET_NAME = "sandbag"
@@ -817,6 +831,7 @@ SHEET_FILES = (
     "sandbag_spritesheet.png",
     "sandbag_spritesheet.yaml",
     "sandbag_spritesheet.ron",
+    "sandbag_actor.ron",
 )
 
 

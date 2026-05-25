@@ -20,3 +20,23 @@ render:
   sheet_background: transparent
   border: 0
   label_width: 120
+actor:
+  character_id: npc_robot_runner
+  display_name: Robot Runner
+body:
+  body_plan: HumanoidBiped
+  body_kind: Standard
+  traits: [enemy, robot, fast]
+capabilities:
+  traversal:
+    walk: true
+    jump: true
+    climb: true
+    swim: true
+  interactions: {}
+brain:
+  default_preset: melee_brute_striker
+actions:
+  default_preset: striker_swipe
+visual:
+  default_pose: idle

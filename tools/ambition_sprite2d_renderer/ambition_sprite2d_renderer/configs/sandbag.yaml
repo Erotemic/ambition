@@ -29,3 +29,20 @@ render:
   # Keep runtime-compatible 128x128 frames for the dummy sheet.  Other
   # character sheets can continue using union cropping for tighter atlases.
   crop: false
+actor:
+  character_id: sandbag
+  display_name: Sandbag
+body:
+  body_plan: TrainingDummy
+  body_kind: Standard
+  traits: [training]
+capabilities:
+  traversal:
+    walk: false
+  interactions: {}
+brain:
+  default_preset: stand_still
+actions:
+  default_preset: sandbag_punch
+visual:
+  default_pose: idle

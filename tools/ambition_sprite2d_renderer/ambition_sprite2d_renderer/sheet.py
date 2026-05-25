@@ -7,6 +7,7 @@ import yaml
 from PIL import Image, ImageColor, ImageDraw
 
 from .adapters import get_adapter
+from .actor_contract import write_actor_contract_for_adapter
 from .config import CharacterJob
 from .rendering import load_font
 
@@ -152,6 +153,7 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         "role": job.role,
         "music_cue": job.music_cue,
         "tags": list(job.tags),
+        "sheet_tuning": dict(job.sheet_tuning) if getattr(job, "sheet_tuning", None) is not None else None,
         "frame_width": fw,
         "frame_height": fh,
         "label_width": label_w,
@@ -166,8 +168,6 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         },
         "animations": {},
     }
-    if isinstance(getattr(job, "sheet_tuning", None), dict):
-        manifest["tuning"] = dict(job.sheet_tuning)
     body_metric_frame: Image.Image | None = None
     for row_idx, animation in enumerate(selected):
         info = animations[animation]
@@ -202,7 +202,7 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
     return sheet, manifest
 
 
-def write_spritesheet(job: CharacterJob, image_out: str | Path, manifest_out: str | Path | None = None) -> Tuple[Path, Path]:
+def write_spritesheet(job: CharacterJob, image_out: str | Path, manifest_out: str | Path | None = None, *, source_config: str | Path | None = None) -> Tuple[Path, Path]:
     image_out = Path(image_out)
     if manifest_out is None:
         manifest_out = image_out.with_suffix(".yaml")
@@ -218,7 +218,20 @@ def write_spritesheet(job: CharacterJob, image_out: str | Path, manifest_out: st
     # so we translate to the row-ordered SheetRecord shape here. See
     # `tackon_sheet._emit_sheet_ron` for the tack-on equivalent.
     ron_path = manifest_out.with_suffix(".ron")
-    ron_path.write_text(_adapter_manifest_to_ron(manifest))
+    manifest_for_sidecars = dict(manifest)
+    manifest_for_sidecars["image"] = image_out.name
+    ron_path.write_text(_adapter_manifest_to_ron(manifest_for_sidecars))
+    # Optional future-facing runtime sidecar. Current sandbox builds ignore
+    # this file, but publishing it now lets every adapter config start
+    # declaring sparse actor/body/capability/action metadata without changing
+    # the existing SheetRegistry contract.
+    write_actor_contract_for_adapter(
+        image_out=image_out,
+        sheet_ron_out=ron_path,
+        manifest=manifest_for_sidecars,
+        job=job,
+        source_config=source_config,
+    )
     return image_out, manifest_out
 
 
@@ -299,6 +312,62 @@ def _ron_row_from_adapter(animation_name: str, row_index: int, info: dict) -> st
     )
 
 
+def _adapter_tuning_to_ron(manifest_or_tuning: dict | None) -> str:
+    """Serialize optional adapter sheet tuning into a full RON field.
+
+    Compatibility helper used by the sheet-tuning tests and older callers.
+    Callers may pass either a full adapter manifest containing `sheet_tuning:`
+    / `tuning:` or the tuning dictionary itself. Missing tuning returns the
+    empty string sentinel so emitters can omit the `tuning:` field. An explicit
+    empty tuning dict is meaningful: it emits default tuning values so the
+    generated RON records the authoring decision.
+    """
+    if not isinstance(manifest_or_tuning, dict):
+        return ""
+
+    # Full manifests use these keys. Treat a manifest with no explicit tuning
+    # as absent, but treat a bare `{}` tuning dict as "emit defaults".
+    full_manifest_keys = {
+        "target",
+        "image",
+        "animations",
+        "rows",
+        "frame_width",
+        "frame_height",
+        "label_width",
+        "body_metrics",
+        "crop",
+    }
+    has_sheet_tuning_key = "sheet_tuning" in manifest_or_tuning
+    has_tuning_key = "tuning" in manifest_or_tuning
+
+    if has_sheet_tuning_key:
+        tuning = manifest_or_tuning.get("sheet_tuning")
+    elif has_tuning_key:
+        tuning = manifest_or_tuning.get("tuning")
+    elif any(key in manifest_or_tuning for key in full_manifest_keys):
+        return ""
+    else:
+        tuning = manifest_or_tuning
+
+    if tuning is None or not isinstance(tuning, dict):
+        return ""
+
+    collision_scale = float(tuning.get("collision_scale", 1.0))
+    frame_sample_inset = int(tuning.get("frame_sample_inset", 0))
+    feet_anchor_y = tuning.get("feet_anchor_y_override", tuning.get("feet_anchor_y"))
+
+    fields: list[str] = [
+        f"collision_scale: {collision_scale}",
+    ]
+    if feet_anchor_y is not None:
+        fields.append(f"feet_anchor_y_override: Some({float(feet_anchor_y)})")
+    fields.append(f"frame_sample_inset: {frame_sample_inset}")
+
+    inner = "\n".join(f"        {field}," for field in fields)
+    return f"    tuning: Some((\n{inner}\n    )),\n"
+
+
 def _adapter_manifest_to_ron(manifest: dict) -> str:
     """Translate the adapter-pipeline YAML manifest (which uses
     `animations: {name: {frames, duration_ms}}`) into the row-ordered
@@ -320,7 +389,7 @@ def _adapter_manifest_to_ron(manifest: dict) -> str:
         rows_field = "    rows: [],\n"
     y_offset = int(manifest.get("y_offset", 0))
     y_offset_field = f"    y_offset: {y_offset},\n" if y_offset else ""
-    tuning_field = _adapter_tuning_to_ron(manifest.get("tuning"))
+    tuning_field = _adapter_tuning_to_ron(manifest)
     return (
         f"// Auto-emitted from {target}_spritesheet.yaml — see\n"
         f"// `presentation::character_sprites::registry`.\n"
@@ -332,25 +401,9 @@ def _adapter_manifest_to_ron(manifest: dict) -> str:
         f"    frame_width: {int(manifest['frame_width'])},\n"
         f"    frame_height: {int(manifest['frame_height'])},\n"
         f"{y_offset_field}"
-        f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
         f"{tuning_field}"
+        f"    body_metrics: {_ron_body_metrics(manifest.get('body_metrics'))},\n"
         f"{rows_field}"
         f"),\n"
         f"]\n"
-    )
-
-
-def _adapter_tuning_to_ron(tuning):
-    """Emit the optional `tuning:` block. None / missing → no field
-    (the Rust runtime falls back to the hardcoded `SheetTuning` const
-    for backwards compat). Mirrors `tackon_sheet._ron_tuning`."""
-    if not isinstance(tuning, dict):
-        return ""
-    scale = float(tuning.get("collision_scale", 1.0))
-    inset = int(tuning.get("frame_sample_inset", 0))
-    return (
-        f"    tuning: Some((\n"
-        f"        collision_scale: {scale},\n"
-        f"        frame_sample_inset: {inset},\n"
-        f"    )),\n"
     )

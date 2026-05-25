@@ -966,12 +966,26 @@ mod boss_special_resolver_tests {
 /// `frame_width` / `frame_height` are the sprite-frame dimensions
 /// (e.g. 128×128 for clockwork_warden) used to scale pixel-space
 /// coordinates into world-space via the boss's render size.
+///
+/// `sprite_render_size` is the world-space extent of the rendered
+/// sprite quad — i.e. `BossSheetSpec::render_size(boss.size)`. The
+/// hurtbox / hitbox math uses this (NOT `boss.size`) as the world
+/// scale so the cyan / red / yellow boxes line up with the visible
+/// sprite. Without this distinction, the boss spawns at LDtk size
+/// (e.g. 128×160) but renders 1.6× bigger (~256×256), and the boxes
+/// end up half the size of the visible body.
 #[derive(Clone, Debug, Default)]
 pub struct BossSpriteMetrics {
     pub frame_width: u32,
     pub frame_height: u32,
     pub body_pixel_bbox: Option<crate::presentation::character_sprites::registry::PixelRect>,
     pub body_pixel_parts: Vec<crate::presentation::character_sprites::registry::NamedPixelRect>,
+    /// World-space extent of the rendered sprite quad. Equal to
+    /// `BossSheetSpec::render_size(boss.size)` at derivation time.
+    /// Falls back to `(boss.size, boss.size)` when the sprite spec
+    /// isn't known (test fixtures); consumers treat zero as
+    /// "no render size yet, use ctx.size".
+    pub sprite_render_size: ae::Vec2,
     /// Per-animation `{hurtbox, hitbox}` data keyed by animation
     /// name (matches the spritesheet rows: `"rest"`,
     /// `"floor_slam"`, `"side_sweep"`, …). The renderer fills

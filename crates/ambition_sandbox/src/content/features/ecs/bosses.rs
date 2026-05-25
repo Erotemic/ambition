@@ -55,6 +55,36 @@ pub fn sprite_target_for_boss(behavior_id: &str) -> &str {
     }
 }
 
+/// World-space size of the rendered sprite quad for a boss, given the
+/// boss's spawn / collision size and its sprite target.
+///
+/// The visible sprite is rendered at `max(size) * collision_scale`,
+/// where `collision_scale` is per-sheet (1.6 for the clockwork /
+/// gradient sentinel `BOSS_SHEET`, 1.25 for the mockingbird sheet,
+/// 4.5 for GNU-ton). The hurtbox / hitbox math needs THIS value
+/// (not `boss.size`) as the world scale so the cyan / red / yellow
+/// boxes cover the visible body. Otherwise the boxes end up half
+/// the size of what the player sees.
+///
+/// Unknown targets get a 1.0 scale fallback (sprite renders at
+/// `boss.size`) — that's the safe "no sprite spec known" case used
+/// by test fixtures and bosses without a registered sheet.
+pub fn sprite_render_size_for(target: &str, boss_size: ae::Vec2) -> ae::Vec2 {
+    use crate::boss_encounter::sprites;
+    let spec = match target {
+        "boss" => Some(sprites::BOSS_SHEET),
+        "mockingbird" => Some(sprites::MOCKINGBIRD_SHEET),
+        "gnu_ton" | "gnu_ton_body" | "gnu_ton_hands" => Some(sprites::GNU_TON_SHEET),
+        _ => None,
+    };
+    let Some(spec) = spec else {
+        return boss_size;
+    };
+    let bevy_size = bevy::math::Vec2::new(boss_size.x, boss_size.y);
+    let render = spec.render_size(bevy_size);
+    ae::Vec2::new(render.x, render.y)
+}
+
 /// Read the sprite registry for each freshly-spawned boss and copy
 /// its `body_metrics` into `BossRuntime::sprite_metrics`. Also
 /// derives an updated `combat_size` from the bounding box of the
@@ -100,11 +130,13 @@ pub fn derive_boss_sprite_metrics(
             continue;
         };
 
+        let sprite_render_size = sprite_render_size_for(target, boss.size);
         let snapshot = BossSpriteMetrics {
             frame_width: frame_w,
             frame_height: frame_h,
             body_pixel_bbox: metrics.body_pixel_bbox,
             body_pixel_parts: metrics.body_pixel_parts.clone(),
+            sprite_render_size,
             animations: metrics.animations.clone(),
         };
         let has_body = snapshot.has_body();
@@ -112,10 +144,14 @@ pub fn derive_boss_sprite_metrics(
 
         if has_body {
             // Derive combat_size from the bounding AABB of all body
-            // parts (or the single bbox). Use the current sprite
-            // render size (boss.size) as the scale base so a larger
-            // boss instance (e.g. boss-lab variant) scales up
-            // correctly.
+            // parts (or the single bbox). Use the SPRITE RENDER SIZE
+            // (NOT `boss.size`) as the world-scale base — the visible
+            // sprite is rendered at `boss_asset.spec.render_size(boss.size)`
+            // = `max(boss.size) * collision_scale`, which is bigger
+            // than the LDtk spawn AABB. Scaling combat_size to render
+            // size means the orange (combat) box and magenta
+            // (body-contact damage) box both cover the visible body
+            // instead of half of it.
             let snapshot = boss.sprite_metrics.as_ref().expect("just inserted");
             let body_aabbs = crate::features::world_space_body_aabbs_from_parts(
                 &snapshot.body_pixel_parts,
@@ -123,7 +159,7 @@ pub fn derive_boss_sprite_metrics(
                 frame_w,
                 frame_h,
                 boss.pos,
-                boss.size,
+                sprite_render_size,
             );
             if let Some(bound) = bounding_aabb(&body_aabbs) {
                 let derived = bound.half_size() * 2.0;

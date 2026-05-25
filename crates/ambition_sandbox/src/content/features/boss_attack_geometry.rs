@@ -269,18 +269,41 @@ fn sprite_authored_volumes(
     if !hitbox.is_populated() {
         return None;
     }
+    // Use the SPRITE RENDER SIZE (not `ctx.size`) — that's the
+    // world-space extent of the visible sprite quad. `ctx.size` is
+    // the LDtk spawn AABB which is smaller than the rendered sprite
+    // (collision_scale > 1.0 in every sheet spec). Using ctx.size
+    // would render hitboxes at half the visible size of the attack.
+    let world_size = sprite_world_size(metrics, ctx.size);
     let aabbs = world_space_body_aabbs_from_parts(
         &hitbox.parts,
         hitbox.bbox,
         metrics.frame_width,
         metrics.frame_height,
         ctx.pos,
-        ctx.size,
+        world_size,
     );
     if aabbs.is_empty() {
         None
     } else {
         Some(aabbs)
+    }
+}
+
+/// Choose the world-space size to scale sprite-pixel rects against.
+/// Prefer the metrics-captured render size (set by
+/// `derive_boss_sprite_metrics` from the sheet spec's
+/// `collision_scale`). Fall back to `ctx.size` when the snapshot
+/// didn't capture one — test fixtures that build `BossSpriteMetrics`
+/// by hand can leave `sprite_render_size = Vec2::ZERO` to opt out.
+fn sprite_world_size(
+    metrics: &super::bosses::BossSpriteMetrics,
+    fallback: ae::Vec2,
+) -> ae::Vec2 {
+    if metrics.sprite_render_size.x > 0.0 && metrics.sprite_render_size.y > 0.0 {
+        metrics.sprite_render_size
+    } else {
+        fallback
     }
 }
 
@@ -302,6 +325,10 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     //      sprite metadata).
     if !ctx.is_gnu_ton {
         if let Some(metrics) = ctx.sprite_metrics {
+            // Scale pixel rects to the visible sprite size, not the
+            // smaller LDtk spawn AABB. See `sprite_world_size` for
+            // the rationale.
+            let world_size = sprite_world_size(metrics, ctx.size);
             // (1) Per-animation hurtbox. The current animation is
             // derived from the boss's `BossAttackState` —
             // `active_profile`'s animation when a strike is live,
@@ -330,7 +357,7 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
                         metrics.frame_width,
                         metrics.frame_height,
                         ctx.pos,
-                        ctx.size,
+                        world_size,
                     );
                     if !aabbs.is_empty() {
                         return aabbs;
@@ -346,7 +373,7 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
                         metrics.frame_width,
                         metrics.frame_height,
                         ctx.pos,
-                        ctx.size,
+                        world_size,
                     ));
                 }
                 return parts;
@@ -358,7 +385,7 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
                     metrics.frame_width,
                     metrics.frame_height,
                     ctx.pos,
-                    ctx.size,
+                    world_size,
                 )];
             }
         }
@@ -916,6 +943,9 @@ mod sprite_metadata_derivation_tests {
                 h: 83,
             }),
             body_pixel_parts: Vec::new(),
+            // Match the BOSS_SHEET render: `max(boss.size) * 1.6`
+            // = `160 * 1.6` = `256` for a (128,160) spawn.
+            sprite_render_size: ae::Vec2::new(256.0, 256.0),
             animations,
         };
 
@@ -942,12 +972,87 @@ mod sprite_metadata_derivation_tests {
         let volumes = damageable_volumes(&ctx);
         assert_eq!(volumes.len(), 1);
         let half = volumes[0].half_size();
-        // side_sweep hurtbox: 127 wide / 128 frame × 128 world = 127.
-        // Half = 63.5. Static body bbox would give 106/2 = 53.
+        // side_sweep hurtbox: 127 wide / 128 frame × 256 render =
+        // 254 wide. Half = 127. Static body bbox at render scale
+        // would give 106/2 * 2 = 106. So we expect half.x > 120 to
+        // pin the per-animation path.
         assert!(
-            half.x > 60.0,
-            "expected per-animation side_sweep hurtbox (wider than static body); got half.x = {} (would be ~53 if falling back to body_pixel_bbox)",
+            half.x > 120.0,
+            "expected per-animation side_sweep hurtbox (wider than static body); got half.x = {} (would be ~106 if falling back to body_pixel_bbox)",
             half.x,
+        );
+    }
+
+    /// Pin the scale-to-render-size fix: when `sprite_render_size`
+    /// is 2× `ctx.size`, the cyan hurtbox must be 2× bigger than
+    /// when `sprite_render_size` is zeroed (legacy path). Without
+    /// this, the user's complaint — "in the sprites the box covers
+    /// the boss head, but in game it is the old boxes" — comes back
+    /// because the visible sprite renders 1.6× bigger than `boss.size`
+    /// but the hurtbox would scale by `boss.size` only.
+    #[test]
+    fn damageable_volumes_scales_to_sprite_render_size() {
+        use crate::brain::BossAttackState;
+        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::presentation::character_sprites::registry::PixelRect;
+        use ambition_engine::AabbExt;
+        use std::collections::HashMap;
+
+        let bbox = PixelRect {
+            x: 8,
+            y: 5,
+            w: 106,
+            h: 83,
+        };
+        let behavior = BossBehaviorProfile::clockwork_warden();
+        let attack_state = BossAttackState::default();
+
+        let legacy_metrics = BossSpriteMetrics {
+            frame_width: 128,
+            frame_height: 128,
+            body_pixel_bbox: Some(bbox),
+            body_pixel_parts: Vec::new(),
+            // Zero render size → consumer falls back to ctx.size
+            // (the pre-fix behavior).
+            sprite_render_size: ae::Vec2::ZERO,
+            animations: HashMap::new(),
+        };
+        let render_metrics = BossSpriteMetrics {
+            frame_width: 128,
+            frame_height: 128,
+            body_pixel_bbox: Some(bbox),
+            body_pixel_parts: Vec::new(),
+            sprite_render_size: ae::Vec2::new(256.0, 256.0),
+            animations: HashMap::new(),
+        };
+
+        let make_ctx = |metrics: &BossSpriteMetrics| BossVolumeContext {
+            pos: ae::Vec2::ZERO,
+            size: ae::Vec2::new(128.0, 160.0),
+            combat_size: ae::Vec2::new(54.0, 56.0),
+            is_gnu_ton: false,
+            behavior: &behavior,
+            attack_state: &attack_state,
+            sprite_metrics: Some(metrics),
+        };
+
+        let legacy = damageable_volumes(&make_ctx(&legacy_metrics))[0];
+        let render = damageable_volumes(&make_ctx(&render_metrics))[0];
+
+        // ctx.size = (128, 160) → scale (1, 1.25) → body half (53, 51.875).
+        // sprite_render_size = (256, 256) → scale (2, 2) → body half (106, 83).
+        // Render must be ~2× legacy on x and ≥1.5× on y.
+        let lx = legacy.half_size().x;
+        let rx = render.half_size().x;
+        let ly = legacy.half_size().y;
+        let ry = render.half_size().y;
+        assert!(
+            rx > lx * 1.8,
+            "sprite_render_size scaling should ~2× the x half-extent; legacy={lx} render={rx}",
+        );
+        assert!(
+            ry > ly * 1.5,
+            "sprite_render_size scaling should ≥1.5× the y half-extent; legacy={ly} render={ry}",
         );
     }
 

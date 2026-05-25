@@ -238,6 +238,17 @@ fn register_combat_systems(app: &mut App) {
             // `apply_hitbox_damage` below resolves the overlap.
             crate::features::start_enemy_melee_from_brain_actions
                 .run_if(gameplay_allowed),
+            // EFFECTS-stage consumer: reads
+            // `ActorActionMessage::Special { SpecialActionSpec::GnuAppleRain }`
+            // and accumulates per-boss apple-rain spawn cadence.
+            // Replaces `BossRuntime::tick_apple_rain` (Task B of the
+            // actor/brain follow-up plan). Runs BEFORE
+            // `update_enemy_projectiles` so apples spawned this tick
+            // advance one step this frame, matching the legacy
+            // ordering of `outputs.projectile_spawns` flush →
+            // projectile tick.
+            crate::features::spawn_gnu_apple_rain_from_special_messages
+                .run_if(gameplay_allowed),
             crate::projectile::update_projectiles,
             crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
             // Hitbox-entity lifecycle for melee strikes (Task A of the

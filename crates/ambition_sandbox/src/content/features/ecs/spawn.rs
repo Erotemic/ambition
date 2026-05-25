@@ -80,22 +80,37 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
     let brain = crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::BossPattern {
         cfg: crate::brain::BossPatternCfg {
             aggressiveness: 1.0,
-            encounter_id,
+            encounter_id: encounter_id.clone(),
         },
         state: crate::brain::BossPatternState::default(),
     });
-    // Bosses spawn with an offensive ActionSet — Bolt ranged +
-    // BossSpotlight special. The BossPattern brain currently emits
-    // a neutral frame (see `state_machine::tick_boss_pattern`); the
-    // boss runtime still owns boss attack intent. When the
-    // BossPattern migration lands, this ActionSet becomes the
-    // capability the resolver translates into ActorActionMessages.
+    // Bosses spawn with an offensive ActionSet — Bolt ranged + a
+    // per-encounter special slot. The BossPattern brain still emits
+    // a neutral frame today; the boss runtime drives intent and tags
+    // `frame.special_pressed` when its scripted apple-rain (or
+    // future spotlight) strike fires. The resolver translates that
+    // into `ActorActionMessage::Special { spec }` and the
+    // `spawn_*_from_special_messages` EFFECTS consumers spawn the
+    // concrete effect entities. Per-boss `special` mapping is the
+    // ownership rule the follow-up plan calls out: the schedule
+    // names abstract intent, the ActionSet binds it to a concrete
+    // `SpecialActionSpec`.
+    let boss_special = match encounter_id.as_str() {
+        crate::content::features::bosses::GNU_TON_ENCOUNTER_ID => {
+            Some(crate::brain::SpecialActionSpec::GnuAppleRain {
+                interval_s: crate::content::features::bosses::APPLE_RAIN_INTERVAL,
+                spawn_speed: crate::content::features::bosses::APPLE_RAIN_SPAWN_SPEED,
+                damage: crate::content::features::bosses::APPLE_RAIN_DAMAGE,
+            })
+        }
+        _ => Some(crate::brain::SpecialActionSpec::BossSpotlight),
+    };
     let boss_action_set = crate::brain::ActionSet {
         ranged: Some(crate::brain::RangedActionSpec::Bolt {
             speed: 380.0,
             damage: 1,
         }),
-        special: Some(crate::brain::SpecialActionSpec::BossSpotlight),
+        special: boss_special,
         move_style: crate::brain::MoveStyleSpec::Walk,
         ..Default::default()
     };
@@ -114,6 +129,7 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         brain,
         boss_action_set,
         crate::brain::ActorControl::default(),
+        super::AppleRainSpawnState::default(),
     ));
 }
 

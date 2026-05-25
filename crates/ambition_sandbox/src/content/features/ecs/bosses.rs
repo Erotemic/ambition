@@ -84,32 +84,28 @@ pub fn update_ecs_bosses(
                 boss.scripted_step_elapsed = 0.0;
             }
         }
-        let mut outputs = crate::features::BossTickOutputs::default();
         let boss_frame = boss.update(
             &feature_world,
             target_pos,
             feel_tuning.feature_combat_tuning(),
-            &mut outputs,
             dt,
         );
         // Land the boss's runtime-computed frame into ActorControl,
-        // overriding the brain's earlier write. Today the BossPattern
-        // brain emits a neutral frame; the runtime is the authority
-        // for boss intent. The frame carries `desired_vel` plus
-        // `melee_pressed` / `fire = Some(...)` during active strike
-        // windows so the resolver emits `ActorActionMessage::Melee` /
-        // `Ranged` and the bypass is no longer a bespoke island.
+        // overriding the brain's earlier write. The frame carries
+        // `desired_vel` + `melee_pressed` / `special_pressed` during
+        // active strike windows so the resolver emits
+        // `ActorActionMessage::Melee` / `Special` and the EFFECTS
+        // consumers (e.g. `spawn_gnu_apple_rain_from_special_messages`)
+        // spawn the concrete effect entities.
         if let Some(control) = control.as_deref_mut() {
             control.0 = boss_frame;
         }
-        // Flush any spawn requests the strike emitted this tick
-        // (today: GNU-ton's apple rain). Boss attacks keep the
-        // BossTickOutputs path for now per the migration's softer
-        // boss constraint; the BOSS INTENT is already visible in
-        // the message stream via ActorControl above.
-        for spawn in outputs.projectile_spawns {
-            enemy_projectiles.spawn(spawn);
-        }
+        // Apple-rain projectile spawns moved to
+        // `spawn_gnu_apple_rain_from_special_messages` (Combat set);
+        // the runtime no longer accumulates a side-channel
+        // `BossTickOutputs::projectile_spawns` Vec for this caller
+        // to flush.
+        let _ = &mut enemy_projectiles;
         aabb.center = boss.pos;
         aabb.half_size = boss.render_size() * 0.5;
         pattern_timer.0 = boss.pattern_timer;

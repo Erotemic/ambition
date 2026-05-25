@@ -204,6 +204,21 @@ pub enum SpecialActionSpec {
     /// content of "spotlight" is resolved by the boss encounter
     /// driver.
     BossSpotlight,
+    /// GNU-ton boss: rain of apples falling from the ceiling across
+    /// the arena. The boss runtime tags `frame.special_pressed`
+    /// every tick the apple-rain strike window is active; the
+    /// `spawn_gnu_apple_rain_from_special_messages` consumer
+    /// accumulates per-boss spawn cadence and emits the
+    /// `EnemyProjectileSpawn`s. Replaces the legacy
+    /// `BossRuntime::tick_apple_rain` self-state spawn loop.
+    GnuAppleRain {
+        /// Seconds between apple spawns while the strike is active.
+        interval_s: f32,
+        /// Downward initial velocity given to each apple at spawn.
+        spawn_speed: f32,
+        /// Per-apple damage.
+        damage: i32,
+    },
 }
 
 // --- Concrete attack spec timings ---
@@ -365,6 +380,7 @@ impl ActionRequest {
             Self::Special { spec } => match spec {
                 SpecialActionSpec::BubbleShield => "special_bubble_shield",
                 SpecialActionSpec::BossSpotlight => "special_boss_spotlight",
+                SpecialActionSpec::GnuAppleRain { .. } => "special_gnu_apple_rain",
             },
         }
     }

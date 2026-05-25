@@ -45,7 +45,7 @@ mod util;
 mod world_overlay;
 
 pub use bosses::{
-    BossAttackProfile, BossBehaviorProfile, BossMovementProfile, BossRuntime, BossTickOutputs,
+    BossAttackProfile, BossBehaviorProfile, BossMovementProfile, BossRuntime,
     GNU_TON_APPLE_OWNER_PREFIX,
 };
 pub use breakables::BreakableRuntime;
@@ -71,13 +71,14 @@ pub use ecs::{
     ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name,
     interact_ecs_actors_and_switches, open_ecs_chests, rebuild_feature_ecs_world_overlay,
     rebuild_feature_view_index, reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
-    spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox, spawn_room_feature_entities,
+    spawn_enemy_projectiles_from_brain_actions, spawn_gnu_apple_rain_from_special_messages,
+    spawn_melee_hitbox, spawn_room_feature_entities,
     start_enemy_melee_from_brain_actions, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
     sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
     tick_and_despawn_hitboxes, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
     update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorRuntime,
     BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, HazardFeature,
-    Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
+    AppleRainSpawnState, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{

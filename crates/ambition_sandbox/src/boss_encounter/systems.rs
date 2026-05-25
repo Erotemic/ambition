@@ -130,33 +130,19 @@ pub fn update_boss_encounters(
     }
 
     // Wake up an encounter whose boss is now visible in the room.
-    if !bosses_in_room.is_empty() {
-        bevy::log::info!(
-            target: "ambition::boss_encounter",
-            "wakeup loop: {} boss(es) in room — {:?}",
-            bosses_in_room.len(),
-            bosses_in_room
-                .iter()
-                .map(|(_, n, eid, _, _, hp, mx)| format!("{n:?}→{eid}(hp={hp}/{mx})"))
-                .collect::<Vec<_>>()
-        );
-    }
+    // Only the wake-up transition logs (Dormant → Intro); the
+    // per-frame "encounter is in phase X" line is gated to debug!
+    // so the steady-state doesn't flood the log every frame.
     for (_runtime_id, boss_name, encounter_id, _pos, _spawn, _hp, _max) in &bosses_in_room {
         match registry.encounters.get_mut(encounter_id) {
             Some(state) => {
-                bevy::log::info!(
-                    target: "ambition::boss_encounter",
-                    "  encounter={encounter_id} (boss={boss_name:?}) phase={:?} hp={}",
-                    state.phase,
-                    state.hp,
-                );
                 if matches!(state.phase, ae::BossEncounterPhase::Dormant) && state.hp > 0 {
-                    let evs = state.enter_intro();
                     bevy::log::info!(
                         target: "ambition::boss_encounter",
-                        "  → enter_intro emitted {} event(s)",
-                        evs.len(),
+                        "wakeup: encounter={encounter_id} (boss={boss_name:?}) phase=Dormant hp={} → enter_intro",
+                        state.hp,
                     );
+                    let evs = state.enter_intro();
                     publish_events(
                         encounter_id,
                         &evs,
@@ -166,7 +152,8 @@ pub fn update_boss_encounters(
                     );
                     bevy::log::info!(
                         target: "ambition::boss_encounter",
-                        "  → music_request.desired_track = {:?}",
+                        "wakeup: {encounter_id} emitted {} event(s); music_request.desired_track = {:?}",
+                        evs.len(),
                         music_request.desired_track,
                     );
                 }
@@ -174,7 +161,7 @@ pub fn update_boss_encounters(
             None => {
                 bevy::log::warn!(
                     target: "ambition::boss_encounter",
-                    "  encounter_id={encounter_id} (boss={boss_name:?}) NOT FOUND in registry; available={:?}",
+                    "wakeup: encounter_id={encounter_id} (boss={boss_name:?}) NOT FOUND in registry; available={:?}",
                     registry.encounters.keys().collect::<Vec<_>>()
                 );
             }

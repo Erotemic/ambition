@@ -989,18 +989,28 @@ fn emit_desired_vel(
     target = clamped_target;
 
     let delta = target - ctx.actor_pos;
-    // Scale speed during an active special strike so the boss
-    // doesn't slide out from under World-anchored hitboxes (saddle
-    // cross, minima pit, overfit barrage origin, cascade origin).
-    // Specials anchor their geometry to the boss's pos at the
-    // strike edge; sliding sideways after that would visually
-    // misalign the hazards from the boss. Ordinary melee strikes
-    // (FollowOwner hitboxes) don't need this — they track the
-    // owner pos each tick.
-    let in_special_strike = attack_state
-        .active_profile
-        .as_ref()
-        .map_or(false, |p| p.is_special());
+    // Scale speed during ANY active strike so the boss doesn't
+    // outrun its own attack. Two reasons:
+    //
+    // 1. Specials anchor World-space hitboxes at the boss's pos
+    //    (saddle cross, minima pit, cascade origin). Sliding
+    //    sideways after the strike started would visually
+    //    misalign the hazards from the boss.
+    // 2. Melee FollowOwner hitboxes (FloorSlam, SideSweep, etc.)
+    //    track the boss every tick. If the boss is chasing the
+    //    player at `approach_speed_scale × movement.speed`
+    //    during the 0.4 s Strike beat, a player who's still
+    //    running outpaces the strike. Holding the boss roughly
+    //    still during the active window lets the strike actually
+    //    *land* — the player gets a real telegraph-and-dodge
+    //    window instead of "the boss is moving so the strike
+    //    follows them everywhere I run."
+    //
+    // The previous behavior (special-only scaling) made
+    // Gradient-Sentinel-during-Approach feel like the boss never
+    // attacked — it WAS attacking, but the melee strikes whiffed
+    // because the boss kept chasing at 1.5× speed.
+    let in_active_strike = attack_state.active_profile.is_some();
     // Macro-state speed scaling. Approach commits visually with
     // `> 1.0` speed; Retreat backs off deliberately with `< 1.0`.
     // Engage keeps the legacy speed (1.0).
@@ -1009,7 +1019,7 @@ fn emit_desired_vel(
         BossMacroState::Retreat { .. } => cfg.macro_tuning.retreat_speed_scale.max(0.0),
         BossMacroState::Engage => 1.0,
     };
-    let strike_scale = if in_special_strike {
+    let strike_scale = if in_active_strike {
         cfg.strike_speed_scale.clamp(0.0, 1.0)
     } else {
         1.0
@@ -1387,6 +1397,82 @@ mod tests {
         assert!(
             vel_in_strike < vel_no_strike * 0.5,
             "expected speed during active special strike to be much lower than no-strike speed: {vel_in_strike} vs {vel_no_strike}",
+        );
+    }
+
+    /// Regression: `strike_speed_scale` must also apply during
+    /// **melee** strikes, not just special strikes. The user
+    /// reported "boss just floats around and never attacks" because
+    /// the boss was chasing the player at 1.5× speed during the
+    /// Strike beat; the FollowOwner melee hitbox tracked the
+    /// moving boss but couldn't catch a player who was still
+    /// running. Now any active strike (melee or special) slows
+    /// the boss so the hitbox actually lands.
+    #[test]
+    fn strike_speed_scale_reduces_velocity_during_active_melee_too() {
+        let mut cfg = cfg_with(BossAttackPattern::Cycle);
+        cfg.movement = BossMovementProfile::AnchorSway {
+            x_radius: 200.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 1.0,
+            chase_limit: 1000.0,
+            speed: 400.0,
+        };
+        cfg.spawn = ae::Vec2::ZERO;
+        cfg.strike_speed_scale = 0.1;
+        // Drive the cycle to an Active phase with a MELEE profile
+        // (FloorSlam — `is_special()` returns false). Without the
+        // fix, vel_in_strike would equal vel_no_strike because
+        // strike_speed_scale only triggered for specials.
+        cfg.cycle_attacks = vec![BossAttackProfile::FloorSlam];
+        cfg.cycle_attack_cooldown = 0.05;
+        cfg.cycle_attack_windup = 0.01;
+        cfg.cycle_attack_active = 5.0;
+
+        let baseline_ctx = {
+            let mut c = ctx(ae::BossEncounterPhase::Phase1, 1.0 / 60.0);
+            c.target_pos = ae::Vec2::new(500.0, 0.0);
+            c.actor_pos = ae::Vec2::ZERO;
+            c
+        };
+
+        // Sample 1: no active strike — full speed.
+        let mut state1 = BossPatternState::default();
+        let mut attack_state1 = BossAttackState::default();
+        let mut out1 = ae::ActorControlFrame::neutral();
+        tick_boss_pattern(
+            &cfg,
+            &mut state1,
+            &baseline_ctx,
+            &mut out1,
+            &mut attack_state1,
+        );
+        let vel_no_strike = out1.desired_vel.length();
+
+        // Sample 2: active MELEE strike — expect heavy slowdown.
+        let mut state2 = BossPatternState::default();
+        let mut attack_state2 = BossAttackState::default();
+        let mut out2 = ae::ActorControlFrame::neutral();
+        let mut ctx2 = baseline_ctx;
+        ctx2.dt = 0.06;
+        tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
+        tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
+        tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
+        assert_eq!(
+            attack_state2.active_profile,
+            Some(BossAttackProfile::FloorSlam),
+            "should be in active FloorSlam strike for the test",
+        );
+        assert!(
+            !attack_state2.active_profile.as_ref().unwrap().is_special(),
+            "FloorSlam must not register as a special — this test guards against `is_special()` accidentally widening to melee profiles"
+        );
+        let vel_in_strike = out2.desired_vel.length();
+        assert!(
+            vel_in_strike < vel_no_strike * 0.5,
+            "expected speed during active MELEE strike to be much lower than no-strike speed: {vel_in_strike} vs {vel_no_strike}",
         );
     }
 

@@ -102,12 +102,6 @@ pub struct HitFlashSource {
     overlay: Entity,
 }
 
-impl HitFlashSource {
-    pub fn overlay(&self) -> Entity {
-        self.overlay
-    }
-}
-
 /// Marker on the sibling mesh that runs the hit-flash material.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct HitFlashOverlay {
@@ -188,6 +182,22 @@ pub fn attach_hit_flash_overlays(
         commands.entity(source_entity).insert(HitFlashSource {
             overlay: overlay_entity,
         });
+        // One-shot diagnostic so we can confirm the player overlay
+        // actually got attached. Player path is the rare case in the
+        // codebase — `PlayerVisual` is on the same entity as
+        // `PlayerCombatState`. If this line never prints "player" in
+        // the log, the attach gate is rejecting the player and the
+        // flash will never show no matter what flash_timer does.
+        let kind = if player.is_some() {
+            "player"
+        } else {
+            "feature"
+        };
+        bevy::log::info!(
+            target: "ambition::hit_flash",
+            "attached hit_flash overlay (kind={}) source={:?} overlay={:?} render_size=({:.1},{:.1})",
+            kind, source_entity, overlay_entity, render_size.x, render_size.y,
+        );
     }
 }
 
@@ -243,6 +253,19 @@ pub fn sync_hit_flash_overlays(
         let intensity = hit_flash_secs
             .map(normalize_hit_flash)
             .unwrap_or(0.0);
+
+        // Diagnostic: log only when intensity > 0 (a flash is firing).
+        // Helps verify the player path: if the player gets damaged and
+        // this never prints with kind="player", the lookup is broken;
+        // if it prints but no white appears, the shader / overlay
+        // entity is the suspect.
+        if intensity > 0.001 && player.is_some() {
+            bevy::log::info!(
+                target: "ambition::hit_flash",
+                "player flash intensity={:.2} secs={:?}",
+                intensity, hit_flash_secs,
+            );
+        }
 
         let Ok((mut overlay_transform, material_handle, overlay)) =
             overlays.get_mut(source.overlay)

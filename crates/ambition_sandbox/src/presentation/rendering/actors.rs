@@ -358,16 +358,12 @@ pub fn animate_player(
         atlas.index = index;
     }
     sprite.flip_x = player_body.facing < 0.0;
-    // Keep the textured sprite at full opacity by default, with a subtle
-    // red tint when invulnerable / hit so the existing flash signal still
-    // reads. Tints multiply the texture color, so values below 1.0 darken
-    // the channel.
-    let flash_timer = player_combat.flash_timer;
-    sprite.color = if flash_timer > 0.0 {
-        Color::srgba(1.0, 0.55, 0.55, 1.0)
-    } else {
-        Color::WHITE
-    };
+    // Hit feedback is drawn by the white-silhouette overlay in
+    // `presentation::rendering::hit_flash` — a sibling mesh that
+    // samples this atlas frame and outputs pure white modulated by
+    // `PlayerCombatState::flash_timer`. The source sprite stays at
+    // full opacity / untinted; the overlay does the flashing.
+    sprite.color = Color::WHITE;
 }
 
 /// Drive enemy AND NPC sprite animation, atlas index, and facing flip.
@@ -432,13 +428,19 @@ pub fn animate_characters(
             atlas.index = index;
         }
         sprite.flip_x = facing < 0.0;
-        sprite.color = if hit_flash {
-            Color::srgba(1.0, 0.55, 0.55, 1.0)
-        } else if attacking {
+        // Hit feedback is drawn by the white-silhouette overlay in
+        // `presentation::rendering::hit_flash`. Keep the warm
+        // attack tint on the multiplicative `sprite.color` channel
+        // — it's a separate signal (telegraphing the actor's
+        // outgoing swing, not its own damage). The hit_flash
+        // boolean still feeds into anim selection upstream so the
+        // `hit` row plays.
+        sprite.color = if attacking {
             Color::srgba(1.0, 0.85, 0.55, 1.0)
         } else {
             Color::WHITE
         };
+        let _ = hit_flash;
     }
 }
 
@@ -737,9 +739,11 @@ pub fn animate_bosses(
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
         }
-        sprite.color = if state.hit_flash {
-            Color::srgba(1.0, 0.55, 0.55, 1.0)
-        } else if state.attack_active || state.attack_windup {
+        // Same split as `animate_characters`: hit feedback rides on
+        // the white-silhouette `hit_flash` overlay; the warm
+        // attack tint stays on `sprite.color` so the player can
+        // read the boss's incoming swing telegraph.
+        sprite.color = if state.attack_active || state.attack_windup {
             Color::srgba(1.0, 0.85, 0.55, 1.0)
         } else {
             Color::WHITE

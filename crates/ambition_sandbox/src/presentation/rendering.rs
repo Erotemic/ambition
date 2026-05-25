@@ -30,6 +30,7 @@ mod camera;
 mod deep_dream;
 mod features;
 mod health;
+mod hit_flash;
 mod parallax;
 mod pirate_rider;
 mod pirate_weapon;
@@ -126,6 +127,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
         deep_dream::add_puppy_slug_deep_dream_material_plugin(app);
+        hit_flash::add_hit_flash_material_plugin(app);
         app.add_systems(
             Update,
             (
@@ -142,12 +144,23 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // Attach the experimental material overlay after enemy sprite
                 // upgrade has produced a real atlas-backed Puppy Slug sprite.
                 deep_dream::attach_puppy_slug_deep_dream_overlays,
+                // Attach the hit-flash white-silhouette overlay to every
+                // character sprite (player + enemies + NPCs + bosses) once
+                // its texture / atlas is loaded. Sized as a sibling mesh
+                // — same world-space sync pattern as deep_dream.
+                hit_flash::attach_hit_flash_overlays,
                 actors::animate_player,
                 actors::animate_characters,
                 // Mirror the current atlas frame into the overlay after the
                 // character animator has advanced for this frame.
                 deep_dream::sync_puppy_slug_deep_dream_overlays,
                 deep_dream::cleanup_puppy_slug_deep_dream_overlays,
+                // Mirror the source sprite's atlas + transform into the
+                // hit-flash overlay and gate visibility on the current
+                // hit_flash timer. Runs after the animator so the overlay
+                // tracks the same frame the source draws this tick.
+                hit_flash::sync_hit_flash_overlays,
+                hit_flash::cleanup_hit_flash_overlays,
                 actors::animate_props,
                 actors::animate_bosses,
                 // GradientLane vertical-column visual — yellow during

@@ -20,7 +20,71 @@ RGBA = Tuple[int, int, int, int]
 Point = Tuple[float, float]
 
 TARGET_NAME = "burning_flying_shark"
-SHEET_FILES = [f"{TARGET_NAME}_spritesheet.png", f"{TARGET_NAME}_spritesheet.yaml"]
+SHEET_FILES = [
+    f"{TARGET_NAME}_spritesheet.png",
+    f"{TARGET_NAME}_spritesheet.yaml",
+    f"{TARGET_NAME}_spritesheet.ron",
+    f"{TARGET_NAME}_actor.ron",
+]
+
+ACTOR_METADATA = {
+    "actor": {
+        "character_id": "npc_burning_flying_shark",
+        "display_name": "Burning Flying Shark",
+    },
+    "body": {
+        "body_plan": "Flyer",
+        "body_kind": "Floating",
+        "mass_class": "Heavy",
+        "locomotion_hint": "Fly",
+        "traits": ["enemy", "pirate", "aerial", "mount", "beast", "no_hands", "fire"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": False,
+            "jump": None,
+            "climb": None,
+            "fly": True,
+            "swim": None,
+            "use_lifts": None,
+            "door_access": [],
+        },
+        "interactions": {
+            "talk": None,
+            "trade": None,
+            "carry": None,
+            "open_doors": [],
+        },
+    },
+    "brain": {"default_preset": "wanderer_puppy_slug"},
+    "actions": {"default_preset": "peaceful_float"},
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.fly": {"animation": "fly", "events": []},
+        "action.melee.primary": {
+            "animation": "chomp",
+            "events": [
+                {"t": 0.24, "event": "telegraph_peak", "source": "burning_flying_shark"},
+                {"t": 0.36, "event": "hitbox_active_start", "source": "burning_flying_shark"},
+                {"t": 0.64, "event": "hitbox_active_end", "source": "burning_flying_shark"},
+            ],
+        },
+        "action.special.dive": {
+            "animation": "dive",
+            "events": [
+                {"t": 0.40, "event": "dive_commit", "source": "burning_flying_shark"},
+            ],
+        },
+    },
+    "sockets": {
+        "mouth": {"source": "burning_flying_shark.geometry", "point": {"x": 148.0, "y": 66.0}},
+        "head": {"source": "burning_flying_shark.geometry", "point": {"x": 132.0, "y": 56.0}},
+        "tail": {"source": "burning_flying_shark.geometry", "point": {"x": 34.0, "y": 64.0}},
+        "saddle": {"source": "burning_flying_shark.geometry", "point": {"x": 88.0, "y": 44.0}},
+        "ember_origin": {"source": "burning_flying_shark.geometry", "point": {"x": 58.0, "y": 42.0}},
+    },
+    "tags": ["pirate", "aerial", "enemy", "beast", "fire"],
+}
 
 ROWS: List[Tuple[str, int, int]] = [
     ("idle", 6, 135),
@@ -291,11 +355,14 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         out_dir=out_dir,
         frame_size=FRAME_SIZE,
         label_width=118,
+        actor_metadata=ACTOR_METADATA,
     )
     return [
         outputs["canonical"],
         outputs["canonical_transparent"],
         outputs["spritesheet"],
         outputs["yaml"],
+        outputs["ron"],
+        outputs["actor"],
         outputs["preview"],
     ]

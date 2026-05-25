@@ -51,7 +51,58 @@ SHEET_FILES = [
     f"{TARGET_NAME}_spritesheet.png",
     f"{TARGET_NAME}_spritesheet.yaml",
     f"{TARGET_NAME}_spritesheet.ron",
+    f"{TARGET_NAME}_actor.ron",
 ]
+
+ACTOR_METADATA = {
+    "actor": {
+        "character_id": "npc_puppy_slug",
+        "display_name": "Puppy Slug",
+    },
+    "body": {
+        "body_plan": "Crawler",
+        "body_kind": "Crawler",
+        "mass_class": "Light",
+        "locomotion_hint": "Slither",
+        "traits": ["enemy", "ai_era", "crawler", "no_hands", "wall_crawler"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": None,
+            "climb": True,
+            "fly": None,
+            "swim": None,
+            "crawl": True,
+            "use_lifts": None,
+            "door_access": [],
+        },
+        "interactions": {
+            "talk": None,
+            "trade": None,
+            "carry": None,
+            "open_doors": [],
+        },
+    },
+    "brain": {"default_preset": "wanderer_puppy_slug"},
+    "actions": {"default_preset": "peaceful_slither"},
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.walk": {"animation": "walk", "events": []},
+        "locomotion.wall_crawl": {"animation": "wall_walk", "events": []},
+        "locomotion.ceiling_crawl": {"animation": "ceiling_walk", "events": []},
+        "damage.hit": {"animation": "hurt", "events": []},
+        "lifecycle.death": {"animation": "death", "events": []},
+    },
+    "sockets": {
+        "mouth": {"source": "puppy_slug.geometry", "point": {"x": 96.0, "y": 48.0}},
+        "head": {"source": "puppy_slug.geometry", "point": {"x": 96.0, "y": 40.0}},
+        "belly": {"source": "puppy_slug.geometry", "point": {"x": 64.0, "y": 66.0}},
+        "tail": {"source": "puppy_slug.geometry", "point": {"x": 28.0, "y": 58.0}},
+        "wall_contact": {"source": "puppy_slug.geometry", "point": {"x": 64.0, "y": 72.0}},
+    },
+    "tags": ["enemy", "ai_era", "crawler"],
+}
 
 # Frame size: roomy enough that the dog-face bumps are legible
 # (Crawlid-from-Hollow-Knight role: a small ground grunt with
@@ -636,11 +687,14 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         out_dir=out_dir,
         frame_size=FRAME_SIZE,
         label_width=120,
+        actor_metadata=ACTOR_METADATA,
     )
     return [
         outputs["canonical"],
         outputs["canonical_transparent"],
         outputs["spritesheet"],
         outputs["yaml"],
+        outputs["ron"],
+        outputs["actor"],
         outputs["preview"],
     ]

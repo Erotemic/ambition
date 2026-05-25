@@ -32,7 +32,59 @@ SHEET_FILES = [
     f"{TARGET_NAME}_spritesheet.png",
     f"{TARGET_NAME}_spritesheet.yaml",
     f"{TARGET_NAME}_spritesheet.ron",
+    f"{TARGET_NAME}_actor.ron",
 ]
+
+ACTOR_METADATA = {
+    "actor": {
+        "character_id": "npc_president_portrait",
+        "display_name": "President Portrait",
+    },
+    "body": {
+        "body_plan": "HumanoidBiped",
+        "body_kind": "Standard",
+        "mass_class": "Medium",
+        "locomotion_hint": "Walk",
+        "traits": ["hub", "story", "statesman", "speaker"],
+    },
+    "capabilities": {
+        "traversal": {
+            "walk": True,
+            "jump": None,
+            "climb": None,
+            "fly": None,
+            "swim": None,
+            "use_lifts": True,
+            "door_access": ["public"],
+        },
+        "interactions": {
+            "talk": True,
+            "trade": None,
+            "carry": None,
+            "open_doors": ["public"],
+        },
+    },
+    "brain": {"default_preset": "stand_still"},
+    "actions": {"default_preset": "peaceful"},
+    "animation_bindings": {
+        "default": {"animation": "idle", "events": []},
+        "locomotion.walk": {"animation": "walk", "events": []},
+        "interaction.address": {"animation": "address", "events": []},
+        "interaction.decree": {"animation": "decree", "events": []},
+        "interaction.oath": {"animation": "oath", "events": []},
+        "damage.hit": {"animation": "hurt", "events": []},
+        "lifecycle.death": {"animation": "death", "events": []},
+    },
+    "sockets": {
+        "head": {"source": "president_portrait.geometry", "point": {"x": 160.0, "y": 78.0}},
+        "chest": {"source": "president_portrait.geometry", "point": {"x": 160.0, "y": 170.0}},
+        "hand_l": {"source": "president_portrait.geometry", "point": {"x": 112.0, "y": 198.0}},
+        "hand_r": {"source": "president_portrait.geometry", "point": {"x": 210.0, "y": 198.0}},
+        "decree_origin": {"source": "president_portrait.geometry", "point": {"x": 208.0, "y": 178.0}},
+        "speech_bubble": {"source": "president_portrait.geometry", "point": {"x": 160.0, "y": 48.0}},
+    },
+    "tags": ["hub", "static", "story", "statesman"],
+}
 FRAME_SIZE = (320, 352)
 WORK_FRAME_SIZE = (640, 704)
 SUPER = 4
@@ -461,6 +513,7 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         frame_size=opts.get("frame_size", FRAME_SIZE),
         crop_margin=10,
         auto_crop=True,
+        actor_metadata=ACTOR_METADATA,
     )
     return [
         outputs["spritesheet"],
@@ -469,6 +522,7 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         outputs["preview"],
         outputs["canonical"],
         outputs["canonical_transparent"],
+        outputs["actor"],
     ]
 
 

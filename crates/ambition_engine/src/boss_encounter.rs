@@ -134,13 +134,14 @@ impl BossEncounterSpec {
             death_seconds: 2.4,
             stagger_threshold: 6,
             stagger_window_seconds: 1.5,
-            // Gradient Sentinel music: fast violin theme during the active
-            // phases so the boss fight reads as a high-tempo encounter
-            // rather than the ambient sandbox lofi. The intro keeps the
-            // calmer pulse-drift bed so engagement still feels like an
-            // escalation. Per-phase ids swap end-to-end at runtime; future
-            // audio can replace these strings without code changes.
-            music_intro: "pulse_drift_voyage".into(),
+            // Gradient Sentinel: violin track from the first beat of
+            // every phase, including Intro. Previously the intro used
+            // pulse_drift_voyage as a "calmer escalation bed" but the
+            // 2.4-second intro window read as "wrong track for two
+            // seconds before snapping into the boss music." Per-phase
+            // ids still swap end-to-end at runtime; future audio
+            // changes only need to retune these strings.
+            music_intro: "fast_paced_violin_boss".into(),
             music_phase1: "fast_paced_violin_boss".into(),
             music_phase2: "fast_paced_violin_boss".into(),
             music_enrage: "fast_paced_violin_boss".into(),

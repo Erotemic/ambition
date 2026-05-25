@@ -278,13 +278,59 @@ pub fn update_boss_encounters(
         }
     }
 
-    // Per-phase music tracks are emitted as `MusicRequested` events
-    // from `publish_events` above when the engine state machine fires
-    // a phase transition, so the runtime mirror doesn't need to do a
-    // post-tick `registry.active_phase()` re-read here. (The previous
-    // implementation had a `let _ = phase; let _ = music_request;`
-    // pair to acknowledge that the values exist; with the inversion
-    // landed, those acknowledgements are no longer load-bearing.)
+    // Music-request lifetime: `publish_events` only ever SETS the
+    // desired_track (via the engine's `MusicRequested` events on
+    // phase transitions); nothing on the engine side clears it.
+    // That's correct for phase-to-phase transitions inside a
+    // fight, but it traps two cases:
+    //
+    // 1. **Player leaves the arena**: the boss runtime despawns
+    //    when the room changes, but `boss_music.desired_track`
+    //    stays at the last phase's track. The next room would
+    //    keep playing violin instead of its own room music.
+    //
+    // 2. **Boss defeated**: the encounter transitions to Death.
+    //    The fight is over; we want the room's default music
+    //    back, not the violin loop playing over the dying boss.
+    //
+    // So at the end of each tick, check whether ANY of the
+    // bosses currently in the room has an encounter in an
+    // "active fight" phase. If none does, clear the boss-music
+    // request so the priority resolver falls back to the regular
+    // encounter music / room default.
+    //
+    // "Active fight" includes Stagger (still in combat, briefly
+    // unable to act) but excludes Dormant + Death. An empty
+    // bosses_in_room (player left the room) is treated the same
+    // as "no active fight" → clear.
+    let any_boss_in_active_fight = bosses_in_room
+        .iter()
+        .any(|(_, _, encounter_id, _, _, _, _)| {
+            registry
+                .encounters
+                .get(encounter_id)
+                .map(|state| {
+                    matches!(
+                        state.phase,
+                        ae::BossEncounterPhase::Intro
+                            | ae::BossEncounterPhase::Phase1
+                            | ae::BossEncounterPhase::Transition
+                            | ae::BossEncounterPhase::Phase2
+                            | ae::BossEncounterPhase::Enrage
+                            | ae::BossEncounterPhase::Stagger
+                    )
+                })
+                .unwrap_or(false)
+        });
+    if !any_boss_in_active_fight && music_request.desired_track.is_some() {
+        bevy::log::info!(
+            target: "ambition::boss_encounter",
+            "clearing boss music (no boss in active phase) — prior track={:?}",
+            music_request.desired_track,
+        );
+        music_request.desired_track = None;
+    }
+
     let boss_anchors: Vec<(String, ae::Vec2)> = bosses_in_room
         .iter()
         .map(|(runtime_id, _name, _enc_id, _pos, spawn, _hp, _max_hp)| (runtime_id.clone(), *spawn))

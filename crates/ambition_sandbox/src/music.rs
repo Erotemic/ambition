@@ -29,7 +29,9 @@ use crate::audio::{
     RadioStationState,
 };
 use crate::content::data::SandboxDataSpec;
-use crate::encounter::{EncounterMusicRequest, EncounterPhase, EncounterRegistry};
+use crate::encounter::{
+    BossEncounterMusicRequest, EncounterMusicRequest, EncounterPhase, EncounterRegistry,
+};
 use crate::persistence::settings::UserSettings;
 use crate::rooms::RoomMusicRequest;
 

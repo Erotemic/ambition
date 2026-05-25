@@ -388,6 +388,7 @@ pub(super) fn drive_outro_tail(
     radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &mut EncounterMusicRequest,
+    boss_music: &mut BossEncounterMusicRequest,
 ) {
     if director.mode != MusicDirectorMode::AdaptiveOutro {
         return;
@@ -418,6 +419,7 @@ pub(super) fn drive_outro_tail(
             radio,
             sandbox_data,
             encounter_music,
+            boss_music,
             false,
         );
         director.default_resume_started = true;
@@ -449,6 +451,7 @@ pub(super) fn shutdown_adaptive_cue(
     radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &mut EncounterMusicRequest,
+    boss_music: &mut BossEncounterMusicRequest,
 ) {
     info!(
         target: MUSIC_LOG_TARGET,
@@ -477,6 +480,7 @@ pub(super) fn shutdown_adaptive_cue(
         radio,
         sandbox_data,
         encounter_music,
+        boss_music,
         true,
     );
 }

@@ -33,6 +33,7 @@ pub fn drive_music_director(
     director: Option<ResMut<MusicDirectorState>>,
     encounters: Res<EncounterRegistry>,
     mut encounter_music: ResMut<EncounterMusicRequest>,
+    mut boss_music: ResMut<BossEncounterMusicRequest>,
     room_music: Res<RoomMusicRequest>,
     layer_channels: MusicLayerChannels,
     base_music_channel: Res<AudioChannel<MusicChannel>>,
@@ -98,6 +99,7 @@ pub fn drive_music_director(
                     radio.as_deref(),
                     &sandbox_data,
                     &mut encounter_music,
+                    &mut boss_music,
                 );
             }
         }
@@ -119,6 +121,7 @@ pub fn drive_music_director(
                     radio.as_deref(),
                     &sandbox_data,
                     &mut encounter_music,
+                    &mut boss_music,
                 );
             } else {
                 apply_simple_music_intent(
@@ -131,6 +134,7 @@ pub fn drive_music_director(
                     radio.as_deref(),
                     &sandbox_data,
                     &mut encounter_music,
+                    &mut boss_music,
                 );
             }
         }
@@ -151,6 +155,7 @@ pub fn drive_music_director(
                 radio.as_deref(),
                 &sandbox_data,
                 &mut encounter_music,
+                &mut boss_music,
             );
             log_periodic_state(&mut director, cue, dt);
         }

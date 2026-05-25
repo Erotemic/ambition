@@ -10,8 +10,16 @@ pub(super) fn apply_simple_music_intent(
     radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &mut EncounterMusicRequest,
+    boss_music: &mut BossEncounterMusicRequest,
 ) {
-    let target = resolved_simple_track(library, room_music, radio, sandbox_data, encounter_music);
+    let target = resolved_simple_track(
+        library,
+        room_music,
+        radio,
+        sandbox_data,
+        encounter_music,
+        boss_music,
+    );
     let needs_switch = director.last_simple_track.as_deref() != Some(target.as_str())
         || music_state.active_track != target;
     if needs_switch && library.track(&target).is_some() {
@@ -26,7 +34,8 @@ pub(super) fn apply_simple_music_intent(
         director.last_simple_track = Some(target.clone());
         director.mode = MusicDirectorMode::SimpleTrack;
     }
-    encounter_music.last_applied = Some(target);
+    encounter_music.last_applied = Some(target.clone());
+    boss_music.last_applied = Some(target);
 }
 
 fn resolved_simple_track(
@@ -35,7 +44,20 @@ fn resolved_simple_track(
     radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &EncounterMusicRequest,
+    boss_music: &BossEncounterMusicRequest,
 ) -> String {
+    // Priority: boss-encounter music wins over the regular encounter
+    // music wins over radio wins over room default. Boss is split
+    // into its own resource so the per-frame regular-encounter
+    // writeback (`encounter/systems.rs::update_encounters_from_world`)
+    // — which writes `desired_track = None` when no in-flight
+    // regular encounter exists — can't clobber the boss's
+    // `MusicRequested` events.
+    if let Some(track) = &boss_music.desired_track {
+        if library.track(track).is_some() {
+            return track.clone();
+        }
+    }
     if let Some(track) = &encounter_music.desired_track {
         if library.track(track).is_some() {
             return track.clone();
@@ -88,9 +110,17 @@ pub(super) fn resume_simple_music(
     radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &mut EncounterMusicRequest,
+    boss_music: &mut BossEncounterMusicRequest,
     set_mode_to_simple_track: bool,
 ) {
-    let target = resolved_simple_track(library, room_music, radio, sandbox_data, encounter_music);
+    let target = resolved_simple_track(
+        library,
+        room_music,
+        radio,
+        sandbox_data,
+        encounter_music,
+        boss_music,
+    );
     if library.track(&target).is_some() {
         info!(
             target: MUSIC_LOG_TARGET,
@@ -106,7 +136,8 @@ pub(super) fn resume_simple_music(
             &target,
         );
         director.last_simple_track = Some(target.clone());
-        encounter_music.last_applied = Some(target);
+        encounter_music.last_applied = Some(target.clone());
+        boss_music.last_applied = Some(target);
         if set_mode_to_simple_track {
             director.mode = MusicDirectorMode::SimpleTrack;
         }

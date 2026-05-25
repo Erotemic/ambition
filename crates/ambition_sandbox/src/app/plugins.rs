@@ -232,13 +232,20 @@ fn register_combat_systems(app: &mut App) {
             // EFFECTS-stage consumer: reads ActorActionMessage::Melee
             // and starts the enemy's attack windup + cooldown.
             // Replaces the legacy `if frame.melee_pressed` gate inside
-            // `EnemyRuntime::update`. The active-window damage check
-            // stays in `update_ecs_actors` (per-tick overlap; integration
-            // state).
+            // `EnemyRuntime::update`. The active-edge `Hitbox` spawn
+            // happens upstream in `update_ecs_actors` (the runtime is
+            // the only place that owns the windup → active transition);
+            // `apply_hitbox_damage` below resolves the overlap.
             crate::features::start_enemy_melee_from_brain_actions
                 .run_if(gameplay_allowed),
             crate::projectile::update_projectiles,
             crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
+            // Hitbox-entity lifecycle for melee strikes (Task A of the
+            // actor/brain follow-up plan). `apply_hitbox_damage`
+            // resolves overlap → damage event; `tick_and_despawn_hitboxes`
+            // advances lifetimes and cleans expired entities.
+            crate::features::apply_hitbox_damage.run_if(gameplay_allowed),
+            crate::features::tick_and_despawn_hitboxes,
             crate::features::apply_feature_damage_events,
         )
             .chain()

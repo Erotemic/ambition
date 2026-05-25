@@ -64,20 +64,20 @@ pub use components::{
     RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::{
-    apply_feature_damage_events, apply_gameplay_banner_requests, clear_encounter_reward_ecs,
-    collect_ecs_pickups, despawn_encounter_mobs, ecs_boss_anim_state, ecs_boss_name,
-    ecs_breakable_state, ecs_chest_opened, ecs_damage_event_hits_actor, ecs_damage_event_hits_boss,
-    ecs_damage_event_hits_breakable, ecs_enemy_anim_state, ecs_enemy_name,
-    ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name, interact_ecs_actors_and_switches,
-    open_ecs_chests, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
-    reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
-    spawn_enemy_projectiles_from_brain_actions, spawn_room_feature_entities,
+    apply_feature_damage_events, apply_gameplay_banner_requests, apply_hitbox_damage,
+    clear_encounter_reward_ecs, collect_ecs_pickups, despawn_encounter_mobs, ecs_boss_anim_state,
+    ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_damage_event_hits_actor,
+    ecs_damage_event_hits_boss, ecs_damage_event_hits_breakable, ecs_enemy_anim_state,
+    ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name,
+    interact_ecs_actors_and_switches, open_ecs_chests, rebuild_feature_ecs_world_overlay,
+    rebuild_feature_view_index, reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
+    spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox, spawn_room_feature_entities,
     start_enemy_melee_from_brain_actions, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
-    sync_ecs_bosses_with_save,
-    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, tick_gameplay_banner,
-    update_ecs_actors, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
-    update_ecs_hazards, ActorRuntime, BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FeatureViewIndex, HazardFeature,
+    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
+    tick_and_despawn_hitboxes, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
+    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorRuntime,
+    BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, HazardFeature,
+    Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{

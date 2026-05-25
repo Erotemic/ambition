@@ -122,17 +122,17 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
 
 /// Read every `ActorActionMessage::Melee` addressed to a hostile
 /// actor and start that enemy's melee windup/cooldown via
-/// `EnemyRuntime::begin_melee_attack`. The active hitbox lifecycle
-/// (windup → active → cooldown) stays on `EnemyRuntime` because the
-/// timers are integration-side state per the actor/brain mandate
-/// ("Runtimes own state, not policy"). Only the START of the
-/// attack — the policy decision — moves through the message stream.
+/// `EnemyRuntime::begin_melee_attack`. The windup → active timer
+/// transition stays on `EnemyRuntime` because the timers are
+/// integration-side state per the actor/brain mandate ("Runtimes
+/// own state, not policy"). Only the START of the attack — the
+/// policy decision — moves through the message stream.
 ///
-/// Damage application during the active window stays in
-/// `update_ecs_actors` (which polls `enemy.player_damage(player_body)`
-/// each tick); that's a per-tick overlap check, not a discrete
-/// spawn, and the runtime's body/attack-timer pair is the right
-/// integration surface for it.
+/// Damage application during the active window flows through the
+/// `Hitbox` entity lifecycle (see
+/// `content/features/ecs/hitbox.rs`): `update_ecs_actors` spawns
+/// the strike's hitbox on the windup → active edge, and
+/// `apply_hitbox_damage` resolves the overlap once per strike.
 pub fn start_enemy_melee_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -178,7 +178,6 @@ mod tests {
     use super::*;
     use crate::brain::{ActionSet, RangedActionSpec};
     use crate::content::features::enemies::EnemyRuntime;
-    use bevy::prelude::*;
 
     fn pirate_on_shark_actor(pos: ae::Vec2) -> ActorRuntime {
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));

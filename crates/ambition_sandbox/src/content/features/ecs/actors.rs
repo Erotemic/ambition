@@ -186,6 +186,7 @@ pub(crate) fn sync_actor_components_from_runtime(
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the
 /// same `ActorRuntime::Hostile` path with an `EncounterMob` marker.
 pub fn update_ecs_actors(
+    mut commands: Commands,
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
     platform_set: Res<crate::MovingPlatformSet>,
@@ -210,6 +211,7 @@ pub fn update_ecs_actors(
     >,
     mut actors: Query<
         (
+            Entity,
             &mut FeatureAabb,
             &mut ActorRuntime,
             &mut ActorIdentity,
@@ -254,7 +256,7 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, ae::SlotKind)> = Vec::new();
-    for (_, actor, _, _, _, _, _, _, _, _, _) in &actors {
+    for (_, _, actor, _, _, _, _, _, _, _, _, _) in &actors {
         if let ActorRuntime::Hostile(enemy) = actor {
             if enemy.alive {
                 requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
@@ -349,6 +351,7 @@ pub fn update_ecs_actors(
     // Wanderer-driven actor migrates (puppy slug, daytime).
     let sim_time = 0.0;
     for (
+        actor_entity,
         mut aabb,
         mut actor,
         mut identity,
@@ -411,6 +414,15 @@ pub fn update_ecs_actors(
                 // entity stays as a future migration handle for when
                 // the legacy AI lifts into the brain template.
                 let _ = brain;
+                // Capture pre-tick attack state so we can detect
+                // the windup → active edge below. The runtime's
+                // `update_attack_timers` is the only path that
+                // performs the transition (windup → active), so
+                // observing the edge lets us spawn the strike's
+                // `Hitbox` entity exactly once per begin-attack
+                // instead of polling overlap every tick.
+                let was_winding_up = enemy.attack_windup_timer > 0.0;
+                let was_active = enemy.attack_timer > 0.0;
                 let frame = enemy.update(
                     &feature_world,
                     target_pos,
@@ -424,13 +436,40 @@ pub fn update_ecs_actors(
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;
                 }
+                // Active-edge: windup just finished AND attack
+                // timer is now positive (and wasn't already). Spawn
+                // the strike's `Hitbox` entity here so the overlap
+                // check moves to `apply_hitbox_damage` instead of
+                // polling every frame from this system.
+                if was_winding_up
+                    && enemy.attack_windup_timer <= 0.0
+                    && enemy.attack_timer > 0.0
+                    && !was_active
+                    && enemy.alive
+                {
+                    let attack_box = enemy.attack_aabb();
+                    let local_offset = attack_box.center() - enemy.pos;
+                    super::hitbox::spawn_melee_hitbox(
+                        &mut commands,
+                        actor_entity,
+                        super::super::components::ActorFaction::Enemy,
+                        local_offset,
+                        attack_box.half_size(),
+                        1,
+                        1.0,
+                        enemy.attack_timer,
+                    );
+                }
                 // Projectile spawns moved to the EFFECTS-stage
                 // consumer `spawn_enemy_projectiles_from_brain_actions`
                 // (Combat set, runs after `emit_brain_action_messages`).
-                // The runtime is no longer the spawn authority — its
-                // role is to integrate body state.
+                // The attack-swing damage check moved to the
+                // Hitbox entity lifecycle (see above). Body-contact
+                // damage stays polled — "you ran into the enemy"
+                // is a per-tick integration test, not a discrete
+                // strike.
                 if player_vulnerable && enemy.alive {
-                    if let Some(damage) = enemy.player_damage(player_body) {
+                    if let Some(damage) = enemy.body_contact_damage(player_body) {
                         let pos = damage.impact_pos;
                         sfx.write(crate::audio::SfxMessage::Play {
                             id: ambition_sfx::ids::PLAYER_DAMAGE,

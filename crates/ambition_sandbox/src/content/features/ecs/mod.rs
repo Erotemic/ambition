@@ -56,6 +56,7 @@ mod damage;
 mod encounter_rewards;
 mod falling_chest;
 mod hazards;
+mod hitbox;
 mod interact;
 mod overlay;
 mod pickups;
@@ -88,6 +89,10 @@ pub use encounter_rewards::{
 };
 pub use falling_chest::update_ecs_falling_chests;
 pub use hazards::update_ecs_hazards;
+pub use hitbox::{
+    apply_hitbox_damage, spawn_melee_hitbox, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor,
+    HitboxHits, HitboxLifetime,
+};
 pub use interact::interact_ecs_actors_and_switches;
 pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::collect_ecs_pickups;

@@ -1703,40 +1703,30 @@ impl EnemyRuntime {
         Some(self.aabb())
     }
 
-    pub(super) fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
-        if self.attack_timer > 0.0 && self.attack_aabb().strict_intersects(player_body) {
-            return Some(PlayerDamageEvent {
-                mode: PlayerDamageMode::Knockback,
-                source: PlayerDamageSource::EnemyAttack,
-                source_pos: self.pos,
-                impact_pos: midpoint(player_body.center(), self.attack_aabb().center()),
-                knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
-                strength: 1.0,
-                amount: 1,
-                // Enemy AI targets primary at the call site
-                // (`PrimaryPlayerOnly` in update_ecs_actors); leave on
-                // the legacy primary-receives path until #17.8 lands
-                // per-target enemy AI.
-                target: None,
-            });
+    /// Polled body-contact damage check. The attack-swing arm moved
+    /// to the `Hitbox` entity lifecycle (see
+    /// `content/features/ecs/hitbox.rs`); body contact is "you ran
+    /// into the enemy" — a per-tick test against the integration
+    /// state, not a discrete strike — and keeps its polled shape.
+    /// Per the actor/brain follow-up plan
+    /// (`dev/journals/actor-brain-migration-followups-plan.md`,
+    /// Task A "What stays in `EnemyRuntime`").
+    pub(super) fn body_contact_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
+        let body_damage = self.body_damage_aabb()?;
+        if !body_damage.strict_intersects(player_body) {
+            return None;
         }
-        if let Some(body_damage) = self.body_damage_aabb() {
-            if body_damage.strict_intersects(player_body) {
-                return Some(PlayerDamageEvent {
-                    mode: PlayerDamageMode::Knockback,
-                    source: PlayerDamageSource::EnemyBody,
-                    source_pos: self.pos,
-                    impact_pos: midpoint(player_body.center(), body_damage.center()),
-                    knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
-                    strength: self.archetype.contact_strength(),
-                    amount: self.archetype.damage_amount(),
-                    // Same as the attack arm: enemy body contact is
-                    // resolved against the primary player at the call
-                    // site filter.
-                    target: None,
-                });
-            }
-        }
-        None
+        Some(PlayerDamageEvent {
+            mode: PlayerDamageMode::Knockback,
+            source: PlayerDamageSource::EnemyBody,
+            source_pos: self.pos,
+            impact_pos: midpoint(player_body.center(), body_damage.center()),
+            knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
+            strength: self.archetype.contact_strength(),
+            amount: self.archetype.damage_amount(),
+            // Hostile body contact targets primary today; per-target
+            // routing arrives with OVERNIGHT-TODO #17.6.
+            target: None,
+        })
     }
 }

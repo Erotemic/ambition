@@ -60,7 +60,10 @@ If you notice a reusable failure mode, invariant trap, or repo-specific question
 
 ## Generated indexes
 
-Regenerate indexes after moving docs, tests, or code symbols:
+`.agent/index/` is generated, intentionally ignored by Git, and should not be committed.
+
+If `.agent/index/` is missing, stale, or needed for file/symbol/test lookup,
+regenerate it before using it:
 
 ```bash
 python scripts/generate_agent_index.py

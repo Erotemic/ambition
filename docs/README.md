@@ -31,6 +31,16 @@ Use this file to choose what to read. Do not load the whole documentation tree b
 
 ## Generated agent indexes
 
+After moving docs, tests, or code symbols, regenerate and validate:
+
+```bash
+python scripts/generate_agent_index.py
+python scripts/check_agent_kb.py
+python scripts/check_doc_links.py
+```
+
+Generated indexes are navigation aids. They do not override source files, ADRs, current docs, or concept pages.
+
 - [`../.agent/manifest.yaml`](../.agent/manifest.yaml)
 - [`../.agent/retrieval_evals.yaml`](../.agent/retrieval_evals.yaml)
 - [`../.agent/index/`](../.agent/index/)

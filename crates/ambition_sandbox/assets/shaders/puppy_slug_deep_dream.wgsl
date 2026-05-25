@@ -142,16 +142,21 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let strength = clamp(control.z, 0.0, 1.0);
     let seed = control.w * 17.0;
 
-    var uv = mesh.uv;
-    var base = sample_frame(uv);
+    let uv = mesh.uv;
+    let base = sample_frame(uv);
 
-    // Keep the "better vertical orientation" guard from the current file.
-    let flipped_y_uv = vec2<f32>(mesh.uv.x, 1.0 - mesh.uv.y);
-    let flipped_y_base = sample_frame(flipped_y_uv);
-    if flipped_y_base.a > base.a {
-        uv = flipped_y_uv;
-        base = flipped_y_base;
-    }
+    // The previous version had a `flipped_y_base` "better vertical
+    // orientation" guard that re-sampled at `1.0 - mesh.uv.y` and
+    // picked whichever had more alpha. For a sprite whose body
+    // sits in only part of the frame vertically (like the puppy
+    // slug, whose body occupies y=43..74 of a 95-tall frame), that
+    // logic ALWAYS picked the flipped sample for mesh rows where
+    // the natural sample is transparent — drawing the body a
+    // second time, mirrored above its real position. That was the
+    // visible "puppy slug is being mirrored" artifact. Bevy's
+    // 2D `Rectangle` mesh and our atlas UV layout agree on
+    // y-down within a frame, so the natural `mesh.uv` is the
+    // right sample without any flip-detection.
 
     // Only draw where the sprite itself is visible.
     let mask_alpha = base.a;

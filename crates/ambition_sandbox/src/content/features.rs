@@ -50,8 +50,8 @@ pub use boss_attack_geometry::{
     telegraph_volumes, volumes_for_profile, BossVolumeContext,
 };
 pub use bosses::{
-    BossAttackProfile, BossBehaviorProfile, BossMovementProfile, BossRuntime,
-    GNU_TON_APPLE_OWNER_PREFIX,
+    boss_special_for_profile, BossAttackProfile, BossBehaviorProfile, BossMovementProfile,
+    BossRuntime, GNU_TON_APPLE_OWNER_PREFIX, GRADIENT_SENTINEL_ENCOUNTER_ID,
 };
 pub use breakables::BreakableRuntime;
 pub use bus::{
@@ -77,13 +77,17 @@ pub use ecs::{
     interact_ecs_actors_and_switches, open_ecs_chests, rebuild_feature_ecs_world_overlay,
     rebuild_feature_view_index, reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
     spawn_enemy_projectiles_from_brain_actions, spawn_gnu_apple_rain_from_special_messages,
-    spawn_melee_hitbox, spawn_room_feature_entities, start_enemy_melee_from_brain_actions,
-    sync_boss_encounter_phase, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
-    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
-    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors,
-    update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
-    ActorRuntime, AppleRainSpawnState, BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FeatureViewIndex, HazardFeature, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
+    spawn_gradient_cascade_minions_from_special_messages, spawn_melee_hitbox,
+    spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
+    spawn_room_feature_entities, spawn_saddle_point_from_special_messages,
+    start_enemy_melee_from_brain_actions, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
+    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
+    sync_encounter_reward_chests_ecs, tick_and_despawn_hitboxes, tick_boss_brains_system,
+    tick_gameplay_banner, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
+    update_ecs_falling_chests, update_ecs_hazards, ActorRuntime, AppleRainSpawnState, BossFeature,
+    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, GradientCascadeState,
+    HazardFeature, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MinimaTrapState,
+    OverfitVolleyState, SaddlePointState,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{

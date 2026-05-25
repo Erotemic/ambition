@@ -25,10 +25,11 @@
 use super::*;
 
 use crate::brain::{
-    boss_pattern::tick_boss_pattern, ActorControl, BossAttackState, BossPatternContext, Brain,
-    StateMachineCfg,
+    action_set::ActionRequest, boss_pattern::tick_boss_pattern, ActorActionMessage, ActorControl,
+    BossAttackState, BossPatternContext, Brain, StateMachineCfg,
 };
-use crate::features::{boss_attack_damage, BossVolumeContext};
+use crate::features::{boss_attack_damage, boss_special_for_profile, BossVolumeContext};
+use bevy::prelude::MessageWriter;
 
 /// Sync each boss's `encounter_phase` mirror from `BossEncounterRegistry`.
 /// Runs before [`tick_boss_brains_system`] so the brain sees this
@@ -57,6 +58,7 @@ pub fn tick_boss_brains_system(
     world: Res<crate::GameWorld>,
     mut bosses: Query<
         (
+            bevy::ecs::entity::Entity,
             &BossFeature,
             &mut Brain,
             &mut ActorControl,
@@ -65,9 +67,10 @@ pub fn tick_boss_brains_system(
         ),
         With<FeatureSimEntity>,
     >,
+    mut action_messages: MessageWriter<ActorActionMessage>,
 ) {
     let dt = world_time.sim_dt();
-    for (feature, mut brain, mut control, mut attack_state, target) in &mut bosses {
+    for (entity, feature, mut brain, mut control, mut attack_state, target) in &mut bosses {
         let boss = &feature.boss;
         if !boss.alive {
             // Dead boss: zero out frame + attack state so any
@@ -95,6 +98,30 @@ pub fn tick_boss_brains_system(
         };
         let mut frame = ae::ActorControlFrame::neutral();
         tick_boss_pattern(cfg, state, &ctx, &mut frame, &mut attack_state);
+
+        // Boss-side Special direct-write: the Gradient Sentinel has
+        // four distinct specials (OverfitVolley / MinimaTrap /
+        // SaddlePoint / GradientCascade) which doesn't fit
+        // `ActionSet`'s single special slot. Rather than grow the
+        // ActionSet schema or the ActorControlFrame, the boss tick
+        // writes `ActorActionMessage::Special { spec }` directly
+        // using `boss_special_for_profile` to look up the spec from
+        // the live `BossAttackState.active_profile`. The boss's
+        // `ActionSet.special` is set to `None` for multi-special
+        // bosses (see `spawn_boss`) so the generic
+        // `emit_brain_action_messages` resolver doesn't fire a
+        // duplicate. GNU-ton's apple rain takes the same path so all
+        // boss specials share one wiring.
+        if frame.special_pressed {
+            if let Some(profile) = attack_state.active_profile.as_ref() {
+                if let Some(spec) = boss_special_for_profile(profile, boss) {
+                    action_messages.write(ActorActionMessage {
+                        actor: entity,
+                        request: ActionRequest::Special { spec },
+                    });
+                }
+            }
+        }
         control.0 = frame;
     }
 }

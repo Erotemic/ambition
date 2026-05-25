@@ -545,25 +545,28 @@ pub fn upgrade_boss_sprites(
         return;
     };
     for (entity, visual) in &new_bosses {
-        let Some(view) = ecs_bosses.iter().find_map(|(feature_id, boss, attack_state)| {
-            if feature_id.as_str() != visual.id.as_str() {
-                return None;
-            }
-            let boss = &boss.boss;
-            // `flash` reads `BossAttackState` instead of the deleted
-            // `attack_timer` / `attack_windup_timer` mirror fields.
-            Some(crate::features::FeatureView {
-                pos: boss.pos,
-                size: boss.render_size(),
-                kind: FeatureVisualKind::Boss,
-                visible: boss.alive,
-                flash: boss.hit_flash > 0.0
-                    || attack_state.telegraph_profile.is_some()
-                    || attack_state.active_profile.is_some(),
-                switch_on: false,
-                rotation_rad: 0.0,
+        let Some(view) = ecs_bosses
+            .iter()
+            .find_map(|(feature_id, boss, attack_state)| {
+                if feature_id.as_str() != visual.id.as_str() {
+                    return None;
+                }
+                let boss = &boss.boss;
+                // `flash` reads `BossAttackState` instead of the deleted
+                // `attack_timer` / `attack_windup_timer` mirror fields.
+                Some(crate::features::FeatureView {
+                    pos: boss.pos,
+                    size: boss.render_size(),
+                    kind: FeatureVisualKind::Boss,
+                    visible: boss.alive,
+                    flash: boss.hit_flash > 0.0
+                        || attack_state.telegraph_profile.is_some()
+                        || attack_state.active_profile.is_some(),
+                    switch_on: false,
+                    rotation_rad: 0.0,
+                })
             })
-        }) else {
+        else {
             continue;
         };
         if !matches!(view.kind, FeatureVisualKind::Boss) {

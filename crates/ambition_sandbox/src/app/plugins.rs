@@ -246,6 +246,20 @@ fn register_combat_systems(app: &mut App) {
             // ordering of `outputs.projectile_spawns` flush →
             // projectile tick.
             crate::features::spawn_gnu_apple_rain_from_special_messages.run_if(gameplay_allowed),
+            // Gradient Sentinel special consumers (one per
+            // SpecialActionSpec variant): position-sampling bolt
+            // barrage, pit + puppy_slug spawn, rotating cross hazard,
+            // and slop-minion descent. All four are written directly
+            // by `tick_boss_brains_system` via `boss_special_for_profile`
+            // and follow the apple-rain consumer pattern (per-boss
+            // state component, reset on no-message tick). Run before
+            // `update_enemy_projectiles` for the bolt barrage so it
+            // advances this frame.
+            crate::features::spawn_overfit_volley_from_special_messages.run_if(gameplay_allowed),
+            crate::features::spawn_minima_trap_from_special_messages.run_if(gameplay_allowed),
+            crate::features::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),
+            crate::features::spawn_gradient_cascade_minions_from_special_messages
+                .run_if(gameplay_allowed),
             crate::projectile::update_projectiles,
             crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
             // Hitbox-entity lifecycle for melee strikes (Task A of the

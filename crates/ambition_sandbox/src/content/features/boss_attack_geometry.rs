@@ -152,9 +152,9 @@ pub fn boss_attack_damage(
     ctx: &BossVolumeContext,
     player_body: ae::Aabb,
 ) -> Option<crate::features::PlayerDamageEvent> {
-    use ambition_engine::AabbExt;
-    use crate::features::{PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource};
     use super::util::midpoint;
+    use crate::features::{PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource};
+    use ambition_engine::AabbExt;
 
     // Strike arm: the brain's `active_profile` is the single source
     // of truth for "there's a live boss hitbox right now".
@@ -289,6 +289,17 @@ pub fn volumes_for_profile(
             BossAttackProfile::GnuAppleRain => {
                 return Vec::new();
             }
+            // Gradient Sentinel profiles never land on GNU-ton (the
+            // boss is single-encounter), but a defensive empty arm
+            // keeps the match exhaustive without crashing if some
+            // future test fixture cross-wires the encounters.
+            BossAttackProfile::OverfitVolley
+            | BossAttackProfile::MinimaTrap
+            | BossAttackProfile::SaddlePoint
+            | BossAttackProfile::GradientCascade
+            | BossAttackProfile::GradientLane => {
+                return Vec::new();
+            }
             _ => {}
         }
     }
@@ -310,6 +321,26 @@ pub fn volumes_for_profile(
             ),
         ],
         BossAttackProfile::FullBodyPulse => vec![ae::Aabb::new(origin, size * 0.70)],
+        // Gradient Sentinel's vertical hazard column: tall narrow
+        // rectangle centered on the boss x, extending well above and
+        // below the boss body so jumping over is hard but lateral
+        // dodge is easy. World-y span uses 1.8× the boss body height
+        // — enough to span a typical sandbox arena's mid-air play
+        // space without being absurdly tall. The Gradient Sentinel
+        // sways ±130 px around its anchor (`AnchorSway` movement
+        // profile), so the lane sweeps with the boss naturally.
+        BossAttackProfile::GradientLane => vec![ae::Aabb::new(
+            origin + ae::Vec2::new(0.0, 0.0),
+            ae::Vec2::new(size.x * 0.30, size.y * 1.80),
+        )],
+        // Specials' damage routes through their EFFECTS consumers
+        // (spawned projectiles / World-anchored hitboxes / minions).
+        // Empty volumes here prevent double-counting via
+        // `boss_attack_damage`'s strike arm.
+        BossAttackProfile::OverfitVolley
+        | BossAttackProfile::MinimaTrap
+        | BossAttackProfile::SaddlePoint
+        | BossAttackProfile::GradientCascade => Vec::new(),
         BossAttackProfile::WingSweep => vec![ae::Aabb::new(
             origin + ae::Vec2::new(0.0, size.y * 0.08),
             ae::Vec2::new(size.x * 0.56, size.y * 0.42),

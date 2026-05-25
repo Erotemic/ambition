@@ -23,11 +23,17 @@
 //! consumer here takes over.
 
 use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
-use crate::brain::{action_set::ActionRequest, ActorActionMessage, SpecialActionSpec};
+use crate::brain::{
+    action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
+    SpecialActionSpec,
+};
+use crate::content::features::components::ActorFaction;
 use crate::content::features::ecs::actors::ActorRuntime;
+use crate::content::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 use crate::content::features::ecs::BossFeature;
 use crate::content::features::ecs::FeatureSimEntity;
 use crate::content::features::enemies::EnemyArchetype;
@@ -314,6 +320,550 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
 #[cfg(test)]
 fn default_combat_tuning() -> crate::content::features::events::FeatureCombatTuning {
     SandboxFeelTuning::default().feature_combat_tuning()
+}
+
+// =================================================================
+// Gradient Sentinel specials — state components + EFFECTS consumers
+// =================================================================
+//
+// The Gradient Sentinel boss carries four distinct specials that
+// don't fit the single `ActionSet::special` slot. Each special has
+// its own per-boss state component and EFFECTS consumer:
+//
+//   OverfitVolley     → sample player positions during telegraph,
+//                       fire bolts at all samples on strike edge.
+//   MinimaTrap        → spawn a World-anchored pit hitbox at player
+//                       pos on strike edge + a puppy_slug minion.
+//   SaddlePoint       → spawn 2 World hitboxes around the boss (one
+//                       horizontal arm, one vertical) and rotate which
+//                       arm has damage live over the strike duration.
+//   GradientCascade   → spawn N "slop" minions (small_lurker) at the
+//                       top of the arena on strike edge.
+//
+// All four follow the AppleRain consumer pattern: per-boss state
+// component, read `ActorActionMessage::Special { spec }` matched to
+// the variant, advance/reset state from the message stream + the
+// boss's live `BossAttackState`. The brain emits the Special
+// messages directly from `tick_boss_brains_system` via
+// `boss_special_for_profile` (see `crate::content::features::bosses`).
+
+/// Per-boss state for OverfitVolley. Sampled positions are
+/// memorized during the telegraph window; the strike edge fires one
+/// bolt at every sample.
+#[derive(Component, Clone, Debug, Default)]
+pub struct OverfitVolleyState {
+    /// Player positions sampled during the active telegraph.
+    pub samples: Vec<ae::Vec2>,
+    /// Seconds since the last sample. Drains when `>= sample_interval_s`.
+    pub sample_accum: f32,
+    /// Tracks the per-strike "have we fired yet?" gate. Reset when
+    /// the strike window closes (telegraph or active drops the
+    /// OverfitVolley profile).
+    pub fired_this_strike: bool,
+    /// Tracks the previous tick's "in-attack" status so the seed
+    /// sample only happens once per telegraph (not every tick the
+    /// state machine reports telegraph_profile).
+    pub had_seed_sample: bool,
+}
+
+/// MinimaTrap is a one-shot per-strike action (spawn pit hitbox +
+/// minion at strike edge). State is just the "fired" gate — the pit
+/// hitbox + minion are independent entities once spawned, so no
+/// further per-boss state is needed.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct MinimaTrapState {
+    pub fired_this_strike: bool,
+    /// Per-spawn counter so each pit + minion entity gets a unique id
+    /// (so the inspector / save sync doesn't collide).
+    pub spawn_index: u32,
+}
+
+/// Per-boss state for SaddlePoint. Tracks which axis (horizontal arm
+/// or vertical arm) is currently the damaging one + how much time
+/// is left in this axis before the toggle.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SaddlePointState {
+    /// Whether the strike is currently active. Reset on no-message
+    /// ticks so we re-spawn the hitbox entities on the next strike.
+    pub strike_active: bool,
+    /// Which axis is "live" — true = horizontal arm, false = vertical.
+    pub axis_horizontal: bool,
+    /// Seconds left in the current axis before toggling.
+    pub axis_remaining_s: f32,
+    /// Hitbox entities for each arm; tracked so the rotation can
+    /// despawn/replace them on toggle. `None` between strikes.
+    pub horizontal_hitbox: Option<Entity>,
+    pub vertical_hitbox: Option<Entity>,
+}
+
+/// GradientCascade is one-shot per strike (spawn N minions at strike
+/// edge). State is just the "fired" gate plus a spawn counter for
+/// unique minion ids.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct GradientCascadeState {
+    pub fired_this_strike: bool,
+    pub spawn_index: u32,
+}
+
+/// OverfitVolley constants reused from the spec but baked here so
+/// the consumer doesn't need to round-trip through the spec on every
+/// telegraph tick (the spec only arrives via the strike-tick
+/// message; sampling happens during telegraph too). Tuning lives in
+/// `crate::content::features::bosses` — these are local mirrors.
+const OVERFIT_VOLLEY_BOLT_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
+const OVERFIT_VOLLEY_BOLT_LIFETIME: f32 = 2.4;
+const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
+
+/// EFFECTS consumer: OverfitVolley position-sampling bolt barrage.
+///
+/// Reads two things per tick:
+///
+/// 1. `BossAttackState.telegraph_profile` — when set to
+///    `OverfitVolley`, the consumer samples the player's position at
+///    every `OVERFIT_VOLLEY_SAMPLE_INTERVAL_S` and pushes onto
+///    `OverfitVolleyState.samples` (capped at `OVERFIT_VOLLEY_SAMPLE_COUNT`).
+/// 2. `ActorActionMessage::Special { spec: OverfitVolley { .. } }` —
+///    arrives every tick the strike is active; the consumer fires
+///    one bolt per memorized sample on the first such message
+///    (gated by `fired_this_strike`).
+///
+/// When neither telegraph nor strike is active for this profile, the
+/// state resets to a clean slate so the next strike window starts
+/// from zero.
+pub fn spawn_overfit_volley_from_special_messages(
+    world_time: Res<WorldTime>,
+    mut enemy_projectiles: ResMut<EnemyProjectileState>,
+    mut messages: MessageReader<ActorActionMessage>,
+    player_query: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
+    mut bosses: Query<
+        (
+            Entity,
+            &BossFeature,
+            &BossAttackState,
+            &mut OverfitVolleyState,
+        ),
+        With<FeatureSimEntity>,
+    >,
+) {
+    use crate::content::features::bosses::{
+        OVERFIT_VOLLEY_SAMPLE_COUNT, OVERFIT_VOLLEY_SAMPLE_INTERVAL_S,
+    };
+    let dt = world_time.sim_dt();
+
+    let mut active_strike_params: std::collections::HashMap<Entity, (f32, i32)> =
+        std::collections::HashMap::new();
+    for msg in messages.read() {
+        if let ActionRequest::Special {
+            spec:
+                SpecialActionSpec::OverfitVolley {
+                    shot_speed, damage, ..
+                },
+        } = msg.request
+        {
+            active_strike_params.insert(msg.actor, (shot_speed, damage));
+        }
+    }
+
+    let player_pos = player_query.single().ok().map(|pb| pb.aabb().center());
+
+    for (entity, boss_feature, attack_state, mut state) in &mut bosses {
+        let boss = &boss_feature.boss;
+        if !boss.alive {
+            // Dead boss: clear samples so a respawned-then-attacking
+            // boss doesn't inherit stale memory.
+            state.samples.clear();
+            state.sample_accum = 0.0;
+            state.fired_this_strike = false;
+            state.had_seed_sample = false;
+            continue;
+        }
+
+        let in_telegraph = matches!(
+            attack_state.telegraph_profile,
+            Some(BossAttackProfile::OverfitVolley)
+        );
+        let strike_params = active_strike_params.get(&entity).copied();
+
+        if in_telegraph {
+            // Seed an initial sample on the first telegraph tick so
+            // even a static player gets at least one bolt.
+            if !state.had_seed_sample {
+                if let Some(pos) = player_pos {
+                    state.samples.push(pos);
+                }
+                state.had_seed_sample = true;
+                state.sample_accum = 0.0;
+            }
+            state.sample_accum += dt;
+            while state.sample_accum >= OVERFIT_VOLLEY_SAMPLE_INTERVAL_S {
+                state.sample_accum -= OVERFIT_VOLLEY_SAMPLE_INTERVAL_S;
+                if state.samples.len() < OVERFIT_VOLLEY_SAMPLE_COUNT as usize {
+                    if let Some(pos) = player_pos {
+                        state.samples.push(pos);
+                    }
+                }
+            }
+            // Strike hasn't fired yet — keep the gate open.
+            state.fired_this_strike = false;
+        } else if let Some((shot_speed, damage)) = strike_params {
+            if !state.fired_this_strike {
+                let origin = boss.pos;
+                for sample_pos in state.samples.iter() {
+                    let delta = *sample_pos - origin;
+                    let dir = delta.normalize_or_zero();
+                    if dir.length_squared() < 1e-4 {
+                        continue;
+                    }
+                    enemy_projectiles.spawn(EnemyProjectileSpawn {
+                        origin,
+                        dir,
+                        speed: shot_speed,
+                        damage,
+                        max_lifetime: OVERFIT_VOLLEY_BOLT_LIFETIME,
+                        half_extent: OVERFIT_VOLLEY_BOLT_HALF_EXTENT,
+                        owner_id: format!("{}:{}", OVERFIT_VOLLEY_OWNER_PREFIX, boss.id),
+                        gravity: 0.0,
+                    });
+                }
+                state.fired_this_strike = true;
+                state.samples.clear();
+                state.had_seed_sample = false;
+            }
+        } else {
+            // Not telegraphing and not striking — reset for next cycle.
+            state.samples.clear();
+            state.sample_accum = 0.0;
+            state.fired_this_strike = false;
+            state.had_seed_sample = false;
+        }
+    }
+}
+
+const MINIMA_TRAP_OWNER_PREFIX: &str = "gradient_sentinel_minima";
+const MINIMA_TRAP_KNOCKBACK: f32 = 1.4;
+/// Minion archetype id spawned by the trap (puppy_slug — pacifist
+/// crawler).
+const MINIMA_TRAP_MINION_ARCHETYPE: &str = "puppy_slug";
+const MINIMA_TRAP_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(24.0, 11.0);
+
+/// EFFECTS consumer: MinimaTrap pit + optional puppy_slug.
+///
+/// On the first Special message of a strike (gated by
+/// `MinimaTrapState.fired_this_strike`):
+/// - Spawn a World-anchored hitbox at the player's current position
+///   with `half_extent_x/y` and `hazard_duration_s` lifetime.
+/// - Optionally spawn a puppy_slug minion at the same position so
+///   the player has a moving threat to deal with alongside the pit.
+///
+/// The hitbox is a regular `Hitbox` entity, so it flows through the
+/// standard `apply_hitbox_damage` → `PlayerDamageEvent` path. The
+/// once-per-strike `HitboxHits` set ensures the player takes at
+/// most one hit per pit lifetime.
+pub fn spawn_minima_trap_from_special_messages(
+    mut commands: Commands,
+    mut messages: MessageReader<ActorActionMessage>,
+    player_query: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
+    mut bosses: Query<(Entity, &BossFeature, &mut MinimaTrapState), With<FeatureSimEntity>>,
+) {
+    let mut active_strike_params: std::collections::HashMap<Entity, (f32, i32, f32, f32, bool)> =
+        std::collections::HashMap::new();
+    for msg in messages.read() {
+        if let ActionRequest::Special {
+            spec:
+                SpecialActionSpec::MinimaTrap {
+                    hazard_duration_s,
+                    damage,
+                    half_extent_x,
+                    half_extent_y,
+                    spawn_minion,
+                },
+        } = msg.request
+        {
+            active_strike_params.insert(
+                msg.actor,
+                (
+                    hazard_duration_s,
+                    damage,
+                    half_extent_x,
+                    half_extent_y,
+                    spawn_minion,
+                ),
+            );
+        }
+    }
+
+    let player_pos = player_query.single().ok().map(|pb| pb.aabb().center());
+
+    for (entity, boss_feature, mut state) in &mut bosses {
+        let boss = &boss_feature.boss;
+        let Some(params) = active_strike_params.get(&entity).copied() else {
+            // Strike window closed — reset the fired gate so the next
+            // strike re-spawns the pit.
+            state.fired_this_strike = false;
+            continue;
+        };
+        if !boss.alive {
+            continue;
+        }
+        if state.fired_this_strike {
+            continue;
+        }
+        let (hazard_duration_s, damage, hx, hy, spawn_minion) = params;
+        let pit_center = player_pos.unwrap_or(boss.pos);
+
+        commands.spawn((
+            Hitbox {
+                owner: entity,
+                source: ActorFaction::Boss,
+                anchor: HitboxAnchor::World { center: pit_center },
+                half_extent: ae::Vec2::new(hx, hy),
+                damage,
+                knockback_strength: MINIMA_TRAP_KNOCKBACK,
+            },
+            HitboxLifetime {
+                remaining_s: hazard_duration_s.max(0.05),
+            },
+            HitboxHits::default(),
+        ));
+
+        if spawn_minion {
+            let minion_id = format!(
+                "{}_minion:{}:{}",
+                MINIMA_TRAP_OWNER_PREFIX, boss.id, state.spawn_index
+            );
+            crate::content::features::ecs::spawn::spawn_runtime_minion(
+                &mut commands,
+                minion_id,
+                "Slop Slug",
+                pit_center,
+                MINIMA_TRAP_MINION_HALF_SIZE,
+                MINIMA_TRAP_MINION_ARCHETYPE,
+            );
+        }
+
+        state.fired_this_strike = true;
+        state.spawn_index = state.spawn_index.wrapping_add(1);
+    }
+}
+
+const SADDLE_POINT_KNOCKBACK: f32 = 1.6;
+
+/// EFFECTS consumer: SaddlePoint rotating cross hazard.
+///
+/// On the first Special message of a strike, spawns two World-anchored
+/// hitbox entities centered on the boss — one horizontal arm, one
+/// vertical arm. Only the "live" axis carries non-zero damage; the
+/// inactive axis is despawned. Every `axis_period_s` seconds the
+/// active axis toggles: the live hitbox is despawned and the other
+/// arm is spawned in its place. This creates a readable "stand on
+/// the safe axis" puzzle for the player.
+///
+/// The boss may move during the strike (AnchorSway profile), so the
+/// hitboxes use the boss entity as their anchor base by being
+/// re-spawned at the boss position each toggle. (A future
+/// `HitboxAnchor::FollowOwner` with a per-arm long offset would
+/// move the cross with the boss in real time — out of scope here.)
+pub fn spawn_saddle_point_from_special_messages(
+    mut commands: Commands,
+    world_time: Res<WorldTime>,
+    mut messages: MessageReader<ActorActionMessage>,
+    mut bosses: Query<(Entity, &BossFeature, &mut SaddlePointState), With<FeatureSimEntity>>,
+) {
+    let dt = world_time.sim_dt();
+
+    let mut active_strike_params: std::collections::HashMap<Entity, (f32, f32, f32, i32)> =
+        std::collections::HashMap::new();
+    for msg in messages.read() {
+        if let ActionRequest::Special {
+            spec:
+                SpecialActionSpec::SaddlePoint {
+                    arm_length,
+                    arm_thickness,
+                    axis_period_s,
+                    damage,
+                },
+        } = msg.request
+        {
+            active_strike_params.insert(
+                msg.actor,
+                (arm_length, arm_thickness, axis_period_s, damage),
+            );
+        }
+    }
+
+    for (entity, boss_feature, mut state) in &mut bosses {
+        let boss = &boss_feature.boss;
+        let Some((arm_length, arm_thickness, axis_period_s, damage)) =
+            active_strike_params.get(&entity).copied()
+        else {
+            // Strike closed — despawn any lingering hitboxes and
+            // reset state so the next strike starts clean.
+            if let Some(h) = state.horizontal_hitbox.take() {
+                commands.entity(h).despawn();
+            }
+            if let Some(h) = state.vertical_hitbox.take() {
+                commands.entity(h).despawn();
+            }
+            state.strike_active = false;
+            state.axis_remaining_s = 0.0;
+            continue;
+        };
+        if !boss.alive {
+            if let Some(h) = state.horizontal_hitbox.take() {
+                commands.entity(h).despawn();
+            }
+            if let Some(h) = state.vertical_hitbox.take() {
+                commands.entity(h).despawn();
+            }
+            continue;
+        }
+        let period = axis_period_s.max(0.05);
+
+        // Strike start (or re-start after a between-strike gap):
+        // spawn the initial active hitbox + reset rotation timer.
+        // The boss may move during the strike (AnchorSway), so each
+        // toggle re-spawns at the *current* boss center.
+        let spawn_axis_hitbox = |commands: &mut Commands, axis_horizontal: bool| -> Entity {
+            let (he_x, he_y) = if axis_horizontal {
+                (arm_length, arm_thickness)
+            } else {
+                (arm_thickness, arm_length)
+            };
+            commands
+                .spawn((
+                    Hitbox {
+                        owner: entity,
+                        source: ActorFaction::Boss,
+                        anchor: HitboxAnchor::World { center: boss.pos },
+                        half_extent: ae::Vec2::new(he_x, he_y),
+                        damage,
+                        knockback_strength: SADDLE_POINT_KNOCKBACK,
+                    },
+                    HitboxLifetime {
+                        // Lifetime > axis_period_s so the hitbox
+                        // doesn't expire mid-axis. We despawn it on
+                        // toggle or strike end.
+                        remaining_s: period * 2.0,
+                    },
+                    HitboxHits::default(),
+                ))
+                .id()
+        };
+
+        if !state.strike_active {
+            // First tick of the strike — clear any leftovers and
+            // spawn the first axis.
+            if let Some(h) = state.horizontal_hitbox.take() {
+                commands.entity(h).despawn();
+            }
+            if let Some(h) = state.vertical_hitbox.take() {
+                commands.entity(h).despawn();
+            }
+            // Start on the horizontal axis (matches the visual
+            // expectation: cross forms, horizontal arm lights up
+            // first, then alternates).
+            state.axis_horizontal = true;
+            state.horizontal_hitbox = Some(spawn_axis_hitbox(&mut commands, true));
+            state.vertical_hitbox = None;
+            state.axis_remaining_s = period;
+            state.strike_active = true;
+            continue;
+        }
+
+        // Continuing strike — advance axis timer; toggle on expiry.
+        state.axis_remaining_s = (state.axis_remaining_s - dt).max(0.0);
+        if state.axis_remaining_s <= 0.0 {
+            state.axis_horizontal = !state.axis_horizontal;
+            // Despawn previous axis, spawn the new one.
+            if let Some(h) = state.horizontal_hitbox.take() {
+                commands.entity(h).despawn();
+            }
+            if let Some(h) = state.vertical_hitbox.take() {
+                commands.entity(h).despawn();
+            }
+            if state.axis_horizontal {
+                state.horizontal_hitbox = Some(spawn_axis_hitbox(&mut commands, true));
+            } else {
+                state.vertical_hitbox = Some(spawn_axis_hitbox(&mut commands, false));
+            }
+            state.axis_remaining_s = period;
+        }
+    }
+}
+
+const GRADIENT_CASCADE_MINION_ARCHETYPE: &str = "small_lurker";
+const GRADIENT_CASCADE_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
+/// Vertical y where slop minions spawn (top of the arena, just below
+/// the ceiling). The arena ceiling sits at y=32; minions spawn at
+/// y=80 so they're visibly inside the play space rather than clipping
+/// the ceiling overlay.
+const GRADIENT_CASCADE_SPAWN_Y: f32 = 80.0;
+/// Horizontal spread (px from arena center) for spawning N minions.
+const GRADIENT_CASCADE_X_SPREAD: f32 = 220.0;
+
+/// EFFECTS consumer: GradientCascade — spawn N "slop" minions at the
+/// top of the arena.
+///
+/// One-shot per strike. Spawns `minion_count` `small_lurker`
+/// minions in a horizontal spread at `GRADIENT_CASCADE_SPAWN_Y`,
+/// centered on the boss x. Gravity carries them down toward the
+/// player; their default `MeleeBrute` brain chases on contact.
+pub fn spawn_gradient_cascade_minions_from_special_messages(
+    mut commands: Commands,
+    mut messages: MessageReader<ActorActionMessage>,
+    mut bosses: Query<(Entity, &BossFeature, &mut GradientCascadeState), With<FeatureSimEntity>>,
+) {
+    let mut active_strike_params: std::collections::HashMap<Entity, u8> =
+        std::collections::HashMap::new();
+    for msg in messages.read() {
+        if let ActionRequest::Special {
+            spec: SpecialActionSpec::GradientCascade { minion_count },
+        } = msg.request
+        {
+            active_strike_params.insert(msg.actor, minion_count);
+        }
+    }
+
+    for (entity, boss_feature, mut state) in &mut bosses {
+        let boss = &boss_feature.boss;
+        let Some(minion_count) = active_strike_params.get(&entity).copied() else {
+            // Strike closed — reset gate.
+            state.fired_this_strike = false;
+            continue;
+        };
+        if !boss.alive {
+            continue;
+        }
+        if state.fired_this_strike {
+            continue;
+        }
+        let count = minion_count.max(1) as i32;
+        // Spread N minions evenly across [-X_SPREAD, +X_SPREAD] around
+        // the boss x.
+        for i in 0..count {
+            let t = if count == 1 {
+                0.5
+            } else {
+                i as f32 / (count - 1) as f32
+            };
+            let x_off = (t - 0.5) * 2.0 * GRADIENT_CASCADE_X_SPREAD;
+            let spawn_pos = ae::Vec2::new(boss.pos.x + x_off, GRADIENT_CASCADE_SPAWN_Y);
+            let minion_id = format!(
+                "gradient_sentinel_cascade:{}:{}:{}",
+                boss.id, state.spawn_index, i
+            );
+            crate::content::features::ecs::spawn::spawn_runtime_minion(
+                &mut commands,
+                minion_id,
+                "Slop Lurker",
+                spawn_pos,
+                GRADIENT_CASCADE_MINION_HALF_SIZE,
+                GRADIENT_CASCADE_MINION_ARCHETYPE,
+            );
+        }
+        state.fired_this_strike = true;
+        state.spawn_index = state.spawn_index.wrapping_add(1);
+    }
 }
 
 #[cfg(test)]
@@ -804,6 +1354,403 @@ mod tests {
             "expected apples on both sides of boss; got {} apples",
             projectiles.bodies.len(),
         );
+    }
+
+    // -----------------------------------------------------------
+    // Gradient Sentinel consumer tests
+    //
+    // Each new EFFECTS consumer (OverfitVolley, MinimaTrap,
+    // SaddlePoint, GradientCascade) gets a small App-driven test
+    // that fires a Special message and asserts the consumer
+    // produced the right downstream effect. Mirrors the apple-rain
+    // pattern: a build_app helper that adds the message channel +
+    // the consumer, then write a message and assert.
+    //
+    // None of these are full end-to-end tests — they exercise the
+    // consumer in isolation with mock state. Full schedule
+    // integration is covered by the boss_pattern + scripted_pattern
+    // tests in their own modules.
+    // -----------------------------------------------------------
+
+    fn gradient_sentinel_boss_feature() -> BossFeature {
+        let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 696.0), ae::Vec2::new(64.0, 80.0));
+        let mut boss = BossRuntime::new(
+            "boss_gradient_sentinel",
+            "Gradient Sentinel",
+            aabb,
+            ae::BossBrain::Dormant,
+        );
+        boss.behavior = BossBehaviorProfile::clockwork_warden();
+        BossFeature::new(boss)
+    }
+
+    fn overfit_volley_spec() -> SpecialActionSpec {
+        SpecialActionSpec::OverfitVolley {
+            sample_interval_s: 0.30,
+            sample_count: 5,
+            shot_speed: 360.0,
+            damage: 1,
+        }
+    }
+
+    /// Sanity: OverfitVolley consumer with a seeded sample fires
+    /// projectiles on the strike tick.
+    ///
+    /// Building a real `PlayerBody` for this test is heavyweight
+    /// (drags the entire player module in). Instead we seed
+    /// samples directly into `OverfitVolleyState` to simulate the
+    /// telegraph having already happened, then drive one strike
+    /// tick and assert projectiles spawned. This pins the
+    /// "fire-bolts-at-samples" half of the consumer; the
+    /// "sample-during-telegraph" half is exercised by the
+    /// scripted_pattern tests + manual playtest.
+    #[test]
+    fn overfit_volley_consumer_fires_bolts_at_seeded_samples_on_strike() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<WorldTime>();
+        // We can't easily build a real player body without
+        // dragging in PlayerPlugin. Reproduce the bolts via a
+        // narrower fixture system that doesn't query PlayerBody —
+        // we exercise the bolts-from-seeded-samples branch by
+        // calling spawn_overfit_volley_from_special_messages with
+        // a Query that returns no player. The seed-on-telegraph
+        // branch then never fires (because in_telegraph is false
+        // when telegraph_profile is None and player_pos is also
+        // None), so we pre-populate state.samples directly.
+        let mut world_time = app.world_mut().resource_mut::<WorldTime>();
+        world_time.scaled_dt = 1.0 / 60.0;
+        world_time.raw_dt = 1.0 / 60.0;
+        app.add_systems(Update, spawn_overfit_volley_from_special_messages);
+        // Boss: alive, no telegraph (so consumer takes the strike
+        // branch), with two pre-seeded samples.
+        let mut state = OverfitVolleyState::default();
+        state.samples.push(ae::Vec2::new(720.0, 696.0)); // right of boss
+        state.samples.push(ae::Vec2::new(560.0, 696.0)); // left of boss
+        state.had_seed_sample = true;
+        let actor = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                BossAttackState::default(),
+                state,
+                gradient_sentinel_boss_feature(),
+            ))
+            .id();
+        write_special(&mut app, actor, overfit_volley_spec());
+        app.update();
+        let projectiles = app.world().resource::<EnemyProjectileState>();
+        assert_eq!(
+            projectiles.bodies.len(),
+            2,
+            "expected one bolt per seeded sample (2), got {}",
+            projectiles.bodies.len(),
+        );
+        // Owner id must carry the overfit prefix so a future
+        // visuals routing can pick a custom sprite.
+        for spawn in &projectiles.bodies {
+            assert!(
+                spawn.owner_id.starts_with("gradient_sentinel_overfit"),
+                "expected overfit owner_id, got {}",
+                spawn.owner_id,
+            );
+        }
+        // State should reset (samples cleared, fired_this_strike=true).
+        let state = app
+            .world()
+            .entity(actor)
+            .get::<OverfitVolleyState>()
+            .unwrap();
+        assert!(state.fired_this_strike);
+        assert!(state.samples.is_empty());
+    }
+
+    /// OverfitVolley consumer fires AT MOST once per strike — a
+    /// second Special message in the same strike window is a no-op.
+    #[test]
+    fn overfit_volley_consumer_fires_once_per_strike_then_holds() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<WorldTime>();
+        let mut wt = app.world_mut().resource_mut::<WorldTime>();
+        wt.scaled_dt = 1.0 / 60.0;
+        wt.raw_dt = 1.0 / 60.0;
+        app.add_systems(Update, spawn_overfit_volley_from_special_messages);
+        let mut state = OverfitVolleyState::default();
+        state.samples.push(ae::Vec2::new(720.0, 696.0));
+        state.had_seed_sample = true;
+        let actor = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                BossAttackState::default(),
+                state,
+                gradient_sentinel_boss_feature(),
+            ))
+            .id();
+        for _ in 0..4 {
+            write_special(&mut app, actor, overfit_volley_spec());
+            app.update();
+        }
+        let projectiles = app.world().resource::<EnemyProjectileState>();
+        assert_eq!(
+            projectiles.bodies.len(),
+            1,
+            "expected exactly one bolt despite 4 strike ticks, got {}",
+            projectiles.bodies.len(),
+        );
+    }
+
+    /// MinimaTrap consumer spawns a World-anchored hitbox at a
+    /// position when the Special message arrives. We can't easily
+    /// fetch the player position without a full PlayerBody, but
+    /// the consumer falls back to the boss position when no player
+    /// is found — that's the path this test exercises.
+    #[test]
+    fn minima_trap_consumer_spawns_world_hitbox_on_strike() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<WorldTime>();
+        let mut wt = app.world_mut().resource_mut::<WorldTime>();
+        wt.scaled_dt = 1.0 / 60.0;
+        wt.raw_dt = 1.0 / 60.0;
+        app.add_systems(Update, spawn_minima_trap_from_special_messages);
+        let actor = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                MinimaTrapState::default(),
+                gradient_sentinel_boss_feature(),
+            ))
+            .id();
+        write_special(
+            &mut app,
+            actor,
+            SpecialActionSpec::MinimaTrap {
+                hazard_duration_s: 5.0,
+                damage: 2,
+                half_extent_x: 56.0,
+                half_extent_y: 24.0,
+                spawn_minion: false, // avoid the runtime minion spawn machinery
+            },
+        );
+        app.update();
+        // Count hitboxes — should be exactly one new World-anchored.
+        let mut hitboxes = app.world_mut().query::<&Hitbox>();
+        let world_hitboxes: Vec<_> = hitboxes
+            .iter(app.world())
+            .filter(|h| matches!(h.anchor, HitboxAnchor::World { .. }))
+            .collect();
+        assert_eq!(
+            world_hitboxes.len(),
+            1,
+            "expected exactly one MinimaTrap hitbox, got {}",
+            world_hitboxes.len(),
+        );
+        let trap = &world_hitboxes[0];
+        assert!(matches!(trap.source, ActorFaction::Boss));
+        assert_eq!(trap.damage, 2);
+        assert_eq!(trap.half_extent, ae::Vec2::new(56.0, 24.0));
+        // State should record fired_this_strike.
+        let state = app.world().entity(actor).get::<MinimaTrapState>().unwrap();
+        assert!(state.fired_this_strike);
+    }
+
+    /// MinimaTrap fires at most once per strike — repeated Special
+    /// messages produce only the one hitbox.
+    #[test]
+    fn minima_trap_consumer_does_not_re_fire_during_strike() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<WorldTime>();
+        let mut wt = app.world_mut().resource_mut::<WorldTime>();
+        wt.scaled_dt = 1.0 / 60.0;
+        wt.raw_dt = 1.0 / 60.0;
+        app.add_systems(Update, spawn_minima_trap_from_special_messages);
+        let actor = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                MinimaTrapState::default(),
+                gradient_sentinel_boss_feature(),
+            ))
+            .id();
+        let spec = SpecialActionSpec::MinimaTrap {
+            hazard_duration_s: 5.0,
+            damage: 2,
+            half_extent_x: 56.0,
+            half_extent_y: 24.0,
+            spawn_minion: false,
+        };
+        for _ in 0..3 {
+            write_special(&mut app, actor, spec);
+            app.update();
+        }
+        let mut hitboxes = app.world_mut().query::<&Hitbox>();
+        let world_hitboxes: Vec<_> = hitboxes
+            .iter(app.world())
+            .filter(|h| matches!(h.anchor, HitboxAnchor::World { .. }))
+            .collect();
+        assert_eq!(
+            world_hitboxes.len(),
+            1,
+            "expected exactly one hitbox across 3 strike ticks, got {}",
+            world_hitboxes.len(),
+        );
+    }
+
+    /// SaddlePoint consumer spawns a single hitbox on the first
+    /// strike tick (the horizontal arm) and a second on the toggle
+    /// edge (when axis_period_s elapses).
+    #[test]
+    fn saddle_point_consumer_spawns_initial_arm_then_toggles_axes() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<WorldTime>();
+        let mut wt = app.world_mut().resource_mut::<WorldTime>();
+        wt.scaled_dt = 0.5; // half-second per tick → toggle after 3 ticks at period=1.2
+        wt.raw_dt = 0.5;
+        app.add_systems(Update, spawn_saddle_point_from_special_messages);
+        let actor = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                SaddlePointState::default(),
+                gradient_sentinel_boss_feature(),
+            ))
+            .id();
+        let spec = SpecialActionSpec::SaddlePoint {
+            arm_length: 220.0,
+            arm_thickness: 36.0,
+            axis_period_s: 1.2,
+            damage: 2,
+        };
+
+        // Tick 1: strike starts, horizontal arm spawned.
+        write_special(&mut app, actor, spec);
+        app.update();
+        let state = app.world().entity(actor).get::<SaddlePointState>().unwrap();
+        assert!(state.strike_active);
+        assert!(state.axis_horizontal);
+        assert!(state.horizontal_hitbox.is_some());
+        assert!(state.vertical_hitbox.is_none());
+
+        // Walk past the axis period — toggles to vertical.
+        for _ in 0..4 {
+            write_special(&mut app, actor, spec);
+            app.update();
+        }
+        let state = app.world().entity(actor).get::<SaddlePointState>().unwrap();
+        assert!(
+            !state.axis_horizontal,
+            "axis should have toggled to vertical after period elapsed",
+        );
+        assert!(state.vertical_hitbox.is_some());
+        assert!(state.horizontal_hitbox.is_none());
+    }
+
+    /// When the strike ends (no Special message arrives), the
+    /// SaddlePoint consumer despawns its hitboxes + resets state so
+    /// the next strike starts clean.
+    #[test]
+    fn saddle_point_consumer_despawns_on_strike_end() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<WorldTime>();
+        let mut wt = app.world_mut().resource_mut::<WorldTime>();
+        wt.scaled_dt = 0.1;
+        wt.raw_dt = 0.1;
+        app.add_systems(Update, spawn_saddle_point_from_special_messages);
+        let actor = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                SaddlePointState::default(),
+                gradient_sentinel_boss_feature(),
+            ))
+            .id();
+        let spec = SpecialActionSpec::SaddlePoint {
+            arm_length: 220.0,
+            arm_thickness: 36.0,
+            axis_period_s: 1.2,
+            damage: 2,
+        };
+
+        // Start strike.
+        write_special(&mut app, actor, spec);
+        app.update();
+        let state = app.world().entity(actor).get::<SaddlePointState>().unwrap();
+        assert!(state.strike_active);
+
+        // No message → strike closed.
+        app.update();
+        let state = app.world().entity(actor).get::<SaddlePointState>().unwrap();
+        assert!(!state.strike_active);
+        assert!(state.horizontal_hitbox.is_none());
+        assert!(state.vertical_hitbox.is_none());
+    }
+
+    /// GradientCascade consumer spawns minion entities at strike
+    /// start. Mocks the runtime spawn machinery by checking the
+    /// Bevy entity count goes up by `minion_count`.
+    #[test]
+    fn gradient_cascade_consumer_spawns_minion_entities_on_strike_edge() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<WorldTime>();
+        let mut wt = app.world_mut().resource_mut::<WorldTime>();
+        wt.scaled_dt = 1.0 / 60.0;
+        wt.raw_dt = 1.0 / 60.0;
+        app.add_systems(Update, spawn_gradient_cascade_minions_from_special_messages);
+
+        // Count actors pre-spawn.
+        let actor = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                GradientCascadeState::default(),
+                gradient_sentinel_boss_feature(),
+            ))
+            .id();
+        let pre_count = app
+            .world_mut()
+            .query::<&ActorRuntime>()
+            .iter(app.world())
+            .count();
+
+        write_special(
+            &mut app,
+            actor,
+            SpecialActionSpec::GradientCascade { minion_count: 3 },
+        );
+        app.update();
+
+        let post_count = app
+            .world_mut()
+            .query::<&ActorRuntime>()
+            .iter(app.world())
+            .count();
+        assert_eq!(
+            post_count - pre_count,
+            3,
+            "expected 3 new minion ActorRuntime entities, got {}",
+            post_count - pre_count,
+        );
+        let state = app
+            .world()
+            .entity(actor)
+            .get::<GradientCascadeState>()
+            .unwrap();
+        assert!(state.fired_this_strike);
     }
 
     /// A boss with `AppleRainSpawnState` attached but no Special

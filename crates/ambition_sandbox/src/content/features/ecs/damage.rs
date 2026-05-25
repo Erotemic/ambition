@@ -556,9 +556,10 @@ pub fn ecs_damage_event_hits_boss(
         if !feature.boss.alive {
             return false;
         }
-        crate::features::damageable_volumes(
-            &crate::features::BossVolumeContext::from_runtime(&feature.boss, attack_state),
-        )
+        crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_runtime(
+            &feature.boss,
+            attack_state,
+        ))
         .iter()
         .any(|part| event.volume.strict_intersects(*part))
     })

@@ -77,7 +77,10 @@ pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use bosses::{sync_boss_encounter_phase, tick_boss_brains_system, update_ecs_bosses};
 pub use brain_effects::{
     spawn_enemy_projectiles_from_brain_actions, spawn_gnu_apple_rain_from_special_messages,
-    start_enemy_melee_from_brain_actions, AppleRainSpawnState,
+    spawn_gradient_cascade_minions_from_special_messages, spawn_minima_trap_from_special_messages,
+    spawn_overfit_volley_from_special_messages, spawn_saddle_point_from_special_messages,
+    start_enemy_melee_from_brain_actions, AppleRainSpawnState, GradientCascadeState,
+    MinimaTrapState, OverfitVolleyState, SaddlePointState,
 };
 pub use breakables::update_ecs_breakables;
 pub use chests::open_ecs_chests;

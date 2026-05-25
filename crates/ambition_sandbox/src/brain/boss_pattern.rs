@@ -248,15 +248,46 @@ pub enum BossAttackProfile {
     // (gravity > 0), not a single AABB, so `volumes_for` returns empty
     // for this profile and damage routes through the projectile path.
     GnuAppleRain,
+    // Gradient Sentinel: tall vertical hazard column at the boss x.
+    // Ordinary melee profile (volume from `volumes_for_profile`); the
+    // player jumps over or laterals away.
+    GradientLane,
+    // Gradient Sentinel special: boss memorizes player positions during
+    // telegraph and fires bolts at every sample on the strike edge.
+    // Damage routes through spawned enemy projectiles (the bolt
+    // barrage), so `volumes_for` returns empty for this profile.
+    OverfitVolley,
+    // Gradient Sentinel special: a "local minimum" pit forms at the
+    // player's position on strike start and persists as a damaging
+    // World-anchored hitbox for several seconds; spawns 1 puppy_slug
+    // minion from inside the pit.
+    MinimaTrap,
+    // Gradient Sentinel special: a cross-shaped hazard centered on the
+    // boss. Two World-anchored hitboxes (horizontal arm + vertical
+    // arm); one is "live" at a time and the active axis rotates
+    // periodically across the strike window. Player stands on the safe
+    // axis and reads the swap.
+    SaddlePoint,
+    // Gradient Sentinel special: spawns N "slop" minions (small_lurker
+    // stand-in) at the top of the arena that descend toward the
+    // player. Damage routes through the minion contact path, not a
+    // boss AABB, so `volumes_for` returns empty.
+    GradientCascade,
 }
 
 impl BossAttackProfile {
     /// True iff this profile is implemented through a `Special`
-    /// message + EFFECTS consumer (apple rain today; future
-    /// spotlight). False for profiles whose damage flows through
-    /// melee/contact hitbox volumes.
+    /// message + EFFECTS consumer. False for profiles whose damage
+    /// flows through melee/contact hitbox volumes.
     pub fn is_special(&self) -> bool {
-        matches!(self, BossAttackProfile::GnuAppleRain)
+        matches!(
+            self,
+            BossAttackProfile::GnuAppleRain
+                | BossAttackProfile::OverfitVolley
+                | BossAttackProfile::MinimaTrap
+                | BossAttackProfile::SaddlePoint
+                | BossAttackProfile::GradientCascade
+        )
     }
 }
 

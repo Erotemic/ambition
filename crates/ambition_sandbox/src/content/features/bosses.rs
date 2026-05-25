@@ -43,6 +43,65 @@ pub const APPLE_RAIN_DAMAGE: i32 = 1;
 /// `enemy_projectile::visuals::is_apple_owner`.
 pub const GNU_TON_APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
 
+// Gradient Sentinel encounter id (per `BossEncounterSpec::gradient_sentinel`).
+// Audit-engine name `clockwork_warden` resolves to the same boss via
+// `BossBehaviorProfile::for_authored_boss`; both ids surface through the
+// `BossEncounterRegistry`, but the canonical id used by the brain config
+// and EFFECTS consumers is the public name.
+pub const GRADIENT_SENTINEL_ENCOUNTER_ID: &str = "gradient_sentinel";
+
+// ===== Gradient Sentinel special-attack tuning =====
+//
+// Constants kept here (next to the behavior profile that authors the
+// schedule) so the EFFECTS consumers and the brain wiring share one
+// source. The numeric values are tuned for the
+// first_system_boss arena (1280×768) — see the design doc at
+// `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`.
+
+/// OverfitVolley: how often (in seconds) the brain samples the
+/// player's position during the telegraph window. With 5 samples and
+/// 0.30 s spacing the consumer captures ~1.5 s of player travel,
+/// covering a player who is reactively zig-zagging.
+pub const OVERFIT_VOLLEY_SAMPLE_INTERVAL_S: f32 = 0.30;
+/// OverfitVolley: max number of position samples to memorize. Caps the
+/// bolt count fired on the strike edge so the player can read the
+/// barrage instead of getting blanket-coverage'd.
+pub const OVERFIT_VOLLEY_SAMPLE_COUNT: u8 = 5;
+/// OverfitVolley: per-bolt projectile speed (px/s). Fast enough that
+/// the bolts feel decisive but slow enough to dodge if the player
+/// reads the barrage early.
+pub const OVERFIT_VOLLEY_SHOT_SPEED: f32 = 360.0;
+/// OverfitVolley: per-bolt damage.
+pub const OVERFIT_VOLLEY_SHOT_DAMAGE: i32 = 1;
+
+/// MinimaTrap: how long the pit hazard hitbox stays live after the
+/// strike edge spawns it. Long enough to be a real area-denial threat,
+/// short enough that the player isn't permanently locked out of half
+/// the arena.
+pub const MINIMA_TRAP_HAZARD_DURATION_S: f32 = 5.0;
+/// MinimaTrap: per-tick damage. The standard `apply_hitbox_damage`
+/// once-per-strike gate ensures one hit per pit lifetime.
+pub const MINIMA_TRAP_DAMAGE: i32 = 2;
+/// MinimaTrap: half-extent (x, y) of the pit hitbox.
+pub const MINIMA_TRAP_HALF_EXTENT_X: f32 = 56.0;
+pub const MINIMA_TRAP_HALF_EXTENT_Y: f32 = 24.0;
+
+/// SaddlePoint: half-extent of each arm along its long axis.
+pub const SADDLE_POINT_ARM_LENGTH: f32 = 220.0;
+/// SaddlePoint: half-extent of each arm along its short axis.
+pub const SADDLE_POINT_ARM_THICKNESS: f32 = 36.0;
+/// SaddlePoint: seconds an axis stays active before toggling. The
+/// brain's `BossPatternStep::Strike { duration }` governs total
+/// strike time; this is just the rotation period.
+pub const SADDLE_POINT_AXIS_PERIOD_S: f32 = 1.2;
+/// SaddlePoint: per-tick damage.
+pub const SADDLE_POINT_DAMAGE: i32 = 2;
+
+/// GradientCascade: number of "slop" minions to spawn at the top of
+/// the arena per strike. Kept low so the player can clear before
+/// the next attack lands.
+pub const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
+
 /// Design-space y anchor on the shoulder ridge in the regenerated
 /// 768×576 GNU-ton sprite (REST_BODY_Y 60 - 62 = -2). Public so the
 /// pure volume helpers in `boss_attack_geometry` can read it without
@@ -86,6 +145,26 @@ pub struct BossBehaviorProfile {
 }
 
 impl BossBehaviorProfile {
+    /// Clockwork Warden / Gradient Sentinel — polished multi-phase
+    /// Scripted boss.
+    ///
+    /// See `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`
+    /// for the full design (theme, arena geometry, attack vocab,
+    /// per-phase tempo). At a glance:
+    ///
+    /// - **Phase 1 (~16 s loop)** — fundamentals: FloorSlam,
+    ///   GradientLane (vertical column), OverfitVolley
+    ///   (position-sampling bolt barrage), SideSweep. Slow,
+    ///   readable, generous Rest beats.
+    /// - **Transition (3 s)** — pure Rest while the music swaps.
+    /// - **Phase 2 (~22 s loop)** — hazards + minions add to the
+    ///   vocabulary: MinimaTrap (pit + puppy_slug spawn), SaddlePoint
+    ///   (rotating cross hazard), GradientCascade (small_lurker adds).
+    ///   Returning OverfitVolley and FullBodyPulse keep the player
+    ///   honest.
+    /// - **Enrage (~10 s loop)** — desperate: faster telegraphs,
+    ///   tighter combos of MinimaTrap → OverfitVolley → SaddlePoint
+    ///   → GradientLane.
     pub fn clockwork_warden() -> Self {
         Self {
             id: "clockwork_warden".into(),
@@ -99,17 +178,201 @@ impl BossBehaviorProfile {
                 chase_limit: 70.0,
                 speed: 220.0,
             },
+            // Legacy `attacks` is unused for Scripted bosses, but kept
+            // populated with the full attack vocabulary for
+            // diagnostics so `boss inspect`-style tooling can list
+            // what the boss is capable of without parsing the
+            // Scripted schedule.
             attacks: vec![
                 BossAttackProfile::FloorSlam,
                 BossAttackProfile::SideSweep,
                 BossAttackProfile::FullBodyPulse,
+                BossAttackProfile::GradientLane,
+                BossAttackProfile::OverfitVolley,
+                BossAttackProfile::MinimaTrap,
+                BossAttackProfile::SaddlePoint,
+                BossAttackProfile::GradientCascade,
             ],
             attack_cooldown: BOSS_ATTACK_COOLDOWN,
             attack_windup: 0.52,
             attack_active: 0.32,
             attack_damage: 2,
             body_damage: 1,
-            attack_pattern: BossAttackPattern::Cycle,
+            attack_pattern: BossAttackPattern::Scripted {
+                intro: BossPattern {
+                    // Single show-of-force beat to anchor the tone:
+                    // a clean FloorSlam telegraph + strike with a
+                    // long settle, no rest after — the encounter
+                    // driver fades into Phase 1 from here.
+                    steps: vec![
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::FloorSlam,
+                            duration: 1.4,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::FloorSlam,
+                            duration: 0.4,
+                        },
+                        BossPatternStep::Rest { duration: 1.2 },
+                    ],
+                },
+                phase1: BossPattern {
+                    steps: vec![
+                        // Beat 1: FloorSlam — familiar ground-pound.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::FloorSlam,
+                            duration: 1.2,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::FloorSlam,
+                            duration: 0.4,
+                        },
+                        BossPatternStep::Rest { duration: 1.4 },
+                        // Beat 2: GradientLane — vertical hazard
+                        // column that follows the boss. Player jumps
+                        // over or moves laterally.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GradientLane,
+                            duration: 1.4,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GradientLane,
+                            duration: 1.0,
+                        },
+                        BossPatternStep::Rest { duration: 1.0 },
+                        // Beat 3: OverfitVolley — markers track player
+                        // through the telegraph, bolts fire at strike.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::OverfitVolley,
+                            duration: 1.4,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::OverfitVolley,
+                            duration: 0.30,
+                        },
+                        BossPatternStep::Rest { duration: 1.5 },
+                        // Beat 4: SideSweep — classic two-arm sweep.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::SideSweep,
+                            duration: 0.9,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::SideSweep,
+                            duration: 0.4,
+                        },
+                        // Long breather closes the loop.
+                        BossPatternStep::Rest { duration: 2.0 },
+                    ],
+                },
+                transition: BossPattern {
+                    // Pure 3 s rest so the music swap has space.
+                    steps: vec![BossPatternStep::Rest { duration: 3.0 }],
+                },
+                phase2: BossPattern {
+                    steps: vec![
+                        // Beat 1: MinimaTrap — pit forms at player pos,
+                        // puppy_slug spawns. Forces the player to
+                        // reposition.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::MinimaTrap,
+                            duration: 1.0,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::MinimaTrap,
+                            duration: 0.6,
+                        },
+                        BossPatternStep::Rest { duration: 1.4 },
+                        // Beat 2: SaddlePoint — rotating cross hazard.
+                        // Long strike window so the rotation matters.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::SaddlePoint,
+                            duration: 1.4,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::SaddlePoint,
+                            duration: 4.8,
+                        },
+                        BossPatternStep::Rest { duration: 1.2 },
+                        // Beat 3: GradientCascade — 2 small_lurker
+                        // minions descend from top of arena.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GradientCascade,
+                            duration: 1.2,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GradientCascade,
+                            duration: 0.4,
+                        },
+                        BossPatternStep::Rest { duration: 2.4 },
+                        // Beat 4: OverfitVolley returns, faster.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::OverfitVolley,
+                            duration: 1.2,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::OverfitVolley,
+                            duration: 0.30,
+                        },
+                        BossPatternStep::Rest { duration: 1.4 },
+                        // Beat 5: FullBodyPulse — close-range pulse.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::FullBodyPulse,
+                            duration: 1.1,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::FullBodyPulse,
+                            duration: 0.5,
+                        },
+                        BossPatternStep::Rest { duration: 1.0 },
+                    ],
+                },
+                enrage: BossPattern {
+                    steps: vec![
+                        // Tight MinimaTrap → OverfitVolley combo.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::MinimaTrap,
+                            duration: 0.7,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::MinimaTrap,
+                            duration: 0.5,
+                        },
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::OverfitVolley,
+                            duration: 0.7,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::OverfitVolley,
+                            duration: 0.3,
+                        },
+                        BossPatternStep::Rest { duration: 0.6 },
+                        // Faster SaddlePoint — shorter total + tighter
+                        // axis-period via per-spec tuning lives in
+                        // the consumer (current consumer uses one
+                        // shared `axis_period_s`; enrage variant is
+                        // exposed via a smaller `duration` field on
+                        // the strike so total exposure is shorter).
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::SaddlePoint,
+                            duration: 1.0,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::SaddlePoint,
+                            duration: 3.0,
+                        },
+                        // GradientLane closer for the final punish.
+                        BossPatternStep::Telegraph {
+                            profile: BossAttackProfile::GradientLane,
+                            duration: 0.7,
+                        },
+                        BossPatternStep::Strike {
+                            profile: BossAttackProfile::GradientLane,
+                            duration: 0.8,
+                        },
+                        BossPatternStep::Rest { duration: 1.2 },
+                    ],
+                },
+            },
             attack_origin_offset: ae::Vec2::ZERO,
         }
     }
@@ -335,6 +598,153 @@ impl BossBehaviorProfile {
             "clockwork_warden" | "gradient_sentinel" => Self::clockwork_warden(),
             "gnu_ton" => Self::gnu_ton(),
             other => Self::generic(other),
+        }
+    }
+}
+
+/// Boss-side resolver for `Special`-flavored `BossAttackProfile`s.
+///
+/// The Gradient Sentinel carries multiple distinct specials
+/// (OverfitVolley, MinimaTrap, SaddlePoint, GradientCascade) — more
+/// than the single `ActionSet::special` slot can express. Rather
+/// than grow `ActionSet` or `ActorControlFrame` for one boss, the
+/// `tick_boss_brains_system` calls this function when the brain
+/// commits to a special-flavored profile and writes the resulting
+/// `ActorActionMessage::Special { spec }` directly via
+/// `MessageWriter`. The boss's `ActionSet.special` is set to `None`
+/// for multi-special bosses so the generic resolver doesn't fire a
+/// duplicate.
+///
+/// `None` means the profile doesn't have a registered special spec
+/// — the consumer should treat that as a no-op (defensive against
+/// schedule edits that introduce a profile before the spec wiring
+/// lands).
+pub fn boss_special_for_profile(
+    profile: &crate::brain::BossAttackProfile,
+    boss: &BossRuntime,
+) -> Option<crate::brain::SpecialActionSpec> {
+    use crate::brain::{BossAttackProfile, SpecialActionSpec};
+    match profile {
+        BossAttackProfile::GnuAppleRain => Some(SpecialActionSpec::GnuAppleRain {
+            interval_s: APPLE_RAIN_INTERVAL,
+            spawn_speed: APPLE_RAIN_SPAWN_SPEED,
+            damage: APPLE_RAIN_DAMAGE,
+        }),
+        BossAttackProfile::OverfitVolley => Some(SpecialActionSpec::OverfitVolley {
+            sample_interval_s: OVERFIT_VOLLEY_SAMPLE_INTERVAL_S,
+            sample_count: OVERFIT_VOLLEY_SAMPLE_COUNT,
+            shot_speed: OVERFIT_VOLLEY_SHOT_SPEED,
+            damage: OVERFIT_VOLLEY_SHOT_DAMAGE,
+        }),
+        BossAttackProfile::MinimaTrap => Some(SpecialActionSpec::MinimaTrap {
+            hazard_duration_s: MINIMA_TRAP_HAZARD_DURATION_S,
+            damage: MINIMA_TRAP_DAMAGE,
+            half_extent_x: MINIMA_TRAP_HALF_EXTENT_X,
+            half_extent_y: MINIMA_TRAP_HALF_EXTENT_Y,
+            spawn_minion: true,
+        }),
+        BossAttackProfile::SaddlePoint => Some(SpecialActionSpec::SaddlePoint {
+            arm_length: SADDLE_POINT_ARM_LENGTH,
+            arm_thickness: SADDLE_POINT_ARM_THICKNESS,
+            axis_period_s: SADDLE_POINT_AXIS_PERIOD_S,
+            damage: SADDLE_POINT_DAMAGE,
+        }),
+        BossAttackProfile::GradientCascade => Some(SpecialActionSpec::GradientCascade {
+            minion_count: GRADIENT_CASCADE_MINION_COUNT,
+        }),
+        // Ordinary melee profiles never route through this resolver
+        // (they damage via `boss_attack_damage` reading `BossAttackState`
+        // directly). The `_` arm keeps this function the single
+        // source of truth for *which* special spec each profile maps to.
+        _ => {
+            let _ = boss; // future per-boss tuning may read it
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod boss_special_resolver_tests {
+    use super::*;
+
+    fn gnu_ton_runtime_fixture() -> BossRuntime {
+        let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(110.0, 110.0));
+        let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, ae::BossBrain::Dormant);
+        runtime.behavior = BossBehaviorProfile::gnu_ton();
+        runtime
+    }
+
+    fn gradient_sentinel_runtime_fixture() -> BossRuntime {
+        let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 696.0), ae::Vec2::new(64.0, 80.0));
+        let mut runtime = BossRuntime::new(
+            "boss_gradient_sentinel",
+            "Gradient Sentinel",
+            aabb,
+            ae::BossBrain::Dormant,
+        );
+        runtime.behavior = BossBehaviorProfile::clockwork_warden();
+        runtime
+    }
+
+    /// Every special-flavored profile must map to a Some(spec) — otherwise
+    /// the boss tick will emit no Special message for that beat and the
+    /// schedule silently degrades. Pin the mapping so future schedule
+    /// edits can't introduce a profile without its consumer wiring.
+    #[test]
+    fn every_special_profile_resolves_to_a_spec_for_gradient_sentinel() {
+        use crate::brain::BossAttackProfile;
+        let boss = gradient_sentinel_runtime_fixture();
+        for profile in [
+            BossAttackProfile::OverfitVolley,
+            BossAttackProfile::MinimaTrap,
+            BossAttackProfile::SaddlePoint,
+            BossAttackProfile::GradientCascade,
+        ] {
+            assert!(
+                boss_special_for_profile(&profile, &boss).is_some(),
+                "{profile:?} must resolve to a spec for Gradient Sentinel",
+            );
+        }
+    }
+
+    /// GNU-ton's apple rain still resolves through the new path so
+    /// the consumer (`spawn_gnu_apple_rain_from_special_messages`)
+    /// keeps receiving messages after the migration.
+    #[test]
+    fn gnu_apple_rain_profile_resolves_to_apple_rain_spec_for_gnu_ton() {
+        use crate::brain::{BossAttackProfile, SpecialActionSpec};
+        let boss = gnu_ton_runtime_fixture();
+        match boss_special_for_profile(&BossAttackProfile::GnuAppleRain, &boss) {
+            Some(SpecialActionSpec::GnuAppleRain {
+                interval_s,
+                spawn_speed,
+                damage,
+            }) => {
+                assert!((interval_s - APPLE_RAIN_INTERVAL).abs() < f32::EPSILON);
+                assert!((spawn_speed - APPLE_RAIN_SPAWN_SPEED).abs() < f32::EPSILON);
+                assert_eq!(damage, APPLE_RAIN_DAMAGE);
+            }
+            other => panic!("expected GnuAppleRain spec, got {other:?}"),
+        }
+    }
+
+    /// Ordinary melee-style profiles return None — they don't go
+    /// through the Special path; their damage routes via
+    /// `boss_attack_damage` reading `BossAttackState` directly.
+    #[test]
+    fn ordinary_profiles_resolve_to_none() {
+        use crate::brain::BossAttackProfile;
+        let boss = gradient_sentinel_runtime_fixture();
+        for profile in [
+            BossAttackProfile::FloorSlam,
+            BossAttackProfile::SideSweep,
+            BossAttackProfile::FullBodyPulse,
+            BossAttackProfile::GradientLane,
+        ] {
+            assert!(
+                boss_special_for_profile(&profile, &boss).is_none(),
+                "{profile:?} should not have a Special spec",
+            );
         }
     }
 }
@@ -718,6 +1128,242 @@ mod scripted_pattern_tests {
         assert!(
             descent_y > rest_y + 50.0,
             "descent must drop the head meaningfully (got rest_y={rest_y}, descent_y={descent_y})"
+        );
+    }
+
+    // -------------------------------------------------------------
+    // Gradient Sentinel (clockwork_warden) — Scripted schedule sanity
+    // -------------------------------------------------------------
+    //
+    // The Gradient Sentinel boss flipped from `Cycle` to `Scripted`
+    // with 4 phases (intro/phase1/transition/phase2/enrage). These
+    // tests pin design invariants so future schedule edits can't
+    // silently drop the rest-beat windows the player needs, drop a
+    // special profile so the EFFECTS consumer never fires, or
+    // accidentally make the encounter too short to learn.
+
+    #[test]
+    fn gradient_sentinel_uses_scripted_pattern() {
+        let behavior = BossBehaviorProfile::clockwork_warden();
+        match behavior.attack_pattern {
+            BossAttackPattern::Scripted { .. } => {}
+            BossAttackPattern::Cycle => {
+                panic!("Gradient Sentinel should use Scripted, not Cycle");
+            }
+        }
+    }
+
+    #[test]
+    fn gradient_sentinel_every_phase_includes_rest_beats() {
+        let BossAttackPattern::Scripted {
+            intro,
+            phase1,
+            transition,
+            phase2,
+            enrage,
+        } = BossBehaviorProfile::clockwork_warden().attack_pattern
+        else {
+            panic!("expected Scripted attack pattern");
+        };
+        for (label, pattern) in [
+            ("intro", &intro),
+            ("phase1", &phase1),
+            ("transition", &transition),
+            ("phase2", &phase2),
+            ("enrage", &enrage),
+        ] {
+            let has_rest = pattern
+                .steps
+                .iter()
+                .any(|s| matches!(s, BossPatternStep::Rest { .. }));
+            assert!(
+                has_rest,
+                "{label} pattern must include at least one Rest beat — got {:?}",
+                pattern.steps
+            );
+        }
+    }
+
+    /// Phase 1 should teach the player the GradientLane + OverfitVolley
+    /// profiles (the new fundamentals) before phase 2 layers in
+    /// hazards + minions. Without this, the player wouldn't see
+    /// these attacks until phase 2 and the difficulty curve would
+    /// spike sharply.
+    #[test]
+    fn gradient_sentinel_phase1_includes_gradient_lane_and_overfit_volley() {
+        use crate::brain::BossAttackProfile;
+        let BossAttackPattern::Scripted { phase1, .. } =
+            BossBehaviorProfile::clockwork_warden().attack_pattern
+        else {
+            panic!("expected Scripted");
+        };
+        let profiles: Vec<_> = phase1
+            .steps
+            .iter()
+            .filter_map(|s| match s {
+                BossPatternStep::Telegraph { profile, .. }
+                | BossPatternStep::Strike { profile, .. } => Some(profile.clone()),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            profiles.contains(&BossAttackProfile::GradientLane),
+            "phase1 must include GradientLane — got {profiles:?}"
+        );
+        assert!(
+            profiles.contains(&BossAttackProfile::OverfitVolley),
+            "phase1 must include OverfitVolley — got {profiles:?}"
+        );
+    }
+
+    /// Phase 2 introduces the hazard + minion specials. These are
+    /// the "advanced" attacks; if phase 2 doesn't include them, the
+    /// encounter degenerates into "phase 1 forever, but slightly
+    /// faster", which defeats the design.
+    #[test]
+    fn gradient_sentinel_phase2_includes_all_advanced_specials() {
+        use crate::brain::BossAttackProfile;
+        let BossAttackPattern::Scripted { phase2, .. } =
+            BossBehaviorProfile::clockwork_warden().attack_pattern
+        else {
+            panic!("expected Scripted");
+        };
+        let profiles: Vec<_> = phase2
+            .steps
+            .iter()
+            .filter_map(|s| match s {
+                BossPatternStep::Telegraph { profile, .. }
+                | BossPatternStep::Strike { profile, .. } => Some(profile.clone()),
+                _ => None,
+            })
+            .collect();
+        for required in [
+            BossAttackProfile::MinimaTrap,
+            BossAttackProfile::SaddlePoint,
+            BossAttackProfile::GradientCascade,
+        ] {
+            assert!(
+                profiles.contains(&required),
+                "phase2 must include {required:?} — got {profiles:?}"
+            );
+        }
+    }
+
+    /// Every Strike profile in the schedule that `is_special()` must
+    /// have a registered SpecialActionSpec via
+    /// `boss_special_for_profile`. Otherwise the boss tick emits no
+    /// Special message for that beat and the strike silently does
+    /// nothing — the worst kind of design bug because the telegraph
+    /// still plays.
+    #[test]
+    fn gradient_sentinel_every_special_strike_has_a_registered_spec() {
+        let behavior = BossBehaviorProfile::clockwork_warden();
+        let BossAttackPattern::Scripted {
+            phase1,
+            phase2,
+            enrage,
+            ..
+        } = behavior.attack_pattern.clone()
+        else {
+            panic!("expected Scripted");
+        };
+        let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 696.0), ae::Vec2::new(64.0, 80.0));
+        let mut boss = BossRuntime::new(
+            "boss_gradient_sentinel",
+            "Gradient Sentinel",
+            aabb,
+            ae::BossBrain::Dormant,
+        );
+        boss.behavior = behavior;
+        for (label, pattern) in [
+            ("phase1", &phase1),
+            ("phase2", &phase2),
+            ("enrage", &enrage),
+        ] {
+            for step in &pattern.steps {
+                if let BossPatternStep::Strike { profile, .. } = step {
+                    if profile.is_special() {
+                        assert!(
+                            boss_special_for_profile(profile, &boss).is_some(),
+                            "{label} strike of {profile:?} has no registered \
+                             SpecialActionSpec — boss_special_for_profile must \
+                             return Some so tick_boss_brains_system can emit \
+                             the Special message",
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// Every Telegraph step must be immediately followed by a Strike
+    /// step for the SAME profile. Otherwise the player sees a windup
+    /// for an attack that never fires (or fires a different one),
+    /// which breaks the "telegraph teaches the strike shape" contract.
+    #[test]
+    fn gradient_sentinel_telegraph_steps_are_paired_with_matching_strike() {
+        let BossAttackPattern::Scripted {
+            intro,
+            phase1,
+            phase2,
+            enrage,
+            ..
+        } = BossBehaviorProfile::clockwork_warden().attack_pattern
+        else {
+            panic!("expected Scripted");
+        };
+        for (label, pattern) in [
+            ("intro", &intro),
+            ("phase1", &phase1),
+            ("phase2", &phase2),
+            ("enrage", &enrage),
+        ] {
+            let mut iter = pattern.steps.iter().peekable();
+            while let Some(step) = iter.next() {
+                if let BossPatternStep::Telegraph { profile, .. } = step {
+                    let next = iter.peek().unwrap_or_else(|| {
+                        panic!("{label} ends on a Telegraph without a matching Strike")
+                    });
+                    match next {
+                        BossPatternStep::Strike {
+                            profile: strike_profile,
+                            ..
+                        } => {
+                            assert_eq!(
+                                profile, strike_profile,
+                                "{label} Telegraph({profile:?}) must be followed by \
+                                 Strike({profile:?}), got Strike({strike_profile:?})",
+                            );
+                        }
+                        other => panic!(
+                            "{label} Telegraph({profile:?}) must be followed by a \
+                             Strike — got {other:?}",
+                        ),
+                    }
+                }
+            }
+        }
+    }
+
+    /// Phase 1 should be appreciably longer than the legacy
+    /// Cycle-mode loop so the player has enough time to learn the
+    /// schedule. Lower bound is intentionally loose — tighter
+    /// numerical checks belong in the design doc, not the test.
+    #[test]
+    fn gradient_sentinel_phase1_loop_is_substantial() {
+        let BossAttackPattern::Scripted { phase1, .. } =
+            BossBehaviorProfile::clockwork_warden().attack_pattern
+        else {
+            panic!("expected Scripted");
+        };
+        let total = phase1.total_duration();
+        assert!(
+            total >= 12.0,
+            "phase1 loop should be at least 12s for memorability, got {total}s",
+        );
+        assert!(
+            total <= 30.0,
+            "phase1 loop shouldn't exceed 30s or each cycle drags, got {total}s",
         );
     }
 

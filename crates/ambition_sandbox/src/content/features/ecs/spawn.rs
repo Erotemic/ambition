@@ -111,27 +111,22 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         cfg: brain_cfg,
         state: crate::brain::BossPatternState::default(),
     });
-    // Bosses spawn with an offensive ActionSet — Bolt ranged + a
-    // per-encounter special slot. The brain emits abstract intent
-    // (melee_pressed / special_pressed); the ActionSet binds the
-    // special slot to a concrete `SpecialActionSpec`; EFFECTS
-    // consumers spawn the concrete effect entities.
-    let boss_special = match encounter_id.as_str() {
-        crate::content::features::bosses::GNU_TON_ENCOUNTER_ID => {
-            Some(crate::brain::SpecialActionSpec::GnuAppleRain {
-                interval_s: crate::content::features::bosses::APPLE_RAIN_INTERVAL,
-                spawn_speed: crate::content::features::bosses::APPLE_RAIN_SPAWN_SPEED,
-                damage: crate::content::features::bosses::APPLE_RAIN_DAMAGE,
-            })
-        }
-        _ => Some(crate::brain::SpecialActionSpec::BossSpotlight),
-    };
+    // Bosses spawn with an offensive ActionSet — Bolt ranged +
+    // empty special slot. Per-boss specials (including GNU-ton's
+    // apple rain) are now emitted by `tick_boss_brains_system` via
+    // direct `MessageWriter<ActorActionMessage>` writes, looking up
+    // the spec through `boss_special_for_profile`. Keeping
+    // `special: None` here prevents the generic
+    // `emit_brain_action_messages` resolver from emitting a
+    // duplicate Special message that would double-fire the
+    // consumer.
+    let _ = encounter_id; // resolved upstream via `boss.behavior`
     let boss_action_set = crate::brain::ActionSet {
         ranged: Some(crate::brain::RangedActionSpec::Bolt {
             speed: 380.0,
             damage: 1,
         }),
-        special: boss_special,
+        special: None,
         move_style: crate::brain::MoveStyleSpec::Walk,
         ..Default::default()
     };
@@ -155,14 +150,24 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
             // Sub-tuple keeps the outer bundle under Bevy's
             // 15-tuple Bundle arity limit. The brain bundle stays
             // grouped because each piece is required for the boss
-            // tick chain (Brain produces ActorControl + BossAttackState;
-            // ActionSet binds intent to specs; AppleRainSpawnState
-            // is the per-boss apple-rain accumulator).
+            // tick chain. Per-special state components live in a
+            // second sub-tuple alongside `AppleRainSpawnState` — see
+            // `content/features/ecs/brain_effects.rs` for the
+            // consumers that drive each one.
             brain,
             boss_action_set,
             crate::brain::ActorControl::default(),
             crate::brain::BossAttackState::default(),
             super::AppleRainSpawnState::default(),
+        ),
+        (
+            // Gradient Sentinel special state. Defaulted-attached to
+            // every boss so a future encounter can adopt the same
+            // attacks without re-touching the spawn wiring.
+            super::OverfitVolleyState::default(),
+            super::MinimaTrapState::default(),
+            super::SaddlePointState::default(),
+            super::GradientCascadeState::default(),
         ),
     ));
 }
@@ -214,6 +219,62 @@ fn spawn_breakable(commands: &mut Commands, authored: &crate::rooms::Authored<ae
     {
         entity.insert(PogoTargetContributor);
     }
+}
+
+/// Runtime minion spawner — used by boss EFFECTS consumers (e.g.
+/// MinimaTrap puppy_slug spawn, GradientCascade slop adds). Mirrors
+/// the static-authored `spawn_enemy` path but takes plain values
+/// from a Bevy system instead of an `Authored<EnemyBrain>` struct so
+/// callers don't have to build a fake `Authored` wrapper. The
+/// resulting entity carries the same component set as
+/// authored enemies, so it integrates cleanly with the normal
+/// actor / brain / hitbox systems.
+///
+/// `archetype_id` matches one of the strings in `BRAIN_NAME_TO_ARCHETYPE`
+/// (`"puppy_slug"`, `"small_lurker"`, …); unknown strings fall back
+/// to `Combatant` via `EnemyArchetype::from_brain`. `half_size` is
+/// the spawn AABB half-extent (the archetype spec's `default_size`
+/// usually overrides this anyway). `id` should be unique per spawn
+/// so per-entity systems don't collide on identity.
+pub(crate) fn spawn_runtime_minion(
+    commands: &mut Commands,
+    id: impl Into<String>,
+    name: impl Into<String>,
+    world_pos: ae::Vec2,
+    half_size: ae::Vec2,
+    archetype_id: &str,
+) -> bevy::ecs::entity::Entity {
+    let id = id.into();
+    let name = name.into();
+    let aabb = ae::Aabb::new(world_pos, half_size);
+    let brain = ae::EnemyBrain::Custom(archetype_id.into());
+    let enemy = EnemyRuntime::new(id.clone(), name.clone(), aabb, brain, &[]);
+    let feature_aabb = FeatureAabb::from_aabb(aabb);
+    let brain_component = enemy_default_brain(&enemy);
+    let action_set = enemy_default_action_set(&enemy);
+    let actor = ActorRuntime::Hostile(enemy);
+    let (identity, disposition, health, combat, intent, cooldowns) =
+        actor_component_snapshot(&actor);
+    commands
+        .spawn((
+            Name::new(format!("Runtime minion: {name}")),
+            EnemyActorBundle {
+                base: FeatureBaseBundle::new(&id, &name, feature_aabb),
+                identity,
+                disposition,
+                faction: super::ActorFaction::Enemy,
+                target: super::ActorTarget::default(),
+                health,
+                combat,
+                intent,
+                cooldowns,
+            },
+            actor,
+            brain_component,
+            action_set,
+            crate::brain::ActorControl::default(),
+        ))
+        .id()
 }
 
 fn spawn_enemy(
@@ -571,11 +632,14 @@ mod tests {
             }
             other => panic!("expected BossPattern brain, got {:?}", other),
         }
-        // ActionSet carries an offensive baseline: Bolt ranged +
-        // BossSpotlight special — per-encounter spec can override
-        // this once the BossPattern migration lands; the spawn
-        // default must be hostile-capable so a brain-driven boss
-        // can actually act.
+        // ActionSet carries an offensive baseline: Bolt ranged + no
+        // special slot. The special slot is intentionally `None`
+        // because boss specials are now emitted directly by
+        // `tick_boss_brains_system` via `boss_special_for_profile`
+        // (see `content/features/bosses.rs`) — the generic resolver
+        // would otherwise fire a duplicate Special message with a
+        // stale or wrong spec. The spawn default must be
+        // hostile-capable for ranged so a brain-driven boss can act.
         assert!(
             matches!(
                 action_set.ranged,
@@ -584,11 +648,10 @@ mod tests {
             "boss ActionSet should default to Bolt ranged",
         );
         assert!(
-            matches!(
-                action_set.special,
-                Some(crate::brain::SpecialActionSpec::BossSpotlight)
-            ),
-            "boss ActionSet should default to BossSpotlight special",
+            action_set.special.is_none(),
+            "boss ActionSet.special should be None — multi-special bosses \
+             route through tick_boss_brains_system's direct-write path; got {:?}",
+            action_set.special,
         );
     }
 

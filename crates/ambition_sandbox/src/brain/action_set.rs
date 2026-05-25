@@ -210,6 +210,69 @@ pub enum SpecialActionSpec {
         /// Per-apple damage.
         damage: i32,
     },
+    /// Gradient Sentinel boss: position-sampling bolt barrage. The
+    /// brain emits `special_pressed` every tick the
+    /// `BossAttackProfile::OverfitVolley` window is active; the
+    /// `spawn_overfit_volley_from_special_messages` consumer samples
+    /// player positions during the telegraph (via the live
+    /// `BossAttackState`) and fires `sample_count` bolts at the
+    /// memorized positions on the first strike tick.
+    OverfitVolley {
+        /// Seconds between position samples during the telegraph
+        /// window. Sample count caps at `sample_count`.
+        sample_interval_s: f32,
+        /// Max number of player-position samples to memorize per
+        /// strike. More samples = more bolts.
+        sample_count: u8,
+        /// Per-bolt projectile speed (px/s).
+        shot_speed: f32,
+        /// Per-bolt damage.
+        damage: i32,
+    },
+    /// Gradient Sentinel boss: local-minimum pit trap. The strike
+    /// edge spawns a World-anchored hazard hitbox at the player's
+    /// current position; the hitbox persists for `hazard_duration_s`
+    /// seconds. If `spawn_minion` is true the consumer also spawns a
+    /// puppy_slug (pacifist crawler) from inside the pit.
+    MinimaTrap {
+        /// Seconds the hazard hitbox stays live after spawn.
+        hazard_duration_s: f32,
+        /// Per-tick damage the pit deals while the player overlaps
+        /// it (the standard `apply_hitbox_damage` once-per-strike
+        /// gate still applies, so the player takes at most one hit
+        /// per pit lifetime).
+        damage: i32,
+        /// Half-extent of the pit hitbox (px).
+        half_extent_x: f32,
+        half_extent_y: f32,
+        /// Spawn a puppy_slug crawler from inside the pit on the
+        /// strike edge.
+        spawn_minion: bool,
+    },
+    /// Gradient Sentinel boss: rotating cross hazard around the
+    /// boss. Two World-anchored hitboxes (horizontal arm + vertical
+    /// arm); the consumer toggles which arm is "live" every
+    /// `axis_period_s` seconds. Player stands on the inactive axis
+    /// and reads the swap. Total strike duration is governed by the
+    /// brain's `BossPatternStep::Strike { duration }`.
+    SaddlePoint {
+        /// Half-extent of each arm along its long axis (px).
+        arm_length: f32,
+        /// Half-extent of each arm along its short axis (px).
+        arm_thickness: f32,
+        /// Seconds an axis stays live before toggling.
+        axis_period_s: f32,
+        /// Per-tick damage. Same once-per-strike gate as MinimaTrap.
+        damage: i32,
+    },
+    /// Gradient Sentinel boss: spawn `minion_count` "slop" minions
+    /// (small_lurker stand-in) at the top of the arena that descend
+    /// toward the player. One-shot per strike — the consumer ignores
+    /// repeated Special messages while the strike is active.
+    GradientCascade {
+        /// Number of minions to spawn on the strike edge.
+        minion_count: u8,
+    },
 }
 
 // --- Concrete attack spec timings ---
@@ -372,6 +435,10 @@ impl ActionRequest {
                 SpecialActionSpec::BubbleShield => "special_bubble_shield",
                 SpecialActionSpec::BossSpotlight => "special_boss_spotlight",
                 SpecialActionSpec::GnuAppleRain { .. } => "special_gnu_apple_rain",
+                SpecialActionSpec::OverfitVolley { .. } => "special_overfit_volley",
+                SpecialActionSpec::MinimaTrap { .. } => "special_minima_trap",
+                SpecialActionSpec::SaddlePoint { .. } => "special_saddle_point",
+                SpecialActionSpec::GradientCascade { .. } => "special_gradient_cascade",
             },
         }
     }

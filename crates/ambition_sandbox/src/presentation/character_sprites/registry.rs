@@ -129,22 +129,69 @@ pub struct SheetTuningSpec {
     pub frame_sample_inset: u32,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+/// Body / hurtbox metadata emitted alongside the sprite sheet.
+///
+/// `body_pixel_bbox` is the single overall bbox (alpha-bbox of the
+/// rendered body) — the common case for single-piece characters
+/// (player, goblins, small bosses).
+///
+/// `body_pixel_parts` is the multi-rect representation for
+/// **disjointed-piece characters** — giant bosses with head + body
+/// + arms + legs that the gameplay code wants to address
+/// individually. Each part carries a `name` so consumers can target
+/// "head" vs "left_hand" by string. Defaults to empty.
+///
+/// Consumer rule: when `body_pixel_parts` is non-empty, prefer it;
+/// otherwise fall back to a single-element list built from
+/// `body_pixel_bbox`. See
+/// [`super::super::super::content::features::boss_attack_geometry::world_space_body_aabbs_from_metrics`]
+/// for the canonical derivation.
+#[derive(Debug, Clone, Deserialize)]
 pub struct BodyMetrics {
     #[serde(default)]
     pub body_pixel_bbox: Option<PixelRect>,
+    /// Multi-rect hurtbox metadata. Each entry is a named pixel
+    /// rectangle in sprite-frame space. Empty = use `body_pixel_bbox`
+    /// as the single body.
+    #[serde(default)]
+    pub body_pixel_parts: Vec<NamedPixelRect>,
     #[serde(default)]
     pub feet_pixel: Option<PixelPoint>,
     #[serde(default)]
     pub feet_anchor_norm: Option<NormPoint>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
 pub struct PixelRect {
     pub x: i32,
     pub y: i32,
     pub w: i32,
     pub h: i32,
+}
+
+/// A named pixel rectangle in sprite-frame space, used for
+/// multi-part body / hurtbox metadata. The `name` lets gameplay
+/// code address parts individually (`head`, `body`, `left_hand`,
+/// `right_hand`, …). For single-piece characters, leave
+/// `body_pixel_parts` empty and use `body_pixel_bbox` instead.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct NamedPixelRect {
+    pub name: String,
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+}
+
+impl NamedPixelRect {
+    pub fn rect(&self) -> PixelRect {
+        PixelRect {
+            x: self.x,
+            y: self.y,
+            w: self.w,
+            h: self.h,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -205,6 +252,19 @@ impl SheetRegistry {
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &SheetRecord)> {
         self.sheets.iter().map(|(k, v)| (k.as_str(), v))
+    }
+
+    /// Look up the body metrics + frame size for a sprite target.
+    /// Used by gameplay code (boss combat_size derivation, hurtbox
+    /// math) so the sprite RON is the single source of truth for
+    /// where the visible body sits inside the frame.
+    ///
+    /// Returns `(metrics, frame_width, frame_height)` when the
+    /// target exists *and* has body_metrics; `None` otherwise.
+    pub fn body_metrics(&self, target: &str) -> Option<(&BodyMetrics, u32, u32)> {
+        let record = self.sheets.get(target)?;
+        let metrics = record.body_metrics.as_ref()?;
+        Some((metrics, record.frame_width, record.frame_height))
     }
 }
 

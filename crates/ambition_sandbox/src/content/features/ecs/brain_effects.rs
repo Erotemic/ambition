@@ -545,6 +545,13 @@ const MINIMA_TRAP_KNOCKBACK: f32 = 1.4;
 /// crawler).
 const MINIMA_TRAP_MINION_ARCHETYPE: &str = "puppy_slug";
 const MINIMA_TRAP_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(24.0, 11.0);
+/// Horizontal offset (px) from the pit center where the minion
+/// spawns. Pushed toward the boss side so the player sees the
+/// slug appear *next* to the pit instead of *under* them. 90 px
+/// is well outside both the pit's 56-px half-extent and the
+/// player's body so the slug never overlaps the player on the
+/// frame it appears.
+const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 
 /// EFFECTS consumer: MinimaTrap pit + optional puppy_slug.
 ///
@@ -637,11 +644,32 @@ pub fn spawn_minima_trap_from_special_messages(
             // marker, `spawn_dynamic_feature_visuals` would skip
             // this entity and the minion would be invisible.
             let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
+            // Don't spawn the slug right on top of the player —
+            // the user reported the slug appearing under them with
+            // no dodge window. Offset the slug horizontally toward
+            // the BOSS so the player sees it appear from the
+            // boss-side of the pit and has time to retreat. Half
+            // the spawn offset distance is the slug's half-width
+            // plus a comfortable read margin.
+            let player_to_boss = boss.pos - pit_center;
+            let toward_boss_x = if player_to_boss.x.abs() < f32::EPSILON {
+                // Player directly aligned with boss — spawn left
+                // of the pit as a deterministic fallback so the
+                // slug never appears AT the pit center.
+                -1.0
+            } else {
+                player_to_boss.x.signum()
+            };
+            let minion_offset_px = MINIMA_TRAP_MINION_SPAWN_OFFSET_PX;
+            let minion_pos = ae::Vec2::new(
+                pit_center.x + toward_boss_x * minion_offset_px,
+                pit_center.y,
+            );
             crate::content::features::ecs::spawn::spawn_runtime_minion(
                 &mut commands,
                 minion_id,
                 "Puppy Slug",
-                pit_center,
+                minion_pos,
                 MINIMA_TRAP_MINION_HALF_SIZE,
                 MINIMA_TRAP_MINION_ARCHETYPE,
                 encounter_id,

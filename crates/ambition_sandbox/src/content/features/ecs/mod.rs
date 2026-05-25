@@ -74,7 +74,15 @@ pub use anim_helpers::{
     ecs_npc_name,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
-pub use bosses::{sync_boss_encounter_phase, tick_boss_brains_system, update_ecs_bosses};
+#[allow(
+    unused_imports,
+    reason = "marker re-exported for tests / external visualizers"
+)]
+pub use bosses::BossSpriteMetricsApplied;
+pub use bosses::{
+    derive_boss_sprite_metrics, sync_boss_encounter_phase, tick_boss_brains_system,
+    update_ecs_bosses,
+};
 pub use brain_effects::{
     spawn_enemy_projectiles_from_brain_actions, spawn_gnu_apple_rain_from_special_messages,
     spawn_gradient_cascade_minions_from_special_messages, spawn_minima_trap_from_special_messages,

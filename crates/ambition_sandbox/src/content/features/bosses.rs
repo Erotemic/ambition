@@ -690,6 +690,36 @@ impl BossBehaviorProfile {
     }
 }
 
+/// Resolve a boss's *canonical encounter id* from its authored
+/// LDtk name + parsed brain payload.
+///
+/// The room author may set the display name to something flavorful
+/// like "System Boss" while the brain points at the canonical
+/// boss kind via `PhaseScript:clockwork_warden`. Without this
+/// helper the encounter pipeline derives the id from the display
+/// name only — `encounter_id_from_name("System Boss")` =
+/// `"system_boss"` — and falls back to a generic boss profile
+/// (empty music tracks, default behavior). Use this helper any
+/// time you need the boss kind for behavior / profile / music
+/// lookup; prefer `boss.behavior.id` when you already have a live
+/// `BossRuntime`.
+///
+/// Resolution order:
+/// 1. `BossBrain::PhaseScript { script_id }` with non-empty
+///    `script_id` — the brain explicitly names the boss kind.
+/// 2. `BossBrain::Custom(label)` with a non-empty label — same
+///    intent, weaker contract.
+/// 3. `encounter_id_from_name(authored_name)` — legacy fallback.
+pub fn canonical_boss_id_from(name: &str, brain: &ae::BossBrain) -> String {
+    match brain {
+        ae::BossBrain::PhaseScript { script_id } if !script_id.is_empty() => script_id.clone(),
+        ae::BossBrain::Custom(label) if !label.is_empty() => {
+            crate::boss_encounter::encounter_id_from_name(label)
+        }
+        _ => crate::boss_encounter::encounter_id_from_name(name),
+    }
+}
+
 /// Boss-side resolver for `Special`-flavored `BossAttackProfile`s.
 ///
 /// The Gradient Sentinel carries multiple distinct specials
@@ -748,6 +778,84 @@ pub fn boss_special_for_profile(
             let _ = boss; // future per-boss tuning may read it
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod canonical_boss_id_tests {
+    use super::*;
+
+    /// PhaseScript brain wins over display name. The user-reported
+    /// bug: BossSpawn named "System Boss" in `first_system_boss`
+    /// derived encounter_id "system_boss" (no profile, no music).
+    /// With `canonical_boss_id_from` reading the brain's
+    /// `PhaseScript:clockwork_warden` it resolves to the
+    /// authored profile and the boss fight gets its violin music.
+    #[test]
+    fn phase_script_brain_wins_over_display_name() {
+        let id = canonical_boss_id_from(
+            "System Boss",
+            &ae::BossBrain::PhaseScript {
+                script_id: "clockwork_warden".to_string(),
+            },
+        );
+        assert_eq!(id, "clockwork_warden");
+    }
+
+    /// Empty PhaseScript falls back to the display name.
+    #[test]
+    fn empty_phase_script_falls_back_to_name() {
+        let id = canonical_boss_id_from(
+            "System Boss",
+            &ae::BossBrain::PhaseScript {
+                script_id: String::new(),
+            },
+        );
+        assert_eq!(id, "system_boss");
+    }
+
+    /// Custom brain with a non-empty label is treated like a name
+    /// (gets normalized to an encounter_id slug).
+    #[test]
+    fn custom_brain_label_becomes_encounter_id_slug() {
+        let id = canonical_boss_id_from(
+            "Display",
+            &ae::BossBrain::Custom("Clockwork Warden".to_string()),
+        );
+        assert_eq!(id, "clockwork_warden");
+    }
+
+    /// Dormant brain falls back to the display name.
+    #[test]
+    fn dormant_brain_falls_back_to_name() {
+        let id = canonical_boss_id_from("Clockwork Warden", &ae::BossBrain::Dormant);
+        assert_eq!(id, "clockwork_warden");
+    }
+
+    /// BossRuntime constructed with a "System Boss" name + PhaseScript
+    /// brain ends up with the clockwork_warden behavior — the runtime
+    /// resolves the canonical id before reading
+    /// `BossBehaviorProfile::for_authored_boss`. Without this fix the
+    /// runtime would carry a generic placeholder behavior.
+    #[test]
+    fn boss_runtime_uses_phase_script_for_behavior_lookup() {
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0));
+        let boss = BossRuntime::new(
+            "boss_under_test",
+            "System Boss",
+            aabb,
+            ae::BossBrain::PhaseScript {
+                script_id: "clockwork_warden".to_string(),
+            },
+        );
+        assert_eq!(boss.behavior.id, "clockwork_warden");
+        // Sanity: the Gradient Sentinel macro tuning is non-trivial
+        // (chase/retreat thresholds non-zero), which the generic
+        // boss profile doesn't set.
+        assert!(
+            boss.behavior.macro_tuning.is_enabled(),
+            "clockwork_warden behavior should carry macro tuning",
+        );
     }
 }
 
@@ -845,6 +953,35 @@ mod boss_special_resolver_tests {
 /// brain layer's `BossPatternState` owns the cursor / clocks and the
 /// `BossAttackState` component owns the live telegraph/active
 /// profile. `BossRuntime` carries body fields only.
+/// Snapshot of the sprite generator's `body_metrics` for a boss,
+/// captured once at sprite-registry lookup time so per-tick
+/// damage/hurtbox math doesn't re-query the SheetRegistry resource.
+///
+/// `body_pixel_bbox` is the single overall body bbox (legacy /
+/// single-piece bosses). `body_pixel_parts` is the multi-rect
+/// representation for disjointed-piece bosses (head + body + arms).
+/// Either one or both may be populated; the consumer picks parts
+/// when present and falls back to bbox otherwise.
+///
+/// `frame_width` / `frame_height` are the sprite-frame dimensions
+/// (e.g. 128×128 for clockwork_warden) used to scale pixel-space
+/// coordinates into world-space via the boss's render size.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BossSpriteMetrics {
+    pub frame_width: u32,
+    pub frame_height: u32,
+    pub body_pixel_bbox: Option<crate::presentation::character_sprites::registry::PixelRect>,
+    pub body_pixel_parts: Vec<crate::presentation::character_sprites::registry::NamedPixelRect>,
+}
+
+impl BossSpriteMetrics {
+    /// True iff this snapshot carries at least one rectangle the
+    /// derivation can use.
+    pub fn has_body(&self) -> bool {
+        !self.body_pixel_parts.is_empty() || self.body_pixel_bbox.is_some()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct BossRuntime {
     pub id: String,
@@ -862,6 +999,12 @@ pub struct BossRuntime {
     /// wakes up. The brain reads this via `BossPatternContext`;
     /// pattern selection happens in the brain, not here.
     pub encounter_phase: ae::BossEncounterPhase,
+    /// Sprite-driven body metrics — populated by the
+    /// `derive_boss_sprite_metrics` system after the SheetRegistry
+    /// has loaded. `None` for bosses whose sprite has no
+    /// `body_metrics` entry (the derivation system leaves them
+    /// alone), and the legacy `combat_size` path applies.
+    pub sprite_metrics: Option<BossSpriteMetrics>,
 }
 
 impl BossRuntime {
@@ -872,13 +1015,21 @@ impl BossRuntime {
         brain: ae::BossBrain,
     ) -> Self {
         let name = name.into();
+        // Behavior lookup prefers the brain's `PhaseScript:` id
+        // over the LDtk display name. A room whose BossSpawn is
+        // named "System Boss" but whose brain is
+        // `PhaseScript:clockwork_warden` should still resolve to
+        // the clockwork_warden / Gradient Sentinel profile — not
+        // a generic placeholder.
+        let canonical_id = canonical_boss_id_from(&name, &brain);
         Self {
             id: id.into(),
             pos: aabb.center(),
             spawn: aabb.center(),
             size: aabb.half_size() * 2.0,
             health: ae::Health::new(18),
-            behavior: BossBehaviorProfile::for_authored_boss(&name),
+            behavior: BossBehaviorProfile::for_authored_boss(&canonical_id),
+            sprite_metrics: None,
             name,
             brain,
             alive: true,

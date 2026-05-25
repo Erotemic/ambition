@@ -21,7 +21,7 @@
 mod anim;
 mod animator;
 mod assets;
-mod registry;
+pub mod registry;
 mod sheets;
 
 #[cfg(test)]

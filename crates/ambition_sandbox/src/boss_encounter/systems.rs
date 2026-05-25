@@ -4,10 +4,7 @@ use bevy::prelude::*;
 use crate::content::quest::QuestRegistry;
 use crate::presentation::cutscene::CutsceneTriggerQueue;
 
-use super::{
-    default_boss_profiles, encounter_id_from_name, events::publish_events, BossEncounterRegistry,
-    BossProfile,
-};
+use super::{default_boss_profiles, events::publish_events, BossEncounterRegistry, BossProfile};
 
 pub fn populate_boss_encounter_registry(
     mut registry: ResMut<BossEncounterRegistry>,
@@ -92,14 +89,21 @@ pub fn update_boss_encounters(
     let _active_room = room_set.active_spec().id.clone();
 
     // Build a list of boss runtime ids alive in the current room so we
-    // can wake up encounters when the player walks in.
-    let bosses_in_room: Vec<(String, String, ae::Vec2, ae::Vec2, i32, i32)> = bosses
+    // can wake up encounters when the player walks in. `behavior_id`
+    // is the canonical encounter id resolved by `BossRuntime::new`
+    // via the brain's `PhaseScript:` payload — preferred over the
+    // raw LDtk name so e.g. a BossSpawn named "System Boss" with
+    // brain `PhaseScript:clockwork_warden` correctly resolves to
+    // the clockwork_warden profile (with its phase music tracks)
+    // rather than a generic stub.
+    let bosses_in_room: Vec<(String, String, String, ae::Vec2, ae::Vec2, i32, i32)> = bosses
         .iter()
         .map(|(_feature_id, feature)| {
             let b = &feature.boss;
             (
                 b.id.clone(),
                 b.name.clone(),
+                b.behavior.id.clone(),
                 b.pos,
                 b.spawn,
                 b.health.current,
@@ -108,19 +112,17 @@ pub fn update_boss_encounters(
         })
         .collect();
 
-    // Lazy registration: derive a *semantic* encounter id from the
-    // boss's authored `name` (e.g. "clockwork warden" →
-    // "clockwork_warden"). The LDtk iid (`BossSpawn-0158`) lives on
-    // as the runtime_id link so combat damage still reaches the
-    // right `BossRuntime`. Authored specs (registered before this
-    // system runs) take precedence; only bosses without a spec fall
-    // through to the auto-registered defaults.
-    for (boss_runtime_id, boss_name, _pos, _spawn, _hp, max_hp) in &bosses_in_room {
-        let encounter_id = encounter_id_from_name(boss_name);
-        registry.link_runtime(&encounter_id, boss_runtime_id);
-        if !registry.encounters.contains_key(&encounter_id) {
+    // Lazy registration: use the boss runtime's `behavior.id` as
+    // the canonical encounter id. The LDtk iid (`BossSpawn-0158`)
+    // lives on as the runtime_id link so combat damage still
+    // reaches the right `BossRuntime`. Authored specs (registered
+    // before this system runs) take precedence; only bosses without
+    // a spec fall through to the auto-registered defaults.
+    for (boss_runtime_id, boss_name, encounter_id, _pos, _spawn, _hp, max_hp) in &bosses_in_room {
+        registry.link_runtime(encounter_id, boss_runtime_id);
+        if !registry.encounters.contains_key(encounter_id) {
             let profile =
-                BossProfile::for_encounter_id_or_name(&encounter_id).unwrap_or_else(|| {
+                BossProfile::for_encounter_id_or_name(encounter_id).unwrap_or_else(|| {
                     BossProfile::generic(encounter_id.clone(), boss_name.clone(), *max_hp)
                 });
             registry.ensure_profile(profile);
@@ -128,13 +130,12 @@ pub fn update_boss_encounters(
     }
 
     // Wake up an encounter whose boss is now visible in the room.
-    for (_runtime_id, boss_name, _pos, _spawn, _hp, _max) in &bosses_in_room {
-        let encounter_id = encounter_id_from_name(boss_name);
-        if let Some(state) = registry.encounters.get_mut(&encounter_id) {
+    for (_runtime_id, _boss_name, encounter_id, _pos, _spawn, _hp, _max) in &bosses_in_room {
+        if let Some(state) = registry.encounters.get_mut(encounter_id) {
             if matches!(state.phase, ae::BossEncounterPhase::Dormant) && state.hp > 0 {
                 let evs = state.enter_intro();
                 publish_events(
-                    &encounter_id,
+                    encounter_id,
                     &evs,
                     &mut music_request,
                     &mut cutscene_queue,
@@ -248,7 +249,7 @@ pub fn update_boss_encounters(
     // landed, those acknowledgements are no longer load-bearing.)
     let boss_anchors: Vec<(String, ae::Vec2)> = bosses_in_room
         .iter()
-        .map(|(runtime_id, _name, _pos, spawn, _hp, _max_hp)| (runtime_id.clone(), *spawn))
+        .map(|(runtime_id, _name, _enc_id, _pos, spawn, _hp, _max_hp)| (runtime_id.clone(), *spawn))
         .collect();
     crate::features::sync_boss_reward_chests_ecs(
         &mut commands,

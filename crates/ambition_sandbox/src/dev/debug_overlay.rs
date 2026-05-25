@@ -199,6 +199,17 @@ pub struct FeatureDebugQueries<'w, 's> {
         &'static crate::features::HazardFeature,
         With<crate::features::FeatureSimEntity>,
     >,
+    /// All live `Hitbox` entities (melee swings, World-anchored
+    /// hazards like the Gradient Sentinel's MinimaTrap pit /
+    /// SaddlePoint arms / GradientLane column). Drawn so the debug
+    /// view answers "what just hit me?" — without this pass the
+    /// World-anchored boss specials are invisible even though they
+    /// deal damage.
+    pub hitboxes: Query<'w, 's, &'static crate::features::Hitbox>,
+    /// FeatureAabb lookup for resolving `FollowOwner` hitboxes to
+    /// their current world-space rectangle. World-anchored
+    /// hitboxes don't need this — their AABB is fixed at spawn.
+    pub hitbox_owners: Query<'w, 's, &'static crate::features::FeatureAabb>,
 }
 
 fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
@@ -654,6 +665,38 @@ fn draw_feature_debug(
             hazard_color,
             developer_tools,
         );
+    }
+
+    // Live Hitbox entities — melee swings (FollowOwner) + World-
+    // anchored boss specials (MinimaTrap pit, SaddlePoint arms,
+    // GradientLane column). Without this pass, the World-anchored
+    // hitboxes are invisible in debug mode even though they deal
+    // damage. Faction-color-coded so you can read which side it
+    // belongs to at a glance.
+    let player_hitbox_color = Color::srgba(0.35, 0.85, 1.00, 0.90); // light blue
+    let enemy_hitbox_color = Color::srgba(1.00, 0.18, 0.18, 0.90); // bright red
+    let boss_hitbox_color = Color::srgba(1.00, 0.55, 0.10, 0.90); // bright orange
+    let npc_hitbox_color = Color::srgba(0.60, 1.00, 0.45, 0.85); // light green
+    for hitbox in feature_q.hitboxes.iter() {
+        let owner_pos = match feature_q.hitbox_owners.get(hitbox.owner) {
+            Ok(aabb) => aabb.center,
+            // Owner despawned or never had a FeatureAabb — for
+            // World-anchored hitboxes this doesn't matter (the
+            // anchor carries the center). For FollowOwner with a
+            // dead owner the draw position is ambiguous; fall back
+            // to ZERO and the rect will appear at the origin.
+            Err(_) => ae::Vec2::ZERO,
+        };
+        let aabb = hitbox.world_aabb(owner_pos);
+        let color = match hitbox.source {
+            crate::features::ActorFaction::Player => player_hitbox_color,
+            crate::features::ActorFaction::Enemy => enemy_hitbox_color,
+            crate::features::ActorFaction::Boss => boss_hitbox_color,
+            crate::features::ActorFaction::Npc | crate::features::ActorFaction::Neutral => {
+                npc_hitbox_color
+            }
+        };
+        draw_aabb_styled(gizmos, world, aabb, color, developer_tools);
     }
 }
 

@@ -46,12 +46,13 @@ mod util;
 mod world_overlay;
 
 pub use boss_attack_geometry::{
-    active_attack_volumes, body_damage_aabb, boss_attack_damage, damageable_volumes,
-    telegraph_volumes, volumes_for_profile, BossVolumeContext,
+    active_attack_volumes, body_damage_aabb, boss_attack_damage, bounding_aabb, damageable_volumes,
+    telegraph_volumes, volumes_for_profile, world_space_body_aabbs_from_metrics,
+    world_space_body_aabbs_from_parts, BossVolumeContext,
 };
 pub use bosses::{
     boss_special_for_profile, BossAttackProfile, BossBehaviorProfile, BossMovementProfile,
-    BossRuntime, GNU_TON_APPLE_OWNER_PREFIX, GRADIENT_SENTINEL_ENCOUNTER_ID,
+    BossRuntime, BossSpriteMetrics, GNU_TON_APPLE_OWNER_PREFIX, GRADIENT_SENTINEL_ENCOUNTER_ID,
 };
 pub use breakables::BreakableRuntime;
 pub use bus::{
@@ -70,12 +71,13 @@ pub use components::{
 };
 pub use ecs::{
     apply_feature_damage_events, apply_gameplay_banner_requests, apply_hitbox_damage,
-    clear_encounter_reward_ecs, collect_ecs_pickups, despawn_encounter_mobs, ecs_boss_anim_state,
-    ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_damage_event_hits_actor,
-    ecs_damage_event_hits_boss, ecs_damage_event_hits_breakable, ecs_enemy_anim_state,
-    ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name,
-    interact_ecs_actors_and_switches, open_ecs_chests, rebuild_feature_ecs_world_overlay,
-    rebuild_feature_view_index, reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
+    clear_encounter_reward_ecs, collect_ecs_pickups, derive_boss_sprite_metrics,
+    despawn_encounter_mobs, ecs_boss_anim_state, ecs_boss_name, ecs_breakable_state,
+    ecs_chest_opened, ecs_damage_event_hits_actor, ecs_damage_event_hits_boss,
+    ecs_damage_event_hits_breakable, ecs_enemy_anim_state, ecs_enemy_name,
+    ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name, interact_ecs_actors_and_switches,
+    open_ecs_chests, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
+    reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
     spawn_enemy_projectiles_from_brain_actions, spawn_gnu_apple_rain_from_special_messages,
     spawn_gradient_cascade_minions_from_special_messages, spawn_melee_hitbox,
     spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
@@ -133,6 +135,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // Boss tick chain (post "move boss policy out of
                 // BossRuntime"): the brain decides intent first, then
                 // the integration system consumes its `desired_vel`.
+                // `derive_boss_sprite_metrics` runs FIRST so the
+                // sprite-driven combat_size + hurtbox metadata is in
+                // place by the time the brain reads them. It's a
+                // once-per-boss derivation gated by the
+                // `BossSpriteMetricsApplied` marker.
+                derive_boss_sprite_metrics,
                 // `sync_boss_encounter_phase` runs before the brain
                 // tick so this frame's phase is the one
                 // `BossPatternContext` carries.

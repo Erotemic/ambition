@@ -27,8 +27,11 @@ def test_write_spritesheet_emits_optional_actor_contract(tmp_path: Path):
     assert 'schema_version: 1' in text
     assert 'character_id: "goblin"' in text
     assert '"action.melee.primary"' in text
-    assert 'missing_information' in text
-    assert 'socket hand_r: absent' in text
+    assert 'missing_information: []' in text
+    assert 'collision: Some' in text
+    assert 'hurtbox: Some' in text
+    assert '"hand_r"' in text
+    assert '"weapon_tip"' in text
 
 
 def test_character_job_accepts_sparse_actor_contract_fields():
@@ -48,6 +51,41 @@ def test_character_job_accepts_sparse_actor_contract_fields():
     assert job.actor["character_id"] == "npc_zombie_shambler"
     assert job.body["traits"] == ["undead", "no_hands"]
     assert "mouth" in job.sockets
+
+
+def test_contract_derives_runtime_fields_from_body_metrics_without_requiring_hands():
+    from ambition_sprite2d_renderer.actor_contract import build_actor_contract, to_ron
+
+    manifest = {
+        "target": "toon",
+        "image": "zombie_shambler_spritesheet.png",
+        "body_metrics": {
+            "body_pixel_bbox": {"x": 5, "y": 10, "w": 30, "h": 50},
+            "feet_pixel": {"x": 20, "y": 63},
+        },
+        "rows": [
+            {"animation": "shamble_idle", "row_index": 0, "frame_count": 1, "duration_ms": 100, "rects": []},
+            {"animation": "bite", "row_index": 1, "frame_count": 1, "duration_ms": 100, "rects": []},
+        ],
+    }
+    ron = to_ron(build_actor_contract(
+        stem="zombie_shambler",
+        target="toon",
+        image="zombie_shambler_spritesheet.png",
+        sheet_manifest="zombie_shambler_spritesheet.ron",
+        manifest=manifest,
+        job_data={"surface": "adapter", "tags": []},
+        authoring={
+            "body": {"body_plan": "HumanoidBiped", "traits": ["undead", "no_hands"]},
+            "actions": {"default_preset": "zombie_bite"},
+            "sockets": {"mouth": {"point": {"x": 22.0, "y": 26.0}}},
+        },
+    ))
+    assert 'collision: Some' in ron
+    assert 'hurtbox: Some' in ron
+    assert '"mouth"' in ron
+    assert '"hand_r"' not in ron
+    assert 'melee origin socket' not in ron
 
 
 def test_tackon_target_render_sheet_includes_actor_sidecar(tmp_path: Path):

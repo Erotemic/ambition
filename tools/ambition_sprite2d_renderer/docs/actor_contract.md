@@ -57,9 +57,9 @@ open vocabularies:
     body: Some((
         body_kind: Some("Standard"),
         body_plan: Some("HumanoidBiped"),
-        collision: None,
-        hurtbox: None,
-        mass_class: None,
+        collision: Some((w_px: 28.0, h_px: 46.0, source: "sheet.body_metrics.body_pixel_bbox", confidence: "derived")),
+        hurtbox: Some((w_px: 28.0, h_px: 46.0, source: "derived_from_collision", confidence: "fallback")),
+        mass_class: Some("Medium"),
         locomotion_hint: Some("Walk"),
         body_metrics_source: Some("sheet.body_metrics"),
         traits: [],
@@ -123,15 +123,30 @@ missing_information:
 ```
 
 Any omitted blocks are inferred conservatively from the generated sheet rows,
-job target/archetype/role/tags, and body metrics. The sidecar records these
-inferences and also records common gaps in `missing_information`.
+job target/archetype/role/tags, catalog defaults, and body metrics. The current
+contract builder now populates several runtime-useful fields automatically:
+
+- collision and fallback hurtbox rectangles from `body_metrics.body_pixel_bbox`
+  when a non-boss/non-prop body has opaque pixels,
+- mass class from body plan/body kind/tags,
+- `feet`, `root`, `center`, `head`, and `chest` sockets from body metrics,
+- first-class sockets from any per-frame `rects[*].anchors`,
+- heuristic humanoid hand/weapon sockets when the body plan actually supports
+  hands,
+- mouth sockets for bite/beast/crawler/flyer-like characters, and
+- family/default traversal and interaction capabilities for known renderer
+  targets such as robot, goblin, sandbag, boss, prop, flyer, and crawler.
+
+`missing_information` is now conditional: it records facts that are still truly
+absent for the enabled capabilities/actions, not every possible future field.
 
 Tack-on targets can either rely on inference or expose module-level
 `ACTOR_METADATA`, or pass `actor_metadata=` into `tackon_sheet.build_sheet`.
 
 ## Known gaps to fill over time
 
-- Real collision/hurtbox dimensions instead of deriving from opaque pixels.
+- Authoritative collision/hurtbox dimensions when opaque-pixel derivation is
+  not good enough for gameplay.
 - Measured traversal values such as jump height/distance, climb affordances,
   crawl clearance, and door/lift permissions.
 - Per-frame sockets from rigs (`hand_r`, `weapon_tip`, `muzzle`, `mouth`, etc.)

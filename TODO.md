@@ -168,7 +168,9 @@ Useful companion docs:
 
 - [ ] **Vertical intro lab maze pass** `[V4/D5]` - Explore Jon's current story shape: the intro climbs vertically through a lab maze with side branches, factions fighting each other, the creator trying to escape with the player, and faction/boss pressure at the top. Keep this as design work until mechanics and rooms support it.
 
-- [ ] **Gradient Sentinel boss implementation / replacement decision** `[V3/D4]` - Old TODO tracked this as the first story boss. Re-evaluate against current GNU-ton / hall-of-bosses direction before investing.
+<!-- Gradient Sentinel item closed 2026-05-25 — see FEATURES.md "Gradient Sentinel boss fight". -->
+
+
 
 - [ ] **Intro cutscene polish** `[V2/D3]` - Old note: include a "Hey you, you're finally awake" beat or equivalent intro hook, but only if it fits the current tone.
 

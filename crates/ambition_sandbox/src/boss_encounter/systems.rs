@@ -130,16 +130,52 @@ pub fn update_boss_encounters(
     }
 
     // Wake up an encounter whose boss is now visible in the room.
-    for (_runtime_id, _boss_name, encounter_id, _pos, _spawn, _hp, _max) in &bosses_in_room {
-        if let Some(state) = registry.encounters.get_mut(encounter_id) {
-            if matches!(state.phase, ae::BossEncounterPhase::Dormant) && state.hp > 0 {
-                let evs = state.enter_intro();
-                publish_events(
-                    encounter_id,
-                    &evs,
-                    &mut music_request,
-                    &mut cutscene_queue,
-                    &mut banner,
+    if !bosses_in_room.is_empty() {
+        bevy::log::info!(
+            target: "ambition::boss_encounter",
+            "wakeup loop: {} boss(es) in room — {:?}",
+            bosses_in_room.len(),
+            bosses_in_room
+                .iter()
+                .map(|(_, n, eid, _, _, hp, mx)| format!("{n:?}→{eid}(hp={hp}/{mx})"))
+                .collect::<Vec<_>>()
+        );
+    }
+    for (_runtime_id, boss_name, encounter_id, _pos, _spawn, _hp, _max) in &bosses_in_room {
+        match registry.encounters.get_mut(encounter_id) {
+            Some(state) => {
+                bevy::log::info!(
+                    target: "ambition::boss_encounter",
+                    "  encounter={encounter_id} (boss={boss_name:?}) phase={:?} hp={}",
+                    state.phase,
+                    state.hp,
+                );
+                if matches!(state.phase, ae::BossEncounterPhase::Dormant) && state.hp > 0 {
+                    let evs = state.enter_intro();
+                    bevy::log::info!(
+                        target: "ambition::boss_encounter",
+                        "  → enter_intro emitted {} event(s)",
+                        evs.len(),
+                    );
+                    publish_events(
+                        encounter_id,
+                        &evs,
+                        &mut music_request,
+                        &mut cutscene_queue,
+                        &mut banner,
+                    );
+                    bevy::log::info!(
+                        target: "ambition::boss_encounter",
+                        "  → music_request.desired_track = {:?}",
+                        music_request.desired_track,
+                    );
+                }
+            }
+            None => {
+                bevy::log::warn!(
+                    target: "ambition::boss_encounter",
+                    "  encounter_id={encounter_id} (boss={boss_name:?}) NOT FOUND in registry; available={:?}",
+                    registry.encounters.keys().collect::<Vec<_>>()
                 );
             }
         }
@@ -160,6 +196,14 @@ pub fn update_boss_encounters(
         }
     }
     for (id, evs) in deferred_events {
+        if !evs.is_empty() {
+            bevy::log::info!(
+                target: "ambition::boss_encounter",
+                "encounter {id} ticked → {} event(s); music_request before={:?}",
+                evs.len(),
+                music_request.desired_track,
+            );
+        }
         publish_events(
             &id,
             &evs,
@@ -167,6 +211,13 @@ pub fn update_boss_encounters(
             &mut cutscene_queue,
             &mut banner,
         );
+        if !evs.is_empty() {
+            bevy::log::info!(
+                target: "ambition::boss_encounter",
+                "encounter {id} → music_request after={:?}",
+                music_request.desired_track,
+            );
+        }
     }
 
     // Per-frame mirror: engine `BossEncounterState` is the source of

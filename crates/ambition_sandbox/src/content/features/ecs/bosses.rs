@@ -156,11 +156,45 @@ pub fn derive_boss_sprite_metrics(
 pub fn sync_boss_encounter_phase(
     encounter_registry: Res<crate::boss_encounter::BossEncounterRegistry>,
     mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
+    mut last_logged: bevy::ecs::system::Local<
+        std::collections::HashMap<String, ae::BossEncounterPhase>,
+    >,
 ) {
     for mut feature in &mut bosses {
         let boss = &mut feature.boss;
-        if let Some(state) = encounter_registry.get(&boss.behavior.id) {
-            boss.encounter_phase = state.phase;
+        let lookup = encounter_registry.get(&boss.behavior.id);
+        let new_phase = lookup.map(|s| s.phase);
+        // Log phase transitions per boss so we can see in the logs
+        // when (or if) Dormant → Intro → Phase1 actually fires.
+        let prev = last_logged.get(&boss.behavior.id).copied();
+        if new_phase != prev {
+            match (lookup, new_phase) {
+                (Some(_), Some(phase)) => {
+                    bevy::log::info!(
+                        target: "ambition::boss_encounter",
+                        "sync_phase: boss={} (behavior.id={}) phase {:?} → {:?}",
+                        boss.id,
+                        boss.behavior.id,
+                        prev,
+                        phase,
+                    );
+                    last_logged.insert(boss.behavior.id.clone(), phase);
+                }
+                (None, _) => {
+                    bevy::log::warn!(
+                        target: "ambition::boss_encounter",
+                        "sync_phase: boss={} behavior.id={} NOT IN encounter_registry (boss.encounter_phase stays {:?})",
+                        boss.id,
+                        boss.behavior.id,
+                        boss.encounter_phase,
+                    );
+                    last_logged.insert(boss.behavior.id.clone(), boss.encounter_phase);
+                }
+                _ => {}
+            }
+        }
+        if let Some(phase) = new_phase {
+            boss.encounter_phase = phase;
         }
     }
 }

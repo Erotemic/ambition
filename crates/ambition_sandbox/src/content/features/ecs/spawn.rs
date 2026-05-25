@@ -70,6 +70,15 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         authored.aabb,
         authored.payload.clone(),
     );
+    bevy::log::info!(
+        target: "ambition::boss_spawn",
+        "spawn_boss id={} name={:?} brain={:?} → behavior.id={} combat_size={:?}",
+        boss.id,
+        boss.name,
+        authored.payload,
+        boss.behavior.id,
+        boss.combat_size(),
+    );
     let initial_phase = BossPhase::from_alive(boss.alive);
     // BossPattern brain owns boss intent. The cfg snapshots the
     // authored behavior profile's pattern + movement at spawn

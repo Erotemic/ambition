@@ -40,7 +40,7 @@ pub struct BossDamageOutcome {
 /// OVERNIGHT-TODO #8.
 pub fn record_boss_damage(
     registry: &mut BossEncounterRegistry,
-    music_request: &mut crate::encounter::EncounterMusicRequest,
+    music_request: &mut crate::encounter::BossEncounterMusicRequest,
     cutscene_queue: &mut CutsceneTriggerQueue,
     banner: &mut crate::features::GameplayBanner,
     boss_runtime_id: &str,
@@ -70,7 +70,7 @@ pub fn record_boss_damage(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encounter::EncounterMusicRequest;
+    use crate::encounter::BossEncounterMusicRequest;
     use crate::features::GameplayBanner;
 
     fn fixture(max_hp: i32) -> BossEncounterRegistry {
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn record_boss_damage_returns_none_for_unknown_runtime_id() {
         let mut registry = fixture(10);
-        let mut music = EncounterMusicRequest::default();
+        let mut music = BossEncounterMusicRequest::default();
         let mut cutscene = CutsceneTriggerQueue::default();
         let mut banner = GameplayBanner::default();
         let outcome = record_boss_damage(
@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn record_boss_damage_decreases_hp_and_reports_applied() {
         let mut registry = fixture(10);
-        let mut music = EncounterMusicRequest::default();
+        let mut music = BossEncounterMusicRequest::default();
         let mut cutscene = CutsceneTriggerQueue::default();
         let mut banner = GameplayBanner::default();
         let outcome = record_boss_damage(
@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn record_boss_damage_kills_boss_when_hp_hits_zero() {
         let mut registry = fixture(4);
-        let mut music = EncounterMusicRequest::default();
+        let mut music = BossEncounterMusicRequest::default();
         let mut cutscene = CutsceneTriggerQueue::default();
         let mut banner = GameplayBanner::default();
         let outcome = record_boss_damage(
@@ -156,7 +156,7 @@ mod tests {
     #[test]
     fn record_boss_damage_does_not_re_fire_killed_when_already_dead() {
         let mut registry = fixture(4);
-        let mut music = EncounterMusicRequest::default();
+        let mut music = BossEncounterMusicRequest::default();
         let mut cutscene = CutsceneTriggerQueue::default();
         let mut banner = GameplayBanner::default();
         // First hit kills.
@@ -195,7 +195,7 @@ mod tests {
         // Flip to an invulnerable phase (Intro / Transition / Stagger).
         registry.encounters.get_mut("test_boss").unwrap().phase =
             ae::BossEncounterPhase::Transition;
-        let mut music = EncounterMusicRequest::default();
+        let mut music = BossEncounterMusicRequest::default();
         let mut cutscene = CutsceneTriggerQueue::default();
         let mut banner = GameplayBanner::default();
         let outcome = record_boss_damage(

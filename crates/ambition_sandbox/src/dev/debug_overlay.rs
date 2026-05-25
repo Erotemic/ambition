@@ -628,12 +628,34 @@ fn draw_feature_debug(
             }
         }
     }
-    // Player-facing hurtbox: where the player's attacks land registers.
-    // Distinct from `boss.aabb()` (the movement envelope) because bosses
-    // like GNU-ton expose only specific parts (the head) as damageable.
-    // Drawing both is the only way the debug view can answer "why did
-    // my hit register here but not there?" without reading source.
+    // Boss debug colors — each color answers a distinct question
+    // the player might ask while reading the overlay:
+    //
+    // - **orange** (`boss_color`, `boss.aabb()`): the combat-collision
+    //   envelope. The boss uses this for kinematic step / world-bounds
+    //   clamp. Does NOT, by itself, deal damage.
+    // - **cyan** (`hurtbox_color`, `damageable_volumes`): where the
+    //   *player's* attacks register hits on the boss. With the
+    //   sprite-metadata-driven derivation, this can be one rect
+    //   (single-piece boss) or many (multi-part body — head + body
+    //   + arms).
+    // - **magenta** (`body_contact_color`, `body_damage_aabb`): the
+    //   boss's body-contact damage zone. Touching this when
+    //   `BossBehaviorProfile::body_damage > 0` hurts the player
+    //   (e.g. clockwork_warden has body_damage=1). Drawn separately
+    //   so the player can answer "why did I get hit by just touching
+    //   the boss?" without source-diving.
+    // - **yellow** (`telegraph_color`, `telegraph_volumes`):
+    //   attack windup volumes (e.g. FloorSlam telegraph).
+    // - **red** (`active_color`, `active_attack_volumes`): live
+    //   strike volumes. These are also the source of `boss_attack_damage`.
+    //
+    // Special attack profiles (MinimaTrap, SaddlePoint, GradientLane,
+    // OverfitVolley, GradientCascade) route damage through World-
+    // anchored `Hitbox` entities, drawn by the later
+    // `feature_q.hitboxes` pass with faction colors.
     let hurtbox_color = cyan();
+    let body_contact_color = Color::srgba(0.95, 0.30, 0.95, 0.85); // magenta
     for (bf, attack_state) in feature_q.bosses.iter() {
         let boss = &bf.boss;
         if !boss.alive {
@@ -641,6 +663,14 @@ fn draw_feature_debug(
         }
         let ctx = crate::features::BossVolumeContext::from_runtime(boss, attack_state);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
+        // Body-contact damage zone — drawn ONLY when the boss
+        // actually deals contact damage so a `body_damage = 0`
+        // boss (like GNU-ton) doesn't show a misleading magenta
+        // outline.
+        if boss.behavior.body_damage > 0 {
+            let contact = crate::features::body_damage_aabb(boss.pos, boss.combat_size());
+            draw_aabb_styled(gizmos, world, contact, body_contact_color, developer_tools);
+        }
         for hurtbox in crate::features::damageable_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, hurtbox, hurtbox_color, developer_tools);
         }

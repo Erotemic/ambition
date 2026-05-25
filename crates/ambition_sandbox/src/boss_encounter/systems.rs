@@ -58,7 +58,7 @@ pub fn update_boss_encounters(
     mut registry: ResMut<BossEncounterRegistry>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut save: ResMut<crate::persistence::save::SandboxSave>,
-    mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
+    mut music_request: ResMut<crate::encounter::BossEncounterMusicRequest>,
     mut quests: ResMut<QuestRegistry>,
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
     room_set: Res<crate::rooms::RoomSet>,

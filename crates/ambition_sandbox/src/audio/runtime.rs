@@ -98,6 +98,7 @@ pub fn apply_encounter_music(
     mut music_state: ResMut<MusicPlaybackState>,
     music_channel: Res<AudioChannel<MusicChannel>>,
     mut request: ResMut<crate::encounter::EncounterMusicRequest>,
+    mut boss_request: ResMut<crate::encounter::BossEncounterMusicRequest>,
     room_music: Res<crate::rooms::RoomMusicRequest>,
     sandbox_data: Res<crate::content::data::SandboxDataSpec>,
 ) {
@@ -107,12 +108,18 @@ pub fn apply_encounter_music(
         .filter(|id| library.track(id).is_some())
         .cloned()
         .unwrap_or_else(|| sandbox_data.audio.default_music_track.clone());
-    let target = match &request.desired_track {
-        Some(track) => track.clone(),
-        None => resolved_default,
-    };
-    let already_applied =
-        request.last_applied.as_ref() == Some(&target) && music_state.active_track == target;
+    // Priority: boss encounter > regular encounter > room default.
+    // Boss music has its own resource so the regular encounter
+    // tick can't clobber it by writing `desired_track = None`
+    // every frame there's no in-flight encounter.
+    let target = boss_request
+        .desired_track
+        .clone()
+        .or_else(|| request.desired_track.clone())
+        .unwrap_or(resolved_default);
+    let last_applied_matches = boss_request.last_applied.as_ref() == Some(&target)
+        || request.last_applied.as_ref() == Some(&target);
+    let already_applied = last_applied_matches && music_state.active_track == target;
     if !already_applied && library.track(&target).is_some() {
         switch_to_music_track(
             &mut library,
@@ -122,7 +129,8 @@ pub fn apply_encounter_music(
             &target,
         );
     }
-    request.last_applied = Some(target);
+    request.last_applied = Some(target.clone());
+    boss_request.last_applied = Some(target);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

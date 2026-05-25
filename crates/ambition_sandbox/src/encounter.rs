@@ -25,7 +25,7 @@ pub use events::EncounterEvent;
 pub use loading::load_encounter_specs_from_ldtk;
 #[cfg(test)]
 use lock_walls::sync_lock_walls;
-pub use music::EncounterMusicRequest;
+pub use music::{BossEncounterMusicRequest, EncounterMusicRequest};
 pub use registry::{EncounterRegistry, SwitchActivation};
 pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
 pub use spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};

@@ -78,7 +78,14 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
     // `tick_boss_pattern` (driven by `tick_boss_brains_system`)
     // is the single intent producer; `BossRuntime::integrate_body`
     // only consumes the resulting `desired_vel`.
-    let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
+    // Canonical encounter id from the boss runtime's behavior
+    // (which `BossRuntime::new` resolved via the brain's
+    // `PhaseScript:` payload). Using the runtime-resolved id
+    // instead of `encounter_id_from_name(boss.name)` ensures an
+    // LDtk BossSpawn with a flavor display name still wires the
+    // apple-rain self-dodge (and any future per-encounter
+    // overrides) to the right boss.
+    let encounter_id = boss.behavior.id.clone();
     let combat_tuning = crate::time::feel::SandboxFeelTuning::default().feature_combat_tuning();
     let cycle_attack_active = boss
         .behavior

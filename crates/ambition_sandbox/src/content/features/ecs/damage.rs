@@ -22,7 +22,7 @@ use super::{
 };
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
-use crate::encounter::EncounterMusicRequest;
+use crate::encounter::BossEncounterMusicRequest;
 use crate::presentation::cutscene::CutsceneTriggerQueue;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -97,7 +97,7 @@ pub fn apply_feature_damage_events(
     // damage branch falls back to the pre-inversion direct mutation
     // path, so behavior is identical to the legacy code on tests.
     mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
-    mut music_request: Option<ResMut<EncounterMusicRequest>>,
+    mut music_request: Option<ResMut<BossEncounterMusicRequest>>,
     mut cutscene_queue: Option<ResMut<CutsceneTriggerQueue>>,
 ) {
     for event in damage_events.read().cloned() {

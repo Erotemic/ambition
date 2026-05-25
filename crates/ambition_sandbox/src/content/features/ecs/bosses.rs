@@ -145,14 +145,21 @@ pub fn derive_boss_sprite_metrics(
 /// Sync each boss's `encounter_phase` mirror from `BossEncounterRegistry`.
 /// Runs before [`tick_boss_brains_system`] so the brain sees this
 /// frame's phase.
+///
+/// **Encounter id resolution**: uses `boss.behavior.id` (canonical
+/// id resolved at spawn from the brain's `PhaseScript:` payload),
+/// not `encounter_id_from_name(boss.name)`. The two diverge when an
+/// LDtk BossSpawn carries a flavor name like "System Boss" plus a
+/// `PhaseScript:clockwork_warden` brain — `boss.name` ≠
+/// `behavior.id`, and using the name would miss the registry
+/// entry, leaving the boss permanently Dormant (no attacks).
 pub fn sync_boss_encounter_phase(
     encounter_registry: Res<crate::boss_encounter::BossEncounterRegistry>,
     mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
 ) {
     for mut feature in &mut bosses {
         let boss = &mut feature.boss;
-        let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
-        if let Some(state) = encounter_registry.get(&encounter_id) {
+        if let Some(state) = encounter_registry.get(&boss.behavior.id) {
             boss.encounter_phase = state.phase;
         }
     }

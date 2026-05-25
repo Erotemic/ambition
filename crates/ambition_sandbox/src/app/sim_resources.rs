@@ -121,6 +121,12 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(crate::encounter::SwitchActivationQueue::default())
             .insert_resource(crate::encounter::EncounterSwitchIndex::default())
             .insert_resource(crate::encounter::EncounterMusicRequest::default())
+            // Boss music routes through its own resource so the
+            // regular encounter tick (which writes `desired_track =
+            // None` every frame there's no in-flight encounter)
+            // can't clobber the boss's MusicRequested events. The
+            // audio backend reads both, boss wins.
+            .insert_resource(crate::encounter::BossEncounterMusicRequest::default())
             .insert_resource(crate::rooms::RoomMusicRequest::default())
             // Sandbox save game (encounter defeat + switch state).
             // Loaded from disk by `load_save_at_startup` in the

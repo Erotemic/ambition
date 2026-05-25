@@ -638,12 +638,14 @@ pub fn spawn_minima_trap_from_special_messages(
                 "{}_minion:{}:{}",
                 MINIMA_TRAP_OWNER_PREFIX, boss.id, state.spawn_index
             );
-            // Encounter id derived from boss name so cleanup is
-            // scoped to the parent encounter — same pattern as
-            // `spawn_encounter_mob`. Without an `EncounterMob`
-            // marker, `spawn_dynamic_feature_visuals` would skip
-            // this entity and the minion would be invisible.
-            let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
+            // Encounter id = boss's canonical behavior id (resolved
+            // at spawn from the brain's `PhaseScript:` payload).
+            // Using `boss.behavior.id` instead of
+            // `encounter_id_from_name(boss.name)` handles the case
+            // where an LDtk BossSpawn carries a flavor name like
+            // "System Boss" — the minion's encounter scope still
+            // matches the parent encounter even though name != id.
+            let encounter_id = boss.behavior.id.clone();
             // Don't spawn the slug right on top of the player —
             // the user reported the slug appearing under them with
             // no dodge window. Offset the slug horizontally toward
@@ -875,7 +877,9 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
         let count = minion_count.max(1) as i32;
         // Spread N minions evenly across [-X_SPREAD, +X_SPREAD] around
         // the boss x.
-        let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
+        // Encounter id = boss's canonical behavior id (see the
+        // MinimaTrap consumer above for the name-vs-id rationale).
+        let encounter_id = boss.behavior.id.clone();
         for i in 0..count {
             let t = if count == 1 {
                 0.5

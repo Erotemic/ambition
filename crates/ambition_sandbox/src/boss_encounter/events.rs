@@ -5,7 +5,7 @@ use crate::presentation::cutscene::CutsceneTriggerQueue;
 pub(super) fn publish_events(
     encounter_id: &str,
     events: &[ae::BossEncounterEvent],
-    music_request: &mut crate::encounter::EncounterMusicRequest,
+    music_request: &mut crate::encounter::BossEncounterMusicRequest,
     cutscene_queue: &mut CutsceneTriggerQueue,
     banner: &mut crate::features::GameplayBanner,
 ) {

@@ -172,6 +172,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
 pub fn sync_puppy_slug_deep_dream_overlays(
     world_time: Res<crate::WorldTime>,
     mut elapsed: Local<f32>,
+    developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
     mut sources: Query<
@@ -196,6 +197,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
 ) {
     let dt = world_time.wall_dt();
     *elapsed += dt;
+    let disabled = developer_tools.disable_puppy_slug_dream;
 
     for (source_entity, source_transform, mut source_sprite, anchor, source, source_visibility) in
         &mut sources
@@ -218,15 +220,26 @@ pub fn sync_puppy_slug_deep_dream_overlays(
         // hit-flash tint from `sync_visuals` still reads through —
         // a red flash multiplied by current HSV becomes a tinted red
         // rather than getting clobbered to plain rainbow.
-        let hue = (*elapsed * 0.7 + source.seed * 0.91).rem_euclid(1.0);
-        let tint_rgb = hsv_to_rgb(hue, 0.78, 1.0);
-        let existing = source_sprite.color.to_srgba();
-        source_sprite.color = Color::srgba(
-            existing.red * tint_rgb.x,
-            existing.green * tint_rgb.y,
-            existing.blue * tint_rgb.z,
-            existing.alpha,
-        );
+        //
+        // Skip the source-color recoloring while the disable toggle
+        // is on so the slug renders in its native palette during A/B
+        // tests against the mirror-duplication artifact.
+        if !disabled {
+            let hue = (*elapsed * 0.7 + source.seed * 0.91).rem_euclid(1.0);
+            let tint_rgb = hsv_to_rgb(hue, 0.78, 1.0);
+            let existing = source_sprite.color.to_srgba();
+            source_sprite.color = Color::srgba(
+                existing.red * tint_rgb.x,
+                existing.green * tint_rgb.y,
+                existing.blue * tint_rgb.z,
+                existing.alpha,
+            );
+        } else {
+            // Restore opaque white so the source sprite renders cleanly
+            // without the carry-over rainbow multiplier from the
+            // previous frame.
+            source_sprite.color = Color::WHITE;
+        }
 
         let Ok((
             overlay_entity,
@@ -241,10 +254,13 @@ pub fn sync_puppy_slug_deep_dream_overlays(
         if overlay.source != source_entity {
             continue;
         }
-        *overlay_visibility = if source_visible {
-            Visibility::Visible
-        } else {
+        // Hide the sibling mesh entirely when the disable toggle is
+        // on. The slug still renders via its base sprite; only the
+        // deep-dream sibling stops drawing.
+        *overlay_visibility = if disabled || !source_visible {
             Visibility::Hidden
+        } else {
+            Visibility::Visible
         };
         *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
         if let Some(material) = materials.get_mut(&material_handle.0) {

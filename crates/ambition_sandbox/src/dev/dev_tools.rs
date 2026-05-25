@@ -303,6 +303,14 @@ pub struct DeveloperTools {
     pub player_body_profile: PlayerBodyProfile,
     /// High-level movement tuning preset for sandbox feel testing.
     pub movement_profile: MovementProfile,
+    /// Hide the per-puppy-slug deep-dream sibling overlay material.
+    /// Toggle this on in the inspector to A/B-test whether visual
+    /// duplication / "mirrored" artifacts on the slug are caused by
+    /// that overlay or by the base sprite. The source slug sprite is
+    /// unaffected; the deep_dream `apply_rainbow_tint` source-color
+    /// path also stops touching `sprite.color` while this is set, so
+    /// the slug renders in its native palette.
+    pub disable_puppy_slug_dream: bool,
 }
 
 impl Default for DeveloperTools {
@@ -350,6 +358,7 @@ impl Default for DeveloperTools {
             fill_debug_boxes: false,
             player_body_profile: PlayerBodyProfile::default(),
             movement_profile: MovementProfile::default(),
+            disable_puppy_slug_dream: false,
         };
         tools.apply_debug_view_mode(debug_view_mode, !phone_demo);
         tools.apply_debug_art_mode(debug_art_mode);

@@ -229,6 +229,38 @@ def draw_canonicals(
     return outputs
 
 
+def resolve_config_path(value: str | Path) -> Path:
+    """Resolve a config name or path to a concrete ``Path``.
+
+    Lookup order:
+
+    1. If ``value`` is a path that exists, return it as-is.
+    2. ``configs/<value>.yaml`` (main adapter rigs).
+    3. ``configs/review/<value>.yaml`` (review NPCs).
+
+    Raises ``FileNotFoundError`` with the search paths if no match.
+    Lets callers pass a short name (``boss``,
+    ``robot_guardian``, ``architect``) instead of the full
+    ``ambition_sprite2d_renderer/configs/boss.yaml`` path.
+    """
+    candidate = Path(value)
+    if candidate.exists():
+        return candidate
+    # Strip any extension the user typed so `boss.yaml` and `boss`
+    # both work.
+    stem = candidate.stem if candidate.suffix else candidate.name
+    candidates = [
+        DEFAULT_CONFIG_DIR / f"{stem}.yaml",
+        DEFAULT_REVIEW_CONFIG_DIR / f"{stem}.yaml",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    raise FileNotFoundError(
+        f"config not found: {value!r}; tried {[str(p) for p in [candidate, *candidates]]}"
+    )
+
+
 def draw_character(config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR) -> List[Path]:
     """Render both review artifacts for one character config.
 
@@ -298,7 +330,30 @@ def _cmd_canonical(args: argparse.Namespace) -> int:
 
 
 def _cmd_draw_character(args: argparse.Namespace) -> int:
-    print_paths(draw_character(args.config, args.out_dir))
+    try:
+        config_path = resolve_config_path(args.config)
+    except FileNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    outputs = draw_character(config_path, args.out_dir)
+    print_paths(outputs)
+    if getattr(args, "debug_hitboxes", False):
+        # Find the YAML sidecar in the outputs to feed to the
+        # overlay. `draw_character` returns it as the third path
+        # (canonical, sheet PNG, sheet YAML, optional actor RON).
+        yaml_out = next((p for p in outputs if p.suffix == ".yaml"), None)
+        if yaml_out is None:
+            print(
+                "warning: --debug-hitboxes set but no YAML manifest in outputs",
+                file=sys.stderr,
+            )
+            return 0
+        try:
+            written = render_debug_overlay(yaml_out)
+        except FileNotFoundError as e:
+            print(f"error: debug overlay failed: {e}", file=sys.stderr)
+            return 1
+        print(f"  debug overlay: {written}")
     return 0
 
 
@@ -511,7 +566,14 @@ def _cmd_debug_hitboxes(args: argparse.Namespace) -> int:
     after a render to verify the boxes line up with the visible
     body / strike pose.
     """
-    yaml_path = args.yaml_path
+    yaml_path = _resolve_sheet_yaml(args.yaml_or_target)
+    if yaml_path is None:
+        print(
+            f"error: {args.yaml_or_target!r} is neither a file nor a known target name "
+            f"(searched {sandbox_sprites_dir()})",
+            file=sys.stderr,
+        )
+        return 1
     out_path = args.out
     try:
         written = render_debug_overlay(yaml_path, out_path)
@@ -520,6 +582,37 @@ def _cmd_debug_hitboxes(args: argparse.Namespace) -> int:
         return 1
     print(f"wrote debug overlay: {written}")
     return 0
+
+
+def _resolve_sheet_yaml(value: str | Path) -> Path | None:
+    """Resolve a YAML path or a short target name to a sheet manifest.
+
+    Lookup order:
+
+    1. ``value`` as a path that exists.
+    2. ``<sandbox_sprites>/<value>_spritesheet.yaml`` (standard
+       install location).
+    3. ``<sandbox_sprites>/<stem>_spritesheet.yaml`` where
+       ``stem`` is ``value`` with any extension stripped (so
+       ``boss``, ``boss.yaml``, and ``boss_spritesheet.yaml``
+       all resolve to the same file).
+    """
+    candidate = Path(value)
+    if candidate.exists():
+        return candidate
+    sprites_dir = sandbox_sprites_dir()
+    stem = candidate.stem if candidate.suffix else candidate.name
+    # Strip a trailing `_spritesheet` so users can pass either
+    # `boss` or `boss_spritesheet`.
+    if stem.endswith("_spritesheet"):
+        stem = stem[: -len("_spritesheet")]
+    for path in (
+        sprites_dir / f"{stem}_spritesheet.yaml",
+        sprites_dir / "review" / f"{stem}_spritesheet.yaml",
+    ):
+        if path.exists():
+            return path
+    return None
 
 
 def _cmd_draw_runtime_npcs(args: argparse.Namespace) -> int:
@@ -679,8 +772,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=_cmd_draw_review)
 
     p = sub.add_parser("draw-character", help="Render one config's canonical + spritesheet + YAML.")
-    p.add_argument("config")
+    p.add_argument(
+        "config",
+        help=(
+            "Config to render. Either a path to a `*.yaml` file or a "
+            "short name (e.g. `boss`, `robot_guardian`) — the latter "
+            "resolves to `configs/<name>.yaml` or `configs/review/<name>.yaml`."
+        ),
+    )
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR))
+    p.add_argument(
+        "--debug-hitboxes",
+        action="store_true",
+        help=(
+            "After rendering, write `<sheet>_debug.png` next to the "
+            "sheet PNG with per-animation hurt + hit boxes drawn over "
+            "every frame. Equivalent to running `debug-hitboxes "
+            "<sheet>.yaml` separately."
+        ),
+    )
     p.set_defaults(func=_cmd_draw_character)
 
     p = sub.add_parser("draw-factions", help="Render music-faction leader/NPC review sprites.")
@@ -747,11 +857,12 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
-        "yaml_path",
-        type=Path,
+        "yaml_or_target",
         help=(
-            "Path to the sheet's YAML manifest "
-            "(e.g. `crates/ambition_sandbox/assets/sprites/boss_spritesheet.yaml`)."
+            "Either: a path to the sheet's YAML manifest "
+            "(e.g. `crates/ambition_sandbox/assets/sprites/boss_spritesheet.yaml`); "
+            "OR a short target name (e.g. `boss`) that resolves to the "
+            "expected `<sandbox_sprites>/<target>_spritesheet.yaml`."
         ),
     )
     p.add_argument(

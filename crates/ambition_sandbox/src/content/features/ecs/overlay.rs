@@ -78,13 +78,25 @@ pub fn rebuild_feature_ecs_world_overlay(
             kind: ae::BlockKind::PogoOrb,
         });
     }
-    for (id, aabb, feature) in &bosses {
-        if !feature.boss.alive {
+    for (id, _aabb, feature) in &bosses {
+        let boss = &feature.boss;
+        if !boss.alive {
             continue;
         }
+        // Use the boss's *combat* AABB (sprite-derived
+        // `body_pixel_bbox` × spawn size) rather than the
+        // `FeatureAabb` (which is the full spawn / render
+        // envelope). The render envelope can extend well past
+        // the visible body — at 128×160 spawn the FeatureAabb
+        // includes ~22 px of empty space around the sprite
+        // body, and pogo would "land" in that empty strip with
+        // no visual feedback. The combat AABB matches the
+        // orange debug box and the body-contact damage zone
+        // exactly, so the player gets predictable pogo targets
+        // aligned with what they can see.
         overlay.blocks.push(ae::Block {
             name: format!("ecs-boss-body {}", id.as_str()),
-            aabb: aabb.aabb(),
+            aabb: boss.aabb(),
             kind: ae::BlockKind::PogoOrb,
         });
     }

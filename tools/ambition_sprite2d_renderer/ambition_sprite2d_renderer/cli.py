@@ -186,7 +186,7 @@ def draw_all(config_dir: str | Path = DEFAULT_CONFIG_DIR, out_dir: str | Path = 
         stem = job.output_stem(path)
         image_out = out_dir / f"{stem}_spritesheet.png"
         manifest_out = out_dir / f"{stem}_spritesheet.yaml"
-        outputs.extend(write_spritesheet(job, image_out, manifest_out))
+        outputs.extend(write_spritesheet(job, image_out, manifest_out, source_config=path))
     return outputs
 
 
@@ -256,8 +256,12 @@ def draw_character(config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR) 
 
     sheet_out = out_dir / f"{stem}_spritesheet.png"
     manifest_out = out_dir / f"{stem}_spritesheet.yaml"
-    image_out, yaml_out = write_spritesheet(job, sheet_out, manifest_out)
-    return [canonical_out, image_out, yaml_out]
+    image_out, yaml_out = write_spritesheet(job, sheet_out, manifest_out, source_config=config_path)
+    actor_out = out_dir / f"{stem}_actor.ron"
+    outputs = [canonical_out, image_out, yaml_out]
+    if actor_out.exists():
+        outputs.append(actor_out)
+    return outputs
 
 
 def draw_factions(
@@ -335,7 +339,7 @@ def _cmd_list_targets(args: argparse.Namespace) -> int:
 
 def _cmd_spritesheet(args: argparse.Namespace) -> int:
     job = CharacterJob.load(args.config)
-    print_paths(write_spritesheet(job, args.output, args.manifest_out))
+    print_paths(write_spritesheet(job, args.output, args.manifest_out, source_config=args.config))
     return 0
 
 

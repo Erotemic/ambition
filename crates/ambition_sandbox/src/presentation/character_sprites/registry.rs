@@ -558,5 +558,37 @@ mod tests {
             floor_slam.hitbox.is_some(),
             "floor_slam should have an authored hitbox (boss adapter declares it)"
         );
+        // The boss hurtbox is split into head + body parts so the
+        // player must aim at the central body (not extended arms).
+        // Pin both parts come through so a renderer regression that
+        // drops `hurtbox_parts` reverts to the loose single-bbox
+        // alpha hurtbox.
+        let rest = metrics.animations.get("rest").expect("rest animation");
+        let rest_hurt = rest.hurtbox.as_ref().expect("rest hurtbox");
+        assert!(
+            !rest_hurt.parts.is_empty(),
+            "rest hurtbox must be the multi-part head + body override (parts empty implies the adapter's hurtbox_parts was lost)"
+        );
+        let part_names: Vec<&str> = rest_hurt
+            .parts
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect();
+        assert!(
+            part_names.contains(&"head") && part_names.contains(&"body"),
+            "rest hurtbox parts must include 'head' and 'body'; got {part_names:?}"
+        );
+        // SideSweep should also have head + body hurtbox parts (not
+        // a single bbox that would include the extended arms).
+        let sweep = metrics
+            .animations
+            .get("side_sweep")
+            .expect("side_sweep animation");
+        let sweep_hurt = sweep.hurtbox.as_ref().expect("side_sweep hurtbox");
+        assert!(
+            sweep_hurt.parts.len() >= 2,
+            "side_sweep hurtbox must be multi-part; got {} parts",
+            sweep_hurt.parts.len()
+        );
     }
 }

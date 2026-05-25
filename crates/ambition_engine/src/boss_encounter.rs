@@ -134,14 +134,16 @@ impl BossEncounterSpec {
             death_seconds: 2.4,
             stagger_threshold: 6,
             stagger_window_seconds: 1.5,
-            // Reuse the existing sandbox tracks until dedicated boss
-            // music ships. The point of the per-phase ids is to wire
-            // the swap mechanism end-to-end; future audio can swap
-            // these strings without code changes.
+            // Gradient Sentinel music: fast violin theme during the active
+            // phases so the boss fight reads as a high-tempo encounter
+            // rather than the ambient sandbox lofi. The intro keeps the
+            // calmer pulse-drift bed so engagement still feels like an
+            // escalation. Per-phase ids swap end-to-end at runtime; future
+            // audio can replace these strings without code changes.
             music_intro: "pulse_drift_voyage".into(),
-            music_phase1: "pulse_drift_voyage".into(),
-            music_phase2: "original_lofi_loop".into(),
-            music_enrage: "original_lofi_loop".into(),
+            music_phase1: "fast_paced_violin_boss".into(),
+            music_phase2: "fast_paced_violin_boss".into(),
+            music_enrage: "fast_paced_violin_boss".into(),
         }
     }
 

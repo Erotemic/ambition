@@ -4,6 +4,8 @@
 //! initial colored rectangles into authored character sprites once
 //! the asset is loaded.
 
+use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -780,6 +782,123 @@ fn effective_hide_sprites(developer_tools: &crate::dev::dev_tools::DeveloperTool
     // inspector-mutated state leaves both booleans true, keep placeholders
     // visible instead of letting hide mode erase them.
     developer_tools.hide_sprites && !developer_tools.placeholder_sprites
+}
+
+// =================================================================
+// Gradient Sentinel — GradientLane vertical-column visual
+// =================================================================
+//
+// The new GradientLane boss attack profile is a tall vertical
+// hazard column at the boss x. `volumes_for_profile` already
+// returns the right AABB for damage; this system layers a visible
+// rectangle so the player can read the column shape during
+// telegraph (yellow pulsing) and strike (red solid). Without it
+// the player only sees the boss's sprite tint and can't tell where
+// the column is in world space.
+//
+// Pattern: a `GradientLaneVisual` marker component holds the owner
+// boss entity. `manage_gradient_lane_visual` spawns one when the
+// boss enters GradientLane telegraph/active and despawns it when
+// the boss leaves the profile. Per-frame, it also updates the
+// visual's transform + color based on the live state.
+
+/// Marker for the GradientLane column visual entity. Carries the
+/// owner boss entity so the manager system can find / remove the
+/// matching visual.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct GradientLaneVisual {
+    pub owner: Entity,
+}
+
+const GRADIENT_LANE_TELEGRAPH_COLOR: Color = Color::srgba(1.0, 0.85, 0.20, 0.45);
+const GRADIENT_LANE_STRIKE_COLOR: Color = Color::srgba(1.0, 0.32, 0.20, 0.75);
+/// Z layer for the lane visual. Sits behind feature sprites
+/// (`feature_z(Boss) = 11.0`) but in front of background tiles so
+/// the column reads as a foreground hazard.
+const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
+
+/// Spawn/update/despawn a vertical column visual for every boss
+/// currently telegraphing or striking `GradientLane`. The column
+/// re-uses the volume AABB computed by `volumes_for_profile` so
+/// the visible rectangle always matches the damage geometry.
+pub fn manage_gradient_lane_visual(
+    mut commands: Commands,
+    world: Res<crate::GameWorld>,
+    bosses: Query<(Entity, &BossFeature, &crate::brain::BossAttackState)>,
+    mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
+) {
+    use crate::brain::BossAttackProfile;
+    let mut active: std::collections::HashMap<Entity, (bool, ae::Vec2, BVec2)> =
+        std::collections::HashMap::new();
+    for (entity, feature, attack_state) in &bosses {
+        let boss = &feature.boss;
+        if !boss.alive {
+            continue;
+        }
+        let in_telegraph = matches!(
+            attack_state.telegraph_profile,
+            Some(BossAttackProfile::GradientLane)
+        );
+        let in_strike = matches!(
+            attack_state.active_profile,
+            Some(BossAttackProfile::GradientLane)
+        );
+        if !in_telegraph && !in_strike {
+            continue;
+        }
+        // Use the same volume math as damage so the visual and the
+        // hitbox are exactly coincident.
+        let mut volumes = crate::features::volumes_for_profile(
+            &BossAttackProfile::GradientLane,
+            boss.pos,
+            boss.render_size(),
+            boss.combat_size(),
+            &boss.behavior,
+            boss.is_gnu_ton(),
+        );
+        let Some(volume) = volumes.pop() else {
+            continue;
+        };
+        let center = volume.center();
+        let size = volume.half_size() * 2.0;
+        active.insert(entity, (in_strike, center, BVec2::new(size.x, size.y)));
+    }
+
+    // Update existing visuals + remove stale ones.
+    for (visual_entity, visual, mut transform, mut sprite) in &mut visuals {
+        if let Some((in_strike, center, size)) = active.remove(&visual.owner) {
+            transform.translation = world_to_bevy(&world.0, center, GRADIENT_LANE_VISUAL_Z);
+            sprite.custom_size = Some(size);
+            sprite.color = if in_strike {
+                GRADIENT_LANE_STRIKE_COLOR
+            } else {
+                GRADIENT_LANE_TELEGRAPH_COLOR
+            };
+        } else {
+            // Owner stopped telegraphing/striking GradientLane — despawn.
+            commands.entity(visual_entity).despawn();
+        }
+    }
+
+    // Spawn visuals for bosses that newly entered GradientLane.
+    for (owner, (in_strike, center, size)) in active {
+        let color = if in_strike {
+            GRADIENT_LANE_STRIKE_COLOR
+        } else {
+            GRADIENT_LANE_TELEGRAPH_COLOR
+        };
+        commands.spawn((
+            Sprite {
+                color,
+                custom_size: Some(size),
+                ..default()
+            },
+            Transform::from_translation(world_to_bevy(&world.0, center, GRADIENT_LANE_VISUAL_Z)),
+            super::primitives::RoomVisual,
+            GradientLaneVisual { owner },
+            Name::new("Gradient Lane visual"),
+        ));
+    }
 }
 
 /// Cached pre-placeholder sprite state so toggling `placeholder_sprites`

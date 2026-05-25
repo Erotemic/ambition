@@ -123,6 +123,18 @@ pub struct BossBehaviorProfile {
     pub id: String,
     pub combat_size: Option<ae::Vec2>,
     pub movement: BossMovementProfile,
+    /// Optional per-phase movement overrides. `None` means "use
+    /// `movement` during this phase." Lets a boss escalate its
+    /// movement personality across phases without changing the
+    /// profile enum itself.
+    pub movement_phase2: Option<BossMovementProfile>,
+    pub movement_enrage: Option<BossMovementProfile>,
+    /// Multiplier applied to movement speed while an active special
+    /// strike is committed. `< 1.0` keeps the boss roughly anchored
+    /// so World-space special hitboxes (saddle cross, minima pit)
+    /// don't slide out from under the visual telegraph. `1.0` keeps
+    /// pre-Gradient-Sentinel behavior.
+    pub strike_speed_scale: f32,
     pub attacks: Vec<BossAttackProfile>,
     pub attack_cooldown: f32,
     pub attack_windup: f32,
@@ -168,7 +180,18 @@ impl BossBehaviorProfile {
     pub fn clockwork_warden() -> Self {
         Self {
             id: "clockwork_warden".into(),
-            combat_size: None,
+            // Tightened combat size to roughly match the visible
+            // sprite body: the clockwork_warden sheet has
+            // `body_pixel_bbox: 106×83 px` inside a 128×128 frame.
+            // The boss spawns at 64×80 world px (LDtk BossSpawn
+            // size), so the visible body is ~106/128 × 64 = 53 wide
+            // and ~83/128 × 80 = 52 tall. Without this, the
+            // collision/damage AABB stretched to the full 64×80
+            // sprite cell and the player took hits at empty-air
+            // sprite edges. Tracked sprite metadata-driven
+            // alignment is the follow-up — for now we hardcode the
+            // body extent.
+            combat_size: Some(ae::Vec2::new(54.0, 56.0)),
             movement: BossMovementProfile::AnchorSway {
                 x_radius: 130.0,
                 y_bob: 18.0,
@@ -178,6 +201,35 @@ impl BossBehaviorProfile {
                 chase_limit: 70.0,
                 speed: 220.0,
             },
+            // Phase 2 swaps to a wide AirSwoop — the boss reads as
+            // breaking its anchor and starting to fly across the
+            // arena. Bigger x/y radius, aggressive chase.
+            movement_phase2: Some(BossMovementProfile::AirSwoop {
+                x_radius: 360.0,
+                y_radius: 110.0,
+                x_frequency: 0.95,
+                y_frequency: 0.72,
+                chase_scale: 0.35,
+                chase_limit: 220.0,
+                speed: 320.0,
+            }),
+            // Enrage takes the AirSwoop and pushes speed + chase
+            // harder so the boss visibly *commits* to chasing the
+            // player in the last quarter HP.
+            movement_enrage: Some(BossMovementProfile::AirSwoop {
+                x_radius: 380.0,
+                y_radius: 140.0,
+                x_frequency: 1.35,
+                y_frequency: 0.95,
+                chase_scale: 0.55,
+                chase_limit: 280.0,
+                speed: 420.0,
+            }),
+            // Hold roughly steady while a special strike is live —
+            // the saddle cross / pit / cascade hitboxes are
+            // World-anchored at the boss pos and shouldn't drift
+            // mid-strike.
+            strike_speed_scale: 0.20,
             // Legacy `attacks` is unused for Scripted bosses, but kept
             // populated with the full attack vocabulary for
             // diagnostics so `boss inspect`-style tooling can list
@@ -390,6 +442,9 @@ impl BossBehaviorProfile {
                 chase_limit: 95.0,
                 speed: 320.0,
             },
+            movement_phase2: None,
+            movement_enrage: None,
+            strike_speed_scale: 1.0,
             attacks: vec![
                 BossAttackProfile::WingSweep,
                 BossAttackProfile::DiveLane,
@@ -435,6 +490,9 @@ impl BossBehaviorProfile {
                 sway_frequency: 0.28,
                 speed: 40.0,
             },
+            movement_phase2: None,
+            movement_enrage: None,
+            strike_speed_scale: 1.0,
             // Legacy `attacks` is unused for Scripted bosses — keep it for
             // diagnostics so `boss inspect` style tooling can still list
             // the attack vocabulary.

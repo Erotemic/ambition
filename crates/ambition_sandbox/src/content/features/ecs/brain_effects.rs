@@ -631,13 +631,20 @@ pub fn spawn_minima_trap_from_special_messages(
                 "{}_minion:{}:{}",
                 MINIMA_TRAP_OWNER_PREFIX, boss.id, state.spawn_index
             );
+            // Encounter id derived from boss name so cleanup is
+            // scoped to the parent encounter — same pattern as
+            // `spawn_encounter_mob`. Without an `EncounterMob`
+            // marker, `spawn_dynamic_feature_visuals` would skip
+            // this entity and the minion would be invisible.
+            let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
             crate::content::features::ecs::spawn::spawn_runtime_minion(
                 &mut commands,
                 minion_id,
-                "Slop Slug",
+                "Puppy Slug",
                 pit_center,
                 MINIMA_TRAP_MINION_HALF_SIZE,
                 MINIMA_TRAP_MINION_ARCHETYPE,
+                encounter_id,
             );
         }
 
@@ -840,6 +847,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
         let count = minion_count.max(1) as i32;
         // Spread N minions evenly across [-X_SPREAD, +X_SPREAD] around
         // the boss x.
+        let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
         for i in 0..count {
             let t = if count == 1 {
                 0.5
@@ -859,6 +867,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                 spawn_pos,
                 GRADIENT_CASCADE_MINION_HALF_SIZE,
                 GRADIENT_CASCADE_MINION_ARCHETYPE,
+                encounter_id.clone(),
             );
         }
         state.fired_this_strike = true;
@@ -1696,6 +1705,109 @@ mod tests {
         assert!(!state.strike_active);
         assert!(state.horizontal_hitbox.is_none());
         assert!(state.vertical_hitbox.is_none());
+    }
+
+    /// MinimaTrap with spawn_minion=true should attach an
+    /// EncounterMob marker to the spawned puppy_slug so
+    /// `spawn_dynamic_feature_visuals` (the per-frame visual
+    /// discovery system) actually attaches a sprite next frame.
+    /// Without this marker the minion would exist in ECS but never
+    /// render.
+    #[test]
+    fn minima_trap_spawned_minion_carries_encounter_mob_marker() {
+        use crate::content::features::components::EncounterMob;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<WorldTime>();
+        let mut wt = app.world_mut().resource_mut::<WorldTime>();
+        wt.scaled_dt = 1.0 / 60.0;
+        wt.raw_dt = 1.0 / 60.0;
+        app.add_systems(Update, spawn_minima_trap_from_special_messages);
+        let actor = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                MinimaTrapState::default(),
+                gradient_sentinel_boss_feature(),
+            ))
+            .id();
+        let pre_count = app
+            .world_mut()
+            .query::<&EncounterMob>()
+            .iter(app.world())
+            .count();
+        write_special(
+            &mut app,
+            actor,
+            SpecialActionSpec::MinimaTrap {
+                hazard_duration_s: 5.0,
+                damage: 2,
+                half_extent_x: 56.0,
+                half_extent_y: 24.0,
+                spawn_minion: true, // <- spawn the minion this time
+            },
+        );
+        app.update();
+        let post_count = app
+            .world_mut()
+            .query::<&EncounterMob>()
+            .iter(app.world())
+            .count();
+        assert_eq!(
+            post_count - pre_count,
+            1,
+            "expected one new EncounterMob (the puppy_slug minion), got {}",
+            post_count - pre_count,
+        );
+    }
+
+    /// GradientCascade-spawned minions must also carry the
+    /// EncounterMob marker for the same reason as MinimaTrap.
+    /// Without it the cascade adds spawn but never render — the
+    /// bug the user reported as "I don't see it spawning any
+    /// lurker slop enemies."
+    #[test]
+    fn gradient_cascade_spawned_minions_carry_encounter_mob_marker() {
+        use crate::content::features::components::EncounterMob;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<WorldTime>();
+        let mut wt = app.world_mut().resource_mut::<WorldTime>();
+        wt.scaled_dt = 1.0 / 60.0;
+        wt.raw_dt = 1.0 / 60.0;
+        app.add_systems(Update, spawn_gradient_cascade_minions_from_special_messages);
+        let actor = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                GradientCascadeState::default(),
+                gradient_sentinel_boss_feature(),
+            ))
+            .id();
+        let pre_count = app
+            .world_mut()
+            .query::<&EncounterMob>()
+            .iter(app.world())
+            .count();
+        write_special(
+            &mut app,
+            actor,
+            SpecialActionSpec::GradientCascade { minion_count: 3 },
+        );
+        app.update();
+        let post_count = app
+            .world_mut()
+            .query::<&EncounterMob>()
+            .iter(app.world())
+            .count();
+        assert_eq!(
+            post_count - pre_count,
+            3,
+            "expected three new EncounterMob entities, got {}",
+            post_count - pre_count,
+        );
     }
 
     /// GradientCascade consumer spawns minion entities at strike

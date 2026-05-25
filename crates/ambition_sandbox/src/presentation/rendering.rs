@@ -41,6 +41,10 @@ pub use actors::{
     apply_placeholder_sprites_override, sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites,
     upgrade_npc_sprites, BoundFeatureKind,
 };
+// `manage_gradient_lane_visual` + `GradientLaneVisual` stay
+// module-private; the schedule registration uses
+// `actors::manage_gradient_lane_visual` directly so no outside
+// callers need a re-export.
 pub use camera::{camera_follow, CameraViewState};
 pub use health::sync_health_overlays;
 // Re-exported so the simulation side (e.g. `EnemyRuntime::update`
@@ -146,6 +150,12 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 deep_dream::cleanup_puppy_slug_deep_dream_overlays,
                 actors::animate_props,
                 actors::animate_bosses,
+                // GradientLane vertical-column visual — yellow during
+                // telegraph, red during strike. Runs after
+                // `animate_bosses` so it can read the boss's
+                // `BossAttackState` after the brain has populated it
+                // upstream.
+                actors::manage_gradient_lane_visual,
                 // Mirror parent atlas index + tint onto the hands overlay
                 // after `animate_bosses` has updated the parent's frame.
                 actors::sync_gnu_ton_hands,

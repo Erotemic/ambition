@@ -322,7 +322,24 @@ pub struct BossPatternCfg {
     pub pattern: BossAttackPattern,
     /// Movement profile (anchor sway / air swoop / stationary giant).
     /// Tells the brain how to fill `frame.desired_vel` each tick.
+    /// Used as the fallback for any phase whose dedicated override
+    /// (`movement_phase2`, `movement_enrage`) is `None`.
     pub movement: BossMovementProfile,
+    /// Per-phase movement overrides. `None` means "use `movement`
+    /// during this phase." Lets a single boss escalate from a slow
+    /// anchored sway in phase 1 to a wide AirSwoop in phase 2, or to
+    /// a faster aggressive AnchorSway in enrage — without bloating
+    /// `BossMovementProfile` itself into a phase-aware variant.
+    pub movement_phase2: Option<BossMovementProfile>,
+    pub movement_enrage: Option<BossMovementProfile>,
+    /// Multiplier applied to the movement speed during an active
+    /// `is_special()` strike. Specials (SaddlePoint, MinimaTrap,
+    /// OverfitVolley, GradientCascade) anchor World-space hitboxes
+    /// at the boss position; if the boss keeps sliding sideways
+    /// during the strike the hitboxes drift away from the visible
+    /// telegraph. Set to `< 1.0` to slow the boss while a special is
+    /// committed. `1.0` keeps the legacy behavior.
+    pub strike_speed_scale: f32,
     /// World-space anchor the movement profile sways around. Captured
     /// from `BossRuntime::spawn` at spawn time so the brain doesn't
     /// have to query the runtime.
@@ -371,6 +388,9 @@ impl BossPatternCfg {
                 sway_frequency: 0.0,
                 speed: 0.0,
             },
+            movement_phase2: None,
+            movement_enrage: None,
+            strike_speed_scale: 1.0,
             spawn: ae::Vec2::ZERO,
             combat_size: ae::Vec2::new(100.0, 100.0),
             cycle_attack_windup: 0.5,
@@ -379,6 +399,22 @@ impl BossPatternCfg {
             cycle_attacks: Vec::new(),
             apple_rain_dodge_amp: 0.0,
             apple_rain_dodge_freq: 0.0,
+        }
+    }
+
+    /// Pick the movement profile this cfg wants for the given
+    /// encounter phase. Phases without a dedicated override fall
+    /// back to the default `movement`. Dormant/Stagger/Death are
+    /// non-attacking — the brain handles them upstream.
+    pub fn movement_for_phase(&self, phase: ae::BossEncounterPhase) -> &BossMovementProfile {
+        match phase {
+            ae::BossEncounterPhase::Phase2 | ae::BossEncounterPhase::Transition => {
+                self.movement_phase2.as_ref().unwrap_or(&self.movement)
+            }
+            ae::BossEncounterPhase::Enrage => {
+                self.movement_enrage.as_ref().unwrap_or(&self.movement)
+            }
+            _ => &self.movement,
         }
     }
 }
@@ -536,7 +572,7 @@ pub fn tick_boss_pattern(
         // Still emit desired_vel from the movement profile so a
         // boss in Dormant still keeps its sway phase (matches the
         // legacy behavior).
-        emit_desired_vel(cfg, state, ctx, out);
+        emit_desired_vel(cfg, state, ctx, out, attack_state);
         return;
     }
 
@@ -565,7 +601,7 @@ pub fn tick_boss_pattern(
         }
     }
 
-    emit_desired_vel(cfg, state, ctx, out);
+    emit_desired_vel(cfg, state, ctx, out, attack_state);
 }
 
 /// Scripted-pattern cursor advancement.
@@ -687,14 +723,18 @@ fn emit_desired_vel(
     state: &BossPatternState,
     ctx: &BossPatternContext,
     out: &mut ae::ActorControlFrame,
+    attack_state: &BossAttackState,
 ) {
     if ctx.dt <= 0.0 {
         return;
     }
 
-    let mut target = cfg
-        .movement
-        .target(cfg.spawn, state.movement_timer, ctx.target_pos);
+    // Phase-aware movement: Phase 2 / Enrage may override the
+    // default movement profile so a boss can escalate from a slow
+    // anchored sway to a wide AirSwoop without growing the profile
+    // enum.
+    let movement = cfg.movement_for_phase(ctx.encounter_phase);
+    let mut target = movement.target(cfg.spawn, state.movement_timer, ctx.target_pos);
 
     // While a GnuAppleRain strike is live, layer a horizontal dodge
     // on top of the baseline sway so the giant reads as stepping
@@ -726,7 +766,24 @@ fn emit_desired_vel(
     target = clamped_target;
 
     let delta = target - ctx.actor_pos;
-    let speed = cfg.movement.speed();
+    // Scale speed during an active special strike so the boss
+    // doesn't slide out from under World-anchored hitboxes (saddle
+    // cross, minima pit, overfit barrage origin, cascade origin).
+    // Specials anchor their geometry to the boss's pos at the
+    // strike edge; sliding sideways after that would visually
+    // misalign the hazards from the boss. Ordinary melee strikes
+    // (FollowOwner hitboxes) don't need this — they track the
+    // owner pos each tick.
+    let in_special_strike = attack_state
+        .active_profile
+        .as_ref()
+        .map_or(false, |p| p.is_special());
+    let speed = movement.speed()
+        * if in_special_strike {
+            cfg.strike_speed_scale.clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
     let max_step = speed * ctx.dt;
     out.desired_vel = if delta.length() > max_step && max_step > 0.0 {
         delta.normalize_or_zero() * speed
@@ -969,6 +1026,135 @@ mod tests {
         assert_eq!(state.cycle_phase, CyclePhase::Active);
         assert!(attack_state.active_profile.is_some());
         assert!(out.melee_pressed, "cycle Active phase must emit melee");
+    }
+
+    #[test]
+    fn movement_for_phase_falls_back_to_default_when_overrides_unset() {
+        let cfg = BossPatternCfg::neutral_test();
+        for phase in [
+            ae::BossEncounterPhase::Phase1,
+            ae::BossEncounterPhase::Phase2,
+            ae::BossEncounterPhase::Transition,
+            ae::BossEncounterPhase::Enrage,
+            ae::BossEncounterPhase::Dormant,
+        ] {
+            assert_eq!(
+                cfg.movement_for_phase(phase),
+                &cfg.movement,
+                "phase {phase:?} should fall back to default movement when override is None",
+            );
+        }
+    }
+
+    #[test]
+    fn movement_for_phase_picks_phase2_override_when_set() {
+        let mut cfg = BossPatternCfg::neutral_test();
+        let p2 = BossMovementProfile::AirSwoop {
+            x_radius: 200.0,
+            y_radius: 50.0,
+            x_frequency: 1.0,
+            y_frequency: 1.0,
+            chase_scale: 0.2,
+            chase_limit: 100.0,
+            speed: 300.0,
+        };
+        cfg.movement_phase2 = Some(p2.clone());
+        assert_eq!(
+            cfg.movement_for_phase(ae::BossEncounterPhase::Phase2),
+            &p2,
+            "Phase2 should use the phase2 override",
+        );
+        assert_eq!(
+            cfg.movement_for_phase(ae::BossEncounterPhase::Transition),
+            &p2,
+            "Transition routes through the phase2 override too — keeps motion continuous across the music swap",
+        );
+        // Phase1 still falls back to default.
+        assert_eq!(
+            cfg.movement_for_phase(ae::BossEncounterPhase::Phase1),
+            &cfg.movement,
+        );
+    }
+
+    #[test]
+    fn movement_for_phase_picks_enrage_override_when_set() {
+        let mut cfg = BossPatternCfg::neutral_test();
+        let enrage = BossMovementProfile::AirSwoop {
+            x_radius: 400.0,
+            y_radius: 200.0,
+            x_frequency: 1.5,
+            y_frequency: 1.5,
+            chase_scale: 0.6,
+            chase_limit: 300.0,
+            speed: 500.0,
+        };
+        cfg.movement_enrage = Some(enrage.clone());
+        assert_eq!(
+            cfg.movement_for_phase(ae::BossEncounterPhase::Enrage),
+            &enrage,
+        );
+        // Other phases unchanged.
+        assert_eq!(
+            cfg.movement_for_phase(ae::BossEncounterPhase::Phase1),
+            &cfg.movement,
+        );
+    }
+
+    /// During an active special strike, `strike_speed_scale` should
+    /// shrink the emitted desired_vel so World-anchored hitboxes
+    /// (saddle cross, minima pit) stay centered on the boss.
+    #[test]
+    fn strike_speed_scale_reduces_velocity_during_active_special() {
+        let mut cfg = cfg_with(BossAttackPattern::Cycle);
+        cfg.movement = BossMovementProfile::AnchorSway {
+            x_radius: 200.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 1.0,
+            chase_limit: 1000.0,
+            speed: 400.0,
+        };
+        cfg.spawn = ae::Vec2::ZERO;
+        cfg.strike_speed_scale = 0.1;
+        // Sample 1: no active strike — full speed.
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let mut out = ae::ActorControlFrame::neutral();
+        let mut ctx = ctx(ae::BossEncounterPhase::Phase1, 1.0 / 60.0);
+        ctx.target_pos = ae::Vec2::new(500.0, 0.0); // pull toward +x
+        ctx.actor_pos = ae::Vec2::ZERO;
+        tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
+        let vel_no_strike = out.desired_vel.length();
+
+        // Sample 2: active special strike — expect ~10% of the speed.
+        // Manually set attack_state.active_profile to a special.
+        let mut state2 = BossPatternState::default();
+        let mut attack_state2 = BossAttackState::default();
+        // Pre-poison so the brain detects the strike (cycle mode will
+        // overwrite, but we test the scale on the active-emit path).
+        let mut out2 = ae::ActorControlFrame::neutral();
+        // Drive cycle forward to Active phase with a special profile.
+        cfg.cycle_attacks = vec![BossAttackProfile::OverfitVolley];
+        cfg.cycle_attack_cooldown = 0.05;
+        cfg.cycle_attack_windup = 0.01;
+        cfg.cycle_attack_active = 5.0; // long active so subsequent ticks stay there
+                                       // Tick twice to walk Cooldown→Windup→Active.
+        let mut ctx2 = ctx;
+        ctx2.dt = 0.06;
+        tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
+        tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
+        tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
+        assert_eq!(
+            attack_state2.active_profile,
+            Some(BossAttackProfile::OverfitVolley),
+            "should be in active OverfitVolley strike for the test",
+        );
+        let vel_in_strike = out2.desired_vel.length();
+        assert!(
+            vel_in_strike < vel_no_strike * 0.5,
+            "expected speed during active special strike to be much lower than no-strike speed: {vel_in_strike} vs {vel_no_strike}",
+        );
     }
 
     #[test]

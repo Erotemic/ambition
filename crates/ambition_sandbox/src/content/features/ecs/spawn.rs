@@ -98,6 +98,9 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
         encounter_id: encounter_id.clone(),
         pattern: boss.behavior.attack_pattern.clone(),
         movement: boss.behavior.movement.clone(),
+        movement_phase2: boss.behavior.movement_phase2.clone(),
+        movement_enrage: boss.behavior.movement_enrage.clone(),
+        strike_speed_scale: boss.behavior.strike_speed_scale,
         spawn: boss.spawn,
         combat_size: boss.combat_size(),
         cycle_attack_windup: boss.behavior.attack_windup.max(0.01),
@@ -223,19 +226,22 @@ fn spawn_breakable(commands: &mut Commands, authored: &crate::rooms::Authored<ae
 
 /// Runtime minion spawner — used by boss EFFECTS consumers (e.g.
 /// MinimaTrap puppy_slug spawn, GradientCascade slop adds). Mirrors
-/// the static-authored `spawn_enemy` path but takes plain values
-/// from a Bevy system instead of an `Authored<EnemyBrain>` struct so
-/// callers don't have to build a fake `Authored` wrapper. The
-/// resulting entity carries the same component set as
-/// authored enemies, so it integrates cleanly with the normal
-/// actor / brain / hitbox systems.
+/// `spawn_encounter_mob` but takes plain values from a Bevy system
+/// so callers don't have to wrap them in an `Authored<EnemyBrain>`.
+/// The resulting entity carries the same component set as authored
+/// encounter mobs — crucially including the `EncounterMob` marker
+/// so `spawn_dynamic_feature_visuals` picks it up next frame and
+/// attaches the right sprite. Without that marker the minion would
+/// spawn invisibly (ECS-only).
 ///
 /// `archetype_id` matches one of the strings in `BRAIN_NAME_TO_ARCHETYPE`
 /// (`"puppy_slug"`, `"small_lurker"`, …); unknown strings fall back
 /// to `Combatant` via `EnemyArchetype::from_brain`. `half_size` is
 /// the spawn AABB half-extent (the archetype spec's `default_size`
 /// usually overrides this anyway). `id` should be unique per spawn
-/// so per-entity systems don't collide on identity.
+/// so per-entity systems don't collide on identity. `encounter_id`
+/// scopes the minion to a parent encounter so room reset / boss
+/// despawn cleans it up alongside the boss.
 pub(crate) fn spawn_runtime_minion(
     commands: &mut Commands,
     id: impl Into<String>,
@@ -243,12 +249,20 @@ pub(crate) fn spawn_runtime_minion(
     world_pos: ae::Vec2,
     half_size: ae::Vec2,
     archetype_id: &str,
+    encounter_id: impl Into<String>,
 ) -> bevy::ecs::entity::Entity {
     let id = id.into();
     let name = name.into();
+    let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = ae::EnemyBrain::Custom(archetype_id.into());
-    let enemy = EnemyRuntime::new(id.clone(), name.clone(), aabb, brain, &[]);
+    let archetype = EnemyArchetype::from_brain(&brain);
+    let mut enemy = EnemyRuntime::new(id.clone(), name.clone(), aabb, brain, &[]);
+    enemy.archetype = archetype;
+    enemy.health = ae::Health::new(archetype.max_health());
+    // Boss-spawned minions shouldn't auto-respawn — they're part of
+    // the encounter, not a static sandbag.
+    enemy.respawn_timer = 999_999.0;
     let feature_aabb = FeatureAabb::from_aabb(aabb);
     let brain_component = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
@@ -270,6 +284,7 @@ pub(crate) fn spawn_runtime_minion(
                 cooldowns,
             },
             actor,
+            super::EncounterMob::new(encounter_id),
             brain_component,
             action_set,
             crate::brain::ActorControl::default(),

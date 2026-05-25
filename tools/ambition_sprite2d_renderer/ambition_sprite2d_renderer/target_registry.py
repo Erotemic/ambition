@@ -178,36 +178,60 @@ def _ensure_actor_sidecars(
     Most modern targets already emit the sidecar from ``tackon_sheet``. This
     post-render hook covers older/custom tack-ons and lets module-level
     ``ACTOR_METADATA`` enrich the inferred contract without forcing every
-    bespoke renderer through the generic sheet builder immediately.
+    bespoke renderer through the generic sheet builder immediately. It also
+    handles multi-file boss targets that emit ``*_spritesheet_manifest.json``
+    instead of the standard YAML/RON sheet manifest.
     """
     from .actor_contract import write_actor_contract_for_tackon
+    import json
     import yaml
 
     extras: List[Path] = []
-    for path in list(paths):
-        path = Path(path)
-        if path.suffix != ".yaml" or not path.name.endswith("_spritesheet.yaml"):
-            continue
-        actor_path = path.with_name(path.name.replace("_spritesheet.yaml", "_actor.ron"))
+
+    def maybe_emit(*, manifest_path: Path, manifest: Mapping[str, Any], image_name: str, sheet_manifest_name: str) -> None:
+        actor_path = manifest_path.with_name(f"{target_name}_actor.ron")
         if actor_path.exists() and not actor_metadata:
-            continue
-        try:
-            manifest = yaml.safe_load(path.read_text(encoding="utf8")) or {}
-        except Exception:
-            continue
-        if not isinstance(manifest, dict):
-            continue
-        image_name = str(manifest.get("image") or path.name.replace(".yaml", ".png"))
-        ron_path = path.with_suffix(".ron")
+            return
         write_actor_contract_for_tackon(
             target=target_name,
-            image_out=path.with_name(image_name),
-            sheet_ron_out=ron_path,
+            image_out=manifest_path.with_name(image_name),
+            sheet_ron_out=manifest_path.with_name(sheet_manifest_name),
             manifest=manifest,
             actor_metadata=actor_metadata or {},
         )
-        if actor_path.exists():
+        if actor_path.exists() and actor_path not in extras:
             extras.append(actor_path)
+
+    for path in list(paths):
+        path = Path(path)
+        if path.suffix == ".yaml" and path.name.endswith("_spritesheet.yaml"):
+            try:
+                manifest = yaml.safe_load(path.read_text(encoding="utf8")) or {}
+            except Exception:
+                continue
+            if not isinstance(manifest, dict):
+                continue
+            image_name = str(manifest.get("image") or path.name.replace(".yaml", ".png"))
+            maybe_emit(
+                manifest_path=path,
+                manifest=manifest,
+                image_name=image_name,
+                sheet_manifest_name=path.with_suffix(".ron").name,
+            )
+        elif path.suffix == ".json" and path.name.endswith("_spritesheet_manifest.json"):
+            try:
+                manifest = json.loads(path.read_text(encoding="utf8")) or {}
+            except Exception:
+                continue
+            if not isinstance(manifest, dict):
+                continue
+            image_name = str(manifest.get("image") or f"{target_name}_spritesheet.png")
+            maybe_emit(
+                manifest_path=path,
+                manifest=manifest,
+                image_name=image_name,
+                sheet_manifest_name=path.name,
+            )
     return extras
 
 
@@ -392,6 +416,16 @@ def _walk_category(category: str) -> Iterator[Tuple[str, str]]:
             yield name, f"ambition_sprite2d_renderer.targets.{category}.{name}"
 
 
+
+
+def _with_actor_sidecar(stem: str, sheet_files: Sequence[str]) -> Tuple[str, ...]:
+    """Return install file list with the optional actor sidecar included."""
+    out = list(sheet_files)
+    actor = f"{stem}_actor.ron"
+    if actor not in out:
+        out.append(actor)
+    return tuple(out)
+
 def default_sheet_files(stem: str) -> List[str]:
     """Default install set for tack-on targets that don't declare ``SHEET_FILES``."""
     return [
@@ -405,7 +439,7 @@ def default_sheet_files(stem: str) -> List[str]:
 def _build_tackon_single(
     mod, stem: str, category: str, dotted: str, render: Callable,
 ) -> TackonTarget:
-    sheet_files = tuple(getattr(mod, "SHEET_FILES", default_sheet_files(stem)))
+    sheet_files = _with_actor_sidecar(stem, getattr(mod, "SHEET_FILES", default_sheet_files(stem)))
     install_fn = getattr(mod, "install", None)
     if not callable(install_fn):
         install_fn = None
@@ -436,7 +470,7 @@ def _build_tackon_multi(
                 f"{category}/{stem}: TARGETS[{sub_name!r}] missing `render`; skipped"
             )
             continue
-        sheet_files = tuple(spec.get("sheet_files", default_sheet_files(sub_name)))
+        sheet_files = _with_actor_sidecar(sub_name, spec.get("sheet_files", default_sheet_files(sub_name)))
         install_fn = spec.get("install")
         if install_fn is not None and not callable(install_fn):
             install_fn = None

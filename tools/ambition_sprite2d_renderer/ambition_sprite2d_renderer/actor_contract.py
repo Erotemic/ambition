@@ -16,7 +16,9 @@ bespoke sheets, or humanoids with conventional locomotion rows.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
+import re
 from typing import Any, Dict, Iterable, Mapping, MutableMapping, Sequence
 
 
@@ -119,6 +121,102 @@ def to_ron(value: RonStruct) -> str:
     )
 
 
+
+# ---- Catalog defaults --------------------------------------------------------
+#
+# The Python renderer can run as a standalone package, so the actor contract
+# cannot *require* the sandbox catalog.  When the repo is present, however, the
+# catalog is the best source of existing character identity / default brain /
+# action-set tags.  Use it as a soft enrichment layer.  Hand-authored YAML /
+# module metadata still wins.
+
+@dataclass(frozen=True)
+class CatalogProfile:
+    character_id: str
+    display_name: str | None = None
+    spritesheet: str | None = None
+    manifest: str | None = None
+    body_kind: str | None = None
+    default_brain: str | None = None
+    default_action_set: str | None = None
+    tags: tuple[str, ...] = ()
+
+
+def _repo_root() -> Path | None:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron").exists():
+            return parent
+    return None
+
+
+def _catalog_path() -> Path | None:
+    root = _repo_root()
+    if root is None:
+        return None
+    path = root / "crates" / "ambition_sandbox" / "assets" / "data" / "character_catalog.ron"
+    return path if path.exists() else None
+
+
+def _extract_string(block: str, key: str) -> str | None:
+    match = re.search(rf"{re.escape(key)}:\s*\"([^\"]*)\"", block)
+    return match.group(1) if match else None
+
+
+def _extract_ident(block: str, key: str) -> str | None:
+    match = re.search(rf"{re.escape(key)}:\s*([A-Za-z_][A-Za-z0-9_]*)", block)
+    return match.group(1) if match else None
+
+
+def _extract_tags(block: str) -> tuple[str, ...]:
+    match = re.search(r"tags:\s*\[(.*?)\]", block, flags=re.S)
+    if not match:
+        return ()
+    return tuple(re.findall(r'"([^"]*)"', match.group(1)))
+
+
+@lru_cache(maxsize=1)
+def _load_catalog_profiles() -> dict[str, CatalogProfile]:
+    """Load sandbox catalog identity defaults if this package is in-repo.
+
+    Keys include both catalog character IDs and spritesheet stems.  The parser is
+    intentionally narrow and tolerant: it reads only the flat fields currently
+    needed by the actor sidecar and silently returns an empty map when the repo
+    catalog is unavailable.
+    """
+    path = _catalog_path()
+    if path is None:
+        return {}
+    text = path.read_text(encoding="utf8")
+    profiles: dict[str, CatalogProfile] = {}
+    entry_re = re.compile(r'"([^"]+)"\s*:\s*\((.*?)\n\s{8}\),', flags=re.S)
+    for match in entry_re.finditer(text):
+        character_id = match.group(1)
+        block = match.group(2)
+        spritesheet = _extract_string(block, "spritesheet")
+        profile = CatalogProfile(
+            character_id=character_id,
+            display_name=_extract_string(block, "display_name"),
+            spritesheet=spritesheet,
+            manifest=_extract_string(block, "manifest"),
+            body_kind=_extract_ident(block, "body_kind"),
+            default_brain=_extract_string(block, "default_brain"),
+            default_action_set=_extract_string(block, "default_action_set"),
+            tags=_extract_tags(block),
+        )
+        profiles[character_id] = profile
+        if spritesheet:
+            stem = _spritesheet_stem(Path(spritesheet).name)
+            profiles.setdefault(stem, profile)
+    return profiles
+
+
+def _catalog_profile_for(stem: str, explicit_character_id: str | None = None) -> CatalogProfile | None:
+    profiles = _load_catalog_profiles()
+    if explicit_character_id and explicit_character_id in profiles:
+        return profiles[explicit_character_id]
+    return profiles.get(stem)
+
+
 # ---- Contract inference -----------------------------------------------------
 
 
@@ -173,8 +271,16 @@ def _deep_merge(base: Dict[str, Any], overlay: Mapping[str, Any]) -> Dict[str, A
 
 
 def _rows_from_manifest(manifest: Mapping[str, Any]) -> list[str]:
-    if isinstance(manifest.get("rows"), list):
-        return [str(row.get("animation")) for row in manifest["rows"] if isinstance(row, Mapping) and row.get("animation")]
+    rows = manifest.get("rows")
+    if isinstance(rows, list):
+        out: list[str] = []
+        for row in rows:
+            if not isinstance(row, Mapping):
+                continue
+            name = row.get("animation") or row.get("name") or row.get("id")
+            if name:
+                out.append(str(name))
+        return out
     anims = manifest.get("animations")
     if isinstance(anims, Mapping):
         return [str(name) for name in anims.keys()]
@@ -429,13 +535,25 @@ def build_actor_contract(
     authoring = dict(authoring or {})
     actor_block = _normalize_authoring_block(authoring.get("actor"))
     rows = _rows_from_manifest(manifest)
-    tags = list(dict.fromkeys([*(job_data.get("tags") or []), *(actor_block.get("tags") or authoring.get("tags") or [])]))
     explicit_character_id = actor_block.get("character_id") or authoring.get("character_id")
-    character_id = _character_id_for(stem, target, explicit_character_id)
-    display_name = actor_block.get("display_name") or authoring.get("display_name") or job_data.get("name") or _humanize(stem)
-    body_plan = actor_block.get("body_plan") or _as_mapping(authoring.get("body")).get("body_plan") or _derive_body_plan(stem, target, tags, rows)
-    body_kind = _as_mapping(authoring.get("body")).get("body_kind") or _derive_body_kind(body_plan, stem, tags)
-    locomotion = _as_mapping(authoring.get("body")).get("locomotion_hint") or _derive_locomotion(rows, body_plan, target)
+    catalog_profile = _catalog_profile_for(stem, explicit_character_id)
+    tags = list(dict.fromkeys([
+        *(job_data.get("tags") or []),
+        *((catalog_profile.tags if catalog_profile else ()) or ()),
+        *(actor_block.get("tags") or authoring.get("tags") or []),
+    ]))
+    character_id = explicit_character_id or (catalog_profile.character_id if catalog_profile else None) or _character_id_for(stem, target, None)
+    display_name = (
+        actor_block.get("display_name")
+        or authoring.get("display_name")
+        or job_data.get("name")
+        or (catalog_profile.display_name if catalog_profile else None)
+        or _humanize(stem)
+    )
+    body_override = _as_mapping(authoring.get("body"))
+    body_plan = actor_block.get("body_plan") or body_override.get("body_plan") or _derive_body_plan(stem, target, tags, rows)
+    body_kind = body_override.get("body_kind") or (catalog_profile.body_kind if catalog_profile else None) or _derive_body_kind(body_plan, stem, tags)
+    locomotion = body_override.get("locomotion_hint") or _derive_locomotion(rows, body_plan, target)
     brain_preset, action_preset = _derive_presets(
         target,
         job_data.get("archetype"),
@@ -443,13 +561,15 @@ def build_actor_contract(
         tags,
         job_data.get("held_item"),
     )
+    if catalog_profile is not None:
+        brain_preset = catalog_profile.default_brain or brain_preset
+        action_preset = catalog_profile.default_action_set or action_preset
     explicit_brain = _as_mapping(authoring.get("brain")).get("default_preset") or authoring.get("brain")
     explicit_actions = _as_mapping(authoring.get("actions")).get("default_preset") or authoring.get("actions")
     anim_bindings = _derive_animation_bindings(rows)
     anim_bindings = _deep_merge(anim_bindings, _as_mapping(authoring.get("animation_bindings")))
     sockets = _derive_sockets(manifest)
     sockets = _deep_merge(sockets, _as_mapping(authoring.get("sockets")))
-    body_override = _as_mapping(authoring.get("body"))
     capabilities_override = _as_mapping(authoring.get("capabilities"))
     visual_override = _as_mapping(authoring.get("visual"))
     missing = [

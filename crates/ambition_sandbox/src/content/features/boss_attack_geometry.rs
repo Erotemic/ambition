@@ -764,6 +764,52 @@ mod sprite_metadata_derivation_tests {
         assert!(bounding_aabb(&[]).is_none());
     }
 
+    /// Doubling the spawn size doubles the derived world AABB on
+    /// both axes (with identical sprite metadata). Pins the
+    /// "boss in the intro is 2× larger" change — the intro arena's
+    /// BossSpawn went from 64×80 → 128×160 and the runtime's
+    /// combat_size derived from the SAME `body_pixel_bbox` MUST
+    /// scale 2× in both dimensions. If this test breaks the
+    /// sprite-metadata-driven body math diverged from the spawn
+    /// AABB.
+    #[test]
+    fn world_space_body_aabbs_doubles_when_spawn_doubles() {
+        let bbox = PixelRect {
+            x: 8,
+            y: 5,
+            w: 106,
+            h: 83,
+        };
+        let half_at_1x = world_space_body_aabbs_from_parts(
+            &[],
+            Some(bbox),
+            128,
+            128,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(64.0, 80.0),
+        )[0]
+        .half_size();
+        let half_at_2x = world_space_body_aabbs_from_parts(
+            &[],
+            Some(bbox),
+            128,
+            128,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(128.0, 160.0),
+        )[0]
+        .half_size();
+        let ratio_x = half_at_2x.x / half_at_1x.x;
+        let ratio_y = half_at_2x.y / half_at_1x.y;
+        assert!(
+            (ratio_x - 2.0).abs() < 1e-3,
+            "2× spawn must produce 2× x-extent; got ratio {ratio_x}",
+        );
+        assert!(
+            (ratio_y - 2.0).abs() < 1e-3,
+            "2× spawn must produce 2× y-extent; got ratio {ratio_y}",
+        );
+    }
+
     /// Larger world_size (e.g. boss lab boss at 150×185 vs intro at
     /// 64×80) scales the body AABB proportionally — the same pixel
     /// bbox yields a bigger world AABB. This is the scaling promise

@@ -1,0 +1,27 @@
+# Bump the BossSpawn in the first_system_boss intro arena to 2x size,
+# matching the larger boss the player encounters in the sandbox boss
+# lab. The boss runtime derives `combat_size` + hurtboxes from the
+# sprite RON's `body_pixel_bbox` scaled by this spawn size, so the
+# 2x bump propagates automatically:
+#
+#   combat_size = (106/128 × 128, 83/128 × 160) = (106, 103.75)
+#
+# At 128×160 the 128-pixel-wide sprite frame renders at 1:1 horizontal
+# resolution; no sprite regen needed.
+#
+# Run with:
+#   uv run --python 3.12 python -m ambition_ldtk_tools entity move \
+#     specs/move_first_system_boss_spawn.yaml \
+#     --ldtk ../../crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk \
+#     --in-place
+
+level_id: first_system_boss
+moves:
+  - target:
+      iid: BossSpawn-104746
+    # New top-left px keeps the boss's bottom edge on the floor (y=736)
+    # and centered horizontally at the previous center (x=640):
+    #   center.x stays 640 → top-left x = 640 - 64 = 576
+    #   bottom stays 736  → top-left y = 736 - 160 = 576
+    px: [576, 576]
+    size: [128, 160]

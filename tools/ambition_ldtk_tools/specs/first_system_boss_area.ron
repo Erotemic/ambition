@@ -208,14 +208,27 @@
             ),
         ),
         (
+            // BossSpawn sized at 2× the original 64×80 so the Gradient
+            // Sentinel reads as a real boss, not a tutorial-scale
+            // sprite. The runtime derives `combat_size` and
+            // damageable hurtboxes from the sprite RON's
+            // `body_pixel_bbox` (106×83 inside a 128×128 frame),
+            // scaled by this spawn size — so the larger boss
+            // automatically gets a larger collision shape + hitbox
+            // without any code change.
+            //
+            // Top-left chosen to keep the body centered on x=640 and
+            // the bottom edge on the floor (y=736):
+            //   x = 640 - 64 = 576
+            //   y = 736 - 160 = 576
             type: "BossSpawn",
             px: [
-                608,
-                656,
+                576,
+                576,
             ],
             size: [
-                64,
-                80,
+                128,
+                160,
             ],
             fields: (
                 name: "System Boss",

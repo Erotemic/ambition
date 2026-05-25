@@ -30,7 +30,7 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
-use super::primitives::{FeatureVisual, PlayerVisual, PropVisual, RoomVisual};
+use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
 use crate::features::{ActorRuntime, BossFeature, FeatureId};
 
 const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
@@ -175,29 +175,25 @@ pub fn attach_hit_flash_overlays(
                 HitFlashOverlay {
                     source: source_entity,
                 },
-                RoomVisual,
+                // NOT `RoomVisual` — that requires `RoomScopedEntity`,
+                // and the room-transition pass despawns every
+                // RoomScopedEntity. The player isn't room-scoped, so
+                // adding RoomVisual here would orphan the player's
+                // HitFlashSource against a dead overlay every time
+                // the player crossed a loading zone, and the
+                // `Without<HitFlashSource>` attach gate would
+                // refuse to re-create it. Instead,
+                // `cleanup_hit_flash_overlays` despawns orphans by
+                // checking whether the source entity still has its
+                // `HitFlashSource` marker — that handles enemies'
+                // room-scoped sources cleanly without depending on
+                // RoomScopedEntity for the overlay itself.
                 Name::new("HitFlash Overlay"),
             ))
             .id();
         commands.entity(source_entity).insert(HitFlashSource {
             overlay: overlay_entity,
         });
-        // One-shot diagnostic so we can confirm the player overlay
-        // actually got attached. Player path is the rare case in the
-        // codebase — `PlayerVisual` is on the same entity as
-        // `PlayerCombatState`. If this line never prints "player" in
-        // the log, the attach gate is rejecting the player and the
-        // flash will never show no matter what flash_timer does.
-        let kind = if player.is_some() {
-            "player"
-        } else {
-            "feature"
-        };
-        bevy::log::info!(
-            target: "ambition::hit_flash",
-            "attached hit_flash overlay (kind={}) source={:?} overlay={:?} render_size=({:.1},{:.1})",
-            kind, source_entity, overlay_entity, render_size.x, render_size.y,
-        );
     }
 }
 
@@ -205,6 +201,7 @@ pub fn attach_hit_flash_overlays(
 /// into the overlay material and toggle visibility based on the
 /// source's current `hit_flash` timer.
 pub fn sync_hit_flash_overlays(
+    mut commands: Commands,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
     actors: Query<(&FeatureId, &ActorRuntime)>,
@@ -254,22 +251,15 @@ pub fn sync_hit_flash_overlays(
             .map(normalize_hit_flash)
             .unwrap_or(0.0);
 
-        // Diagnostic: log only when intensity > 0 (a flash is firing).
-        // Helps verify the player path: if the player gets damaged and
-        // this never prints with kind="player", the lookup is broken;
-        // if it prints but no white appears, the shader / overlay
-        // entity is the suspect.
-        if intensity > 0.001 && player.is_some() {
-            bevy::log::info!(
-                target: "ambition::hit_flash",
-                "player flash intensity={:.2} secs={:?}",
-                intensity, hit_flash_secs,
-            );
-        }
-
         let Ok((mut overlay_transform, material_handle, overlay)) =
             overlays.get_mut(source.overlay)
         else {
+            // Overlay despawned underneath us (could happen if a
+            // cleanup pass beat us this tick on a source that's
+            // about to die). Drop the stale `HitFlashSource` so the
+            // attach gate spawns a fresh overlay next frame instead
+            // of letting the source flash silently forever.
+            commands.entity(source_entity).remove::<HitFlashSource>();
             continue;
         };
         if overlay.source != source_entity {

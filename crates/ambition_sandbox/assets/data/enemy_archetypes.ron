@@ -28,16 +28,26 @@
 //                      the actual engage geometry.
 //   contact_strength   Knockback multiplier when the player touches
 //                      the body. `0.0` = no contact damage / knockback.
-//   damage_amount      Damage dealt by the archetype's attack or
-//                      contact event.
+//   damage_amount      Damage dealt by BODY CONTACT. Attack damage
+//                      lives inside the `melee` / `ranged` specs.
 //   is_aerial          Removes gravity + flips the slot kind to Aerial.
 //   is_sandbag         Tags the archetype as a training-dummy variant.
 //   default_size       Optional render/collision size override (px).
 //                      `None` = use the engine's default body box.
 //   brain_template     One of StandStill / Wanderer / MeleeBrute.
-//   attack             EnemyAttackKind — None / MeleeSwipe /
-//                      MeleeLunge / MeleeBite / MeleePunchWeak /
-//                      RangedBolt.
+//   melee              Optional concrete melee attack spec. One of:
+//                          Swipe((windup_s, active_s, recover_s, damage, reach_px))
+//                          Lunge((windup_s, active_s, recover_s, damage, reach_px, step_px))
+//                          Slam((windup_s, active_s, recover_s, damage, reach_px, hop_height_px))
+//                          Bite((windup_s, active_s, recover_s, damage, reach_px))
+//                          PunchWeak((windup_s, active_s, recover_s, damage, reach_px))
+//                      `None` = peaceful / no melee capability.
+//   ranged             Optional concrete ranged attack spec. One of:
+//                          Rock((speed, damage))
+//                          Arrow((speed, damage))
+//                          Pistol((speed, damage))
+//                          Bolt((speed, damage))
+//                      `None` = no ranged capability.
 //   move_style         Locomotion animation: Walk / WalkHeavy / Hop /
 //                      Strafe / Slither / Float.
 //
@@ -55,7 +65,13 @@
         contact_strength: 0.70,
         damage_amount: 1,
         brain_template: MeleeBrute,
-        attack: MeleeSwipe,
+        melee: Some(Swipe((
+            windup_s: 0.28,
+            active_s: 0.08,
+            recover_s: 0.32,
+            damage: 1,
+            reach_px: 28.0,
+        ))),
         move_style: Walk,
     ),
     "SmallSkitter": (
@@ -67,7 +83,13 @@
         contact_strength: 0.55,
         damage_amount: 1,
         brain_template: MeleeBrute,
-        attack: MeleeSwipe,
+        melee: Some(Swipe((
+            windup_s: 0.28,
+            active_s: 0.08,
+            recover_s: 0.32,
+            damage: 1,
+            reach_px: 28.0,
+        ))),
         move_style: Walk,
     ),
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
@@ -81,7 +103,13 @@
         contact_strength: 0.45,
         damage_amount: 1,
         brain_template: MeleeBrute,
-        attack: MeleeSwipe,
+        melee: Some(Swipe((
+            windup_s: 0.28,
+            active_s: 0.08,
+            recover_s: 0.32,
+            damage: 1,
+            reach_px: 28.0,
+        ))),
         move_style: Walk,
     ),
     "MediumStriker": (
@@ -93,7 +121,13 @@
         contact_strength: 0.70,
         damage_amount: 1,
         brain_template: MeleeBrute,
-        attack: MeleeSwipe,
+        melee: Some(Swipe((
+            windup_s: 0.28,
+            active_s: 0.08,
+            recover_s: 0.32,
+            damage: 1,
+            reach_px: 28.0,
+        ))),
         move_style: Walk,
     ),
     "LargeBrute": (
@@ -105,11 +139,19 @@
         contact_strength: 1.25,
         damage_amount: 2,
         brain_template: MeleeBrute,
-        attack: MeleeLunge,
+        melee: Some(Lunge((
+            windup_s: 0.45,
+            active_s: 0.12,
+            recover_s: 0.45,
+            damage: 2,
+            reach_px: 40.0,
+            step_px: 18.0,
+        ))),
         move_style: WalkHeavy,
     ),
     // Boss-room "stationary heavy" — almost stationary, narrow threat
-    // envelope but huge reach + biggest non-boss contact damage.
+    // envelope but huge reach + biggest non-boss contact damage. Lunge
+    // damage stays at 2 (BRUTE_DEFAULT) while body contact deals 3.
     "LargeColossus": (
         max_health: 14,
         patrol_speed: 40.0,
@@ -119,7 +161,14 @@
         contact_strength: 1.50,
         damage_amount: 3,
         brain_template: MeleeBrute,
-        attack: MeleeLunge,
+        melee: Some(Lunge((
+            windup_s: 0.45,
+            active_s: 0.12,
+            recover_s: 0.45,
+            damage: 2,
+            reach_px: 40.0,
+            step_px: 18.0,
+        ))),
         move_style: WalkHeavy,
     ),
     "AggressiveSeeker": (
@@ -131,7 +180,13 @@
         contact_strength: 0.80,
         damage_amount: 1,
         brain_template: MeleeBrute,
-        attack: MeleeSwipe,
+        melee: Some(Swipe((
+            windup_s: 0.28,
+            active_s: 0.08,
+            recover_s: 0.32,
+            damage: 1,
+            reach_px: 28.0,
+        ))),
         move_style: Walk,
     ),
     // Training dummy that never dies. The sandbox uses this for the
@@ -146,7 +201,13 @@
         damage_amount: 1,
         is_sandbag: true,
         brain_template: StandStill,
-        attack: MeleePunchWeak,
+        melee: Some(PunchWeak((
+            windup_s: 0.15,
+            active_s: 0.08,
+            recover_s: 0.40,
+            damage: 1,
+            reach_px: 22.0,
+        ))),
         move_style: Walk,
     ),
     "FiniteSandbag": (
@@ -159,7 +220,13 @@
         damage_amount: 1,
         is_sandbag: true,
         brain_template: StandStill,
-        attack: MeleePunchWeak,
+        melee: Some(PunchWeak((
+            windup_s: 0.15,
+            active_s: 0.08,
+            recover_s: 0.40,
+            damage: 1,
+            reach_px: 22.0,
+        ))),
         move_style: Walk,
     ),
     "PirateRaider": (
@@ -172,7 +239,13 @@
         damage_amount: 1,
         default_size: Some((44.0, 78.0)),
         brain_template: MeleeBrute,
-        attack: MeleeSwipe,
+        melee: Some(Swipe((
+            windup_s: 0.28,
+            active_s: 0.08,
+            recover_s: 0.32,
+            damage: 1,
+            reach_px: 28.0,
+        ))),
         move_style: Walk,
     ),
     // Aerial shark (dismounted form). chase_speed is the steering
@@ -188,7 +261,13 @@
         is_aerial: true,
         default_size: Some((108.0, 96.0)),
         brain_template: MeleeBrute,
-        attack: MeleeBite,
+        melee: Some(Bite((
+            windup_s: 0.18,
+            active_s: 0.10,
+            recover_s: 0.30,
+            damage: 2,
+            reach_px: 42.0,
+        ))),
         move_style: Float,
     ),
     "PirateOnShark": (
@@ -203,7 +282,7 @@
         is_aerial: true,
         default_size: Some((108.0, 96.0)),
         brain_template: MeleeBrute,
-        attack: RangedBolt,
+        ranged: Some(Bolt(speed: 500.0, damage: 2)),
         move_style: Float,
     ),
     // Cove crew. Peaceful by default (aggro 0 + attack range 0 + no
@@ -219,7 +298,6 @@
         damage_amount: 2,
         default_size: Some((72.0, 110.0)),
         brain_template: MeleeBrute,
-        attack: None,
         move_style: Walk,
     ),
     "PirateHeavyOnShark": (
@@ -234,7 +312,7 @@
         is_aerial: true,
         default_size: Some((108.0, 96.0)),
         brain_template: MeleeBrute,
-        attack: RangedBolt,
+        ranged: Some(Bolt(speed: 500.0, damage: 3)),
         move_style: Float,
     ),
     // Crawlid-style grunt. Body-contact damage only; never aggros.
@@ -251,7 +329,6 @@
         damage_amount: 1,
         default_size: Some((48.0, 22.0)),
         brain_template: Wanderer,
-        attack: None,
         move_style: Slither,
     ),
 }

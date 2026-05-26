@@ -377,17 +377,15 @@ fn spawn_enemy(
 /// / Bolt where appropriate. The resolver consumes these to
 /// produce ActorActionMessages for the EFFECTS-stage consumers.
 /// Build the enemy's default `ActionSet` from its archetype spec.
-/// Reads `attack_kind()` + `move_style()` off the consolidated
-/// `EnemyArchetypeSpec` so adding a new archetype is a single
-/// `archetype_spec` row, not a parallel match here.
-fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
-    use super::super::enemies::EnemyAttackKind;
-    use crate::brain::{
-        ActionSet, BiteSpec, LungeSpec, MeleeActionSpec, PunchSpec, RangedActionSpec, SwipeSpec,
-    };
+/// Reads `melee_spec()` / `ranged_spec()` / `move_style()` straight
+/// off the data-driven `EnemyArchetypeSpec` — every spec value
+/// (timings, damage, reach) lives in `enemy_archetypes.ron`. Adding
+/// a new archetype is a single RON row + a new `EnemyArchetype` enum
+/// variant.
+pub(super) fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
+    use crate::brain::ActionSet;
     let archetype = enemy.archetype;
     let move_style = archetype.move_style();
-    let damage = archetype.damage_amount();
     // PuppySlug / PirateHeavy stay peaceful by default (no melee /
     // no ranged). The brain still ticks; the resolver sees an empty
     // ActionSet and emits no messages. Provoking-into-hostility
@@ -399,40 +397,9 @@ fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
             ..ActionSet::default()
         };
     }
-    let (melee, ranged) = match archetype.attack_kind() {
-        EnemyAttackKind::None => (None, None),
-        EnemyAttackKind::MeleeSwipe => (
-            Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
-            None,
-        ),
-        EnemyAttackKind::MeleeLunge => {
-            (Some(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT)), None)
-        }
-        EnemyAttackKind::MeleeBite => (
-            Some(MeleeActionSpec::Bite(BiteSpec {
-                windup_s: 0.18,
-                active_s: 0.10,
-                recover_s: 0.30,
-                damage,
-                reach_px: 42.0,
-            })),
-            None,
-        ),
-        EnemyAttackKind::MeleePunchWeak => (
-            Some(MeleeActionSpec::PunchWeak(PunchSpec::SANDBAG_DEFAULT)),
-            None,
-        ),
-        EnemyAttackKind::RangedBolt => (
-            None,
-            Some(RangedActionSpec::Bolt {
-                speed: 500.0,
-                damage,
-            }),
-        ),
-    };
     ActionSet {
-        melee,
-        ranged,
+        melee: archetype.melee_spec(),
+        ranged: archetype.ranged_spec(),
         move_style,
         ..Default::default()
     }
@@ -441,7 +408,7 @@ fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::ActionSet {
 /// Build the enemy's default `Brain` from its archetype spec.
 /// Reads `brain_template()` off the consolidated `EnemyArchetypeSpec`
 /// so adding a new archetype is a single row, not a parallel match.
-fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
+pub(super) fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
     use super::super::enemies::EnemyBrainTemplate;
     use crate::brain::{
         Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg, WandererCfg, WandererState,

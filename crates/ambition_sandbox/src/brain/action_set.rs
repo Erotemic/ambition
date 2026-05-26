@@ -64,7 +64,7 @@ impl ActionSet {
 /// Concrete melee actions an actor can perform. Each variant carries
 /// its **own** animation timing (windup → active → recover) — there
 /// is no separate `TelegraphSpec`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 #[allow(
     dead_code,
     reason = "spec variants surface to per-actor EFFECTS consumers"
@@ -86,7 +86,7 @@ pub enum MeleeActionSpec {
 }
 
 /// Concrete ranged actions an actor can perform.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub enum RangedActionSpec {
     /// Throws a rock-shaped projectile (used by skirmishers /
     /// peaceful-turned-hostile NPCs).
@@ -283,7 +283,7 @@ pub enum SpecialActionSpec {
 // a one-for-one move. Chunk 4 / data-table work shrinks duplication.
 
 /// Light melee swing. Striker default.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct SwipeSpec {
     pub windup_s: f32,
     pub active_s: f32,
@@ -303,7 +303,7 @@ impl SwipeSpec {
 }
 
 /// Heavy lunging strike. Brute default.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct LungeSpec {
     pub windup_s: f32,
     pub active_s: f32,
@@ -326,7 +326,7 @@ impl LungeSpec {
 }
 
 /// Pounce + slam. Reserved for future hostile aerial archetypes.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct SlamSpec {
     pub windup_s: f32,
     pub active_s: f32,
@@ -337,7 +337,7 @@ pub struct SlamSpec {
 }
 
 /// Jaw bite — short reach, fast.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct BiteSpec {
     pub windup_s: f32,
     pub active_s: f32,
@@ -347,7 +347,7 @@ pub struct BiteSpec {
 }
 
 /// Light reactive punch. Sandbag counter-attack.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct PunchSpec {
     pub windup_s: f32,
     pub active_s: f32,

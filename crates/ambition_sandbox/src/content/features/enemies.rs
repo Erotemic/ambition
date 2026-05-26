@@ -213,6 +213,11 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
 /// `assets/data/enemy_archetypes.ron` so a designer can tweak the
 /// chase / aggro / damage numbers (the things that decide whether a
 /// fight feels fair) without a Rust patch.
+///
+/// The `melee` / `ranged` fields carry the FULL attack spec — phase
+/// timings, damage, reach — so a designer who wants to make the
+/// Brute's lunge slower has one place to look. `damage_amount` is
+/// the BODY-CONTACT damage; attack damage lives in the spec.
 #[derive(Clone, Copy, Debug, serde::Deserialize)]
 pub(super) struct EnemyArchetypeSpec {
     pub max_health: i32,
@@ -235,11 +240,15 @@ pub(super) struct EnemyArchetypeSpec {
     /// aggro_radius, attack_range) for its cfg; Wanderer + StandStill
     /// ignore them.
     pub brain_template: EnemyBrainTemplate,
-    /// Concrete attack capability the spawn site puts on this
-    /// archetype's `ActionSet`. `None` for peaceful disposition or
-    /// passive archetypes; `Melee*` / `Ranged*` variants pick the
-    /// `MeleeActionSpec` / `RangedActionSpec` shape.
-    pub attack: EnemyAttackKind,
+    /// Concrete melee action this archetype's `ActionSet` carries.
+    /// `None` = no melee capability (peaceful patrollers, ranged-only
+    /// actors).
+    #[serde(default)]
+    pub melee: Option<crate::brain::MeleeActionSpec>,
+    /// Concrete ranged action this archetype's `ActionSet` carries.
+    /// `None` = no ranged capability.
+    #[serde(default)]
+    pub ranged: Option<crate::brain::RangedActionSpec>,
     /// Locomotion style for the actor's `ActionSet.move_style`.
     pub move_style: crate::brain::MoveStyleSpec,
 }
@@ -277,27 +286,6 @@ pub(super) enum EnemyBrainTemplate {
     /// chase_speed / attack_range / aggro_radius pulled into the
     /// cfg.
     MeleeBrute,
-}
-
-/// Concrete attack capability for an enemy archetype. Mapped at
-/// spawn into a `crate::brain::ActionSet`'s melee / ranged slots.
-/// Add a variant only when a new archetype needs a distinct attack
-/// flavor.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
-pub(super) enum EnemyAttackKind {
-    /// Peaceful disposition. No melee, no ranged. ActionSet keeps
-    /// both slots None.
-    None,
-    /// Generic short swing. Used by Striker / standard goblin melee.
-    MeleeSwipe,
-    /// Heavy lunging step + strike. Used by Brute / Colossus.
-    MeleeLunge,
-    /// Jaw-snap bite. Used by BurningFlyingShark.
-    MeleeBite,
-    /// Reactive light punch — used by Sandbag when struck.
-    MeleePunchWeak,
-    /// Magical bolt projectile. Used by the aerial-pirate combos.
-    RangedBolt,
 }
 
 /// Per-archetype tuning rows live in `assets/data/enemy_archetypes.ron`
@@ -410,10 +398,16 @@ impl EnemyArchetype {
         self.spec().brain_template
     }
 
-    /// Concrete attack capability this archetype's `ActionSet` carries
-    /// at spawn. See [`EnemyAttackKind`].
-    pub(super) fn attack_kind(self) -> EnemyAttackKind {
-        self.spec().attack
+    /// Concrete melee spec this archetype's `ActionSet` carries at
+    /// spawn. `None` = no melee capability (peaceful patrollers).
+    pub(super) fn melee_spec(self) -> Option<crate::brain::MeleeActionSpec> {
+        self.spec().melee
+    }
+
+    /// Concrete ranged spec this archetype's `ActionSet` carries at
+    /// spawn. `None` = no ranged capability.
+    pub(super) fn ranged_spec(self) -> Option<crate::brain::RangedActionSpec> {
+        self.spec().ranged
     }
 
     /// Locomotion style for this archetype's `ActionSet.move_style`.
@@ -1598,16 +1592,22 @@ mod enemy_archetype_data_tests {
     /// accidental drift on the rows the player notices first.
     #[test]
     fn legacy_baseline_pins() {
+        use crate::brain::MeleeActionSpec;
         let combatant = archetype_spec(EnemyArchetype::Combatant);
         assert_eq!(combatant.max_health, 4);
         assert!((combatant.chase_speed - 155.0).abs() < f32::EPSILON);
         assert!((combatant.aggro_radius - 460.0).abs() < f32::EPSILON);
-        assert_eq!(combatant.attack, EnemyAttackKind::MeleeSwipe);
+        assert!(
+            matches!(combatant.melee, Some(MeleeActionSpec::Swipe(_))),
+            "Combatant melee should be Swipe; got {:?}",
+            combatant.melee
+        );
         let slug = archetype_spec(EnemyArchetype::PuppySlug);
         assert_eq!(slug.max_health, 2);
         assert!((slug.patrol_speed - 55.0).abs() < f32::EPSILON);
         assert_eq!(slug.aggro_radius, 0.0);
         assert_eq!(slug.brain_template, EnemyBrainTemplate::Wanderer);
-        assert_eq!(slug.attack, EnemyAttackKind::None);
+        assert!(slug.melee.is_none());
+        assert!(slug.ranged.is_none());
     }
 }

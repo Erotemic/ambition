@@ -154,29 +154,19 @@ pub fn apply_feature_damage_events(
                             kind: ParticleKind::Spark,
                         });
                         banner.show(format!("{} turns hostile", npc.name), 2.6);
+                        // Derive the brain + ActionSet from the new
+                        // hostile EnemyRuntime via the same spawn-side
+                        // helpers. The hostile archetype's data row
+                        // (`MediumStriker` today) is the single source
+                        // of truth for tuning — no hardcoded
+                        // STRIKER_DEFAULT here.
+                        let new_brain = super::spawn::enemy_default_brain(&hostile);
+                        let new_action_set =
+                            super::spawn::enemy_default_action_set(&hostile);
                         *actor = ActorRuntime::Hostile(hostile);
-                        // Swap the brain + ActionSet alongside the
-                        // runtime so the brain tick aligns with the
-                        // actor's new disposition. The resolver picks
-                        // up a MeleeBrute brain + Swipe ActionSet on
-                        // hostile actors (instead of the original
-                        // peaceful Patrol brain + empty ActionSet
-                        // that lingered after the ActorRuntime swap).
-                        commands.entity(actor_entity).insert((
-                            crate::brain::Brain::StateMachine(
-                                crate::brain::StateMachineCfg::MeleeBrute {
-                                    cfg: crate::brain::MeleeBruteCfg::STRIKER_DEFAULT,
-                                    state: crate::brain::MeleeBruteState::default(),
-                                },
-                            ),
-                            crate::brain::ActionSet {
-                                melee: Some(crate::brain::MeleeActionSpec::Swipe(
-                                    crate::brain::SwipeSpec::STRIKER_DEFAULT,
-                                )),
-                                move_style: crate::brain::MoveStyleSpec::Walk,
-                                ..Default::default()
-                            },
-                        ));
+                        commands
+                            .entity(actor_entity)
+                            .insert((new_brain, new_action_set));
                     } else {
                         vfx.write(VfxMessage::SpeechBubble {
                             pos: npc.bark_anchor(),

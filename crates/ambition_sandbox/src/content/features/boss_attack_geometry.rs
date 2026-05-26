@@ -487,7 +487,17 @@ pub fn boss_attack_damage(
     // landed, and only when the behavior opts into body damage.
     let body_damage_amount = ctx.behavior.body_damage;
     if body_damage_amount > 0 {
-        let body = body_damage_aabb(ctx.pos, ctx.combat_size);
+        // Apply the sprite-derived body offset so the body-contact
+        // zone lines up with the visible body (same offset
+        // `boss.aabb()` applies). Without this, the magenta debug
+        // box and the actual body-contact damage zone sit below the
+        // visible sprite and the player can stand "inside" the
+        // visible body without taking contact damage.
+        let combat_offset = ctx
+            .sprite_metrics
+            .map(|m| m.combat_offset)
+            .unwrap_or(ae::Vec2::ZERO);
+        let body = body_damage_aabb(ctx.pos + combat_offset, ctx.combat_size);
         if body.strict_intersects(player_body) {
             let signum_or = |x: f32, fallback: f32| {
                 if x.abs() < f32::EPSILON {
@@ -946,6 +956,11 @@ mod sprite_metadata_derivation_tests {
             // Match the BOSS_SHEET render: `max(boss.size) * 1.6`
             // = `160 * 1.6` = `256` for a (128,160) spawn.
             sprite_render_size: ae::Vec2::new(256.0, 256.0),
+            // Test fixture: zero offset keeps `boss.aabb()` centered
+            // on `boss.pos` (the pre-offset behavior) so the
+            // half-size assertion below doesn't have to factor in
+            // body-center bias.
+            combat_offset: ae::Vec2::ZERO,
             animations,
         };
 
@@ -1015,6 +1030,7 @@ mod sprite_metadata_derivation_tests {
             // Zero render size → consumer falls back to ctx.size
             // (the pre-fix behavior).
             sprite_render_size: ae::Vec2::ZERO,
+            combat_offset: ae::Vec2::ZERO,
             animations: HashMap::new(),
         };
         let render_metrics = BossSpriteMetrics {
@@ -1023,6 +1039,7 @@ mod sprite_metadata_derivation_tests {
             body_pixel_bbox: Some(bbox),
             body_pixel_parts: Vec::new(),
             sprite_render_size: ae::Vec2::new(256.0, 256.0),
+            combat_offset: ae::Vec2::ZERO,
             animations: HashMap::new(),
         };
 

@@ -668,8 +668,11 @@ fn draw_feature_debug(
         // boss (like GNU-ton) doesn't show a misleading magenta
         // outline.
         if boss.behavior.body_damage > 0 {
-            let contact = crate::features::body_damage_aabb(boss.pos, boss.combat_size());
-            draw_aabb_styled(gizmos, world, contact, body_contact_color, developer_tools);
+            // Use `boss.aabb()` directly — that already factors in
+            // `combat_offset` so the magenta box lines up with the
+            // visible body (and matches the pogo zone, which uses
+            // the same call).
+            draw_aabb_styled(gizmos, world, boss.aabb(), body_contact_color, developer_tools);
         }
         for hurtbox in crate::features::damageable_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, hurtbox, hurtbox_color, developer_tools);

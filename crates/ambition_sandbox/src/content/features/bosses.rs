@@ -986,6 +986,17 @@ pub struct BossSpriteMetrics {
     /// isn't known (test fixtures); consumers treat zero as
     /// "no render size yet, use ctx.size".
     pub sprite_render_size: ae::Vec2,
+    /// World-space offset from `boss.pos` to the body's bounding
+    /// AABB center. Captures the fact that the body bbox inside the
+    /// sprite frame isn't necessarily at the frame center —
+    /// the gradient sentinel's body sits a few pixels left of center
+    /// and ~17 px above frame center, which scales to ~(-6, -35) in
+    /// world space at 256×256 render. Without this offset,
+    /// `boss.aabb()` is centered on `boss.pos` but the visible body
+    /// is centered ~41 px above, so the pogo zone / orange debug
+    /// box / body-contact zone all sit "below" the visible body
+    /// and pogo doesn't register where the player aims.
+    pub combat_offset: ae::Vec2,
     /// Per-animation `{hurtbox, hitbox}` data keyed by animation
     /// name (matches the spritesheet rows: `"rest"`,
     /// `"floor_slam"`, `"side_sweep"`, …). The renderer fills
@@ -1226,8 +1237,22 @@ impl BossRuntime {
         self.behavior.combat_size.unwrap_or(self.size)
     }
 
+    /// World offset from `boss.pos` to the body's bounding AABB
+    /// center. Non-zero for bosses whose sprite metadata indicates
+    /// the body bbox is off-center within the sprite frame
+    /// (gradient sentinel: ~(-6, -35) at 128×160 spawn). Zero for
+    /// bosses without sprite_metrics (GNU-ton's hand-tuned math
+    /// already encodes the body position in `gnu_ton_part_aabb`,
+    /// so it doesn't go through the sprite-metadata path).
+    pub fn combat_offset(&self) -> ae::Vec2 {
+        self.sprite_metrics
+            .as_ref()
+            .map(|m| m.combat_offset)
+            .unwrap_or(ae::Vec2::ZERO)
+    }
+
     pub fn aabb(&self) -> ae::Aabb {
-        ae::Aabb::new(self.pos, self.combat_size() * 0.5)
+        ae::Aabb::new(self.pos + self.combat_offset(), self.combat_size() * 0.5)
     }
 
     // All attack-volume / telegraph-volume / damageable-volume /

@@ -131,47 +131,56 @@ pub fn derive_boss_sprite_metrics(
         };
 
         let sprite_render_size = sprite_render_size_for(target, boss.size);
-        let snapshot = BossSpriteMetrics {
+        let mut snapshot = BossSpriteMetrics {
             frame_width: frame_w,
             frame_height: frame_h,
             body_pixel_bbox: metrics.body_pixel_bbox,
             body_pixel_parts: metrics.body_pixel_parts.clone(),
             sprite_render_size,
+            // Provisional — overwritten below once we know whether
+            // there's a body bbox to derive an offset from.
+            combat_offset: ae::Vec2::ZERO,
             animations: metrics.animations.clone(),
         };
-        let has_body = snapshot.has_body();
-        boss.sprite_metrics = Some(snapshot);
 
-        if has_body {
-            // Derive combat_size from the bounding AABB of all body
-            // parts (or the single bbox). Use the SPRITE RENDER SIZE
-            // (NOT `boss.size`) as the world-scale base — the visible
-            // sprite is rendered at `boss_asset.spec.render_size(boss.size)`
-            // = `max(boss.size) * collision_scale`, which is bigger
-            // than the LDtk spawn AABB. Scaling combat_size to render
-            // size means the orange (combat) box and magenta
-            // (body-contact damage) box both cover the visible body
-            // instead of half of it.
-            let snapshot = boss.sprite_metrics.as_ref().expect("just inserted");
-            let body_aabbs = crate::features::world_space_body_aabbs_from_parts(
-                &snapshot.body_pixel_parts,
-                snapshot.body_pixel_bbox,
-                frame_w,
-                frame_h,
-                boss.pos,
-                sprite_render_size,
-            );
-            if let Some(bound) = bounding_aabb(&body_aabbs) {
-                let derived = bound.half_size() * 2.0;
-                boss.behavior.combat_size = Some(derived);
-                // Mirror into the brain cfg so the soft world-bounds
-                // clamp uses the new value too.
-                if let Some(mut brain) = brain_opt {
-                    if let Brain::StateMachine(StateMachineCfg::BossPattern { cfg, .. }) =
-                        &mut *brain
-                    {
-                        cfg.combat_size = derived;
-                    }
+        // Derive combat_size + combat_offset from the bounding AABB
+        // of all body parts (or the single bbox). Use the SPRITE
+        // RENDER SIZE (not `boss.size`) as the world-scale base —
+        // the visible sprite is rendered at
+        // `boss_asset.spec.render_size(boss.size) = max(boss.size)
+        // * collision_scale`, which is bigger than the LDtk spawn
+        // AABB. Scaling combat_size to render size means the orange
+        // (combat) box and magenta (body-contact damage) box both
+        // cover the visible body instead of half of it.
+        //
+        // The `combat_offset` (bound.center() - boss.pos) captures
+        // the fact that the body bbox isn't necessarily centered in
+        // the sprite frame — without it, `boss.aabb()` sits at
+        // `boss.pos`, but the visible body is offset ~41 px above,
+        // so the pogo zone and orange debug box land "below" the
+        // visible sprite and pogo doesn't fire where the player aims.
+        let body_aabbs = crate::features::world_space_body_aabbs_from_parts(
+            &snapshot.body_pixel_parts,
+            snapshot.body_pixel_bbox,
+            frame_w,
+            frame_h,
+            boss.pos,
+            sprite_render_size,
+        );
+        let derive_result = bounding_aabb(&body_aabbs);
+        if let Some(bound) = derive_result {
+            snapshot.combat_offset = bound.center() - boss.pos;
+        }
+        boss.sprite_metrics = Some(snapshot);
+        if let Some(bound) = derive_result {
+            let derived = bound.half_size() * 2.0;
+            boss.behavior.combat_size = Some(derived);
+            // Mirror into the brain cfg so the soft world-bounds
+            // clamp uses the new value too.
+            if let Some(mut brain) = brain_opt {
+                if let Brain::StateMachine(StateMachineCfg::BossPattern { cfg, .. }) = &mut *brain
+                {
+                    cfg.combat_size = derived;
                 }
             }
         }

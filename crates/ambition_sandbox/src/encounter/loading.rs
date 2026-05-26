@@ -34,9 +34,8 @@ pub fn load_encounter_specs_from_ldtk(
         let trigger_size = [trigger.width as f32, trigger.height as f32];
 
         // Pick up the LockWall marker (one per area, optional).
-        let lock_wall = layer
-            .entity_instances
-            .iter()
+        let lock_wall = level
+            .all_entity_instances()
             .find(|e| e.identifier == "LockWall")
             .map(|e| LockWallSpec {
                 min: [e.px[0] as f32, e.px[1] as f32],
@@ -48,7 +47,7 @@ pub fn load_encounter_specs_from_ldtk(
         // sandbox doesn't have a builder for yet.
         let waves = match trigger_id.as_str() {
             "goblin_encounter" => goblin_encounter_wave_specs(),
-            _ => fallback_waves_from_enemy_spawns(layer),
+            _ => fallback_waves_from_enemy_spawns(level),
         };
 
         let spec = EncounterSpec {
@@ -128,10 +127,10 @@ pub fn goblin_encounter_wave_specs() -> Vec<EncounterWaveSpec> {
 }
 
 fn fallback_waves_from_enemy_spawns(
-    layer: &crate::ldtk_world::LdtkLayerInstance,
+    level: &crate::ldtk_world::LdtkLevel,
 ) -> Vec<EncounterWaveSpec> {
     let mut wave_mobs = Vec::new();
-    for entity in &layer.entity_instances {
+    for entity in level.all_entity_instances() {
         if entity.identifier != "EnemySpawn" {
             continue;
         }

@@ -222,7 +222,7 @@ pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     if let Some(volumes) = sprite_authored_volumes(ctx, profile) {
         return volumes;
     }
-    volumes_for_profile(profile, ctx.pos, ctx.size, ctx.combat_size, ctx.behavior)
+    volumes_for_profile(profile, ctx.pos, ctx.combat_size, ctx.behavior)
 }
 
 /// Telegraph volumes — drawn yellow in the debug overlay. Returns
@@ -236,7 +236,7 @@ pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     if let Some(volumes) = sprite_authored_volumes(ctx, profile) {
         return volumes;
     }
-    volumes_for_profile(profile, ctx.pos, ctx.size, ctx.combat_size, ctx.behavior)
+    volumes_for_profile(profile, ctx.pos, ctx.combat_size, ctx.behavior)
 }
 
 /// Pull sprite-author-declared hitbox rectangles for the given
@@ -492,10 +492,13 @@ pub fn boss_attack_damage(
 pub fn volumes_for_profile(
     attack: &BossAttackProfile,
     pos: ae::Vec2,
-    size: ae::Vec2,
     combat_size: ae::Vec2,
     behavior: &BossBehaviorProfile,
 ) -> Vec<ae::Aabb> {
+    // The function used to take a separate `size` (boss spawn AABB)
+    // because the GNU-ton arm scaled its design coords against it;
+    // the data-driven migration retired that path, so combat_size is
+    // the only size input the remaining arms need.
     let size = combat_size;
     let origin = pos + behavior.attack_origin_offset;
     match attack {

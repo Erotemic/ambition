@@ -855,10 +855,8 @@ pub fn manage_gradient_lane_visual(
         let mut volumes = crate::features::volumes_for_profile(
             &BossAttackProfile::GradientLane,
             boss.pos,
-            boss.render_size(),
             boss.combat_size(),
             &boss.behavior,
-            boss.is_gnu_ton(),
         );
         let Some(volume) = volumes.pop() else {
             continue;

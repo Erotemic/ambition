@@ -1289,7 +1289,75 @@ mod scripted_pattern_tests {
         let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, ae::BossBrain::Dormant);
         runtime.behavior = behavior;
         runtime.encounter_phase = ae::BossEncounterPhase::Phase1;
+        // After the data-driven migration, the head-position invariants
+        // (rest above shoulder, descent at player level) live in the
+        // sprite RON's per-animation `hurtbox.parts`. The test fixture
+        // pre-populates a minimal `sprite_metrics` snapshot so
+        // `damageable_volumes` flows through the same lookup path the
+        // live runtime uses. Mirrors the rest/gnu_head_descent rows in
+        // `gnu_ton_boss_spritesheet.ron`.
+        runtime.sprite_metrics = Some(gnu_ton_sprite_metrics_fixture());
         runtime
+    }
+
+    /// Build a minimal `BossSpriteMetrics` whose per-animation
+    /// `hurtbox.parts` mirror the rest / descent head positions
+    /// authored in the live spritesheet RON. Tests that exercise
+    /// `damageable_volumes` use this so the head invariants stay
+    /// pinned even though gnu_ton_runtime doesn't go through
+    /// `derive_boss_sprite_metrics`.
+    fn gnu_ton_sprite_metrics_fixture() -> super::BossSpriteMetrics {
+        use crate::presentation::character_sprites::registry::{
+            AnimationBox, AnimationMetrics, NamedPixelRect,
+        };
+        use std::collections::HashMap;
+        let head_rest = NamedPixelRect {
+            name: "head".to_string(),
+            x: 292,
+            y: 139,
+            w: 184,
+            h: 148,
+        };
+        let head_descent = NamedPixelRect {
+            name: "head".to_string(),
+            x: 292,
+            y: 244,
+            w: 184,
+            h: 148,
+        };
+        let rest_entry = AnimationMetrics {
+            hurtbox: Some(AnimationBox {
+                parts: vec![head_rest.clone()],
+                bbox: None,
+            }),
+            hitbox: None,
+        };
+        let descent_entry = AnimationMetrics {
+            hurtbox: Some(AnimationBox {
+                parts: vec![head_descent.clone()],
+                bbox: None,
+            }),
+            hitbox: Some(AnimationBox {
+                parts: vec![head_descent],
+                bbox: None,
+            }),
+        };
+        let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+        animations.insert("rest".to_string(), rest_entry);
+        animations.insert("gnu_head_descent".to_string(), descent_entry);
+        super::BossSpriteMetrics {
+            frame_width: 768,
+            frame_height: 576,
+            body_pixel_bbox: None,
+            body_pixel_parts: Vec::new(),
+            // Match what `sprite_render_size_for("gnu_ton_boss", boss.size)`
+            // would produce for a (220, 220) spawn → GNU_TON_SHEET's
+            // 4.5× collision_scale: render = 990×990 with aspect
+            // adjustment to 1320×990 for the 768/576 frame ratio.
+            sprite_render_size: ae::Vec2::new(1320.0, 990.0),
+            combat_offset: ae::Vec2::ZERO,
+            animations,
+        }
     }
 
     #[test]
@@ -1360,13 +1428,20 @@ mod scripted_pattern_tests {
         // broke the test even though the visual / hitbox correspondence
         // stayed correct. Stick to invariants instead of magic numbers.
         let boss = gnu_ton_runtime();
+        // Note: after the 2026-05-26 data-driven migration, this
+        // exercises the `volumes_for_profile` FALLBACK math for the
+        // `GnuHandSlam` arm — the live game routes through
+        // `sprite_authored_volumes` reading the
+        // `gnu_ton_boss_spritesheet.ron` `gnu_hand_slam` hitbox parts.
+        // The fallback's combat_size-relative offsets keep the
+        // left/right/below-pos invariants this test pins, so the
+        // assertions still hold without needing a sprite_metrics
+        // snapshot in the runtime fixture.
         let slam = crate::features::volumes_for_profile(
             &BossAttackProfile::GnuHandSlam,
             boss.pos,
-            boss.size,
             boss.combat_size(),
             &boss.behavior,
-            true,
         );
         assert_eq!(slam.len(), 2);
         let (left, right) = if slam[0].center().x < slam[1].center().x {
@@ -1431,10 +1506,8 @@ mod scripted_pattern_tests {
             crate::features::volumes_for_profile(
                 &BossAttackProfile::GnuAppleRain,
                 boss.pos,
-                boss.size,
                 boss.combat_size(),
                 &boss.behavior,
-                true,
             )
             .is_empty(),
             "apple-rain volumes must be empty — damage routes through projectiles"

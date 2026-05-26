@@ -479,3 +479,22 @@ sure what the play on the name should be.
 Ramanujan probably makes an appearance, maybe with the FSM. as Rameneugene or
 something. Other mathy / science characters to add: Tyson, Ramanujan, Noether,
 Germain, Lovelace, Mirzakhani, Tao, Curie, probably Sagan.
+
+----
+
+
+To flex the data-driven design I wonder if we make Hallow-Lite, which is a
+rough copy of pieces of the hallow knight intro sequence, and then drop down
+into the false knight boss fight to demo that it can reconstruct a classic game
+with the right data driven inputs. The original mario bros level 1 would be
+another example that probably is fine with fair-use.
+
+---- 
+
+I could make myself the final boss of the game, after the big reveal. Do a bit
+of 4th wall breaking. I could try to use an AI agent to "vibe kill" the player,
+being like, no kill it right, make no mistakes! I'm going to walk away for a
+few minutes, when I come back the player should be dead, do not ask me for
+input. What is the hard part of killing this player? Do I need to get ChatGPT
+to do it?" Maybe I get frustrated and start manually typing, causing characters
+to fall on the player as they try to climb the platform and finally win.

@@ -306,9 +306,35 @@ pub(super) enum EnemyAttackKind {
 /// as the closed "known archetypes" set so the compiler still flags
 /// missing variants in `match` arms across the codebase.
 fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
-    *ENEMY_ARCHETYPE_REGISTRY
-        .get(&arch)
-        .unwrap_or_else(|| panic!("enemy archetype {arch:?} missing from enemy_archetypes.ron"))
+    let key = archetype_data_key(arch);
+    *ENEMY_ARCHETYPE_REGISTRY.get(key).unwrap_or_else(|| {
+        panic!("enemy archetype {arch:?} (RON key '{key}') missing from enemy_archetypes.ron")
+    })
+}
+
+/// Stable RON key for an `EnemyArchetype` variant. Matches the
+/// Rust variant name exactly so adding a variant is a one-line
+/// change on both sides. Kept as an explicit match (not Debug /
+/// derive) so the contract with the data file is searchable.
+fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
+    use EnemyArchetype::*;
+    match arch {
+        Combatant => "Combatant",
+        SmallSkitter => "SmallSkitter",
+        SmallLurker => "SmallLurker",
+        MediumStriker => "MediumStriker",
+        LargeBrute => "LargeBrute",
+        LargeColossus => "LargeColossus",
+        AggressiveSeeker => "AggressiveSeeker",
+        InfiniteSandbag => "InfiniteSandbag",
+        FiniteSandbag => "FiniteSandbag",
+        PirateRaider => "PirateRaider",
+        BurningFlyingShark => "BurningFlyingShark",
+        PirateOnShark => "PirateOnShark",
+        PirateHeavy => "PirateHeavy",
+        PirateHeavyOnShark => "PirateHeavyOnShark",
+        PuppySlug => "PuppySlug",
+    }
 }
 
 /// Parsed contents of `assets/data/enemy_archetypes.ron`. `LazyLock`
@@ -316,14 +342,18 @@ fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
 /// function callable from non-system contexts (e.g.
 /// `BossBehaviorProfile` constructors). Hot reload is a future-work
 /// item — for now the data is read once when first accessed.
+///
+/// Keyed by `String` rather than `EnemyArchetype` to dodge serde's
+/// enum-key-in-HashMap quirks; the variant ↔ string round-trip lives
+/// in `archetype_data_key`.
 static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
-    std::collections::HashMap<EnemyArchetype, EnemyArchetypeSpec>,
+    std::collections::HashMap<String, EnemyArchetypeSpec>,
 > = std::sync::LazyLock::new(|| {
     const ENEMY_ARCHETYPES_RON: &str =
         include_str!("../../../assets/data/enemy_archetypes.ron");
     ron::from_str(ENEMY_ARCHETYPES_RON).unwrap_or_else(|err| {
         panic!(
-            "assets/data/enemy_archetypes.ron failed to deserialize as HashMap<EnemyArchetype, \
+            "assets/data/enemy_archetypes.ron failed to deserialize as HashMap<String, \
              EnemyArchetypeSpec>: {err}"
         )
     })
@@ -1555,9 +1585,10 @@ mod enemy_archetype_data_tests {
             PirateHeavyOnShark,
             PuppySlug,
         ] {
+            let key = archetype_data_key(arch);
             assert!(
-                ENEMY_ARCHETYPE_REGISTRY.contains_key(&arch),
-                "enemy_archetypes.ron missing row for {arch:?}",
+                ENEMY_ARCHETYPE_REGISTRY.contains_key(key),
+                "enemy_archetypes.ron missing row for {arch:?} (key '{key}')",
             );
         }
     }

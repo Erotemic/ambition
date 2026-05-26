@@ -13,9 +13,11 @@ use crate::world::platforms::MovingPlatformState;
 
 const ENEMY_GRAVITY: f32 = 1450.0;
 const ENEMY_MAX_FALL: f32 = 760.0;
-const ENEMY_PATROL_SPEED: f32 = 105.0;
-const ENEMY_CHASE_SPEED: f32 = 155.0;
-const ENEMY_ATTACK_RANGE: f32 = 150.0;
+// `ENEMY_PATROL_SPEED` / `ENEMY_CHASE_SPEED` / `ENEMY_ATTACK_RANGE`
+// retired by the enemy_archetypes.ron migration — each row now carries
+// its own speeds / ranges. If multiple archetypes drift back to the
+// same baseline, prefer one inline literal per row over re-introducing
+// a shared const here.
 const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 const BOSS_ATTACK_COOLDOWN: f32 = 1.35;
 const BREAK_ON_STAND_SECONDS: f32 = 0.85;

@@ -45,7 +45,7 @@
 //   ENEMY_PATROL_SPEED = 105.0
 //   ENEMY_CHASE_SPEED  = 155.0
 //   ENEMY_ATTACK_RANGE = 150.0
-({
+{
     "Combatant": (
         max_health: 4,
         patrol_speed: 105.0,
@@ -254,4 +254,4 @@
         attack: None,
         move_style: Slither,
     ),
-})
+}

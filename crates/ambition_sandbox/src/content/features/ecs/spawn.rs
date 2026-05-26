@@ -353,6 +353,18 @@ fn spawn_enemy(
         brain,
         action_set,
         crate::brain::ActorControl::default(),
+        // `emit_brain_action_messages` requires a `Transform` on the
+        // sim entity to compute the action `origin`. Without this,
+        // the resolver silently skips enemies (the visual entity has
+        // a Transform but the sim entity does not), and every brain
+        // intent — melee, ranged, special — gets dropped. Position
+        // is kept fresh by `update_ecs_actors` via FeatureAabb; the
+        // Transform here is just the schema requirement.
+        bevy::transform::components::Transform::from_xyz(
+            feature_aabb.center.x,
+            feature_aabb.center.y,
+            0.0,
+        ),
     ));
 }
 
@@ -565,6 +577,10 @@ pub fn spawn_encounter_mob(
         brain,
         action_set,
         crate::brain::ActorControl::default(),
+        // Same Transform requirement as `spawn_enemy` — see that
+        // path for the rationale. Without it, encounter-spawned mobs
+        // are silently skipped by `emit_brain_action_messages`.
+        bevy::transform::components::Transform::from_xyz(pos.x, pos.y, 0.0),
     ));
 }
 

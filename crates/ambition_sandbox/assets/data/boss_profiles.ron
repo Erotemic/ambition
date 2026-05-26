@@ -1,0 +1,358 @@
+// Boss behavior profiles — single source of truth for movement
+// patterns, macro tunings, scripted attack timelines, and the
+// numerical knobs that decide how each boss FEELS in combat.
+// Loaded once at startup into a
+// `LazyLock<HashMap<String, BossBehaviorProfile>>` in
+// `content/features/bosses.rs`. `BossBehaviorProfile::from_data(id)`
+// is the read site; the legacy `clockwork_warden()` / `mockingbird()`
+// / `gnu_ton()` constructor methods delegate to it.
+//
+// To re-tune a fight: edit the row, restart the sandbox. No Rust
+// changes needed.
+//
+// To add a boss:
+//   1. Add a new key + row below.
+//   2. Add an arm to `for_authored_boss` so the spawn pipeline finds
+//      it by display name + encounter id.
+//   3. (Optional) Wire it through `boss_encounter::profile::*` if it
+//      needs an authored `BossEncounterSpec`.
+//
+// Top-level shape: `{ "<id>": BossBehaviorProfile }`. Each value is
+// the full struct serialization — see
+// `content/features/bosses.rs::BossBehaviorProfile` for the field
+// catalog. `combat_size` is `Some((w, h))` or `None`;
+// `attack_origin_offset` is a `(x, y)` tuple (defaults to zero).
+//
+// `BossMovementProfile` variants:
+//   AnchorSway(x_radius, y_bob, x_frequency, y_frequency,
+//              chase_scale, chase_limit, speed)
+//   AirSwoop(x_radius, y_radius, x_frequency, y_frequency,
+//            chase_scale, chase_limit, speed)
+//   StationaryGiant(sway_amplitude, sway_frequency, speed)
+// All carry named fields — use `AirSwoop(x_radius: 250.0, ...)`.
+//
+// `BossAttackPattern`:
+//   Cycle — rotate through `attacks` using flat windup / active /
+//           cooldown durations.
+//   Scripted(intro, phase1, transition, phase2, enrage) — per-phase
+//           BossPattern with `steps: [...]`.
+//
+// `BossPatternStep` variants:
+//   Telegraph(profile: <attack>, duration: <s>)
+//   Strike(profile: <attack>, duration: <s>)
+//   Rest(duration: <s>)
+//
+// `BossAttackProfile` unit variants: FloorSlam, SideSweep,
+// FullBodyPulse, WingSweep, DiveLane, Broadside, GnuHandSlam,
+// GnuHandSweep, GnuHeadDescent, GnuShockwave, GnuAppleRain,
+// GradientLane, OverfitVolley, MinimaTrap, SaddlePoint,
+// GradientCascade.
+{
+    // ============================================================
+    // Clockwork Warden / Gradient Sentinel — polished multi-phase
+    // Scripted boss. See
+    // `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`
+    // for the full design (theme, arena geometry, attack vocab,
+    // per-phase tempo).
+    //
+    // Phase 1 (~16s): FloorSlam, GradientLane, OverfitVolley,
+    //   SideSweep. Slow and readable, generous Rest beats.
+    // Transition (3s): pure Rest while the music swaps.
+    // Phase 2 (~22s): adds hazards/minions — MinimaTrap, SaddlePoint,
+    //   GradientCascade, returning OverfitVolley + FullBodyPulse.
+    // Enrage (~10s): tighter MinimaTrap → OverfitVolley → SaddlePoint
+    //   → GradientLane combos.
+    // ============================================================
+    "clockwork_warden": (
+        id: "clockwork_warden",
+        // Tightened combat size to roughly match the visible sprite
+        // body: the clockwork_warden sheet has body_pixel_bbox 106×83
+        // inside a 128×128 frame. Boss spawns at 64×80 world px so
+        // the visible body is ~53 wide and ~52 tall.
+        combat_size: Some((54.0, 56.0)),
+        movement: AnchorSway(
+            x_radius: 130.0,
+            y_bob: 18.0,
+            x_frequency: 0.72,
+            y_frequency: 1.10,
+            chase_scale: 0.18,
+            chase_limit: 70.0,
+            speed: 220.0,
+        ),
+        // Phase 2 swaps to a wide AirSwoop — boss reads as breaking
+        // its anchor and flying across the arena.
+        movement_phase2: Some(AirSwoop(
+            x_radius: 360.0,
+            y_radius: 110.0,
+            x_frequency: 0.95,
+            y_frequency: 0.72,
+            chase_scale: 0.35,
+            chase_limit: 220.0,
+            speed: 320.0,
+        )),
+        // Enrage commits visually to chasing.
+        movement_enrage: Some(AirSwoop(
+            x_radius: 380.0,
+            y_radius: 140.0,
+            x_frequency: 1.35,
+            y_frequency: 0.95,
+            chase_scale: 0.55,
+            chase_limit: 280.0,
+            speed: 420.0,
+        )),
+        // Hold roughly steady while a special strike is live —
+        // World-anchored hitboxes shouldn't drift mid-strike.
+        strike_speed_scale: 0.20,
+        macro_tuning: (
+            too_close_distance: 110.0,
+            too_far_distance: 480.0,
+            engage_distance: 220.0,
+            approach_duration_s: 3.2,
+            retreat_duration_s: 2.4,
+            engage_max_duration_s: 9.0,
+            approach_speed_scale: 1.50,
+            retreat_speed_scale: 0.80,
+            retreat_distance: 280.0,
+        ),
+        // Legacy `attacks` is unused for Scripted bosses, but kept
+        // populated with the full attack vocabulary for diagnostics
+        // (e.g. `boss inspect`-style tooling).
+        attacks: [
+            FloorSlam,
+            SideSweep,
+            FullBodyPulse,
+            GradientLane,
+            OverfitVolley,
+            MinimaTrap,
+            SaddlePoint,
+            GradientCascade,
+        ],
+        attack_cooldown: 1.35,
+        attack_windup: 0.52,
+        attack_active: 0.32,
+        attack_damage: 2,
+        body_damage: 1,
+        attack_pattern: Scripted(
+            // Single show-of-force beat to anchor the tone.
+            intro: (steps: [
+                Telegraph(profile: FloorSlam, duration: 1.4),
+                Strike(profile: FloorSlam, duration: 0.4),
+                Rest(duration: 1.2),
+            ]),
+            phase1: (steps: [
+                // Beat 1: FloorSlam — familiar ground-pound.
+                Telegraph(profile: FloorSlam, duration: 1.2),
+                Strike(profile: FloorSlam, duration: 0.4),
+                Rest(duration: 1.4),
+                // Beat 2: GradientLane — vertical hazard column.
+                Telegraph(profile: GradientLane, duration: 1.4),
+                Strike(profile: GradientLane, duration: 1.0),
+                Rest(duration: 1.0),
+                // Beat 3: OverfitVolley — markers track player.
+                Telegraph(profile: OverfitVolley, duration: 1.4),
+                Strike(profile: OverfitVolley, duration: 0.30),
+                Rest(duration: 1.5),
+                // Beat 4: SideSweep — classic two-arm sweep.
+                Telegraph(profile: SideSweep, duration: 0.9),
+                Strike(profile: SideSweep, duration: 0.4),
+                // Long breather closes the loop.
+                Rest(duration: 2.0),
+            ]),
+            // Pure 3 s rest so the music swap has space.
+            transition: (steps: [Rest(duration: 3.0)]),
+            phase2: (steps: [
+                // Beat 1: MinimaTrap — pit + puppy_slug spawn.
+                Telegraph(profile: MinimaTrap, duration: 1.0),
+                Strike(profile: MinimaTrap, duration: 0.6),
+                Rest(duration: 1.4),
+                // Beat 2: SaddlePoint — rotating cross hazard.
+                Telegraph(profile: SaddlePoint, duration: 1.4),
+                Strike(profile: SaddlePoint, duration: 4.8),
+                Rest(duration: 1.2),
+                // Beat 3: GradientCascade — 2 small_lurker minions.
+                Telegraph(profile: GradientCascade, duration: 1.2),
+                Strike(profile: GradientCascade, duration: 0.4),
+                Rest(duration: 2.4),
+                // Beat 4: OverfitVolley returns, faster.
+                Telegraph(profile: OverfitVolley, duration: 1.2),
+                Strike(profile: OverfitVolley, duration: 0.30),
+                Rest(duration: 1.4),
+                // Beat 5: FullBodyPulse — close-range pulse.
+                Telegraph(profile: FullBodyPulse, duration: 1.1),
+                Strike(profile: FullBodyPulse, duration: 0.5),
+                Rest(duration: 1.0),
+            ]),
+            enrage: (steps: [
+                // Tight MinimaTrap → OverfitVolley combo.
+                Telegraph(profile: MinimaTrap, duration: 0.7),
+                Strike(profile: MinimaTrap, duration: 0.5),
+                Telegraph(profile: OverfitVolley, duration: 0.7),
+                Strike(profile: OverfitVolley, duration: 0.3),
+                Rest(duration: 0.6),
+                // Faster SaddlePoint — shorter total exposure.
+                Telegraph(profile: SaddlePoint, duration: 1.0),
+                Strike(profile: SaddlePoint, duration: 3.0),
+                // GradientLane closer for the final punish.
+                Telegraph(profile: GradientLane, duration: 0.7),
+                Strike(profile: GradientLane, duration: 0.8),
+                Rest(duration: 1.2),
+            ]),
+        ),
+    ),
+    // ============================================================
+    // Mockingbird — airborne ship/bird-like boss. Cycle pattern,
+    // no per-phase movement variants. Underdeveloped today; the
+    // intent is a duel-style boss whose three attacks (WingSweep /
+    // DiveLane / Broadside) chain via the flat cycle rhythm.
+    // ============================================================
+    "mockingbird": (
+        id: "mockingbird",
+        combat_size: Some((500.0, 185.0)),
+        movement: AirSwoop(
+            x_radius: 250.0,
+            y_radius: 62.0,
+            x_frequency: 0.56,
+            y_frequency: 1.35,
+            chase_scale: 0.08,
+            chase_limit: 95.0,
+            speed: 320.0,
+        ),
+        movement_phase2: None,
+        movement_enrage: None,
+        strike_speed_scale: 1.0,
+        // Macro tuning disabled — Mockingbird stays in Engage,
+        // attacks via flat Cycle rhythm. All zeros / 1.0s.
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            WingSweep,
+            DiveLane,
+            Broadside,
+        ],
+        attack_cooldown: 1.05,
+        attack_windup: 0.44,
+        attack_active: 0.28,
+        attack_damage: 2,
+        body_damage: 1,
+        attack_pattern: Cycle,
+    ),
+    // ============================================================
+    // GNU-ton — stationary giant with wide-ranging hand attacks.
+    //
+    // Unique pacing among bosses: scripted timeline with explicit
+    // *rest* beats between strikes so the player can read each
+    // windup, react, and learn the sequence. The contrast with
+    // clockwork_warden / mockingbird's faster duels is the design
+    // intent — GNU-ton should feel like a slow, deliberate monolith.
+    //
+    // Phase pacing (longer than other bosses by design):
+    // - Intro: single show-of-force slam (no rest after)
+    // - Phase 1: ~9s — slam → rest → sweep → rest → slam → long rest
+    // - Transition: ~3s pure rest
+    // - Phase 2: ~12s — adds head-descent vulnerability windows
+    // - Enrage: ~8s — shockwave + double slam, shorter rests
+    //
+    // The sprite is huge but the boss entity itself is anchored to
+    // the shoulder ridge under the scholar; damaging and vulnerable
+    // regions are generated from named sprite parts, so
+    // `combat_size` is only the movement/placeholder envelope.
+    // ============================================================
+    "gnu_ton": (
+        id: "gnu_ton",
+        combat_size: Some((220.0, 220.0)),
+        movement: StationaryGiant(
+            sway_amplitude: 6.0,
+            sway_frequency: 0.28,
+            speed: 40.0,
+        ),
+        movement_phase2: None,
+        movement_enrage: None,
+        strike_speed_scale: 1.0,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            GnuHandSlam,
+            GnuHandSweep,
+            GnuHeadDescent,
+            GnuShockwave,
+            GnuAppleRain,
+        ],
+        attack_cooldown: 0.0,
+        attack_windup: 0.0,
+        attack_active: 0.0,
+        attack_damage: 2,
+        // No contact damage from the off-screen body.
+        body_damage: 0,
+        attack_pattern: Scripted(
+            intro: (steps: [
+                Telegraph(profile: GnuHandSlam, duration: 1.6),
+                Strike(profile: GnuHandSlam, duration: 0.55),
+                Rest(duration: 1.4),
+            ]),
+            phase1: (steps: [
+                // Hand slam from above, long telegraph.
+                Telegraph(profile: GnuHandSlam, duration: 1.6),
+                Strike(profile: GnuHandSlam, duration: 0.55),
+                Rest(duration: 1.2),
+                // Side sweep — different motion / hitbox shape.
+                Telegraph(profile: GnuHandSweep, duration: 1.4),
+                Strike(profile: GnuHandSweep, duration: 0.50),
+                Rest(duration: 1.0),
+                // Apple rain: scholar gestures up; apples fall.
+                // Strike window is long enough to drop ~4 apples.
+                Telegraph(profile: GnuAppleRain, duration: 1.0),
+                Strike(profile: GnuAppleRain, duration: 2.2),
+                Rest(duration: 1.0),
+                // Repeat the slam to reward memorizers.
+                Telegraph(profile: GnuHandSlam, duration: 1.6),
+                Strike(profile: GnuHandSlam, duration: 0.55),
+                // Long breather closes the cycle.
+                Rest(duration: 1.8),
+            ]),
+            transition: (steps: [Rest(duration: 3.0)]),
+            phase2: (steps: [
+                Telegraph(profile: GnuHandSlam, duration: 1.4),
+                Strike(profile: GnuHandSlam, duration: 0.55),
+                Rest(duration: 1.0),
+                // Long head-descent: head is vulnerable. Matches the
+                // score so the music's "harpsichord exposure" beat
+                // lands in this window.
+                Telegraph(profile: GnuHeadDescent, duration: 1.8),
+                Strike(profile: GnuHeadDescent, duration: 1.4),
+                Rest(duration: 1.4),
+                Telegraph(profile: GnuHandSweep, duration: 1.4),
+                Strike(profile: GnuHandSweep, duration: 0.50),
+                Rest(duration: 2.0),
+            ]),
+            enrage: (steps: [
+                // Faster pace, no head exposure: punishing.
+                Telegraph(profile: GnuHandSlam, duration: 0.90),
+                Strike(profile: GnuHandSlam, duration: 0.45),
+                Telegraph(profile: GnuHandSweep, duration: 0.90),
+                Strike(profile: GnuHandSweep, duration: 0.45),
+                Rest(duration: 0.6),
+                Telegraph(profile: GnuShockwave, duration: 1.10),
+                Strike(profile: GnuShockwave, duration: 0.70),
+                Rest(duration: 1.2),
+            ]),
+        ),
+    ),
+}

@@ -9,8 +9,12 @@ use super::*;
 // path — those references stay legal via the re-export while call
 // sites migrate to the brain-module path at their leisure.
 pub use crate::brain::boss_pattern::{
-    BossAttackPattern, BossAttackProfile, BossMovementProfile, BossPattern, BossPatternStep,
+    BossAttackPattern, BossAttackProfile, BossMovementProfile,
 };
+// `BossPattern` and `BossPatternStep` only show up inside the
+// scripted profiles, which now live in `boss_profiles.ron`. They're
+// still publicly accessible via `crate::brain::boss_pattern`; we
+// just don't re-export them here anymore.
 
 // `BossTickOutputs` (previously: `projectile_spawns: Vec<…>`) was
 // deleted with Task B of the actor/brain follow-up plan. Apple-rain
@@ -113,16 +117,25 @@ pub const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
 /// from `ae::BossEncounterSpec`: the engine spec owns phase progression and HP
 /// thresholds, while this profile owns sandbox movement, contact size, damage,
 /// and hitbox shapes.
-#[derive(Clone, Debug, PartialEq)]
+///
+/// Every field here is authored in
+/// `assets/data/boss_profiles.ron` and parsed into the
+/// `BOSS_PROFILE_REGISTRY` `LazyLock` below. Adding a new boss is a
+/// single new key + row in that file plus a matching arm in
+/// `for_authored_boss` — no Rust constructor required.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct BossBehaviorProfile {
     pub id: String,
+    #[serde(default, with = "boss_vec2_option")]
     pub combat_size: Option<ae::Vec2>,
     pub movement: BossMovementProfile,
     /// Optional per-phase movement overrides. `None` means "use
     /// `movement` during this phase." Lets a boss escalate its
     /// movement personality across phases without changing the
     /// profile enum itself.
+    #[serde(default)]
     pub movement_phase2: Option<BossMovementProfile>,
+    #[serde(default)]
     pub movement_enrage: Option<BossMovementProfile>,
     /// Multiplier applied to movement speed while an active special
     /// strike is committed. `< 1.0` keeps the boss roughly anchored
@@ -154,526 +167,104 @@ pub struct BossBehaviorProfile {
     /// not the giant's body — without this offset, hand hitboxes would
     /// hover near the scholar instead of where the giant's arms are. Y is
     /// world-space positive-down; leave at `Vec2::ZERO` for ordinary bosses.
+    #[serde(default, with = "boss_vec2_required")]
     pub attack_origin_offset: ae::Vec2,
 }
 
+/// Vec2 (de)serialization shims for `BossBehaviorProfile`. `bevy_math::Vec2`
+/// doesn't implement `Deserialize` under the features the sandbox compiles
+/// with, so we route through tuple shims.
+mod boss_vec2_option {
+    use ambition_engine as ae;
+    use serde::Deserialize;
+
+    pub fn deserialize<'de, D>(de: D) -> Result<Option<ae::Vec2>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw: Option<(f32, f32)> = Option::deserialize(de)?;
+        Ok(raw.map(|(x, y)| ae::Vec2::new(x, y)))
+    }
+}
+
+mod boss_vec2_required {
+    use ambition_engine as ae;
+    use serde::Deserialize;
+
+    pub fn deserialize<'de, D>(de: D) -> Result<ae::Vec2, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let (x, y) = <(f32, f32)>::deserialize(de)?;
+        Ok(ae::Vec2::new(x, y))
+    }
+}
+
+/// Parsed contents of `assets/data/boss_profiles.ron`. Built once on
+/// first access via `LazyLock` so `BossBehaviorProfile::from_data()`
+/// can stay a plain function callable from non-system contexts
+/// (every spawn site + every test that clones a profile).
+///
+/// Keyed by canonical boss id (`"clockwork_warden"`, `"mockingbird"`,
+/// `"gnu_ton"`, …). Adding a new boss is one RON row plus an arm in
+/// `for_authored_boss` — no Rust constructor needed.
+static BOSS_PROFILE_REGISTRY: std::sync::LazyLock<
+    std::collections::HashMap<String, BossBehaviorProfile>,
+> = std::sync::LazyLock::new(|| {
+    const BOSS_PROFILES_RON: &str = include_str!("../../../assets/data/boss_profiles.ron");
+    ron::from_str(BOSS_PROFILES_RON).unwrap_or_else(|err| {
+        panic!(
+            "assets/data/boss_profiles.ron failed to deserialize as HashMap<String, \
+             BossBehaviorProfile>: {err}"
+        )
+    })
+});
+
 impl BossBehaviorProfile {
+    /// Look up a boss profile by canonical id, cloning the parsed
+    /// row from the registry. Panics if the id isn't present in
+    /// `boss_profiles.ron` — call sites that need a fallback should
+    /// route through `for_authored_boss` instead.
+    pub fn from_data(id: &str) -> Self {
+        BOSS_PROFILE_REGISTRY
+            .get(id)
+            .cloned()
+            .unwrap_or_else(|| panic!("boss profile '{id}' not in boss_profiles.ron"))
+    }
+
     /// Clockwork Warden / Gradient Sentinel — polished multi-phase
-    /// Scripted boss.
-    ///
-    /// See `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`
-    /// for the full design (theme, arena geometry, attack vocab,
-    /// per-phase tempo). At a glance:
-    ///
-    /// - **Phase 1 (~16 s loop)** — fundamentals: FloorSlam,
-    ///   GradientLane (vertical column), OverfitVolley
-    ///   (position-sampling bolt barrage), SideSweep. Slow,
-    ///   readable, generous Rest beats.
-    /// - **Transition (3 s)** — pure Rest while the music swaps.
-    /// - **Phase 2 (~22 s loop)** — hazards + minions add to the
-    ///   vocabulary: MinimaTrap (pit + puppy_slug spawn), SaddlePoint
-    ///   (rotating cross hazard), GradientCascade (small_lurker adds).
-    ///   Returning OverfitVolley and FullBodyPulse keep the player
-    ///   honest.
-    /// - **Enrage (~10 s loop)** — desperate: faster telegraphs,
-    ///   tighter combos of MinimaTrap → OverfitVolley → SaddlePoint
-    ///   → GradientLane.
+    /// Scripted boss. Authored in `boss_profiles.ron`; design notes
+    /// live at `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`.
     pub fn clockwork_warden() -> Self {
-        Self {
-            id: "clockwork_warden".into(),
-            // Tightened combat size to roughly match the visible
-            // sprite body: the clockwork_warden sheet has
-            // `body_pixel_bbox: 106×83 px` inside a 128×128 frame.
-            // The boss spawns at 64×80 world px (LDtk BossSpawn
-            // size), so the visible body is ~106/128 × 64 = 53 wide
-            // and ~83/128 × 80 = 52 tall. Without this, the
-            // collision/damage AABB stretched to the full 64×80
-            // sprite cell and the player took hits at empty-air
-            // sprite edges. Tracked sprite metadata-driven
-            // alignment is the follow-up — for now we hardcode the
-            // body extent.
-            combat_size: Some(ae::Vec2::new(54.0, 56.0)),
-            movement: BossMovementProfile::AnchorSway {
-                x_radius: 130.0,
-                y_bob: 18.0,
-                x_frequency: 0.72,
-                y_frequency: 1.10,
-                chase_scale: 0.18,
-                chase_limit: 70.0,
-                speed: 220.0,
-            },
-            // Phase 2 swaps to a wide AirSwoop — the boss reads as
-            // breaking its anchor and starting to fly across the
-            // arena. Bigger x/y radius, aggressive chase.
-            movement_phase2: Some(BossMovementProfile::AirSwoop {
-                x_radius: 360.0,
-                y_radius: 110.0,
-                x_frequency: 0.95,
-                y_frequency: 0.72,
-                chase_scale: 0.35,
-                chase_limit: 220.0,
-                speed: 320.0,
-            }),
-            // Enrage takes the AirSwoop and pushes speed + chase
-            // harder so the boss visibly *commits* to chasing the
-            // player in the last quarter HP.
-            movement_enrage: Some(BossMovementProfile::AirSwoop {
-                x_radius: 380.0,
-                y_radius: 140.0,
-                x_frequency: 1.35,
-                y_frequency: 0.95,
-                chase_scale: 0.55,
-                chase_limit: 280.0,
-                speed: 420.0,
-            }),
-            // Hold roughly steady while a special strike is live —
-            // the saddle cross / pit / cascade hitboxes are
-            // World-anchored at the boss pos and shouldn't drift
-            // mid-strike.
-            strike_speed_scale: 0.20,
-            // Chase / engage / retreat dance.
-            //
-            // Engage distance ~200 px is "middle range": the player
-            // can read attacks but isn't pinned. too_close (110 px)
-            // triggers Retreat to avoid cornering the player into
-            // the wall. too_far (480 px) triggers Approach so a
-            // player who runs to the corner of the 1280-wide arena
-            // gets chased rather than ignored. engage_max=9 s
-            // creates a periodic "preparing something" retreat
-            // beat even when distance is fine — the player learns
-            // to chase the boss to maintain pressure.
-            macro_tuning: crate::brain::BossMacroTuning {
-                too_close_distance: 110.0,
-                too_far_distance: 480.0,
-                engage_distance: 220.0,
-                approach_duration_s: 3.2,
-                retreat_duration_s: 2.4,
-                engage_max_duration_s: 9.0,
-                approach_speed_scale: 1.50,
-                retreat_speed_scale: 0.80,
-                retreat_distance: 280.0,
-            },
-            // Legacy `attacks` is unused for Scripted bosses, but kept
-            // populated with the full attack vocabulary for
-            // diagnostics so `boss inspect`-style tooling can list
-            // what the boss is capable of without parsing the
-            // Scripted schedule.
-            attacks: vec![
-                BossAttackProfile::FloorSlam,
-                BossAttackProfile::SideSweep,
-                BossAttackProfile::FullBodyPulse,
-                BossAttackProfile::GradientLane,
-                BossAttackProfile::OverfitVolley,
-                BossAttackProfile::MinimaTrap,
-                BossAttackProfile::SaddlePoint,
-                BossAttackProfile::GradientCascade,
-            ],
-            attack_cooldown: BOSS_ATTACK_COOLDOWN,
-            attack_windup: 0.52,
-            attack_active: 0.32,
-            attack_damage: 2,
-            body_damage: 1,
-            attack_pattern: BossAttackPattern::Scripted {
-                intro: BossPattern {
-                    // Single show-of-force beat to anchor the tone:
-                    // a clean FloorSlam telegraph + strike with a
-                    // long settle, no rest after — the encounter
-                    // driver fades into Phase 1 from here.
-                    steps: vec![
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::FloorSlam,
-                            duration: 1.4,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::FloorSlam,
-                            duration: 0.4,
-                        },
-                        BossPatternStep::Rest { duration: 1.2 },
-                    ],
-                },
-                phase1: BossPattern {
-                    steps: vec![
-                        // Beat 1: FloorSlam — familiar ground-pound.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::FloorSlam,
-                            duration: 1.2,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::FloorSlam,
-                            duration: 0.4,
-                        },
-                        BossPatternStep::Rest { duration: 1.4 },
-                        // Beat 2: GradientLane — vertical hazard
-                        // column that follows the boss. Player jumps
-                        // over or moves laterally.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GradientLane,
-                            duration: 1.4,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GradientLane,
-                            duration: 1.0,
-                        },
-                        BossPatternStep::Rest { duration: 1.0 },
-                        // Beat 3: OverfitVolley — markers track player
-                        // through the telegraph, bolts fire at strike.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::OverfitVolley,
-                            duration: 1.4,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::OverfitVolley,
-                            duration: 0.30,
-                        },
-                        BossPatternStep::Rest { duration: 1.5 },
-                        // Beat 4: SideSweep — classic two-arm sweep.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::SideSweep,
-                            duration: 0.9,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::SideSweep,
-                            duration: 0.4,
-                        },
-                        // Long breather closes the loop.
-                        BossPatternStep::Rest { duration: 2.0 },
-                    ],
-                },
-                transition: BossPattern {
-                    // Pure 3 s rest so the music swap has space.
-                    steps: vec![BossPatternStep::Rest { duration: 3.0 }],
-                },
-                phase2: BossPattern {
-                    steps: vec![
-                        // Beat 1: MinimaTrap — pit forms at player pos,
-                        // puppy_slug spawns. Forces the player to
-                        // reposition.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::MinimaTrap,
-                            duration: 1.0,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::MinimaTrap,
-                            duration: 0.6,
-                        },
-                        BossPatternStep::Rest { duration: 1.4 },
-                        // Beat 2: SaddlePoint — rotating cross hazard.
-                        // Long strike window so the rotation matters.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::SaddlePoint,
-                            duration: 1.4,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::SaddlePoint,
-                            duration: 4.8,
-                        },
-                        BossPatternStep::Rest { duration: 1.2 },
-                        // Beat 3: GradientCascade — 2 small_lurker
-                        // minions descend from top of arena.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GradientCascade,
-                            duration: 1.2,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GradientCascade,
-                            duration: 0.4,
-                        },
-                        BossPatternStep::Rest { duration: 2.4 },
-                        // Beat 4: OverfitVolley returns, faster.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::OverfitVolley,
-                            duration: 1.2,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::OverfitVolley,
-                            duration: 0.30,
-                        },
-                        BossPatternStep::Rest { duration: 1.4 },
-                        // Beat 5: FullBodyPulse — close-range pulse.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::FullBodyPulse,
-                            duration: 1.1,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::FullBodyPulse,
-                            duration: 0.5,
-                        },
-                        BossPatternStep::Rest { duration: 1.0 },
-                    ],
-                },
-                enrage: BossPattern {
-                    steps: vec![
-                        // Tight MinimaTrap → OverfitVolley combo.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::MinimaTrap,
-                            duration: 0.7,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::MinimaTrap,
-                            duration: 0.5,
-                        },
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::OverfitVolley,
-                            duration: 0.7,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::OverfitVolley,
-                            duration: 0.3,
-                        },
-                        BossPatternStep::Rest { duration: 0.6 },
-                        // Faster SaddlePoint — shorter total + tighter
-                        // axis-period via per-spec tuning lives in
-                        // the consumer (current consumer uses one
-                        // shared `axis_period_s`; enrage variant is
-                        // exposed via a smaller `duration` field on
-                        // the strike so total exposure is shorter).
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::SaddlePoint,
-                            duration: 1.0,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::SaddlePoint,
-                            duration: 3.0,
-                        },
-                        // GradientLane closer for the final punish.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GradientLane,
-                            duration: 0.7,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GradientLane,
-                            duration: 0.8,
-                        },
-                        BossPatternStep::Rest { duration: 1.2 },
-                    ],
-                },
-            },
-            attack_origin_offset: ae::Vec2::ZERO,
-        }
+        Self::from_data("clockwork_warden")
     }
 
+    /// Mockingbird — airborne ship/bird-like Cycle boss.
+    /// Authored in `boss_profiles.ron`.
     pub fn mockingbird() -> Self {
-        Self {
-            id: "mockingbird".into(),
-            combat_size: Some(ae::Vec2::new(500.0, 185.0)),
-            movement: BossMovementProfile::AirSwoop {
-                x_radius: 250.0,
-                y_radius: 62.0,
-                x_frequency: 0.56,
-                y_frequency: 1.35,
-                chase_scale: 0.08,
-                chase_limit: 95.0,
-                speed: 320.0,
-            },
-            movement_phase2: None,
-            movement_enrage: None,
-            strike_speed_scale: 1.0,
-            macro_tuning: crate::brain::BossMacroTuning::disabled(),
-            attacks: vec![
-                BossAttackProfile::WingSweep,
-                BossAttackProfile::DiveLane,
-                BossAttackProfile::Broadside,
-            ],
-            attack_cooldown: 1.05,
-            attack_windup: 0.44,
-            attack_active: 0.28,
-            attack_damage: 2,
-            body_damage: 1,
-            attack_pattern: BossAttackPattern::Cycle,
-            attack_origin_offset: ae::Vec2::ZERO,
-        }
+        Self::from_data("mockingbird")
     }
 
-    /// GNU-ton: stationary giant with wide-ranging hand attacks.
-    ///
-    /// Unique pacing among bosses: scripted timeline with explicit *rest*
-    /// beats between strikes so the player can read each windup, react,
-    /// and learn the sequence. The other bosses (clockwork_warden,
-    /// mockingbird) keep the fast `Cycle` rhythm — the contrast itself is
-    /// the design intent. GNU-ton should feel like a slow, deliberate
-    /// monolith; the other bosses feel like dueling opponents.
-    ///
-    /// Phase pacing (longer than other bosses by design):
-    /// - Intro: single show-of-force slam (no rest after) to set tone
-    /// - Phase 1: ~9s — slam → rest → sweep → rest → slam → long rest
-    /// - Transition: ~3s pure rest (player gets a breath)
-    /// - Phase 2: ~12s — adds head-descent windows where the head is
-    ///   exposed and vulnerable, framed by long rests so the player
-    ///   can punish during the descent and then reset
-    /// - Enrage: ~8s — shockwave + double slam, shorter rests
+    /// GNU-ton — stationary giant with wide-ranging hand attacks.
+    /// Authored in `boss_profiles.ron`.
     pub fn gnu_ton() -> Self {
-        Self {
-            id: "gnu_ton".into(),
-            // The sprite is huge, but the boss entity itself is anchored to
-            // the shoulder ridge under the scholar. GNU-ton's damaging and
-            // vulnerable regions are generated from named sprite parts, so
-            // this combat size is only the movement/placeholder envelope.
-            combat_size: Some(ae::Vec2::new(220.0, 220.0)),
-            movement: BossMovementProfile::StationaryGiant {
-                sway_amplitude: 6.0,
-                sway_frequency: 0.28,
-                speed: 40.0,
-            },
-            movement_phase2: None,
-            movement_enrage: None,
-            strike_speed_scale: 1.0,
-            macro_tuning: crate::brain::BossMacroTuning::disabled(),
-            // Legacy `attacks` is unused for Scripted bosses — keep it for
-            // diagnostics so `boss inspect` style tooling can still list
-            // the attack vocabulary.
-            attacks: vec![
-                BossAttackProfile::GnuHandSlam,
-                BossAttackProfile::GnuHandSweep,
-                BossAttackProfile::GnuHeadDescent,
-                BossAttackProfile::GnuShockwave,
-                BossAttackProfile::GnuAppleRain,
-            ],
-            attack_cooldown: 0.0,
-            attack_windup: 0.0,
-            attack_active: 0.0,
-            attack_damage: 2,
-            body_damage: 0, // no contact damage from the offscreen body
-            attack_pattern: BossAttackPattern::Scripted {
-                intro: BossPattern {
-                    steps: vec![
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 1.6,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 0.55,
-                        },
-                        BossPatternStep::Rest { duration: 1.4 },
-                    ],
-                },
-                phase1: BossPattern {
-                    steps: vec![
-                        // Hand slam from above, long telegraph so the player
-                        // sees the arms rise.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 1.6,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 0.55,
-                        },
-                        BossPatternStep::Rest { duration: 1.2 },
-                        // Side sweep — a totally different motion / hitbox shape.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuHandSweep,
-                            duration: 1.4,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuHandSweep,
-                            duration: 0.50,
-                        },
-                        BossPatternStep::Rest { duration: 1.0 },
-                        // Apple rain: the scholar gestures up and apples
-                        // fall around the player. Strike window is long
-                        // enough to drop ~4 apples at the chosen interval.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuAppleRain,
-                            duration: 1.0,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuAppleRain,
-                            duration: 2.2,
-                        },
-                        BossPatternStep::Rest { duration: 1.0 },
-                        // Repeat the slam to reward memorizers.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 1.6,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 0.55,
-                        },
-                        // Long breather closes the cycle.
-                        BossPatternStep::Rest { duration: 1.8 },
-                    ],
-                },
-                transition: BossPattern {
-                    steps: vec![BossPatternStep::Rest { duration: 3.0 }],
-                },
-                phase2: BossPattern {
-                    steps: vec![
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 1.4,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 0.55,
-                        },
-                        BossPatternStep::Rest { duration: 1.0 },
-                        // Long head-descent: head is the vulnerable target;
-                        // duration matches the score so the music's
-                        // "harpsichord exposure" beat lands in this window.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuHeadDescent,
-                            duration: 1.8,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuHeadDescent,
-                            duration: 1.4,
-                        },
-                        BossPatternStep::Rest { duration: 1.4 },
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuHandSweep,
-                            duration: 1.4,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuHandSweep,
-                            duration: 0.50,
-                        },
-                        BossPatternStep::Rest { duration: 2.0 },
-                    ],
-                },
-                enrage: BossPattern {
-                    steps: vec![
-                        // Faster pace, no head exposure: it's punishing.
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 0.90,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuHandSlam,
-                            duration: 0.45,
-                        },
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuHandSweep,
-                            duration: 0.90,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuHandSweep,
-                            duration: 0.45,
-                        },
-                        BossPatternStep::Rest { duration: 0.6 },
-                        BossPatternStep::Telegraph {
-                            profile: BossAttackProfile::GnuShockwave,
-                            duration: 1.10,
-                        },
-                        BossPatternStep::Strike {
-                            profile: BossAttackProfile::GnuShockwave,
-                            duration: 0.70,
-                        },
-                        BossPatternStep::Rest { duration: 1.2 },
-                    ],
-                },
-            },
-            attack_origin_offset: ae::Vec2::ZERO,
-        }
+        Self::from_data("gnu_ton")
     }
 
+    /// Fallback profile for authored bosses whose canonical id isn't
+    /// in `boss_profiles.ron`. Clones the Clockwork Warden's tuning
+    /// and overrides the id so the encounter pipeline doesn't fault
+    /// when an unknown boss spawns.
     pub fn generic(id: impl Into<String>) -> Self {
         let mut profile = Self::clockwork_warden();
         profile.id = id.into();
         profile
     }
 
+    /// Resolve a boss profile from an authored display name or
+    /// canonical id. Matches the encounter-id slug against the
+    /// known bosses in `boss_profiles.ron`; falls back to a generic
+    /// clone if the slug isn't a registered boss.
     pub fn for_authored_boss(id_or_name: &str) -> Self {
         let key = crate::boss_encounter::encounter_id_from_name(id_or_name);
         match key.as_str() {
@@ -773,6 +364,45 @@ pub fn boss_special_for_profile(
             let _ = boss; // future per-boss tuning may read it
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod boss_profile_data_tests {
+    use super::*;
+
+    /// `assets/data/boss_profiles.ron` must carry a row for every
+    /// boss the codebase has a constructor for. Without this, the
+    /// `from_data` lookup would panic at the first spawn of a
+    /// missing boss.
+    #[test]
+    fn ron_carries_every_known_boss() {
+        for id in ["clockwork_warden", "mockingbird", "gnu_ton"] {
+            assert!(
+                BOSS_PROFILE_REGISTRY.contains_key(id),
+                "boss_profiles.ron missing row for '{id}'",
+            );
+        }
+    }
+
+    /// Spot-check the legacy pre-data values for a divergent
+    /// archetype: the Clockwork Warden's macro tuning and attack
+    /// damage. Catches accidental tuning drift on the row the
+    /// player notices first.
+    #[test]
+    fn legacy_baseline_pins() {
+        let warden = BossBehaviorProfile::clockwork_warden();
+        assert_eq!(warden.id, "clockwork_warden");
+        assert_eq!(warden.attack_damage, 2);
+        assert_eq!(warden.body_damage, 1);
+        assert!((warden.strike_speed_scale - 0.20).abs() < f32::EPSILON);
+        assert!((warden.macro_tuning.too_close_distance - 110.0).abs() < f32::EPSILON);
+        assert!((warden.macro_tuning.engage_max_duration_s - 9.0).abs() < f32::EPSILON);
+        let gnu = BossBehaviorProfile::gnu_ton();
+        assert_eq!(gnu.body_damage, 0);
+        assert_eq!(gnu.attacks.len(), 5);
+        let mocker = BossBehaviorProfile::mockingbird();
+        assert!(matches!(mocker.attack_pattern, BossAttackPattern::Cycle));
     }
 }
 

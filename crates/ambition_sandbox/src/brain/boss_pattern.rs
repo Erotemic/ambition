@@ -47,7 +47,7 @@ use bevy::prelude::Component;
 
 /// Movement family for a live boss actor. Encounter phases decide *when* a boss
 /// is active; this profile decides how the authored actor moves while active.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum BossMovementProfile {
     /// Existing grounded/hovering sentinel feel: stay near the authored spawn,
     /// sway horizontally, and chase the player a little without abandoning the
@@ -150,7 +150,7 @@ impl BossMovementProfile {
 /// player read the telegraph, react, and then learn the sequence over time.
 /// Bosses without a scripted pattern fall back to the older
 /// `attack_cooldown`-driven cycle through `BossBehaviorProfile::attacks`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum BossPatternStep {
     /// Boss is winding up: telegraph volumes draw, no damage yet.
     Telegraph {
@@ -167,7 +167,7 @@ pub enum BossPatternStep {
 }
 
 /// A full attack script for one boss phase. Loops when it reaches the end.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
 pub struct BossPattern {
     pub steps: Vec<BossPatternStep>,
 }
@@ -179,7 +179,7 @@ impl BossPattern {
 }
 
 /// How a boss decides which attack hitbox is active each frame.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum BossAttackPattern {
     /// Legacy cycle: rotate through `BossBehaviorProfile::attacks` using the
     /// flat windup / active / cooldown durations on the profile. Cheap, but
@@ -227,7 +227,7 @@ impl BossAttackPattern {
 /// reads boss pos / spawn / combat_size / is_gnu_ton; this enum is
 /// pure data so the brain can pick a profile without touching the
 /// runtime.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum BossAttackProfile {
     FloorSlam,
     SideSweep,
@@ -525,7 +525,7 @@ impl BossMacroState {
 /// dance leave these at the zero defaults — the state machine then
 /// permanently stays in `Engage` and the legacy "always move via
 /// movement profile" behavior holds.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct BossMacroTuning {
     /// Distance (px) below which the boss flees the player to
     /// avoid cornering. Set to 0 to disable the too-close trigger.

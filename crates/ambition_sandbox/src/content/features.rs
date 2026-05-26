@@ -19,7 +19,9 @@ const ENEMY_MAX_FALL: f32 = 760.0;
 // same baseline, prefer one inline literal per row over re-introducing
 // a shared const here.
 const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
-const BOSS_ATTACK_COOLDOWN: f32 = 1.35;
+// BOSS_ATTACK_COOLDOWN retired by the boss-profile data-driven
+// migration — each profile in `boss_profiles.ron` carries its own
+// `attack_cooldown`. The clockwork_warden default (1.35) lives there.
 const BREAK_ON_STAND_SECONDS: f32 = 0.85;
 
 /// Gravity (px/s²) used by the falling-chest tick. Lighter than the

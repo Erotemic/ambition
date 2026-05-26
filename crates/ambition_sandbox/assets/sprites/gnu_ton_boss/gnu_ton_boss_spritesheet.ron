@@ -5,6 +5,86 @@
         label_width: 0,
         frame_width: 768,
         frame_height: 576,
+        // body_metrics drives the data-driven hit/hurt-box pipeline
+        // (same path the gradient sentinel uses). Pixel coordinates
+        // are in the 768×576 sprite frame; the frame center sits at
+        // (384, 288) which is also where the boss entity position
+        // (`boss.pos`) lands in world space.
+        //
+        // Design-space origin in the GNU-ton generator is the frame
+        // center; the conversion is `pixel = (384 + design_x, 288 + design_y)`.
+        // See `tools/ambition_sprite2d_renderer/.../gnu_ton_boss/sprite_generator.py`
+        // for the source constants (REST_HEAD_Y, REST_HAND_X,
+        // SLAM_STRIKE_Y, etc.).
+        //
+        // `body_pixel_bbox` / `body_pixel_parts` are deliberately
+        // omitted: GNU-ton's hand-tuned `combat_size = (220, 220)`
+        // is set in `BossBehaviorProfile::gnu_ton()` and the derive
+        // step only overwrites when `has_body()` is true, so leaving
+        // them empty preserves the legacy combat envelope. The
+        // per-animation hurtbox.parts below give the damageable head;
+        // per-animation hitbox.parts give the attack volumes. No
+        // combat_offset is derived → boss stays centered on
+        // `boss.pos`, matching the legacy math.
+        //
+        // Per-animation hitboxes (boss → player):
+        //   gnu_hand_slam:    two hand strike volumes at floor level
+        //   gnu_shockwave:    wide ground-level bar (slam aftermath)
+        //   gnu_hand_sweep:   two arm-arc volumes at mid-body height
+        //   gnu_head_descent: head AABB at descent position (also damages)
+        //
+        // Per-animation hurtboxes (player → boss):
+        //   ALL animations carve out just the head (the only
+        //   damageable area on GNU-ton). The head moves between
+        //   REST and DESCENT positions across the timeline.
+        body_metrics: Some((
+            animations: {
+                "rest": (
+                    hurtbox: Some((parts: [
+                        (name: "head", x: 292, y: 139, w: 184, h: 148),
+                    ])),
+                ),
+                "hit": (
+                    hurtbox: Some((parts: [
+                        (name: "head", x: 292, y: 139, w: 184, h: 148),
+                    ])),
+                ),
+                "gnu_hand_slam": (
+                    hurtbox: Some((parts: [
+                        (name: "head", x: 292, y: 139, w: 184, h: 148),
+                    ])),
+                    hitbox: Some((parts: [
+                        (name: "left_hand",  x:  71, y: 423, w: 156, h: 120),
+                        (name: "right_hand", x: 541, y: 423, w: 156, h: 120),
+                    ])),
+                ),
+                "gnu_shockwave": (
+                    hurtbox: Some((parts: [
+                        (name: "head", x: 292, y: 139, w: 184, h: 148),
+                    ])),
+                    hitbox: Some((parts: [
+                        (name: "shockwave", x: 84, y: 465, w: 600, h: 36),
+                    ])),
+                ),
+                "gnu_hand_sweep": (
+                    hurtbox: Some((parts: [
+                        (name: "head", x: 292, y: 139, w: 184, h: 148),
+                    ])),
+                    hitbox: Some((parts: [
+                        (name: "left_arc",  x:  59, y: 248, w: 280, h: 120),
+                        (name: "right_arc", x: 429, y: 248, w: 280, h: 120),
+                    ])),
+                ),
+                "gnu_head_descent": (
+                    hurtbox: Some((parts: [
+                        (name: "head", x: 292, y: 244, w: 184, h: 148),
+                    ])),
+                    hitbox: Some((parts: [
+                        (name: "head", x: 292, y: 244, w: 184, h: 148),
+                    ])),
+                ),
+            },
+        )),
         rows: [
             (
                 animation: "rest",

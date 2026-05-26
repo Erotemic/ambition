@@ -51,6 +51,13 @@ pub struct BossSpriteMetricsApplied;
 pub fn sprite_target_for_boss(behavior_id: &str) -> &str {
     match behavior_id {
         "clockwork_warden" | "gradient_sentinel" => "boss",
+        // GNU-ton's hand-tuned `gnu_ton_part_aabb` math was migrated
+        // into the standard `body_metrics` pipeline (the
+        // `gnu_ton_boss_spritesheet.ron`'s `animations` block) on
+        // 2026-05-26. Map the behavior id to that sheet target so
+        // `derive_boss_sprite_metrics` picks up the per-animation
+        // hitboxes / hurtboxes.
+        "gnu_ton" => "gnu_ton_boss",
         other => other,
     }
 }
@@ -74,7 +81,12 @@ pub fn sprite_render_size_for(target: &str, boss_size: ae::Vec2) -> ae::Vec2 {
     let spec = match target {
         "boss" => Some(sprites::BOSS_SHEET),
         "mockingbird" => Some(sprites::MOCKINGBIRD_SHEET),
-        "gnu_ton" | "gnu_ton_body" | "gnu_ton_hands" => Some(sprites::GNU_TON_SHEET),
+        // `gnu_ton_boss` is the actual sheet target ID emitted by the
+        // gnu_ton spritesheet RON. `gnu_ton_body` / `gnu_ton_hands` /
+        // `gnu_ton` (legacy aliases) stay mapped for compatibility.
+        "gnu_ton_boss" | "gnu_ton" | "gnu_ton_body" | "gnu_ton_hands" => {
+            Some(sprites::GNU_TON_SHEET)
+        }
         _ => None,
     };
     let Some(spec) = spec else {

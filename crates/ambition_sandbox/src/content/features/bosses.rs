@@ -102,17 +102,12 @@ pub const SADDLE_POINT_DAMAGE: i32 = 2;
 /// the next attack lands.
 pub const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
 
-/// Design-space y anchor on the shoulder ridge in the regenerated
-/// 768×576 GNU-ton sprite (REST_BODY_Y 60 - 62 = -2). Public so the
-/// pure volume helpers in `boss_attack_geometry` can read it without
-/// duplicating the constant. Must stay in lockstep with
-/// `boss_encounter::sprites::GNU_TON_SHEET::feet_anchor_y`.
-pub const GNU_TON_ANCHOR_Y: f32 = -2.0;
-
-// `GNU_TON_COLLISION_SCALE`, `GNU_TON_FRAME_HEIGHT`, and
-// `gnu_ton_sprite_scale` live in
-// `crate::content::features::boss_attack_geometry` next to the
-// part-AABB math that consumes them.
+// `GNU_TON_ANCHOR_Y`, `GNU_TON_COLLISION_SCALE`, `GNU_TON_FRAME_HEIGHT`,
+// and `gnu_ton_sprite_scale` were retired in the 2026-05-26
+// data-driven migration. The GNU-ton per-animation hit / hurt-box
+// geometry lives in `gnu_ton_boss_spritesheet.ron`'s
+// `body_metrics.animations` map and flows through the generic
+// `world_aabb_from_pixel_rect` transform the gradient sentinel uses.
 
 /// Live sandbox-side behavior tuning for a boss. This is deliberately separate
 /// from `ae::BossEncounterSpec`: the engine spec owns phase progression and HP
@@ -1069,10 +1064,22 @@ pub fn boss_animation_for_profile(
         | BossAttackProfile::MinimaTrap
         | BossAttackProfile::SaddlePoint
         | BossAttackProfile::GradientCascade => Some("spike_halo"),
-        // Other-boss profiles (mockingbird / gnu_ton) aren't part
-        // of the clockwork sheet; return None so the consumer
-        // falls back to hardcoded math if they accidentally land
-        // on a clockwork-sheet boss.
+        // GNU-ton profiles map to per-profile keys in the
+        // gnu_ton_boss spritesheet RON. Both `GnuHandSlam` and
+        // `GnuShockwave` happen during the same `hand_slam` row
+        // visually, but they have separate hitboxes (hand strikes
+        // vs ground shockwave), so the keys diverge — the spritesheet
+        // animator still requests `BossAnim::FloorSlam` for both.
+        BossAttackProfile::GnuHandSlam => Some("gnu_hand_slam"),
+        BossAttackProfile::GnuShockwave => Some("gnu_shockwave"),
+        BossAttackProfile::GnuHandSweep => Some("gnu_hand_sweep"),
+        BossAttackProfile::GnuHeadDescent => Some("gnu_head_descent"),
+        // Apple rain damages via spawned projectile bodies, not a
+        // body-mounted AABB — no hitbox lookup needed.
+        BossAttackProfile::GnuAppleRain => None,
+        // Remaining profiles (WingSweep / DiveLane / Broadside)
+        // belong to the legacy aerial bosses that still rely on
+        // `volumes_for_profile`'s fallback math.
         _ => None,
     }
 }
@@ -1241,9 +1248,11 @@ impl BossRuntime {
     /// center. Non-zero for bosses whose sprite metadata indicates
     /// the body bbox is off-center within the sprite frame
     /// (gradient sentinel: ~(-6, -35) at 128×160 spawn). Zero for
-    /// bosses without sprite_metrics (GNU-ton's hand-tuned math
-    /// already encodes the body position in `gnu_ton_part_aabb`,
-    /// so it doesn't go through the sprite-metadata path).
+    /// bosses without sprite_metrics, or for bosses whose RON
+    /// deliberately leaves `body_pixel_bbox` / `body_pixel_parts`
+    /// empty so the derivation step doesn't overwrite a hand-tuned
+    /// `combat_size` (GNU-ton: keeps the authored (220, 220)
+    /// envelope; per-animation volumes still come from the RON).
     pub fn combat_offset(&self) -> ae::Vec2 {
         self.sprite_metrics
             .as_ref()

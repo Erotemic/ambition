@@ -27,8 +27,7 @@ use ambition_engine as ae;
 use crate::brain::{BossAttackProfile, BossAttackState};
 use crate::presentation::character_sprites::registry::{BodyMetrics, PixelRect};
 
-use super::bosses::{BossBehaviorProfile, BossRuntime, GNU_TON_ANCHOR_Y};
-use super::gnu_ton_design;
+use super::bosses::{BossBehaviorProfile, BossRuntime};
 
 // =================================================================
 // Sprite-metadata-driven body AABB derivation
@@ -177,7 +176,6 @@ pub struct BossVolumeContext<'a> {
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
     pub combat_size: ae::Vec2,
-    pub is_gnu_ton: bool,
     pub behavior: &'a BossBehaviorProfile,
     pub attack_state: &'a BossAttackState,
     /// Sprite-driven body metrics. `Some` for bosses whose sprite
@@ -189,14 +187,15 @@ pub struct BossVolumeContext<'a> {
 
 impl<'a> BossVolumeContext<'a> {
     /// Build the context from a live boss runtime + its attack-state
-    /// component. The runtime contributes only body fields (pos /
-    /// size / combat_size / is_gnu_ton), not policy.
+    /// component. The runtime contributes only body fields, not
+    /// policy. `is_gnu_ton` used to be carried separately for the
+    /// hand-tuned volume path; the data-driven sprite_metrics path
+    /// makes that special-case unnecessary.
     pub fn from_runtime(boss: &'a BossRuntime, attack_state: &'a BossAttackState) -> Self {
         Self {
             pos: boss.pos,
             size: boss.size,
             combat_size: boss.combat_size(),
-            is_gnu_ton: boss.is_gnu_ton(),
             behavior: &boss.behavior,
             attack_state,
             sprite_metrics: boss.sprite_metrics.as_ref(),
@@ -223,14 +222,7 @@ pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     if let Some(volumes) = sprite_authored_volumes(ctx, profile) {
         return volumes;
     }
-    volumes_for_profile(
-        profile,
-        ctx.pos,
-        ctx.size,
-        ctx.combat_size,
-        ctx.behavior,
-        ctx.is_gnu_ton,
-    )
+    volumes_for_profile(profile, ctx.pos, ctx.size, ctx.combat_size, ctx.behavior)
 }
 
 /// Telegraph volumes — drawn yellow in the debug overlay. Returns
@@ -244,14 +236,7 @@ pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     if let Some(volumes) = sprite_authored_volumes(ctx, profile) {
         return volumes;
     }
-    volumes_for_profile(
-        profile,
-        ctx.pos,
-        ctx.size,
-        ctx.combat_size,
-        ctx.behavior,
-        ctx.is_gnu_ton,
-    )
+    volumes_for_profile(profile, ctx.pos, ctx.size, ctx.combat_size, ctx.behavior)
 }
 
 /// Pull sprite-author-declared hitbox rectangles for the given
@@ -315,109 +300,86 @@ fn sprite_world_size(
 /// hit independently. GNU-ton's hand-tuned head/descent path
 /// stays as-is until the multi-rect metadata is authored.
 pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
-    // Priority:
+    // Priority (uniform across every boss now that GNU-ton's
+    // hand-tuned head path was migrated into its spritesheet RON
+    // — `gnu_ton_boss_spritesheet.ron` carries per-animation
+    // `hurtbox.parts` that this function picks up below):
     //   1. Per-animation hurtbox for the currently-playing animation
     //      (attack frames with extended arms get a wider hurtbox
-    //      than the rest pose).
+    //      than the rest pose; GNU-ton's "gnu_head_descent" anim
+    //      carves out a head-only hurtbox at the descent position).
     //   2. Static `body_pixel_parts` (multi-rect body for disjointed
     //      characters).
     //   3. Static `body_pixel_bbox` (single-rect alpha bbox).
     //   4. `combat_size`-driven fallback (legacy bosses without
     //      sprite metadata).
-    if !ctx.is_gnu_ton {
-        if let Some(metrics) = ctx.sprite_metrics {
-            // Scale pixel rects to the visible sprite size, not the
-            // smaller LDtk spawn AABB. See `sprite_world_size` for
-            // the rationale.
-            let world_size = sprite_world_size(metrics, ctx.size);
-            // (1) Per-animation hurtbox. The current animation is
-            // derived from the boss's `BossAttackState` —
-            // `active_profile`'s animation when a strike is live,
-            // `telegraph_profile`'s when a windup is showing,
-            // `"rest"` otherwise. This matches the visible sprite
-            // pose so a side-sweep's extended arms register as
-            // damageable, while the rest pose's tight body bbox
-            // wins when the boss is idle.
-            let active_anim = ctx
-                .attack_state
-                .active_profile
-                .as_ref()
-                .and_then(super::bosses::boss_animation_for_profile)
-                .or_else(|| {
-                    ctx.attack_state
-                        .telegraph_profile
-                        .as_ref()
-                        .and_then(super::bosses::boss_animation_for_profile)
-                })
-                .unwrap_or("rest");
-            if let Some(box_) = metrics.hurtbox_for_animation(active_anim) {
-                if box_.is_populated() {
-                    let aabbs = world_space_body_aabbs_from_parts(
-                        &box_.parts,
-                        box_.bbox,
-                        metrics.frame_width,
-                        metrics.frame_height,
-                        ctx.pos,
-                        world_size,
-                    );
-                    if !aabbs.is_empty() {
-                        return aabbs;
-                    }
-                }
-            }
-            // (2) Static multi-part body.
-            if !metrics.body_pixel_parts.is_empty() {
-                let mut parts = Vec::with_capacity(metrics.body_pixel_parts.len());
-                for part in &metrics.body_pixel_parts {
-                    parts.push(world_aabb_from_pixel_rect(
-                        part.rect(),
-                        metrics.frame_width,
-                        metrics.frame_height,
-                        ctx.pos,
-                        world_size,
-                    ));
-                }
-                return parts;
-            }
-            // (3) Static single-rect body.
-            if let Some(bbox) = metrics.body_pixel_bbox {
-                return vec![world_aabb_from_pixel_rect(
-                    bbox,
+    if let Some(metrics) = ctx.sprite_metrics {
+        // Scale pixel rects to the visible sprite size, not the
+        // smaller LDtk spawn AABB. See `sprite_world_size` for
+        // the rationale.
+        let world_size = sprite_world_size(metrics, ctx.size);
+        // (1) Per-animation hurtbox. The current animation is
+        // derived from the boss's `BossAttackState` —
+        // `active_profile`'s animation when a strike is live,
+        // `telegraph_profile`'s when a windup is showing,
+        // `"rest"` otherwise. This matches the visible sprite
+        // pose so a side-sweep's extended arms register as
+        // damageable, while the rest pose's tight body bbox
+        // wins when the boss is idle.
+        let active_anim = ctx
+            .attack_state
+            .active_profile
+            .as_ref()
+            .and_then(super::bosses::boss_animation_for_profile)
+            .or_else(|| {
+                ctx.attack_state
+                    .telegraph_profile
+                    .as_ref()
+                    .and_then(super::bosses::boss_animation_for_profile)
+            })
+            .unwrap_or("rest");
+        if let Some(box_) = metrics.hurtbox_for_animation(active_anim) {
+            if box_.is_populated() {
+                let aabbs = world_space_body_aabbs_from_parts(
+                    &box_.parts,
+                    box_.bbox,
                     metrics.frame_width,
                     metrics.frame_height,
                     ctx.pos,
                     world_size,
-                )];
+                );
+                if !aabbs.is_empty() {
+                    return aabbs;
+                }
             }
         }
-        // (4) Legacy fallback: combat_size-driven single AABB.
-        return vec![ae::Aabb::new(ctx.pos, ctx.combat_size * 0.5)];
+        // (2) Static multi-part body.
+        if !metrics.body_pixel_parts.is_empty() {
+            let mut parts = Vec::with_capacity(metrics.body_pixel_parts.len());
+            for part in &metrics.body_pixel_parts {
+                parts.push(world_aabb_from_pixel_rect(
+                    part.rect(),
+                    metrics.frame_width,
+                    metrics.frame_height,
+                    ctx.pos,
+                    world_size,
+                ));
+            }
+            return parts;
+        }
+        // (3) Static single-rect body.
+        if let Some(bbox) = metrics.body_pixel_bbox {
+            return vec![world_aabb_from_pixel_rect(
+                bbox,
+                metrics.frame_width,
+                metrics.frame_height,
+                ctx.pos,
+                world_size,
+            )];
+        }
     }
-    // GNU-ton's head is always damageable (the descent windows just
-    // move it down to player level so the player doesn't have to
-    // climb). The center + half-size data for both poses lives in
-    // `gnu_ton_design` so future migration to the sprite RON only
-    // needs to move that one module's contents into a
-    // `body_metrics.animations[<profile>].hurtbox.parts` block —
-    // not edit volume math.
-    let head_descending = matches!(
-        ctx.attack_state.active_profile,
-        Some(BossAttackProfile::GnuHeadDescent)
-    ) || matches!(
-        ctx.attack_state.telegraph_profile,
-        Some(BossAttackProfile::GnuHeadDescent)
-    );
-    let head_center = if head_descending {
-        gnu_ton_design::HEAD_DESCENT_CENTER
-    } else {
-        gnu_ton_design::HEAD_REST_CENTER
-    };
-    vec![gnu_ton_part_aabb(
-        ctx.pos,
-        ctx.size,
-        head_center,
-        gnu_ton_design::HEAD_HALF_SIZE,
-    )]
+    // (4) Legacy fallback: combat_size-driven single AABB.
+    vec![ae::Aabb::new(ctx.pos, ctx.combat_size * 0.5)]
 }
 
 /// Body-contact damage AABB. Stays at the runtime's combat envelope
@@ -521,32 +483,19 @@ pub fn boss_attack_damage(
 }
 
 /// World-space hitbox volumes for a specific attack profile. Pure
-/// function of the profile + body fields. GNU-ton dispatches to its
-/// part-anchored math; ordinary bosses use the generic
-/// origin + offset shapes.
+/// function of the profile + body fields. Used as the fallback path
+/// when the boss has no `sprite_metrics`-driven per-animation
+/// hitbox. The gradient sentinel and (since 2026-05-26) GNU-ton
+/// route through `sprite_authored_volumes` instead — the match
+/// arms here are still required for bosses whose sprite RONs don't
+/// yet carry per-animation hitbox.parts.
 pub fn volumes_for_profile(
     attack: &BossAttackProfile,
     pos: ae::Vec2,
     size: ae::Vec2,
     combat_size: ae::Vec2,
     behavior: &BossBehaviorProfile,
-    is_gnu_ton: bool,
 ) -> Vec<ae::Aabb> {
-    if is_gnu_ton {
-        // Pull the per-profile design-space parts from the data
-        // table in `gnu_ton_design`. Volume math stays uniform
-        // (`gnu_ton_part_aabb` consumes each part); the only thing
-        // that's per-profile is the parts list. When GNU-ton's
-        // sprite generator starts emitting `body_metrics.animations.
-        // <profile>.hitbox.parts` into the spritesheet RON, this
-        // whole `if is_gnu_ton` block can be removed and the
-        // gradient-sentinel-style `sprite_authored_volumes` will
-        // produce the same world AABBs without a special case.
-        return gnu_ton_design::parts_for_profile(attack)
-            .iter()
-            .map(|spec| gnu_ton_part_aabb(pos, size, spec.center, spec.half_size))
-            .collect();
-    }
     let size = combat_size;
     let origin = pos + behavior.attack_origin_offset;
     match attack {
@@ -632,29 +581,14 @@ pub fn volumes_for_profile(
     }
 }
 
-/// GNU-ton part-AABB math. Pure function of body pos + sprite size
-/// + design-space coordinates from the sprite generator.
-pub fn gnu_ton_part_aabb(
-    pos: ae::Vec2,
-    size: ae::Vec2,
-    design_center: ae::Vec2,
-    design_half_size: ae::Vec2,
-) -> ae::Aabb {
-    let scale = gnu_ton_sprite_scale(size);
-    let center = pos
-        + ae::Vec2::new(
-            design_center.x * scale,
-            (design_center.y - GNU_TON_ANCHOR_Y) * scale,
-        );
-    ae::Aabb::new(center, design_half_size * scale)
-}
-
-const GNU_TON_COLLISION_SCALE: f32 = 4.5;
-const GNU_TON_FRAME_HEIGHT: f32 = 576.0;
-
-fn gnu_ton_sprite_scale(collision_size: ae::Vec2) -> f32 {
-    collision_size.x.max(collision_size.y).max(8.0) * GNU_TON_COLLISION_SCALE / GNU_TON_FRAME_HEIGHT
-}
+// `gnu_ton_part_aabb` / `gnu_ton_sprite_scale` /
+// `GNU_TON_COLLISION_SCALE` / `GNU_TON_FRAME_HEIGHT` were retired
+// in the 2026-05-26 data-driven migration. GNU-ton's per-animation
+// hit/hurt-box geometry now lives in
+// `gnu_ton_boss_spritesheet.ron`'s `body_metrics.animations` map,
+// and `world_aabb_from_pixel_rect` (the generic pixel→world
+// transform that the gradient sentinel uses) produces the same
+// world AABBs the hand-tuned math used to.
 
 #[cfg(test)]
 mod sprite_metadata_derivation_tests {
@@ -917,7 +851,6 @@ mod sprite_metadata_derivation_tests {
             pos: ae::Vec2::new(640.0, 656.0),
             size: ae::Vec2::new(128.0, 160.0),
             combat_size: ae::Vec2::new(54.0, 56.0),
-            is_gnu_ton: false,
             behavior: &behavior,
             attack_state: &attack_state,
             sprite_metrics: Some(&metrics),
@@ -985,7 +918,6 @@ mod sprite_metadata_derivation_tests {
             pos: ae::Vec2::ZERO,
             size: ae::Vec2::new(128.0, 160.0),
             combat_size: ae::Vec2::new(54.0, 56.0),
-            is_gnu_ton: false,
             behavior: &behavior,
             attack_state: &attack_state,
             sprite_metrics: Some(metrics),

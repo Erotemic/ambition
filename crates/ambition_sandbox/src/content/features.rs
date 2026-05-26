@@ -38,7 +38,6 @@ pub mod components;
 mod ecs;
 mod enemies;
 mod events;
-mod gnu_ton_design;
 mod hazards;
 mod npcs;
 mod path_motion;

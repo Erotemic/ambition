@@ -1,0 +1,6 @@
+level_id: basement_enemies
+edits:
+  - target:
+      iid: EnemySpawn-0140
+    fields:
+      brain: "Patrol:enemy_patrol_path_a"

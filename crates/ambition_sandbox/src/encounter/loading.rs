@@ -20,12 +20,8 @@ pub fn load_encounter_specs_from_ldtk(
     let mut out = Vec::new();
     for level in &project.levels {
         let area_id = level.active_area();
-        let Some(layer) = level.ambition_layer() else {
-            continue;
-        };
-        let Some(trigger) = layer
-            .entity_instances
-            .iter()
+        let Some(trigger) = level
+            .all_entity_instances()
             .find(|e| e.identifier == "EncounterTrigger")
         else {
             continue;

@@ -179,6 +179,15 @@ def cmd_def(args, rest):
     return _todo(f"def {args.def_action}")
 
 
+def cmd_layer(args, rest):
+    if args.layer_action == "split-entities":
+        return _delegate(
+            "ambition_ldtk_tools.edit.layer_split_entities",
+            [args.layer_action, *rest],
+        )
+    return _todo(f"layer {args.layer_action}")
+
+
 def cmd_tileset(args, rest):
     if args.tileset_action == "add":
         # The tileset module's argparse owns its surface; prepend the
@@ -394,6 +403,21 @@ def build_parser() -> argparse.ArgumentParser:
     link_sub.add_parser("remove")
     link_sub.add_parser("check")
     sp_link.set_defaults(func=cmd_link)
+
+    # layer {split-entities}
+    sp_layer = sub.add_parser("layer", help="Layer-level edits")
+    layer_sub = sp_layer.add_subparsers(dest="layer_action", required=True)
+    layer_sub.add_parser(
+        "split-entities",
+        help=(
+            "Move all entities of one `__identifier` into their own "
+            "Entities-type layer so the editor can lock/hide that layer "
+            "independently. Usage: layer split-entities <ldtk> "
+            "--type CameraZone --to-layer AmbitionCameras "
+            "[--from-layer Ambition] (--in-place | --output PATH)"
+        ),
+    )
+    sp_layer.set_defaults(func=cmd_layer)
 
     # intgrid {summarize,erase,paint}
     sp_intgrid = sub.add_parser("intgrid", help="IntGrid layer edits")

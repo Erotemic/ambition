@@ -156,10 +156,7 @@ pub fn compute_intro_flag_gated_lock_walls(
         if level.active_area() != active_room_id {
             continue;
         }
-        let Some(layer) = level.ambition_layer() else {
-            continue;
-        };
-        for entity in &layer.entity_instances {
+        for entity in level.all_entity_instances() {
             if entity.identifier != "LockWall" {
                 continue;
             }

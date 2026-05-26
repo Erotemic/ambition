@@ -70,10 +70,7 @@ impl LdtkProject {
         let mut links = Vec::new();
         for level in &self.levels {
             let from_room = level.active_area();
-            let Some(layer) = level.ambition_layer() else {
-                continue;
-            };
-            for entity in &layer.entity_instances {
+            for entity in level.all_entity_instances() {
                 if entity.identifier != "LoadingZone" {
                     continue;
                 }
@@ -144,14 +141,17 @@ impl LdtkProject {
             // exits, transition arrivals, and camera bounds all depend on this
             // convention staying stable.
             let offset = ae::Vec2::new(level.world_x as f32 - min_x, level.world_y as f32 - min_y);
-            let Some(layer) = level.ambition_layer() else {
+            if level.ambition_layer().is_none() {
                 errors.push(format!(
                     "level '{}' missing Ambition layer",
                     level.identifier
                 ));
                 continue;
-            };
-            for entity in &layer.entity_instances {
+            }
+            // Iterate every Entities-type layer in the level, not
+            // just `"Ambition"`. A side layer like `"AmbitionCameras"`
+            // holding only `CameraZone` entities is still picked up.
+            for entity in level.all_entity_instances() {
                 match entity_to_runtime(entity, offset) {
                     Ok(emission) => {
                         if emission.ignored {
@@ -268,14 +268,8 @@ impl LdtkProject {
         self.levels.iter().any(|level| {
             level.active_area() == area
                 && level
-                    .ambition_layer()
-                    .map(|layer| {
-                        layer
-                            .entity_instances
-                            .iter()
-                            .any(|entity| entity.identifier == "PlayerStart")
-                    })
-                    .unwrap_or(false)
+                    .all_entity_instances()
+                    .any(|entity| entity.identifier == "PlayerStart")
         })
     }
 }

@@ -128,11 +128,8 @@ pub fn validate_content_graph(
 /// test. Promote to an error once the slugs are aligned.
 fn validate_patrol_brain_paths(project: &LdtkProject, report: &mut ContentValidationReport) {
     for level in &project.levels {
-        let Some(layer) = level.ambition_layer() else {
-            continue;
-        };
         let mut path_ids: BTreeSet<String> = BTreeSet::new();
-        for entity in &layer.entity_instances {
+        for entity in level.all_entity_instances() {
             if entity.identifier != "KinematicPath" {
                 continue;
             }
@@ -149,7 +146,7 @@ fn validate_patrol_brain_paths(project: &LdtkProject, report: &mut ContentValida
                 }
             }
         }
-        for entity in &layer.entity_instances {
+        for entity in level.all_entity_instances() {
             if entity.identifier != "EnemySpawn" {
                 continue;
             }
@@ -207,10 +204,7 @@ fn validate_ldtk_room_links(project: &LdtkProject, report: &mut ContentValidatio
     for level in &project.levels {
         let area = level.active_area();
         *area_level_count.entry(area.clone()).or_default() += 1;
-        let Some(layer) = level.ambition_layer() else {
-            continue;
-        };
-        for entity in &layer.entity_instances {
+        for entity in level.all_entity_instances() {
             if entity.identifier != "LoadingZone" {
                 continue;
             }
@@ -301,10 +295,7 @@ fn validate_npc_dialogue_ids(project: &LdtkProject, report: &mut ContentValidati
         .copied()
         .collect::<BTreeSet<_>>();
     for level in &project.levels {
-        let Some(layer) = level.ambition_layer() else {
-            continue;
-        };
-        for entity in &layer.entity_instances {
+        for entity in level.all_entity_instances() {
             if entity.identifier != "NpcSpawn" {
                 continue;
             }
@@ -462,10 +453,7 @@ fn authored_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
     let mut ids = BTreeSet::new();
     for level in &project.levels {
         let area = level.active_area();
-        let Some(layer) = level.ambition_layer() else {
-            continue;
-        };
-        for entity in &layer.entity_instances {
+        for entity in level.all_entity_instances() {
             if entity.identifier == "EncounterTrigger" {
                 ids.insert(
                     field_string(entity, "id")
@@ -482,10 +470,7 @@ fn authored_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
 fn authored_boss_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
     let mut ids = BTreeSet::new();
     for level in &project.levels {
-        let Some(layer) = level.ambition_layer() else {
-            continue;
-        };
-        for entity in &layer.entity_instances {
+        for entity in level.all_entity_instances() {
             if entity.identifier == "BossSpawn" {
                 let name = field_string(entity, "name")
                     .map(|name| name.trim().to_string())
@@ -509,10 +494,7 @@ fn authored_pickup_ids(project: &LdtkProject) -> BTreeSet<String> {
 fn authored_entity_iids(project: &LdtkProject, identifier: &str) -> BTreeSet<String> {
     let mut ids = BTreeSet::new();
     for level in &project.levels {
-        let Some(layer) = level.ambition_layer() else {
-            continue;
-        };
-        for entity in &layer.entity_instances {
+        for entity in level.all_entity_instances() {
             if entity.identifier == identifier {
                 ids.insert(entity.iid.clone());
             }
@@ -528,10 +510,7 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
         crate::content::quest::PIRATE_TREASURE_REWARD_FLAG.to_string(),
     ]);
     for level in &project.levels {
-        let Some(layer) = level.ambition_layer() else {
-            continue;
-        };
-        for entity in &layer.entity_instances {
+        for entity in level.all_entity_instances() {
             if entity.identifier == "NpcSpawn" {
                 if let Some(dialogue_id) = field_string(entity, "dialogue_id") {
                     let dialogue_id = dialogue_id.trim();

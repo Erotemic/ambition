@@ -817,6 +817,18 @@ impl EnemyRuntime {
     /// actor/brain migration mandate, this is the seam the brain
     /// will eventually take over from — for now the legacy AI is
     /// the authority for fire/melee intent on hostile actors.
+    /// Tick the enemy: decrement timers, run the legacy AI +
+    /// choreography (still drives `ai_mode` + `choreography_state`
+    /// for HUD / animation), and integrate one kinematic step.
+    ///
+    /// When `override_frame` is `Some`, the integration uses THAT
+    /// frame's `desired_vel` / `drop_through` / facing instead of the
+    /// legacy-AI's. This is the seam the Smash brain uses to take
+    /// movement authority: actors.rs runs the brain to build a
+    /// frame, then calls `update` with that frame as the override.
+    /// The legacy choreography still ticks (so animation state
+    /// stays sensible) but its movement intent is shelved. `None` =
+    /// pre-brain behavior (legacy AI drives integration).
     pub(super) fn update(
         &mut self,
         world: &ae::World,
@@ -825,6 +837,7 @@ impl EnemyRuntime {
         slot_pos: Option<ae::Vec2>,
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
+        override_frame: Option<ae::ActorControlFrame>,
     ) -> ae::ActorControlFrame {
         // `EnemyTickOutputs` is gone — projectile spawns flow through
         // the EFFECTS-stage consumer per the actor/brain migration.
@@ -919,7 +932,11 @@ impl EnemyRuntime {
         let is_aerial = self.gravity_scale <= 0.001;
         let is_surface_walker = self.archetype == EnemyArchetype::PuppySlug;
 
-        let frame = self.build_control_frame(&ai, &choreo_tick, target_pos, is_aerial, dt);
+        let legacy_frame = self.build_control_frame(&ai, &choreo_tick, target_pos, is_aerial, dt);
+        // When the caller supplied an override (Smash brain has
+        // authority), use it for integration. Otherwise fall back to
+        // the legacy AI frame the choreography just produced.
+        let frame = override_frame.unwrap_or(legacy_frame);
 
         if is_surface_walker {
             // Surface-walker integration: the slug crawls along any

@@ -455,6 +455,15 @@ pub(super) fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
 /// Build a `SmashCfg` from the archetype's tuning row. Heavier
 /// archetypes (Brute) get a longer attack reach + slower chase;
 /// lighter archetypes (Skitter / Lurker) get a tighter engage band.
+///
+/// IMPORTANT: the archetype's `attack_range` in `enemy_archetypes.ron`
+/// is the AI-decision aggro distance (~150 px for goblins). That's
+/// the radius at which the brain commits to "I'm attacking this
+/// target", NOT the distance at which the swing actually hits. The
+/// melee swing's reach is in the `SwipeSpec::reach_px` (~28 px); the
+/// brain needs to close to roughly `body_half_width + swing_reach`
+/// before emitting MeleeAttack, otherwise the windup fires from too
+/// far away and the player walks out of the active window.
 fn smash_cfg_for_archetype(arch: super::super::enemies::EnemyArchetype) -> crate::brain::SmashCfg {
     use super::super::enemies::EnemyArchetype::*;
     use crate::brain::SmashCfg;
@@ -462,14 +471,27 @@ fn smash_cfg_for_archetype(arch: super::super::enemies::EnemyArchetype) -> crate
         LargeBrute | LargeColossus => SmashCfg::BRUTE_DEFAULT,
         _ => SmashCfg::STRIKER_DEFAULT,
     };
-    // Per-archetype tuning rows already carry chase / aggro / attack
-    // range — thread them through so the data RON stays the source
-    // of truth even for Smash-brain enemies.
+    // Per-archetype hit-band sizing. Mirrors the legacy
+    // `MeleeBruteCfg` defaults (Striker = 36 px, Brute = 44 px) so
+    // the actor closes the gap before swinging instead of windup-
+    // committing at the AI aggro distance.
+    let hit_band = match arch {
+        LargeBrute | LargeColossus => 44.0,
+        SmallSkitter | SmallLurker => 32.0,
+        _ => 36.0,
+    };
     SmashCfg {
         aggro_radius: arch.aggro_radius(),
-        attack_range: arch.attack_range().max(40.0),
-        engage_distance: arch.attack_range().max(40.0) * 1.25,
-        too_close_distance: (arch.attack_range().max(40.0) * 0.45).min(30.0),
+        attack_range: hit_band,
+        // Engage band: the brain holds position once inside this
+        // radius even if the swing is on cooldown. Slightly larger
+        // than `attack_range` so the actor doesn't bob in/out of
+        // engage as it inches forward through approach.
+        engage_distance: hit_band * 1.6,
+        // Retreat threshold — well inside the hit band so a player
+        // dashing into the goblin's space pushes it back rather
+        // than getting eaten.
+        too_close_distance: (hit_band * 0.5).max(18.0),
         chase_speed: arch.chase_speed(),
         retreat_speed: arch.chase_speed() * 0.75,
         ..base

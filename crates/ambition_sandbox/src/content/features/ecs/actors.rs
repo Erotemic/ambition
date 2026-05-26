@@ -456,29 +456,18 @@ pub fn update_ecs_actors(
                 // instead of polling overlap every tick.
                 let was_winding_up = enemy.attack_windup_timer > 0.0;
                 let was_active = enemy.attack_timer > 0.0;
-                let legacy_frame = enemy.update(
-                    &feature_world,
-                    target_pos,
-                    combat_tuning,
-                    slot_pos,
-                    nearest_neighbor,
-                    dt,
-                );
-                aabb.center = enemy.pos;
-                aabb.half_size = enemy.size * 0.5;
 
-                // Brain authority for Smash-brain actors: replace the
-                // legacy frame's attack intents with what the Smash
-                // brain produces. The legacy `enemy.update()` is
-                // still authoritative for integration THIS frame (so
-                // position uses the legacy AI's `desired_vel` and
-                // the slot board's holding-ring), but the EFFECTS
-                // stage consumes ActorControl, and that's where the
-                // Smash brain's `melee_pressed` / `attack_axis` flow
-                // through to actual hitbox spawns. Once we extract
-                // an `enemy.step_integration(&frame, …)` seam, the
-                // Smash brain takes movement authority too.
-                let frame = if let Some(brain_ref) = brain.as_deref_mut() {
+                // Smash-brain actors: run the brain FIRST to build
+                // an authoritative frame, then call `enemy.update`
+                // with that frame as the override. The override
+                // drives the integration step (so movement follows
+                // the brain — Approach, Retreat, Reposition all
+                // actually move the actor) AND lands in
+                // `ActorControl` for the EFFECTS consumers (so
+                // attacks fire). Non-Smash actors keep the legacy
+                // flow: `enemy.update` builds + integrates its own
+                // frame.
+                let brain_override = if let Some(brain_ref) = brain.as_deref_mut() {
                     if matches!(
                         brain_ref,
                         crate::brain::Brain::StateMachine(
@@ -486,28 +475,32 @@ pub fn update_ecs_actors(
                         )
                     ) {
                         let crowding = crowding_by_id.get(&enemy.id).copied();
-                        let snapshot = build_smash_snapshot(enemy, target_pos, crowding, dt);
+                        let snapshot =
+                            build_smash_snapshot(enemy, target_pos, crowding, dt);
                         let mut brain_frame = ae::ActorControlFrame::neutral();
-                        // Default to a peaceful ActionSet if the
-                        // entity is missing one (dynamic spawn case);
-                        // the Smash brain just won't emit attacks.
                         let peaceful = crate::brain::ActionSet::peaceful();
                         let actions = action_set.unwrap_or(&peaceful);
                         brain_ref.tick_with_actions(actions, &snapshot, &mut brain_frame);
-                        // Movement still comes from the legacy frame
-                        // until the integration seam lands — copy
-                        // those fields over so the Smash brain's
-                        // attack intents land but the actor doesn't
-                        // freeze in place.
-                        brain_frame.desired_vel = legacy_frame.desired_vel;
-                        brain_frame.drop_through = legacy_frame.drop_through;
-                        brain_frame
+                        Some(brain_frame)
                     } else {
-                        legacy_frame
+                        None
                     }
                 } else {
-                    legacy_frame
+                    None
                 };
+
+                let frame = enemy.update(
+                    &feature_world,
+                    target_pos,
+                    combat_tuning,
+                    slot_pos,
+                    nearest_neighbor,
+                    dt,
+                    brain_override,
+                );
+                aabb.center = enemy.pos;
+                aabb.half_size = enemy.size * 0.5;
+
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;
                 }

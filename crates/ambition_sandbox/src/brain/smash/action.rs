@@ -117,21 +117,37 @@ pub fn choose_action(
             SpecificAction::Idle
         }
         BroadMode::Reposition => {
-            // Anti-clump: sidestep along the crowding `away_dir`.
-            // Fall back to a perpendicular-to-target movement if
-            // the crowd signal didn't pick a direction.
-            let dir = if obs.crowding.away_dir.length_squared() > 0.05 {
-                signum_or(obs.crowding.away_dir.x, 0.0)
+            // Anti-clump:
+            //   - "Front" actor (closer to target than the centroid
+            //     of nearby allies): keep approaching by walking
+            //     along `away_dir.x` — which, for an actor in front,
+            //     points TOWARD the target.
+            //   - "Back" actor (further from target than the
+            //     centroid): hold position rather than retreat back
+            //     to spawn. The front engages first; once it cycles
+            //     into cooldown or moves, the back can re-evaluate.
+            //
+            // This prevents the back-goblin-retreats-forever
+            // oscillation that "always walk along away_dir" produces.
+            if obs.crowding.away_dir.length_squared() < 0.05 {
+                // Allies stacked exactly on top — no usable direction.
+                return SpecificAction::Idle;
+            }
+            let away_dir_x = signum_or(obs.crowding.away_dir.x, 0.0);
+            let toward_target_x = signum_or(obs.to_target_x, 0.0);
+            if away_dir_x.abs() < 0.001 || toward_target_x.abs() < 0.001 {
+                return SpecificAction::Idle;
+            }
+            if away_dir_x.signum() == toward_target_x.signum() {
+                // Walking AWAY from the centroid coincidentally walks
+                // TOWARD the target → we're the front actor. Push
+                // through and engage.
+                SpecificAction::Walk { dir: away_dir_x }
             } else {
-                // Pick "away from the player" as a tie-breaker so a
-                // single isolated actor still spreads in a sensible
-                // direction.
-                signum_or(-obs.to_target_x, 0.0)
-            };
-            // If we have a `Dash` available (ActionSet doesn't model
-            // it yet) we'd use it here under severe crowding. For
-            // now, just walk away.
-            SpecificAction::Walk { dir }
+                // Walking away from the centroid would walk AWAY from
+                // the target → we're the back actor. Hold the line.
+                SpecificAction::Idle
+            }
         }
         BroadMode::Recover => {
             // Stub: walk toward the target's x as a "return to
@@ -235,16 +251,35 @@ mod tests {
     }
 
     #[test]
-    fn reposition_uses_away_dir() {
+    fn reposition_front_actor_pushes_through_toward_target() {
+        // Target is to the LEFT (negative x). The actor is the
+        // "front" (closer to target than the ally behind), so the
+        // crowding away_dir points LEFT (away from the ally that
+        // sits to the right of the actor). away_dir.x sign matches
+        // toward_target.x sign → walk forward.
         let cfg = SmashCfg::STRIKER_DEFAULT;
         let actions = ActionSet::peaceful();
-        let mut obs = obs_at(300.0, false);
-        obs.crowding.away_dir = ae::Vec2::new(-1.0, 0.0); // crowd is to the right; we should sidestep left
+        let mut obs = obs_at(-300.0, false); // target on left
+        obs.crowding.away_dir = ae::Vec2::new(-1.0, 0.0); // ally is to the right of us
         let act = choose_action(&obs, BroadMode::Reposition, &cfg, &actions);
         match act {
-            SpecificAction::Walk { dir } => assert!(dir < 0.0, "got {dir}"),
+            SpecificAction::Walk { dir } => assert!(dir < 0.0, "front actor should push left toward target; got {dir}"),
             other => panic!("expected Walk, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn reposition_back_actor_holds_rather_than_retreats() {
+        // Target on the LEFT, but away_dir points RIGHT (ally is
+        // to our left, between us and target). Walking away from
+        // the centroid would mean retreating to the right. The back
+        // actor holds instead.
+        let cfg = SmashCfg::STRIKER_DEFAULT;
+        let actions = ActionSet::peaceful();
+        let mut obs = obs_at(-300.0, false);
+        obs.crowding.away_dir = ae::Vec2::new(1.0, 0.0);
+        let act = choose_action(&obs, BroadMode::Reposition, &cfg, &actions);
+        assert_eq!(act, SpecificAction::Idle, "back actor should hold; got {act:?}");
     }
 
     #[test]

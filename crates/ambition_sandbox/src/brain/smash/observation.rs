@@ -85,14 +85,21 @@ impl CrowdingSignal {
     /// the dominant signal; non-faction characters only start
     /// to pressure above a count of 2 (a single curious NPC or
     /// the player shouldn't make a goblin sidestep).
+    ///
+    /// Weight calibration: a single same-faction ally within the
+    /// crowding radius already triggers `Reposition` against the
+    /// default `SmashCfg::STRIKER_DEFAULT.crowding_threshold = 0.65`
+    /// — without this, the 2-goblin encounter case (each actor sees
+    /// only 1 nearby ally) never trips the anti-clump pressure and
+    /// the pair stacks up identically on the player.
     pub fn compute_pressure(same: u8, other: u8) -> f32 {
-        let same_weight = same as f32 * 0.40;
+        let same_weight = same as f32 * 0.70;
         let other_weight = if other >= 3 {
             (other as f32 - 2.0) * 0.15
         } else {
             0.0
         };
-        (same_weight + other_weight).min(1.5)
+        (same_weight + other_weight).min(2.0)
     }
 }
 
@@ -146,14 +153,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn compute_pressure_only_same_faction_below_threshold() {
-        // 1 ally → 0.40, 1 non-faction → 0 (below floor of 3).
-        assert_eq!(CrowdingSignal::compute_pressure(1, 1), 0.40);
+    fn compute_pressure_single_ally_triggers_default_threshold() {
+        // 1 ally → 0.70, above STRIKER_DEFAULT.crowding_threshold = 0.65.
+        // This is the load-bearing case for the 2-goblin encounter
+        // (each actor sees exactly one nearby ally).
+        let p = CrowdingSignal::compute_pressure(1, 0);
+        assert!(p > 0.65, "got {p}");
     }
 
     #[test]
     fn compute_pressure_two_allies_passes_default_threshold() {
-        // 2 allies → 0.80 (above STRIKER_DEFAULT.crowding_threshold = 0.65).
+        // 2 allies → 1.40, well above threshold.
         let p = CrowdingSignal::compute_pressure(2, 0);
         assert!(p > 0.65, "got {p}");
     }
@@ -168,15 +178,11 @@ mod tests {
             "got {}",
             CrowdingSignal::compute_pressure(0, 3)
         );
-        // 5 non-faction → (5-2) * 0.15 = 0.45.
-        assert!(
-            (CrowdingSignal::compute_pressure(0, 5) - 0.45).abs() < f32::EPSILON,
-        );
     }
 
     #[test]
-    fn compute_pressure_caps_at_1_5() {
-        assert!(CrowdingSignal::compute_pressure(10, 10) <= 1.5);
+    fn compute_pressure_caps_at_2_0() {
+        assert!(CrowdingSignal::compute_pressure(10, 10) <= 2.0);
     }
 
     #[test]

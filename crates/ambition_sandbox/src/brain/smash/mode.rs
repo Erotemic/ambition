@@ -59,17 +59,27 @@ pub fn choose_mode(
     }
 
     // --- Candidate mode ---
-    let candidate = if obs.crowding.pressure >= cfg.crowding_threshold {
-        // Anti-clump beats normal engagement. The actor visibly
-        // breaks formation to spread out.
-        BroadMode::Reposition
-    } else if obs.distance_to_target < cfg.too_close_distance {
+    //
+    // Priority order:
+    //   1. Retreat (too close to target — would be cornered)
+    //   2. Engage (in swing range — commit the attack regardless of
+    //      crowding; clumping at the moment of impact is fine)
+    //   3. Reposition (crowded with a nearby ally — sidestep before
+    //      converging)
+    //   4. Engage hold band (in engage_distance but not attack_range)
+    //   5. Approach (default — close the gap)
+    //
+    // Note: Engage outranks Reposition so a goblin already in swing
+    // range doesn't abandon a free hit to fan out. Reposition fires
+    // when the actor is still APPROACHING and another ally would
+    // pile on the same vector.
+    let candidate = if obs.distance_to_target < cfg.too_close_distance {
         BroadMode::Retreat
     } else if obs.distance_to_target <= cfg.attack_range && !obs.self_attacking {
         BroadMode::Engage
+    } else if obs.crowding.pressure >= cfg.crowding_threshold {
+        BroadMode::Reposition
     } else if obs.distance_to_target <= cfg.engage_distance {
-        // In engage band but not in attack range — hold position
-        // and look for an opening rather than darting back-and-forth.
         BroadMode::Engage
     } else {
         BroadMode::Approach

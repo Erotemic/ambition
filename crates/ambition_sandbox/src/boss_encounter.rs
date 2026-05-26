@@ -36,7 +36,11 @@ pub use damage::record_boss_damage;
 #[allow(unused_imports)] // Future callers of `record_boss_damage` will name the outcome type.
 pub use damage::BossDamageOutcome;
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
-pub use ids::{encounter_id_from_name, MOCKINGBIRD_ENCOUNTER_ID};
+pub use ids::encounter_id_from_name;
+// `MOCKINGBIRD_ENCOUNTER_ID` is no longer re-exported — the dialog
+// redirect that read it moved to the data-driven
+// `assets/data/dialogue/registry.ron` `BossCleared("mockingbird")`
+// rule. Internal tests reference it via `super::ids::MOCKINGBIRD_ENCOUNTER_ID`.
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use specs::default_boss_specs;

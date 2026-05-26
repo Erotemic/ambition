@@ -1,7 +1,7 @@
 use ambition_engine as ae;
 use bevy::prelude::*;
 
-use super::content::DialogMode;
+use super::content::{DialogRedirectGate, DIALOG_REGISTRY};
 use super::runtime::DialogState;
 use super::ui::DialogChoiceSlot;
 use crate::game_mode::GameMode;
@@ -126,41 +126,47 @@ pub fn dialog_input(
 pub fn dialog_input() {}
 
 /// Swap the live dialog branch when world state has progressed past
-/// the conversation's original prompt. Today this only affects the
-/// pirate cove: once the mockingbird's encounter is `Cleared`, the
-/// admiral and raider both pivot from "go kill the bird" to "the bird
-/// is dead, here is your reward / banter."
+/// the conversation's original prompt. Iterates the redirect rules
+/// authored in `assets/data/dialogue/registry.ron` and applies the
+/// first one whose `from` id matches the active dialogue and whose
+/// `gate` predicate passes against the current save snapshot.
 ///
-/// GENERALIZATION PLAN: this is the second piece of pirate-specific
-/// glue (the first is `boss_encounter::sync_mockingbird_treasure_chest`).
-/// When a third quest needs post-completion dialog, lift this into a
-/// data table — `(trigger_mode, gate_predicate, target_mode)` triples
-/// registered by content code — and let the system iterate. Until
-/// then, the pair-of-conditions is small enough to inline.
+/// Today this covers two families of post-quest swaps:
+/// - Boss-cleared: post-mockingbird treasure beats for the pirate
+///   admiral + raider.
+/// - Flag-set: intro chain progressions (Oiler post-stabilizer,
+///   Alice / Bob after their survey-report exchange).
+///
+/// Adding a new redirect is a one-line edit in the RON file. No
+/// system code changes needed.
 ///
 /// Runs each frame `.after(player_simulation_system).before(sync_dialog_ui)`
-/// so the redirected mode is the one the renderer reads.
+/// so the redirected id is the one the renderer reads.
 pub fn redirect_post_quest_dialog(
     mut dialogue: ResMut<DialogState>,
-    save: Res<crate::persistence::save::SandboxSave>,
+    save: Option<Res<crate::persistence::save::SandboxSave>>,
 ) {
     if !dialogue.active() {
         return;
     }
-    let bird_dead = matches!(
-        save.data()
-            .boss(crate::boss_encounter::MOCKINGBIRD_ENCOUNTER_ID),
-        ae::PersistedEncounterState::Cleared,
-    );
-    if !bird_dead {
+    let Some(save) = save else {
         return;
-    }
-    let new_mode = match dialogue.mode() {
-        DialogMode::PirateAdmiral => Some(DialogMode::PirateAdmiralAfterTreasure),
-        DialogMode::PirateRaider => Some(DialogMode::PirateRaiderAfterTreasure),
-        _ => None,
     };
-    if let Some(mode) = new_mode {
-        dialogue.set_mode(mode);
+    let data = save.data();
+    for rule in &DIALOG_REGISTRY.redirects {
+        if dialogue.dialogue_id() != rule.from {
+            continue;
+        }
+        let gated = match &rule.gate {
+            DialogRedirectGate::BossCleared(encounter_id) => matches!(
+                data.boss(encounter_id),
+                ae::PersistedEncounterState::Cleared,
+            ),
+            DialogRedirectGate::FlagSet(flag) => data.flag(flag),
+        };
+        if gated {
+            dialogue.set_dialogue_id(&rule.to);
+            return;
+        }
     }
 }

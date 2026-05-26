@@ -1,4 +1,5 @@
 use super::*;
+use super::ids::MOCKINGBIRD_ENCOUNTER_ID;
 
 #[test]
 fn encounter_id_from_name_normalizes_capitalization_and_spaces() {

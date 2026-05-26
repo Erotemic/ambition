@@ -91,55 +91,12 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
     ("gate_alice_private_lock", "bob_field_survey_received"),
 ];
 
-/// Data table for [`redirect_post_intro_dialog`]: each entry is
-/// `(pre_state, gate_flag, post_state)`. The redirector swaps a
-/// player's active dialog from the pre-state to the post-state once
-/// the gate flag is set in save. Generalized out of the original
-/// three-arm match so adding a fourth NPC swap is a one-row edit.
-pub const INTRO_DIALOG_REDIRECTS: &[(
-    crate::intro::dialog::IntroDialog,
-    &str,
-    crate::intro::dialog::IntroDialog,
-)] = {
-    use crate::intro::dialog::IntroDialog::*;
-    &[
-        (OilerIntro, "p1_stabilizer_received", OilerPostStabilizer),
-        (
-            AliceIntroStub,
-            "bob_field_survey_received",
-            AliceAfterBobSurvey,
-        ),
-        (BobIntroStub, "alice_route_note_reported", BobAfterReport),
-    ]
-};
-
-/// Per-frame dialog redirector. Mirrors the pirate-cove pattern
-/// (`dialog::redirect_post_quest_dialog`) but for intro NPCs whose
-/// post-state lines are swapped in based on save flags rather than
-/// boss death. Walks [`INTRO_DIALOG_REDIRECTS`] each frame; the
-/// table cost is O(redirects) and stays a handful of rows. Wired
-/// into `IntroPlugin::build` to run alongside the flag-chain and
-/// lock-wall syncs.
-pub fn redirect_post_intro_dialog(
-    mut dialogue: ResMut<crate::dialog::DialogState>,
-    save: Option<Res<crate::persistence::save::SandboxSave>>,
-) {
-    if !dialogue.active() {
-        return;
-    }
-    let Some(save) = save else { return };
-    let data = save.data();
-    use crate::dialog::DialogMode;
-    let DialogMode::Intro(current) = dialogue.mode() else {
-        return;
-    };
-    for (pre, flag, post) in INTRO_DIALOG_REDIRECTS.iter().copied() {
-        if current == pre && data.flag(flag) {
-            dialogue.set_mode(DialogMode::Intro(post));
-            return;
-        }
-    }
-}
+// The intro-specific dialog redirect table moved into the unified
+// data-driven registry at `assets/data/dialogue/registry.ron`
+// alongside the sandbox redirects. The boss/flag gate predicates are
+// the same shape; `dialog::redirect_post_quest_dialog` now walks both
+// families in one pass. Adding a new intro flag swap is a one-row
+// edit in the RON file.
 
 /// Pure computational core of [`sync_intro_flag_gated_lock_walls`].
 /// Given the LDtk project, the active room id, and a save snapshot,
@@ -368,27 +325,23 @@ mod tests {
 
     #[test]
     fn redirect_post_intro_dialog_swaps_oiler_after_stabilizer() {
-        use crate::dialog::{DialogMode, DialogState};
-        use crate::intro::dialog::IntroDialog;
+        use crate::dialog::{redirect_post_quest_dialog, DialogState};
         use crate::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();
         let mut dialog = DialogState::default();
         dialog.start("oiler_intro", "Oiler");
-        // start() should produce the OilerIntro mode via the
-        // dialog::content from_dialogue_id dispatcher; assert that as
-        // a precondition so the redirect test exercises the swap, not
-        // a happenstance.
-        assert_eq!(dialog.mode(), DialogMode::Intro(IntroDialog::OilerIntro));
+        // start() should set the dialogue id to "oiler_intro".
+        assert_eq!(dialog.dialogue_id(), "oiler_intro");
         app.insert_resource(dialog);
         app.insert_resource(SandboxSave::default());
-        app.add_systems(Update, super::redirect_post_intro_dialog);
+        app.add_systems(Update, redirect_post_quest_dialog);
 
-        // Pre-flag: redirector should leave the mode alone.
+        // Pre-flag: redirector should leave the id alone.
         app.update();
-        let mode = app.world().resource::<DialogState>().mode();
-        assert_eq!(mode, DialogMode::Intro(IntroDialog::OilerIntro));
+        let id = app.world().resource::<DialogState>().dialogue_id().to_string();
+        assert_eq!(id, "oiler_intro");
 
         // Flip the flag; the next tick should swap to the post-state.
         app.world_mut()
@@ -396,44 +349,39 @@ mod tests {
             .data_mut()
             .set_flag("p1_stabilizer_received", true);
         app.update();
-        let mode = app.world().resource::<DialogState>().mode();
+        let id = app.world().resource::<DialogState>().dialogue_id().to_string();
         assert_eq!(
-            mode,
-            DialogMode::Intro(IntroDialog::OilerPostStabilizer),
+            id, "oiler_post_stabilizer",
             "expected post-stabilizer swap after p1_stabilizer_received"
         );
     }
 
     #[test]
     fn redirect_post_intro_dialog_swaps_alice_after_bob_survey() {
-        use crate::dialog::{DialogMode, DialogState};
-        use crate::intro::dialog::IntroDialog;
+        use crate::dialog::{redirect_post_quest_dialog, DialogState};
         use crate::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();
         let mut dialog = DialogState::default();
         dialog.start("alice_intro_stub", "Alice");
-        assert_eq!(
-            dialog.mode(),
-            DialogMode::Intro(IntroDialog::AliceIntroStub)
-        );
+        assert_eq!(dialog.dialogue_id(), "alice_intro_stub");
         app.insert_resource(dialog);
         app.insert_resource(SandboxSave::default());
-        app.add_systems(Update, super::redirect_post_intro_dialog);
+        app.add_systems(Update, redirect_post_quest_dialog);
 
         app.world_mut()
             .resource_mut::<SandboxSave>()
             .data_mut()
             .set_flag("bob_field_survey_received", true);
         app.update();
-        let mode = app.world().resource::<DialogState>().mode();
-        assert_eq!(mode, DialogMode::Intro(IntroDialog::AliceAfterBobSurvey));
+        let id = app.world().resource::<DialogState>().dialogue_id().to_string();
+        assert_eq!(id, "alice_after_bob_survey");
     }
 
     #[test]
     fn redirect_post_intro_dialog_does_nothing_when_dialog_inactive() {
-        use crate::dialog::DialogState;
+        use crate::dialog::{redirect_post_quest_dialog, DialogState};
         use crate::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
@@ -443,40 +391,12 @@ mod tests {
         save.data_mut().set_flag("p1_stabilizer_received", true);
         save.data_mut().set_flag("bob_field_survey_received", true);
         app.insert_resource(save);
-        app.add_systems(Update, super::redirect_post_intro_dialog);
+        app.add_systems(Update, redirect_post_quest_dialog);
 
         // No dialog active; system should early-return without touching
         // DialogState. Just running the update verifies no panic.
         app.update();
         assert!(!app.world().resource::<DialogState>().active());
-    }
-
-    #[test]
-    fn intro_dialog_redirects_have_no_loops() {
-        // A redirect's post-state should not itself be a pre-state in
-        // the table — that would mean two frames of swaps for a single
-        // flag flip. Keep the table flat.
-        let pres: std::collections::HashSet<_> = super::INTRO_DIALOG_REDIRECTS
-            .iter()
-            .map(|(pre, _, _)| *pre)
-            .collect();
-        for (_pre, _flag, post) in super::INTRO_DIALOG_REDIRECTS.iter().copied() {
-            assert!(
-                !pres.contains(&post),
-                "post-state {post:?} is itself a pre-state in INTRO_DIALOG_REDIRECTS"
-            );
-        }
-    }
-
-    #[test]
-    fn intro_dialog_redirects_have_no_duplicate_pres() {
-        let mut pres = std::collections::HashSet::new();
-        for (pre, _, _) in super::INTRO_DIALOG_REDIRECTS.iter().copied() {
-            assert!(
-                pres.insert(pre),
-                "duplicate pre-state {pre:?} in INTRO_DIALOG_REDIRECTS"
-            );
-        }
     }
 
     #[test]

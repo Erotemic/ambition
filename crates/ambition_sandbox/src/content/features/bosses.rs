@@ -909,6 +909,7 @@ impl BossRuntime {
 #[cfg(test)]
 mod scripted_pattern_tests {
     use super::*;
+    use crate::brain::boss_pattern::BossPatternStep;
     use ambition_engine as ae;
 
     fn gnu_ton_runtime() -> BossRuntime {

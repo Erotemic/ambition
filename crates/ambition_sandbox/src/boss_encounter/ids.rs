@@ -14,6 +14,10 @@
 /// intentionally NOT building the abstraction yet (one example isn't
 /// a pattern), but the named-after-the-thing function is the smell
 /// that points to the future refactor.
+#[allow(
+    dead_code,
+    reason = "referenced by boss_encounter::tests + planned data-driven boss-reward table"
+)]
 pub const MOCKINGBIRD_ENCOUNTER_ID: &str = "mockingbird";
 
 /// Sanitize an authored boss `name` into a stable encounter id. Lowercases,

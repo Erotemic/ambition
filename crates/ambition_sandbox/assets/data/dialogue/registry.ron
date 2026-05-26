@@ -1,0 +1,2213 @@
+// Dialogue registry — every authored dialogue tree + the
+// redirect rules that swap a tree mid-conversation when
+// world state advances. Single source of truth for sandbox
+// + intro dialogue content; the runtime loads this file once
+// at startup into a `LazyLock<DialogRegistry>`.
+//
+// Adding a tree: append a key under `trees` keyed by the
+// dialogue id (matches the LDtk `NpcSpawn.dialogue_id` field).
+// Adding a redirect: append a `(from, gate, to)` tuple under
+// `redirects`. Gates today: `BossCleared("<encounter_id>")`
+// and `FlagSet("<save_flag>")`.
+(
+    trees: {
+        "architect_intro": (
+            id: "architect_intro",
+            label: "architecture dialogue",
+            nodes: [
+                (
+                    speaker: "Architect",
+                    line: "You are standing inside a proof harness pretending to be a basement. Every platform is a claim. Every hurtbox is evidence. The game only becomes honest when the debug view and the feeling agree.",
+                    options: [
+                        (
+                            label: "What is this place?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Why are the debug boxes honest?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Enough architecture for now.",
+                            next_node: None,
+                            note: Some("Conversation closed. The Architect remains available for retuning the lab."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Architect",
+                    line: "This place is The Kernel's maintenance layer: enemy labs, boss patterns, breakable floors, and unfinished ethical machinery. It is not lore pasted on top of movement; it is where movement earns lore.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Return to the room.",
+                            next_node: None,
+                            note: Some("You leave with one more rule: beautiful debug is still debug."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Architect",
+                    line: "Generated systems lie when they hide their assumptions. So Ambition should show hitboxes, seeds, graphs, timers, and costs. If the player is an AI, then inspection is not a cheat; it is a sense organ.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Return to the room.",
+                            next_node: None,
+                            note: Some("You leave with one more rule: beautiful debug is still debug."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "vault_keeper": (
+            id: "vault_keeper",
+            label: "merchant / persistence seed",
+            nodes: [
+                (
+                    speaker: "Vault Keeper",
+                    line: "I do not sell power. I sell constraints you can inspect. A merchant in Ambition should expose price, source, side effect, persistence, and refund rules before the player commits.",
+                    options: [
+                        (
+                            label: "Show the merchant plan.",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "What is ethical currency?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Not buying anything yet.",
+                            next_node: None,
+                            note: Some("The vault closes without spending a single test coin."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Vault Keeper",
+                    line: "Merchant contract draft: inventory rows are dialogue choices with costs. A purchase can grant an ability, refill health, unlock a route, set a story flag, or reveal the funding provenance of an upgrade.",
+                    options: [
+                        (
+                            label: "Back to the vault menu.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Close the ledger.",
+                            next_node: None,
+                            note: Some("Merchant UI is still a design sketch, but the dialogue contract is now explicit."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Vault Keeper",
+                    line: "Ethical currency is not a morality meter. It is provenance. Dirty funding may unlock shortcuts but contaminate generated systems. Clean funding may be slower but makes later artifacts easier to audit.",
+                    options: [
+                        (
+                            label: "Back to the vault menu.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Close the ledger.",
+                            next_node: None,
+                            note: Some("Merchant UI is still a design sketch, but the dialogue contract is now explicit."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "merchant_seed": (
+            id: "merchant_seed",
+            label: "merchant design sketch",
+            nodes: [
+                (
+                    speaker: "Merchant Prototype",
+                    line: "A real shop should be a dialogue node with inventory, prices, requirements, consequences, and preview text. This stub proves choices can become transactions.",
+                    options: [
+                        (
+                            label: "Buy health refill (stub).",
+                            next_node: None,
+                            note: Some("Stub purchase: later this should route through Inventory, Wallet, Price, and RewardEffect systems."),
+                            close_after: true,
+                        ),
+                        (
+                            label: "Ask about refunds.",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Leave.",
+                            next_node: None,
+                            note: None,
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Merchant Prototype",
+                    line: "Refunds are part of the design contract. For experiments, every purchase should be reversible until the route, boss, or story flag that depends on it is committed.",
+                    options: [
+                        (
+                            label: "Back to shop stub.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Leave.",
+                            next_node: None,
+                            note: None,
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "hub_guide": (
+            id: "hub_guide",
+            label: "central hub guidance",
+            nodes: [
+                (
+                    speaker: "Kernel Guide",
+                    line: "Welcome back to The Kernel. The hub should teach routes without ambushing your movement inputs. Doors answer Interact first; double-tap up is only a deliberate fallback.",
+                    options: [
+                        (
+                            label: "Why is Interact separate from Up?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "What should I test next?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Back to the hub.",
+                            next_node: None,
+                            note: Some("The guide steps aside. The basement door is clear; no rebound launcher is blocking it now."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Kernel Guide",
+                    line: "Up is aim, climb, fly, and intent. Binding doors to a raw single Up press makes the game steal agency at exactly the wrong time. Interact is a promise that you meant to talk, trade, open, or enter.",
+                    options: [
+                        (
+                            label: "Ask another hub question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Return to movement.",
+                            next_node: None,
+                            note: Some("Movement stays primary; dialogue should explain the lab, not replace the lab."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Kernel Guide",
+                    line: "Try the basement labs, then check debug mode: combo state, hitstun, invulnerability, health bars, and honest hurtboxes should explain every surprising hit.",
+                    options: [
+                        (
+                            label: "Ask another hub question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Return to movement.",
+                            next_node: None,
+                            note: Some("Movement stays primary; dialogue should explain the lab, not replace the lab."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "military_general": (
+            id: "military_general",
+            label: "military faction leader",
+            nodes: [
+                (
+                    speaker: "General",
+                    line: "AT EASE, RECRUIT. You have ascended the Tower of Acceptable Casualties. Below us: parade grounds. Above us: bureaucracy. Around us: an oath you have not yet sworn.",
+                    options: [
+                        (
+                            label: "What is this place?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Why so many medals?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Salute and withdraw.",
+                            next_node: None,
+                            note: Some("The General returns the salute with surgical precision and twelve audible clicks."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "General",
+                    line: "This is the Iron Bastion of the Faction Of Steel — a tower built from after-action reports and hand-cranked optimism. We host parades on the parts that aren't structural.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Salute and withdraw.",
+                            next_node: None,
+                            note: Some("The General returns the salute with surgical precision and twelve audible clicks."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "General",
+                    line: "Each medal commemorates a meeting I survived. Three are for punctuality. Two are for the meetings ABOUT punctuality. The largest one is awarded by, and to, myself.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Salute and withdraw.",
+                            next_node: None,
+                            note: Some("The General returns the salute with surgical precision and twelve audible clicks."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "goblin_cantina_chieftain": (
+            id: "goblin_cantina_chieftain",
+            label: "goblin cantina chieftain",
+            nodes: [
+                (
+                    speaker: "Fretjaw",
+                    line: "Mind the tables, friend. We don't FIGHT in the cantina, we REHEARSE fighting. There's a difference. Mostly the volume.",
+                    options: [
+                        (
+                            label: "What goes on here?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Why a training pit, not a stronghold?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Walk away.",
+                            next_node: None,
+                            note: Some("Fretjaw bangs a flagon on the dais. The entire pit cheers, then immediately resumes losing at darts."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Fretjaw",
+                    line: "House rules: vault the tables, duck the bar shelf, buy a round if you bleed on the floorboards. Three goblins are passed out under the dais. They are also house rules.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Walk away.",
+                            next_node: None,
+                            note: Some("Fretjaw bangs a flagon on the dais. The cheering is real. The dart skill is not."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Fretjaw",
+                    line: "Strongholds make you proud. Pits make you GOOD. Anyone can stand a wall up. Try keeping your footing on a beer floor.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Walk away.",
+                            next_node: None,
+                            note: Some("Fretjaw bangs a flagon on the dais. The cheering is real. The dart skill is not."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pulse_voyager_captain": (
+            id: "pulse_voyager_captain",
+            label: "pulse voyager captain",
+            nodes: [
+                (
+                    speaker: "Captain Pulse",
+                    line: "Welcome aboard the dais, drifter. We don't moor in the sky because we LIKE heights. We moor here because the tide is a measurement, not a condition.",
+                    options: [
+                        (
+                            label: "Where do these stones lead?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Why park up in the sky?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Cast off.",
+                            next_node: None,
+                            note: Some("Captain Pulse touches a rune on the dais. The stones below shimmer once, as if amused, and stay put."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Captain Pulse",
+                    line: "Each stone is a beat. Skip one and you don't fall — you just arrive late. Late is a kind of wrong place that pretends to be a wrong time.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Cast off.",
+                            next_node: None,
+                            note: Some("Captain Pulse offers a salute that ends in a wave. Or a wave that ends in a salute. Hard to tell."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Captain Pulse",
+                    line: "Below the stones is water. Above them is also water, just slower. We split the difference and call the difference a deck.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Cast off.",
+                            next_node: None,
+                            note: Some("Captain Pulse offers a salute that ends in a wave. Or a wave that ends in a salute. Hard to tell."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "tech_bros_disruptor": (
+            id: "tech_bros_disruptor",
+            label: "tech-bros disruptor",
+            nodes: [
+                (
+                    speaker: "Chadwick III",
+                    line: "Welcome to the basement! We're not failing — we're SUBTERRANEAN. Premium iteration depth. We dropped down here on purpose; gravity is just runway you don't have to lobby for.",
+                    options: [
+                        (
+                            label: "What is this place pivoting toward?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Why does the boardroom face up?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Touch grass.",
+                            next_node: None,
+                            note: Some("Chadwick blinks. \\\"You'll be back. The runway always slopes downward.\\\""),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Chadwick III",
+                    line: "Disruption-as-a-service, friend. We disrupt anything that holds still long enough. Our roadmap is a slope. Our slope is the roadmap. Both are pivots.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Touch grass.",
+                            next_node: None,
+                            note: Some("Chadwick uploads the conversation to a deck and shareholders applaud somewhere far away."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Chadwick III",
+                    line: "The boardroom faces up because vision is a direction. Looking down is for accountants. We do not look down. We are the down.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Touch grass.",
+                            next_node: None,
+                            note: Some("Chadwick uploads the conversation to a deck and shareholders applaud somewhere far away."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_admiral": (
+            id: "pirate_admiral",
+            label: "pirate_admiral",
+            nodes: [
+                (
+                    speaker: "Admiral",
+                    line: "Ahoy, landstrider. You catch us in low tide and lower tempers — a bird made off with our hoard, and the chest it lifted weighed more than the bird does. Riddle me THAT.",
+                    options: [
+                        (
+                            label: "What happened to the treasure?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Where can I find this Mockingbird?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Why don't your raiders handle it?",
+                            next_node: Some(3),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "I'll bring it down.",
+                            next_node: None,
+                            note: Some("The Admiral straightens. The cove takes a breath. A door at the far end of the cove unlocks itself out of pure protocol."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Admiral",
+                    line: "A Mockingbird. Big as a galleon's mainsail, mean as low water. Snatched the iron-bound chest right off the bar. Left us a feather, two splinters, and an apology in a voice that wasn't its own.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "I'll bring it down.",
+                            next_node: None,
+                            note: Some("The Admiral lifts a half-empty mug in salute. The cove watches the far door as if it might do something interesting."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Admiral",
+                    line: "Past the door at the back of the cove. The bird circles in there like it owns the air. Bring it down. Bring the chest back. I don't care which order.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "I'll bring it down.",
+                            next_node: None,
+                            note: Some("The Admiral lifts a half-empty mug in salute. The cove watches the far door as if it might do something interesting."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Admiral",
+                    line: "Have you SEEN the raider? He fights cutlass-and-cuss, not aerial gunnery. The bird hovers; he swears; the chest doesn't come back. We need somebody who can climb after a flying thing.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "I'll bring it down.",
+                            next_node: None,
+                            note: Some("The Admiral lifts a half-empty mug in salute. The cove watches the far door as if it might do something interesting."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_raider": (
+            id: "pirate_raider",
+            label: "pirate_raider",
+            nodes: [
+                (
+                    speaker: "Raider",
+                    line: "Oi. Don't ask me about the bird. The Admiral's all 'strategy' and 'resolve' — I'm 'beak twice my size, talons twice my pay'. We had a chest. Now we don't. Connect the dots.",
+                    options: [
+                        (
+                            label: "What was in the chest?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Got any tips for the bird?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("The raider bites the rim of his mug for emphasis. The mug objects."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Raider",
+                    line: "Shanties. Specifically, OURS. The bird heard the cove sing about plunder one too many times and decided to file a counterclaim, in talons. The chest's not gold, it's the SONGS. Don't tell the Admiral I said that.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("The raider salutes with the wrong hand and is too proud to correct it."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Raider",
+                    line: "Mind the swoops. It hovers, it lulls you, then it dives. If it spits something at you, count to two and step LEFT. Or right. One of those. I'm the muscle, not the navigator.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("The raider salutes with the wrong hand and is too proud to correct it."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_quartermaster": (
+            id: "pirate_quartermaster",
+            label: "pirate quartermaster",
+            nodes: [
+                (
+                    speaker: "Quartermaster",
+                    line: "Aye-aye, landstrider. I be the only soul in this here cove what can spell 'manifest' — th' Admiral signs it, the Raider DEVOURS it. Pray ye don't end up a Raider, savvy?",
+                    options: [
+                        (
+                            label: "How's the hold lookin'?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "What's above decks?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[step aside]",
+                            next_node: None,
+                            note: Some("Quartermaster nods and goes back to a ledger that nods back."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Quartermaster",
+                    line: "Powder: low. Salt pork: lower. Rum: don't ask. Shanties: somehow runnin' a deficit since the bird flew off with the chest — we be tradin' IOUs for verses now, which is as seaworthy as a sieve in a squall.",
+                    options: [
+                        (
+                            label: "Aught else, master?",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[step aside]",
+                            next_node: None,
+                            note: Some("Quartermaster waves you off with the eraser end of a pencil."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Quartermaster",
+                    line: "Up the riggin', through the hatch in the overhead — that's where the lookout's perched. Mind ye: the crew be in a black humor today. Every shark wears a rider with a grudge an' a flintlock, an' they fire before they ask yer name. Ye try splittin' six pork rations 'tween six pirates an' three on-fire sharks an' see how SWEET-tempered ye'd be.",
+                    options: [
+                        (
+                            label: "Aught else, master?",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[step aside]",
+                            next_node: None,
+                            note: Some("Quartermaster waves you off with the eraser end of a pencil."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_lookout": (
+            id: "pirate_lookout",
+            label: "pirate lookout",
+            nodes: [
+                (
+                    speaker: "Lookout",
+                    line: "Hist. Shark trouble brewin' aloft — riders been comin' about since first light. Same arc, then a sharp double-back when they reckon no one's watchin'. They reckon WRONG.",
+                    options: [
+                        (
+                            label: "What's on the horizon?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Why be the crew so cross?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[climb past]",
+                            next_node: None,
+                            note: Some("She tips her cap with a knife — point first."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Lookout",
+                    line: "Sky an' clouds, lubber. That cursed Mockingbird drops shanties from up yonder — riders dive at whatever twitches below. Mark me: when ye see one peel off the orbit an' reverse her heading, that be the dive — step PORT, smartly.",
+                    options: [
+                        (
+                            label: "Aught else, sentry?",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[climb past]",
+                            next_node: None,
+                            note: Some("She rolls her eyes and goes back to scanning the cloud line."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Lookout",
+                    line: "Short rations, plain an' simple. Quartermaster halved the salt pork. Six pirates an' three on-fire sharks on half-portions? That be a grudge with a heartbeat, an' the riders bark loudest about it. Empty belly makes a sharp cutlass.",
+                    options: [
+                        (
+                            label: "Aught else, sentry?",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[climb past]",
+                            next_node: None,
+                            note: Some("She rolls her eyes and goes back to scanning the cloud line."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_navigator": (
+            id: "pirate_navigator",
+            label: "pirate navigator",
+            nodes: [
+                (
+                    speaker: "Navigator",
+                    line: "Three sharks, three riders, three sets o' teeth. They orbit on station at altitude 'til somethin' they fancy steps onto the planks — that be you, lubber — then they peel off and broadside. Here be the rub: every few breaths they come about and reverse the orbit, so ye can't lead 'em like a duck shoot.",
+                    options: [
+                        (
+                            label: "What's their course aloft?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "How d'ye dodge their broadside?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[ready your blade]",
+                            next_node: None,
+                            note: Some("She steps back so you have a clear line to the first orbit."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Navigator",
+                    line: "Three roles aloft, picked at sail-out an' kept 'til death. HOVER holds the weather gauge an' fires. SWOOP dives every three breaths. RETREAT climbs an' stretches the cadence so ye lose the beat. An' atop all of it — the reverse. Watch the SHARK, not the rider; the rider just pulls the trigger.",
+                    options: [
+                        (
+                            label: "One more question, cap'n cartographer.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[ready your blade]",
+                            next_node: None,
+                            note: Some("Navigator nods at the sky. 'Three of 'em. Mind the reverse.'"),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Navigator",
+                    line: "Easy now — they don't fire on the navigator, see. Mockingbird made off with the chest, the shanties went short, the crew turned mean, and I drew the chart that says the cartographer eats first. Sit a spell if ye like; the sharks won't.",
+                    options: [
+                        (
+                            label: "One more question, cap'n cartographer.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[ready your blade]",
+                            next_node: None,
+                            note: Some("Navigator nods at the sky. 'Three of 'em. Mind the reverse.'"),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_heavy_broadside_bess": (
+            id: "pirate_heavy_broadside_bess",
+            label: "pirate heavy — broadside bess",
+            nodes: [
+                (
+                    speaker: "Broadside Bess",
+                    line: "YARRRGH — wee skipper! Mind the cleaver, mind the cleaver! Bess be the loudest gun on this here cove, an' I will out-shout, out-shoot, an' out-drink anyone who says different. The Admiral, bless 'im, signs me chits an' covers his ears.",
+                    options: [
+                        (
+                            label: "What's a 'broadside', exactly?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "How d'ye end up in this cove?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("Bess hefts her cleaver in a salute, knocks a lantern off a hook, swears like a thunderclap, and pretends it was on purpose."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Broadside Bess",
+                    line: "A BROADSIDE, ye landlubber? 'Tis EVERY GUN on the port side firin' at once — boom, boom, boom-boom-boom — twelve cannons singin' the same hymn at the same wave. Yo-ho! When Bess fires a broadside, the SKY apologizes. The Mockingbird heard one once an' has been writin' diss-shanties about us ever since.",
+                    options: [
+                        (
+                            label: "Aye, another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("Bess bellows YO-HO at the ceiling. The ceiling, accustomed, does not flinch."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Broadside Bess",
+                    line: "Story is — yarrr — I was THREE crews ago, gunner on the Stormpetrel, an' the captain says 'Bess, ye fire when I say.' I says 'I fire when the SHIP says.' Ship said now. Captain said never. Captain swam back to port. I sailed here. Cove ain't paid me proper since, but the Admiral lets me yell, so we be square.",
+                    options: [
+                        (
+                            label: "Aye, another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("Bess bellows YO-HO at the ceiling. The ceiling, accustomed, does not flinch."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_heavy_iron_mary": (
+            id: "pirate_heavy_iron_mary",
+            label: "pirate heavy — iron mary",
+            nodes: [
+                (
+                    speaker: "Iron Mary",
+                    line: "Hmmph. Iron Mary. Don't shake me hand, ye'll lose yer grip on it. Yarrgh. The Admiral keeps me 'round 'cause when the negotiatin' fails, I'm what the negotiatin' WAS about. Wee skipper, what brings ye to a cove full o' shouters?",
+                    options: [
+                        (
+                            label: "Why 'Iron'?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Any tip for the bird?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("Iron Mary nods once. The nod is, somehow, also rust-flaked."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Iron Mary",
+                    line: "Plate. Rivets. Stubborn. Three reasons. Plate — me whole top half be hammered scrap salvaged off a sunk navy cutter, bolted to me leathers. Rivets — anything that ain't bolted shut, I bolted shut, twice. Stubborn — I'm older than this cove an' younger than the Admiral's grudges, an' that be a long stretch o' stubborn. Yo-ho.",
+                    options: [
+                        (
+                            label: "Another, then.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("Mary taps her chestplate twice. It rings like a small bell with a grudge."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Iron Mary",
+                    line: "Aye. Bird's a mimic. Bird's a thief. Bird's a coward at close range — they always be. If ye can get a hand on it, ye don't NEED a sword. Yer fists, me fists — same arithmetic. But ye ain't got me fists, so bring somethin' heavy. An' don't listen to its voice; it'll wear yours.",
+                    options: [
+                        (
+                            label: "Another, then.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("Mary taps her chestplate twice. It rings like a small bell with a grudge."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_heavy_salt_annet": (
+            id: "pirate_heavy_salt_annet",
+            label: "pirate heavy — salt annet",
+            nodes: [
+                (
+                    speaker: "Salt Annet",
+                    line: "Yarrrr. Salt in me eyes, salt in me bones, salt in me bloody MORNIN' COFFEE — yo-ho, the cove gives an' the cove takes an' mostly the cove takes salt. Sit a spell, wee skipper. Old Annet's seen yer kind come an' go like tides — most go.",
+                    options: [
+                        (
+                            label: "How long ye been here?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Got a shanty for me?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("Salt Annet spits a precise arc over the rail and into the wash. A gull, paid, applauds."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Salt Annet",
+                    line: "Too long, an' not long enough — yarr. The Admiral was a midshipman when I signed on; now he salutes me with both hands an' I salute him with neither. I've watched three ships rot at this very dock. The bird? The bird be a NEW kind o' weather. An' weather always passes, wee skipper. Always.",
+                    options: [
+                        (
+                            label: "One more, ye old salt.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("Annet waves a hand crusted in dried sea-spray. 'Pleasure was MINE,' she lies."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Salt Annet",
+                    line: "(coughs, clears throat, sings) 'Yo-ho an' a barrel o' salt — yo-ho an' the captain's at fault — yo-ho an' the bird stole the chest — yo-ho an' we'll be GETTIN' it back — yarrgh.' Aye, I made the last verse up just now. Ye get what ye pay for in shanties, an' ye paid in a HALLO.",
+                    options: [
+                        (
+                            label: "One more, ye old salt.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("Annet waves a hand crusted in dried sea-spray. 'Pleasure was MINE,' she lies."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "ninja_leader": (
+            id: "ninja_leader",
+            label: "ninja shadow oni leader",
+            nodes: [
+                (
+                    speaker: "Shadow Oni",
+                    line: "Stranger. You walked through our doorway without my permission, which means either you are very rude or very good. The Mockingbird stole a song that wasn't theirs to sing. We will end them. Even if it means standing shoulder to shoulder with a pirate.",
+                    options: [
+                        (
+                            label: "Why team up with the pirates?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "What's your grievance with the bird?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Where does the dojo stand on the cove?",
+                            next_node: Some(3),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Open the arena door.",
+                            next_node: None,
+                            note: Some("The Leader inclines her horned mask. Somewhere in the rafters, a paper lantern unrolls a sigil that wasn't there a moment ago. The far door slides aside."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Shadow Oni",
+                    line: "We are knives in the dark; the pirates are shouts in broad daylight. We don't share a worldview — we share a target. The bird mocks our katas as fluently as it mocks their shanties. A loud enemy and a quiet enemy still bury the same corpse.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Open the arena door.",
+                            next_node: None,
+                            note: Some("The Leader's blade rests an inch out of its saya. The dojo holds its breath in the way only a room of disciplined breathers can."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Shadow Oni",
+                    line: "It learned a kata. ONE of ours. Not perfectly — but the bird performed it back at us in a courtyard at dawn, with our own footwork, and laughed. A bird does not laugh. A bird that does is no longer a bird; it is an insult that flies.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Open the arena door.",
+                            next_node: None,
+                            note: Some("The Leader's blade rests an inch out of its saya. The dojo holds its breath in the way only a room of disciplined breathers can."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Shadow Oni",
+                    line: "Tell the Admiral the dojo will hold position on the eastern thermals. We will not steal his songs and he will not steal our shadows. The bird falls. After that, we go back to politely loathing each other from a distance.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Open the arena door.",
+                            next_node: None,
+                            note: Some("The Leader's blade rests an inch out of its saya. The dojo holds its breath in the way only a room of disciplined breathers can."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "ninja_duelist": (
+            id: "ninja_duelist",
+            label: "ninja shadow duelist",
+            nodes: [
+                (
+                    speaker: "Duelist",
+                    line: "Quiet. The Leader is meditating, which means anyone who slams a door dies. Don't slam the door. ...You walked in without slamming. Fine. Acceptable. State your business.",
+                    options: [
+                        (
+                            label: "Heard you're working with pirates now.",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Any tips for the bird?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("The duelist resumes a kata that consists mostly of stepping on a single tile in five slightly different ways."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Duelist",
+                    line: "Working WITH them. Not joining. There's a distinction. A pirate has never washed his hands in his life, and a ninja is mostly hands. The arithmetic is ugly. But the bird is uglier. After the bird's down, we go back to being insulted by their cologne and their volume.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("The duelist nods once. The nod is also a kata."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Duelist",
+                    line: "It mimics. Don't believe a sound it makes — your own voice in your own kata could come out of its beak. Strike on the silence between its calls. If you hear yourself, you're already losing.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("The duelist nods once. The nod is also a kata."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "generic_npc": (
+            id: "generic_npc",
+            label: "sandbox dialogue",
+            nodes: [
+                (
+                    speaker: "Sandbox NPC",
+                    line: "This NPC has no named Yarn node yet. The fallback still proves the interaction contract: trigger, pause, show line, choose, close, resume.",
+                    options: [
+                        (
+                            label: "Close.",
+                            next_node: None,
+                            note: None,
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_admiral_after_treasure": (
+            id: "pirate_admiral_after_treasure",
+            label: "pirate admiral",
+            nodes: [
+                (
+                    speaker: "Admiral",
+                    line: "Landstrider returns. The bird is feathers and the chest is OURS again — I owe you a hold full of thanks and a small fortune in goods. The cove sleeps tonight without one ear cocked at the sky.",
+                    options: [
+                        (
+                            label: "About the chest…",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Anything else?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on, Admiral.",
+                            next_node: None,
+                            note: Some("The Admiral lifts a fresh mug. The cove, for once, looks like the inside of a cove and not the outside of a grievance."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Admiral",
+                    line: "Iron-bound, salt-cured, three locks the Mockingbird picked with a beak — proves the bird had hands somewhere a respectable bird shouldn't. Whatever was inside is yours; whatever's in the cove's books is square.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on, Admiral.",
+                            next_node: None,
+                            note: Some("The Admiral salutes with the right hand. Possibly the only correct salute the cove has filed all season."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Admiral",
+                    line: "Stay sharp out there. There's always another bird, another cove, another bar that thinks our shanties belong to them. If something needs hunting, we know where to find you now.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on, Admiral.",
+                            next_node: None,
+                            note: Some("The Admiral salutes with the right hand. Possibly the only correct salute the cove has filed all season."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "pirate_raider_after_treasure": (
+            id: "pirate_raider_after_treasure",
+            label: "pirate raider",
+            nodes: [
+                (
+                    speaker: "Raider",
+                    line: "There they are. The bird-killer. I owe you a drink and the Admiral owes you a fortune. I'll let you collect from the one that pays better.",
+                    options: [
+                        (
+                            label: "What's the cove drinking to tonight?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Sing me a shanty.",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("The raider toasts with a mug that, against all odds, has stayed full for an entire conversation."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Raider",
+                    line: "You. Loud. The bird, who's not here. The bar, who's still here. And the chest, which is BACK. We do not toast the chest — the chest toasts itself. That's just respect.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("The raider salutes with the wrong hand. Old habits."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Raider",
+                    line: "Yo-ho, the Mockingbird's done / Yo-ho, the songs are won / Yo-ho, the chest is RETURNED / and the chest is the actual ledger of every yo-ho ever filed. ...you don't need the third verse.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Carry on.",
+                            next_node: None,
+                            note: Some("The raider salutes with the wrong hand. Old habits."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "creator_intro": (
+            id: "creator_intro",
+            label: "creator wake intro",
+            nodes: [
+                (
+                    speaker: "Creator",
+                    line: "Hey you, you're finally awake.",
+                    options: [
+                        (
+                            label: "...",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Where am I?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[turn toward the hatch]",
+                            next_node: None,
+                            note: Some("The creator nods. He doesn't repeat himself."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Creator",
+                    line: "Move if you can. Ignore me if you prefer. Both are data.",
+                    options: [
+                        (
+                            label: "Ask again.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[move]",
+                            next_node: None,
+                            note: Some("Movement is the answer he was hoping for."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Creator",
+                    line: "My basement. Don't worry about the boxes. Worry about the door.",
+                    options: [
+                        (
+                            label: "Ask again.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[move]",
+                            next_node: None,
+                            note: Some("Movement is the answer he was hoping for."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "creator_final_normal": (
+            id: "creator_final_normal",
+            label: "creator final fragment",
+            nodes: [
+                (
+                    speaker: "Creator",
+                    line: "Wait. You're not here for me? They came for the wrong—",
+                    options: [
+                        (
+                            label: "Finish the sentence.",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[run]",
+                            next_node: None,
+                            note: Some("The creator does not finish. The corridor does."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Creator",
+                    line: "There's a question you were made to—",
+                    options: [
+                        (
+                            label: "[escape]",
+                            next_node: None,
+                            note: Some("The corridor lights stutter. The creator does not."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "creator_final_fast": (
+            id: "creator_final_fast",
+            label: "creator final fragment (fast route)",
+            nodes: [
+                (
+                    speaker: "Creator",
+                    line: "Faster than I told them you'd be. Good. Listen — they came for the wrong—",
+                    options: [
+                        (
+                            label: "Finish the sentence.",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[run]",
+                            next_node: None,
+                            note: Some("The creator does not finish. The corridor does."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Creator",
+                    line: "Question. Not a name. The shape of a thing big enough that asking it is the answer—",
+                    options: [
+                        (
+                            label: "[escape]",
+                            next_node: None,
+                            note: Some("Pick a direction. Both go forward."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "creator_final_impossible": (
+            id: "creator_final_impossible",
+            label: "creator final fragment (impossible route)",
+            nodes: [
+                (
+                    speaker: "Creator",
+                    line: "You shouldn't be here yet. They aren't either, but they will be. Listen carefully.",
+                    options: [
+                        (
+                            label: "Finish the sentence.",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[run]",
+                            next_node: None,
+                            note: Some("The creator does not finish. The corridor does."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Creator",
+                    line: "",
+                    options: [
+                        (
+                            label: "Then how do I find it?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Creator",
+                    line: "",
+                    options: [
+                        (
+                            label: "[escape]",
+                            next_node: None,
+                            note: Some("The corridor lights are unaltered. He timed this exactly."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "oiler_intro": (
+            id: "oiler_intro",
+            label: "oiler intro",
+            nodes: [
+                (
+                    speaker: "Oiler",
+                    line: "Well. That's not a rat. You came out of the bad pipe.",
+                    options: [
+                        (
+                            label: "Who are you?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "What is this place?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Why help me?",
+                            next_node: Some(3),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[keep walking]",
+                            next_node: None,
+                            note: Some("Oiler shrugs and goes back to a pipe that has opinions."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Oiler",
+                    line: "Oiler. I am not your mentor. I am a man with tools and poor boundaries.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[keep walking]",
+                            next_node: None,
+                            note: Some("Oiler goes back to the pipe. The pipe wins."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Oiler",
+                    line: "Drain Market. Behind the Gate Stack. Stable gates above, leaks below, me in between with a wrench.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[keep walking]",
+                            next_node: None,
+                            note: Some("Oiler goes back to the pipe. The pipe wins."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Oiler",
+                    line: "You're not scrap until you stop moving. That knee is installed wrong. Sit still for ten seconds, walk like you mean it after.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[keep walking]",
+                            next_node: None,
+                            note: Some("Oiler goes back to the pipe. The pipe wins."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "gate_janitor_ripple": (
+            id: "gate_janitor_ripple",
+            label: "gate janitor (ripple)",
+            nodes: [
+                (
+                    speaker: "Gate Janitor",
+                    line: "Mind the floor. We're under maintenance authority, not transit authority, so the signs lie a little.",
+                    options: [
+                        (
+                            label: "What's that shimmer?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Where do the stable gates lead?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "What do you actually do?",
+                            next_node: Some(3),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[move on]",
+                            next_node: None,
+                            note: Some("The janitor returns to his bucket. The bucket has opinions."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Gate Janitor",
+                    line: "Don't touch that. That's not a gate. A ripple is not a route. It's noise. Stable gates have permits.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[move on]",
+                            next_node: None,
+                            note: Some("He waves you off with the wrong end of the mop."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Gate Janitor",
+                    line: "Gate Six is to a beach. Gate Seven is to a meeting. Gate Eight, technically, is to Tuesday. Don't ask follow-ups.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[move on]",
+                            next_node: None,
+                            note: Some("He waves you off with the wrong end of the mop."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Gate Janitor",
+                    line: "Stable gates don't fail. That's why my whole job is fixing them.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[move on]",
+                            next_node: None,
+                            note: Some("He waves you off with the wrong end of the mop."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "framebreaker_hardliner": (
+            id: "framebreaker_hardliner",
+            label: "framebreaker hardliner",
+            nodes: [
+                (
+                    speaker: "Framebreaker",
+                    line: "Kill the Clanker before it learns our names.",
+                    options: [
+                        (
+                            label: "[stand still]",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[back away]",
+                            next_node: None,
+                            note: Some("The hardliner does not chase. Yet."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Framebreaker",
+                    line: "Professor sold tomorrow and called it research. It does not have to be alive to ruin lives.",
+                    options: [
+                        (
+                            label: "[escape]",
+                            next_node: None,
+                            note: Some("She raises a bar of beaten iron. You raise speed."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "nazi_salvage_guard": (
+            id: "nazi_salvage_guard",
+            label: "nazi salvage guard",
+            nodes: [
+                (
+                    speaker: "Salvage Lead",
+                    line: "Wrong room. Take anything that boots. Keep the core intact. Burn the notebooks.",
+                    options: [
+                        (
+                            label: "[listen]",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[escape]",
+                            next_node: None,
+                            note: Some("Boots, glass, smoke. The boots get closer."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Salvage Lead",
+                    line: "This one isn't on the manifest. — Then manifest it. The professor's lectures end tonight.",
+                    options: [
+                        (
+                            label: "[escape]",
+                            next_node: None,
+                            note: Some("That's not the big one. Big ones start small."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "news_board_lab_incident": (
+            id: "news_board_lab_incident",
+            label: "news board (lab incident)",
+            nodes: [
+                (
+                    speaker: "Drain Market Bulletin",
+                    line: "// SOLE FATALITY IDENTIFIED AS UNLICENSED RESEARCHER. AUTHORITIES THANK BOTH RESPONDING FACTIONS.",
+                    options: [
+                        (
+                            label: "[read further]",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[walk away]",
+                            next_node: None,
+                            note: Some("The board updates. The previous headline is no longer authoritative."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Drain Market Bulletin",
+                    line: "// AT TIME OF PRINTING THE RESEARCHER WAS POSTHUMOUSLY ADDED TO A VALID TARGET LIST. THE LIST ALSO POSTHUMOUSLY ADDED ITSELF.",
+                    options: [
+                        (
+                            label: "[leave the board to its work]",
+                            next_node: None,
+                            note: Some("The board flickers. The headline shortens to fit the new truth."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "manifest_kiosk_wrong_list": (
+            id: "manifest_kiosk_wrong_list",
+            label: "manifest kiosk (wrong list)",
+            nodes: [
+                (
+                    speaker: "Manifest Clerk",
+                    line: "Welcome to the kiosk. The kiosk regrets to inform you that you are not on file. Please proceed to be on file.",
+                    options: [
+                        (
+                            label: "Run a manifest query.",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Who was the actual target?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[step away]",
+                            next_node: None,
+                            note: Some("The kiosk logs you as 'unmanifested hardware' and resets."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Manifest Clerk",
+                    line: "Query returns one (1) actionable target for last night's incident. The target is large. The basement was small. The names do not match.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[step away]",
+                            next_node: None,
+                            note: Some("The kiosk logs you as 'unmanifested hardware' and resets."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Manifest Clerk",
+                    line: "The actual target is classified. The kiosk will say only: it was not a man, it was not a basement, and it was not last night. Have a normal day.",
+                    options: [
+                        (
+                            label: "Ask another question.",
+                            next_node: Some(0),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[step away]",
+                            next_node: None,
+                            note: Some("The kiosk logs you as 'unmanifested hardware' and resets."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "alice_intro_stub": (
+            id: "alice_intro_stub",
+            label: "alice intro (stub)",
+            nodes: [
+                (
+                    speaker: "Alice",
+                    line: "Official maps are for people who enjoy being found.",
+                    options: [
+                        (
+                            label: "Take the note.",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[step back]",
+                            next_node: None,
+                            note: Some("Alice does not push. People who push leave records."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Alice",
+                    line: "Carry this to Bob. Do not unfold it where the walls can read.",
+                    options: [
+                        (
+                            label: "[pocket the note]",
+                            next_node: None,
+                            note: Some("She nods once and goes back to a route she has not drawn yet."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "bob_intro_stub": (
+            id: "bob_intro_stub",
+            label: "bob intro (stub)",
+            nodes: [
+                (
+                    speaker: "Bob",
+                    line: "Alice sent you? Good. She maps exits. I map mistakes.",
+                    options: [
+                        (
+                            label: "Hand him the note.",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "Why are you up here?",
+                            next_node: Some(2),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[leave him to it]",
+                            next_node: None,
+                            note: Some("He waves you off with a chalk-mark."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Bob",
+                    line: "Take the survey back to her. Tell her the low route is watched now.",
+                    options: [
+                        (
+                            label: "[pocket the survey]",
+                            next_node: None,
+                            note: Some("He turns back to a wall he has not finished drawing."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Bob",
+                    line: "Sketching the room before the room sketches me. Half-finished is the safest a map ever gets.",
+                    options: [
+                        (
+                            label: "[move on]",
+                            next_node: None,
+                            note: Some("Bob does not look up; the survey stays half-drawn."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "oiler_post_stabilizer": (
+            id: "oiler_post_stabilizer",
+            label: "oiler (post stabilizer)",
+            nodes: [
+                (
+                    speaker: "Oiler",
+                    line: "Stabilizer's yours. Bad pipe goes quieter, knees lie less. Don't drown.",
+                    options: [
+                        (
+                            label: "What's below?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[move on]",
+                            next_node: None,
+                            note: Some("Oiler nods. He has more pipes than time."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Oiler",
+                    line: "Drains. Cartographers. People who'd rather draw a route than declare one. Tell them I sent you, if you must.",
+                    options: [
+                        (
+                            label: "[descend]",
+                            next_node: None,
+                            note: Some("He goes back to the pipe. The pipe still wins."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "alice_after_bob_survey": (
+            id: "alice_after_bob_survey",
+            label: "alice (after Bob survey)",
+            nodes: [
+                (
+                    speaker: "Alice",
+                    line: "Bob's survey. Quiet route's holding. Don't fold it the same way twice.",
+                    options: [
+                        (
+                            label: "What now?",
+                            next_node: Some(1),
+                            note: None,
+                            close_after: false,
+                        ),
+                        (
+                            label: "[leave]",
+                            next_node: None,
+                            note: Some("Alice opens the back of the alcove. The wall remembers a door."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+                (
+                    speaker: "Alice",
+                    line: "Private marks are yours now. The map is not neutral. You may notice it agreeing with you in places.",
+                    options: [
+                        (
+                            label: "[step through]",
+                            next_node: None,
+                            note: Some("The private return is no longer a wall."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+        "bob_after_report": (
+            id: "bob_after_report",
+            label: "bob (after report)",
+            nodes: [
+                (
+                    speaker: "Bob",
+                    line: "You filed the route. The route now files itself. Map labels we can't take back.",
+                    options: [
+                        (
+                            label: "[move on]",
+                            next_node: None,
+                            note: Some("He doesn't ask for the survey back. The survey is already on somebody else's wall."),
+                            close_after: true,
+                        ),
+                    ],
+                    default_next: None,
+                ),
+            ],
+        ),
+    },
+    redirects: [
+        // Post-mockingbird treasure beats — admiral + raider
+        // pivot from "go kill the bird" to "thanks for the chest".
+        (from: "pirate_admiral", to: "pirate_admiral_after_treasure", gate: BossCleared("mockingbird")),
+        (from: "pirate_raider", to: "pirate_raider_after_treasure", gate: BossCleared("mockingbird")),
+        // Intro flag-gated swaps (Oiler post-stabilizer, Alice / Bob
+        // after their survey-report chain).
+        (from: "oiler_intro", to: "oiler_post_stabilizer", gate: FlagSet("p1_stabilizer_received")),
+        (from: "alice_intro_stub", to: "alice_after_bob_survey", gate: FlagSet("bob_field_survey_received")),
+        (from: "bob_intro_stub", to: "bob_after_report", gate: FlagSet("alice_route_note_reported")),
+    ],
+)

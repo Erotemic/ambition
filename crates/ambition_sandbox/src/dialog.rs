@@ -16,8 +16,11 @@ mod systems;
 mod ui;
 
 pub(crate) use content::known_dialogue_ids;
-pub(crate) use content::DialogMode;
-pub use content::{DialogChoice, DialogNode};
+// Authored dialogue types re-exported for downstream consumers who
+// want to render raw nodes/options (e.g. the UI module's choice
+// row builder). `DialogTree` is the registry's value type.
+#[allow(unused_imports, reason = "kept for downstream visualization tooling")]
+pub use content::{DialogChoice, DialogNode, DialogTree};
 pub use runtime::DialogState;
 pub use systems::{dialog_input, dialog_pointer_input, redirect_post_quest_dialog};
 pub use ui::sync_dialog_ui;

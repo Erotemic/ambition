@@ -28,6 +28,7 @@ use crate::brain::{BossAttackProfile, BossAttackState};
 use crate::presentation::character_sprites::registry::{BodyMetrics, PixelRect};
 
 use super::bosses::{BossBehaviorProfile, BossRuntime, GNU_TON_ANCHOR_Y};
+use super::gnu_ton_design;
 
 // =================================================================
 // Sprite-metadata-driven body AABB derivation
@@ -394,9 +395,11 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     }
     // GNU-ton's head is always damageable (the descent windows just
     // move it down to player level so the player doesn't have to
-    // climb). Pre-migration this returned an empty list outside the
-    // GnuHeadDescent strike, which made the boss invulnerable in
-    // Phase1 (no descent beat) and therefore unkillable.
+    // climb). The center + half-size data for both poses lives in
+    // `gnu_ton_design` so future migration to the sprite RON only
+    // needs to move that one module's contents into a
+    // `body_metrics.animations[<profile>].hurtbox.parts` block —
+    // not edit volume math.
     let head_descending = matches!(
         ctx.attack_state.active_profile,
         Some(BossAttackProfile::GnuHeadDescent)
@@ -404,20 +407,16 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
         ctx.attack_state.telegraph_profile,
         Some(BossAttackProfile::GnuHeadDescent)
     );
-    let head_design_y = if head_descending {
-        // Held-low position during descent telegraph + strike.
-        // Matches the generator's `_draw_head_down` target y=30.
-        30.0
+    let head_center = if head_descending {
+        gnu_ton_design::HEAD_DESCENT_CENTER
     } else {
-        // Rest position high above the shoulder. Matches the
-        // generator's REST_HEAD_Y.
-        -75.0
+        gnu_ton_design::HEAD_REST_CENTER
     };
     vec![gnu_ton_part_aabb(
         ctx.pos,
         ctx.size,
-        ae::Vec2::new(0.0, head_design_y),
-        ae::Vec2::new(92.0, 74.0),
+        head_center,
+        gnu_ton_design::HEAD_HALF_SIZE,
     )]
 }
 
@@ -534,80 +533,19 @@ pub fn volumes_for_profile(
     is_gnu_ton: bool,
 ) -> Vec<ae::Aabb> {
     if is_gnu_ton {
-        // Design-space anchors match the regenerated 768×576 GNU-ton
-        // sprite: hands rest at x=±235, slam strike peaks at y=195
-        // (below the leg hooves at design +175), shockwave fires at
-        // floor level.
-        match attack {
-            BossAttackProfile::GnuHandSlam => {
-                return vec![
-                    gnu_ton_part_aabb(
-                        pos,
-                        size,
-                        ae::Vec2::new(-235.0, 195.0),
-                        ae::Vec2::new(78.0, 60.0),
-                    ),
-                    gnu_ton_part_aabb(
-                        pos,
-                        size,
-                        ae::Vec2::new(235.0, 195.0),
-                        ae::Vec2::new(78.0, 60.0),
-                    ),
-                ];
-            }
-            BossAttackProfile::GnuHandSweep => {
-                return vec![
-                    gnu_ton_part_aabb(
-                        pos,
-                        size,
-                        ae::Vec2::new(-185.0, 20.0),
-                        ae::Vec2::new(140.0, 60.0),
-                    ),
-                    gnu_ton_part_aabb(
-                        pos,
-                        size,
-                        ae::Vec2::new(185.0, 20.0),
-                        ae::Vec2::new(140.0, 60.0),
-                    ),
-                ];
-            }
-            BossAttackProfile::GnuHeadDescent => {
-                return vec![gnu_ton_part_aabb(
-                    pos,
-                    size,
-                    ae::Vec2::new(0.0, 30.0),
-                    ae::Vec2::new(92.0, 74.0),
-                )];
-            }
-            BossAttackProfile::GnuShockwave => {
-                return vec![gnu_ton_part_aabb(
-                    pos,
-                    size,
-                    ae::Vec2::new(0.0, 195.0),
-                    ae::Vec2::new(300.0, 18.0),
-                )];
-            }
-            // Apple-rain damage routes through the spawned projectile
-            // bodies, not a stationary AABB on the boss. Returning
-            // empty here keeps `apply_boss_attack_damage` from
-            // double-counting contact-on-boss while the apples are
-            // in flight.
-            BossAttackProfile::GnuAppleRain => {
-                return Vec::new();
-            }
-            // Gradient Sentinel profiles never land on GNU-ton (the
-            // boss is single-encounter), but a defensive empty arm
-            // keeps the match exhaustive without crashing if some
-            // future test fixture cross-wires the encounters.
-            BossAttackProfile::OverfitVolley
-            | BossAttackProfile::MinimaTrap
-            | BossAttackProfile::SaddlePoint
-            | BossAttackProfile::GradientCascade
-            | BossAttackProfile::GradientLane => {
-                return Vec::new();
-            }
-            _ => {}
-        }
+        // Pull the per-profile design-space parts from the data
+        // table in `gnu_ton_design`. Volume math stays uniform
+        // (`gnu_ton_part_aabb` consumes each part); the only thing
+        // that's per-profile is the parts list. When GNU-ton's
+        // sprite generator starts emitting `body_metrics.animations.
+        // <profile>.hitbox.parts` into the spritesheet RON, this
+        // whole `if is_gnu_ton` block can be removed and the
+        // gradient-sentinel-style `sprite_authored_volumes` will
+        // produce the same world AABBs without a special case.
+        return gnu_ton_design::parts_for_profile(attack)
+            .iter()
+            .map(|spec| gnu_ton_part_aabb(pos, size, spec.center, spec.half_size))
+            .collect();
     }
     let size = combat_size;
     let origin = pos + behavior.attack_origin_offset;

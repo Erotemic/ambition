@@ -16,6 +16,8 @@
 
 use ambition_engine as ae;
 
+use super::action_set::ActionSet;
+use super::smash::{tick_smash, SmashCfg, SmashState};
 use super::snapshot::BrainSnapshot;
 
 // ===== Top-level state-machine variant =====
@@ -53,6 +55,13 @@ pub enum StateMachineCfg {
         cfg: super::BossPatternCfg,
         state: super::BossPatternState,
     },
+    /// Smash-brawl pipeline: observe → mode → action → difficulty
+    /// → emit. The dispatcher needs the actor's `ActionSet` (to
+    /// know what attacks are available), so the regular
+    /// `tick_state_machine` falls through to `tick_smash_via_state_machine`
+    /// only when the caller threads the ActionSet in. See
+    /// [`tick_state_machine_with_actions`] below.
+    Smash { cfg: SmashCfg, state: SmashState },
 }
 
 impl StateMachineCfg {
@@ -68,14 +77,38 @@ impl StateMachineCfg {
             Self::Skirmisher { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::Sniper { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::BossPattern { cfg, .. } => cfg.aggressiveness > 0.0,
+            // Smash brain is always hostile by construction — peaceful
+            // archetypes don't use it (they get Patrol / Wanderer
+            // instead). If we add a peaceful Smash variant later, this
+            // gate moves into `SmashCfg`.
+            Self::Smash { .. } => true,
         }
     }
 }
 
 /// Tick a state-machine brain: read the snapshot, mutate the brain's
 /// own state, and write the abstract intent into `out`.
+///
+/// The `Smash` variant ignores the actor's [`ActionSet`] here (falls
+/// back to a peaceful default that disables melee). Callers that
+/// want a Smash actor to actually attack should call
+/// [`tick_state_machine_with_actions`] instead, threading the
+/// actor's `ActionSet` through. The two-entry-point split keeps
+/// existing callers (player brain driver, NPC sims) source-compat
+/// while the actor driver opt-in into the ActionSet-aware path.
 pub fn tick_state_machine(
     sm: &mut StateMachineCfg,
+    snapshot: &BrainSnapshot,
+    out: &mut ae::ActorControlFrame,
+) {
+    tick_state_machine_with_actions(sm, &ActionSet::peaceful(), snapshot, out);
+}
+
+/// Like [`tick_state_machine`] but threads the actor's `ActionSet`
+/// to the Smash brain so it knows what attacks are available.
+pub fn tick_state_machine_with_actions(
+    sm: &mut StateMachineCfg,
+    actions: &ActionSet,
     snapshot: &BrainSnapshot,
     out: &mut ae::ActorControlFrame,
 ) {
@@ -94,6 +127,9 @@ pub fn tick_state_machine(
         StateMachineCfg::Sniper { cfg, state } => tick_sniper(cfg, state, snapshot, out),
         StateMachineCfg::BossPattern { cfg, state } => {
             tick_boss_pattern_via_state_machine(cfg, state, snapshot, out)
+        }
+        StateMachineCfg::Smash { cfg, state } => {
+            tick_smash(cfg, state, actions, snapshot, out)
         }
     }
 }

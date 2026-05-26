@@ -65,6 +65,7 @@
 pub mod action_set;
 pub mod boss_pattern;
 pub mod player;
+pub mod smash;
 pub mod snapshot;
 pub mod state_machine;
 
@@ -87,6 +88,11 @@ pub use boss_pattern::{
 };
 #[allow(unused_imports)]
 pub use player::{tick_player_brain, tick_player_brain_from_input};
+#[allow(unused_imports)]
+pub use smash::{
+    DifficultyProfile, SmashCfg, SmashState, BroadMode, SpecificAction,
+    CrowdingSignal, ObservationFrame, TerrainAwareness,
+};
 #[allow(unused_imports)]
 pub use snapshot::{BrainSnapshot, WallContact};
 #[allow(unused_imports)]
@@ -138,11 +144,33 @@ impl Brain {
     }
 
     /// Tick the brain: read the snapshot, mutate any internal state,
-    /// and write the abstract intent into `out`.
+    /// and write the abstract intent into `out`. Does not consult the
+    /// actor's `ActionSet`; the Smash brain falls back to a peaceful
+    /// default. Use [`Brain::tick_with_actions`] when the caller knows
+    /// the actor's capabilities and wants the Smash brain to commit
+    /// actual attacks.
     pub fn tick(&mut self, snapshot: &BrainSnapshot, out: &mut ae::ActorControlFrame) {
         match self {
             Brain::Player(slot) => player::tick_player_brain(*slot, snapshot, out),
             Brain::StateMachine(cfg) => tick_state_machine(cfg, snapshot, out),
+        }
+    }
+
+    /// Like [`Brain::tick`] but threads the actor's `ActionSet`. The
+    /// Smash brain uses this to gate `MeleeAttack` / `RangedAttack`
+    /// emission on the actor's actual melee/ranged capability. Other
+    /// brain backends ignore the ActionSet.
+    pub fn tick_with_actions(
+        &mut self,
+        actions: &action_set::ActionSet,
+        snapshot: &BrainSnapshot,
+        out: &mut ae::ActorControlFrame,
+    ) {
+        match self {
+            Brain::Player(slot) => player::tick_player_brain(*slot, snapshot, out),
+            Brain::StateMachine(cfg) => {
+                state_machine::tick_state_machine_with_actions(cfg, actions, snapshot, out)
+            }
         }
     }
 
@@ -198,6 +226,7 @@ impl Brain {
                 StateMachineCfg::Skirmisher { .. } => "skirmisher",
                 StateMachineCfg::Sniper { .. } => "sniper",
                 StateMachineCfg::BossPattern { .. } => "boss_pattern",
+                StateMachineCfg::Smash { .. } => "smash",
             },
         }
     }

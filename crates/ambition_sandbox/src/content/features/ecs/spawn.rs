@@ -411,7 +411,8 @@ pub(super) fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::Ac
 pub(super) fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
     use super::super::enemies::EnemyBrainTemplate;
     use crate::brain::{
-        Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg, WandererCfg, WandererState,
+        Brain, MeleeBruteCfg, MeleeBruteState, SmashState, StateMachineCfg, WandererCfg,
+        WandererState,
     };
     let archetype = enemy.archetype;
     match archetype.brain_template() {
@@ -429,6 +430,37 @@ pub(super) fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
             },
             state: MeleeBruteState::default(),
         }),
+        EnemyBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
+            cfg: smash_cfg_for_archetype(archetype),
+            state: SmashState {
+                rng_seed: ae::seed_from_id(&enemy.id) as u64,
+                ..Default::default()
+            },
+        }),
+    }
+}
+
+/// Build a `SmashCfg` from the archetype's tuning row. Heavier
+/// archetypes (Brute) get a longer attack reach + slower chase;
+/// lighter archetypes (Skitter / Lurker) get a tighter engage band.
+fn smash_cfg_for_archetype(arch: super::super::enemies::EnemyArchetype) -> crate::brain::SmashCfg {
+    use super::super::enemies::EnemyArchetype::*;
+    use crate::brain::SmashCfg;
+    let base = match arch {
+        LargeBrute | LargeColossus => SmashCfg::BRUTE_DEFAULT,
+        _ => SmashCfg::STRIKER_DEFAULT,
+    };
+    // Per-archetype tuning rows already carry chase / aggro / attack
+    // range — thread them through so the data RON stays the source
+    // of truth even for Smash-brain enemies.
+    SmashCfg {
+        aggro_radius: arch.aggro_radius(),
+        attack_range: arch.attack_range().max(40.0),
+        engage_distance: arch.attack_range().max(40.0) * 1.25,
+        too_close_distance: (arch.attack_range().max(40.0) * 0.45).min(30.0),
+        chase_speed: arch.chase_speed(),
+        retreat_speed: arch.chase_speed() * 0.75,
+        ..base
     }
 }
 

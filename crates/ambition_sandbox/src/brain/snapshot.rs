@@ -84,6 +84,18 @@ pub struct BrainSnapshot {
     /// player brain reads it to populate jump / dash / fire / etc.
     /// edges of the control frame.
     pub player_input: Option<crate::input::ControlFrame>,
+
+    /// Per-tick crowding signal — same-faction + non-faction
+    /// nearby-actor counts, the averaged "away" direction, and
+    /// aggregate pressure. `None` for brains that don't consult
+    /// crowding (today: only the Smash brain). The driver system
+    /// only computes this for actors whose brain requests it.
+    pub crowding: Option<crate::brain::smash::CrowdingSignal>,
+    /// Per-tick stage / ledge / hazard awareness. `None` for brains
+    /// that don't consult terrain. Stub today; populated when the
+    /// snapshot builder learns about stage geometry under the
+    /// actor.
+    pub terrain: Option<crate::brain::smash::TerrainAwareness>,
 }
 
 /// Info about a wall the actor pressed against this tick.
@@ -122,6 +134,8 @@ impl BrainSnapshot {
             stun_remaining: 0.0,
             wall_contact: None,
             player_input: None,
+            crowding: None,
+            terrain: None,
         }
     }
 

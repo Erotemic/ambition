@@ -230,6 +230,10 @@ pub fn update_ecs_actors(
             // scripted spawns) might skip brain attachment.
             Option<&mut crate::brain::Brain>,
             Option<&mut crate::brain::ActorControl>,
+            // ActionSet — read for the Smash brain so it knows which
+            // attacks (melee / ranged) the actor can commit. `Option`
+            // so dynamically-spawned actors without a set still tick.
+            Option<&crate::brain::ActionSet>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -256,7 +260,7 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, ae::SlotKind)> = Vec::new();
-    for (_, _, actor, _, _, _, _, _, _, _, _, _) in &actors {
+    for (_, _, actor, _, _, _, _, _, _, _, _, _, _) in &actors {
         if let ActorRuntime::Hostile(enemy) = actor {
             if enemy.alive {
                 requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
@@ -339,6 +343,42 @@ pub fn update_ecs_actors(
         }
     }
 
+    // Per-actor crowding signal for Smash-brain enemies. Every entry
+    // in `requests` is a same-faction (Enemy) actor since `requests`
+    // is built from hostile actors only, so the count here IS the
+    // same-faction count for Smash. Other-faction crowding (player,
+    // peaceful NPCs) is left as 0 for now — the user's design weights
+    // same-faction as the dominant signal anyway.
+    const CROWDING_RADIUS_PX: f32 = 80.0;
+    let mut crowding_by_id: std::collections::HashMap<String, crate::brain::CrowdingSignal> =
+        std::collections::HashMap::new();
+    for (id_a, pos_a, _) in &requests {
+        let mut count: u8 = 0;
+        let mut centroid = ae::Vec2::ZERO;
+        for (id_b, pos_b, _) in &requests {
+            if id_a == id_b {
+                continue;
+            }
+            if pos_a.distance_squared(*pos_b) <= CROWDING_RADIUS_PX * CROWDING_RADIUS_PX {
+                count = count.saturating_add(1);
+                centroid += *pos_b;
+            }
+        }
+        if count > 0 {
+            centroid /= count as f32;
+            let away = (*pos_a - centroid).normalize_or_zero();
+            crowding_by_id.insert(
+                id_a.clone(),
+                crate::brain::CrowdingSignal {
+                    same_faction_count: count,
+                    other_faction_count: 0,
+                    away_dir: away,
+                    pressure: crate::brain::CrowdingSignal::compute_pressure(count, 0),
+                },
+            );
+        }
+    }
+
     // Pass 2: tick each actor with its assigned slot position. Falls
     // back to the slot's holding-ring position when this actor didn't
     // win a slot so it still has a sensible steering target.
@@ -363,6 +403,7 @@ pub fn update_ecs_actors(
         target,
         mut brain,
         mut control,
+        action_set,
     ) in &mut actors
     {
         // `target.pos` is populated by `select_actor_targets`
@@ -406,14 +447,6 @@ pub fn update_ecs_actors(
                     None
                 };
                 let nearest_neighbor = neighbor_by_id.get(&enemy.id).copied();
-                // EnemyRuntime is the single intent producer for
-                // hostile actors. Its per-tick frame lands in
-                // `ActorControl` below; the resolver emits the
-                // matching `ActorActionMessage`s. The
-                // `StateMachine(MeleeBrute)` brain attached to the
-                // entity stays as a future migration handle for when
-                // the legacy AI lifts into the brain template.
-                let _ = brain;
                 // Capture pre-tick attack state so we can detect
                 // the windup → active edge below. The runtime's
                 // `update_attack_timers` is the only path that
@@ -423,7 +456,7 @@ pub fn update_ecs_actors(
                 // instead of polling overlap every tick.
                 let was_winding_up = enemy.attack_windup_timer > 0.0;
                 let was_active = enemy.attack_timer > 0.0;
-                let frame = enemy.update(
+                let legacy_frame = enemy.update(
                     &feature_world,
                     target_pos,
                     combat_tuning,
@@ -433,6 +466,48 @@ pub fn update_ecs_actors(
                 );
                 aabb.center = enemy.pos;
                 aabb.half_size = enemy.size * 0.5;
+
+                // Brain authority for Smash-brain actors: replace the
+                // legacy frame's attack intents with what the Smash
+                // brain produces. The legacy `enemy.update()` is
+                // still authoritative for integration THIS frame (so
+                // position uses the legacy AI's `desired_vel` and
+                // the slot board's holding-ring), but the EFFECTS
+                // stage consumes ActorControl, and that's where the
+                // Smash brain's `melee_pressed` / `attack_axis` flow
+                // through to actual hitbox spawns. Once we extract
+                // an `enemy.step_integration(&frame, …)` seam, the
+                // Smash brain takes movement authority too.
+                let frame = if let Some(brain_ref) = brain.as_deref_mut() {
+                    if matches!(
+                        brain_ref,
+                        crate::brain::Brain::StateMachine(
+                            crate::brain::StateMachineCfg::Smash { .. }
+                        )
+                    ) {
+                        let crowding = crowding_by_id.get(&enemy.id).copied();
+                        let snapshot = build_smash_snapshot(enemy, target_pos, crowding, dt);
+                        let mut brain_frame = ae::ActorControlFrame::neutral();
+                        // Default to a peaceful ActionSet if the
+                        // entity is missing one (dynamic spawn case);
+                        // the Smash brain just won't emit attacks.
+                        let peaceful = crate::brain::ActionSet::peaceful();
+                        let actions = action_set.unwrap_or(&peaceful);
+                        brain_ref.tick_with_actions(actions, &snapshot, &mut brain_frame);
+                        // Movement still comes from the legacy frame
+                        // until the integration seam lands — copy
+                        // those fields over so the Smash brain's
+                        // attack intents land but the actor doesn't
+                        // freeze in place.
+                        brain_frame.desired_vel = legacy_frame.desired_vel;
+                        brain_frame.drop_through = legacy_frame.drop_through;
+                        brain_frame
+                    } else {
+                        legacy_frame
+                    }
+                } else {
+                    legacy_frame
+                };
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;
                 }
@@ -501,5 +576,38 @@ pub fn update_ecs_actors(
             &mut intent,
             &mut cooldowns,
         );
+    }
+}
+
+/// Build a `BrainSnapshot` for a Smash-brain enemy. Threads the
+/// crowding signal computed once per tick by the actor driver.
+/// `dt` is the gameplay clock so the Smash brain's mode dwell
+/// accumulator runs on the same time domain as the rest of the
+/// simulation.
+fn build_smash_snapshot(
+    enemy: &crate::content::features::EnemyRuntime,
+    target_pos: ae::Vec2,
+    crowding: Option<crate::brain::CrowdingSignal>,
+    dt: f32,
+) -> crate::brain::BrainSnapshot {
+    crate::brain::BrainSnapshot {
+        actor_pos: enemy.pos,
+        actor_vel: enemy.vel,
+        actor_facing: enemy.facing,
+        actor_on_ground: enemy.on_ground,
+        alive: enemy.alive,
+        target_pos,
+        target_alive: true,
+        sim_time: 0.0,
+        dt,
+        attack_cooldown_remaining: enemy.attack_cooldown,
+        attack_windup_remaining: enemy.attack_windup_timer,
+        attack_active_remaining: enemy.attack_timer,
+        attack_recover_remaining: 0.0,
+        stun_remaining: 0.0,
+        wall_contact: None,
+        player_input: None,
+        crowding,
+        terrain: None,
     }
 }

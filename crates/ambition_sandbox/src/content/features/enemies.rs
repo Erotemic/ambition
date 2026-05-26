@@ -286,6 +286,11 @@ pub(super) enum EnemyBrainTemplate {
     /// chase_speed / attack_range / aggro_radius pulled into the
     /// cfg.
     MeleeBrute,
+    /// Smash-brawl pipeline: observe → mode → action → difficulty
+    /// → emit. See `crate::brain::smash`. Use for humanoid melee
+    /// archetypes that should approach, swing, and step back with
+    /// crowding awareness.
+    Smash,
 }
 
 /// Per-archetype tuning rows live in `assets/data/enemy_archetypes.ron`

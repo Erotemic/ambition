@@ -64,7 +64,7 @@
         attack_range: 150.0,
         contact_strength: 0.70,
         damage_amount: 1,
-        brain_template: MeleeBrute,
+        brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.28,
             active_s: 0.08,
@@ -82,7 +82,7 @@
         attack_range: 105.0,
         contact_strength: 0.55,
         damage_amount: 1,
-        brain_template: MeleeBrute,
+        brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.28,
             active_s: 0.08,
@@ -102,7 +102,7 @@
         attack_range: 90.0,
         contact_strength: 0.45,
         damage_amount: 1,
-        brain_template: MeleeBrute,
+        brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.28,
             active_s: 0.08,
@@ -120,7 +120,7 @@
         attack_range: 150.0,
         contact_strength: 0.70,
         damage_amount: 1,
-        brain_template: MeleeBrute,
+        brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.28,
             active_s: 0.08,
@@ -138,7 +138,7 @@
         attack_range: 205.0,
         contact_strength: 1.25,
         damage_amount: 2,
-        brain_template: MeleeBrute,
+        brain_template: Smash,
         melee: Some(Lunge((
             windup_s: 0.45,
             active_s: 0.12,
@@ -160,7 +160,7 @@
         attack_range: 240.0,
         contact_strength: 1.50,
         damage_amount: 3,
-        brain_template: MeleeBrute,
+        brain_template: Smash,
         melee: Some(Lunge((
             windup_s: 0.45,
             active_s: 0.12,
@@ -179,7 +179,7 @@
         attack_range: 150.0,
         contact_strength: 0.80,
         damage_amount: 1,
-        brain_template: MeleeBrute,
+        brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.28,
             active_s: 0.08,
@@ -238,7 +238,7 @@
         contact_strength: 0.85,
         damage_amount: 1,
         default_size: Some((44.0, 78.0)),
-        brain_template: MeleeBrute,
+        brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.28,
             active_s: 0.08,

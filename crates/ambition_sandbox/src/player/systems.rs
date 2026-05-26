@@ -85,6 +85,11 @@ pub fn tick_player_brains(
             stun_remaining: 0.0,
             wall_contact: None,
             player_input: Some(input.frame),
+            // Player brain doesn't consult these fields; leave them
+            // None so the snapshot builder doesn't pay for queries
+            // the brain ignores.
+            crowding: None,
+            terrain: None,
         };
         let mut frame = ae::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);

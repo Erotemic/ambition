@@ -221,6 +221,11 @@ impl NpcRuntime {
             // NPC entity would not fire today; possession is
             // future work.
             player_input: None,
+            // Patrol brain doesn't consult crowding or terrain — only
+            // Smash does today. Leave these `None` so the snapshot
+            // builder doesn't pay for queries this brain ignores.
+            crowding: None,
+            terrain: None,
         };
         let mut frame = ae::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);

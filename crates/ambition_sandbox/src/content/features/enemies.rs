@@ -120,7 +120,7 @@ pub enum EnemyRespawnPolicy {
 /// agree on the spelling.
 pub const ENEMY_DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Deserialize)]
 pub enum EnemyArchetype {
     Combatant,
     SmallSkitter,
@@ -207,9 +207,16 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
 /// peaceful-vs-hostile move-style branches) into one source of truth.
 /// Any new archetype now defines its full behavior shape in a single
 /// `archetype_spec` arm.
-#[derive(Clone, Copy, Debug)]
+/// Tuning row for one enemy archetype. The Rust enum
+/// [`EnemyArchetype`] stays as the closed set of "known" archetypes
+/// the codebase ships, but every field here is authored in
+/// `assets/data/enemy_archetypes.ron` so a designer can tweak the
+/// chase / aggro / damage numbers (the things that decide whether a
+/// fight feels fair) without a Rust patch.
+#[derive(Clone, Copy, Debug, serde::Deserialize)]
 pub(super) struct EnemyArchetypeSpec {
     pub max_health: i32,
+    #[serde(default)]
     pub rider_max_health: Option<i32>,
     pub patrol_speed: f32,
     pub chase_speed: f32,
@@ -217,8 +224,11 @@ pub(super) struct EnemyArchetypeSpec {
     pub attack_range: f32,
     pub contact_strength: f32,
     pub damage_amount: i32,
+    #[serde(default)]
     pub is_aerial: bool,
+    #[serde(default)]
     pub is_sandbag: bool,
+    #[serde(default, with = "vec2_option")]
     pub default_size: Option<ae::Vec2>,
     /// Brain template the spawn site instantiates for this archetype.
     /// MeleeBrute reads the archetype's tunings (chase_speed,
@@ -234,10 +244,27 @@ pub(super) struct EnemyArchetypeSpec {
     pub move_style: crate::brain::MoveStyleSpec,
 }
 
+/// Glue: `Option<ae::Vec2>` deserializes from a `(x, y)` tuple in RON
+/// or an explicit `None`. `bevy_math::Vec2` doesn't implement
+/// `Deserialize` directly under the features the sandbox compiles
+/// with, so route through a tuple shim.
+mod vec2_option {
+    use ambition_engine as ae;
+    use serde::Deserialize;
+
+    pub fn deserialize<'de, D>(de: D) -> Result<Option<ae::Vec2>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw: Option<(f32, f32)> = Option::deserialize(de)?;
+        Ok(raw.map(|(x, y)| ae::Vec2::new(x, y)))
+    }
+}
+
 /// Brain template choice keyed off `EnemyArchetype`. Sandbox-side
 /// enum because the brain module is the universal-actor abstraction
 /// and shouldn't know about enemies.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub(super) enum EnemyBrainTemplate {
     /// No motion / no AI — the actor only reacts to events
     /// (sandbag's PunchWeak counter, dialogue-only NPCs that become
@@ -256,7 +283,7 @@ pub(super) enum EnemyBrainTemplate {
 /// spawn into a `crate::brain::ActionSet`'s melee / ranged slots.
 /// Add a variant only when a new archetype needs a distinct attack
 /// flavor.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub(super) enum EnemyAttackKind {
     /// Peaceful disposition. No melee, no ranged. ActionSet keeps
     /// both slots None.
@@ -273,289 +300,35 @@ pub(super) enum EnemyAttackKind {
     RangedBolt,
 }
 
-/// Table indexed by [`EnemyArchetype`]; built via a single `match`
-/// over the enum so the compiler still flags every variant if we add
-/// one. Aerial archetypes inherit `is_aerial: true` which feeds both
-/// `gravity_scale` (zero gravity) and the combat slot kind
-/// (`SlotKind::Aerial`).
-const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
-    use EnemyArchetype::*;
-    match arch {
-        Combatant => EnemyArchetypeSpec {
-            max_health: 4,
-            rider_max_health: None,
-            patrol_speed: ENEMY_PATROL_SPEED,
-            chase_speed: ENEMY_CHASE_SPEED,
-            aggro_radius: 460.0,
-            attack_range: ENEMY_ATTACK_RANGE,
-            contact_strength: 0.70,
-            damage_amount: 1,
-            is_aerial: false,
-            is_sandbag: false,
-            default_size: None,
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::MeleeSwipe,
-            move_style: crate::brain::MoveStyleSpec::Walk,
-        },
-        SmallSkitter => EnemyArchetypeSpec {
-            max_health: 2,
-            rider_max_health: None,
-            patrol_speed: 150.0,
-            chase_speed: 210.0,
-            aggro_radius: 320.0,
-            attack_range: 105.0,
-            contact_strength: 0.55,
-            damage_amount: 1,
-            is_aerial: false,
-            is_sandbag: false,
-            default_size: None,
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::MeleeSwipe,
-            move_style: crate::brain::MoveStyleSpec::Walk,
-        },
-        SmallLurker => EnemyArchetypeSpec {
-            max_health: 2,
-            rider_max_health: None,
-            patrol_speed: 60.0, // sluggish — that's the point
-            chase_speed: 90.0,
-            aggro_radius: 96.0, // tight — player can walk past
-            attack_range: 90.0,
-            contact_strength: 0.45,
-            damage_amount: 1,
-            is_aerial: false,
-            is_sandbag: false,
-            default_size: None,
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::MeleeSwipe,
-            move_style: crate::brain::MoveStyleSpec::Walk,
-        },
-        MediumStriker => EnemyArchetypeSpec {
-            max_health: 5,
-            rider_max_health: None,
-            patrol_speed: ENEMY_PATROL_SPEED,
-            chase_speed: 170.0,
-            aggro_radius: 460.0,
-            attack_range: ENEMY_ATTACK_RANGE,
-            contact_strength: 0.70,
-            damage_amount: 1,
-            is_aerial: false,
-            is_sandbag: false,
-            default_size: None,
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::MeleeSwipe,
-            move_style: crate::brain::MoveStyleSpec::Walk,
-        },
-        LargeBrute => EnemyArchetypeSpec {
-            max_health: 9,
-            rider_max_health: None,
-            patrol_speed: 72.0,
-            chase_speed: 118.0,
-            aggro_radius: 380.0,
-            attack_range: 205.0,
-            contact_strength: 1.25,
-            damage_amount: 2,
-            is_aerial: false,
-            is_sandbag: false,
-            default_size: None,
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::MeleeLunge,
-            move_style: crate::brain::MoveStyleSpec::WalkHeavy,
-        },
-        LargeColossus => EnemyArchetypeSpec {
-            max_health: 14,
-            rider_max_health: None,
-            patrol_speed: 40.0,     // barely moves; almost stationary
-            chase_speed: 80.0,      // never sprints
-            aggro_radius: 200.0,    // narrow threat envelope
-            attack_range: 240.0,    // big arms reach further
-            contact_strength: 1.50, // hits the hardest of any non-boss
-            damage_amount: 3,
-            is_aerial: false,
-            is_sandbag: false,
-            default_size: None,
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::MeleeLunge,
-            move_style: crate::brain::MoveStyleSpec::WalkHeavy,
-        },
-        AggressiveSeeker => EnemyArchetypeSpec {
-            max_health: 4,
-            rider_max_health: None,
-            patrol_speed: 130.0,
-            chase_speed: 225.0,
-            aggro_radius: 900.0,
-            attack_range: ENEMY_ATTACK_RANGE,
-            contact_strength: 0.80,
-            damage_amount: 1,
-            is_aerial: false,
-            is_sandbag: false,
-            default_size: None,
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::MeleeSwipe,
-            move_style: crate::brain::MoveStyleSpec::Walk,
-        },
-        InfiniteSandbag => EnemyArchetypeSpec {
-            max_health: 9999,
-            rider_max_health: None,
-            patrol_speed: ENEMY_PATROL_SPEED,
-            chase_speed: ENEMY_CHASE_SPEED,
-            aggro_radius: 0.0,
-            attack_range: ENEMY_ATTACK_RANGE,
-            contact_strength: 0.70,
-            damage_amount: 1,
-            is_aerial: false,
-            is_sandbag: true,
-            default_size: None,
-            brain_template: EnemyBrainTemplate::StandStill,
-            attack: EnemyAttackKind::MeleePunchWeak,
-            move_style: crate::brain::MoveStyleSpec::Walk,
-        },
-        FiniteSandbag => EnemyArchetypeSpec {
-            max_health: 6,
-            rider_max_health: None,
-            patrol_speed: ENEMY_PATROL_SPEED,
-            chase_speed: ENEMY_CHASE_SPEED,
-            aggro_radius: 0.0,
-            attack_range: ENEMY_ATTACK_RANGE,
-            contact_strength: 0.70,
-            damage_amount: 1,
-            is_aerial: false,
-            is_sandbag: true,
-            default_size: None,
-            brain_template: EnemyBrainTemplate::StandStill,
-            attack: EnemyAttackKind::MeleePunchWeak,
-            move_style: crate::brain::MoveStyleSpec::Walk,
-        },
-        PirateRaider => EnemyArchetypeSpec {
-            max_health: 5,
-            rider_max_health: None,
-            patrol_speed: 130.0,
-            chase_speed: 190.0,
-            aggro_radius: 460.0,
-            attack_range: 140.0,
-            contact_strength: 0.85,
-            damage_amount: 1,
-            is_aerial: false,
-            is_sandbag: false,
-            default_size: Some(ae::Vec2::new(44.0, 78.0)),
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::MeleeSwipe,
-            move_style: crate::brain::MoveStyleSpec::Walk,
-        },
-        BurningFlyingShark => EnemyArchetypeSpec {
-            // Shark hp (the body pool); no rider on this dismounted form.
-            max_health: 6,
-            rider_max_health: None,
-            patrol_speed: 110.0,
-            // Aerial fly speed — used as the steering convergence rate
-            // toward the choreography's engage position.
-            chase_speed: 260.0,
-            // Aerial archetypes spot the player from across the arena.
-            aggro_radius: 1200.0,
-            // For ranged actors `attack_range` is the AI "I am willing
-            // to attack" gate; choreography decides the actual engage.
-            attack_range: 200.0,
-            contact_strength: 1.10,
-            damage_amount: 2,
-            is_aerial: true,
-            is_sandbag: false,
-            default_size: Some(ae::Vec2::new(108.0, 96.0)),
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::MeleeBite,
-            move_style: crate::brain::MoveStyleSpec::Float,
-        },
-        PirateOnShark => EnemyArchetypeSpec {
-            // Shark hp (the body pool). Rider has its own pool — see
-            // `rider_max_health`.
-            max_health: 6,
-            rider_max_health: Some(4),
-            patrol_speed: 110.0,
-            chase_speed: 230.0,
-            aggro_radius: 1200.0,
-            attack_range: 1100.0,
-            contact_strength: 1.10,
-            damage_amount: 2,
-            is_aerial: true,
-            is_sandbag: false,
-            default_size: Some(ae::Vec2::new(108.0, 96.0)),
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::RangedBolt,
-            move_style: crate::brain::MoveStyleSpec::Float,
-        },
-        PirateHeavy => EnemyArchetypeSpec {
-            // Cove crew member. Peaceful BY DEFAULT (aggro 0,
-            // attack range 0) — the heavy paces back and forth at
-            // patrol speed but never aggros, never swings, never
-            // deals contact damage. Player can walk past safely.
-            // Provoking-into-hostility is future work; right now
-            // the archetype reads as "tanky bruiser silhouette,
-            // crew disposition" until/unless we add a turn-hostile
-            // event hook. The aerial PirateHeavyOnShark variant is
-            // a separate archetype and keeps full aggression.
-            max_health: 10,
-            rider_max_health: None,
-            patrol_speed: 75.0,
-            chase_speed: 130.0,
-            aggro_radius: 0.0,
-            attack_range: 0.0,
-            contact_strength: 0.0,
-            damage_amount: 2,
-            is_aerial: false,
-            is_sandbag: false,
-            // Sized to the variants' rendered silhouette
-            // (broadside_bess: 172×138, iron_mary: 176×143,
-            // salt_annet: 169×134). Collider uses the bess midpoint
-            // so all three variants share a hitbox; tuning by
-            // variant can come later if combat asks for it.
-            default_size: Some(ae::Vec2::new(72.0, 110.0)),
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::None,
-            move_style: crate::brain::MoveStyleSpec::Walk,
-        },
-        PirateHeavyOnShark => EnemyArchetypeSpec {
-            // Aerial fused actor. Same envelope as PirateOnShark
-            // but with a chunkier rider — heavier melee on the body
-            // contact, bigger rider HP pool, slightly slower orbit
-            // because the heavy weight drags the shark.
-            max_health: 7,
-            rider_max_health: Some(6),
-            patrol_speed: 110.0,
-            chase_speed: 215.0,
-            aggro_radius: 1200.0,
-            attack_range: 1100.0,
-            contact_strength: 1.30,
-            damage_amount: 3,
-            is_aerial: true,
-            is_sandbag: false,
-            default_size: Some(ae::Vec2::new(108.0, 96.0)),
-            brain_template: EnemyBrainTemplate::MeleeBrute,
-            attack: EnemyAttackKind::RangedBolt,
-            move_style: crate::brain::MoveStyleSpec::Float,
-        },
-        PuppySlug => EnemyArchetypeSpec {
-            // Crawlid-style grunt: 2 HP, slow, body-contact damage,
-            // never aggros (aggro_radius = 0 → AI stays in Patrol).
-            // chase_speed is unused but kept non-zero so any future
-            // promotion to "panic-on-hit chase" reads sensibly.
-            max_health: 2,
-            rider_max_health: None,
-            patrol_speed: 55.0,
-            chase_speed: 80.0,
-            aggro_radius: 0.0,
-            attack_range: 0.0,
-            contact_strength: 0.55,
-            damage_amount: 1,
-            is_aerial: false,
-            is_sandbag: false,
-            // Match the rendered sheet's body proportions (puppy_slug
-            // sprite is 128×95 with body bbox ~120×31). The collider
-            // hugs the dorsal-ridge silhouette.
-            default_size: Some(ae::Vec2::new(48.0, 22.0)),
-            brain_template: EnemyBrainTemplate::Wanderer,
-            attack: EnemyAttackKind::None,
-            move_style: crate::brain::MoveStyleSpec::Slither,
-        },
-    }
+/// Per-archetype tuning rows live in `assets/data/enemy_archetypes.ron`
+/// (loaded once at startup via the `LazyLock` below). Designers edit
+/// that file to tune fights — no Rust patch needed. The enum stays
+/// as the closed "known archetypes" set so the compiler still flags
+/// missing variants in `match` arms across the codebase.
+fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
+    *ENEMY_ARCHETYPE_REGISTRY
+        .get(&arch)
+        .unwrap_or_else(|| panic!("enemy archetype {arch:?} missing from enemy_archetypes.ron"))
 }
+
+/// Parsed contents of `assets/data/enemy_archetypes.ron`. `LazyLock`
+/// (not a Bevy `Resource`) so `archetype_spec()` can stay a plain
+/// function callable from non-system contexts (e.g.
+/// `BossBehaviorProfile` constructors). Hot reload is a future-work
+/// item — for now the data is read once when first accessed.
+static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
+    std::collections::HashMap<EnemyArchetype, EnemyArchetypeSpec>,
+> = std::sync::LazyLock::new(|| {
+    const ENEMY_ARCHETYPES_RON: &str =
+        include_str!("../../../assets/data/enemy_archetypes.ron");
+    ron::from_str(ENEMY_ARCHETYPES_RON).unwrap_or_else(|err| {
+        panic!(
+            "assets/data/enemy_archetypes.ron failed to deserialize as HashMap<EnemyArchetype, \
+             EnemyArchetypeSpec>: {err}"
+        )
+    })
+});
+
 
 impl EnemyArchetype {
     /// All combat-capable archetypes in a stable order. Useful for
@@ -1751,5 +1524,59 @@ impl EnemyRuntime {
             // routing arrives with OVERNIGHT-TODO #17.6.
             target: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod enemy_archetype_data_tests {
+    use super::*;
+
+    /// `assets/data/enemy_archetypes.ron` must carry a row for every
+    /// `EnemyArchetype` variant the codebase knows about — otherwise
+    /// `archetype_spec()` would panic at the first spawn of the
+    /// missing archetype. Pin every enum variant the engine ships.
+    #[test]
+    fn ron_carries_every_known_archetype() {
+        use EnemyArchetype::*;
+        for arch in [
+            Combatant,
+            SmallSkitter,
+            SmallLurker,
+            MediumStriker,
+            LargeBrute,
+            LargeColossus,
+            AggressiveSeeker,
+            InfiniteSandbag,
+            FiniteSandbag,
+            PirateRaider,
+            BurningFlyingShark,
+            PirateOnShark,
+            PirateHeavy,
+            PirateHeavyOnShark,
+            PuppySlug,
+        ] {
+            assert!(
+                ENEMY_ARCHETYPE_REGISTRY.contains_key(&arch),
+                "enemy_archetypes.ron missing row for {arch:?}",
+            );
+        }
+    }
+
+    /// Spot-check the legacy pre-data values for two divergent
+    /// archetypes so a regen of the RON without re-tuning catches
+    /// accidental drift on the rows the player notices first.
+    #[test]
+    fn legacy_baseline_pins() {
+        let combatant = archetype_spec(EnemyArchetype::Combatant);
+        assert_eq!(combatant.max_health, 4);
+        assert!((combatant.chase_speed - 155.0).abs() < f32::EPSILON);
+        assert!((combatant.aggro_radius - 460.0).abs() < f32::EPSILON);
+        assert_eq!(combatant.attack, EnemyAttackKind::MeleeSwipe);
+        let slug = archetype_spec(EnemyArchetype::PuppySlug);
+        assert_eq!(slug.max_health, 2);
+        assert!((slug.patrol_speed - 55.0).abs() < f32::EPSILON);
+        assert_eq!(slug.aggro_radius, 0.0);
+        assert_eq!(slug.brain_template, EnemyBrainTemplate::Wanderer);
+        assert_eq!(slug.attack, EnemyAttackKind::None);
     }
 }

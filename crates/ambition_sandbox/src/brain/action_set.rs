@@ -164,7 +164,7 @@ impl MeleeActionSpec {
 }
 
 /// How an actor's locomotion looks.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize)]
 pub enum MoveStyleSpec {
     /// Two-legged walk (default for humanoids).
     #[default]

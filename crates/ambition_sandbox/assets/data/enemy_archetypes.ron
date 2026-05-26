@@ -1,0 +1,257 @@
+// Enemy archetype tuning rows — single source of truth for the
+// numbers that decide how each archetype fights. Loaded once at
+// startup into a `LazyLock<HashMap<EnemyArchetype, EnemyArchetypeSpec>>`
+// in `content/features/enemies.rs`; `EnemyArchetype::spec()` is the
+// only read site.
+//
+// To re-tune a fight: edit the row, restart the sandbox. No Rust
+// changes needed.
+//
+// To add an archetype:
+//   1. Add a new variant to the `EnemyArchetype` enum in `enemies.rs`.
+//   2. Add a row keyed by the variant name below.
+//   3. Wire it into `BRAIN_NAME_TO_ARCHETYPE` if it should be
+//      spawnable from LDtk via a `Brain::Custom("…")` reference.
+//
+// Field reference:
+//   max_health         HP pool of the body (shark body for fused actors).
+//   rider_max_health   Optional second HP pool (PirateOnShark, …).
+//   patrol_speed       Idle-pace movement speed (px/s).
+//   chase_speed        Aggro/engage movement speed (px/s). For aerial
+//                      actors this is the steering convergence rate
+//                      toward the choreography target.
+//   aggro_radius       Distance (px) at which the AI flips from
+//                      Patrol → Chase. `0.0` = never aggros.
+//   attack_range       Distance (px) at which the AI will fire an
+//                      attack. For ranged actors this gates the AI
+//                      attack-state decision; choreography decides
+//                      the actual engage geometry.
+//   contact_strength   Knockback multiplier when the player touches
+//                      the body. `0.0` = no contact damage / knockback.
+//   damage_amount      Damage dealt by the archetype's attack or
+//                      contact event.
+//   is_aerial          Removes gravity + flips the slot kind to Aerial.
+//   is_sandbag         Tags the archetype as a training-dummy variant.
+//   default_size       Optional render/collision size override (px).
+//                      `None` = use the engine's default body box.
+//   brain_template     One of StandStill / Wanderer / MeleeBrute.
+//   attack             EnemyAttackKind — None / MeleeSwipe /
+//                      MeleeLunge / MeleeBite / MeleePunchWeak /
+//                      RangedBolt.
+//   move_style         Locomotion animation: Walk / WalkHeavy / Hop /
+//                      Strafe / Slither / Float.
+//
+// Shared baselines (kept in sync with `content/features.rs`):
+//   ENEMY_PATROL_SPEED = 105.0
+//   ENEMY_CHASE_SPEED  = 155.0
+//   ENEMY_ATTACK_RANGE = 150.0
+({
+    "Combatant": (
+        max_health: 4,
+        patrol_speed: 105.0,
+        chase_speed: 155.0,
+        aggro_radius: 460.0,
+        attack_range: 150.0,
+        contact_strength: 0.70,
+        damage_amount: 1,
+        brain_template: MeleeBrute,
+        attack: MeleeSwipe,
+        move_style: Walk,
+    ),
+    "SmallSkitter": (
+        max_health: 2,
+        patrol_speed: 150.0,
+        chase_speed: 210.0,
+        aggro_radius: 320.0,
+        attack_range: 105.0,
+        contact_strength: 0.55,
+        damage_amount: 1,
+        brain_template: MeleeBrute,
+        attack: MeleeSwipe,
+        move_style: Walk,
+    ),
+    // Sluggish wanderer. Tiny aggro so the player can walk past, but a
+    // careless approach still punishes via the swipe.
+    "SmallLurker": (
+        max_health: 2,
+        patrol_speed: 60.0,
+        chase_speed: 90.0,
+        aggro_radius: 96.0,
+        attack_range: 90.0,
+        contact_strength: 0.45,
+        damage_amount: 1,
+        brain_template: MeleeBrute,
+        attack: MeleeSwipe,
+        move_style: Walk,
+    ),
+    "MediumStriker": (
+        max_health: 5,
+        patrol_speed: 105.0,
+        chase_speed: 170.0,
+        aggro_radius: 460.0,
+        attack_range: 150.0,
+        contact_strength: 0.70,
+        damage_amount: 1,
+        brain_template: MeleeBrute,
+        attack: MeleeSwipe,
+        move_style: Walk,
+    ),
+    "LargeBrute": (
+        max_health: 9,
+        patrol_speed: 72.0,
+        chase_speed: 118.0,
+        aggro_radius: 380.0,
+        attack_range: 205.0,
+        contact_strength: 1.25,
+        damage_amount: 2,
+        brain_template: MeleeBrute,
+        attack: MeleeLunge,
+        move_style: WalkHeavy,
+    ),
+    // Boss-room "stationary heavy" — almost stationary, narrow threat
+    // envelope but huge reach + biggest non-boss contact damage.
+    "LargeColossus": (
+        max_health: 14,
+        patrol_speed: 40.0,
+        chase_speed: 80.0,
+        aggro_radius: 200.0,
+        attack_range: 240.0,
+        contact_strength: 1.50,
+        damage_amount: 3,
+        brain_template: MeleeBrute,
+        attack: MeleeLunge,
+        move_style: WalkHeavy,
+    ),
+    "AggressiveSeeker": (
+        max_health: 4,
+        patrol_speed: 130.0,
+        chase_speed: 225.0,
+        aggro_radius: 900.0,
+        attack_range: 150.0,
+        contact_strength: 0.80,
+        damage_amount: 1,
+        brain_template: MeleeBrute,
+        attack: MeleeSwipe,
+        move_style: Walk,
+    ),
+    // Training dummy that never dies. The sandbox uses this for the
+    // combat-feel lab so the player can wail on a static target.
+    "InfiniteSandbag": (
+        max_health: 9999,
+        patrol_speed: 105.0,
+        chase_speed: 155.0,
+        aggro_radius: 0.0,
+        attack_range: 150.0,
+        contact_strength: 0.70,
+        damage_amount: 1,
+        is_sandbag: true,
+        brain_template: StandStill,
+        attack: MeleePunchWeak,
+        move_style: Walk,
+    ),
+    "FiniteSandbag": (
+        max_health: 6,
+        patrol_speed: 105.0,
+        chase_speed: 155.0,
+        aggro_radius: 0.0,
+        attack_range: 150.0,
+        contact_strength: 0.70,
+        damage_amount: 1,
+        is_sandbag: true,
+        brain_template: StandStill,
+        attack: MeleePunchWeak,
+        move_style: Walk,
+    ),
+    "PirateRaider": (
+        max_health: 5,
+        patrol_speed: 130.0,
+        chase_speed: 190.0,
+        aggro_radius: 460.0,
+        attack_range: 140.0,
+        contact_strength: 0.85,
+        damage_amount: 1,
+        default_size: Some((44.0, 78.0)),
+        brain_template: MeleeBrute,
+        attack: MeleeSwipe,
+        move_style: Walk,
+    ),
+    // Aerial shark (dismounted form). chase_speed is the steering
+    // convergence rate, not ground sprint.
+    "BurningFlyingShark": (
+        max_health: 6,
+        patrol_speed: 110.0,
+        chase_speed: 260.0,
+        aggro_radius: 1200.0,
+        attack_range: 200.0,
+        contact_strength: 1.10,
+        damage_amount: 2,
+        is_aerial: true,
+        default_size: Some((108.0, 96.0)),
+        brain_template: MeleeBrute,
+        attack: MeleeBite,
+        move_style: Float,
+    ),
+    "PirateOnShark": (
+        max_health: 6,
+        rider_max_health: Some(4),
+        patrol_speed: 110.0,
+        chase_speed: 230.0,
+        aggro_radius: 1200.0,
+        attack_range: 1100.0,
+        contact_strength: 1.10,
+        damage_amount: 2,
+        is_aerial: true,
+        default_size: Some((108.0, 96.0)),
+        brain_template: MeleeBrute,
+        attack: RangedBolt,
+        move_style: Float,
+    ),
+    // Cove crew. Peaceful by default (aggro 0 + attack range 0 + no
+    // contact damage) — paces back and forth without engaging.
+    // Provoking-into-hostility is future work.
+    "PirateHeavy": (
+        max_health: 10,
+        patrol_speed: 75.0,
+        chase_speed: 130.0,
+        aggro_radius: 0.0,
+        attack_range: 0.0,
+        contact_strength: 0.0,
+        damage_amount: 2,
+        default_size: Some((72.0, 110.0)),
+        brain_template: MeleeBrute,
+        attack: None,
+        move_style: Walk,
+    ),
+    "PirateHeavyOnShark": (
+        max_health: 7,
+        rider_max_health: Some(6),
+        patrol_speed: 110.0,
+        chase_speed: 215.0,
+        aggro_radius: 1200.0,
+        attack_range: 1100.0,
+        contact_strength: 1.30,
+        damage_amount: 3,
+        is_aerial: true,
+        default_size: Some((108.0, 96.0)),
+        brain_template: MeleeBrute,
+        attack: RangedBolt,
+        move_style: Float,
+    ),
+    // Crawlid-style grunt. Body-contact damage only; never aggros.
+    // chase_speed is unused but kept non-zero so a future "panic on
+    // hit" mode reads sensibly. Collider hugs the dorsal-ridge
+    // silhouette of the 128×95 sprite (body bbox ~120×31).
+    "PuppySlug": (
+        max_health: 2,
+        patrol_speed: 55.0,
+        chase_speed: 80.0,
+        aggro_radius: 0.0,
+        attack_range: 0.0,
+        contact_strength: 0.55,
+        damage_amount: 1,
+        default_size: Some((48.0, 22.0)),
+        brain_template: Wanderer,
+        attack: None,
+        move_style: Slither,
+    ),
+})

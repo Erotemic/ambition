@@ -54,9 +54,18 @@ pub struct YarnBridgePlugin;
 
 impl Plugin for YarnBridgePlugin {
     fn build(&self, app: &mut App) {
+        // `resource_added` only fires the single frame a resource
+        // is inserted. If our spawn system runs BEFORE
+        // `compile_loaded_yarn_files` (Bevy's per-frame system
+        // ordering inside `Update` is non-deterministic without
+        // explicit `.after(...)` constraints), we'd miss the
+        // signal forever and the runner would never spawn. Use
+        // `resource_exists` + a one-shot guard inside the system
+        // so we spawn the first frame YarnProject is alive,
+        // regardless of relative ordering.
         app.add_systems(
             Update,
-            spawn_dialogue_runner.run_if(resource_added::<YarnProject>),
+            spawn_dialogue_runner.run_if(resource_exists::<YarnProject>),
         );
         app.add_systems(Update, dispatch_pending_dialog_requests);
         app.add_observer(on_present_line);
@@ -69,11 +78,19 @@ impl Plugin for YarnBridgePlugin {
 /// available. Registers commands + functions before spawning so
 /// authored content can use the full vocabulary on the first node
 /// entered.
+///
+/// One-shot guarded by `DialogueRunnerEntity` already existing —
+/// the run condition (`resource_exists::<YarnProject>`) fires every
+/// frame, but the guard ensures we only spawn once.
 fn spawn_dialogue_runner(
     mut commands: Commands,
     project: Res<YarnProject>,
     mirror: Res<YarnStateMirror>,
+    existing: Option<Res<DialogueRunnerEntity>>,
 ) {
+    if existing.is_some() {
+        return;
+    }
     let mut runner = project.create_dialogue_runner(&mut commands);
     register_commands(&mut commands, &mut runner);
     register_functions(&mut runner, &mirror);
@@ -98,10 +115,27 @@ fn dispatch_pending_dialog_requests(
     mut runner_q: Query<&mut DialogueRunner>,
     save: Option<ResMut<SandboxSave>>,
 ) {
+    // Early-return + visible diagnostic if the runner hasn't
+    // spawned yet. Without this, dialog.start() requests pile up
+    // on `pending_start` forever and the UI shows the empty
+    // "Continue" fallback because no PresentLine ever fires.
     let Some(runner_e) = runner_e else {
+        if state.pending_start.is_some() || state.pending_close {
+            warn!(
+                target: "ambition_sandbox::dialog::yarn",
+                "dispatch_pending_dialog_requests: DialogueRunner not spawned yet; \
+                 pending request will be retried next frame",
+            );
+        }
         return;
     };
     let Ok(mut runner) = runner_q.get_mut(runner_e.0) else {
+        warn!(
+            target: "ambition_sandbox::dialog::yarn",
+            "dispatch_pending_dialog_requests: DialogueRunnerEntity points at {:?} \
+             but no DialogueRunner component there",
+            runner_e.0,
+        );
         return;
     };
 
@@ -109,6 +143,15 @@ fn dispatch_pending_dialog_requests(
     if let Some((dialogue_id, _npc_name)) = state.pending_start.take() {
         if let Some(mut save) = save {
             save.data_mut().increment_dialog_visit(&dialogue_id);
+        }
+        if !runner.node_exists(&dialogue_id) {
+            warn!(
+                target: "ambition_sandbox::dialog::yarn",
+                "start({dialogue_id}): node not found in compiled Yarn project. \
+                 Available nodes likely live in assets/dialogue/sandbox/*.yarn",
+            );
+            state.active = false;
+            return;
         }
         if let Err(e) = runner.try_start_node(&dialogue_id) {
             warn!(
@@ -118,7 +161,12 @@ fn dispatch_pending_dialog_requests(
             // Bail out of the active state so the UI doesn't hang
             // on a node that the runner couldn't enter.
             state.active = false;
+            return;
         }
+        info!(
+            target: "ambition_sandbox::dialog::yarn",
+            "start_node({dialogue_id}) — runner advancing next tick",
+        );
     }
 
     // select_option (use snapshot of yarn_option_ids before taking)

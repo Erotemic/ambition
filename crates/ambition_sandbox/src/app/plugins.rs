@@ -50,6 +50,22 @@ pub fn add_simulation_plugins(app: &mut App) {
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
+    // Yarn dialogue stack (gated by `ui` feature):
+    //   1. `yarn_spinner_plugin()` — bevy_yarnspinner: compiles
+    //      `.yarn` files into a `YarnProject` resource at startup.
+    //   2. `YarnBridgePlugin` — spawns the persistent `DialogueRunner`
+    //      entity once `YarnProject` resolves + registers observers
+    //      that translate Yarn lifecycle events into sandbox state.
+    //   3. `YarnBindingsPlugin` — registers custom commands /
+    //      functions / markup the .yarn content can invoke (phase
+    //      1: empty scaffold; phases 2-4 fill it in).
+    #[cfg(feature = "ui")]
+    {
+        app.add_plugins(crate::dialog::yarn_spinner_plugin());
+        app.add_plugins(crate::dialog::YarnBridgePlugin);
+        app.add_plugins(crate::dialog::YarnBindingsPlugin);
+    }
+
     app.add_plugins(crate::features::WorldPrepSchedulePlugin);
     // Universal-brain plugin: registers ActorActionMessage +
     // BrainActionCounter resource. Scheduling of the per-tick

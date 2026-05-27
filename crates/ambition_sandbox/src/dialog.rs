@@ -14,6 +14,10 @@ mod content;
 mod runtime;
 mod systems;
 mod ui;
+#[cfg(feature = "ui")]
+mod yarn_bindings;
+#[cfg(feature = "ui")]
+mod yarn_bridge;
 
 pub(crate) use content::known_dialogue_ids;
 // Authored dialogue types re-exported for downstream consumers who
@@ -24,6 +28,14 @@ pub use content::{DialogChoice, DialogNode, DialogTree};
 pub use runtime::DialogState;
 pub use systems::{dialog_input, dialog_pointer_input, redirect_post_quest_dialog};
 pub use ui::sync_dialog_ui;
+#[cfg(feature = "ui")]
+pub use yarn_bindings::YarnBindingsPlugin;
+#[cfg(feature = "ui")]
+#[allow(
+    unused_imports,
+    reason = "DialogueRunnerEntity surfaces in phase 5 when DialogState routes through Yarn"
+)]
+pub use yarn_bridge::{DialogueRunnerEntity, YarnBridgePlugin};
 
 #[cfg(feature = "ui")]
 use bevy_yarnspinner::prelude::*;

@@ -6,7 +6,6 @@ Fretjaw: Mind the tables, friend. We don't FIGHT in the cantina, we REHEARSE fig
 -> Why a training pit, not a stronghold?
     <<jump goblin_cantina_chieftain__2>>
 -> Walk away.
-    Fretjaw bangs a flagon on the dais. The entire pit cheers, then immediately resumes losing at darts.
 ===
 
 title: goblin_cantina_chieftain__1
@@ -15,7 +14,6 @@ Fretjaw: House rules: vault the tables, duck the bar shelf, buy a round if you b
 -> Ask another question.
     <<jump goblin_cantina_chieftain__0>>
 -> Walk away.
-    Fretjaw bangs a flagon on the dais. The cheering is real. The dart skill is not.
 ===
 
 title: goblin_cantina_chieftain__2
@@ -24,7 +22,6 @@ Fretjaw: Strongholds make you proud. Pits make you GOOD. Anyone can stand a wall
 -> Ask another question.
     <<jump goblin_cantina_chieftain__0>>
 -> Walk away.
-    Fretjaw bangs a flagon on the dais. The cheering is real. The dart skill is not.
 ===
 
 title: military_general
@@ -35,7 +32,6 @@ General: AT EASE, RECRUIT. You have ascended the Tower of Acceptable Casualties.
 -> Why so many medals?
     <<jump military_general__2>>
 -> Salute and withdraw.
-    The General returns the salute with surgical precision and twelve audible clicks.
 ===
 
 title: military_general__1
@@ -44,7 +40,6 @@ General: This is the Iron Bastion of the Faction Of Steel — a tower built from
 -> Ask another question.
     <<jump military_general__0>>
 -> Salute and withdraw.
-    The General returns the salute with surgical precision and twelve audible clicks.
 ===
 
 title: military_general__2
@@ -53,7 +48,6 @@ General: Each medal commemorates a meeting I survived. Three are for punctuality
 -> Ask another question.
     <<jump military_general__0>>
 -> Salute and withdraw.
-    The General returns the salute with surgical precision and twelve audible clicks.
 ===
 
 title: pulse_voyager_captain
@@ -64,7 +58,6 @@ Captain Pulse: Welcome aboard the dais, drifter. We don't moor in the sky becaus
 -> Why park up in the sky?
     <<jump pulse_voyager_captain__2>>
 -> Cast off.
-    Captain Pulse touches a rune on the dais. The stones below shimmer once, as if amused, and stay put.
 ===
 
 title: pulse_voyager_captain__1
@@ -73,7 +66,6 @@ Captain Pulse: Each stone is a beat. Skip one and you don't fall — you just ar
 -> Ask another question.
     <<jump pulse_voyager_captain__0>>
 -> Cast off.
-    Captain Pulse offers a salute that ends in a wave. Or a wave that ends in a salute. Hard to tell.
 ===
 
 title: pulse_voyager_captain__2
@@ -82,7 +74,6 @@ Captain Pulse: Below the stones is water. Above them is also water, just slower.
 -> Ask another question.
     <<jump pulse_voyager_captain__0>>
 -> Cast off.
-    Captain Pulse offers a salute that ends in a wave. Or a wave that ends in a salute. Hard to tell.
 ===
 
 title: tech_bros_disruptor
@@ -93,7 +84,6 @@ Chadwick III: Welcome to the basement! We're not failing — we're SUBTERRANEAN.
 -> Why does the boardroom face up?
     <<jump tech_bros_disruptor__2>>
 -> Touch grass.
-    Chadwick blinks. "You'll be back. The runway always slopes downward."
 ===
 
 title: tech_bros_disruptor__1
@@ -102,7 +92,6 @@ Chadwick III: Disruption-as-a-service, friend. We disrupt anything that holds st
 -> Ask another question.
     <<jump tech_bros_disruptor__0>>
 -> Touch grass.
-    Chadwick uploads the conversation to a deck and shareholders applaud somewhere far away.
 ===
 
 title: tech_bros_disruptor__2
@@ -111,5 +100,4 @@ Chadwick III: The boardroom faces up because vision is a direction. Looking down
 -> Ask another question.
     <<jump tech_bros_disruptor__0>>
 -> Touch grass.
-    Chadwick uploads the conversation to a deck and shareholders applaud somewhere far away.
 ===

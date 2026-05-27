@@ -6,7 +6,6 @@ Duelist: Quiet. The Leader is meditating, which means anyone who slams a door di
 -> Any tips for the bird?
     <<jump ninja_duelist__2>>
 -> Carry on.
-    The duelist resumes a kata that consists mostly of stepping on a single tile in five slightly different ways.
 ===
 
 title: ninja_duelist__1
@@ -15,7 +14,6 @@ Duelist: Working WITH them. Not joining. There's a distinction. A pirate has nev
 -> Ask another question.
     <<jump ninja_duelist__0>>
 -> Carry on.
-    The duelist nods once. The nod is also a kata.
 ===
 
 title: ninja_duelist__2
@@ -24,7 +22,6 @@ Duelist: It mimics. Don't believe a sound it makes — your own voice in your ow
 -> Ask another question.
     <<jump ninja_duelist__0>>
 -> Carry on.
-    The duelist nods once. The nod is also a kata.
 ===
 
 title: ninja_leader
@@ -37,7 +34,6 @@ Shadow Oni: Stranger. You walked through our doorway without my permission, whic
 -> Where does the dojo stand on the cove?
     <<jump ninja_leader__3>>
 -> Open the arena door.
-    The Leader inclines her horned mask. Somewhere in the rafters, a paper lantern unrolls a sigil that wasn't there a moment ago. The far door slides aside.
 ===
 
 title: ninja_leader__1
@@ -46,7 +42,6 @@ Shadow Oni: We are knives in the dark; the pirates are shouts in broad daylight.
 -> Ask another question.
     <<jump ninja_leader__0>>
 -> Open the arena door.
-    The Leader's blade rests an inch out of its saya. The dojo holds its breath in the way only a room of disciplined breathers can.
 ===
 
 title: ninja_leader__2
@@ -55,7 +50,6 @@ Shadow Oni: It learned a kata. ONE of ours. Not perfectly — but the bird perfo
 -> Ask another question.
     <<jump ninja_leader__0>>
 -> Open the arena door.
-    The Leader's blade rests an inch out of its saya. The dojo holds its breath in the way only a room of disciplined breathers can.
 ===
 
 title: ninja_leader__3
@@ -64,5 +58,4 @@ Shadow Oni: Tell the Admiral the dojo will hold position on the eastern thermals
 -> Ask another question.
     <<jump ninja_leader__0>>
 -> Open the arena door.
-    The Leader's blade rests an inch out of its saya. The dojo holds its breath in the way only a room of disciplined breathers can.
 ===

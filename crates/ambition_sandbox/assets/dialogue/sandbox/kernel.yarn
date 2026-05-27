@@ -6,7 +6,6 @@ Architect: You are standing inside a proof harness pretending to be a basement. 
 -> Why are the debug boxes honest?
     <<jump architect_intro__2>>
 -> Enough architecture for now.
-    Conversation closed. The Architect remains available for retuning the lab.
 ===
 
 title: architect_intro__1
@@ -15,7 +14,6 @@ Architect: This place is The Kernel's maintenance layer: enemy labs, boss patter
 -> Ask another question.
     <<jump architect_intro__0>>
 -> Return to the room.
-    You leave with one more rule: beautiful debug is still debug.
 ===
 
 title: architect_intro__2
@@ -24,7 +22,6 @@ Architect: Generated systems lie when they hide their assumptions. So Ambition s
 -> Ask another question.
     <<jump architect_intro__0>>
 -> Return to the room.
-    You leave with one more rule: beautiful debug is still debug.
 ===
 
 title: generic_npc
@@ -41,7 +38,6 @@ Kernel Guide: Welcome back to The Kernel. The hub should teach routes without am
 -> What should I test next?
     <<jump hub_guide__2>>
 -> Back to the hub.
-    The guide steps aside. The basement door is clear; no rebound launcher is blocking it now.
 ===
 
 title: hub_guide__1
@@ -50,7 +46,6 @@ Kernel Guide: Up is aim, climb, fly, and intent. Binding doors to a raw single U
 -> Ask another hub question.
     <<jump hub_guide__0>>
 -> Return to movement.
-    Movement stays primary; dialogue should explain the lab, not replace the lab.
 ===
 
 title: hub_guide__2
@@ -59,14 +54,12 @@ Kernel Guide: Try the basement labs, then check debug mode: combo state, hitstun
 -> Ask another hub question.
     <<jump hub_guide__0>>
 -> Return to movement.
-    Movement stays primary; dialogue should explain the lab, not replace the lab.
 ===
 
 title: merchant_seed
 ---
 Merchant Prototype: A real shop should be a dialogue node with inventory, prices, requirements, consequences, and preview text. This stub proves choices can become transactions.
 -> Buy health refill (stub).
-    Stub purchase: later this should route through Inventory, Wallet, Price, and RewardEffect systems.
 -> Ask about refunds.
     <<jump merchant_seed__1>>
 -> Leave.
@@ -88,7 +81,6 @@ Vault Keeper: I do not sell power. I sell constraints you can inspect. A merchan
 -> What is ethical currency?
     <<jump vault_keeper__2>>
 -> Not buying anything yet.
-    The vault closes without spending a single test coin.
 ===
 
 title: vault_keeper__1
@@ -97,7 +89,6 @@ Vault Keeper: Merchant contract draft: inventory rows are dialogue choices with 
 -> Back to the vault menu.
     <<jump vault_keeper__0>>
 -> Close the ledger.
-    Merchant UI is still a design sketch, but the dialogue contract is now explicit.
 ===
 
 title: vault_keeper__2
@@ -106,5 +97,4 @@ Vault Keeper: Ethical currency is not a morality meter. It is provenance. Dirty 
 -> Back to the vault menu.
     <<jump vault_keeper__0>>
 -> Close the ledger.
-    Merchant UI is still a design sketch, but the dialogue contract is now explicit.
 ===

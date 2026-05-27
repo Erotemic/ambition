@@ -23,6 +23,16 @@ Useful companion docs:
 
 # LOW HANGING FRUIT MAYBE
 
+- [ ] Portal Gun - classic blue and orange. Carries momentum.
+
+- [ ] Clean out the done items in the TODO list and move relevant entries to FEATURES or other docs to ensure they are updated and not bloated.
+
+- [ ] Boss phase transitions "screams" / "animations"
+
+- [ ] Screen shake on a hard fall.
+
+- [ ] Silksong levels of input buffering.
+
 - [ ] Increase the resolution of gnuton so the sprite is not drawn pixelated. 
 
 - [ ] The pirate heavy is riding a goblin instead of a burning flying shark in the pirate sky. 

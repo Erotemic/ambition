@@ -183,9 +183,9 @@ Kernel Guide: The mirror refreshes once per frame from SandboxSave.flags. Toggle
 
 title: hub_guide__test_sfx
 ---
-Kernel Guide: Emitting an SfxMessage::Play with id 'dialog_test_chime' through the audio bus.
-<<play_sfx "dialog_test_chime">>
-Kernel Guide: Command fired. If the SFX bank has a clip registered under that id, you heard it; otherwise the audio bus silently skips.
+Kernel Guide: Emitting an SfxMessage::Play with id 'ui.notification.discovery' through the audio bus.
+<<play_sfx "ui.notification.discovery">>
+Kernel Guide: That chime came from the sfx.bank — `ui.notification.discovery`. Yarn's play_sfx command takes any registered clip id (see assets/audio/sfx.bank.txt for the catalog of 214 entries).
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===

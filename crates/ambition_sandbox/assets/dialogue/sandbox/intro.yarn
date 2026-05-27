@@ -115,7 +115,7 @@ title: creator_intro__1
 ---
 Creator: Move if you can. Ignore me if you prefer. Both are data.
 -> Ask again.
-    <<jump creator_intro__0>>
+    <<jump creator_intro>>
 -> ⟨move⟩
 ===
 
@@ -123,7 +123,7 @@ title: creator_intro__2
 ---
 Creator: My basement. Don't worry about the boxes. Worry about the door.
 -> Ask again.
-    <<jump creator_intro__0>>
+    <<jump creator_intro>>
 -> ⟨move⟩
 ===
 
@@ -157,7 +157,7 @@ title: gate_janitor_ripple__1
 ---
 Gate Janitor: Don't touch that. That's not a gate. A ripple is not a route. It's noise. Stable gates have permits.
 -> Ask another question.
-    <<jump gate_janitor_ripple__0>>
+    <<jump gate_janitor_ripple>>
 -> ⟨move on⟩
 ===
 
@@ -165,7 +165,7 @@ title: gate_janitor_ripple__2
 ---
 Gate Janitor: Gate Six is to a beach. Gate Seven is to a meeting. Gate Eight, technically, is to Tuesday. Don't ask follow-ups.
 -> Ask another question.
-    <<jump gate_janitor_ripple__0>>
+    <<jump gate_janitor_ripple>>
 -> ⟨move on⟩
 ===
 
@@ -173,7 +173,7 @@ title: gate_janitor_ripple__3
 ---
 Gate Janitor: Stable gates don't fail. That's why my whole job is fixing them.
 -> Ask another question.
-    <<jump gate_janitor_ripple__0>>
+    <<jump gate_janitor_ripple>>
 -> ⟨move on⟩
 ===
 
@@ -191,7 +191,7 @@ title: manifest_kiosk_wrong_list__1
 ---
 Manifest Clerk: Query returns one (1) actionable target for last night's incident. The target is large. The basement was small. The names do not match.
 -> Ask another question.
-    <<jump manifest_kiosk_wrong_list__0>>
+    <<jump manifest_kiosk_wrong_list>>
 -> ⟨step away⟩
 ===
 
@@ -199,7 +199,7 @@ title: manifest_kiosk_wrong_list__2
 ---
 Manifest Clerk: The actual target is classified. The kiosk will say only: it was not a man, it was not a basement, and it was not last night. Have a normal day.
 -> Ask another question.
-    <<jump manifest_kiosk_wrong_list__0>>
+    <<jump manifest_kiosk_wrong_list>>
 -> ⟨step away⟩
 ===
 
@@ -254,7 +254,7 @@ title: oiler_intro__1
 ---
 Oiler: Oiler. I am not your mentor. I am a man with tools and poor boundaries.
 -> Ask another question.
-    <<jump oiler_intro__0>>
+    <<jump oiler_intro>>
 -> ⟨keep walking⟩
 ===
 
@@ -262,7 +262,7 @@ title: oiler_intro__2
 ---
 Oiler: Drain Market. Behind the Gate Stack. Stable gates above, leaks below, me in between with a wrench.
 -> Ask another question.
-    <<jump oiler_intro__0>>
+    <<jump oiler_intro>>
 -> ⟨keep walking⟩
 ===
 
@@ -270,7 +270,7 @@ title: oiler_intro__3
 ---
 Oiler: You're not scrap until you stop moving. That knee is installed wrong. Sit still for ten seconds, walk like you mean it after.
 -> Ask another question.
-    <<jump oiler_intro__0>>
+    <<jump oiler_intro>>
 -> ⟨keep walking⟩
 ===
 

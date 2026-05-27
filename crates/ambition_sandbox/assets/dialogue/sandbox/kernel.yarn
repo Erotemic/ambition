@@ -12,7 +12,7 @@ title: architect_intro__1
 ---
 Architect: This place is The Kernel's maintenance layer: enemy labs, boss patterns, breakable floors, and unfinished ethical machinery. It is not lore pasted on top of movement; it is where movement earns lore.
 -> Ask another question.
-    <<jump architect_intro__0>>
+    <<jump architect_intro>>
 -> Return to the room.
 ===
 
@@ -20,7 +20,7 @@ title: architect_intro__2
 ---
 Architect: Generated systems lie when they hide their assumptions. So Ambition should show hitboxes, seeds, graphs, timers, and costs. If the player is an AI, then inspection is not a cheat; it is a sense organ.
 -> Ask another question.
-    <<jump architect_intro__0>>
+    <<jump architect_intro>>
 -> Return to the room.
 ===
 
@@ -44,7 +44,7 @@ title: hub_guide__1
 ---
 Kernel Guide: Up is aim, climb, fly, and intent. Binding doors to a raw single Up press makes the game steal agency at exactly the wrong time. Interact is a promise that you meant to talk, trade, open, or enter.
 -> Ask another hub question.
-    <<jump hub_guide__0>>
+    <<jump hub_guide>>
 -> Return to movement.
 ===
 
@@ -52,7 +52,7 @@ title: hub_guide__2
 ---
 Kernel Guide: Try the basement labs, then check debug mode: combo state, hitstun, invulnerability, health bars, and honest hurtboxes should explain every surprising hit.
 -> Ask another hub question.
-    <<jump hub_guide__0>>
+    <<jump hub_guide>>
 -> Return to movement.
 ===
 
@@ -69,7 +69,7 @@ title: merchant_seed__1
 ---
 Merchant Prototype: Refunds are part of the design contract. For experiments, every purchase should be reversible until the route, boss, or story flag that depends on it is committed.
 -> Back to shop stub.
-    <<jump merchant_seed__0>>
+    <<jump merchant_seed>>
 -> Leave.
 ===
 
@@ -87,7 +87,7 @@ title: vault_keeper__1
 ---
 Vault Keeper: Merchant contract draft: inventory rows are dialogue choices with costs. A purchase can grant an ability, refill health, unlock a route, set a story flag, or reveal the funding provenance of an upgrade.
 -> Back to the vault menu.
-    <<jump vault_keeper__0>>
+    <<jump vault_keeper>>
 -> Close the ledger.
 ===
 
@@ -95,6 +95,6 @@ title: vault_keeper__2
 ---
 Vault Keeper: Ethical currency is not a morality meter. It is provenance. Dirty funding may unlock shortcuts but contaminate generated systems. Clean funding may be slower but makes later artifacts easier to audit.
 -> Back to the vault menu.
-    <<jump vault_keeper__0>>
+    <<jump vault_keeper>>
 -> Close the ledger.
 ===

@@ -12,7 +12,7 @@ title: goblin_cantina_chieftain__1
 ---
 Fretjaw: House rules: vault the tables, duck the bar shelf, buy a round if you bleed on the floorboards. Three goblins are passed out under the dais. They are also house rules.
 -> Ask another question.
-    <<jump goblin_cantina_chieftain__0>>
+    <<jump goblin_cantina_chieftain>>
 -> Walk away.
 ===
 
@@ -20,7 +20,7 @@ title: goblin_cantina_chieftain__2
 ---
 Fretjaw: Strongholds make you proud. Pits make you GOOD. Anyone can stand a wall up. Try keeping your footing on a beer floor.
 -> Ask another question.
-    <<jump goblin_cantina_chieftain__0>>
+    <<jump goblin_cantina_chieftain>>
 -> Walk away.
 ===
 
@@ -38,7 +38,7 @@ title: military_general__1
 ---
 General: This is the Iron Bastion of the Faction Of Steel — a tower built from after-action reports and hand-cranked optimism. We host parades on the parts that aren't structural.
 -> Ask another question.
-    <<jump military_general__0>>
+    <<jump military_general>>
 -> Salute and withdraw.
 ===
 
@@ -46,7 +46,7 @@ title: military_general__2
 ---
 General: Each medal commemorates a meeting I survived. Three are for punctuality. Two are for the meetings ABOUT punctuality. The largest one is awarded by, and to, myself.
 -> Ask another question.
-    <<jump military_general__0>>
+    <<jump military_general>>
 -> Salute and withdraw.
 ===
 
@@ -64,7 +64,7 @@ title: pulse_voyager_captain__1
 ---
 Captain Pulse: Each stone is a beat. Skip one and you don't fall — you just arrive late. Late is a kind of wrong place that pretends to be a wrong time.
 -> Ask another question.
-    <<jump pulse_voyager_captain__0>>
+    <<jump pulse_voyager_captain>>
 -> Cast off.
 ===
 
@@ -72,7 +72,7 @@ title: pulse_voyager_captain__2
 ---
 Captain Pulse: Below the stones is water. Above them is also water, just slower. We split the difference and call the difference a deck.
 -> Ask another question.
-    <<jump pulse_voyager_captain__0>>
+    <<jump pulse_voyager_captain>>
 -> Cast off.
 ===
 
@@ -90,7 +90,7 @@ title: tech_bros_disruptor__1
 ---
 Chadwick III: Disruption-as-a-service, friend. We disrupt anything that holds still long enough. Our roadmap is a slope. Our slope is the roadmap. Both are pivots.
 -> Ask another question.
-    <<jump tech_bros_disruptor__0>>
+    <<jump tech_bros_disruptor>>
 -> Touch grass.
 ===
 
@@ -98,6 +98,6 @@ title: tech_bros_disruptor__2
 ---
 Chadwick III: The boardroom faces up because vision is a direction. Looking down is for accountants. We do not look down. We are the down.
 -> Ask another question.
-    <<jump tech_bros_disruptor__0>>
+    <<jump tech_bros_disruptor>>
 -> Touch grass.
 ===

@@ -23,7 +23,7 @@ title: pirate_admiral__1
 ---
 Admiral: A Mockingbird. Big as a galleon's mainsail, mean as low water. Snatched the iron-bound chest right off the bar. Left us a feather, two splinters, and an apology in a voice that wasn't its own.
 -> Ask another question.
-    <<jump pirate_admiral__0>>
+    <<jump pirate_admiral>>
 -> I'll bring it down.
 ===
 
@@ -31,7 +31,7 @@ title: pirate_admiral__2
 ---
 Admiral: Past the door at the back of the cove. The bird circles in there like it owns the air. Bring it down. Bring the chest back. I don't care which order.
 -> Ask another question.
-    <<jump pirate_admiral__0>>
+    <<jump pirate_admiral>>
 -> I'll bring it down.
 ===
 
@@ -39,7 +39,7 @@ title: pirate_admiral__3
 ---
 Admiral: Have you SEEN the raider? He fights cutlass-and-cuss, not aerial gunnery. The bird hovers; he swears; the chest doesn't come back. We need somebody who can climb after a flying thing.
 -> Ask another question.
-    <<jump pirate_admiral__0>>
+    <<jump pirate_admiral>>
 -> I'll bring it down.
 ===
 
@@ -47,7 +47,7 @@ title: pirate_admiral_after_treasure__1
 ---
 Admiral: Iron-bound, salt-cured, three locks the Mockingbird picked with a beak — proves the bird had hands somewhere a respectable bird shouldn't. Whatever was inside is yours; whatever's in the cove's books is square.
 -> Ask another question.
-    <<jump pirate_admiral_after_treasure__0>>
+    <<jump pirate_admiral>>
 -> Carry on, Admiral.
 ===
 
@@ -55,7 +55,7 @@ title: pirate_admiral_after_treasure__2
 ---
 Admiral: Stay sharp out there. There's always another bird, another cove, another bar that thinks our shanties belong to them. If something needs hunting, we know where to find you now.
 -> Ask another question.
-    <<jump pirate_admiral_after_treasure__0>>
+    <<jump pirate_admiral>>
 -> Carry on, Admiral.
 ===
 
@@ -73,7 +73,7 @@ title: pirate_heavy_broadside_bess__1
 ---
 Broadside Bess: A BROADSIDE, ye landlubber? 'Tis EVERY GUN on the port side firin' at once — boom, boom, boom-boom-boom — twelve cannons singin' the same hymn at the same wave. Yo-ho! When Bess fires a broadside, the SKY apologizes. The Mockingbird heard one once an' has been writin' diss-shanties about us ever since.
 -> Aye, another question.
-    <<jump pirate_heavy_broadside_bess__0>>
+    <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
 ===
 
@@ -81,7 +81,7 @@ title: pirate_heavy_broadside_bess__2
 ---
 Broadside Bess: Story is — yarrr — I was THREE crews ago, gunner on the Stormpetrel, an' the captain says 'Bess, ye fire when I say.' I says 'I fire when the SHIP says.' Ship said now. Captain said never. Captain swam back to port. I sailed here. Cove ain't paid me proper since, but the Admiral lets me yell, so we be square.
 -> Aye, another question.
-    <<jump pirate_heavy_broadside_bess__0>>
+    <<jump pirate_heavy_broadside_bess>>
 -> Carry on.
 ===
 
@@ -99,7 +99,7 @@ title: pirate_heavy_iron_mary__1
 ---
 Iron Mary: Plate. Rivets. Stubborn. Three reasons. Plate — me whole top half be hammered scrap salvaged off a sunk navy cutter, bolted to me leathers. Rivets — anything that ain't bolted shut, I bolted shut, twice. Stubborn — I'm older than this cove an' younger than the Admiral's grudges, an' that be a long stretch o' stubborn. Yo-ho.
 -> Another, then.
-    <<jump pirate_heavy_iron_mary__0>>
+    <<jump pirate_heavy_iron_mary>>
 -> Carry on.
 ===
 
@@ -107,7 +107,7 @@ title: pirate_heavy_iron_mary__2
 ---
 Iron Mary: Aye. Bird's a mimic. Bird's a thief. Bird's a coward at close range — they always be. If ye can get a hand on it, ye don't NEED a sword. Yer fists, me fists — same arithmetic. But ye ain't got me fists, so bring somethin' heavy. An' don't listen to its voice; it'll wear yours.
 -> Another, then.
-    <<jump pirate_heavy_iron_mary__0>>
+    <<jump pirate_heavy_iron_mary>>
 -> Carry on.
 ===
 
@@ -125,7 +125,7 @@ title: pirate_heavy_salt_annet__1
 ---
 Salt Annet: Too long, an' not long enough — yarr. The Admiral was a midshipman when I signed on; now he salutes me with both hands an' I salute him with neither. I've watched three ships rot at this very dock. The bird? The bird be a NEW kind o' weather. An' weather always passes, wee skipper. Always.
 -> One more, ye old salt.
-    <<jump pirate_heavy_salt_annet__0>>
+    <<jump pirate_heavy_salt_annet>>
 -> Carry on.
 ===
 
@@ -133,7 +133,7 @@ title: pirate_heavy_salt_annet__2
 ---
 Salt Annet: (coughs, clears throat, sings) 'Yo-ho an' a barrel o' salt — yo-ho an' the captain's at fault — yo-ho an' the bird stole the chest — yo-ho an' we'll be GETTIN' it back — yarrgh.' Aye, I made the last verse up just now. Ye get what ye pay for in shanties, an' ye paid in a HALLO.
 -> One more, ye old salt.
-    <<jump pirate_heavy_salt_annet__0>>
+    <<jump pirate_heavy_salt_annet>>
 -> Carry on.
 ===
 
@@ -151,7 +151,7 @@ title: pirate_lookout__1
 ---
 Lookout: Sky an' clouds, lubber. That cursed Mockingbird drops shanties from up yonder — riders dive at whatever twitches below. Mark me: when ye see one peel off the orbit an' reverse her heading, that be the dive — step PORT, smartly.
 -> Aught else, sentry?
-    <<jump pirate_lookout__0>>
+    <<jump pirate_lookout>>
 -> ⟨climb past⟩
 ===
 
@@ -159,7 +159,7 @@ title: pirate_lookout__2
 ---
 Lookout: Short rations, plain an' simple. Quartermaster halved the salt pork. Six pirates an' three on-fire sharks on half-portions? That be a grudge with a heartbeat, an' the riders bark loudest about it. Empty belly makes a sharp cutlass.
 -> Aught else, sentry?
-    <<jump pirate_lookout__0>>
+    <<jump pirate_lookout>>
 -> ⟨climb past⟩
 ===
 
@@ -177,7 +177,7 @@ title: pirate_navigator__1
 ---
 Navigator: Three roles aloft, picked at sail-out an' kept 'til death. HOVER holds the weather gauge an' fires. SWOOP dives every three breaths. RETREAT climbs an' stretches the cadence so ye lose the beat. An' atop all of it — the reverse. Watch the SHARK, not the rider; the rider just pulls the trigger.
 -> One more question, cap'n cartographer.
-    <<jump pirate_navigator__0>>
+    <<jump pirate_navigator>>
 -> ⟨ready your blade⟩
 ===
 
@@ -185,7 +185,7 @@ title: pirate_navigator__2
 ---
 Navigator: Easy now — they don't fire on the navigator, see. Mockingbird made off with the chest, the shanties went short, the crew turned mean, and I drew the chart that says the cartographer eats first. Sit a spell if ye like; the sharks won't.
 -> One more question, cap'n cartographer.
-    <<jump pirate_navigator__0>>
+    <<jump pirate_navigator>>
 -> ⟨ready your blade⟩
 ===
 
@@ -203,7 +203,7 @@ title: pirate_quartermaster__1
 ---
 Quartermaster: Powder: low. Salt pork: lower. Rum: don't ask. Shanties: somehow runnin' a deficit since the bird flew off with the chest — we be tradin' IOUs for verses now, which is as seaworthy as a sieve in a squall.
 -> Aught else, master?
-    <<jump pirate_quartermaster__0>>
+    <<jump pirate_quartermaster>>
 -> ⟨step aside⟩
 ===
 
@@ -211,7 +211,7 @@ title: pirate_quartermaster__2
 ---
 Quartermaster: Up the riggin', through the hatch in the overhead — that's where the lookout's perched. Mind ye: the crew be in a black humor today. Every shark wears a rider with a grudge an' a flintlock, an' they fire before they ask yer name. Ye try splittin' six pork rations 'tween six pirates an' three on-fire sharks an' see how SWEET-tempered ye'd be.
 -> Aught else, master?
-    <<jump pirate_quartermaster__0>>
+    <<jump pirate_quartermaster>>
 -> ⟨step aside⟩
 ===
 
@@ -238,7 +238,7 @@ title: pirate_raider__1
 ---
 Raider: Shanties. Specifically, OURS. The bird heard the cove sing about plunder one too many times and decided to file a counterclaim, in talons. The chest's not gold, it's the SONGS. Don't tell the Admiral I said that.
 -> Ask another question.
-    <<jump pirate_raider__0>>
+    <<jump pirate_raider>>
 -> Carry on.
 ===
 
@@ -246,7 +246,7 @@ title: pirate_raider__2
 ---
 Raider: Mind the swoops. It hovers, it lulls you, then it dives. If it spits something at you, count to two and step LEFT. Or right. One of those. I'm the muscle, not the navigator.
 -> Ask another question.
-    <<jump pirate_raider__0>>
+    <<jump pirate_raider>>
 -> Carry on.
 ===
 
@@ -254,7 +254,7 @@ title: pirate_raider_after_treasure__1
 ---
 Raider: You. Loud. The bird, who's not here. The bar, who's still here. And the chest, which is BACK. We do not toast the chest — the chest toasts itself. That's just respect.
 -> Ask another question.
-    <<jump pirate_raider_after_treasure__0>>
+    <<jump pirate_raider>>
 -> Carry on.
 ===
 
@@ -262,6 +262,6 @@ title: pirate_raider_after_treasure__2
 ---
 Raider: Yo-ho, the Mockingbird's done / Yo-ho, the songs are won / Yo-ho, the chest is RETURNED / and the chest is the actual ledger of every yo-ho ever filed. ...you don't need the third verse.
 -> Ask another question.
-    <<jump pirate_raider_after_treasure__0>>
+    <<jump pirate_raider>>
 -> Carry on.
 ===

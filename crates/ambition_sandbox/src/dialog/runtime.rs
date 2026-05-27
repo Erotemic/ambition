@@ -87,9 +87,18 @@ pub struct DialogState {
     /// `runner.select_option(yarn_option_ids[i])`.
     pub(in crate::dialog) pending_select: Option<usize>,
     /// Pending request: `true` until a dispatch system drains it
-    /// and calls `runner.continue_in_next_update()`. Set when the
-    /// player confirms on a line with no options.
+    /// and calls `runner.continue_in_next_update()`. Set EITHER by
+    /// the player confirming a no-option line OR by the bridge
+    /// auto-advancing after a `PresentLine` (so the player sees
+    /// `line + options` together without a Continue press between).
     pub(in crate::dialog) pending_advance: bool,
+    /// Set by the `DialogueCompleted` observer when the runner
+    /// finishes a node chain but `current_line` still has text to
+    /// read. The UI keeps showing the dialog with a "press to
+    /// continue" hint; the player's next confirm flips this to a
+    /// `pending_close`. Without this flag, the auto-advance flow
+    /// would race past the final line before the player could read.
+    pub(in crate::dialog) runner_done_pending_close: bool,
 }
 
 impl DialogState {
@@ -116,6 +125,7 @@ impl DialogState {
         self.pending_close = false;
         self.pending_select = None;
         self.pending_advance = false;
+        self.runner_done_pending_close = false;
     }
 
     /// Close the dialogue. Hides the UI immediately and stashes a
@@ -194,7 +204,13 @@ impl DialogState {
     /// value (legacy `if closed { next_mode.set(Playing) }`) get
     /// their game-mode transition from the observer instead.
     pub(in crate::dialog) fn confirm_or_advance(&mut self) -> bool {
-        if self.current_options.is_empty() {
+        if self.runner_done_pending_close {
+            // Runner already finished; this press dismisses the
+            // final accumulated text and closes the dialog.
+            self.runner_done_pending_close = false;
+            self.pending_close = true;
+            self.active = false;
+        } else if self.current_options.is_empty() {
             self.pending_advance = true;
         } else {
             self.pending_select =

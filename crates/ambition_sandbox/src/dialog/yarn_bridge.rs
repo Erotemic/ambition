@@ -114,6 +114,7 @@ fn dispatch_pending_dialog_requests(
     runner_e: Option<Res<DialogueRunnerEntity>>,
     mut runner_q: Query<&mut DialogueRunner>,
     save: Option<ResMut<SandboxSave>>,
+    mut next_mode: Option<ResMut<NextState<crate::game_mode::GameMode>>>,
 ) {
     // Early-return + visible diagnostic if the runner hasn't
     // spawned yet. Without this, dialog.start() requests pile up
@@ -147,22 +148,33 @@ fn dispatch_pending_dialog_requests(
         if !runner.node_exists(&dialogue_id) {
             warn!(
                 target: "ambition_sandbox::dialog::yarn",
-                "start({dialogue_id}): node not found in compiled Yarn project. \
-                 Available nodes likely live in assets/dialogue/sandbox/*.yarn",
+                "start({dialogue_id:?}): Yarn node not found. Add it to a \
+                 file in assets/dialogue/sandbox/*.yarn (and to \
+                 KNOWN_DIALOGUE_IDS in dialog/content.rs)",
             );
+            // Flip everything back so the game doesn't freeze in
+            // Dialogue mode. The caller (`interact_*`) set
+            // GameMode=Dialogue synchronously; we have to unset it.
             state.active = false;
+            if let Some(next_mode) = next_mode.as_deref_mut() {
+                next_mode.set(crate::game_mode::GameMode::Playing);
+            }
             return;
         }
         if let Err(e) = runner.try_start_node(&dialogue_id) {
             warn!(
                 target: "ambition_sandbox::dialog::yarn",
-                "try_start_node({dialogue_id}) failed: {e}",
+                "try_start_node({dialogue_id:?}) failed: {e}",
             );
-            // Bail out of the active state so the UI doesn't hang
-            // on a node that the runner couldn't enter.
             state.active = false;
+            if let Some(next_mode) = next_mode.as_deref_mut() {
+                next_mode.set(crate::game_mode::GameMode::Playing);
+            }
             return;
         }
+        // Reset the accumulator for the new conversation.
+        state.current_line.clear();
+        state.current_speaker.clear();
         info!(
             target: "ambition_sandbox::dialog::yarn",
             "start_node({dialogue_id}) — runner advancing next tick",
@@ -179,24 +191,40 @@ fn dispatch_pending_dialog_requests(
                     "select_option({option_id:?}) failed: {e}",
                 );
             }
-            // Clear the option set — the next `PresentLine` /
-            // `PresentOptions` repopulates it.
+            // Reset the body + option accumulator for the next beat.
+            state.current_line.clear();
+            state.current_speaker.clear();
             state.current_options.clear();
             state.yarn_option_ids.clear();
             state.selected_option = 0;
         }
     }
 
-    // continue (no-option line advance)
-    if std::mem::take(&mut state.pending_advance) && runner.is_running() {
-        runner.continue_in_next_update();
-        // Don't clear current_line here — the runner emits the
-        // next PresentLine which overwrites it.
+    // continue (auto-advance after PresentLine, OR manual advance
+    // on a no-option line). Note: `runner_done_pending_close`
+    // takes precedence — if the runner already finished, don't
+    // try to continue it.
+    if std::mem::take(&mut state.pending_advance) {
+        if !state.runner_done_pending_close && runner.is_running() {
+            runner.continue_in_next_update();
+        }
     }
 
-    // stop
-    if std::mem::take(&mut state.pending_close) && runner.is_running() {
-        runner.stop();
+    // stop / close
+    if std::mem::take(&mut state.pending_close) {
+        if runner.is_running() {
+            runner.stop();
+        }
+        state.active = false;
+        state.current_line.clear();
+        state.current_speaker.clear();
+        state.current_options.clear();
+        state.yarn_option_ids.clear();
+        state.selected_option = 0;
+        state.runner_done_pending_close = false;
+        if let Some(next_mode) = next_mode.as_deref_mut() {
+            next_mode.set(crate::game_mode::GameMode::Playing);
+        }
     }
 }
 
@@ -205,14 +233,43 @@ fn on_present_line(
     mut state: ResMut<DialogState>,
     mut cue: ResMut<YarnPresentationCue>,
 ) {
-    state.current_speaker = event.line.character_name().unwrap_or("").to_string();
-    state.current_line = event.line.text_without_character_name();
-    // PresentLine that arrives without a following PresentOptions
-    // means a non-branching line — clear stale options so the UI
-    // doesn't show last-line's choices.
+    // Accumulate consecutive lines into the body so a Yarn node
+    // structured as
+    //
+    //   Speaker: Line A
+    //   Speaker: Line B
+    //   -> Option 1
+    //   -> Option 2
+    //
+    // shows up as ONE page (Line A, then Line B, then the two
+    // options) instead of three separate frames each requiring a
+    // Continue press. The bridge auto-advances after every
+    // `PresentLine`; the runner emits whichever event comes next
+    // (line, options, or completion) without the player having to
+    // confirm between them.
+    //
+    // Multi-speaker is handled by separating the latest speaker
+    // into its own paragraph: when the new speaker differs from
+    // the last one, we prefix a paragraph break.
+    let new_speaker = event.line.character_name().unwrap_or("").to_string();
+    let new_text = event.line.text_without_character_name();
+    if state.current_line.is_empty() {
+        state.current_line = new_text;
+    } else {
+        // Append with a paragraph break.
+        state.current_line.push_str("\n\n");
+        state.current_line.push_str(&new_text);
+    }
+    state.current_speaker = new_speaker;
+    // Drop stale options from the previous beat. The new beat's
+    // options arrive via `PresentOptions`.
     state.current_options.clear();
     state.yarn_option_ids.clear();
     state.selected_option = 0;
+    // Auto-advance: the dispatcher will call
+    // `runner.continue_in_next_update()` next tick so we receive
+    // the next event without a player Continue press.
+    state.pending_advance = true;
     // Markup cue capture for [shout] / [whisper] hooks.
     for attr in &event.line.attributes {
         match attr.name.as_str() {
@@ -224,6 +281,9 @@ fn on_present_line(
 }
 
 fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>) {
+    // Stop auto-advancing — the runner is waiting for the player
+    // to pick an option.
+    state.pending_advance = false;
     state.current_options.clear();
     state.yarn_option_ids.clear();
     for option in &event.options {
@@ -246,9 +306,18 @@ fn on_dialogue_completed(
     mut state: ResMut<DialogState>,
     mut next_mode: Option<ResMut<NextState<crate::game_mode::GameMode>>>,
 ) {
+    state.pending_advance = false;
+    if !state.current_line.is_empty() {
+        // The runner finished but there's still accumulated text
+        // the player hasn't seen acknowledged yet (a final aside,
+        // last beat of a branch). Hold the dialog open until the
+        // player confirms.
+        state.runner_done_pending_close = true;
+        return;
+    }
+    // Empty body + runner done → close immediately.
     state.active = false;
     state.current_speaker.clear();
-    state.current_line.clear();
     state.current_options.clear();
     state.yarn_option_ids.clear();
     state.selected_option = 0;

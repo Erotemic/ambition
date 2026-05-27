@@ -142,16 +142,13 @@ pub fn sync_dialog_ui(
                             &dialog_font,
                         );
                     }
-                } else {
-                    spawn_dialog_choice_row(
-                        parent,
-                        0,
-                        "Continue",
-                        true,
-                        selected_marker,
-                        &dialog_font,
-                    );
                 }
+                // No options → the body is either accumulating
+                // (auto-advance pending) or the runner finished and
+                // is waiting for the player to acknowledge the
+                // final line. Either way, no explicit "Continue"
+                // button — the hint text below tells the player
+                // they can press Confirm to advance / close.
                 parent.spawn((
                     Text::new(DIALOG_CONTINUE_HINT),
                     dialog_font(12.0, UiFontWeight::Regular),

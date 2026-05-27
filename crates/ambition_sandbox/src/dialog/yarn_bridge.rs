@@ -52,6 +52,10 @@ use bevy::prelude::*;
 use bevy_yarnspinner::events::*;
 use bevy_yarnspinner::prelude::*;
 
+use super::yarn_bindings::{
+    register_commands, register_functions, YarnPresentationCue, YarnStateMirror,
+};
+
 /// Bevy resource: entity id of the singleton `DialogueRunner`.
 /// Inserted by [`spawn_dialogue_runner`] once `YarnProject` is
 /// available. `DialogState` methods (added in phase 5) read this
@@ -89,9 +93,19 @@ impl Plugin for YarnBridgePlugin {
 }
 
 /// Spawn the singleton `DialogueRunner`. Runs once when
-/// `YarnProject` becomes a resource.
-fn spawn_dialogue_runner(mut commands: Commands, project: Res<YarnProject>) {
-    let runner = project.create_dialogue_runner(&mut commands);
+/// `YarnProject` becomes a resource. Registers all custom commands
+/// (`<<set_flag>>`, `<<play_sfx>>`, ...) and functions
+/// (`boss_cleared`, `flag`, `visit_count`, ...) on the runner
+/// before spawning it so authored dialogue can use the full
+/// vocabulary on the first node entered.
+fn spawn_dialogue_runner(
+    mut commands: Commands,
+    project: Res<YarnProject>,
+    mirror: Res<YarnStateMirror>,
+) {
+    let mut runner = project.create_dialogue_runner(&mut commands);
+    register_commands(&mut commands, &mut runner);
+    register_functions(&mut runner, &mirror);
     let entity = commands.spawn(runner).id();
     commands.insert_resource(DialogueRunnerEntity(entity));
     info!(
@@ -105,13 +119,25 @@ fn spawn_dialogue_runner(mut commands: Commands, project: Res<YarnProject>) {
 ///
 /// Phase 1: log. Phase 5: extract `character_name + text + markup
 /// attributes` and write into `DialogState`.
-fn on_present_line(event: On<PresentLine>) {
+fn on_present_line(event: On<PresentLine>, mut cue: ResMut<YarnPresentationCue>) {
     info!(
         target: "ambition_sandbox::dialog::yarn",
         "PresentLine: speaker={:?} text={:?}",
         event.line.character_name(),
         event.line.text_without_character_name(),
     );
+    // Markup cue capture: scan the line's parsed `[shout]` /
+    // `[whisper]` attributes and stash them on the per-frame cue
+    // resource. The cue is cleared each frame BEFORE this observer
+    // fires (see `YarnBindingsPlugin::build`); the presentation
+    // consumer (camera shake / audio pitch) reads after.
+    for attr in &event.line.attributes {
+        match attr.name.as_str() {
+            "shout" => cue.shout = true,
+            "whisper" => cue.whisper = true,
+            _ => {}
+        }
+    }
 }
 
 /// `PresentOptions` observer — Yarn is waiting for the player to

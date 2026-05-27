@@ -126,6 +126,22 @@ impl PersistedFlag {
     }
 }
 
+/// Per-dialogue visit counter. Incremented every time the sandbox's
+/// dialog runner enters the named node. Read by the Yarn binding
+/// `visit_count(npc_id)` so authored dialogue can branch on
+/// first-time vs. repeat encounters without a per-NPC flag.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedDialogVisit {
+    pub id: String,
+    pub count: u32,
+}
+
+impl PersistedDialogVisit {
+    pub fn new(id: impl Into<String>, count: u32) -> Self {
+        Self { id: id.into(), count }
+    }
+}
+
 /// Top-level sandbox save. Versioned so a future schema change can
 /// migrate or refuse to load gracefully.
 ///
@@ -146,6 +162,10 @@ pub struct SandboxSaveData {
     pub quests: Vec<PersistedQuest>,
     #[serde(default)]
     pub flags: Vec<PersistedFlag>,
+    /// Per-dialogue-id visit counters. `#[serde(default)]` keeps
+    /// older saves loadable: missing field → empty Vec.
+    #[serde(default)]
+    pub dialog_visits: Vec<PersistedDialogVisit>,
 }
 
 pub const CURRENT_SAVE_VERSION: u32 = 2;
@@ -163,6 +183,7 @@ impl SandboxSaveData {
             bosses: Vec::new(),
             quests: Vec::new(),
             flags: Vec::new(),
+            dialog_visits: Vec::new(),
         }
     }
 
@@ -277,6 +298,30 @@ impl SandboxSaveData {
         }
     }
 
+    /// How many times the named dialogue has been entered. `0` for
+    /// never-visited nodes. Used by Yarn's `visit_count(id)` binding
+    /// to drive first-vs-repeat dialogue variants.
+    pub fn dialog_visit_count(&self, id: &str) -> u32 {
+        self.dialog_visits
+            .iter()
+            .find(|v| v.id == id)
+            .map(|v| v.count)
+            .unwrap_or(0)
+    }
+
+    /// Increment the named dialogue's visit counter (saturating at
+    /// `u32::MAX`). Called once per dialog session by the
+    /// `DialogState::start` path so `visit_count(id) == 1` reads
+    /// "this is the first visit".
+    pub fn increment_dialog_visit(&mut self, id: impl Into<String>) {
+        let id = id.into();
+        if let Some(existing) = self.dialog_visits.iter_mut().find(|v| v.id == id) {
+            existing.count = existing.count.saturating_add(1);
+        } else {
+            self.dialog_visits.push(PersistedDialogVisit { id, count: 1 });
+        }
+    }
+
     /// Clear every flag whose id ends with `_dead_until_rest`. Used
     /// by the sandbox rest mechanic to revive enemies whose
     /// archetype policy is OnRest. Returns the number of flags
@@ -302,6 +347,7 @@ impl SandboxSaveData {
         self.bosses.clear();
         self.quests.clear();
         self.flags.clear();
+        self.dialog_visits.clear();
     }
 }
 

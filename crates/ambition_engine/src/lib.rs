@@ -106,8 +106,9 @@ pub use projectile::{
 };
 pub use quest::{QuestAdvanceEvent, QuestSpec, QuestState, QuestStepCondition, QuestStepSpec};
 pub use save::{
-    PersistedBossDefeat, PersistedEncounter, PersistedEncounterState, PersistedFlag,
-    PersistedQuest, PersistedQuestState, PersistedSwitch, SandboxSaveData, CURRENT_SAVE_VERSION,
+    PersistedBossDefeat, PersistedDialogVisit, PersistedEncounter, PersistedEncounterState,
+    PersistedFlag, PersistedQuest, PersistedQuestState, PersistedSwitch, SandboxSaveData,
+    CURRENT_SAVE_VERSION,
 };
 pub use scalar::approach;
 pub use world::{

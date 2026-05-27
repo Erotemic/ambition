@@ -1,460 +1,153 @@
 # Extending brains and ActionSets
 
-A practical recipe for daytime work on the universal-brain
-interface. See [`../systems/brain-driver.md`](../systems/brain-driver.md)
-for the overview and
-[`../../TODO-controllable-entity.md`](../../TODO-controllable-entity.md)
-for the multi-chunk plan.
+A practical recipe for current work on the universal-brain interface. See `docs/systems/brain-driver.md` for the overview.
+
+**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+
+## Current status to remember
+
+The brain/action pipeline is live. Do not follow old instructions that say the message stream is only observed.
+
+Live consumers today include:
+
+- player melee-start gating from this player's `ActorActionMessage::Melee`;
+- hostile enemy ranged projectiles from `ActorActionMessage::Ranged`;
+- hostile enemy melee windup starts from `ActorActionMessage::Melee`;
+- GNU-ton apple rain and Gradient Sentinel specials from `ActorActionMessage::Special`.
+
+Still-direct paths include:
+
+- player projectile charge/motion-input handling in `update_projectiles` reading `PlayerInputFrame`;
+- player-specific pogo input inside the attack lifecycle;
+- runtime-owned windup/active/recover timers for enemy hitbox spawning;
+- parts of boss/body runtime state.
 
 ## Three places work usually lands
 
-1. **Brain template** (`crates/ambition_sandbox/src/brain/state_machine.rs`)
-   — when an actor needs a new *policy* (the state graph + transition
-   rules). New variant of `StateMachineCfg` + a `tick_<template>`
-   function. Per-actor state lives in a sibling struct (`*State`).
-2. **ActionSet spec** (`crates/ambition_sandbox/src/brain/action_set.rs`)
-   — when an actor needs a new *capability* (the concrete effect a
-   melee/ranged/special action resolves to). New variant of
-   `MeleeActionSpec` / `RangedActionSpec` / `SpecialActionSpec`.
-3. **Per-archetype mapping** (`crates/ambition_sandbox/src/content/features/ecs/spawn.rs`)
-   — when an existing enemy archetype should resolve its melee /
-   ranged through a different spec. Update
-   `enemy_default_action_set` (or the player's
-   `default_player_action_set`).
+1. **Brain template** (`crates/ambition_sandbox/src/brain/state_machine.rs`) — when an actor needs a new policy or state graph. Add a new `StateMachineCfg` variant only when existing templates cannot express the behavior.
+2. **ActionSet spec** (`crates/ambition_sandbox/src/brain/action_set.rs`) — when an actor needs a new concrete capability: melee, ranged, move style, or special.
+3. **Effect consumer** (`crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs` or another focused module) — when an `ActionRequest` is emitted but not yet translated into hitboxes, projectiles, VFX/SFX, boss hazards, or other world effects.
+
+Per-entity mapping usually lives in `crates/ambition_sandbox/src/content/features/ecs/spawn.rs` or the relevant boss/profile setup code.
 
 ## Adding a new brain template
 
-A brain template is a reusable AI policy. Two enemies sharing the
-template share state-machine code but can still look different
-because their ActionSets resolve abstract intent differently.
+A brain template is reusable policy. Two enemies sharing the template share state-machine code but can still look different because their ActionSets resolve abstract intent differently.
 
-### Step 1 — add the variant + cfg + state
+1. Add the variant, config, and state to `state_machine.rs`.
+2. Add a `tick_<template>` function that always starts by writing `ActorControlFrame::neutral()`.
+3. Add the dispatch arm in `tick_state_machine` and, if needed, `tick_state_machine_with_actions`.
+4. Extend `StateMachineCfg::is_hostile()` and `Brain::label()` coverage.
+5. Re-export the new types from `brain/mod.rs` when they are part of the public surface.
+6. Add pure unit tests for state transitions before wiring an archetype.
+7. Map the relevant actor/archetype to the new template at spawn.
 
-```rust
-// crates/ambition_sandbox/src/brain/state_machine.rs
+Rules:
 
-pub enum StateMachineCfg {
-    // existing variants ...
-    Charger {
-        cfg: ChargerCfg,
-        state: ChargerState,
-    },
-}
+- Do not allocate in per-tick snapshot/tick logic unless there is a measured reason.
+- Do not make `Brain` a trait object; enum dispatch is intentional.
+- Do not add a brain template just to vary attack shape. Use `ActionSet` for that.
 
-#[derive(Clone, Copy, Debug)]
-pub struct ChargerCfg {
-    pub aggressiveness: f32,
-    pub aggro_radius: f32,
-    pub charge_speed: f32,
-    pub windup_s: f32,
-    pub recover_s: f32,
-}
+## Adding a new ActionSet spec
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ChargerState {
-    pub windup_remaining: f32,
-    pub charging: bool,
-    pub recover_remaining: f32,
-}
-```
+An ActionSpec is the concrete effect an actor performs when its brain emits abstract intent.
 
-### Step 2 — add the tick fn + dispatch arm
+1. Extend the relevant enum in `action_set.rs` (`MeleeActionSpec`, `RangedActionSpec`, `SpecialActionSpec`, or `MoveStyleSpec`).
+2. Add a small spec struct when the variant needs timings/damage/reach/costs.
+3. Implement helper methods used by consumers (`damage()`, `speed()`, `total_duration_s()`, etc.) if the enum already exposes them.
+4. Add resolver tests proving `ActionSet::resolve` emits the expected `ActionRequest` when the frame asks for the verb.
+5. Wire the actor/archetype/boss profile to the spec.
+6. Add or extend an EFFECTS consumer if no current consumer handles the new spec.
 
-```rust
-fn tick_charger(cfg: &ChargerCfg, state: &mut ChargerState, snap: &BrainSnapshot, out: &mut ae::ActorControlFrame) {
-    *out = ae::ActorControlFrame::neutral();
-    let to_target = snap.target_pos - snap.actor_pos;
-    let dist = to_target.length();
-    if dist > cfg.aggro_radius || !snap.target_alive {
-        return;
-    }
-    // (rest of charger logic — windup → charge → recover loop)
-}
+Do not add separate telegraph specs. Telegraphs are the windup phase of the action spec unless a real system needs a separate concept.
 
-pub fn tick_state_machine(...) {
-    // existing arms ...
-    StateMachineCfg::Charger { cfg, state } => tick_charger(cfg, state, snapshot, out),
-}
-```
+## Adding or extending an EFFECTS consumer
 
-### Step 3 — extend `is_hostile` for the variant
+Use this when an `ActorActionMessage` is already emitted and the missing part is the real-world effect.
+
+1. Pick the focused request/spec to consume.
+2. Add a Bevy system that reads `MessageReader<ActorActionMessage>`.
+3. Filter by request kind and actor ownership/faction.
+4. Look up the components/resources needed to spawn or start the effect.
+5. Produce the existing effect shape when possible: hostile `Hitbox`, `EnemyProjectileSpawn`, `PlayerDamageEvent`, `DamageEvent`, boss-special state, VFX/SFX messages, etc.
+6. Schedule after `emit_brain_action_messages` and before the downstream tick that should observe the effect.
+7. Add a focused integration test in the consumer module.
+
+Current scheduling examples are in `crates/ambition_sandbox/src/app/plugins.rs::register_combat_systems`.
+
+### Consumer skeleton
+
+Use this as a starting point when a new `ActionRequest` needs a focused effect consumer:
 
 ```rust
-impl StateMachineCfg {
-    pub fn is_hostile(&self) -> bool {
-        match self {
-            // existing arms ...
-            Self::Charger { cfg, .. } => cfg.aggressiveness > 0.0,
-        }
-    }
-}
-```
+use bevy::prelude::*;
 
-### Step 4 — re-export from `brain/mod.rs`
+use crate::brain::{ActorActionMessage, ActionRequest};
 
-```rust
-pub use state_machine::{
-    // existing exports ...
-    ChargerCfg, ChargerState,
-};
-```
-
-### Step 5 — write tests
-
-Per [[feedback-bevy-testing-pattern]] use `BrainSnapshot::idle()`
-overrides. Cover the basic state transitions:
-
-```rust
-#[test]
-fn charger_windups_then_charges_when_in_range() { ... }
-
-#[test]
-fn charger_holds_when_target_dead() { ... }
-```
-
-### Step 6 — wire it into the right archetype spawn
-
-```rust
-// crates/ambition_sandbox/src/content/features/ecs/spawn.rs
-fn enemy_default_brain(enemy: &EnemyRuntime) -> Brain {
-    match enemy.archetype {
-        EnemyArchetype::ChargerBeast => Brain::StateMachine(StateMachineCfg::Charger {
-            cfg: ChargerCfg { ... },
-            state: ChargerState::default(),
-        }),
-        // ...
-    }
-}
-```
-
-## Adding a new MeleeActionSpec / RangedActionSpec
-
-An ActionSpec is the concrete attack an actor performs when its
-brain says `melee_pressed = true`. Each variant owns its windup →
-active → recover animation timing.
-
-### Step 1 — extend the enum + add a spec struct
-
-```rust
-// crates/ambition_sandbox/src/brain/action_set.rs
-
-pub enum MeleeActionSpec {
-    // existing variants ...
-    Headbutt(HeadbuttSpec),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct HeadbuttSpec {
-    pub windup_s: f32,
-    pub active_s: f32,
-    pub recover_s: f32,
-    pub damage: i32,
-    pub reach_px: f32,
-    pub knockback_strength: f32,
-}
-
-impl HeadbuttSpec {
-    pub const RAM_DEFAULT: Self = Self {
-        windup_s: 0.20,
-        active_s: 0.06,
-        recover_s: 0.40,
-        damage: 2,
-        reach_px: 26.0,
-        knockback_strength: 280.0,
-    };
-}
-```
-
-### Step 2 — re-export from `brain/mod.rs`
-
-```rust
-pub use action_set::{
-    // existing exports ...
-    HeadbuttSpec,
-};
-```
-
-### Step 3 — wire archetypes to the new spec
-
-```rust
-fn enemy_default_action_set(enemy: &EnemyRuntime) -> ActionSet {
-    match enemy.archetype {
-        EnemyArchetype::HornedGoat => ActionSet {
-            melee: Some(MeleeActionSpec::Headbutt(HeadbuttSpec::RAM_DEFAULT)),
-            move_style: MoveStyleSpec::Walk,
-            ..Default::default()
-        },
-        // ...
-    }
-}
-```
-
-### Step 4 — write resolver tests
-
-```rust
-#[test]
-fn headbutt_action_carries_knockback_strength() {
-    let actions = ActionSet { melee: Some(MeleeActionSpec::Headbutt(HeadbuttSpec::RAM_DEFAULT)), ..Default::default() };
-    let mut frame = ae::ActorControlFrame::neutral();
-    frame.melee_pressed = true;
-    let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
-    match reqs[0] {
-        ActionRequest::Melee { spec: MeleeActionSpec::Headbutt(spec), .. } => {
-            assert!(spec.knockback_strength > 0.0);
-        }
-        _ => panic!(),
-    }
-}
-```
-
-### Step 5 — daytime work: wire EFFECTS-stage consumer
-
-The resolver writes `ActorActionMessage { actor, request:
-ActionRequest::Melee { spec, .. } }` into the channel. The
-EFFECTS-stage spawn system needs an arm for each new spec
-variant that translates it into a real hitbox / particle / SFX:
-
-```rust
-fn spawn_melee_hitboxes(mut messages: MessageReader<ActorActionMessage>, ...) {
+pub fn spawn_example_from_brain_actions(
+    mut messages: MessageReader<ActorActionMessage>,
+    mut commands: Commands,
+    actors: Query<&Transform>,
+) {
     for msg in messages.read() {
-        if let ActionRequest::Melee { spec, origin, facing, attack_axis } = msg.request {
-            match spec {
-                MeleeActionSpec::Headbutt(s) => spawn_headbutt(origin, facing, s, ...),
-                // existing arms ...
-            }
-        }
+        let ActionRequest::Special { spec } = msg.request else {
+            continue;
+        };
+
+        let Ok(transform) = actors.get(msg.actor) else {
+            continue;
+        };
+
+        // Filter to the concrete spec variant, faction, phase, or actor
+        // component this consumer owns. Then spawn/start exactly one
+        // effect shape.
+        let _origin = transform.translation.truncate();
+        commands.spawn(/* effect components */);
     }
 }
 ```
 
-## Adding a brain backend (e.g. `Brain::Scripted`)
+Schedule the consumer in the set where the downstream effect should first be visible. For combat effects, current examples live in `register_combat_systems`: ranged and boss projectile consumers run before projectile ticking so spawned projectiles advance on the same frame; enemy melee start runs before hitbox damage application.
 
-For a new top-level backend (not a state-machine template) — e.g.
-`Scripted` for cutscene puppets, `Remote` for networked co-op,
-`RlPolicy` for RL-driven agents.
+### Replacement discipline
 
-### Step 1 — extend the Brain enum + dispatch
+When replacing an old direct path, avoid double-spawning by using an overlap-then-delete sequence:
 
-```rust
-// crates/ambition_sandbox/src/brain/mod.rs
+1. Add the new consumer and targeted tests while the old path still exists.
+2. Add a parity assertion or debug counter where practical.
+3. Flip one concrete spec/archetype/profile to the new consumer.
+4. Delete the old producer for that concrete case in the same patch.
+5. Search for stale comments that still call the message stream “shadow,” “observed only,” or “next.”
 
-pub enum Brain {
-    Player(PlayerSlot),
-    StateMachine(StateMachineCfg),
-    Scripted(ScriptedCfg),  // new
-}
+## When not to add another consumer
 
-impl Brain {
-    pub fn tick(&mut self, snapshot: &BrainSnapshot, out: &mut ae::ActorControlFrame) {
-        match self {
-            // existing arms ...
-            Brain::Scripted(cfg) => scripted::tick_scripted_brain(cfg, snapshot, out),
-        }
-    }
-
-    pub fn is_hostile(&self) -> bool {
-        match self {
-            // existing arms ...
-            Brain::Scripted(cfg) => cfg.is_hostile(),
-        }
-    }
-}
-```
-
-### Step 2 — implement the backend in a new submodule
-
-```rust
-// crates/ambition_sandbox/src/brain/scripted.rs
-//
-// Cursor + recorded sequence of (frame, dt) pairs the brain plays back.
-
-pub struct ScriptedCfg { ... }
-
-pub fn tick_scripted_brain(cfg: &mut ScriptedCfg, snap: &BrainSnapshot, out: &mut ae::ActorControlFrame) {
-    ...
-}
-```
-
-### Step 3 — declare the submodule
-
-```rust
-// crates/ambition_sandbox/src/brain/mod.rs
-pub mod scripted;
-```
-
-### Step 4 — write tests (same patterns as state_machine tests).
+Some behavior is really hit/damage metadata, not a new message stream. If the feature needs raw damage, final damage, stagger, elemental tags, hitstop, knockback, resource gain, VFX/SFX policy, or rejection reasons, prefer designing the canonical `HitSpec` / `HitInstance` / `HitResult` path instead of adding another parallel damage event.
 
 ## Common pitfalls
 
-- **`#[derive(Component)]` is required** on any brain-side type
-  spawned as a sibling component (ActionSet learned this the hard
-  way).
-- **`Brain` is `#[derive(Clone, Debug)]`, not `Copy`** because
-  some templates carry `String` (BossPattern.encounter_id) or
-  `Vec<f32>` (Wanderer.recent_reversals). Don't try to make it
-  Copy — clone explicitly where needed.
-- **Snapshot construction is per-actor per-tick.** Don't allocate
-  on the heap inside the snapshot building.
-- **The resolver returns a `Vec<ActionRequest>`, not Option.**
-  Brain ticks emitting both `melee_pressed = true` and `fire =
-  Some(dir)` get two requests; the resolver doesn't deduplicate.
-  EFFECTS-stage consumers handle multi-action ticks.
-- **No `TelegraphSpec`.** Telegraphs are part of an attack spec's
-  windup phase. Don't add separate telegraph state to brain
-  templates.
-- **Aggressiveness lives in the brain, not the actor.** There is
-  no `ActorAggression` sibling component. Query
-  `brain.is_hostile()` if you need the answer.
-- **Early-return tick branches must write neutral, not bail.**
-  `tick_state_machine` originally returned early on dead actors
-  without writing `out`, which let a pre-poisoned frame leak
-  through into the next stage. Always `*out = ActorControlFrame::
-  neutral();` before returning early. Pin the pre-poisoned case
-  in tests (set `out.melee_pressed = true` + `out.fire = Some(_)`
-  before the tick, then assert they were cleared).
-- **Brain swap must drag ActionSet with it.** When mutating an
-  entity's brain (e.g. NPC hostile flip), also `commands.insert`
-  the matching ActionSet. Otherwise the new brain emits intent
-  the old ActionSet can't resolve — the actor silently no-ops.
-  See `crates/ambition_sandbox/src/content/features/ecs/damage.rs`
-  for the pattern.
+- **Brain swap must drag ActionSet with it.** If an entity changes from peaceful to hostile, update both policy and capability.
+- **Early-return tick branches must write neutral.** Pre-poison tests should set an output frame to an action and verify dead/idle paths clear it.
+- **The resolver returns multiple requests.** A frame can emit melee and ranged/special in one tick; consumers must filter, not assume exclusivity.
+- **Runtime state is not always policy.** It is acceptable for a runtime component to own windup/active timers or spawn accumulators when those are integration state. The policy decision should still come from the brain/action path.
+- **Player-specific exceptions should be named.** Projectile charging and pogo are still direct; do not accidentally duplicate them with a second brain consumer without disabling or reconciling the legacy path.
+- **Use overlap-then-delete.** When replacing an old producer, add the new consumer with tests, verify parity, then remove the old producer for that variant.
 
 ## Validation gates
 
-After every change:
+After every brain/action change:
 
 ```bash
-~/.cargo/bin/cargo check -p ambition_engine
-~/.cargo/bin/cargo check -p ambition_sandbox
-~/.cargo/bin/cargo test  -p ambition_engine  --lib
-~/.cargo/bin/cargo test  -p ambition_sandbox --lib brain::
-~/.cargo/bin/cargo test  -p ambition_sandbox --lib
-~/.cargo/bin/cargo run   -p ambition_sandbox --bin headless -- --ticks 30
+cargo check -p ambition_engine
+cargo check -p ambition_sandbox
+cargo test -p ambition_engine --lib
+cargo test -p ambition_sandbox --lib brain::
+cargo test -p ambition_sandbox --lib content::features::ecs::brain_effects
+cargo test -p ambition_sandbox --lib
+cargo run -p ambition_sandbox --bin headless -- --ticks 30
 ```
 
-If the full sandbox lib test hits EMFILE under high parallelism
-(common on shared dev VMs), run single-threaded:
+If the full sandbox lib test hits EMFILE under high parallelism on shared dev VMs, run single-threaded:
 
 ```bash
-~/.cargo/bin/cargo test -p ambition_sandbox --lib -- --test-threads=2
+cargo test -p ambition_sandbox --lib -- --test-threads=2
 ```
-
-The tests themselves are deterministic; intermittent failures
-under default parallelism are virtiofs-side noise.
-
-## Daytime EFFECTS-consumer flip — concrete procedure
-
-Today the brain produces `ActorActionMessage`s but combat /
-projectile spawns flow through `EnemyRuntime` / `BossRuntime` /
-`update_player`. Flipping a consumer means having a spawn system
-read the message stream and producing the same hitbox / projectile
-that the legacy path would, then disabling the legacy path.
-
-Per the [stale-component journal](../../dev/benchmark-candidates/bevy-ecs-stale-component-after-sync-removal-2026-05-15.md),
-do this **overlap-then-delete**, one consumer at a time:
-
-### Phase A — Write the new consumer, side-by-side
-
-1. Pick one bounded consumer (start small — a single `MeleeActionSpec`
-   variant for one archetype). Suggested order: `PunchWeak` (sandbag
-   counter — least visible), `Swipe` (Striker family), `Lunge`
-   (Brute family), `Bite` / `Bolt` (aerial variants), `BossPattern`
-   actions.
-2. Write a Bevy system that:
-   - Reads `MessageReader<ActorActionMessage>`
-   - Filters for the spec variant you're flipping
-   - Looks up the actor's components (Faction, Health, Position) to
-     decide which player to damage
-   - Spawns the hitbox / projectile via the same helper the legacy
-     path uses
-3. Schedule the system **after** `emit_brain_action_messages` in
-   the `PlayerInput` set (or in `CoreSimulation` if combat needs
-   it post-physics).
-4. Don't disable the legacy spawn yet.
-
-### Phase B — Verify parity
-
-5. Run the headless binary + sandbox lib tests. Both paths should
-   spawn — you'll see double hitboxes / projectiles. That's OK
-   for now.
-6. Compare positions / damage / timing in trace output. They
-   should match.
-7. Fix any drift by tuning the brain template / ActionSet spec.
-
-### Phase C — Delete the legacy path
-
-8. Disable the legacy spawn for the variant you flipped (comment
-   out, or `#[cfg(not(feature = "brain_consumer"))]`).
-9. Re-run tests + headless. The brain-driven spawn should be the
-   only one.
-10. Once stable for one variant, repeat Phase A for the next.
-
-### Tooling checkpoints
-
-- The `BrainActionCounter` resource (in `brain/mod.rs`) tracks
-  per-frame message counts. A non-zero `last_frame` means the
-  resolver is firing; verify before chasing missing-spawn bugs.
-- The end-to-end tests in `crates/ambition_sandbox/src/player/systems.rs::tests`
-  (`player_attack_press_emits_swipe_action_message_end_to_end`,
-  `player_projectile_release_emits_ranged_bolt_action_message_end_to_end`)
-  are the canary patterns — fork them to test the new consumer.
-
-### Consumer skeleton (copy-paste starting point)
-
-```rust
-use crate::brain::{ActorActionMessage, MeleeActionSpec};
-use crate::content::features::components::ActorFaction;
-use bevy::prelude::*;
-
-/// Daytime EFFECTS-flip: spawn melee hitboxes from
-/// ActorActionMessage::Melee instead of from the legacy
-/// EnemyRuntime / update_player paths.
-pub fn spawn_melee_from_brain_actions(
-    mut messages: MessageReader<ActorActionMessage>,
-    actor_q: Query<&ActorFaction>,
-    // … other resources (world, hitbox registry, sfx writer, …)
-) {
-    for msg in messages.read() {
-        // Skip non-melee messages cheaply.
-        if !msg.is_melee() {
-            continue;
-        }
-        let crate::brain::ActionRequest::Melee {
-            spec,
-            origin,
-            facing,
-            attack_axis,
-        } = msg.request
-        else {
-            unreachable!("is_melee narrowed the request");
-        };
-        // Look up actor faction so we know which hurtbox set this
-        // hitbox should test against.
-        let Ok(faction) = actor_q.get(msg.actor) else {
-            continue;
-        };
-        match spec {
-            MeleeActionSpec::Swipe(swipe) => {
-                // … spawn a swipe hitbox at `origin + facing * swipe.reach_px * 0.5`
-                // for `swipe.active_s` seconds, tagged with `faction` so
-                // friendly fire is filtered.
-            }
-            MeleeActionSpec::Lunge(lunge) => { /* … */ }
-            MeleeActionSpec::Slam(slam) => { /* … */ }
-            MeleeActionSpec::Bite(bite) => { /* … */ }
-            MeleeActionSpec::PunchWeak(punch) => { /* … */ }
-        }
-    }
-}
-```
-
-Register the system **after** `emit_brain_action_messages` so the
-message channel is current. Add it via
-`app.add_systems(Update, spawn_melee_from_brain_actions.after(emit_brain_action_messages))`.
-
-### Why this order
-
-Smallest blast radius first (sandbag counter is barely noticeable),
-escalating to the bosses last because they have the richest
-choreography (multi-phase attack patterns) and that means the
-brain template needs the most refinement.

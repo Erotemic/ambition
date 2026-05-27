@@ -1,174 +1,91 @@
 # Character AI refactor
 
-Status (2026-05-24 update): enemy + boss MOVEMENT route through the
-shared `ActorControlFrame` brain→sim seam (commits `155171c`,
-`66c8b0b`, 2026-05-21). Peaceful NPCs route through `Brain::
-StateMachine(Patrol/StandStill)` after the universal-brain Chunk 3
-migration (`0aa526a`, 2026-05-24); the bespoke `NpcRuntime::update`
-is gone. The player carries `Brain::Player(slot)` + `ActorControl`
-with `tick_player_brains` filling the frame each tick (Chunks 4b/c,
-`c41997b`/`32c37e3`), but `update_player` still consumes
-`PlayerInputFrame` directly — the polarity flip is pending. Enemy
-+ boss runtimes also carry their per-archetype `Brain` +
-`ActionSet` via shadow ticks (`shadow_tick_brain` /
-`shadow_tick_brain_with_timers`), with the resolver writing
-`ActorActionMessage`s every frame; the messages are observed by
-`BrainActionCounter` only — no combat-spawn consumer reads them
-yet. Wiring the consumer is the daytime continuation tracked in
-[`../../TODO-controllable-entity.md`](../../TODO-controllable-entity.md).
-Data-table migration for per-brain knobs and attack-pattern timer
-migration remain deferred.
+**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
 
-This is the companion doc referenced from
-`crates/ambition_engine/src/character_ai.rs`. It captures the current
-state of the shared character-AI vocabulary and the path forward for
-making it the single source of truth for hostile NPCs, enemies, and
-bosses.
+This is the companion doc referenced from `crates/ambition_engine/src/character_ai.rs`. It captures the current state of the shared character-AI vocabulary and the path forward for making actor policy, movement, and effects reusable across NPCs, enemies, bosses, and future player-controlled bodies.
+
+## Current status
+
+The old “brain seam pending” language is stale. The current code has a live universal-brain pipeline:
+
+- every controllable actor type can carry `Brain` + `ActionSet` + `ActorControl` sibling components;
+- player input is translated through `Brain::Player` into `ActorControlFrame`;
+- player control/simulation phases consume `ActorControl`;
+- `emit_brain_action_messages` writes concrete `ActorActionMessage`s from each actor's `ActionSet`;
+- live consumers exist for enemy ranged projectiles, enemy melee windup starts, player melee starts, GNU-ton apple rain, and Gradient Sentinel boss specials.
+
+The migration is still not “done forever.” Remaining direct paths are now narrow and should be treated as explicit exceptions rather than the main architecture:
+
+- player projectile charge/motion-input logic still reads `PlayerInputFrame` directly;
+- pogo is still a player-specific raw input path in the attack lifecycle;
+- some boss and enemy runtime components still own timing/state that would be awkward to move without a focused reason;
+- `ae::Player` still holds most movement state inside `PlayerMovementAuthority`.
 
 ## Why this exists
 
-The sandbox grew three nearly-parallel "AI loops":
+The sandbox grew multiple nearly-parallel behavior loops: enemies, bosses, peaceful/hostile NPCs, and the player all needed to express “move this way, attack now, fire this projectile, trigger this special.” The universal-brain model keeps policy and capability separate:
 
-- `EnemyRuntime` (sandbox `features.rs`) — striker / brute /
-  fastfall / ranger / sandbag brains, each with their own ad-hoc
-  timer fields and per-brain match arms.
-- `BossRuntime` (sandbox `features.rs`) — boss patterns mostly run
-  off `BossPatternStep` schedules but still hand-roll the
-  surrounding aggro / telegraph / recover logic.
-- Hostile NPC conversion (`features::apply_save`) — once an NPC
-  is flagged hostile, the save layer replaces it with an
-  `EnemyRuntime` so it inherits the enemy AI by construction.
+```text
+Brain = policy: when to move/attack/fire/special
+ActionSet = capability: what concrete attack/projectile/special that actor owns
+ActorControlFrame = abstract intent for movement/control
+ActorActionMessage = concrete effect request after ActionSet resolution
+```
 
-The third path is the desired shape: one AI loop, parameterized by
-data, that every combatant actor consumes. The first two paths are
-still timer-field-driven. That means a behavior change like "telegraph
-now flashes a ring" or "stunned actors don't accept pogo bounces"
-has to be re-implemented in N places, and the headless / RL test
-harness can't drive any of it without spinning up the full sandbox.
+This lets two actors share one brain template but look different because their `ActionSet`s differ.
 
-## What landed
+## Engine AI vocabulary
 
-`ambition_engine::character_ai` is the pure-data evaluator:
+`ambition_engine::character_ai` remains the pure-data evaluator vocabulary:
 
-- `CharacterAiSnapshot` — the read-only view (positions, ranges,
-  attack-window timers, stun, alive, `patrol_enabled`).
-- `CharacterAiMode` — the canonical mode the actor should be in
-  this tick (`Idle | Patrol | Chase | Telegraph | Attack | Recover
-  | Stunned | Dead`), with helpers `label`, `is_dangerous`,
-  `is_committed`.
-- `CharacterAiIntent` / `CharacterAiOutput` — the coarse hold / patrol /
-  chase / attack intent paired with the mode. Sandbox code still supplies
-  speeds and collision, but this output is the authority for which coarse
-  behavior branch runs.
-- `evaluate_character_ai(snapshot) -> mode` and
-  `evaluate_character_ai_output(snapshot) -> output` — deterministic,
-  Bevy-free functions with unit tests that exercise the priority order
-  (dead > stunned > active attack > windup > recover > in-range > aggro >
-  patrol > idle).
+- `CharacterAiSnapshot` — read-only view of actor/target state.
+- `CharacterAiMode` — canonical coarse mode (`Idle`, `Patrol`, `Chase`, `Telegraph`, `Attack`, `Recover`, `Stunned`, `Dead`).
+- `CharacterAiIntent` / `CharacterAiOutput` — coarse behavior output.
+- `evaluate_character_ai` / `evaluate_character_ai_output` — deterministic, Bevy-free helpers with unit tests.
 
-The seldom_state component vocabulary in `state_machines`
-(`EnemyIdle / EnemyPatrol / EnemyTelegraph / EnemyAttack /
-EnemyRecover / EnemyStunned / EnemyDead`) is the *per-entity* mirror
-of the same shape, so when migration happens the component types
-already exist.
+The sandbox brain system is now the higher-level runtime that maps actor snapshots and policy state into `ae::ActorControlFrame` and then `ActorActionMessage` effects.
 
-## What hasn't landed
+## Current brain templates
 
-`EnemyRuntime` builds a `CharacterAiSnapshot` and consumes
-`CharacterAiOutput` for its coarse hold / patrol / chase / attack branch.
-That makes the shared engine evaluator authoritative for standard enemy
-intent. The 2026-05-21 brain→sim refactor goes one step further: the
-output is packed into an `ActorControlFrame` (`desired_vel`,
-`drop_through`, `facing`, `melee_pressed`, `fire`) and integrated by a
-single `step_kinematic` call, so aerial + grounded + patrol all collide
-through the same primitive.
+`crates/ambition_sandbox/src/brain/state_machine.rs` currently exposes a small set of reusable templates rather than one bespoke brain per enemy:
 
-`BossRuntime` MOVEMENT is now on the same seam: a `build_control_frame`
-helper derives `desired_vel` from the movement profile's target plus
-the apple-rain dodge layer, and `step_kinematic` replaces the bespoke
-`move_toward_target` + `boss_space_is_free` collision path. The boss
-attack pattern state machine (`Cycle` / `Scripted`) still runs in the
-EFFECTS stage as a layered driver.
+| Template | Use |
+|---|---|
+| `StandStill` | Sandbags, idle actors, dialogue-only placeholders. |
+| `Patrol` | Peaceful NPCs and simple route behavior. |
+| `Wanderer` | Puppy-slug style movement. |
+| `MeleeBrute` | Approach + melee + recover hostile actors. |
+| `Skirmisher` | Ranged/strafe actors. |
+| `Sniper` | Hold-position ranged actors. |
+| `BossPattern` | Encounter-driven boss attack profiles and macro states. |
+| `Smash` | Experimental Smash-style observation/action policy. |
 
-Remaining work:
+Per-entity variety should still come from `ActionSet` and authored profiles, not from adding one template per creature.
 
-- **Data-table cleanup** — archetype-specific speeds, aggro ranges,
-  attack ranges, cooldown multipliers, and damage still live in
-  sandbox enum matches. Pushing them out to a small data table is
-  Step B below. The brain templates (`MeleeBruteCfg::STRIKER_DEFAULT`
-  etc.) are already structured to pull from a table — wire it
-  through `enemy_default_brain()` to retire the match arms.
-- **Attack-pattern timer migration** — boss `Cycle` / `Scripted` and
-  the enemy wind-up / active / cooldown timers can become brain
-  state machine outputs instead of EFFECTS-stage timers. The
-  `MeleeBruteState.mode` + `BossPatternState.phase/phase_elapsed`
-  fields are the target home. Downgraded to shape-cleanup once
-  the movement seam landed.
-- **EFFECTS-stage consumer flip** (the universal-brain payoff) —
-  the `ActorActionMessage` resolver stream is emitted each frame
-  but no combat spawner reads from it; `EnemyRuntime` /
-  `BossRuntime` / `update_player` still drive hitbox + projectile
-  spawns from internal state. Daytime work flips spawners one
-  spec variant at a time. See
-  `docs/recipes/extending-brains-and-action-sets.md` (Daytime
-  EFFECTS-consumer flip — concrete procedure).
-- ~~**Player + multi-player on `ActorControlFrame`**~~ **2026-05-24
-  — partially landed.** Player carries `Brain::Player(slot)` +
-  `ActorControl` + `ActionSet`; `tick_player_brains` translates
-  `PlayerInputFrame` into the frame each tick. `update_player`
-  still reads `PlayerInputFrame` directly — the polarity flip
-  (consume `ActorControl` instead) is the final piece. Per-player
-  `AbilitySet` already feeds the ActionSet at spawn — "play as a
-  goblin" works conceptually today; needs `commands.insert` to
-  swap `Brain::Player` onto a goblin entity.
+## Remaining work
 
-## Migration target
-
-The eventual shape:
-
-1. Each combatant runtime exposes `snapshot(&self, player) ->
-   CharacterAiSnapshot` and `apply(mode: CharacterAiMode, dt) ->
-   AiActionEvents` (move-toward, start-windup, do-attack,
-   start-recover, …).
-2. `evaluate_character_ai` chooses the mode; per-brain data
-   (chase speed, attack hitbox, telegraph tint, sound id) is read
-   from a shared `EnemyArchetype` / `BossArchetype` table rather
-   than an enum match in the update fn.
-3. Boss-specific patterns stay layered on top: `BossPatternStep`
-   becomes a *driver* that overrides the snapshot's
-   `attack_windup_remaining` / `attack_active_remaining` /
-   `attack_recover_remaining` fields, and `evaluate_character_ai`
-   consumes the override naturally.
-4. seldom_state components in `state_machines` get written from
-   the evaluator's output once per tick so HUD / animation
-   pickers can query by component type.
-
-That refactor is meaningful surgery — it touches every enemy
-behavior test plus the boss encounter integration test — so it is
-intentionally not scoped to a single patch. Doing it in two steps:
-
-- Step A: route `EnemyRuntime::update` and `BossRuntime::update`
-  through the shared `ActorControlFrame` seam so movement integrates
-  through `step_kinematic` for every actor. **Done — enemies
-  2026-05-21 `155171c`, bosses 2026-05-21 `66c8b0b`.**
-- Step B: move per-brain knobs (`chase_speed`, `attack_radius`,
-  `telegraph_seconds`, …) from the brain/archetype match arms into a small
-  data table; delete the duplicate match arms.
-
-Step B unlocks data-driving new enemies without code changes,
-which is the whole point of the refactor.
+- **Data-table cleanup.** Archetype-specific speeds, aggro ranges, attack ranges, cooldown multipliers, and damage still live in sandbox mappings. Push durable tuning into tables/content where it is stable enough.
+- **Runtime timer ownership.** Enemy melee active windows and several boss pattern states still live in feature runtime components. That is acceptable when the runtime owns integration state, but avoid adding new policy decisions there.
+- **Projectile/pogo exceptions.** Decide whether player projectile charge and pogo remain intentionally player-specific or become ActionSet/HitResult concepts.
+- **Hit pipeline.** A canonical `HitSpec` / `HitInstance` / `HitResult` system would make attack effects less branchy than the current `DamageEvent` / `Hitbox` / `PlayerDamageEvent` split.
+- **Possession/multiplayer.** The brain/action decomposition makes this cheap in principle, but production routing and UI are still future work.
 
 ## Until then
 
-When you add a new enemy or tune an existing one:
+When adding a new enemy, boss behavior, or actor-controlled mechanic:
 
-- Read `ai_mode` first to figure out the actor's intent for the
-  tick. Don't add new bool flags that re-derive that intent.
-- Mirror any new mode/transition to `evaluate_character_ai` so the
-  pure evaluator stays accurate.
-- If you need a per-brain knob the evaluator doesn't expose,
-  prefer adding it to `CharacterAiSnapshot` (as input) or
-  `CharacterAiMode` (as output) over wiring a parallel field
-  through `EnemyRuntime`.
+- Reuse an existing brain template when possible.
+- Put concrete attack/projectile/special identity into `ActionSet`.
+- Add or extend a focused `ActorActionMessage` consumer for the real effect.
+- Keep policy decisions out of feature runtime update loops unless the state truly belongs to the runtime.
+- Add tests at the pure brain/action layer first, then add the Bevy integration test for the consumer.
 
-This keeps the eventual migration mechanical instead of a rewrite.
+## Validation anchors
+
+```bash
+cargo test -p ambition_engine character_ai
+cargo test -p ambition_engine actor_control
+cargo test -p ambition_sandbox --lib brain::
+cargo test -p ambition_sandbox --lib content::features::ecs::brain_effects
+cargo run -p ambition_sandbox --bin headless -- --ticks 30
+```

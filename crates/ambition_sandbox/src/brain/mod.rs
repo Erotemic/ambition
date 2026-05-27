@@ -23,19 +23,26 @@
 //! [`emit_brain_action_messages`] resolver writes one
 //! [`ActorActionMessage`] per resolved [`action_set::ActionRequest`].
 //!
-//! **Live EFFECTS consumers:**
-//! - Enemy ranged projectiles flow through `ActorActionMessage::Ranged`
-//!   via `content::features::ecs::spawn_enemy_projectiles_from_brain_actions`.
+//! **Live consumers:**
 //! - Player input feeds `Brain::Player` → `ActorControl` → the
 //!   sandbox's `player_control_system` / `player_simulation_system`
 //!   via `engine_input_from_actor_control` (the polarity flip).
+//! - Player melee-start gating reads this player's
+//!   `ActorActionMessage::Melee`. Pogo is still a player-specific
+//!   direct path.
+//! - Enemy ranged projectiles flow through `ActorActionMessage::Ranged`
+//!   via `content::features::ecs::spawn_enemy_projectiles_from_brain_actions`.
+//! - Hostile enemy melee windups start from
+//!   `ActorActionMessage::Melee`; the runtime still owns the
+//!   windup → active hitbox edge.
+//! - Current boss specials such as GNU-ton apple rain and Gradient
+//!   Sentinel attacks flow through `ActorActionMessage::Special`
+//!   consumers in `content::features::ecs::brain_effects`.
 //!
-//! **What's NOT wired yet:** player melee + enemy melee + boss
-//! special effects still come from the legacy
-//! `update_player` / `EnemyRuntime::update` / `BossRuntime::update`
-//! paths. The brain output is a real authority for player movement
-//! and for enemy ranged; melee/special are the remaining migrations.
-//! See the EFFECTS-flip procedure in the recipe doc.
+//! **Remaining direct paths:** player projectile charge / motion-input
+//! recognition still reads `PlayerInputFrame`; pogo is still a
+//! player-specific input; and `ae::Player` remains the large movement
+//! aggregate inside `PlayerMovementAuthority`.
 //!
 //! # Mini-example
 //!
@@ -70,10 +77,10 @@ pub mod snapshot;
 pub mod state_machine;
 
 // Re-exports are the brain module's public surface. Some variants
-// (LungeSpec, SlamSpec, BiteSpec, PunchSpec) show as "unused"
-// inside the crate today because their EFFECTS consumers aren't
-// wired yet — only enemy ranged is. Allow that so the surface
-// stays documented + ready for the next migration slice.
+// Some action-spec variants are not exercised by every current
+// consumer in every build target. Allow unused re-exports so the
+// public brain/action surface stays documented and ready for the
+// next focused consumer slice.
 #[allow(unused_imports)]
 pub use action_set::{
     resolve as resolve_action_requests, ActionRequest, ActionSet, BiteSpec, LungeSpec,
@@ -276,10 +283,11 @@ impl std::fmt::Display for Brain {
 /// spawn systems, projectile spawners, special-ability dispatchers)
 /// read this to decide what hitboxes / projectiles / FX to spawn.
 ///
-/// Live channel: enemy ranged projectiles already flow through this
-/// stream (see `content::features::ecs::spawn_enemy_projectiles_from_brain_actions`).
-/// Player melee and boss special effects still come from the legacy
-/// runtimes; the migration is ongoing.
+/// Live channel: current consumers include enemy ranged projectiles,
+/// enemy melee windup starts, player melee-start gating, GNU-ton
+/// apple rain, and Gradient Sentinel boss specials. Pogo and player
+/// projectile charge / motion-input handling remain explicit
+/// player-specific direct paths.
 #[derive(Message, Clone, Copy, Debug)]
 pub struct ActorActionMessage {
     /// The actor that wants the action.

@@ -2,9 +2,11 @@
 
 This is the compact active-state document for Ambition. Update it when the current architecture or active direction changes. Keep old migration plans in `docs/archive/`, not here.
 
+**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+
 ## One-sentence summary
 
-Ambition is a Bevy-native, data-driven ECS-first 2D metroidvania/platformer sandbox with reusable mechanics crates, LDtk-authored world data, generated assets, and multi-platform runtime targets.
+Ambition is a Bevy-native, data-driven ECS-first 2D metroidvania/platformer sandbox with reusable mechanics crates, LDtk-authored world data, generated assets, multi-platform runtime targets, and an increasingly unified actor brain/action pipeline.
 
 ## Current architectural stance
 
@@ -39,12 +41,12 @@ Current rule:
 - LDtk owns areas, collision layers, loading zones, room/world spatial data, and authored level entities.
 - Bevy ECS owns the runtime representation.
 - `ambition_engine` owns reusable mechanics semantics.
-- RON remains valid for tuning, save/settings, generated-audio specs, and other non-world data where it is still the best format.
+- RON remains valid for tuning, save/settings, generated-audio specs, boss encounter specs, character catalogs, and other non-world data where it is still the best format.
 - Agents must not hand-edit `sandbox.ldtk`; use `python -m ambition_ldtk_tools` and validation tools.
 
 ## Platform stance
 
-Desktop, web, Android/mobile touch, controller, and Steam Deck are all active compatibility targets. iOS is deferred until macOS test hardware exists.
+Desktop, web, Android/mobile touch, controller, and Steam Deck are active compatibility targets. iOS is deferred until macOS test hardware exists.
 
 Platform feature work should preserve:
 
@@ -61,15 +63,20 @@ See `docs/concepts/platform-targets.md`.
 
 Landed or scaffolded mechanics include:
 
-- kinematic platformer controller, coyote/buffered jump, dash, double dash, wall cling/jump/climb, fast fall, blink, pogo/rebound, glide, fly/debug mode;
+- kinematic platformer controller, coyote time, jump buffer, dash buffer, double jump / air jump, dash charges, wall cling/jump/climb, ledge grab, fast fall, blink, pogo/rebound, glide, fly/debug mode;
 - body modes and collision-safe body shape checks for crouch/crawl/slide/morph-ball style traversal;
 - directional slash intents including upward and downward slash / pogo;
-- projectile backend with Fireball and Hadouken-style motion-input upgrade;
+- projectile backend with Fireball, charged Fireball, Hadouken, and HadoukenSuper motion-input upgrades;
 - shield/parry state and bubble-shield presentation;
-- actors, health/damage, interactions, breakables, pickups, projectiles, encounters, and boss-pattern vocabulary;
+- actors, factions, health/damage, interactions, breakables, pickups, projectiles, encounters, and boss-pattern vocabulary;
 - LDtk-authored goblin encounter / encounter-style areas and transition validation;
-- unified `ActorControlFrame` brain→sim seam for enemies + bosses (`crates/ambition_engine/src/actor_control.rs`): brains output desired velocity, a single `step_kinematic` call resolves collision for aerial, grounded, patrol, and boss bodies.
-- universal-brain interface (`crates/ambition_sandbox/src/brain/`, 2026-05-24): every controllable entity (player / NPC / enemy / boss) carries Brain + ActionSet + ActorControl sibling components; brains tick each frame to fill ActorControl; ActionSet resolver emits per-tick `ActorActionMessage`s for combat / projectile spawns. Players carry `Brain::Player(slot)`; peaceful NPCs run through `Patrol`; enemies through per-archetype `MeleeBrute` / `Skirmisher` / `Wanderer` / `StandStill`; bosses through `BossPattern(encounter_id)`. Combat / projectile spawners still flow through `EnemyRuntime` / `BossRuntime` / `update_player` — daytime work flips them onto the message stream. See `docs/systems/brain-driver.md`.
+- character catalog and Hall of Characters content flow;
+- RON-authored boss encounter numeric specs with Rust behavior profiles;
+- universal-brain interface in `crates/ambition_sandbox/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with `emit_brain_action_messages` producing `ActorActionMessage`s from each actor's resolved intent.
+
+The current actor/brain migration is no longer only a shadow seam. The live code uses it for player movement/control, player melee-start gating, hostile enemy ranged projectiles, hostile enemy melee windup starts, and authored boss special consumers such as apple rain / Gradient Sentinel attacks. Remaining rough edges are narrower: player projectile charging still reads `PlayerInputFrame`, pogo has a player-specific raw path, and `ae::Player` remains a large movement aggregate inside `PlayerMovementAuthority`.
+
+Damage is functional but fragmented. The sandbox currently routes outgoing player/projectile hits through `DamageEvent`, hostile hitboxes through explicit `Hitbox` entities and `PlayerDamageEvent`, boss state through `BossDamageOutcome`, and presentation through VFX/SFX messages. There is not yet a canonical `HitSpec` / `HitInstance` / `HitResult` pipeline that carries per-hit metadata end-to-end.
 
 The mechanics are still sandbox-grade. Treat mechanics docs as expressibility and validation guides, not as promises of final tuning or animation polish.
 
@@ -90,6 +97,7 @@ After doc moves or concept changes:
 ```bash
 python scripts/generate_agent_index.py
 python scripts/check_agent_kb.py
+python scripts/check_doc_links.py
 ```
 
 After Rust changes, use the concept page or recipe to select focused tests before broad workspace tests.

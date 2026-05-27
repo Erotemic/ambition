@@ -226,6 +226,7 @@ impl NpcRuntime {
             // builder doesn't pay for queries this brain ignores.
             crowding: None,
             terrain: None,
+            air_jumps_remaining: 0,
         };
         let mut frame = ae::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);

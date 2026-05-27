@@ -21,6 +21,14 @@ const ENEMY_MAX_FALL: f32 = 760.0;
 /// up. Engine y grows downward; the integration applies
 /// `body.vel.y = -ENEMY_JUMP_SPEED`.
 const ENEMY_JUMP_SPEED: f32 = 520.0;
+/// Mid-air jump impulse (px/s). Slightly under the ground jump so
+/// the second jump reads as a "boost" rather than a full re-launch
+/// — matches the player's `DOUBLE_JUMP_SPEED` shape (520 → 420 step).
+const ENEMY_DOUBLE_JUMP_SPEED: f32 = 430.0;
+/// Mid-air jumps an enemy gets between landings. `1` = single
+/// double-jump (matches the player's default). Resets when the
+/// body transitions `on_ground: false → true` in `enemy.update()`.
+pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 // `ENEMY_PATROL_SPEED` / `ENEMY_CHASE_SPEED` / `ENEMY_ATTACK_RANGE`
 // retired by the enemy_archetypes.ron migration — each row now carries
 // its own speeds / ranges. If multiple archetypes drift back to the

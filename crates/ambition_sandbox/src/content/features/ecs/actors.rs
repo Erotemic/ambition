@@ -607,5 +607,6 @@ fn build_smash_snapshot(
         player_input: None,
         crowding,
         terrain: None,
+        air_jumps_remaining: enemy.air_jumps_remaining,
     }
 }

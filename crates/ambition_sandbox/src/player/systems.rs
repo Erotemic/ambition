@@ -90,6 +90,9 @@ pub fn tick_player_brains(
             // the brain ignores.
             crowding: None,
             terrain: None,
+            // Player brain reads its own air-jump state via the
+            // PlayerInputFrame / engine path, not via the snapshot.
+            air_jumps_remaining: 0,
         };
         let mut frame = ae::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);

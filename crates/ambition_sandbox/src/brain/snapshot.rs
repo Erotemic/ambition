@@ -91,6 +91,12 @@ pub struct BrainSnapshot {
     /// crowding (today: only the Smash brain). The driver system
     /// only computes this for actors whose brain requests it.
     pub crowding: Option<crate::brain::smash::CrowdingSignal>,
+    /// Mid-air jumps the actor has remaining until next landing.
+    /// `0` = no double-jump available (must land first). The
+    /// Smash brain reads this so an airborne actor can commit a
+    /// follow-up jump to chase a high target. Non-jumping brains
+    /// can leave this at the default `0`.
+    pub air_jumps_remaining: u8,
     /// Per-tick stage / ledge / hazard awareness. `None` for brains
     /// that don't consult terrain. Stub today; populated when the
     /// snapshot builder learns about stage geometry under the
@@ -136,6 +142,7 @@ impl BrainSnapshot {
             player_input: None,
             crowding: None,
             terrain: None,
+            air_jumps_remaining: 0,
         }
     }
 

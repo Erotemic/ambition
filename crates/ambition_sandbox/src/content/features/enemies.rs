@@ -95,6 +95,12 @@ pub struct EnemyRuntime {
     /// `(-facing, 0)` for a back-air. Persists across the entire
     /// strike — once committed, the swing doesn't re-aim mid-windup.
     pub pending_attack_axis: ae::Vec2,
+    /// Mid-air jumps the actor has left until next landing. Reset
+    /// to `MAX_AIR_JUMPS` (1 today) when `on_ground` transitions
+    /// from false → true in the integration step. Decremented when
+    /// `frame.jump_pressed` fires while airborne AND a jump remains.
+    /// The grounded-jump path doesn't touch this counter.
+    pub air_jumps_remaining: u8,
 }
 
 /// Authored rule for when a defeated enemy should reappear. Picked
@@ -621,6 +627,7 @@ impl EnemyRuntime {
             rider_health: archetype.rider_max_health().map(ae::Health::new),
             surface_normal: ae::Vec2::new(0.0, -1.0),
             pending_attack_axis: ae::Vec2::new(-1.0, 0.0),
+            air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
         }
     }
 
@@ -660,6 +667,7 @@ impl EnemyRuntime {
         // unrotated `size`, which is correct again at floor stance.
         self.surface_normal = ae::Vec2::new(0.0, -1.0);
         self.pending_attack_axis = ae::Vec2::new(-1.0, 0.0);
+        self.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
     }
 
     /// True when this actor still has a rider (live pirate on top).
@@ -996,14 +1004,21 @@ impl EnemyRuntime {
                 // Match the previous ground-acceleration constant
                 // (650 px/s²·dt) so chase/patrol feel doesn't shift.
                 body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
-                // Jump impulse: when the brain commits `jump_pressed`
-                // AND the body is grounded, apply an upward kick.
+                // Jump impulse:
+                //   - Grounded: full `ENEMY_JUMP_SPEED` impulse.
+                //   - Airborne with `air_jumps_remaining > 0`:
+                //     smaller `ENEMY_DOUBLE_JUMP_SPEED` impulse,
+                //     decrement counter. Matches the player's
+                //     "double-jump is a smaller boost" feel.
                 // Engine y grows downward → negative vy = upward.
-                // Air-jumps (double-jump) aren't supported yet;
-                // re-pressing while airborne does nothing.
-                if frame.jump_pressed && body.on_ground {
-                    body.vel.y = -ENEMY_JUMP_SPEED;
-                    body.on_ground = false;
+                if frame.jump_pressed {
+                    if body.on_ground {
+                        body.vel.y = -ENEMY_JUMP_SPEED;
+                        body.on_ground = false;
+                    } else if self.air_jumps_remaining > 0 {
+                        body.vel.y = -ENEMY_DOUBLE_JUMP_SPEED;
+                        self.air_jumps_remaining -= 1;
+                    }
                 }
             }
             ae::step_kinematic(
@@ -1021,6 +1036,13 @@ impl EnemyRuntime {
             self.pos = body.pos;
             self.vel = body.vel;
             self.on_ground = if is_aerial { false } else { body.on_ground };
+            // Refresh the air-jump counter whenever we're standing
+            // on a surface. Cheaper than landing-edge detection and
+            // self-corrects if a brain happens to spam jump_pressed
+            // mid-fall before the consume gate fires.
+            if self.on_ground {
+                self.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
+            }
 
             // KinematicPath patrols: the brain reads the path's "would
             // be" position to derive the desired_vel above. If
@@ -1501,21 +1523,24 @@ impl EnemyRuntime {
         )
     }
 
-    /// Directional hitbox geometry. `axis` is normalized (or expected
-    /// to be small-magnitude); whichever component dominates picks
-    /// the swing shape:
-    ///   - `(±1, 0)` → forward / back swing (same shape as the
-    ///     legacy `attack_aabb`, offset by `facing.signum()` along x).
-    ///   - `(0, -1)` → up-attack: hitbox above the actor's head,
-    ///     wider on x than tall on y.
-    ///   - `(0, +1)` → down-air / stomp: hitbox below the feet,
-    ///     wider on x.
+    /// Directional hitbox geometry. `axis` is normalized (or
+    /// expected to be small-magnitude); whichever component
+    /// dominates picks the swing shape:
+    ///   - `(±1, 0)` → forward / back swing — wide on x, mid on y
+    ///     (legacy `attack_aabb` shape).
+    ///   - `(0, -1)` → up-tilt: a TALL narrow column above the
+    ///     head — Smash-style uppercut / juggle hit. Reach
+    ///     stretches up far enough to grab a player at a hop's
+    ///     apex.
+    ///   - `(0, +1)` → down-air / stomp: wide and short below the
+    ///     feet — covers a horizontal slice the falling actor
+    ///     drops onto.
     /// Used at the windup → active edge in `update_ecs_actors` so
-    /// the strike's `Hitbox` entity reflects the direction the brain
-    /// committed to when it called `begin_melee_attack`.
+    /// the strike's `Hitbox` entity reflects the direction the
+    /// brain committed to when it called `begin_melee_attack`.
     pub fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
         let horizontal = axis.x.abs() >= axis.y.abs();
-        let center = if horizontal {
+        if horizontal {
             // Forward / back swing — pick the side from the axis sign
             // (falls back to facing if axis.x is near zero).
             let side = if axis.x.abs() > 0.1 {
@@ -1523,20 +1548,25 @@ impl EnemyRuntime {
             } else {
                 self.facing
             };
-            self.pos + ae::Vec2::new(side * (self.size.x * 0.55 + 24.0), -4.0)
-        } else {
-            // Vertical attack — engine y grows downward, so
-            // `axis.y < 0` = up-attack, `axis.y > 0` = down-air.
-            let side = axis.y.signum();
-            self.pos + ae::Vec2::new(0.0, side * (self.size.y * 0.55 + 18.0))
-        };
-        let half = if horizontal {
-            ae::Vec2::new(34.0, 28.0)
-        } else {
-            // Wider on x, shorter on y — feels like a head-stomp /
-            // uppercut shape.
-            ae::Vec2::new(36.0, 20.0)
-        };
+            let center =
+                self.pos + ae::Vec2::new(side * (self.size.x * 0.55 + 24.0), -4.0);
+            return ae::Aabb::new(center, ae::Vec2::new(34.0, 28.0));
+        }
+        // Vertical attack — engine y grows downward, so `axis.y < 0`
+        // = up-tilt, `axis.y > 0` = down-air.
+        if axis.y < 0.0 {
+            // Up-tilt: TALL + narrow column above the actor's head.
+            // half_extent (16, 36) spans from ~22 px above the head
+            // up to ~94 px above the head — long enough to catch a
+            // player jumping straight up or hanging in a hop's apex.
+            let half = ae::Vec2::new(16.0, 36.0);
+            let center =
+                self.pos + ae::Vec2::new(0.0, -(self.size.y * 0.5 + half.y + 4.0));
+            return ae::Aabb::new(center, half);
+        }
+        // Down-air: wide stomp below the feet.
+        let half = ae::Vec2::new(36.0, 20.0);
+        let center = self.pos + ae::Vec2::new(0.0, self.size.y * 0.5 + half.y - 2.0);
         ae::Aabb::new(center, half)
     }
 

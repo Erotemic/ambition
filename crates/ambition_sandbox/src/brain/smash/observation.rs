@@ -25,6 +25,11 @@ pub struct ObservationFrame {
     pub self_facing: f32,
     pub self_on_ground: bool,
     pub self_alive: bool,
+    /// Mid-air jumps the actor has left until next landing. Reads
+    /// straight off `BrainSnapshot.air_jumps_remaining`. The action
+    /// stage uses this to decide whether `SpecificAction::Jump`
+    /// fired in the air will actually launch a double-jump.
+    pub self_air_jumps_remaining: u8,
     /// True when the actor is mid-windup / mid-active / mid-recover
     /// of an attack. Brains use this to refuse another commit until
     /// the swing finishes.
@@ -133,6 +138,7 @@ pub fn observe(snap: &BrainSnapshot) -> ObservationFrame {
         self_facing: snap.actor_facing,
         self_on_ground: snap.actor_on_ground,
         self_alive: snap.alive,
+        self_air_jumps_remaining: snap.air_jumps_remaining,
         self_attacking,
         attack_cooldown_remaining: snap.attack_cooldown_remaining,
         stun_remaining: snap.stun_remaining,

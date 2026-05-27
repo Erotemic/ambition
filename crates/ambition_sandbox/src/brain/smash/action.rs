@@ -83,14 +83,21 @@ pub fn choose_action(
     match mode {
         BroadMode::Idle => SpecificAction::Idle,
         BroadMode::Approach => {
-            // Vertical gap: if the player is significantly above us
-            // and we're grounded, jump to close the vertical
-            // distance. Engine y grows downward, so "target above"
-            // means `to_target_y` is strongly negative. Only fire on
-            // the ground (no double-jump support today) and only
-            // when not mid-attack.
-            if obs.self_on_ground && obs.to_target_y < -60.0 {
-                return SpecificAction::Jump;
+            // Vertical gap: jump to close the vertical distance when
+            // the target is meaningfully above. Engine y grows
+            // downward, so "target above" means `to_target_y` is
+            // strongly negative. Trigger on the ground for the first
+            // jump, OR mid-air if a double-jump is still available
+            // AND we're still rising or stalled (vel.y >= ~0). The
+            // rising-only gate prevents the brain from double-jumping
+            // mid-descent, which would just reset gravity to zero.
+            if obs.to_target_y < -60.0 {
+                if obs.self_on_ground {
+                    return SpecificAction::Jump;
+                }
+                if obs.self_air_jumps_remaining > 0 && obs.self_vel.y > -50.0 {
+                    return SpecificAction::DoubleJump;
+                }
             }
             let dir = signum_or(obs.to_target_x, obs.self_facing);
             SpecificAction::Walk {
@@ -138,11 +145,15 @@ pub fn choose_action(
             // Out of swing range or on cooldown — close the rest of
             // the way at chase speed.
             if obs.distance_to_target > cfg.attack_range {
-                // Same jump-to-close-vertical-gap heuristic as
-                // Approach. Helps a grounded enemy follow a player
-                // who jumps onto a platform.
-                if obs.self_on_ground && obs.to_target_y < -60.0 {
-                    return SpecificAction::Jump;
+                // Jump-to-close-vertical-gap (single or double).
+                // Same gate as Approach.
+                if obs.to_target_y < -60.0 {
+                    if obs.self_on_ground {
+                        return SpecificAction::Jump;
+                    }
+                    if obs.self_air_jumps_remaining > 0 && obs.self_vel.y > -50.0 {
+                        return SpecificAction::DoubleJump;
+                    }
                 }
                 let dir = signum_or(obs.to_target_x, obs.self_facing);
                 return SpecificAction::Walk { dir };

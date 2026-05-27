@@ -818,14 +818,18 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
 #[cfg(not(feature = "physics_debris"))]
 pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 
-/// Install UI-shell plugins: Yarn Spinner runtime and bevy_material_ui's
-/// styling layer. The dialogue overlay (`dialog::sync_dialog_ui`) draws
-/// with Bevy's core UI primitives and stays installed unconditionally;
-/// only the optional plugins live behind `ui`.
+/// Install UI-shell plugins: bevy_material_ui's styling layer. The
+/// dialogue overlay (`dialog::sync_dialog_ui`) draws with Bevy's
+/// core UI primitives and stays installed unconditionally; only
+/// the optional plugins live behind `ui`.
+///
+/// `YarnSpinnerPlugin` is mounted alongside the bridge in
+/// `build_sandbox_simulation_plugins` so the yarn runtime,
+/// the bridge observers, and the binding registrations all spawn
+/// in one place. Don't re-mount it here.
 #[cfg(feature = "ui")]
 pub(super) fn add_ui_plugins(app: &mut App) {
-    app.add_plugins(dialog::yarn_spinner_plugin())
-        .add_plugins(MaterialUiPlugin);
+    app.add_plugins(MaterialUiPlugin);
 }
 
 #[cfg(not(feature = "ui"))]

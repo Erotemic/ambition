@@ -9,11 +9,12 @@
 //!
 //! Brains today are hand-written:
 //!
-//! - Player: input → ControlFrame (still being unified — see project
-//!   notes on the player-as-actor migration).
-//! - Enemy: [`crate::CharacterAiSnapshot`] + [`crate::AttackChoreography`]
-//!   → frame.
-//! - Boss: [`crate::BossBrain`] + scripted pattern → frame.
+//! - Player: sandbox `Brain::Player` translates per-player input into
+//!   this frame, and the player control/simulation phases consume it.
+//! - NPC/enemy: sandbox state-machine brains translate snapshots into
+//!   desired motion and action edges; ActionSets resolve concrete effects.
+//! - Boss: sandbox `BossPattern` brains and authored profiles emit
+//!   movement/action frames for encounter-specific consumers.
 //!
 //! Brains tomorrow can be neural networks, replay buffers, remote
 //! players, or scripted demos — same frame, same integration. The
@@ -49,12 +50,11 @@ use crate::Vec2;
 /// remote player) can emit one without going through the
 /// choreography path.
 ///
-/// **Future narrowing:** The `speed` field is on track to disappear
-/// once the EFFECTS-stage resolver reads the actor's
-/// `ActionSet::ranged.speed()` instead — brains will only emit a
-/// direction. New brain backends should set `speed = 0.0` as a
-/// sentinel; callers that read speed today still consult this
-/// field as the source of truth.
+/// **Current convention:** ActionSet-driven consumers read projectile
+/// speed from the resolved `RangedActionSpec`; player/projectile legacy
+/// paths may still carry `speed` here while migration is in progress.
+/// New brain backends should prefer `speed = 0.0` and let the actor's
+/// capability choose the launch speed.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ActorFireRequest {
     /// Launch direction (unit vector recommended; the sandbox

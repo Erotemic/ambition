@@ -2,17 +2,23 @@
 
 Use this as a compact current-status map. It intentionally avoids the old 900-line wishlist, but it preserves enough future backend primitives that agents can find useful multi-hour tasks without re-reading deleted docs.
 
+**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+
 Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet reusable backend.
 
 ## Movement
 
-- [x] Kinematic controller, coyote/buffered jump, air jump, dash charges, wall cling/jump/climb, fast fall.
+- [x] Kinematic controller, coyote time, jump buffer, air jump, dash buffer, dash charges, wall cling/jump/climb, fast fall.
 - [x] Blink/teleport targeting and safety checks.
 - [x] Glide and fly/debug mode.
-- [~] Ledge grab / mantle: behavior exists, polish and animation coverage remain incomplete.
+- [x] Ledge grab / mantle behavior exists in engine+sandbox code.
+- [~] Ledge grab / mantle polish: action buffering, animation coverage, and edge-case tests remain incomplete.
 - [~] Moving platforms: implemented path exists, but carry semantics need more validation.
 - [~] Climbable / ladder body mode: available, but ladder-top passthrough and jump/dash-off polish remain.
-- [ ] Grapple/tether constraints.
+- [~] Silksong-style jump polish: variable jump height exists; apex hang / jump sustain are not yet reusable tuning concepts.
+- [ ] General input buffer for attack, pogo, projectile/tool, blink, and ledge actions.
+- [ ] Sprint-jump / long-jump momentum rules.
+- [ ] Grapple/tether/harpoon-dash constraints.
 - [ ] Gravity columns / rotated gravity policy.
 - [ ] Parametric curve riding or spline/rail movement.
 
@@ -22,10 +28,26 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 - [x] Projectile backend with Fireball, charged Fireball, Hadouken, and HadoukenSuper motion-input upgrades.
 - [x] Shield/parry state and bubble-shield presentation.
 - [x] Actor/faction/damage/interactable/breakable vocabulary.
+- [x] Player melee-start gate emits and consumes `ActorActionMessage::Melee`.
+- [x] Enemy ranged projectiles, enemy melee windup starts, and current authored boss specials have `ActorActionMessage` consumers.
 - [~] Dialogue/commerce hooks: architectural seed exists, content pipeline is not final.
-- [~] Boss profiles and phase machines: playable, but movement and music binding need more data-driven wiring.
+- [~] Boss profiles and phase machines: playable, with RON numeric specs; not fully data-authored behavior.
+- [~] Combat-hit metadata: damage works, but `DamageEvent`, hostile `Hitbox`, `PlayerDamageEvent`, and boss outcomes are not unified into a canonical per-hit object.
+- [ ] Canonical `HitSpec` / `HitInstance` / `HitResult` pipeline with raw damage, final damage, stagger/poise, elements/status, knockback, hitstop, VFX/SFX, and rejection reasons.
 - [ ] Bubble shield dodge/roll policy.
 - [ ] Falling-sand / fluid toy-room simulation.
+
+## Actor brain / action pipeline
+
+- [x] `Brain` + `ActionSet` + `ActorControl` sibling components exist for player, NPC, enemy, and boss entities.
+- [x] `Brain::Player` translates `PlayerInputFrame` into `ActorControlFrame`.
+- [x] Player movement/control phases consume `ActorControl` instead of raw `ControlFrame`.
+- [x] `emit_brain_action_messages` resolves each actor's `ActionSet` into `ActorActionMessage`s.
+- [x] Live consumers exist for player melee start, hostile enemy ranged, hostile enemy melee windup start, GNU-ton apple rain, and Gradient Sentinel specials.
+- [~] Projectile charging still reads `PlayerInputFrame` directly.
+- [~] Pogo remains a player-specific raw path.
+- [~] `ae::Player` is still a large aggregate inside `PlayerMovementAuthority`; ECS decomposition is incomplete.
+- [ ] Possession / multiplayer input routing using arbitrary actor bodies.
 
 ## Body and traversal
 
@@ -63,6 +85,8 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 cargo test -p ambition_engine combat
 cargo test -p ambition_engine projectile
 cargo test -p ambition_engine movement
+cargo test -p ambition_sandbox --lib brain::
+cargo test -p ambition_sandbox projectile
 cargo test -p ambition_sandbox scripted_gameplay
 ```
 

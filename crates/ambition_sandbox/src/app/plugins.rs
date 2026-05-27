@@ -149,10 +149,11 @@ fn register_player_input_systems(app: &mut App) {
             // Universal-brain effects resolver: walk every actor's
             // ActionSet against the actor's ActorControl frame and
             // emit ActorActionMessage entries for each concrete
-            // request. Live consumer:
-            // `spawn_enemy_projectiles_from_brain_actions` (Combat
-            // set) reads the Ranged messages and spawns enemy
-            // projectiles. Player melee + boss specials are next.
+            // request. Live consumers read the emitted stream in
+            // Combat: enemy ranged, enemy melee start, player
+            // melee-start gating, GNU-ton apple rain, and Gradient
+            // Sentinel specials. Player projectile charging and pogo
+            // remain explicit player-specific direct paths.
             crate::brain::emit_brain_action_messages,
             // Observe the resolver output into a per-frame counter
             // so the HUD + debug tooling have a quick "any brain

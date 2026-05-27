@@ -2,6 +2,8 @@
 
 Purpose: compact inventory of what Ambition can currently express. This is not a changelog, not a roadmap, and not implementation truth. Code, ADRs, and `docs/current/` win when there is a conflict.
 
+**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+
 For implementation details, start from `docs/current/state.md`, `docs/systems/index.md`, `docs/mechanics/expressibility-checklist.md`, and the generated indexes under `.agent/`.
 
 ## Movement and traversal
@@ -9,28 +11,34 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Capability | Status | Where to read next |
 |---|---:|---|
 | Kinematic platformer controller, coyote/buffered jump, dash, wall cling/jump, fast fall | Available | `docs/concepts/movement-collision.md`, `docs/mechanics/expressibility-checklist.md` |
+| Jump and dash input buffers | Available | `docs/mechanics/abilities.md`, `crates/ambition_engine/src/movement/tuning.rs` |
+| General action buffering for attack / pogo / projectile / tool / blink | Not yet unified | `docs/mechanics/abilities.md`, `docs/current/next.md` |
 | Blink / short-range teleport with collision safety policy | Available | `docs/mechanics/blink.md`, `docs/systems/collision-geometry-and-secondary-physics.md` |
-| Ledge grab / mantle | Partial | `docs/mechanics/abilities.md`, `docs/mechanics/expressibility-checklist.md` |
+| Ledge grab / mantle | Partial but implemented | `docs/mechanics/abilities.md`, `docs/mechanics/expressibility-checklist.md` |
 | Body-mode traversal such as crouch, crawl, slide, compact/morph shapes | Available, needs more authored rooms | `docs/mechanics/body-modes.md` |
 | Moving platforms and path motion | Available, needs more carry/edge validation | `docs/systems/collision-geometry-and-secondary-physics.md`, `docs/planning/tech-debt-log.md` |
-| Grapple/tether constraints | Not yet reusable backend | `docs/mechanics/expressibility-checklist.md` |
+| Sprint-jump / long-jump momentum tier | Not yet reusable backend | `docs/mechanics/abilities.md` |
+| Grapple / tether / harpoon-dash constraints | Not yet reusable backend | `docs/mechanics/expressibility-checklist.md` |
 
 ## Combat, actors, and interactions
 
 | Capability | Status | Where to read next |
 |---|---:|---|
-| Directional melee, upward slash, downward slash / pogo | Available | `docs/mechanics/abilities.md`, `docs/mechanics/projectiles-and-motion-inputs.md` |
+| Directional melee, upward slash, downward slash / pogo | Available | `docs/mechanics/abilities.md`, `docs/systems/brain-driver.md` |
+| Player attack start via `ActorActionMessage::Melee` | Available, pogo still has a raw player-specific path | `docs/systems/brain-driver.md` |
+| Enemy melee windup start via `ActorActionMessage::Melee` plus hitbox-entity lifecycle | Available | `docs/systems/brain-driver.md`, `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs` |
+| Enemy ranged and boss specials via `ActorActionMessage` consumers | Available for current ranged enemies and authored boss specials | `docs/systems/brain-driver.md`, `docs/systems/boss-encounter-architecture.md` |
 | Projectiles and motion-input upgrades | Available | `docs/mechanics/projectiles-and-motion-inputs.md` |
 | Shield/parry/bubble-shield vocabulary | Available | `docs/mechanics/abilities.md` |
 | Actor, faction, damage, interactable, pickup, breakable vocabulary | Available | `docs/systems/progression-systems.md`, `docs/systems/factions.md` |
+| Canonical `HitSpec` / `HitInstance` / `HitResult` pipeline | Missing; damage is functional but fragmented | `docs/systems/gameplay-effects.md`, `docs/current/next.md` |
 | Enemy archetypes, boss profiles, encounter lock walls/rewards | Partial but playable | `docs/systems/boss-behavior-profiles.md`, `docs/systems/boss-encounter-architecture.md`, `docs/planning/tech-debt-log.md` |
-| Unified brain→sim seam (`ActorControlFrame`) for enemies + bosses | Available; player wired into ActorControl via Brain::Player (2026-05-24), polarity flip pending | `crates/ambition_engine/src/actor_control.rs`, `docs/systems/character-ai-refactor.md` |
-| Universal Brain interface — Brain enum + 7 reusable templates + per-entity ActionSet + ActorActionMessage resolver, every actor type wired (player/NPC/enemy/boss) | Available; consumer-flip pending | `crates/ambition_sandbox/src/brain/`, `docs/systems/brain-driver.md`, `docs/recipes/extending-brains-and-action-sets.md`, `TODO-controllable-entity.md` |
-| Character catalog (RON-driven authoring) — 97 entries, `character_id` keyed; LDtk NpcSpawns + sprite loader + Hall of Characters all consume the catalog. Adding a new character is one RON row + one LDtk NpcSpawn (no Rust) for the common case via the manifest-driven sheet-spec fallback. | Available (2026-05-24) | `crates/ambition_sandbox/assets/data/character_catalog.ron`, `docs/systems/character-catalog.md`, `docs/recipes/adding-a-character.md`, `docs/adr/0017-rust-behavior-ron-content-ldtk-space.md` |
-| Hall of Characters room — auto-generated multi-level pantheon, 100% catalog coverage (97/97 pedestals render real sprites) | Available (2026-05-24) | `tools/ambition_ldtk_tools/specs/hall_of_characters_area.ron`, `tools/ambition_ldtk_tools/ambition_ldtk_tools/generate_hall_of_characters.py`, `tools/ambition_ldtk_tools/ambition_ldtk_tools/inspect_hall_sprites.py` |
-| LDtk authoring toolkit — `intgrid paint`, `intgrid erase`, `space_debug_labels`, spawn-overlap validator, IntGrid-aware wall/door checks | Available (2026-05-24) | `tools/ambition_ldtk_tools/`, `docs/systems/sprite-rendering-surface.md` |
-| Boss-encounter spec as RON content — every authored boss's numeric fields (HP, phase thresholds, timings, music ids) live in `assets/data/boss_encounters/<id>.ron`; Rust profile constructor still owns behavior wiring (`BossBehaviorProfile`, `BossRewardProfile`). All 3 authored bosses migrated; orphan/dupe-guarded; pinned on both Python (schema) + Rust (field equivalence) layers. | Available (2026-05-24) | `crates/ambition_sandbox/assets/data/boss_encounters/`, `crates/ambition_sandbox/src/boss_encounter/specs.rs`, `docs/systems/boss-encounter-architecture.md` |
-| Gradient Sentinel boss fight — Scripted multi-phase encounter (intro/phase1/transition/phase2/enrage) with 5 new BossAttackProfile variants (GradientLane, OverfitVolley, MinimaTrap, SaddlePoint, GradientCascade) and 4 SpecialActionSpec variants. Position-sampling bolt barrage, World-anchored pit hazards + puppy_slug minion spawns, rotating cross hazard, slop-minion cascade. Multi-special bosses route through new `boss_special_for_profile` direct-write path in `tick_boss_brains_system` (gnu_ton migrated too); per-boss state components for stateful specials follow the AppleRain pattern. | Available (2026-05-25) | `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`, `crates/ambition_sandbox/src/content/features/bosses.rs`, `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs` |
+| Universal Brain interface: `Brain` enum, state-machine templates, per-entity `ActionSet`, `ActorControl`, and `ActorActionMessage` resolver | Available and live for player movement, player melee start, enemy ranged, enemy melee start, and current boss specials | `crates/ambition_sandbox/src/brain/`, `docs/systems/brain-driver.md`, `docs/recipes/extending-brains-and-action-sets.md` |
+| Character catalog (RON-driven authoring) | Available; 97 catalog entries in the reviewed archive, keyed by content rows rather than Rust-only spawns | `crates/ambition_sandbox/assets/data/character_catalog.ron`, `docs/systems/character-catalog.md`, `docs/recipes/adding-a-character.md`, `docs/adr/0017-rust-behavior-ron-content-ldtk-space.md` |
+| Hall of Characters room | Available; auto-generated catalog showcase / sprite audit surface | `tools/ambition_ldtk_tools/specs/hall_of_characters_area.ron`, `tools/ambition_ldtk_tools/ambition_ldtk_tools/generate_hall_of_characters.py`, `tools/ambition_ldtk_tools/ambition_ldtk_tools/inspect_hall_sprites.py` |
+| LDtk authoring toolkit | Available; includes IntGrid paint/erase, debug labels, spawn-overlap checks, and wall/door validation | `tools/ambition_ldtk_tools/`, `docs/systems/sprite-rendering-surface.md` |
+| Boss-encounter spec as RON content | Available; 3 authored boss specs in the reviewed archive, with Rust profiles still owning behavior wiring | `crates/ambition_sandbox/assets/data/boss_encounters/`, `crates/ambition_sandbox/src/boss_encounter/specs.rs`, `docs/systems/boss-encounter-architecture.md` |
+| Gradient Sentinel boss fight | Available in current sandbox code; multi-special boss using focused `ActorActionMessage::Special` consumers | `crates/ambition_sandbox/src/content/features/bosses.rs`, `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs` |
 | Dialogue/commerce hooks | Scaffolded | `docs/systems/progression-systems.md`, `docs/adr/0008-dialogue-and-commerce-architecture.md` |
 
 ## World authoring and runtime projection
@@ -48,10 +56,12 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Capability | Status | Where to read next |
 |---|---:|---|
 | Keyboard/controller action mapping and control-frame normalization | Available | `docs/systems/input-and-control-frame.md` |
+| Per-player `PlayerInputFrame` mirror of the primary `ControlFrame` | Available | `docs/systems/input-and-control-frame.md` |
+| Player `Brain::Player` translating input to `ActorControlFrame` | Available | `docs/systems/brain-driver.md` |
 | Menu navigation, pause mode, inventory/map/pause UI routing | Available | `docs/systems/ui-navigation-and-pause.md` |
 | Settings persistence across audio/video/gameplay/controls | Available | `docs/systems/settings-and-persistence.md` |
 | Mobile touch controls | Available, platform-sensitive | `docs/systems/mobile-touch-controls.md` |
-| Context-sensitive control HUD (verb + per-device glyph + pressed-state) | Available | `docs/systems/control-affordances.md` |
+| Context-sensitive control HUD (verb + per-device glyph + pressed-state) | Available; gameplay still owns its own execution branches | `docs/systems/control-affordances.md` |
 | Desktop, web, Android/mobile, controller, Steam Deck paths | Current targets | `docs/concepts/platform-targets.md`, `docs/recipes/index.md` |
 
 ## Validation and agent support
@@ -63,18 +73,18 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Agent-readable indexes | Available, generated | `.agent/manifest.yaml`, `.agent/index/` |
 | Documentation health checks | Available | `scripts/check_agent_kb.py`, `scripts/check_doc_links.py` |
 | LDtk area-spec coordinate drift check | Available | `tools/ambition_ldtk_tools` `level diff-specs --all`; `dev/benchmark-candidates/ldtk-area-spec-drift-2026-05-21.md` |
-| EnemySpawn `Patrol:<id>` brain reference validation | Available (warnings) | `crates/ambition_sandbox/src/content/content_validation.rs::validate_patrol_brain_paths` |
+| EnemySpawn `Patrol:<id>` brain reference validation | Available as warnings | `crates/ambition_sandbox/src/content/content_validation.rs::validate_patrol_brain_paths` |
 
 ## Intro vertical slice (intro-v1)
 
 | Capability | Status | Where to read next |
 |---|---:|---|
-| Intro spine wake → raid → vertical shaft → drain market → gate stack → combat lab → first boss | Available, math-checked, unplaytested | `dev/vertical-slices/intro-v1/playtest-handoff.md`, `dev/vertical-slices/intro-v1/map-contract.md` |
-| Alice/Bob cartography route (under_town_pipes → alice_relay → bob_relay) | Available | `dev/vertical-slices/intro-v1/task-04-under-town-trust-route.md` |
-| Cartography route durable state (10+ flags, 3 auto-quests) | Available | `crates/ambition_sandbox/src/intro/route_state.rs`, `crates/ambition_sandbox/src/content/quest.rs::default_quest_specs` |
-| Flag-gated LockWalls (private return doors open on `bob_field_survey_received`) | Available | `crates/ambition_sandbox/src/intro/route_state.rs::sync_intro_flag_gated_lock_walls` |
-| Conditional intro dialogue (Oiler post-stabilizer, Alice post-Bob-survey, Bob post-report) | Available | `crates/ambition_sandbox/src/intro/route_state.rs::redirect_post_intro_dialog`, `crates/ambition_sandbox/src/intro/dialog.rs` |
-| Evil/lawful "Submit private route" Switch (gate_stack_lower) | Available | `tools/ambition_ldtk_tools/specs/gate_stack_lower_area.yaml` |
+| Intro spine wake -> raid -> vertical shaft -> drain market -> gate stack -> combat lab -> first boss | Available, math-checked, unplaytested | `dev/vertical-slices/intro-v1/playtest-handoff.md`, `dev/vertical-slices/intro-v1/map-contract.md` |
+| Alice/Bob cartography route | Available | `dev/vertical-slices/intro-v1/task-04-under-town-trust-route.md` |
+| Cartography route durable state | Available; 10+ route flags and auto-quest hooks in the reviewed archive | `crates/ambition_sandbox/src/intro/route_state.rs`, `crates/ambition_sandbox/src/content/quest.rs::default_quest_specs` |
+| Flag-gated LockWalls | Available | `crates/ambition_sandbox/src/intro/route_state.rs::sync_intro_flag_gated_lock_walls` |
+| Conditional intro dialogue | Available; Oiler/Alice/Bob route-state variants remain documented in code | `crates/ambition_sandbox/src/intro/route_state.rs::redirect_post_intro_dialog`, `crates/ambition_sandbox/src/intro/dialog.rs` |
+| Evil/lawful "Submit private route" Switch | Available | `tools/ambition_ldtk_tools/specs/gate_stack_lower_area.yaml` |
 
 ## Rules for updating this file
 

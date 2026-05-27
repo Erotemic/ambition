@@ -1,90 +1,97 @@
 ---
 title: "Silksong Comparison Review"
-review_date: "2026-05-26"
-source_archive: "ambition-source-2026-05-26T222032-5-3e93516618a5.tar.gz"
+review_date: "2026-05-27"
+source_snapshot: "ambition-source-2026-05-26T222032-5-3e93516618a5.tar.gz"
 repo_path: "docs/reviews/silksong_comparison.md"
-status: "working review / gap inventory"
+status: "code-grounded gap inventory"
 ---
 
 NOTE: We do not need to have everything in silksong, this is just a comparison, although we likely do want the things that make it feel good like more input buffering.
 
 # Silksong Comparison Review
 
-Review date: 2026-05-26
+Review date: **2026-05-27**
 
-This document tracks a comparison between Ambition's current movement/combat feel systems and a Silksong-style reference target. It is intended to be a living repo note, not a final design spec.
+This note tracks Ambition's current movement/combat feel against a Silksong-style reference target. It is a repo-maintained review, not an authoritative description of Silksong internals and not a final design spec.
 
-## Sources reviewed
+## Review scope
 
-- Current source archive: `ambition-source-2026-05-26T222032-5-3e93516618a5.tar.gz`.
-- External movement article: <https://12gramsofcarbon.com/p/the-elegance-of-movement-in-silksong>, published 2025-09-08.
-- User-provided video transcript excerpts covering movement buffering and a large per-hit `HitInstance` style object.
+Reviewed source snapshot:
 
-Caveat: the article and transcript are reference material, not authoritative source-code documentation for Silksong. Treat the Silksong items below as design targets inspired by those analyses, not as exact implementation claims.
+- `ambition-source-2026-05-26T222032-5-3e93516618a5.tar.gz`
+
+Reference material:
+
+- External movement article: <https://12gramsofcarbon.com/p/the-elegance-of-movement-in-silksong>
+- User-provided transcript excerpts about movement buffering and a rich per-hit `HitInstance`-style payload.
+
+The external references are design inspiration. Treat the Silksong items in this document as comparison targets, not as verified claims about Team Cherry's source code.
+
+## Staleness policy for this file
+
+- Prefer stable file paths and type/function names over exact line numbers.
+- Keep the `review_date` and `source_snapshot` current whenever this file is refreshed.
+- If a feature moves from "missing" to "present", update both the inventory and the open checklist.
+- If implementation details become large enough to design directly, move them into a focused RFC/ADR and leave this file as the high-level comparison index.
 
 ## Status vocabulary
 
-- Present: the current codebase already implements this in a recognizable form.
-- Partial: the current codebase has related behavior, but it is incomplete, narrow, or split across systems.
-- Missing: no clear implementation found in this review.
-- Unknown: not enough evidence found during this review.
+- **Present**: the current codebase implements this in a recognizable form.
+- **Partial**: the current codebase has related behavior, but it is incomplete, narrow, fragmented, or not tuned for the target feel.
+- **Missing**: no clear implementation was found in this review.
+- **Unknown / audit needed**: the behavior may exist indirectly, but this review did not find enough evidence to call it present.
 
 ## Executive summary
 
-Ambition already has a strong custom platformer foundation: coyote time, jump and dash buffering, variable-height jump, terminal fall clamping, double jump, wall/ledge verbs, dash, glide, fast fall, blink, dodge, shield/parry, pogo-like bounce, and animation-aware boss hurtboxes.
+Ambition already has a strong custom platformer foundation. The current code includes coyote time, jump and dash buffering, variable-height jump, terminal fall caps, double jump, wall cling/jump/climb, ledge grab/getup options, ledge momentum carry, directional dash, fast fall, glide, free flight, blink/precision blink, dodge roll, shield/parry, directional melee, pogo/down-attack behavior, charged/motion projectiles, explicit hostile hitbox entities, boss damageable volumes, and typed outgoing/incoming damage messages.
 
-The largest gaps versus the Silksong-style target are:
+The biggest remaining gaps are not basic movement verbs. They are the systems that make a large move set feel forgiving and maintainable:
 
-1. A general-purpose action input buffer and cancel-window system.
-2. Attack/tool/projectile/blink buffers beyond the existing jump/dash timers.
-3. Apex hang and held-jump sustain for a more polished Mario/Silksong jump arc.
-4. Sprint/long-jump momentum rules.
-5. A canonical `HitSpec` / `HitInstance` / `HitResult` combat pipeline.
-6. Rich per-hit metadata for stagger, poise, armor, elemental/status effects, VFX/SFX/camera policy, resource rewards, and rejection reasons.
-
-## Movement reference target
-
-The movement article emphasizes that Silksong gives many ways to cross even a simple platform gap: double jump, long jump, jump plus dash, sprint jump, short jump into wall grab/jump, edge spring, dash back, and downward attack to land faster. The transcript adds the implementation-feel target: coyote time, input buffering, variable jump height, jump steps/held sustain, apex hang, terminal fall clamping, forgiving hitboxes/hurtboxes, and multiple action queues.
+1. A general-purpose action buffer with explicit expiry/consume semantics.
+2. A formal cancel-window matrix for attack, dash, blink, ledge, hitstun, recovery, and tool transitions.
+3. Attack, pogo, projectile/tool, blink, and ledge-action buffers beyond the existing jump/dash timers.
+4. Apex hang and/or held-jump sustain for a more polished jump arc.
+5. Sprint/long-jump or momentum-preserving jump rules.
+6. A canonical `HitSpec` / `HitInstance` / `HitResult` pipeline that unifies outgoing and incoming damage.
+7. Rich per-hit metadata for raw/final damage, stagger/poise, armor, status/elemental effects, reaction, presentation, resource rewards, and rejection reasons.
+8. A hurtbox/hitbox/collider audit so collision forgiveness is deliberate rather than incidental.
 
 ## Current movement inventory
 
-| Feature | Status | Current evidence | Notes |
+| Area | Status | Current code evidence | Notes |
 | --- | --- | --- | --- |
-| Coyote time | Present | `crates/ambition_engine/src/movement/tuning.rs:56`, `simulation.rs:80-102` | `COYOTE_TIME = 0.120`; refreshed on ground. |
-| Jump buffer | Present | `tuning.rs:57`, `control.rs:57`, `simulation.rs:80`, `simulation.rs:106-169` | `JUMP_BUFFER = 0.135`; consumed by swim stroke, wall jump, ground/coyote jump, and double jump. |
-| Dash buffer | Present | `tuning.rs:22`, `control.rs:60`, `control.rs:257-274` | `DASH_BUFFER = 0.100`; also used by dodge-roll path when grounded. |
-| Variable jump / short hop | Present | `movement/control.rs:202-207` | Early release cuts upward velocity by multiplying it by `0.54` when rising fast enough. |
-| Terminal fall clamp | Present | `movement/tuning.rs:12`, `movement/integration.rs:95-99` | Normal fall cap plus separate fast-fall and glide caps. |
-| Double jump | Present | `movement/simulation.rs:161-169` | Uses generic jump buffer, not a separate double-jump queue. |
-| Wall jump | Present | `movement/simulation.rs:145-153` | Triggered from generic jump buffer while on wall and airborne. |
-| Wall cling / wall climb | Present | `movement/integration.rs`, wall tests in `crates/ambition_engine/tests/wall_jump_fuzz.rs` and `crates/ambition_sandbox/tests/repro_walls.rs` | There is dedicated wall-state handling and regression coverage. |
-| Ledge grab / getup options | Present | `movement/ledge_grab.rs`, `movement/tuning.rs:77-115` | Includes ledge momentum carry tuning. |
-| Ledge momentum carry / boost | Present | `movement/tuning.rs:77-115` | This partially covers the article's "edge spring" feel, but exact spring-off semantics should be reviewed in playtesting. |
-| Pogo / downward aerial bounce | Partial / Present | `movement/control.rs:153-198`; combat bounce logic also exists in sandbox world flow | Current pogo is target-dependent and available as dedicated input or down+attack while airborne. |
-| Glide / slow fall | Present | `movement/tuning.rs:42-49`, `movement/integration.rs:54-99` | Extra traversal option beyond the reference list. |
-| Fast fall | Present | `movement/integration.rs:45-50`, `movement/integration.rs:95-96` | Enables faster downward control. |
-| Blink / precision blink | Present | `movement/control.rs:82-148` | Has hold-to-aim behavior and cooldown handling. |
-| Dodge roll | Present | `movement/control.rs:210-232` | Uses dash buffer when grounded and dodge is available. |
-| Shield / parry window | Present | `movement/control.rs:235-255`, `movement/tuning.rs:70-74` | Movement/combat defensive verb exists. |
-| Crouch / alternate body modes | Present / Partial | `crates/ambition_sandbox/src/body_mode/*` | Relevant to collision forgiveness and traversal feel. |
-| Input action edge capture | Present | `crates/ambition_sandbox/src/input/control.rs:163-181` | Inputs are mostly read as `just_pressed`, `pressed`, or `just_released`. |
-| Stateless per-frame control frame | Present | `input/control.rs:240-242` | Persistent queues are not stored in `ControlFrame`; they belong in simulation/player state. |
+| Input snapshot | Present | `crates/ambition_sandbox/src/input/control.rs` | `ControlFrame` is rebuilt each frame from semantic actions. It captures press/hold/release edges but does not itself store gameplay queues. |
+| Jump buffer | Present | `crates/ambition_engine/src/movement/tuning.rs`, `movement/player.rs`, `movement/control.rs`, `movement/simulation.rs` | `JUMP_BUFFER` fills `Player::jump_buffer_timer`; simulation consumes it for swim stroke, drop-through cancellation, wall jump, ground/coyote jump, and double jump. |
+| Dash buffer | Present | `movement/tuning.rs`, `movement/player.rs`, `movement/control.rs`, `movement/simulation.rs` | `DASH_BUFFER` fills `Player::dash_buffer_timer`; dash and ground dodge consume it when legal. |
+| Coyote time | Present | `movement/tuning.rs`, `movement/simulation.rs` | `COYOTE_TIME` refreshes while grounded and is consumed by jump. |
+| Variable jump / short hop | Present | `movement/control.rs` | Releasing jump while rising cuts vertical velocity. This is not the same as held-jump sustain. |
+| Terminal fall caps | Present | `movement/tuning.rs`, `movement/integration.rs` | Normal fall cap plus separate fast-fall and glide caps. |
+| Double jump / air jump | Present | `movement/simulation.rs`, `abilities` | Uses generic jump buffer and `air_jumps_available`. No separately tuned double-jump queue was found. |
+| Wall cling / wall climb / wall jump | Present | `movement/integration.rs`, `movement/simulation.rs`, `crates/ambition_engine/tests/wall_*`, `crates/ambition_sandbox/tests/repro_walls.rs` | Wall behavior has explicit state and regression/fuzz coverage. |
+| Ledge grab / getup / release / roll / attack / jump | Present | `crates/ambition_engine/src/ledge_grab.rs` | The previous note's `movement/ledge_grab.rs` path is stale; ledge logic currently lives at engine root. |
+| Ledge momentum carry | Present | `movement/tuning.rs`, `ledge_grab.rs` | `LedgeMomentumTuning` carries recent airborne approach momentum into quick getups. This is the closest current equivalent to the reference article's edge-spring feel. |
+| Pogo / down-air bounce | Present / Partial | `movement/control.rs`, `app/world_flow.rs`, `content/features/ecs/damage.rs` | Pogo exists as a movement bounce and as attack-active contact with pogo-capable world/breakable targets. It is not buffered as its own action. |
+| Directional melee | Present | `ambition_engine/src/combat.rs`, `app/world_flow.rs`, `app/sim_systems.rs` | `AttackIntent` and `AttackSpec` cover neutral/forward/back/up/down/aerial/wall-out style attacks. |
+| Attack request routing | Present / Partial | `app/sim_systems.rs`, `brain/player.rs` | Melee starts from an `ActorActionMessage::Melee` request; pogo still reads the player input frame directly. There is no melee queue if an attack is already active. |
+| Projectiles and motion input | Present / Partial | `ambition_engine/src/projectile/*`, `crates/ambition_sandbox/src/projectile/systems.rs`, `docs/mechanics/projectiles-and-motion-inputs.md` | Fireball charge/release and Hadouken-style motion recognition exist. Cooldown failures are not buffered; `SpawnFailure::Cooldown` is ignored after a failed spawn attempt. |
+| Blink / precision blink | Present / Partial | `movement/control.rs`, `movement/blink.rs`, `docs/mechanics/blink.md` | Blink has quick/precision hold behavior and can arm from a held input after cooldown clears. This is useful but is not a formal timed buffer. |
+| Fast fall | Present | `movement/integration.rs`, `movement/player.rs` | A committed `fast_falling` state exists and changes fall behavior. |
+| Glide / slow fall | Present | `movement/tuning.rs`, `movement/integration.rs`, `movement/player.rs` | Held-jump glide is a traversal option beyond the Silksong reference list. |
+| Free flight | Present | `movement/tuning.rs`, `movement/control.rs`, `movement/integration.rs` | Debug/ability-style flight mode exists and intentionally differs from tight platformer motion. |
+| Dodge roll | Present | `movement/control.rs`, `movement/tuning.rs`, player combat state | Grounded dash buffer can become a dodge roll when the dodge ability is available. |
+| Shield / parry | Present | `movement/control.rs`, `movement/tuning.rs`, player combat state | Shield hold and parry-window timers exist. Incoming damage checks parry/dodge/invulnerability state elsewhere. |
+| Body modes / shape changes | Present / Partial | `crates/ambition_sandbox/src/body_mode/*`, `movement/player.rs` | Standing/crouching/crawling/morph-like body state exists. `climbable_contact` is cached but full `BodyMode::Climbing` integration is documented as follow-up in the code. |
+| Movement op trace vocabulary | Present | `ambition_engine/src/movement/ops.rs`, trace/replay tests | Movement ops and replay fixtures exist, useful for pinning feel regressions. |
 
-## Movement gaps
+## Movement gaps against the reference target
 
-### 1. General-purpose action input buffering
+### General-purpose action buffering
 
-Status: Missing / Partial.
+Status: **Partial / missing as a system**
 
-The code has dedicated timers for jump and dash (`jump_buffer_timer`, `dash_buffer_timer`), but not a generalized action queue. This will become harder to maintain as more Silksong-like verbs are added.
+Current code has dedicated jump and dash timers. It does not have a reusable action-buffer abstraction for actions with payloads, expiry, consume/reject reasons, or per-action tuning.
 
-Current evidence:
-
-- `JUMP_BUFFER = 0.135` and `DASH_BUFFER = 0.100` in `movement/tuning.rs`.
-- `jump_buffer_timer` and `dash_buffer_timer` are decremented in `movement/simulation.rs:80-81`.
-- Jump and dash are filled from `input.jump_pressed` and `input.dash_pressed` in `movement/control.rs:56-60`.
-
-Missing target:
+Target shape:
 
 ```rust
 pub struct ActionBuffer {
@@ -95,7 +102,6 @@ pub struct ActionBuffer {
 
 pub enum BufferedAction {
     Jump,
-    DoubleJump,
     Dash,
     Attack,
     Pogo,
@@ -108,82 +114,51 @@ pub enum BufferedAction {
 }
 ```
 
-Design note: keep jump and dash behavior stable while introducing this. A first migration can wrap the existing timers behind a small buffer API instead of changing all semantics at once.
+Keep jump and dash behavior stable when introducing this. The first implementation can wrap the current `jump_buffer_timer` and `dash_buffer_timer` behind a compatibility API before moving other actions onto it.
 
-### 2. Attack buffer
+### Attack buffer
 
-Status: Missing.
+Status: **Missing**
 
-Attack input is currently edge-based. `ControlFrame` reads `attack_pressed` using `actions.just_pressed`, the player brain maps it to `out.melee_pressed`, and movement attack handling checks `input.attack_pressed` for that frame. There is no `attack_buffer_timer` equivalent.
+Attack input is currently edge/request based. `start_attack` returns immediately when an attack is already active, and the request is not retained for the first legal recovery frame. This makes attack inputs easy to drop during active/recovery frames, hitstun, landing transitions, or ledge state changes.
 
-Current evidence:
+### Pogo buffer
 
-- `attack_pressed: actions.just_pressed(&SandboxAction::Attack)` in `input/control.rs:173`.
-- `out.melee_pressed = c.attack_pressed` in `brain/player.rs:96`.
-- `handle_attacks` branches directly on `input.attack_pressed` in `movement/control.rs:184`.
+Status: **Missing / partial**
 
-Target: buffer attack presses during cooldown, recovery, landing, ledge hang transitions, and hitstun exit where appropriate.
+Pogo exists, but pogo intent is immediate. The current code handles dedicated pogo and down+attack pogo attempts, but there is no short-lived pogo intent window if the target becomes valid a frame later.
 
-### 3. Pogo buffer
+Pogo should probably be buffered separately from generic attack because it can refresh movement resources and bounce the player.
 
-Status: Missing / Partial.
+### Projectile / tool buffer
 
-Pogo exists, but the input is immediate. Dedicated `pogo_pressed` and down+attack pogo attempts can be missed if the valid target state arrives a frame later.
+Status: **Missing / partial**
 
-Current evidence:
+Projectile systems support charge/release, motion-input recognition, resource checks, cooldowns, and projectile trace events. However, a projectile release or motion press that hits cooldown is not retained. `SpawnFailure::Cooldown` currently has no retry/queue behavior.
 
-- `pogo_pressed: actions.just_pressed(&SandboxAction::Pogo)` in `input/control.rs:174`.
-- Pogo resolves immediately through `try_pogo` in `movement/control.rs:174-190`.
+If Ambition adds broader "tools", they should probably share a `Tool`/`Projectile` buffer layer rather than each inventing a cooldown edge case.
 
-Target: preserve pogo intent separately from generic attack intent, because down-attack and pogo can have different movement consequences.
+### Blink buffer
 
-### 4. Projectile / tool buffer
+Status: **Partial**
 
-Status: Missing / Partial.
+Blink has hold-to-arm behavior: a held blink button can start aiming when cooldown clears. That solves one common missed-input case, but it does not expose the same semantics as a timed buffer with an expiry and a consumed/rejected trace.
 
-Projectile charge and motion-input recognition exist, but firing/release is not a general buffered action. If cooldown or animation state rejects the release, the intent can be dropped.
+Decision needed: keep blink as a hold action, add a timed blink buffer, or support both explicitly.
 
-Current evidence:
+### Ledge action buffering
 
-- Projectile inputs are read as `projectile_pressed`, `projectile_held`, and `projectile_released` in `input/control.rs:179-181`.
-- Player brain emits a fire request only on `projectile_released` in `brain/player.rs:103-114`.
-- `crates/ambition_sandbox/src/projectile.rs` notes that projectile damage routes through `DamageEvent` and mentions `MotionInputBuffer`, but this is not a general action buffer.
+Status: **Missing / audit needed**
 
-Target: add `projectile_buffer` or a more general `tool_buffer` for cooldown/animation-edge forgiveness.
+Ledge actions are rich, but the current ledge code checks inputs while already in the ledge state. This review did not find a general buffer for jump/roll/attack/climb inputs pressed just before the ledge grab becomes active.
 
-### 5. Blink buffer
+### Apex hang
 
-Status: Partial.
+Status: **Missing**
 
-Blink has a useful held-input special case: holding blink can arm as soon as cooldown clears. This solves one second-blink failure mode, but it is not the same as a formal timed buffer with rejection/expiry semantics.
+Current jump feel is an impulse plus early-release velocity cut. This review did not find a reduced-gravity apex hang or a gravity-ramp period around the top of a jump.
 
-Current evidence:
-
-- `handle_blink` allows `input.blink_pressed || (input.blink_held && !player.blink_hold_active)` when cooldown is clear in `movement/control.rs:94-99`.
-
-Target: explicitly model blink as either a hold-to-aim action, a buffered action, or both. Avoid hiding queue semantics inside hold-state logic.
-
-### 6. Ledge action buffering
-
-Status: Missing / Unknown.
-
-Ledge grab and getup are substantial, but this review did not find a general buffer for climb/jump/roll/attack commands entered just before ledge state becomes active.
-
-Target: buffer ledge actions for short windows so near-ledge input feels reliable.
-
-### 7. Apex hang
-
-Status: Missing.
-
-The current jump has initial impulse and early-release cut, but no true reduced-gravity apex hang. Glide and blink grace are separate mechanics and should not be treated as apex hang.
-
-Current evidence:
-
-- Jump impulse is applied in `movement/simulation.rs:154-160`.
-- Early release clips velocity in `movement/control.rs:202-207`.
-- No `apex`, `hang gravity`, or similar player/tuning fields were found for the player movement path.
-
-Target fields:
+Target fields could include:
 
 ```rust
 pub apex_hang_velocity_threshold: f32;
@@ -193,13 +168,13 @@ pub apex_hang_ramp_time: f32;
 pub jump_cut_gravity_scale: f32;
 ```
 
-### 8. Held-jump sustain / jump steps
+### Held-jump sustain / jump steps
 
-Status: Missing.
+Status: **Missing**
 
-The transcript describes jump sustain over discrete steps while the button is held. Ambition currently uses a single jump impulse plus early-release velocity cut.
+The transcript describes a jump split into holdable steps. Ambition currently uses a single impulse and release cut, not an explicit hold-sustain timer or repeated upward support.
 
-Target fields:
+Possible target:
 
 ```rust
 pub jump_sustain_timer: f32;
@@ -207,113 +182,90 @@ pub jump_sustain_max_time: f32;
 pub jump_sustain_accel: f32;
 ```
 
-Potential alternative: implement this as gravity scaling during the first part of the jump rather than explicit upward acceleration.
+Alternative implementation: early-jump gravity scaling rather than explicit upward acceleration.
 
-### 9. Sprint jump / long jump
+### Sprint jump / long jump / momentum jump
 
-Status: Missing.
+Status: **Missing / design needed**
 
-The article's option list includes sprint-jump and long jump. Current movement has horizontal acceleration and max run speed, but this review did not find a separate sprint tier, sprint state, or momentum-scaled jump launch.
+The reference article highlights sprint-jump and long-jump style options. Current Ambition movement has run acceleration and max speed, but this review did not find a separate sprint tier or jump launch that scales with prior horizontal momentum.
 
-Target fields:
+This may be better framed as a momentum-preserving jump than a named long-jump verb.
 
-```rust
-pub sprint_held: bool;
-pub sprint_speed: f32;
-pub sprint_accel: f32;
-pub long_jump_min_speed: f32;
-pub long_jump_x_boost: f32;
-pub long_jump_y_scale: f32;
-```
+### Wall coyote / wall grace
 
-Design note: this may be better as "momentum-preserving jump" rather than a separate named long-jump move.
+Status: **Missing / audit needed**
 
-### 10. Wall coyote / wall grace
+Wall jump works when the player is still on a wall and the generic jump buffer is live. This review did not find a separate "recent wall contact" timer equivalent to ground coyote time.
 
-Status: Missing / Unknown.
+### Corner correction / head-bonk forgiveness
 
-Generic jump buffering covers wall jump if the player is still on a wall, but this review did not find a dedicated "recent wall contact" grace timer equivalent to ground coyote time.
+Status: **Unknown / audit needed**
 
-Target: add a short wall-contact grace window so wall jumps remain reliable when the player loses contact by a few pixels or a few milliseconds.
+There are wall-cling/wall-jump stability tests and collision correction work, but this review did not confirm a dedicated upward corner-correction behavior that nudges the player around tile lips during head collisions.
 
-### 11. Corner correction / head-bonk forgiveness
+### Harpoon dash / grapple-like traversal
 
-Status: Unknown.
+Status: **Missing**
 
-This review did not confirm a head-bonk correction system that nudges the player around tile corners during upward movement.
+No harpoon dash, grapple pull, or target-latched dash equivalent was found. Blink/dash cover adjacent design space but do not replace a target-based traversal verb.
 
-Target: add or audit small horizontal correction during upward collision, especially near ledges/platform lips.
+### Formal cancel-window matrix
 
-### 12. Harpoon dash / grapple-like traversal verb
+Status: **Missing / partial**
 
-Status: Missing.
+Current systems have local gates, cooldowns, and state checks, but not a central cancel/carry matrix that says which actions can interrupt or queue from which phases.
 
-Blink and dash cover nearby design space, but this review did not find a harpoon dash, grapple pull, or target-latched dash mechanic.
+Examples that should eventually be explicit:
 
-Target components:
-
-```rust
-pub harpoon_pressed: bool;
-pub harpoon_buffer_timer: f32;
-pub harpoon_target_probe: HarpoonProbe;
-pub harpoon_pull_state: HarpoonPullState;
-```
-
-### 13. Formal cancel-window matrix
-
-Status: Missing / Partial.
-
-Current systems contain many action gates, but not a central cancel matrix for movement/combat transitions. This becomes important once attack, tool, dash, blink, ledge, hitstun, and recovery states all need buffering.
-
-Target examples:
-
-| From state | Potential cancels |
+| From state | Potential exits |
 | --- | --- |
 | Attack startup | none, parry, maybe dodge |
 | Attack active | pogo hit, dash cancel, blink cancel |
 | Attack recovery | buffered attack, jump, dash, tool |
 | Dash | attack, jump, blink, pogo |
 | Ledge hang | climb, roll, attack, jump, release |
-| Hitstun exit | buffered jump/dash/attack depending on state |
+| Hitstun exit | buffered jump/dash/attack if allowed |
 
-## Hitbox/hurtbox and collision fairness inventory
+## Current hitbox/hurtbox/collider state
 
-| Feature | Status | Current evidence | Notes |
+| Area | Status | Current code evidence | Notes |
 | --- | --- | --- | --- |
-| Smaller gameplay body than presentation | Present | `movement/player.rs:11-19` | The default player movement AABB is explicit. Presentation may render larger art. |
-| Engine-level hurtbox abstraction | Present | `ambition_engine/src/combat.rs:78-100` | `Hurtbox` exists in the engine helper layer. |
-| Boss per-animation hurtboxes | Present | `boss_attack_geometry.rs:296-355`, `bosses.rs:625-652`, `character_sprites/registry.rs:144-156` | Boss hurtboxes can follow current animation pose and multi-part metadata. |
-| Enemy/boss hostile hitboxes | Present | `content/features/ecs/hitbox.rs:47-90` | Hostile melee hitboxes emit `PlayerDamageEvent`. |
-| Unified player/enemy/boss hurtbox model | Partial | Multiple paths exist | Bosses are sophisticated; generic actors/player are less obviously unified. |
-| Hurtbox-vs-movement-collider audit | Needed | Multiple systems | Verify which damage paths use movement AABB, authored hurtbox, or animation-derived hurtbox. |
-
-## Combat hit-instance reference target
-
-The transcript describes a Silksong-style `HitInstance` object containing many fields: direction, raw damage, stagger damage, elemental damage, currency/knockback modifiers, and other per-hit metadata. The main design idea is that every damage source creates one rich per-hit payload, and all downstream systems consume that payload instead of each system inventing its own smaller event shape.
+| Player movement collider | Present | `movement/player.rs` | Player uses an explicit AABB body size. Presentation can be larger than gameplay body. |
+| Engine combat primitives | Present / small | `ambition_engine/src/combat.rs` | `DamageKind`, `Damage`, `Hitbox`, `Hurtbox`, and `DamageVolume` exist, but they are compact helper types, not a full hit-instance pipeline. |
+| Player outgoing damage message | Present / small | `content/features/events.rs`, `content/features/ecs/damage.rs` | `DamageEvent` is the typed path for player slash/projectile/pogo-adjacent feature damage. |
+| Incoming player damage message | Present / separate | `content/features/events.rs`, `app/sim_systems.rs`, `app/world_flow.rs` | `PlayerDamageEvent` handles hazards/enemy/boss/projectile damage to the player and carries target-routing fields. |
+| Hostile melee hitbox entities | Present | `content/features/ecs/hitbox.rs` | Enemy/boss melee now uses explicit hitbox entities with lifetime and one-hit target sets. |
+| Enemy projectile incoming damage | Present / separate | `enemy_projectile/systems.rs` | Enemy projectiles emit `PlayerDamageEvent`, separate from player outgoing projectile `DamageEvent`. |
+| Boss damageable volumes | Present | `content/features/boss_attack_geometry.rs`, `content/features/ecs/damage.rs`, `brain::BossAttackState` | Boss damage checks can use dynamic damageable volumes rather than only a gross body AABB. |
+| Boss encounter damage outcome | Present / partial | `boss_encounter.rs`, `content/features/ecs/damage.rs` | `record_boss_damage` returns applied/killed information; invulnerable phases can reject damage. This is useful but not a generic `HitResult`. |
+| Stagger pressure | Present / coupled | `ambition_engine/src/boss_encounter.rs` | Boss stagger pressure exists but is driven by damage amount, not a separate per-hit stagger value. |
+| Hurtbox vs movement collider audit | Needed | multiple paths | Confirm which damage paths use movement AABB, feature AABB, authored hurtboxes, boss animation volumes, or other shapes. |
 
 ## Current combat/damage inventory
 
-| Piece | Status | Current evidence | Notes |
+| Piece | Status | Current code evidence | Notes |
 | --- | --- | --- | --- |
-| `DamageKind` | Present | `ambition_engine/src/combat.rs:16-25` | Has Slash, Pogo, Contact, Hazard, Projectile, Environmental, Custom. |
-| Engine `Damage` payload | Present / Small | `combat.rs:28-34` | Has amount, knockback, kind, source faction, hitstop seconds. |
-| Engine `Hitbox` | Present / Small | `combat.rs:59-75` | Short-lived AABB, damage, active time, one-hit-per-target flag. |
-| Engine `Hurtbox` | Present | `combat.rs:78-100` | Basic faction-filtered damageable AABB. |
-| Engine `DamageVolume` | Present | `combat.rs:106+` | Persistent hazards and damaging areas. |
-| Sandbox `DamageEvent` | Present / Small | `content/features/events.rs:242-269` | Player outgoing damage path: volume, damage amount, source, ignored targets. |
-| Sandbox `PlayerDamageEvent` | Present / Separate | `content/features/events.rs:65-95` | Incoming damage to player path: mode, source, positions, knockback, strength, amount, target. |
-| Hostile ECS hitbox | Present / Small | `content/features/ecs/hitbox.rs:47-90` | Owner/source/anchor/half extent/damage/knockback strength. |
-| Boss stagger | Present / Coupled | `boss_encounter.rs` and damage consumers | Stagger exists, but pressure appears tied to damage amount rather than per-hit stagger metadata. |
-| Elemental/status damage | Missing | No central per-hit fields found | `DamageKind` is broad category, not an elemental/status system. |
-| Hit rejection/result object | Missing | Damage consumers mutate state directly | No generic `HitResult` with applied/rejected reason was found. |
+| `DamageKind` | Present | `ambition_engine/src/combat.rs` | Broad source classes: slash, pogo, contact, hazard, projectile, environmental, custom. |
+| `Damage` | Present / compact | `ambition_engine/src/combat.rs` | Amount, vector knockback, kind, source faction, and hitstop seconds. No raw/final split, stagger, status, presentation, or rejection metadata. |
+| `AttackIntent` / `AttackSpec` | Present | `ambition_engine/src/combat.rs` | Directional melee attack specs include damage kind and `can_pogo`. |
+| `DamageEvent` | Present / compact | `content/features/events.rs` | Outgoing player-side feature damage uses volume, amount, source, and ignored target keys. |
+| `DamageSource` | Present / partial | `content/features/events.rs` | Distinguishes player slash, projectile kind, and pogo bounce. This is a useful seed for `HitSource`, but not enough for full hit resolution. |
+| `PlayerDamageEvent` | Present / separate | `content/features/events.rs` | Incoming player damage has mode, source, source/impact positions, knockback, amount, and optional target. |
+| Projectile trace events | Present / partial | `projectile/state.rs`, `projectile/systems.rs` | Projectile fire/hit/resource-block events are traced. Cooldown-blocked attempts are not currently represented as retriable buffered intents. |
+| Hit rejection result | Missing / partial | scattered | Boss invulnerable phases can return an unapplied outcome, but generic hit rejection reasons are not modeled across all targets. |
+| Elemental/status damage | Missing | no central fields found | `DamageKind` is not an element/status system. |
+| Resource/economy rewards per hit | Missing / partial | scattered/future | There is player mana/resource infrastructure, but no per-hit reward payload equivalent to `HitReward`. |
+| Presentation metadata per hit | Missing / partial | scattered | VFX/SFX/hitstop/flash are mostly emitted by consumers rather than carried with a hit payload. |
+| Structured hit analytics | Missing / partial | trace systems exist | Movement/projectile traces exist; no universal hit-instance trace with rejection reasons was found. |
 
-## Combat gaps
+## Combat gaps against a HitInstance-style target
 
-### 14. Canonical `HitSpec` / `HitInstance` / `HitResult` pipeline
+### Canonical `HitSpec` / `HitInstance` / `HitResult` pipeline
 
-Status: Missing / Fragmented.
+Status: **Missing / fragmented**
 
-Current damage behavior is split across engine helpers, player outgoing damage messages, player incoming damage messages, hostile hitboxes, projectiles, hazards, and boss-specific consumers. The code works, but there is no single per-hit truth object.
+Current damage behavior is split across engine helper structs, `DamageEvent`, `PlayerDamageEvent`, hostile hitbox entities, projectile state, hazards, boss-specific volume checks, and boss encounter damage outcomes. These pieces work, but there is not one canonical per-hit value that every source produces and every target consumes.
 
 Recommended distinction:
 
@@ -345,13 +297,13 @@ pub enum HitResult {
 }
 ```
 
-Why this matters: one slash, projectile, or hazard can overlap multiple targets. Each target may have different faction, invulnerability, armor, boss phase, shield/parry state, hurtbox part, stagger resistance, elemental resistance, and reward policy.
+Why this matters: one slash, projectile, hazard, boss attack, or tool can overlap multiple targets. Each target may have different faction, invulnerability, armor, boss phase, shield/parry state, hurtbox part, stagger resistance, elemental resistance, reward policy, and presentation rules.
 
-### 15. Raw damage vs final damage
+### Raw damage vs final damage
 
-Status: Missing / Partial.
+Status: **Missing / partial**
 
-Current events mostly carry a single damage number. Some player incoming difficulty/invulnerability rules happen later, but there is no central raw/scaled/final damage breakdown.
+Current messages usually carry a single damage number. Some scaling/rejection happens later, such as player incoming invulnerability or boss encounter outcomes, but there is no central raw/scaled/final breakdown.
 
 Target:
 
@@ -366,38 +318,31 @@ pub struct HitDamage {
 }
 ```
 
-### 16. Separate stagger / poise / armor damage
+### Separate stagger / poise / armor damage
 
-Status: Missing / Partial.
+Status: **Missing / partial**
 
-Boss stagger exists, but the hit payload does not carry independent stagger or poise values. That prevents attacks from doing low health damage but high stagger damage, or vice versa.
+Boss stagger pressure exists, but it is currently based on ordinary damage accumulation. A richer hit payload should let an attack do high stagger but low health damage, or break armor without being the highest DPS move.
 
-Target: add per-hit `stagger`, `poise`, and `armor_break` metadata, with defaults derived from health damage for backward compatibility.
+### Elemental/status damage metadata
 
-### 17. Elemental/status damage metadata
+Status: **Missing**
 
-Status: Missing.
+`DamageKind` is a broad source classification. It does not represent elemental or status tags such as fire, poison, silk, shock, bleed, curse, armor break, etc.
 
-`DamageKind` describes broad source class, not elemental/status payloads. Add tags or bitmasks for fire, poison, silk, shock, curse, bleed, etc. only when design needs them.
+Only add these once design actually needs them. The important architectural point is to reserve a place for them in the hit payload instead of scattering special cases through consumers.
 
-Target:
+### Reaction metadata
 
-```rust
-bitflags::bitflags! {
-    pub struct ElementMask: u32 {
-        const FIRE = 1 << 0;
-        const POISON = 1 << 1;
-        const SHOCK = 1 << 2;
-        const SILK = 1 << 3;
-    }
-}
-```
+Status: **Missing / partial**
 
-### 18. Reaction metadata
+Knockback and recoil exist, but in different shapes:
 
-Status: Missing / Partial.
-
-Knockback exists in multiple forms, but reaction is not unified. Incoming player damage has `knockback_dir` and `strength`; engine `Damage` has a vector; player slash source has `knock_x`; hostile hitbox has `knockback_strength`.
+- Engine `Damage` has vector knockback.
+- `PlayerDamageEvent` has direction and strength.
+- `DamageSource::PlayerSlash` carries horizontal knockback.
+- Hostile ECS `Hitbox` carries `knockback_strength`.
+- Attack specs carry self impulse, knockback, and `can_pogo`.
 
 Target:
 
@@ -412,11 +357,11 @@ pub struct HitReaction {
 }
 ```
 
-### 19. Presentation metadata
+### Presentation metadata
 
-Status: Missing / Partial.
+Status: **Missing / partial**
 
-VFX, SFX, hit flash, camera shake, and hitstop are mostly hardcoded by consumers rather than carried by the hit. Engine `Damage` has `hitstop_seconds`, but sandbox hit paths do not appear to use one unified presentation payload.
+VFX, SFX, hit flash, debris bursts, camera shake, and hitstop are mostly emitted by the consumers that happen to apply damage. Engine `Damage` has `hitstop_seconds`, but the sandbox's main damage paths do not yet share one presentation payload.
 
 Target:
 
@@ -430,11 +375,11 @@ pub struct HitPresentation {
 }
 ```
 
-### 20. Hit rejection reasons
+### Hit rejection reasons
 
-Status: Missing.
+Status: **Missing / partial**
 
-A target may ignore or reduce a hit because of invulnerability, armor, faction, one-hit-per-target, boss phase, shield, parry, damage immunity, or cooldown. Today these decisions are split across consumers and are hard to inspect uniformly.
+Generic hit resolution should be able to say why a hit failed or changed shape: wrong faction, invulnerable, already hit by this source, shielded, parried, armor absorbed, boss phase immune, hurtbox disabled, etc.
 
 Target:
 
@@ -451,13 +396,13 @@ pub enum HitRejectReason {
 }
 ```
 
-### 21. Resource and economy metadata
+### Resource and economy metadata
 
-Status: Missing / Unknown.
+Status: **Missing / partial**
 
-The transcript mentions fields like currency knockback multiplier. Ambition does not need that exact concept immediately, but the equivalent place would be a `HitReward` or `HitEconomy` component on the hit.
+The transcript mentions fields like currency knockback multiplier. Ambition does not need that exact field now, but it should eventually have a per-hit reward/recovery payload for energy gain, combo gain, dash refresh, air-jump refresh, currency modifiers, or quest/flag hooks.
 
-Target examples:
+Target:
 
 ```rust
 pub struct HitReward {
@@ -469,84 +414,81 @@ pub struct HitReward {
 }
 ```
 
-### 22. Debug/analytics trace metadata
-
-Status: Missing / Partial.
-
-Ambition has movement op/combo tracking, debug tooling, and gameplay effects, but not a unified hit trace that records every hit instance and every rejection reason.
-
-Target: emit structured trace events from `HitResult` creation:
-
-```rust
-pub struct HitTraceEvent {
-    pub frame: u64,
-    pub source_label: String,
-    pub target_label: String,
-    pub result: HitResultSummary,
-}
-```
-
 ## Recommended implementation order
 
-### Phase 1: Document and test current behavior
+### Phase 1: Pin current behavior
 
-- Add tests for current jump buffer, dash buffer, coyote time, variable jump, wall jump, double jump, pogo, blink hold behavior, fast fall, glide, and ledge momentum carry.
-- Add tests that prove attack/projectile/pogo inputs are currently not buffered.
-- Add tests around current damage paths: player slash to enemy, projectile to enemy, hostile hitbox to player, hazard to player, boss hitbox to player.
+- Add or extend tests for current jump buffer, dash buffer, coyote time, variable jump, wall jump, double jump, ledge momentum carry, pogo, blink hold behavior, fast fall, glide, dodge, shield/parry, and projectile cooldown behavior.
+- Add explicit tests proving currently missing buffers: attack during recovery, projectile release during cooldown, pogo one frame before contact, and ledge action one frame before grab.
+- Add damage-path tests for player slash to enemy, projectile to enemy, hostile hitbox to player, enemy projectile to player, hazard to player, boss damageable volume, boss invulnerable phase rejection, and pogo breakable bounce.
 
-### Phase 2: Introduce action buffering without changing semantics
+### Phase 2: Introduce action buffering without changing feel
 
-- Add an `ActionBuffer` type and wire jump/dash through it behind compatibility methods.
-- Keep existing tuning values and timer behavior stable.
-- Add trace/debug output for "buffer filled", "buffer consumed", and "buffer expired".
+- Add an `ActionBuffer` type with `fill`, `tick`, `consume`, `expire`, and trace/debug hooks.
+- Wrap the existing jump/dash timers through compatibility methods first.
+- Trace `buffer_filled`, `buffer_consumed`, `buffer_expired`, and `buffer_rejected` events so missed-input bugs become inspectable.
 
 ### Phase 3: Buffer more actions
 
-- Add attack buffer.
-- Add pogo buffer that preserves pogo/down-attack intent.
-- Add projectile/tool buffer for cooldown and release-edge forgiveness.
-- Decide whether blink uses a formal buffer, held-arm behavior, or both.
-- Add ledge action buffers if playtesting shows missed ledge intents.
+- Add attack buffer for cooldown/recovery/landing/hitstun-exit forgiveness.
+- Add pogo buffer that preserves pogo/down-air intent separately from generic melee.
+- Add projectile/tool buffer for cooldown-edge and release-edge forgiveness.
+- Decide whether blink keeps hold-arm only or also gets a formal timed buffer.
+- Add ledge action buffers if playtesting shows missed ledge climb/jump/roll/attack inputs.
 
-### Phase 4: Add jump polish
+### Phase 4: Polish jump and traversal feel
 
-- Add apex hang gravity scaling.
-- Add held-jump sustain or equivalent early-jump gravity scaling.
-- Add wall-coyote time and corner/head-bonk correction if tests/playtesting show misses.
-- Add sprint/long-jump momentum rules once base jump feel is stable.
+- Add apex hang or gravity ramp near jump peak.
+- Add held-jump sustain or early-jump gravity scaling.
+- Add wall coyote if tests/playtesting show missed wall jumps.
+- Audit corner/head-bonk correction.
+- Add momentum-preserving jump / sprint-jump / long-jump behavior only after base jump feel is stable.
 
-### Phase 5: Introduce hit-instance pipeline
+### Phase 5: Introduce a hit-instance pipeline incrementally
 
 - Add engine-level `HitSpec`, `HitInstance`, `HitResult`, `HitRejectReason`, `HitDamage`, `HitReaction`, and `HitPresentation` types.
-- Convert player slash and projectile producers to emit `HitSpec` while preserving existing `DamageEvent` behavior via adapter.
-- Resolve overlaps into `HitInstance` values and convert them into current effects.
-- Port hostile hitbox/player damage path onto the same flow.
+- Convert player slash and player projectile producers to emit `HitSpec`, then adapt into existing `DamageEvent` behavior to avoid a flag-day refactor.
+- Resolve overlaps into per-target `HitInstance` values.
+- Port hostile hitboxes, enemy projectiles, hazards, and boss attack volumes into the same flow.
 - Move boss stagger, VFX/SFX, hitstop, shield/parry, invulnerability, and reward logic into structured hit resolution over time.
 
 ## Prioritized open checklist
 
+Movement/control:
+
 - [ ] Add `ActionBuffer` design note or RFC.
+- [ ] Wrap existing jump/dash buffers with a common buffer API.
 - [ ] Add attack buffer.
 - [ ] Add pogo buffer.
 - [ ] Add projectile/tool buffer.
 - [ ] Decide blink buffer vs hold-arm semantics.
-- [ ] Add ledge action buffering if needed.
+- [ ] Add ledge action buffering if playtesting confirms missed inputs.
 - [ ] Add apex hang tuning.
 - [ ] Add held-jump sustain or early-jump gravity scaling.
-- [ ] Add wall coyote timer.
+- [ ] Add wall coyote timer if needed.
 - [ ] Audit corner correction/head-bonk forgiveness.
-- [ ] Add sprint/long-jump momentum rule.
+- [ ] Add momentum-preserving jump / sprint-jump / long-jump rules if desired.
+
+Combat/hits:
+
 - [ ] Add `HitSpec` / `HitInstance` / `HitResult` design note or RFC.
-- [ ] Add raw/final/stagger/poise damage fields.
+- [ ] Add raw/scaled/final/stagger/poise damage fields.
 - [ ] Add unified hit reaction metadata.
 - [ ] Add hit presentation metadata.
 - [ ] Add hit rejection reasons and hit trace events.
-- [ ] Audit which damage paths use movement AABB, authored hurtbox, or animation-derived hurtbox.
-- [ ] Add tests for all currently-present movement assists.
+- [ ] Decide how current `DamageEvent` and `PlayerDamageEvent` adapt to/from `HitSpec`.
+- [ ] Audit which damage paths use movement AABB, authored feature AABB, boss dynamic damageable volumes, or animation-derived hurtboxes.
+- [ ] Move boss stagger pressure from ordinary damage amount to explicit stagger metadata when the new hit payload exists.
+
+Testing/docs:
+
+- [ ] Add tests for all currently-present movement assists listed in this document.
 - [ ] Add tests proving currently-missing buffers before implementing them.
+- [ ] Add a small combat-hit matrix test suite covering applied and rejected hits.
+- [ ] Refresh this file after each major movement/combat refactor.
 
 ## Notes for future reviews
 
-- Keep this file as a gap inventory. Implementation details should move into separate RFCs or issue-specific docs when they become actionable.
-- Re-run this review after any major movement/combat refactor and update `review_date` plus the source archive or commit hash.
-- Prefer adding exact source links or line references when this repo is hosted in a stable remote; line numbers in this file are based on the reviewed archive and can drift.
+- The repo has already moved some code paths compared with earlier notes; for example, ledge logic is currently `crates/ambition_engine/src/ledge_grab.rs`, not `crates/ambition_engine/src/movement/ledge_grab.rs`.
+- The current source already has more combat structure than a minimal prototype: explicit hostile hitbox entities, player outgoing `DamageEvent`, player incoming `PlayerDamageEvent`, projectile traces, boss damageable volumes, and boss encounter damage outcomes. Do not describe combat as "no damage system"; describe it as fragmented and not yet unified around a per-hit instance.
+- Avoid exact line numbers unless linking to a stable commit. Function/type names and file paths are less likely to make the document stale.

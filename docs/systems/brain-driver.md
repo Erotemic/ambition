@@ -1,353 +1,146 @@
-# Brain driver — controllable-entity unification
+# Universal brain driver
 
-The universal-brain interface, as it stands at the end of the
-2026-05-24 overnight session.
+**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
 
-**Source:** [`docs/planning/universal-brain-interface.md`](../planning/universal-brain-interface.md)
-(design doc), [`TODO-controllable-entity.md`](../../TODO-controllable-entity.md)
-(plan), and [`dev/journals/ae-player-field-usage-2026-05-24.md`](../../dev/journals/ae-player-field-usage-2026-05-24.md)
-(decomposition map).
+The universal-brain interface is the current controllable-actor seam. It separates:
 
-## Why brains exist
+- **policy**: what the actor wants to do this tick (`Brain`);
+- **capability**: what concrete effects that actor can perform (`ActionSet`);
+- **integration**: the abstract per-tick frame consumed by movement/combat systems (`ActorControl` / `ae::ActorControlFrame`);
+- **effects**: resolved `ActorActionMessage`s consumed by focused systems.
 
-Every controllable entity in the sandbox — players, NPCs, enemies,
-bosses, and (future) RL agents / remote co-op players — needs to
-answer one question each tick: *what does this actor want to do?*
-Pre-brain, three nearly-parallel update paths each answered that
-question internally (NpcRuntime, EnemyRuntime, BossRuntime, plus
-`update_player`). A behavior change like "telegraphs flash a ring"
-had to be repeated in all four.
-
-A brain is the single seam where "what does this actor want" gets
-decided. The integration stage (collision, cooldowns, EFFECTS) then
-reads the same shape regardless of who filled it.
-
-## Vocabulary
-
-```
-                          ┌────────────────────────┐
-                          │      Brain (enum)      │
-                          │  - Player(slot)        │
-                          │  - StateMachine(cfg)   │
-                          │  - (future Remote/RL)  │
-                          └───────────┬────────────┘
-                                      │ tick()
-                                      ▼
-                          ┌────────────────────────┐
-                          │      BrainSnapshot     │
-                          │  pos, vel, target,     │
-                          │  timers, wall_contact, │
-                          │  player_input          │
-                          └───────────┬────────────┘
-                                      │
-                                      ▼
-                          ┌────────────────────────┐
-                          │  ActorControlFrame     │
-                          │  desired_vel, facing,  │
-                          │  melee_pressed, fire,  │
-                          │  jump/dash/interact…   │
-                          └───────────┬────────────┘
-                                      │ stored on the actor entity
-                                      │ as ActorControl(frame)
-                                      ▼
-                          ┌────────────────────────┐
-                          │   EFFECTS-stage        │
-                          │   - integration        │
-                          │     (step_kinematic)   │
-                          │   - cooldowns / fire   │
-                          │   - ActionSet resolve  │
-                          │     to concrete spec   │
-                          └────────────────────────┘
+```text
+input / AI snapshot / boss pattern
+        ↓
+Brain::tick or Brain::tick_with_actions
+        ↓
+ActorControl(ae::ActorControlFrame)
+        ↓
+movement/control consumers + ActionSet resolver
+        ↓
+ActorActionMessage { actor, request }
+        ↓
+focused EFFECTS/Combat consumers
 ```
 
-Three sibling components on every controllable entity:
+## Current code shape
 
-- **`Brain`** — the policy. An enum dispatched via match (not trait
-  objects). `Brain::Player(slot)` translates inputs.
-  `Brain::StateMachine(cfg)` runs one of 7 brain templates.
-- **`ActionSet`** — the per-entity capability. Resolves abstract
-  brain intent (`melee_pressed = true`) into concrete effects
-  (`spawn a Swipe hitbox` vs `spawn a Lunge hitbox`). Two enemies
-  with the same brain template but different ActionSets play
-  differently.
-- **`ActorControl`** — the brain's last-tick output. Read by the
-  EFFECTS stage (or, today, read by nobody — the shadow shape
-  populates it but EnemyRuntime / BossRuntime / update_player
-  still drive behavior).
+Key files:
 
-## Brain templates (small fixed set)
+```text
+crates/ambition_sandbox/src/brain/
+├── mod.rs              # Brain enum, ActorControl, ActorActionMessage, resolver emission
+├── snapshot.rs         # BrainSnapshot, player input slot, wall/contact view
+├── state_machine.rs    # reusable AI templates + tick_state_machine
+├── action_set.rs       # ActionSet, ActionRequest, action specs, resolve()
+├── boss_pattern.rs     # boss pattern brain profiles/states
+├── player.rs           # PlayerInputFrame / ControlFrame -> ActorControlFrame
+└── smash/              # Smash-style experimental brain and observation/action types
+```
 
-`crates/ambition_sandbox/src/brain/state_machine.rs`:
+Sibling components on controllable entities:
 
-| Template          | Use today                          | Knobs                                                             |
-| ----------------- | ---------------------------------- | ----------------------------------------------------------------- |
-| `StandStill`      | Sandbags, dialogue-only NPCs       | none                                                              |
-| `Patrol`          | Peaceful NPCs, gated patrollers    | spawn_x, radius, speed, aggressiveness, aggro_radius              |
-| `Wanderer`        | Puppy slug (planned)               | speed, climb_walls, chatter_threshold, window, pause              |
-| `MeleeBrute`      | Striker / Brute / Striker variants | aggressiveness, aggro_radius, attack_range, chase_speed           |
-| `Skirmisher`      | Ranger / future ranged variants    | aggressiveness, aggro_radius, standoff_px, strafe_speed, cooldown |
-| `Sniper`          | Stationary turrets                 | aggressiveness, aggro_radius, fire_cooldown_s                     |
-| `BossPattern`     | Boss encounter schedules           | aggressiveness, encounter_id, phase, phase_elapsed                |
+| Component | Role |
+|---|---|
+| `Brain` | Policy backend: `Player(slot)` or `StateMachine(cfg)`. |
+| `ActionSet` | Capability mapping from abstract intent to concrete melee/ranged/special specs. |
+| `ActorControl` | Last-tick `ae::ActorControlFrame` emitted by the brain. |
 
-Per-entity variety lives in `ActionSet`, not in new templates. Two
-enemies with the same `MeleeBrute` brain are different in the world
-because their ActionSets have different `MeleeActionSpec` variants
-(Swipe vs Lunge vs Slam vs Bite).
+`StateMachineCfg` currently covers `StandStill`, `Patrol`, `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `BossPattern`, and `Smash`.
 
-Each `*ActionSpec` carries its own windup → active → recover
-animation timing. There is *no separate `TelegraphSpec`* — the
-windup phase of an attack is its telegraph.
+## What is live now
 
-## What's wired today
+This is no longer only a shadow or observation stream.
 
-Every controllable entity carries a `Brain` + `ActionSet` +
-`ActorControl` sibling component:
+| Area | Current state |
+|---|---|
+| Player input -> brain | `tick_player_brains` reads the per-player input snapshot and fills `ActorControl`. |
+| Player movement/control | `player_control_system` and `player_simulation_system` consume `ActorControl`; raw `ControlFrame` is not read inside those phases. |
+| Player melee start | `attack_advance_system` gates player melee start from this player's `ActorActionMessage::Melee`; pogo still has a raw player-specific path. |
+| Player projectiles | Projectile charging/firing still reads `PlayerInputFrame` directly in `update_projectiles`; the frame contains projectile fields, but this consumer has not flipped yet. |
+| NPCs | Peaceful NPCs tick through `Brain::StateMachine(Patrol/StandStill)` and apply the resulting frame through the shared kinematic path. |
+| Enemy ranged | `spawn_enemy_projectiles_from_brain_actions` consumes `ActorActionMessage::Ranged` for hostile actors. |
+| Enemy melee | `start_enemy_melee_from_brain_actions` consumes `ActorActionMessage::Melee` and starts the enemy windup/cooldown; `update_ecs_actors` still owns the windup -> active hitbox edge because the runtime owns that state. |
+| Boss specials | GNU-ton apple rain and Gradient Sentinel special attacks consume `ActorActionMessage::Special` via focused systems in `content/features/ecs/brain_effects.rs`. |
+| Boss movement/patterns | Bosses carry `BossPattern` brains and `ActionSet`s; current authored specials are on the message stream, while some boss runtime/body state remains in sandbox feature components. |
 
-- **Players** spawn with `Brain::Player(PlayerSlot::PRIMARY)` +
-  the default player `ActionSet` (Swipe melee gated by
-  `abilities.attack`, Bolt ranged unconditionally, BubbleShield
-  special gated by `abilities.shield`). The
-  `tick_player_brains` system (runs in the `PlayerInput` phase
-  after `sync_local_player_input_frame`) translates the
-  per-player `PlayerInputFrame` into the actor's `ActorControl`
-  frame each tick; `emit_brain_action_messages` then runs the
-  resolver and writes `ActorActionMessage`s for each concrete
-  request. Nothing consumes those messages yet — `update_player`
-  still drives combat / projectile spawns from `PlayerInputFrame`
-  directly.
-- **NPCs** carry `Brain::StateMachine(Patrol{NPC_DEFAULT})` or
-  `Brain::StateMachine(StandStill)` per their authored fields.
-  `NpcRuntime::tick_via_brain` builds a snapshot, calls
-  `brain.tick`, and applies the resulting frame to the NPC's
-  body via the same engine kinematic sweep as before. The
-  bespoke `NpcRuntime::update` is gone.
-- **Enemies** carry `Brain::StateMachine(MeleeBrute{archetype-keyed})`
-  or `StandStill` for sandbags or `Wanderer{PUPPY_SLUG_DEFAULT}` for
-  puppy slugs. The brain's chase_speed / aggro_radius / attack_range
-  are read off `EnemyArchetype` so the brain matches the archetype's
-  pre-flip tunings. The matching `ActionSet` carries the archetype's
-  concrete attack spec — Striker family gets `Swipe`, Brute /
-  Colossus get `Lunge`, BurningFlyingShark gets `Bite + Float`,
-  PirateOnShark family gets `Bolt + Float`, Sandbag gets a weak
-  `PunchWeak` counter, PuppySlug and peaceful PirateHeavy get
-  no melee. `update_ecs_actors` shadow-ticks the brain alongside
-  the existing `EnemyRuntime::update`; the frame is produced and
-  the resolver emits matching `ActorActionMessage`s, but
-  EnemyRuntime still drives behavior — the messages are an
-  observation channel until daytime EFFECTS-flip wires combat
-  spawns to consume them.
-- **Bosses** carry `Brain::StateMachine(BossPattern{encounter_id})`
-  where `encounter_id` is the same `String` the boss-encounter
-  registry uses (computed via `encounter_id_from_name(boss.name)`
-  at spawn). The matching ActionSet defaults to `Bolt` ranged +
-  `BossSpotlight` special so the parallel shape carries an
-  offensive baseline; daytime EFFECTS-flip work narrows this per
-  encounter. `update_ecs_bosses` shadow-ticks similarly.
-  BossRuntime still drives behavior; daytime work threads the
-  registry through `BossPattern.tick` to drive the phase schedule
-  from the brain.
+## Current scheduling
 
-When a peaceful NPC turns hostile (strike-threshold flip in
-`damage.rs`), the entity's `ActorRuntime::Peaceful → Hostile` swap
-also swaps both the brain *and* the ActionSet — brain becomes
-`Brain::StateMachine(MeleeBrute::STRIKER_DEFAULT)` and ActionSet
-gains a `Swipe(SwipeSpec::STRIKER_DEFAULT)` melee — so the shadow
-shape stays internally consistent (hostile brain + offensive
-capability, not hostile brain + empty capability).
+`add_simulation_plugins` installs `BrainPlugin`, then schedules the active pipeline:
 
-## What's NOT wired (daytime continuation)
+1. `sync_local_player_input_frame` mirrors the primary `ControlFrame` into the local player's `PlayerInputFrame`.
+2. `tick_player_brains` translates player input into `ActorControl`.
+3. `emit_brain_action_messages` resolves every actor's `ActionSet` against its `ActorControl` and emits concrete requests.
+4. `observe_brain_action_counter` records per-frame message counts for debug/HUD tooling.
+5. Player simulation consumes `ActorControl` in `SandboxSet::PlayerSimulation`.
+6. Combat/effects consumers read `ActorActionMessage` in `SandboxSet::Combat`.
 
-Three big chunks remain:
+The ordering is important: new consumers should run after `emit_brain_action_messages` and before the system they need to feed, for example before projectile ticking if spawned projectiles should move on the same frame.
 
-### 1. EFFECTS consumer flip for enemies + bosses
+## Remaining work
 
-Today `EnemyRuntime::update` builds its own ActorControlFrame
-internally via `build_control_frame` and immediately consumes it.
-Daytime work removes that internal build and instead reads the
-brain's already-built frame off `ActorControl`. The choreography
-state machine moves into the brain's per-template state — Striker
-choreography becomes part of `MeleeBruteState`, boss scripted
-patterns become part of `BossPatternState`.
+The main structural migration has landed. Remaining work is cleanup and extension:
 
-Once the EFFECTS stage reads ActorControl + resolves
-`ActionRequest`s through the actor's `ActionSet`, per-entity
-attack variety (Swipe vs Lunge vs Bite) lights up — currently
-the resolver works in unit tests but no spawn system consumes
-its output.
+1. **Player projectile consumer flip.** `update_projectiles` still reads `PlayerInputFrame` for projectile press/hold/release and motion-input samples. Either keep that as a player-only exception intentionally, or make projectile fire/charge a first-class action consumer.
+2. **Pogo on the same action path.** Pogo is still a raw player-specific verb alongside `ActorActionMessage::Melee`. Decide whether it becomes an attack variant, a special action, or a `HitResult` reaction rule.
+3. **`ae::Player` decomposition.** The sandbox still stores a large engine `Player` aggregate inside `PlayerMovementAuthority`. Decompose only when there is a clear reader/writer cluster to migrate.
+4. **Canonical hit pipeline.** Brain/action messages now start attacks, but the actual hit/damage metadata is still fragmented across `DamageEvent`, hostile `Hitbox`, `PlayerDamageEvent`, and boss outcomes.
+5. **Possession / co-op.** The architecture supports swapping `Brain::Player(slot)` onto arbitrary actors, but production routing and UX are not implemented.
 
-### 2. update_player consumes ActorControl
+## Extension rule
 
-Same pattern as #1 but for the player. Today
-`tick_player_brains` fills the frame; `update_player` ignores it
-and reads `PlayerInputFrame` directly. Flipping the consumer is
-the biggest single risk in the remaining work — overlap-then-
-delete per
-[`dev/benchmark-candidates/bevy-ecs-stale-component-after-sync-removal-2026-05-15.md`](../../dev/benchmark-candidates/bevy-ecs-stale-component-after-sync-removal-2026-05-15.md).
+When adding a new actor behavior, choose the smallest current seam:
 
-### 3. `ae::Player` decomposition completes
+1. A new **brain template** only when the actor needs a new policy/state graph.
+2. A new **ActionSet spec** when the policy already exists but the concrete effect differs.
+3. A new **EFFECTS consumer** when an `ActionRequest` variant has no real-world effect yet.
+4. A new **hit pipeline field** when the effect is really damage/reaction metadata rather than a new side-effect message.
 
-The remaining 38 `authority.player.*` reads in the sandbox are
-mostly co-located with writes. PlayerBody covers the read model;
-PlayerInputFrame covers the input read model. The work is to
-walk each reader cluster (debug/overlay, dev_tools, runtime/
-reset, body_mode/tests) and replace authority access with
-component reads + an explicit write component for the few sites
-that mutate engine state.
-
-When the last reader is gone, delete `ae::Player` and
-`PlayerMovementAuthority`. Per-cluster components
-(`PlayerVelocity`, `PlayerWallState`, `PlayerJumpState`, …) may
-or may not be needed depending on how far PlayerBody can stretch
-— the audit doc captures the full field map.
+Per-entity variety should usually live in `ActionSet`, not in a new brain variant.
 
 ## What the seam enables
 
-Because *what an actor wants* (Brain) and *what an actor can do*
-(ActionSet) are decomposed onto separate components, a wide range
-of "Elder-Scrolls-class" behaviors fall out as ECS operations
-rather than new code paths:
+Because policy (`Brain`) and capability (`ActionSet`) are separate, several future features become component swaps instead of new special-case loops:
 
-- **Possession** — any entity becomes player-controlled by
-  swapping the `Brain` component. The body keeps its
-  `ActionSet`, so pressing Attack still resolves to that body's
-  signature move (Leap for goblins, Bite for sharks, BossSpotlight
-  for a possessed boss).
-- **Hostility / disposition shifts at runtime** — a peaceful NPC
-  turning hostile is a Brain swap (`Patrol{NPC_DEFAULT}` →
-  `MeleeBrute{STRIKER_DEFAULT}`) + an ActionSet swap (peaceful →
-  Swipe), all via `commands.entity(...).insert(...)`. The
-  damage handler already does this for the strike-threshold flip;
-  the same shape supports faction reputation, mind-control
-  abilities, or scripted betrayals.
-- **Wide variety from shared templates** — adding a "leaping
-  goblin" doesn't need a new brain template, just a new
-  `MeleeActionSpec::Lunge` configuration on its ActionSet. Same
-  `MeleeBrute` brain template can drive Striker, Brute, Colossus,
-  and future variants — they look distinct because their
-  ActionSets resolve differently.
-- **Inheritable / template behaviors** — copy an entity's brain
-  to spawn a "lieutenant" mob that mirrors the boss's combat
-  style. Strip its `ActionSet.special` to make it less dangerous.
-- **Possessable cutscene actors** — a `Brain::Scripted` backend
-  (deferred) plays back authored input frames. A Director system
-  temporarily swaps any actor's brain to `Scripted` for a
-  cutscene, restores the original after.
-- **RL agents, networked co-op, AI test harnesses** — all become
-  new `Brain` variants (`RlPolicy`, `Remote`, `Scripted`) without
-  touching enemy code or player code.
+- **Possession.** Swap an entity to `Brain::Player(slot)` while keeping its `ActionSet`; the player's input resolves to that body's attacks/projectiles/specials. Production possession routing, camera ownership, and UI are still future work.
+- **Runtime disposition changes.** A peaceful actor can become hostile by changing both policy and capability: for example `Patrol` + peaceful `ActionSet` to `MeleeBrute` + swipe/lunge `ActionSet`.
+- **Wide variety from shared templates.** A striker, brute, shark, or future goblin variant can share one `MeleeBrute` policy but differ through `MeleeActionSpec`.
+- **Different player bodies / co-op.** Multiple `Brain::Player(slot)` components can drive different bodies once input/camera/UX routing exists.
+- **Scripted, remote, or test agents.** Future `Brain` variants can emit the same `ActorControlFrame` without changing enemy, boss, or player movement consumers.
 
-## Possession and multi-player
-
-Possession is cheap because of brain + ActionSet decomposition:
+Minimal possession sketch:
 
 ```rust
-// Player presses "possess" on a goblin entity.
 commands.entity(goblin).insert(Brain::Player(PlayerSlot::PRIMARY));
-// Goblin's ActionSet is unchanged.
-// Player input → brain.tick → goblin's ActionSet resolves it as a Leap.
+// Keep the goblin ActionSet. Attack input now resolves through goblin capabilities.
 ```
 
-Two-player co-op with different bodies is the same operation:
+## Performance and maintenance notes
 
-```rust
-commands.entity(player2_body).insert((
-    Brain::Player(PlayerSlot(1)),
-    fast_fragile_skirmisher_action_set,
-));
-```
-
-Both pending until the EFFECTS consumer flip lands — the brain
-seam exists today, but nothing reads its output for combat
-effects.
-
-## Performance
-
-- Brain dispatch is enum-match, not trait objects: one switch per
-  actor per tick. Branch-predictor friendly.
-- Snapshot construction is per-actor per-tick. ~80 bytes of
-  POD on the stack; no allocations.
-- Shadow-tick adds a free function call + snapshot build for
-  every enemy + boss; measurable as a flat ~1-2µs per actor per
-  tick, well under frame budget at the 10s-of-actors scale.
-- The "unbrained" optimization (parallel ECS path for trivial
-  actors like puppy slugs) is documented as an escape hatch but
-  not implemented — measurement first.
-
-## File map
-
-```
-crates/ambition_sandbox/src/brain/
-├── mod.rs              # Brain enum, shadow_tick_brain helper, ActorControl
-├── snapshot.rs         # BrainSnapshot, WallContact, to_character_ai_snapshot
-├── state_machine.rs    # 7 brain templates + tick_state_machine
-├── action_set.rs       # ActionSet, ActionRequest, resolve
-└── player.rs           # tick_player_brain + tick_player_brain_from_control
-```
-
-Integration sites:
-
-```
-crates/ambition_sandbox/src/player/bundles.rs           # bundle attaches brain
-crates/ambition_sandbox/src/player/systems.rs           # tick_player_brains
-crates/ambition_sandbox/src/app/plugins.rs              # scheduling
-crates/ambition_sandbox/src/content/features/ecs/spawn.rs   # NPC/enemy/boss spawn
-crates/ambition_sandbox/src/content/features/ecs/actors.rs  # shadow tick (enemies)
-crates/ambition_sandbox/src/content/features/ecs/bosses.rs  # shadow tick (bosses)
-crates/ambition_sandbox/src/content/features/ecs/damage.rs  # hostile-flip brain swap
-crates/ambition_sandbox/src/content/features/npcs.rs        # tick_via_brain
-```
-
-Tests:
-
-```
-crates/ambition_sandbox/src/brain/{mod,snapshot,state_machine,action_set,player}.rs::tests
-crates/ambition_sandbox/src/content/features/conversion_tests.rs  # NPC patrol via brain
-crates/ambition_sandbox/src/content/features/ecs/spawn.rs::tests  # spawn regression
-crates/ambition_sandbox/src/player/systems.rs::tests              # player seam end-to-end
-crates/ambition_sandbox/src/audio/environment.rs::tests           # PlayerBody migration
-crates/ambition_sandbox/src/headless.rs::tests                    # full plugin integration
-```
+- Brain dispatch is intentionally enum-match based, not `Box<dyn Brain>`. Add a dynamic backend only when there is a real plugin/runtime requirement.
+- Per-actor tick code should avoid allocation; build small snapshots and mutate the actor's `ActorControlFrame`.
+- Do not add a separate hardcoded path for simple actors just to avoid the brain seam. Profile first; if dispatch ever matters, prefer batching by brain variant over forking behavior.
+- Runtime components may own integration state such as windup timers, spawn accumulators, and active-window clocks. Policy decisions should still come from the brain/action path.
+- `ActionSet` can become a god-struct if every special case becomes a top-level field. Prefer a small set of abstract verbs (`melee`, `ranged`, `special`, `move_style`) with enum specs that carry their own timings and tuning.
 
 ## Helper API
 
-Convenience methods exposed for daytime work:
+| Type | Helper | Notes |
+|---|---|---|
+| `Brain` | `stand_still()`, `npc_patrol(...)`, `is_player()`, `player_slot()`, `is_hostile()`, `label()` | Public actor-policy helpers. |
+| `Brain` | `boss_pattern_state()` | Debug/presentation read for boss-pattern clocks. |
+| `ActorActionMessage` | `is_melee()`, `is_ranged()`, `is_special()` | Cheap consumer filters. |
+| `ActionRequest` | `label()` / `Display` | Trace/debug labels. |
+| `ActionSet` | `peaceful()`, `can_attack()` | Capability helpers. |
+| `ActorControlFrame` | `neutral()`, `wants_any_action()`, `clear_edges()` | Engine-side control helpers. |
+| `BrainActionCounter` | resource | Per-frame emitted-request counts. |
 
-| Type                  | Helper                                  | Returns                            |
-| --------------------- | --------------------------------------- | ---------------------------------- |
-| `Brain`               | `stand_still()`                         | `Brain::StateMachine(StandStill)`  |
-| `Brain`               | `npc_patrol(spawn_x, radius)`           | `Brain::StateMachine(Patrol{...})` |
-| `Brain`               | `is_player()`                           | `bool`                             |
-| `Brain`               | `player_slot()`                         | `Option<PlayerSlot>`               |
-| `Brain`               | `is_hostile()`                          | `bool`                             |
-| `Brain`               | `label()`                               | `&'static str`                     |
-| `Brain` Display       | `format!("{}", brain)`                  | `"Player(slot=N)"` / `"StateMachine(label)"` |
-| `ActorActionMessage`  | `is_melee()` / `is_ranged()` / `is_special()` | `bool`                       |
-| `ActionRequest`       | `label()`                               | `"melee_swipe"`, `"ranged_bolt"`, …|
-| `ActionRequest` Display | `format!("{}", req)`                  | `"melee_swipe(at … facing +1)"`    |
-| `MeleeActionSpec`     | `damage()` / `reach_px()` / `total_duration_s()` | `i32` / `f32` / `f32`     |
-| `RangedActionSpec`    | `speed()` / `damage()`                  | `f32` / `i32`                      |
-| `ActionSet`           | `peaceful()` / `can_attack()`           | `Self` / `bool`                    |
-| `BrainSnapshot`       | `idle()` / `to_character_ai_snapshot(...)` | `Self` / `ae::CharacterAiSnapshot` |
-| `ActorControlFrame`   | `neutral()` / `wants_any_action()` / `clear_edges()` | `Self` / `bool` / `()`   |
-| `shadow_tick_brain` / `shadow_tick_brain_with_timers` | free fn | `ae::ActorControlFrame` |
-| `CombatTimers`        | `CLEAR` const                            | `Self` (all zeros)                 |
-| `log_brain_action_messages` | Bevy system (optional)             | debug! log per message              |
+## Validation anchors
 
-## Quick reference
-
-| Thing | Where |
-| ----- | ----- |
-| Brain enum + ActorControl + ActorActionMessage | [`crates/ambition_sandbox/src/brain/mod.rs`](../../crates/ambition_sandbox/src/brain/mod.rs) |
-| Per-template state machines | [`crates/ambition_sandbox/src/brain/state_machine.rs`](../../crates/ambition_sandbox/src/brain/state_machine.rs) |
-| Per-entity ActionSet + resolver | [`crates/ambition_sandbox/src/brain/action_set.rs`](../../crates/ambition_sandbox/src/brain/action_set.rs) |
-| Player input → frame translator | [`crates/ambition_sandbox/src/brain/player.rs`](../../crates/ambition_sandbox/src/brain/player.rs) |
-| BrainSnapshot definition | [`crates/ambition_sandbox/src/brain/snapshot.rs`](../../crates/ambition_sandbox/src/brain/snapshot.rs) |
-| Player spawn bundle | [`crates/ambition_sandbox/src/player/bundles.rs`](../../crates/ambition_sandbox/src/player/bundles.rs) |
-| Enemy / boss spawn brain attach | [`crates/ambition_sandbox/src/content/features/ecs/spawn.rs`](../../crates/ambition_sandbox/src/content/features/ecs/spawn.rs) |
-| Enemy shadow tick | [`crates/ambition_sandbox/src/content/features/ecs/actors.rs`](../../crates/ambition_sandbox/src/content/features/ecs/actors.rs) |
-| Boss shadow tick | [`crates/ambition_sandbox/src/content/features/ecs/bosses.rs`](../../crates/ambition_sandbox/src/content/features/ecs/bosses.rs) |
-| NPC brain-driven tick | [`crates/ambition_sandbox/src/content/features/npcs.rs`](../../crates/ambition_sandbox/src/content/features/npcs.rs) |
-| Player tick_player_brains + resolver scheduling | [`crates/ambition_sandbox/src/app/plugins.rs`](../../crates/ambition_sandbox/src/app/plugins.rs) |
-| ae::Player decomposition audit | [`dev/journals/ae-player-field-usage-2026-05-24.md`](../../dev/journals/ae-player-field-usage-2026-05-24.md) |
-| Extension recipe | [`docs/recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md) |
-| Multi-chunk plan | [`TODO-controllable-entity.md`](../../TODO-controllable-entity.md) |
+```bash
+cargo test -p ambition_engine --lib actor_control
+cargo test -p ambition_sandbox --lib brain::
+cargo test -p ambition_sandbox --lib player::systems
+cargo test -p ambition_sandbox --lib content::features::ecs::brain_effects
+cargo run -p ambition_sandbox --bin headless -- --ticks 30
+```

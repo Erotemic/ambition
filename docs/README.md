@@ -39,13 +39,10 @@ python scripts/check_agent_kb.py
 python scripts/check_doc_links.py
 ```
 
-Generated indexes are navigation aids. They do not override source files, ADRs, current docs, or concept pages.
+Generated indexes are navigation aids. They do not override source files, ADRs, current docs, or concept pages. The current archive includes:
 
 - [`../.agent/manifest.yaml`](../.agent/manifest.yaml)
 - [`../.agent/retrieval_evals.yaml`](../.agent/retrieval_evals.yaml)
-- [`../.agent/index/`](../.agent/index/)
-
-Generated indexes are navigation aids. They do not override code, ADRs, current docs, or concept pages.
 
 ## Reading rule
 

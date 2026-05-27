@@ -323,81 +323,11 @@ mod tests {
         );
     }
 
-    #[test]
-    fn redirect_post_intro_dialog_swaps_oiler_after_stabilizer() {
-        use crate::dialog::{redirect_post_quest_dialog, DialogState};
-        use crate::persistence::save::SandboxSave;
-        use bevy::app::{App, Update};
-
-        let mut app = App::new();
-        let mut dialog = DialogState::default();
-        dialog.start("oiler_intro", "Oiler");
-        // start() should set the dialogue id to "oiler_intro".
-        assert_eq!(dialog.dialogue_id(), "oiler_intro");
-        app.insert_resource(dialog);
-        app.insert_resource(SandboxSave::default());
-        app.add_systems(Update, redirect_post_quest_dialog);
-
-        // Pre-flag: redirector should leave the id alone.
-        app.update();
-        let id = app.world().resource::<DialogState>().dialogue_id().to_string();
-        assert_eq!(id, "oiler_intro");
-
-        // Flip the flag; the next tick should swap to the post-state.
-        app.world_mut()
-            .resource_mut::<SandboxSave>()
-            .data_mut()
-            .set_flag("p1_stabilizer_received", true);
-        app.update();
-        let id = app.world().resource::<DialogState>().dialogue_id().to_string();
-        assert_eq!(
-            id, "oiler_post_stabilizer",
-            "expected post-stabilizer swap after p1_stabilizer_received"
-        );
-    }
-
-    #[test]
-    fn redirect_post_intro_dialog_swaps_alice_after_bob_survey() {
-        use crate::dialog::{redirect_post_quest_dialog, DialogState};
-        use crate::persistence::save::SandboxSave;
-        use bevy::app::{App, Update};
-
-        let mut app = App::new();
-        let mut dialog = DialogState::default();
-        dialog.start("alice_intro_stub", "Alice");
-        assert_eq!(dialog.dialogue_id(), "alice_intro_stub");
-        app.insert_resource(dialog);
-        app.insert_resource(SandboxSave::default());
-        app.add_systems(Update, redirect_post_quest_dialog);
-
-        app.world_mut()
-            .resource_mut::<SandboxSave>()
-            .data_mut()
-            .set_flag("bob_field_survey_received", true);
-        app.update();
-        let id = app.world().resource::<DialogState>().dialogue_id().to_string();
-        assert_eq!(id, "alice_after_bob_survey");
-    }
-
-    #[test]
-    fn redirect_post_intro_dialog_does_nothing_when_dialog_inactive() {
-        use crate::dialog::{redirect_post_quest_dialog, DialogState};
-        use crate::persistence::save::SandboxSave;
-        use bevy::app::{App, Update};
-
-        let mut app = App::new();
-        app.insert_resource(DialogState::default());
-        let mut save = SandboxSave::default();
-        save.data_mut().set_flag("p1_stabilizer_received", true);
-        save.data_mut().set_flag("bob_field_survey_received", true);
-        app.insert_resource(save);
-        app.add_systems(Update, redirect_post_quest_dialog);
-
-        // No dialog active; system should early-return without touching
-        // DialogState. Just running the update verifies no panic.
-        app.update();
-        assert!(!app.world().resource::<DialogState>().active());
-    }
+    // The Yarn migration retired `redirect_post_quest_dialog`:
+    // boss-cleared / flag-set redirects are now inline `<<if>>`
+    // branches inside the `.yarn` files. The runtime is exercised
+    // by running the actual dialog; the tests above used to pin
+    // the per-frame redirect dispatch, which no longer exists.
 
     #[test]
     fn flag_gated_lock_walls_have_unique_ids() {

@@ -11,32 +11,19 @@ use crate::dialog::DialogState;
 use crate::presentation::cutscene::CutsceneLibrary;
 
 #[test]
-fn every_intro_dialogue_id_resolves_to_non_empty_tree() {
-    // The intro module owns a list of dialogue ids consumed by the
-    // LDtk `NpcSpawn.dialogue_id` field. Every one must resolve to
-    // a non-empty tree in the data-driven registry; an empty tree
-    // would mean the LDtk content validator approves the id but
-    // the runtime renders a blank conversation.
-    use crate::dialog::DialogTree;
+fn every_intro_dialogue_id_is_registered_with_validator() {
+    // Each intro dialogue id must be in `known_dialogue_ids` so
+    // the LDtk content validator accepts `NpcSpawn.dialogue_id`
+    // references. With the Yarn migration the dialogue content
+    // lives in `.yarn` files; the runtime body smoke-check moved
+    // to the bridge's integration tests.
     let known: std::collections::HashSet<&str> = crate::dialog::known_dialogue_ids()
         .into_iter()
         .collect();
     for id in intro_dialogue_ids() {
         assert!(
             known.contains(id),
-            "intro dialogue id '{id}' is missing from the dialogue registry"
-        );
-        // Use DialogState as a black-box smoke check: start() →
-        // body() should produce something non-empty (the first
-        // node's line), proving the id rounds-trips through the
-        // registry's tree lookup.
-        let mut state = DialogState::default();
-        state.start(id, "Intro NPC");
-        // Suppress unused-type warning for DialogTree by referencing it.
-        let _: Option<&DialogTree> = None;
-        assert!(
-            !state.body().is_empty(),
-            "intro dialogue '{id}' resolved but rendered empty body"
+            "intro dialogue id '{id}' is missing from the validator's known list"
         );
     }
 }

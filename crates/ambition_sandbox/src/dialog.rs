@@ -1,14 +1,21 @@
 //! Sandbox dialogue runtime and UI.
 //!
-//! This module is intentionally a stable facade: public callers continue to use
-//! `crate::dialog::*`, while the implementation lives in focused child modules.
-//! Runtime state, authored content, Bevy input systems, and UI construction are
-//! split so dialogue changes do not require loading one large mixed-concern file.
+//! Authored conversation content lives in
+//! `assets/dialogue/sandbox/*.yarn` and is loaded by
+//! `bevy_yarnspinner`. The runtime is split across:
 //!
-//! Authored conversation data is still held in code-side tables for now. The app
-//! also registers `bevy_yarnspinner` and includes Yarn source files so content
-//! can migrate to real Yarn nodes without changing NPC/merchant-facing gameplay
-//! semantics.
+//! - [`runtime::DialogState`] — Bevy resource view-model written
+//!   by the Yarn bridge, read by the existing custom UI.
+//! - [`systems::dialog_input`] / [`systems::dialog_pointer_input`] —
+//!   player-input translators that write `pending_*` request fields
+//!   on `DialogState`.
+//! - [`ui::sync_dialog_ui`] — renderer (poll-based, reads
+//!   `DialogState`).
+//! - [`yarn_bridge`] — observers + dispatch that route runner
+//!   events into `DialogState` writes and `DialogState` requests
+//!   into runner calls.
+//! - [`yarn_bindings`] — custom commands / functions / markup cues
+//!   that authored `.yarn` content can invoke.
 
 mod content;
 mod runtime;
@@ -20,20 +27,17 @@ mod yarn_bindings;
 mod yarn_bridge;
 
 pub(crate) use content::known_dialogue_ids;
-// Authored dialogue types re-exported for downstream consumers who
-// want to render raw nodes/options (e.g. the UI module's choice
-// row builder). `DialogTree` is the registry's value type.
-#[allow(unused_imports, reason = "kept for downstream visualization tooling")]
-pub use content::{DialogChoice, DialogNode, DialogTree};
+#[allow(unused_imports, reason = "DialogChoice surfaces in the UI's choice-row layout")]
+pub use content::DialogChoice;
 pub use runtime::DialogState;
-pub use systems::{dialog_input, dialog_pointer_input, redirect_post_quest_dialog};
+pub use systems::{dialog_input, dialog_pointer_input};
 pub use ui::sync_dialog_ui;
 #[cfg(feature = "ui")]
 pub use yarn_bindings::YarnBindingsPlugin;
 #[cfg(feature = "ui")]
 #[allow(
     unused_imports,
-    reason = "DialogueRunnerEntity surfaces in phase 5 when DialogState routes through Yarn"
+    reason = "DialogueRunnerEntity is exported for ad-hoc tooling and future tests"
 )]
 pub use yarn_bridge::{DialogueRunnerEntity, YarnBridgePlugin};
 
@@ -47,11 +51,20 @@ use bevy_yarnspinner::prelude::*;
 /// view does not depend on Yarn Spinner.
 #[cfg(feature = "ui")]
 pub fn yarn_spinner_plugin() -> YarnSpinnerPlugin {
-    // Android cannot enumerate asset folders inside the APK, so use an
-    // explicit Yarn source instead of YarnSpinnerPlugin::new() (which scans
-    // the dialogue folder on desktop builds). Keep this path relative to
-    // Bevy's asset root: crates/ambition_sandbox/assets/dialogue/...
-    YarnSpinnerPlugin::with_yarn_source(YarnFileSource::file("dialogue/ambition_sandbox.yarn"))
+    // Android cannot enumerate asset folders inside the APK, so use
+    // explicit Yarn sources instead of `YarnSpinnerPlugin::new()`
+    // (which scans the dialogue folder on desktop builds). Paths
+    // relative to Bevy's asset root
+    // (`crates/ambition_sandbox/assets/`). One file per zone — the
+    // content-swap unit for a future fork is the whole
+    // `dialogue/<game_id>/` directory.
+    YarnSpinnerPlugin::with_yarn_sources([
+        YarnFileSource::file("dialogue/sandbox/intro.yarn"),
+        YarnFileSource::file("dialogue/sandbox/kernel.yarn"),
+        YarnFileSource::file("dialogue/sandbox/factions.yarn"),
+        YarnFileSource::file("dialogue/sandbox/cove.yarn"),
+        YarnFileSource::file("dialogue/sandbox/dojo.yarn"),
+    ])
 }
 
 #[cfg(test)]

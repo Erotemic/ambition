@@ -1,103 +1,74 @@
 //! Yarn↔DialogState bridge.
 //!
 //! Owns the integration between `bevy_yarnspinner` and the sandbox's
-//! poll-based [`DialogState`] view-model. The migration plan
-//! introduces this in six phases (see TODO; this file lands phase 1
-//! foundation — runner lifecycle + observer skeletons).
+//! poll-based [`DialogState`] view-model. Phase 5 of the migration:
+//! the runner is now the authority. The custom UI
+//! (`sync_dialog_ui`) keeps reading `DialogState` exactly as before
+//! — this module just makes the runner the source of writes.
 //!
 //! ## Lifecycle
 //!
-//! - [`YarnBridgePlugin`] mounts as part of the sandbox app under
-//!   the `ui` feature (same gate as `bevy_yarnspinner`).
 //! - At startup, `bevy_yarnspinner::YarnSpinnerPlugin` compiles all
 //!   `.yarn` files into a `YarnProject` resource.
-//! - Once `YarnProject` lands, [`spawn_dialogue_runner`] spawns a
-//!   single persistent `DialogueRunner` entity and stashes its id
-//!   in [`DialogueRunnerEntity`]. Persistent so `$variables` and
-//!   visited-node bookkeeping survive across NPC visits — we want
-//!   first-vs-repeat checks to pull from save (`visit_count(npc_id)`
-//!   function arrives in phase 3), not throwaway runner state.
-//! - Three observers translate runner events into sandbox state:
-//!   - [`on_present_line`]: a line is ready — translate
-//!     `LocalizedLine.{character_name, text, attributes}` into the
-//!     dialog UI's read-model.
-//!   - [`on_present_options`]: the runner is awaiting a player
-//!     choice — record the option labels + their `OptionId`s.
-//!   - [`on_dialogue_completed`]: the runner finished a node chain
-//!     with no `<<jump>>` follow-up — close the dialog.
+//! - Once `YarnProject` lands, [`spawn_dialogue_runner`] spawns the
+//!   singleton `DialogueRunner` entity, registers commands +
+//!   functions (`super::yarn_bindings`), and stashes the entity id
+//!   in [`DialogueRunnerEntity`]. Persistent runner so visited-node
+//!   bookkeeping survives across NPC visits; the save-driven
+//!   `visit_count(id)` function is the canonical "have I talked to
+//!   X" probe.
 //!
-//! ## Phase 1 status (this commit)
+//! ## Two-way flow
 //!
-//! - Bridge module wired into the sandbox app.
-//! - `DialogueRunner` spawn + entity-id resource wired.
-//! - Observers exist but do not yet write into [`DialogState`].
-//!   They emit `info!` traces so the in-engine plumbing can be
-//!   confirmed when a `.yarn` node is started.
-//!
-//! Phase 5 (per the migration plan) flips the DialogState authority:
-//! `DialogState::start(id)` will call `runner.start_node(id)` and
-//! the observers below will populate the view-model the existing
-//! `sync_dialog_ui` already reads.
-//!
-//! ## Why observers, not message readers
-//!
-//! `bevy_yarnspinner` 0.8 fires lifecycle events via
-//! `commands.trigger(EntityEvent)` — Bevy 0.18 observer pattern.
-//! Consumers register with `app.add_observer(...)` and receive a
-//! `Trigger<E>` in the system signature. The rest of the sandbox
-//! uses messages today; this is the first piece of code using
-//! observers.
+//! - **Caller → runner**: `DialogState::start/close/confirm_or_advance`
+//!   write `pending_*` fields. [`dispatch_pending_dialog_requests`]
+//!   drains them once per frame and calls
+//!   `runner.start_node` / `stop` / `select_option` /
+//!   `continue_in_next_update` against the live runner entity.
+//!   Visit count increments here too (one per `start` call).
+//! - **Runner → UI**: three observers translate the runner's
+//!   lifecycle events into `DialogState` writes:
+//!   - [`on_present_line`] — `current_speaker`, `current_line`, and
+//!     the `[shout]/[whisper]` markup cue.
+//!   - [`on_present_options`] — `current_options` + parallel
+//!     `yarn_option_ids`.
+//!   - [`on_dialogue_completed`] — clears `active` + flips
+//!     `GameMode` back to `Playing`.
 
 use bevy::prelude::*;
 use bevy_yarnspinner::events::*;
 use bevy_yarnspinner::prelude::*;
 
+use super::content::DialogChoice;
+use super::runtime::DialogState;
 use super::yarn_bindings::{
     register_commands, register_functions, YarnPresentationCue, YarnStateMirror,
 };
+use crate::persistence::save::SandboxSave;
 
 /// Bevy resource: entity id of the singleton `DialogueRunner`.
-/// Inserted by [`spawn_dialogue_runner`] once `YarnProject` is
-/// available. `DialogState` methods (added in phase 5) read this
-/// to call `start_node` / `select_option` / `continue_in_next_update`.
 #[derive(Resource, Debug, Clone, Copy)]
-#[allow(
-    dead_code,
-    reason = "consumer arrives in phase 5 when DialogState routes through Yarn"
-)]
 pub struct DialogueRunnerEntity(pub Entity);
 
-/// Plugin that wires the bridge:
-/// 1. Spawns the persistent runner once `YarnProject` resolves.
-/// 2. Registers the three observers translating runner events into
-///    sandbox state.
 pub struct YarnBridgePlugin;
 
 impl Plugin for YarnBridgePlugin {
     fn build(&self, app: &mut App) {
-        // Spawn the runner once `YarnProject` becomes available. The
-        // `YarnSpinnerPlugin` in `crate::dialog::yarn_spinner_plugin`
-        // inserts that resource asynchronously (after all `.yarn`
-        // files finish loading + compiling), so we hang the spawn
-        // on a `resource_added` run-condition.
         app.add_systems(
             Update,
             spawn_dialogue_runner.run_if(resource_added::<YarnProject>),
         );
-        // Observers — translate Yarn events into DialogState writes.
-        // Phase 1 leaves these as logging-only placeholders.
+        app.add_systems(Update, dispatch_pending_dialog_requests);
         app.add_observer(on_present_line);
         app.add_observer(on_present_options);
         app.add_observer(on_dialogue_completed);
     }
 }
 
-/// Spawn the singleton `DialogueRunner`. Runs once when
-/// `YarnProject` becomes a resource. Registers all custom commands
-/// (`<<set_flag>>`, `<<play_sfx>>`, ...) and functions
-/// (`boss_cleared`, `flag`, `visit_count`, ...) on the runner
-/// before spawning it so authored dialogue can use the full
-/// vocabulary on the first node entered.
+/// Spawn the singleton `DialogueRunner` once `YarnProject` is
+/// available. Registers commands + functions before spawning so
+/// authored content can use the full vocabulary on the first node
+/// entered.
 fn spawn_dialogue_runner(
     mut commands: Commands,
     project: Res<YarnProject>,
@@ -114,23 +85,87 @@ fn spawn_dialogue_runner(
     );
 }
 
-/// `PresentLine` observer — Yarn emits this every time the runner is
-/// ready to show a line to the player.
+/// Drain `DialogState.pending_*` fields each frame, translate them
+/// into runner calls, and write visit-count side effects to save.
 ///
-/// Phase 1: log. Phase 5: extract `character_name + text + markup
-/// attributes` and write into `DialogState`.
-fn on_present_line(event: On<PresentLine>, mut cue: ResMut<YarnPresentationCue>) {
-    info!(
-        target: "ambition_sandbox::dialog::yarn",
-        "PresentLine: speaker={:?} text={:?}",
-        event.line.character_name(),
-        event.line.text_without_character_name(),
-    );
-    // Markup cue capture: scan the line's parsed `[shout]` /
-    // `[whisper]` attributes and stash them on the per-frame cue
-    // resource. The cue is cleared each frame BEFORE this observer
-    // fires (see `YarnBindingsPlugin::build`); the presentation
-    // consumer (camera shake / audio pitch) reads after.
+/// Order matters: `pending_start` is processed before
+/// `pending_select` / `pending_advance` so a "start + immediate
+/// advance" combo in the same frame works. `pending_close` always
+/// runs last so the runner can stop mid-conversation.
+fn dispatch_pending_dialog_requests(
+    mut state: ResMut<DialogState>,
+    runner_e: Option<Res<DialogueRunnerEntity>>,
+    mut runner_q: Query<&mut DialogueRunner>,
+    save: Option<ResMut<SandboxSave>>,
+) {
+    let Some(runner_e) = runner_e else {
+        return;
+    };
+    let Ok(mut runner) = runner_q.get_mut(runner_e.0) else {
+        return;
+    };
+
+    // start_node
+    if let Some((dialogue_id, _npc_name)) = state.pending_start.take() {
+        if let Some(mut save) = save {
+            save.data_mut().increment_dialog_visit(&dialogue_id);
+        }
+        if let Err(e) = runner.try_start_node(&dialogue_id) {
+            warn!(
+                target: "ambition_sandbox::dialog::yarn",
+                "try_start_node({dialogue_id}) failed: {e}",
+            );
+            // Bail out of the active state so the UI doesn't hang
+            // on a node that the runner couldn't enter.
+            state.active = false;
+        }
+    }
+
+    // select_option (use snapshot of yarn_option_ids before taking)
+    if let Some(idx) = state.pending_select.take() {
+        let option_id = state.yarn_option_ids.get(idx).copied();
+        if let Some(option_id) = option_id {
+            if let Err(e) = runner.select_option(option_id) {
+                warn!(
+                    target: "ambition_sandbox::dialog::yarn",
+                    "select_option({option_id:?}) failed: {e}",
+                );
+            }
+            // Clear the option set — the next `PresentLine` /
+            // `PresentOptions` repopulates it.
+            state.current_options.clear();
+            state.yarn_option_ids.clear();
+            state.selected_option = 0;
+        }
+    }
+
+    // continue (no-option line advance)
+    if std::mem::take(&mut state.pending_advance) && runner.is_running() {
+        runner.continue_in_next_update();
+        // Don't clear current_line here — the runner emits the
+        // next PresentLine which overwrites it.
+    }
+
+    // stop
+    if std::mem::take(&mut state.pending_close) && runner.is_running() {
+        runner.stop();
+    }
+}
+
+fn on_present_line(
+    event: On<PresentLine>,
+    mut state: ResMut<DialogState>,
+    mut cue: ResMut<YarnPresentationCue>,
+) {
+    state.current_speaker = event.line.character_name().unwrap_or("").to_string();
+    state.current_line = event.line.text_without_character_name();
+    // PresentLine that arrives without a following PresentOptions
+    // means a non-branching line — clear stale options so the UI
+    // doesn't show last-line's choices.
+    state.current_options.clear();
+    state.yarn_option_ids.clear();
+    state.selected_option = 0;
+    // Markup cue capture for [shout] / [whisper] hooks.
     for attr in &event.line.attributes {
         match attr.name.as_str() {
             "shout" => cue.shout = true,
@@ -140,31 +175,36 @@ fn on_present_line(event: On<PresentLine>, mut cue: ResMut<YarnPresentationCue>)
     }
 }
 
-/// `PresentOptions` observer — Yarn is waiting for the player to
-/// pick one of N options.
-///
-/// Phase 1: log labels + ids. Phase 5: record into `DialogState` so
-/// `confirm_or_advance` can call `runner.select_option(id)`.
-fn on_present_options(event: On<PresentOptions>) {
-    info!(
-        target: "ambition_sandbox::dialog::yarn",
-        "PresentOptions: {} options",
-        event.options.len(),
-    );
+fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>) {
+    state.current_options.clear();
+    state.yarn_option_ids.clear();
     for option in &event.options {
-        info!(
-            target: "ambition_sandbox::dialog::yarn",
-            "  option id={:?} label={:?}",
-            option.id,
-            option.line.text_without_character_name(),
-        );
+        state.current_options.push(DialogChoice {
+            label: option.line.text_without_character_name(),
+            // RON-era `next_node` / `close_after` are no longer
+            // consulted by the runtime — Yarn's `select_option(id)`
+            // dispatches via the parallel `yarn_option_ids` vec.
+            next_node: None,
+            note: None,
+            close_after: false,
+        });
+        state.yarn_option_ids.push(option.id);
     }
+    state.selected_option = 0;
 }
 
-/// `DialogueCompleted` observer — the runner reached the end of a
-/// node chain with no more `<<jump>>` follow-ups.
-///
-/// Phase 1: log. Phase 5: call `DialogState::close()`.
-fn on_dialogue_completed(_event: On<DialogueCompleted>) {
-    info!(target: "ambition_sandbox::dialog::yarn", "DialogueCompleted");
+fn on_dialogue_completed(
+    _event: On<DialogueCompleted>,
+    mut state: ResMut<DialogState>,
+    mut next_mode: Option<ResMut<NextState<crate::game_mode::GameMode>>>,
+) {
+    state.active = false;
+    state.current_speaker.clear();
+    state.current_line.clear();
+    state.current_options.clear();
+    state.yarn_option_ids.clear();
+    state.selected_option = 0;
+    if let Some(next_mode) = next_mode.as_deref_mut() {
+        next_mode.set(crate::game_mode::GameMode::Playing);
+    }
 }

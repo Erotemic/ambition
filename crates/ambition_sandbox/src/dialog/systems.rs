@@ -1,7 +1,5 @@
-use ambition_engine as ae;
 use bevy::prelude::*;
 
-use super::content::{DialogRedirectGate, DIALOG_REGISTRY};
 use super::runtime::DialogState;
 use super::ui::DialogChoiceSlot;
 use crate::game_mode::GameMode;
@@ -14,7 +12,7 @@ use crate::ui_nav::apply_vertical_scroll;
 pub fn dialog_pointer_input(
     mut dialogue: ResMut<DialogState>,
     mode: Res<State<GameMode>>,
-    mut next_mode: ResMut<NextState<GameMode>>,
+    next_mode: ResMut<NextState<GameMode>>,
     choices: Query<(&Interaction, &DialogChoiceSlot), Changed<Interaction>>,
 ) {
     if !dialogue.active() {
@@ -53,10 +51,11 @@ pub fn dialog_pointer_input(
                     dialogue.selected_option = index;
                     if confirm {
                         dialogue.pointer_armed = None;
-                        let closed = dialogue.confirm_or_advance();
-                        if closed {
-                            next_mode.set(GameMode::Playing);
-                        }
+                        // Confirm advances via the Yarn dispatch
+                        // (sets pending_select/advance); the
+                        // dialog-completed observer flips
+                        // GameMode back to Playing.
+                        dialogue.confirm_or_advance();
                     } else {
                         dialogue.pointer_armed = Some(index);
                     }
@@ -65,16 +64,18 @@ pub fn dialog_pointer_input(
                 #[cfg(not(target_os = "android"))]
                 {
                     dialogue.selected_option = index;
-                    let closed = dialogue.confirm_or_advance();
-                    if closed {
-                        next_mode.set(GameMode::Playing);
-                    }
+                    dialogue.confirm_or_advance();
                 }
                 return;
             }
             Interaction::None => {}
         }
     }
+    // `next_mode` is reserved for the back-button path below — keep
+    // the parameter on the signature so the system schedule slot
+    // doesn't have to change when we add back-button support to the
+    // pointer surface.
+    let _ = next_mode;
 }
 
 #[cfg(not(feature = "input"))]
@@ -94,6 +95,10 @@ pub fn dialog_input(
         return;
     }
     if menu.back || menu.start {
+        // Back-button close: the dispatch system will tell the
+        // runner to stop, and the dialog-completed observer will
+        // flip the GameMode. The explicit `next_mode.set` here is
+        // belt-and-suspenders so the UI hides this same frame.
         dialogue.close();
         next_mode.set(GameMode::Playing);
         return;
@@ -115,58 +120,13 @@ pub fn dialog_input(
         dialogue.select_delta(1);
     }
     if frame.select {
-        let closed = dialogue.confirm_or_advance();
-        if closed {
-            next_mode.set(GameMode::Playing);
-        }
+        // The Yarn runner closes the dialogue asynchronously via
+        // the `DialogueCompleted` observer (which flips GameMode
+        // back to Playing). `confirm_or_advance` now always returns
+        // `false`; the legacy `if closed { ... }` branch is gone.
+        dialogue.confirm_or_advance();
     }
 }
 
 #[cfg(not(feature = "input"))]
 pub fn dialog_input() {}
-
-/// Swap the live dialog branch when world state has progressed past
-/// the conversation's original prompt. Iterates the redirect rules
-/// authored in `assets/data/dialogue/registry.ron` and applies the
-/// first one whose `from` id matches the active dialogue and whose
-/// `gate` predicate passes against the current save snapshot.
-///
-/// Today this covers two families of post-quest swaps:
-/// - Boss-cleared: post-mockingbird treasure beats for the pirate
-///   admiral + raider.
-/// - Flag-set: intro chain progressions (Oiler post-stabilizer,
-///   Alice / Bob after their survey-report exchange).
-///
-/// Adding a new redirect is a one-line edit in the RON file. No
-/// system code changes needed.
-///
-/// Runs each frame `.after(player_simulation_system).before(sync_dialog_ui)`
-/// so the redirected id is the one the renderer reads.
-pub fn redirect_post_quest_dialog(
-    mut dialogue: ResMut<DialogState>,
-    save: Option<Res<crate::persistence::save::SandboxSave>>,
-) {
-    if !dialogue.active() {
-        return;
-    }
-    let Some(save) = save else {
-        return;
-    };
-    let data = save.data();
-    for rule in &DIALOG_REGISTRY.redirects {
-        if dialogue.dialogue_id() != rule.from {
-            continue;
-        }
-        let gated = match &rule.gate {
-            DialogRedirectGate::BossCleared(encounter_id) => matches!(
-                data.boss(encounter_id),
-                ae::PersistedEncounterState::Cleared,
-            ),
-            DialogRedirectGate::FlagSet(flag) => data.flag(flag),
-        };
-        if gated {
-            dialogue.set_dialogue_id(&rule.to);
-            return;
-        }
-    }
-}

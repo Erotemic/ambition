@@ -682,18 +682,10 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         Update,
         crate::presentation::rendering::sync_parallax_layers.after(camera_follow),
     )
-    // Quest-state-driven dialog redirect: flips the live dialog
-    // branch the moment the underlying world state advances past
-    // the conversation's prompt (e.g. mockingbird is now dead).
-    // Must run after CoreSimulation (which is where dialog start
-    // happens) and before `sync_dialog_ui` (which renders the
-    // chosen branch) so the redirected mode is the one drawn.
-    .add_systems(
-        Update,
-        dialog::redirect_post_quest_dialog
-            .after(SandboxSet::CoreSimulation)
-            .before(dialog::sync_dialog_ui),
-    )
+    // Yarn-driven dialog migration retired `redirect_post_quest_dialog`:
+    // boss-cleared / flag-set redirects are now inline `<<if>>`
+    // branches inside the `.yarn` files (the Yarn runner evaluates
+    // them on each conversation start).
     // Encounter-driven LockWall visuals. Reconciles `LockWallVisual`
     // Bevy entities against `world.blocks` so the wall is visible
     // for the player when an encounter slams it shut. Must run

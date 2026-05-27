@@ -1,4 +1,5 @@
 title: architect_intro
+position: -42,-45
 ---
 Architect: You are standing inside a proof harness pretending to be a basement.
 Architect: Every platform is a claim. Every hurtbox is evidence.
@@ -10,6 +11,7 @@ Architect: Every platform is a claim. Every hurtbox is evidence.
 ===
 
 title: vault_keeper
+position: 142,187
 ---
 Vault Keeper: I do not sell power. I sell constraints you can inspect.
 -> Show the merchant plan.
@@ -20,6 +22,7 @@ Vault Keeper: I do not sell power. I sell constraints you can inspect.
 ===
 
 title: merchant_seed
+position: -321,31
 ---
 Merchant Prototype: A real shop should be a dialogue node with inventory, prices, requirements, consequences, and preview text.
 -> Buy health refill (stub).
@@ -30,6 +33,7 @@ Merchant Prototype: A real shop should be a dialogue node with inventory, prices
 ===
 
 title: hub_guide
+position: 257,-37
 ---
 Kernel Guide: Welcome back to The Kernel. The hub should teach routes without ambushing your movement inputs. Doors answer Interact first; double-tap up is only a deliberate fallback.
 -> Why is Interact separate from Up?

@@ -37,6 +37,8 @@ Kernel Guide: Welcome back to The Kernel. The hub should teach routes without am
     <<jump hub_guide__1>>
 -> What should I test next?
     <<jump hub_guide__2>>
+-> I would like to test dialog.
+    <<jump hub_guide__test>>
 -> Back to the hub.
 ===
 
@@ -97,4 +99,164 @@ Vault Keeper: Ethical currency is not a morality meter. It is provenance. Dirty 
 -> Back to the vault menu.
     <<jump vault_keeper>>
 -> Close the ledger.
+===
+
+title: hub_guide__test
+---
+<<if visit_count("hub_guide__test") <= 1>>
+    Kernel Guide: A test harness. Each option exercises one piece of the dialogue vocabulary the bridge supports — markup attributes, custom commands, save-state functions, multi-line beats.
+<<else>>
+    Kernel Guide: Back at the harness. Pick another verb to exercise.
+<<endif>>
+-> Markup: ⟨shout⟩
+    <<jump hub_guide__test_shout>>
+-> Markup: ⟨whisper⟩
+    <<jump hub_guide__test_whisper>>
+-> Multi-line accumulation.
+    <<jump hub_guide__test_multiline>>
+-> Command: set_flag / clear_flag
+    <<jump hub_guide__test_flag>>
+-> Command: play_sfx
+    <<jump hub_guide__test_sfx>>
+-> Command: give_item
+    <<jump hub_guide__test_item>>
+-> Command: camera_zoom
+    <<jump hub_guide__test_zoom>>
+-> Command: spawn_chest
+    <<jump hub_guide__test_chest>>
+-> Function: boss_cleared
+    <<jump hub_guide__test_boss>>
+-> Function: visit_count
+    <<jump hub_guide__test_visit>>
+-> Function: quest_active
+    <<jump hub_guide__test_quest>>
+-> Function: inventory_has
+    <<jump hub_guide__test_inv>>
+-> Back to the main hub guide.
+    <<jump hub_guide>>
+===
+
+title: hub_guide__test_shout
+---
+Kernel Guide: Next line uses ⟨shout⟩ markup. The bridge's on_present_line observer will set YarnPresentationCue.shout = true this frame; downstream consumers (camera shake, volume boost) read it.
+Kernel Guide: [shout]LOUD VOICE — CAMERA SHAKE HOOK FIRES NOW.[/shout]
+Kernel Guide: Back to normal. The cue auto-clears at the start of the next frame.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_whisper
+---
+Kernel Guide: Next line uses ⟨whisper⟩ markup. The cue's whisper = true triggers audio-pitch / volume-drop hooks.
+Kernel Guide: [whisper]quiet voice — pitched-down audio hook would fire here[/whisper]
+Kernel Guide: Normal voice again.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_multiline
+---
+Kernel Guide: Three consecutive lines, no options between, no Confirm presses between.
+Kernel Guide: The bridge auto-advances after each PresentLine and accumulates them into one body with paragraph breaks.
+Kernel Guide: You should be reading all three lines as one page right now, then picking the single option below.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_flag
+---
+<<if flag("kernel_guide_demo_flag")>>
+    Kernel Guide: The save mirror reads kernel_guide_demo_flag = TRUE.
+<<else>>
+    Kernel Guide: The save mirror reads kernel_guide_demo_flag = FALSE.
+<<endif>>
+Kernel Guide: The mirror refreshes once per frame from SandboxSave.flags. Toggle the flag here, return to the test menu, then come back to see the readback flip.
+-> Set the flag.
+    <<set_flag "kernel_guide_demo_flag">>
+    <<jump hub_guide__test>>
+-> Clear the flag.
+    <<clear_flag "kernel_guide_demo_flag">>
+    <<jump hub_guide__test>>
+-> Back to test menu (no change).
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_sfx
+---
+Kernel Guide: Emitting an SfxMessage::Play with id 'dialog_test_chime' through the audio bus.
+<<play_sfx "dialog_test_chime">>
+Kernel Guide: Command fired. If the SFX bank has a clip registered under that id, you heard it; otherwise the audio bus silently skips.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_item
+---
+Kernel Guide: Calling give_item HealthPotion 1.
+<<give_item "HealthPotion" 1>>
+Kernel Guide: Stub command — check stderr for the trace line. When the inventory adapter lands, this will actually grant an item.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_zoom
+---
+Kernel Guide: Calling camera_zoom 0.85.
+<<camera_zoom 0.85>>
+Kernel Guide: Stub. The cinematic-zoom override will land alongside the cinematic camera consumer system.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_chest
+---
+Kernel Guide: Calling spawn_chest 'kernel_demo_chest'.
+<<spawn_chest "kernel_demo_chest">>
+Kernel Guide: Stub. The chest-spawn-by-id consumer will land with the inventory and reward-flow work.
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_boss
+---
+<<if boss_cleared("mockingbird")>>
+    Kernel Guide: boss_cleared("mockingbird") returned TRUE. The bird is retired — the cove dialogue switches to its after-treasure variant on your next pirate visit.
+<<else>>
+    Kernel Guide: boss_cleared("mockingbird") returned FALSE. The encounter is Dormant or InProgress — go pay the Admiral a visit and let him point you at the right rooftop.
+<<endif>>
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_visit
+---
+<<if visit_count("hub_guide") == 1>>
+    Kernel Guide: visit_count("hub_guide") returned 1. First conversation this save.
+<<else>>
+    Kernel Guide: visit_count("hub_guide") returned more than 1. The counter pulls live from SandboxSaveData.dialog_visits — incremented every time DialogState.start fires with that id.
+<<endif>>
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_quest
+---
+<<if quest_active("pirate_treasure")>>
+    Kernel Guide: quest_active("pirate_treasure") returned TRUE. The Pirate Treasure quest is InProgress.
+<<else>>
+    Kernel Guide: quest_active("pirate_treasure") returned FALSE. Either NotStarted yet or already Completed.
+<<endif>>
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_inv
+---
+<<if inventory_has("HealthPotion")>>
+    Kernel Guide: inventory_has("HealthPotion") returned TRUE.
+<<else>>
+    Kernel Guide: inventory_has("HealthPotion") returned FALSE. Note — this function is a stub returning false until the inventory query surface lands.
+<<endif>>
+-> Back to test menu.
+    <<jump hub_guide__test>>
 ===

@@ -25,6 +25,10 @@ Useful companion docs:
 
 - [ ] Increase the resolution of gnuton so the sprite is not drawn pixelated. 
 
+- [ ] The pirate heavy is riding a goblin instead of a burning flying shark in the pirate sky. 
+
+- [ ] For mounted pirates, we aren't keeping a separate healthpool for the pirates and the sharks. We need to do that. In general the mount and rider always need separate health pools. Also when you kill one, it looks like the pirate should fall to the ground, but its the shark that falls to the ground and I think gets a pirate brain. Really what should happen is if the shark is killed the pirate falls, and if the pirate is killed the shark continues to fly and attack, but with its own patterns (so it feels maybe more wild than the pirate who was controlling it). Maybe it charges and if it hits a wall because it charges too far it explodes. 
+
 - [x] **NO BAKED DROP SHADOWS (2026-05-22)** — Project rule in agent memory ([[feedback-no-drop-shadows-on-sprites]]). Active generators (`intro_cart`, `creator_lab_props`) stripped in 3a2f5e3. Future generators must omit baked shadows by default; cast shadows belong in the ECS visual layer. **Follow-up:** add a renderer-time assertion that fails if there are opaque pixels below the foot-anchor row on a generated sprite, so a baked shadow trips CI instead of silently shipping.
 
 - [x] **LDtk authoring lint trio (2026-05-22, 3a2f5e3)** — `validate` now warns on (a) DebugLabel overlaps, (b) mid-air `Door` LoadingZones, (c) level boundaries that have no Solid AND no EdgeExit. Surfaces 32 warnings on the live intro slice — the actual content cleanup is the next item.

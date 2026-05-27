@@ -88,6 +88,13 @@ pub struct EnemyRuntime {
     /// it. Engine y grows downward, so floor → (0, -1), right wall
     /// → (-1, 0), ceiling → (0, 1), left wall → (1, 0).
     pub surface_normal: ae::Vec2,
+    /// Direction of the in-flight melee attack (set on
+    /// `begin_melee_attack`, read on the windup→active edge to
+    /// place the hitbox). `(facing, 0)` for a forward swing,
+    /// `(0, -1)` for an up-attack, `(0, +1)` for a down-air,
+    /// `(-facing, 0)` for a back-air. Persists across the entire
+    /// strike — once committed, the swing doesn't re-aim mid-windup.
+    pub pending_attack_axis: ae::Vec2,
 }
 
 /// Authored rule for when a defeated enemy should reappear. Picked
@@ -613,6 +620,7 @@ impl EnemyRuntime {
             choreography_state: ae::ChoreographyState::default(),
             rider_health: archetype.rider_max_health().map(ae::Health::new),
             surface_normal: ae::Vec2::new(0.0, -1.0),
+            pending_attack_axis: ae::Vec2::new(-1.0, 0.0),
         }
     }
 
@@ -651,6 +659,7 @@ impl EnemyRuntime {
         // collision-shape rewrite in `EnemyTickOutputs` reads the
         // unrotated `size`, which is correct again at floor stance.
         self.surface_normal = ae::Vec2::new(0.0, -1.0);
+        self.pending_attack_axis = ae::Vec2::new(-1.0, 0.0);
     }
 
     /// True when this actor still has a rider (live pirate on top).
@@ -987,6 +996,15 @@ impl EnemyRuntime {
                 // Match the previous ground-acceleration constant
                 // (650 px/s²·dt) so chase/patrol feel doesn't shift.
                 body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
+                // Jump impulse: when the brain commits `jump_pressed`
+                // AND the body is grounded, apply an upward kick.
+                // Engine y grows downward → negative vy = upward.
+                // Air-jumps (double-jump) aren't supported yet;
+                // re-pressing while airborne does nothing.
+                if frame.jump_pressed && body.on_ground {
+                    body.vel.y = -ENEMY_JUMP_SPEED;
+                    body.on_ground = false;
+                }
             }
             ae::step_kinematic(
                 &mut body,
@@ -1483,13 +1501,63 @@ impl EnemyRuntime {
         )
     }
 
+    /// Directional hitbox geometry. `axis` is normalized (or expected
+    /// to be small-magnitude); whichever component dominates picks
+    /// the swing shape:
+    ///   - `(±1, 0)` → forward / back swing (same shape as the
+    ///     legacy `attack_aabb`, offset by `facing.signum()` along x).
+    ///   - `(0, -1)` → up-attack: hitbox above the actor's head,
+    ///     wider on x than tall on y.
+    ///   - `(0, +1)` → down-air / stomp: hitbox below the feet,
+    ///     wider on x.
+    /// Used at the windup → active edge in `update_ecs_actors` so
+    /// the strike's `Hitbox` entity reflects the direction the brain
+    /// committed to when it called `begin_melee_attack`.
+    pub fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
+        let horizontal = axis.x.abs() >= axis.y.abs();
+        let center = if horizontal {
+            // Forward / back swing — pick the side from the axis sign
+            // (falls back to facing if axis.x is near zero).
+            let side = if axis.x.abs() > 0.1 {
+                axis.x.signum()
+            } else {
+                self.facing
+            };
+            self.pos + ae::Vec2::new(side * (self.size.x * 0.55 + 24.0), -4.0)
+        } else {
+            // Vertical attack — engine y grows downward, so
+            // `axis.y < 0` = up-attack, `axis.y > 0` = down-air.
+            let side = axis.y.signum();
+            self.pos + ae::Vec2::new(0.0, side * (self.size.y * 0.55 + 18.0))
+        };
+        let half = if horizontal {
+            ae::Vec2::new(34.0, 28.0)
+        } else {
+            // Wider on x, shorter on y — feels like a head-stomp /
+            // uppercut shape.
+            ae::Vec2::new(36.0, 20.0)
+        };
+        ae::Aabb::new(center, half)
+    }
+
     /// Begin a melee attack windup + cooldown. Called by the EFFECTS
     /// consumer `start_enemy_melee_from_brain_actions` in response
     /// to an `ActorActionMessage::Melee`. Returns `true` if the
     /// attack actually started (the cooldown gate passed). Sandbag
     /// archetypes deliberately accept this — their PunchWeak counter
     /// is the legitimate use case.
-    pub fn begin_melee_attack(&mut self, tuning: FeatureCombatTuning) -> bool {
+    ///
+    /// `attack_axis` is the swing direction the brain emitted on the
+    /// originating frame (forward / up / down / back). It is stored
+    /// on the runtime so the windup → active edge spawns the hitbox
+    /// in the same direction the brain committed to, even though the
+    /// edge fires many frames after the brain's decision. A zero
+    /// vector defaults to a forward swing along the actor's facing.
+    pub fn begin_melee_attack(
+        &mut self,
+        tuning: FeatureCombatTuning,
+        attack_axis: ae::Vec2,
+    ) -> bool {
         if self.attack_cooldown > 0.0 || !self.alive {
             return false;
         }
@@ -1503,6 +1571,11 @@ impl EnemyRuntime {
                 1.0
             };
         self.ai_mode = ae::CharacterAiMode::Telegraph;
+        self.pending_attack_axis = if attack_axis.length_squared() > 0.01 {
+            attack_axis.normalize_or_zero()
+        } else {
+            ae::Vec2::new(self.facing, 0.0)
+        };
         true
     }
 

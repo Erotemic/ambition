@@ -466,7 +466,10 @@ mod conversion_tests {
             frame.melee_pressed,
             "intent frame must request a melee when the player is in range"
         );
-        let started = enemy.begin_melee_attack(FeatureCombatTuning::default());
+        let started = enemy.begin_melee_attack(
+            FeatureCombatTuning::default(),
+            ae::Vec2::new(1.0, 0.0),
+        );
         assert!(started, "begin_melee_attack should accept the intent");
         assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Telegraph);
         assert!(enemy.attack_windup_timer > 0.0);

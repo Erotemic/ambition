@@ -13,6 +13,14 @@ use crate::world::platforms::MovingPlatformState;
 
 const ENEMY_GRAVITY: f32 = 1450.0;
 const ENEMY_MAX_FALL: f32 = 760.0;
+/// Vertical impulse (px/s) applied when a grounded enemy's
+/// `ActorControlFrame.jump_pressed` is true. Slightly under the
+/// player's `JUMP_SPEED` (630) so goblins jump a touch lower than
+/// the player — enough to clear a head-height target and commit
+/// an air attack, not enough to out-arc a player jumping straight
+/// up. Engine y grows downward; the integration applies
+/// `body.vel.y = -ENEMY_JUMP_SPEED`.
+const ENEMY_JUMP_SPEED: f32 = 520.0;
 // `ENEMY_PATROL_SPEED` / `ENEMY_CHASE_SPEED` / `ENEMY_ATTACK_RANGE`
 // retired by the enemy_archetypes.ron migration — each row now carries
 // its own speeds / ranges. If multiple archetypes drift back to the

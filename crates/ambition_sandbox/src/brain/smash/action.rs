@@ -83,8 +83,19 @@ pub fn choose_action(
     match mode {
         BroadMode::Idle => SpecificAction::Idle,
         BroadMode::Approach => {
+            // Vertical gap: if the player is significantly above us
+            // and we're grounded, jump to close the vertical
+            // distance. Engine y grows downward, so "target above"
+            // means `to_target_y` is strongly negative. Only fire on
+            // the ground (no double-jump support today) and only
+            // when not mid-attack.
+            if obs.self_on_ground && obs.to_target_y < -60.0 {
+                return SpecificAction::Jump;
+            }
             let dir = signum_or(obs.to_target_x, obs.self_facing);
-            SpecificAction::Walk { dir: dir * (cfg.chase_speed / cfg.chase_speed.max(1.0)) }
+            SpecificAction::Walk {
+                dir: dir * (cfg.chase_speed / cfg.chase_speed.max(1.0)),
+            }
         }
         BroadMode::Retreat => {
             // Move directly away from target.
@@ -99,9 +110,26 @@ pub fn choose_action(
                 && obs.distance_to_target <= cfg.attack_range
                 && obs.attack_cooldown_remaining <= 0.0
             {
-                // Forward swing along the target axis. The ActionSet
-                // owns the actual hitbox shape; the brain just
-                // commits the axis.
+                // Directional pick:
+                //   - Target meaningfully above (dy < -30): up-attack.
+                //   - We're above target (in air with target below):
+                //     down-air.
+                //   - Otherwise: forward swing along the target axis.
+                // Engine y grows downward, so `to_target_y < 0` means
+                // target is above; `to_target_y > 0` means below.
+                let dy = obs.to_target_y;
+                let above_target = dy > 28.0 && !obs.self_on_ground;
+                let target_above = dy < -28.0;
+                if above_target {
+                    return SpecificAction::MeleeAttack {
+                        dir: ae::Vec2::new(0.0, 1.0),
+                    };
+                }
+                if target_above {
+                    return SpecificAction::MeleeAttack {
+                        dir: ae::Vec2::new(0.0, -1.0),
+                    };
+                }
                 let axis_x = signum_or(obs.to_target_x, obs.self_facing);
                 return SpecificAction::MeleeAttack {
                     dir: ae::Vec2::new(axis_x, 0.0),
@@ -110,6 +138,12 @@ pub fn choose_action(
             // Out of swing range or on cooldown — close the rest of
             // the way at chase speed.
             if obs.distance_to_target > cfg.attack_range {
+                // Same jump-to-close-vertical-gap heuristic as
+                // Approach. Helps a grounded enemy follow a player
+                // who jumps onto a platform.
+                if obs.self_on_ground && obs.to_target_y < -60.0 {
+                    return SpecificAction::Jump;
+                }
                 let dir = signum_or(obs.to_target_x, obs.self_facing);
                 return SpecificAction::Walk { dir };
             }

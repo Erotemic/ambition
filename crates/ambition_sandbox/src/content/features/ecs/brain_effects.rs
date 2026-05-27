@@ -154,7 +154,7 @@ pub fn start_enemy_melee_from_brain_actions(
 ) {
     let combat_tuning = feel_tuning.feature_combat_tuning();
     for msg in messages.read() {
-        let ActionRequest::Melee { .. } = msg.request else {
+        let ActionRequest::Melee { attack_axis, .. } = msg.request else {
             continue;
         };
         let Ok(mut actor) = actors.get_mut(msg.actor) else {
@@ -175,7 +175,10 @@ pub fn start_enemy_melee_from_brain_actions(
         if !enemy.archetype.attacks_player() {
             continue;
         }
-        enemy.begin_melee_attack(combat_tuning);
+        // Thread the brain's attack axis through to the runtime so
+        // the windup → active edge spawns the hitbox in the same
+        // direction the brain committed to (forward / up / down / back).
+        enemy.begin_melee_attack(combat_tuning, attack_axis);
     }
 }
 

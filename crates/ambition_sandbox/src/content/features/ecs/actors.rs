@@ -515,7 +515,12 @@ pub fn update_ecs_actors(
                     && !was_active
                     && enemy.alive
                 {
-                    let attack_box = enemy.attack_aabb();
+                    // Directional swing: read the axis the brain
+                    // committed to in `begin_melee_attack`. Forward
+                    // axis falls back to the actor's facing; up /
+                    // down attacks place the hitbox above / below
+                    // the body instead of in front.
+                    let attack_box = enemy.attack_aabb_dir(enemy.pending_attack_axis);
                     let local_offset = attack_box.center() - enemy.pos;
                     super::hitbox::spawn_melee_hitbox(
                         &mut commands,

@@ -596,9 +596,9 @@ Each new catalog entry: `character_id`, `display_name`, sprite/manifest paths, `
 ## Validation gates (between every phase)
 
 ```bash
-~/.cargo/bin/cargo check -p ambition_engine
 ~/.cargo/bin/cargo check -p ambition_sandbox
-~/.cargo/bin/cargo test  -p ambition_engine  --lib
+~/.cargo/bin/cargo check -p ambition_sandbox
+~/.cargo/bin/cargo test  -p ambition_sandbox  --lib
 ~/.cargo/bin/cargo test  -p ambition_sandbox --lib
 ~/.cargo/bin/cargo run   -p ambition_sandbox --bin headless -- --ticks 100
 python3 -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk

@@ -19,7 +19,7 @@ The previous long execution plan was intentionally collapsed because the origina
 | Unified actor shape | `Brain`, `ActionSet`, and `ActorControl` are sibling components on controllable entities rather than fields in one monolithic actor struct. |
 | Brain reuse model | Keep a small set of reusable brain templates; put per-entity variety in `ActionSet` specs. |
 | Aggressiveness / hostility | Hostility remains policy state inside the brain/template, with `Brain::is_hostile()` / `StateMachineCfg::is_hostile()` as helpers. |
-| Crate ownership | Brain backends and effect consumers live in `ambition_sandbox`; `ambition_engine` owns narrow data/control vocabulary such as `ActorControlFrame`. |
+| Module ownership | Brain backends and effect consumers live in sandbox themed modules (`crate::brain`, `crate::content::features::ecs`); reusable mechanics primitives live in `crate::engine_core` (formerly the standalone `ambition_engine` crate; collapsed 2026-05-28). `ActorControlFrame` is sandbox-side at `crate::actor_control`. |
 | Edge semantics | Action edges live on `ActorControlFrame`; brains write the edge for the tick they want the action. |
 | Compatibility posture | Pre-release docs and saves may be broken by direct replacement when it keeps the architecture simpler. |
 
@@ -45,7 +45,7 @@ Design-risk notes that remain relevant: do not introduce a parallel “unbrained
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine actor_control
+cargo test -p ambition_sandbox actor_control
 cargo test -p ambition_sandbox --lib brain::
 cargo test -p ambition_sandbox --lib content::features::ecs::brain_effects
 cargo test -p ambition_sandbox --lib player::systems

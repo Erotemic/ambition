@@ -33,7 +33,6 @@ pub mod player_clusters;
 pub mod cutscene;
 pub mod geometry;
 pub mod interaction;
-pub mod kinematic;
 pub mod ledge_grab;
 pub mod movement;
 pub mod player_state;
@@ -73,7 +72,6 @@ pub use interaction::{
     Breakable, BreakableCollision, BreakableState, BreakableTrigger, Chest, ChestState,
     Interactable, InteractionKind, Pickup, PickupKind,
 };
-pub use kinematic::{step_kinematic, KinematicBody, KinematicInputs, KinematicTuning};
 pub use ledge_grab::{
     probe_ledge_grab, LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,
     LEDGE_GRAB_INVULN_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_ROLL_OVERSHOOT, LEDGE_ROLL_TIME,

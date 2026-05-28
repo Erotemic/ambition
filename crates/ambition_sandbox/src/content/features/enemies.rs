@@ -54,7 +54,7 @@ pub struct EnemyRuntime {
     /// HUD / rendering / debug overlay so they can branch on a single
     /// vocabulary instead of inferring it from the timer fields.
     pub ai_mode: ae::CharacterAiMode,
-    /// Set by [`ae::step_kinematic`](ambition_engine::step_kinematic)
+    /// Set by [`crate::kinematic::step_kinematic`](ambition_engine::step_kinematic)
     /// each tick. Used by chase-drop-through
     /// (enemy must be standing on something before it tries to fall
     /// through it) and by future jump AI.
@@ -981,7 +981,7 @@ impl EnemyRuntime {
             } else {
                 ENEMY_GRAVITY * self.gravity_scale
             };
-            let mut body = ae::KinematicBody {
+            let mut body = crate::kinematic::KinematicBody {
                 pos: self.pos,
                 vel: self.vel,
                 size: self.size,
@@ -1021,14 +1021,14 @@ impl EnemyRuntime {
                     }
                 }
             }
-            ae::step_kinematic(
+            crate::kinematic::step_kinematic(
                 &mut body,
                 world,
-                ae::KinematicTuning {
+                crate::kinematic::KinematicTuning {
                     gravity,
                     max_fall_speed: max_fall,
                 },
-                ae::KinematicInputs {
+                crate::kinematic::KinematicInputs {
                     drop_through: frame.drop_through,
                 },
                 dt,
@@ -1479,21 +1479,21 @@ impl EnemyRuntime {
     /// world-frame gravity; on landing, re-orients the slug onto a
     /// floor (normal = (0, -1)).
     fn fall_until_landed(&mut self, world: &ae::World, dt: f32) {
-        let mut body = ae::KinematicBody {
+        let mut body = crate::kinematic::KinematicBody {
             pos: self.pos,
             vel: self.vel,
             size: self.size,
             on_ground: self.on_ground,
             facing: self.facing,
         };
-        ae::step_kinematic(
+        crate::kinematic::step_kinematic(
             &mut body,
             world,
-            ae::KinematicTuning {
+            crate::kinematic::KinematicTuning {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
             },
-            ae::KinematicInputs {
+            crate::kinematic::KinematicInputs {
                 drop_through: false,
             },
             dt,

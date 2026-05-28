@@ -173,7 +173,7 @@ impl NpcRuntime {
     ///   Patrol mode — paths bypass the brain's `desired_vel.x` and
     ///   take over directly. The brain still owns mode + facing in
     ///   the path case.
-    /// - Bridges into `ae::step_kinematic` for gravity, OneWay, and
+    /// - Bridges into `crate::kinematic::step_kinematic` for gravity, OneWay, and
     ///   solid collision (unchanged from the pre-brain path).
     ///
     /// `target_pos` is the actor's "look at" target (typically the
@@ -273,7 +273,7 @@ impl NpcRuntime {
         self.vel.x = approach(self.vel.x, target_x, 650.0 * dt);
 
         // Engine kinematic sweep — gravity, OneWay, Solid collision.
-        let mut body = ae::KinematicBody {
+        let mut body = crate::kinematic::KinematicBody {
             pos: self.pos,
             vel: self.vel,
             size: self.size,
@@ -281,14 +281,14 @@ impl NpcRuntime {
             facing: self.facing,
         };
         let prev_vel_x = body.vel.x;
-        ae::step_kinematic(
+        crate::kinematic::step_kinematic(
             &mut body,
             world,
-            ae::KinematicTuning {
+            crate::kinematic::KinematicTuning {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
             },
-            ae::KinematicInputs::default(),
+            crate::kinematic::KinematicInputs::default(),
             dt,
         );
         self.pos = body.pos;

@@ -793,21 +793,21 @@ impl BossRuntime {
         // Bosses float (gravity = 0, max_fall_speed = 0). Multi-part
         // bosses like GNU-ton expose a `combat_size` distinct from
         // the sprite `size`; that's the size we collide against.
-        let mut body = ae::KinematicBody {
+        let mut body = crate::kinematic::KinematicBody {
             pos: self.pos,
             vel: desired_vel,
             size: self.combat_size(),
             on_ground: false,
             facing: 1.0,
         };
-        ae::step_kinematic(
+        crate::kinematic::step_kinematic(
             &mut body,
             world,
-            ae::KinematicTuning {
+            crate::kinematic::KinematicTuning {
                 gravity: 0.0,
                 max_fall_speed: 0.0,
             },
-            ae::KinematicInputs {
+            crate::kinematic::KinematicInputs {
                 drop_through: false,
             },
             dt,

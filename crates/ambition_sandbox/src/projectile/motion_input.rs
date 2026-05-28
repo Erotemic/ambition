@@ -103,7 +103,9 @@ impl MotionInputBuffer {
     /// Exposed as part of the public motion-input API even though the
     /// in-tree QCF recognizer reaches into `samples` directly; future
     /// gesture matchers (e.g. half-circle, dragon-punch) are expected
-    /// to consume this iterator.
+    /// to consume this iterator. Tested in the bottom-of-file
+    /// `tests` mod so the API stays callable even though no
+    /// production code calls it today.
     #[allow(dead_code)]
     pub fn directions(&self) -> impl Iterator<Item = MotionDirection> + '_ {
         self.samples.iter().map(|s| s.dir)
@@ -214,5 +216,37 @@ impl MotionInputBuffer {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn push(buffer: &mut MotionInputBuffer, dir: MotionDirection, at: f32) {
+        buffer.samples.push_back(MotionSample { dir, time: at });
+    }
+
+    #[test]
+    fn directions_yields_samples_in_oldest_first_order() {
+        let mut buffer = MotionInputBuffer::new(0.5);
+        push(&mut buffer, MotionDirection::Down, 0.0);
+        push(&mut buffer, MotionDirection::DownRight, 0.05);
+        push(&mut buffer, MotionDirection::Right, 0.10);
+        let dirs: Vec<MotionDirection> = buffer.directions().collect();
+        assert_eq!(
+            dirs,
+            vec![
+                MotionDirection::Down,
+                MotionDirection::DownRight,
+                MotionDirection::Right,
+            ]
+        );
+    }
+
+    #[test]
+    fn directions_is_empty_when_buffer_is_empty() {
+        let buffer = MotionInputBuffer::new(0.5);
+        assert_eq!(buffer.directions().count(), 0);
     }
 }

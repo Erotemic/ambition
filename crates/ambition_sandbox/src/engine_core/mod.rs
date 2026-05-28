@@ -42,7 +42,7 @@ pub use ledge_grab::{
 };
 pub use movement::{
     blink_destination_clusters, blink_destination_to_point_clusters, default_player_body_size,
-    update_player_control_scratch, update_player_control_with_clusters,
+    update_player_clusters, update_player_control_scratch, update_player_control_with_clusters,
     update_player_control_with_tuning_scratch, update_player_scratch,
     update_player_simulation_scratch, update_player_simulation_with_clusters,
     update_player_simulation_with_tuning_scratch, update_player_with_tuning_clusters,

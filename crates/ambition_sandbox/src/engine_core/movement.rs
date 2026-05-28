@@ -327,8 +327,10 @@ fn dec(value: f32, dt: f32) -> f32 {
     (value - dt).max(0.0)
 }
 
-/// Combined cluster-native equivalent of `update_player_with_tuning`.
-/// Runs control then simulation, mirroring the legacy entry point.
+/// Combined cluster-native player tick: control phase then simulation
+/// phase, using `tuning`. `InputState::control_dt` overrides `raw_dt`
+/// for the control phase when positive (so bullet-time slowing
+/// gravity does not slow input).
 pub fn update_player_with_tuning_clusters(
     world: &World,
     clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
@@ -347,10 +349,21 @@ pub fn update_player_with_tuning_clusters(
     events
 }
 
+/// `DEFAULT_TUNING` convenience wrapper for
+/// [`update_player_with_tuning_clusters`]. Useful in adapter sites
+/// (RL, headless drivers, lightweight integration tests) that don't
+/// need custom tuning knobs.
+pub fn update_player_clusters(
+    world: &World,
+    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+) -> FrameEvents {
+    update_player_with_tuning_clusters(world, clusters, input, raw_dt, DEFAULT_TUNING)
+}
+
 /// `PlayerClusterScratch`-based test wrapper: builds the cluster view
-/// in-place and dispatches to `update_player_with_tuning_clusters`. Goes
-/// away with the legacy `update_player_with_tuning` once
-/// `ae::Player`/the scratch are deleted.
+/// in-place and dispatches to `update_player_with_tuning_clusters`.
 pub fn update_player_with_tuning_scratch(
     world: &World,
     scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,

@@ -548,11 +548,10 @@ const CREATOR_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
 pub static CREATOR_SHEET: LazyLock<CharacterSheetSpec> =
     LazyLock::new(|| load_spec("creator", &CREATOR_TUNING));
 
-/// Fascist Enforcer — uniformed Nazi-dimension raid grunt. Toon-side
+/// Fascist Enforcer — uniformed later-game raid grunt. Toon-side
 /// adapter render; the dedicated `fascist_enforcer` archetype reads
-/// as "officer cap + storm uniform + rifle" so it's the correct
-/// silhouette for the intro Nazi salvage guard (the Absurd General
-/// placeholder was a satirical hub NPC, not a raid trooper).
+/// as "officer cap + storm uniform + rifle" and also serves as a
+/// temporary generic raid silhouette until more specific art lands.
 const FASCIST_ENFORCER_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
 pub static FASCIST_ENFORCER_SHEET: LazyLock<CharacterSheetSpec> =
     LazyLock::new(|| load_spec("fascist_enforcer", &FASCIST_ENFORCER_TUNING));

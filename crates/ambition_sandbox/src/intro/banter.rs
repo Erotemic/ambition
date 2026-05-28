@@ -2,7 +2,7 @@
 //!
 //! Story content for the [`crate::content::banter::CombatBanterRegistry`]:
 //! one-liners that the two intro raid antagonists yell when the
-//! player strikes them. Faction-flavored so the wrong-list narrative
+//! player strikes them. Raid-flavored so the wrong-list narrative
 //! beat keeps landing during combat (it doesn't only live in the
 //! intro_raid cutscene, which the player may have skipped).
 //!
@@ -16,29 +16,24 @@ use crate::content::banter::CombatBanterRegistry;
 /// per-name level — re-running replaces the line list for each
 /// matching name.
 pub fn install_intro_banter(registry: &mut CombatBanterRegistry) {
-    // Framebreaker (anti-machine hardliner). Lines hammer the
-    // anti-AI angle. `Clanker` is the deliberate slur the design
-    // doc reserves for hostile hardliners.
+    // Generic intro raiders: short, readable barks that keep the
+    // wrong-list pressure without front-loading later factions.
     registry.set_hit_barks(
-        "Framebreaker",
+        "Lab Raider",
         vec![
-            "Kill the Clanker before it learns our names!",
-            "No more replacement gods!",
-            "It does not have to be alive to ruin lives!",
-            "Stay down, scrap!",
+            "Contain the prototype!",
+            "Keep it away from the consoles!",
+            "No one leaves with the core!",
+            "Hold the west line!",
         ],
     );
-    // Nazi salvage guard. Lines tilt order-following + the
-    // wrong-list realization the cutscene plants — the player
-    // hears them out loud during combat in case the cutscene was
-    // skipped.
     registry.set_hit_barks(
-        "Nazi Salvage Guard",
+        "Salvage Guard",
         vec![
             "Hold your line!",
-            "This one isn't on the manifest — then manifest it!",
-            "Burn the notebooks!",
-            "Take anything that boots!",
+            "This one isn't on the manifest. Tag it and move!",
+            "Secure the notebooks!",
+            "Take only marked equipment!",
         ],
     );
 }
@@ -51,31 +46,22 @@ mod tests {
     fn install_intro_banter_registers_both_raiders() {
         let mut reg = CombatBanterRegistry::default();
         install_intro_banter(&mut reg);
-        assert!(reg.pick_hit_bark("Framebreaker", 0).is_some());
-        assert!(reg.pick_hit_bark("Nazi Salvage Guard", 0).is_some());
+        assert!(reg.pick_hit_bark("Lab Raider", 0).is_some());
+        assert!(reg.pick_hit_bark("Salvage Guard", 0).is_some());
     }
 
     #[test]
-    fn intro_banter_uses_clanker_slur_for_framebreaker_only() {
-        // Design doc constraint: `Clanker` only from hostile
-        // anti-machine hardliners, never neutral NPCs.
+    fn intro_banter_preserves_wrong_list_pressure() {
         let mut reg = CombatBanterRegistry::default();
         install_intro_banter(&mut reg);
-        let framebreaker_lines = reg
+        let joined = reg
             .on_hit
-            .get("Framebreaker")
-            .expect("framebreaker hit barks missing");
-        assert!(
-            framebreaker_lines.iter().any(|l| l.contains("Clanker")),
-            "Framebreaker barks should include the Clanker slur"
-        );
-        let nazi_lines = reg
-            .on_hit
-            .get("Nazi Salvage Guard")
-            .expect("nazi guard hit barks missing");
-        assert!(
-            !nazi_lines.iter().any(|l| l.contains("Clanker")),
-            "Nazi Salvage Guard barks must NOT use the Clanker slur"
-        );
+            .values()
+            .flatten()
+            .copied()
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(joined.contains("manifest"));
+        assert!(joined.contains("prototype"));
     }
 }

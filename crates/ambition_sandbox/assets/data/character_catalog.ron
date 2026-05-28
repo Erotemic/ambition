@@ -519,8 +519,8 @@
             default_action_set: "peaceful",
             tags: ["intro", "story"],
         ),
-        "npc_framebreaker": (
-            display_name: "Framebreaker",
+        "npc_lab_raider": (
+            display_name: "Lab Raider",
             spritesheet: "sprites/fascist_enforcer_spritesheet.png",
             manifest: "sprites/fascist_enforcer_spritesheet.ron",
             tier: MainHall,
@@ -530,8 +530,8 @@
             default_action_set: "striker_swipe",
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
         ),
-        "npc_nazi_salvage_guard": (
-            display_name: "Nazi Salvage Guard",
+        "npc_salvage_guard": (
+            display_name: "Salvage Guard",
             spritesheet: "sprites/fascist_enforcer_spritesheet.png",
             manifest: "sprites/fascist_enforcer_spritesheet.ron",
             tier: MainHall,

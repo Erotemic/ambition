@@ -82,15 +82,15 @@ fn intro_raid_script() -> crate::cutscene::CutsceneScript {
             },
             crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Salvage Lead".into(),
-                text: "Wrong room. Take anything that boots.".into(),
+                text: "Wrong room. Secure anything that boots.".into(),
             },
             crate::cutscene::CutsceneBeat::Dialogue {
-                speaker: "Framebreaker".into(),
-                text: "Kill the Clanker before it learns our names.".into(),
+                speaker: "Lab Raider".into(),
+                text: "Prototype is awake. Keep it away from the doors.".into(),
             },
             crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Salvage Lead".into(),
-                text: "This one isn't on the manifest. — Then manifest it.".into(),
+                text: "This one isn't on the manifest. Tag it and move.".into(),
             },
             crate::cutscene::CutsceneBeat::SetFlag {
                 id: "intro_raid_started".into(),

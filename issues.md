@@ -2,7 +2,7 @@ Several issues:
 
 * First we are not making use of the new sprites, especially the new tilesets. We need to hook those in, and likely make ldtk aware of them so visuals in ltdk somewhat match the visuals in game. We will need to ensure we are rending them there too. Make sure not to hack anything together if it is supported by cannonical bevy or cannonical ldtk usage (esp wrt to the bevy_ldtk crate).
 
-   Specific examples of this: we are not using the new creators sprite, we are not using the wagon sprite, we have lots of lab props that are not used, the nazi is using the general instead of the fascist sprite.
+   Specific examples of this: we are not using the new creators sprite, we are not using the wagon sprite, we have lots of lab props that are not used, and the intro raiders need their placeholder art reviewed against the current sprite roster.
 
    
    The door into the intro should spawn us on the diagnostic cart, just as it would happen if the game was completed and we started a new game.

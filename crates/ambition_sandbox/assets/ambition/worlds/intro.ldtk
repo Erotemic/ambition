@@ -6282,9 +6282,9 @@
 							"defUid": 2008,
 							"px": [400,432],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Framebreaker", "__tile": null, "defUid": 3018, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "Lab Raider", "__tile": null, "defUid": 3018, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Framebreaker"]
+									"params": ["Lab Raider"]
 								}] },
 								{ "__identifier": "brain", "__type": "String", "__value": "medium_striker", "__tile": null, "defUid": 3019, "realEditorValues": [{
 									"id": "V_String",
@@ -6339,9 +6339,9 @@
 							"defUid": 2008,
 							"px": [1200,432],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Nazi Salvage Guard", "__tile": null, "defUid": 3018, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "Salvage Guard", "__tile": null, "defUid": 3018, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Nazi Salvage Guard"]
+									"params": ["Salvage Guard"]
 								}] },
 								{ "__identifier": "brain", "__type": "String", "__value": "gradient_seeker", "__tile": null, "defUid": 3019, "realEditorValues": [{
 									"id": "V_String",
@@ -16099,13 +16099,13 @@
 							"defUid": 2007,
 							"px": [40,96],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "gate_stack_sign_nazi_suspended", "__tile": null, "defUid": 3015, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "gate_stack_sign_service_suspended", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["gate_stack_sign_nazi_suspended"]
+									"params": ["gate_stack_sign_service_suspended"]
 								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Nazi Dimension passenger service remains suspended", "__tile": null, "defUid": 3016, "realEditorValues": [{
+								{ "__identifier": "text", "__type": "String", "__value": "Gate Six passenger service remains suspended", "__tile": null, "defUid": 3016, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Nazi Dimension passenger service remains suspended"]
+									"params": ["Gate Six passenger service remains suspended"]
 								}] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							],

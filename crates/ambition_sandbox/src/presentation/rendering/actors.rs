@@ -208,9 +208,9 @@ pub fn upgrade_enemy_sprites(
         //
         // Fallback for direct EnemySpawn entities (no NPC migration
         // history): try the enemy's display name against the same
-        // NPC sprite registry. "Framebreaker" + "Nazi Salvage Guard"
-        // resolve to fascist_enforcer_spritesheet this way without
-        // authors having to duplicate the registry entry on an
+        // NPC sprite registry. Intro raiders resolve to their
+        // placeholder sheet this way without authors having to
+        // duplicate the registry entry on an
         // enemy-side table.
         let character_asset =
             match crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors) {

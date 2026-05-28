@@ -33555,9 +33555,9 @@
 							"defUid": 2006,
 							"px": [176,736],
 							"fieldInstances": [
-								{ "__identifier": "character_id", "__type": "String", "__value": "npc_framebreaker", "__tile": null, "defUid": 3012, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_lab_raider", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["npc_framebreaker"]
+									"params": ["npc_lab_raider"]
 								}] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Inspect", "__tile": null, "defUid": 3013, "realEditorValues": [{
 									"id": "V_String",
@@ -33583,13 +33583,13 @@
 							"defUid": 2007,
 							"px": [132,596],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_framebreaker", "__tile": null, "defUid": 3015, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_lab_raider", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["hall_label_npc_framebreaker"]
+									"params": ["hall_label_npc_lab_raider"]
 								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Framebreaker", "__tile": null, "defUid": 3016, "realEditorValues": [{
+								{ "__identifier": "text", "__type": "String", "__value": "Lab Raider", "__tile": null, "defUid": 3016, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Framebreaker"]
+									"params": ["Lab Raider"]
 								}] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							],
@@ -33609,9 +33609,9 @@
 							"defUid": 2006,
 							"px": [304,736],
 							"fieldInstances": [
-								{ "__identifier": "character_id", "__type": "String", "__value": "npc_nazi_salvage_guard", "__tile": null, "defUid": 3012, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_salvage_guard", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["npc_nazi_salvage_guard"]
+									"params": ["npc_salvage_guard"]
 								}] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Inspect", "__tile": null, "defUid": 3013, "realEditorValues": [{
 									"id": "V_String",
@@ -33637,13 +33637,13 @@
 							"defUid": 2007,
 							"px": [260,596],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_nazi_salvage_guard", "__tile": null, "defUid": 3015, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_salvage_guard", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["hall_label_npc_nazi_salvage_guard"]
+									"params": ["hall_label_npc_salvage_guard"]
 								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Nazi Salvage Guard", "__tile": null, "defUid": 3016, "realEditorValues": [{
+								{ "__identifier": "text", "__type": "String", "__value": "Salvage Guard", "__tile": null, "defUid": 3016, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Nazi Salvage Guard"]
+									"params": ["Salvage Guard"]
 								}] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							],

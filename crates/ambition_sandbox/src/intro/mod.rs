@@ -5,8 +5,8 @@
 //! The module owns:
 //!
 //! - [`dialog`] — IntroDialog enum + node tables for the 8 intro NPCs
-//!   (Creator wake / final, Oiler, Gate Janitor, Framebreaker,
-//!   Nazi salvage guard, news board, manifest kiosk). Hooked into
+//!   (Creator wake / final, Oiler, Gate Janitor, lab raider,
+//!   salvage guard, news board, manifest kiosk). Hooked into
 //!   `crate::dialog::DialogMode::Intro(_)` so the existing dialog
 //!   runtime / UI surfaces them with no extra plumbing.
 //!

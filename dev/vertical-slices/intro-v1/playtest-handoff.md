@@ -283,7 +283,7 @@ LABELLED (DebugLabel; no behavioral effect yet)
   - alice_private_return_lock + gate_alice_private_lock LockWalls.
   - "submit private route" evil/lawful terminal (DOES NOT EXIST).
   - Forest/sky teases in drain_alley.
-  - The "→ Manifest Office (TBD)" / "→ Nazi Fortress (TBD)" labels
+  - The "→ Manifest Office (TBD)" / "→ Restricted Fortress (TBD)" labels
     in gate_stack_lower.
 ```
 

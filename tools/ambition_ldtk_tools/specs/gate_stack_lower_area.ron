@@ -288,8 +288,8 @@
                 24,
             ],
             fields: (
-                name: "gate_stack_sign_nazi_suspended",
-                text: "Nazi Dimension passenger service remains suspended",
+                name: "gate_stack_sign_service_suspended",
+                text: "Gate Six passenger service remains suspended",
                 category: "Custom",
             ),
         ),

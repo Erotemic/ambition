@@ -17,8 +17,8 @@
 //   +-----------------------------------------------------------------+
 //   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
 //   |                                                                 |
-//   | ←  [Framebreaker]      [Creator   [Nazi Salvage]              → |
-//   |                         dying]      Guard]                      |
+//   | ←  [Lab Raider]        [Creator   [Salvage Guard]             → |
+//   |                         dying]                                  |
 //   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
 //   +-----------------------------------------------------------------+
 
@@ -106,7 +106,7 @@
                 48,
             ],
             fields: (
-                name: "Framebreaker",
+                name: "Lab Raider",
                 brain: "medium_striker",
             ),
         ),
@@ -137,7 +137,7 @@
                 48,
             ],
             fields: (
-                name: "Nazi Salvage Guard",
+                name: "Salvage Guard",
                 brain: "gradient_seeker",
             ),
         ),

@@ -1468,7 +1468,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_framebreaker",
+                character_id: "npc_lab_raider",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -1485,8 +1485,8 @@
                 20,
             ],
             fields: (
-                name: "hall_label_npc_framebreaker",
-                text: "Framebreaker",
+                name: "hall_label_npc_lab_raider",
+                text: "Lab Raider",
                 category: "Custom",
             ),
         ),
@@ -1501,7 +1501,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_nazi_salvage_guard",
+                character_id: "npc_salvage_guard",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -1518,8 +1518,8 @@
                 20,
             ],
             fields: (
-                name: "hall_label_npc_nazi_salvage_guard",
-                text: "Nazi Salvage Guard",
+                name: "hall_label_npc_salvage_guard",
+                text: "Salvage Guard",
                 category: "Custom",
             ),
         ),

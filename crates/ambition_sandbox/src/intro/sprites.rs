@@ -1,7 +1,7 @@
 //! Intro NPC sprite placeholders.
 //!
 //! Until proper character sheets exist for Creator / Oiler / Gate Janitor /
-//! Framebreaker / Manifest Clerk, intro NPCs reuse the toon-target
+//! Lab Raider / Manifest Clerk, intro NPCs reuse the toon-target
 //! spritesheets that already ship with the sandbox. The doc's placeholder
 //! mapping (`Story handoff` § "Recommended placeholder mapping") drives
 //! the picks here; rows are keyed by exact `NpcSpawn.name` from
@@ -55,22 +55,17 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(
     // `name: Erdish` is authored in a later room), but pre-registered
     // so the sprite is ready the moment LDtk authoring catches up.
     ("Erdish", "erdish_spritesheet.png", &ERDISH_SHEET),
-    // Framebreaker (anti-machine hardliner). Fascist enforcer reads
-    // as "uniformed raid grunt" which fits this role better than the
-    // earlier goblin placeholder — both intro raid factions wear
-    // uniforms; the Framebreaker palette is just a different colorway.
-    // TODO(sprites): dedicated framebreaker sheet when art lands.
+    // Lab Raider: generic intro pressure enemy. Reuses the uniformed
+    // raid-grunt sheet until dedicated intro enemy art lands.
     (
-        "Framebreaker",
+        "Lab Raider",
         "fascist_enforcer_spritesheet.png",
         &FASCIST_ENFORCER_SHEET,
     ),
-    // Nazi salvage guard. Fascist Enforcer is the correct raid-trooper
-    // sheet — the previous Absurd General was a satirical hub NPC, not
-    // a uniformed dimension trooper. Officer cap + storm uniform +
-    // rifle reads correctly for the basement raid.
+    // Salvage Guard: second generic intro pressure enemy. Shares the
+    // temporary raid-grunt sheet so the intro stays content-driven.
     (
-        "Nazi Salvage Guard",
+        "Salvage Guard",
         "fascist_enforcer_spritesheet.png",
         &FASCIST_ENFORCER_SHEET,
     ),
@@ -196,8 +191,8 @@ pub fn intro_npc_label(npc_name: &str) -> &'static str {
         "Oiler" => "oiler",
         "Gate Janitor" => "gate_janitor",
         "Erdish" => "erdish",
-        "Framebreaker" => "framebreaker",
-        "Nazi Salvage Guard" => "nazi_salvage_guard",
+        "Lab Raider" => "lab_raider",
+        "Salvage Guard" => "salvage_guard",
         "Manifest Clerk" => "manifest_clerk",
         "News Board" => "news_board",
         "Alice" => "alice",

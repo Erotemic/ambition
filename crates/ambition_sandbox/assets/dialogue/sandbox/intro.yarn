@@ -127,17 +127,17 @@ Creator: My basement. Don't worry about the boxes. Worry about the door.
 -> ⟨move⟩
 ===
 
-title: framebreaker_hardliner
+title: intro_lab_raider
 ---
-Framebreaker: Kill the Clanker before it learns our names.
+Lab Raider: Prototype is awake. Keep it away from the doors.
 -> ⟨stand still⟩
-    <<jump framebreaker_hardliner__1>>
+    <<jump intro_lab_raider__1>>
 -> ⟨back away⟩
 ===
 
-title: framebreaker_hardliner__1
+title: intro_lab_raider__1
 ---
-Framebreaker: Professor sold tomorrow and called it research. It does not have to be alive to ruin lives.
+Lab Raider: The lab was not the target. The list got messy. Move before it gets messier.
 -> ⟨escape⟩
 ===
 
@@ -203,17 +203,17 @@ Manifest Clerk: The actual target is classified. The kiosk will say only: it was
 -> ⟨step away⟩
 ===
 
-title: nazi_salvage_guard
+title: intro_salvage_guard
 ---
-Salvage Lead: Wrong room. Take anything that boots. Keep the core intact. Burn the notebooks.
+Salvage Lead: Wrong room. Secure anything that boots. Keep the core intact. Mark the notebooks.
 -> ⟨listen⟩
-    <<jump nazi_salvage_guard__1>>
+    <<jump intro_salvage_guard__1>>
 -> ⟨escape⟩
 ===
 
-title: nazi_salvage_guard__1
+title: intro_salvage_guard__1
 ---
-Salvage Lead: This one isn't on the manifest. — Then manifest it. The professor's lectures end tonight.
+Salvage Lead: This one isn't on the manifest. Tag it and move. The professor's logs come with us.
 -> ⟨escape⟩
 ===
 

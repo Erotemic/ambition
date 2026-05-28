@@ -88,7 +88,9 @@ Implementation hooks:
 Existing anchor:
 
 - `intro_raid_corridor`
-- `Framebreaker` enemy, `Nazi Salvage Guard` enemy. (NOTE: The Flamebreaker name is not set in stone), and we might change the other faction so Nazis are introduced later.
+- `Lab Raider` enemy, `Salvage Guard` enemy. These are generic intro pressure
+  enemies; named later-game factions should enter after the classroom-friendly
+  opening route.
 
 - Creator Final NPC and fast/impossible dialogue variants
 - Debug labels already plant the manifest/wrong-list joke
@@ -102,17 +104,16 @@ Gameplay goal:
 
 Story goal:
 
-- The factions are not symmetric. Both are dangerous here, but the authoritarian
-  salvage force is explicitly evil and bureaucratic; the Framebreakers are
-  violent anti-machine hardliners driven by fear and grievance.
+- The two raider groups are not symmetric, but the intro should read as an
+  immediate wrong-list incident rather than a named faction reveal.
 - The lab was not the actual target. The victim is retroactively filed into the
   target list because institutions prefer valid paperwork to truth.
 
 Graphical direction:
 
 - Broken lab corridor, alarm strips, smoke, signs that contradict each other.
-- Faction silhouettes should be readable even with placeholder sprites: boots
-  and lists for the salvage force, improvised iron tools for Framebreakers.
+- Raider silhouettes should be readable even with placeholder sprites: boots,
+  clipboards, and improvised tools.
 
 Music/audio direction:
 
@@ -205,7 +206,7 @@ Existing anchor:
 - Gate Janitor with `gate_janitor_ripple`
 - Manifest Clerk with `manifest_kiosk_wrong_list`
 - Portal switch and `intro_portal_zone` back to `central_hub_complex`
-- Signs about delayed gates, Nazi Dimension service, tolls, and shark traffic
+- Signs about delayed gates, suspended passenger service, tolls, and shark traffic
 
 Gameplay goal:
 

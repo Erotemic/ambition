@@ -41,8 +41,6 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Portal Gun - classic blue and orange. Carries momentum.
 
-- [ ] Clean out the done items in the TODO list and move relevant entries to FEATURES or other docs to ensure they are updated and not bloated.
-
 - [ ] Boss phase transitions "screams" / "animations"
 
 - [ ] Implement the TODOS for the kernel NPC dialog tree

@@ -3,7 +3,11 @@
 
 use ambition_sandbox as sb;
 use sb::engine_core as ae;
-use ae::{AbilitySet, Block, InputState, Player, World, DEFAULT_TUNING};
+use ae::{AbilitySet, Block, InputState, PlayerClusterScratch, World, DEFAULT_TUNING};
+
+fn scratch_at(spawn: ae::Vec2) -> PlayerClusterScratch {
+    sb::player::primary_player_scratch(spawn, AbilitySet::sandbox_all())
+}
 
 #[test]
 fn square_arena_wall_cling_does_not_teleport() {
@@ -34,16 +38,16 @@ fn square_arena_wall_cling_does_not_teleport() {
         ],
     );
 
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
-    player.pos = ae::Vec2::new(62.0, 1567.91);
-    player.vel = ae::Vec2::new(0.0, 31.1);
-    player.on_ground = false;
-    player.on_wall = true;
-    player.wall_normal_x = 1.0;
-    player.wall_clinging = true;
+    let mut player = scratch_at(world.spawn);
+    player.kinematics.pos = ae::Vec2::new(62.0, 1567.91);
+    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
+    player.ground.on_ground = false;
+    player.wall.on_wall = true;
+    player.wall.wall_normal_x = 1.0;
+    player.wall.wall_clinging = true;
 
-    let initial = player.pos;
-    let _ = ae::update_player_simulation_with_tuning(
+    let initial = player.kinematics.pos;
+    let _ = ae::update_player_simulation_with_tuning_scratch(
         &world,
         &mut player,
         InputState {
@@ -56,19 +60,19 @@ fn square_arena_wall_cling_does_not_teleport() {
     );
     println!(
         "after step: pos=({},{}) vel=({},{}) on_ground={} on_wall={}",
-        player.pos.x, player.pos.y, player.vel.x, player.vel.y, player.on_ground, player.on_wall
+        player.kinematics.pos.x, player.kinematics.pos.y, player.kinematics.vel.x, player.kinematics.vel.y, player.ground.on_ground, player.wall.on_wall
     );
-    let dy_a = (player.pos.y - initial.y).abs();
+    let dy_a = (player.kinematics.pos.y - initial.y).abs();
     assert!(
-        player.pos.y >= 0.0 && player.pos.y <= world.size.y,
+        player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
         "teleported out of world: pos={:?}",
-        player.pos
+        player.kinematics.pos
     );
     assert!(
         dy_a < 50.0,
         "dy={dy_a} (initial y={}, after y={})",
         initial.y,
-        player.pos.y
+        player.kinematics.pos.y
     );
 }
 
@@ -98,17 +102,17 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
         ],
     );
 
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+    let mut player = scratch_at(world.spawn);
     // 0.01 px x penetration into the wall.
-    player.pos = ae::Vec2::new(62.0 - 0.01, 1567.91);
-    player.vel = ae::Vec2::new(0.0, 31.1);
-    player.on_ground = false;
-    player.on_wall = true;
-    player.wall_normal_x = 1.0;
-    player.wall_clinging = true;
+    player.kinematics.pos = ae::Vec2::new(62.0 - 0.01, 1567.91);
+    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
+    player.ground.on_ground = false;
+    player.wall.on_wall = true;
+    player.wall.wall_normal_x = 1.0;
+    player.wall.wall_clinging = true;
 
-    let initial = player.pos;
-    let _ = ae::update_player_simulation_with_tuning(
+    let initial = player.kinematics.pos;
+    let _ = ae::update_player_simulation_with_tuning_scratch(
         &world,
         &mut player,
         InputState {
@@ -121,19 +125,19 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
     );
     println!(
         "after step: pos=({},{}) vel=({},{}) on_ground={} on_wall={}",
-        player.pos.x, player.pos.y, player.vel.x, player.vel.y, player.on_ground, player.on_wall
+        player.kinematics.pos.x, player.kinematics.pos.y, player.kinematics.vel.x, player.kinematics.vel.y, player.ground.on_ground, player.wall.on_wall
     );
-    let dy_b = (player.pos.y - initial.y).abs();
+    let dy_b = (player.kinematics.pos.y - initial.y).abs();
     assert!(
-        player.pos.y >= 0.0 && player.pos.y <= world.size.y,
+        player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
         "teleported out of world: pos={:?}",
-        player.pos
+        player.kinematics.pos
     );
     assert!(
         dy_b < 50.0,
         "dy={dy_b} (initial y={}, after y={})",
         initial.y,
-        player.pos.y
+        player.kinematics.pos.y
     );
 }
 
@@ -159,16 +163,16 @@ fn locate_teleport_target_block() {
     // see if it triggers the teleport.
     for (i, candidate) in world.blocks.iter().enumerate() {
         let single = World::new("single", world.size, world.spawn, vec![candidate.clone()]);
-        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
-        player.pos = ae::Vec2::new(62.0, 1567.9125);
-        player.vel = ae::Vec2::new(0.0, 31.148);
-        player.on_ground = false;
-        player.on_wall = true;
-        player.wall_normal_x = 1.0;
-        player.wall_clinging = true;
-        player.facing = -1.0;
-        let initial = player.pos;
-        let _ = ae::update_player_simulation_with_tuning(
+        let mut player = scratch_at(world.spawn);
+        player.kinematics.pos = ae::Vec2::new(62.0, 1567.9125);
+        player.kinematics.vel = ae::Vec2::new(0.0, 31.148);
+        player.ground.on_ground = false;
+        player.wall.on_wall = true;
+        player.wall.wall_normal_x = 1.0;
+        player.wall.wall_clinging = true;
+        player.kinematics.facing = -1.0;
+        let initial = player.kinematics.pos;
+        let _ = ae::update_player_simulation_with_tuning_scratch(
             &single,
             &mut player,
             InputState {
@@ -179,14 +183,14 @@ fn locate_teleport_target_block() {
             0.0069,
             DEFAULT_TUNING,
         );
-        let dy = (player.pos.y - initial.y).abs();
+        let dy = (player.kinematics.pos.y - initial.y).abs();
         if dy > 50.0 {
             println!(
                 "BLOCK {i} TRIGGERS teleport: {:?} {} aabb=({:.1},{:.1})→({:.1},{:.1})  dy={:.1}, after_pos.y={:.1}",
                 candidate.kind, candidate.name,
                 candidate.aabb.min.x, candidate.aabb.min.y,
                 candidate.aabb.max.x, candidate.aabb.max.y,
-                dy, player.pos.y,
+                dy, player.kinematics.pos.y,
             );
         } else {
             println!(
@@ -219,19 +223,19 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
     let augmented = sb::features::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
 
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+    let mut player = scratch_at(world.spawn);
     // EXACT live state from frame 1087 of trace 1777905256-095151097-000000.
-    player.pos = ae::Vec2::new(62.0, 1567.9125);
-    player.vel = ae::Vec2::new(0.0, 31.148);
-    player.on_ground = false;
-    player.on_wall = true;
-    player.wall_normal_x = 1.0;
-    player.wall_clinging = true;
-    player.facing = -1.0;
+    player.kinematics.pos = ae::Vec2::new(62.0, 1567.9125);
+    player.kinematics.vel = ae::Vec2::new(0.0, 31.148);
+    player.ground.on_ground = false;
+    player.wall.on_wall = true;
+    player.wall.wall_normal_x = 1.0;
+    player.wall.wall_clinging = true;
+    player.kinematics.facing = -1.0;
 
-    let initial = player.pos;
+    let initial = player.kinematics.pos;
     let dt = 0.00677_f32; // live frame 1088 real_dt
-    let _ = ae::update_player_simulation_with_tuning(
+    let _ = ae::update_player_simulation_with_tuning_scratch(
         &augmented,
         &mut player,
         InputState {
@@ -244,25 +248,25 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
     );
     println!(
         "FULL WORLD step: pos=({}, {}) vel=({}, {}) on_ground={} on_wall={} cling={}",
-        player.pos.x,
-        player.pos.y,
-        player.vel.x,
-        player.vel.y,
-        player.on_ground,
-        player.on_wall,
-        player.wall_clinging
+        player.kinematics.pos.x,
+        player.kinematics.pos.y,
+        player.kinematics.vel.x,
+        player.kinematics.vel.y,
+        player.ground.on_ground,
+        player.wall.on_wall,
+        player.wall.wall_clinging
     );
-    let dy_c = (player.pos.y - initial.y).abs();
+    let dy_c = (player.kinematics.pos.y - initial.y).abs();
     assert!(
-        player.pos.y >= 0.0 && player.pos.y <= world.size.y,
+        player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
         "teleported out of world: pos={:?}",
-        player.pos
+        player.kinematics.pos
     );
     assert!(
         dy_c < 50.0,
         "dy={dy_c} (initial y={}, after y={})",
         initial.y,
-        player.pos.y
+        player.kinematics.pos.y
     );
 }
 
@@ -287,18 +291,18 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
     let augmented = sb::features::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
 
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
-    player.pos = ae::Vec2::new(62.0, 1567.9125);
-    player.vel = ae::Vec2::new(0.0, 31.148);
-    player.on_ground = false;
-    player.on_wall = true;
-    player.wall_normal_x = 1.0;
-    player.wall_clinging = true;
-    player.facing = -1.0;
+    let mut player = scratch_at(world.spawn);
+    player.kinematics.pos = ae::Vec2::new(62.0, 1567.9125);
+    player.kinematics.vel = ae::Vec2::new(0.0, 31.148);
+    player.ground.on_ground = false;
+    player.wall.on_wall = true;
+    player.wall.wall_normal_x = 1.0;
+    player.wall.wall_clinging = true;
+    player.kinematics.facing = -1.0;
 
     for i in 0..200 {
         let dt = 0.0069_f32;
-        let _ = ae::update_player_simulation_with_tuning(
+        let _ = ae::update_player_simulation_with_tuning_scratch(
             &augmented,
             &mut player,
             InputState {
@@ -309,21 +313,21 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
             dt,
             DEFAULT_TUNING,
         );
-        if player.pos.y < 100.0 || player.pos.y > world.size.y - 32.0 {
+        if player.kinematics.pos.y < 100.0 || player.kinematics.pos.y > world.size.y - 32.0 {
             panic!(
                 "TELEPORT at iter {i}: pos=({}, {}) vel=({}, {}) on_ground={} on_wall={}",
-                player.pos.x,
-                player.pos.y,
-                player.vel.x,
-                player.vel.y,
-                player.on_ground,
-                player.on_wall
+                player.kinematics.pos.x,
+                player.kinematics.pos.y,
+                player.kinematics.vel.x,
+                player.kinematics.vel.y,
+                player.ground.on_ground,
+                player.wall.on_wall
             );
         }
     }
     println!(
         "after 200 steps: pos=({}, {}) vel=({}, {})",
-        player.pos.x, player.pos.y, player.vel.x, player.vel.y
+        player.kinematics.pos.x, player.kinematics.pos.y, player.kinematics.vel.x, player.kinematics.vel.y
     );
 }
 
@@ -374,18 +378,18 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
         ],
     );
 
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+    let mut player = scratch_at(world.spawn);
     // Wall-cling pose: right edge of the lock wall (x=704), player
     // sitting just outside at x=718, y=434.1 (per trace).
-    player.pos = ae::Vec2::new(718.0, 434.1);
-    player.vel = ae::Vec2::new(0.0, 31.1);
-    player.on_ground = false;
-    player.on_wall = true;
-    player.wall_normal_x = 1.0; // wall on the player's left → normal points right (+x)
-    player.wall_clinging = true;
+    player.kinematics.pos = ae::Vec2::new(718.0, 434.1);
+    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
+    player.ground.on_ground = false;
+    player.wall.on_wall = true;
+    player.wall.wall_normal_x = 1.0; // wall on the player's left → normal points right (+x)
+    player.wall.wall_clinging = true;
 
-    let initial = player.pos;
-    let _ = ae::update_player_simulation_with_tuning(
+    let initial = player.kinematics.pos;
+    let _ = ae::update_player_simulation_with_tuning_scratch(
         &world,
         &mut player,
         InputState {
@@ -398,13 +402,13 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
     );
     println!(
         "after step: pos=({},{}) vel=({},{}) on_ground={} on_wall={}",
-        player.pos.x, player.pos.y, player.vel.x, player.vel.y, player.on_ground, player.on_wall
+        player.kinematics.pos.x, player.kinematics.pos.y, player.kinematics.vel.x, player.kinematics.vel.y, player.ground.on_ground, player.wall.on_wall
     );
-    let dy = (player.pos.y - initial.y).abs();
+    let dy = (player.kinematics.pos.y - initial.y).abs();
     assert!(
-        player.pos.y > 32.0 && player.pos.y < world.size.y,
+        player.kinematics.pos.y > 32.0 && player.kinematics.pos.y < world.size.y,
         "teleport detected: pos={:?} (initial y={}, world.size={:?})",
-        player.pos,
+        player.kinematics.pos,
         initial.y,
         world.size
     );
@@ -412,7 +416,7 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
         dy < 50.0,
         "y-snap exceeded velocity budget: dy={dy} (initial y={}, after y={}, vel.y={})",
         initial.y,
-        player.pos.y,
-        player.vel.y
+        player.kinematics.pos.y,
+        player.kinematics.vel.y
     );
 }

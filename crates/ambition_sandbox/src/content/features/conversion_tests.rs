@@ -7,7 +7,9 @@ mod conversion_tests {
     /// Build an NPC with a patrol radius and a player parked far
     /// outside the talk radius — used by the patrol-motion tests so
     /// the AI lands on `Patrol` mode each tick.
-    fn world_with_patrolling_npc(patrol_radius: f32) -> (ae::World, NpcRuntime, ae::Player) {
+    fn world_with_patrolling_npc(
+        patrol_radius: f32,
+    ) -> (ae::World, NpcRuntime, ae::PlayerClusterScratch) {
         let world = ae::World::new(
             String::from("patrol_test"),
             ae::Vec2::new(2000.0, 2000.0),
@@ -31,7 +33,7 @@ mod conversion_tests {
             },
         );
         let npc = NpcRuntime::new(id.clone(), id.clone(), aabb, interactable);
-        let player = ae::Player::new_with_abilities(
+        let player = crate::player::primary_player_scratch(
             ae::Vec2::new(1500.0, 540.0),
             ae::AbilitySet::sandbox_all(),
         );
@@ -57,7 +59,7 @@ mod conversion_tests {
         npc.spawn.y = 200.0;
         let mut brain = brain_for(&npc);
         for _ in 0..120 {
-            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         assert!(npc.on_ground, "NPC must land on the floor under gravity");
         // Body bottom should rest on the floor's top edge (y=600).
@@ -78,13 +80,13 @@ mod conversion_tests {
         // Settle gravity first so we're testing horizontal motion,
         // not the freefall.
         for _ in 0..30 {
-            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         let spawn_x = npc.spawn.x;
         let mut min_x = npc.pos.x;
         let mut max_x = npc.pos.x;
         for _ in 0..600 {
-            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
             min_x = min_x.min(npc.pos.x);
             max_x = max_x.max(npc.pos.x);
         }
@@ -120,15 +122,15 @@ mod conversion_tests {
         let mut brain = brain_for(&npc);
         // Settle physics.
         for _ in 0..30 {
-            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         // Park the player right next to the NPC — within talk_radius.
-        player.pos = ae::Vec2::new(npc.pos.x + 30.0, npc.pos.y);
+        player.kinematics.pos = ae::Vec2::new(npc.pos.x + 30.0, npc.pos.y);
         // Run for a half-second of real time. Whatever momentum was
         // left from the patrol step must drain to ~0 inside the
         // talk radius.
         for _ in 0..30 {
-            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         assert!(
             matches!(npc.ai_mode, crate::character_ai::CharacterAiMode::Chase),
@@ -142,7 +144,7 @@ mod conversion_tests {
         );
         // And the NPC faces the player so the dialog prompt sits on
         // the right side.
-        let dx = player.pos.x - npc.pos.x;
+        let dx = player.kinematics.pos.x - npc.pos.x;
         assert_eq!(npc.facing.signum(), dx.signum(), "NPC must face the player");
     }
 
@@ -156,7 +158,7 @@ mod conversion_tests {
         let original_x = npc.pos.x;
         let mut brain = brain_for(&npc);
         for _ in 0..300 {
-            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         assert!(
             (npc.pos.x - original_x).abs() < 1.0,
@@ -222,14 +224,14 @@ mod conversion_tests {
         let mut brain = brain_for(&npc);
         // Settle gravity.
         for _ in 0..30 {
-            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         // Run for a long while; track that the AI mode stays in
         // patrol and never wedges in Idle.
         let mut patrol_ticks = 0;
         let mut chase_ticks = 0;
         for _ in 0..300 {
-            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
             match npc.ai_mode {
                 crate::character_ai::CharacterAiMode::Patrol => patrol_ticks += 1,
                 crate::character_ai::CharacterAiMode::Chase => chase_ticks += 1,
@@ -253,7 +255,7 @@ mod conversion_tests {
         let (world, mut npc, player) = world_with_patrolling_npc(0.0);
         let mut brain = brain_for(&npc);
         for _ in 0..120 {
-            npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
+            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         // Vel along x should drain to zero (gravity has settled).
         assert!(
@@ -406,13 +408,16 @@ mod conversion_tests {
         // Clear it here so this test isolates the CharacterAI Chase
         // decision rather than the recovery/spawn-grace state.
         enemy.attack_cooldown = 0.0;
-        let mut player = ae::Player::new(ae::Vec2::new(240.0, 536.0));
-        player.size = ae::Vec2::new(28.0, 46.0);
+        let mut player = crate::player::primary_player_scratch(
+            ae::Vec2::new(240.0, 536.0),
+            ae::AbilitySet::sandbox_all(),
+        );
+        player.kinematics.size = ae::Vec2::new(28.0, 46.0);
         enemy.update(
             &world,
-            player.pos,
+            player.kinematics.pos,
             FeatureCombatTuning::default(),
-            Some(player.pos),
+            Some(player.kinematics.pos),
             None,
             0.05,
             None,
@@ -447,8 +452,11 @@ mod conversion_tests {
         // Clear the spawn grace cooldown so the path enemy can enter
         // Telegraph immediately when the player is already in range.
         enemy.attack_cooldown = 0.0;
-        let mut player = ae::Player::new(ae::Vec2::new(130.0, 536.0));
-        player.size = ae::Vec2::new(28.0, 46.0);
+        let mut player = crate::player::primary_player_scratch(
+            ae::Vec2::new(130.0, 536.0),
+            ae::AbilitySet::sandbox_all(),
+        );
+        player.kinematics.size = ae::Vec2::new(28.0, 46.0);
         // Post-actor-brain-migration: `enemy.update()` returns the
         // intent frame; the EFFECTS-stage consumer
         // `start_enemy_melee_from_brain_actions` reads
@@ -457,9 +465,9 @@ mod conversion_tests {
         // unit test rather than a full-pipeline integration test.
         let frame = enemy.update(
             &world,
-            player.pos,
+            player.kinematics.pos,
             FeatureCombatTuning::default(),
-            Some(player.pos),
+            Some(player.kinematics.pos),
             None,
             0.10,
             None,

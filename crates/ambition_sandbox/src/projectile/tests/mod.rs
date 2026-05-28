@@ -48,12 +48,11 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     // component the projectile system + visuals path queries
     // (`PlayerKinematics`, `PlayerEntity`, `PrimaryPlayer`,
     // `LocalPlayer`, `PlayerInputFrame`, …) with no manual list.
-    let mut player =
-        ae::Player::new_with_abilities(pos, ae::AbilitySet::sandbox_all());
-    player.facing = facing;
-    player.on_ground = true;
+    let mut scratch = crate::player::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
+    scratch.kinematics.facing = facing;
+    scratch.ground.on_ground = true;
     let bundle =
-        crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
+        crate::player::PlayerSimulationBundle::from_scratch(scratch, crate::actor::Health::new(10));
     app.world_mut().spawn(bundle);
 }
 

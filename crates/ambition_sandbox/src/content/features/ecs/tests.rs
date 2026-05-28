@@ -18,11 +18,11 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
     // interaction system queries `PlayerKinematics` + `PlayerEntity`
     // (and reads interact_buffer_timer); `PlayerSimulationBundle`
     // covers all of that.
-    let mut player =
-        ae::Player::new_with_abilities(player_pos, ae::AbilitySet::sandbox_all());
-    player.on_ground = true;
+    let mut scratch =
+        crate::player::primary_player_scratch(player_pos, ae::AbilitySet::sandbox_all());
+    scratch.ground.on_ground = true;
     let mut bundle =
-        crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
+        crate::player::PlayerSimulationBundle::from_scratch(scratch, crate::actor::Health::new(10));
     bundle.interaction.interact_buffer_timer = 0.15;
     app.world_mut().spawn(bundle);
 }

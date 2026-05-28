@@ -221,7 +221,7 @@ fn build_moving_platform_states(
                 size: p.size.into(),
                 aabb: aabb.into(),
                 direction: p.direction(),
-                player_riding: p.is_riding(player),
+                player_riding: p.is_riding(player.aabb(), player.on_ground),
                 player_distance,
             }
         })

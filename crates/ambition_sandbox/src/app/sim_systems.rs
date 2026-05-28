@@ -248,12 +248,11 @@ pub fn apply_player_reset_input_system(
     control_frame.reset_pressed = false;
 
     let mut clusters = cluster_item.as_clusters_mut();
-    let mut player = clusters.to_player();
     super::world_flow::reset_sandbox(
         &world.0,
         &mut sfx_writer,
         &mut vfx_writer,
-        &mut player,
+        &mut clusters,
         &mut sim_state,
         &mut safety,
         &mut attack.0,
@@ -264,7 +263,6 @@ pub fn apply_player_reset_input_system(
         editable_tuning.as_engine(),
         *feel_tuning,
     );
-    clusters.write_from_player(player);
     reset_room_features.write(features::ResetRoomFeaturesEvent);
 }
 

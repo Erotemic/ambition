@@ -35,7 +35,7 @@ pub(super) fn reset_sandbox(
     world: &ae::World,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    player: &mut ae::Player,
+    clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
     safety: &mut crate::player::PlayerSafetyState,
     attack: &mut Option<crate::PlayerAttackState>,
@@ -46,10 +46,15 @@ pub(super) fn reset_sandbox(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
 ) {
-    let reset_from = player.pos;
-    player.reset_to(world.spawn);
-    player.refresh_movement_resources(tuning);
-    player.mana.refill_full();
+    let reset_from = clusters.kinematics.pos;
+    ae::reset_player_clusters(clusters, world.spawn);
+    ae::refresh_movement_resources_clusters(
+        clusters.abilities,
+        &mut *clusters.dash,
+        &mut *clusters.jump,
+        tuning,
+    );
+    clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;
     sim_state.time_scale = 1.0;
     sim_state.room_transition_cooldown = 0.0;
@@ -59,7 +64,7 @@ pub(super) fn reset_sandbox(
     combat.flash_timer = feel.reset_flash_time;
     interaction.reset();
     blink_cam.reset();
-    let reset_to = player.pos;
+    let reset_to = clusters.kinematics.pos;
     sfx.write(SfxMessage::Reset { pos: reset_to });
     vfx.write(VfxMessage::ResetEffects {
         from: reset_from,
@@ -376,26 +381,26 @@ fn ground_gap_below_feet(
 pub(super) fn handle_player_events(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    player: &ae::Player,
+    clusters: &ae::PlayerClustersMut<'_>,
     combat: &mut crate::player::PlayerCombatState,
     blink_cam: &mut crate::player::PlayerBlinkCameraState,
     events: ae::FrameEvents,
     was_grounded: Option<bool>,
 ) {
-    let pos = player.pos;
+    let pos = clusters.kinematics.pos;
+    let facing = clusters.kinematics.facing;
+    let size = clusters.kinematics.size;
+    let on_ground = clusters.ground.on_ground;
     for op in &events.operations {
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {
                 sfx.write(SfxMessage::Jump { pos });
-                vfx.write(VfxMessage::Dust {
-                    pos: player.pos,
-                    facing: player.facing,
-                });
+                vfx.write(VfxMessage::Dust { pos, facing });
             }
             ae::MovementOp::DoubleJump => {
                 sfx.write(SfxMessage::DoubleJump { pos });
                 vfx.write(VfxMessage::Burst {
-                    pos: player.pos,
+                    pos,
                     count: 14,
                     speed: 210.0,
                     color: [0.70, 1.0, 0.86, 0.82],
@@ -405,7 +410,7 @@ pub(super) fn handle_player_events(
             ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
                 sfx.write(SfxMessage::Dash { pos });
                 vfx.write(VfxMessage::Burst {
-                    pos: player.pos,
+                    pos,
                     count: 10,
                     speed: 330.0,
                     color: [1.0, 0.86, 0.38, 0.90],
@@ -415,7 +420,7 @@ pub(super) fn handle_player_events(
             ae::MovementOp::DodgeRoll => {
                 sfx.write(SfxMessage::Dash { pos });
                 vfx.write(VfxMessage::Burst {
-                    pos: player.pos,
+                    pos,
                     count: 8,
                     speed: 240.0,
                     color: [0.60, 1.0, 0.70, 0.80],
@@ -427,7 +432,7 @@ pub(super) fn handle_player_events(
             }
             ae::MovementOp::FlyToggle => {
                 vfx.write(VfxMessage::Burst {
-                    pos: player.pos,
+                    pos,
                     count: 12,
                     speed: 180.0,
                     color: [0.45, 0.82, 1.0, 0.72],
@@ -448,15 +453,12 @@ pub(super) fn handle_player_events(
                 });
             }
             ae::MovementOp::LedgeGrab => {
-                vfx.write(VfxMessage::Dust {
-                    pos: player.pos,
-                    facing: player.facing,
-                });
+                vfx.write(VfxMessage::Dust { pos, facing });
             }
             ae::MovementOp::LedgeJump => {
                 sfx.write(SfxMessage::Jump { pos });
                 vfx.write(VfxMessage::Burst {
-                    pos: player.pos,
+                    pos,
                     count: 8,
                     speed: 180.0,
                     color: [0.70, 1.0, 0.86, 0.82],
@@ -468,10 +470,7 @@ pub(super) fn handle_player_events(
                 // semantically (invuln rolling motion). Adds a small
                 // dust burst at the platform lip for visual feedback.
                 sfx.write(SfxMessage::Dash { pos });
-                vfx.write(VfxMessage::Dust {
-                    pos: player.pos,
-                    facing: player.facing,
-                });
+                vfx.write(VfxMessage::Dust { pos, facing });
             }
             ae::MovementOp::LedgeGetupAttack => {
                 // The engine pairs this op with MovementOp::Slash on
@@ -481,10 +480,7 @@ pub(super) fn handle_player_events(
                 // reads as "coming off the ledge," not "in mid-air."
                 // TODO: when a dedicated getup-attack sprite lands,
                 // route a distinct VFX/SFX here too.
-                vfx.write(VfxMessage::Dust {
-                    pos: player.pos,
-                    facing: player.facing,
-                });
+                vfx.write(VfxMessage::Dust { pos, facing });
             }
             ae::MovementOp::ShieldUp => {
                 // Reuse the quick blink tone as a placeholder until a
@@ -494,7 +490,7 @@ pub(super) fn handle_player_events(
                     precision: false,
                 });
                 vfx.write(VfxMessage::Burst {
-                    pos: player.pos,
+                    pos,
                     count: 12,
                     speed: 120.0,
                     color: [0.50, 0.80, 1.0, 0.70],
@@ -531,10 +527,10 @@ pub(super) fn handle_player_events(
         combat.flash_timer = 0.12;
     }
     if let Some(was_grounded) = was_grounded {
-        if !was_grounded && player.on_ground {
+        if !was_grounded && on_ground {
             vfx.write(VfxMessage::Dust {
-                pos: player.pos + ae::Vec2::new(0.0, player.size.y * 0.5),
-                facing: player.facing,
+                pos: pos + ae::Vec2::new(0.0, size.y * 0.5),
+                facing,
             });
         }
     }

@@ -121,7 +121,7 @@ pub fn player_control_system(
     let _ = input;
 
     let mut clusters = cluster_item.as_clusters_mut();
-    let outcome = player_control_phase_clusters(
+    let outcome = player_control_phase(
         actor_control.0,
         &world.0,
         &mut clusters,
@@ -204,7 +204,7 @@ pub fn player_simulation_system(
     let _ = input;
 
     let mut clusters = cluster_item.as_clusters_mut();
-    let outcome = player_simulation_phase_clusters(
+    let outcome = player_simulation_phase(
         actor_control.0,
         &world.0,
         &mut clusters,

@@ -231,11 +231,13 @@ impl MovingPlatformState {
     /// Detect whether the player was riding this platform at the start of a
     /// frame. We carry the player by the platform delta before collision
     /// resolution so standing on it feels stable.
-    pub fn is_riding(&self, player: &ae::Player) -> bool {
-        if !player.on_ground {
+    ///
+    /// Cluster-native: callers pass the player AABB + on_ground directly so
+    /// this helper does not need to materialize an `ae::Player`.
+    pub fn is_riding(&self, player_box: ae::Aabb, on_ground: bool) -> bool {
+        if !on_ground {
             return false;
         }
-        let player_box = player.aabb();
         let platform_box = self.aabb();
         let horizontally_overlapping = player_box.right() > platform_box.left() + 3.0
             && player_box.left() < platform_box.right() - 3.0;

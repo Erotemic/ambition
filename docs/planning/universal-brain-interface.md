@@ -19,9 +19,11 @@ green.
 What remains (daytime): EFFECTS-stage consumer flip (one melee
 variant at a time, overlap-then-delete per the stale-component
 benchmark); `update_player` consume the ActorControl frame instead
-of `PlayerInputFrame`; `ae::Player` decomposition (38 reads still
-exist); narrow `ActorControlFrame::fire` to `Option<Vec2>` once
-ActionSet owns speed.
+of `PlayerInputFrame`; narrow `ActorControlFrame::fire` to
+`Option<Vec2>` once ActionSet owns speed. (`ae::Player` decomposition
+✅ landed 2026-05-28 — the player entity carries 18 cluster
+components; `PlayerMovementAuthority` / `PlayerBody` /
+`ae::Player` are deleted.)
 
 See [`../../TODO-controllable-entity.md`](../../TODO-controllable-entity.md)
 for the multi-chunk plan, `dev/journals/ae-player-field-usage-
@@ -94,9 +96,10 @@ responsibilities:
 
 The player is its own thing entirely
 ([`player/components.rs::PlayerEntity`](../../crates/ambition_sandbox/src/player/components.rs)
-+ `PlayerMovementAuthority`), with its own input frame
-(`PlayerInputFrame`) and update path (`update_player`). It does
-**not** write into `ActorControlFrame` today.
++ the 18 cluster components), with its own input frame
+(`PlayerInputFrame`) and update path
+(`update_player_*_with_clusters`). It does **not** write into
+`ActorControlFrame` today.
 
 ### Symptoms
 
@@ -313,7 +316,7 @@ the code:
 | `EnemyRuntime`            | Carries archetype, health, AI state, `ActorControlFrame` is built per tick.                       | Becomes the **state-machine brain backend's** internal state.            |
 | `BossRuntime`             | Like enemy; movement uses `ActorControlFrame`; attack patterns run in EFFECTS as a driver.        | Same as enemy. Attack-pattern driver becomes a `StateMachineCfg` variant. |
 | `NpcRuntime`              | Hardcoded patrol/stand-still loop; no `ActorControlFrame`.                                        | Becomes another `StateMachineCfg` variant; loses its bespoke update fn.   |
-| `PlayerEntity` + `update_player` | Reads `Res<ControlFrame>` / `PlayerInputFrame`; mutates `ae::Player`; not on `ActorControlFrame`. | Player path moves onto `ActorControlFrame` via `Brain::Player(slot)`.    |
+| `PlayerEntity` + `update_player_*_with_clusters` | Reads `Res<ControlFrame>` / `PlayerInputFrame`; mutates the 18 player cluster components through `PlayerClustersMut`; not on `ActorControlFrame`. | Player path moves onto `ActorControlFrame` via `Brain::Player(slot)`.    |
 | `EnemySpawn` / `NpcSpawn` LDtk entities | Two distinct entity defs with disjoint field sets.                                       | Collapse to one `ActorSpawn` with a `brain: BrainCfgRef` field.          |
 | `ActorRuntime` enum       | `Peaceful(NpcRuntime)` / `Hostile(EnemyRuntime)`.                                                  | Becomes one `Actor` struct with a `Brain` field.                         |
 
@@ -453,10 +456,11 @@ existing peaceful NPCs ditto.
 
 ### Chunk 4 — Move the player onto `Brain::Player`
 
-Refactor `update_player` into a `tick_player(slot, inputs, out)`
-function. The player's existing per-tick state lives in
-`ActorState`. The Bevy systems that today write to `PlayerBody` /
-`PlayerCombatState` now read from `Actor` instead.
+Refactor `update_player_*_with_clusters` into a
+`tick_player(slot, inputs, out)` function. The player's existing
+per-tick state lives in `ActorState`. The Bevy systems that today
+write to the player cluster components / `PlayerCombatState` now
+read from `Actor` instead.
 
 Beware: per the [stale-component benchmark candidate](../../dev/benchmark-candidates/bevy-ecs-stale-component-after-sync-removal-2026-05-15.md),
 removing one of the player's sync systems without thinking about

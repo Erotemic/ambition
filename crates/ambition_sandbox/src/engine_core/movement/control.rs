@@ -100,7 +100,7 @@ pub fn handle_blink_clusters(
     }
 }
 
-/// Cluster-ref variant of [`handle_attacks`].
+/// Cluster-ref attack handler used by `update_player_control_with_clusters`.
 pub fn handle_attacks_clusters(
     world: &World,
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,

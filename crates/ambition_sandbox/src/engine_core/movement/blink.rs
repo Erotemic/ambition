@@ -80,7 +80,7 @@ pub fn blink_destination_clusters(
     )
 }
 
-/// Cluster-ref variant of [`blink_destination_to_point`].
+/// Blink to a specific aim point, clamped to a collision-safe destination.
 pub fn blink_destination_to_point_clusters(
     world: &World,
     kinematics: &crate::engine_core::player_clusters::PlayerKinematics,

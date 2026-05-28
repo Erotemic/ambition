@@ -1,17 +1,17 @@
 //! Authoritative player cluster types.
 //!
-//! Phase 3 of the player-ecs-bandaid plan moves the cluster fields out
-//! of the monolithic `ae::Player` aggregate and into individual
-//! cluster structs. These structs are plain value types (no Bevy
-//! `Component` derive); the sandbox newtype-wraps each one with
-//! `#[derive(Component, Deref, DerefMut)]` for ECS storage.
+//! Each cluster carries one tightly-related slice of player state
+//! (kinematics, ground contact, dash timers, …) and is registered as a
+//! Bevy `Component`. The 18 components together form the entire
+//! authoritative player aggregate — the legacy monolithic `ae::Player`
+//! struct was deleted 2026-05-28.
 //!
-//! Engine movement helpers (Phase 3b) consume these cluster types
-//! directly instead of taking `&mut Player`. The
-//! [`super::movement::Player`] aggregate continues to exist for
-//! cross-tick scratchpad usage and the few engine tests that still
-//! construct a whole player; it will go away in Phase 3d once nothing
-//! references it.
+//! [`PlayerClustersMut`] is a struct-of-`&mut` view assembled from a
+//! `Query<PlayerClusterQueryData, …>::as_clusters_mut()` call; every
+//! engine entry point in `crate::engine_core::movement` takes one.
+//! Tests that need a non-ECS scratchpad construct
+//! [`PlayerClusterScratch::new_with_abilities`] and re-borrow via
+//! `PlayerClusterScratch::as_mut`.
 
 use crate::engine_core::abilities::AbilitySet;
 use crate::engine_core::ledge_grab::LedgeGrabState;
@@ -48,12 +48,6 @@ pub struct PlayerClustersMut<'a> {
     pub combo_trace: &'a mut PlayerComboTrace,
 }
 
-// `to_player`, `write_from_player`, and `with_player_scratchpad` were
-// removed 2026-05-28. The cluster-native engine helpers + the
-// cluster-native readers (debug overlay, trace recorder, combat
-// helpers) made the read-only Player snapshot unnecessary in
-// production. Tests that still build an `ae::Player` bridge to a
-// `PlayerClustersMut` via [`PlayerClusterScratch::from_player`].
 
 /// Bevy query data that matches [`PlayerClustersMut`]. Use in a system
 /// signature as `Query<PlayerClusterQueryData, ...>` and call
@@ -253,14 +247,9 @@ impl PlayerShieldState {
     }
 }
 
-/// Cluster-ref variant of `ae::Player::reset_to`. Restores the player
-/// to spawn state while preserving the `PlayerAbilities` (read-only)
-/// and incrementing the lifetime reset counter. Mirrors the engine's
-/// `Player::new_with_abilities(spawn, abilities)` initialization
-/// field-for-field so behavior parity holds.
-///
-/// The combo trace is wiped and a fresh `MovementOp::Reset` mark is
-/// pushed (matches `Player::reset_to`'s `self.record(MovementOp::Reset)`).
+/// Reset a live player back to spawn while preserving the
+/// `PlayerAbilities` and incrementing the lifetime reset counter. The
+/// combo trace is wiped and a fresh `MovementOp::Reset` mark is pushed.
 pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) {
     use crate::engine_core::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
 
@@ -307,8 +296,7 @@ pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) 
     });
 }
 
-/// Cluster-ref variant of `ae::Player::refresh_movement_resources`.
-/// Refreshes the dash charge count and air-jump count from the active
+/// Refresh the dash charge count and air-jump count from the active
 /// `PlayerAbilities` + the caller's tuning.
 pub fn refresh_movement_resources_clusters(
     abilities: &PlayerAbilities,

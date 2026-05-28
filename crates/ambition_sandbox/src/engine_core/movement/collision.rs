@@ -294,7 +294,8 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::engine_core::Aabb) -> O
     })
 }
 
-/// Cluster-ref variant of [`try_pogo`]. Mutates kinematics velocity,
+/// Pogo attempt: spawn a downward hitbox, return the orb AABB if hit.
+/// Mutates kinematics velocity,
 /// refreshes movement resources on the dash/jump clusters, and
 /// clears the ground flag.
 pub fn try_pogo_clusters(

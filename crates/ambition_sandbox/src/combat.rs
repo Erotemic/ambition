@@ -254,7 +254,7 @@ impl AttackView {
     }
 }
 
-/// Cluster-native variant of [`resolve_attack_intent`].
+/// Resolve a directional attack intent from input + view state.
 pub fn resolve_attack_intent_from_view(
     view: &AttackView,
     axis_x: f32,
@@ -300,7 +300,7 @@ pub fn resolve_attack_intent_from_view(
     }
 }
 
-/// Cluster-native variant of [`attack_spec`].
+/// Build the attack spec for an already-resolved intent.
 pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackSpec {
     let body = view.aabb();
     let facing = if view.facing < 0.0 { -1.0 } else { 1.0 };
@@ -410,7 +410,7 @@ pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackS
     }
 }
 
-/// Cluster-native variant of [`attack_hitbox`].
+/// Hitbox for an attack spec at the player's current position.
 pub fn attack_hitbox_from_view(view: &AttackView, spec: AttackSpec) -> Aabb {
     Aabb::new(view.pos + spec.hitbox_offset, spec.hitbox_half_size)
 }

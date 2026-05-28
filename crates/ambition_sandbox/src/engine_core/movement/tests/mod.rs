@@ -10,8 +10,11 @@
 //! - [`ledge_grab`] — ledge grab latch + climb completion.
 //! - [`combat_actions`] — dodge roll and shield/parry.
 //!
-//! Shared fixtures (`step`, `test_world`) live here; submodules reach
-//! them via `super::`.
+//! Shared fixtures (`step_scratch`, `test_world`) live here;
+//! submodules reach them via `super::`. Each test constructs a
+//! `PlayerClusterScratch` via
+//! `PlayerClusterScratch::new_with_abilities(spawn, abilities)` and
+//! drives it through the cluster-native `_scratch` entry points.
 
 use super::*;
 use crate::engine_core::player_clusters::PlayerClusterScratch;

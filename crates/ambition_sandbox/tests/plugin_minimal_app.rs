@@ -22,9 +22,9 @@
 
 use ambition_sandbox::input::ControlFrame;
 use ambition_sandbox::player::{
-    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody, PlayerCombatState,
+    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
     PlayerEntity, PlayerHealth, PlayerIdentityBundle, PlayerInteractionState,
-    PlayerMovementAuthority, PlayerSlot, PrimaryPlayer,
+    PlayerKinematics, PlayerSlot, PrimaryPlayer,
 };
 use ambition_sandbox::rooms::RoomSet;
 use ambition_sandbox::{GameMode, GameWorld, MovingPlatformSet, SandboxSimState};
@@ -98,9 +98,13 @@ fn sandbox_simulation_plugin_spawns_exactly_one_player() {
 #[test]
 fn player_entity_carries_canonical_sim_components() {
     let mut app = minimal_sim_app();
+    // Cluster-native (2026-05-28): `PlayerMovementAuthority` /
+    // `PlayerBody` are gone. The canonical bundle now carries
+    // `PlayerKinematics` (size, pos, vel, facing, base_size) in their
+    // place — assert the bundle still spawns with non-degenerate
+    // body geometry plus every presentation/state component.
     let mut q = app.world_mut().query_filtered::<(
-        &PlayerMovementAuthority,
-        &PlayerBody,
+        &PlayerKinematics,
         &PlayerHealth,
         &PlayerCombatState,
         &PlayerAnimState,
@@ -110,7 +114,7 @@ fn player_entity_carries_canonical_sim_components() {
     let row = q
         .single(app.world())
         .expect("player entity should carry every PlayerSimulationBundle component");
-    let (_authority, body, health, combat, _anim, _interaction, _blink_cam) = row;
+    let (kinematics, health, combat, _anim, _interaction, _blink_cam) = row;
     assert!(
         health.current() > 0,
         "player should start at >0 HP, got {}",
@@ -121,9 +125,9 @@ fn player_entity_carries_canonical_sim_components() {
         "player should not be mid-attack on the first tick"
     );
     assert!(
-        body.size.x > 0.0 && body.size.y > 0.0,
-        "PlayerBody size should be non-degenerate, got {:?}",
-        body.size
+        kinematics.size.x > 0.0 && kinematics.size.y > 0.0,
+        "PlayerKinematics size should be non-degenerate, got {:?}",
+        kinematics.size
     );
 }
 
@@ -239,16 +243,15 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_player_simulation() {
 
     // Capture the player's last engine-side position so we can assert
     // `player_simulation_system` is gated off — its
-    // `update_player_simulation` call is the only thing that
-    // integrates gravity / friction in our minimal App, so a no-tick
-    // frame leaves the position pinned.
+    // `update_player_simulation_with_clusters` call is the only thing
+    // that integrates gravity / friction in our minimal App, so a no-
+    // tick frame leaves the position pinned.
     let baseline_pos = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&PlayerMovementAuthority, With<PlayerEntity>>();
+            .query_filtered::<&PlayerKinematics, With<PlayerEntity>>();
         q.single(app.world())
             .expect("player should exist")
-            .player
             .pos
     };
 
@@ -273,10 +276,9 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_player_simulation() {
     let paused_pos = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&PlayerMovementAuthority, With<PlayerEntity>>();
+            .query_filtered::<&PlayerKinematics, With<PlayerEntity>>();
         q.single(app.world())
             .expect("player should exist")
-            .player
             .pos
     };
     assert_eq!(

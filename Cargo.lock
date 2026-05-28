@@ -151,6 +151,7 @@ name = "ambition_engine"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_ecs",
  "bevy_math",
  "insta",
  "parry2d 0.26.0",

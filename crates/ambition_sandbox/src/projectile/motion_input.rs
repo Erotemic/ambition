@@ -100,6 +100,11 @@ impl MotionInputBuffer {
     }
 
     /// Iterator over recent (oldest-first) directions, ignoring time.
+    /// Exposed as part of the public motion-input API even though the
+    /// in-tree QCF recognizer reaches into `samples` directly; future
+    /// gesture matchers (e.g. half-circle, dragon-punch) are expected
+    /// to consume this iterator.
+    #[allow(dead_code)]
     pub fn directions(&self) -> impl Iterator<Item = MotionDirection> + '_ {
         self.samples.iter().map(|s| s.dir)
     }

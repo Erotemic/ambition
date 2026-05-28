@@ -114,6 +114,7 @@ pub use save::{
     CURRENT_SAVE_VERSION,
 };
 pub use player_clusters::{
+    refresh_movement_resources_clusters, reset_player_clusters,
     PlayerAbilities as EnginePlayerAbilities, PlayerActionBuffer as EnginePlayerActionBuffer,
     PlayerBlinkState as EnginePlayerBlinkState,
     PlayerBodyModeState as EnginePlayerBodyModeState, PlayerClusterQueryData,

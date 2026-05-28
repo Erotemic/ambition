@@ -541,6 +541,73 @@ impl PlayerComboTrace {
     }
 }
 
+/// Cluster-ref variant of `ae::Player::reset_to`. Restores the player
+/// to spawn state while preserving the `PlayerAbilities` (read-only)
+/// and incrementing the lifetime reset counter. Mirrors the engine's
+/// `Player::new_with_abilities(spawn, abilities)` initialization
+/// field-for-field so behavior parity holds.
+///
+/// The combo trace is wiped and a fresh `MovementOp::Reset` mark is
+/// pushed (matches `Player::reset_to`'s `self.record(MovementOp::Reset)`).
+pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) {
+    use crate::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
+
+    let new_resets = clusters.lifetime.resets + 1;
+    let abilities = clusters.abilities.abilities;
+    let body = default_player_body_size();
+    let dash_charges = abilities.dash_charge_count();
+    let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
+
+    *clusters.kinematics = PlayerKinematics {
+        pos: spawn,
+        vel: Vec2::ZERO,
+        size: body,
+        base_size: body,
+        facing: 1.0,
+    };
+    *clusters.ground = PlayerGroundState::default();
+    *clusters.wall = PlayerWallState::default();
+    *clusters.jump = PlayerJumpState {
+        air_jumps_available: air_jumps,
+    };
+    *clusters.dash = PlayerDashState {
+        charges_available: dash_charges,
+        ..Default::default()
+    };
+    *clusters.flight = PlayerFlightState::default();
+    *clusters.blink = PlayerBlinkState::default();
+    *clusters.ledge = PlayerLedgeState::default();
+    *clusters.dodge = PlayerDodgeState::default();
+    *clusters.shield = PlayerShieldState::default();
+    *clusters.body_mode = PlayerBodyModeState::default();
+    *clusters.env_contact = PlayerEnvironmentContact::default();
+    *clusters.mana = PlayerMana::default();
+    *clusters.offense = PlayerOffense::default();
+    *clusters.action_buffer = PlayerActionBuffer::default();
+    *clusters.lifetime = PlayerLifetime {
+        resets: new_resets,
+        ..Default::default()
+    };
+    clusters.combo_trace.combo.clear();
+    clusters.combo_trace.combo.push(ComboMark {
+        op: MovementOp::Reset,
+        age: 0.0,
+    });
+}
+
+/// Cluster-ref variant of `ae::Player::refresh_movement_resources`.
+/// Refreshes the dash charge count and air-jump count from the active
+/// `PlayerAbilities` + the caller's tuning.
+pub fn refresh_movement_resources_clusters(
+    abilities: &PlayerAbilities,
+    dash: &mut PlayerDashState,
+    jump: &mut PlayerJumpState,
+    tuning: crate::movement::MovementTuning,
+) {
+    dash.charges_available = abilities.abilities.dash_charge_count();
+    jump.air_jumps_available = abilities.abilities.air_jump_count(tuning.air_jumps);
+}
+
 /// Authoritative body-shape stance.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerBodyModeState {

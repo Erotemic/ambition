@@ -56,6 +56,19 @@ Commits delivering this:
   from sandbox code — only from engine tests and from the cluster
   wrapper entry points.
 
+## Phase 3d-prep toolkit (started)
+
+A few field-level / AABB-level engine helpers have been factored out
+of the `&mut Player` signature so a future cluster-native entry point
+can call them without building a `Player`:
+
+- `ae::touching_hazard_aabb(world, aabb) -> bool` (commit `99ca2e1a`)
+- (more to come as the deep refactor proceeds)
+
+These are toolkit primitives. They don't change behavior on their own;
+they exist so the cluster-native rewrites of inner helpers + the
+entry point have unencumbered building blocks.
+
 ## What Phase 3d still leaves open
 
 The legacy `ae::Player` aggregate still exists inside the engine.

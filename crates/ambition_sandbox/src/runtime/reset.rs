@@ -169,11 +169,19 @@ pub fn process_sandbox_reset_request(
         player_q.single_mut()
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        let mut player = clusters.to_player();
-        player.reset_to(world.0.spawn);
-        player.refresh_movement_resources(tuning.as_engine());
-        player.mana.refill_full();
-        clusters.write_from_player(player);
+        // Cluster-native reset: no engine_player_bridge round-trip needed.
+        ae::reset_player_clusters(&mut clusters, world.0.spawn);
+        // reset_player_clusters uses DEFAULT_TUNING for the post-reset
+        // dash/jump refresh; redo with the live tuning so a F3
+        // editable-tuning session sees its overridden air_jumps /
+        // dash_charge_count immediately after a reset.
+        ae::refresh_movement_resources_clusters(
+            clusters.abilities,
+            clusters.dash,
+            clusters.jump,
+            tuning.as_engine(),
+        );
+        clusters.mana.meter.refill_full();
         anim.reset();
         combat.reset();
         combat.flash_timer = 0.18;

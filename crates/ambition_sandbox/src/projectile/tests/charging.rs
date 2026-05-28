@@ -6,7 +6,7 @@ use crate::projectile::motion_input::MotionDirection;
 use crate::projectile::spec::ProjectileKind;
 
 use super::super::state::PlayerProjectileState;
-use super::{advance_time, ae, min_app, tap_projectile, ControlFrame};
+use super::{advance_time, min_app, tap_projectile, ControlFrame};
 
 #[test]
 fn tap_release_fires_one_fireball() {

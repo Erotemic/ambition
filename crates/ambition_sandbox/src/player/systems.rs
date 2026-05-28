@@ -156,7 +156,7 @@ pub fn apply_player_heal_requests(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brain::{ActorControl, Brain};
+    use crate::brain::ActorControl;
 
     /// Default player ActionSet derives from AbilitySet — when
     /// `attack` is on, the ActionSet has a Swipe melee; when off,

@@ -103,14 +103,74 @@ fn update_simulation_timers(player: &mut Player, dt: f32, tuning: MovementTuning
     }
 }
 
-pub(super) fn handle_jump_buffer_pub(
+
+/// Cluster-ref variant of [`handle_jump_buffer`].
+pub fn handle_jump_buffer_clusters(
     world: &World,
-    player: &mut Player,
+    action_buffer: &mut crate::player_clusters::PlayerActionBuffer,
+    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
+    abilities: &crate::player_clusters::PlayerAbilities,
+    kinematics: &mut crate::player_clusters::PlayerKinematics,
+    ground: &mut crate::player_clusters::PlayerGroundState,
+    wall: &mut crate::player_clusters::PlayerWallState,
+    jump_state: &mut crate::player_clusters::PlayerJumpState,
+    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
     input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,
 ) {
-    handle_jump_buffer(world, player, input, tuning, events)
+    if action_buffer.jump <= 0.0 {
+        return;
+    }
+
+    if let Some(contact) = env_contact.water {
+        if abilities.abilities.swim {
+            let impulse = contact.spec.swim_up_impulse;
+            kinematics.vel.y = (kinematics.vel.y - impulse).min(-impulse);
+            action_buffer.jump = 0.0;
+            ground.coyote_timer = 0.0;
+            events.op_clusters(combo_trace, MovementOp::SwimStroke);
+            return;
+        }
+    }
+
+    if input.drop_through_pressed
+        && ground.on_ground
+        && crate::movement::collision::standing_on_one_way_aabb(world, kinematics.aabb())
+    {
+        action_buffer.jump = 0.0;
+        ground.on_ground = false;
+        ground.coyote_timer = 0.0;
+        ground.drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
+        return;
+    }
+
+    if abilities.abilities.wall_jump && wall.on_wall && !ground.on_ground {
+        kinematics.vel.x = wall.wall_normal_x * tuning.wall_jump_x;
+        kinematics.vel.y = -tuning.jump_speed * 0.94;
+        wall.on_wall = false;
+        wall.wall_clinging = false;
+        wall.wall_climbing = false;
+        action_buffer.jump = 0.0;
+        ground.coyote_timer = 0.0;
+        events.op_clusters(combo_trace, MovementOp::WallJump);
+    } else if abilities.abilities.jump && (ground.on_ground || ground.coyote_timer > 0.0) {
+        kinematics.vel.y = -tuning.jump_speed;
+        ground.on_ground = false;
+        action_buffer.jump = 0.0;
+        ground.coyote_timer = 0.0;
+        jump_state.air_jumps_available = abilities.abilities.air_jump_count(tuning.air_jumps);
+        events.op_clusters(combo_trace, MovementOp::Jump);
+    } else if abilities.abilities.double_jump && jump_state.air_jumps_available > 0 {
+        kinematics.vel.y = -tuning.double_jump_speed;
+        ground.on_ground = false;
+        wall.on_wall = false;
+        wall.wall_clinging = false;
+        wall.wall_climbing = false;
+        action_buffer.jump = 0.0;
+        jump_state.air_jumps_available -= 1;
+        events.op_clusters(combo_trace, MovementOp::DoubleJump);
+    }
 }
 
 fn handle_jump_buffer(

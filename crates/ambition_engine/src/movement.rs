@@ -16,7 +16,7 @@
 use crate::world::World;
 
 mod blink;
-mod collision;
+pub(crate) mod collision;
 mod control;
 mod events;
 mod input;
@@ -363,9 +363,25 @@ pub fn update_player_simulation_with_clusters(
         clusters.write_from_player(player);
         return events;
     }
-    // Inline jump-buffer handling continues to be on Player for now
-    // (it touches many fields and needs a deeper refactor).
-    simulation::handle_jump_buffer_pub(world, &mut player, input, tuning, &mut events);
+    clusters.write_from_player(player);
+
+    // handle_jump_buffer is now cluster-native (no Player scratchpad).
+    simulation::handle_jump_buffer_clusters(
+        world,
+        clusters.action_buffer,
+        clusters.env_contact,
+        clusters.abilities,
+        clusters.kinematics,
+        clusters.ground,
+        clusters.wall,
+        clusters.jump,
+        clusters.combo_trace,
+        input,
+        tuning,
+        &mut events,
+    );
+
+    let mut player = clusters.to_player();
     integration::integrate_velocity(world, &mut player, input, dt, tuning, &mut events);
     crate::ledge_grab::try_start_ledge_grab(world, &mut player, input, &mut events);
     clusters.write_from_player(player);

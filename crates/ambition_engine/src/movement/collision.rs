@@ -198,7 +198,12 @@ pub(super) fn body_is_side_contact(body: Aabb, block: Aabb) -> bool {
 }
 
 pub(super) fn standing_on_one_way(world: &World, player: &Player) -> bool {
-    let body = player.aabb();
+    standing_on_one_way_aabb(world, player.aabb())
+}
+
+/// AABB-only variant of [`standing_on_one_way`]. Cluster-aware
+/// callers pass `PlayerKinematics::aabb()` directly.
+pub fn standing_on_one_way_aabb(world: &World, body: Aabb) -> bool {
     for block in &world.blocks {
         if !matches!(block.kind, BlockKind::OneWay) {
             continue;

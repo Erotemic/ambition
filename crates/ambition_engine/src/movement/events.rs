@@ -30,6 +30,22 @@ impl FrameEvents {
         player.record(op);
     }
 
+    /// Cluster-ref variant of [`Self::op`]: push to the per-frame
+    /// op list and append a fresh `ComboMark` to the cluster-side
+    /// combo trace.
+    pub fn op_clusters(
+        &mut self,
+        combo_trace: &mut crate::player_clusters::PlayerComboTrace,
+        op: MovementOp,
+    ) {
+        self.operations.push(op);
+        combo_trace.combo.push(super::ComboMark { op, age: 0.0 });
+        if combo_trace.combo.len() > 18 {
+            let excess = combo_trace.combo.len() - 18;
+            combo_trace.combo.drain(0..excess);
+        }
+    }
+
     /// Merge another event bundle into this frame.
     ///
     /// This is used by the two-clock update path: control/intent is processed

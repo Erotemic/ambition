@@ -163,7 +163,7 @@ impl NpcRuntime {
     /// The brain (typically `Brain::StateMachine(Patrol)` for
     /// peaceful NPCs or `StandStill` for static ones) chooses what
     /// the actor wants to do this tick by writing an
-    /// `ae::ActorControlFrame`. The body update then:
+    /// `crate::actor_control::ActorControlFrame`. The body update then:
     /// - Caches `ai_mode` for HUD / sprite picker compat (Patrol
     ///   state carries the engine's CharacterAiMode internally).
     /// - Applies the brain's `facing` and `desired_vel.x` (with the
@@ -191,7 +191,7 @@ impl NpcRuntime {
         target_pos: ae::Vec2,
         sim_time: f32,
         dt: f32,
-    ) -> ae::ActorControlFrame {
+    ) -> crate::actor_control::ActorControlFrame {
         self.hit_flash = (self.hit_flash - dt).max(0.0);
 
         // Build the brain snapshot from the actor's current body
@@ -228,7 +228,7 @@ impl NpcRuntime {
             terrain: None,
             air_jumps_remaining: 0,
         };
-        let mut frame = ae::ActorControlFrame::neutral();
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
 
         // Cache ai_mode for HUD / sprite picker. Patrol's internal

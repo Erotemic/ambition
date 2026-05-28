@@ -1,5 +1,5 @@
 //! Player brain — translates `PlayerInputFrame` into the abstract
-//! intent fields of [`ae::ActorControlFrame`].
+//! intent fields of [`crate::actor_control::ActorControlFrame`].
 //!
 //! The player brain is **purely a translation layer**. It does not
 //! make any gameplay decisions — every decision (variable-height
@@ -35,7 +35,7 @@ use super::snapshot::BrainSnapshot;
 pub fn tick_player_brain(
     _slot: PlayerSlot,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
     // Per Chunk 4e: BrainSnapshot now carries the player's input
     // frame as an Option. When present we delegate to the
@@ -47,7 +47,7 @@ pub fn tick_player_brain(
         tick_player_brain_from_control(input, snapshot, out);
         return;
     }
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
     out.facing = snapshot.actor_facing;
 }
 
@@ -64,7 +64,7 @@ pub fn tick_player_brain(
 pub fn tick_player_brain_from_input(
     input: &PlayerInputFrame,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
     tick_player_brain_from_control(&input.frame, snapshot, out);
 }
@@ -76,9 +76,9 @@ pub fn tick_player_brain_from_input(
 pub fn tick_player_brain_from_control(
     c: &ControlFrame,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
 
     // Movement axis → desired velocity (player speed is fixed by the
     // integration; brain just signals direction × magnitude).
@@ -109,7 +109,7 @@ pub fn tick_player_brain_from_control(
         } else {
             ae::Vec2::new(snapshot.actor_facing, 0.0)
         };
-        out.fire = Some(ae::ActorFireRequest { dir, speed: 0.0 });
+        out.fire = Some(crate::actor_control::ActorFireRequest { dir, speed: 0.0 });
     }
 
     // Jump edges + sustain.
@@ -167,7 +167,7 @@ mod tests {
         let input = PlayerInputFrame::default();
         let mut s = BrainSnapshot::idle();
         s.actor_facing = 1.0;
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         out.melee_pressed = true; // pre-poisoned
         tick_player_brain_from_input(&input, &s, &mut out);
         assert!(!out.melee_pressed);
@@ -186,9 +186,9 @@ mod tests {
         let mut s = BrainSnapshot::idle();
         s.actor_facing = -1.0;
         s.player_input = None;
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         out.melee_pressed = true; // pre-poisoned
-        out.fire = Some(ae::ActorFireRequest {
+        out.fire = Some(crate::actor_control::ActorFireRequest {
             dir: ae::Vec2::new(1.0, 0.0),
             speed: 200.0,
         });
@@ -207,7 +207,7 @@ mod tests {
         });
         let mut s = BrainSnapshot::idle();
         s.actor_facing = 1.0;
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         tick_player_brain_from_input(&input, &s, &mut out);
         assert!(out.melee_pressed);
         // Up-tilt: attack_axis carries the input direction.
@@ -221,7 +221,7 @@ mod tests {
             c.axis_y = 0.3;
         });
         let s = BrainSnapshot::idle();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         tick_player_brain_from_input(&input, &s, &mut out);
         assert_eq!(out.desired_vel, ae::Vec2::new(-1.0, 0.3));
         assert_eq!(out.facing, -1.0);
@@ -235,7 +235,7 @@ mod tests {
             c.jump_released = false;
         });
         let s = BrainSnapshot::idle();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         tick_player_brain_from_input(&input, &s, &mut out);
         assert!(out.jump_pressed);
         assert!(out.jump_held);
@@ -252,7 +252,7 @@ mod tests {
         });
         let mut s = BrainSnapshot::idle();
         s.actor_facing = -1.0;
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         tick_player_brain_from_input(&input, &s, &mut out);
         let fire = out.fire.expect("fire request expected");
         // Aim wins over facing.
@@ -261,7 +261,7 @@ mod tests {
         let input2 = input_with(|c| {
             c.projectile_released = true;
         });
-        let mut out2 = ae::ActorControlFrame::default();
+        let mut out2 = crate::actor_control::ActorControlFrame::default();
         tick_player_brain_from_input(&input2, &s, &mut out2);
         let fire2 = out2.fire.expect("fire request expected");
         assert!((fire2.dir.x - (-1.0)).abs() < 0.001);
@@ -276,7 +276,7 @@ mod tests {
             c.interact_pressed = true;
         });
         let s = BrainSnapshot::idle();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         tick_player_brain_from_input(&input, &s, &mut out);
         assert!(out.shield_held);
         assert!(out.special_pressed);
@@ -291,7 +291,7 @@ mod tests {
         // snapshot. Keep this test honest to that contract.
         let mut s = BrainSnapshot::idle();
         s.actor_facing = -1.0;
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         out.melee_pressed = true; // pre-poisoned
         tick_player_brain(PlayerSlot(0), &s, &mut out);
         assert!(!out.melee_pressed);

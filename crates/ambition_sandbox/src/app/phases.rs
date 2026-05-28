@@ -32,7 +32,7 @@ use super::*;
 /// real time (jump buffers, blink aim, dash chains) belong here. Returns
 /// `Return` if the engine asked for a sandbox reset.
 pub(super) fn player_control_phase(
-    actor_control: ae::ActorControlFrame,
+    actor_control: crate::actor_control::ActorControlFrame,
     world: &ae::World,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
@@ -123,7 +123,7 @@ pub(super) fn player_control_phase(
 /// This phase observes the smoothed `sim_state.time_scale` set by
 /// the PlayerInput pipeline.
 pub(super) fn player_simulation_phase(
-    actor_control: ae::ActorControlFrame,
+    actor_control: crate::actor_control::ActorControlFrame,
     world: &ae::World,
     player: &mut ae::Player,
     dev_state: &crate::SandboxDevState,
@@ -239,7 +239,7 @@ pub(super) fn player_simulation_phase(
 /// module isn't needed.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn player_control_phase_clusters(
-    actor_control: ae::ActorControlFrame,
+    actor_control: crate::actor_control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
@@ -288,7 +288,7 @@ pub(super) fn player_control_phase_clusters(
 /// Cluster-ref wrapper for [`player_simulation_phase`].
 #[allow(clippy::too_many_arguments)]
 pub(super) fn player_simulation_phase_clusters(
-    actor_control: ae::ActorControlFrame,
+    actor_control: crate::actor_control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
     dev_state: &crate::SandboxDevState,

@@ -738,7 +738,7 @@ pub(super) fn apply_player_knockback(
 /// The hitstun gate is applied to the FINAL `InputState` so every
 /// verb is zeroed uniformly.
 pub(super) fn engine_input_from_actor_control(
-    actor: ae::ActorControlFrame,
+    actor: crate::actor_control::ActorControlFrame,
     feel: SandboxFeelTuning,
     hitstun_timer: f32,
     control_dt: f32,

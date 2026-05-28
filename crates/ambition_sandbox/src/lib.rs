@@ -27,6 +27,7 @@ pub mod input;
 pub mod kinematic;
 pub mod cutscene;
 pub mod attack_choreography;
+pub mod actor_control;
 pub mod character_ai;
 pub mod interaction;
 pub mod quest;

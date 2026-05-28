@@ -99,7 +99,7 @@ impl StateMachineCfg {
 pub fn tick_state_machine(
     sm: &mut StateMachineCfg,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
     tick_state_machine_with_actions(sm, &ActionSet::peaceful(), snapshot, out);
 }
@@ -110,12 +110,12 @@ pub fn tick_state_machine_with_actions(
     sm: &mut StateMachineCfg,
     actions: &ActionSet,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
     if !snapshot.alive {
         // Dead actors emit a neutral frame regardless of brain. Write
         // explicitly so a pre-poisoned `out` doesn't leak through.
-        *out = ae::ActorControlFrame::neutral();
+        *out = crate::actor_control::ActorControlFrame::neutral();
         return;
     }
     match sm {
@@ -136,8 +136,8 @@ pub fn tick_state_machine_with_actions(
 
 // ===== StandStill =====
 
-fn tick_stand_still(out: &mut ae::ActorControlFrame) {
-    *out = ae::ActorControlFrame::neutral();
+fn tick_stand_still(out: &mut crate::actor_control::ActorControlFrame) {
+    *out = crate::actor_control::ActorControlFrame::neutral();
 }
 
 // ===== Patrol =====
@@ -190,7 +190,7 @@ fn tick_patrol(
     cfg: &PatrolCfg,
     state: &mut PatrolState,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
     let ai = crate::character_ai::evaluate_character_ai_output(snapshot.to_character_ai_snapshot(
         cfg.aggro_radius,
@@ -198,7 +198,7 @@ fn tick_patrol(
         true,
     ));
     state.mode = ai.mode;
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
     match ai.intent {
         crate::character_ai::CharacterAiIntent::Hold => {
             // Player in talk range or otherwise hold position.
@@ -310,9 +310,9 @@ fn tick_wanderer(
     cfg: &WandererCfg,
     state: &mut WandererState,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
 
     // Honor an active pause.
     if snapshot.sim_time < state.pause_until {
@@ -394,7 +394,7 @@ fn tick_melee_brute(
     cfg: &MeleeBruteCfg,
     state: &mut MeleeBruteState,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
     let ai = crate::character_ai::evaluate_character_ai_output(snapshot.to_character_ai_snapshot(
         cfg.aggro_radius,
@@ -402,7 +402,7 @@ fn tick_melee_brute(
         false,
     ));
     state.mode = ai.mode;
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
     match ai.intent {
         crate::character_ai::CharacterAiIntent::Hold => {}
         crate::character_ai::CharacterAiIntent::Patrol => {
@@ -461,9 +461,9 @@ fn tick_skirmisher(
     cfg: &SkirmisherCfg,
     state: &mut SkirmisherState,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
     if !snapshot.target_alive {
         return;
     }
@@ -485,7 +485,7 @@ fn tick_skirmisher(
         // Speed = 0.0 here is a sentinel; the action_set resolver
         // pulls speed from the actor's RangedActionSpec when it
         // builds the projectile spawn.
-        out.fire = Some(ae::ActorFireRequest { dir, speed: 0.0 });
+        out.fire = Some(crate::actor_control::ActorFireRequest { dir, speed: 0.0 });
         state.last_fire_t = snapshot.sim_time;
         state.mode = crate::character_ai::CharacterAiMode::Attack;
     }
@@ -519,9 +519,9 @@ fn tick_sniper(
     cfg: &SniperCfg,
     state: &mut SniperState,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
     if !snapshot.target_alive {
         return;
     }
@@ -533,7 +533,7 @@ fn tick_sniper(
     let dir = to_target.normalize_or_zero();
     out.facing = dir.x.signum_or(snapshot.actor_facing);
     if snapshot.sim_time - state.last_fire_t >= cfg.fire_cooldown_s {
-        out.fire = Some(ae::ActorFireRequest { dir, speed: 0.0 });
+        out.fire = Some(crate::actor_control::ActorFireRequest { dir, speed: 0.0 });
         state.last_fire_t = snapshot.sim_time;
     }
 }
@@ -557,9 +557,9 @@ fn tick_boss_pattern_via_state_machine(
     _cfg: &super::BossPatternCfg,
     _state: &mut super::BossPatternState,
     _snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
 }
 
 // ===== Trait helpers =====
@@ -614,11 +614,11 @@ mod tests {
     #[test]
     fn stand_still_emits_neutral_frame() {
         let mut sm = StateMachineCfg::StandStill;
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         out.desired_vel = ae::Vec2::new(99.0, 99.0); // pre-poisoned
         out.melee_pressed = true;
         tick_state_machine(&mut sm, &BrainSnapshot::idle(), &mut out);
-        assert_eq!(out, ae::ActorControlFrame::neutral());
+        assert_eq!(out, crate::actor_control::ActorControlFrame::neutral());
     }
 
     #[test]
@@ -632,10 +632,10 @@ mod tests {
         // Pre-poison `out` so the test catches the early-return-
         // without-write path (a previously-leaked frame surviving
         // into a dead-actor tick).
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         out.melee_pressed = true;
         out.desired_vel = ae::Vec2::new(99.0, 99.0);
-        out.fire = Some(ae::ActorFireRequest {
+        out.fire = Some(crate::actor_control::ActorFireRequest {
             dir: ae::Vec2::new(1.0, 0.0),
             speed: 100.0,
         });
@@ -657,7 +657,7 @@ mod tests {
         // Target far away → no Chase; brain stays in Patrol.
         let mut s = snap_at(60.0, 5000.0);
         s.actor_facing = 1.0;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         // Within patrol bounds: keeps facing, moves forward.
         assert!(out.desired_vel.x > 0.0);
@@ -683,7 +683,7 @@ mod tests {
             state: PatrolState::default(),
         };
         let s = snap_at(0.0, 5000.0); // target far away
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Patrol { state, .. } = &sm {
             // Far target → evaluator picks Patrol (not Idle/Chase/Attack).
@@ -722,7 +722,7 @@ mod tests {
         };
         // Actor at 0, target at +80 → inside aggro, outside attack.
         let s = snap_at(0.0, 80.0);
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         // Chase: closes the gap toward target_x.
         assert!(out.desired_vel.x > 0.0, "hostile patrol should chase right");
@@ -746,7 +746,7 @@ mod tests {
         };
         let mut s = snap_at(0.0, 15.0); // inside attack_range
         s.attack_cooldown_remaining = 0.0;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(
             out.melee_pressed,
@@ -770,7 +770,7 @@ mod tests {
         };
         let mut s = snap_at(0.0, 15.0);
         s.attack_cooldown_remaining = 0.5; // mid-cooldown
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(!out.melee_pressed, "must respect attack_cooldown_remaining");
     }
@@ -788,7 +788,7 @@ mod tests {
         // (i.e. "player in range"). For peaceful aggressiveness=0
         // brain interprets as HOLD + face target.
         let s = snap_at(0.0, 30.0);
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert_eq!(out.desired_vel, ae::Vec2::ZERO);
         assert_eq!(out.facing, 1.0);
@@ -804,7 +804,7 @@ mod tests {
         };
         let mut s = BrainSnapshot::idle();
         s.actor_facing = 1.0;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(out.desired_vel.x > 0.0);
         assert_eq!(out.facing, 1.0);
@@ -824,7 +824,7 @@ mod tests {
             normal: ae::Vec2::new(-1.0, 0.0),
             is_climbable: false,
         });
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         // Facing flipped from +1 to -1; velocity goes left.
         assert_eq!(out.facing, -1.0);
@@ -845,7 +845,7 @@ mod tests {
             cfg,
             state: WandererState::default(),
         };
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         // No reversal recorded; climbing flag flips on inside state.
         if let StateMachineCfg::Wanderer { state, .. } = &sm {
@@ -876,7 +876,7 @@ mod tests {
             normal: ae::Vec2::new(-1.0, 0.0),
             is_climbable: true,
         });
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         // Engaged climb mode → zero motion.
         assert_eq!(out.desired_vel, ae::Vec2::ZERO);
@@ -885,7 +885,7 @@ mod tests {
         }
         // Clear wall — wanderer returns to forward walking.
         s.wall_contact = None;
-        let mut out2 = ae::ActorControlFrame::neutral();
+        let mut out2 = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out2);
         // Note: brain's climbing flag persists until next wall
         // contact resolves; what we test is that with NO wall
@@ -915,7 +915,7 @@ mod tests {
             is_climbable: false,
         });
         s.sim_time = 0.0;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         // Pause is active.
         if let StateMachineCfg::Wanderer { state, .. } = &sm {
@@ -924,7 +924,7 @@ mod tests {
         // Advance time past pause_until + remove wall contact.
         s.sim_time = 2.0;
         s.wall_contact = None;
-        let mut out2 = ae::ActorControlFrame::neutral();
+        let mut out2 = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out2);
         // Forward motion resumed.
         assert!(
@@ -951,7 +951,7 @@ mod tests {
             is_climbable: false,
         });
         s.sim_time = 0.0;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
 
         // Three reversals across <1s should trip the pause on the
         // third reversal.
@@ -969,7 +969,7 @@ mod tests {
         }
         // Next tick during pause window → no motion.
         s.sim_time = 0.5;
-        let mut out2 = ae::ActorControlFrame::neutral();
+        let mut out2 = crate::actor_control::ActorControlFrame::neutral();
         out2.desired_vel = ae::Vec2::new(99.0, 99.0);
         tick_state_machine(&mut sm, &s, &mut out2);
         assert_eq!(out2.desired_vel, ae::Vec2::ZERO);
@@ -984,13 +984,13 @@ mod tests {
         };
         // Target close enough to chase but outside attack range.
         let s = snap_at(0.0, 100.0);
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(out.desired_vel.x > 0.0);
         assert!(!out.melee_pressed);
         // Target within attack range.
         let s2 = snap_at(0.0, 20.0);
-        let mut out2 = ae::ActorControlFrame::neutral();
+        let mut out2 = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s2, &mut out2);
         assert!(out2.melee_pressed);
         assert_eq!(out2.facing, 1.0);
@@ -1005,7 +1005,7 @@ mod tests {
         };
         let mut s = snap_at(0.0, 20.0);
         s.attack_windup_remaining = 0.1;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(!out.melee_pressed);
     }
@@ -1030,7 +1030,7 @@ mod tests {
             };
             let mut s = snap_at(0.0, 20.0); // inside attack range
             poke(&mut s);
-            let mut out = ae::ActorControlFrame::neutral();
+            let mut out = crate::actor_control::ActorControlFrame::neutral();
             tick_state_machine(&mut sm, &s, &mut out);
             assert!(
                 !out.melee_pressed,
@@ -1044,7 +1044,7 @@ mod tests {
             state: MeleeBruteState::default(),
         };
         let s = snap_at(0.0, 20.0);
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(out.melee_pressed, "all timers clear → should attack");
     }
@@ -1059,13 +1059,13 @@ mod tests {
         // Inside aggro, beyond standoff: chase closer.
         let mut s = snap_at(0.0, 200.0);
         s.sim_time = 0.0;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(out.fire.is_some() || out.desired_vel.x != 0.0);
         // After firing, last_fire_t is now 0.0; within cooldown
         // window another tick should not fire again immediately.
         s.sim_time = 0.1;
-        let mut out2 = ae::ActorControlFrame::neutral();
+        let mut out2 = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out2);
         assert!(out2.fire.is_none());
     }
@@ -1084,7 +1084,7 @@ mod tests {
         };
         // Far outside aggro → Idle.
         let mut s = snap_at(0.0, 5000.0);
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Skirmisher { state, .. } = &sm {
             assert_eq!(state.mode, crate::character_ai::CharacterAiMode::Idle);
@@ -1095,14 +1095,14 @@ mod tests {
         // 0 - 0 < fire_cooldown_s 0.8).
         s = snap_at(0.0, 200.0);
         s.sim_time = 0.0;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Skirmisher { state, .. } = &sm {
             assert_eq!(state.mode, crate::character_ai::CharacterAiMode::Chase);
         }
         // Advance sim_time past the first cooldown → Attack on fire.
         s.sim_time = 1.0; // > fire_cooldown_s 0.8
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Skirmisher { state, .. } = &sm {
             assert_eq!(state.mode, crate::character_ai::CharacterAiMode::Attack);
@@ -1124,7 +1124,7 @@ mod tests {
         let mut s = snap_at(0.0, 200.0);
         s.sim_time = 5.0; // way past any cooldown
         s.target_alive = false;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(out.fire.is_none());
         assert_eq!(out.desired_vel, ae::Vec2::ZERO);
@@ -1141,7 +1141,7 @@ mod tests {
         // last_fire_t defaults to 0; first fire requires
         // sim_time >= fire_cooldown_s (default 1.5).
         s.sim_time = 2.0;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         // Sniper never moves (no desired_vel).
         assert_eq!(out.desired_vel, ae::Vec2::ZERO);
@@ -1149,7 +1149,7 @@ mod tests {
         assert!(out.fire.is_some());
         // After firing, cooldown gates re-fire.
         s.sim_time = 2.1;
-        let mut out2 = ae::ActorControlFrame::neutral();
+        let mut out2 = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out2);
         assert!(out2.fire.is_none(), "Sniper should respect fire_cooldown_s");
     }
@@ -1162,7 +1162,7 @@ mod tests {
         };
         // Target way outside aggro (default 480).
         let s = snap_at(0.0, 5000.0);
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(out.fire.is_none(), "Sniper out of aggro should not fire");
         assert_eq!(out.desired_vel, ae::Vec2::ZERO);
@@ -1182,7 +1182,7 @@ mod tests {
         s.sim_time = 2.0; // past cooldown
         s.target_alive = false;
         s.actor_facing = 1.0;
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         assert!(out.fire.is_none(), "Sniper must not fire at dead target");
         assert_eq!(out.desired_vel, ae::Vec2::ZERO);
@@ -1196,9 +1196,9 @@ mod tests {
         // own intent. Pins this so a future stale-state bug
         // doesn't sneak through.
         let mut sm = StateMachineCfg::StandStill;
-        let mut frame = ae::ActorControlFrame::neutral();
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
         frame.melee_pressed = true;
-        frame.fire = Some(ae::ActorFireRequest {
+        frame.fire = Some(crate::actor_control::ActorFireRequest {
             dir: ae::Vec2::new(1.0, 0.0),
             speed: 200.0,
         });
@@ -1244,7 +1244,7 @@ mod tests {
         sm_list.truncate(50);
         let snap = crate::brain::snapshot::BrainSnapshot::idle();
         let start = std::time::Instant::now();
-        let mut frame = ae::ActorControlFrame::neutral();
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
         for sm in &mut sm_list {
             tick_state_machine(sm, &snap, &mut frame);
         }
@@ -1269,7 +1269,7 @@ mod tests {
         };
         let snap = crate::brain::snapshot::BrainSnapshot::idle();
         let start = std::time::Instant::now();
-        let mut frame = ae::ActorControlFrame::neutral();
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
         for _ in 0..10 {
             tick_state_machine(&mut sm, &snap, &mut frame);
         }
@@ -1314,7 +1314,7 @@ mod tests {
         for mut brain in templates {
             let mut snap = crate::brain::snapshot::BrainSnapshot::idle();
             snap.dt = 0.0;
-            let mut frame = ae::ActorControlFrame::neutral();
+            let mut frame = crate::actor_control::ActorControlFrame::neutral();
             tick_state_machine(&mut brain, &snap, &mut frame);
             assert!(frame.desired_vel.x.is_finite());
             assert!(frame.desired_vel.y.is_finite());
@@ -1334,7 +1334,7 @@ mod tests {
             state: crate::brain::BossPatternState::default(),
         };
         let s = snap_at(0.0, 100.0);
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         out.melee_pressed = true; // pre-poisoned
         out.desired_vel = ae::Vec2::new(99.0, 99.0);
         tick_state_machine(&mut sm, &s, &mut out);

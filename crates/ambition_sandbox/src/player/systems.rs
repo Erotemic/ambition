@@ -96,7 +96,7 @@ pub fn tick_player_brains(
             // PlayerInputFrame / engine path, not via the snapshot.
             air_jumps_remaining: 0,
         };
-        let mut frame = ae::ActorControlFrame::neutral();
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
         control.0 = frame;
         // Silence unused-var: slot is part of the multi-player seam.

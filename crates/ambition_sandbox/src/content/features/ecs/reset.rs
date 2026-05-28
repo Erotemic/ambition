@@ -132,7 +132,7 @@ pub fn reset_ecs_room_features(
             *state = crate::brain::BossPatternState::default();
         }
         attack_state.clear();
-        control.0 = ae::ActorControlFrame::neutral();
+        control.0 = crate::actor_control::ActorControlFrame::neutral();
     }
     for mut hazard_feature in &mut hazards {
         let spawn = hazard_feature.spawn;

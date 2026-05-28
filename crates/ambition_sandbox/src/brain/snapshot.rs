@@ -2,7 +2,7 @@
 //!
 //! The snapshot is what every brain backend (player, state-machine,
 //! and eventually scripted / remote / RL) sees. Brains write into a
-//! mutable [`ae::ActorControlFrame`]; the snapshot stays immutable
+//! mutable [`crate::actor_control::ActorControlFrame`]; the snapshot stays immutable
 //! per-tick so the same brain function is safe to call against a
 //! single set of inputs (deterministic for tests + replay).
 //!

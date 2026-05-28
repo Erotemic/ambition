@@ -23,7 +23,6 @@
 
 pub mod abilities;
 pub mod actor;
-pub mod actor_control;
 pub mod boss_encounter;
 pub mod combat;
 pub mod player_clusters;
@@ -41,7 +40,6 @@ pub use actor::{
     Actor, ActorFaction, ActorKind, BossBrain, EnemyBrain, Health, KinematicPath,
     KinematicPathMode, RespawnPolicy,
 };
-pub use actor_control::{ActorControlFrame, ActorFireRequest};
 pub use bevy_math::Vec2;
 pub use boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,

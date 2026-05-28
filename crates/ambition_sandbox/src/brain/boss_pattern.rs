@@ -663,13 +663,13 @@ pub fn tick_boss_pattern(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
     ctx: &BossPatternContext,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
     attack_state: &mut BossAttackState,
 ) {
     // Always start from a neutral frame so a leaked
     // `melee_pressed = true` from a previous (now-stale) state
     // can't survive into the next tick.
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
 
     if ctx.dt <= 0.0 {
         return;
@@ -936,7 +936,7 @@ fn emit_desired_vel(
     cfg: &BossPatternCfg,
     state: &BossPatternState,
     ctx: &BossPatternContext,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
     attack_state: &BossAttackState,
 ) {
     if ctx.dt <= 0.0 {
@@ -1085,7 +1085,7 @@ mod tests {
         cfg.spawn = ae::Vec2::ZERO;
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         out.melee_pressed = true; // pre-poison
         out.special_pressed = true;
 
@@ -1109,7 +1109,7 @@ mod tests {
         cfg.spawn = ae::Vec2::ZERO;
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
 
         // Tick a while in Phase1 to advance the cursor past step 0.
         for _ in 0..30 {
@@ -1148,7 +1148,7 @@ mod tests {
         cfg.spawn = ae::Vec2::ZERO;
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
 
         // First tick — step 0 is Telegraph with 0.5s.
         tick_boss_pattern(
@@ -1174,7 +1174,7 @@ mod tests {
         cfg.spawn = ae::Vec2::ZERO;
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
 
         // Walk past the telegraph (0.5s) to land in the strike step.
         for _ in 0..6 {
@@ -1208,7 +1208,7 @@ mod tests {
         cfg.spawn = ae::Vec2::ZERO;
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
 
         // Walk past the telegraph.
         for _ in 0..6 {
@@ -1244,7 +1244,7 @@ mod tests {
         cfg.cycle_attack_active = 0.2;
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
 
         // Cooldown → Windup edge.
         tick_boss_pattern(
@@ -1363,7 +1363,7 @@ mod tests {
         // Sample 1: no active strike — full speed.
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         let mut ctx = ctx(ae::BossEncounterPhase::Phase1, 1.0 / 60.0);
         ctx.target_pos = ae::Vec2::new(500.0, 0.0); // pull toward +x
         ctx.actor_pos = ae::Vec2::ZERO;
@@ -1376,7 +1376,7 @@ mod tests {
         let mut attack_state2 = BossAttackState::default();
         // Pre-poison so the brain detects the strike (cycle mode will
         // overwrite, but we test the scale on the active-emit path).
-        let mut out2 = ae::ActorControlFrame::neutral();
+        let mut out2 = crate::actor_control::ActorControlFrame::neutral();
         // Drive cycle forward to Active phase with a special profile.
         cfg.cycle_attacks = vec![BossAttackProfile::OverfitVolley];
         cfg.cycle_attack_cooldown = 0.05;
@@ -1441,7 +1441,7 @@ mod tests {
         // Sample 1: no active strike — full speed.
         let mut state1 = BossPatternState::default();
         let mut attack_state1 = BossAttackState::default();
-        let mut out1 = ae::ActorControlFrame::neutral();
+        let mut out1 = crate::actor_control::ActorControlFrame::neutral();
         tick_boss_pattern(
             &cfg,
             &mut state1,
@@ -1454,7 +1454,7 @@ mod tests {
         // Sample 2: active MELEE strike — expect heavy slowdown.
         let mut state2 = BossPatternState::default();
         let mut attack_state2 = BossAttackState::default();
-        let mut out2 = ae::ActorControlFrame::neutral();
+        let mut out2 = crate::actor_control::ActorControlFrame::neutral();
         let mut ctx2 = baseline_ctx;
         ctx2.dt = 0.06;
         tick_boss_pattern(&cfg, &mut state2, &ctx2, &mut out2, &mut attack_state2);
@@ -1523,7 +1523,7 @@ mod tests {
         let cfg = macro_cfg();
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         let actor_pos = ae::Vec2::new(640.0, 400.0);
         let target_pos = ae::Vec2::new(1_100.0, 400.0); // ~460 px away > too_far(400)
         tick_boss_pattern(
@@ -1553,7 +1553,7 @@ mod tests {
         let cfg = macro_cfg();
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         let actor_pos = ae::Vec2::new(640.0, 400.0);
         let target_pos = ae::Vec2::new(700.0, 400.0); // 60 px away < too_close(100)
         tick_boss_pattern(
@@ -1584,7 +1584,7 @@ mod tests {
         let cfg = macro_cfg();
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         // Mid-range distance — no too_close / too_far triggers.
         let actor_pos = ae::Vec2::new(640.0, 400.0);
         let target_pos = ae::Vec2::new(820.0, 400.0); // 180 px — within engage range
@@ -1613,7 +1613,7 @@ mod tests {
         let mut state = BossPatternState::default();
         state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         let actor_pos = ae::Vec2::new(640.0, 400.0);
         let target_pos = ae::Vec2::new(740.0, 400.0); // 100 px < engage(200)
         tick_boss_pattern(
@@ -1636,7 +1636,7 @@ mod tests {
         cfg.macro_tuning = BossMacroTuning::disabled();
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::neutral();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
         // Player very far — would normally trigger Approach.
         let actor_pos = ae::Vec2::new(0.0, 0.0);
         let target_pos = ae::Vec2::new(2_000.0, 0.0);
@@ -1665,7 +1665,7 @@ mod tests {
         cfg.spawn = ae::Vec2::ZERO;
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
-        let mut out = ae::ActorControlFrame::default();
+        let mut out = crate::actor_control::ActorControlFrame::default();
         for _ in 0..10 {
             tick_boss_pattern(
                 &cfg,

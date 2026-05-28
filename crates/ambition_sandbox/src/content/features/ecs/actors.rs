@@ -479,7 +479,7 @@ pub fn update_ecs_actors(
                         let crowding = crowding_by_id.get(&enemy.id).copied();
                         let snapshot =
                             build_smash_snapshot(enemy, target_pos, crowding, dt);
-                        let mut brain_frame = ae::ActorControlFrame::neutral();
+                        let mut brain_frame = crate::actor_control::ActorControlFrame::neutral();
                         let peaceful = crate::brain::ActionSet::peaceful();
                         let actions = action_set.unwrap_or(&peaceful);
                         brain_ref.tick_with_actions(actions, &snapshot, &mut brain_frame);

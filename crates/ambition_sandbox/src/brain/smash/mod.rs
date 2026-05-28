@@ -14,7 +14,7 @@
 //!    probability, aim accuracy. Easier enemies "see late" and drop
 //!    actions; harder enemies commit + aim cleanly.
 //! 5. **Emit inputs**: translate the action into an
-//!    [`ae::ActorControlFrame`] the integration pipeline consumes.
+//!    [`crate::actor_control::ActorControlFrame`] the integration pipeline consumes.
 //!
 //! Every stage is a pure function of the previous one's output plus
 //! [`SmashCfg`] / [`SmashState`]. This makes the pipeline trivially
@@ -123,9 +123,9 @@ pub fn tick_smash(
     state: &mut SmashState,
     actions: &ActionSet,
     snapshot: &BrainSnapshot,
-    out: &mut ae::ActorControlFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
 ) {
-    *out = ae::ActorControlFrame::neutral();
+    *out = crate::actor_control::ActorControlFrame::neutral();
     if !snapshot.alive {
         state.mode = BroadMode::Idle;
         return;
@@ -158,7 +158,7 @@ mod tests {
         let mut state = SmashState::default();
         let actions = ActionSet::peaceful();
         let snap = snap_with_target_at_x(2000.0);
-        let mut frame = ae::ActorControlFrame::neutral();
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert_eq!(
             frame.desired_vel.x, 0.0,
@@ -174,7 +174,7 @@ mod tests {
         let actions = ActionSet::peaceful();
         // Target at 300 px — inside aggro (460), outside engage (70).
         let snap = snap_with_target_at_x(300.0);
-        let mut frame = ae::ActorControlFrame::neutral();
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(
             frame.desired_vel.x > 0.0,
@@ -190,7 +190,7 @@ mod tests {
         let actions = ActionSet::peaceful();
         let mut snap = snap_with_target_at_x(100.0);
         snap.alive = false;
-        let mut frame = ae::ActorControlFrame::neutral();
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
         // Pre-poison: if `tick_smash` early-returns without writing,
         // the assertion below would catch a leak from the caller's
         // pre-existing frame state.

@@ -854,8 +854,8 @@ impl EnemyRuntime {
         slot_pos: Option<ae::Vec2>,
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
-        override_frame: Option<ae::ActorControlFrame>,
-    ) -> ae::ActorControlFrame {
+        override_frame: Option<crate::actor_control::ActorControlFrame>,
+    ) -> crate::actor_control::ActorControlFrame {
         // `EnemyTickOutputs` is gone — projectile spawns flow through
         // the EFFECTS-stage consumer per the actor/brain migration.
         // The struct is preserved for future runtime-internal side
@@ -879,7 +879,7 @@ impl EnemyRuntime {
                 self.hit_flash = 0.24;
             }
             self.ai_mode = crate::character_ai::CharacterAiMode::Dead;
-            return ae::ActorControlFrame::neutral();
+            return crate::actor_control::ActorControlFrame::neutral();
         }
 
         let was_winding_up = self.attack_windup_timer > 0.0;
@@ -1144,8 +1144,8 @@ impl EnemyRuntime {
         target_pos: ae::Vec2,
         is_aerial: bool,
         dt: f32,
-    ) -> ae::ActorControlFrame {
-        let mut frame = ae::ActorControlFrame::neutral();
+    ) -> crate::actor_control::ActorControlFrame {
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
 
         // Drop-through: chasing a player meaningfully below the actor
         // while currently grounded. Lets enemies follow through
@@ -1218,7 +1218,7 @@ impl EnemyRuntime {
                 frame.melee_pressed = true;
             }
             Some(crate::attack_choreography::ChoreographyAction::FireProjectile { dir, speed }) => {
-                frame.fire = Some(ae::ActorFireRequest { dir, speed });
+                frame.fire = Some(crate::actor_control::ActorFireRequest { dir, speed });
             }
             None => {}
         }

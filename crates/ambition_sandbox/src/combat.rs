@@ -406,6 +406,189 @@ pub fn attack_hitbox(player: &Player, spec: AttackSpec) -> Aabb {
     Aabb::new(player.pos + spec.hitbox_offset, spec.hitbox_half_size)
 }
 
+/// Read-only snapshot of the player fields the combat helpers
+/// (`resolve_attack_intent`, `attack_spec`, `attack_hitbox`) consult.
+/// Lets cluster-aware callers (start_attack / advance_attack post
+/// 2026-05-28) drive the helpers without materializing an
+/// `ae::Player`.
+#[derive(Clone, Copy, Debug)]
+pub struct AttackView {
+    pub pos: Vec2,
+    pub size: Vec2,
+    pub facing: f32,
+    pub on_ground: bool,
+    pub wall_clinging: bool,
+    pub dash_timer: f32,
+    pub abilities_directional_primary: bool,
+}
+
+impl AttackView {
+    fn aabb(&self) -> Aabb {
+        Aabb::new(self.pos, self.size * 0.5)
+    }
+}
+
+/// Cluster-native variant of [`resolve_attack_intent`].
+pub fn resolve_attack_intent_from_view(
+    view: &AttackView,
+    axis_x: f32,
+    axis_y: f32,
+    forced_pogo: bool,
+) -> AttackIntent {
+    if forced_pogo || axis_y > 0.25 {
+        return if view.on_ground {
+            AttackIntent::Down
+        } else {
+            AttackIntent::AirDown
+        };
+    }
+    if axis_y < -0.25 {
+        return if view.on_ground {
+            AttackIntent::Up
+        } else {
+            AttackIntent::AirUp
+        };
+    }
+
+    let forward = axis_x * view.facing > 0.25;
+    let back = axis_x * view.facing < -0.25;
+    if view.wall_clinging && back {
+        return AttackIntent::WallOut;
+    }
+    if view.dash_timer > 0.0 && !back {
+        return AttackIntent::DashForward;
+    }
+    if !view.on_ground {
+        if back && view.abilities_directional_primary {
+            return AttackIntent::AirBack;
+        }
+        return AttackIntent::AirForward;
+    }
+    if back && view.abilities_directional_primary {
+        return AttackIntent::Back;
+    }
+    if forward {
+        AttackIntent::Forward
+    } else {
+        AttackIntent::Neutral
+    }
+}
+
+/// Cluster-native variant of [`attack_spec`].
+pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackSpec {
+    let body = view.aabb();
+    let facing = if view.facing < 0.0 { -1.0 } else { 1.0 };
+    let half = body.half_size();
+
+    match intent {
+        AttackIntent::Up | AttackIntent::AirUp => AttackSpec {
+            intent,
+            startup_seconds: 0.035,
+            active_seconds: 0.105,
+            recovery_seconds: 0.150,
+            hitbox_offset: Vec2::new(0.0, -half.y - 32.0),
+            hitbox_half_size: Vec2::new(26.0, 34.0),
+            self_impulse: Vec2::new(0.0, -35.0),
+            knockback: Vec2::new(0.0, -300.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::Down => AttackSpec {
+            intent,
+            startup_seconds: 0.035,
+            active_seconds: 0.090,
+            recovery_seconds: 0.180,
+            hitbox_offset: Vec2::new(facing * (half.x + 30.0), half.y - 6.0),
+            hitbox_half_size: Vec2::new(30.0, 12.0),
+            self_impulse: Vec2::new(0.0, 0.0),
+            knockback: Vec2::new(facing * 220.0, -80.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::AirDown => AttackSpec {
+            intent,
+            startup_seconds: 0.035,
+            active_seconds: 0.110,
+            recovery_seconds: 0.165,
+            hitbox_offset: Vec2::new(0.0, half.y + 32.0),
+            hitbox_half_size: Vec2::new(26.0, 34.0),
+            self_impulse: Vec2::new(0.0, 35.0),
+            knockback: Vec2::new(0.0, 260.0),
+            damage_kind: DamageKind::Pogo,
+            can_pogo: true,
+        },
+        AttackIntent::Back | AttackIntent::WallOut => AttackSpec {
+            intent,
+            startup_seconds: 0.040,
+            active_seconds: 0.090,
+            recovery_seconds: 0.170,
+            hitbox_offset: Vec2::new(-facing * (half.x + 28.0), -2.0),
+            hitbox_half_size: Vec2::new(28.0, 24.0),
+            self_impulse: Vec2::new(facing * 120.0, -20.0),
+            knockback: Vec2::new(-facing * 280.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::DashForward => AttackSpec {
+            intent,
+            startup_seconds: 0.020,
+            active_seconds: 0.095,
+            recovery_seconds: 0.185,
+            hitbox_offset: Vec2::new(facing * (half.x + 46.0), -2.0),
+            hitbox_half_size: Vec2::new(46.0, 24.0),
+            self_impulse: Vec2::new(facing * 55.0, 0.0),
+            knockback: Vec2::new(facing * 390.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::AirForward => AttackSpec {
+            intent,
+            startup_seconds: 0.030,
+            active_seconds: 0.105,
+            recovery_seconds: 0.155,
+            hitbox_offset: Vec2::new(facing * (half.x + 38.0), -2.0),
+            hitbox_half_size: Vec2::new(38.0, 26.0),
+            self_impulse: Vec2::new(-facing * 45.0, -25.0),
+            knockback: Vec2::new(facing * 320.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::AirBack => AttackSpec {
+            intent,
+            startup_seconds: 0.028,
+            active_seconds: 0.095,
+            recovery_seconds: 0.165,
+            hitbox_offset: Vec2::new(-facing * (half.x + 38.0), -2.0),
+            hitbox_half_size: Vec2::new(38.0, 26.0),
+            self_impulse: Vec2::new(facing * 50.0, -25.0),
+            knockback: Vec2::new(-facing * 340.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::Forward | AttackIntent::Neutral => AttackSpec {
+            intent,
+            startup_seconds: 0.035,
+            active_seconds: 0.100,
+            recovery_seconds: 0.160,
+            hitbox_offset: Vec2::new(facing * (half.x + 38.0), -2.0),
+            hitbox_half_size: Vec2::new(38.0, 26.0),
+            self_impulse: if matches!(intent, AttackIntent::Forward) {
+                Vec2::new(facing * 30.0, 0.0)
+            } else {
+                Vec2::new(-facing * 65.0, 0.0)
+            },
+            knockback: Vec2::new(facing * 320.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+    }
+}
+
+/// Cluster-native variant of [`attack_hitbox`].
+pub fn attack_hitbox_from_view(view: &AttackView, spec: AttackSpec) -> Aabb {
+    Aabb::new(view.pos + spec.hitbox_offset, spec.hitbox_half_size)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

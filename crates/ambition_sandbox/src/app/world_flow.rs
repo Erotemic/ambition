@@ -812,19 +812,27 @@ pub(super) fn start_attack(
     if !clusters.abilities.abilities.attack || attack.is_some() {
         return;
     }
-    // Combat helpers still read a flat `&Player`. Materialize a temp
-    // snapshot for `resolve_attack_intent` / `attack_spec` /
-    // `attack_hitbox` so this seam doesn't grow per-field signatures.
-    // We never write back from `player`; cluster fields are the
-    // authoritative target for any state changes below.
-    let player = clusters.to_player();
-    let intent = crate::combat::resolve_attack_intent(
-        &player,
+    // Combat helpers consume a small `AttackView` snapshot — same
+    // fields they used to read off `&Player`, but materialized
+    // directly from cluster components without going through
+    // `to_player`. Read-only; cluster fields stay the source of
+    // truth for any state changes below.
+    let view = crate::combat::AttackView {
+        pos: clusters.kinematics.pos,
+        size: clusters.kinematics.size,
+        facing: clusters.kinematics.facing,
+        on_ground: clusters.ground.on_ground,
+        wall_clinging: clusters.wall.wall_clinging,
+        dash_timer: clusters.dash.timer,
+        abilities_directional_primary: clusters.abilities.abilities.directional_primary,
+    };
+    let intent = crate::combat::resolve_attack_intent_from_view(
+        &view,
         controls.axis_x,
         controls.axis_y,
         controls.pogo_pressed,
     );
-    let spec = crate::combat::attack_spec(&player, intent);
+    let spec = crate::combat::attack_spec_from_view(&view, intent);
 
     // Directional attacks get small self-motion so the hitbox feels connected
     // to the controller. Keep these impulses modest; the engine control path
@@ -858,7 +866,7 @@ pub(super) fn start_attack(
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
     *attack = Some(crate::PlayerAttackState::new(spec));
     vfx.write(VfxMessage::SlashPreview {
-        hitbox: crate::combat::attack_hitbox(&player, spec),
+        hitbox: crate::combat::attack_hitbox_from_view(&view, spec),
     });
 }
 
@@ -889,10 +897,16 @@ pub(super) fn advance_attack(
     };
 
     if phase == crate::combat::AttackPhase::Active {
-        // Snapshot `Player` once for the combat helpers (they read
-        // facing, abilities, aabb, etc.). Mutations stay on clusters.
-        let player = clusters.to_player();
-        let attack = crate::combat::attack_hitbox(&player, attack_state.spec);
+        let view = crate::combat::AttackView {
+            pos: clusters.kinematics.pos,
+            size: clusters.kinematics.size,
+            facing: clusters.kinematics.facing,
+            on_ground: clusters.ground.on_ground,
+            wall_clinging: clusters.wall.wall_clinging,
+            dash_timer: clusters.dash.timer,
+            abilities_directional_primary: clusters.abilities.abilities.directional_primary,
+        };
+        let attack = crate::combat::attack_hitbox_from_view(&view, attack_state.spec);
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;

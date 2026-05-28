@@ -86,62 +86,49 @@ during the multi-session push:
 - `FrameEvents::op_clusters(combo_trace, op)` — cluster-side combo-trace
   push without going through `Player::record`
 
-## What Phase 3d still leaves open (multi-day work)
+## Phase 3d — COMPLETE (2026-05-28, commit `c02ca686`)
 
-The legacy `ae::Player` aggregate still exists in the engine. Sandbox
-no longer references it; engine internals still operate on it for the
-inner movement helpers that haven't been migrated to cluster refs.
-Deleting it requires:
+The follow-ups listed below have all landed:
 
-## What Phase 3d still leaves open
+1. **Engine entry point refactor.** ✓
+   `update_player_with_tuning_clusters`,
+   `update_player_control_with_clusters`,
+   `update_player_simulation_with_clusters` (plus their `_scratch`
+   test wrappers) are the only entry points; the legacy
+   `_with_tuning` Player-shaped chain is deleted along with every
+   inner Player-shaped helper.
 
-The legacy `ae::Player` aggregate still exists inside the engine.
-Sandbox doesn't see it, but it remains the storage shape that the
-inner movement code mutates each tick. Deleting it requires:
+2. **Engine test migration.** ✓
+   All movement tests build a `PlayerClusterScratch` via
+   `PlayerClusterScratch::new_with_abilities(spawn, abilities)` and
+   call the `_scratch` entry points. The previous `Player::new`
+   call sites are gone.
 
-1. **Engine entry point refactor.** Replace
-   `update_player_control_with_tuning(&mut Player, …)` and
-   `update_player_simulation_with_tuning(&mut Player, …)` with
-   versions whose internals operate directly on cluster refs (no
-   tick-local `Player` scratchpad). This cascades through ~21
-   inner helpers in `movement/{control,simulation,collision,integration,blink}.rs`
-   and `ledge_grab.rs` (~2000 lines of engine code, ~300 `player.<field>`
-   accesses).
+3. **Delete `ae::Player` + `_with_tuning` legacy entry points.** ✓
+   `Player` struct, `Player::new`, `Player::new_with_abilities`,
+   `Player::reset_to`, `Player::record`,
+   `Player::refresh_movement_resources`, `Player::combo_symbols`,
+   the `update_player_*_with_tuning` chain, and the bridge methods
+   `PlayerClustersMut::to_player`, `write_from_player`,
+   `with_player_scratchpad` — all deleted.
 
-2. **Engine test migration.** ~50 movement test cases in
-   `crates/ambition_sandbox/src/engine_core/movement/tests/` construct
-   `Player::new(...)` + call the legacy entry points. They need to
-   migrate to cluster-component fixtures. A `Player::into_clusters` /
-   `Player::from_clusters` pair plus a small `run_player_simulation`
-   test helper can absorb most of the boilerplate.
+4. **Update `PlayerSimulationBundle::new(Player, health)`.** ✓
+   Replaced by `PlayerSimulationBundle::from_scratch(scratch,
+   health)`. Production spawn sites (`runtime/setup.rs`,
+   `runtime/reset.rs`) go through
+   `crate::player::primary_player_scratch(spawn, abilities)`.
 
-3. **Delete `ae::Player` + `_with_tuning` legacy entry points.** The
-   `Player` struct, `Player::new`, `Player::reset_to`,
-   `Player::refresh_movement_resources`, the `update_player_*_with_tuning`
-   functions, and the bridge methods (`PlayerClustersMut::to_player`,
-   `write_from_player`, `with_player_scratchpad`) all become dead and
-   delete in the same commit.
+5. **RL / trace fixtures.** ✓ `bin/headless.rs` queries
+   `PlayerClusterQueryData::as_clusters_mut()` directly;
+   `dev/trace/{systems,detect,tests}.rs` reads cluster components
+   natively; `dev/debug_overlay.rs::draw_player_debug` consumes
+   `&PlayerClustersMut`. No `ae::Player` materializations remain
+   anywhere.
 
-4. **Update `PlayerSimulationBundle::new(player, health)`.** It
-   currently takes `ae::Player` and decomposes it into cluster
-   components. With `Player` gone, it should take an `AbilitySet` +
-   `Vec2 spawn` + `Health` directly and build the cluster components
-   inline.
-
-5. **RL / trace fixtures.** A few sandbox call sites still construct a
-   tick-local `ae::Player` via `clusters.to_player()` for read-only
-   trace/RL observation:
-   `crates/ambition_sandbox/src/bin/headless.rs`,
-   `crates/ambition_sandbox/src/dev/trace/systems.rs`,
-   `crates/ambition_sandbox/src/dev/debug_overlay.rs`,
-   `crates/ambition_sandbox/src/rl_sim/runtime.rs` (already on cluster
-   reads). Each needs to either read the clusters directly or use a
-   sandbox-side snapshot type instead of `ae::Player`.
-
-Phase 3d is **safely separable**. The branch as it stands is mergeable
-— `rl_smoke 42/42`, engine `265/0` lib tests, `headless 120 ok`. The
-engine-internals refactor is a follow-up that doesn't change the
-sandbox surface; it only deletes legacy engine code.
+Final test posture: 1143 / 1143 lib tests, 28 / 28 integration
+tests, 42 / 42 rl_smoke rooms green. See
+`dev/journals/player-cluster-native-push-2026-05-28.md` for the
+commit-by-commit map.
 
 ## Regression gate status
 

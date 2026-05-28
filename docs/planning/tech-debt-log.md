@@ -306,12 +306,14 @@ to the bottom under "Closed" with the commit that fixed them.
     specific track sequence. Tighten the assertion when the real
     boss tracks land.
 
-- **LOW — Ledge grab probe doesn't test the "diagonal corner" case**
-  - File: `crates/ambition_sandbox/src/engine_core/ledge_grab.rs`
-  - We test wall-on-right + clear-above and reject blocked-above; we
-    don't test what happens when two adjacent solid blocks form a
-    long wall and the ledge is at the corner of the upper one. Edge
-    case for an authoring scenario we haven't built yet.
+- **RESOLVED 2026-05-28 — Ledge grab probe diagonal-corner cases** —
+  two regression tests added at
+  `crates/ambition_sandbox/src/engine_core/ledge_grab.rs` —
+  `finds_ledge_at_top_of_stacked_solid_wall` (two stacked solids
+  forming a continuous wall) and
+  `finds_ledge_at_l_corner_when_clinging_to_upper_block` (L-shape with
+  the ledge at the upper block's corner). Both verify the probe surfaces
+  the actual top edge rather than snagging on an inner seam.
 
 ### Build / repo
 

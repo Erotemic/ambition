@@ -937,6 +937,71 @@ mod tests {
         );
     }
 
+    /// Regression: two adjacent solid blocks forming a continuous
+    /// vertical wall must still surface a grabbable ledge at the
+    /// topmost block's top edge. Tests that the probe's "find the
+    /// closest block to the chin band" logic doesn't snag on the
+    /// lower block and miss the actual ledge above it.
+    #[test]
+    fn finds_ledge_at_top_of_stacked_solid_wall() {
+        // Two stacked 200×100 solids form a continuous wall from
+        // x=[100, 300], y=[100, 300]. The actual ledge is the top
+        // of the upper block at y=100.
+        let world = world_with(vec![
+            Block::solid("wall_lower", Vec2::new(100.0, 200.0), Vec2::new(200.0, 100.0)),
+            Block::solid("wall_upper", Vec2::new(100.0, 100.0), Vec2::new(200.0, 100.0)),
+        ]);
+        // Player clinging on the wall's left face (wall_normal_x = -1
+        // pushes player left), with head near the upper block's top.
+        let player_pos = Vec2::new(86.0, 110.0);
+        let player_size = Vec2::new(28.0, 46.0);
+        let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+        let contact = contact.expect("stacked-wall ledge must surface a contact");
+        assert!(contact.wall_normal_x < 0.0);
+        // Anchor should hug the wall edge (block.left = 100) just
+        // outboard of the player.
+        assert!(
+            (contact.anchor.x - 87.0).abs() < 4.0,
+            "anchor.x = {}, expected ~87",
+            contact.anchor.x
+        );
+        // Climb target is on top of the UPPER block (y < 100), not
+        // wedged between the two stacked blocks at y≈200.
+        assert!(
+            contact.climb_target.y < 100.0,
+            "climb_target.y = {}, expected < 100 (top of upper block)",
+            contact.climb_target.y
+        );
+        assert!(contact.climb_target.x > 100.0);
+    }
+
+    /// Regression: an L-shaped corner geometry (lower block extending
+    /// further right than the upper block, leaving a shelf at the
+    /// upper block's right edge). The ledge should be the upper
+    /// block's top corner, NOT the inner corner where the two blocks
+    /// meet.
+    #[test]
+    fn finds_ledge_at_l_corner_when_clinging_to_upper_block() {
+        // Upper block: x=[100, 200], y=[100, 200].
+        // Lower block: x=[100, 300], y=[200, 300] (extends further right).
+        // The composite shape is an L; clinging the upper block's
+        // left face should find its top corner at y=100, not the
+        // lower block's top at y=200.
+        let world = world_with(vec![
+            Block::solid("upper", Vec2::new(100.0, 100.0), Vec2::new(100.0, 100.0)),
+            Block::solid("lower", Vec2::new(100.0, 200.0), Vec2::new(200.0, 100.0)),
+        ]);
+        let player_pos = Vec2::new(86.0, 110.0);
+        let player_size = Vec2::new(28.0, 46.0);
+        let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+        let contact = contact.expect("L-corner ledge must surface a contact");
+        assert!(
+            contact.climb_target.y < 100.0,
+            "climb_target.y = {}, expected < 100 (top of UPPER block, not lower)",
+            contact.climb_target.y
+        );
+    }
+
     use crate::engine_core::player_clusters::PlayerClusterScratch;
 
     fn make_hanging_player(contact: LedgeContact) -> PlayerClusterScratch {

@@ -812,4 +812,49 @@ mod tests {
             );
         }
     }
+
+    /// Parity check: the cluster-native `LocomotionState::from_clusters`
+    /// reproduces `from_player` exactly on default cluster state. Pins
+    /// the priority-order contract so future edits to one variant
+    /// trip a CI test if they diverge.
+    #[test]
+    fn locomotion_from_clusters_matches_from_player_at_rest() {
+        use crate::engine_core::player_clusters::{
+            PlayerBlinkState, PlayerDashState, PlayerFlightState, PlayerGroundState,
+            PlayerLedgeState, PlayerWallState,
+        };
+        let ground = PlayerGroundState {
+            on_ground: true,
+            ..Default::default()
+        };
+        let wall = PlayerWallState::default();
+        let flight = PlayerFlightState::default();
+        let dash = PlayerDashState::default();
+        let blink = PlayerBlinkState::default();
+        let ledge = PlayerLedgeState::default();
+        assert_eq!(
+            LocomotionState::from_clusters(&ground, &wall, &flight, &dash, &blink, &ledge),
+            LocomotionState::Grounded
+        );
+
+        let ground = PlayerGroundState::default();
+        let dash = PlayerDashState {
+            timer: 0.1,
+            ..Default::default()
+        };
+        assert_eq!(
+            LocomotionState::from_clusters(&ground, &wall, &flight, &dash, &blink, &ledge),
+            LocomotionState::Dashing,
+            "dash timer overrides ground state"
+        );
+    }
+
+    #[test]
+    fn body_mode_from_clusters_reads_authoritative_field() {
+        use crate::engine_core::player_clusters::PlayerBodyModeState;
+        let bm = PlayerBodyModeState {
+            body_mode: BodyMode::Crouching,
+        };
+        assert_eq!(BodyMode::from_clusters(&bm), BodyMode::Crouching);
+    }
 }

@@ -176,67 +176,15 @@ impl SandboxSim {
     /// Returns the current observation without advancing the simulation.
     /// Useful for inspecting state mid-episode without burning a tick.
     pub fn observation(&mut self) -> AgentObservation {
-        // Build per-entity cluster queries. Each one re-uses the
-        // `query_filtered::<&...>` shape. Future cleanup: switch to a
-        // single `Query<PlayerClusterQueryData>` through a one-shot
-        // system. The cluster-native engine layer is in place (the
-        // 2026-05-28 ae::Player deletion finalized it); this site
-        // just hasn't been collapsed to use the query data struct
-        // yet.
-        let mut kinematics_query = self
+        // Single `PlayerClusterQueryData` query covers the 12 cluster
+        // components the observation reads. Three sandbox-side
+        // components (`PlayerCombatState`, `PlayerHealth`,
+        // `PlayerSafetyState`) live outside the engine's cluster
+        // bundle and stay on their own queries.
+        let mut cluster_query = self
             .app
             .world_mut()
-            .query_filtered::<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>(
-            );
-        let mut ground_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerGroundState, With<crate::player::PlayerEntity>>(
-            );
-        let mut wall_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerWallState, With<crate::player::PlayerEntity>>();
-        let mut jump_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerJumpState, With<crate::player::PlayerEntity>>();
-        let mut dash_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerDashState, With<crate::player::PlayerEntity>>();
-        let mut flight_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerFlightState, With<crate::player::PlayerEntity>>(
-            );
-        let mut blink_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerBlinkState, With<crate::player::PlayerEntity>>(
-            );
-        let mut body_mode_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerBodyModeState, With<crate::player::PlayerEntity>>(
-            );
-        let mut env_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerEnvironmentContact, With<crate::player::PlayerEntity>>(
-            );
-        let mut mana_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerMana, With<crate::player::PlayerEntity>>();
-        let mut offense_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerOffense, With<crate::player::PlayerEntity>>();
-        let mut lifetime_query = self
-            .app
-            .world_mut()
-            .query_filtered::<&crate::player::PlayerLifetime, With<crate::player::PlayerEntity>>();
+            .query_filtered::<crate::engine_core::PlayerClusterQueryData, With<crate::player::PlayerEntity>>();
         let mut combat_query = self
             .app
             .world_mut()
@@ -253,18 +201,7 @@ impl SandboxSim {
             );
 
         let world = self.app.world();
-        let kin = kinematics_query.single(world).ok();
-        let ground = ground_query.single(world).ok();
-        let wall = wall_query.single(world).ok();
-        let jump = jump_query.single(world).ok();
-        let dash = dash_query.single(world).ok();
-        let flight = flight_query.single(world).ok();
-        let blink = blink_query.single(world).ok();
-        let body_mode = body_mode_query.single(world).ok();
-        let env_contact = env_query.single(world).ok();
-        let mana = mana_query.single(world).ok();
-        let offense = offense_query.single(world).ok();
-        let lifetime = lifetime_query.single(world).ok();
+        let cluster = cluster_query.single(world).ok();
         let health = health_query
             .single(world)
             .map(|h| h.health)
@@ -280,12 +217,25 @@ impl SandboxSim {
 
         let zero = ae::Vec2::ZERO;
         let default_body = ae::default_player_body_size();
-        let pos = kin.map(|k| k.pos).unwrap_or(zero);
-        let vel = kin.map(|k| k.vel).unwrap_or(zero);
-        let size = kin.map(|k| k.size).unwrap_or(default_body);
-        let facing = kin.map(|k| k.facing).unwrap_or(1.0);
-        let water = env_contact.and_then(|e| e.water);
-        let climbable = env_contact.and_then(|e| e.climbable);
+        let pos = cluster.as_ref().map(|c| c.kinematics.pos).unwrap_or(zero);
+        let vel = cluster.as_ref().map(|c| c.kinematics.vel).unwrap_or(zero);
+        let size = cluster
+            .as_ref()
+            .map(|c| c.kinematics.size)
+            .unwrap_or(default_body);
+        let facing = cluster.as_ref().map(|c| c.kinematics.facing).unwrap_or(1.0);
+        let water = cluster.as_ref().and_then(|c| c.env_contact.water);
+        let climbable = cluster.as_ref().and_then(|c| c.env_contact.climbable);
+        let ground = cluster.as_ref().map(|c| &*c.ground);
+        let wall = cluster.as_ref().map(|c| &*c.wall);
+        let jump = cluster.as_ref().map(|c| &*c.jump);
+        let dash = cluster.as_ref().map(|c| &*c.dash);
+        let flight = cluster.as_ref().map(|c| &*c.flight);
+        let blink = cluster.as_ref().map(|c| &*c.blink);
+        let body_mode = cluster.as_ref().map(|c| &*c.body_mode);
+        let mana = cluster.as_ref().map(|c| &*c.mana);
+        let offense = cluster.as_ref().map(|c| &*c.offense);
+        let lifetime = cluster.as_ref().map(|c| &*c.lifetime);
         AgentObservation {
             tick: self.tick,
             player_pos: (pos.x, pos.y),

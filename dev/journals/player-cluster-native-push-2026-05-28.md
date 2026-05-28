@@ -68,18 +68,23 @@ Everything outside that function is cluster-native.
 
 ## What remains for the next session
 
-1. **Cluster-native `tick_active_ledge_grab`** (~300 lines, touches
-   pos/vel/on_ground/wall_*/ledge_grab/facing/abilities). The shape
-   of the refactor is the same as `try_start_ledge_grab_clusters` —
-   rewrite field accesses, swap `events.op(player, …)` to
-   `events.op_clusters(clusters.combo_trace, …)`.
+1. ~~Cluster-native `tick_active_ledge_grab`~~ — **landed** `bfb5783d`
+   (2026-05-28). Field-for-field translation; rl_smoke + the 39
+   ledge_grab unit tests still green.
 2. **Cluster-native `integrate_velocity`** (~200 lines, the densest
    one — calls `integrate_climb`, `integrate_flight`,
    `sweep_player_x`, `sweep_player_y`, `apply_wall_abilities`,
    `touching_rebound`, all of which also take `&mut Player`). This
    one is multi-hour because the recursive helpers all need
-   converting too.
-3. **Once both are done**, `update_player_simulation_with_clusters`
+   converting too. The plan: cluster-native variants for each
+   helper, then the outer function reads/writes clusters directly.
+   `touching_rebound` already has an `_aabb` variant; `apply_wall_abilities`
+   reads `(on_wall, on_ground, abilities, wall_normal_x, vel.y)` and
+   writes `(wall_clinging, wall_climbing, vel.y)`. The sweep helpers
+   are the densest (60+ lines each, sub-helpers `resolve_axis`,
+   `block_passable_during_climb`, `body_is_side_contact` all take
+   `&mut Player` too).
+3. **Once that lands**, `update_player_simulation_with_clusters`
    has zero scratchpads and `ae::Player` + `to_player` +
    `write_from_player` + the legacy `update_player_*_with_tuning`
    entry points are deletable. That deletion is probably 500+ lines

@@ -14,7 +14,10 @@ pub fn update_ecs_hazards(
     player: Query<
         (
             Entity,
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerOffense,
+            &crate::player::PlayerDodgeState,
+            &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
         With<crate::player::PlayerEntity>,
@@ -52,13 +55,16 @@ pub fn update_ecs_hazards(
         // OVERNIGHT-TODO #17.8 (B-bucket iterate-all-players for
         // hazard hits). Single-player behavior preserved because the
         // iterator has exactly one entity today.
-        for (player_entity, pb, combat) in &player {
-            let player_vulnerable =
-                !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-            if !player_vulnerable || !hazard.aabb().strict_intersects(pb.aabb()) {
+        for (player_entity, kin, offense, dodge, shield, combat) in &player {
+            let dodge_rolling = dodge.roll_timer > 0.0;
+            let player_vulnerable = !offense.invincible
+                && !dodge_rolling
+                && !shield.parrying()
+                && combat.vulnerable();
+            if !player_vulnerable || !hazard.aabb().strict_intersects(kin.aabb()) {
                 continue;
             }
-            let pos = pb.pos;
+            let pos = kin.pos;
             let knockback_dir = (pos.x - hazard.pos.x).signum();
             vfx.write(VfxMessage::Impact { pos });
             vfx.write(VfxMessage::Burst {

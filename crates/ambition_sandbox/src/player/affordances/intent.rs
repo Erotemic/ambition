@@ -134,15 +134,13 @@ pub struct PlayerIntent {
 /// primary player's facing direction. Runs after the input pipeline
 /// and the touch fold so it sees the final merged input.
 ///
-/// Reads facing from `PlayerMovementAuthority` (the canonical sim
-/// source) rather than the `PlayerBody` read model, so the intent and
-/// the affordances compute see exactly the same facing value within
-/// one frame — even before `write_player_ecs_components` has synced
-/// the read model.
+/// Reads facing from `PlayerKinematics` (the authoritative cluster)
+/// so the intent and the affordances compute see exactly the same
+/// facing value within one frame.
 pub fn compute_player_intent(
     control_frame: Res<ControlFrame>,
     player_q: Query<
-        &crate::player::PlayerMovementAuthority,
+        &crate::player::PlayerKinematics,
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,
@@ -150,7 +148,7 @@ pub fn compute_player_intent(
     >,
     mut intent: ResMut<PlayerIntent>,
 ) {
-    let Ok(authority) = player_q.single() else {
+    let Ok(kinematics) = player_q.single() else {
         // No player yet — leave the resource at its default. Any
         // downstream consumer reads `Aim::Neutral`, which is the
         // correct conservative behavior pre-spawn.
@@ -160,7 +158,7 @@ pub fn compute_player_intent(
         aim: compute_aim(
             control_frame.axis_x,
             control_frame.axis_y,
-            authority.player.facing,
+            kinematics.facing,
         ),
     };
     if *intent != next {

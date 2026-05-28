@@ -836,14 +836,20 @@ impl Default for EditableMovementTuning {
 pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
     mut player_q: Query<
-        &mut crate::player::PlayerMovementAuthority,
+        &mut crate::player::PlayerKinematics,
         crate::player::PrimaryPlayerOnly,
     >,
 ) {
     let desired = developer.player_body_profile.size();
-    if let Ok(mut authority) = player_q.single_mut() {
-        if (authority.player.base_size - desired).length_squared() > 0.01 {
-            apply_player_body_profile(&mut authority.player, developer.player_body_profile);
+    if let Ok(mut kinematics) = player_q.single_mut() {
+        if (kinematics.base_size - desired).length_squared() > 0.01 {
+            // Inline the body-profile resize directly on the cluster
+            // component (formerly `apply_player_body_profile(&mut Player, ...)`).
+            let new_size = developer.player_body_profile.size();
+            let old_bottom = kinematics.pos.y + kinematics.size.y * 0.5;
+            kinematics.base_size = new_size;
+            kinematics.size = new_size;
+            kinematics.pos.y = old_bottom - new_size.y * 0.5;
         }
     }
 }
@@ -965,7 +971,10 @@ pub fn sync_player_stats_with_inspector(
     mut stats: ResMut<EditablePlayerStats>,
     mut snapshot: Local<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
-        &mut crate::player::PlayerMovementAuthority,
+        (
+            &mut crate::player::PlayerMana,
+            &mut crate::player::PlayerOffense,
+        ),
         crate::player::PrimaryPlayerOnly,
     >,
     mut health_q: Query<&mut crate::player::PlayerHealth, crate::player::PrimaryPlayerOnly>,
@@ -1002,11 +1011,11 @@ pub fn sync_player_stats_with_inspector(
     let max_mana = stats.max_mana.max(0);
     // Combat tuning + invincibility now live on `Player` (engine-side)
     // so per-player state is engine state, not sandbox state.
-    if let Ok(mut authority) = player_q.single_mut() {
-        authority.player.mana.max = max_mana as f32;
-        authority.player.mana.current = stats.mana.clamp(0, max_mana) as f32;
-        authority.player.damage_multiplier = stats.slash_damage.max(1);
-        authority.player.invincible = stats.invincible;
+    if let Ok((mut mana, mut offense)) = player_q.single_mut() {
+        mana.meter.max = max_mana as f32;
+        mana.meter.current = stats.mana.clamp(0, max_mana) as f32;
+        offense.damage_multiplier = stats.slash_damage.max(1);
+        offense.invincible = stats.invincible;
     }
 }
 

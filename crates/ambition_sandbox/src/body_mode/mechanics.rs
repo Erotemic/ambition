@@ -45,30 +45,35 @@ pub fn update_body_mode(
     world: Res<crate::GameWorld>,
     mut player_q: Query<
         (
-            &mut crate::player::PlayerMovementAuthority,
+            crate::player::engine_player_bridge::PlayerClusterQueryData,
             &mut crate::player::PlayerInteractionState,
             &crate::player::PlayerInputFrame,
         ),
         With<crate::player::PlayerEntity>,
     >,
 ) {
-    let Ok((mut authority, mut interaction, input)) = player_q.single_mut() else {
+    let Ok((mut cluster_item, mut interaction, input)) = player_q.single_mut() else {
         return;
     };
-    let player = &mut authority.player;
+    let mut clusters = cluster_item.as_clusters_mut();
+    let mut player_owned = crate::player::engine_player_bridge::assemble_player(&clusters);
+    let player = &mut player_owned;
     let controls = &input.frame;
 
     // Mid-action mechanics own the body shape — don't fight them.
     if player.dash_timer > 0.0 || player.blink_aiming {
+        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
     // Wall / ledge state owns its own posture; reverting it via crouch
     // would break the ledge-grab anchor invariant.
     if player.wall_clinging || player.wall_climbing || player.ledge_grab.is_some() {
+        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
     // In-water posture: leave water swim mechanics alone.
     if player.water_contact.is_some() {
+        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
 
@@ -106,6 +111,7 @@ pub fn update_body_mode(
         }
         // Otherwise stay Climbing — engine drives motion through
         // integrate_climb. No body-mode change this frame.
+        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
 
@@ -118,6 +124,7 @@ pub fn update_body_mode(
     let climb_initiator = (up_held) || (down_held && !on_ground);
     if climbable_contact_present && climb_initiator && mode != ae::BodyMode::MorphBall {
         let _ = ae::try_change_body_mode(player, ae::BodyMode::Climbing, &world.0, solid);
+        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
 
@@ -133,6 +140,7 @@ pub fn update_body_mode(
         if controls.jump_pressed || controls.up_pressed {
             let _ = ae::try_change_body_mode(player, ae::BodyMode::Standing, &world.0, solid);
         }
+        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
 
@@ -143,6 +151,7 @@ pub fn update_body_mode(
     // morph-ball when grounded has no input crosstalk.
     if on_ground && double_tap_down {
         let _ = ae::try_change_body_mode(player, ae::BodyMode::MorphBall, &world.0, solid);
+        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
 
@@ -153,6 +162,7 @@ pub fn update_body_mode(
     };
 
     if mode == target {
+        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
 
@@ -161,4 +171,5 @@ pub fn update_body_mode(
     // stays crouched under the ceiling) and the auto-trace diff will
     // surface a successful transition.
     let _ = ae::try_change_body_mode(player, target, &world.0, solid);
+    crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
 }

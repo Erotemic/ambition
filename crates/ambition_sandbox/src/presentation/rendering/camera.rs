@@ -103,7 +103,7 @@ pub fn camera_follow(
     mut last_camera_room: Local<Option<String>>,
     player: Query<
         (
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
             &crate::player::PlayerBlinkCameraState,
         ),
         crate::player::PrimaryPlayerOnly,

@@ -1010,10 +1010,10 @@ fn project_liquid(
 fn grant_room_swim_controls(
     room_set: Res<crate::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
-    mut players: Query<(Entity, &mut crate::player::PlayerMovementAuthority)>,
+    mut players: Query<(Entity, &mut crate::player::PlayerAbilities)>,
 ) {
     if room_set.active_spec().id == ROOM_ID {
-        for (entity, mut player) in &mut players {
+        for (entity, mut abilities) in &mut players {
             let needs_capture = state
                 .swim_snapshot
                 .map(|snap| snap.player_entity != entity)
@@ -1021,10 +1021,10 @@ fn grant_room_swim_controls(
             if needs_capture {
                 state.swim_snapshot = Some(SwimSnapshot {
                     player_entity: entity,
-                    previous_swim: player.player.abilities.swim,
+                    previous_swim: abilities.abilities.swim,
                 });
             }
-            player.player.abilities.swim = true;
+            abilities.abilities.swim = true;
         }
         return;
     }
@@ -1032,9 +1032,9 @@ fn grant_room_swim_controls(
     let Some(snapshot) = state.swim_snapshot.take() else {
         return;
     };
-    for (entity, mut player) in &mut players {
+    for (entity, mut abilities) in &mut players {
         if entity == snapshot.player_entity {
-            player.player.abilities.swim = snapshot.previous_swim;
+            abilities.abilities.swim = snapshot.previous_swim;
         }
     }
 }

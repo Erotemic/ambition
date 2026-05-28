@@ -45,7 +45,7 @@ pub const POGO_DETECTION_HALF_WIDTH: f32 = 24.0;
 /// features (a few dozen at most per room).
 pub fn update_pogo_target_below(
     player: Query<
-        &crate::player::PlayerBody,
+        &crate::player::PlayerKinematics,
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,
@@ -54,7 +54,7 @@ pub fn update_pogo_target_below(
     targets: Query<&FeatureAabb, (With<FeatureSimEntity>, With<PogoTargetContributor>)>,
     mut out: ResMut<PogoTargetBelow>,
 ) {
-    let Ok(body) = player.single() else {
+    let Ok(kin) = player.single() else {
         if out.0 {
             *out = PogoTargetBelow(false);
         }
@@ -63,8 +63,8 @@ pub fn update_pogo_target_below(
     // Build a downward scan box anchored at the player's feet
     // (player.pos.y is the center; +Y is down in sim coords, so feet
     // sit at `pos.y + size.y * 0.5`).
-    let feet_y = body.pos.y + body.size.y * 0.5;
-    let center = ambition_engine::Vec2::new(body.pos.x, feet_y + POGO_DETECTION_DEPTH * 0.5);
+    let feet_y = kin.pos.y + kin.size.y * 0.5;
+    let center = ambition_engine::Vec2::new(kin.pos.x, feet_y + POGO_DETECTION_DEPTH * 0.5);
     let half_size =
         ambition_engine::Vec2::new(POGO_DETECTION_HALF_WIDTH, POGO_DETECTION_DEPTH * 0.5);
     let scan = ambition_engine::Aabb::new(center, half_size);

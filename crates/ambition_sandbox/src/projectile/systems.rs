@@ -30,7 +30,10 @@ pub fn update_projectiles(
     // for the global resource — projectile spawn becomes per-player at
     // that point by simply dropping the filter.
     player_input_q: Query<
-        (&crate::player::PlayerBody, &crate::player::PlayerInputFrame),
+        (
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerInputFrame,
+        ),
         crate::player::PrimaryPlayerOnly,
     >,
     user_settings: Res<crate::persistence::settings::UserSettings>,

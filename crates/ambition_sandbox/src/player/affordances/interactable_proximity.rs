@@ -39,7 +39,7 @@ pub struct NearestInteractable(pub InteractVariant);
 /// fire because both follow the same priority order.
 pub fn update_nearest_interactable(
     player: Query<
-        &crate::player::PlayerBody,
+        &crate::player::PlayerKinematics,
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,
@@ -50,13 +50,13 @@ pub fn update_nearest_interactable(
     switches: Query<&FeatureAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
     mut out: ResMut<NearestInteractable>,
 ) {
-    let Ok(body) = player.single() else {
+    let Ok(kin) = player.single() else {
         if out.0 != InteractVariant::None {
             *out = NearestInteractable(InteractVariant::None);
         }
         return;
     };
-    let player_aabb = body.aabb();
+    let player_aabb = kin.aabb();
 
     // NPCs first — `Talk` is the most common contextual swap and the
     // one players need feedback on while approaching dialog. Peaceful

@@ -9,7 +9,7 @@ use crate::content::features::BREAK_ON_STAND_SECONDS;
 pub fn update_ecs_breakables(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
+    player_body_q: Query<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>,
     mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<
         (
@@ -63,7 +63,7 @@ pub fn update_ecs_breakables(
         let any_player_standing = breaks_on_stand
             && player_body_q
                 .iter()
-                .any(|pb| player_is_standing_on(pb.aabb(), aabb.aabb()));
+                .any(|kin| player_is_standing_on(kin.aabb(), aabb.aabb()));
         if any_player_standing {
             stand_timer.0 += dt;
             if stand_timer.0 >= BREAK_ON_STAND_SECONDS {

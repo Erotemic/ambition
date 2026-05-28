@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use super::super::components::{ActorFaction, ActorTarget, FeatureAabb};
 use super::FeatureSimEntity;
-use crate::player::{PlayerBody, PlayerEntity};
+use crate::player::{PlayerEntity, PlayerKinematics};
 
 /// Pick each non-player actor's `ActorTarget` for this frame.
 ///
@@ -28,11 +28,11 @@ use crate::player::{PlayerBody, PlayerEntity};
 /// O(n) over actors. A many-player build can swap in a spatial
 /// index here without changing the consumer side.
 pub fn select_actor_targets(
-    players: Query<(Entity, &PlayerBody), With<PlayerEntity>>,
+    players: Query<(Entity, &PlayerKinematics), With<PlayerEntity>>,
     mut actors: Query<(&FeatureAabb, &mut ActorTarget, &ActorFaction), With<FeatureSimEntity>>,
 ) {
     let player_snapshots: Vec<(Entity, ae::Vec2)> =
-        players.iter().map(|(e, body)| (e, body.pos)).collect();
+        players.iter().map(|(e, kin)| (e, kin.pos)).collect();
     if player_snapshots.is_empty() {
         return;
     }
@@ -65,16 +65,14 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 mod tests {
     use super::*;
     use crate::content::features::components::{ActorFaction, ActorTarget, FeatureAabb};
-    use crate::player::{PlayerBody, PlayerEntity, PlayerSlot, PrimaryPlayer};
+    use crate::player::{PlayerEntity, PlayerKinematics, PlayerSlot, PrimaryPlayer};
 
-    fn dummy_player_body(pos: ae::Vec2) -> PlayerBody {
-        PlayerBody {
+    fn dummy_player_body(pos: ae::Vec2) -> PlayerKinematics {
+        PlayerKinematics {
             pos,
             size: ae::Vec2::new(28.0, 46.0),
             base_size: ae::Vec2::new(28.0, 46.0),
             facing: 1.0,
-            on_ground: true,
-            body_mode: ae::BodyMode::Standing,
             ..Default::default()
         }
     }

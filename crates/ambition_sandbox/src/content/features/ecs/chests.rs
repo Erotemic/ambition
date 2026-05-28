@@ -9,7 +9,7 @@ pub fn open_ecs_chests(
     mut banner: ResMut<GameplayBanner>,
     mut player: Query<
         (
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
             &mut crate::player::PlayerInteractionState,
         ),
         With<crate::player::PlayerEntity>,
@@ -37,11 +37,11 @@ pub fn open_ecs_chests(
     // the `Opened` marker, which keeps subsequent attempts no-ops).
     // OVERNIGHT-TODO #17.6/#17.8 — preserve single-player behavior
     // because the iterator has one entity today.
-    for (player_body, mut interaction) in &mut player {
+    for (player_kin, mut interaction) in &mut player {
         if !interaction.buffered() {
             continue;
         }
-        let player_aabb = player_body.aabb();
+        let player_aabb = player_kin.aabb();
         for (entity, id, name, aabb, opened, falling) in &chests {
             if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(player_aabb)
             {

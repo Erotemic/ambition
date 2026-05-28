@@ -113,9 +113,9 @@ pub fn record_frame_system(
     rooms: Option<Res<crate::rooms::RoomSet>>,
     mode: Res<State<crate::game_mode::GameMode>>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
-    player_q: Query<
+    mut player_q: Query<
         (
-            &crate::player::PlayerMovementAuthority,
+            crate::player::engine_player_bridge::PlayerClusterQueryData,
             Option<&crate::player::PlayerHealth>,
             &crate::player::PlayerSafetyState,
             &crate::player::PlayerInputFrame,
@@ -123,10 +123,15 @@ pub fn record_frame_system(
         crate::player::PrimaryPlayerOnly,
     >,
 ) {
-    let Ok((authority, player_health, safety, input)) = player_q.single() else {
+    let Ok((mut cluster_item, player_health, safety, input)) = player_q.single_mut() else {
         return;
     };
-    let player = &authority.player;
+    // Trace recording is read-only; assemble a snapshot Player from
+    // the cluster components and don't commit back.
+    let clusters = cluster_item.as_clusters_mut();
+    let snapshot_player =
+        crate::player::engine_player_bridge::assemble_player(&clusters);
+    let player = &snapshot_player;
     // Trace records this frame's input alongside player state. Read
     // from the per-player input component (OVERNIGHT-TODO #17.5).
     let control_frame = input.frame;

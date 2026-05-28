@@ -15,7 +15,7 @@ pub fn interact_ecs_actors_and_switches(
     mut banner: ResMut<GameplayBanner>,
     mut player: Query<
         (
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
             &mut crate::player::PlayerInteractionState,
         ),
         With<crate::player::PlayerEntity>,
@@ -41,11 +41,11 @@ pub fn interact_ecs_actors_and_switches(
     // per-player dialogue surface (OVERNIGHT-TODO #17) would let
     // simultaneous NPC interactions land per-player. Single-player
     // behavior preserved because the iterator has one entity today.
-    for (player_body, mut interaction) in &mut player {
+    for (player_kin, mut interaction) in &mut player {
         if !interaction.buffered() {
             continue;
         }
-        let player_aabb = player_body.aabb();
+        let player_aabb = player_kin.aabb();
         let mut consumed = false;
         for (aabb, actor) in &actors {
             let ActorRuntime::Peaceful(npc) = actor else {

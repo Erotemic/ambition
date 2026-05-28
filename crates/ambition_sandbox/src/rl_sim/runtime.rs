@@ -176,22 +176,64 @@ impl SandboxSim {
     /// Returns the current observation without advancing the simulation.
     /// Useful for inspecting state mid-episode without burning a tick.
     pub fn observation(&mut self) -> AgentObservation {
-        // Clone the authoritative player state. The query requires &mut World for
-        // cache setup only; the actual data read is immutable through single().
-        let player = {
-            let mut q = self.app.world_mut().query_filtered::<
-                &crate::player::PlayerMovementAuthority,
-                With<crate::player::PlayerEntity>,
-            >();
-            q.single(self.app.world())
-                .map(|a| a.player.clone())
-                .unwrap_or_else(|_| {
-                    ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default())
-                })
-        };
-
-        // Build per-entity queries first (requires &mut World, but the borrow
-        // ends immediately so the immutable reads below compile cleanly).
+        // Build per-entity cluster queries. Each one re-uses the
+        // `query_filtered::<&...>` shape; once Phase 3 collapses the
+        // bridge this can switch to a single `Query<PlayerClusterQueryData>`
+        // through a one-shot system.
+        let mut kinematics_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>(
+            );
+        let mut ground_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerGroundState, With<crate::player::PlayerEntity>>(
+            );
+        let mut wall_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerWallState, With<crate::player::PlayerEntity>>();
+        let mut jump_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerJumpState, With<crate::player::PlayerEntity>>();
+        let mut dash_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerDashState, With<crate::player::PlayerEntity>>();
+        let mut flight_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerFlightState, With<crate::player::PlayerEntity>>(
+            );
+        let mut blink_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerBlinkState, With<crate::player::PlayerEntity>>(
+            );
+        let mut body_mode_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerBodyModeState, With<crate::player::PlayerEntity>>(
+            );
+        let mut env_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerEnvironmentContact, With<crate::player::PlayerEntity>>(
+            );
+        let mut mana_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerMana, With<crate::player::PlayerEntity>>();
+        let mut offense_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerOffense, With<crate::player::PlayerEntity>>();
+        let mut lifetime_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerLifetime, With<crate::player::PlayerEntity>>();
         let mut combat_query = self
             .app
             .world_mut()
@@ -208,13 +250,23 @@ impl SandboxSim {
             );
 
         let world = self.app.world();
+        let kin = kinematics_query.single(world).ok();
+        let ground = ground_query.single(world).ok();
+        let wall = wall_query.single(world).ok();
+        let jump = jump_query.single(world).ok();
+        let dash = dash_query.single(world).ok();
+        let flight = flight_query.single(world).ok();
+        let blink = blink_query.single(world).ok();
+        let body_mode = body_mode_query.single(world).ok();
+        let env_contact = env_query.single(world).ok();
+        let mana = mana_query.single(world).ok();
+        let offense = offense_query.single(world).ok();
+        let lifetime = lifetime_query.single(world).ok();
         let health = health_query
             .single(world)
             .map(|h| h.health)
             .unwrap_or_else(|_| ae::Health::new(20));
         let room = world.resource::<RoomSet>().active_spec();
-
-        // Combat timers now live on `PlayerCombatState` (authoritative ECS component).
         let combat = combat_query.single(world).ok();
         let recently_damaged = combat.is_some_and(|c| c.damage_invuln_timer > 0.0);
         let in_hitstun = combat.is_some_and(|c| c.hitstun_timer > 0.0);
@@ -223,41 +275,52 @@ impl SandboxSim {
             .map(|s| s.last_safe_pos)
             .unwrap_or(ae::Vec2::ZERO);
 
+        let zero = ae::Vec2::ZERO;
+        let default_body = ae::default_player_body_size();
+        let pos = kin.map(|k| k.pos).unwrap_or(zero);
+        let vel = kin.map(|k| k.vel).unwrap_or(zero);
+        let size = kin.map(|k| k.size).unwrap_or(default_body);
+        let facing = kin.map(|k| k.facing).unwrap_or(1.0);
+        let water = env_contact.and_then(|e| e.water);
+        let climbable = env_contact.and_then(|e| e.climbable);
         AgentObservation {
             tick: self.tick,
-            player_pos: (player.pos.x, player.pos.y),
-            player_vel: (player.vel.x, player.vel.y),
-            player_size: (player.size.x, player.size.y),
-            on_ground: player.on_ground,
-            on_wall: player.on_wall,
-            wall_clinging: player.wall_clinging,
-            wall_climbing: player.wall_climbing,
-            facing: player.facing,
-            fast_falling: player.fast_falling,
-            fly_enabled: player.fly_enabled,
-            gliding: player.gliding,
-            dash_charges: player.dash_charges_available,
-            air_jumps: player.air_jumps_available,
-            blink_aiming: player.blink_aiming,
+            player_pos: (pos.x, pos.y),
+            player_vel: (vel.x, vel.y),
+            player_size: (size.x, size.y),
+            on_ground: ground.is_some_and(|g| g.on_ground),
+            on_wall: wall.is_some_and(|w| w.on_wall),
+            wall_clinging: wall.is_some_and(|w| w.wall_clinging),
+            wall_climbing: wall.is_some_and(|w| w.wall_climbing),
+            facing,
+            fast_falling: flight.is_some_and(|f| f.fast_falling),
+            fly_enabled: flight.is_some_and(|f| f.fly_enabled),
+            gliding: flight.is_some_and(|f| f.gliding),
+            dash_charges: dash.map(|d| d.charges_available).unwrap_or(0),
+            air_jumps: jump.map(|j| j.air_jumps_available).unwrap_or(0),
+            blink_aiming: blink.is_some_and(|b| b.aiming),
             hp: health.current,
             hp_max: health.max,
-            mana: player.mana.current as i32,
-            mana_max: player.mana.max as i32,
-            time_alive: player.time_alive,
-            resets: player.resets,
-            body_mode: format!("{:?}", player.body_mode),
+            mana: mana.map(|m| m.meter.current as i32).unwrap_or(0),
+            mana_max: mana.map(|m| m.meter.max as i32).unwrap_or(0),
+            time_alive: lifetime.map(|l| l.time_alive).unwrap_or(0.0),
+            resets: lifetime.map(|l| l.resets).unwrap_or(0),
+            body_mode: format!(
+                "{:?}",
+                body_mode.map(|b| b.body_mode).unwrap_or(ae::BodyMode::Standing)
+            ),
             active_room: room.id.clone(),
             world_size: (room.world.size.x, room.world.size.y),
             world_spawn: (room.world.spawn.x, room.world.spawn.y),
             last_safe_pos: (last_safe_pos.x, last_safe_pos.y),
             recently_damaged,
             in_hitstun,
-            invincible: player.invincible,
-            in_water: player.water_contact.is_some(),
-            water_kind: player.water_contact.map(|c| format!("{:?}", c.kind)),
-            water_submersion: player.water_contact.map(|c| c.submersion).unwrap_or(0.0),
-            on_climbable: player.climbable_contact.is_some(),
-            climbable_kind: player.climbable_contact.map(|c| format!("{:?}", c.kind)),
+            invincible: offense.is_some_and(|o| o.invincible),
+            in_water: water.is_some(),
+            water_kind: water.map(|c| format!("{:?}", c.kind)),
+            water_submersion: water.map(|c| c.submersion).unwrap_or(0.0),
+            on_climbable: climbable.is_some(),
+            climbable_kind: climbable.map(|c| format!("{:?}", c.kind)),
         }
     }
 

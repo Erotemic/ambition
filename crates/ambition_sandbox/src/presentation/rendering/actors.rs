@@ -34,7 +34,7 @@ pub fn sync_visuals(
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
             &crate::player::PlayerCombatState,
         ),
         With<PlayerVisual>,
@@ -313,9 +313,14 @@ pub fn animate_player(
         (
             &mut Sprite,
             &mut CharacterAnimator,
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerGroundState,
+            &crate::player::PlayerWallState,
+            &crate::player::PlayerBlinkState,
+            &crate::player::PlayerFlightState,
+            &crate::player::PlayerDashState,
+            &crate::player::PlayerLedgeState,
             &crate::player::PlayerCombatState,
-            &crate::player::PlayerMovementAuthority,
             &crate::player::PlayerAnimState,
             &crate::player::PlayerBlinkCameraState,
             Option<&crate::time::time_control::ProperTimeScale>,
@@ -326,9 +331,14 @@ pub fn animate_player(
     let Ok((
         mut sprite,
         mut animator,
-        player_body,
+        kinematics,
+        ground,
+        wall,
+        blink,
+        flight,
+        dash,
+        ledge,
         player_combat,
-        authority,
         anim_state,
         blink_cam,
         scale,
@@ -342,7 +352,13 @@ pub fn animate_player(
         player_combat,
         blink_cam,
         attack_state,
-        &authority.player,
+        kinematics,
+        ground,
+        wall,
+        blink,
+        flight,
+        dash,
+        ledge,
     );
     animator.request(anim);
     // ADR 0011 — `entity_dt` collapses to `sim_dt` when no
@@ -357,7 +373,7 @@ pub fn animate_player(
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
-    sprite.flip_x = player_body.facing < 0.0;
+    sprite.flip_x = kinematics.facing < 0.0;
     // Hit feedback is drawn by the white-silhouette overlay in
     // `presentation::rendering::hit_flash` — a sibling mesh that
     // samples this atlas frame and outputs pure white modulated by
@@ -934,7 +950,7 @@ pub fn apply_placeholder_sprites_override(
         Option<&SpriteOriginalState>,
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
-        Option<&crate::player::PlayerBody>,
+        Option<&crate::player::PlayerKinematics>,
         Option<&crate::projectile::PlayerProjectileVisual>,
         Option<&crate::enemy_projectile::EnemyProjectileVisual>,
     )>,

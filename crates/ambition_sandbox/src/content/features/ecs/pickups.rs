@@ -7,7 +7,7 @@ use crate::features::events::GameplayEffect;
 pub fn collect_ecs_pickups(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
-    player: Query<(Entity, &crate::player::PlayerBody), With<crate::player::PlayerEntity>>,
+    player: Query<(Entity, &crate::player::PlayerKinematics), With<crate::player::PlayerEntity>>,
     pickups: Query<
         (
             Entity,
@@ -38,7 +38,7 @@ pub fn collect_ecs_pickups(
         // primary fallback path lands the heal on the same player.
         let Some((collector_entity, _)) = player
             .iter()
-            .find(|(_, pb)| aabb.aabb().strict_intersects(pb.aabb()))
+            .find(|(_, kin)| aabb.aabb().strict_intersects(kin.aabb()))
         else {
             continue;
         };

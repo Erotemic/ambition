@@ -204,7 +204,10 @@ pub fn update_ecs_actors(
     // component lands as a query change, not a semantic shift.
     player_query: Query<
         (
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerOffense,
+            &crate::player::PlayerDodgeState,
+            &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
         crate::player::PrimaryPlayerOnly,
@@ -243,17 +246,16 @@ pub fn update_ecs_actors(
     // alongside the player. ADR 0010 + reference_lessons_learned.
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    let Ok((pb, combat)) = player_query.single() else {
+    let Ok((kin, offense, dodge, shield, combat)) = player_query.single() else {
         return;
     };
-    // Read the player's targeting position off the read-model
-    // PlayerBody. The full ae::Player clone the pre-brain code used
-    // is overkill — only `pos` was consulted, and `pos` is mirrored
-    // into PlayerBody every frame.
-    let player_pos = pb.pos;
-    let player_body = pb.aabb();
-    let player_vulnerable =
-        !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
+    let player_pos = kin.pos;
+    let player_body = kin.aabb();
+    let dodge_rolling = dodge.roll_timer > 0.0;
+    let player_vulnerable = !offense.invincible
+        && !dodge_rolling
+        && !shield.parrying()
+        && combat.vulnerable();
 
     // Pass 1: collect slot requests from every live hostile enemy.
     // The slot board is per-target (player) and arbitrates which

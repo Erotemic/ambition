@@ -4,9 +4,9 @@ use ambition_engine as ae;
 use bevy::prelude::*;
 
 use super::components::{
-    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody,
-    PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
-    PlayerMovementAuthority, PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
+    ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
+    PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
+    PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 use super::movement_components::{
     PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerComboTrace,
@@ -46,8 +46,6 @@ pub struct PlayerSimulationBundle {
     pub identity: PlayerIdentityBundle,
     pub primary: PrimaryPlayer,
     pub local: LocalPlayer,
-    pub authority: PlayerMovementAuthority,
-    pub body: PlayerBody,
     pub health: PlayerHealth,
     pub combat: PlayerCombatState,
     pub interaction: PlayerInteractionState,
@@ -108,11 +106,6 @@ impl PlayerSimulationBundle {
     /// `PrimaryPlayer` and may not be `LocalPlayer`.
     pub fn new(player: ae::Player, health: ae::Health) -> Self {
         let action_set = default_player_action_set(player.abilities);
-        // Phase 1 cluster components are initialized from the engine
-        // `Player` before it moves into `PlayerMovementAuthority`, so
-        // the new shadow state agrees with the live authority at
-        // spawn. Phase 2 cuts the authority and these clusters become
-        // the only writers.
         let abilities = PlayerAbilities::from_player(&player);
         let kinematics = PlayerKinematics::from_player(&player);
         let ground = PlayerGroundState::from_player(&player);
@@ -131,16 +124,11 @@ impl PlayerSimulationBundle {
         let action_buffer = PlayerActionBuffer::from_player(&player);
         let lifetime = PlayerLifetime::from_player(&player);
         let combo_trace = PlayerComboTrace::from_player(&player);
-
-        let authority = PlayerMovementAuthority::new(player);
-        let body = authority.body();
-        let initial_safe_pos = authority.player.pos;
+        let initial_safe_pos = player.pos;
         Self {
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,
             local: LocalPlayer,
-            authority,
-            body,
             health: PlayerHealth::new(health),
             combat: PlayerCombatState::default(),
             interaction: PlayerInteractionState::default(),

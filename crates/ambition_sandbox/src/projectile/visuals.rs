@@ -40,7 +40,7 @@ pub fn sync_projectile_visuals(
     // local-player resource). `PrimaryPlayerOnly` documents that this
     // is a presentation decision tied to the input owner — per-player
     // charge UI is a #17.5 follow-up.
-    player_body_q: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
+    player_body_q: Query<&crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
     existing: Query<Entity, With<PlayerProjectileVisual>>,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
 ) {

@@ -12,7 +12,7 @@ pub struct DevToggleParams<'w, 's> {
     pub player_q: Query<
         'w,
         's,
-        &'static mut crate::player::PlayerMovementAuthority,
+        crate::player::engine_player_bridge::PlayerClusterQueryData,
         crate::player::PrimaryPlayerOnly,
     >,
 }

@@ -75,7 +75,13 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     // baseline; agents that want a richer trace can replay this binary
     // pattern from their own scripted policy.
     use ambition_sandbox::game_mode::GameMode as GameModeState;
-    use ambition_sandbox::player::{PlayerEntity, PlayerMovementAuthority, PlayerSafetyState};
+    use ambition_sandbox::player::{
+        PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState,
+        PlayerComboTrace, PlayerDashState, PlayerDodgeState, PlayerEntity,
+        PlayerEnvironmentContact, PlayerFlightState, PlayerGroundState, PlayerJumpState,
+        PlayerKinematics, PlayerLedgeState, PlayerLifetime, PlayerMana, PlayerOffense,
+        PlayerSafetyState, PlayerShieldState, PlayerWallState,
+    };
     use ambition_sandbox::rooms::RoomSet;
     use ambition_sandbox::GameWorld;
     use bevy::prelude::With;
@@ -84,19 +90,141 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     for _ in 0..max_ticks {
         sim.step(ambition_sandbox::AgentAction::default());
 
-        // Read the authoritative player state from the ECS component.
+        // Assemble a snapshot ae::Player from the per-cluster ECS
+        // components so the trace writer keeps its existing
+        // `record_simulation_frame(&Player, ...)` signature.
         let player = {
-            let mut q = sim
-                .world_mut()
-                .query_filtered::<&PlayerMovementAuthority, With<PlayerEntity>>();
-            q.single(sim.world())
-                .map(|a| a.player.clone())
-                .unwrap_or_else(|_| {
-                    ambition_engine::Player::new_with_abilities(
-                        ambition_engine::Vec2::ZERO,
-                        ambition_engine::AbilitySet::default(),
-                    )
+            let mut single = || -> Option<ambition_engine::Player> {
+                let mut kin_q =
+                    sim.world_mut()
+                        .query_filtered::<&PlayerKinematics, With<PlayerEntity>>();
+                let mut ground_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerGroundState, With<PlayerEntity>>();
+                let mut wall_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerWallState, With<PlayerEntity>>();
+                let mut jump_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerJumpState, With<PlayerEntity>>();
+                let mut dash_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerDashState, With<PlayerEntity>>();
+                let mut flight_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerFlightState, With<PlayerEntity>>();
+                let mut blink_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerBlinkState, With<PlayerEntity>>();
+                let mut ledge_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerLedgeState, With<PlayerEntity>>();
+                let mut dodge_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerDodgeState, With<PlayerEntity>>();
+                let mut shield_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerShieldState, With<PlayerEntity>>();
+                let mut body_mode_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerBodyModeState, With<PlayerEntity>>();
+                let mut env_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerEnvironmentContact, With<PlayerEntity>>();
+                let mut mana_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerMana, With<PlayerEntity>>();
+                let mut offense_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerOffense, With<PlayerEntity>>();
+                let mut action_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerActionBuffer, With<PlayerEntity>>();
+                let mut lifetime_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerLifetime, With<PlayerEntity>>();
+                let mut combo_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerComboTrace, With<PlayerEntity>>();
+                let mut abilities_q = sim
+                    .world_mut()
+                    .query_filtered::<&PlayerAbilities, With<PlayerEntity>>();
+                let world_ref = sim.world();
+                let kin = kin_q.single(world_ref).ok()?;
+                let ground = ground_q.single(world_ref).ok()?;
+                let wall = wall_q.single(world_ref).ok()?;
+                let jump = jump_q.single(world_ref).ok()?;
+                let dash = dash_q.single(world_ref).ok()?;
+                let flight = flight_q.single(world_ref).ok()?;
+                let blink = blink_q.single(world_ref).ok()?;
+                let ledge = ledge_q.single(world_ref).ok()?;
+                let dodge = dodge_q.single(world_ref).ok()?;
+                let shield = shield_q.single(world_ref).ok()?;
+                let body_mode = body_mode_q.single(world_ref).ok()?;
+                let env = env_q.single(world_ref).ok()?;
+                let mana = mana_q.single(world_ref).ok()?;
+                let offense = offense_q.single(world_ref).ok()?;
+                let action = action_q.single(world_ref).ok()?;
+                let lifetime = lifetime_q.single(world_ref).ok()?;
+                let combo = combo_q.single(world_ref).ok()?;
+                let abilities = abilities_q.single(world_ref).ok()?;
+                Some(ambition_engine::Player {
+                    abilities: abilities.abilities,
+                    pos: kin.pos,
+                    vel: kin.vel,
+                    size: kin.size,
+                    base_size: kin.base_size,
+                    facing: kin.facing,
+                    on_ground: ground.on_ground,
+                    on_wall: wall.on_wall,
+                    wall_normal_x: wall.wall_normal_x,
+                    dash_charges_available: dash.charges_available,
+                    air_jumps_available: jump.air_jumps_available,
+                    fly_enabled: flight.fly_enabled,
+                    flight_phase: flight.flight_phase,
+                    blink_cooldown: blink.cooldown,
+                    blink_hold_active: blink.hold_active,
+                    blink_hold_timer: blink.hold_timer,
+                    blink_aiming: blink.aiming,
+                    blink_aim_offset: blink.aim_offset,
+                    blink_grace_timer: blink.grace_timer,
+                    fast_falling: flight.fast_falling,
+                    gliding: flight.gliding,
+                    wall_clinging: wall.wall_clinging,
+                    wall_climbing: wall.wall_climbing,
+                    dash_timer: dash.timer,
+                    dash_cooldown: dash.cooldown,
+                    dash_buffer_timer: action.dash,
+                    jump_buffer_timer: action.jump,
+                    coyote_timer: ground.coyote_timer,
+                    rebound_cooldown: ground.rebound_cooldown,
+                    drop_through_timer: ground.drop_through_timer,
+                    combo: combo.combo.clone(),
+                    max_speed: lifetime.max_speed,
+                    time_alive: lifetime.time_alive,
+                    resets: lifetime.resets,
+                    damage_multiplier: offense.damage_multiplier,
+                    mana: mana.meter,
+                    invincible: offense.invincible,
+                    body_mode: body_mode.body_mode,
+                    water_contact: env.water,
+                    climbable_contact: env.climbable,
+                    ledge_grab: ledge.grab,
+                    pre_wall_vel: wall.pre_wall_vel,
+                    pre_wall_vel_age: wall.pre_wall_vel_age,
+                    ledge_release_cooldown: ledge.release_cooldown,
+                    dodge_roll_timer: dodge.roll_timer,
+                    dodge_roll_cooldown: dodge.cooldown,
+                    shield_active: shield.active,
+                    parry_window_timer: shield.parry_window_timer,
                 })
+            };
+            single().unwrap_or_else(|| {
+                ambition_engine::Player::new_with_abilities(
+                    ambition_engine::Vec2::ZERO,
+                    ambition_engine::AbilitySet::default(),
+                )
+            })
         };
         let safety = {
             let mut q = sim

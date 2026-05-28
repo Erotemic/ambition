@@ -206,12 +206,23 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// `combat` provides `hitstun_timer` (now on `PlayerCombatState`).
 /// `blink_cam` provides `blink_in_timer` (now on `PlayerBlinkCameraState`).
 /// `attack` is the active swing from `player::ActivePlayerAttack`; `None` when idle.
+///
+/// Phase 2 migration: the remaining player state (velocity, ground,
+/// wall, blink/aim, flight, dash, ledge) comes in as five cluster
+/// component references so this helper has no dependency on the
+/// legacy `ae::Player` aggregate.
 pub fn pick_player_anim(
     anim: &PlayerAnimState,
     combat: &crate::player::PlayerCombatState,
     blink_cam: &crate::player::PlayerBlinkCameraState,
     attack: Option<&crate::PlayerAttackState>,
-    player: &ae::Player,
+    kinematics: &crate::player::PlayerKinematics,
+    ground: &crate::player::PlayerGroundState,
+    wall: &crate::player::PlayerWallState,
+    blink: &crate::player::PlayerBlinkState,
+    flight: &crate::player::PlayerFlightState,
+    dash: &crate::player::PlayerDashState,
+    ledge: &crate::player::PlayerLedgeState,
 ) -> CharacterAnim {
     if combat.hitstun_timer > 0.05 {
         return CharacterAnim::Hit;
@@ -222,43 +233,43 @@ pub fn pick_player_anim(
     if anim.slash_anim_timer > 0.0 {
         return directional_attack_anim(attack);
     }
-    if player.blink_aiming || player.blink_hold_active {
+    if blink.aiming || blink.hold_active {
         return CharacterAnim::BlinkOut;
     }
-    if let Some(ledge) = player.ledge_grab.as_ref() {
-        if !ledge.climbing {
+    if let Some(ledge_state) = ledge.grab.as_ref() {
+        if !ledge_state.climbing {
             return CharacterAnim::LedgeGrab;
         }
-        return match ledge.getup_kind {
+        return match ledge_state.getup_kind {
             ae::LedgeGetupKind::Climb => CharacterAnim::LedgeGetup,
             ae::LedgeGetupKind::Roll => CharacterAnim::LedgeRoll,
             ae::LedgeGetupKind::Attack => CharacterAnim::LedgeGetupAttack,
         };
     }
-    if player.fly_enabled {
+    if flight.fly_enabled {
         return CharacterAnim::Fly;
     }
     if anim.dash_startup_timer > 0.0 {
         return CharacterAnim::DashStartup;
     }
-    if player.dash_timer > 0.0 {
+    if dash.timer > 0.0 {
         return CharacterAnim::Dash;
     }
     // Wall pin (held against the wall, neither sliding nor climbing) reads
     // distinct from the engine's downward `wall_slide` integration.
-    if !player.on_ground
-        && player.wall_clinging
-        && !player.wall_climbing
-        && player.vel.y.abs() < 40.0
+    if !ground.on_ground
+        && wall.wall_clinging
+        && !wall.wall_climbing
+        && kinematics.vel.y.abs() < 40.0
     {
         return CharacterAnim::WallGrab;
     }
-    if player.gliding {
+    if flight.gliding {
         return CharacterAnim::FloatGlide;
     }
-    if !player.on_ground {
+    if !ground.on_ground {
         // Engine uses top-left coords: vel.y < 0 = moving up.
-        if player.vel.y < -10.0 {
+        if kinematics.vel.y < -10.0 {
             return CharacterAnim::Jump;
         }
         return CharacterAnim::Fall;
@@ -270,7 +281,7 @@ pub fn pick_player_anim(
             CharacterAnim::LandRecovery
         };
     }
-    let speed = player.vel.x.abs();
+    let speed = kinematics.vel.x.abs();
     if speed < 12.0 {
         CharacterAnim::Idle
     } else if speed < 220.0 {

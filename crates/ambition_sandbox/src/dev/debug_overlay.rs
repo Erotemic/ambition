@@ -75,9 +75,9 @@ pub fn draw_debug_overlay(
     player_projectiles: Res<crate::projectile::PlayerProjectileState>,
     enemy_projectiles: Res<crate::enemy_projectile::EnemyProjectileState>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
-    player_q: Query<
+    mut player_q: Query<
         (
-            &crate::player::PlayerMovementAuthority,
+            crate::player::engine_player_bridge::PlayerClusterQueryData,
             Option<&crate::player::PlayerHealth>,
             &crate::player::ActivePlayerAttack,
         ),
@@ -100,9 +100,17 @@ pub fn draw_debug_overlay(
     } else {
         None
     };
-    let Ok((authority, player_health, attack)) = player_q.single() else {
+    let Ok((mut cluster_item, player_health, attack)) = player_q.single_mut() else {
         return;
     };
+    // Phase 2 transitional: the debug-overlay helpers
+    // (`draw_player_debug`, `draw_health_bars`) still take `&ae::Player`.
+    // Build a read-only snapshot from the cluster components and pass
+    // it through. Phase 3 will refactor those helpers to take cluster
+    // refs directly.
+    let clusters = cluster_item.as_clusters_mut();
+    let snapshot_player = crate::player::engine_player_bridge::assemble_player(&clusters);
+    let authority_player = &snapshot_player;
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);
     }
@@ -135,7 +143,7 @@ pub fn draw_debug_overlay(
     draw_player_debug(
         &mut gizmos,
         world,
-        &authority.player,
+        authority_player,
         &platform_set.0,
         attack.0.as_ref(),
         actions,
@@ -143,7 +151,7 @@ pub fn draw_debug_overlay(
         &developer_tools,
     );
     if developer_tools.show_health_bars {
-        draw_health_bars(&mut gizmos, world, &authority.player, player_health);
+        draw_health_bars(&mut gizmos, world, authority_player, player_health);
     }
     if developer_tools.show_feature_hitboxes {
         draw_feature_debug(&mut gizmos, world, &feature_q, &developer_tools);

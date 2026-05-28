@@ -112,7 +112,10 @@ pub fn apply_hitbox_damage(
     player_query: Query<
         (
             Entity,
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerOffense,
+            &crate::player::PlayerDodgeState,
+            &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
         crate::player::PrimaryPlayerOnly,
@@ -122,12 +125,15 @@ pub fn apply_hitbox_damage(
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
 ) {
-    let Ok((player_entity, pb, combat)) = player_query.single() else {
+    let Ok((player_entity, kin, offense, dodge, shield, combat)) = player_query.single() else {
         return;
     };
-    let player_body = pb.aabb();
-    let player_vulnerable =
-        !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
+    let player_body = kin.aabb();
+    let dodge_rolling = dodge.roll_timer > 0.0;
+    let player_vulnerable = !offense.invincible
+        && !dodge_rolling
+        && !shield.parrying()
+        && combat.vulnerable();
 
     for (_hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         let owner_pos = match owners.get(hitbox.owner) {

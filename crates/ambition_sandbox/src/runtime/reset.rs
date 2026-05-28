@@ -108,7 +108,7 @@ pub fn process_sandbox_reset_request(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     mut player_q: Query<
         (
-            &mut crate::player::PlayerMovementAuthority,
+            crate::player::engine_player_bridge::PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerBlinkCameraState,
@@ -165,14 +165,15 @@ pub fn process_sandbox_reset_request(
     // Reset the ECS authority directly so the next player tick frame
     // starts from the spawn position. Also zero animation state so post-reset
     // frames don't continue a mid-air slash or dash-startup pose.
-    if let Ok((mut authority, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =
+    if let Ok((mut cluster_item, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =
         player_q.single_mut()
     {
-        authority.player.reset_to(world.0.spawn);
-        authority
-            .player
-            .refresh_movement_resources(tuning.as_engine());
-        authority.player.mana.refill_full();
+        let mut clusters = cluster_item.as_clusters_mut();
+        let mut player = crate::player::engine_player_bridge::assemble_player(&clusters);
+        player.reset_to(world.0.spawn);
+        player.refresh_movement_resources(tuning.as_engine());
+        player.mana.refill_full();
+        crate::player::engine_player_bridge::commit_player(player, &mut clusters);
         anim.reset();
         combat.reset();
         combat.flash_timer = 0.18;
@@ -229,7 +230,7 @@ impl Plugin for SandboxResetSchedulePlugin {
 mod tests {
     use super::*;
     use crate::dev::dev_tools::EditableMovementTuning;
-    use crate::player::{PlayerBlinkCameraState, PlayerMovementAuthority};
+    use crate::player::PlayerBlinkCameraState;
     use crate::GameWorld;
 
     /// Pin the request resource's defaults: a fresh app starts with
@@ -279,20 +280,17 @@ mod tests {
         app.insert_resource(EncounterMusicRequest::default());
         app.insert_resource(crate::features::GameplayBanner::default());
         // Spawn the player entity so process_sandbox_reset_request can query it.
+        // Uses the full simulation bundle so every cluster component lands
+        // — the reset path queries `PlayerClusterQueryData` which needs all
+        // of them present.
         {
             let mut initial =
                 ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
             initial.refresh_movement_resources(ae::DEFAULT_TUNING);
-            let safety = crate::player::PlayerSafetyState::new(initial.pos);
-            app.world_mut().spawn((
-                crate::player::PlayerEntity,
-                PlayerMovementAuthority::new(initial),
-                crate::player::PlayerAnimState::default(),
-                crate::player::PlayerCombatState::default(),
-                PlayerBlinkCameraState::default(),
-                crate::player::ActivePlayerAttack::default(),
-                safety,
-            ));
+            let health = ae::Health::new(20);
+            app.world_mut()
+                .spawn(crate::player::PlayerSimulationBundle::new(initial, health));
+            let _ = PlayerBlinkCameraState::default();
         }
         app.insert_resource(crate::world::physics::PhysicsSandboxSettings::default());
         app.insert_resource(crate::MovingPlatformSet::default());
@@ -420,10 +418,10 @@ mod tests {
         {
             let mut q = app
                 .world_mut()
-                .query_filtered::<&mut PlayerMovementAuthority, With<crate::player::PlayerEntity>>(
+                .query_filtered::<&mut crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>(
                 );
-            if let Ok(mut authority) = q.single_mut(app.world_mut()) {
-                authority.player.pos = ae::Vec2::new(1234.0, 1234.0);
+            if let Ok(mut kin) = q.single_mut(app.world_mut()) {
+                kin.pos = ae::Vec2::new(1234.0, 1234.0);
             }
         }
         {
@@ -435,8 +433,8 @@ mod tests {
         let expected_spawn = world.0.spawn;
         let mut q = app
             .world_mut()
-            .query_filtered::<&PlayerMovementAuthority, With<crate::player::PlayerEntity>>();
-        let player_pos = q.single(app.world()).map(|a| a.player.pos).unwrap();
+            .query_filtered::<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>();
+        let player_pos = q.single(app.world()).map(|k| k.pos).unwrap();
         assert_eq!(player_pos, expected_spawn);
     }
 

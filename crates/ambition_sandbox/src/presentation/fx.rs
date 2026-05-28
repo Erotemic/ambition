@@ -469,21 +469,26 @@ pub fn update_blink_preview(
         &leafwing_input_manager::prelude::ActionState<crate::input::SandboxAction>,
         bevy::prelude::With<crate::presentation::rendering::PlayerVisual>,
     >,
-    player_authority: Query<
-        &crate::player::PlayerMovementAuthority,
+    mut player_q: Query<
+        crate::player::engine_player_bridge::PlayerClusterQueryData,
         crate::player::PrimaryPlayerOnly,
     >,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {
     use crate::input::ControlFrame;
 
-    let Ok(auth) = player_authority.single() else {
+    let Ok(mut cluster_item) = player_q.single_mut() else {
         for (entity, _, _, _) in &existing {
             commands.entity(entity).despawn();
         }
         return;
     };
-    let player = &auth.player;
+    // Phase 2 transitional: the blink destination helpers still take
+    // `&ae::Player`. Build a read-only snapshot from the clusters; no
+    // commit is needed because this system only reads.
+    let clusters = cluster_item.as_clusters_mut();
+    let snapshot = crate::player::engine_player_bridge::assemble_player(&clusters);
+    let player = &snapshot;
     let actions = if mode.get().allows_gameplay() {
         action_query.get(scene.player).ok()
     } else {

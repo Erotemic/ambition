@@ -376,7 +376,10 @@ pub fn update_ecs_bosses(
     // `single()` semantic.
     player_query: Query<
         (
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerOffense,
+            &crate::player::PlayerDodgeState,
+            &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
         crate::player::PrimaryPlayerOnly,
@@ -399,12 +402,15 @@ pub fn update_ecs_bosses(
     // the player triggers bullet-time mid-pattern.
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    let Ok((pb, combat)) = player_query.single() else {
+    let Ok((kin, offense, dodge, shield, combat)) = player_query.single() else {
         return;
     };
-    let player_body = pb.aabb();
-    let player_vulnerable =
-        !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
+    let player_body = kin.aabb();
+    let dodge_rolling = dodge.roll_timer > 0.0;
+    let player_vulnerable = !offense.invincible
+        && !dodge_rolling
+        && !shield.parrying()
+        && combat.vulnerable();
     for (mut aabb, mut feature, mut pattern_timer, mut phase, control, attack_state, brain) in
         &mut bosses
     {

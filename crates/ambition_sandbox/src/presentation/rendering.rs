@@ -87,9 +87,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .after(actors::sync_visuals),
             )
             // Bubble shield visual: similar pattern — toggle / tint every
-            // frame from `PlayerBody.shielding` and `PlayerBody.parrying`.
-            // Must run after `write_player_ecs_components` so `PlayerBody`
-            // is current.
+            // frame from `PlayerShieldState::active` and
+            // `PlayerShieldState::parrying()`.
             .add_systems(
                 Startup,
                 crate::player::bubble_shield::build_bubble_shield_sprite,

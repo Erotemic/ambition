@@ -29,10 +29,19 @@ pub(super) struct HudCameraParams<'w, 's> {
         'w,
         's,
         (
-            &'static crate::player::PlayerBody,
+            &'static crate::player::PlayerKinematics,
+            &'static crate::player::PlayerGroundState,
+            &'static crate::player::PlayerWallState,
+            &'static crate::player::PlayerDashState,
+            &'static crate::player::PlayerJumpState,
+            &'static crate::player::PlayerMana,
+            &'static crate::player::PlayerBodyModeState,
+            &'static crate::player::PlayerLedgeState,
+            &'static crate::player::PlayerFlightState,
+            &'static crate::player::PlayerBlinkState,
+            &'static crate::player::PlayerComboTrace,
             &'static crate::player::PlayerHealth,
             &'static crate::player::PlayerCombatState,
-            &'static crate::player::PlayerMovementAuthority,
             &'static crate::player::ActivePlayerAttack,
         ),
         crate::player::PrimaryPlayerOnly,
@@ -110,18 +119,32 @@ pub(super) fn update_hud(
             let mode = display_mode.label();
             format!("window: unknown {mode}")
         });
-    let Ok((hud_body, hud_health, hud_combat, hud_authority, hud_attack)) =
-        camera_params.player.single()
+    let Ok((
+        hud_kin,
+        hud_ground,
+        hud_wall,
+        hud_dash,
+        hud_jump,
+        hud_mana,
+        hud_body_mode,
+        hud_ledge,
+        hud_flight,
+        hud_blink,
+        hud_combo,
+        hud_health,
+        hud_combat,
+        hud_attack,
+    )) = camera_params.player.single()
     else {
         return;
     };
     let player_hp_current = hud_health.current().max(0);
     let player_hp_max = hud_health.max();
-    let player_vel = hud_body.vel;
-    let player_on_ground = hud_body.on_ground;
-    let player_dash_charges = hud_body.dash_charges_available;
-    let player_air_jumps = hud_body.air_jumps_available;
-    let player_mana_current = hud_body.mana_current as i32;
+    let player_vel = hud_kin.vel;
+    let player_on_ground = hud_ground.on_ground;
+    let player_dash_charges = hud_dash.charges_available;
+    let player_air_jumps = hud_jump.air_jumps_available;
+    let player_mana_current = hud_mana.meter.current as i32;
     let player_hitstun = hud_combat.hitstun_timer;
     let player_invuln = hud_combat.damage_invuln_timer;
     let player_hitstop = hud_combat.hitstop_timer;
@@ -196,8 +219,38 @@ pub(super) fn update_hud(
         let joined = map_lines.join("\n");
         format!("\nMAP\n{joined}")
     };
-    let locomotion = ae::LocomotionState::from_player(&hud_authority.player).label();
-    let body_mode = hud_body.body_mode.label();
+    // Inline the locomotion classification from the cluster refs —
+    // mirrors `ae::LocomotionState::from_player` (which still wants a
+    // full `Player`) using only the fields the HUD has on hand. Phase 3
+    // promotes this back to an engine helper once the cluster shapes
+    // are stable.
+    let locomotion = if hud_dash.timer > 0.0 {
+        ae::LocomotionState::Dashing
+    } else if hud_blink.aiming {
+        ae::LocomotionState::BlinkAiming
+    } else if hud_flight.fly_enabled {
+        ae::LocomotionState::Flying
+    } else if let Some(ledge) = hud_ledge.grab {
+        if ledge.climbing {
+            ae::LocomotionState::LedgeClimb
+        } else {
+            ae::LocomotionState::LedgeHang
+        }
+    } else if hud_wall.wall_climbing {
+        ae::LocomotionState::WallClimb
+    } else if hud_wall.wall_clinging {
+        ae::LocomotionState::WallCling
+    } else if hud_wall.on_wall && !hud_ground.on_ground {
+        ae::LocomotionState::WallSlide
+    } else if hud_flight.fast_falling {
+        ae::LocomotionState::FastFalling
+    } else if hud_ground.on_ground {
+        ae::LocomotionState::Grounded
+    } else {
+        ae::LocomotionState::Airborne
+    }
+    .label();
+    let body_mode = hud_body_mode.body_mode.label();
     let movement_line = format!("\nLOCO: {locomotion}  BODY: {body_mode}");
     let attack_line = hud_attack
         .0
@@ -210,9 +263,8 @@ pub(super) fn update_hud(
             format!("\nATTACK: {intent} {phase} {pct:.0}% hits={hits}")
         })
         .unwrap_or_default();
-    let ledge_line = hud_authority
-        .player
-        .ledge_grab
+    let ledge_line = hud_ledge
+        .grab
         .as_ref()
         .map(|ledge| {
             if ledge.climbing {
@@ -230,7 +282,7 @@ pub(super) fn update_hud(
         let room_count = room_set.rooms.len();
         let vx = player_vel.x;
         let vy = player_vel.y;
-        let combo_symbols = hud_authority.player.combo_symbols();
+        let combo_symbols = hud_combo.symbols();
         let preset_name = &preset.name;
         **text = format!(
             "{world_name} | {mode_label} | room {room_index}/{room_count} | \
@@ -265,7 +317,7 @@ pub(super) fn update_hud(
     let mode_label = mode.get().label();
     let room_index = room_set.active + 1;
     let room_count = room_set.rooms.len();
-    let combo_symbols = hud_authority.player.combo_symbols();
+    let combo_symbols = hud_combo.symbols();
     let preset_name = &preset.name;
     **text = format!(
         "{world_name}  mode: {mode_label}  room {room_index}/{room_count}\n\

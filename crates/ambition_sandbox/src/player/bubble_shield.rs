@@ -105,34 +105,40 @@ pub fn spawn_bubble_shield_visual(
     ));
 }
 
-/// Show / hide and tint the shield ring based on `PlayerBody.shielding` /
-/// `PlayerBody.parrying`. Position and scale track the player body size.
+/// Show / hide and tint the shield ring based on `PlayerShieldState`.
+/// Position and scale track the player body size.
 pub fn sync_bubble_shield_visual(
     world: Res<crate::GameWorld>,
-    player_q: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
+    player_q: Query<
+        (
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerShieldState,
+        ),
+        crate::player::PrimaryPlayerOnly,
+    >,
     mut shield_q: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
 ) {
-    let Ok(pb) = player_q.single() else { return };
+    let Ok((kin, shield)) = player_q.single() else { return };
     let Ok((mut transform, mut sprite, mut vis)) = shield_q.single_mut() else {
         return;
     };
 
-    if !pb.shielding {
+    if !shield.active {
         *vis = Visibility::Hidden;
         return;
     }
 
     // Position centered on the player body.
     transform.translation =
-        crate::config::world_to_bevy(&world.0, pb.pos, crate::config::WORLD_Z_PLAYER - 0.05);
+        crate::config::world_to_bevy(&world.0, kin.pos, crate::config::WORLD_Z_PLAYER - 0.05);
 
     // Scale the ring to be slightly larger than the player collider so it
     // reads as surrounding the body without clipping into it.
-    let render = bevy::math::Vec2::new(pb.size.x * 1.55, pb.size.y * 1.25);
+    let render = bevy::math::Vec2::new(kin.size.x * 1.55, kin.size.y * 1.25);
     sprite.custom_size = Some(render);
 
     // Parry window: gold glow. Held but expired: soft cyan.
-    sprite.color = if pb.parrying {
+    sprite.color = if shield.parrying() {
         Color::srgba(1.0, 0.95, 0.40, 0.90)
     } else {
         Color::srgba(0.50, 0.80, 1.0, 0.55)

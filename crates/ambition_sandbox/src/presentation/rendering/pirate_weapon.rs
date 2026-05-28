@@ -96,7 +96,7 @@ pub fn sync_pirate_weapon_visuals(
     world: Res<crate::GameWorld>,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
     player_q: Query<
-        &crate::player::PlayerBody,
+        &crate::player::PlayerKinematics,
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,

@@ -90,7 +90,12 @@ pub fn compute_player_affordances(
     proximity: Res<NearestInteractable>,
     pogo: Res<PogoTargetBelow>,
     player_q: Query<
-        &crate::player::PlayerMovementAuthority,
+        (
+            &crate::player::PlayerGroundState,
+            &crate::player::PlayerLedgeState,
+            &crate::player::PlayerBodyModeState,
+            &crate::player::PlayerEnvironmentContact,
+        ),
         (
             With<crate::player::PlayerEntity>,
             With<crate::player::PrimaryPlayer>,
@@ -98,19 +103,18 @@ pub fn compute_player_affordances(
     >,
     mut affordances: ResMut<PlayerAffordances>,
 ) {
-    let Ok(authority) = player_q.single() else {
+    let Ok((ground, ledge, body_mode, env_contact)) = player_q.single() else {
         // No primary player yet (e.g. boot-up before
         // `setup_simulation_system` runs). Leave affordances at their
         // defaults; the HUD renders "Jump / Attack / Shield / Dash /
         // Interact / Special" which is the correct cold-start label.
         return;
     };
-    let player = &authority.player;
     let body = PlayerBodyView {
-        is_aerial: !player.on_ground,
-        on_ledge: player.ledge_grab.is_some(),
-        is_morphed: matches!(player.body_mode, ambition_engine::BodyMode::MorphBall),
-        is_swimming: player.water_contact.is_some(),
+        is_aerial: !ground.on_ground,
+        on_ledge: ledge.grab.is_some(),
+        is_morphed: matches!(body_mode.body_mode, ambition_engine::BodyMode::MorphBall),
+        is_swimming: env_contact.water.is_some(),
     };
     let world = WorldView {
         nearest_interactable: proximity.0.clone(),
@@ -184,7 +188,10 @@ mod tests {
     /// without pulling in the whole sandbox plugin graph.
     fn build_test_app() -> (App, Entity) {
         use crate::input::ControlFrame;
-        use crate::player::{PlayerBody, PlayerEntity, PlayerMovementAuthority, PrimaryPlayer};
+        use crate::player::{
+            PlayerBodyModeState, PlayerEntity, PlayerEnvironmentContact, PlayerGroundState,
+            PlayerKinematics, PlayerLedgeState, PrimaryPlayer,
+        };
 
         let mut app = App::new();
         // `detect_active_input_method` reads `Res<ButtonInput<KeyCode>>`
@@ -195,24 +202,23 @@ mod tests {
             .init_resource::<bevy::input::ButtonInput<KeyCode>>()
             .init_resource::<bevy::input::touch::Touches>()
             .add_plugins(AffordancesPlugin);
-        // `ae::Player::new` defaults `on_ground` to false — that's
-        // correct for a freshly-spawned engine player before the
-        // first collision tick runs. The affordance compute system
-        // would then read this as "aerial" and pick `NAir` / `Dodge`
-        // instead of the grounded baseline our tests want. The
-        // simulation flips `on_ground` true on first contact with
-        // the floor; we skip that here by setting it directly.
-        let mut player =
-            ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::sandbox_all());
-        player.on_ground = true;
-        let body = PlayerBody::from_player(&player);
+        // The affordance compute reads exactly these four cluster
+        // components: ground (on_ground), ledge (grab), body_mode
+        // (body_mode), env_contact (water). Plus kinematics for the
+        // intent system's facing read. Start with grounded baseline.
         let entity = app
             .world_mut()
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerMovementAuthority::new(player),
-                body,
+                PlayerKinematics::default(),
+                PlayerGroundState {
+                    on_ground: true,
+                    ..Default::default()
+                },
+                PlayerLedgeState::default(),
+                PlayerBodyModeState::default(),
+                PlayerEnvironmentContact::default(),
             ))
             .id();
         (app, entity)
@@ -220,20 +226,6 @@ mod tests {
 
     fn read_affordances(app: &App) -> PlayerAffordances {
         app.world().resource::<PlayerAffordances>().clone()
-    }
-
-    /// Mutate the primary player's engine state inside a closure.
-    /// Wraps the chained-`EntityWorldMut`-temporary pattern (which
-    /// the borrow checker rejects when the result is bound to a
-    /// `let`) into a single ergonomic helper. Used by every test
-    /// below that needs to flip `on_ground` / `facing` / `ledge_grab`
-    /// before driving an `app.update()`.
-    fn with_player_mut(app: &mut App, entity: Entity, f: impl FnOnce(&mut ae::Player)) {
-        let mut ent = app.world_mut().entity_mut(entity);
-        let mut authority = ent
-            .get_mut::<crate::player::PlayerMovementAuthority>()
-            .expect("primary player has PlayerMovementAuthority");
-        f(&mut authority.player);
     }
 
     #[test]
@@ -272,7 +264,14 @@ mod tests {
         assert_eq!(read_affordances(&app).special, SpecialVariant::UpSpecial);
 
         // Side-stick (forward relative to right-facing) → SideSpecial.
-        with_player_mut(&mut app, player_entity, |p| p.facing = 1.0);
+        {
+            let mut kin = app
+                .world_mut()
+                .entity_mut(player_entity)
+                .get_mut::<crate::player::PlayerKinematics>()
+                .unwrap();
+            kin.facing = 1.0;
+        }
         {
             let mut cf = app.world_mut().resource_mut::<crate::input::ControlFrame>();
             cf.axis_x = 1.0;
@@ -290,7 +289,14 @@ mod tests {
             .resource_mut::<crate::input::ControlFrame>()
             .axis_y = 1.0;
         // Lift the player off the ground.
-        with_player_mut(&mut app, player_entity, |p| p.on_ground = false);
+        {
+            let mut ground = app
+                .world_mut()
+                .entity_mut(player_entity)
+                .get_mut::<crate::player::PlayerGroundState>()
+                .unwrap();
+            ground.on_ground = false;
+        }
         app.update();
         let aff = read_affordances(&app);
         assert_eq!(aff.attack, AttackVariant::DAir);
@@ -301,13 +307,18 @@ mod tests {
     #[test]
     fn ledge_grab_flips_jump_and_shield() {
         let (mut app, player_entity) = build_test_app();
-        with_player_mut(&mut app, player_entity, |p| {
-            p.ledge_grab = Some(ae::LedgeGrabState::hanging(ae::LedgeContact {
+        {
+            let mut ledge = app
+                .world_mut()
+                .entity_mut(player_entity)
+                .get_mut::<crate::player::PlayerLedgeState>()
+                .unwrap();
+            ledge.grab = Some(ae::LedgeGrabState::hanging(ae::LedgeContact {
                 wall_normal_x: 1.0,
                 anchor: ae::Vec2::ZERO,
                 climb_target: ae::Vec2::ZERO,
             }));
-        });
+        }
         app.update();
         let aff = read_affordances(&app);
         assert_eq!(aff.jump, JumpVariant::Climb);
@@ -317,14 +328,16 @@ mod tests {
     #[test]
     fn b_air_fires_when_aim_opposes_facing_aerial() {
         let (mut app, player_entity) = build_test_app();
-        with_player_mut(&mut app, player_entity, |p| {
-            p.on_ground = false;
-            p.facing = 1.0; // facing right
-        });
-        // Player aabb in PlayerBody is the read model — for the body
-        // view the affordance system reads `PlayerMovementAuthority`
-        // directly via `is_aerial`/`facing`-driven `compute_aim`. Push
-        // stick left (negative X).
+        {
+            let mut ent = app.world_mut().entity_mut(player_entity);
+            ent.get_mut::<crate::player::PlayerGroundState>()
+                .unwrap()
+                .on_ground = false;
+            ent.get_mut::<crate::player::PlayerKinematics>()
+                .unwrap()
+                .facing = 1.0;
+        }
+        // Push stick left (negative X) — opposing facing-right.
         app.world_mut()
             .resource_mut::<crate::input::ControlFrame>()
             .axis_x = -1.0;

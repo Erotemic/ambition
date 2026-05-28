@@ -18,7 +18,10 @@ pub fn update_enemy_projectiles(
     player_body_q: Query<
         (
             Entity,
-            &crate::player::PlayerBody,
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerOffense,
+            &crate::player::PlayerDodgeState,
+            &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
         With<crate::player::PlayerEntity>,
@@ -45,21 +48,24 @@ pub fn update_enemy_projectiles(
         // the query today. OVERNIGHT-TODO #17.8 (B-bucket
         // iterate-all-players for projectile/hazard hits).
         let mut hit_any_player = false;
-        for (player_entity, pb, combat) in &player_body_q {
-            let vulnerable =
-                !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-            if !vulnerable || !shot.body.aabb().strict_intersects(pb.aabb()) {
+        for (player_entity, kin, offense, dodge, shield, combat) in &player_body_q {
+            let dodge_rolling = dodge.roll_timer > 0.0;
+            let vulnerable = !offense.invincible
+                && !dodge_rolling
+                && !shield.parrying()
+                && combat.vulnerable();
+            if !vulnerable || !shot.body.aabb().strict_intersects(kin.aabb()) {
                 continue;
             }
-            let knock_dir = (pb.pos.x - shot.body.pos.x).signum();
+            let knock_dir = (kin.pos.x - shot.body.pos.x).signum();
             let knock_dir = if knock_dir.abs() < 0.001 {
                 1.0
             } else {
                 knock_dir
             };
             let impact_pos = ae::Vec2::new(
-                (pb.pos.x + shot.body.pos.x) * 0.5,
-                (pb.pos.y + shot.body.pos.y) * 0.5,
+                (kin.pos.x + shot.body.pos.x) * 0.5,
+                (kin.pos.y + shot.body.pos.y) * 0.5,
             );
             player_damage.write(PlayerDamageEvent {
                 mode: PlayerDamageMode::Knockback,

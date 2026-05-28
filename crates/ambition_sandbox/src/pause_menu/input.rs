@@ -133,7 +133,20 @@ pub fn pause_menu_navigate(
             );
         }
         PauseMenuPage::Settings(page) => {
-            let mut authority_player = dev_toggles.player_q.single_mut().ok();
+            // Build a scratch ae::Player from cluster components so the
+            // settings code (which still mutates the legacy aggregate)
+            // can keep its signature; commit back at the end. Phase 3
+            // refactors `apply_action` to take cluster refs directly.
+            let mut cluster_item = dev_toggles.player_q.single_mut().ok();
+            let (mut clusters_owned, mut scratch_player) = match cluster_item.as_mut() {
+                Some(item) => {
+                    let clusters = item.as_clusters_mut();
+                    let player =
+                        crate::player::engine_player_bridge::assemble_player(&clusters);
+                    (Some(clusters), Some(player))
+                }
+                None => (None, None),
+            };
             handle_settings_page_input(
                 frame,
                 page,
@@ -146,8 +159,11 @@ pub fn pause_menu_navigate(
                 &mut dev_toggles.developer,
                 &mut dev_toggles.editable_tuning,
                 &mut dev_toggles.ldtk_reload,
-                authority_player.as_deref_mut().map(|a| &mut a.player),
+                scratch_player.as_mut(),
             );
+            if let (Some(player), Some(clusters)) = (scratch_player, clusters_owned.as_mut()) {
+                crate::player::engine_player_bridge::commit_player(player, clusters);
+            }
         }
         PauseMenuPage::Radio => {
             #[cfg(feature = "audio")]

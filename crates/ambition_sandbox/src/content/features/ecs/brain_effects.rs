@@ -437,7 +437,7 @@ pub fn spawn_overfit_volley_from_special_messages(
     world_time: Res<WorldTime>,
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
     mut messages: MessageReader<ActorActionMessage>,
-    player_query: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
+    player_query: Query<&crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
     mut bosses: Query<
         (
             Entity,
@@ -467,7 +467,7 @@ pub fn spawn_overfit_volley_from_special_messages(
         }
     }
 
-    let player_pos = player_query.single().ok().map(|pb| pb.aabb().center());
+    let player_pos = player_query.single().ok().map(|kin| kin.aabb().center());
 
     for (entity, boss_feature, attack_state, mut state) in &mut bosses {
         let boss = &boss_feature.boss;
@@ -572,7 +572,7 @@ const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 pub fn spawn_minima_trap_from_special_messages(
     mut commands: Commands,
     mut messages: MessageReader<ActorActionMessage>,
-    player_query: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
+    player_query: Query<&crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
     mut bosses: Query<(Entity, &BossFeature, &mut MinimaTrapState), With<FeatureSimEntity>>,
 ) {
     let mut active_strike_params: std::collections::HashMap<Entity, (f32, i32, f32, f32, bool)> =
@@ -602,7 +602,7 @@ pub fn spawn_minima_trap_from_special_messages(
         }
     }
 
-    let player_pos = player_query.single().ok().map(|pb| pb.aabb().center());
+    let player_pos = player_query.single().ok().map(|kin| kin.aabb().center());
 
     for (entity, boss_feature, mut state) in &mut bosses {
         let boss = &boss_feature.boss;

@@ -87,7 +87,8 @@ pub struct PresentationSetup<'a> {
 /// * spawning the `LdtkWorldBundle` so `bevy_ecs_ldtk` can own LDtk entity
 ///   lifecycle and the runtime-spine systems have something to query
 /// * spawning the player entity with gameplay-essential ECS components
-///   (`Transform`, `PlayerVisual`, `PlayerMovementAuthority`, etc.).
+///   (`PlayerSimulationBundle` for sim clusters plus `Transform`,
+///   `PlayerVisual`, etc.).
 ///   Leafwing's `ActionState` and `InputMap` get attached by the
 ///   presentation-side `attach_player_input_components` startup system;
 ///   sim-only builds stay leafwing-free per the ADR 0012 input seam.

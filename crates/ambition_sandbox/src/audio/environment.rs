@@ -153,12 +153,12 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 #[cfg(feature = "audio")]
 pub fn detect_audio_environment(
     mut env: ResMut<AudioEnvironment>,
-    primary: Query<&crate::player::PlayerBody, With<crate::player::PrimaryPlayer>>,
+    primary: Query<&crate::player::PlayerEnvironmentContact, With<crate::player::PrimaryPlayer>>,
 ) {
     let underwater = primary
         .iter()
         .next()
-        .and_then(|body| body.water_contact)
+        .and_then(|env_contact| env_contact.water)
         .is_some_and(|contact| contact.submersion >= 0.5);
     let next = if underwater {
         AudioEnvironmentMode::Underwater
@@ -350,23 +350,12 @@ mod tests {
 
         let mut app = App::new();
         app.init_resource::<AudioEnvironment>();
-        let world = ae::World::new(
-            "env_detect_test",
-            ae::Vec2::new(2000.0, 2000.0),
-            ae::Vec2::new(100.0, 100.0),
-            Vec::new(),
-        );
-        let mut player = ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
-        player.refresh_movement_resources(ae::DEFAULT_TUNING);
-        // detect_audio_environment now reads PlayerBody.water_contact
-        // (per the Chunk 4e migration). Spawn a body alongside the
-        // authority so the system has something to query.
-        let body = crate::player::PlayerBody::from_player(&player);
+        // Spawn a minimal primary player with the env-contact cluster
+        // component the detect system reads.
         app.world_mut().spawn((
             crate::player::PlayerEntity,
             crate::player::PrimaryPlayer,
-            crate::player::PlayerMovementAuthority::new(player),
-            body,
+            crate::player::PlayerEnvironmentContact::default(),
         ));
         app.add_systems(Update, detect_audio_environment);
 
@@ -387,16 +376,12 @@ mod tests {
             spec: ae::WaterVolumeSpec::default(),
         };
         {
-            // Test writes the read model directly (the real game has
-            // `write_player_ecs_components` mirroring from authority
-            // each frame, but the test schedule doesn't include
-            // that system).
             let mut q = app.world_mut().query_filtered::<
-                &mut crate::player::PlayerBody,
+                &mut crate::player::PlayerEnvironmentContact,
                 With<crate::player::PrimaryPlayer>,
             >();
-            for mut body in q.iter_mut(app.world_mut()) {
-                body.water_contact = Some(contact);
+            for mut env_contact in q.iter_mut(app.world_mut()) {
+                env_contact.water = Some(contact);
             }
         }
         app.update();
@@ -408,11 +393,11 @@ mod tests {
         // Shallow contact (below threshold) → Normal again.
         {
             let mut q = app.world_mut().query_filtered::<
-                &mut crate::player::PlayerBody,
+                &mut crate::player::PlayerEnvironmentContact,
                 With<crate::player::PrimaryPlayer>,
             >();
-            for mut body in q.iter_mut(app.world_mut()) {
-                body.water_contact = Some(ae::WaterContact {
+            for mut env_contact in q.iter_mut(app.world_mut()) {
+                env_contact.water = Some(ae::WaterContact {
                     submersion: 0.2,
                     ..contact
                 });

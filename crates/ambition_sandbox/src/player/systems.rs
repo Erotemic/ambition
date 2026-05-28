@@ -4,16 +4,11 @@ use ambition_engine as ae;
 use bevy::prelude::*;
 
 use super::components::{
-    ActivePlayerAttack, LocalPlayer, PlayerBody, PlayerCombatState, PlayerEntity, PlayerHealth,
-    PlayerInputFrame, PlayerMovementAuthority, PlayerSlot, PrimaryPlayer,
+    ActivePlayerAttack, LocalPlayer, PlayerCombatState, PlayerEntity, PlayerHealth,
+    PlayerInputFrame, PlayerSlot, PrimaryPlayer,
 };
 use super::events::PlayerHealRequested;
-use super::movement_components::{
-    PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerComboTrace,
-    PlayerDashState, PlayerDodgeState, PlayerEnvironmentContact, PlayerFlightState,
-    PlayerGroundState, PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerLifetime,
-    PlayerMana, PlayerOffense, PlayerShieldState, PlayerWallState,
-};
+use super::movement_components::{PlayerGroundState, PlayerKinematics};
 use crate::brain::{ActorControl, Brain, BrainSnapshot};
 use crate::input::ControlFrame;
 
@@ -64,23 +59,24 @@ pub fn tick_player_brains(
     mut players: Query<(
         &PlayerSlot,
         &PlayerInputFrame,
-        &PlayerBody,
+        &PlayerKinematics,
+        &PlayerGroundState,
         &mut Brain,
         &mut ActorControl,
     )>,
 ) {
-    for (slot, input, body, mut brain, mut control) in &mut players {
-        // Build the snapshot from the player's read-model PlayerBody
-        // plus the per-tick input frame. The input is what makes
+    for (slot, input, kin, ground, mut brain, mut control) in &mut players {
+        // Build the snapshot from the player's cluster components plus
+        // the per-tick input frame. The input is what makes
         // Brain::Player's translation deterministic: same input +
         // same body snapshot → same ActorControlFrame.
         let snapshot = BrainSnapshot {
-            actor_pos: body.pos,
-            actor_vel: body.vel,
-            actor_facing: body.facing,
-            actor_on_ground: body.on_ground,
+            actor_pos: kin.pos,
+            actor_vel: kin.vel,
+            actor_facing: kin.facing,
+            actor_on_ground: ground.on_ground,
             alive: true,
-            target_pos: body.pos,
+            target_pos: kin.pos,
             target_alive: true,
             sim_time: 0.0,
             dt: 0.0,
@@ -108,127 +104,20 @@ pub fn tick_player_brains(
     }
 }
 
-/// Mirror the cluster components onto the transitional read-model
-/// components every frame.
+/// Mirror `ActivePlayerAttack::is_active()` onto
+/// `PlayerCombatState::attacking` so rendering systems can branch on
+/// attack state without a separate query.
 ///
-/// Phase 2 of the player-ecs-bandaid plan made the cluster components
-/// (`PlayerKinematics`, `PlayerGroundState`, …) authoritative. Until
-/// Phase 2b migrates every reader off `PlayerMovementAuthority` and
-/// `PlayerBody`, those two stay on the entity as a downstream
-/// read-only mirror so the unmigrated consumers (~35 readers) keep
-/// seeing fresh per-frame state. This system is the mirror; Phase 2c
-/// deletes it along with `PlayerMovementAuthority` and `PlayerBody`.
-///
-/// Also mirrors `ActivePlayerAttack::is_active()` onto
-/// `PlayerCombatState::attacking` — same scoping rule as before.
+/// All Phase 2 work has landed: `PlayerMovementAuthority` and
+/// `PlayerBody` are gone, and the cluster components in
+/// [`super::movement_components`] are the authoritative simulation
+/// state. This system is the residue of the previous mirror — it's
+/// kept as a separate function so the scheduler ordering hooked into
+/// `PresentationSync` doesn't change shape.
 pub fn write_player_ecs_components(
-    mut players: Query<
-        (
-            (
-                &PlayerAbilities,
-                &PlayerKinematics,
-                &PlayerGroundState,
-                &PlayerWallState,
-                &PlayerJumpState,
-                &PlayerDashState,
-                &PlayerFlightState,
-                &PlayerBlinkState,
-                &PlayerLedgeState,
-                &PlayerDodgeState,
-                &PlayerShieldState,
-                &PlayerBodyModeState,
-                &PlayerEnvironmentContact,
-                &PlayerMana,
-                &PlayerOffense,
-            ),
-            (
-                &PlayerActionBuffer,
-                &PlayerLifetime,
-                &PlayerComboTrace,
-                &mut PlayerMovementAuthority,
-                &mut PlayerBody,
-                &mut PlayerCombatState,
-                &ActivePlayerAttack,
-            ),
-        ),
-        With<PlayerEntity>,
-    >,
+    mut players: Query<(&ActivePlayerAttack, &mut PlayerCombatState), With<PlayerEntity>>,
 ) {
-    for (
-        (
-            abilities,
-            kinematics,
-            ground,
-            wall,
-            jump_state,
-            dash,
-            flight,
-            blink,
-            ledge,
-            dodge,
-            shield,
-            body_mode,
-            env_contact,
-            mana,
-            offense,
-        ),
-        (action_buffer, lifetime, combo_trace, mut authority, mut body, mut combat, attack),
-    ) in &mut players
-    {
-        // Rebuild the legacy engine `Player` aggregate from the
-        // cluster components and replace the mirror in one go.
-        let player = ae::Player {
-            abilities: abilities.abilities,
-            pos: kinematics.pos,
-            vel: kinematics.vel,
-            size: kinematics.size,
-            base_size: kinematics.base_size,
-            facing: kinematics.facing,
-            on_ground: ground.on_ground,
-            on_wall: wall.on_wall,
-            wall_normal_x: wall.wall_normal_x,
-            dash_charges_available: dash.charges_available,
-            air_jumps_available: jump_state.air_jumps_available,
-            fly_enabled: flight.fly_enabled,
-            flight_phase: flight.flight_phase,
-            blink_cooldown: blink.cooldown,
-            blink_hold_active: blink.hold_active,
-            blink_hold_timer: blink.hold_timer,
-            blink_aiming: blink.aiming,
-            blink_aim_offset: blink.aim_offset,
-            blink_grace_timer: blink.grace_timer,
-            fast_falling: flight.fast_falling,
-            gliding: flight.gliding,
-            wall_clinging: wall.wall_clinging,
-            wall_climbing: wall.wall_climbing,
-            dash_timer: dash.timer,
-            dash_cooldown: dash.cooldown,
-            dash_buffer_timer: action_buffer.dash,
-            jump_buffer_timer: action_buffer.jump,
-            coyote_timer: ground.coyote_timer,
-            rebound_cooldown: ground.rebound_cooldown,
-            drop_through_timer: ground.drop_through_timer,
-            combo: combo_trace.combo.clone(),
-            max_speed: lifetime.max_speed,
-            time_alive: lifetime.time_alive,
-            resets: lifetime.resets,
-            damage_multiplier: offense.damage_multiplier,
-            mana: mana.meter,
-            invincible: offense.invincible,
-            body_mode: body_mode.body_mode,
-            water_contact: env_contact.water,
-            climbable_contact: env_contact.climbable,
-            ledge_grab: ledge.grab,
-            pre_wall_vel: wall.pre_wall_vel,
-            pre_wall_vel_age: wall.pre_wall_vel_age,
-            ledge_release_cooldown: ledge.release_cooldown,
-            dodge_roll_timer: dodge.roll_timer,
-            dodge_roll_cooldown: dodge.cooldown,
-            shield_active: shield.active,
-            parry_window_timer: shield.parry_window_timer,
-        };
-        *body = PlayerBody::from_player(&player);
-        authority.player = player;
+    for (attack, mut combat) in &mut players {
         combat.attacking = attack.is_active();
     }
 }

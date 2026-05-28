@@ -21,6 +21,7 @@
 mod anim;
 mod animator;
 mod assets;
+mod baked_sheet_rons;
 pub mod registry;
 mod sheets;
 

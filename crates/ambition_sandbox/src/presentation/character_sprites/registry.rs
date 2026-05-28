@@ -28,20 +28,19 @@
 //! debuggers, atlas viewers) should prefer the YAML; runtime
 //! consumers should prefer the RON via [`SheetRegistry`].
 //!
-//! # Iteration vs ship builds
+//! # How loading works
 //!
-//! By default the registry reads every `*_spritesheet.ron` from
-//! `crates/ambition_sandbox/assets/sprites` at startup using
-//! `std::fs::read_to_string`. That keeps the iteration loop tight:
-//! edit a generator → run `./regen_sprites.sh` → restart the
-//! sandbox → see the new shape. No `cargo build` required.
+//! Every `*_spritesheet.ron` under `assets/sprites/` is embedded into
+//! the binary at compile time by `build.rs` (see
+//! [`super::baked_sheet_rons::BAKED_SHEET_RONS`]). The Bevy `Startup`
+//! system [`init_sheet_registry`] parses each baked RON text into a
+//! [`SheetRecord`] and inserts it into the [`SheetRegistry`] resource.
 //!
-//! For ship builds (and for non-desktop platforms where the project
-//! root isn't readable at runtime), enable the **`baked_sheets`**
-//! Cargo feature. That swaps the loader for an `include_str!`-driven
-//! variant that embeds every RON byte in the binary at compile time.
-//! The baked path is currently a `todo!()` stub — see [`init_baked`]
-//! for the migration recipe.
+//! Re-running `./regen_sprites.sh` rewrites the RON files; `cargo`
+//! re-runs `build.rs` (via the `cargo:rerun-if-changed=assets/sprites`
+//! directive) so a normal `cargo build` picks up the new shape. There
+//! is no separate "iteration vs ship" loader — Android, wasm, and
+//! desktop all read the same embedded table.
 
 // SheetRecord / SheetRow / BodyMetrics / FrameRect / PixelRect /
 // PixelPoint / NormPoint carry the full generator-emitted schema.
@@ -341,55 +340,25 @@ impl Plugin for SheetRegistryPlugin {
     }
 }
 
-#[cfg(not(feature = "baked_sheets"))]
 fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
-    init_runtime(&mut registry);
+    init_from_baked(&mut registry);
 }
 
-#[cfg(feature = "baked_sheets")]
-fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
-    init_baked(&mut registry);
-}
-
-/// Default loader: read every `*_spritesheet.ron` from
-/// `<manifest>/assets/sprites/` at startup. Native-only — wasm and
-/// android builds should enable the `baked_sheets` Cargo feature.
+/// Build the runtime `SheetRegistry` from the compile-time
+/// `BAKED_SHEET_RONS` table emitted by `build.rs`. Replaces the old
+/// `std::fs::read_dir($CARGO_MANIFEST_DIR/assets/sprites)` scan, which
+/// only worked on desktop — the manifest path doesn't exist on Android /
+/// wasm devices, so the device-side registry was silently empty and the
+/// first sprite load panicked.
 ///
-/// Each file is a list `[SheetRecord, …]`. Most lists are length 1;
-/// shared-PNG sheets (lab props) carry multiple records, one per
-/// sub-target.
-#[cfg(not(feature = "baked_sheets"))]
-fn init_runtime(registry: &mut SheetRegistry) {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites");
-    let entries = match std::fs::read_dir(&dir) {
-        Ok(e) => e,
-        Err(err) => {
-            warn!(
-                "SheetRegistry: cannot read {}: {err}; registry will be empty",
-                dir.display()
-            );
-            return;
-        }
-    };
-
+/// Each baked entry is the raw RON text from one `*_spritesheet.ron`
+/// file. Most files are a length-1 list; shared-PNG sheets (lab props)
+/// carry multiple records, one per sub-target.
+fn init_from_baked(registry: &mut SheetRegistry) {
     let mut loaded = 0usize;
     let mut failed: Vec<(String, String)> = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-            continue;
-        };
-        if !name.ends_with("_spritesheet.ron") {
-            continue;
-        }
-        let text = match std::fs::read_to_string(&path) {
-            Ok(t) => t,
-            Err(err) => {
-                failed.push((name.to_owned(), err.to_string()));
-                continue;
-            }
-        };
-        match ron::from_str::<Vec<SheetRecord>>(&text) {
+    for (filename_root, text) in super::baked_sheet_rons::BAKED_SHEET_RONS {
+        match ron::from_str::<Vec<SheetRecord>>(text) {
             Ok(records) => {
                 for record in records {
                     registry.sheets.insert(record.target.clone(), record);
@@ -397,60 +366,18 @@ fn init_runtime(registry: &mut SheetRegistry) {
                 }
             }
             Err(err) => {
-                failed.push((name.to_owned(), err.to_string()));
+                failed.push(((*filename_root).to_owned(), err.to_string()));
             }
         }
     }
 
     info!(
-        "SheetRegistry: loaded {loaded} sheets from {} ({} failed)",
-        dir.display(),
+        "SheetRegistry: loaded {loaded} sheets from baked table ({} failed)",
         failed.len()
     );
     for (file, err) in failed {
-        warn!("SheetRegistry: failed to load {file}: {err}");
+        warn!("SheetRegistry: failed to parse baked {file}: {err}");
     }
-}
-
-/// Compile-time-baked loader. Gated behind the `baked_sheets` Cargo
-/// feature so iteration builds don't pay the rebuild cost when a
-/// sprite RON changes.
-///
-/// To fill this in:
-///
-/// ```ignore
-/// fn init_baked(registry: &mut SheetRegistry) {
-///     macro_rules! load {
-///         ($name:literal) => {{
-///             let text = include_str!(concat!(
-///                 "../../../assets/sprites/",
-///                 $name,
-///                 "_spritesheet.ron",
-///             ));
-///             let records: Vec<SheetRecord> = ron::from_str(text)
-///                 .expect(concat!("baked: ", $name, " parse"));
-///             for record in records {
-///                 registry.sheets.insert(record.target.clone(), record);
-///             }
-///         }};
-///     }
-///     load!("pirate_admiral");
-///     load!("pirate_raider");
-///     /* …one per sheet filename, not per target id… */
-/// }
-/// ```
-///
-/// Sketch only; the actual list of targets should match the runtime
-/// loader's directory enumeration. If we ever profile and find the
-/// startup parse expensive enough to matter, the next step beyond
-/// this is a `build.rs` that emits a `static SHEETS: &[(&str,
-/// SheetRecord)] = &[...]` table directly.
-#[cfg(feature = "baked_sheets")]
-fn init_baked(_registry: &mut SheetRegistry) {
-    todo!(
-        "baked_sheets: replace this with the include_str! pattern in the doc above. \
-         The runtime loader in this file should be the reference for what to deserialize."
-    );
 }
 
 #[cfg(test)]

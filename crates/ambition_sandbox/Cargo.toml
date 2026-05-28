@@ -245,18 +245,6 @@ mobile_touch = ["input", "dep:virtual_joystick"]
 # for now while the bevy_falling_sand render feature is validated there.
 falling_sand = ["dep:bevy_falling_sand"]
 
-# Compile-time-baked sprite-sheet manifests. By default the
-# `SheetRegistry` reads `assets/sprites/*_spritesheet.ron` at startup
-# via `std::fs::read_to_string` so editing a generator → ./regen_sprites.sh
-# → restart picks up the new shape without a `cargo build`. For ship
-# builds and non-desktop platforms (wasm/android) where reading the
-# project root at runtime isn't an option, enable this feature to
-# `include_str!` the RON bytes into the binary. The baked path is
-# currently a `todo!()` stub — see
-# `presentation::character_sprites::registry::init_baked` for the
-# migration recipe.
-baked_sheets = []
-
 # Bevy/Tracy per-system profiling. Off by default because it pulls
 # `tracing-tracy` and instruments every Bevy system, increasing binary
 # size and runtime overhead. Build with `cargo run --features profile`

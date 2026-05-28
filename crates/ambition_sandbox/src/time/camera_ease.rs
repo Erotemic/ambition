@@ -126,6 +126,31 @@ pub fn tick_camera_shake(
     shake.seed = shake.seed.wrapping_add(1);
 }
 
+/// Below this incoming downward velocity, a landing produces no
+/// screen shake — tiny hops and footstep landings shouldn't rattle
+/// the camera.
+pub const HARD_FALL_SHAKE_FLOOR_VY: f32 = 360.0;
+
+/// Pixels-of-shake per (vy − floor_vy). `(720 - 360) * 1/60 = 6 px`
+/// — a tall drop gets a meaty thump; terminal velocity falls
+/// saturate at the 14-px cap inside [`CameraShakeState::kick`].
+pub const HARD_FALL_SHAKE_GAIN: f32 = 1.0 / 60.0;
+
+/// Compute the shake amplitude for a player landing transition. Pure
+/// function so the trigger logic in `player_simulation_phase` is
+/// unit-testable independent of the surrounding bevy plumbing.
+///
+/// Returns 0.0 when the landing isn't a hard fall (no transition, or
+/// vy is below the dead-zone). Otherwise returns the post-gain
+/// amplitude that should be fed to `shake.kick(...)`.
+pub fn hard_fall_shake_amplitude(was_grounded: bool, on_ground: bool, pre_sim_vy: f32) -> f32 {
+    if was_grounded || !on_ground {
+        return 0.0;
+    }
+    let excess = (pre_sim_vy - HARD_FALL_SHAKE_FLOOR_VY).max(0.0);
+    excess * HARD_FALL_SHAKE_GAIN
+}
+
 impl CameraShakeState {
     /// Cheap deterministic 2D offset within the current amplitude budget.
     /// xorshift on `seed` gives a per-frame value in `[-amp, +amp]`;
@@ -217,5 +242,62 @@ mod tests {
         let mut shake = CameraShakeState::default();
         shake.amplitude_px = 0.04; // below 0.05 dead-zone
         assert_eq!(shake.offset(), ae::Vec2::ZERO);
+    }
+
+    #[test]
+    fn hard_fall_no_shake_when_already_grounded() {
+        // Player was already grounded last frame → no landing → no shake.
+        assert_eq!(
+            hard_fall_shake_amplitude(true, true, 800.0),
+            0.0,
+            "no transition → no shake"
+        );
+    }
+
+    #[test]
+    fn hard_fall_no_shake_when_still_airborne() {
+        // Was airborne and still airborne → no landing → no shake.
+        assert_eq!(
+            hard_fall_shake_amplitude(false, false, 800.0),
+            0.0,
+            "no landing → no shake"
+        );
+    }
+
+    #[test]
+    fn hard_fall_no_shake_below_floor_vy() {
+        // A soft hop (vy < HARD_FALL_SHAKE_FLOOR_VY) shouldn't shake the camera.
+        assert_eq!(
+            hard_fall_shake_amplitude(false, true, 200.0),
+            0.0,
+            "soft landing → no shake"
+        );
+        // Right at the floor: still no shake (clamp at zero).
+        assert_eq!(hard_fall_shake_amplitude(false, true, HARD_FALL_SHAKE_FLOOR_VY), 0.0);
+    }
+
+    #[test]
+    fn hard_fall_amplitude_scales_with_excess_vy() {
+        let amp_a = hard_fall_shake_amplitude(false, true, HARD_FALL_SHAKE_FLOOR_VY + 60.0);
+        let amp_b = hard_fall_shake_amplitude(false, true, HARD_FALL_SHAKE_FLOOR_VY + 360.0);
+        assert!(amp_a > 0.0, "kick fires above floor_vy");
+        assert!(amp_b > amp_a, "bigger fall → bigger amplitude");
+        // Amplitude scales linearly with excess: 6× the excess → 6× the kick.
+        let ratio = amp_b / amp_a;
+        assert!(
+            (ratio - 6.0).abs() < 0.01,
+            "ratio should be ~6.0, got {ratio}"
+        );
+    }
+
+    #[test]
+    fn hard_fall_saturates_through_kick_cap() {
+        // Terminal-velocity fall produces a huge raw amplitude;
+        // the `kick()` clamp is what enforces the 14-px cap.
+        let raw = hard_fall_shake_amplitude(false, true, 5000.0);
+        assert!(raw > 14.0, "raw amplitude exceeds cap, kick will clamp");
+        let mut shake = CameraShakeState::default();
+        shake.kick(raw);
+        assert!(shake.amplitude_px <= 14.0);
     }
 }

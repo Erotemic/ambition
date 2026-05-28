@@ -9,6 +9,7 @@ use super::components::{
 use super::events::PlayerHealRequested;
 use super::movement_components::{PlayerGroundState, PlayerKinematics};
 use crate::brain::{ActorControl, Brain, BrainSnapshot};
+#[cfg(test)]
 use crate::engine_core as ae;
 use crate::input::ControlFrame;
 

@@ -217,16 +217,16 @@ pub(super) fn player_simulation_phase(
         sim_dt,
         tuning,
     );
-    // Hard-fall screen shake: trigger on the landing transition with
-    // amplitude proportional to incoming downward speed past a
-    // dead-zone. Avoids tiny hops, saturates above terminal velocity.
-    if !was_grounded && clusters.ground.on_ground {
-        const SHAKE_FLOOR_VY: f32 = 360.0; // below this, no shake
-        const SHAKE_GAIN: f32 = 1.0 / 60.0; // 360 → 0 px, 600 → 4 px, terminal ≈ 14 px
-        let fall_excess = (pre_sim_vy - SHAKE_FLOOR_VY).max(0.0);
-        if fall_excess > 0.0 {
-            shake.kick(fall_excess * SHAKE_GAIN);
-        }
+    // Hard-fall screen shake: pure trigger function in
+    // `time::camera_ease`. Avoids tiny hops, saturates above
+    // terminal velocity via the `kick()` cap.
+    let shake_amplitude = crate::time::camera_ease::hard_fall_shake_amplitude(
+        was_grounded,
+        clusters.ground.on_ground,
+        pre_sim_vy,
+    );
+    if shake_amplitude > 0.0 {
+        shake.kick(shake_amplitude);
     }
     if sim_events.reset {
         reset_sandbox(

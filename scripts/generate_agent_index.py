@@ -7,6 +7,7 @@ not source-of-truth replacements for code, ADRs, or concept pages.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from datetime import datetime, timezone
@@ -35,15 +36,18 @@ def generated_meta() -> dict[str, str]:
 
 
 def iter_files() -> list[Path]:
+    # `os.walk` with in-place `dirnames` filtering so SKIP_DIRS actually
+    # prevents descent. The old `rglob("*")` form filtered after the fact,
+    # which meant the script still recursed into `target/` (millions of
+    # files on Android/desktop builds) and exhausted file descriptors on
+    # virtiofs hosts (EMFILE: Too many open files).
     out: list[Path] = []
-    for path in ROOT.rglob("*"):
-        if not path.is_file():
-            continue
-        rel_parts = path.relative_to(ROOT).parts
-        if any(part in SKIP_DIRS for part in rel_parts):
-            continue
-        if path.suffix in TEXT_EXTS:
-            out.append(path)
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for name in filenames:
+            path = Path(dirpath) / name
+            if path.suffix in TEXT_EXTS:
+                out.append(path)
     return sorted(out)
 
 

@@ -161,3 +161,40 @@ headless bin) plus the engine-internal regression-test suite.
   `replay_fixture_regression`, `plugin_minimal_app` (7),
   `fuzz_random_walker` (5). Total: ~25 integration tests passing.
 - Workspace `cargo check` clean (zero warnings).
+
+## Final step: `ae::Player` deletion (2026-05-28, session 2)
+
+Commit `c02ca686` removes the `Player` struct outright. All
+intermediate scratchpad and bridge code is now gone:
+
+- `Player::new_with_abilities` → replaced by
+  `PlayerClusterScratch::new_with_abilities(spawn, abilities)` which
+  builds the 18 cluster components directly (mirror of the original
+  `Player::new_with_abilities` field-for-field, but no Player
+  intermediate).
+- `Player::reset_to`, `Player::record`, `Player::aabb`,
+  `Player::refresh_movement_resources` → deleted.
+  `reset_player_clusters`, `events.op_clusters`,
+  `PlayerKinematics::aabb`, `refresh_movement_resources_clusters`
+  are the cluster-native replacements.
+- `PlayerClusterScratch::from_player(&Player)` + all the per-cluster
+  `XxxState::from_player(&Player) -> Self` constructors → deleted.
+  Tests build a scratch via `new_with_abilities` then poke individual
+  cluster fields.
+- `classify_player_safety(&Player)`, `try_change_body_mode(&mut
+  Player)`, `LocomotionState::from_player(&Player)`,
+  `BodyMode::from_player(&Player)`, `FrameEvents::op(&mut Player)`,
+  `combat::{resolve_attack_intent, attack_spec,
+  attack_hitbox}(&Player)`, `trace::detect_oob(&Player)` → all
+  deleted.
+  Callers use the cluster / `AttackView` / `_from_kinematics` /
+  `_scratch` variants.
+- `PlayerSimulationBundle::new(Player, h)` → deleted, replaced by
+  `from_scratch(scratch, h)`. Production spawn sites
+  (`runtime/setup.rs`, `runtime/reset.rs`) go through
+  `crate::player::primary_player_scratch(spawn, abilities)`.
+- Orphan `body_mode/tests.rs` (gated `cfg(any())` pending port) was
+  deleted; the mechanic is covered by `rl_smoke`'s 42 rooms.
+
+Final test posture: 1143/1143 lib tests green, 42/42 rl_smoke rooms
+ok, `cargo check` clean.

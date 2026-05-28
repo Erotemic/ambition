@@ -49,9 +49,9 @@ Movement collision covers kinematic player motion, swept collision, body modes, 
 ## Validation
 
 ```bash
-cargo test -p ambition_engine movement::
-cargo test -p ambition_engine combat::
-cargo test -p ambition_engine projectile::
-cargo test -p ambition_engine --test wall_cling_fuzz
-cargo test -p ambition_engine --test body_shape_fits_at
+cargo test -p ambition_sandbox engine_core::movement::
+cargo test -p ambition_sandbox engine_core::combat::
+cargo test -p ambition_sandbox engine_core::projectile::
+cargo test -p ambition_sandbox --test wall_cling_fuzz
+cargo test -p ambition_sandbox --test body_shape_fits_at
 ```

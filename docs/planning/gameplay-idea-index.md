@@ -18,7 +18,7 @@ LDtk rooms, or code TODOs.
 | LDtk rooms/loading zones | `assets/ambition/worlds/*.ldtk` | Gates, ripples, faction doors, route choice |
 | NPC dialogue ids | `src/dialog/content.rs`, `src/intro/dialog.rs` | Quest givers, story reframes, faction voice |
 | Quest specs | `src/content/quest.rs` | Multi-step progression, courier chains, boss return loops |
-| Save flags | `ambition_engine/src/save.rs`, sandbox persistence | Durable choices, observed/tampered messages, post-boss state |
+| Save flags | `crates/ambition_sandbox/src/save.rs`, `crates/ambition_sandbox/src/persistence/` | Durable choices, observed/tampered messages, post-boss state |
 | Encounters | `src/encounter/` | Room lockdowns, combat labs, escort/interceptor tests |
 | Boss profiles | `src/boss_encounter/` | Story bosses that teach pattern reading |
 | Switches/lock walls | `src/encounter/switches.rs`, `lock_walls.rs` | Protocol puzzles, doors, commit/reveal beats |

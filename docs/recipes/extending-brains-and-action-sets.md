@@ -137,7 +137,6 @@ Some behavior is really hit/damage metadata, not a new message stream. If the fe
 After every brain/action change:
 
 ```bash
-cargo check -p ambition_engine
 cargo check -p ambition_sandbox
 cargo test -p ambition_sandbox --lib engine_core
 cargo test -p ambition_sandbox --lib brain::

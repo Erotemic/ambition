@@ -37,8 +37,8 @@ The retired root files `crates/ambition_sandbox/src/content/quest.rs`, `src/cuts
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine quest
-cargo test -p ambition_engine save
+cargo test -p ambition_sandbox quest
+cargo test -p ambition_sandbox save
 cargo test -p ambition_sandbox content_validation
 cargo test -p ambition_sandbox conversion_tests
 cargo test -p ambition_sandbox encounter

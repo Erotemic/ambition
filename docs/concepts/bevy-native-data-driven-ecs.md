@@ -33,7 +33,7 @@ Ambition should lean into Bevy. Authored/generated data should feed Bevy compone
 - LDtk owns world/level authoring.
 - RON room manifests are historical.
 - RON remains fine for tuning, save/settings, generated-audio specs, and compact non-world data.
-- Reusable mechanics live in `ambition_engine`; runtime integration lives in Bevy ECS.
+- Reusable mechanics live in `crates/ambition_sandbox/src/engine_core/`; runtime integration lives in Bevy ECS. (The standalone `ambition_engine` crate was collapsed into `engine_core/` on 2026-05-28.)
 
 ## Common failure modes
 

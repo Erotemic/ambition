@@ -418,7 +418,7 @@
 
         // ===== Intro / story NPCs (referenced from intro.ldtk).
         // Several share placeholder sheets (kernel_guide / architect /
-        // fascist_enforcer / creator) — Phase 3 closes these gaps as
+        // raid_enforcer / creator) — Phase 3 closes these gaps as
         // dedicated sheets ship.
         "npc_alice": (
             display_name: "Alice",
@@ -521,8 +521,8 @@
         ),
         "npc_lab_raider": (
             display_name: "Lab Raider",
-            spritesheet: "sprites/fascist_enforcer_spritesheet.png",
-            manifest: "sprites/fascist_enforcer_spritesheet.ron",
+            spritesheet: "sprites/raid_enforcer_spritesheet.png",
+            manifest: "sprites/raid_enforcer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -532,8 +532,8 @@
         ),
         "npc_salvage_guard": (
             display_name: "Salvage Guard",
-            spritesheet: "sprites/fascist_enforcer_spritesheet.png",
-            manifest: "sprites/fascist_enforcer_spritesheet.ron",
+            spritesheet: "sprites/raid_enforcer_spritesheet.png",
+            manifest: "sprites/raid_enforcer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -631,10 +631,10 @@
             default_action_set: "peaceful",
             tags: ["hub", "peaceful"],
         ),
-        "npc_fascist_enforcer": (
-            display_name: "Fascist Enforcer",
-            spritesheet: "sprites/fascist_enforcer_spritesheet.png",
-            manifest: "sprites/fascist_enforcer_spritesheet.ron",
+        "npc_raid_enforcer": (
+            display_name: "Raid Enforcer",
+            spritesheet: "sprites/raid_enforcer_spritesheet.png",
+            manifest: "sprites/raid_enforcer_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,

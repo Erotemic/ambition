@@ -369,7 +369,7 @@ mod tests {
         "npc_colonial_statesman",
         "npc_creator",
         "npc_dark_lord",
-        "npc_fascist_enforcer",
+        "npc_raid_enforcer",
         "npc_flying_spaghetti_monster_boss",
         "npc_galwah",
         "npc_ghoul_skulker",

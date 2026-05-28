@@ -1,8 +1,8 @@
 target: toon
-name: Fascist Enforcer
-output_name: fascist_enforcer
+name: Raid Enforcer
+output_name: raid_enforcer
 seed: 667
-archetype: fascist_enforcer
+archetype: raid_enforcer
 role: enemy
 animations:
   - idle

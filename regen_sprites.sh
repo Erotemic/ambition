@@ -87,7 +87,7 @@ fi
 expected_files=(
     # Adapter targets (draw-all).
     boss_spritesheet.png boss_spritesheet.yaml boss_spritesheet.ron
-    fascist_enforcer_spritesheet.png fascist_enforcer_spritesheet.yaml fascist_enforcer_spritesheet.ron
+    raid_enforcer_spritesheet.png raid_enforcer_spritesheet.yaml raid_enforcer_spritesheet.ron
     goblin_spritesheet.png goblin_spritesheet.yaml goblin_spritesheet.ron
     ninja_shadow_duelist_spritesheet.png ninja_shadow_duelist_spritesheet.yaml ninja_shadow_duelist_spritesheet.ron
     ninja_shadow_oni_leader_spritesheet.png ninja_shadow_oni_leader_spritesheet.yaml ninja_shadow_oni_leader_spritesheet.ron
@@ -267,7 +267,7 @@ mkdir -p "$review_scratch"
 review_cues=(
     # Toon-target NPC variants already promoted.
     absurd_general architect kernel_guide vault_keeper
-    merchant_prototype oiler erdish fascist_enforcer
+    merchant_prototype oiler erdish raid_enforcer
     # Named characters whose YAML manifests already live in $sprites_dir.
     alice bob craig eve general_hero judy mallory olivia
     peggy sybil trent trudy victor walter

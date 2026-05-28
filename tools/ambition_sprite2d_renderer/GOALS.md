@@ -96,7 +96,7 @@ is in:
 
 - Adapter animation contracts (`test_robot_target::test_robot_animation_contract`)
 - Manifest schema checks (`test_creator_lab_props`, `test_town_tileset`)
-- Visual contract checks (`test_fascist_enforcer` — counts red/dark pixels)
+- Visual contract checks (`test_raid_enforcer` — counts red/dark pixels)
 - Pose-rig math (`test_robot_target::test_robot_run_pose_…`)
 
 That's ~25% of the file count carrying ~80% of the regression value.

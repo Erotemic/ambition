@@ -548,13 +548,13 @@ const CREATOR_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
 pub static CREATOR_SHEET: LazyLock<CharacterSheetSpec> =
     LazyLock::new(|| load_spec("creator", &CREATOR_TUNING));
 
-/// Fascist Enforcer — uniformed later-game raid grunt. Toon-side
-/// adapter render; the dedicated `fascist_enforcer` archetype reads
+/// Raid Enforcer — uniformed later-game raid grunt. Toon-side
+/// adapter render; the dedicated `raid_enforcer` archetype reads
 /// as "officer cap + storm uniform + rifle" and also serves as a
 /// temporary generic raid silhouette until more specific art lands.
-const FASCIST_ENFORCER_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
-pub static FASCIST_ENFORCER_SHEET: LazyLock<CharacterSheetSpec> =
-    LazyLock::new(|| load_spec("fascist_enforcer", &FASCIST_ENFORCER_TUNING));
+const RAID_ENFORCER_TUNING: SheetTuning = SheetTuning::new(1.10, 2);
+pub static RAID_ENFORCER_SHEET: LazyLock<CharacterSheetSpec> =
+    LazyLock::new(|| load_spec("raid_enforcer", &RAID_ENFORCER_TUNING));
 
 /// Oiler — street mechanic / Eulerian gate-keeper NPC who finds the
 /// player in the drain alley after the intro escape. Toon-side adapter

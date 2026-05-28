@@ -176,7 +176,7 @@ Useful companion docs:
 
 - [ ] **Clarify image/sprite generation workflow** `[V3/D3]` - Consolidate generated visual asset scripts and docs so agents know where source prompts/specs live, how to review generated art, how to publish runtime sprites/tiles, and how to avoid ad-hoc one-off script forks.
 
-- [~] **Sprite / tile wiring batch** `[V3/D3]` - Keep a visible list of assets that exist or are planned but are not wired into runtime/LDtk visuals yet. Examples from old TODOs and current issue notes: switch armed/disabled sprites, lock-wall tile, water-surface tile, ladder/vine/climbable tile, acid/lava tile, circuit/background tiles, creator/wagon/lab props, and replacing placeholder fascist/general sprites where the wrong asset is used.
+- [~] **Sprite / tile wiring batch** `[V3/D3]` - Keep a visible list of assets that exist or are planned but are not wired into runtime/LDtk visuals yet. Examples from old TODOs and current issue notes: switch armed/disabled sprites, lock-wall tile, water-surface tile, ladder/vine/climbable tile, acid/lava tile, circuit/background tiles, creator/wagon/lab props, and replacing placeholder raid-enforcer/general sprites where the wrong asset is used.
 
 - [ ] **Generated tile sprites for IntGrid layers** `[V3/D3]` - Replace colored placeholder rectangles for climbable/water/hazard/solid layers with real tileset textures while preserving canonical LDtk/bevy_ldtk usage.
 

@@ -176,9 +176,9 @@
                 arrangement: (bpm: 92.0, total_beats: 64.0),
             ),
             (
-                id: "fascist_enforcer_theme",
+                id: "raid_enforcer_theme",
                 display_name: "Black Pennant March",
-                asset_path: Some("audio/music/generated/fascist_enforcer_theme/full.ogg"),
+                asset_path: Some("audio/music/generated/raid_enforcer_theme/full.ogg"),
                 arrangement: (bpm: 104.0, total_beats: 128.0),
             ),
             (

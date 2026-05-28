@@ -1699,7 +1699,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_fascist_enforcer",
+                character_id: "npc_raid_enforcer",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,
@@ -1716,8 +1716,8 @@
                 20,
             ],
             fields: (
-                name: "hall_label_npc_fascist_enforcer",
-                text: "Fascist Enforcer",
+                name: "hall_label_npc_raid_enforcer",
+                text: "Raid Enforcer",
                 category: "Custom",
             ),
         ),

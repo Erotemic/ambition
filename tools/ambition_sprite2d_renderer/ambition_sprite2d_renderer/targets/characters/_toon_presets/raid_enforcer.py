@@ -1,4 +1,4 @@
-"""Toon archetype preset: fascist_enforcer.
+"""Toon archetype preset: raid_enforcer.
 
 Antagonist preset. Includes a `pose_override` callable that adjusts
 the base pose per-animation to read as "rigid, stiff military
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 def _override_pose(p: "ToonPose", animation: str) -> None:
-    """Stiffer, more upright pose for the fascist_enforcer.
+    """Stiffer, more upright pose for the raid_enforcer.
 
     Called from `ToonSideGenerator.pose_for_animation` AFTER the base
     pose is built. Mutates in place — return value ignored. Each
@@ -59,9 +59,9 @@ def _override_pose(p: "ToonPose", animation: str) -> None:
 
 
 PRESET = {
-        "name": "Fascist Enforcer",
+        "name": "Raid Enforcer",
         "role": "enemy",
-        "palette_name": "fascist",
+        "palette_name": "raid_enforcer",
         "body_plan": "rigid",
         "outfit": "storm_uniform",
         "hair_style": "officer_cap",

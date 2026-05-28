@@ -69,7 +69,7 @@ LEGACY_NAME_TO_CHARACTER_ID = {
     "Erdish": "npc_erdish",
     "Oiler": "npc_oiler",
     "Creator": "npc_creator",
-    "Fascist Enforcer": "npc_fascist_enforcer",
+    "Raid Enforcer": "npc_raid_enforcer",
     "Sandbag": "npc_sandbag",
 }
 

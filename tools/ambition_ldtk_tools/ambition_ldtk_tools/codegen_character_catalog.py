@@ -106,7 +106,7 @@ CATEGORY: dict[str, str] = {
     "hand_saint":                      "enemy_brute",
     "puppy_slug_variant2":             "wanderer",
     # ===== Hostile humans / wildlife.
-    "fascist_enforcer":                "enemy_swipe",
+    "raid_enforcer":                   "enemy_swipe",
     "ghoul_skulker":                   "enemy_swipe",
     "weird_hermit":                    "peaceful",   # dialogue-flavored
     "galwah":                          "peaceful",

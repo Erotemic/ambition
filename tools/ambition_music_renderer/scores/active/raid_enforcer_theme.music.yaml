@@ -1,9 +1,9 @@
 schema: ambition.musicir.v1
-id: fascist_enforcer_theme
-title: Black Pennant March - Fascist Enforcer Theme
+id: raid_enforcer_theme
+title: Black Pennant March - Raid Enforcer Theme
 seed: 2026051601
 notes: >-
-  Fictional villain cue for the fascist_enforcer enemy. This is not based on
+  Fictional villain cue for the Raid Enforcer enemy. This is not based on
   any real-world anthem or propaganda song: it uses an invented minor-key
   march, harsh snare cadence, low brass pressure, and cold choir/strings to
   make the character read as authoritarian, cruel, and dangerous in-game.
@@ -192,7 +192,7 @@ state_map:
 sections:
   - id: enforcer_loop
     kind: loop_component
-    label: fictional fascist enforcer march loop
+    label: fictional raid enforcer march loop
     bars: 32
     intensity: 0.78
     density: 0.80

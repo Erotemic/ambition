@@ -33933,9 +33933,9 @@
 							"defUid": 2006,
 							"px": [1072,736],
 							"fieldInstances": [
-								{ "__identifier": "character_id", "__type": "String", "__value": "npc_fascist_enforcer", "__tile": null, "defUid": 3012, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_raid_enforcer", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["npc_fascist_enforcer"]
+									"params": ["npc_raid_enforcer"]
 								}] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Inspect", "__tile": null, "defUid": 3013, "realEditorValues": [{
 									"id": "V_String",
@@ -33961,13 +33961,13 @@
 							"defUid": 2007,
 							"px": [1028,596],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_fascist_enforcer", "__tile": null, "defUid": 3015, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "hall_label_npc_raid_enforcer", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["hall_label_npc_fascist_enforcer"]
+									"params": ["hall_label_npc_raid_enforcer"]
 								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "Fascist Enforcer", "__tile": null, "defUid": 3016, "realEditorValues": [{
+								{ "__identifier": "text", "__type": "String", "__value": "Raid Enforcer", "__tile": null, "defUid": 3016, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Fascist Enforcer"]
+									"params": ["Raid Enforcer"]
 								}] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							],

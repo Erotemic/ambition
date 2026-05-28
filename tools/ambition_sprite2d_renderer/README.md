@@ -220,7 +220,7 @@ spec:
 The curated review pass lives in `ambition_sprite2d_renderer/configs/review/`
 and is meant to answer the question, “do these feel like different characters?”
 Use `draw-review` to regenerate the current cast along with a canonical contact
-sheet. The `fascist_enforcer` preset is a fictional fascist enemy pass: severe
+sheet. The `raid_enforcer` preset is a fictional raid-enforcer enemy pass: severe
 cap, charcoal tunic, red armband with an invented black sigil, collar skull
 tabs, and a long rifle so it reads as a distinct villain rather than a variant
 of `absurd_general`.

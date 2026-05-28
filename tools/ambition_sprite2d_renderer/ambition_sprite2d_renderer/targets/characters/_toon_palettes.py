@@ -108,7 +108,7 @@ PALETTES = {
         "shadow": rgba("#000000", 46),
         "white": rgba("#FFF0DB"),
     },
-    "fascist": {
+    "raid_enforcer": {
         "skin": rgba("#D9C1AF"),
         "skin_shadow": rgba("#B99683"),
         "hair": rgba("#D6D0C2"),

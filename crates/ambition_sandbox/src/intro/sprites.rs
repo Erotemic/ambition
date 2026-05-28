@@ -17,9 +17,9 @@ use ambition_asset_manager::AssetId;
 
 use crate::presentation::character_sprites::{
     CharacterSheetSpec, ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CREATOR_SHEET,
-    ERDISH_SHEET, FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
-    LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
-    LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET, OILER_SHEET,
+    ERDISH_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET, LAB_PROP_GENESIS_VAT,
+    LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE, LAB_PROP_RESONANCE_COIL,
+    NEWS_BOARD_SHEET, OILER_SHEET, RAID_ENFORCER_SHEET,
 };
 
 /// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
@@ -59,15 +59,15 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(
     // raid-grunt sheet until dedicated intro enemy art lands.
     (
         "Lab Raider",
-        "fascist_enforcer_spritesheet.png",
-        &FASCIST_ENFORCER_SHEET,
+        "raid_enforcer_spritesheet.png",
+        &RAID_ENFORCER_SHEET,
     ),
     // Salvage Guard: second generic intro pressure enemy. Shares the
     // temporary raid-grunt sheet so the intro stays content-driven.
     (
         "Salvage Guard",
-        "fascist_enforcer_spritesheet.png",
-        &FASCIST_ENFORCER_SHEET,
+        "raid_enforcer_spritesheet.png",
+        &RAID_ENFORCER_SHEET,
     ),
     // Manifest clerk: bureaucratic kiosk operator. Architect sheet
     // reads as "person at a podium pointing at things."

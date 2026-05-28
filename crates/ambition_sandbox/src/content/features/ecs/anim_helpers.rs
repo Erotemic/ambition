@@ -40,7 +40,7 @@ pub fn ecs_enemy_sprite_override<'a>(
 /// fallback sprite-lookup key when no explicit `sprite_override` is
 /// set. Lets direct `EnemySpawn` entities (no NPC migration history)
 /// pick up a content sheet by name — e.g. the intro raiders resolve
-/// to `fascist_enforcer_spritesheet`
+/// to `raid_enforcer_spritesheet`
 /// via the intro NPC sprite registry without authors having to
 /// double-register them as an `enemy_sprite_registry`.
 pub fn ecs_enemy_name<'a>(

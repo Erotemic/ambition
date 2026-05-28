@@ -123,7 +123,7 @@ class ToonSpec:
     # Optional callable run AFTER `pose_for_animation` builds the base
     # pose, signature `(pose: ToonPose, animation: str) -> None` that
     # mutates the pose for archetype-specific touch-ups (e.g.
-    # fascist_enforcer's stiffer posture). Avoids `if archetype == "X":`
+    # raid_enforcer's stiffer posture). Avoids `if archetype == "X":`
     # blocks inside the rig.
     pose_override: Optional[Callable[["ToonPose", str], None]] = None
 
@@ -383,9 +383,9 @@ class ToonSideGenerator:
             p.near_leg_lower = 72.0 - 8.0 * collapse
             p.collapse = collapse
             p.dead = collapse > 0.75
-        # Archetype-specific pose touch-ups (e.g. fascist_enforcer's
+        # Archetype-specific pose touch-ups (e.g. raid_enforcer's
         # stiffer posture) live on the preset as a callable so the rig
-        # stays archetype-agnostic. See `_toon_presets/fascist_enforcer.py`.
+        # stays archetype-agnostic. See `_toon_presets/raid_enforcer.py`.
         if spec.pose_override is not None:
             spec.pose_override(p, animation)
         return p

@@ -41,10 +41,11 @@
 //!   of the sandbox state. Reset is about gameplay progress only.
 //! - Keyboard preset selection.
 //! - Dev-tool toggles (the F3 stats editor's invincible flag etc.)
-//!   live on `ae::Player` and ARE reset via `reset_to`, because the
-//!   caller also runs `mana.refill_full()` — that's actually a feature:
-//!   a player who accidentally enabled invincibility and wants to play
-//!   "for real" gets a clean slate.
+//!   live on `PlayerOffense` / `PlayerMana` and ARE reset by
+//!   `reset_player_clusters`, because the caller also runs
+//!   `mana.refill_full()` — that's actually a feature: a player who
+//!   accidentally enabled invincibility and wants to play "for real"
+//!   gets a clean slate.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;

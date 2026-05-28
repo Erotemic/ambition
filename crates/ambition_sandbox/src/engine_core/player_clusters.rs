@@ -433,11 +433,11 @@ impl PlayerComboTrace {
     }
 }
 
-/// Owned bag of all 18 player cluster components, useful in unit tests
-/// and the few non-ECS sites that need to assemble a `PlayerClustersMut`
-/// without an actual Bevy entity. Bridge from a legacy `ae::Player` via
-/// [`PlayerClusterScratch::from_player`] and re-borrow as a view via
-/// [`PlayerClusterScratch::as_mut`]. Goes away with `ae::Player`.
+/// Owned bag of all 18 player cluster components, used by unit tests
+/// and the non-ECS call sites that need to assemble a
+/// `PlayerClustersMut` without a Bevy entity. Construct via
+/// [`PlayerClusterScratch::new_with_abilities`] and re-borrow as a view
+/// via [`PlayerClusterScratch::as_mut`].
 #[derive(Clone)]
 pub struct PlayerClusterScratch {
     pub abilities: PlayerAbilities,

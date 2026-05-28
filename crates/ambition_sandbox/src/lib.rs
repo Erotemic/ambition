@@ -361,9 +361,9 @@ pub fn remember_safe_player_position(
 
 /// Tuple-arg variant of [`remember_safe_player_position`] for callers
 /// that already hold the four kinematic facts the safety classifier
-/// reads (legacy tests against `ae::Player`, future call sites that
-/// haven't migrated to clusters). Production path uses the cluster
-/// wrapper above.
+/// reads. The cluster wrapper above is the natural production path;
+/// this tuple form is exposed for tests that build a
+/// `PlayerClusterScratch` and pass individual fields.
 pub fn remember_safe_player_position_from_kinematics(
     safety: &mut crate::player::PlayerSafetyState,
     pos: ae::Vec2,

@@ -41,8 +41,9 @@
 //!
 //! **Remaining direct paths:** player projectile charge / motion-input
 //! recognition still reads `PlayerInputFrame`; pogo is still a
-//! player-specific input; and `ae::Player` remains the large movement
-//! aggregate inside `PlayerMovementAuthority`.
+//! player-specific input. The legacy `ae::Player` aggregate / the
+//! `PlayerMovementAuthority` wrapper were deleted 2026-05-28; the
+//! player entity carries 18 cluster components instead.
 //!
 //! # Mini-example
 //!

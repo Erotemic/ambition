@@ -15,14 +15,12 @@
 //!    when `SandboxResetThisFrame` is set; otherwise runs the
 //!    sim-clock player update.
 //!
-//! Phase-2 plumbing: the systems no longer borrow
-//! `PlayerMovementAuthority`. Instead they query the new ECS cluster
-//! components and use [`crate::player::engine_player_bridge`] to
-//! assemble a tick-local `ae::Player` for the existing phase helpers
-//! (`player_control_phase` / `player_simulation_phase`), then commit
-//! the result back to the clusters. The bridge is transitional — it
-//! goes away when Phase 3 reimplements each movement feature directly
-//! on the clusters.
+//! The systems query the 18 player cluster components through
+//! [`crate::engine_core::PlayerClusterQueryData`] and call the
+//! cluster-native engine entry points
+//! (`player_control_phase` / `player_simulation_phase`) directly.
+//! The legacy `PlayerMovementAuthority` wrapper + tick-local
+//! `ae::Player` scratchpad were deleted 2026-05-28.
 
 #[allow(unused_imports)]
 use super::cli::*;

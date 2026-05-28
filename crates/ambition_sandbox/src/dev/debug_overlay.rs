@@ -151,7 +151,7 @@ pub fn draw_debug_overlay(
         &developer_tools,
     );
     if developer_tools.show_health_bars {
-        draw_health_bars(&mut gizmos, world, authority_player, player_health);
+        draw_health_bars(&mut gizmos, world, authority_player.aabb(), player_health);
     }
     if developer_tools.show_feature_hitboxes {
         draw_feature_debug(&mut gizmos, world, &feature_q, &developer_tools);
@@ -550,11 +550,11 @@ fn draw_moving_platform_debug(
 fn draw_health_bars(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    player: &ae::Player,
+    player_aabb: ae::Aabb,
     player_health: Option<&crate::player::PlayerHealth>,
 ) {
     let ratio = player_health.map_or(1.0, |h| h.health.ratio());
-    draw_health_bar(gizmos, world, player.aabb(), ratio, cyan());
+    draw_health_bar(gizmos, world, player_aabb, ratio, cyan());
     // Enemy / boss / breakable health bars are now drawn by
     // `sync_health_overlays` (the Bevy sprite overlay system), which reads
     // ECS `ActorRuntime`, `BossFeature`, and `BreakableFeature` components.

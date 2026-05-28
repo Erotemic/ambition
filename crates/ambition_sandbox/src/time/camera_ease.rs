@@ -127,13 +127,18 @@ pub fn tick_camera_shake(
 }
 
 /// Below this incoming downward velocity, a landing produces no
-/// screen shake — tiny hops and footstep landings shouldn't rattle
-/// the camera.
-pub const HARD_FALL_SHAKE_FLOOR_VY: f32 = 360.0;
+/// screen shake — tiny hops, normal-jump landings, and short drops
+/// shouldn't rattle the camera. A jump-in-place from flat ground
+/// lands at ~`JUMP_SPEED` (≈630 px/s), so the floor sits above that
+/// to keep the hard-fall reaction reserved for genuinely tall drops
+/// (8+ tiles, where `sqrt(2 * GRAVITY * h)` clears 700 px/s).
+pub const HARD_FALL_SHAKE_FLOOR_VY: f32 = 700.0;
 
-/// Pixels-of-shake per (vy − floor_vy). `(720 - 360) * 1/60 = 6 px`
-/// — a tall drop gets a meaty thump; terminal velocity falls
-/// saturate at the 14-px cap inside [`CameraShakeState::kick`].
+/// Pixels-of-shake per (vy − floor_vy). At terminal `MAX_FALL_SPEED`
+/// (~950 px/s) the raw amplitude is `(950 - 700) / 60 ≈ 4 px` — a
+/// visible but not screen-eating thump; fast-fall terminal (~1380)
+/// reaches `(1380 - 700) / 60 ≈ 11 px` and the 14-px `kick()` cap
+/// saturates beyond that.
 pub const HARD_FALL_SHAKE_GAIN: f32 = 1.0 / 60.0;
 
 /// Compute the shake amplitude for a player landing transition. Pure

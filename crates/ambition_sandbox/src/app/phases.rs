@@ -227,6 +227,10 @@ pub(super) fn player_simulation_phase(
     );
     if shake_amplitude > 0.0 {
         shake.kick(shake_amplitude);
+        sfx_writer.write(SfxMessage::Play {
+            id: ambition_sfx::ids::PLAYER_LAND,
+            pos: clusters.kinematics.pos,
+        });
     }
     if sim_events.reset {
         reset_sandbox(

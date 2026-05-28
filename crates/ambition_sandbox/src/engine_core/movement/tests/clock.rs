@@ -87,3 +87,30 @@ fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
         scratch.kinematics.vel.y
     );
 }
+
+/// Direct cluster-mut callable: pins that `update_player_clusters`
+/// (DEFAULT_TUNING convenience wrapper) can be driven from a
+/// `PlayerClusterScratch::as_mut()` view, mirroring the production
+/// code path that takes a `Query<PlayerClusterQueryData>`.
+#[test]
+fn update_player_clusters_runs_one_frame() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = false;
+    scratch.kinematics.vel = Vec2::ZERO;
+    {
+        let mut clusters = scratch.as_mut();
+        let _events = update_player_clusters(
+            &world,
+            &mut clusters,
+            InputState::default(),
+            1.0 / 60.0,
+        );
+    }
+    // Idle frame should still produce gravity-driven downward velocity.
+    assert!(
+        scratch.kinematics.vel.y > 0.0,
+        "update_player_clusters should apply gravity; got {}",
+        scratch.kinematics.vel.y
+    );
+}

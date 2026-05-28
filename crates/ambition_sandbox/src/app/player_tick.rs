@@ -15,11 +15,14 @@
 //!    when `SandboxResetThisFrame` is set; otherwise runs the
 //!    sim-clock player update.
 //!
-//! Module groups both because they share the player query shape,
-//! the engine tuning lookups, and the `SandboxResetThisFrame`
-//! coordination protocol; splitting them across two files would
-//! force the protocol into a public API surface without buying
-//! anything.
+//! Phase-2 plumbing: the systems no longer borrow
+//! `PlayerMovementAuthority`. Instead they query the new ECS cluster
+//! components and use [`crate::player::engine_player_bridge`] to
+//! assemble a tick-local `ae::Player` for the existing phase helpers
+//! (`player_control_phase` / `player_simulation_phase`), then commit
+//! the result back to the clusters. The bridge is transitional — it
+//! goes away when Phase 3 reimplements each movement feature directly
+//! on the clusters.
 
 #[allow(unused_imports)]
 use super::cli::*;
@@ -43,6 +46,10 @@ use super::setup_systems::*;
 use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
+
+use crate::player::engine_player_bridge::{
+    assemble_player, commit_player, PlayerClusterQueryData,
+};
 
 /// First system in the player tick chain: clear the per-frame
 /// `SandboxResetThisFrame` flag.
@@ -79,7 +86,7 @@ pub fn player_control_system(
     mut queues: SandboxQueues,
     mut player_q: Query<
         (
-            &mut crate::player::PlayerMovementAuthority,
+            PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
@@ -93,7 +100,7 @@ pub fn player_control_system(
     >,
 ) {
     let Ok((
-        mut authority,
+        mut cluster_item,
         mut anim,
         mut combat,
         mut interaction,
@@ -106,7 +113,6 @@ pub fn player_control_system(
     else {
         return;
     };
-    let player = &mut authority.player;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
@@ -115,30 +121,32 @@ pub fn player_control_system(
     // start-press for pause menu). The player simulation no longer
     // touches it directly — `ActorControl` is the sole input source.
     let _ = input;
-    if matches!(
-        player_control_phase(
-            actor_control.0,
-            &world.0,
-            player,
-            &mut queues.sim_state,
-            &mut safety,
-            &queues.moving_platforms.0,
-            &mut attack.0,
-            &mut event_writers.sfx,
-            &mut event_writers.vfx,
-            tuning,
-            feel,
-            frame_dt,
-            &queues.feature_ecs_overlay,
-            &mut queues.reset_room_features,
-            &mut queues.pogo_bounces,
-            &mut anim,
-            &mut combat,
-            &mut interaction,
-            &mut blink_cam,
-        ),
-        PhaseOutcome::Return
-    ) {
+
+    let mut clusters = cluster_item.as_clusters_mut();
+    let mut player = assemble_player(&clusters);
+    let outcome = player_control_phase(
+        actor_control.0,
+        &world.0,
+        &mut player,
+        &mut queues.sim_state,
+        &mut safety,
+        &queues.moving_platforms.0,
+        &mut attack.0,
+        &mut event_writers.sfx,
+        &mut event_writers.vfx,
+        tuning,
+        feel,
+        frame_dt,
+        &queues.feature_ecs_overlay,
+        &mut queues.reset_room_features,
+        &mut queues.pogo_bounces,
+        &mut anim,
+        &mut combat,
+        &mut interaction,
+        &mut blink_cam,
+    );
+    commit_player(player, &mut clusters);
+    if matches!(outcome, PhaseOutcome::Return) {
         reset_this_frame.0 = true;
     }
 }
@@ -159,7 +167,7 @@ pub fn player_simulation_system(
     mut queues: SandboxQueues,
     mut player_q: Query<
         (
-            &mut crate::player::PlayerMovementAuthority,
+            PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
@@ -177,7 +185,7 @@ pub fn player_simulation_system(
         return;
     }
     let Ok((
-        mut authority,
+        mut cluster_item,
         mut anim,
         mut combat,
         mut interaction,
@@ -191,7 +199,6 @@ pub fn player_simulation_system(
     else {
         return;
     };
-    let player = &mut authority.player;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
@@ -199,31 +206,33 @@ pub fn player_simulation_system(
     // sole input source. PlayerInputFrame stays attached for legacy
     // story-content callers but isn't read here.
     let _ = input;
-    if matches!(
-        player_simulation_phase(
-            actor_control.0,
-            &world.0,
-            player,
-            &queues.dev_state,
-            &mut queues.sim_state,
-            &mut safety,
-            &mut queues.moving_platforms.0,
-            &mut attack.0,
-            &mut event_writers.sfx,
-            &mut event_writers.vfx,
-            tuning,
-            feel,
-            frame_dt,
-            &queues.feature_ecs_overlay,
-            &mut queues.reset_room_features,
-            &mut anim,
-            &mut combat,
-            &mut interaction,
-            &mut blink_cam,
-            &mut ride,
-        ),
-        PhaseOutcome::Return
-    ) {
+
+    let mut clusters = cluster_item.as_clusters_mut();
+    let mut player = assemble_player(&clusters);
+    let outcome = player_simulation_phase(
+        actor_control.0,
+        &world.0,
+        &mut player,
+        &queues.dev_state,
+        &mut queues.sim_state,
+        &mut safety,
+        &mut queues.moving_platforms.0,
+        &mut attack.0,
+        &mut event_writers.sfx,
+        &mut event_writers.vfx,
+        tuning,
+        feel,
+        frame_dt,
+        &queues.feature_ecs_overlay,
+        &mut queues.reset_room_features,
+        &mut anim,
+        &mut combat,
+        &mut interaction,
+        &mut blink_cam,
+        &mut ride,
+    );
+    commit_player(player, &mut clusters);
+    if matches!(outcome, PhaseOutcome::Return) {
         reset_this_frame.0 = true;
     }
 }

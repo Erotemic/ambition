@@ -20,6 +20,7 @@
 //! authority callers. Read directly from the cluster components.
 
 use ambition_engine as ae;
+use bevy::ecs::query::QueryData;
 
 use super::movement_components::{
     PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerComboTrace,
@@ -27,6 +28,68 @@ use super::movement_components::{
     PlayerGroundState, PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerLifetime,
     PlayerMana, PlayerOffense, PlayerShieldState, PlayerWallState,
 };
+
+/// Grouped query data for every cluster component the engine player
+/// scratchpad touches. Use as `Query<PlayerClusterQueryData, With<PlayerEntity>>`
+/// in any system that calls into the engine `update_player_*` helpers via
+/// [`assemble_player`] / [`commit_player`]. The query item exposes
+/// [`PlayerClusterQueryDataItem::as_clusters_mut`] to build the
+/// [`PlayerClustersMut`] view the bridge accepts.
+#[derive(QueryData)]
+#[query_data(mutable)]
+pub struct PlayerClusterQueryData {
+    pub abilities: &'static PlayerAbilities,
+    pub kinematics: &'static mut PlayerKinematics,
+    pub ground: &'static mut PlayerGroundState,
+    pub wall: &'static mut PlayerWallState,
+    pub jump: &'static mut PlayerJumpState,
+    pub dash: &'static mut PlayerDashState,
+    pub flight: &'static mut PlayerFlightState,
+    pub blink: &'static mut PlayerBlinkState,
+    pub ledge: &'static mut PlayerLedgeState,
+    pub dodge: &'static mut PlayerDodgeState,
+    pub shield: &'static mut PlayerShieldState,
+    pub body_mode: &'static mut PlayerBodyModeState,
+    pub env_contact: &'static mut PlayerEnvironmentContact,
+    pub mana: &'static mut PlayerMana,
+    pub offense: &'static mut PlayerOffense,
+    pub action_buffer: &'static mut PlayerActionBuffer,
+    pub lifetime: &'static mut PlayerLifetime,
+    pub combo_trace: &'static mut PlayerComboTrace,
+}
+
+impl<'w, 's> PlayerClusterQueryDataItem<'w, 's> {
+    /// Borrow the query item as a [`PlayerClustersMut`] view the
+    /// engine bridge accepts. The returned struct re-borrows each
+    /// `Mut<T>` field as `&mut T` so the bridge sees plain references
+    /// without Bevy change-tracking interference.
+    pub fn as_clusters_mut<'a>(&'a mut self) -> PlayerClustersMut<'a>
+    where
+        'w: 'a,
+        's: 'a,
+    {
+        PlayerClustersMut {
+            abilities: &*self.abilities,
+            kinematics: &mut *self.kinematics,
+            ground: &mut *self.ground,
+            wall: &mut *self.wall,
+            jump: &mut *self.jump,
+            dash: &mut *self.dash,
+            flight: &mut *self.flight,
+            blink: &mut *self.blink,
+            ledge: &mut *self.ledge,
+            dodge: &mut *self.dodge,
+            shield: &mut *self.shield,
+            body_mode: &mut *self.body_mode,
+            env_contact: &mut *self.env_contact,
+            mana: &mut *self.mana,
+            offense: &mut *self.offense,
+            action_buffer: &mut *self.action_buffer,
+            lifetime: &mut *self.lifetime,
+            combo_trace: &mut *self.combo_trace,
+        }
+    }
+}
 
 /// Mutable cluster references the bridge assembles from. Grouped into
 /// a struct so the assemble/commit signatures don't carry 18 separate

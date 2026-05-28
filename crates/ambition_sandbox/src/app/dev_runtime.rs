@@ -106,7 +106,7 @@ pub(super) fn handle_ldtk_hot_reload(
     game_assets: Option<Res<crate::assets::game_assets::GameAssets>>,
     mut player_q: Query<
         (
-            &mut crate::player::PlayerMovementAuthority,
+            crate::player::engine_player_bridge::PlayerClusterQueryData,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerSafetyState,
         ),
@@ -145,12 +145,14 @@ pub(super) fn handle_ldtk_hot_reload(
         ldtk_reload.pending = false;
         return;
     };
-    if let Ok((mut authority, mut combat, mut safety)) = player_q.single_mut() {
-        match reload_ldtk_world_from_disk(
+    if let Ok((mut cluster_item, mut combat, mut safety)) = player_q.single_mut() {
+        let mut clusters = cluster_item.as_clusters_mut();
+        let mut player = crate::player::engine_player_bridge::assemble_player(&clusters);
+        let result = reload_ldtk_world_from_disk(
             &mut commands,
             &mut world,
             &mut room_set,
-            &mut authority.player,
+            &mut player,
             &mut dev_state,
             &mut sim_state,
             &mut safety,
@@ -164,7 +166,9 @@ pub(super) fn handle_ldtk_hot_reload(
             game_assets.as_deref(),
             &watch_path,
             &catalog,
-        ) {
+        );
+        crate::player::engine_player_bridge::commit_player(player, &mut clusters);
+        match result {
             Ok(active_room) => {
                 ldtk_reload.mark_applied(&active_room);
                 eprintln!("LDtk hot reload applied to active room '{active_room}'");

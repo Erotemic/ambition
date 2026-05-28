@@ -193,7 +193,7 @@ pub fn apply_room_transition_system(
     mut event_writers: SandboxEventWriters,
     mut player_q: Query<
         (
-            &mut crate::player::PlayerMovementAuthority,
+            crate::player::engine_player_bridge::PlayerClusterQueryData,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerBlinkCameraState,
@@ -215,7 +215,7 @@ pub fn apply_room_transition_system(
     mut combat_reset: super::feedback::CombatRoomReset,
 ) {
     for request in requests.read() {
-        let Ok((mut authority, mut combat, mut interaction, mut blink_cam, mut safety)) =
+        let Ok((mut cluster_item, mut combat, mut interaction, mut blink_cam, mut safety)) =
             player_q.single_mut()
         else {
             continue;
@@ -226,9 +226,12 @@ pub fn apply_room_transition_system(
         // actor list is about to be torn down + rebuilt, so drop
         // every reservation now and let the next tick rebuild.
         combat_reset.clear_carryover();
+        let mut clusters = cluster_item.as_clusters_mut();
+        let mut player =
+            crate::player::engine_player_bridge::assemble_player(&clusters);
         // Play the zone-entry SFX at the pre-load player position so it sounds
         // like it originates from the door/edge the player walked through.
-        let player_pos_before = authority.player.pos;
+        let player_pos_before = player.pos;
         if let Some(sfx_id) = request.zone_sfx {
             event_writers.sfx.write(SfxMessage::Play {
                 id: sfx_id,
@@ -240,7 +243,7 @@ pub fn apply_room_transition_system(
             &mut commands,
             &mut event_writers.sfx,
             &mut event_writers.vfx,
-            &mut authority.player,
+            &mut player,
             &mut dev_state,
             &mut sim_state,
             &mut safety,
@@ -261,10 +264,11 @@ pub fn apply_room_transition_system(
         log_room_transition_landing(
             target_room,
             &room_set,
-            &authority.player,
+            &player,
             &world.0,
             &combat_reset.feature_overlay,
         );
+        crate::player::engine_player_bridge::commit_player(player, &mut clusters);
     }
 }
 

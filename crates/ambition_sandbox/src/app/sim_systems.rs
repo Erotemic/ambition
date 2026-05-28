@@ -16,6 +16,9 @@ use crate::features::{
     PlayerDamageEvent, PogoBounceEvent,
 };
 use crate::input::ControlFrame;
+use crate::player::engine_player_bridge::{
+    assemble_player, commit_player, PlayerClusterQueryData,
+};
 use crate::presentation::fx::VfxMessage;
 use crate::rooms::{LoadingZoneActivation, PortalRegistry, RoomSet, RoomTransitionRequested};
 use crate::time::feel::SandboxFeelTuning;
@@ -33,19 +36,19 @@ use crate::{
 pub fn sync_live_player_dev_edits_system(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
-    mut player_q: Query<
-        &mut crate::player::PlayerMovementAuthority,
-        With<crate::player::PlayerEntity>,
-    >,
+    mut player_q: Query<PlayerClusterQueryData, With<crate::player::PlayerEntity>>,
 ) {
-    let Ok(mut authority) = player_q.single_mut() else {
+    let Ok(mut cluster_item) = player_q.single_mut() else {
         return;
     };
+    let mut clusters = cluster_item.as_clusters_mut();
+    let mut player = assemble_player(&clusters);
     dev_tools::sync_live_ability_edits(
-        &mut authority.player,
+        &mut player,
         editable_abilities.as_engine(),
         editable_tuning.as_engine(),
     );
+    commit_player(player, &mut clusters);
 }
 
 /// While gameplay is suspended (paused, dialogue, room transition,
@@ -205,7 +208,7 @@ pub fn apply_player_reset_input_system(
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
         (
-            &mut crate::player::PlayerMovementAuthority,
+            PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
@@ -220,7 +223,7 @@ pub fn apply_player_reset_input_system(
         return;
     }
     let Ok((
-        mut authority,
+        mut cluster_item,
         mut anim,
         mut combat,
         mut interaction,
@@ -236,11 +239,13 @@ pub fn apply_player_reset_input_system(
     // followed by another sandbox-side reset later this frame.
     control_frame.reset_pressed = false;
 
+    let mut clusters = cluster_item.as_clusters_mut();
+    let mut player = assemble_player(&clusters);
     super::world_flow::reset_sandbox(
         &world.0,
         &mut sfx_writer,
         &mut vfx_writer,
-        &mut authority.player,
+        &mut player,
         &mut sim_state,
         &mut safety,
         &mut attack.0,
@@ -251,6 +256,7 @@ pub fn apply_player_reset_input_system(
         editable_tuning.as_engine(),
         *feel_tuning,
     );
+    commit_player(player, &mut clusters);
     reset_room_features.write(features::ResetRoomFeaturesEvent);
 }
 
@@ -279,7 +285,7 @@ pub fn detect_room_transition_system(
     mut transition_writer: MessageWriter<RoomTransitionRequested>,
     mut player_q: Query<
         (
-            &crate::player::PlayerMovementAuthority,
+            PlayerClusterQueryData,
             &mut crate::player::PlayerInteractionState,
         ),
         With<crate::player::PlayerEntity>,
@@ -288,11 +294,15 @@ pub fn detect_room_transition_system(
     if sim_state.room_transition_cooldown > 0.0 {
         return;
     }
-    let Ok((authority, mut interaction)) = player_q.single_mut() else {
+    let Ok((mut cluster_item, mut interaction)) = player_q.single_mut() else {
         return;
     };
-    let Some(zone) = room_set.transition_for_player(&authority.player, interaction.buffered())
-    else {
+    // The transition predicate takes a full `&ae::Player`. Phase 3
+    // will refactor it to take only the kinematics + interaction
+    // state it actually needs; for now assemble a scratchpad.
+    let clusters = cluster_item.as_clusters_mut();
+    let player = assemble_player(&clusters);
+    let Some(zone) = room_set.transition_for_player(&player, interaction.buffered()) else {
         return;
     };
     // Portal check: if this zone is registered as a portal, the
@@ -345,7 +355,7 @@ pub fn attack_advance_system(
     mut player_q: Query<
         (
             Entity,
-            &mut crate::player::PlayerMovementAuthority,
+            PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::ActivePlayerAttack,
@@ -359,12 +369,11 @@ pub fn attack_advance_system(
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
 ) {
-    let Ok((player_entity, mut authority, mut anim, mut combat, mut attack, input)) =
+    let Ok((player_entity, mut cluster_item, mut anim, mut combat, mut attack, input)) =
         player_q.single_mut()
     else {
         return;
     };
-    let player = &mut authority.player;
     // Per-player input (OVERNIGHT-TODO #17.5). `sync_local_player_input_frame`
     // ran at the tail of PlayerInput; this Combat-set system sees a fresh
     // snapshot. Future co-op drops the singleton query and iterates
@@ -374,6 +383,8 @@ pub fn attack_advance_system(
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 
+    let mut clusters = cluster_item.as_clusters_mut();
+    let mut player = assemble_player(&clusters);
     // Player melee migration: the start-attack gate reads
     // `ActorActionMessage::Melee` for this player rather than the raw
     // `controls.attack_pressed`. The player brain produces the message
@@ -388,7 +399,7 @@ pub fn attack_advance_system(
         super::world_flow::start_attack(
             &mut sfx_writer,
             &mut vfx_writer,
-            player,
+            &mut player,
             &mut attack.0,
             &mut anim,
             controls,
@@ -399,7 +410,7 @@ pub fn attack_advance_system(
         &mut vfx_writer,
         &world.0,
         &moving_platforms.0,
-        player,
+        &mut player,
         &mut attack.0,
         &mut anim,
         &mut combat,
@@ -410,6 +421,7 @@ pub fn attack_advance_system(
         &mut damage_events,
         &mut pogo_bounces,
     );
+    commit_player(player, &mut clusters);
 }
 
 /// Resolve this tick's `PlayerDamageEvent`s + remember the last
@@ -453,7 +465,7 @@ pub fn apply_player_damage_system(
     mut player_q: Query<
         (
             Entity,
-            &mut crate::player::PlayerMovementAuthority,
+            PlayerClusterQueryData,
             Option<&mut crate::player::PlayerHealth>,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
@@ -487,7 +499,7 @@ pub fn apply_player_damage_system(
         .filter_map(|e| e.target.or(primary).map(|t| (t, e)))
         .collect();
 
-    for (player_entity, mut authority, player_health, mut anim, mut combat, mut safety) in
+    for (player_entity, mut cluster_item, player_health, mut anim, mut combat, mut safety) in
         &mut player_q
     {
         let target_events: Vec<PlayerDamageEvent> = resolved
@@ -496,14 +508,15 @@ pub fn apply_player_damage_system(
             .map(|(_, e)| *e)
             .collect();
         let damaged_this_frame = !target_events.is_empty();
-        let player = &mut authority.player;
 
+        let mut clusters = cluster_item.as_clusters_mut();
+        let mut player = assemble_player(&clusters);
         super::world_flow::handle_player_damage_events(
             &world.0,
             &mut sfx_writer,
             &mut vfx_writer,
             &mut died_writer,
-            player,
+            &mut player,
             &mut sim_state,
             &mut safety,
             &mut banner,
@@ -523,7 +536,8 @@ pub fn apply_player_damage_system(
             blink_grace_active: player.blink_grace_timer > 0.0,
             room_transitioning: sim_state.room_transition_cooldown > 0.0,
         };
-        crate::remember_safe_player_position(&mut safety, player, &safe_world, ctx);
+        crate::remember_safe_player_position(&mut safety, &player, &safe_world, ctx);
+        commit_player(player, &mut clusters);
     }
 }
 
@@ -540,7 +554,9 @@ pub fn cleanup_timers_system(
     mut dev_state: ResMut<crate::SandboxDevState>,
     mut player_q: Query<
         (
-            &crate::player::PlayerMovementAuthority,
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerGroundState,
+            &crate::player::PlayerDashState,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerBlinkCameraState,
@@ -549,16 +565,23 @@ pub fn cleanup_timers_system(
     >,
 ) {
     let frame_dt = time.delta_secs();
-    let Ok((authority, mut anim, mut combat, mut blink_cam)) = player_q.single_mut() else {
+    let Ok((kinematics, ground, dash, mut anim, mut combat, mut blink_cam)) =
+        player_q.single_mut()
+    else {
         return;
     };
-    let player = &authority.player;
     combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
     dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
     anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
     blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
     blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
-    update_anim_signal_timers(player, &mut anim, frame_dt);
+    update_anim_signal_timers(
+        ground.on_ground,
+        kinematics.vel.y,
+        dash.timer,
+        &mut anim,
+        frame_dt,
+    );
 }
 
 /// Drive the presentation-only landing + dash-startup timers and capture
@@ -569,7 +592,9 @@ pub fn cleanup_timers_system(
 /// timers decay in one phase and so the "previous frame" snapshot is
 /// the one immediately before the next gameplay tick.
 fn update_anim_signal_timers(
-    player: &ae::Player,
+    on_ground: bool,
+    vel_y: f32,
+    dash_timer: f32,
     anim: &mut crate::player::PlayerAnimState,
     frame_dt: f32,
 ) {
@@ -584,9 +609,6 @@ fn update_anim_signal_timers(
     // Brief pre-roll for the dash startup pose. Falls below the dash's
     // own duration so the streaking dash row still gets airtime.
     const DASH_STARTUP_SECS: f32 = 0.05;
-
-    let on_ground = player.on_ground;
-    let dash_timer = player.dash_timer;
 
     // Landing edge: airborne last frame, grounded this frame.
     if on_ground && !anim.anim_prev_on_ground {
@@ -619,7 +641,7 @@ fn update_anim_signal_timers(
     // already post-integration but still reflects the speed that produced
     // this frame's `on_ground`.
     anim.anim_prev_on_ground = on_ground;
-    anim.anim_prev_vel_y = player.vel.y;
+    anim.anim_prev_vel_y = vel_y;
     anim.anim_prev_dash_timer = dash_timer;
 }
 

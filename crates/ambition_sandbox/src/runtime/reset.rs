@@ -293,11 +293,16 @@ mod tests {
         // of them present.
         {
             let mut initial =
-                ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
-            initial.refresh_movement_resources(ae::DEFAULT_TUNING);
+                crate::player::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
+            ae::refresh_movement_resources_clusters(
+                &initial.abilities,
+                &mut initial.dash,
+                &mut initial.jump,
+                ae::DEFAULT_TUNING,
+            );
             let health = crate::actor::Health::new(20);
             app.world_mut()
-                .spawn(crate::player::PlayerSimulationBundle::new(initial, health));
+                .spawn(crate::player::PlayerSimulationBundle::from_scratch(initial, health));
             let _ = PlayerBlinkCameraState::default();
         }
         app.insert_resource(crate::world::physics::PhysicsSandboxSettings::default());

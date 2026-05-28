@@ -129,15 +129,23 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
 
     crate::features::spawn_room_feature_entities(commands, room_set.active_spec());
 
-    let mut initial_player =
-        ae::Player::new_with_abilities(world.0.spawn, editable_abilities.as_engine());
-    initial_player.refresh_movement_resources(editable_tuning.as_engine());
+    let mut initial_scratch =
+        crate::player::primary_player_scratch(world.0.spawn, editable_abilities.as_engine());
+    ae::refresh_movement_resources_clusters(
+        &initial_scratch.abilities,
+        &mut initial_scratch.dash,
+        &mut initial_scratch.jump,
+        editable_tuning.as_engine(),
+    );
 
     let player = commands
         .spawn((
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
-            crate::player::PlayerSimulationBundle::new(initial_player, crate::actor::Health::new(20)),
+            crate::player::PlayerSimulationBundle::from_scratch(
+                initial_scratch,
+                crate::actor::Health::new(20),
+            ),
         ))
         .id();
 

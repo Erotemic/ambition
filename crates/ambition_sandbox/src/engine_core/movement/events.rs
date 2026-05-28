@@ -1,7 +1,7 @@
 use crate::engine_core::geometry::Aabb;
 use crate::engine_core::Vec2;
 
-use super::{MovementOp, Player};
+use super::MovementOp;
 
 /// Engine event emitted when a blink teleports the player.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -25,14 +25,8 @@ pub struct FrameEvents {
 }
 
 impl FrameEvents {
-    pub(crate) fn op(&mut self, player: &mut Player, op: MovementOp) {
-        self.operations.push(op);
-        player.record(op);
-    }
-
-    /// Cluster-ref variant of [`Self::op`]: push to the per-frame
-    /// op list and append a fresh `ComboMark` to the cluster-side
-    /// combo trace.
+    /// Push to the per-frame op list and append a fresh `ComboMark`
+    /// to the cluster-side combo trace.
     pub fn op_clusters(
         &mut self,
         combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,

@@ -42,3 +42,16 @@ pub use systems::{
     apply_player_heal_requests, sync_local_player_input_frame, tick_player_brains,
     write_player_ecs_components,
 };
+
+/// Build a `PlayerClusterScratch` for the primary player at `spawn`
+/// with the given `AbilitySet`. Single place that production code
+/// uses; switching the underlying constructor (or deleting
+/// `ae::Player`) only needs to touch this helper.
+pub fn primary_player_scratch(
+    spawn: crate::engine_core::Vec2,
+    abilities: crate::engine_core::AbilitySet,
+) -> crate::engine_core::PlayerClusterScratch {
+    crate::engine_core::PlayerClusterScratch::from_player(
+        &crate::engine_core::movement::Player::new_with_abilities(spawn, abilities),
+    )
+}

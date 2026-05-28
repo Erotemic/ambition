@@ -6,7 +6,7 @@
 //! water, and wall state instead of running as a post-update sandbox mutator.
 
 use crate::engine_core::geometry::{Aabb, AabbExt};
-use crate::engine_core::movement::{InputState, MovementOp, MovementTuning, Player};
+use crate::engine_core::movement::{InputState, MovementOp, MovementTuning};
 use crate::engine_core::world::{BlockKind, World};
 use crate::engine_core::Vec2;
 

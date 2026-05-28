@@ -392,8 +392,18 @@ mod multiplayer_smoke_tests {
             ae::Vec2::new(100.0, 900.0),
             vec![],
         );
-        let player = ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
-        crate::combat::attack_spec(&player, crate::combat::AttackIntent::Forward)
+        let scratch =
+            crate::player::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
+        let view = crate::combat::AttackView {
+            pos: scratch.kinematics.pos,
+            size: scratch.kinematics.size,
+            facing: scratch.kinematics.facing,
+            on_ground: scratch.ground.on_ground,
+            wall_clinging: scratch.wall.wall_clinging,
+            dash_timer: scratch.dash.timer,
+            abilities_directional_primary: scratch.abilities.abilities.directional_primary,
+        };
+        crate::combat::attack_spec_from_view(&view, crate::combat::AttackIntent::Forward)
     }
 
     /// Two player entities each carry their own `ActivePlayerAttack`,

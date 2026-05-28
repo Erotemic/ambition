@@ -215,7 +215,7 @@ pub fn sync_boss_encounter_phase(
     encounter_registry: Res<crate::boss_encounter::BossEncounterRegistry>,
     mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
     mut last_logged: bevy::ecs::system::Local<
-        std::collections::HashMap<String, ae::BossEncounterPhase>,
+        std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
     >,
 ) {
     for mut feature in &mut bosses {

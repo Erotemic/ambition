@@ -56,7 +56,7 @@ pub fn record_boss_damage(
     let evs = state.apply_player_damage(damage);
     let applied = evs
         .iter()
-        .any(|ev| matches!(ev, ae::BossEncounterEvent::DamageApplied { .. }));
+        .any(|ev| matches!(ev, crate::boss_encounter::BossEncounterEvent::DamageApplied { .. }));
     let hp_remaining = state.hp;
     let killed = applied && hp_remaining == 0 && prev_hp > 0;
     publish_events(&id, &evs, music_request, cutscene_queue, banner);
@@ -77,7 +77,7 @@ mod tests {
         // Reuse the gradient sentinel spec as the template — gives us
         // realistic phase thresholds (0.66 / 0.22) and music ids, then
         // override id + max_hp for the test.
-        let mut spec = ae::BossEncounterSpec::gradient_sentinel();
+        let mut spec = crate::boss_encounter::BossEncounterSpec::gradient_sentinel();
         spec.id = "test_boss".into();
         spec.name = "Test Boss".into();
         spec.max_hp = max_hp;
@@ -86,7 +86,7 @@ mod tests {
         registry.link_runtime("test_boss", "test_boss_runtime");
         // Skip Intro -> Phase1 so the boss is damageable.
         let state = registry.encounters.get_mut("test_boss").unwrap();
-        state.phase = ae::BossEncounterPhase::Phase1;
+        state.phase = crate::boss_encounter::BossEncounterPhase::Phase1;
         state.hp = max_hp;
         registry
     }
@@ -194,7 +194,7 @@ mod tests {
         let mut registry = fixture(10);
         // Flip to an invulnerable phase (Intro / Transition / Stagger).
         registry.encounters.get_mut("test_boss").unwrap().phase =
-            ae::BossEncounterPhase::Transition;
+            crate::boss_encounter::BossEncounterPhase::Transition;
         let mut music = BossEncounterMusicRequest::default();
         let mut cutscene = CutsceneTriggerQueue::default();
         let mut banner = GameplayBanner::default();

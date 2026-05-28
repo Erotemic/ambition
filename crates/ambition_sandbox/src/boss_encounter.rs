@@ -1,6 +1,6 @@
 //! Sandbox-side boss encounter coordinator.
 //!
-//! Bridges `ae::BossEncounterState` (the phase machine) with the
+//! Bridges `crate::boss_encounter::BossEncounterState` (the phase machine) with the
 //! existing `BossRuntime` (the in-arena physical actor) and the
 //! adaptive music + cutscene + save-state systems.
 //!
@@ -30,6 +30,7 @@ mod systems;
 
 #[cfg(test)]
 mod tests;
+mod spec_types;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use damage::record_boss_damage;
@@ -45,3 +46,4 @@ pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use specs::default_boss_specs;
 pub use systems::{populate_boss_encounter_registry, update_boss_encounters};
+pub use spec_types::{BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState};

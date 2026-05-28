@@ -154,9 +154,9 @@ pub fn tick_boss_idle_barks(
         }
         if !matches!(
             boss.encounter_phase,
-            ae::BossEncounterPhase::Phase1
-                | ae::BossEncounterPhase::Phase2
-                | ae::BossEncounterPhase::Enrage
+            crate::boss_encounter::BossEncounterPhase::Phase1
+                | crate::boss_encounter::BossEncounterPhase::Phase2
+                | crate::boss_encounter::BossEncounterPhase::Enrage
         ) {
             continue;
         }

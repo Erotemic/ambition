@@ -114,7 +114,7 @@ pub const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
 // `world_aabb_from_pixel_rect` transform the gradient sentinel uses.
 
 /// Live sandbox-side behavior tuning for a boss. This is deliberately separate
-/// from `ae::BossEncounterSpec`: the engine spec owns phase progression and HP
+/// from `crate::boss_encounter::BossEncounterSpec`: the engine spec owns phase progression and HP
 /// thresholds, while this profile owns sandbox movement, contact size, damage,
 /// and hitbox shapes.
 ///
@@ -730,7 +730,7 @@ pub struct BossRuntime {
     /// from `BossEncounterRegistry`. `Dormant` until the encounter
     /// wakes up. The brain reads this via `BossPatternContext`;
     /// pattern selection happens in the brain, not here.
-    pub encounter_phase: ae::BossEncounterPhase,
+    pub encounter_phase: crate::boss_encounter::BossEncounterPhase,
     /// Sprite-driven body metrics — populated by the
     /// `derive_boss_sprite_metrics` system after the SheetRegistry
     /// has loaded. `None` for bosses whose sprite has no
@@ -766,7 +766,7 @@ impl BossRuntime {
             brain,
             alive: true,
             hit_flash: 0.0,
-            encounter_phase: ae::BossEncounterPhase::Dormant,
+            encounter_phase: crate::boss_encounter::BossEncounterPhase::Dormant,
         }
     }
 
@@ -919,7 +919,7 @@ mod scripted_pattern_tests {
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
         let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, ae::BossBrain::Dormant);
         runtime.behavior = behavior;
-        runtime.encounter_phase = ae::BossEncounterPhase::Phase1;
+        runtime.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
         // After the data-driven migration, the head-position invariants
         // (rest above shoulder, descent at player level) live in the
         // sprite RON's per-animation `hurtbox.parts`. The test fixture
@@ -1447,7 +1447,7 @@ mod scripted_pattern_tests {
             ae::BossBrain::Dormant,
         );
         boss.behavior = BossBehaviorProfile::clockwork_warden();
-        boss.encounter_phase = ae::BossEncounterPhase::Phase1;
+        boss.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
         // World: a wall at x=400 blocks any rightward chase past it.
         let world = ae::World::new(
             String::from("boss_collision_test"),

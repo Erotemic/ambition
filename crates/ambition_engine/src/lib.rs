@@ -23,7 +23,6 @@
 
 pub mod abilities;
 pub mod actor;
-pub mod boss_encounter;
 pub mod combat;
 pub mod player_clusters;
 pub mod geometry;
@@ -40,9 +39,6 @@ pub use actor::{
     KinematicPathMode, RespawnPolicy,
 };
 pub use bevy_math::Vec2;
-pub use boss_encounter::{
-    BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
-};
 pub use combat::{
     attack_hitbox, attack_spec, resolve_attack_intent, AttackIntent, AttackPhase, AttackSpec,
     Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,

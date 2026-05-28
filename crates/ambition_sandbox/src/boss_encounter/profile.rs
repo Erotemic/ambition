@@ -3,14 +3,14 @@ use ambition_engine as ae;
 /// Full authored profile for a boss encounter.
 ///
 /// This is the sandbox-side bridge from encounter progression to actual play.
-/// `ae::BossEncounterSpec` remains the engine-owned state-machine input, while
+/// `crate::boss_encounter::BossEncounterSpec` remains the engine-owned state-machine input, while
 /// `BossProfile` owns the content-facing bundle: phase thresholds, movement,
 /// hitboxes, damage tuning, music, and rewards.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BossProfile {
     pub id: String,
     pub display_name: String,
-    pub encounter: ae::BossEncounterSpec,
+    pub encounter: crate::boss_encounter::BossEncounterSpec,
     pub behavior: crate::features::BossBehaviorProfile,
     pub reward: BossRewardProfile,
 }
@@ -27,7 +27,7 @@ pub enum BossRewardProfile {
 
 impl BossProfile {
     pub fn clockwork_warden() -> Self {
-        let encounter = ae::BossEncounterSpec::clockwork_warden();
+        let encounter = crate::boss_encounter::BossEncounterSpec::clockwork_warden();
         Self {
             id: encounter.id.clone(),
             display_name: encounter.name.clone(),
@@ -38,7 +38,7 @@ impl BossProfile {
     }
 
     pub fn mockingbird() -> Self {
-        let encounter = ae::BossEncounterSpec::mockingbird();
+        let encounter = crate::boss_encounter::BossEncounterSpec::mockingbird();
         Self {
             id: encounter.id.clone(),
             display_name: encounter.name.clone(),
@@ -59,7 +59,7 @@ impl BossProfile {
     /// player can deal damage during the head-down vulnerability period.
     /// The arena needs to be wide (~640px) to give space for the hands.
     pub fn gnu_ton() -> Self {
-        let encounter = ae::BossEncounterSpec::gnu_ton();
+        let encounter = crate::boss_encounter::BossEncounterSpec::gnu_ton();
         Self {
             id: encounter.id.clone(),
             display_name: encounter.name.clone(),
@@ -76,7 +76,7 @@ impl BossProfile {
     pub fn generic(id: impl Into<String>, display_name: impl Into<String>, max_hp: i32) -> Self {
         let id = id.into();
         let display_name = display_name.into();
-        let mut encounter = ae::BossEncounterSpec::gradient_sentinel();
+        let mut encounter = crate::boss_encounter::BossEncounterSpec::gradient_sentinel();
         encounter.id = id.clone();
         encounter.name = display_name.clone();
         encounter.max_hp = max_hp.max(1);
@@ -118,11 +118,11 @@ const AUTHORED_BOSS_PROFILES: &[(&str, fn() -> BossProfile)] = &[
 pub fn default_boss_profiles() -> Vec<BossProfile> {
     // Per ADR 0017 (Rust = behavior, RON = content): if a boss has
     // an `assets/data/boss_encounters/<id>.ron`, it overrides the
-    // hardcoded `ae::BossEncounterSpec::<id>()` constructor's numeric
+    // hardcoded `crate::boss_encounter::BossEncounterSpec::<id>()` constructor's numeric
     // fields. The Rust profile constructor still owns the behavior
     // wiring (`BossBehaviorProfile`, `BossRewardProfile`) — only the
     // encounter-spec numbers come from disk.
-    let on_disk: std::collections::BTreeMap<String, ae::BossEncounterSpec> =
+    let on_disk: std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> =
         super::specs::load_boss_specs_from_disk()
             .into_iter()
             .map(|s| (s.id.clone(), s))
@@ -176,7 +176,7 @@ mod tests {
     /// constructor or where the override loop accidentally drops the
     /// spec for a particular id.
     #[track_caller]
-    fn assert_profile_matches(id: &str, hardcoded: ae::BossEncounterSpec) {
+    fn assert_profile_matches(id: &str, hardcoded: crate::boss_encounter::BossEncounterSpec) {
         let profile = default_boss_profiles()
             .into_iter()
             .find(|p| p.id == id)
@@ -186,19 +186,19 @@ mod tests {
 
     #[test]
     fn gnu_ton_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches("gnu_ton", ae::BossEncounterSpec::gnu_ton());
+        assert_profile_matches("gnu_ton", crate::boss_encounter::BossEncounterSpec::gnu_ton());
     }
 
     #[test]
     fn mockingbird_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches("mockingbird", ae::BossEncounterSpec::mockingbird());
+        assert_profile_matches("mockingbird", crate::boss_encounter::BossEncounterSpec::mockingbird());
     }
 
     #[test]
     fn clockwork_warden_profile_encounter_matches_hardcoded_constructor() {
         assert_profile_matches(
             "clockwork_warden",
-            ae::BossEncounterSpec::clockwork_warden(),
+            crate::boss_encounter::BossEncounterSpec::clockwork_warden(),
         );
     }
 }

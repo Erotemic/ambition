@@ -15,7 +15,7 @@ pub fn populate_boss_encounter_registry(
     }
     // Per ADR 0017: boss-encounter numeric fields can come from
     // `assets/data/boss_encounters/<id>.ron` (override) or the
-    // hardcoded `ae::BossEncounterSpec::<id>()` constructor
+    // hardcoded `crate::boss_encounter::BossEncounterSpec::<id>()` constructor
     // (fallback). Log a one-time startup census so a regression where
     // a RON file silently fails to parse (loader returns empty) is
     // visible in dev logs without paging through every spec field.
@@ -136,7 +136,7 @@ pub fn update_boss_encounters(
     for (_runtime_id, boss_name, encounter_id, _pos, _spawn, _hp, _max) in &bosses_in_room {
         match registry.encounters.get_mut(encounter_id) {
             Some(state) => {
-                if matches!(state.phase, ae::BossEncounterPhase::Dormant) && state.hp > 0 {
+                if matches!(state.phase, crate::boss_encounter::BossEncounterPhase::Dormant) && state.hp > 0 {
                     bevy::log::info!(
                         target: "ambition::boss_encounter",
                         "wakeup: encounter={encounter_id} (boss={boss_name:?}) phase=Dormant hp={} → enter_intro",
@@ -172,9 +172,9 @@ pub fn update_boss_encounters(
     // mutate the runtime with the boss reference based on each
     // encounter's HP, and the borrow checker prefers a copy-out then
     // route style.
-    let mut deferred_events: Vec<(String, Vec<ae::BossEncounterEvent>)> = Vec::new();
+    let mut deferred_events: Vec<(String, Vec<crate::boss_encounter::BossEncounterEvent>)> = Vec::new();
     for (id, state) in registry.encounters.iter_mut() {
-        if matches!(state.phase, ae::BossEncounterPhase::Dormant) {
+        if matches!(state.phase, crate::boss_encounter::BossEncounterPhase::Dormant) {
             continue;
         }
         let evs = state.tick(dt);
@@ -263,7 +263,7 @@ pub fn update_boss_encounters(
             }
             // Death resolution: when engine state reports Death and the
             // outro is over, mark the runtime dead and update the save.
-            if matches!(state.phase, ae::BossEncounterPhase::Death) && state.death_complete() {
+            if matches!(state.phase, crate::boss_encounter::BossEncounterPhase::Death) && state.death_complete() {
                 if boss.alive {
                     boss.alive = false;
                 }
@@ -312,12 +312,12 @@ pub fn update_boss_encounters(
                 .map(|state| {
                     matches!(
                         state.phase,
-                        ae::BossEncounterPhase::Intro
-                            | ae::BossEncounterPhase::Phase1
-                            | ae::BossEncounterPhase::Transition
-                            | ae::BossEncounterPhase::Phase2
-                            | ae::BossEncounterPhase::Enrage
-                            | ae::BossEncounterPhase::Stagger
+                        crate::boss_encounter::BossEncounterPhase::Intro
+                            | crate::boss_encounter::BossEncounterPhase::Phase1
+                            | crate::boss_encounter::BossEncounterPhase::Transition
+                            | crate::boss_encounter::BossEncounterPhase::Phase2
+                            | crate::boss_encounter::BossEncounterPhase::Enrage
+                            | crate::boss_encounter::BossEncounterPhase::Stagger
                     )
                 })
                 .unwrap_or(false)

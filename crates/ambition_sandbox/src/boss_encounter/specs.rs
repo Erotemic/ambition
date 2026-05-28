@@ -4,7 +4,7 @@ use super::profile::default_boss_profiles;
 
 /// Default boss specs shipped with the sandbox. Populated lazily so
 /// hot reloads of LDtk content don't double-register.
-pub fn default_boss_specs() -> Vec<ae::BossEncounterSpec> {
+pub fn default_boss_specs() -> Vec<crate::boss_encounter::BossEncounterSpec> {
     default_boss_profiles()
         .into_iter()
         .map(|profile| profile.encounter)
@@ -16,7 +16,7 @@ pub fn default_boss_specs() -> Vec<ae::BossEncounterSpec> {
 /// Per ADR 0017 (Rust = behavior, RON = content). Called by
 /// [`super::profile::default_boss_profiles`]: any RON file whose
 /// `id` matches an authored profile overrides the hardcoded
-/// `ae::BossEncounterSpec::<id>()` constructor's numeric fields.
+/// `crate::boss_encounter::BossEncounterSpec::<id>()` constructor's numeric fields.
 /// The Rust profile constructor still owns the behavior wiring
 /// (`BossBehaviorProfile`, `BossRewardProfile`); only the encounter-
 /// spec numbers come from disk.
@@ -24,7 +24,7 @@ pub fn default_boss_specs() -> Vec<ae::BossEncounterSpec> {
 /// Returns an empty `Vec` when the directory is missing or unreadable
 /// so the build runs cleanly on a fresh clone before any RON has
 /// been authored.
-pub fn load_boss_specs_from_disk() -> Vec<ae::BossEncounterSpec> {
+pub fn load_boss_specs_from_disk() -> Vec<crate::boss_encounter::BossEncounterSpec> {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/data/boss_encounters");
     let Ok(entries) = std::fs::read_dir(&dir) else {
         return Vec::new();
@@ -38,7 +38,7 @@ pub fn load_boss_specs_from_disk() -> Vec<ae::BossEncounterSpec> {
         let Ok(text) = std::fs::read_to_string(&path) else {
             continue;
         };
-        match ron::from_str::<ae::BossEncounterSpec>(&text) {
+        match ron::from_str::<crate::boss_encounter::BossEncounterSpec>(&text) {
             Ok(spec) => out.push(spec),
             Err(err) => {
                 bevy::log::warn!(
@@ -61,7 +61,7 @@ mod tests {
     /// Used by every per-boss RON pin test so a drift in any single
     /// field (HP, timing, music id) trips a focused diff.
     #[track_caller]
-    fn assert_spec_matches_disk(id: &str, hardcoded: ae::BossEncounterSpec) {
+    fn assert_spec_matches_disk(id: &str, hardcoded: crate::boss_encounter::BossEncounterSpec) {
         let specs = load_boss_specs_from_disk();
         let on_disk = specs
             .iter()
@@ -75,19 +75,19 @@ mod tests {
 
     #[test]
     fn load_boss_specs_from_disk_finds_gnu_ton() {
-        assert_spec_matches_disk("gnu_ton", ae::BossEncounterSpec::gnu_ton());
+        assert_spec_matches_disk("gnu_ton", crate::boss_encounter::BossEncounterSpec::gnu_ton());
     }
 
     #[test]
     fn load_boss_specs_from_disk_finds_mockingbird() {
-        assert_spec_matches_disk("mockingbird", ae::BossEncounterSpec::mockingbird());
+        assert_spec_matches_disk("mockingbird", crate::boss_encounter::BossEncounterSpec::mockingbird());
     }
 
     #[test]
     fn load_boss_specs_from_disk_finds_clockwork_warden() {
         assert_spec_matches_disk(
             "clockwork_warden",
-            ae::BossEncounterSpec::clockwork_warden(),
+            crate::boss_encounter::BossEncounterSpec::clockwork_warden(),
         );
     }
 

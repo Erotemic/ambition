@@ -1,9 +1,9 @@
 //! Reproduce the exact square_arena wall-cling teleport against engine
 //! collision routines.
 
-use ae::{AbilitySet, Block, InputState, Player, World, DEFAULT_TUNING};
-use ambition_engine as ae;
 use ambition_sandbox as sb;
+use sb::engine_core as ae;
+use ae::{AbilitySet, Block, InputState, Player, World, DEFAULT_TUNING};
 
 #[test]
 fn square_arena_wall_cling_does_not_teleport() {

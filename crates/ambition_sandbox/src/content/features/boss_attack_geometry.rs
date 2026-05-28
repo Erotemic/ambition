@@ -848,7 +848,7 @@ mod sprite_metadata_derivation_tests {
             "test_boss",
             "Test Boss",
             ae::Aabb::new(ae::Vec2::new(640.0, 656.0), ae::Vec2::new(64.0, 80.0)),
-            crate::engine_core::BossBrain::Dormant,
+            crate::actor::BossBrain::Dormant,
         );
         let ctx = BossVolumeContext {
             pos: ae::Vec2::new(640.0, 656.0),

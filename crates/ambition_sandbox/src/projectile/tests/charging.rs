@@ -2,7 +2,8 @@
 //! resource-exhaustion gating. All of these exercise the projectile
 //! input pipeline via the shared `min_app()` fixture.
 
-use crate::engine_core::{MotionDirection, ProjectileKind};
+use crate::projectile::motion_input::MotionDirection;
+use crate::projectile::spec::ProjectileKind;
 
 use super::super::state::PlayerProjectileState;
 use super::{advance_time, ae, min_app, tap_projectile, ControlFrame};

@@ -86,11 +86,18 @@ pub fn choose_mode(
     };
 
     // --- Hysteresis: stick with last mode unless it's been at
-    // least MODE_MIN_DWELL_S since we entered it. Bypassed when
-    // candidate is Engage (we don't want to delay an attack) or
-    // when the candidate matches what we already chose.
+    // least MODE_MIN_DWELL_S since we entered it. Bypassed when:
+    //   - the candidate matches what we already chose (no-op),
+    //   - the candidate is Engage (don't delay an attack), or
+    //   - the current state is Idle (no real prior commitment, so
+    //     a fresh actor entering aggro should be able to commit
+    //     to Approach/Retreat/Reposition immediately rather than
+    //     spend the dwell window standing still).
     if candidate == state.mode {
         return state.mode;
+    }
+    if state.mode == BroadMode::Idle {
+        return commit(state, candidate);
     }
     if state.mode_dwell_s < MODE_MIN_DWELL_S && candidate != BroadMode::Engage {
         return state.mode;

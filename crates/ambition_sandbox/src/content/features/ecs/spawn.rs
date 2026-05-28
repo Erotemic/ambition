@@ -640,9 +640,9 @@ mod tests {
     }
 
     /// Regression net: spawning an encounter mob attaches a
-    /// per-archetype Brain (MeleeBrute by default since
-    /// medium_striker is hostile). Verifies the spawn_encounter_mob
-    /// path threads the brain through end-to-end.
+    /// per-archetype Brain. `medium_striker` migrated from
+    /// `MeleeBrute` to `Smash` in `enemy_archetypes.ron`; the test
+    /// follows that and pins the Smash variant instead.
     #[test]
     fn encounter_mob_brain_is_per_archetype_melee_brute() {
         use crate::brain::{Brain, StateMachineCfg};
@@ -660,10 +660,10 @@ mod tests {
         app.update();
         let mut q = app.world_mut().query::<&Brain>();
         let brain = q.iter(app.world()).next().expect("encounter mob exists");
-        // medium_striker is a hostile archetype → MeleeBrute brain.
+        // medium_striker is a hostile archetype with Smash brain.
         assert!(matches!(
             brain,
-            Brain::StateMachine(StateMachineCfg::MeleeBrute { .. })
+            Brain::StateMachine(StateMachineCfg::Smash { .. })
         ));
     }
 
@@ -770,16 +770,19 @@ mod tests {
             Brain::StateMachine(StateMachineCfg::StandStill)
         ));
 
+        // `MediumStriker` was migrated to the Smash brain template in
+        // `enemy_archetypes.ron` — assert against the live data path
+        // rather than reverting to MeleeBrute. The chase_speed pin
+        // moves over to the `SmashCfg` row.
         let striker = make_enemy(EnemyArchetype::MediumStriker);
         match enemy_default_brain(&striker) {
-            Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
-                assert!(cfg.aggressiveness > 0.0);
-                // Brain's chase_speed mirrors the archetype tuning.
+            Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
+                assert!(cfg.aggro_radius > 0.0);
                 assert!(
                     (cfg.chase_speed - EnemyArchetype::MediumStriker.chase_speed()).abs() < 0.01
                 );
             }
-            other => panic!("expected MeleeBrute for MediumStriker, got {:?}", other),
+            other => panic!("expected Smash for MediumStriker, got {:?}", other),
         }
     }
 

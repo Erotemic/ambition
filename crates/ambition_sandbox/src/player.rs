@@ -6,6 +6,9 @@
 //!
 //! Submodules:
 //! - [`components`] — the per-frame ECS components on the player entity.
+//! - [`movement_components`] — Phase 1 cluster components that will replace
+//!   the live `PlayerMovementAuthority` aggregate (see
+//!   `docs/planning/player-ecs-bandaid-phase0.md`).
 //! - [`bundles`]    — [`PlayerSimulationBundle`] for spawning a sim-side player.
 //! - [`events`]     — player-domain message types.
 //! - [`systems`]    — frame systems that read or sync the player components.
@@ -16,6 +19,7 @@ pub mod bundles;
 pub mod components;
 pub mod events;
 pub mod ledge_grab;
+pub mod movement_components;
 pub mod queries;
 pub mod swim;
 pub mod systems;
@@ -25,6 +29,12 @@ pub use components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody,
     PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
     PlayerMovementAuthority, PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
+};
+pub use movement_components::{
+    PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerDashState,
+    PlayerDodgeState, PlayerEnvironmentContact, PlayerFlightState, PlayerGroundState,
+    PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerMana, PlayerOffense,
+    PlayerShieldState, PlayerWallState,
 };
 pub use events::{PlayerDamageRequested, PlayerHealRequested};
 pub use queries::{primary_player_entity, sort_players_by_slot, PrimaryPlayerOnly};

@@ -8,6 +8,12 @@ use super::components::{
     PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState,
     PlayerMovementAuthority, PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
+use super::movement_components::{
+    PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerDashState,
+    PlayerDodgeState, PlayerEnvironmentContact, PlayerFlightState, PlayerGroundState,
+    PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerMana, PlayerOffense,
+    PlayerShieldState, PlayerWallState,
+};
 use crate::brain::{ActionSet, ActorControl, Brain};
 use crate::features::ActorFaction;
 
@@ -63,6 +69,28 @@ pub struct PlayerSimulationBundle {
     pub brain: Brain,
     pub action_set: ActionSet,
     pub actor_control: ActorControl,
+    // Phase 1 cluster components (see
+    // `docs/planning/player-ecs-bandaid-phase0.md`). Spawned and
+    // initialized from `ae::Player` at construction; no system reads
+    // or writes them yet. Phase 2 cuts `PlayerMovementAuthority` and
+    // flips writers onto these; Phase 3 rebuilds movement against
+    // them.
+    pub abilities: PlayerAbilities,
+    pub kinematics: PlayerKinematics,
+    pub ground: PlayerGroundState,
+    pub wall: PlayerWallState,
+    pub jump: PlayerJumpState,
+    pub dash: PlayerDashState,
+    pub flight: PlayerFlightState,
+    pub blink: PlayerBlinkState,
+    pub ledge: PlayerLedgeState,
+    pub dodge: PlayerDodgeState,
+    pub shield: PlayerShieldState,
+    pub body_mode: PlayerBodyModeState,
+    pub env_contact: PlayerEnvironmentContact,
+    pub mana: PlayerMana,
+    pub offense: PlayerOffense,
+    pub action_buffer: PlayerActionBuffer,
 }
 
 impl PlayerSimulationBundle {
@@ -78,6 +106,28 @@ impl PlayerSimulationBundle {
     /// `PrimaryPlayer` and may not be `LocalPlayer`.
     pub fn new(player: ae::Player, health: ae::Health) -> Self {
         let action_set = default_player_action_set(player.abilities);
+        // Phase 1 cluster components are initialized from the engine
+        // `Player` before it moves into `PlayerMovementAuthority`, so
+        // the new shadow state agrees with the live authority at
+        // spawn. Phase 2 cuts the authority and these clusters become
+        // the only writers.
+        let abilities = PlayerAbilities::from_player(&player);
+        let kinematics = PlayerKinematics::from_player(&player);
+        let ground = PlayerGroundState::from_player(&player);
+        let wall = PlayerWallState::from_player(&player);
+        let jump = PlayerJumpState::from_player(&player);
+        let dash = PlayerDashState::from_player(&player);
+        let flight = PlayerFlightState::from_player(&player);
+        let blink = PlayerBlinkState::from_player(&player);
+        let ledge = PlayerLedgeState::from_player(&player);
+        let dodge = PlayerDodgeState::from_player(&player);
+        let shield = PlayerShieldState::from_player(&player);
+        let body_mode = PlayerBodyModeState::from_player(&player);
+        let env_contact = PlayerEnvironmentContact::from_player(&player);
+        let mana = PlayerMana::from_player(&player);
+        let offense = PlayerOffense::from_player(&player);
+        let action_buffer = PlayerActionBuffer::from_player(&player);
+
         let authority = PlayerMovementAuthority::new(player);
         let body = authority.body();
         let initial_safe_pos = authority.player.pos;
@@ -108,6 +158,22 @@ impl PlayerSimulationBundle {
             // default fires only for actual player entities.
             action_set,
             actor_control: ActorControl::default(),
+            abilities,
+            kinematics,
+            ground,
+            wall,
+            jump,
+            dash,
+            flight,
+            blink,
+            ledge,
+            dodge,
+            shield,
+            body_mode,
+            env_contact,
+            mana,
+            offense,
+            action_buffer,
         }
     }
 }

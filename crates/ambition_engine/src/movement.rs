@@ -26,7 +26,10 @@ mod player;
 mod simulation;
 mod tuning;
 
-pub use blink::{blink_destination, blink_destination_to_point};
+pub use blink::{
+    blink_destination, blink_destination_clusters, blink_destination_to_point,
+    blink_destination_to_point_clusters,
+};
 pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;
 pub use ops::{ComboMark, MovementOp};

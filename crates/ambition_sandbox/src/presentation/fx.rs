@@ -469,26 +469,24 @@ pub fn update_blink_preview(
         &leafwing_input_manager::prelude::ActionState<crate::input::SandboxAction>,
         bevy::prelude::With<crate::presentation::rendering::PlayerVisual>,
     >,
-    mut player_q: Query<
-        crate::player::engine_player_bridge::PlayerClusterQueryData,
+    player_q: Query<
+        (
+            &crate::player::PlayerKinematics,
+            &crate::player::PlayerAbilities,
+            &crate::player::PlayerBlinkState,
+        ),
         crate::player::PrimaryPlayerOnly,
     >,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {
     use crate::input::ControlFrame;
 
-    let Ok(mut cluster_item) = player_q.single_mut() else {
+    let Ok((kin, abilities, blink_state)) = player_q.single() else {
         for (entity, _, _, _) in &existing {
             commands.entity(entity).despawn();
         }
         return;
     };
-    // Phase 2 transitional: the blink destination helpers still take
-    // `&ae::Player`. Build a read-only snapshot from the clusters; no
-    // commit is needed because this system only reads.
-    let clusters = cluster_item.as_clusters_mut();
-    let snapshot = crate::player::engine_player_bridge::assemble_player(&clusters);
-    let player = &snapshot;
     let actions = if mode.get().allows_gameplay() {
         action_query.get(scene.player).ok()
     } else {
@@ -496,7 +494,7 @@ pub fn update_blink_preview(
     };
     let controls = actions.map(ControlFrame::read_gameplay).unwrap_or_default();
 
-    let active = player.abilities.blink && (controls.blink_held || player.blink_aiming);
+    let active = abilities.abilities.blink && (controls.blink_held || blink_state.aiming);
 
     if !active {
         for (entity, _, _, _) in &existing {
@@ -510,15 +508,20 @@ pub fn update_blink_preview(
     // resolves against, so the preview must use it too.
     let blink_world =
         crate::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
-    let target = if player.blink_aiming {
-        ae::blink_destination_to_point(&blink_world, player, player.pos + player.blink_aim_offset)
+    let target = if blink_state.aiming {
+        ae::blink_destination_to_point_clusters(
+            &blink_world,
+            kin,
+            abilities,
+            kin.pos + blink_state.aim_offset,
+        )
     } else {
         let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
-            .normalize_or(ae::Vec2::new(player.facing, 0.0));
-        ae::blink_destination(&blink_world, player, aim, ae::BLINK_DISTANCE)
+            .normalize_or(ae::Vec2::new(kin.facing, 0.0));
+        ae::blink_destination_clusters(&blink_world, kin, abilities, aim, ae::BLINK_DISTANCE)
     };
 
-    let precision = player.blink_aiming;
+    let precision = blink_state.aiming;
     // Match the post-blink burst palette so the preview reads as
     // "this is what's about to happen here".
     let color = if precision {
@@ -528,10 +531,10 @@ pub fn update_blink_preview(
     };
 
     const RING_EMBERS: usize = 4;
-    let radius = player.size.min_element() * 0.45;
+    let radius = kin.size.min_element() * 0.45;
     let spin = time.elapsed_secs() * 2.4;
     let pulse = 1.0 + 0.18 * (time.elapsed_secs() * 5.5).sin();
-    let ember_size = (player.size.min_element() * 0.18) * pulse;
+    let ember_size = (kin.size.min_element() * 0.18) * pulse;
 
     let mut emitted = 0;
     for (_, ember, mut transform, mut sprite) in &mut existing {

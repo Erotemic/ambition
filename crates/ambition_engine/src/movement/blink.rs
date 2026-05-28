@@ -58,13 +58,69 @@ fn apply_post_blink_motion(player: &mut Player, precision: bool, tuning: Movemen
 }
 
 pub fn blink_destination(world: &World, player: &Player, aim: Vec2, max_distance: f32) -> Vec2 {
-    let direction = aim.normalize_or(Vec2::new(player.facing, 0.0));
-    blink_destination_to_point(world, player, player.pos + direction * max_distance)
+    blink_destination_internal(world, player.pos, player.size, player.facing, &player.abilities, aim, max_distance)
 }
 
 pub fn blink_destination_to_point(world: &World, player: &Player, target: Vec2) -> Vec2 {
-    let start = player.pos;
-    let half = player.size * 0.5;
+    blink_destination_to_point_internal(world, player.pos, player.size, &player.abilities, target)
+}
+
+/// Cluster-ref variant of [`blink_destination`].
+pub fn blink_destination_clusters(
+    world: &World,
+    kinematics: &crate::player_clusters::PlayerKinematics,
+    abilities: &crate::player_clusters::PlayerAbilities,
+    aim: Vec2,
+    max_distance: f32,
+) -> Vec2 {
+    blink_destination_internal(
+        world,
+        kinematics.pos,
+        kinematics.size,
+        kinematics.facing,
+        &abilities.abilities,
+        aim,
+        max_distance,
+    )
+}
+
+/// Cluster-ref variant of [`blink_destination_to_point`].
+pub fn blink_destination_to_point_clusters(
+    world: &World,
+    kinematics: &crate::player_clusters::PlayerKinematics,
+    abilities: &crate::player_clusters::PlayerAbilities,
+    target: Vec2,
+) -> Vec2 {
+    blink_destination_to_point_internal(
+        world,
+        kinematics.pos,
+        kinematics.size,
+        &abilities.abilities,
+        target,
+    )
+}
+
+fn blink_destination_internal(
+    world: &World,
+    pos: Vec2,
+    size: Vec2,
+    facing: f32,
+    abilities: &crate::abilities::AbilitySet,
+    aim: Vec2,
+    max_distance: f32,
+) -> Vec2 {
+    let direction = aim.normalize_or(Vec2::new(facing, 0.0));
+    blink_destination_to_point_internal(world, pos, size, abilities, pos + direction * max_distance)
+}
+
+fn blink_destination_to_point_internal(
+    world: &World,
+    start: Vec2,
+    size: Vec2,
+    abilities: &crate::abilities::AbilitySet,
+    target: Vec2,
+) -> Vec2 {
+    let half = size * 0.5;
     let mut target = target;
     target.x = target.x.clamp(half.x, world.size.x - half.x);
     target.y = target.y.clamp(half.y, world.size.y - half.y);
@@ -77,27 +133,43 @@ pub fn blink_destination_to_point(world: &World, player: &Player, target: Vec2) 
     let start_body = Aabb::new(start, half);
     let max_t = world
         .first_body_sweep(start_body, delta, |block| {
-            blink_path_blocker(player, block.kind)
+            blink_path_blocker_abilities(abilities, block.kind)
         })
         .map(|hit| hit.time_of_impact)
         .unwrap_or(1.0);
     let sweep_target = start + delta * max_t;
-    last_free_blink_position(world, player, start, sweep_target, half)
+    last_free_blink_position_abilities(world, abilities, start, sweep_target, half)
 }
 
+#[allow(dead_code)]
 fn blink_path_blocker(player: &Player, kind: BlockKind) -> bool {
+    blink_path_blocker_abilities(&player.abilities, kind)
+}
+
+fn blink_path_blocker_abilities(abilities: &crate::abilities::AbilitySet, kind: BlockKind) -> bool {
     match kind {
         BlockKind::Solid => true,
-        BlockKind::BlinkWall { tier } => !player_can_blink_through(player, tier),
+        BlockKind::BlinkWall { tier } => !abilities_can_blink_through(abilities, tier),
         BlockKind::OneWay | BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => {
             false
         }
     }
 }
 
+#[allow(dead_code)]
 fn last_free_blink_position(
     world: &World,
     player: &Player,
+    start: Vec2,
+    target: Vec2,
+    half: Vec2,
+) -> Vec2 {
+    last_free_blink_position_abilities(world, &player.abilities, start, target, half)
+}
+
+fn last_free_blink_position_abilities(
+    world: &World,
+    abilities: &crate::abilities::AbilitySet,
     start: Vec2,
     target: Vec2,
     half: Vec2,
@@ -114,7 +186,7 @@ fn last_free_blink_position(
         let t = step as f32 / steps as f32;
         let candidate = start + delta * t;
         let candidate_aabb = Aabb::new(candidate, half);
-        match blink_collision(world, player, candidate_aabb) {
+        match blink_collision_abilities(world, abilities, candidate_aabb) {
             BlinkCollision::Free => last_safe = candidate,
             BlinkCollision::PassThrough => {}
             BlinkCollision::Blocked => break,
@@ -130,7 +202,16 @@ enum BlinkCollision {
     Blocked,
 }
 
+#[allow(dead_code)]
 fn blink_collision(world: &World, player: &Player, aabb: Aabb) -> BlinkCollision {
+    blink_collision_abilities(world, &player.abilities, aabb)
+}
+
+fn blink_collision_abilities(
+    world: &World,
+    abilities: &crate::abilities::AbilitySet,
+    aabb: Aabb,
+) -> BlinkCollision {
     let mut pass_through = false;
     for block in &world.blocks {
         if !aabb.strict_intersects(block.aabb) {
@@ -139,7 +220,7 @@ fn blink_collision(world: &World, player: &Player, aabb: Aabb) -> BlinkCollision
         match block.kind {
             BlockKind::Solid => return BlinkCollision::Blocked,
             BlockKind::BlinkWall { tier } => {
-                if player_can_blink_through(player, tier) {
+                if abilities_can_blink_through(abilities, tier) {
                     pass_through = true;
                 } else {
                     return BlinkCollision::Blocked;
@@ -156,9 +237,14 @@ fn blink_collision(world: &World, player: &Player, aabb: Aabb) -> BlinkCollision
     }
 }
 
+#[allow(dead_code)]
 fn player_can_blink_through(player: &Player, tier: BlinkWallTier) -> bool {
+    abilities_can_blink_through(&player.abilities, tier)
+}
+
+fn abilities_can_blink_through(abilities: &crate::abilities::AbilitySet, tier: BlinkWallTier) -> bool {
     match tier {
-        BlinkWallTier::Soft => player.abilities.blink_through_soft_walls,
-        BlinkWallTier::Hard => player.abilities.blink_through_hard_walls,
+        BlinkWallTier::Soft => abilities.blink_through_soft_walls,
+        BlinkWallTier::Hard => abilities.blink_through_hard_walls,
     }
 }

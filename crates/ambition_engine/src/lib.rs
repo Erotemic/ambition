@@ -83,7 +83,8 @@ pub use ledge_grab::{
     LEDGE_TOWARD_CLIMB_DELAY,
 };
 pub use movement::{
-    blink_destination, blink_destination_to_point, default_player_body_size, update_player,
+    blink_destination, blink_destination_clusters, blink_destination_to_point,
+    blink_destination_to_point_clusters, default_player_body_size, update_player,
     update_player_control, update_player_control_with_tuning, update_player_simulation,
     update_player_simulation_with_tuning, update_player_with_tuning, BlinkEvent, ComboMark,
     FrameEvents, InputState, LedgeMomentumTuning, MovementOp, MovementTuning, Player, AIR_ACCEL,

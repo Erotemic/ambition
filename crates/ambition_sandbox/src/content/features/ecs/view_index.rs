@@ -108,7 +108,7 @@ pub fn rebuild_feature_view_index(
                 size: aabb.size(),
                 kind: FeatureVisualKind::Breakable,
                 visible: !breakable.broken(),
-                flash: breakable.breakable.state == ae::BreakableState::Cracking,
+                flash: breakable.breakable.state == crate::interaction::BreakableState::Cracking,
                 switch_on: false,
                 rotation_rad: 0.0,
             },

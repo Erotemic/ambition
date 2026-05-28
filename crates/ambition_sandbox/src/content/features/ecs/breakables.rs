@@ -34,7 +34,7 @@ pub fn update_ecs_breakables(
             if let Some(mut timer) = respawn_timer {
                 timer.0 = (timer.0 - dt).max(0.0);
                 if timer.0 <= 0.0 {
-                    feature.breakable.state = ae::BreakableState::Intact;
+                    feature.breakable.state = crate::interaction::BreakableState::Intact;
                     feature.breakable.health.reset();
                     commands.entity(entity).remove::<RespawnTimer>();
                     banner.show(format!("{} respawned", name.0.as_str()), 2.6);

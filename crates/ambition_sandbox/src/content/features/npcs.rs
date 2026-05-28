@@ -19,7 +19,7 @@ pub struct NpcRuntime {
     /// direction and the sprite flip.
     pub facing: f32,
     pub on_ground: bool,
-    pub interactable: ae::Interactable,
+    pub interactable: crate::interaction::Interactable,
     /// Half-range of the fallback patrol pace, in world pixels. 0.0 → static
     /// unless a `motion` path was authored. > 0 → pace
     /// `[spawn.x - patrol_radius, spawn.x + patrol_radius]`. Mirror of the
@@ -80,7 +80,7 @@ impl NpcRuntime {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        interactable: ae::Interactable,
+        interactable: crate::interaction::Interactable,
     ) -> Self {
         Self::new_with_paths(id, name, aabb, interactable, &[])
     }
@@ -89,12 +89,12 @@ impl NpcRuntime {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        interactable: ae::Interactable,
+        interactable: crate::interaction::Interactable,
         paths: &[(String, ae::KinematicPath)],
     ) -> Self {
         let authored_pos = aabb.center();
         let (patrol_radius, motion) = match &interactable.kind {
-            ae::InteractionKind::Npc {
+            crate::interaction::InteractionKind::Npc {
                 patrol_radius,
                 patrol_path_id,
                 ..
@@ -349,7 +349,7 @@ impl NpcRuntime {
 
     fn dialogue_key(&self) -> String {
         match &self.interactable.kind {
-            ae::InteractionKind::Npc {
+            crate::interaction::InteractionKind::Npc {
                 dialogue_id: Some(dialogue_id),
                 ..
             } => dialogue_id.to_ascii_lowercase(),
@@ -376,7 +376,7 @@ impl NpcRuntime {
             return format!("{} attacks!", self.name);
         }
         match &self.interactable.kind {
-            ae::InteractionKind::Npc {
+            crate::interaction::InteractionKind::Npc {
                 dialogue_id: Some(dialogue_id),
                 ..
             } => {
@@ -388,7 +388,7 @@ impl NpcRuntime {
 
     pub(super) fn dialogue_request(&self) -> NpcDialogueRequest {
         let dialogue_id = match &self.interactable.kind {
-            ae::InteractionKind::Npc {
+            crate::interaction::InteractionKind::Npc {
                 dialogue_id: Some(dialogue_id),
                 ..
             } => dialogue_id.clone(),

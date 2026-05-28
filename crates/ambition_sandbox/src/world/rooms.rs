@@ -545,10 +545,10 @@ pub struct RoomSpec {
     //     `ae::World::objects: Vec<RoomObject>` / `RoomObjectKind`
     //     dispatch IR). Each family spawns through its own ECS path.
     pub hazards: Vec<Authored<ae::DamageVolume>>,
-    pub interactables: Vec<Authored<ae::Interactable>>,
-    pub pickups: Vec<Authored<ae::Pickup>>,
-    pub chests: Vec<Authored<ae::Chest>>,
-    pub breakables: Vec<Authored<ae::Breakable>>,
+    pub interactables: Vec<Authored<crate::interaction::Interactable>>,
+    pub pickups: Vec<Authored<crate::interaction::Pickup>>,
+    pub chests: Vec<Authored<crate::interaction::Chest>>,
+    pub breakables: Vec<Authored<crate::interaction::Breakable>>,
     pub enemy_spawns: Vec<Authored<ae::EnemyBrain>>,
     pub boss_spawns: Vec<Authored<ae::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,

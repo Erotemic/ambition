@@ -563,7 +563,7 @@ pub fn ecs_damage_event_hits_boss(
 pub(super) fn begin_ecs_breakable_respawn(
     commands: &mut Commands,
     entity: Entity,
-    breakable: &ae::Breakable,
+    breakable: &crate::interaction::Breakable,
 ) {
     if let ae::RespawnPolicy::AfterSeconds(seconds) = breakable.respawn {
         commands.entity(entity).insert(RespawnTimer(seconds));

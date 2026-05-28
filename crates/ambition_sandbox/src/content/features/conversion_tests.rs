@@ -20,11 +20,11 @@ mod conversion_tests {
         );
         let aabb = ae::Aabb::new(ae::Vec2::new(800.0, 540.0), ae::Vec2::new(11.0, 19.0));
         let id = String::from("patrol_kira");
-        let interactable = ae::Interactable::new(
+        let interactable = crate::interaction::Interactable::new(
             id.clone(),
             String::from("Talk"),
             aabb,
-            ae::InteractionKind::Npc {
+            crate::interaction::InteractionKind::Npc {
                 dialogue_id: Some(id.clone()),
                 patrol_radius,
                 patrol_path_id: None,

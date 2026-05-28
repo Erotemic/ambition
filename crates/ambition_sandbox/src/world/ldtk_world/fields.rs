@@ -111,27 +111,27 @@ pub(super) fn parse_optional_path(entity: &LdtkEntityInstance) -> Option<ae::Kin
     })
 }
 
-pub(super) fn parse_pickup_kind(value: &str) -> ae::PickupKind {
+pub(super) fn parse_pickup_kind(value: &str) -> crate::interaction::PickupKind {
     if let Some(amount) = value
         .strip_prefix("health:")
         .and_then(|text| text.parse::<i32>().ok())
     {
-        ae::PickupKind::Health { amount }
+        crate::interaction::PickupKind::Health { amount }
     } else if let Some(amount) = value
         .strip_prefix("currency:")
         .and_then(|text| text.parse::<i32>().ok())
     {
-        ae::PickupKind::Currency { amount }
+        crate::interaction::PickupKind::Currency { amount }
     } else if let Some(ability_id) = value.strip_prefix("ability:") {
-        ae::PickupKind::Ability {
+        crate::interaction::PickupKind::Ability {
             ability_id: ability_id.to_string(),
         }
     } else if let Some(flag) = value.strip_prefix("flag:") {
-        ae::PickupKind::StoryFlag {
+        crate::interaction::PickupKind::StoryFlag {
             flag: flag.to_string(),
         }
     } else {
-        ae::PickupKind::Custom(value.to_string())
+        crate::interaction::PickupKind::Custom(value.to_string())
     }
 }
 

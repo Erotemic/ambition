@@ -192,7 +192,7 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Bos
     ));
 }
 
-fn spawn_pickup(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Pickup>) {
+fn spawn_pickup(commands: &mut Commands, authored: &crate::rooms::Authored<crate::interaction::Pickup>) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     commands.spawn((
         Name::new(format!("Feature pickup: {}", authored.name)),
@@ -205,7 +205,7 @@ fn spawn_pickup(commands: &mut Commands, authored: &crate::rooms::Authored<ae::P
     ));
 }
 
-fn spawn_chest(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Chest>) {
+fn spawn_chest(commands: &mut Commands, authored: &crate::rooms::Authored<crate::interaction::Chest>) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     commands.spawn((
         Name::new(format!("Feature chest: {}", authored.name)),
@@ -218,7 +218,7 @@ fn spawn_chest(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Ch
     ));
 }
 
-fn spawn_breakable(commands: &mut Commands, authored: &crate::rooms::Authored<ae::Breakable>) {
+fn spawn_breakable(commands: &mut Commands, authored: &crate::rooms::Authored<crate::interaction::Breakable>) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let breakable = &authored.payload;
     let mut entity = commands.spawn((
@@ -500,12 +500,12 @@ fn smash_cfg_for_archetype(arch: super::super::enemies::EnemyArchetype) -> crate
 
 fn spawn_interactable(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ae::Interactable>,
+    authored: &crate::rooms::Authored<crate::interaction::Interactable>,
     paths: &[(String, ae::KinematicPath)],
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let interactable = &authored.payload;
-    if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
+    if matches!(interactable.kind, crate::interaction::InteractionKind::Npc { .. }) {
         let npc = NpcRuntime::new_with_paths(
             authored.id.clone(),
             authored.name.clone(),
@@ -539,7 +539,7 @@ fn spawn_interactable(
             crate::brain::ActionSet::peaceful(),
             crate::brain::ActorControl::default(),
         ));
-    } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
+    } else if let crate::interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
             commands.spawn((
                 Name::new(format!("Feature switch: {}", authored.name)),

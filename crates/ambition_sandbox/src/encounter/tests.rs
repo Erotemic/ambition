@@ -266,10 +266,10 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
     let switch_object = goblin_encounter
         .interactables
         .iter()
-        .find(|authored| matches!(&authored.payload.kind, ae::InteractionKind::Custom(s) if s.starts_with("switch:")))
+        .find(|authored| matches!(&authored.payload.kind, crate::interaction::InteractionKind::Custom(s) if s.starts_with("switch:")))
         .expect("goblin_encounter has a switch interactable");
     let payload = match &switch_object.payload.kind {
-        ae::InteractionKind::Custom(s) => s.clone(),
+        crate::interaction::InteractionKind::Custom(s) => s.clone(),
         _ => panic!("switch kind"),
     };
     let activation = SwitchActivation::parse_custom(&payload).expect("parse");

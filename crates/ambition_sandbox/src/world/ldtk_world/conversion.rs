@@ -123,10 +123,10 @@ impl LdtkProject {
         // exactly one of these (or into one of the non-authored Vecs
         // above).
         let mut hazards: Vec<crate::rooms::Authored<ae::DamageVolume>> = Vec::new();
-        let mut interactables: Vec<crate::rooms::Authored<ae::Interactable>> = Vec::new();
-        let mut pickups: Vec<crate::rooms::Authored<ae::Pickup>> = Vec::new();
-        let mut chests: Vec<crate::rooms::Authored<ae::Chest>> = Vec::new();
-        let mut breakables: Vec<crate::rooms::Authored<ae::Breakable>> = Vec::new();
+        let mut interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>> = Vec::new();
+        let mut pickups: Vec<crate::rooms::Authored<crate::interaction::Pickup>> = Vec::new();
+        let mut chests: Vec<crate::rooms::Authored<crate::interaction::Chest>> = Vec::new();
+        let mut breakables: Vec<crate::rooms::Authored<crate::interaction::Breakable>> = Vec::new();
         let mut enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>> = Vec::new();
         let mut boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>> = Vec::new();
         let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> = Vec::new();
@@ -303,10 +303,10 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) props: Vec<PropSpec>,
     // --- Per-family authored entity emissions:
     pub(super) hazards: Vec<crate::rooms::Authored<ae::DamageVolume>>,
-    pub(super) interactables: Vec<crate::rooms::Authored<ae::Interactable>>,
-    pub(super) pickups: Vec<crate::rooms::Authored<ae::Pickup>>,
-    pub(super) chests: Vec<crate::rooms::Authored<ae::Chest>>,
-    pub(super) breakables: Vec<crate::rooms::Authored<ae::Breakable>>,
+    pub(super) interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>>,
+    pub(super) pickups: Vec<crate::rooms::Authored<crate::interaction::Pickup>>,
+    pub(super) chests: Vec<crate::rooms::Authored<crate::interaction::Chest>>,
+    pub(super) breakables: Vec<crate::rooms::Authored<crate::interaction::Breakable>>,
     pub(super) enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>>,
     pub(super) boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>>,
     pub(super) debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
@@ -387,21 +387,21 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn interactable(authored: crate::rooms::Authored<ae::Interactable>) -> Self {
+    fn interactable(authored: crate::rooms::Authored<crate::interaction::Interactable>) -> Self {
         Self {
             interactables: vec![authored],
             ..Self::default()
         }
     }
 
-    fn pickup(authored: crate::rooms::Authored<ae::Pickup>) -> Self {
+    fn pickup(authored: crate::rooms::Authored<crate::interaction::Pickup>) -> Self {
         Self {
             pickups: vec![authored],
             ..Self::default()
         }
     }
 
-    fn chest(authored: crate::rooms::Authored<ae::Chest>) -> Self {
+    fn chest(authored: crate::rooms::Authored<crate::interaction::Chest>) -> Self {
         Self {
             chests: vec![authored],
             ..Self::default()
@@ -667,11 +667,11 @@ fn convert_npc_spawn(
             .map(|s| s.to_string())
             .unwrap_or_else(|| character_id.clone())
     };
-    let interactable = ae::Interactable::new(
+    let interactable = crate::interaction::Interactable::new(
         entity.iid.clone(),
         field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
         object_aabb(min, size),
-        ae::InteractionKind::Npc {
+        crate::interaction::InteractionKind::Npc {
             dialogue_id: field_string(entity, "dialogue_id"),
             // Optional `patrol_radius` field on NpcSpawn. 0 (or unset)
             // → static NPC unless `path_id` is set.
@@ -690,7 +690,7 @@ fn convert_pickup_spawn(
     min: ae::Vec2,
     size: ae::Vec2,
 ) -> RuntimeEntityEmission {
-    let pickup = ae::Pickup::new(
+    let pickup = crate::interaction::Pickup::new(
         entity.iid.clone(),
         parse_pickup_kind(&field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string())),
     );
@@ -704,7 +704,7 @@ fn convert_chest_spawn(
     min: ae::Vec2,
     size: ae::Vec2,
 ) -> RuntimeEntityEmission {
-    let chest = ae::Chest::new(
+    let chest = crate::interaction::Chest::new(
         entity.iid.clone(),
         field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
     );
@@ -855,7 +855,7 @@ fn convert_camera_zone(
     })
 }
 
-/// Convert an LDtk `Switch` entity into a runtime [`ae::Interactable`]
+/// Convert an LDtk `Switch` entity into a runtime [`crate::interaction::Interactable`]
 /// carrying the wire-format custom payload.
 ///
 /// The `SwitchFeature` spawn path re-parses the payload into a typed
@@ -873,11 +873,11 @@ fn convert_switch(
         target_encounter: field_string(entity, "target_encounter").unwrap_or_default(),
     };
     let aabb = object_aabb(min, size);
-    let interactable = ae::Interactable::new(
+    let interactable = crate::interaction::Interactable::new(
         activation.id.clone(),
         field_string(entity, "prompt").unwrap_or_else(|| "Activate".into()),
         aabb,
-        ae::InteractionKind::Custom(activation.to_custom_payload()),
+        crate::interaction::InteractionKind::Custom(activation.to_custom_payload()),
     );
     // Use the LDtk field `id` (carried on activation) for the
     // authored entity id so the SwitchRuntime id matches the

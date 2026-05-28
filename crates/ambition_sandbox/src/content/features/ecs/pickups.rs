@@ -45,13 +45,13 @@ pub fn collect_ecs_pickups(
         commands.entity(entity).insert(Collected);
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
         match &pickup.pickup.kind {
-            ae::PickupKind::Health { amount } => {
+            crate::interaction::PickupKind::Health { amount } => {
                 heals.write(crate::player::PlayerHealRequested::for_target(
                     *amount,
                     collector_entity,
                 ));
             }
-            ae::PickupKind::StoryFlag { flag } => {
+            crate::interaction::PickupKind::StoryFlag { flag } => {
                 // PickupSpawn entities with `kind: "flag:<id>"` set
                 // the named flag in the save layer and emit a
                 // QuestAdvanceEvent::FlagSet via apply_flag_effects.
@@ -74,8 +74,8 @@ pub fn collect_ecs_pickups(
             kind: ParticleKind::Spark,
         });
         let id = match &pickup.pickup.kind {
-            ae::PickupKind::Health { .. } => ambition_sfx::ids::WORLD_HEALTH_COLLECT,
-            ae::PickupKind::Currency { .. } => ambition_sfx::ids::WORLD_COIN_PICKUP,
+            crate::interaction::PickupKind::Health { .. } => ambition_sfx::ids::WORLD_HEALTH_COLLECT,
+            crate::interaction::PickupKind::Currency { .. } => ambition_sfx::ids::WORLD_COIN_PICKUP,
             _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
         };
         sfx.write(SfxMessage::Play { id, pos });

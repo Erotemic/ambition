@@ -6,7 +6,7 @@ pub struct ChestRuntime {
     pub name: String,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub chest: ae::Chest,
+    pub chest: crate::interaction::Chest,
     pub opened: bool,
     /// True while the chest is dropping toward the floor (e.g. just
     /// released by a defeated boss). Cleared on first solid contact.

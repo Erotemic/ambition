@@ -19,7 +19,7 @@ pub struct BossProfile {
 pub enum BossRewardProfile {
     None,
     DropChest {
-        pickup: ae::PickupKind,
+        pickup: crate::interaction::PickupKind,
         offset: ae::Vec2,
         size: ae::Vec2,
     },
@@ -45,7 +45,7 @@ impl BossProfile {
             encounter,
             behavior: crate::features::BossBehaviorProfile::mockingbird(),
             reward: BossRewardProfile::DropChest {
-                pickup: ae::PickupKind::Custom("pirate_hoard".to_string()),
+                pickup: crate::interaction::PickupKind::Custom("pirate_hoard".to_string()),
                 offset: ae::Vec2::new(0.0, 24.0),
                 size: ae::Vec2::new(56.0, 56.0),
             },
@@ -66,7 +66,7 @@ impl BossProfile {
             encounter,
             behavior: crate::features::BossBehaviorProfile::gnu_ton(),
             reward: BossRewardProfile::DropChest {
-                pickup: ae::PickupKind::Custom("gnu_scroll".to_string()),
+                pickup: crate::interaction::PickupKind::Custom("gnu_scroll".to_string()),
                 offset: ae::Vec2::new(0.0, 30.0),
                 size: ae::Vec2::new(52.0, 52.0),
             },

@@ -23,6 +23,18 @@ Useful companion docs:
 
 # LOW HANGING FRUIT MAYBE
 
+- [ ] Grinning Colossus-like boss (Smiling Big Guy) where you have to "cut the rope". Big square, shoots circle-bubble eye beams.
+
+- [ ] Develop a Boss to flex / force the player / boss unification code (do a new boss with a more humanoid or maybe bipedal character like the trex).
+
+- [ ] Develop an NPC to flex / force the player / boss unification code (do this with Alice).
+
+- [ ] Goblins need to have an action set as rich as the player (flexing or giving a use case to force the player / enemy unification)
+
+- [ ] Goblins need more sprites for more animations to go with the different actions.
+
+- [ ] The player need more sprites for more animations to go with the different actions.
+
 - [ ] Portal Gun - classic blue and orange. Carries momentum.
 
 - [ ] Clean out the done items in the TODO list and move relevant entries to FEATURES or other docs to ensure they are updated and not bloated.
@@ -30,6 +42,8 @@ Useful companion docs:
 - [ ] Boss phase transitions "screams" / "animations"
 
 - [ ] Screen shake on a hard fall.
+
+- [ ] Implement the TODOS for the kernel NPC dialog tree
 
 - [ ] Silksong levels of input buffering.
 

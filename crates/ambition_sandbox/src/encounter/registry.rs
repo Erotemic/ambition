@@ -59,7 +59,7 @@ impl EncounterRegistry {
 /// One activation request from a switch interaction.
 ///
 /// Built once when an LDtk `Switch` entity is converted into an
-/// `ae::Interactable` payload and spawned through
+/// `crate::interaction::Interactable` payload and spawned through
 /// `crate::features::SwitchFeature`. The encounter pipeline, switch
 /// activation queue, and switch index all consume the typed fields
 /// directly — only the engine-side `InteractionKind::Custom(String)`

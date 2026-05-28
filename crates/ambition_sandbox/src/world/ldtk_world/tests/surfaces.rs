@@ -108,8 +108,8 @@ fn breakable_platform_solid_compiles_with_solid_collision() {
     assert!(compiled.blocks.is_empty());
     assert_eq!(compiled.breakables.len(), 1);
     let breakable = &compiled.breakables[0].payload;
-    assert_eq!(breakable.collision, ae::BreakableCollision::Solid);
-    assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
+    assert_eq!(breakable.collision, crate::interaction::BreakableCollision::Solid);
+    assert_eq!(breakable.trigger, crate::interaction::BreakableTrigger::OnHit);
     assert_eq!(breakable.health.max, 2);
     assert!(!breakable.pogo_refresh);
 }
@@ -128,8 +128,8 @@ fn breakable_platform_one_way_up_compiles() {
     );
     assert_eq!(compiled.breakables.len(), 1);
     let breakable = &compiled.breakables[0].payload;
-    assert_eq!(breakable.collision, ae::BreakableCollision::OneWayUp);
-    assert_eq!(breakable.trigger, ae::BreakableTrigger::OnStand);
+    assert_eq!(breakable.collision, crate::interaction::BreakableCollision::OneWayUp);
+    assert_eq!(breakable.trigger, crate::interaction::BreakableTrigger::OnStand);
 }
 
 /// `BreakablePlatform` rejects unknown collision values. The LDtk enum
@@ -233,8 +233,8 @@ fn breakable_pogo_orb_compiles_with_pogo_flag() {
     assert_eq!(compiled.breakables.len(), 1);
     let breakable = &compiled.breakables[0].payload;
     assert!(breakable.pogo_refresh);
-    assert_eq!(breakable.collision, ae::BreakableCollision::None);
-    assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
+    assert_eq!(breakable.collision, crate::interaction::BreakableCollision::None);
+    assert_eq!(breakable.trigger, crate::interaction::BreakableTrigger::OnHit);
     assert_eq!(breakable.health.max, 4);
 }
 

@@ -77,9 +77,9 @@ pub fn sync_encounter_reward_chests_ecs(
             FeatureId::new(chest_id.clone()),
             FeatureName::new(chest_id.clone()),
             FeatureAabb::from_center_size(chest_pos, chest_size),
-            ChestFeature::new(ae::Chest::new(
+            ChestFeature::new(crate::interaction::Chest::new(
                 chest_id,
-                Some(ae::PickupKind::Health { amount: 2 }),
+                Some(crate::interaction::PickupKind::Health { amount: 2 }),
             )),
             EncounterRewardChest::new(encounter_id.clone()),
         ));
@@ -165,7 +165,7 @@ pub fn sync_boss_reward_chests_ecs(
             FeatureId::new(chest_id.clone()),
             FeatureName::new(chest_id.clone()),
             FeatureAabb::from_center_size(chest_pos, *size),
-            ChestFeature::new(ae::Chest::new(chest_id, Some(pickup.clone()))),
+            ChestFeature::new(crate::interaction::Chest::new(chest_id, Some(pickup.clone()))),
             BossRewardChest::new(encounter_id.clone()),
         ));
         if looted {

@@ -91,15 +91,15 @@ impl PersistKey {
 /// ECS-native pickup payload.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct PickupFeature {
-    pub pickup: ae::Pickup,
+    pub pickup: crate::interaction::Pickup,
 }
 
 impl PickupFeature {
-    pub fn new(pickup: ae::Pickup) -> Self {
+    pub fn new(pickup: crate::interaction::Pickup) -> Self {
         Self { pickup }
     }
 
-    pub fn kind(&self) -> &ae::PickupKind {
+    pub fn kind(&self) -> &crate::interaction::PickupKind {
         &self.pickup.kind
     }
 }
@@ -111,15 +111,15 @@ pub struct Collected;
 /// ECS-native chest payload.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct ChestFeature {
-    pub chest: ae::Chest,
+    pub chest: crate::interaction::Chest,
 }
 
 impl ChestFeature {
-    pub fn new(chest: ae::Chest) -> Self {
+    pub fn new(chest: crate::interaction::Chest) -> Self {
         Self { chest }
     }
 
-    pub fn reward(&self) -> Option<&ae::PickupKind> {
+    pub fn reward(&self) -> Option<&crate::interaction::PickupKind> {
         self.chest.reward.as_ref()
     }
 }
@@ -143,16 +143,16 @@ impl FallingChest {
 /// ECS-native breakable payload.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BreakableFeature {
-    pub breakable: ae::Breakable,
+    pub breakable: crate::interaction::Breakable,
 }
 
 impl BreakableFeature {
-    pub fn new(breakable: ae::Breakable) -> Self {
+    pub fn new(breakable: crate::interaction::Breakable) -> Self {
         Self { breakable }
     }
 
     pub fn broken(&self) -> bool {
-        self.breakable.state == ae::BreakableState::Broken
+        self.breakable.state == crate::interaction::BreakableState::Broken
     }
 }
 
@@ -575,7 +575,7 @@ impl PickupBundle {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: FeatureAabb,
-        pickup: ae::Pickup,
+        pickup: crate::interaction::Pickup,
     ) -> Self {
         Self {
             base: FeatureBaseBundle::new(id, name, aabb),
@@ -596,7 +596,7 @@ impl ChestBundle {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: FeatureAabb,
-        chest: ae::Chest,
+        chest: crate::interaction::Chest,
     ) -> Self {
         Self {
             base: FeatureBaseBundle::new(id, name, aabb),

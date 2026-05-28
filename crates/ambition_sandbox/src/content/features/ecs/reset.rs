@@ -62,7 +62,7 @@ pub fn reset_ecs_room_features(
         commands.entity(entity).remove::<Opened>();
     }
     for (entity, mut feature, stand_timer) in &mut breakables {
-        feature.breakable.state = ae::BreakableState::Intact;
+        feature.breakable.state = crate::interaction::BreakableState::Intact;
         feature.breakable.health.reset();
         if let Some(mut timer) = stand_timer {
             timer.0 = 0.0;

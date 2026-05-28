@@ -498,3 +498,16 @@ few minutes, when I come back the player should be dead, do not ask me for
 input. What is the hard part of killing this player? Do I need to get ChatGPT
 to do it?" Maybe I get frustrated and start manually typing, causing characters
 to fall on the player as they try to climb the platform and finally win.
+
+
+----
+
+
+The game will almost certainly be rated M, but we should also have a T version
+of it. Or a path to get there. Ambition Project M or Ambition Code T. I also
+like the idea of having a tagline for the M version where it says that at least
+49.8% of the American population can't play it because they are not mature.
+
+
+Alice needs a Charles Dodgson Joke, maybe a white rabbit. Could do a Fleetwood
+Mac joke here too.

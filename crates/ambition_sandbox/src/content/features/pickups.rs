@@ -6,7 +6,7 @@ pub struct PickupRuntime {
     pub name: String,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub pickup: ae::Pickup,
+    pub pickup: crate::interaction::Pickup,
     pub visible: bool,
 }
 

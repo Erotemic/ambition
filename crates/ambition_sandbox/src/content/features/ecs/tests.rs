@@ -34,8 +34,8 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
 
 #[test]
 fn ecs_overlay_ignores_broken_breakables() {
-    let mut breakable = ae::Breakable::new("crate", 1);
-    breakable.collision = ae::BreakableCollision::Solid;
+    let mut breakable = crate::interaction::Breakable::new("crate", 1);
+    breakable.collision = crate::interaction::BreakableCollision::Solid;
     let mut app = App::new();
     app.insert_resource(FeatureEcsWorldOverlay::default());
     app.world_mut().spawn((
@@ -74,7 +74,7 @@ fn interact_buffered_opens_adjacent_chest() {
         .world_mut()
         .spawn((
             FeatureSimEntity,
-            ChestFeature::new(ae::Chest::new("test_chest", None)),
+            ChestFeature::new(crate::interaction::Chest::new("test_chest", None)),
             FeatureId::new("test_chest"),
             FeatureName::new("test_chest"),
             FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
@@ -118,7 +118,7 @@ fn interact_buffered_does_not_open_distant_chest() {
         .world_mut()
         .spawn((
             FeatureSimEntity,
-            ChestFeature::new(ae::Chest::new("far_chest", None)),
+            ChestFeature::new(crate::interaction::Chest::new("far_chest", None)),
             FeatureId::new("far_chest"),
             FeatureName::new("far_chest"),
             FeatureAabb::from_center_size(chest_pos, ae::Vec2::new(24.0, 24.0)),
@@ -151,7 +151,7 @@ fn interact_does_not_reopen_already_opened_chest() {
         .world_mut()
         .spawn((
             FeatureSimEntity,
-            ChestFeature::new(ae::Chest::new("already_open", None)),
+            ChestFeature::new(crate::interaction::Chest::new("already_open", None)),
             FeatureId::new("already_open"),
             FeatureName::new("already_open"),
             FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
@@ -190,11 +190,11 @@ fn interact_buffered_starts_npc_dialogue() {
         "guide",
         "Guide",
         npc_aabb,
-        ae::Interactable::new(
+        crate::interaction::Interactable::new(
             "guide",
             "Talk",
             npc_aabb,
-            ae::InteractionKind::Npc {
+            crate::interaction::InteractionKind::Npc {
                 dialogue_id: Some("hub_guide".into()),
                 patrol_radius: 0.0,
                 patrol_path_id: None,
@@ -238,9 +238,9 @@ fn feature_view_index_reflects_same_frame_pickup_collection() {
             FeatureId::new("hp_pickup"),
             FeatureName::new("Health"),
             FeatureAabb::from_center_size(center, ae::Vec2::new(12.0, 12.0)),
-            PickupFeature::new(ae::Pickup::new(
+            PickupFeature::new(crate::interaction::Pickup::new(
                 "hp_pickup",
-                ae::PickupKind::Health { amount: 1 },
+                crate::interaction::PickupKind::Health { amount: 1 },
             )),
         ))
         .id();
@@ -282,9 +282,9 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
         FeatureId::new("dup_id"),
         FeatureName::new("Pickup"),
         FeatureAabb::from_center_size(pos, ae::Vec2::new(8.0, 8.0)),
-        PickupFeature::new(ae::Pickup::new(
+        PickupFeature::new(crate::interaction::Pickup::new(
             "dup_id",
-            ae::PickupKind::Health { amount: 1 },
+            crate::interaction::PickupKind::Health { amount: 1 },
         )),
     ));
     // Same id, different family — must NOT shadow the pickup.
@@ -293,7 +293,7 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
         FeatureId::new("dup_id"),
         FeatureName::new("Chest"),
         FeatureAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
-        ChestFeature::new(ae::Chest::new("dup_id", None)),
+        ChestFeature::new(crate::interaction::Chest::new("dup_id", None)),
     ));
     app.add_systems(Update, rebuild_feature_view_index);
     app.update();
@@ -338,9 +338,9 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
             FeatureId::new("post_reset_pickup"),
             FeatureName::new("Post-Reset Health"),
             FeatureAabb::from_center_size(ae::Vec2::new(20.0, 20.0), ae::Vec2::new(12.0, 12.0)),
-            PickupFeature::new(ae::Pickup::new(
+            PickupFeature::new(crate::interaction::Pickup::new(
                 "post_reset_pickup",
-                ae::PickupKind::Health { amount: 1 },
+                crate::interaction::PickupKind::Health { amount: 1 },
             )),
         ));
     }
@@ -354,9 +354,9 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
         FeatureId::new("pre_reset_pickup"),
         FeatureName::new("Pre-Reset Health"),
         FeatureAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0)),
-        PickupFeature::new(ae::Pickup::new(
+        PickupFeature::new(crate::interaction::Pickup::new(
             "pre_reset_pickup",
-            ae::PickupKind::Health { amount: 1 },
+            crate::interaction::PickupKind::Health { amount: 1 },
         )),
     ));
     configure_sandbox_sets(&mut app);

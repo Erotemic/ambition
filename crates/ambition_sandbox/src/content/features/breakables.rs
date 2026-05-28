@@ -6,7 +6,7 @@ pub struct BreakableRuntime {
     pub name: String,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub breakable: ae::Breakable,
+    pub breakable: crate::interaction::Breakable,
     pub respawn_timer: f32,
     pub stand_timer: f32,
 }
@@ -17,6 +17,6 @@ impl BreakableRuntime {
     }
 
     pub fn broken(&self) -> bool {
-        self.breakable.state == ae::BreakableState::Broken
+        self.breakable.state == crate::interaction::BreakableState::Broken
     }
 }

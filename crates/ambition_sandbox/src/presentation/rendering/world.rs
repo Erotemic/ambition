@@ -480,7 +480,7 @@ fn spawn_authored_hazard(
 fn spawn_authored_chest(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &crate::rooms::Authored<ae::Chest>,
+    authored: &crate::rooms::Authored<crate::interaction::Chest>,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -507,13 +507,13 @@ fn spawn_authored_chest(
 fn spawn_authored_interactable(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &crate::rooms::Authored<ae::Interactable>,
+    authored: &crate::rooms::Authored<crate::interaction::Interactable>,
     assets: Option<&GameAssets>,
 ) {
     let interactable = &authored.payload;
-    let kind = if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
+    let kind = if matches!(interactable.kind, crate::interaction::InteractionKind::Npc { .. }) {
         FeatureVisualKind::Npc
-    } else if matches!(&interactable.kind, ae::InteractionKind::Custom(s) if s.starts_with("switch:"))
+    } else if matches!(&interactable.kind, crate::interaction::InteractionKind::Custom(s) if s.starts_with("switch:"))
     {
         FeatureVisualKind::Switch
     } else {

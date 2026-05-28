@@ -789,20 +789,20 @@ pub fn entity_sprite_for_hazard(_volume: &ae::DamageVolume) -> Option<EntitySpri
     Some(EntitySprite::HazardSpikes)
 }
 
-pub fn entity_sprite_for_pickup(pickup: &ae::Pickup) -> Option<EntitySprite> {
+pub fn entity_sprite_for_pickup(pickup: &crate::interaction::Pickup) -> Option<EntitySprite> {
     Some(pickup_sprite(&pickup.kind))
 }
 
-pub fn entity_sprite_for_chest(_chest: &ae::Chest) -> Option<EntitySprite> {
+pub fn entity_sprite_for_chest(_chest: &crate::interaction::Chest) -> Option<EntitySprite> {
     Some(EntitySprite::ChestClosed)
 }
 
-pub fn entity_sprite_for_breakable(_breakable: &ae::Breakable) -> Option<EntitySprite> {
+pub fn entity_sprite_for_breakable(_breakable: &crate::interaction::Breakable) -> Option<EntitySprite> {
     Some(EntitySprite::BreakableIntact)
 }
 
-pub fn entity_sprite_for_interactable(interactable: &ae::Interactable) -> Option<EntitySprite> {
-    if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
+pub fn entity_sprite_for_interactable(interactable: &crate::interaction::Interactable) -> Option<EntitySprite> {
+    if matches!(interactable.kind, crate::interaction::InteractionKind::Npc { .. }) {
         Some(EntitySprite::NpcTerminal)
     } else {
         None
@@ -825,11 +825,11 @@ pub fn entity_sprite_for_boss(_brain: &ae::BossBrain) -> Option<EntitySprite> {
     Some(EntitySprite::BossCore)
 }
 
-fn pickup_sprite(kind: &ae::PickupKind) -> EntitySprite {
+fn pickup_sprite(kind: &crate::interaction::PickupKind) -> EntitySprite {
     match kind {
-        ae::PickupKind::Health { .. } => EntitySprite::PickupHealth,
-        ae::PickupKind::Currency { .. } => EntitySprite::PickupCurrency,
-        ae::PickupKind::Ability { .. } => EntitySprite::PickupAbility,
+        crate::interaction::PickupKind::Health { .. } => EntitySprite::PickupHealth,
+        crate::interaction::PickupKind::Currency { .. } => EntitySprite::PickupCurrency,
+        crate::interaction::PickupKind::Ability { .. } => EntitySprite::PickupAbility,
         // StoryFlag and Custom fall back to the ability look until they
         // get dedicated art.
         _ => EntitySprite::PickupAbility,
@@ -837,11 +837,11 @@ fn pickup_sprite(kind: &ae::PickupKind) -> EntitySprite {
 }
 
 /// State-aware sprite for a breakable based on its current health state.
-pub fn breakable_state_sprite(state: ae::BreakableState) -> EntitySprite {
+pub fn breakable_state_sprite(state: crate::interaction::BreakableState) -> EntitySprite {
     match state {
-        ae::BreakableState::Intact => EntitySprite::BreakableIntact,
-        ae::BreakableState::Cracking => EntitySprite::BreakableCracked,
-        ae::BreakableState::Broken | ae::BreakableState::Respawning => {
+        crate::interaction::BreakableState::Intact => EntitySprite::BreakableIntact,
+        crate::interaction::BreakableState::Cracking => EntitySprite::BreakableCracked,
+        crate::interaction::BreakableState::Broken | crate::interaction::BreakableState::Respawning => {
             EntitySprite::BreakableBroken
         }
     }

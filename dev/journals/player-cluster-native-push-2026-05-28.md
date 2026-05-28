@@ -76,17 +76,26 @@ Everything outside that function is cluster-native.
 3. ~~Delete `write_from_player` + `with_player_scratchpad`~~ —
    **landed** `780951af` (zero callers after the integrate_velocity
    wire-up).
-4. **Convert the 4 read-only `Player` snapshot callers** so
-   `to_player` + `ae::Player` itself can go away:
-   - `dev/debug_overlay.rs:112` — `snapshot_player` for visualization.
-   - `dev/trace/systems.rs:133` — snapshot for trace recording;
-     downstream `synthesize_events_from_diff`, `LocomotionState::from_player`,
-     `BodyMode::from_player` all need cluster-aware variants.
-   - `app/world_flow.rs:820`/`894` (start_attack / advance_attack) —
-     the combat helpers `resolve_attack_intent`, `attack_spec`,
-     `attack_hitbox` still take `&Player`.
-   - `bin/headless.rs:244` — constructs a `Player` explicitly for
-     headless reporting.
+4. **Read-only `Player` snapshot callers** so `to_player` +
+   `ae::Player` itself can go away. Status after `df6e7cef` and
+   `8c8edc93`:
+   - ✅ `app/world_flow.rs` (`start_attack` / `advance_attack`) —
+     **landed `df6e7cef`**. New `combat::AttackView` snapshot drives
+     `combat::{resolve_attack_intent,attack_spec,attack_hitbox}_from_view`.
+     No more `to_player` in either function.
+   - ✅ `dev/debug_overlay.rs::draw_health_bars` — **landed `8c8edc93`**.
+     Takes `Aabb` directly. The umbrella `draw_player_debug` still
+     wants `&Player`; converting that is the next step.
+   - 🔜 `dev/debug_overlay.rs::draw_player_debug` — reads ~10
+     player fields; mechanical to convert.
+   - 🔜 `dev/trace/systems.rs` snapshot — feeds
+     `synthesize_events_from_diff`, `record_simulation_frame`,
+     `update_previous_snapshot`, plus `LocomotionState::from_player`
+     and `BodyMode::from_player`. Each downstream reader needs a
+     cluster-aware variant; the deepest fan-out of the remaining
+     work.
+   - 🔜 `bin/headless.rs:244` — constructs a `Player` explicitly
+     for the headless reporting path.
 5. **Delete the legacy engine helpers + `ae::Player`**:
    `integrate_velocity`, `integrate_climb`, `integrate_flight`,
    `apply_wall_abilities`, `sweep_player_x`, `sweep_player_y`,

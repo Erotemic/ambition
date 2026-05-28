@@ -192,18 +192,11 @@ pub fn update_player_control_with_clusters(
     events
 }
 
-/// Cluster-ref entry point for the simulation phase.
-///
-/// Operates on cluster refs natively. As of 2026-05-28 the only
-/// remaining `to_player` / `write_from_player` round-trips are
-/// scoped around the X and Y collision sweeps inside
-/// `integrate_velocity_clusters` (`sweep_player_x` /
-/// `sweep_player_y` still take `&mut Player` along with their inner
-/// helpers `resolve_axis`, `block_passable_during_climb`,
-/// `body_is_side_contact`). Everything else — the integrate-mode
-/// branches (climb / flight / normal physics), wall abilities,
-/// rebound, body-mode / blink / hazard / ledge-grab passes — is
-/// cluster-native. Porting the sweep helpers deletes `ae::Player`.
+/// Run the simulation phase for one frame: cache water/climbable
+/// contact, age timers + combo trace, advance the active ledge grab,
+/// handle the buffered jump, integrate velocity through collision,
+/// re-probe ledge starts, and finally fire the hazard reset gate.
+/// All state lives on cluster components.
 pub fn update_player_simulation_with_clusters(
     world: &World,
     clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,

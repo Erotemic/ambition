@@ -175,7 +175,10 @@ pub(super) fn sweep_player_y_clusters(
     );
 }
 
-/// Cluster-native variant of [`resolve_axis`].
+/// Penetration repair for the X axis. Push the body out of any block
+/// it strictly intersects after the shape sweep, picking the snap face
+/// from `body.center` vs `block.center` (so a pre-existing overlap
+/// resolves toward the closer edge instead of through the block).
 fn resolve_axis_clusters(
     world: &World,
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
@@ -221,7 +224,10 @@ fn resolve_axis_clusters(
     }
 }
 
-/// Cluster-native variant of [`resolve_vertical`].
+/// Penetration repair for the Y axis. Mirrors `resolve_axis_clusters`
+/// but for vertical contacts: handles one-way landing-from-above gating
+/// and skips the wall-cling-side contact class so vertical snaps don't
+/// teleport a clinging body to a wall's far edge.
 fn resolve_vertical_clusters(
     world: &World,
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,

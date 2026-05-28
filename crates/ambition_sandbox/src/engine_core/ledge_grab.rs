@@ -365,15 +365,6 @@ pub fn probe_ledge_grab(
 /// If the player is currently hanging/climbing, advance that state and return
 /// true to indicate that the normal movement integrator should not run this
 /// frame.
-
-/// Cluster-native variant of [`tick_active_ledge_grab`]. Drops the
-/// internal `to_player`/`write_from_player` scratchpad in
-/// `update_player_simulation_with_clusters` for the active-ledge tick.
-///
-/// Behavior parity is preserved field-for-field; the only divergence
-/// is that `events.op_clusters` is used in place of
-/// `events.op(player, …)` (cluster combo trace instead of
-/// `Player::record`).
 pub fn tick_active_ledge_grab_clusters(
     clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
@@ -558,9 +549,8 @@ pub fn tick_active_ledge_grab_clusters(
 }
 
 
-/// Cluster-native variant of [`requested_wall_normal`]. Reads
-/// `wall_clinging` / `wall_normal_x` / `on_ground` from cluster
-/// components so callers don't need to materialize an `ae::Player`.
+/// Pick a wall normal to probe for a ledge: the active wall-cling
+/// normal first, else a horizontal axis-press while airborne.
 fn requested_wall_normal_clusters(
     wall: &crate::engine_core::player_clusters::PlayerWallState,
     ground: &crate::engine_core::player_clusters::PlayerGroundState,
@@ -681,11 +671,11 @@ pub fn ledge_getup_duration_scale(state: LedgeGrabState, tuning: &MovementTuning
 /// snagged on it by accident.
 const FALL_SNAP_MIN_VY: f32 = 80.0;
 
-/// Cluster-native variant of [`try_start_ledge_grab`]. Reads /
-/// writes the same player state via the cluster components on the
-/// player entity so the engine's `update_player_simulation_with_clusters`
-/// can drop one of its internal `to_player`/`write_from_player`
-/// round-trips.
+/// Attempt to latch a ledge grab this frame: requires the
+/// `ledge_grab` ability, no current grab, an airborne body, no
+/// release cooldown, and either a wall-cling axis press or a fast
+/// falling auto-snap into a grabbable lip. On a successful latch,
+/// captures the pre-wall momentum + arms the post-grab invuln.
 pub fn try_start_ledge_grab_clusters(
     world: &World,
     clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,

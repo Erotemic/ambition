@@ -11,16 +11,16 @@
 //! Sandbox-side concerns (LDtk entities, per-room authored Vecs,
 //! sandbox dispatch tables, presentation) stay outside this module.
 //!
-//! As of 2026-05-28 there are zero `to_player`/`write_from_player`
-//! round-trips in production simulation code: every cluster-ref entry
-//! point (`update_player_{control,simulation}_with_clusters`) and
-//! every inner helper (`tick_active_ledge_grab_clusters`,
-//! `try_start_ledge_grab_clusters`, `integrate_velocity_clusters`,
-//! the cluster-native sweep helpers in `movement/collision`) operates
-//! on cluster refs natively. `ae::Player` survives only as a read-only
-//! snapshot for `to_player`-shaped callers (debug overlay, trace
-//! recorder, headless reporting); the eventual deletion is documented
-//! in `dev/journals/player-cluster-native-push-2026-05-28.md`.
+//! As of 2026-05-28 the monolithic `ae::Player` aggregate has been
+//! deleted. The 18 cluster components on the player entity are the
+//! only player state, and every engine entry point
+//! (`update_player_{control,simulation}_with_clusters`,
+//! `tick_active_ledge_grab_clusters`, `try_start_ledge_grab_clusters`,
+//! `integrate_velocity_clusters`, the sweep helpers in
+//! `movement/collision`) operates on cluster refs natively. Tests
+//! build a non-ECS scratchpad via
+//! [`player_clusters::PlayerClusterScratch::new_with_abilities`]. See
+//! `dev/journals/player-cluster-native-push-2026-05-28.md`.
 
 pub mod abilities;
 pub mod player_clusters;

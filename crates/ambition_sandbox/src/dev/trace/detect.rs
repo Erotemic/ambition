@@ -22,9 +22,9 @@ pub fn detect_oob_scratch(
     )
 }
 
-/// Cluster-native variant of [`detect_oob`]. Takes the kinematic
-/// fields directly so callers driving cluster components don't need
-/// to materialize an `ae::Player`.
+/// Produce the first OOB reason the player kinematics + world
+/// geometry imply (if any). Takes pos / vel / AABB directly so the
+/// live trace recorder can call it from cluster components.
 pub fn detect_oob_from_kinematics(
     pos: ae::Vec2,
     vel: ae::Vec2,

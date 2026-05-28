@@ -18,18 +18,11 @@ use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::MovementTuning;
 
-/// Cluster-native variant of [`integrate_velocity`]. Mode-select, the
-/// integration pass for each mode (run / climb / flight), the
-/// wall-ability ride, the on-ground reset, the rebound impulse, and
-/// the end-of-frame `pre_wall_vel` snapshot all read / write cluster
-/// fields directly.
-///
-/// The two collision sweeps still need an `ae::Player` scratchpad
-/// because `sweep_player_x` / `sweep_player_y` (and their inner
-/// helpers `resolve_axis`, `block_passable_during_climb`,
-/// `body_is_side_contact`) haven't been ported yet. The scratchpad is
-/// scoped to each sweep call — outside those blocks, this function
-/// has no `to_player` / `write_from_player` work.
+/// Apply one frame of velocity integration to the player: mode-select
+/// between dash / climb / flight / normal physics, run the per-mode
+/// integration, sweep the kinematics through X then Y collisions,
+/// apply wall abilities + rebound + end-of-frame `pre_wall_vel`
+/// bookkeeping. Reads and writes every relevant cluster directly.
 pub(super) fn integrate_velocity_clusters(
     world: &World,
     clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
@@ -247,7 +240,9 @@ pub(super) fn integrate_climb_clusters(
     let _ = dt;
 }
 
-/// Cluster-native variant of [`integrate_flight`].
+/// Free-flight integration: accelerate toward stick input, idle-hover
+/// bob phase when sticks are centered, hard clamp to the flight
+/// terminal speed. Clears fast-fall + wall-cling flags by mode.
 pub(super) fn integrate_flight_clusters(
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
     flight: &mut crate::engine_core::player_clusters::PlayerFlightState,

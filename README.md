@@ -26,10 +26,18 @@ Historical notes are preserved under `docs/archive/`. They explain the path here
 ## Project shape
 
 ```text
-ambition_engine
-  Bevy-native reusable mechanics vocabulary:
-  movement, collision, body modes, combat intents, projectiles,
-  actors, interactions, geometry, state-machine vocabulary, and tests.
+ambition_sandbox
+  Playable Bevy shell + reusable mechanics:
+    src/engine_core/       Bevy-native movement, collision, body modes,
+                           geometry, ability gates, world data,
+                           player cluster components.
+                           (Formerly the standalone `ambition_engine`
+                           crate; collapsed into the sandbox 2026-05-28.)
+    src/                   LDtk-authored world, ECS runtime,
+                           input/touch/controller adapters, presentation,
+                           audio, debug tools, content (actors, combat,
+                           interactions, etc.), and platform-specific
+                           app composition.
 
 ambition_asset_manager
   Asset identity/resolution policy across desktop, web, Android, Steam Deck,
@@ -37,11 +45,6 @@ ambition_asset_manager
 
 ambition_sfx / ambition_sfx_bank
   Generated SFX IDs and packed runtime banks.
-
-ambition_sandbox
-  Playable Bevy shell:
-  LDtk-authored world, ECS runtime, input/touch/controller adapters,
-  presentation, audio, debug tools, and platform-specific app composition.
 
 tools/
   Author-time generators and validators for LDtk, music, SFX, sprites,

@@ -1,17 +1,25 @@
 //! Player movement simulation.
 //!
-//! This module contains the code that makes the current prototype feel like a
-//! platformer: coyote time, buffered jumps, optional double jumps, optional
-//! wall jumps/cling/climb, optional dash/double dash, blink/precision blink,
-//! pogo refreshes, rebound pads, hazards, and a symbolic operation trace.
+//! Pure-Rust kinematic platformer with coyote time, buffered jumps,
+//! optional double jumps, optional wall jumps/cling/climb, optional
+//! dash/double dash, blink/precision blink, pogo refreshes, rebound
+//! pads, hazards, and a symbolic operation trace.
 //!
-//! The update function is intentionally renderer-free. It consumes a plain
-//! `InputState`, mutates a `Player`, and returns `FrameEvents` that the Bevy
-//! layer can turn into particles, hitstop, sound, or debug overlays.
+//! Entry points (all cluster-native, no `ae::Player` aggregate):
 //!
-//! The public module remains a stable facade. Implementation details live in
-//! focused child modules so movement actions, simulation clocks, collision,
-//! velocity integration, and blink pathing can evolve independently.
+//! - [`update_player_with_tuning_clusters`] — combined control + sim
+//! - [`update_player_control_with_clusters`] — control-phase only
+//! - [`update_player_simulation_with_clusters`] — simulation-phase only
+//! - [`update_player_*_scratch`] — test wrappers that take a
+//!   `PlayerClusterScratch` instead of a `PlayerClustersMut` view
+//!
+//! Each entry point consumes an [`InputState`], mutates the player's
+//! cluster components through a [`crate::engine_core::PlayerClustersMut`]
+//! view, and returns [`FrameEvents`] for the Bevy layer to translate
+//! into particles, hitstop, sound, or debug overlays. Implementation
+//! details live in focused child modules so movement actions,
+//! simulation clocks, collision, velocity integration, and blink
+//! pathing can evolve independently.
 
 use crate::engine_core::world::World;
 
@@ -48,11 +56,10 @@ pub use tuning::{
 #[cfg(test)]
 use collision::body_is_side_contact;
 
-/// Cluster-ref entry point for the control phase. Operates on cluster
-/// refs natively for the easy parts (reset, facing, jump/dash buffer,
-/// mode toggles, dodge, dash, shield, jump release). Complex inner
-/// helpers (handle_blink, handle_attacks) still take `&mut Player`
-/// via a localized scratchpad.
+/// Run the control phase for one frame: reset gesture, facing /
+/// jump-buffer / dash-buffer intent, fly toggle, blink hold + release,
+/// melee + pogo, dodge roll, dash, shield, variable jump release.
+/// All state lives on cluster components.
 pub fn update_player_control_with_clusters(
     world: &World,
     clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,

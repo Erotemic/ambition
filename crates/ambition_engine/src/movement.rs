@@ -191,11 +191,34 @@ pub fn update_player_control_with_clusters(
         }
     }
 
-    // handle_blink + handle_attacks still on Player — scratchpad.
-    let mut player = clusters.to_player();
-    control::handle_blink_pub(world, &mut player, input, control_dt, tuning, &mut events);
-    control::handle_attacks_pub(world, &mut player, input, tuning, &mut events);
-    clusters.write_from_player(player);
+    // handle_blink + handle_attacks are now cluster-native — no
+    // Player scratchpad needed.
+    control::handle_blink_clusters(
+        world,
+        clusters.kinematics,
+        clusters.abilities,
+        clusters.flight,
+        clusters.wall,
+        clusters.dash,
+        clusters.blink,
+        clusters.combo_trace,
+        input,
+        control_dt,
+        tuning,
+        &mut events,
+    );
+    control::handle_attacks_clusters(
+        world,
+        clusters.kinematics,
+        clusters.abilities,
+        clusters.ground,
+        clusters.dash,
+        clusters.jump,
+        clusters.combo_trace,
+        input,
+        tuning,
+        &mut events,
+    );
 
     // handle_dodge — cluster-native.
     if clusters.action_buffer.dash > 0.0

@@ -346,9 +346,53 @@ pub fn touching_hazard_aabb(world: &World, aabb: crate::Aabb) -> bool {
 }
 
 pub(super) fn touching_rebound(world: &World, player: &Player) -> Option<Vec2> {
-    let aabb = player.aabb();
+    touching_rebound_aabb(world, player.aabb())
+}
+
+/// AABB-only variant of [`touching_rebound`].
+pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
     world.blocks.iter().find_map(|b| match b.kind {
         BlockKind::Rebound { impulse } if aabb.strict_intersects(b.aabb) => Some(impulse),
         _ => None,
     })
+}
+
+/// Cluster-ref variant of [`try_pogo`]. Mutates kinematics velocity,
+/// refreshes movement resources on the dash/jump clusters, and
+/// clears the ground flag.
+pub fn try_pogo_clusters(
+    world: &World,
+    kinematics: &mut crate::player_clusters::PlayerKinematics,
+    abilities: &crate::player_clusters::PlayerAbilities,
+    dash: &mut crate::player_clusters::PlayerDashState,
+    jump_state: &mut crate::player_clusters::PlayerJumpState,
+    ground: &mut crate::player_clusters::PlayerGroundState,
+    tuning: MovementTuning,
+) -> Option<Aabb> {
+    let feet = kinematics.aabb();
+    let hitbox = Aabb::new(
+        Vec2::new(feet.center().x, feet.bottom() + 18.0),
+        Vec2::new(feet.half_size().x * 0.76, 22.0),
+    );
+    let hit = world.blocks.iter().find(|block| {
+        let valid_target = matches!(
+            block.kind,
+            BlockKind::PogoOrb
+                | BlockKind::Solid
+                | BlockKind::BlinkWall { .. }
+                | BlockKind::Rebound { .. }
+        );
+        valid_target && hitbox.strict_intersects(block.aabb)
+    });
+    if let Some(block) = hit {
+        let aabb = block.aabb;
+        kinematics.vel.y = -tuning.pogo_speed;
+        crate::player_clusters::refresh_movement_resources_clusters(
+            abilities, dash, jump_state, tuning,
+        );
+        ground.on_ground = false;
+        Some(aabb)
+    } else {
+        None
+    }
 }

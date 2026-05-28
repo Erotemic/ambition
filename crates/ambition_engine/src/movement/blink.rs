@@ -35,6 +35,61 @@ pub(super) fn complete_blink(
     });
 }
 
+/// Cluster-ref variant of [`complete_blink`]. Mutates kinematics
+/// (pos, vel), flight (fast_falling), wall (wall_clinging, wall_climbing),
+/// dash (timer), blink (cooldown, aim_offset, hold_*), and pushes
+/// blink ops + the BlinkEvent.
+pub fn complete_blink_clusters(
+    kinematics: &mut crate::player_clusters::PlayerKinematics,
+    flight: &mut crate::player_clusters::PlayerFlightState,
+    wall: &mut crate::player_clusters::PlayerWallState,
+    dash: &mut crate::player_clusters::PlayerDashState,
+    blink: &mut crate::player_clusters::PlayerBlinkState,
+    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
+    from: Vec2,
+    to: Vec2,
+    precision: bool,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
+    kinematics.pos = to;
+    // apply_post_blink_motion equivalent
+    let damping = if precision { 0.35 } else { 0.55 };
+    let max_downward = if precision {
+        tuning.precision_blink_max_downward_speed
+    } else {
+        tuning.blink_max_downward_speed
+    };
+    kinematics.vel.x *= damping;
+    if kinematics.vel.y > max_downward {
+        kinematics.vel.y = max_downward;
+    } else {
+        kinematics.vel.y *= damping;
+    }
+    flight.fast_falling = false;
+    wall.wall_clinging = false;
+    wall.wall_climbing = false;
+    dash.timer = 0.0;
+    blink.grace_timer = tuning.blink_grace_time;
+
+    blink.cooldown = tuning.blink_cooldown;
+    blink.hold_active = false;
+    blink.hold_timer = 0.0;
+    blink.aiming = false;
+    blink.aim_offset = Vec2::new(tuning.blink_distance * kinematics.facing, 0.0);
+    let op = if precision {
+        MovementOp::PrecisionBlink
+    } else {
+        MovementOp::Blink
+    };
+    events.op_clusters(combo_trace, op);
+    events.blinks.push(BlinkEvent {
+        from,
+        to,
+        precision,
+    });
+}
+
 fn apply_post_blink_motion(player: &mut Player, precision: bool, tuning: MovementTuning) {
     let damping = if precision { 0.35 } else { 0.55 };
     let max_downward = if precision {

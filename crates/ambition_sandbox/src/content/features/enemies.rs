@@ -435,11 +435,11 @@ impl EnemyArchetype {
 
     /// Slot kind this archetype requests from the combat slot board.
     /// Used by the per-frame slot allocator.
-    pub(super) fn slot_kind(self) -> ae::SlotKind {
+    pub(super) fn slot_kind(self) -> crate::combat_slots::SlotKind {
         if self.is_aerial() {
-            ae::SlotKind::Aerial
+            crate::combat_slots::SlotKind::Aerial
         } else {
-            ae::SlotKind::Melee
+            crate::combat_slots::SlotKind::Melee
         }
     }
 

@@ -27,7 +27,6 @@ pub mod actor_control;
 pub mod attack_choreography;
 pub mod boss_encounter;
 pub mod combat;
-pub mod combat_slots;
 pub mod player_clusters;
 pub mod geometry;
 pub mod ledge_grab;
@@ -56,7 +55,6 @@ pub use combat::{
     attack_hitbox, attack_spec, resolve_attack_intent, AttackIntent, AttackPhase, AttackSpec,
     Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
-pub use combat_slots::{assign_slots, CombatSlot, CombatSlotBoard, SlotKind, SlotRequest};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
 pub use ledge_grab::{
     probe_ledge_grab, LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,

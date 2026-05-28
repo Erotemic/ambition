@@ -261,7 +261,7 @@ pub fn update_ecs_actors(
     // The slot board is per-target (player) and arbitrates which
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
-    let mut requests: Vec<(String, ae::Vec2, ae::SlotKind)> = Vec::new();
+    let mut requests: Vec<(String, ae::Vec2, crate::combat_slots::SlotKind)> = Vec::new();
     for (_, _, actor, _, _, _, _, _, _, _, _, _, _) in &actors {
         if let ActorRuntime::Hostile(enemy) = actor {
             if enemy.alive {
@@ -269,15 +269,15 @@ pub fn update_ecs_actors(
             }
         }
     }
-    let slot_requests: Vec<ae::SlotRequest> = requests
+    let slot_requests: Vec<crate::combat_slots::SlotRequest> = requests
         .iter()
-        .map(|(id, pos, kind)| ae::SlotRequest {
+        .map(|(id, pos, kind)| crate::combat_slots::SlotRequest {
             actor_id: id.as_str(),
             actor_pos: *pos,
             kind: *kind,
         })
         .collect();
-    ae::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
+    crate::combat_slots::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
 
     // Per-kind holding-position fallback: when an actor doesn't win
     // a slot, distribute the leftover actors across the holding
@@ -289,7 +289,7 @@ pub fn update_ecs_actors(
     // picked `slots.iter().find()`'s FIRST matching slot's
     // `holding_pos` — i.e. they shared a single fallback point and
     // visually clumped.
-    let mut unassigned_by_kind: std::collections::HashMap<ae::SlotKind, Vec<&str>> =
+    let mut unassigned_by_kind: std::collections::HashMap<crate::combat_slots::SlotKind, Vec<&str>> =
         std::collections::HashMap::new();
     for (id, _pos, kind) in &requests {
         if slot_board.0.slot_for(id).is_none() {

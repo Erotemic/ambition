@@ -11,10 +11,10 @@
 //! fire from the trace recorder diffing `body_mode` between snapshots,
 //! so this driver does not push events itself.
 //!
-//! Phase 3b.1 of the player-ecs-bandaid plan: this driver no longer
-//! round-trips through `engine_player_bridge`. Body-mode mutations
-//! happen directly on `PlayerKinematics` + `PlayerBodyModeState`
-//! cluster components via the cluster-aware engine helper.
+//! Body-mode mutations happen directly on `PlayerKinematics` +
+//! `PlayerBodyModeState` cluster components via
+//! `try_change_body_mode_clusters` — no `ae::Player` aggregate, no
+//! `engine_player_bridge` round-trip (both deleted 2026-05-28).
 //!
 //! Input model:
 //! - Standing + Down held + grounded → Crouching.

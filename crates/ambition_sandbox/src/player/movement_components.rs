@@ -1,16 +1,15 @@
 //! Authoritative ECS movement-state components for the player entity.
 //!
-//! Phase 3a of the player-ecs-bandaid plan moved these cluster types
-//! into the engine ([`crate::engine_core::player_clusters`]). The engine
-//! types `#[derive(Component)]` directly (engine is Bevy-native per
-//! ADR 0002), so the sandbox now just re-exports them under their
-//! original names — every consumer that imports
-//! `crate::player::PlayerKinematics` etc. keeps working.
+//! The 18 cluster types live in
+//! [`crate::engine_core::player_clusters`] and `#[derive(Component)]`
+//! directly (engine is Bevy-native per ADR 0002). The sandbox just
+//! re-exports them under their original names — every consumer that
+//! imports `crate::player::PlayerKinematics` etc. keeps working.
 //!
-//! Phase 3b refactors engine `update_player_*` helpers to consume
-//! these cluster refs directly; Phase 3c deletes the
-//! `engine_player_bridge` shim once the helpers no longer need a
-//! tick-local `ae::Player` scratchpad.
+//! Every engine `update_player_*` helper consumes these cluster refs
+//! directly through [`crate::engine_core::PlayerClustersMut`]; no
+//! `ae::Player` scratchpad or `engine_player_bridge` shim remains
+//! (both deleted 2026-05-28).
 
 pub use crate::engine_core::{
     EnginePlayerAbilities as PlayerAbilities, EnginePlayerActionBuffer as PlayerActionBuffer,

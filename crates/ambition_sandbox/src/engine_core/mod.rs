@@ -1,25 +1,26 @@
-//! Ambition Engine
+//! Reusable Bevy-native simulation primitives.
 //!
-//! Reusable Bevy-native simulation primitives for Ambition. The crate
-//! owns the testable gameplay rules a game or story crate should be
-//! able to assemble without rewriting details: kinematic player +
-//! actor movement, AABB collision semantics, ability gates, combat
-//! hitboxes / hurtboxes / damage routing, character AI evaluators,
-//! kinematic paths, ledge-grab probes, projectile bodies, quest /
-//! save state machines, and the `World` collision/water/climbable
-//! room data.
+//! Formerly the `ambition_engine` crate; collapsed into the sandbox
+//! 2026-05-28. This module owns the testable gameplay rules a future
+//! sibling crate could reuse: kinematic player movement, AABB
+//! collision semantics, ability gates, ledge-grab probes, world
+//! collision/water/climbable region data, and the cluster components
+//! (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`)
+//! that make up the player ECS entity.
 //!
-//! The engine does **not** own authored content (LDtk entities,
-//! per-room authored Vecs, sandbox dispatch tables) — those live on
-//! the sandbox side. Authoring payloads that pass through the engine
-//! (`Pickup`, `Chest`, `Breakable`, `Interactable`, `EnemyBrain`,
-//! `BossBrain`, `DebugLabel`, `DamageVolume`) are typed config the
-//! engine carries between LDtk and sandbox dispatch without
-//! simulating against the variants.
+//! Sandbox-side concerns (LDtk entities, per-room authored Vecs,
+//! sandbox dispatch tables, presentation) stay outside this module.
 //!
-//! Story/sandbox crates provide data, presentation, and input wiring.
-//! The engine may depend on small Bevy crates (e.g. `bevy_math`) when
-//! they provide battle-tested primitives that beat bespoke versions.
+//! As of 2026-05-28 there are zero `to_player`/`write_from_player`
+//! round-trips in production simulation code: every cluster-ref entry
+//! point (`update_player_{control,simulation}_with_clusters`) and
+//! every inner helper (`tick_active_ledge_grab_clusters`,
+//! `try_start_ledge_grab_clusters`, `integrate_velocity_clusters`,
+//! the cluster-native sweep helpers in `movement/collision`) operates
+//! on cluster refs natively. `ae::Player` survives only as a read-only
+//! snapshot for `to_player`-shaped callers (debug overlay, trace
+//! recorder, headless reporting); the eventual deletion is documented
+//! in `dev/journals/player-cluster-native-push-2026-05-28.md`.
 
 pub mod abilities;
 pub mod player_clusters;

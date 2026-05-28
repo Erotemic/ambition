@@ -15,7 +15,7 @@
 
 use crate::engine_core::abilities::AbilitySet;
 use crate::engine_core::ledge_grab::LedgeGrabState;
-use crate::engine_core::movement::{ComboMark, Player, BLINK_DISTANCE};
+use crate::engine_core::movement::{ComboMark, BLINK_DISTANCE};
 use crate::engine_core::player_state::{BodyMode, ResourceMeter};
 use crate::engine_core::world::{ClimbableContact, WaterContact};
 use crate::engine_core::Vec2;
@@ -121,10 +121,6 @@ impl PlayerAbilities {
     pub fn new(abilities: AbilitySet) -> Self {
         Self { abilities }
     }
-
-    pub fn from_player(player: &Player) -> Self {
-        Self::new(player.abilities)
-    }
 }
 
 /// Position, velocity, AABB size, and facing direction.
@@ -151,71 +147,8 @@ impl Default for PlayerKinematics {
 }
 
 impl PlayerKinematics {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            pos: player.pos,
-            vel: player.vel,
-            size: player.size,
-            base_size: player.base_size,
-            facing: player.facing,
-        }
-    }
-
     pub fn aabb(self) -> crate::engine_core::Aabb {
         crate::engine_core::Aabb::new(self.pos, self.size * 0.5)
-    }
-}
-
-impl PlayerGroundState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            on_ground: player.on_ground,
-            coyote_timer: player.coyote_timer,
-            drop_through_timer: player.drop_through_timer,
-            rebound_cooldown: player.rebound_cooldown,
-        }
-    }
-}
-
-impl PlayerWallState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            on_wall: player.on_wall,
-            wall_normal_x: player.wall_normal_x,
-            wall_clinging: player.wall_clinging,
-            wall_climbing: player.wall_climbing,
-            pre_wall_vel: player.pre_wall_vel,
-            pre_wall_vel_age: player.pre_wall_vel_age,
-        }
-    }
-}
-
-impl PlayerJumpState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            air_jumps_available: player.air_jumps_available,
-        }
-    }
-}
-
-impl PlayerDashState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            charges_available: player.dash_charges_available,
-            timer: player.dash_timer,
-            cooldown: player.dash_cooldown,
-        }
-    }
-}
-
-impl PlayerFlightState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            fly_enabled: player.fly_enabled,
-            flight_phase: player.flight_phase,
-            gliding: player.gliding,
-            fast_falling: player.fast_falling,
-        }
     }
 }
 
@@ -314,97 +247,9 @@ pub struct PlayerShieldState {
     pub parry_window_timer: f32,
 }
 
-impl PlayerBlinkState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            cooldown: player.blink_cooldown,
-            hold_active: player.blink_hold_active,
-            hold_timer: player.blink_hold_timer,
-            aiming: player.blink_aiming,
-            aim_offset: player.blink_aim_offset,
-            grace_timer: player.blink_grace_timer,
-        }
-    }
-}
-
-impl PlayerLedgeState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            grab: player.ledge_grab,
-            release_cooldown: player.ledge_release_cooldown,
-        }
-    }
-}
-
-impl PlayerDodgeState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            roll_timer: player.dodge_roll_timer,
-            cooldown: player.dodge_roll_cooldown,
-        }
-    }
-}
-
 impl PlayerShieldState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            active: player.shield_active,
-            parry_window_timer: player.parry_window_timer,
-        }
-    }
-
     pub fn parrying(self) -> bool {
         self.active && self.parry_window_timer > 0.0
-    }
-}
-
-impl PlayerBodyModeState {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            body_mode: player.body_mode,
-        }
-    }
-}
-
-impl PlayerEnvironmentContact {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            water: player.water_contact,
-            climbable: player.climbable_contact,
-        }
-    }
-}
-
-impl PlayerMana {
-    pub fn from_player(player: &Player) -> Self {
-        Self { meter: player.mana }
-    }
-}
-
-impl PlayerOffense {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            damage_multiplier: player.damage_multiplier,
-            invincible: player.invincible,
-        }
-    }
-}
-
-impl PlayerLifetime {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            time_alive: player.time_alive,
-            resets: player.resets,
-            max_speed: player.max_speed,
-        }
-    }
-}
-
-impl PlayerComboTrace {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            combo: player.combo.clone(),
-        }
     }
 }
 
@@ -531,17 +376,6 @@ pub struct PlayerActionBuffer {
 }
 
 impl PlayerActionBuffer {
-    pub fn from_player(player: &Player) -> Self {
-        Self {
-            jump: player.jump_buffer_timer,
-            dash: player.dash_buffer_timer,
-            attack: 0.0,
-            pogo: 0.0,
-            projectile: 0.0,
-            blink: 0.0,
-        }
-    }
-
     pub fn press_jump(&mut self, window: f32) {
         self.jump = window;
     }
@@ -616,6 +450,7 @@ impl PlayerComboTrace {
 /// without an actual Bevy entity. Bridge from a legacy `ae::Player` via
 /// [`PlayerClusterScratch::from_player`] and re-borrow as a view via
 /// [`PlayerClusterScratch::as_mut`]. Goes away with `ae::Player`.
+#[derive(Clone)]
 pub struct PlayerClusterScratch {
     pub abilities: PlayerAbilities,
     pub kinematics: PlayerKinematics,
@@ -638,29 +473,61 @@ pub struct PlayerClusterScratch {
 }
 
 impl PlayerClusterScratch {
-    pub fn from_player(player: &Player) -> Self {
+    /// Build a `PlayerClusterScratch` for a fresh player at `spawn`
+    /// with the given `AbilitySet` — same defaults as
+    /// `Player::new_with_abilities` but without materializing the
+    /// monolithic `Player` aggregate.
+    pub fn new_with_abilities(
+        spawn: Vec2,
+        abilities: crate::engine_core::abilities::AbilitySet,
+    ) -> Self {
+        use crate::engine_core::movement::{default_player_body_size, BLINK_DISTANCE, DEFAULT_TUNING};
+        let body = default_player_body_size();
+        let dash_charges = abilities.dash_charge_count();
+        let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
         Self {
-            abilities: PlayerAbilities::from_player(player),
-            kinematics: PlayerKinematics::from_player(player),
-            ground: PlayerGroundState::from_player(player),
-            wall: PlayerWallState::from_player(player),
-            jump: PlayerJumpState::from_player(player),
-            dash: PlayerDashState::from_player(player),
-            flight: PlayerFlightState::from_player(player),
-            blink: PlayerBlinkState::from_player(player),
-            ledge: PlayerLedgeState {
-                grab: player.ledge_grab,
-                release_cooldown: player.ledge_release_cooldown,
+            abilities: PlayerAbilities { abilities },
+            kinematics: PlayerKinematics {
+                pos: spawn,
+                vel: Vec2::ZERO,
+                size: body,
+                base_size: body,
+                facing: 1.0,
             },
-            dodge: PlayerDodgeState::from_player(player),
-            shield: PlayerShieldState::from_player(player),
-            body_mode: PlayerBodyModeState::from_player(player),
-            env_contact: PlayerEnvironmentContact::from_player(player),
-            mana: PlayerMana::from_player(player),
-            offense: PlayerOffense::from_player(player),
-            action_buffer: PlayerActionBuffer::from_player(player),
-            lifetime: PlayerLifetime::from_player(player),
-            combo_trace: PlayerComboTrace::from_player(player),
+            ground: PlayerGroundState::default(),
+            wall: PlayerWallState::default(),
+            jump: PlayerJumpState {
+                air_jumps_available: air_jumps,
+            },
+            dash: PlayerDashState {
+                charges_available: dash_charges,
+                timer: 0.0,
+                cooldown: 0.0,
+            },
+            flight: PlayerFlightState::default(),
+            blink: PlayerBlinkState {
+                cooldown: 0.0,
+                hold_active: false,
+                hold_timer: 0.0,
+                aiming: false,
+                aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
+                grace_timer: 0.0,
+            },
+            ledge: PlayerLedgeState::default(),
+            dodge: PlayerDodgeState::default(),
+            shield: PlayerShieldState::default(),
+            body_mode: PlayerBodyModeState::default(),
+            env_contact: PlayerEnvironmentContact::default(),
+            mana: PlayerMana {
+                meter: ResourceMeter::new(100.0, 0.0, 0.0),
+            },
+            offense: PlayerOffense {
+                damage_multiplier: 1,
+                invincible: false,
+            },
+            action_buffer: PlayerActionBuffer::default(),
+            lifetime: PlayerLifetime::default(),
+            combo_trace: PlayerComboTrace::default(),
         }
     }
 

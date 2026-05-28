@@ -8,11 +8,11 @@ use crate::engine_core::world::BlinkWallTier;
 use crate::engine_core::{AbilitySet, Vec2};
 
 fn scratch_at(spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::from_player(&Player::new(spawn))
+    PlayerClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all())
 }
 
 fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::from_player(&Player::new_with_abilities(spawn, abilities))
+    PlayerClusterScratch::new_with_abilities(spawn, abilities)
 }
 
 #[test]

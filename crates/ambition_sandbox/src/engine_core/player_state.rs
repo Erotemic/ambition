@@ -23,7 +23,6 @@
 //! systems (HUD, future per-mode physics) can keep the value as a
 //! component or resource.
 
-use crate::engine_core::movement::Player;
 use crate::engine_core::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -89,47 +88,8 @@ impl LocomotionState {
         }
     }
 
-    /// Best-effort projection from the existing `Player` struct.
-    /// Mechanics that own dedicated state can override by writing the
-    /// resource directly; this only inspects fields that already exist.
-    pub fn from_player(player: &Player) -> Self {
-        if player.dash_timer > 0.0 {
-            return LocomotionState::Dashing;
-        }
-        if player.blink_aiming {
-            return LocomotionState::BlinkAiming;
-        }
-        if player.fly_enabled {
-            return LocomotionState::Flying;
-        }
-        if let Some(ledge) = player.ledge_grab {
-            return if ledge.climbing {
-                LocomotionState::LedgeClimb
-            } else {
-                LocomotionState::LedgeHang
-            };
-        }
-        if player.wall_climbing {
-            return LocomotionState::WallClimb;
-        }
-        if player.wall_clinging {
-            return LocomotionState::WallCling;
-        }
-        if player.on_wall && !player.on_ground {
-            return LocomotionState::WallSlide;
-        }
-        if player.fast_falling {
-            return LocomotionState::FastFalling;
-        }
-        if player.on_ground {
-            LocomotionState::Grounded
-        } else {
-            LocomotionState::Airborne
-        }
-    }
-
-    /// Cluster-native variant of [`Self::from_player`]. Mirrors the same
-    /// priority order field-for-field, reading off cluster components.
+    /// Project `LocomotionState` from cluster components. Mirrors the
+    /// same priority order callers used to drive off of `&Player`.
     pub fn from_clusters(
         ground: &crate::engine_core::player_clusters::PlayerGroundState,
         wall: &crate::engine_core::player_clusters::PlayerWallState,
@@ -213,15 +173,8 @@ impl BodyMode {
         }
     }
 
-    /// Read the player's authoritative `body_mode` field. Sandbox systems
-    /// that drive crouch / morph / slide should write `player.body_mode`
-    /// directly; gameplay reads (HUD, trace, AI) should call this so
-    /// there is exactly one source of truth.
-    pub fn from_player(player: &Player) -> Self {
-        player.body_mode
-    }
-
-    /// Cluster-native variant of [`Self::from_player`].
+    /// Read the player's authoritative body-mode field from cluster
+    /// components.
     pub fn from_clusters(
         body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
     ) -> Self {
@@ -331,34 +284,9 @@ impl BodyShape {
 /// AABB convention: `pos` is the AABB center and Ambition uses +Y down,
 /// so `feet_y == pos.y + size.y * 0.5`. Shrinking the body keeps feet
 /// planted by *increasing* `pos.y` by half the height delta.
-pub fn try_change_body_mode<F>(
-    player: &mut crate::engine_core::movement::Player,
-    new_mode: BodyMode,
-    world: &crate::engine_core::world::World,
-    predicate: F,
-) -> bool
-where
-    F: FnMut(&crate::engine_core::world::Block) -> bool,
-{
-    if player.body_mode == new_mode {
-        return true;
-    }
-    let new_shape = new_mode.shape(player.base_size);
-    let dy = (player.size.y - new_shape.size.y) * 0.5;
-    let new_center = Vec2::new(player.pos.x, player.pos.y + dy);
-    if !new_shape.fits_at(new_center, world, predicate) {
-        return false;
-    }
-    player.pos = new_center;
-    player.size = new_shape.size;
-    player.body_mode = new_mode;
-    true
-}
-
-/// Cluster-ref variant of [`try_change_body_mode`]. Mutates only the
+/// Cluster-native body-mode transition. Mutates only the
 /// kinematics (pos, size) and body-mode cluster components; the rest
-/// of the player state is untouched. Use this from cluster-aware
-/// sandbox systems to avoid the engine_player_bridge round-trip.
+/// of the player state is untouched.
 pub fn try_change_body_mode_clusters<F>(
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
     body_mode_state: &mut crate::engine_core::player_clusters::PlayerBodyModeState,
@@ -423,19 +351,7 @@ impl PlayerSafetyVerdict {
 /// for a strict "inside the world" check; the trace recorder uses a
 /// looser margin so the camera can briefly extend past the room
 /// without auto-dumping.
-pub fn classify_player_safety<F>(
-    player: &crate::engine_core::movement::Player,
-    world: &crate::engine_core::world::World,
-    margin: f32,
-    solid_predicate: F,
-) -> PlayerSafetyVerdict
-where
-    F: FnMut(&crate::engine_core::world::Block) -> bool,
-{
-    classify_safety_from_kinematics(player.pos, player.vel, player.aabb(), world, margin, solid_predicate)
-}
-
-/// Cluster-native variant of `classify_player_safety`. Takes the
+/// AABB-only player safety classifier. Takes the
 /// pos/vel/aabb directly so callers driving cluster components do not
 /// need to materialize an `ae::Player`.
 pub fn classify_safety_from_kinematics<F>(
@@ -555,35 +471,43 @@ mod tests {
     use crate::engine_core::movement::default_player_body_size;
     use crate::engine_core::world::{Block, BlockKind, World};
 
+    fn scratch_at(pos: Vec2) -> crate::engine_core::PlayerClusterScratch {
+        crate::engine_core::PlayerClusterScratch::new_with_abilities(
+            pos,
+            crate::engine_core::AbilitySet::sandbox_all(),
+        )
+    }
+
+    fn locomotion(s: &crate::engine_core::PlayerClusterScratch) -> LocomotionState {
+        LocomotionState::from_clusters(&s.ground, &s.wall, &s.flight, &s.dash, &s.blink, &s.ledge)
+    }
+
     #[test]
     fn locomotion_default_grounded_when_player_on_ground() {
-        let mut p = Player::new(Vec2::new(0.0, 0.0));
-        p.on_ground = true;
-        assert_eq!(LocomotionState::from_player(&p), LocomotionState::Grounded);
+        let mut s = scratch_at(Vec2::new(0.0, 0.0));
+        s.ground.on_ground = true;
+        assert_eq!(locomotion(&s), LocomotionState::Grounded);
     }
 
     #[test]
     fn locomotion_airborne_when_off_ground() {
-        let p = Player::new(Vec2::new(0.0, 0.0));
-        assert_eq!(LocomotionState::from_player(&p), LocomotionState::Airborne);
+        let s = scratch_at(Vec2::new(0.0, 0.0));
+        assert_eq!(locomotion(&s), LocomotionState::Airborne);
     }
 
     #[test]
     fn locomotion_dashing_overrides_other_states() {
-        let mut p = Player::new(Vec2::new(0.0, 0.0));
-        p.on_ground = true;
-        p.dash_timer = 0.10;
-        assert_eq!(LocomotionState::from_player(&p), LocomotionState::Dashing);
+        let mut s = scratch_at(Vec2::new(0.0, 0.0));
+        s.ground.on_ground = true;
+        s.dash.timer = 0.10;
+        assert_eq!(locomotion(&s), LocomotionState::Dashing);
     }
 
     #[test]
     fn locomotion_blink_aiming_recognized() {
-        let mut p = Player::new(Vec2::new(0.0, 0.0));
-        p.blink_aiming = true;
-        assert_eq!(
-            LocomotionState::from_player(&p),
-            LocomotionState::BlinkAiming
-        );
+        let mut s = scratch_at(Vec2::new(0.0, 0.0));
+        s.blink.aiming = true;
+        assert_eq!(locomotion(&s), LocomotionState::BlinkAiming);
     }
 
     #[test]
@@ -668,16 +592,22 @@ mod tests {
             Vec2::new(50.0, 50.0),
             Vec::new(),
         );
-        let mut player = Player::new(Vec2::new(100.0, 100.0));
-        let original_size = player.size;
-        let original_feet = player.pos.y + player.size.y * 0.5;
+        let mut s = scratch_at(Vec2::new(100.0, 100.0));
+        let original_size = s.kinematics.size;
+        let original_feet = s.kinematics.pos.y + s.kinematics.size.y * 0.5;
 
-        let ok = try_change_body_mode(&mut player, BodyMode::Crouching, &world, |_| true);
+        let ok = try_change_body_mode_clusters(
+            &mut s.kinematics,
+            &mut s.body_mode,
+            BodyMode::Crouching,
+            &world,
+            |_| true,
+        );
         assert!(ok);
-        assert_eq!(player.body_mode, BodyMode::Crouching);
-        assert!(player.size.y < original_size.y);
-        assert_eq!(player.size.x, original_size.x);
-        let new_feet = player.pos.y + player.size.y * 0.5;
+        assert_eq!(s.body_mode.body_mode, BodyMode::Crouching);
+        assert!(s.kinematics.size.y < original_size.y);
+        assert_eq!(s.kinematics.size.x, original_size.x);
+        let new_feet = s.kinematics.pos.y + s.kinematics.size.y * 0.5;
         assert!((new_feet - original_feet).abs() < 1e-3);
     }
 
@@ -689,54 +619,70 @@ mod tests {
             Vec2::new(50.0, 50.0),
             Vec::new(),
         );
-        let mut player = Player::new(Vec2::new(100.0, 100.0));
-        let base = player.base_size;
-        try_change_body_mode(&mut player, BodyMode::Crouching, &world, |_| true);
-        try_change_body_mode(&mut player, BodyMode::Crouching, &world, |_| true);
-        let ok = try_change_body_mode(&mut player, BodyMode::Standing, &world, |_| true);
+        let mut s = scratch_at(Vec2::new(100.0, 100.0));
+        let base = s.kinematics.base_size;
+        try_change_body_mode_clusters(
+            &mut s.kinematics,
+            &mut s.body_mode,
+            BodyMode::Crouching,
+            &world,
+            |_| true,
+        );
+        try_change_body_mode_clusters(
+            &mut s.kinematics,
+            &mut s.body_mode,
+            BodyMode::Crouching,
+            &world,
+            |_| true,
+        );
+        let ok = try_change_body_mode_clusters(
+            &mut s.kinematics,
+            &mut s.body_mode,
+            BodyMode::Standing,
+            &world,
+            |_| true,
+        );
         assert!(ok);
-        assert_eq!(player.body_mode, BodyMode::Standing);
-        assert_eq!(player.size, base);
+        assert_eq!(s.body_mode.body_mode, BodyMode::Standing);
+        assert_eq!(s.kinematics.size, base);
     }
 
     #[test]
     fn try_change_body_mode_blocked_stand_up_under_low_ceiling() {
-        // Authoring: ceiling block whose bottom is one crouch-height
-        // above the player's feet so a crouching body fits but a
-        // standing body would clip the ceiling on the way up.
         let player_spawn = Vec2::new(100.0, 100.0);
-        let mut player = Player::new(player_spawn);
-        let standing_top = player.pos.y - player.size.y * 0.5; // = 100 - 23 = 77
-
-        // Place a ceiling whose bottom is at y == standing_top + 5,
-        // i.e. just below where the standing body's top would be.
-        let ceiling_bottom = standing_top + 5.0; // 82
-        let ceiling_top = ceiling_bottom - 30.0; // 52
+        let mut s = scratch_at(player_spawn);
+        let standing_top = s.kinematics.pos.y - s.kinematics.size.y * 0.5;
+        let ceiling_bottom = standing_top + 5.0;
+        let ceiling_top = ceiling_bottom - 30.0;
         let world = World::new(
             "test",
             Vec2::new(400.0, 400.0),
             Vec2::new(50.0, 50.0),
             vec![Block::solid(
                 "ceiling",
-                Vec2::new(player.pos.x - 50.0, ceiling_top),
+                Vec2::new(s.kinematics.pos.x - 50.0, ceiling_top),
                 Vec2::new(100.0, 30.0),
             )],
         );
 
-        // Crouching first must fit (ceiling is above the crouched body).
-        let ok = try_change_body_mode(&mut player, BodyMode::Crouching, &world, |b| {
-            matches!(b.kind, crate::engine_core::world::BlockKind::Solid)
-        });
+        let ok = try_change_body_mode_clusters(
+            &mut s.kinematics,
+            &mut s.body_mode,
+            BodyMode::Crouching,
+            &world,
+            |b| matches!(b.kind, crate::engine_core::world::BlockKind::Solid),
+        );
         assert!(ok);
 
-        // Stand-up must be rejected because the standing body would
-        // overlap the ceiling.
-        let stand_attempt = try_change_body_mode(&mut player, BodyMode::Standing, &world, |b| {
-            matches!(b.kind, crate::engine_core::world::BlockKind::Solid)
-        });
+        let stand_attempt = try_change_body_mode_clusters(
+            &mut s.kinematics,
+            &mut s.body_mode,
+            BodyMode::Standing,
+            &world,
+            |b| matches!(b.kind, crate::engine_core::world::BlockKind::Solid),
+        );
         assert!(!stand_attempt);
-        // State unchanged.
-        assert_eq!(player.body_mode, BodyMode::Crouching);
+        assert_eq!(s.body_mode.body_mode, BodyMode::Crouching);
     }
 
     #[test]
@@ -747,13 +693,19 @@ mod tests {
             Vec2::new(50.0, 50.0),
             Vec::new(),
         );
-        let mut player = Player::new(Vec2::new(100.0, 100.0));
-        let pos_before = player.pos;
-        let size_before = player.size;
-        let ok = try_change_body_mode(&mut player, BodyMode::Standing, &world, |_| true);
+        let mut s = scratch_at(Vec2::new(100.0, 100.0));
+        let pos_before = s.kinematics.pos;
+        let size_before = s.kinematics.size;
+        let ok = try_change_body_mode_clusters(
+            &mut s.kinematics,
+            &mut s.body_mode,
+            BodyMode::Standing,
+            &world,
+            |_| true,
+        );
         assert!(ok);
-        assert_eq!(player.pos, pos_before);
-        assert_eq!(player.size, size_before);
+        assert_eq!(s.kinematics.pos, pos_before);
+        assert_eq!(s.kinematics.size, size_before);
     }
 
     #[test]

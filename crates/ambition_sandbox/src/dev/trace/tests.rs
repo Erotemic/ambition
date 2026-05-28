@@ -15,12 +15,12 @@ fn dummy_world() -> World {
     )
 }
 
-fn dummy_player(at: ae::Vec2) -> ae::Player {
-    ae::Player::new(at)
+fn dummy_player(at: ae::Vec2) -> ae::PlayerClusterScratch {
+    crate::player::primary_player_scratch(at, ae::AbilitySet::sandbox_all())
 }
 
-fn scratch_from(player: &ae::Player) -> ae::PlayerClusterScratch {
-    ae::PlayerClusterScratch::from_player(player)
+fn scratch_from(scratch: &ae::PlayerClusterScratch) -> ae::PlayerClusterScratch {
+    scratch.clone()
 }
 
 fn dummy_moving_platform() -> crate::world::platforms::MovingPlatformState {
@@ -87,7 +87,7 @@ fn ring_buffer_caps_at_capacity() {
 fn detect_oob_inside_world_returns_none() {
     let world = dummy_world();
     let player = dummy_player(ae::Vec2::new(50.0, 50.0));
-    assert!(detect_oob(&player, &world, OOB_MARGIN).is_none());
+    assert!(detect_oob_scratch(&player, &world, OOB_MARGIN).is_none());
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn detect_oob_outside_envelope_x() {
     let world = dummy_world();
     // Place player far to the right of world envelope + margin.
     let player = dummy_player(ae::Vec2::new(2000.0, 50.0));
-    match detect_oob(&player, &world, OOB_MARGIN) {
+    match detect_oob_scratch(&player, &world, OOB_MARGIN) {
         Some(OobReason::OutsideWorldEnvelope { axis }) => assert_eq!(axis, 'x'),
         other => panic!("expected OutsideWorldEnvelope x, got {other:?}"),
     }
@@ -105,7 +105,7 @@ fn detect_oob_outside_envelope_x() {
 fn detect_oob_outside_envelope_y() {
     let world = dummy_world();
     let player = dummy_player(ae::Vec2::new(50.0, -2000.0));
-    match detect_oob(&player, &world, OOB_MARGIN) {
+    match detect_oob_scratch(&player, &world, OOB_MARGIN) {
         Some(OobReason::OutsideWorldEnvelope { axis }) => assert_eq!(axis, 'y'),
         other => panic!("expected OutsideWorldEnvelope y, got {other:?}"),
     }
@@ -116,7 +116,7 @@ fn detect_oob_inside_solid() {
     let world = dummy_world();
     // Floor is at (0,100)-(200,120). Place player center in floor.
     let player = dummy_player(ae::Vec2::new(100.0, 110.0));
-    match detect_oob(&player, &world, OOB_MARGIN) {
+    match detect_oob_scratch(&player, &world, OOB_MARGIN) {
         Some(OobReason::InsideSolid { block_name }) => assert_eq!(block_name, "floor"),
         other => panic!("expected InsideSolid, got {other:?}"),
     }
@@ -126,9 +126,9 @@ fn detect_oob_inside_solid() {
 fn detect_oob_position_non_finite() {
     let world = dummy_world();
     let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
-    player.pos = ae::Vec2::new(f32::NAN, 0.0);
+    player.kinematics.pos = ae::Vec2::new(f32::NAN, 0.0);
     assert!(matches!(
-        detect_oob(&player, &world, OOB_MARGIN),
+        detect_oob_scratch(&player, &world, OOB_MARGIN),
         Some(OobReason::PositionNonFinite)
     ));
 }
@@ -137,9 +137,9 @@ fn detect_oob_position_non_finite() {
 fn detect_oob_absurd_velocity() {
     let world = dummy_world();
     let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
-    player.vel = ae::Vec2::new(1.0e6, 0.0);
+    player.kinematics.vel = ae::Vec2::new(1.0e6, 0.0);
     assert!(matches!(
-        detect_oob(&player, &world, OOB_MARGIN),
+        detect_oob_scratch(&player, &world, OOB_MARGIN),
         Some(OobReason::AbsurdVelocity { .. })
     ));
 }
@@ -168,7 +168,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let mut buf = GameplayTraceBuffer::with_capacity(8, 8);
     let world = dummy_world();
     let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
-    player.pos = ae::Vec2::new(2000.0, 50.0); // outside envelope.x
+    player.kinematics.pos = ae::Vec2::new(2000.0, 50.0); // outside envelope.x
     let mut scratch = scratch_from(&player);
     let clusters = scratch.as_mut();
     let frame = build_frame(
@@ -187,7 +187,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
         "Airborne",
         "Standing",
     );
-    let oob = detect_oob(&player, &world, OOB_MARGIN);
+    let oob = detect_oob_scratch(&player, &world, OOB_MARGIN);
     record_frame(&mut buf, frame, oob.as_ref());
     assert_eq!(buf.frame_count(), 1);
     assert_eq!(buf.event_count(), 1, "OOB event should be pushed");
@@ -334,7 +334,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
     // velocity to explain it. Same active area + same `resets` so
     // the teleport detector isn't suppressed by Reset/RoomTransition.
     let mut player_cur = dummy_player(ae::Vec2::new(62.0, -23.0));
-    player_cur.vel = ae::Vec2::ZERO;
+    player_cur.kinematics.vel = ae::Vec2::ZERO;
     let mut scratch_cur = scratch_from(&player_cur);
     let clusters_cur = scratch_cur.as_mut();
     synthesize_events_from_diff(
@@ -381,7 +381,7 @@ fn reset_emits_event_and_suppresses_teleport_event() {
         );
     }
     let mut player_cur = dummy_player(ae::Vec2::new(150.0, 150.0));
-    player_cur.resets = player_prev.resets + 1;
+    player_cur.lifetime.resets = player_prev.lifetime.resets + 1;
     let mut scratch_cur = scratch_from(&player_cur);
     let clusters_cur = scratch_cur.as_mut();
     synthesize_events_from_diff(
@@ -451,7 +451,13 @@ fn frame_includes_moving_platform_state() {
 #[test]
 fn body_mode_reads_authoritative_field() {
     let mut player = dummy_player(ae::Vec2::ZERO);
-    assert_eq!(ae::BodyMode::from_player(&player), ae::BodyMode::Standing);
-    player.body_mode = ae::BodyMode::MorphBall;
-    assert_eq!(ae::BodyMode::from_player(&player), ae::BodyMode::MorphBall);
+    assert_eq!(
+        ae::BodyMode::from_clusters(&player.body_mode),
+        ae::BodyMode::Standing
+    );
+    player.body_mode.body_mode = ae::BodyMode::MorphBall;
+    assert_eq!(
+        ae::BodyMode::from_clusters(&player.body_mode),
+        ae::BodyMode::MorphBall
+    );
 }

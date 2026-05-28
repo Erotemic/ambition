@@ -47,7 +47,7 @@ pub use movement::{
     update_player_simulation_scratch, update_player_simulation_with_clusters,
     update_player_simulation_with_tuning_scratch, update_player_with_tuning_clusters,
     update_player_with_tuning_scratch, BlinkEvent, ComboMark,
-    FrameEvents, InputState, LedgeMomentumTuning, MovementOp, MovementTuning, Player, AIR_ACCEL,
+    FrameEvents, InputState, LedgeMomentumTuning, MovementOp, MovementTuning, AIR_ACCEL,
     AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME,
     DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_PLAYER_BODY_HEIGHT,
     DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED,
@@ -58,8 +58,7 @@ pub use movement::{
     WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 pub use player_state::{
-    classify_player_safety, classify_safety_from_kinematics, try_change_body_mode,
-    try_change_body_mode_clusters, BodyMode,
+    classify_safety_from_kinematics, try_change_body_mode_clusters, BodyMode,
     BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
 pub use player_clusters::{

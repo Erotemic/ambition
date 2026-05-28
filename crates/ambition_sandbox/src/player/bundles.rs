@@ -94,9 +94,9 @@ pub struct PlayerSimulationBundle {
 }
 
 impl PlayerSimulationBundle {
-    /// Build the canonical local-primary player bundle from an engine
-    /// `Player` and initial `Health`. The result spawns with
-    /// `PlayerSlot(0)`, `PrimaryPlayer`, and `LocalPlayer` — the
+    /// Build the canonical local-primary player bundle from a
+    /// `PlayerClusterScratch` and initial `Health`. The result spawns
+    /// with `PlayerSlot(0)`, `PrimaryPlayer`, and `LocalPlayer` — the
     /// single-player default.
     ///
     /// Future code that needs to spawn a second / guest / remote
@@ -104,13 +104,6 @@ impl PlayerSimulationBundle {
     /// with the simulation components manually rather than calling
     /// this helper, since the second player should not inherit
     /// `PrimaryPlayer` and may not be `LocalPlayer`.
-    pub fn new(player: ae::Player, health: crate::actor::Health) -> Self {
-        Self::from_scratch(ae::PlayerClusterScratch::from_player(&player), health)
-    }
-
-    /// Build the canonical local-primary player bundle directly from a
-    /// `PlayerClusterScratch`. Once `ae::Player` is deleted, this
-    /// becomes the only constructor.
     pub fn from_scratch(
         scratch: ae::PlayerClusterScratch,
         health: crate::actor::Health,

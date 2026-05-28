@@ -31,7 +31,7 @@ pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;
 pub use ops::{ComboMark, MovementOp};
 pub use player::{
-    default_player_body_size, Player, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH,
+    default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH,
 };
 pub use tuning::{
     LedgeMomentumTuning, MovementTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN,

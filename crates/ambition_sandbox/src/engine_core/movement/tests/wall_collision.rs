@@ -10,7 +10,7 @@ use crate::engine_core::world::Block;
 use crate::engine_core::{Aabb, AbilitySet, Vec2, World};
 
 fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::from_player(&Player::new_with_abilities(spawn, abilities))
+    PlayerClusterScratch::new_with_abilities(spawn, abilities)
 }
 
 #[test]

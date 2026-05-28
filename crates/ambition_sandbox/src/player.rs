@@ -51,7 +51,5 @@ pub fn primary_player_scratch(
     spawn: crate::engine_core::Vec2,
     abilities: crate::engine_core::AbilitySet,
 ) -> crate::engine_core::PlayerClusterScratch {
-    crate::engine_core::PlayerClusterScratch::from_player(
-        &crate::engine_core::movement::Player::new_with_abilities(spawn, abilities),
-    )
+    crate::engine_core::PlayerClusterScratch::new_with_abilities(spawn, abilities)
 }

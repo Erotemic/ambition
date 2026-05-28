@@ -8,8 +8,18 @@ use super::*;
 /// `ae::classify_player_safety` so the trace recorder and
 /// `crate::remember_safe_player_position` use the same definition.
 /// The recorder layers the trace-only "absurd velocity" rule on top.
-pub fn detect_oob(player: &ae::Player, world: &ae::World, margin: f32) -> Option<OobReason> {
-    detect_oob_from_kinematics(player.pos, player.vel, player.aabb(), world, margin)
+pub fn detect_oob_scratch(
+    scratch: &ae::PlayerClusterScratch,
+    world: &ae::World,
+    margin: f32,
+) -> Option<OobReason> {
+    detect_oob_from_kinematics(
+        scratch.kinematics.pos,
+        scratch.kinematics.vel,
+        scratch.kinematics.aabb(),
+        world,
+        margin,
+    )
 }
 
 /// Cluster-native variant of [`detect_oob`]. Takes the kinematic

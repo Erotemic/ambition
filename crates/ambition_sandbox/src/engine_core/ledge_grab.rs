@@ -974,7 +974,7 @@ mod tests {
     }
 
     fn scratch_at(pos: Vec2) -> PlayerClusterScratch {
-        PlayerClusterScratch::from_player(&crate::engine_core::movement::Player::new(pos))
+        PlayerClusterScratch::new_with_abilities(pos, crate::engine_core::AbilitySet::sandbox_all())
     }
 
     #[test]

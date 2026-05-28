@@ -7,7 +7,7 @@ use crate::engine_core::player_clusters::PlayerClusterScratch;
 use crate::engine_core::Vec2;
 
 fn scratch_at(spawn: Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::from_player(&Player::new(spawn))
+    PlayerClusterScratch::new_with_abilities(spawn, crate::engine_core::AbilitySet::sandbox_all())
 }
 
 #[test]

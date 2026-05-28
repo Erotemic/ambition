@@ -7,7 +7,7 @@ use crate::engine_core::player_clusters::PlayerClusterScratch;
 use crate::engine_core::AbilitySet;
 
 fn scratch_with(abilities: AbilitySet, spawn: bevy_math::Vec2) -> PlayerClusterScratch {
-    PlayerClusterScratch::from_player(&Player::new_with_abilities(spawn, abilities))
+    PlayerClusterScratch::new_with_abilities(spawn, abilities)
 }
 
 #[test]

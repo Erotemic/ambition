@@ -46,7 +46,7 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 - [x] Live consumers exist for player melee start, hostile enemy ranged, hostile enemy melee windup start, GNU-ton apple rain, and Gradient Sentinel specials.
 - [~] Projectile charging still reads `PlayerInputFrame` directly.
 - [~] Pogo remains a player-specific raw path.
-- [~] `ae::Player` is still a large aggregate inside `PlayerMovementAuthority`; ECS decomposition is incomplete.
+- [x] `ae::Player` ECS decomposition (2026-05-28): the player entity carries 18 cluster components (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`); the monolithic `ae::Player` aggregate and the `PlayerMovementAuthority` wrapper are deleted.
 - [ ] Possession / multiplayer input routing using arbitrary actor bodies.
 
 ## Body and traversal

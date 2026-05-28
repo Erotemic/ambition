@@ -94,41 +94,47 @@ fn nearby_collision_around(
 /// state transitions that coincide with the snap — most notably
 /// `ledge_grabbing: false→true` (the canonical "I just grabbed a
 /// ledge and snapped to its anchor" attribution).
-fn collect_state_flips(prev: &PreviousFrameSnapshot, player: &ae::Player) -> Vec<String> {
+fn collect_state_flips(
+    prev: &PreviousFrameSnapshot,
+    clusters: &ae::PlayerClustersMut<'_>,
+) -> Vec<String> {
     let mut flips = Vec::new();
-    let cur_ledge = player.ledge_grab.is_some();
+    let cur_ledge = clusters.ledge.grab.is_some();
     if cur_ledge != prev.ledge_grabbing {
         flips.push(format!(
             "ledge_grabbing: {} → {}",
             prev.ledge_grabbing, cur_ledge
         ));
     }
-    if player.fly_enabled != prev.fly_enabled {
+    if clusters.flight.fly_enabled != prev.fly_enabled {
         flips.push(format!(
             "fly_enabled: {} → {}",
-            prev.fly_enabled, player.fly_enabled
+            prev.fly_enabled, clusters.flight.fly_enabled
         ));
     }
-    if player.on_wall != prev.on_wall {
-        flips.push(format!("on_wall: {} → {}", prev.on_wall, player.on_wall));
+    if clusters.wall.on_wall != prev.on_wall {
+        flips.push(format!(
+            "on_wall: {} → {}",
+            prev.on_wall, clusters.wall.on_wall
+        ));
     }
-    if (player.wall_normal_x - prev.wall_normal_x).abs() > 1.0e-3 {
+    if (clusters.wall.wall_normal_x - prev.wall_normal_x).abs() > 1.0e-3 {
         flips.push(format!(
             "wall_normal_x: {:+.0} → {:+.0}",
-            prev.wall_normal_x, player.wall_normal_x
+            prev.wall_normal_x, clusters.wall.wall_normal_x
         ));
     }
-    if player.on_ground != prev.on_ground {
+    if clusters.ground.on_ground != prev.on_ground {
         flips.push(format!(
             "on_ground: {} → {}",
-            prev.on_ground, player.on_ground
+            prev.on_ground, clusters.ground.on_ground
         ));
     }
     flips
 }
 
-fn nearby_collision(world: &ae::World, player: &ae::Player) -> Vec<CollisionTraceShape> {
-    let center = player.pos;
+fn nearby_collision(world: &ae::World, player_pos: ae::Vec2) -> Vec<CollisionTraceShape> {
+    let center = player_pos;
     let mut hits: Vec<CollisionTraceShape> = world
         .blocks
         .iter()
@@ -158,7 +164,7 @@ fn nearby_collision(world: &ae::World, player: &ae::Player) -> Vec<CollisionTrac
 /// can call it once per player tick.
 #[allow(clippy::too_many_arguments)]
 pub fn build_frame(
-    player: &ae::Player,
+    clusters: &ae::PlayerClustersMut<'_>,
     sim_state: &crate::SandboxSimState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
@@ -184,51 +190,54 @@ pub fn build_frame(
         world_size: world.size.into(),
         world_spawn: world.spawn.into(),
         player: PlayerTraceState {
-            pos: player.pos.into(),
-            vel: player.vel.into(),
-            size: player.size.into(),
-            aabb: player.aabb().into(),
-            facing: player.facing,
-            on_ground: player.on_ground,
-            on_wall: player.on_wall,
-            wall_clinging: player.wall_clinging,
-            wall_climbing: player.wall_climbing,
-            fast_falling: player.fast_falling,
-            fly_enabled: player.fly_enabled,
-            dash_charges_available: player.dash_charges_available,
-            air_jumps_available: player.air_jumps_available,
-            blink_aiming: player.blink_aiming,
-            blink_grace_timer: player.blink_grace_timer,
+            pos: clusters.kinematics.pos.into(),
+            vel: clusters.kinematics.vel.into(),
+            size: clusters.kinematics.size.into(),
+            aabb: clusters.kinematics.aabb().into(),
+            facing: clusters.kinematics.facing,
+            on_ground: clusters.ground.on_ground,
+            on_wall: clusters.wall.on_wall,
+            wall_clinging: clusters.wall.wall_clinging,
+            wall_climbing: clusters.wall.wall_climbing,
+            fast_falling: clusters.flight.fast_falling,
+            fly_enabled: clusters.flight.fly_enabled,
+            dash_charges_available: clusters.dash.charges_available,
+            air_jumps_available: clusters.jump.air_jumps_available,
+            blink_aiming: clusters.blink.aiming,
+            blink_grace_timer: clusters.blink.grace_timer,
             locomotion: locomotion.into(),
             body_mode: body_mode.into(),
             last_safe_pos: safety.last_safe_pos.into(),
-            time_alive: player.time_alive,
-            resets: player.resets,
-            wall_normal_x: player.wall_normal_x,
-            ledge_grabbing: player.ledge_grab.is_some(),
+            time_alive: clusters.lifetime.time_alive,
+            resets: clusters.lifetime.resets,
+            wall_normal_x: clusters.wall.wall_normal_x,
+            ledge_grabbing: clusters.ledge.grab.is_some(),
         },
         controls: controls.into(),
-        nearby_collision: nearby_collision(world, player),
-        moving_platforms: build_moving_platform_states(player, moving_platforms),
+        nearby_collision: nearby_collision(world, clusters.kinematics.pos),
+        moving_platforms: build_moving_platform_states(clusters, moving_platforms),
     }
 }
 
 /// Snapshot all active moving platforms into trace shapes.
 fn build_moving_platform_states(
-    player: &ae::Player,
+    clusters: &ae::PlayerClustersMut<'_>,
     moving_platforms: &[crate::world::platforms::MovingPlatformState],
 ) -> Vec<MovingPlatformTraceState> {
+    let player_pos = clusters.kinematics.pos;
+    let player_aabb = clusters.kinematics.aabb();
+    let on_ground = clusters.ground.on_ground;
     moving_platforms
         .iter()
         .map(|p| {
             let aabb = p.aabb();
-            let player_distance = (player.pos - p.pos).length();
+            let player_distance = (player_pos - p.pos).length();
             MovingPlatformTraceState {
                 pos: p.pos.into(),
                 size: p.size.into(),
                 aabb: aabb.into(),
                 direction: p.direction(),
-                player_riding: p.is_riding(player.aabb(), player.on_ground),
+                player_riding: p.is_riding(player_aabb, on_ground),
                 player_distance,
             }
         })
@@ -260,7 +269,7 @@ fn build_moving_platform_states(
 /// timeline without touching every phase helper.
 pub(crate) fn synthesize_events_from_diff(
     buffer: &mut GameplayTraceBuffer,
-    player: &ae::Player,
+    clusters: &ae::PlayerClustersMut<'_>,
     hp_current: i32,
     controls: ControlFrame,
     real_dt: f32,
@@ -273,8 +282,8 @@ pub(crate) fn synthesize_events_from_diff(
         return;
     };
     let tick = buffer.tick;
-    let cur_pos = player.pos;
-    let cur_vel = player.vel;
+    let cur_pos = clusters.kinematics.pos;
+    let cur_vel = clusters.kinematics.vel;
 
     let mut suppressed_teleport = false;
 
@@ -287,25 +296,20 @@ pub(crate) fn synthesize_events_from_diff(
         suppressed_teleport = true;
     }
 
-    if player.resets > prev.resets {
+    if clusters.lifetime.resets > prev.resets {
         buffer.push_event(GameplayTraceEvent::Reset { tick });
         suppressed_teleport = true;
     }
 
     // Position-delta vs velocity-budget check. Catches teleports that
-    // aren't covered by Reset / RoomTransition. This is the OOB-debug
-    // smoking-gun event: a 1500-px jump in one tick will surface here.
+    // aren't covered by Reset / RoomTransition.
     let dpos = cur_pos - prev.pos;
     let dlen = dpos.length();
     let max_speed = prev.vel.length().max(cur_vel.length());
     let budget = max_speed * real_dt.max(0.0) + TELEPORT_DETECTION_SLACK_PX;
     if !suppressed_teleport && dlen > budget && dlen > TELEPORT_DETECTION_SLACK_PX {
-        // Enrich the event with attribution data so the next OOB
-        // trace can answer "which wall snapped me?" and "did
-        // ledge_grab fire on the snap tick?" without rerunning the
-        // game.
-        let nearby_after = nearby_collision_around(world, player.aabb(), 64.0);
-        let state_flips = collect_state_flips(&prev, player);
+        let nearby_after = nearby_collision_around(world, clusters.kinematics.aabb(), 64.0);
+        let state_flips = collect_state_flips(&prev, clusters);
         buffer.push_event(GameplayTraceEvent::CollisionCorrection {
             tick,
             before: prev.pos.into(),
@@ -334,22 +338,22 @@ pub(crate) fn synthesize_events_from_diff(
         });
     }
 
-    if player.dash_charges_available < prev.dash_charges_available {
+    if clusters.dash.charges_available < prev.dash_charges_available {
         buffer.push_event(GameplayTraceEvent::Dash { tick });
     }
-    if player.air_jumps_available < prev.air_jumps_available {
+    if clusters.jump.air_jumps_available < prev.air_jumps_available {
         buffer.push_event(GameplayTraceEvent::DoubleJump { tick });
     } else if !prev.on_ground && cur_vel.y < prev.vel.y - 50.0 && controls.jump_pressed {
-        // Jump-edge heuristic: y velocity went meaningfully more
-        // negative (Ambition's screen-space +y is down so upward
-        // jumps make vel.y decrease) on a frame where the player
-        // pressed jump, while the player was airborne.
         buffer.push_event(GameplayTraceEvent::Jump { tick });
-    } else if prev.on_ground && !player.on_ground && controls.jump_pressed && cur_vel.y < 0.0 {
+    } else if prev.on_ground
+        && !clusters.ground.on_ground
+        && controls.jump_pressed
+        && cur_vel.y < 0.0
+    {
         buffer.push_event(GameplayTraceEvent::Jump { tick });
     }
 
-    if !prev.blink_aiming && player.blink_aiming {
+    if !prev.blink_aiming && clusters.blink.aiming {
         buffer.push_event(GameplayTraceEvent::Blink {
             tick,
             from: prev.pos.into(),
@@ -357,9 +361,7 @@ pub(crate) fn synthesize_events_from_diff(
             precision: false,
         });
     }
-    // Blink-fired heuristic: blink_grace_timer just became positive,
-    // which the engine sets after a successful blink commit.
-    if prev.blink_grace_timer <= 0.0 && player.blink_grace_timer > 0.0 {
+    if prev.blink_grace_timer <= 0.0 && clusters.blink.grace_timer > 0.0 {
         buffer.push_event(GameplayTraceEvent::Blink {
             tick,
             from: prev.pos.into(),
@@ -468,7 +470,7 @@ pub fn record_frame(
 /// tick's `synthesize_events_from_diff` sees an up-to-date baseline.
 pub(crate) fn update_previous_snapshot(
     buffer: &mut GameplayTraceBuffer,
-    player: &ae::Player,
+    clusters: &ae::PlayerClustersMut<'_>,
     hp_current: i32,
     controls: ControlFrame,
     active_area: &str,
@@ -476,23 +478,23 @@ pub(crate) fn update_previous_snapshot(
     body_mode: ae::BodyMode,
 ) {
     buffer.previous = Some(PreviousFrameSnapshot {
-        pos: player.pos,
-        vel: player.vel,
-        on_ground: player.on_ground,
-        fly_enabled: player.fly_enabled,
-        blink_aiming: player.blink_aiming,
-        blink_grace_timer: player.blink_grace_timer,
-        fast_falling: player.fast_falling,
-        dash_charges_available: player.dash_charges_available,
-        air_jumps_available: player.air_jumps_available,
-        resets: player.resets,
+        pos: clusters.kinematics.pos,
+        vel: clusters.kinematics.vel,
+        on_ground: clusters.ground.on_ground,
+        fly_enabled: clusters.flight.fly_enabled,
+        blink_aiming: clusters.blink.aiming,
+        blink_grace_timer: clusters.blink.grace_timer,
+        fast_falling: clusters.flight.fast_falling,
+        dash_charges_available: clusters.dash.charges_available,
+        air_jumps_available: clusters.jump.air_jumps_available,
+        resets: clusters.lifetime.resets,
         hp_current,
         locomotion,
         body_mode,
         active_area: active_area.into(),
         controls,
-        ledge_grabbing: player.ledge_grab.is_some(),
-        wall_normal_x: player.wall_normal_x,
-        on_wall: player.on_wall,
+        ledge_grabbing: clusters.ledge.grab.is_some(),
+        wall_normal_x: clusters.wall.wall_normal_x,
+        on_wall: clusters.wall.on_wall,
     });
 }

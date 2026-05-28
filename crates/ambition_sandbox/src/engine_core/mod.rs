@@ -66,7 +66,7 @@ pub use player_clusters::{
     PlayerAbilities as EnginePlayerAbilities, PlayerActionBuffer as EnginePlayerActionBuffer,
     PlayerBlinkState as EnginePlayerBlinkState,
     PlayerBodyModeState as EnginePlayerBodyModeState, PlayerClusterQueryData,
-    PlayerClusterQueryDataItem, PlayerClustersMut,
+    PlayerClusterQueryDataItem, PlayerClusterScratch, PlayerClustersMut,
     PlayerComboTrace as EnginePlayerComboTrace, PlayerDashState as EnginePlayerDashState,
     PlayerDodgeState as EnginePlayerDodgeState,
     PlayerEnvironmentContact as EnginePlayerEnvironmentContact,

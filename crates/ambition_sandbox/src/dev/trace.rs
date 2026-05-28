@@ -53,7 +53,7 @@ mod systems;
 mod tests;
 
 pub use buffer::GameplayTraceBuffer;
-pub use detect::{build_frame, detect_oob, record_frame};
+pub use detect::{build_frame, detect_oob, detect_oob_from_kinematics, record_frame};
 pub(crate) use detect::{synthesize_events_from_diff, update_previous_snapshot};
 pub use dump::{default_dump_dir, dump_paths, write_dump};
 pub use model::{

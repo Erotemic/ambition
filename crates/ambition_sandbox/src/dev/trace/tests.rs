@@ -19,6 +19,10 @@ fn dummy_player(at: ae::Vec2) -> ae::Player {
     ae::Player::new(at)
 }
 
+fn scratch_from(player: &ae::Player) -> ae::PlayerClusterScratch {
+    ae::PlayerClusterScratch::from_player(player)
+}
+
 fn dummy_moving_platform() -> crate::world::platforms::MovingPlatformState {
     crate::world::platforms::MovingPlatformState::from_authored(
         ae::Vec2::new(96.0, 80.0),
@@ -165,8 +169,10 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let world = dummy_world();
     let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
     player.pos = ae::Vec2::new(2000.0, 50.0); // outside envelope.x
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
     let frame = build_frame(
-        &player,
+        &clusters,
         &crate::SandboxSimState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
@@ -193,8 +199,10 @@ fn write_dump_writes_two_files() {
     let mut buf = GameplayTraceBuffer::with_capacity(4, 4);
     let world = dummy_world();
     let player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
     let frame = build_frame(
-        &player,
+        &clusters,
         &crate::SandboxSimState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,
@@ -261,10 +269,12 @@ fn synthesizes_input_edge_event_on_button_press() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
     let _world = dummy_world();
     let player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
     // Seed previous snapshot with no buttons pressed.
     update_previous_snapshot(
         &mut buf,
-        &player,
+        &clusters,
         20,
         ControlFrame::default(),
         "test",
@@ -276,7 +286,7 @@ fn synthesizes_input_edge_event_on_button_press() {
     controls.jump_pressed = true;
     synthesize_events_from_diff(
         &mut buf,
-        &player,
+        &clusters,
         20,
         controls,
         0.016,
@@ -307,23 +317,29 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
     let _world = dummy_world();
     let player_prev = dummy_player(ae::Vec2::new(62.0, 1564.0));
-    update_previous_snapshot(
-        &mut buf,
-        &player_prev,
-        20,
-        ControlFrame::default(),
-        "square_arena",
-        ae::LocomotionState::WallCling,
-        ae::BodyMode::Standing,
-    );
+    {
+        let mut scratch_prev = scratch_from(&player_prev);
+        let clusters_prev = scratch_prev.as_mut();
+        update_previous_snapshot(
+            &mut buf,
+            &clusters_prev,
+            20,
+            ControlFrame::default(),
+            "square_arena",
+            ae::LocomotionState::WallCling,
+            ae::BodyMode::Standing,
+        );
+    }
     // Now jump to a wildly different position with no plausible
     // velocity to explain it. Same active area + same `resets` so
     // the teleport detector isn't suppressed by Reset/RoomTransition.
     let mut player_cur = dummy_player(ae::Vec2::new(62.0, -23.0));
     player_cur.vel = ae::Vec2::ZERO;
+    let mut scratch_cur = scratch_from(&player_cur);
+    let clusters_cur = scratch_cur.as_mut();
     synthesize_events_from_diff(
         &mut buf,
-        &player_cur,
+        &clusters_cur,
         20,
         ControlFrame::default(),
         0.0069,
@@ -351,20 +367,26 @@ fn reset_emits_event_and_suppresses_teleport_event() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
     let _world = dummy_world();
     let player_prev = dummy_player(ae::Vec2::new(50.0, 50.0));
-    update_previous_snapshot(
-        &mut buf,
-        &player_prev,
-        20,
-        ControlFrame::default(),
-        "test",
-        ae::LocomotionState::Grounded,
-        ae::BodyMode::Standing,
-    );
+    {
+        let mut scratch_prev = scratch_from(&player_prev);
+        let clusters_prev = scratch_prev.as_mut();
+        update_previous_snapshot(
+            &mut buf,
+            &clusters_prev,
+            20,
+            ControlFrame::default(),
+            "test",
+            ae::LocomotionState::Grounded,
+            ae::BodyMode::Standing,
+        );
+    }
     let mut player_cur = dummy_player(ae::Vec2::new(150.0, 150.0));
     player_cur.resets = player_prev.resets + 1;
+    let mut scratch_cur = scratch_from(&player_cur);
+    let clusters_cur = scratch_cur.as_mut();
     synthesize_events_from_diff(
         &mut buf,
-        &player_cur,
+        &clusters_cur,
         20,
         ControlFrame::default(),
         0.016,
@@ -394,8 +416,10 @@ fn reset_emits_event_and_suppresses_teleport_event() {
 fn frame_includes_moving_platform_state() {
     let world = dummy_world();
     let player = dummy_player(ae::Vec2::new(50.0, 50.0));
+    let mut scratch = scratch_from(&player);
+    let clusters = scratch.as_mut();
     let frame = build_frame(
-        &player,
+        &clusters,
         &crate::SandboxSimState::default(),
         &crate::player::PlayerSafetyState::default(),
         &world,

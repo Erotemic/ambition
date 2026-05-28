@@ -5,7 +5,7 @@ use super::*;
 #[allow(clippy::too_many_arguments)]
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
-    player: &ae::Player,
+    clusters: &ae::PlayerClustersMut<'_>,
     sim_state: &crate::SandboxSimState,
     safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
@@ -18,9 +18,15 @@ pub fn record_simulation_frame(
     locomotion: &str,
     body_mode: &str,
 ) {
-    let oob = detect_oob(player, world, OOB_MARGIN);
+    let oob = detect_oob_from_kinematics(
+        clusters.kinematics.pos,
+        clusters.kinematics.vel,
+        clusters.kinematics.aabb(),
+        world,
+        OOB_MARGIN,
+    );
     let frame = build_frame(
-        player,
+        clusters,
         sim_state,
         safety,
         world,
@@ -126,14 +132,10 @@ pub fn record_frame_system(
     let Ok((mut cluster_item, player_health, safety, input)) = player_q.single_mut() else {
         return;
     };
-    // Trace recording is read-only; assemble a snapshot Player from
-    // the cluster components and don't commit back.
+    // Trace recording is read-only. Walks the cluster components
+    // directly — no `to_player` snapshot needed since the trace
+    // helpers all read through `PlayerClustersMut` now (2026-05-28).
     let clusters = cluster_item.as_clusters_mut();
-    let snapshot_player =
-        clusters.to_player();
-    let player = &snapshot_player;
-    // Trace records this frame's input alongside player state. Read
-    // from the per-player input component (OVERNIGHT-TODO #17.5).
     let control_frame = input.frame;
     let real_dt = time.delta_secs();
     let sim_dt = real_dt * sim_state.time_scale;
@@ -143,19 +145,24 @@ pub fn record_frame_system(
         .unwrap_or_else(|| "<unknown>".into());
     let mode_label = format!("{:?}", mode.get());
     let hp_current = player_health.map_or(0, |h| h.health.current);
-    let locomotion_state = ae::LocomotionState::from_player(player);
-    let body_mode_state = ae::BodyMode::from_player(player);
+    let locomotion_state = ae::LocomotionState::from_clusters(
+        clusters.ground,
+        clusters.wall,
+        clusters.flight,
+        clusters.dash,
+        clusters.blink,
+        clusters.ledge,
+    );
+    let body_mode_state = ae::BodyMode::from_clusters(clusters.body_mode);
     let locomotion = locomotion_state.label().to_string();
     let body_mode = body_mode_state.label().to_string();
 
     let augmented_world =
         crate::features::world_with_sandbox_solids(&world.0, &platform_set.0, &feature_ecs_overlay);
 
-    // Synthesize events from the diff before pushing the frame so the
-    // event tick aligns with the frame the user will see in the dump.
     synthesize_events_from_diff(
         &mut buffer,
-        player,
+        &clusters,
         hp_current,
         control_frame,
         real_dt,
@@ -167,7 +174,7 @@ pub fn record_frame_system(
 
     record_simulation_frame(
         &mut buffer,
-        player,
+        &clusters,
         &sim_state,
         safety,
         &augmented_world,
@@ -181,14 +188,9 @@ pub fn record_frame_system(
         &body_mode,
     );
 
-    // Update the diff snapshot AFTER recording so the next tick's
-    // `synthesize_events_from_diff` can compare against this frame's
-    // state. Setting it after `record_simulation_frame` also means a
-    // panic / early return upstream leaves the previous snapshot in
-    // place rather than corrupting the timeline.
     update_previous_snapshot(
         &mut buffer,
-        player,
+        &clusters,
         hp_current,
         control_frame,
         &active_area,

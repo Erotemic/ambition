@@ -672,3 +672,80 @@ impl PlayerComboTrace {
             .join(" o ")
     }
 }
+
+/// Owned bag of all 18 player cluster components, useful in unit tests
+/// and the few non-ECS sites that need to assemble a `PlayerClustersMut`
+/// without an actual Bevy entity. Bridge from a legacy `ae::Player` via
+/// [`PlayerClusterScratch::from_player`] and re-borrow as a view via
+/// [`PlayerClusterScratch::as_mut`]. Goes away with `ae::Player`.
+pub struct PlayerClusterScratch {
+    pub abilities: PlayerAbilities,
+    pub kinematics: PlayerKinematics,
+    pub ground: PlayerGroundState,
+    pub wall: PlayerWallState,
+    pub jump: PlayerJumpState,
+    pub dash: PlayerDashState,
+    pub flight: PlayerFlightState,
+    pub blink: PlayerBlinkState,
+    pub ledge: PlayerLedgeState,
+    pub dodge: PlayerDodgeState,
+    pub shield: PlayerShieldState,
+    pub body_mode: PlayerBodyModeState,
+    pub env_contact: PlayerEnvironmentContact,
+    pub mana: PlayerMana,
+    pub offense: PlayerOffense,
+    pub action_buffer: PlayerActionBuffer,
+    pub lifetime: PlayerLifetime,
+    pub combo_trace: PlayerComboTrace,
+}
+
+impl PlayerClusterScratch {
+    pub fn from_player(player: &Player) -> Self {
+        Self {
+            abilities: PlayerAbilities::from_player(player),
+            kinematics: PlayerKinematics::from_player(player),
+            ground: PlayerGroundState::from_player(player),
+            wall: PlayerWallState::from_player(player),
+            jump: PlayerJumpState::from_player(player),
+            dash: PlayerDashState::from_player(player),
+            flight: PlayerFlightState::from_player(player),
+            blink: PlayerBlinkState::from_player(player),
+            ledge: PlayerLedgeState {
+                grab: player.ledge_grab,
+                release_cooldown: player.ledge_release_cooldown,
+            },
+            dodge: PlayerDodgeState::from_player(player),
+            shield: PlayerShieldState::from_player(player),
+            body_mode: PlayerBodyModeState::from_player(player),
+            env_contact: PlayerEnvironmentContact::from_player(player),
+            mana: PlayerMana::from_player(player),
+            offense: PlayerOffense::from_player(player),
+            action_buffer: PlayerActionBuffer::from_player(player),
+            lifetime: PlayerLifetime::from_player(player),
+            combo_trace: PlayerComboTrace::from_player(player),
+        }
+    }
+
+    pub fn as_mut(&mut self) -> PlayerClustersMut<'_> {
+        PlayerClustersMut {
+            abilities: &self.abilities,
+            kinematics: &mut self.kinematics,
+            ground: &mut self.ground,
+            wall: &mut self.wall,
+            jump: &mut self.jump,
+            dash: &mut self.dash,
+            flight: &mut self.flight,
+            blink: &mut self.blink,
+            ledge: &mut self.ledge,
+            dodge: &mut self.dodge,
+            shield: &mut self.shield,
+            body_mode: &mut self.body_mode,
+            env_contact: &mut self.env_contact,
+            mana: &mut self.mana,
+            offense: &mut self.offense,
+            action_buffer: &mut self.action_buffer,
+            lifetime: &mut self.lifetime,
+            combo_trace: &mut self.combo_trace,
+        }
+    }
+}

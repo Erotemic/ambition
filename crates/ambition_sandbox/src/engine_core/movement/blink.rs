@@ -196,11 +196,6 @@ fn blink_destination_to_point_internal(
     last_free_blink_position_abilities(world, abilities, start, sweep_target, half)
 }
 
-#[allow(dead_code)]
-fn blink_path_blocker(player: &Player, kind: BlockKind) -> bool {
-    blink_path_blocker_abilities(&player.abilities, kind)
-}
-
 fn blink_path_blocker_abilities(abilities: &crate::engine_core::abilities::AbilitySet, kind: BlockKind) -> bool {
     match kind {
         BlockKind::Solid => true,
@@ -209,17 +204,6 @@ fn blink_path_blocker_abilities(abilities: &crate::engine_core::abilities::Abili
             false
         }
     }
-}
-
-#[allow(dead_code)]
-fn last_free_blink_position(
-    world: &World,
-    player: &Player,
-    start: Vec2,
-    target: Vec2,
-    half: Vec2,
-) -> Vec2 {
-    last_free_blink_position_abilities(world, &player.abilities, start, target, half)
 }
 
 fn last_free_blink_position_abilities(
@@ -257,11 +241,6 @@ enum BlinkCollision {
     Blocked,
 }
 
-#[allow(dead_code)]
-fn blink_collision(world: &World, player: &Player, aabb: Aabb) -> BlinkCollision {
-    blink_collision_abilities(world, &player.abilities, aabb)
-}
-
 fn blink_collision_abilities(
     world: &World,
     abilities: &crate::engine_core::abilities::AbilitySet,
@@ -290,11 +269,6 @@ fn blink_collision_abilities(
     } else {
         BlinkCollision::Free
     }
-}
-
-#[allow(dead_code)]
-fn player_can_blink_through(player: &Player, tier: BlinkWallTier) -> bool {
-    abilities_can_blink_through(&player.abilities, tier)
 }
 
 fn abilities_can_blink_through(abilities: &crate::engine_core::abilities::AbilitySet, tier: BlinkWallTier) -> bool {

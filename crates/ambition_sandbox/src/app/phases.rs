@@ -138,6 +138,7 @@ pub(super) fn player_simulation_phase(
     attack: &mut Option<crate::PlayerAttackState>,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,
+    shake: &mut crate::time::camera_ease::CameraShakeState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
@@ -208,6 +209,7 @@ pub(super) fn player_simulation_phase(
         features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
 
     let was_grounded = clusters.ground.on_ground;
+    let pre_sim_vy = clusters.kinematics.vel.y;
     let sim_events = ae::update_player_simulation_with_clusters(
         &collision_world,
         clusters,
@@ -215,6 +217,17 @@ pub(super) fn player_simulation_phase(
         sim_dt,
         tuning,
     );
+    // Hard-fall screen shake: trigger on the landing transition with
+    // amplitude proportional to incoming downward speed past a
+    // dead-zone. Avoids tiny hops, saturates above terminal velocity.
+    if !was_grounded && clusters.ground.on_ground {
+        const SHAKE_FLOOR_VY: f32 = 360.0; // below this, no shake
+        const SHAKE_GAIN: f32 = 1.0 / 60.0; // 360 → 0 px, 600 → 4 px, terminal ≈ 14 px
+        let fall_excess = (pre_sim_vy - SHAKE_FLOOR_VY).max(0.0);
+        if fall_excess > 0.0 {
+            shake.kick(fall_excess * SHAKE_GAIN);
+        }
+    }
     if sim_events.reset {
         reset_sandbox(
             world,

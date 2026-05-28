@@ -161,6 +161,7 @@ pub fn player_simulation_system(
     mut reset_this_frame: ResMut<SandboxResetThisFrame>,
     mut event_writers: SandboxEventWriters,
     mut queues: SandboxQueues,
+    mut shake: ResMut<crate::time::camera_ease::CameraShakeState>,
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
@@ -215,6 +216,7 @@ pub fn player_simulation_system(
         &mut attack.0,
         &mut event_writers.sfx,
         &mut event_writers.vfx,
+        &mut shake,
         tuning,
         feel,
         frame_dt,

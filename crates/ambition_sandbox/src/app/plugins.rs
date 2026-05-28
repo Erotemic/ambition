@@ -618,7 +618,11 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
     app.add_systems(
         Update,
-        (camera_follow, debug_overlay::draw_debug_overlay)
+        (
+            crate::time::camera_ease::tick_camera_shake,
+            camera_follow,
+            debug_overlay::draw_debug_overlay,
+        )
             .chain()
             .after(animate_bosses),
     );

@@ -100,6 +100,7 @@ pub fn camera_follow(
     mut camera_state: ResMut<crate::CameraEaseState>,
     mut view_state: ResMut<CameraViewState>,
     ease_tuning: Res<crate::CameraEaseTuning>,
+    shake: Res<crate::time::camera_ease::CameraShakeState>,
     mut last_camera_room: Local<Option<String>>,
     player: Query<
         (
@@ -300,12 +301,13 @@ pub fn camera_follow(
         active_camera_zone: active_zone.map(|zone| zone.id.clone()),
     };
 
+    let shake_offset = shake.offset();
     for (mut transform, mut projection) in &mut query {
         if let Projection::Orthographic(orthographic) = &mut *projection {
             orthographic.scale = orthographic_scale;
         }
-        transform.translation.x = x;
-        transform.translation.y = y;
+        transform.translation.x = x + shake_offset.x;
+        transform.translation.y = y + shake_offset.y;
     }
 }
 

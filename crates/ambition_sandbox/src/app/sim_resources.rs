@@ -183,6 +183,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(crate::map_menu::MapMenuState::default())
             .insert_resource(crate::CameraEaseState::default())
             .insert_resource(crate::CameraEaseTuning::default())
+            .insert_resource(crate::time::camera_ease::CameraShakeState::default())
             .insert_resource(crate::presentation::rendering::CameraViewState::default())
             .insert_resource(crate::runtime::reset::SandboxResetRequested::default());
     }

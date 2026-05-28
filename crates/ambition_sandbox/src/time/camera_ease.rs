@@ -75,3 +75,76 @@ impl Default for CameraEaseTuning {
         }
     }
 }
+
+/// Live camera-shake amplitude in world pixels. The follow system
+/// reads this each frame to add a randomized offset to the camera
+/// transform, then [`tick_camera_shake`] decays it toward zero.
+///
+/// Producers call [`CameraShakeState::kick`] with the desired
+/// amplitude. The strongest kick wins (no addition / no overflow):
+/// landing from a tall drop should saturate the shake budget, not
+/// stack it. A trickle from a small bounce can't reset a still-active
+/// big shake.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct CameraShakeState {
+    /// Current shake amplitude in world pixels. Zero means "no shake."
+    pub amplitude_px: f32,
+    /// Seed bumped each frame so the random offset is deterministic
+    /// within a frame (camera follow can call into multiple samples)
+    /// but uncorrelated across frames.
+    pub seed: u32,
+}
+
+impl CameraShakeState {
+    /// Bump the active shake to at least `amplitude_px` if the kick
+    /// is bigger than what's already in flight. Caps clamp keep gut-
+    /// punch landings from making the entire screen unreadable.
+    pub fn kick(&mut self, amplitude_px: f32) {
+        const MAX_AMPLITUDE_PX: f32 = 14.0;
+        let target = amplitude_px.max(0.0).min(MAX_AMPLITUDE_PX);
+        if target > self.amplitude_px {
+            self.amplitude_px = target;
+        }
+    }
+}
+
+/// Per-second decay rate of `CameraShakeState::amplitude_px`. At 30 px/s,
+/// a 6 px shake (mid-strength land) decays to 0 in ~0.2 s — long enough
+/// to feel a thump, short enough not to interfere with the next move.
+pub const CAMERA_SHAKE_DECAY_PX_PER_S: f32 = 30.0;
+
+/// Decay system: subtracts `CAMERA_SHAKE_DECAY_PX_PER_S * dt` from
+/// `amplitude_px` and clamps at zero. Runs every frame on `Update`
+/// before `camera_follow` so the follow logic sees the post-decay
+/// amplitude.
+pub fn tick_camera_shake(
+    time: bevy::prelude::Res<bevy::prelude::Time>,
+    mut shake: bevy::prelude::ResMut<CameraShakeState>,
+) {
+    let dt = time.delta_secs();
+    shake.amplitude_px = (shake.amplitude_px - CAMERA_SHAKE_DECAY_PX_PER_S * dt).max(0.0);
+    shake.seed = shake.seed.wrapping_add(1);
+}
+
+impl CameraShakeState {
+    /// Cheap deterministic 2D offset within the current amplitude budget.
+    /// xorshift on `seed` gives a per-frame value in `[-amp, +amp]`;
+    /// independent xorshifts for x / y avoid the diagonal-only shake a
+    /// naive `(s, s)` pair would produce.
+    pub fn offset(&self) -> ae::Vec2 {
+        if self.amplitude_px <= 0.05 {
+            return ae::Vec2::ZERO;
+        }
+        let mut sx = self.seed.wrapping_mul(0x45d9f3b).wrapping_add(0x9e3779b9);
+        sx ^= sx >> 17;
+        sx = sx.wrapping_mul(0xed5ad4bb);
+        let mut sy = self.seed.wrapping_mul(0x119de1f3).wrapping_add(0x85ebca6b);
+        sy ^= sy >> 15;
+        sy = sy.wrapping_mul(0xc2b2ae35);
+        let to_unit = |s: u32| (s as f32 / u32::MAX as f32) * 2.0 - 1.0;
+        ae::Vec2::new(
+            to_unit(sx) * self.amplitude_px,
+            to_unit(sy) * self.amplitude_px,
+        )
+    }
+}

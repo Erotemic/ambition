@@ -47,7 +47,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Boss phase transitions "screams" / "animations"
 
-- [ ] Screen shake on a hard fall.
+- [x] **Screen shake on a hard fall** (CLOSED 2026-05-28) — added `CameraShakeState` resource in `time/camera_ease.rs` with `kick(amplitude_px)` (max-wins, capped at 14 px) and `offset()` (xorshift per-axis), plus `tick_camera_shake` decay system at 30 px/s. Wired into `camera_follow` via `transform.translation += shake.offset()`. Trigger lives in `player_simulation_phase`: on a `was_grounded=false → on_ground=true` landing transition with pre-sim `vel.y > 360`, shake amplitude scales linearly with the excess (gain 1/60). rl_smoke 42/42 ok.
 
 - [ ] Implement the TODOS for the kernel NPC dialog tree
 

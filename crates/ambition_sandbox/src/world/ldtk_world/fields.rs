@@ -168,15 +168,15 @@ pub(super) fn parse_boss_brain(value: &str) -> ae::BossBrain {
     }
 }
 
-pub(super) fn parse_debug_label_kind(value: &str) -> ae::DebugLabelKind {
+pub(super) fn parse_debug_label_kind(value: &str) -> crate::debug_label::DebugLabelKind {
     match value {
-        "Room" => ae::DebugLabelKind::Room,
-        "LoadingZone" => ae::DebugLabelKind::LoadingZone,
-        "Hazard" => ae::DebugLabelKind::Hazard,
-        "Enemy" => ae::DebugLabelKind::Enemy,
-        "Boss" => ae::DebugLabelKind::Boss,
-        "Interactable" => ae::DebugLabelKind::Interactable,
-        "Pickup" => ae::DebugLabelKind::Pickup,
-        _ => ae::DebugLabelKind::Custom,
+        "Room" => crate::debug_label::DebugLabelKind::Room,
+        "LoadingZone" => crate::debug_label::DebugLabelKind::LoadingZone,
+        "Hazard" => crate::debug_label::DebugLabelKind::Hazard,
+        "Enemy" => crate::debug_label::DebugLabelKind::Enemy,
+        "Boss" => crate::debug_label::DebugLabelKind::Boss,
+        "Interactable" => crate::debug_label::DebugLabelKind::Interactable,
+        "Pickup" => crate::debug_label::DebugLabelKind::Pickup,
+        _ => crate::debug_label::DebugLabelKind::Custom,
     }
 }

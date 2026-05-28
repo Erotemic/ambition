@@ -21,6 +21,7 @@
 // can tell us what's actually depended on from outside.
 pub mod app;
 pub mod audio;
+pub mod debug_label;
 pub mod headless;
 pub mod input;
 pub mod player;

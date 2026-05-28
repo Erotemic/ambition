@@ -129,7 +129,7 @@ impl LdtkProject {
         let mut breakables: Vec<crate::rooms::Authored<ae::Breakable>> = Vec::new();
         let mut enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>> = Vec::new();
         let mut boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>> = Vec::new();
-        let mut debug_labels: Vec<crate::rooms::Authored<ae::DebugLabel>> = Vec::new();
+        let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -309,7 +309,7 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) breakables: Vec<crate::rooms::Authored<ae::Breakable>>,
     pub(super) enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>>,
     pub(super) boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>>,
-    pub(super) debug_labels: Vec<crate::rooms::Authored<ae::DebugLabel>>,
+    pub(super) debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
     pub(super) ignored: bool,
 }
 
@@ -422,7 +422,7 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn debug_label(authored: crate::rooms::Authored<ae::DebugLabel>) -> Self {
+    fn debug_label(authored: crate::rooms::Authored<crate::debug_label::DebugLabel>) -> Self {
         Self {
             debug_labels: vec![authored],
             ..Self::default()
@@ -753,7 +753,7 @@ fn convert_debug_label(
 ) -> RuntimeEntityEmission {
     let pos = min + size * 0.5;
     let aabb = ae::Aabb::new(pos, ae::Vec2::splat(1.0));
-    let label = ae::DebugLabel::new(
+    let label = crate::debug_label::DebugLabel::new(
         field_string(entity, "text").unwrap_or_else(|| entity.identifier.clone()),
         pos,
         parse_debug_label_kind(

@@ -551,7 +551,7 @@ pub struct RoomSpec {
     pub breakables: Vec<Authored<ae::Breakable>>,
     pub enemy_spawns: Vec<Authored<ae::EnemyBrain>>,
     pub boss_spawns: Vec<Authored<ae::BossBrain>>,
-    pub debug_labels: Vec<Authored<ae::DebugLabel>>,
+    pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
 }
 
 #[derive(Clone, Debug)]

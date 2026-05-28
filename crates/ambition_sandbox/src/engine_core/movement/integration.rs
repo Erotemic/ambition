@@ -173,6 +173,73 @@ pub(super) fn integrate_velocity(
     }
 }
 
+/// Cluster-native variant of [`integrate_climb`].
+#[allow(dead_code)]
+pub(super) fn integrate_climb_clusters(
+    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
+    flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
+    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
+    input: InputState,
+    dt: f32,
+) {
+    let Some(contact) = env_contact.climbable else {
+        kinematics.vel = Vec2::ZERO;
+        return;
+    };
+    let spec = contact.spec;
+    let target_vy = input.axis_y * spec.climb_speed;
+    kinematics.vel.y = target_vy;
+    let target_vx = input.axis_x * spec.climb_speed * spec.strafe_factor;
+    kinematics.vel.x = target_vx;
+    flight.fast_falling = false;
+    flight.gliding = false;
+    wall.wall_clinging = false;
+    wall.wall_climbing = false;
+    let _ = dt;
+}
+
+/// Cluster-native variant of [`integrate_flight`].
+#[allow(dead_code)]
+pub(super) fn integrate_flight_clusters(
+    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
+    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
+    input: InputState,
+    dt: f32,
+    tuning: MovementTuning,
+) {
+    flight.fast_falling = false;
+    wall.wall_clinging = false;
+    wall.wall_climbing = false;
+    flight.flight_phase += dt * tuning.flight_hover_hz * std::f32::consts::TAU;
+
+    let target_x = input.axis_x * tuning.flight_terminal_speed;
+    let mut target_y = input.axis_y * tuning.flight_terminal_speed;
+    if input.axis_y.abs() <= 0.10 {
+        target_y = flight.flight_phase.sin() * tuning.flight_hover_speed;
+    }
+
+    kinematics.vel.x = approach(kinematics.vel.x, target_x, tuning.flight_accel * dt);
+    kinematics.vel.y = approach(kinematics.vel.y, target_y, tuning.flight_accel * dt);
+
+    if input.axis_x.abs() <= 0.10 {
+        kinematics.vel.x = approach(kinematics.vel.x, 0.0, tuning.flight_drag * dt);
+    }
+    if input.axis_y.abs() <= 0.10 {
+        kinematics.vel.y = approach(kinematics.vel.y, target_y, tuning.flight_drag * dt);
+    }
+
+    kinematics.vel.x = kinematics
+        .vel
+        .x
+        .clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
+    kinematics.vel.y = kinematics
+        .vel
+        .y
+        .clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
+}
+
 fn integrate_climb(player: &mut Player, input: InputState, dt: f32) {
     let Some(contact) = player.climbable_contact else {
         // Defensive: if the contact disappears mid-climb, don't crash;

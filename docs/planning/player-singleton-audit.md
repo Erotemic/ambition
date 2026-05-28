@@ -1,5 +1,16 @@
 # Player singleton audit
 
+> **Status (2026-05-28):** **HISTORICAL.** This audit predates the
+> `ae::Player` deletion and the 18-cluster decomposition. Code/file
+> references to `PlayerMovementAuthority` / `PlayerBody` / the
+> monolithic `ae::Player` aggregate describe the as-of-2026-05-19
+> shape; the post-migration shape uses the 18 cluster components on
+> the player entity directly. The singleton-call-site classification
+> remains useful — the cluster components carry `PlayerEntity` /
+> `PrimaryPlayer` / `LocalPlayer` markers just like the legacy
+> aggregate did. See `docs/current/state.md` for the post-migration
+> player state.
+
 Source-of-truth for OVERNIGHT-TODO item #17 (Player/enemy actor unification +
 multiplayer-readiness). Step #17.1 calls for an audit and classification of
 every singleton call site that assumes "exactly one player." This file is

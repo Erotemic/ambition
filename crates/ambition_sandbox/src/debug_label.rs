@@ -1,11 +1,11 @@
 //! Generic room-object label for debug overlays and editor selection.
 //!
-//! Moved from `crate::engine_core::debug` to the sandbox in Phase 3d of
-//! the player-ecs-bandaid plan (the broader goal: removing the
-//! `crate::engine_core` crate entirely). DebugLabel is a sandbox concern
-//! — rendering of labels lives in the Bevy adapter, and the meaning
-//! is authored with the room data so debug overlays, inspectors, and
-//! future editor tools share the same source of truth.
+//! DebugLabel is a sandbox concern — rendering of labels lives in the
+//! Bevy adapter, and the meaning is authored with the room data so
+//! debug overlays, inspectors, and future editor tools share the same
+//! source of truth. (Moved here from the engine when the
+//! `ambition_engine` workspace crate was collapsed into
+//! `sandbox::engine_core` on 2026-05-28.)
 
 use crate::engine_core::Vec2;
 

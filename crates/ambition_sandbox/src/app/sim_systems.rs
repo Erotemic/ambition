@@ -190,16 +190,18 @@ pub fn interaction_input_system(
 /// chain runs.
 ///
 /// Replaces the inline input-driven half of `reset_phase`. The
-/// engine-driven half (a reset surfaced by `update_player_control_with_tuning`
-/// or `update_player_simulation_with_tuning` returning `events.reset = true`)
-/// still runs inline inside the legacy `sandbox_update` orchestrator's `player_control_phase`
-/// / `player_simulation_phase` — those paths know the engine has
+/// engine-driven half (a reset surfaced by
+/// `update_player_control_with_clusters` or
+/// `update_player_simulation_with_clusters` returning
+/// `events.reset = true`) still runs inline inside the legacy
+/// `sandbox_update` orchestrator's `player_control_phase` /
+/// `player_simulation_phase` — those paths know the engine has
 /// already mutated the player and need to finish the sandbox-side
 /// cleanup in the same call.
 ///
-/// This system clears `ControlFrame::reset_pressed` after handling it so
-/// the engine path inside `update_player_control_with_tuning` does not
-/// re-trigger a reset on the same frame. Writes sfx/vfx directly to
+/// This system clears `ControlFrame::reset_pressed` after handling it
+/// so the engine path inside `update_player_control_with_clusters`
+/// does not re-trigger a reset on the same frame. Writes sfx/vfx directly to
 /// `MessageWriter`s via local Vec buffers (the engine helper
 /// `reset_sandbox` still uses Vec push semantics).
 ///

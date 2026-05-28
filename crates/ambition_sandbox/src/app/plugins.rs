@@ -190,7 +190,7 @@ fn register_player_input_systems(app: &mut App) {
 /// 1. `clear_sandbox_reset_this_frame` zeros the per-frame reset
 ///    flag at the start of the player tick.
 /// 2. `player_control_system` runs the control-clock half. If
-///    `update_player_control_with_tuning` reports a reset, the
+///    `update_player_control_with_clusters` reports a reset, the
 ///    `SandboxResetThisFrame` flag is set.
 /// 3. `player_simulation_system` runs the sim-clock half. It
 ///    short-circuits when the flag is set so the same-frame reset

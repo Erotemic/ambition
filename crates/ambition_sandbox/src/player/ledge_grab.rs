@@ -1,10 +1,11 @@
 //! Ledge grab sandbox presentation helpers.
 //!
-//! Gameplay ownership has moved into `crate::engine_core`: `ae::Player::ledge_grab`
-//! is advanced by `ae::update_player_simulation_with_tuning` alongside gravity,
-//! wall contact, moving platforms, and water. The sandbox keeps this module only
-//! as a stable place for presentation code/tests that want the public timing
-//! constants.
+//! Gameplay ownership lives in `crate::engine_core`:
+//! `PlayerLedgeState::grab` is advanced by
+//! `ae::update_player_simulation_with_clusters` alongside gravity,
+//! wall contact, moving platforms, and water. The sandbox keeps this
+//! module only as a stable place for presentation code/tests that
+//! want the public timing constants.
 
 pub use crate::engine_core::{LEDGE_CLIMB_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_TOWARD_CLIMB_DELAY};
 

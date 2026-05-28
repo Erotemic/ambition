@@ -68,7 +68,7 @@ pub fn clear_sandbox_reset_this_frame(mut flag: ResMut<SandboxResetThisFrame>) {
 /// interact, shield) and the raw `PlayerInputFrame` for the player-
 /// specific verbs not yet translated by the player brain. The
 /// `engine_input_from_actor_control` helper builds the resulting
-/// `ae::InputState` for `update_player_control_with_tuning`.
+/// `ae::InputState` for `update_player_control_with_clusters`.
 ///
 /// Sets `SandboxResetThisFrame` when the engine reports a reset so
 /// the simulation system can skip this frame.

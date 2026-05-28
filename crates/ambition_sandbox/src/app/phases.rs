@@ -24,7 +24,7 @@ use super::*;
 /// Phase 4 — control-clock half of the two-clock player update.
 ///
 /// Owns: hitstun-filtered control snapshot, real-time `frame_dt`
-/// `update_player_control_with_tuning` call, pogo-bounce → feature-event
+/// `update_player_control_with_clusters` call, pogo-bounce → feature-event
 /// routing, `handle_player_events` for the control-clock pass.
 ///
 /// Should not own: gravity/platform/AI ticks (those run on `sim_dt` in
@@ -114,7 +114,7 @@ pub(super) fn player_control_phase(
 /// Phase 5 — sim-clock half of the two-clock player update.
 ///
 /// Owns: scaled `sim_dt`, moving-platform tick + ride-along,
-/// sandbox-side solid rebuild, `update_player_simulation_with_tuning`,
+/// sandbox-side solid rebuild, `update_player_simulation_with_clusters`,
 /// landing-dust feedback through `handle_player_events`.
 ///
 /// Should not own: feature-runtime ticks or interact-buffering. New

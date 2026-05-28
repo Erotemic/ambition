@@ -9,11 +9,24 @@ use super::*;
 /// `crate::remember_safe_player_position` use the same definition.
 /// The recorder layers the trace-only "absurd velocity" rule on top.
 pub fn detect_oob(player: &ae::Player, world: &ae::World, margin: f32) -> Option<OobReason> {
-    let speed = player.vel.length();
+    detect_oob_from_kinematics(player.pos, player.vel, player.aabb(), world, margin)
+}
+
+/// Cluster-native variant of [`detect_oob`]. Takes the kinematic
+/// fields directly so callers driving cluster components don't need
+/// to materialize an `ae::Player`.
+pub fn detect_oob_from_kinematics(
+    pos: ae::Vec2,
+    vel: ae::Vec2,
+    aabb: ae::Aabb,
+    world: &ae::World,
+    margin: f32,
+) -> Option<OobReason> {
+    let speed = vel.length();
     if speed.is_finite() && speed > ABSURD_VELOCITY_MAGNITUDE {
         return Some(OobReason::AbsurdVelocity { magnitude: speed });
     }
-    match ae::classify_player_safety(player, world, margin, |b| {
+    match ae::classify_safety_from_kinematics(pos, vel, aabb, world, margin, |b| {
         matches!(b.kind, ae::BlockKind::Solid)
     }) {
         ae::PlayerSafetyVerdict::Safe => None,
@@ -23,12 +36,6 @@ pub fn detect_oob(player: &ae::Player, world: &ae::World, margin: f32) -> Option
             Some(OobReason::OutsideWorldEnvelope { axis })
         }
         ae::PlayerSafetyVerdict::InsideSolid => {
-            // Find which block we're inside so the dump names it. The
-            // shared classifier doesn't return the block reference (it
-            // takes a predicate closure to stay engine-side); a small
-            // second walk here is fine for the "we're already in trouble"
-            // path.
-            let aabb = player.aabb();
             let block_name = world
                 .blocks
                 .iter()

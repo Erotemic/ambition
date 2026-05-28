@@ -127,6 +127,51 @@ impl LocomotionState {
             LocomotionState::Airborne
         }
     }
+
+    /// Cluster-native variant of [`Self::from_player`]. Mirrors the same
+    /// priority order field-for-field, reading off cluster components.
+    pub fn from_clusters(
+        ground: &crate::engine_core::player_clusters::PlayerGroundState,
+        wall: &crate::engine_core::player_clusters::PlayerWallState,
+        flight: &crate::engine_core::player_clusters::PlayerFlightState,
+        dash: &crate::engine_core::player_clusters::PlayerDashState,
+        blink: &crate::engine_core::player_clusters::PlayerBlinkState,
+        ledge: &crate::engine_core::player_clusters::PlayerLedgeState,
+    ) -> Self {
+        if dash.timer > 0.0 {
+            return LocomotionState::Dashing;
+        }
+        if blink.aiming {
+            return LocomotionState::BlinkAiming;
+        }
+        if flight.fly_enabled {
+            return LocomotionState::Flying;
+        }
+        if let Some(grab) = ledge.grab {
+            return if grab.climbing {
+                LocomotionState::LedgeClimb
+            } else {
+                LocomotionState::LedgeHang
+            };
+        }
+        if wall.wall_climbing {
+            return LocomotionState::WallClimb;
+        }
+        if wall.wall_clinging {
+            return LocomotionState::WallCling;
+        }
+        if wall.on_wall && !ground.on_ground {
+            return LocomotionState::WallSlide;
+        }
+        if flight.fast_falling {
+            return LocomotionState::FastFalling;
+        }
+        if ground.on_ground {
+            LocomotionState::Grounded
+        } else {
+            LocomotionState::Airborne
+        }
+    }
 }
 
 /// Alternate body-shape stance for the player.
@@ -174,6 +219,13 @@ impl BodyMode {
     /// there is exactly one source of truth.
     pub fn from_player(player: &Player) -> Self {
         player.body_mode
+    }
+
+    /// Cluster-native variant of [`Self::from_player`].
+    pub fn from_clusters(
+        body_mode: &crate::engine_core::player_clusters::PlayerBodyModeState,
+    ) -> Self {
+        body_mode.body_mode
     }
 
     pub fn shape(self, base_size: Vec2) -> BodyShape {

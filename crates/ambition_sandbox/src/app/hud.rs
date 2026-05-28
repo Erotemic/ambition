@@ -219,36 +219,16 @@ pub(super) fn update_hud(
         let joined = map_lines.join("\n");
         format!("\nMAP\n{joined}")
     };
-    // Inline the locomotion classification from the cluster refs —
-    // mirrors `ae::LocomotionState::from_player` (which still wants a
-    // full `Player`) using only the fields the HUD has on hand. Phase 3
-    // promotes this back to an engine helper once the cluster shapes
-    // are stable.
-    let locomotion = if hud_dash.timer > 0.0 {
-        ae::LocomotionState::Dashing
-    } else if hud_blink.aiming {
-        ae::LocomotionState::BlinkAiming
-    } else if hud_flight.fly_enabled {
-        ae::LocomotionState::Flying
-    } else if let Some(ledge) = hud_ledge.grab {
-        if ledge.climbing {
-            ae::LocomotionState::LedgeClimb
-        } else {
-            ae::LocomotionState::LedgeHang
-        }
-    } else if hud_wall.wall_climbing {
-        ae::LocomotionState::WallClimb
-    } else if hud_wall.wall_clinging {
-        ae::LocomotionState::WallCling
-    } else if hud_wall.on_wall && !hud_ground.on_ground {
-        ae::LocomotionState::WallSlide
-    } else if hud_flight.fast_falling {
-        ae::LocomotionState::FastFalling
-    } else if hud_ground.on_ground {
-        ae::LocomotionState::Grounded
-    } else {
-        ae::LocomotionState::Airborne
-    }
+    // The engine ships a cluster-native `LocomotionState::from_clusters`
+    // that classifies these states from cluster components directly.
+    let locomotion = ae::LocomotionState::from_clusters(
+        hud_ground,
+        hud_wall,
+        hud_flight,
+        hud_dash,
+        hud_blink,
+        hud_ledge,
+    )
     .label();
     let body_mode = hud_body_mode.body_mode.label();
     let movement_line = format!("\nLOCO: {locomotion}  BODY: {body_mode}");

@@ -143,13 +143,16 @@ pub(super) fn integrate_velocity_clusters(
     let was_clinging = clusters.wall.wall_clinging;
     clusters.wall.wall_clinging = false;
 
-    // X-sweep — last remaining scratchpad.
+    // X-sweep — fully cluster-native.
     let dt_x = clusters.kinematics.vel.x * dt;
-    {
-        let mut player = clusters.to_player();
-        sweep_player_x(world, &mut player, dt_x);
-        clusters.write_from_player(player);
-    }
+    super::collision::sweep_player_x_clusters(
+        world,
+        clusters.kinematics,
+        clusters.wall,
+        clusters.body_mode,
+        clusters.env_contact,
+        dt_x,
+    );
 
     apply_wall_abilities_clusters(
         clusters.kinematics,
@@ -168,11 +171,16 @@ pub(super) fn integrate_velocity_clusters(
     clusters.ground.on_ground = false;
     let drop_through = input.drop_through_pressed || clusters.ground.drop_through_timer > 0.0;
     let dt_y = clusters.kinematics.vel.y * dt;
-    {
-        let mut player = clusters.to_player();
-        sweep_player_y(world, &mut player, dt_y, prev_bottom, drop_through);
-        clusters.write_from_player(player);
-    }
+    super::collision::sweep_player_y_clusters(
+        world,
+        clusters.kinematics,
+        clusters.ground,
+        clusters.body_mode,
+        clusters.env_contact,
+        dt_y,
+        prev_bottom,
+        drop_through,
+    );
 
     if clusters.ground.on_ground {
         crate::engine_core::player_clusters::refresh_movement_resources_clusters(

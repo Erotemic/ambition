@@ -11,25 +11,23 @@ cold rips beat parallel-path / shim migrations. The test suite is the
 verification gate. See `feedback_pre_release_no_compat` in agent memory.
 Flip the rule once an external consumer ships.
 
-## Status snapshot (2026-05-20)
+## Status snapshot (2026-05-28)
+
+- `cargo test -p ambition_sandbox --lib` → **1140 passing, 0 failing**
+  (engine + sandbox merged; the former `ambition_engine` test suite
+  now runs as part of the sandbox lib tests under
+  `crates/ambition_sandbox/src/engine_core/`).
+- `cargo run --bin rl_smoke` → 42/42 rooms ok (200 ticks each).
+- `cargo check --workspace` → **zero warnings**.
+- `ambition_engine` crate was deleted 2026-05-28 — see
+  `dev/journals/engine-crate-collapse-2026-05-28.md` and
+  `dev/journals/player-cluster-native-push-2026-05-28.md` for the
+  full migration record.
+
+### Earlier snapshot (2026-05-20)
 
 - `cargo test -p ambition_sandbox --lib` → 577 passing
 - `cargo test -p ambition_engine --lib` → 222 passing
-- Both crate builds clean, zero warnings
-- `cargo clippy -p ambition_sandbox --lib --no-deps` → 95 warnings
-  (down from 170 at the start of this session via derivable_impls,
-  `&mut *Mut<T>` reborrow drops, `iter().any(==)` → `contains`, manual
-  clamp, map_or → is_some_and, ?-operator, `+`-at-line-start doc-list
-  misparse fixes, match guards, identical-branch collapse, etc.;
-  remaining are predominantly Bevy-inherent "very complex type" on
-  Query<...> and "too many arguments" on system fns).
-- `cargo clippy -p ambition_engine --lib --no-deps` → 1 warning
-  (the manual !Range::contains in `apply_neighbor_spread`, left in
-  current form because the predicate reads more naturally as written).
-- `cargo doc -p ambition_sandbox --no-deps` → 0 warnings (down from
-  24; intra-doc broken links + private-item references cleaned up).
-- `cargo doc -p ambition_engine --no-deps` → 0 warnings (down from 4;
-  projectile submodule list was linking to private mods).
 
 Recently retired (autonomous-mission pass 2026-05-20, see git log
 8b4cab1…HEAD's predecessor):

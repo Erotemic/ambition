@@ -97,8 +97,8 @@ pub use movement::{
     WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 pub use player_state::{
-    classify_player_safety, try_change_body_mode, BodyMode, BodyShape, LocomotionState,
-    PlayerSafetyVerdict, ResourceMeter,
+    classify_player_safety, try_change_body_mode, try_change_body_mode_clusters, BodyMode,
+    BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
 pub use projectile::{
     FireballChargeTuning, MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody,

@@ -3,13 +3,18 @@
 //!
 //! Listens to the deadzoned `axis_y` from `ControlFrame` and the
 //! double-tap-down gesture (`fast_fall_pressed`) and asks the engine
-//! to flip `Player::body_mode` between `Standing`, `Crouching`, and
-//! `MorphBall`. `try_change_body_mode` does the per-frame
+//! to flip the player's body mode between `Standing`, `Crouching`, and
+//! `MorphBall`. `try_change_body_mode_clusters` does the per-frame
 //! collision-safe resize: if a low ceiling would clip the larger body
 //! the helper rejects the transition and the player stays in the
 //! smaller stance. Auto-detected `PlayerModeChanged` trace events
-//! fire from the trace recorder diffing `player.body_mode` between
-//! snapshots, so this driver does not push events itself.
+//! fire from the trace recorder diffing `body_mode` between snapshots,
+//! so this driver does not push events itself.
+//!
+//! Phase 3b.1 of the player-ecs-bandaid plan: this driver no longer
+//! round-trips through `engine_player_bridge`. Body-mode mutations
+//! happen directly on `PlayerKinematics` + `PlayerBodyModeState`
+//! cluster components via the cluster-aware engine helper.
 //!
 //! Input model:
 //! - Standing + Down held + grounded → Crouching.
@@ -23,15 +28,6 @@
 //! - Mid-action mechanics (dash, blink-aim, wall-cling/climb, ledge grab,
 //!   swim) own the player shape; the driver no-ops while any of them are
 //!   active.
-//!
-//! Runs in the progression chain after the player tick because body resize is
-//! still a sandbox-side affordance. Ledge grab and swim now live in the engine
-//! movement pipeline; this driver only avoids fighting their active states. The
-//! size/pos delta is constrained to the body-mode swap (no horizontal
-//! repositioning), so the next simulator tick treats it as a clean smaller AABB
-//! and collision repair runs as usual against any new geometry. The engine
-//! still gates `fast_fall_pressed` on `!on_ground`, so using the same gesture for
-//! grounded morph and airborne fast-fall has no input crosstalk.
 
 use ambition_engine as ae;
 use bevy::prelude::*;
@@ -45,44 +41,57 @@ pub fn update_body_mode(
     world: Res<crate::GameWorld>,
     mut player_q: Query<
         (
-            crate::player::engine_player_bridge::PlayerClusterQueryData,
+            &mut crate::player::PlayerKinematics,
+            &mut crate::player::PlayerBodyModeState,
+            &crate::player::PlayerGroundState,
+            &crate::player::PlayerWallState,
+            &crate::player::PlayerDashState,
+            &crate::player::PlayerBlinkState,
+            &crate::player::PlayerLedgeState,
+            &crate::player::PlayerEnvironmentContact,
             &mut crate::player::PlayerInteractionState,
             &crate::player::PlayerInputFrame,
         ),
         With<crate::player::PlayerEntity>,
     >,
 ) {
-    let Ok((mut cluster_item, mut interaction, input)) = player_q.single_mut() else {
+    let Ok((
+        mut kinematics,
+        mut body_mode_state,
+        ground,
+        wall,
+        dash,
+        blink,
+        ledge,
+        env_contact,
+        mut interaction,
+        input,
+    )) = player_q.single_mut()
+    else {
         return;
     };
-    let mut clusters = cluster_item.as_clusters_mut();
-    let mut player_owned = crate::player::engine_player_bridge::assemble_player(&clusters);
-    let player = &mut player_owned;
     let controls = &input.frame;
 
     // Mid-action mechanics own the body shape — don't fight them.
-    if player.dash_timer > 0.0 || player.blink_aiming {
-        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
+    if dash.timer > 0.0 || blink.aiming {
         return;
     }
     // Wall / ledge state owns its own posture; reverting it via crouch
     // would break the ledge-grab anchor invariant.
-    if player.wall_clinging || player.wall_climbing || player.ledge_grab.is_some() {
-        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
+    if wall.wall_clinging || wall.wall_climbing || ledge.grab.is_some() {
         return;
     }
     // In-water posture: leave water swim mechanics alone.
-    if player.water_contact.is_some() {
-        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
+    if env_contact.water.is_some() {
         return;
     }
 
     let down_held = controls.axis_y > CROUCH_AXIS_Y_THRESHOLD;
     let up_held = controls.axis_y < -CROUCH_AXIS_Y_THRESHOLD;
-    let on_ground = player.on_ground;
-    let mode = player.body_mode;
+    let on_ground = ground.on_ground;
+    let mode = body_mode_state.body_mode;
     let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);
-    let climbable_contact_present = player.climbable_contact.is_some();
+    let climbable_contact_present = env_contact.climbable.is_some();
 
     // Consume the double-tap-down edge regardless of branch so we
     // don't latch a stale signal across frames or gameplay states.
@@ -92,26 +101,22 @@ pub fn update_body_mode(
     // Engine's `integrate_climb` defensive-zeros velocity if contact
     // is None mid-climb, so the visible result of a contact loss is a
     // one-frame velocity stall before this driver flips back to
-    // Standing — acceptable for the first slice. Future polish can
-    // grant the player a small "let-go" velocity here so falling off
-    // the bottom feels natural.
+    // Standing — acceptable for the first slice.
     if mode == ae::BodyMode::Climbing {
         let exit_via_jump = controls.jump_pressed;
         let exit_via_lost_contact = !climbable_contact_present;
         if exit_via_jump || exit_via_lost_contact {
-            let _ = ae::try_change_body_mode(player, ae::BodyMode::Standing, &world.0, solid);
-            // Falling-through bottom of ladder gets the player a
-            // small downward nudge so they don't hover at the bottom
-            // edge waiting for gravity to take over. Pushing off via
-            // jump leaves vel.y as the engine wrote it (Climbing
-            // sets vel = (0, 0) on each tick when input is zero, so
-            // the integrate path on the next frame will compute a
-            // proper jump impulse from `jump_pressed`).
+            let _ = ae::try_change_body_mode_clusters(
+                &mut kinematics,
+                &mut body_mode_state,
+                ae::BodyMode::Standing,
+                &world.0,
+                solid,
+            );
             return;
         }
         // Otherwise stay Climbing — engine drives motion through
         // integrate_climb. No body-mode change this frame.
-        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
 
@@ -119,12 +124,16 @@ pub fn update_body_mode(
     // engages the ladder. Down is gated to NOT trigger climbing while
     // grounded (so a Down-press on a floor stays a crouch). Up, by
     // contrast, can engage from grounded as a "step onto the ladder
-    // from below" gesture. This mirrors the LDtk authoring intent
-    // where ladders typically begin at floor level.
+    // from below" gesture.
     let climb_initiator = (up_held) || (down_held && !on_ground);
     if climbable_contact_present && climb_initiator && mode != ae::BodyMode::MorphBall {
-        let _ = ae::try_change_body_mode(player, ae::BodyMode::Climbing, &world.0, solid);
-        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
+        let _ = ae::try_change_body_mode_clusters(
+            &mut kinematics,
+            &mut body_mode_state,
+            ae::BodyMode::Climbing,
+            &world.0,
+            solid,
+        );
         return;
     }
 
@@ -134,24 +143,30 @@ pub fn update_body_mode(
     // the ball. Up-pressed (a tap, not held) is also accepted as the
     // unmorph gesture so keyboards that bind Up to a different
     // physical key can still escape the ball without committing to a
-    // jump arc — useful for testing on layouts where Jump and Up
-    // map to the same key.
+    // jump arc.
     if mode == ae::BodyMode::MorphBall {
         if controls.jump_pressed || controls.up_pressed {
-            let _ = ae::try_change_body_mode(player, ae::BodyMode::Standing, &world.0, solid);
+            let _ = ae::try_change_body_mode_clusters(
+                &mut kinematics,
+                &mut body_mode_state,
+                ae::BodyMode::Standing,
+                &world.0,
+                solid,
+            );
         }
-        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
 
     // Double-tap-down on the ground from Standing or Crouching curls
-    // into MorphBall. The signal is `PlayerInteractionState::double_tap_down_pending`,
-    // set by `input_timer_system` on the ECS component. The engine gates
-    // fast_fall on `!on_ground` already, so the same gesture firing
-    // morph-ball when grounded has no input crosstalk.
+    // into MorphBall.
     if on_ground && double_tap_down {
-        let _ = ae::try_change_body_mode(player, ae::BodyMode::MorphBall, &world.0, solid);
-        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
+        let _ = ae::try_change_body_mode_clusters(
+            &mut kinematics,
+            &mut body_mode_state,
+            ae::BodyMode::MorphBall,
+            &world.0,
+            solid,
+        );
         return;
     }
 
@@ -162,14 +177,14 @@ pub fn update_body_mode(
     };
 
     if mode == target {
-        crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
         return;
     }
 
-    // The engine helper does the resize-with-fit check; ignore the
-    // boolean result — a blocked stand-up is the desired UX (player
-    // stays crouched under the ceiling) and the auto-trace diff will
-    // surface a successful transition.
-    let _ = ae::try_change_body_mode(player, target, &world.0, solid);
-    crate::player::engine_player_bridge::commit_player(player_owned, &mut clusters);
+    let _ = ae::try_change_body_mode_clusters(
+        &mut kinematics,
+        &mut body_mode_state,
+        target,
+        &world.0,
+        solid,
+    );
 }

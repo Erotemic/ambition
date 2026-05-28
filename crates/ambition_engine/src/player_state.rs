@@ -303,6 +303,35 @@ where
     true
 }
 
+/// Cluster-ref variant of [`try_change_body_mode`]. Mutates only the
+/// kinematics (pos, size) and body-mode cluster components; the rest
+/// of the player state is untouched. Use this from cluster-aware
+/// sandbox systems to avoid the engine_player_bridge round-trip.
+pub fn try_change_body_mode_clusters<F>(
+    kinematics: &mut crate::player_clusters::PlayerKinematics,
+    body_mode_state: &mut crate::player_clusters::PlayerBodyModeState,
+    new_mode: BodyMode,
+    world: &crate::world::World,
+    predicate: F,
+) -> bool
+where
+    F: FnMut(&crate::world::Block) -> bool,
+{
+    if body_mode_state.body_mode == new_mode {
+        return true;
+    }
+    let new_shape = new_mode.shape(kinematics.base_size);
+    let dy = (kinematics.size.y - new_shape.size.y) * 0.5;
+    let new_center = Vec2::new(kinematics.pos.x, kinematics.pos.y + dy);
+    if !new_shape.fits_at(new_center, world, predicate) {
+        return false;
+    }
+    kinematics.pos = new_center;
+    kinematics.size = new_shape.size;
+    body_mode_state.body_mode = new_mode;
+    true
+}
+
 /// Result of [`classify_player_safety`]. The recorder, OOB detector,
 /// and "remember safe spawn point" logic all consult this so a single
 /// place defines what counts as a legal player position.

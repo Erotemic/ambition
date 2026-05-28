@@ -170,7 +170,6 @@ pub fn process_sandbox_reset_request(
         player_q.single_mut()
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        // Cluster-native reset: no engine_player_bridge round-trip needed.
         ae::reset_player_clusters(&mut clusters, world.0.spawn);
         // reset_player_clusters uses DEFAULT_TUNING for the post-reset
         // dash/jump refresh; redo with the live tuning so a F3

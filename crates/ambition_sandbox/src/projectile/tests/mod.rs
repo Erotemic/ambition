@@ -42,12 +42,11 @@ fn dummy_world() -> World {
 }
 
 fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
-    // Cluster-native (2026-05-28): `PlayerBody` was removed in the
-    // sandbox-wide cluster migration. Spawn via
-    // `PlayerSimulationBundle` so the spawned entity carries every
+    // Spawn via `PlayerSimulationBundle` so the entity carries every
     // component the projectile system + visuals path queries
     // (`PlayerKinematics`, `PlayerEntity`, `PrimaryPlayer`,
-    // `LocalPlayer`, `PlayerInputFrame`, …) with no manual list.
+    // `LocalPlayer`, `PlayerInputFrame`, the 17 other cluster
+    // components, …) with no manual spawn-tuple list.
     let mut scratch = crate::player::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
     scratch.kinematics.facing = facing;
     scratch.ground.on_ground = true;

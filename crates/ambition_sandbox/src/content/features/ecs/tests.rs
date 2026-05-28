@@ -14,10 +14,9 @@ use bevy::prelude::{App, Update, With};
 /// buffer is pre-filled so the system sees it as buffered on the first
 /// `app.update()` call.
 fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
-    // Cluster-native (2026-05-28): `PlayerBody` is gone. The
-    // interaction system queries `PlayerKinematics` + `PlayerEntity`
-    // (and reads interact_buffer_timer); `PlayerSimulationBundle`
-    // covers all of that.
+    // The interaction system queries `PlayerKinematics` +
+    // `PlayerEntity` (and reads interact_buffer_timer);
+    // `PlayerSimulationBundle` covers all of that.
     let mut scratch =
         crate::player::primary_player_scratch(player_pos, ae::AbilitySet::sandbox_all());
     scratch.ground.on_ground = true;

@@ -48,74 +48,12 @@ pub struct PlayerClustersMut<'a> {
     pub combo_trace: &'a mut PlayerComboTrace,
 }
 
-impl<'a> PlayerClustersMut<'a> {
-    /// Build an owned `Player` from the cluster refs. Used by the
-    /// engine wrapper entry points that still call into the legacy
-    /// `&mut Player` movement helpers (Phase 3 transitional shim;
-    /// Phase 3d deletes both ae::Player and this helper).
-    pub fn to_player(&self) -> Player {
-        Player {
-            abilities: self.abilities.abilities,
-            pos: self.kinematics.pos,
-            vel: self.kinematics.vel,
-            size: self.kinematics.size,
-            base_size: self.kinematics.base_size,
-            facing: self.kinematics.facing,
-            on_ground: self.ground.on_ground,
-            on_wall: self.wall.on_wall,
-            wall_normal_x: self.wall.wall_normal_x,
-            dash_charges_available: self.dash.charges_available,
-            air_jumps_available: self.jump.air_jumps_available,
-            fly_enabled: self.flight.fly_enabled,
-            flight_phase: self.flight.flight_phase,
-            blink_cooldown: self.blink.cooldown,
-            blink_hold_active: self.blink.hold_active,
-            blink_hold_timer: self.blink.hold_timer,
-            blink_aiming: self.blink.aiming,
-            blink_aim_offset: self.blink.aim_offset,
-            blink_grace_timer: self.blink.grace_timer,
-            fast_falling: self.flight.fast_falling,
-            gliding: self.flight.gliding,
-            wall_clinging: self.wall.wall_clinging,
-            wall_climbing: self.wall.wall_climbing,
-            dash_timer: self.dash.timer,
-            dash_cooldown: self.dash.cooldown,
-            dash_buffer_timer: self.action_buffer.dash,
-            jump_buffer_timer: self.action_buffer.jump,
-            coyote_timer: self.ground.coyote_timer,
-            rebound_cooldown: self.ground.rebound_cooldown,
-            drop_through_timer: self.ground.drop_through_timer,
-            combo: self.combo_trace.combo.clone(),
-            max_speed: self.lifetime.max_speed,
-            time_alive: self.lifetime.time_alive,
-            resets: self.lifetime.resets,
-            damage_multiplier: self.offense.damage_multiplier,
-            mana: self.mana.meter,
-            invincible: self.offense.invincible,
-            body_mode: self.body_mode.body_mode,
-            water_contact: self.env_contact.water,
-            climbable_contact: self.env_contact.climbable,
-            ledge_grab: self.ledge.grab,
-            pre_wall_vel: self.wall.pre_wall_vel,
-            pre_wall_vel_age: self.wall.pre_wall_vel_age,
-            ledge_release_cooldown: self.ledge.release_cooldown,
-            dodge_roll_timer: self.dodge.roll_timer,
-            dodge_roll_cooldown: self.dodge.cooldown,
-            shield_active: self.shield.active,
-            parry_window_timer: self.shield.parry_window_timer,
-        }
-    }
-
-    // `write_from_player` and `with_player_scratchpad` were removed
-    // 2026-05-28 once every engine helper had a cluster-native
-    // variant. `to_player` is kept (above) as a read-only snapshot
-    // used by debug overlay / trace recording / the combat helpers
-    // (`resolve_attack_intent`, `attack_spec`, `attack_hitbox`).
-    // Those readers don't mutate; they only synthesize a `Player`
-    // so the legacy `&Player`-shaped helpers can keep their flat
-    // field-access syntax. Once they're cluster-aware, `to_player`
-    // and the `Player` struct itself can go too.
-}
+// `to_player`, `write_from_player`, and `with_player_scratchpad` were
+// removed 2026-05-28. The cluster-native engine helpers + the
+// cluster-native readers (debug overlay, trace recorder, combat
+// helpers) made the read-only Player snapshot unnecessary in
+// production. Tests that still build an `ae::Player` bridge to a
+// `PlayerClustersMut` via [`PlayerClusterScratch::from_player`].
 
 /// Bevy query data that matches [`PlayerClustersMut`]. Use in a system
 /// signature as `Query<PlayerClusterQueryData, ...>` and call

@@ -565,7 +565,7 @@ pub(super) fn begin_ecs_breakable_respawn(
     entity: Entity,
     breakable: &crate::interaction::Breakable,
 ) {
-    if let ae::RespawnPolicy::AfterSeconds(seconds) = breakable.respawn {
+    if let crate::actor::RespawnPolicy::AfterSeconds(seconds) = breakable.respawn {
         commands.entity(entity).insert(RespawnTimer(seconds));
     }
 }

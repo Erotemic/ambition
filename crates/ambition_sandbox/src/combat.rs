@@ -5,7 +5,7 @@
 //! here lets tests and future headless validators reason about combat without a
 //! renderer.
 
-use ambition_engine::{ActorFaction, KinematicPath, RespawnPolicy};
+use crate::actor::{ActorFaction, KinematicPath, RespawnPolicy};
 use ambition_engine::{Aabb, AabbExt};
 use ambition_engine::Player;
 use ambition_engine::Vec2;

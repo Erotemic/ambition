@@ -809,10 +809,10 @@ pub fn entity_sprite_for_interactable(interactable: &crate::interaction::Interac
     }
 }
 
-pub fn entity_sprite_for_enemy(brain: &ae::EnemyBrain) -> Option<EntitySprite> {
+pub fn entity_sprite_for_enemy(brain: &crate::actor::EnemyBrain) -> Option<EntitySprite> {
     match brain {
         // Sandbag training dummies use a dedicated static sprite.
-        ae::EnemyBrain::Custom(name) if name.starts_with("sandbag_") => {
+        crate::actor::EnemyBrain::Custom(name) if name.starts_with("sandbag_") => {
             Some(EntitySprite::SandbagDummy)
         }
         // Other enemies use the goblin spritesheet (animated), not a
@@ -821,7 +821,7 @@ pub fn entity_sprite_for_enemy(brain: &ae::EnemyBrain) -> Option<EntitySprite> {
     }
 }
 
-pub fn entity_sprite_for_boss(_brain: &ae::BossBrain) -> Option<EntitySprite> {
+pub fn entity_sprite_for_boss(_brain: &crate::actor::BossBrain) -> Option<EntitySprite> {
     Some(EntitySprite::BossCore)
 }
 

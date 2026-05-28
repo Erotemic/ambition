@@ -276,7 +276,7 @@ mod conversion_tests {
             ("sandbag_finite", EnemyArchetype::FiniteSandbag),
             ("unknown_brain", EnemyArchetype::Combatant),
         ] {
-            let brain = ae::EnemyBrain::Custom(name.to_string());
+            let brain = crate::actor::EnemyBrain::Custom(name.to_string());
             assert_eq!(EnemyArchetype::from_brain(&brain), expected);
         }
     }
@@ -399,7 +399,7 @@ mod conversion_tests {
             "skitter",
             "skitter",
             aabb,
-            ae::EnemyBrain::Custom("small_skitter".into()),
+            crate::actor::EnemyBrain::Custom("small_skitter".into()),
             &[],
         );
         // Newly spawned enemies carry a short spawn grace cooldown.
@@ -427,10 +427,10 @@ mod conversion_tests {
     fn path_enemy_holds_patrol_and_starts_attack_from_character_ai_output() {
         let world = enemy_test_world();
         let aabb = enemy_aabb(ae::Vec2::new(100.0, 536.0));
-        let path = ae::KinematicPath {
+        let path = crate::actor::KinematicPath {
             points: vec![ae::Vec2::new(100.0, 536.0), ae::Vec2::new(260.0, 536.0)],
             speed: 120.0,
-            mode: ae::KinematicPathMode::PingPong,
+            mode: crate::actor::KinematicPathMode::PingPong,
             start_offset_seconds: 0.0,
         };
         let paths = vec![("skitter_path".to_string(), path)];
@@ -438,7 +438,7 @@ mod conversion_tests {
             "path_skitter",
             "path_skitter",
             aabb,
-            ae::EnemyBrain::Patrol {
+            crate::actor::EnemyBrain::Patrol {
                 path_id: Some("skitter_path".into()),
             },
             &paths,
@@ -493,7 +493,7 @@ mod conversion_tests {
             "shark_a",
             "Burning Flying Shark",
             aabb,
-            ae::EnemyBrain::Custom("pirate_on_shark".into()),
+            crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
             &[],
         );
         assert_eq!(enemy.archetype, EnemyArchetype::PirateOnShark);
@@ -591,7 +591,7 @@ mod conversion_tests {
             "shark_a",
             "Burning Flying Shark",
             aabb,
-            ae::EnemyBrain::Custom("pirate_on_shark".into()),
+            crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
             &[],
         );
         enemy.attack_cooldown = 0.0;
@@ -641,10 +641,10 @@ mod conversion_tests {
             ],
         );
         let aabb = enemy_aabb(ae::Vec2::new(100.0, 536.0));
-        let path = ae::KinematicPath {
+        let path = crate::actor::KinematicPath {
             points: vec![ae::Vec2::new(100.0, 536.0), ae::Vec2::new(400.0, 536.0)],
             speed: 120.0,
-            mode: ae::KinematicPathMode::PingPong,
+            mode: crate::actor::KinematicPathMode::PingPong,
             start_offset_seconds: 0.0,
         };
         let paths = vec![("skitter_path".to_string(), path)];
@@ -652,7 +652,7 @@ mod conversion_tests {
             "path_skitter",
             "path_skitter",
             aabb,
-            ae::EnemyBrain::Patrol {
+            crate::actor::EnemyBrain::Patrol {
                 path_id: Some("skitter_path".into()),
             },
             &paths,
@@ -697,7 +697,7 @@ mod conversion_tests {
             "shark_a",
             "Burning Flying Shark",
             aabb,
-            ae::EnemyBrain::Custom("pirate_on_shark".into()),
+            crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
             &[],
         );
         assert_eq!(enemy.archetype, EnemyArchetype::PirateOnShark);

@@ -22,7 +22,6 @@
 //! they provide battle-tested primitives that beat bespoke versions.
 
 pub mod abilities;
-pub mod actor;
 pub mod player_clusters;
 pub mod geometry;
 pub mod ledge_grab;
@@ -33,10 +32,6 @@ pub mod world;
 // Re-export the public surface so story/sandbox crates can treat the engine as
 // the main mechanics API while the internals stay organized by concern.
 pub use abilities::AbilitySet;
-pub use actor::{
-    Actor, ActorFaction, ActorKind, BossBrain, EnemyBrain, Health, KinematicPath,
-    KinematicPathMode, RespawnPolicy,
-};
 pub use bevy_math::Vec2;
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
 pub use ledge_grab::{

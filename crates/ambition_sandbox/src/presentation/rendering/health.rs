@@ -105,7 +105,7 @@ fn spawn_health_overlay(
     world: &ae::World,
     name: &str,
     aabb: ae::Aabb,
-    health: ae::Health,
+    health: crate::actor::Health,
     fill_color: Color,
 ) {
     let width = aabb.width().max(56.0);

@@ -102,7 +102,7 @@ enum MovingPlatformMotion {
         dir: f32,
     },
     Path {
-        path: ae::KinematicPath,
+        path: crate::actor::KinematicPath,
         segment: usize,
         dir: i32,
     },
@@ -157,7 +157,7 @@ impl MovingPlatformState {
         id: impl Into<String>,
         name: impl Into<String>,
         size: ae::Vec2,
-        path: ae::KinematicPath,
+        path: crate::actor::KinematicPath,
     ) -> Self {
         let pos = path.points.first().copied().unwrap_or(ae::Vec2::ZERO);
         Self {
@@ -245,7 +245,7 @@ impl MovingPlatformState {
 }
 
 fn advance_path_position(
-    path: &ae::KinematicPath,
+    path: &crate::actor::KinematicPath,
     segment: &mut usize,
     dir: &mut i32,
     mut pos: ae::Vec2,
@@ -276,15 +276,15 @@ fn advance_path_position(
     pos
 }
 
-fn advance_path_segment(path: &ae::KinematicPath, segment: &mut usize, dir: &mut i32) {
+fn advance_path_segment(path: &crate::actor::KinematicPath, segment: &mut usize, dir: &mut i32) {
     let last_segment = path.points.len().saturating_sub(2);
     match path.mode {
-        ae::KinematicPathMode::Once => {
+        crate::actor::KinematicPathMode::Once => {
             if *dir >= 0 && *segment < last_segment {
                 *segment += 1;
             }
         }
-        ae::KinematicPathMode::Loop => {
+        crate::actor::KinematicPathMode::Loop => {
             if *dir >= 0 {
                 *segment = if *segment >= last_segment {
                     0
@@ -297,7 +297,7 @@ fn advance_path_segment(path: &ae::KinematicPath, segment: &mut usize, dir: &mut
                 *segment -= 1;
             }
         }
-        ae::KinematicPathMode::PingPong => {
+        crate::actor::KinematicPathMode::PingPong => {
             if *dir >= 0 {
                 if *segment >= last_segment {
                     *dir = -1;
@@ -553,10 +553,10 @@ mod tests {
 
     #[test]
     fn path_driven_platform_advances_along_authored_path() {
-        let path = ae::KinematicPath {
+        let path = crate::actor::KinematicPath {
             points: vec![ae::Vec2::new(100.0, 200.0), ae::Vec2::new(180.0, 200.0)],
             speed: 80.0,
-            mode: ae::KinematicPathMode::PingPong,
+            mode: crate::actor::KinematicPathMode::PingPong,
             start_offset_seconds: 0.0,
         };
         let mut platform =
@@ -569,10 +569,10 @@ mod tests {
 
     #[test]
     fn moving_platform_spec_resolves_path_id_against_room_paths() {
-        let path = ae::KinematicPath {
+        let path = crate::actor::KinematicPath {
             points: vec![ae::Vec2::new(20.0, 30.0), ae::Vec2::new(120.0, 30.0)],
             speed: 50.0,
-            mode: ae::KinematicPathMode::PingPong,
+            mode: crate::actor::KinematicPathMode::PingPong,
             start_offset_seconds: 0.0,
         };
         let spec = KinematicPathSpec::new(

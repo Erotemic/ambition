@@ -296,10 +296,10 @@ impl BossBehaviorProfile {
 /// 2. `BossBrain::Custom(label)` with a non-empty label — same
 ///    intent, weaker contract.
 /// 3. `encounter_id_from_name(authored_name)` — legacy fallback.
-pub fn canonical_boss_id_from(name: &str, brain: &ae::BossBrain) -> String {
+pub fn canonical_boss_id_from(name: &str, brain: &crate::actor::BossBrain) -> String {
     match brain {
-        ae::BossBrain::PhaseScript { script_id } if !script_id.is_empty() => script_id.clone(),
-        ae::BossBrain::Custom(label) if !label.is_empty() => {
+        crate::actor::BossBrain::PhaseScript { script_id } if !script_id.is_empty() => script_id.clone(),
+        crate::actor::BossBrain::Custom(label) if !label.is_empty() => {
             crate::boss_encounter::encounter_id_from_name(label)
         }
         _ => crate::boss_encounter::encounter_id_from_name(name),
@@ -420,7 +420,7 @@ mod canonical_boss_id_tests {
     fn phase_script_brain_wins_over_display_name() {
         let id = canonical_boss_id_from(
             "System Boss",
-            &ae::BossBrain::PhaseScript {
+            &crate::actor::BossBrain::PhaseScript {
                 script_id: "clockwork_warden".to_string(),
             },
         );
@@ -432,7 +432,7 @@ mod canonical_boss_id_tests {
     fn empty_phase_script_falls_back_to_name() {
         let id = canonical_boss_id_from(
             "System Boss",
-            &ae::BossBrain::PhaseScript {
+            &crate::actor::BossBrain::PhaseScript {
                 script_id: String::new(),
             },
         );
@@ -445,7 +445,7 @@ mod canonical_boss_id_tests {
     fn custom_brain_label_becomes_encounter_id_slug() {
         let id = canonical_boss_id_from(
             "Display",
-            &ae::BossBrain::Custom("Clockwork Warden".to_string()),
+            &crate::actor::BossBrain::Custom("Clockwork Warden".to_string()),
         );
         assert_eq!(id, "clockwork_warden");
     }
@@ -453,7 +453,7 @@ mod canonical_boss_id_tests {
     /// Dormant brain falls back to the display name.
     #[test]
     fn dormant_brain_falls_back_to_name() {
-        let id = canonical_boss_id_from("Clockwork Warden", &ae::BossBrain::Dormant);
+        let id = canonical_boss_id_from("Clockwork Warden", &crate::actor::BossBrain::Dormant);
         assert_eq!(id, "clockwork_warden");
     }
 
@@ -469,7 +469,7 @@ mod canonical_boss_id_tests {
             "boss_under_test",
             "System Boss",
             aabb,
-            ae::BossBrain::PhaseScript {
+            crate::actor::BossBrain::PhaseScript {
                 script_id: "clockwork_warden".to_string(),
             },
         );
@@ -490,7 +490,7 @@ mod boss_special_resolver_tests {
 
     fn gnu_ton_runtime_fixture() -> BossRuntime {
         let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(110.0, 110.0));
-        let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, ae::BossBrain::Dormant);
+        let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, crate::actor::BossBrain::Dormant);
         runtime.behavior = BossBehaviorProfile::gnu_ton();
         runtime
     }
@@ -501,7 +501,7 @@ mod boss_special_resolver_tests {
             "boss_gradient_sentinel",
             "Gradient Sentinel",
             aabb,
-            ae::BossBrain::Dormant,
+            crate::actor::BossBrain::Dormant,
         );
         runtime.behavior = BossBehaviorProfile::clockwork_warden();
         runtime
@@ -721,8 +721,8 @@ pub struct BossRuntime {
     pub pos: ae::Vec2,
     pub spawn: ae::Vec2,
     pub size: ae::Vec2,
-    pub health: ae::Health,
-    pub brain: ae::BossBrain,
+    pub health: crate::actor::Health,
+    pub brain: crate::actor::BossBrain,
     pub behavior: BossBehaviorProfile,
     pub alive: bool,
     pub hit_flash: f32,
@@ -744,7 +744,7 @@ impl BossRuntime {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        brain: ae::BossBrain,
+        brain: crate::actor::BossBrain,
     ) -> Self {
         let name = name.into();
         // Behavior lookup prefers the brain's `PhaseScript:` id
@@ -759,7 +759,7 @@ impl BossRuntime {
             pos: aabb.center(),
             spawn: aabb.center(),
             size: aabb.half_size() * 2.0,
-            health: ae::Health::new(18),
+            health: crate::actor::Health::new(18),
             behavior: BossBehaviorProfile::for_authored_boss(&canonical_id),
             sprite_metrics: None,
             name,
@@ -917,7 +917,7 @@ mod scripted_pattern_tests {
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-        let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, ae::BossBrain::Dormant);
+        let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, crate::actor::BossBrain::Dormant);
         runtime.behavior = behavior;
         runtime.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
         // After the data-driven migration, the head-position invariants
@@ -1333,7 +1333,7 @@ mod scripted_pattern_tests {
             "boss_gradient_sentinel",
             "Gradient Sentinel",
             aabb,
-            ae::BossBrain::Dormant,
+            crate::actor::BossBrain::Dormant,
         );
         boss.behavior = behavior;
         for (label, pattern) in [
@@ -1444,7 +1444,7 @@ mod scripted_pattern_tests {
             "test_warden",
             "Clockwork Warden",
             aabb,
-            ae::BossBrain::Dormant,
+            crate::actor::BossBrain::Dormant,
         );
         boss.behavior = BossBehaviorProfile::clockwork_warden();
         boss.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;

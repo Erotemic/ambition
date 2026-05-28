@@ -43,7 +43,7 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
 fn spawn_hazard(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::combat::DamageVolume>,
-    paths: &[(String, ae::KinematicPath)],
+    paths: &[(String, crate::actor::KinematicPath)],
 ) {
     let hazard = HazardRuntime::new_with_paths(
         authored.id.clone(),
@@ -63,7 +63,7 @@ fn spawn_hazard(
     ));
 }
 
-fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<ae::BossBrain>) {
+fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<crate::actor::BossBrain>) {
     let boss = BossRuntime::new(
         authored.id.clone(),
         authored.name.clone(),
@@ -272,11 +272,11 @@ pub(crate) fn spawn_runtime_minion(
     let name = name.into();
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
-    let brain = ae::EnemyBrain::Custom(archetype_id.into());
+    let brain = crate::actor::EnemyBrain::Custom(archetype_id.into());
     let archetype = EnemyArchetype::from_brain(&brain);
     let mut enemy = EnemyRuntime::new(id.clone(), name.clone(), aabb, brain, &[]);
     enemy.archetype = archetype;
-    enemy.health = ae::Health::new(archetype.max_health());
+    enemy.health = crate::actor::Health::new(archetype.max_health());
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
     enemy.respawn_timer = 999_999.0;
@@ -311,8 +311,8 @@ pub(crate) fn spawn_runtime_minion(
 
 fn spawn_enemy(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ae::EnemyBrain>,
-    paths: &[(String, ae::KinematicPath)],
+    authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
+    paths: &[(String, crate::actor::KinematicPath)],
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let enemy = EnemyRuntime::new(
@@ -501,7 +501,7 @@ fn smash_cfg_for_archetype(arch: super::super::enemies::EnemyArchetype) -> crate
 fn spawn_interactable(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Interactable>,
-    paths: &[(String, ae::KinematicPath)],
+    paths: &[(String, crate::actor::KinematicPath)],
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let interactable = &authored.payload;
@@ -563,7 +563,7 @@ pub fn spawn_encounter_mob(
     commands: &mut Commands,
     encounter_id: impl Into<String>,
     id: String,
-    brain: ae::EnemyBrain,
+    brain: crate::actor::EnemyBrain,
     pos: ae::Vec2,
     size: ae::Vec2,
 ) {
@@ -572,7 +572,7 @@ pub fn spawn_encounter_mob(
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let mut enemy = EnemyRuntime::new(id.clone(), id.clone(), aabb, brain, &[]);
     enemy.archetype = archetype;
-    enemy.health = ae::Health::new(archetype.max_health());
+    enemy.health = crate::actor::Health::new(archetype.max_health());
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.respawn_timer = 999_999.0;
     let brain = enemy_default_brain(&enemy);
@@ -632,7 +632,7 @@ mod tests {
             "test".to_string(),
             "test".to_string(),
             aabb,
-            ae::EnemyBrain::Custom("medium_striker".into()),
+            crate::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
         enemy.archetype = archetype;
@@ -652,7 +652,7 @@ mod tests {
                 &mut commands,
                 "test_encounter",
                 "test_mob".to_string(),
-                ae::EnemyBrain::Custom("medium_striker".into()),
+                crate::actor::EnemyBrain::Custom("medium_striker".into()),
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 30.0),
             );
@@ -679,7 +679,7 @@ mod tests {
                 id: "test_boss".to_string(),
                 name: "Test Warden".to_string(),
                 aabb: ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(40.0, 50.0)),
-                payload: ae::BossBrain::Dormant,
+                payload: crate::actor::BossBrain::Dormant,
             };
             spawn_boss(&mut commands, &authored);
         });
@@ -736,7 +736,7 @@ mod tests {
                 &mut commands,
                 "test_encounter",
                 "test_mob".to_string(),
-                ae::EnemyBrain::Custom("medium_striker".into()),
+                crate::actor::EnemyBrain::Custom("medium_striker".into()),
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 30.0),
             );

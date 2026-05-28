@@ -249,7 +249,7 @@ pub fn update_boss_encounters(
             // the engine spec might say more). The engine spec wins
             // because it carries the design intent.
             if boss.health.max != state.spec.max_hp.max(1) {
-                boss.health = ae::Health::new(state.spec.max_hp.max(1));
+                boss.health = crate::actor::Health::new(state.spec.max_hp.max(1));
             }
             // Mirror engine HP into the runtime so combat reads a
             // single number.

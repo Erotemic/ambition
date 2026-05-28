@@ -265,7 +265,7 @@ impl SandboxSim {
         let health = health_query
             .single(world)
             .map(|h| h.health)
-            .unwrap_or_else(|_| ae::Health::new(20));
+            .unwrap_or_else(|_| crate::actor::Health::new(20));
         let room = world.resource::<RoomSet>().active_spec();
         let combat = combat_query.single(world).ok();
         let recently_damaged = combat.is_some_and(|c| c.damage_invuln_timer > 0.0);

@@ -358,9 +358,9 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 SurfaceBreakability::Indestructible => unreachable!(),
             };
             breakable.respawn = match spec.respawn {
-                SurfaceRespawn::Never => ae::RespawnPolicy::Never,
-                SurfaceRespawn::OnRoomReload => ae::RespawnPolicy::OnRoomReload,
-                SurfaceRespawn::AfterSeconds(seconds) => ae::RespawnPolicy::AfterSeconds(seconds),
+                SurfaceRespawn::Never => crate::actor::RespawnPolicy::Never,
+                SurfaceRespawn::OnRoomReload => crate::actor::RespawnPolicy::OnRoomReload,
+                SurfaceRespawn::AfterSeconds(seconds) => crate::actor::RespawnPolicy::AfterSeconds(seconds),
             };
             breakable.pogo_refresh = pogo_orb_combo;
             breakables.push(crate::rooms::Authored::new(

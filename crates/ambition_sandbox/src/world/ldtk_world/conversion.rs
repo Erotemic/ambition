@@ -127,8 +127,8 @@ impl LdtkProject {
         let mut pickups: Vec<crate::rooms::Authored<crate::interaction::Pickup>> = Vec::new();
         let mut chests: Vec<crate::rooms::Authored<crate::interaction::Chest>> = Vec::new();
         let mut breakables: Vec<crate::rooms::Authored<crate::interaction::Breakable>> = Vec::new();
-        let mut enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>> = Vec::new();
-        let mut boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>> = Vec::new();
+        let mut enemy_spawns: Vec<crate::rooms::Authored<crate::actor::EnemyBrain>> = Vec::new();
+        let mut boss_spawns: Vec<crate::rooms::Authored<crate::actor::BossBrain>> = Vec::new();
         let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
@@ -307,8 +307,8 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) pickups: Vec<crate::rooms::Authored<crate::interaction::Pickup>>,
     pub(super) chests: Vec<crate::rooms::Authored<crate::interaction::Chest>>,
     pub(super) breakables: Vec<crate::rooms::Authored<crate::interaction::Breakable>>,
-    pub(super) enemy_spawns: Vec<crate::rooms::Authored<ae::EnemyBrain>>,
-    pub(super) boss_spawns: Vec<crate::rooms::Authored<ae::BossBrain>>,
+    pub(super) enemy_spawns: Vec<crate::rooms::Authored<crate::actor::EnemyBrain>>,
+    pub(super) boss_spawns: Vec<crate::rooms::Authored<crate::actor::BossBrain>>,
     pub(super) debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
     pub(super) ignored: bool,
 }
@@ -408,14 +408,14 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn enemy_spawn(authored: crate::rooms::Authored<ae::EnemyBrain>) -> Self {
+    fn enemy_spawn(authored: crate::rooms::Authored<crate::actor::EnemyBrain>) -> Self {
         Self {
             enemy_spawns: vec![authored],
             ..Self::default()
         }
     }
 
-    fn boss_spawn(authored: crate::rooms::Authored<ae::BossBrain>) -> Self {
+    fn boss_spawn(authored: crate::rooms::Authored<crate::actor::BossBrain>) -> Self {
         Self {
             boss_spawns: vec![authored],
             ..Self::default()
@@ -601,7 +601,7 @@ fn convert_kinematic_path(
     if speed <= 0.0 {
         return Err("KinematicPath speed must be positive".to_string());
     }
-    let path = ae::KinematicPath {
+    let path = crate::actor::KinematicPath {
         points,
         speed,
         mode: parse_path_mode(
@@ -724,7 +724,7 @@ fn convert_enemy_spawn(
         field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"))
     {
         if !path_id.trim().is_empty() {
-            brain = ae::EnemyBrain::Patrol {
+            brain = crate::actor::EnemyBrain::Patrol {
                 path_id: Some(path_id.trim().to_string()),
             };
         }

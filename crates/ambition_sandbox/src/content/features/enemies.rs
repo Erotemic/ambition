@@ -29,8 +29,8 @@ pub struct EnemyRuntime {
     pub spawn: ae::Vec2,
     pub size: ae::Vec2,
     pub vel: ae::Vec2,
-    pub health: ae::Health,
-    pub brain: ae::EnemyBrain,
+    pub health: crate::actor::Health,
+    pub brain: crate::actor::EnemyBrain,
     pub archetype: EnemyArchetype,
     /// Authored spawn archetype, captured at construction. `archetype`
     /// can mutate at runtime (PirateOnShark dismounts into
@@ -80,7 +80,7 @@ pub struct EnemyRuntime {
     /// Optional separate "rider" health — used by the fused
     /// `PirateOnShark` actor where the pirate on top can be killed
     /// independently of the shark. `None` for everyone else.
-    pub rider_health: Option<ae::Health>,
+    pub rider_health: Option<crate::actor::Health>,
     /// Outward-pointing unit normal of the surface the actor is
     /// currently clinging to. Used by surface-walking archetypes
     /// (`PuppySlug`) to crawl floors, walls, and ceilings; all
@@ -185,7 +185,7 @@ pub enum EnemyArchetype {
     PirateHeavyOnShark,
 }
 
-/// Maps `ae::EnemyBrain::Custom("...")` strings to archetype variants.
+/// Maps `crate::actor::EnemyBrain::Custom("...")` strings to archetype variants.
 /// `from_brain` walks this table, falling back to `Combatant` for any
 /// unknown brain string or a non-`Custom` variant.
 const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
@@ -387,8 +387,8 @@ impl EnemyArchetype {
         Self::PirateHeavyOnShark,
     ];
 
-    pub(super) fn from_brain(brain: &ae::EnemyBrain) -> Self {
-        let ae::EnemyBrain::Custom(name) = brain else {
+    pub(super) fn from_brain(brain: &crate::actor::EnemyBrain) -> Self {
+        let crate::actor::EnemyBrain::Custom(name) = brain else {
             return Self::Combatant;
         };
         BRAIN_NAME_TO_ARCHETYPE
@@ -578,12 +578,12 @@ impl EnemyRuntime {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        brain: ae::EnemyBrain,
-        paths: &[(String, ae::KinematicPath)],
+        brain: crate::actor::EnemyBrain,
+        paths: &[(String, crate::actor::KinematicPath)],
     ) -> Self {
         let archetype = EnemyArchetype::from_brain(&brain);
         let motion = match &brain {
-            ae::EnemyBrain::Patrol {
+            crate::actor::EnemyBrain::Patrol {
                 path_id: Some(path_id),
             } if !archetype.is_sandbag() => paths
                 .iter()
@@ -605,7 +605,7 @@ impl EnemyRuntime {
             spawn: pos,
             size,
             vel: ae::Vec2::ZERO,
-            health: ae::Health::new(archetype.max_health()),
+            health: crate::actor::Health::new(archetype.max_health()),
             brain,
             archetype,
             spawn_archetype: archetype,
@@ -624,7 +624,7 @@ impl EnemyRuntime {
             gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
             choreography: archetype.choreography(),
             choreography_state: crate::attack_choreography::ChoreographyState::default(),
-            rider_health: archetype.rider_max_health().map(ae::Health::new),
+            rider_health: archetype.rider_max_health().map(crate::actor::Health::new),
             surface_normal: ae::Vec2::new(0.0, -1.0),
             pending_attack_axis: ae::Vec2::new(-1.0, 0.0),
             air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
@@ -647,8 +647,8 @@ impl EnemyRuntime {
         self.pos = self.spawn;
         self.vel = ae::Vec2::ZERO;
         self.alive = true;
-        self.health = ae::Health::new(archetype.max_health());
-        self.rider_health = archetype.rider_max_health().map(ae::Health::new);
+        self.health = crate::actor::Health::new(archetype.max_health());
+        self.rider_health = archetype.rider_max_health().map(crate::actor::Health::new);
         self.gravity_scale = if archetype.is_aerial() { 0.0 } else { 1.0 };
         self.choreography = archetype.choreography();
         self.choreography_state = crate::attack_choreography::ChoreographyState::default();
@@ -788,7 +788,7 @@ impl EnemyRuntime {
         self.archetype = dismount_target;
         self.choreography = self.archetype.choreography();
         self.choreography_state = crate::attack_choreography::ChoreographyState::default();
-        self.health = ae::Health::new(dismount_target.max_health());
+        self.health = crate::actor::Health::new(dismount_target.max_health());
         self.health.current = inherited_hp.min(self.health.max);
         self.rider_health = None;
         self.gravity_scale = 1.0;
@@ -899,8 +899,8 @@ impl EnemyRuntime {
             0.0
         };
         let effective_aggro_radius = match &self.brain {
-            ae::EnemyBrain::Passive => 0.0,
-            ae::EnemyBrain::Guard { leash_radius } => *leash_radius,
+            crate::actor::EnemyBrain::Passive => 0.0,
+            crate::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
             _ => self.archetype.aggro_radius(),
         };
         let ai = crate::character_ai::evaluate_character_ai_output(crate::character_ai::CharacterAiSnapshot {
@@ -914,7 +914,7 @@ impl EnemyRuntime {
             stun_remaining: 0.0,
             alive: self.alive,
             patrol_enabled: !self.archetype.is_sandbag()
-                && !matches!(self.brain, ae::EnemyBrain::Passive),
+                && !matches!(self.brain, crate::actor::EnemyBrain::Passive),
         });
         self.ai_mode = ai.mode;
 

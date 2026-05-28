@@ -437,7 +437,7 @@ pub struct KinematicPathSpec {
     pub id: String,
     pub name: String,
     pub aabb: ae::Aabb,
-    pub path: ae::KinematicPath,
+    pub path: crate::actor::KinematicPath,
 }
 
 impl KinematicPathSpec {
@@ -445,7 +445,7 @@ impl KinematicPathSpec {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        path: ae::KinematicPath,
+        path: crate::actor::KinematicPath,
     ) -> Self {
         Self {
             id: id.into(),
@@ -549,8 +549,8 @@ pub struct RoomSpec {
     pub pickups: Vec<Authored<crate::interaction::Pickup>>,
     pub chests: Vec<Authored<crate::interaction::Chest>>,
     pub breakables: Vec<Authored<crate::interaction::Breakable>>,
-    pub enemy_spawns: Vec<Authored<ae::EnemyBrain>>,
-    pub boss_spawns: Vec<Authored<ae::BossBrain>>,
+    pub enemy_spawns: Vec<Authored<crate::actor::EnemyBrain>>,
+    pub boss_spawns: Vec<Authored<crate::actor::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
 }
 

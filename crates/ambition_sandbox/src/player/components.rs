@@ -93,11 +93,11 @@ pub struct PlayerInputFrame {
 /// ECS-owned player health.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlayerHealth {
-    pub health: ae::Health,
+    pub health: crate::actor::Health,
 }
 
 impl PlayerHealth {
-    pub fn new(health: ae::Health) -> Self {
+    pub fn new(health: crate::actor::Health) -> Self {
         Self { health }
     }
 
@@ -608,7 +608,7 @@ mod multiplayer_smoke_tests {
                 PlayerEntity,
                 PlayerSlot(0),
                 PrimaryPlayer,
-                PlayerHealth::new(ae::Health {
+                PlayerHealth::new(crate::actor::Health {
                     current: 1,
                     max: 5,
                     invulnerable: false,
@@ -620,7 +620,7 @@ mod multiplayer_smoke_tests {
             .spawn((
                 PlayerEntity,
                 PlayerSlot(1),
-                PlayerHealth::new(ae::Health {
+                PlayerHealth::new(crate::actor::Health {
                     current: 1,
                     max: 5,
                     invulnerable: false,
@@ -657,7 +657,7 @@ mod multiplayer_smoke_tests {
                 PlayerEntity,
                 PlayerSlot(0),
                 PrimaryPlayer,
-                PlayerHealth::new(ae::Health {
+                PlayerHealth::new(crate::actor::Health {
                     current: 1,
                     max: 5,
                     invulnerable: false,
@@ -669,7 +669,7 @@ mod multiplayer_smoke_tests {
             .spawn((
                 PlayerEntity,
                 PlayerSlot(1),
-                PlayerHealth::new(ae::Health {
+                PlayerHealth::new(crate::actor::Health {
                     current: 1,
                     max: 5,
                     invulnerable: false,

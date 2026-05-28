@@ -107,7 +107,7 @@ impl ActorRuntime {
             npc.id.clone(),
             npc.name.clone(),
             npc.aabb(),
-            ae::EnemyBrain::Custom("medium_striker".into()),
+            crate::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
         enemy.pos = npc.pos;
@@ -137,7 +137,7 @@ pub(crate) fn actor_component_snapshot(
         ActorRuntime::Peaceful(npc) => (
             ActorIdentity::new(npc.id.clone(), npc.name.clone()),
             ActorDisposition::Peaceful,
-            ActorHealth::new(ae::Health::new(1)),
+            ActorHealth::new(crate::actor::Health::new(1)),
             ActorCombatState::peaceful(npc.strikes, npc.hit_flash),
             ActorIntent::new(crate::character_ai::CharacterAiMode::Idle),
             ActorCooldowns::default(),

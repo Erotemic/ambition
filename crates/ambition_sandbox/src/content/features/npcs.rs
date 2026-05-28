@@ -90,7 +90,7 @@ impl NpcRuntime {
         name: impl Into<String>,
         aabb: ae::Aabb,
         interactable: crate::interaction::Interactable,
-        paths: &[(String, ae::KinematicPath)],
+        paths: &[(String, crate::actor::KinematicPath)],
     ) -> Self {
         let authored_pos = aabb.center();
         let (patrol_radius, motion) = match &interactable.kind {

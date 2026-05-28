@@ -74,7 +74,7 @@ pub fn spawn_room_visuals(
         );
     }
     for enemy in &spec.enemy_spawns {
-        let kind = if matches!(&enemy.payload, ae::EnemyBrain::Custom(name) if name.starts_with("sandbag_"))
+        let kind = if matches!(&enemy.payload, crate::actor::EnemyBrain::Custom(name) if name.starts_with("sandbag_"))
         {
             FeatureVisualKind::Sandbag
         } else {

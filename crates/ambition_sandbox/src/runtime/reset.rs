@@ -295,7 +295,7 @@ mod tests {
             let mut initial =
                 ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
             initial.refresh_movement_resources(ae::DEFAULT_TUNING);
-            let health = ae::Health::new(20);
+            let health = crate::actor::Health::new(20);
             app.world_mut()
                 .spawn(crate::player::PlayerSimulationBundle::new(initial, health));
             let _ = PlayerBlinkCameraState::default();

@@ -341,11 +341,11 @@ impl Default for ActorTarget {
 /// for AI details, but shared systems should read/write this component for HP.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActorHealth {
-    pub health: ae::Health,
+    pub health: crate::actor::Health,
 }
 
 impl ActorHealth {
-    pub fn new(health: ae::Health) -> Self {
+    pub fn new(health: crate::actor::Health) -> Self {
         Self { health }
     }
 

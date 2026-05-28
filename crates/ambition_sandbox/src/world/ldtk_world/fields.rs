@@ -88,20 +88,20 @@ pub(super) fn parse_points(value: &str) -> Vec<ae::Vec2> {
         .collect()
 }
 
-pub(super) fn parse_path_mode(value: &str) -> ae::KinematicPathMode {
+pub(super) fn parse_path_mode(value: &str) -> crate::actor::KinematicPathMode {
     match value.trim().to_ascii_lowercase().replace('-', "_").as_str() {
-        "once" => ae::KinematicPathMode::Once,
-        "loop" => ae::KinematicPathMode::Loop,
-        _ => ae::KinematicPathMode::PingPong,
+        "once" => crate::actor::KinematicPathMode::Once,
+        "loop" => crate::actor::KinematicPathMode::Loop,
+        _ => crate::actor::KinematicPathMode::PingPong,
     }
 }
 
-pub(super) fn parse_optional_path(entity: &LdtkEntityInstance) -> Option<ae::KinematicPath> {
+pub(super) fn parse_optional_path(entity: &LdtkEntityInstance) -> Option<crate::actor::KinematicPath> {
     let points = parse_points(&field_string(entity, "path_points").unwrap_or_default());
     if points.len() < 2 {
         return None;
     }
-    Some(ae::KinematicPath {
+    Some(crate::actor::KinematicPath {
         points,
         speed: field_f32(entity, "path_speed").unwrap_or(100.0),
         mode: parse_path_mode(
@@ -135,35 +135,35 @@ pub(super) fn parse_pickup_kind(value: &str) -> crate::interaction::PickupKind {
     }
 }
 
-pub(super) fn parse_enemy_brain(value: &str) -> ae::EnemyBrain {
+pub(super) fn parse_enemy_brain(value: &str) -> crate::actor::EnemyBrain {
     if let Some(path_id) = value.strip_prefix("Patrol:") {
-        ae::EnemyBrain::Patrol {
+        crate::actor::EnemyBrain::Patrol {
             path_id: Some(path_id.to_string()),
         }
     } else if let Some(radius) = value
         .strip_prefix("Guard:")
         .and_then(|text| text.parse::<f32>().ok())
     {
-        ae::EnemyBrain::Guard {
+        crate::actor::EnemyBrain::Guard {
             leash_radius: radius,
         }
     } else {
         match value {
-            "Passive" => ae::EnemyBrain::Passive,
-            other => ae::EnemyBrain::Custom(other.to_string()),
+            "Passive" => crate::actor::EnemyBrain::Passive,
+            other => crate::actor::EnemyBrain::Custom(other.to_string()),
         }
     }
 }
 
-pub(super) fn parse_boss_brain(value: &str) -> ae::BossBrain {
+pub(super) fn parse_boss_brain(value: &str) -> crate::actor::BossBrain {
     if let Some(script_id) = value.strip_prefix("PhaseScript:") {
-        ae::BossBrain::PhaseScript {
+        crate::actor::BossBrain::PhaseScript {
             script_id: script_id.to_string(),
         }
     } else {
         match value {
-            "Dormant" => ae::BossBrain::Dormant,
-            other => ae::BossBrain::Custom(other.to_string()),
+            "Dormant" => crate::actor::BossBrain::Dormant,
+            other => crate::actor::BossBrain::Custom(other.to_string()),
         }
     }
 }

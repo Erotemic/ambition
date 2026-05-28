@@ -137,7 +137,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         .spawn((
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
-            crate::player::PlayerSimulationBundle::new(initial_player, ae::Health::new(20)),
+            crate::player::PlayerSimulationBundle::new(initial_player, crate::actor::Health::new(20)),
         ))
         .id();
 

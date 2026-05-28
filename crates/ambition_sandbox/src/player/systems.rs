@@ -168,7 +168,7 @@ mod tests {
             ae::Player::new_with_abilities(ae::Vec2::new(0.0, 0.0), ae::AbilitySet::sandbox_all());
         // Force-disable the attack ability.
         player.abilities.attack = false;
-        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        let bundle = crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
         // ActionSet on the bundle reflects the disabled ability.
         let action_set: &ActionSet = &bundle.action_set;
         assert!(
@@ -185,7 +185,7 @@ mod tests {
         let mut player =
             ae::Player::new_with_abilities(ae::Vec2::new(0.0, 0.0), ae::AbilitySet::sandbox_all());
         player.abilities.shield = false;
-        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        let bundle = crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
         let action_set: &ActionSet = &bundle.action_set;
         assert!(
             action_set.special.is_none(),
@@ -202,7 +202,7 @@ mod tests {
         use crate::brain::{ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec};
         let player =
             ae::Player::new_with_abilities(ae::Vec2::new(0.0, 0.0), ae::AbilitySet::sandbox_all());
-        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        let bundle = crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
         let action_set: &ActionSet = &bundle.action_set;
         assert!(matches!(action_set.melee, Some(MeleeActionSpec::Swipe(_))));
         assert!(matches!(
@@ -233,7 +233,7 @@ mod tests {
             ae::AbilitySet::sandbox_all(),
         );
         player.refresh_movement_resources(ae::DEFAULT_TUNING);
-        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        let bundle = crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
         app.world_mut()
             .spawn((bundle, Transform::from_xyz(40.0, 60.0, 0.0)));
         app.add_systems(
@@ -298,7 +298,7 @@ mod tests {
         // Use the canonical bundle so the player's ActionSet is the
         // production default (Swipe melee + Bolt ranged). Bundle
         // already includes a PlayerBody synced off the authority.
-        let bundle = crate::player::PlayerSimulationBundle::new(player, ae::Health::new(10));
+        let bundle = crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
         app.world_mut()
             .spawn((bundle, Transform::from_xyz(40.0, 60.0, 0.0)));
         app.add_systems(

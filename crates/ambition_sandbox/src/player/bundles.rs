@@ -104,7 +104,7 @@ impl PlayerSimulationBundle {
     /// with the simulation components manually rather than calling
     /// this helper, since the second player should not inherit
     /// `PrimaryPlayer` and may not be `LocalPlayer`.
-    pub fn new(player: ae::Player, health: ae::Health) -> Self {
+    pub fn new(player: ae::Player, health: crate::actor::Health) -> Self {
         let action_set = default_player_action_set(player.abilities);
         let abilities = PlayerAbilities::from_player(&player);
         let kinematics = PlayerKinematics::from_player(&player);

@@ -922,7 +922,7 @@ mod tests {
             "shark_a",
             "Burning Flying Shark",
             aabb,
-            ae::EnemyBrain::Custom("pirate_on_shark".into()),
+            crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
             &[],
         );
         enemy.archetype = EnemyArchetype::PirateOnShark;
@@ -1003,7 +1003,7 @@ mod tests {
             "skitter_a",
             "Skitter",
             aabb,
-            ae::EnemyBrain::Custom("small_skitter".into()),
+            crate::actor::EnemyBrain::Custom("small_skitter".into()),
             &[],
         );
         enemy.archetype = EnemyArchetype::SmallSkitter;
@@ -1086,7 +1086,7 @@ mod tests {
             "striker_a",
             "Striker",
             aabb,
-            ae::EnemyBrain::Custom("medium_striker".into()),
+            crate::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
         enemy.archetype = EnemyArchetype::MediumStriker;
@@ -1144,7 +1144,7 @@ mod tests {
             "striker_a",
             "Striker",
             aabb,
-            ae::EnemyBrain::Custom("medium_striker".into()),
+            crate::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
         enemy.archetype = EnemyArchetype::MediumStriker;
@@ -1209,7 +1209,7 @@ mod tests {
 
     fn gnu_ton_boss_feature() -> BossFeature {
         let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(80.0, 80.0));
-        let mut boss = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, ae::BossBrain::Dormant);
+        let mut boss = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, crate::actor::BossBrain::Dormant);
         boss.behavior = BossBehaviorProfile::gnu_ton();
         BossFeature::new(boss)
     }
@@ -1422,7 +1422,7 @@ mod tests {
             "boss_gradient_sentinel",
             "Gradient Sentinel",
             aabb,
-            ae::BossBrain::Dormant,
+            crate::actor::BossBrain::Dormant,
         );
         boss.behavior = BossBehaviorProfile::clockwork_warden();
         BossFeature::new(boss)

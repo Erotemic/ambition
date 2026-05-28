@@ -2,13 +2,13 @@ use super::*;
 
 #[derive(Clone, Debug)]
 pub struct PathMotion {
-    path: ae::KinematicPath,
+    path: crate::actor::KinematicPath,
     segment: usize,
     dir: i32,
 }
 
 impl PathMotion {
-    pub(super) fn new(path: ae::KinematicPath) -> Self {
+    pub(super) fn new(path: crate::actor::KinematicPath) -> Self {
         Self {
             path,
             segment: 0,
@@ -105,10 +105,10 @@ fn lookahead_advance(
     segment: &mut usize,
     dir: &mut i32,
     last_segment: usize,
-    mode: ae::KinematicPathMode,
+    mode: crate::actor::KinematicPathMode,
 ) -> bool {
     match mode {
-        ae::KinematicPathMode::Once => {
+        crate::actor::KinematicPathMode::Once => {
             if *dir >= 0 && *segment < last_segment {
                 *segment += 1;
                 true
@@ -116,7 +116,7 @@ fn lookahead_advance(
                 false
             }
         }
-        ae::KinematicPathMode::Loop => {
+        crate::actor::KinematicPathMode::Loop => {
             if *dir >= 0 {
                 *segment = if *segment >= last_segment {
                     0
@@ -130,7 +130,7 @@ fn lookahead_advance(
             }
             true
         }
-        ae::KinematicPathMode::PingPong => {
+        crate::actor::KinematicPathMode::PingPong => {
             if *dir >= 0 {
                 if *segment >= last_segment {
                     *dir = -1;

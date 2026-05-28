@@ -144,14 +144,11 @@ Everything outside that function is cluster-native.
 
 - `cargo run --bin rl_smoke` → 42/42 rooms ok at every commit
   through the push (200 ticks each, 8400 frames per pass).
-- `cargo test -p ambition_sandbox --lib` → 1139/1140 (was 1132/1133
-  earlier in the session; bumped by parity tests for
-  `LocomotionState::from_clusters` and `BodyMode::from_clusters`).
+- `cargo test -p ambition_sandbox --lib` → **1140/1140 green** (was
+  "doesn't compile" at session start; ~25 lib-test logic / shape
+  issues fixed along the way).
 - All integration tests green: `repro_walls` (6), `crouch_stability`,
   `dash_stability` (2), `scripted_gameplay` (3),
   `replay_fixture_regression`, `plugin_minimal_app` (7),
   `fuzz_random_walker` (5). Total: ~25 integration tests passing.
-- The 1 failing lib test (`embedded_ldtk_patrol_enemy_resolves_kinematic_path_index`)
-  is an LDtk-content authoring issue (a patrol enemy's `path_id`
-  doesn't match any `RoomSpec::kinematic_paths` entry in
-  `basement_enemies`); deferred to LDtk content fix.
+- Workspace `cargo check` clean (zero warnings).

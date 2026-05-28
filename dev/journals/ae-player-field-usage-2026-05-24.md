@@ -1,5 +1,14 @@
 # `ae::Player` field-usage audit (2026-05-24)
 
+> **Status (2026-05-28):** **RESOLVED.** The cluster decomposition
+> described below landed in commits `c049d19a` (cluster components on
+> the player entity) → `c02ca686` (`ae::Player` struct deletion). See
+> [`engine-crate-collapse-2026-05-28.md`](engine-crate-collapse-2026-05-28.md)
+> and
+> [`player-cluster-native-push-2026-05-28.md`](player-cluster-native-push-2026-05-28.md)
+> for the migration journals. This document is preserved as the
+> historical field-by-field inventory that drove the decomposition.
+
 ## Why this exists
 
 Chunk 4 of the universal-brain unification (see

@@ -36,19 +36,30 @@ use crate::{
 pub fn sync_live_player_dev_edits_system(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
-    mut player_q: Query<PlayerClusterQueryData, With<crate::player::PlayerEntity>>,
+    mut player_q: Query<
+        (
+            &mut crate::player::PlayerAbilities,
+            &mut crate::player::PlayerFlightState,
+            &mut crate::player::PlayerBlinkState,
+            &mut crate::player::PlayerDashState,
+            &mut crate::player::PlayerJumpState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
 ) {
-    let Ok(mut cluster_item) = player_q.single_mut() else {
+    let Ok((mut abilities, mut flight, mut blink, mut dash, mut jump)) = player_q.single_mut()
+    else {
         return;
     };
-    let mut clusters = cluster_item.as_clusters_mut();
-    let mut player = assemble_player(&clusters);
-    dev_tools::sync_live_ability_edits(
-        &mut player,
+    dev_tools::sync_live_ability_edits_clusters(
+        &mut abilities,
+        &mut flight,
+        &mut blink,
+        &mut dash,
+        &mut jump,
         editable_abilities.as_engine(),
         editable_tuning.as_engine(),
     );
-    commit_player(player, &mut clusters);
 }
 
 /// While gameplay is suspended (paused, dialogue, room transition,

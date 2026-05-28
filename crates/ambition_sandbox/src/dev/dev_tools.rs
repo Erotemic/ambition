@@ -878,24 +878,33 @@ pub fn apply_movement_profile(
 }
 
 /// Apply live ability-flag edits without rebuilding the player every frame.
-pub fn sync_live_ability_edits(
-    player: &mut ae::Player,
+///
+/// Mutates `PlayerAbilities` + side-effects on `PlayerFlightState`,
+/// `PlayerBlinkState`, `PlayerDashState`, and `PlayerJumpState` directly.
+pub fn sync_live_ability_edits_clusters(
+    abilities: &mut crate::player::PlayerAbilities,
+    flight: &mut crate::player::PlayerFlightState,
+    blink: &mut crate::player::PlayerBlinkState,
+    dash: &mut crate::player::PlayerDashState,
+    jump: &mut crate::player::PlayerJumpState,
     desired: ae::AbilitySet,
     tuning: ae::MovementTuning,
 ) {
-    if player.abilities == desired {
+    if abilities.abilities == desired {
         return;
     }
-    player.abilities = desired;
+    abilities.abilities = desired;
     if !desired.fly {
-        player.fly_enabled = false;
+        flight.fly_enabled = false;
     }
     if !desired.blink {
-        player.blink_hold_active = false;
-        player.blink_hold_timer = 0.0;
-        player.blink_aiming = false;
+        blink.hold_active = false;
+        blink.hold_timer = 0.0;
+        blink.aiming = false;
     }
-    player.refresh_movement_resources(tuning);
+    // Inline `refresh_movement_resources(tuning)` for the cluster path.
+    dash.charges_available = desired.dash_charge_count();
+    jump.air_jumps_available = desired.air_jump_count(tuning.air_jumps);
 }
 
 /// Reflected, debug-editable player gameplay stats. Surfaced through the

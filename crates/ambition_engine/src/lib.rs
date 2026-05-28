@@ -30,7 +30,6 @@ pub mod character_ai;
 pub mod combat;
 pub mod combat_slots;
 pub mod player_clusters;
-pub mod cutscene;
 pub mod geometry;
 pub mod interaction;
 pub mod ledge_grab;
@@ -66,7 +65,6 @@ pub use combat::{
     Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
 pub use combat_slots::{assign_slots, CombatSlot, CombatSlotBoard, SlotKind, SlotRequest};
-pub use cutscene::{CutsceneBeat, CutsceneEvent, CutsceneRuntime, CutsceneScript};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
 pub use interaction::{
     Breakable, BreakableCollision, BreakableState, BreakableTrigger, Chest, ChestState,

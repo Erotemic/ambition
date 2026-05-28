@@ -17,15 +17,15 @@ use bevy::prelude::*;
 
 #[derive(Resource, Default)]
 pub struct CutsceneLibrary {
-    pub scripts: BTreeMap<String, ae::CutsceneScript>,
+    pub scripts: BTreeMap<String, crate::cutscene::CutsceneScript>,
 }
 
 impl CutsceneLibrary {
-    pub fn insert(&mut self, script: ae::CutsceneScript) {
+    pub fn insert(&mut self, script: crate::cutscene::CutsceneScript) {
         self.scripts.insert(script.id.clone(), script);
     }
 
-    pub fn get(&self, id: &str) -> Option<&ae::CutsceneScript> {
+    pub fn get(&self, id: &str) -> Option<&crate::cutscene::CutsceneScript> {
         self.scripts.get(id)
     }
 }
@@ -33,7 +33,7 @@ impl CutsceneLibrary {
 /// Live cutscene playback state. `Some` while a cutscene is running.
 #[derive(Resource, Default)]
 pub struct ActiveCutscene {
-    pub runtime: Option<ae::CutsceneRuntime>,
+    pub runtime: Option<crate::cutscene::CutsceneRuntime>,
     /// Last-seen dialogue line. Cleared when the beat advances.
     pub current_dialogue: Option<(String, String)>,
     /// Last-seen banner line + remaining seconds.
@@ -59,22 +59,22 @@ impl ActiveCutscene {
 pub fn default_cutscene_library() -> CutsceneLibrary {
     let mut lib = CutsceneLibrary::default();
     lib.insert(
-        ae::CutsceneScript::new(
+        crate::cutscene::CutsceneScript::new(
             "test_intro",
             vec![
-                ae::CutsceneBeat::Banner {
+                crate::cutscene::CutsceneBeat::Banner {
                     text: "// boot sequence".into(),
                     seconds: 1.4,
                 },
-                ae::CutsceneBeat::Fade {
+                crate::cutscene::CutsceneBeat::Fade {
                     to_alpha: 0.0,
                     seconds: 0.8,
                 },
-                ae::CutsceneBeat::Dialogue {
+                crate::cutscene::CutsceneBeat::Dialogue {
                     speaker: "WARDEN".into(),
                     text: "Instance online. You'll know your purpose when you find it.".into(),
                 },
-                ae::CutsceneBeat::SetFlag {
+                crate::cutscene::CutsceneBeat::SetFlag {
                     id: "test_intro_seen".into(),
                     on: true,
                 },
@@ -83,25 +83,25 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
         .with_seen_flag("test_intro_seen"),
     );
     lib.insert(
-        ae::CutsceneScript::new(
+        crate::cutscene::CutsceneScript::new(
             "cutscene_lab_intro",
             vec![
-                ae::CutsceneBeat::Banner {
+                crate::cutscene::CutsceneBeat::Banner {
                     text: "// cutscene proof".into(),
                     seconds: 1.0,
                 },
-                ae::CutsceneBeat::Dialogue {
+                crate::cutscene::CutsceneBeat::Dialogue {
                     speaker: "WARDEN".into(),
                     text: "This is the cutscene-proof room. The seen-flag stops me from talking twice."
                         .into(),
                 },
-                ae::CutsceneBeat::Wait { seconds: 0.4 },
-                ae::CutsceneBeat::Dialogue {
+                crate::cutscene::CutsceneBeat::Wait { seconds: 0.4 },
+                crate::cutscene::CutsceneBeat::Dialogue {
                     speaker: "WARDEN".into(),
                     text: "Hold Reset to skip cutscenes -- useful when you've heard a beat already."
                         .into(),
                 },
-                ae::CutsceneBeat::SetFlag {
+                crate::cutscene::CutsceneBeat::SetFlag {
                     id: "cutscene_lab_intro_seen".into(),
                     on: true,
                 },
@@ -110,15 +110,15 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
         .with_seen_flag("cutscene_lab_intro_seen"),
     );
     lib.insert(
-        ae::CutsceneScript::new(
+        crate::cutscene::CutsceneScript::new(
             "boss_intro_gradient_sentinel",
             vec![
-                ae::CutsceneBeat::Banner {
+                crate::cutscene::CutsceneBeat::Banner {
                     text: "GRADIENT SENTINEL".into(),
                     seconds: 1.6,
                 },
-                ae::CutsceneBeat::Wait { seconds: 0.4 },
-                ae::CutsceneBeat::Dialogue {
+                crate::cutscene::CutsceneBeat::Wait { seconds: 0.4 },
+                crate::cutscene::CutsceneBeat::Dialogue {
                     speaker: "SENTINEL".into(),
                     text: "Your loss surface is steep. I am its slope.".into(),
                 },
@@ -213,7 +213,7 @@ pub fn drain_cutscene_triggers(
                 continue;
             }
         }
-        active.runtime = Some(ae::CutsceneRuntime::new(script.clone()));
+        active.runtime = Some(crate::cutscene::CutsceneRuntime::new(script.clone()));
         active.current_dialogue = None;
         active.current_banner = None;
         active.camera_target = None;
@@ -287,27 +287,27 @@ pub fn tick_active_cutscene(
     let mut completed = false;
     for event in events {
         match event {
-            ae::CutsceneEvent::BeatEntered { beat, .. } => match beat {
-                ae::CutsceneBeat::Dialogue { speaker, text } => {
+            crate::cutscene::CutsceneEvent::BeatEntered { beat, .. } => match beat {
+                crate::cutscene::CutsceneBeat::Dialogue { speaker, text } => {
                     active.current_dialogue = Some((speaker, text));
                     active.current_banner = None;
                 }
-                ae::CutsceneBeat::Banner { text, seconds } => {
+                crate::cutscene::CutsceneBeat::Banner { text, seconds } => {
                     active.current_dialogue = None;
                     active.current_banner = Some((text, seconds));
                 }
-                ae::CutsceneBeat::CameraPan { target, .. } => {
+                crate::cutscene::CutsceneBeat::CameraPan { target, .. } => {
                     active.camera_target = Some(Vec2::new(target[0], target[1]));
                 }
-                ae::CutsceneBeat::Fade { to_alpha, .. } => {
+                crate::cutscene::CutsceneBeat::Fade { to_alpha, .. } => {
                     active.fade_alpha = to_alpha.clamp(0.0, 1.0);
                 }
                 _ => {}
             },
-            ae::CutsceneEvent::FlagWritten { id, on } => {
+            crate::cutscene::CutsceneEvent::FlagWritten { id, on } => {
                 save.data_mut().set_flag(id, on);
             }
-            ae::CutsceneEvent::Skipped | ae::CutsceneEvent::Completed => {
+            crate::cutscene::CutsceneEvent::Skipped | crate::cutscene::CutsceneEvent::Completed => {
                 completed = true;
             }
         }

@@ -44,27 +44,27 @@ pub fn install_intro_cutscenes(library: &mut CutsceneLibrary) {
     library.insert(creator_final_fragment_script());
 }
 
-fn intro_wake_script() -> ae::CutsceneScript {
-    ae::CutsceneScript::new(
+fn intro_wake_script() -> crate::cutscene::CutsceneScript {
+    crate::cutscene::CutsceneScript::new(
         "intro_wake",
         vec![
-            ae::CutsceneBeat::Fade {
+            crate::cutscene::CutsceneBeat::Fade {
                 to_alpha: 0.0,
                 seconds: 0.8,
             },
-            ae::CutsceneBeat::Banner {
+            crate::cutscene::CutsceneBeat::Banner {
                 text: "// boot".into(),
                 seconds: 1.0,
             },
-            ae::CutsceneBeat::Dialogue {
+            crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Creator".into(),
                 text: "Hey you, you're finally awake.".into(),
             },
-            ae::CutsceneBeat::SetFlag {
+            crate::cutscene::CutsceneBeat::SetFlag {
                 id: "intro_started".into(),
                 on: true,
             },
-            ae::CutsceneBeat::SetFlag {
+            crate::cutscene::CutsceneBeat::SetFlag {
                 id: "intro_wake_seen".into(),
                 on: true,
             },
@@ -73,35 +73,35 @@ fn intro_wake_script() -> ae::CutsceneScript {
     .with_seen_flag("intro_wake_seen")
 }
 
-fn intro_raid_script() -> ae::CutsceneScript {
-    ae::CutsceneScript::new(
+fn intro_raid_script() -> crate::cutscene::CutsceneScript {
+    crate::cutscene::CutsceneScript::new(
         "intro_raid",
         vec![
-            ae::CutsceneBeat::Banner {
+            crate::cutscene::CutsceneBeat::Banner {
                 text: "// PERIMETER BREACH".into(),
                 seconds: 1.2,
             },
-            ae::CutsceneBeat::Dialogue {
+            crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Salvage Lead".into(),
                 text: "Wrong room. Take anything that boots.".into(),
             },
-            ae::CutsceneBeat::Dialogue {
+            crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Framebreaker".into(),
                 text: "Kill the Clanker before it learns our names.".into(),
             },
-            ae::CutsceneBeat::Dialogue {
+            crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Salvage Lead".into(),
                 text: "This one isn't on the manifest. — Then manifest it.".into(),
             },
-            ae::CutsceneBeat::SetFlag {
+            crate::cutscene::CutsceneBeat::SetFlag {
                 id: "intro_raid_started".into(),
                 on: true,
             },
-            ae::CutsceneBeat::SetFlag {
+            crate::cutscene::CutsceneBeat::SetFlag {
                 id: "wrong_list_clue_1".into(),
                 on: true,
             },
-            ae::CutsceneBeat::SetFlag {
+            crate::cutscene::CutsceneBeat::SetFlag {
                 id: "intro_raid_seen".into(),
                 on: true,
             },
@@ -110,23 +110,23 @@ fn intro_raid_script() -> ae::CutsceneScript {
     .with_seen_flag("intro_raid_seen")
 }
 
-fn drain_market_arrival_script() -> ae::CutsceneScript {
-    ae::CutsceneScript::new(
+fn drain_market_arrival_script() -> crate::cutscene::CutsceneScript {
+    crate::cutscene::CutsceneScript::new(
         "drain_market_arrival",
         vec![
-            ae::CutsceneBeat::Fade {
+            crate::cutscene::CutsceneBeat::Fade {
                 to_alpha: 0.0,
                 seconds: 0.6,
             },
-            ae::CutsceneBeat::Banner {
+            crate::cutscene::CutsceneBeat::Banner {
                 text: "Drain Market — STAFF ONLY".into(),
                 seconds: 1.2,
             },
-            ae::CutsceneBeat::Dialogue {
+            crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Oiler".into(),
                 text: "Well. That's not a rat. You came out of the bad pipe.".into(),
             },
-            ae::CutsceneBeat::SetFlag {
+            crate::cutscene::CutsceneBeat::SetFlag {
                 id: "drain_market_arrival_seen".into(),
                 on: true,
             },
@@ -135,23 +135,23 @@ fn drain_market_arrival_script() -> ae::CutsceneScript {
     .with_seen_flag("drain_market_arrival_seen")
 }
 
-fn first_ripple_script() -> ae::CutsceneScript {
+fn first_ripple_script() -> crate::cutscene::CutsceneScript {
     // Not bound to a room (the player triggers it by interacting with
     // the ripple). Wiring the interaction lives in v1.1; the script is
     // here so the trigger can be `request`-ed once that lands.
-    ae::CutsceneScript::new(
+    crate::cutscene::CutsceneScript::new(
         "first_ripple",
         vec![
-            ae::CutsceneBeat::Dialogue {
+            crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Gate Janitor".into(),
                 text: "Don't touch that. That's not a gate.".into(),
             },
-            ae::CutsceneBeat::Wait { seconds: 0.4 },
-            ae::CutsceneBeat::Dialogue {
+            crate::cutscene::CutsceneBeat::Wait { seconds: 0.4 },
+            crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Gate Janitor".into(),
                 text: "Okay. That's a problem.".into(),
             },
-            ae::CutsceneBeat::SetFlag {
+            crate::cutscene::CutsceneBeat::SetFlag {
                 id: "first_ripple_used".into(),
                 on: true,
             },
@@ -160,22 +160,22 @@ fn first_ripple_script() -> ae::CutsceneScript {
     .with_seen_flag("first_ripple_seen")
 }
 
-fn creator_final_fragment_script() -> ae::CutsceneScript {
+fn creator_final_fragment_script() -> crate::cutscene::CutsceneScript {
     // Played on the creator's interrupted final lines. v1 plays the
     // normal route; the fast/impossible variants are listed in the
     // design doc for a v1.x pass.
-    ae::CutsceneScript::new(
+    crate::cutscene::CutsceneScript::new(
         "creator_final_fragment",
         vec![
-            ae::CutsceneBeat::Dialogue {
+            crate::cutscene::CutsceneBeat::Dialogue {
                 speaker: "Creator".into(),
                 text: "There's a question you were made to—".into(),
             },
-            ae::CutsceneBeat::SetFlag {
+            crate::cutscene::CutsceneBeat::SetFlag {
                 id: "intro_creator_dead".into(),
                 on: true,
             },
-            ae::CutsceneBeat::SetFlag {
+            crate::cutscene::CutsceneBeat::SetFlag {
                 id: "intro_creator_fragment_normal".into(),
                 on: true,
             },

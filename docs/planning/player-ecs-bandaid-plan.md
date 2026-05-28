@@ -1,5 +1,15 @@
 # Player ECS bandaid plan
 
+> **Status (2026-05-28):** **COMPLETE.** `ae::Player` /
+> `PlayerMovementAuthority` / `PlayerBody` are all deleted (commit
+> `c02ca686`). The player entity carries 18 cluster components and
+> every engine entry point consumes a `PlayerClustersMut` view. See
+> `dev/journals/player-cluster-native-push-2026-05-28.md`,
+> `docs/planning/player-ecs-bandaid-phase3.md` (also marked
+> COMPLETE), and `docs/current/state.md` for the post-migration
+> state. This plan is preserved as the historical architecture
+> discussion that drove the work.
+
 Review date: 2026-05-27  
 Reviewed source snapshot: `ambition-source-2026-05-26T222032-5-3e93516618a5.tar.gz`  
 Primary target: remove the live `ae::Player` / `PlayerMovementAuthority` runtime authority and make the player a Bevy ECS actor directly.

@@ -1,5 +1,15 @@
 # Player ECS bandaid — Phase 0 baseline & field ledger
 
+> **Status (2026-05-28):** **HISTORICAL.** The migration this baseline
+> drives toward landed in commit `c02ca686`. `ae::Player` is deleted;
+> the 18 cluster components on the player entity are the only player
+> state. This document is preserved as the as-it-stood field-by-field
+> baseline. See
+> [`player-ecs-bandaid-plan.md`](player-ecs-bandaid-plan.md) and
+> [`player-ecs-bandaid-phase3.md`](player-ecs-bandaid-phase3.md)
+> (both marked COMPLETE) plus the migration journals in
+> `dev/journals/`.
+
 Phase 0 artifact for [`player-ecs-bandaid-plan.md`](player-ecs-bandaid-plan.md).
 Branch: `player-ecs-bandaid` (cut from `main` at `04d4294f Add player ECS
 bandaid plan`).

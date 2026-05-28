@@ -9,7 +9,7 @@ This is a presentation/input-feedback system, not the canonical gameplay executi
 ## Current architecture
 
 ```text
-ControlFrame + PlayerMovementAuthority + proximity resources
+ControlFrame + player cluster components + proximity resources
         ↓
 compute_player_intent
 update_nearest_interactable

@@ -19,7 +19,7 @@ The migration is still not “done forever.” Remaining direct paths are now na
 - player projectile charge/motion-input logic still reads `PlayerInputFrame` directly;
 - pogo is still a player-specific raw input path in the attack lifecycle;
 - some boss and enemy runtime components still own timing/state that would be awkward to move without a focused reason;
-- `ae::Player` still holds most movement state inside `PlayerMovementAuthority`.
+- (Was: `ae::Player` aggregate inside `PlayerMovementAuthority`. As of 2026-05-28 the player ECS migration is complete — the player entity carries 18 cluster components, no monolithic aggregate.)
 
 ## Why this exists
 

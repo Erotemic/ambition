@@ -83,7 +83,7 @@ The main structural migration has landed. Remaining work is cleanup and extensio
 
 1. **Player projectile consumer flip.** `update_projectiles` still reads `PlayerInputFrame` for projectile press/hold/release and motion-input samples. Either keep that as a player-only exception intentionally, or make projectile fire/charge a first-class action consumer.
 2. **Pogo on the same action path.** Pogo is still a raw player-specific verb alongside `ActorActionMessage::Melee`. Decide whether it becomes an attack variant, a special action, or a `HitResult` reaction rule.
-3. **`ae::Player` decomposition.** The sandbox still stores a large engine `Player` aggregate inside `PlayerMovementAuthority`. Decompose only when there is a clear reader/writer cluster to migrate.
+3. **`ae::Player` decomposition.** ✅ Landed 2026-05-28 (commit `c02ca686`). The player entity carries 18 cluster components (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`); the monolithic `ae::Player` aggregate and the `PlayerMovementAuthority` wrapper are gone.
 4. **Canonical hit pipeline.** Brain/action messages now start attacks, but the actual hit/damage metadata is still fragmented across `DamageEvent`, hostile `Hitbox`, `PlayerDamageEvent`, and boss outcomes.
 5. **Possession / co-op.** The architecture supports swapping `Brain::Player(slot)` onto arbitrary actors, but production routing and UX are not implemented.
 

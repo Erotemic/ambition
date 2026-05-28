@@ -168,15 +168,18 @@ foundation entirely.
   binary's `main.rs` is now ~10 lines (it just calls
   `ambition_sandbox::run_app`); systems and resources live in the
   library.
-- Player state is ECS-authoritative as of 2026-05-16 (see
-  `crates/ambition_sandbox/src/player/`). Headless drivers and the
-  scripted-gameplay integration tests query / mutate the player via
-  ECS components (`PlayerMovementAuthority`, `PlayerBody`, etc.)
-  rather than reading any global resource. `GameWorld` and the small
-  set of narrow Bevy resources (`SandboxSimState`, `SandboxDevState`,
-  `MovingPlatformSet`, `CurrentPlayerAttack`) cover what is genuinely
-  global. There is no longer a god-resource that callers reach into
-  for player position / abilities / timers.
+- Player state is ECS-authoritative (cluster components, completed
+  2026-05-28; see `crates/ambition_sandbox/src/player/` and the 18
+  cluster component types in
+  `crates/ambition_sandbox/src/engine_core/player_clusters.rs`).
+  Headless drivers and the scripted-gameplay integration tests query
+  / mutate the player via `PlayerClusterQueryData::as_clusters_mut()`
+  (or the `PlayerClusterScratch` non-ECS helper). `GameWorld` and the
+  small set of narrow Bevy resources (`SandboxSimState`,
+  `SandboxDevState`, `MovingPlatformSet`, `CurrentPlayerAttack`) cover
+  what is genuinely global. There is no longer a god-resource — and
+  no longer a monolithic `ae::Player` aggregate — that callers reach
+  into for player position / abilities / timers.
 
 ## Verification
 

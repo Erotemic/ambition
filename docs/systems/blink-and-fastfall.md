@@ -52,7 +52,7 @@ This keeps these inputs distinct:
 
 Precision blink bullet-time must use the same scaled timestep for the player as for visible time-reference objects.
 
-A bug in the first moving-platform pass made the platform freeze while the player continued to fall quickly. The root cause was in `ambition_engine::update_player_with_tuning`: tiny positive timesteps were clamped upward to `1/240s`. That was safe for normal framerate spikes, but wrong for intentional near-zero bullet-time. The engine now only caps large timesteps and preserves tiny timesteps, so gravity and movement slow with the platform.
+A bug in the first moving-platform pass made the platform freeze while the player continued to fall quickly. The root cause was in the engine's combined player tick (now `ae::update_player_with_tuning_clusters`): tiny positive timesteps were clamped upward to `1/240s`. That was safe for normal framerate spikes, but wrong for intentional near-zero bullet-time. The engine now only caps large timesteps and preserves tiny timesteps, so gravity and movement slow with the platform.
 
 Regression coverage: `tiny_dt_preserves_bullet_time_scale` checks that a very small timestep produces proportionally small gravity instead of being rounded up to normal simulation speed.
 

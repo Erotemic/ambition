@@ -56,18 +56,42 @@ Commits delivering this:
   from sandbox code — only from engine tests and from the cluster
   wrapper entry points.
 
-## Phase 3d-prep toolkit (started)
+## Phase 3d progress
 
-A few field-level / AABB-level engine helpers have been factored out
-of the `&mut Player` signature so a future cluster-native entry point
-can call them without building a `Player`:
+Cluster-native engine entry points + several inner helpers refactored
+during the multi-session push:
 
-- `ae::touching_hazard_aabb(world, aabb) -> bool` (commit `99ca2e1a`)
-- (more to come as the deep refactor proceeds)
+- `ae::PlayerClustersMut` aggregate (engine-side) + `to_player` /
+  `write_from_player` / `with_player_scratchpad` round-trip helpers
+- `ae::PlayerClusterQueryData` Bevy QueryData (engine-side)
+- `update_player_simulation_with_clusters` — operates on cluster refs
+  natively for setup/age/timers/jump_buffer/hazard; uses a localized
+  scratchpad only for `tick_active_ledge_grab`, `integrate_velocity`,
+  `try_start_ledge_grab` (inner helpers not yet refactored)
+- `update_player_control_with_clusters` — operates on cluster refs
+  natively for reset/facing/buffers/fly-toggle/dodge/dash/shield/jump-release;
+  uses a localized scratchpad only for `handle_blink` + `handle_attacks`
+- `ae::reset_player_clusters(&mut clusters, spawn)` — replaces
+  `Player::reset_to`
+- `ae::refresh_movement_resources_clusters(...)` — replaces
+  `Player::refresh_movement_resources`
+- `ae::try_change_body_mode_clusters(...)` — replaces
+  `try_change_body_mode(&mut Player, ...)` for sandbox callers
+- `ae::blink_destination_clusters` / `blink_destination_to_point_clusters`
+- `ae::dev_tools::sync_live_ability_edits_clusters`
+- `ae::movement::handle_jump_buffer_clusters` — cluster-ref jump-buffer
+  handler with full feature parity
+- `ae::touching_hazard_aabb(world, aabb) -> bool`
+- `ae::movement::collision::standing_on_one_way_aabb(world, aabb) -> bool`
+- `FrameEvents::op_clusters(combo_trace, op)` — cluster-side combo-trace
+  push without going through `Player::record`
 
-These are toolkit primitives. They don't change behavior on their own;
-they exist so the cluster-native rewrites of inner helpers + the
-entry point have unencumbered building blocks.
+## What Phase 3d still leaves open (multi-day work)
+
+The legacy `ae::Player` aggregate still exists in the engine. Sandbox
+no longer references it; engine internals still operate on it for the
+inner movement helpers that haven't been migrated to cluster refs.
+Deleting it requires:
 
 ## What Phase 3d still leaves open
 

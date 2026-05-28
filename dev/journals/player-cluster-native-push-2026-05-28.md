@@ -68,27 +68,35 @@ Everything outside that function is cluster-native.
 
 ## What remains for the next session
 
-1. ~~Cluster-native `tick_active_ledge_grab`~~ — **landed** `bfb5783d`
-   (2026-05-28). Field-for-field translation; rl_smoke + the 39
-   ledge_grab unit tests still green.
-2. **Cluster-native `integrate_velocity`** (~200 lines, the densest
-   one — calls `integrate_climb`, `integrate_flight`,
-   `sweep_player_x`, `sweep_player_y`, `apply_wall_abilities`,
-   `touching_rebound`, all of which also take `&mut Player`). This
-   one is multi-hour because the recursive helpers all need
-   converting too. The plan: cluster-native variants for each
-   helper, then the outer function reads/writes clusters directly.
-   `touching_rebound` already has an `_aabb` variant; `apply_wall_abilities`
-   reads `(on_wall, on_ground, abilities, wall_normal_x, vel.y)` and
-   writes `(wall_clinging, wall_climbing, vel.y)`. The sweep helpers
-   are the densest (60+ lines each, sub-helpers `resolve_axis`,
-   `block_passable_during_climb`, `body_is_side_contact` all take
-   `&mut Player` too).
-3. **Once that lands**, `update_player_simulation_with_clusters`
-   has zero scratchpads and `ae::Player` + `to_player` +
-   `write_from_player` + the legacy `update_player_*_with_tuning`
-   entry points are deletable. That deletion is probably 500+ lines
-   net.
+1. ~~Cluster-native `tick_active_ledge_grab`~~ — **landed** `bfb5783d`.
+2. ~~Cluster-native `integrate_velocity`~~ — **landed** `3fa1f173`
+   + `3a3f55e5` (sweep_player_x/y cluster-native via the new
+   `resolve_axis_clusters`, `resolve_vertical_clusters`,
+   `block_passable_during_climb_clusters` helpers).
+3. ~~Delete `write_from_player` + `with_player_scratchpad`~~ —
+   **landed** `780951af` (zero callers after the integrate_velocity
+   wire-up).
+4. **Convert the 4 read-only `Player` snapshot callers** so
+   `to_player` + `ae::Player` itself can go away:
+   - `dev/debug_overlay.rs:112` — `snapshot_player` for visualization.
+   - `dev/trace/systems.rs:133` — snapshot for trace recording;
+     downstream `synthesize_events_from_diff`, `LocomotionState::from_player`,
+     `BodyMode::from_player` all need cluster-aware variants.
+   - `app/world_flow.rs:820`/`894` (start_attack / advance_attack) —
+     the combat helpers `resolve_attack_intent`, `attack_spec`,
+     `attack_hitbox` still take `&Player`.
+   - `bin/headless.rs:244` — constructs a `Player` explicitly for
+     headless reporting.
+5. **Delete the legacy engine helpers + `ae::Player`**:
+   `integrate_velocity`, `integrate_climb`, `integrate_flight`,
+   `apply_wall_abilities`, `sweep_player_x`, `sweep_player_y`,
+   `resolve_axis`, `resolve_vertical`, `tick_active_ledge_grab`,
+   `try_start_ledge_grab`, `requested_wall_normal`,
+   `block_passable_during_climb`, `standing_on_one_way`,
+   `touching_rebound`, plus `update_player`,
+   `update_player_with_tuning`, `update_player_control`,
+   `update_player_control_with_tuning`, `update_player_simulation`,
+   `update_player_simulation_with_tuning`. Probably ~1000 lines net.
 
 ## Gotchas worth remembering
 

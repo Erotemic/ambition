@@ -32,7 +32,7 @@ The repo already points in this direction:
 - ADR 0002 says the engine is allowed to be Bevy-native and should not preserve backend neutrality as a goal: [`docs/adr/0002-engine-must-be-bevy-native.md`](../adr/0002-engine-must-be-bevy-native.md).
 - ADR 0012 says simulation should emit data/messages and presentation should consume them: [`docs/adr/0012-sim-presentation-split-and-events-refactor.md`](../adr/0012-sim-presentation-split-and-events-refactor.md).
 - ADR 0016 says gameplay entities should converge on actor-like ECS data: [`docs/adr/0016-actor-unification.md`](../adr/0016-actor-unification.md).
-- The brain/action seam exists and the player already flows through `ActorControl`: [`crates/ambition_engine/src/actor_control.rs`](../../crates/ambition_engine/src/actor_control.rs), [`crates/ambition_sandbox/src/brain/player.rs`](../../crates/ambition_sandbox/src/brain/player.rs), and [`crates/ambition_sandbox/src/app/player_tick.rs`](../../crates/ambition_sandbox/src/app/player_tick.rs).
+- The brain/action seam exists and the player already flows through `ActorControl`: [`crates/ambition_sandbox/src/actor_control.rs`](../../crates/ambition_sandbox/src/actor_control.rs), [`crates/ambition_sandbox/src/brain/player.rs`](../../crates/ambition_sandbox/src/brain/player.rs), and [`crates/ambition_sandbox/src/app/player_tick.rs`](../../crates/ambition_sandbox/src/app/player_tick.rs).
 - The player entity already carries several useful ECS components: [`crates/ambition_sandbox/src/player/components.rs`](../../crates/ambition_sandbox/src/player/components.rs).
 
 The blocker is that `PlayerMovementAuthority` still wraps `ae::Player`, and `PlayerBody` is still a read-model mirror created from `ae::Player`. That means the player is only partially ECS-authoritative.
@@ -339,7 +339,7 @@ Likely files/modules:
 - player spawn/state: [`crates/ambition_sandbox/src/player/components.rs`](../../crates/ambition_sandbox/src/player/components.rs), [`crates/ambition_sandbox/src/player/bundles.rs`](../../crates/ambition_sandbox/src/player/bundles.rs), [`crates/ambition_sandbox/src/player/systems.rs`](../../crates/ambition_sandbox/src/player/systems.rs);
 - player tick: [`crates/ambition_sandbox/src/app/player_tick.rs`](../../crates/ambition_sandbox/src/app/player_tick.rs);
 - broad sim helpers: [`crates/ambition_sandbox/src/app/sim_systems.rs`](../../crates/ambition_sandbox/src/app/sim_systems.rs), [`crates/ambition_sandbox/src/app/world_flow.rs`](../../crates/ambition_sandbox/src/app/world_flow.rs);
-- movement helpers: [`crates/ambition_engine/src/movement/`](../../crates/ambition_engine/src/movement/);
+- movement helpers: [`crates/ambition_sandbox/src/engine_core/movement/`](../../crates/ambition_sandbox/src/engine_core/movement/);
 - projectile charge/fire: [`crates/ambition_sandbox/src/projectile/`](../../crates/ambition_sandbox/src/projectile/);
 - body modes: [`crates/ambition_sandbox/src/body_mode/`](../../crates/ambition_sandbox/src/body_mode/);
 - player affordances: [`crates/ambition_sandbox/src/player/affordances/`](../../crates/ambition_sandbox/src/player/affordances/);

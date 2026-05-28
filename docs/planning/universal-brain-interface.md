@@ -84,9 +84,9 @@ responsibilities:
   — `EnemyArchetype` + AI/choreography pipeline that produces an
   `ActorControlFrame` for movement and an `EnemyTickOutputs` for
   attacks. The AI evaluator is pure
-  ([`character_ai.rs`](../../crates/ambition_engine/src/character_ai.rs))
+  ([`character_ai.rs`](../../crates/ambition_sandbox/src/character_ai.rs))
   and shared with the choreography evaluator
-  ([`attack_choreography.rs`](../../crates/ambition_engine/src/attack_choreography.rs)).
+  ([`attack_choreography.rs`](../../crates/ambition_sandbox/src/attack_choreography.rs)).
 - **`BossRuntime`** ([`content/features/bosses.rs`](../../crates/ambition_sandbox/src/content/features/bosses.rs))
   — boss-pattern state machine. Movement was migrated onto
   `ActorControlFrame` in `66c8b0b`; attack patterns still run as a

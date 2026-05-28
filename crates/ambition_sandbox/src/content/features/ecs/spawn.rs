@@ -445,7 +445,7 @@ pub(super) fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
         EnemyBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
             cfg: smash_cfg_for_archetype(archetype),
             state: SmashState {
-                rng_seed: ae::seed_from_id(&enemy.id) as u64,
+                rng_seed: crate::attack_choreography::seed_from_id(&enemy.id) as u64,
                 ..Default::default()
             },
         }),

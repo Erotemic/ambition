@@ -74,9 +74,9 @@ pub struct EnemyRuntime {
     pub gravity_scale: f32,
     /// Authored attack choreography. `MeleeContact` for legacy
     /// enemies; the pirate-sky archetypes use volley/orbit/dive.
-    pub choreography: ae::AttackChoreography,
+    pub choreography: crate::attack_choreography::AttackChoreography,
     /// Persistent per-tick state for the choreography evaluator.
-    pub choreography_state: ae::ChoreographyState,
+    pub choreography_state: crate::attack_choreography::ChoreographyState,
     /// Optional separate "rider" health — used by the fused
     /// `PirateOnShark` actor where the pirate on top can be killed
     /// independently of the shark. `None` for everyone else.
@@ -448,10 +448,10 @@ impl EnemyArchetype {
     /// variant carries its own non-Copy parameter bag — putting them
     /// in the spec table would force every row to spell out a
     /// `MeleeContact` literal.
-    pub(super) fn choreography(self) -> ae::AttackChoreography {
+    pub(super) fn choreography(self) -> crate::attack_choreography::AttackChoreography {
         match self {
             Self::PirateOnShark | Self::PirateHeavyOnShark => {
-                ae::AttackChoreography::AerialOrbitAndFire {
+                crate::attack_choreography::AttackChoreography::AerialOrbitAndFire {
                     altitude: 150.0,
                     radius: 220.0,
                     orbit_speed: 0.85,
@@ -459,14 +459,14 @@ impl EnemyArchetype {
                     projectile_speed: 360.0,
                 }
             }
-            Self::BurningFlyingShark => ae::AttackChoreography::DiveStrike {
+            Self::BurningFlyingShark => crate::attack_choreography::AttackChoreography::DiveStrike {
                 hover_altitude: 140.0,
                 hover_rest: 0.55,
                 dive_speed: 360.0,
                 recover_height: 100.0,
             },
             // Default: legacy melee-contact behavior.
-            _ => ae::AttackChoreography::MeleeContact,
+            _ => crate::attack_choreography::AttackChoreography::MeleeContact,
         }
     }
 
@@ -623,7 +623,7 @@ impl EnemyRuntime {
             sprite_override_npc_name: None,
             gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
             choreography: archetype.choreography(),
-            choreography_state: ae::ChoreographyState::default(),
+            choreography_state: crate::attack_choreography::ChoreographyState::default(),
             rider_health: archetype.rider_max_health().map(ae::Health::new),
             surface_normal: ae::Vec2::new(0.0, -1.0),
             pending_attack_axis: ae::Vec2::new(-1.0, 0.0),
@@ -651,7 +651,7 @@ impl EnemyRuntime {
         self.rider_health = archetype.rider_max_health().map(ae::Health::new);
         self.gravity_scale = if archetype.is_aerial() { 0.0 } else { 1.0 };
         self.choreography = archetype.choreography();
-        self.choreography_state = ae::ChoreographyState::default();
+        self.choreography_state = crate::attack_choreography::ChoreographyState::default();
         self.attack_windup_timer = 0.0;
         self.attack_timer = 0.0;
         self.attack_cooldown = 0.2;
@@ -754,7 +754,7 @@ impl EnemyRuntime {
     fn dismount_rider(&mut self) -> EnemyDamageOutcome {
         self.archetype = EnemyArchetype::BurningFlyingShark;
         self.choreography = self.archetype.choreography();
-        self.choreography_state = ae::ChoreographyState::default();
+        self.choreography_state = crate::attack_choreography::ChoreographyState::default();
         self.rider_health = None;
         EnemyDamageOutcome::Damaged {
             killed: false,
@@ -787,7 +787,7 @@ impl EnemyRuntime {
             .unwrap_or_else(|| dismount_target.max_health());
         self.archetype = dismount_target;
         self.choreography = self.archetype.choreography();
-        self.choreography_state = ae::ChoreographyState::default();
+        self.choreography_state = crate::attack_choreography::ChoreographyState::default();
         self.health = ae::Health::new(dismount_target.max_health());
         self.health.current = inherited_hp.min(self.health.max);
         self.rider_health = None;
@@ -866,7 +866,7 @@ impl EnemyRuntime {
         // `new`) so reset_to_spawn — which `Default`s the state —
         // re-establishes the seed automatically on the next tick.
         if self.choreography_state.seed == 0 {
-            self.choreography_state.seed = ae::seed_from_id(&self.id);
+            self.choreography_state.seed = crate::attack_choreography::seed_from_id(&self.id);
         }
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         if !self.alive {
@@ -926,10 +926,10 @@ impl EnemyRuntime {
         // targeting and attack flavor.
         let assigned_slot_pos = slot_pos.unwrap_or(target_pos);
         self.choreography_state.has_slot = slot_pos.is_some();
-        let choreo_tick = ae::evaluate_choreography(
+        let choreo_tick = crate::attack_choreography::evaluate_choreography(
             self.choreography,
             &mut self.choreography_state,
-            ae::ChoreographyInput {
+            crate::attack_choreography::ChoreographyInput {
                 actor_pos: self.pos,
                 target_pos,
                 assigned_slot_pos,
@@ -1140,7 +1140,7 @@ impl EnemyRuntime {
     fn build_control_frame(
         &mut self,
         ai: &crate::character_ai::CharacterAiOutput,
-        choreo_tick: &ae::ChoreographyTick,
+        choreo_tick: &crate::attack_choreography::ChoreographyTick,
         target_pos: ae::Vec2,
         is_aerial: bool,
         dt: f32,
@@ -1214,10 +1214,10 @@ impl EnemyRuntime {
         // Attack intents from the choreography are forwarded onto
         // the frame; the simulation half handles cooldown gating.
         match choreo_tick.action {
-            Some(ae::ChoreographyAction::Melee) => {
+            Some(crate::attack_choreography::ChoreographyAction::Melee) => {
                 frame.melee_pressed = true;
             }
-            Some(ae::ChoreographyAction::FireProjectile { dir, speed }) => {
+            Some(crate::attack_choreography::ChoreographyAction::FireProjectile { dir, speed }) => {
                 frame.fire = Some(ae::ActorFireRequest { dir, speed });
             }
             None => {}

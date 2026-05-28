@@ -24,7 +24,6 @@
 pub mod abilities;
 pub mod actor;
 pub mod actor_control;
-pub mod attack_choreography;
 pub mod boss_encounter;
 pub mod combat;
 pub mod player_clusters;
@@ -43,10 +42,6 @@ pub use actor::{
     KinematicPathMode, RespawnPolicy,
 };
 pub use actor_control::{ActorControlFrame, ActorFireRequest};
-pub use attack_choreography::{
-    evaluate_choreography, seed_from_id, AerialRole, AttackChoreography, ChoreographyAction,
-    ChoreographyInput, ChoreographyPhase, ChoreographyState, ChoreographyTick,
-};
 pub use bevy_math::Vec2;
 pub use boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,

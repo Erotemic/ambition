@@ -307,12 +307,15 @@ pub fn update_player_control_with_clusters(
 
 /// Cluster-ref entry point for the simulation phase.
 ///
-/// Phase 3d: operates on cluster refs natively. Inner helpers that
-/// still take `&mut Player` (integrate_velocity, handle_jump_buffer,
-/// ledge_grab functions) get a localized scratchpad — `to_player` /
-/// `write_from_player` is called around each unrefactored helper.
-/// As Phase 3d progresses, more inner helpers gain cluster-ref
-/// variants and the scratchpad calls shrink.
+/// Operates on cluster refs natively. As of 2026-05-28 only
+/// `integrate_velocity` (plus its deep sub-helpers — `integrate_climb`,
+/// `integrate_flight`, `apply_wall_abilities`, `sweep_player_x`,
+/// `sweep_player_y`, `touching_rebound`) still needs the
+/// `to_player` / `write_from_player` round-trip. Everything else
+/// — `handle_jump_buffer_clusters`, `try_start_ledge_grab_clusters`,
+/// `tick_active_ledge_grab_clusters`, the body-mode / blink / hazard
+/// passes — is cluster-native. Killing the last scratchpad deletes
+/// `ae::Player` outright.
 pub fn update_player_simulation_with_clusters(
     world: &World,
     clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,

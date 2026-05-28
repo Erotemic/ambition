@@ -15,7 +15,7 @@
 //! parameters. They are not Bevy systems themselves; the outer `setup`
 //! system in `main.rs` does the param wiring and calls them in sequence.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 #[cfg(feature = "audio")]

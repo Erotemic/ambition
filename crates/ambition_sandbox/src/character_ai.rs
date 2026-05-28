@@ -20,7 +20,7 @@
 //! `CharacterAiSnapshot` + `CharacterAiOutput` and let this module be
 //! the single source of truth.
 
-use ambition_engine::Vec2;
+use crate::engine_core::Vec2;
 
 /// What the actor should be doing this tick.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

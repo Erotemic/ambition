@@ -19,6 +19,7 @@
 // External API surface — bins, tests, and Android/wasm entry points reach
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
+pub mod engine_core;
 pub mod app;
 pub mod audio;
 pub mod debug_label;
@@ -141,7 +142,7 @@ pub use rl_sim::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};
 pub use time::time_control::ProperTimeScale;
 pub use world::platforms::MovingPlatformState;
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::{Message, Resource};
 
 use input::KeyboardPreset;
@@ -374,7 +375,7 @@ pub fn remember_safe_player_position(
 #[cfg(test)]
 mod safe_pos_tests {
     use super::*;
-    use ambition_engine::Block;
+    use crate::engine_core::Block;
 
     fn dummy_world() -> ae::World {
         ae::World::new(

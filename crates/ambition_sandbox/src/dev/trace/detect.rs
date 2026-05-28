@@ -50,7 +50,7 @@ fn nearby_collision_around(
     body: ae::Aabb,
     radius: f32,
 ) -> Vec<CollisionTraceShape> {
-    use ambition_engine::AabbExt;
+    use crate::engine_core::AabbExt;
     let mut hits: Vec<CollisionTraceShape> = world
         .blocks
         .iter()

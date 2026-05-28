@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::Resource;
 
 use super::BossProfile;

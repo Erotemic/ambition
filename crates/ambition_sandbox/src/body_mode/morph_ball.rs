@@ -10,7 +10,7 @@
 // `MorphBallSprite` handle to a loaded asset and the same toggle logic
 // applies.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
 use bevy::prelude::*;

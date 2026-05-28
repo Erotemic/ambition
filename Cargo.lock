@@ -147,39 +147,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_engine"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_ecs",
- "bevy_math",
- "insta",
- "parry2d 0.26.0",
- "proptest",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "ambition_sandbox"
 version = "0.2.0"
 dependencies = [
  "ambition_asset_manager",
- "ambition_engine",
  "ambition_sfx",
  "avian2d",
  "bevy",
  "bevy-inspector-egui",
  "bevy_asset_loader",
  "bevy_common_assets",
+ "bevy_ecs",
  "bevy_ecs_ldtk",
  "bevy_falling_sand",
  "bevy_kira_audio",
  "bevy_material_ui",
+ "bevy_math",
  "bevy_yarnspinner",
  "console_error_panic_hook",
+ "insta",
  "leafwing-input-manager",
+ "parry2d 0.26.0",
  "petgraph",
+ "proptest",
  "ron 0.11.0",
  "serde",
  "serde_json",

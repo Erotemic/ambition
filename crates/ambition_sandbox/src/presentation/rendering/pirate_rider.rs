@@ -83,7 +83,7 @@ pub fn sync_pirate_rider_visuals(
             continue;
         }
         let rider_pos =
-            ambition_engine::Vec2::new(enemy.pos.x, enemy.pos.y + RIDER_VERTICAL_OFFSET);
+            crate::engine_core::Vec2::new(enemy.pos.x, enemy.pos.y + RIDER_VERTICAL_OFFSET);
         // Scale render size to match the desired rider height while
         // preserving the sheet's aspect ratio (frame is 128×128 for
         // the pirate raider; ~172×138 for heavy variants).

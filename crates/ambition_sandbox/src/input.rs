@@ -4,7 +4,7 @@
 //! The engine still consumes a compact `ControlFrame`, which keeps movement
 //! physics independent from keyboards, gamepads, UI rebinding, or replay input.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::*;

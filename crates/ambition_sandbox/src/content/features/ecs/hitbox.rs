@@ -29,8 +29,8 @@
 use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, Res, With};
 use std::collections::HashSet;
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 
 use super::super::components::ActorFaction;
 use super::super::events::{PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource};

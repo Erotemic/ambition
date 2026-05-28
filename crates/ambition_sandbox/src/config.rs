@@ -3,7 +3,7 @@
 //! These are intentionally kept out of `main.rs` so the playable sandbox can be
 //! retuned without digging through system scheduling or gameplay code.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 /// Default logical window width for initial windowed mode.

@@ -78,13 +78,13 @@ const RIDER_VERTICAL_OFFSET: f32 = -34.0; // mirror of `pirate_rider.rs`
 /// World-space hand position for a rider. Mirrors the rider visual's
 /// own anchor math so the weapon mounts where the visible hand is.
 pub fn rider_hand_world_pos(
-    enemy_pos: ambition_engine::Vec2,
+    enemy_pos: crate::engine_core::Vec2,
     facing: f32,
-) -> ambition_engine::Vec2 {
+) -> crate::engine_core::Vec2 {
     let facing_sign = if facing >= 0.0 { 1.0 } else { -1.0 };
     let hand_local_x = HAND_OFFSET_NORM.x * RIDER_RENDER_HEIGHT * facing_sign;
     let hand_local_y = HAND_OFFSET_NORM.y * RIDER_RENDER_HEIGHT;
-    ambition_engine::Vec2::new(
+    crate::engine_core::Vec2::new(
         enemy_pos.x + hand_local_x,
         enemy_pos.y + RIDER_VERTICAL_OFFSET + hand_local_y,
     )
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn hand_offset_flips_with_facing() {
-        let pos = ambition_engine::Vec2::new(100.0, 50.0);
+        let pos = crate::engine_core::Vec2::new(100.0, 50.0);
         let right = rider_hand_world_pos(pos, 1.0);
         let left = rider_hand_world_pos(pos, -1.0);
         assert!(right.x > pos.x, "right-facing hand should be to the right");

@@ -11,7 +11,7 @@
 //! authoring has moved to LDtk; this RON asset intentionally owns only
 //! non-spatial sandbox tuning and generated-audio configuration.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::asset::{Asset, AssetServer};
 use bevy::prelude::{Commands, Handle, Res, Resource};
 use bevy::reflect::TypePath;

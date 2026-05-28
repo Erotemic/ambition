@@ -1,4 +1,4 @@
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::profile::default_boss_profiles;
 

@@ -40,7 +40,7 @@
 //! brain. Prefer a boss-specific tick system over bloating
 //! `BrainSnapshot` for all actors."
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::Component;
 
 // ===== Vocabulary (moved from content/features/bosses.rs) =====

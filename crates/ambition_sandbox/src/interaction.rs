@@ -5,7 +5,7 @@
 //! in the engine so later story crates can share them.
 
 use crate::actor::{Health, RespawnPolicy};
-use ambition_engine::Aabb;
+use crate::engine_core::Aabb;
 
 /// A player-facing interaction trigger.
 #[derive(Clone, Debug, PartialEq)]

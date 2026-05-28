@@ -49,7 +49,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use crate::assets::game_assets::GameAssets;
 use crate::boss_encounter::BossEncounterRegistry;

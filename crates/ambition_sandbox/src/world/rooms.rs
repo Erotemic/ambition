@@ -6,7 +6,7 @@
 //! Loading-zone links point at destination zones by name, so authoring no longer
 //! requires brittle hand-written spawn coordinates.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::{Message, Resource};
 use petgraph::graph::{Graph, NodeIndex};
 

@@ -175,7 +175,7 @@ pub struct BossBehaviorProfile {
 /// doesn't implement `Deserialize` under the features the sandbox compiles
 /// with, so we route through tuple shims.
 mod boss_vec2_option {
-    use ambition_engine as ae;
+    use crate::engine_core as ae;
     use serde::Deserialize;
 
     pub fn deserialize<'de, D>(de: D) -> Result<Option<ae::Vec2>, D::Error>
@@ -188,7 +188,7 @@ mod boss_vec2_option {
 }
 
 mod boss_vec2_required {
-    use ambition_engine as ae;
+    use crate::engine_core as ae;
     use serde::Deserialize;
 
     pub fn deserialize<'de, D>(de: D) -> Result<ae::Vec2, D::Error>
@@ -910,7 +910,7 @@ impl BossRuntime {
 mod scripted_pattern_tests {
     use super::*;
     use crate::brain::boss_pattern::BossPatternStep;
-    use ambition_engine as ae;
+    use crate::engine_core as ae;
 
     fn gnu_ton_runtime() -> BossRuntime {
         let behavior = BossBehaviorProfile::gnu_ton();

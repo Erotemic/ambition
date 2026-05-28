@@ -4,7 +4,7 @@
 //! authoritative state. See [`super::bundles::PlayerSimulationBundle`] for
 //! the canonical spawn shape.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use crate::input::ControlFrame;
@@ -305,10 +305,10 @@ pub struct PlayerBlinkCameraState {
     pub blink_in_duration: f32,
     /// World-space camera position at the moment the blink fired; the camera
     /// eases from here toward the new player position.
-    pub blink_camera_from: ambition_engine::Vec2,
+    pub blink_camera_from: crate::engine_core::Vec2,
     /// Blink destination in world space (set alongside `blink_camera_from`
     /// for future use; not yet consumed by the camera easing path).
-    pub blink_camera_to: ambition_engine::Vec2,
+    pub blink_camera_to: crate::engine_core::Vec2,
     /// Positive while the camera should snap (not ease) to the player position.
     /// Set on door transitions; zero on edge exits to allow scroll effects.
     pub camera_snap_timer: f32,
@@ -319,8 +319,8 @@ impl Default for PlayerBlinkCameraState {
         Self {
             blink_in_timer: 0.0,
             blink_in_duration: 0.0,
-            blink_camera_from: ambition_engine::Vec2::ZERO,
-            blink_camera_to: ambition_engine::Vec2::ZERO,
+            blink_camera_from: crate::engine_core::Vec2::ZERO,
+            blink_camera_to: crate::engine_core::Vec2::ZERO,
             camera_snap_timer: 0.0,
         }
     }
@@ -378,7 +378,7 @@ impl PlayerSafetyState {
 mod multiplayer_smoke_tests {
     use super::*;
     use crate::player::PrimaryPlayerOnly;
-    use ambition_engine as ae;
+    use crate::engine_core as ae;
 
     fn dummy_attack_spec() -> crate::combat::AttackSpec {
         // Construct via the live `attack_spec` builder; a minimal Player

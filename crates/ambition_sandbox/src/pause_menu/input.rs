@@ -27,7 +27,7 @@ pub fn pause_menu_toggle(
             next_mode.set(GameMode::Paused);
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::UI_PAUSE_OPEN,
-                pos: ambition_engine::Vec2::ZERO,
+                pos: crate::engine_core::Vec2::ZERO,
             });
         }
         GameMode::Paused => {
@@ -35,7 +35,7 @@ pub fn pause_menu_toggle(
             next_mode.set(GameMode::Playing);
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::UI_PAUSE_CLOSE,
-                pos: ambition_engine::Vec2::ZERO,
+                pos: crate::engine_core::Vec2::ZERO,
             });
         }
         _ => {}
@@ -334,7 +334,7 @@ fn handle_settings_page_input(
     developer: &mut DeveloperTools,
     editable_tuning: &mut crate::dev::dev_tools::EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
-    authority_player: Option<&mut ambition_engine::Player>,
+    authority_player: Option<&mut crate::engine_core::Player>,
 ) {
     let rows = SettingsItem::rows_for(page);
     if rows.is_empty() {

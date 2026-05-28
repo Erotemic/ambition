@@ -21,7 +21,7 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
         base_size: player_size,
         facing: 1.0,
         on_ground: true,
-        body_mode: ambition_engine::BodyMode::Standing,
+        body_mode: crate::engine_core::BodyMode::Standing,
         ..Default::default()
     };
     let interaction = crate::player::PlayerInteractionState {

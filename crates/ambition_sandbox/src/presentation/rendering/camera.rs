@@ -1,8 +1,8 @@
 //! Player-following camera with smooth zoom in/out around encounter
 //! transitions and an overview-camera dev mode.
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 

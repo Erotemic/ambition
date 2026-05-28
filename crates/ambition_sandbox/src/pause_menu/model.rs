@@ -1,5 +1,5 @@
 use super::*;
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 /// Mutable bundle of the resources the Developer settings page toggles.
 /// Packed into a single `SystemParam` so `pause_menu_navigate` stays

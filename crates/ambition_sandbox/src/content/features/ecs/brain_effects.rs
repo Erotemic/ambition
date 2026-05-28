@@ -22,8 +22,8 @@
 //! `update_player`'s direct hitbox spawn, etc.) are deleted as each
 //! consumer here takes over.
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;

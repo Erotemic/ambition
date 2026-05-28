@@ -43,7 +43,7 @@ pub use visuals::{sync_projectile_visuals, PlayerProjectileVisual};
 #[cfg(test)]
 mod engine_tests;
 
-// Re-export the engine-side projectile primitives (moved from ambition_engine 2026-05-28).
+// Re-export the engine-side projectile primitives (moved from crate::engine_core 2026-05-28).
 pub use body::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
 pub use motion_input::{MotionDirection, MotionInputBuffer, MotionSample};
 pub use spawn::{ProjectileSpawner, SpawnFailure};

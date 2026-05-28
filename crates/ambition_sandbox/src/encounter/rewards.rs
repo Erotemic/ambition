@@ -1,4 +1,4 @@
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::EncounterSpec;
 
@@ -14,7 +14,7 @@ pub fn encounter_reward_looted_flag(encounter_id: &str) -> String {
 /// lower edge in y-down world space, which the LDtk authoring puts
 /// on the arena floor).
 pub fn encounter_reward_chest_pos(spec: &EncounterSpec, chest_size: ae::Vec2) -> ae::Vec2 {
-    use ambition_engine::AabbExt;
+    use crate::engine_core::AabbExt;
     let trigger = spec.trigger_aabb();
     ae::Vec2::new(trigger.center().x, trigger.max.y - chest_size.y * 0.5)
 }

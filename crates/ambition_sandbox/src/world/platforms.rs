@@ -3,11 +3,11 @@
 //! Moving platforms remain sandbox-side as a design experiment, but they now
 //! contribute temporary solid blocks to the engine collision world each frame.
 //! That gives us rideable/collidable behavior without committing moving-solid
-//! semantics to `ambition_engine` before we have tests for carrying, crushing,
+//! semantics to `crate::engine_core` before we have tests for carrying, crushing,
 //! and one-way platform interactions.
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 

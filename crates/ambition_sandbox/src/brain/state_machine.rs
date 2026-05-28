@@ -14,7 +14,7 @@
 //! `melee_pressed = true` and the ActionSet's attack spec carries
 //! its own windup → active → recover animation timing.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::action_set::ActionSet;
 use super::smash::{tick_smash, SmashCfg, SmashState};

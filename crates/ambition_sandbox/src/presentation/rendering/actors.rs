@@ -4,8 +4,8 @@
 //! initial colored rectangles into authored character sprites once
 //! the asset is loaded.
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 

@@ -1,4 +1,4 @@
-use ambition_engine::AabbExt;
+use crate::engine_core::AabbExt;
 
 use super::*;
 

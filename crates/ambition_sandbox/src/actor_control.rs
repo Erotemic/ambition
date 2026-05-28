@@ -41,7 +41,7 @@
 //!    learned policy, or a remote player doesn't change the
 //!    integration code.
 
-use ambition_engine::Vec2;
+use crate::engine_core::Vec2;
 
 /// A request from a brain to fire a projectile this tick. Mirrors the
 /// existing `ChoreographyAction::FireProjectile { dir, speed }` but

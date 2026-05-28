@@ -1,7 +1,7 @@
 //! Per-tick advance + collision for in-flight enemy projectiles.
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
 use super::state::EnemyProjectileState;

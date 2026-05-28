@@ -26,7 +26,7 @@
 //! when a new brain template needs them; don't grow this into a
 //! pile of `Option<…>`s without a real consumer.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 /// What a brain sees this tick. Read-only; brains never mutate the
 /// snapshot (they write to `&mut ActorControlFrame` instead).

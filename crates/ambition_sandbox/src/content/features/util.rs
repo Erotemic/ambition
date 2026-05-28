@@ -23,7 +23,7 @@ pub(super) fn room_spec_paths(room: &crate::rooms::RoomSpec) -> Vec<(String, cra
 // and their OneWay handling did not differentiate above-vs-below
 // approaches — a hostile NPC chasing the player could not drop
 // through a one-way platform, breaking the chase. Both paths now
-// route through `ambition_engine::step_kinematic`, which mirrors
+// route through `crate::engine_core::step_kinematic`, which mirrors
 // the player's sweep semantics exactly. Don't reintroduce the
 // old helpers; if a new caller needs collision-aware motion, add
 // it through `KinematicBody`.

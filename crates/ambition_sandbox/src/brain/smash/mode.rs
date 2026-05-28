@@ -110,7 +110,7 @@ fn commit(state: &mut SmashState, mode: BroadMode) -> BroadMode {
 mod tests {
     use super::super::observation::CrowdingSignal;
     use super::*;
-    use ambition_engine as ae;
+    use crate::engine_core as ae;
 
     fn obs_at(distance_x: f32) -> ObservationFrame {
         ObservationFrame {

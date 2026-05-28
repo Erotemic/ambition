@@ -16,7 +16,7 @@
 //! engine accepts the bounce, which is the right side of the
 //! conservative trade.
 
-use ambition_engine::AabbExt;
+use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
 use crate::features::{FeatureAabb, FeatureSimEntity, PogoTargetContributor};
@@ -64,10 +64,10 @@ pub fn update_pogo_target_below(
     // (player.pos.y is the center; +Y is down in sim coords, so feet
     // sit at `pos.y + size.y * 0.5`).
     let feet_y = kin.pos.y + kin.size.y * 0.5;
-    let center = ambition_engine::Vec2::new(kin.pos.x, feet_y + POGO_DETECTION_DEPTH * 0.5);
+    let center = crate::engine_core::Vec2::new(kin.pos.x, feet_y + POGO_DETECTION_DEPTH * 0.5);
     let half_size =
-        ambition_engine::Vec2::new(POGO_DETECTION_HALF_WIDTH, POGO_DETECTION_DEPTH * 0.5);
-    let scan = ambition_engine::Aabb::new(center, half_size);
+        crate::engine_core::Vec2::new(POGO_DETECTION_HALF_WIDTH, POGO_DETECTION_DEPTH * 0.5);
+    let scan = crate::engine_core::Aabb::new(center, half_size);
 
     let mut hit = false;
     for aabb in &targets {

@@ -1,7 +1,7 @@
 //! Per-frame Bevy sprite entities for in-flight projectiles plus the
 //! charge-indicator quad in front of the player.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use super::state::PlayerProjectileState;

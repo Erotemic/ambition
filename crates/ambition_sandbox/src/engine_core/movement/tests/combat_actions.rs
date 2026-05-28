@@ -3,7 +3,7 @@
 
 use super::super::*;
 use super::{step, test_world};
-use crate::AbilitySet;
+use crate::engine_core::AbilitySet;
 
 #[test]
 fn dodge_roll_triggers_on_ground_with_ability() {

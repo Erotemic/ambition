@@ -1,7 +1,7 @@
 use super::*;
 use crate::input::ControlFrame;
 use crate::GameWorld;
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::{App, IntoScheduleConfigs, Time, Update, With};
 
 fn empty_world() -> ae::World {

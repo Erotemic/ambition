@@ -94,7 +94,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // components so the trace writer keeps its existing
         // `record_simulation_frame(&Player, ...)` signature.
         let player = {
-            let mut single = || -> Option<ambition_engine::Player> {
+            let mut single = || -> Option<ambition_sandbox::engine_core::Player> {
                 let mut kin_q =
                     sim.world_mut()
                         .query_filtered::<&PlayerKinematics, With<PlayerEntity>>();
@@ -168,7 +168,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
                 let lifetime = lifetime_q.single(world_ref).ok()?;
                 let combo = combo_q.single(world_ref).ok()?;
                 let abilities = abilities_q.single(world_ref).ok()?;
-                Some(ambition_engine::Player {
+                Some(ambition_sandbox::engine_core::Player {
                     abilities: abilities.abilities,
                     pos: kin.pos,
                     vel: kin.vel,
@@ -220,9 +220,9 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
                 })
             };
             single().unwrap_or_else(|| {
-                ambition_engine::Player::new_with_abilities(
-                    ambition_engine::Vec2::ZERO,
-                    ambition_engine::AbilitySet::default(),
+                ambition_sandbox::engine_core::Player::new_with_abilities(
+                    ambition_sandbox::engine_core::Vec2::ZERO,
+                    ambition_sandbox::engine_core::AbilitySet::default(),
                 )
             })
         };
@@ -241,8 +241,8 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let moving_platforms = world_ref.resource::<ambition_sandbox::MovingPlatformSet>();
         let active_area = room_set.active_spec().id.clone();
         let mode_label = format!("{:?}", game_mode.get());
-        let locomotion_state = ambition_engine::LocomotionState::from_player(&player);
-        let body_mode_state = ambition_engine::BodyMode::from_player(&player);
+        let locomotion_state = ambition_sandbox::engine_core::LocomotionState::from_player(&player);
+        let body_mode_state = ambition_sandbox::engine_core::BodyMode::from_player(&player);
         record_simulation_frame(
             &mut buffer,
             &player,

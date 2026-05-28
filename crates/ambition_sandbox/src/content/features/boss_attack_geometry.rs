@@ -22,7 +22,7 @@
 //! No method on `BossRuntime` survives in the final form if it
 //! depends on attack state — those become free functions here.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use crate::brain::{BossAttackProfile, BossAttackState};
 use crate::presentation::character_sprites::registry::{BodyMetrics, PixelRect};
@@ -411,7 +411,7 @@ pub fn boss_attack_damage(
 ) -> Option<crate::features::PlayerDamageEvent> {
     use super::util::midpoint;
     use crate::features::{PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource};
-    use ambition_engine::AabbExt;
+    use crate::engine_core::AabbExt;
 
     // Strike arm: the brain's `active_profile` is the single source
     // of truth for "there's a live boss hitbox right now".
@@ -597,7 +597,7 @@ pub fn volumes_for_profile(
 mod sprite_metadata_derivation_tests {
     use super::*;
     use crate::presentation::character_sprites::registry::{NamedPixelRect, PixelRect};
-    use ambition_engine::AabbExt;
+    use crate::engine_core::AabbExt;
 
     /// Centered pixel bbox at frame center → world AABB at world_center.
     /// The 128×128 frame with a 64×64 bbox at (32, 32) should map to
@@ -848,7 +848,7 @@ mod sprite_metadata_derivation_tests {
             "test_boss",
             "Test Boss",
             ae::Aabb::new(ae::Vec2::new(640.0, 656.0), ae::Vec2::new(64.0, 80.0)),
-            ambition_engine::BossBrain::Dormant,
+            crate::engine_core::BossBrain::Dormant,
         );
         let ctx = BossVolumeContext {
             pos: ae::Vec2::new(640.0, 656.0),
@@ -884,7 +884,7 @@ mod sprite_metadata_derivation_tests {
         use crate::brain::BossAttackState;
         use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::PixelRect;
-        use ambition_engine::AabbExt;
+        use crate::engine_core::AabbExt;
         use std::collections::HashMap;
 
         let bbox = PixelRect {

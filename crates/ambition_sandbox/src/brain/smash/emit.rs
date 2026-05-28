@@ -5,7 +5,7 @@
 //! knows the integration pipeline's frame schema — everything
 //! upstream stays vocabulary-pure.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::action::SpecificAction;
 use super::observation::ObservationFrame;

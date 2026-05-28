@@ -14,7 +14,7 @@
 //! them via `super::`.
 
 use super::*;
-use crate::{Vec2, World};
+use crate::engine_core::{Vec2, World};
 
 pub(super) fn step(world: &World, player: &mut Player, input: InputState) -> FrameEvents {
     update_player_with_tuning(world, player, input, 1.0 / 60.0, DEFAULT_TUNING)
@@ -28,10 +28,10 @@ pub(super) fn test_world() -> World {
         size: Vec2::new(w, h),
         spawn: Vec2::new(210.0, h - 95.0),
         blocks: vec![
-            crate::world::Block::solid("floor", Vec2::new(0.0, h - 48.0), Vec2::new(w, 48.0)),
-            crate::world::Block::solid("left wall", Vec2::new(0.0, 0.0), Vec2::new(36.0, h)),
-            crate::world::Block::solid("right wall", Vec2::new(w - 36.0, 0.0), Vec2::new(36.0, h)),
-            crate::world::Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(w, 24.0)),
+            crate::engine_core::world::Block::solid("floor", Vec2::new(0.0, h - 48.0), Vec2::new(w, 48.0)),
+            crate::engine_core::world::Block::solid("left wall", Vec2::new(0.0, 0.0), Vec2::new(36.0, h)),
+            crate::engine_core::world::Block::solid("right wall", Vec2::new(w - 36.0, 0.0), Vec2::new(36.0, h)),
+            crate::engine_core::world::Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(w, 24.0)),
         ],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),

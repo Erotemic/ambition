@@ -54,7 +54,7 @@ pub struct EnemyRuntime {
     /// HUD / rendering / debug overlay so they can branch on a single
     /// vocabulary instead of inferring it from the timer fields.
     pub ai_mode: crate::character_ai::CharacterAiMode,
-    /// Set by [`crate::kinematic::step_kinematic`](ambition_engine::step_kinematic)
+    /// Set by [`crate::kinematic::step_kinematic`](crate::engine_core::step_kinematic)
     /// each tick. Used by chase-drop-through
     /// (enemy must be standing on something before it tries to fall
     /// through it) and by future jump AI.
@@ -271,7 +271,7 @@ pub(super) struct EnemyArchetypeSpec {
 /// `Deserialize` directly under the features the sandbox compiles
 /// with, so route through a tuple shim.
 mod vec2_option {
-    use ambition_engine as ae;
+    use crate::engine_core as ae;
     use serde::Deserialize;
 
     pub fn deserialize<'de, D>(de: D) -> Result<Option<ae::Vec2>, D::Error>

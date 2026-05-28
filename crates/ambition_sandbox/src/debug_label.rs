@@ -1,13 +1,13 @@
 //! Generic room-object label for debug overlays and editor selection.
 //!
-//! Moved from `ambition_engine::debug` to the sandbox in Phase 3d of
+//! Moved from `crate::engine_core::debug` to the sandbox in Phase 3d of
 //! the player-ecs-bandaid plan (the broader goal: removing the
-//! `ambition_engine` crate entirely). DebugLabel is a sandbox concern
+//! `crate::engine_core` crate entirely). DebugLabel is a sandbox concern
 //! — rendering of labels lives in the Bevy adapter, and the meaning
 //! is authored with the room data so debug overlays, inspectors, and
 //! future editor tools share the same source of truth.
 
-use ambition_engine::Vec2;
+use crate::engine_core::Vec2;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DebugLabel {

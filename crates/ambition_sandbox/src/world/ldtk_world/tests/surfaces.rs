@@ -1,7 +1,7 @@
 //! `compile_identifier` round-trips for the typed surface family:
 //! Solid / OneWay / Pogo / Rebound / BlinkWall / Breakable…
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use serde_json::Value;
 
 use super::super::surfaces::*;

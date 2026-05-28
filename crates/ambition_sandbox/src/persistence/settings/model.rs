@@ -680,7 +680,7 @@ pub fn apply_action(
     developer: &mut DeveloperTools,
     editable_tuning: &mut EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
-    authority_player: Option<&mut ambition_engine::Player>,
+    authority_player: Option<&mut crate::engine_core::Player>,
 ) -> SettingsOutcome {
     // Page-navigation rows (Open* + Back) share identical behavior:
     // `Confirm` → push/pop the page in `PAGE_NAV_ROWS`. Dispatch them

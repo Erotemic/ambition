@@ -1,4 +1,4 @@
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::fields::{field_f32, field_i32, field_string};
 use super::project::LdtkEntityInstance;

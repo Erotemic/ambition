@@ -47,7 +47,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 /// First system in the player tick chain: clear the per-frame
 /// `SandboxResetThisFrame` flag.

@@ -10,8 +10,8 @@
 //! (boss volleys, traps, reflected shots) can pick a policy by tag
 //! rather than copying a 40-line loop (OVERNIGHT-TODO #17.7).
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 
 /// Per-faction world-collision policy for projectile bodies.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

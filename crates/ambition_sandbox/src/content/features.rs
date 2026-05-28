@@ -5,8 +5,8 @@
 //! simulation, presentation, encounter, and test layers while domain logic lives
 //! in `features/*.rs`.
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
 use crate::world::platforms::MovingPlatformState;

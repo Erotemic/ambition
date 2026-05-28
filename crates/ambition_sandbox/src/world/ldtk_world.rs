@@ -30,7 +30,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 pub mod bevy_runtime;
 mod conversion;

@@ -59,10 +59,10 @@
 //!
 //! // 2) Build a snapshot from the actor's per-tick state.
 //! let mut snap = BrainSnapshot::idle();
-//! snap.target_pos = ambition_engine::Vec2::new(20.0, 0.0); // in range
+//! snap.target_pos = crate::engine_core::Vec2::new(20.0, 0.0); // in range
 //!
 //! // 3) Tick the brain → fills an ActorControlFrame.
-//! let mut frame = ambition_engine::ActorControlFrame::neutral();
+//! let mut frame = crate::engine_core::ActorControlFrame::neutral();
 //! brain.tick(&snap, &mut frame);
 //!
 //! // 4) Resolve abstract intent into concrete ActionRequests.
@@ -108,7 +108,7 @@ pub use state_machine::{
     SkirmisherState, SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
 };
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use crate::player::components::PlayerSlot;

@@ -4,9 +4,9 @@
 
 use super::super::*;
 use super::{step, test_world};
-use crate::geometry::AabbExt;
-use crate::world::Block;
-use crate::{Aabb, AbilitySet, Vec2, World};
+use crate::engine_core::geometry::AabbExt;
+use crate::engine_core::world::Block;
+use crate::engine_core::{Aabb, AbilitySet, Vec2, World};
 
 #[test]
 fn one_way_platform_requires_down_plus_jump_to_drop_through() {

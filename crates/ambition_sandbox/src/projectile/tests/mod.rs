@@ -9,8 +9,8 @@
 //! `advance_time`, `tap_projectile`) live here so each submodule can
 //! reach them via `super::`.
 
-use ambition_engine as ae;
-use ambition_engine::{Block, World};
+use crate::engine_core as ae;
+use crate::engine_core::{Block, World};
 use bevy::prelude::*;
 
 use super::state::PlayerProjectileState;

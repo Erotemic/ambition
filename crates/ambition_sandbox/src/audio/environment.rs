@@ -345,7 +345,7 @@ mod tests {
     #[cfg(feature = "audio")]
     #[test]
     fn detect_picks_up_player_water_contact_in_app() {
-        use ambition_engine as ae;
+        use crate::engine_core as ae;
         use bevy::prelude::*;
 
         let mut app = App::new();

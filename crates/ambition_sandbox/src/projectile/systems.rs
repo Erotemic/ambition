@@ -1,7 +1,7 @@
 //! The Bevy gameplay system that ticks projectiles, samples motion
 //! input, and routes hits through ECS-native feature damage messages.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use super::collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};

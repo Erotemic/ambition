@@ -7,7 +7,7 @@
 //! safer alternative — e.g. a slug with no jump just walks where a
 //! goblin would jump).
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::super::action_set::ActionSet;
 use super::mode::BroadMode;

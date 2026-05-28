@@ -5,10 +5,10 @@
 //! ledge grab participates in the same movement tick as gravity, collision,
 //! water, and wall state instead of running as a post-update sandbox mutator.
 
-use crate::geometry::{Aabb, AabbExt};
-use crate::movement::{InputState, MovementOp, MovementTuning, Player};
-use crate::world::{BlockKind, World};
-use crate::Vec2;
+use crate::engine_core::geometry::{Aabb, AabbExt};
+use crate::engine_core::movement::{InputState, MovementOp, MovementTuning, Player};
+use crate::engine_core::world::{BlockKind, World};
+use crate::engine_core::Vec2;
 
 /// Duration of the standard ledge pull-up transition.
 pub const LEDGE_CLIMB_TIME: f32 = 0.24;
@@ -370,7 +370,7 @@ pub fn tick_active_ledge_grab(
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
-    events: &mut crate::movement::FrameEvents,
+    events: &mut crate::engine_core::movement::FrameEvents,
 ) -> bool {
     let Some(mut state) = player.ledge_grab else {
         return false;
@@ -709,7 +709,7 @@ pub fn try_start_ledge_grab(
     world: &World,
     player: &mut Player,
     input: InputState,
-    events: &mut crate::movement::FrameEvents,
+    events: &mut crate::engine_core::movement::FrameEvents,
 ) -> bool {
     if !player.abilities.ledge_grab || player.ledge_grab.is_some() || player.on_ground {
         return false;
@@ -789,7 +789,7 @@ const FALL_SNAP_MIN_VY: f32 = 80.0;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world::Block;
+    use crate::engine_core::world::Block;
 
     fn world_with(blocks: Vec<Block>) -> World {
         World::new("ledge", Vec2::new(800.0, 600.0), Vec2::ZERO, blocks)
@@ -912,7 +912,7 @@ mod tests {
             "blink_ledge",
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
-            crate::world::BlinkWallTier::Soft,
+            crate::engine_core::world::BlinkWallTier::Soft,
         )]);
         let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world);
         assert!(
@@ -945,7 +945,7 @@ mod tests {
         );
     }
 
-    fn make_hanging_player(contact: LedgeContact) -> crate::movement::Player {
+    fn make_hanging_player(contact: LedgeContact) -> crate::engine_core::movement::Player {
         make_hanging_player_with_momentum(contact, Vec2::ZERO)
     }
 
@@ -955,8 +955,8 @@ mod tests {
     fn make_hanging_player_with_momentum(
         contact: LedgeContact,
         momentum: Vec2,
-    ) -> crate::movement::Player {
-        let mut player = crate::movement::Player::new(Vec2::ZERO);
+    ) -> crate::engine_core::movement::Player {
+        let mut player = crate::engine_core::movement::Player::new(Vec2::ZERO);
         player.abilities.ledge_grab = true;
         player.abilities.shield = true;
         player.ledge_grab = Some(LedgeGrabState {
@@ -982,8 +982,8 @@ mod tests {
             climb_target: Vec2::new(115.0, 77.0),
         };
         let mut player = make_hanging_player(contact);
-        let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let tuning = crate::engine_core::movement::MovementTuning::default();
         let input = InputState {
             jump_pressed: true,
             axis_x: -1.0, // pressing away from the platform (away = wall_normal direction = -1)
@@ -1018,8 +1018,8 @@ mod tests {
             climb_target: Vec2::new(115.0, 77.0),
         };
         let mut player = make_hanging_player(contact);
-        let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let tuning = crate::engine_core::movement::MovementTuning::default();
         let input = InputState {
             jump_pressed: true,
             axis_x: 1.0, // pressing into the platform (into = -wall_normal = +1)
@@ -1057,8 +1057,8 @@ mod tests {
             climb_target: Vec2::new(115.0, 77.0),
         };
         let mut player = make_hanging_player(contact);
-        let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let tuning = crate::engine_core::movement::MovementTuning::default();
         let input = InputState {
             jump_pressed: true,
             ..InputState::default()
@@ -1083,8 +1083,8 @@ mod tests {
             climb_target: Vec2::new(115.0, 77.0),
         };
         let mut player = make_hanging_player(contact);
-        let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let tuning = crate::engine_core::movement::MovementTuning::default();
         let input = InputState {
             axis_y: -1.0, // up
             ..InputState::default()
@@ -1137,10 +1137,10 @@ mod tests {
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
         )]);
-        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        let mut player = crate::engine_core::movement::Player::new(Vec2::new(86.0, 110.0));
         player.abilities.ledge_grab = true;
         player.vel = Vec2::new(0.0, 150.0); // falling fast, no horizontal input
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
         assert!(latched, "fast-falling near a ledge should auto-snap");
         assert!(player.ledge_grab.is_some());
@@ -1156,10 +1156,10 @@ mod tests {
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
         )]);
-        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        let mut player = crate::engine_core::movement::Player::new(Vec2::new(86.0, 110.0));
         player.abilities.ledge_grab = true;
         player.vel = Vec2::new(0.0, 20.0); // gentle drift, well below FALL_SNAP_MIN_VY
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
         assert!(!latched, "slow drift must not auto-snap");
     }
@@ -1177,8 +1177,8 @@ mod tests {
             climb_target: Vec2::new(115.0, 77.0),
         };
         let mut player = make_hanging_player(contact);
-        let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let tuning = crate::engine_core::movement::MovementTuning::default();
         let input = InputState {
             shield_held: true,
             ..InputState::default()
@@ -1207,8 +1207,8 @@ mod tests {
             climb_target: Vec2::new(115.0, 77.0),
         };
         let mut player = make_hanging_player(contact);
-        let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let tuning = crate::engine_core::movement::MovementTuning::default();
         let input = InputState {
             shield_held: true,
             axis_y: -1.0, // up — would otherwise climb
@@ -1231,8 +1231,8 @@ mod tests {
             climb_target: Vec2::new(115.0, 77.0),
         };
         let mut player = make_hanging_player(contact);
-        let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let tuning = crate::engine_core::movement::MovementTuning::default();
         // Start the roll.
         let _ = tick_active_ledge_grab(
             &mut player,
@@ -1285,8 +1285,8 @@ mod tests {
             climb_target: Vec2::new(115.0, 77.0),
         };
         let mut player = make_hanging_player(contact);
-        let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let tuning = crate::engine_core::movement::MovementTuning::default();
         let input = InputState {
             axis_y: 1.0, // down
             ..InputState::default()
@@ -1312,13 +1312,13 @@ mod tests {
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
         )]);
-        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        let mut player = crate::engine_core::movement::Player::new(Vec2::new(86.0, 110.0));
         player.abilities.ledge_grab = true;
         // Player is falling fast — would normally trigger the
         // Smash-style auto-snap path.
         player.vel = Vec2::new(0.0, 200.0);
         player.ledge_release_cooldown = LEDGE_REGRAB_COOLDOWN;
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
         assert!(
             !latched,
@@ -1336,14 +1336,14 @@ mod tests {
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
         )]);
-        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        let mut player = crate::engine_core::movement::Player::new(Vec2::new(86.0, 110.0));
         player.abilities.ledge_grab = true;
         player.vel = Vec2::new(0.0, 200.0);
         // Cooldown has already expired (e.g. simulation_timers ticked
         // it down past zero between frames). Auto-snap should be free
         // to fire again.
         player.ledge_release_cooldown = 0.0;
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
         assert!(
             latched,
@@ -1364,8 +1364,8 @@ mod tests {
         // Outward release (jump + away).
         {
             let mut player = make_hanging_player(contact);
-            let mut events = crate::movement::FrameEvents::default();
-            let tuning = crate::movement::MovementTuning::default();
+            let mut events = crate::engine_core::movement::FrameEvents::default();
+            let tuning = crate::engine_core::movement::MovementTuning::default();
             let input = InputState {
                 jump_pressed: true,
                 axis_x: -1.0, // away from a -1 wall_normal
@@ -1381,8 +1381,8 @@ mod tests {
         // Vertical hop (jump alone).
         {
             let mut player = make_hanging_player(contact);
-            let mut events = crate::movement::FrameEvents::default();
-            let tuning = crate::movement::MovementTuning::default();
+            let mut events = crate::engine_core::movement::FrameEvents::default();
+            let tuning = crate::engine_core::movement::MovementTuning::default();
             let input = InputState {
                 jump_pressed: true,
                 ..InputState::default()
@@ -1406,11 +1406,11 @@ mod tests {
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
         )]);
-        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        let mut player = crate::engine_core::movement::Player::new(Vec2::new(86.0, 110.0));
         player.abilities.ledge_grab = true;
         player.wall_clinging = true;
         player.wall_normal_x = -1.0;
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
         assert!(latched, "expected ledge grab to latch");
         assert!(
@@ -1459,14 +1459,14 @@ mod tests {
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
         )]);
-        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        let mut player = crate::engine_core::movement::Player::new(Vec2::new(86.0, 110.0));
         player.abilities.ledge_grab = true;
         // Player arriving at the ledge with rightward + upward momentum
         // (i.e. running up against the wall during a jump).
         player.vel = Vec2::new(180.0, -240.0);
         player.wall_clinging = true;
         player.wall_normal_x = -1.0;
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
         assert!(latched);
         // After grab, vel is zeroed for the hang animation...
@@ -1523,7 +1523,7 @@ mod tests {
     #[test]
     fn ledge_boost_off_disables_mechanic() {
         let mut tuning = MovementTuning::default();
-        tuning.ledge_momentum = crate::movement::LedgeMomentumTuning::OFF;
+        tuning.ledge_momentum = crate::engine_core::movement::LedgeMomentumTuning::OFF;
         let contact = rightward_ledge_contact();
         let momentum = Vec2::new(300.0 * into_platform_for(contact), -300.0);
         let boost = ledge_boost(momentum, contact, 0.0, &tuning);
@@ -1585,7 +1585,7 @@ mod tests {
         let momentum = Vec2::new(220.0, -100.0);
         let mut player = make_hanging_player_with_momentum(contact, momentum);
         let baseline_player = make_hanging_player_with_momentum(contact, Vec2::ZERO);
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let tuning = MovementTuning::default();
         let input = InputState {
             jump_pressed: true,
@@ -1595,7 +1595,7 @@ mod tests {
         // Replay the same input on the zero-momentum baseline so we
         // can compare "with boost" vs "without boost" exit velocities.
         let mut baseline = baseline_player;
-        let mut baseline_events = crate::movement::FrameEvents::default();
+        let mut baseline_events = crate::engine_core::movement::FrameEvents::default();
         let _ = tick_active_ledge_grab(&mut baseline, input, 0.016, tuning, &mut baseline_events);
         // The boosted exit velocity should be larger in magnitude
         // along the carried axes than the unboosted one.
@@ -1618,7 +1618,7 @@ mod tests {
         let contact = rightward_ledge_contact();
         let momentum = Vec2::new(220.0, -120.0);
         let mut player = make_hanging_player_with_momentum(contact, momentum);
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let tuning = MovementTuning::default();
         let input = InputState {
             axis_y: 1.0, // down
@@ -1644,7 +1644,7 @@ mod tests {
         let momentum = Vec2::new(220.0, -120.0);
         let mut player = make_hanging_player_with_momentum(contact, momentum);
         let baseline_player = make_hanging_player_with_momentum(contact, Vec2::ZERO);
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let tuning = MovementTuning::default();
         // jump + AWAY from platform. away_from_platform here is -1
         // (left) since wall_normal_x is -1.
@@ -1658,7 +1658,7 @@ mod tests {
         // Replay with zero momentum to confirm both produce the SAME
         // exit vel (i.e. no boost applied).
         let mut baseline = baseline_player;
-        let mut baseline_events = crate::movement::FrameEvents::default();
+        let mut baseline_events = crate::engine_core::movement::FrameEvents::default();
         let _ = tick_active_ledge_grab(&mut baseline, input, 0.016, tuning, &mut baseline_events);
         assert!(
             (player.vel - baseline.vel).length() < 0.5,
@@ -1674,7 +1674,7 @@ mod tests {
         let contact = rightward_ledge_contact();
         let momentum = Vec2::new(220.0, -120.0);
         let mut player = make_hanging_player_with_momentum(contact, momentum);
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let tuning = MovementTuning::default();
         // Start the climb (Up).
         let input = InputState {
@@ -1711,7 +1711,7 @@ mod tests {
         // Strong upward incoming momentum (e.g. recovery via double-jump).
         let momentum = Vec2::new(220.0, -500.0);
         let mut player = make_hanging_player_with_momentum(contact, momentum);
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let tuning = MovementTuning::default();
         // Start + complete the climb in two big ticks.
         let _ = tick_active_ledge_grab(
@@ -1766,7 +1766,7 @@ mod tests {
             ..InputState::default()
         };
         // Start both climbs.
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let _ = tick_active_ledge_grab(&mut boosted, input, 0.001, tuning, &mut events);
         let _ = tick_active_ledge_grab(&mut baseline, input, 0.001, baseline_tuning, &mut events);
         // Step both forward by exactly the BASELINE climb time. The
@@ -1810,7 +1810,7 @@ mod tests {
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
         )]);
-        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        let mut player = crate::engine_core::movement::Player::new(Vec2::new(86.0, 110.0));
         player.abilities.ledge_grab = true;
         // Simulate "wall-cling killed our approach velocity": current
         // vel.x is zero (collision zeroed it), but pre_wall_vel
@@ -1820,7 +1820,7 @@ mod tests {
         player.pre_wall_vel_age = 0.05; // fresh
         player.wall_clinging = true;
         player.wall_normal_x = -1.0;
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
         assert!(latched);
         let state = player.ledge_grab.unwrap();
@@ -1841,14 +1841,14 @@ mod tests {
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
         )]);
-        let mut player = crate::movement::Player::new(Vec2::new(86.0, 110.0));
+        let mut player = crate::engine_core::movement::Player::new(Vec2::new(86.0, 110.0));
         player.abilities.ledge_grab = true;
         player.vel = Vec2::new(0.0, 50.0);
         player.pre_wall_vel = Vec2::new(260.0, -180.0);
         player.pre_wall_vel_age = LEDGE_REGRAB_COOLDOWN * 4.0; // very stale
         player.wall_clinging = true;
         player.wall_normal_x = -1.0;
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let latched = try_start_ledge_grab(&world, &mut player, InputState::default(), &mut events);
         assert!(latched);
         let state = player.ledge_grab.unwrap();
@@ -1868,7 +1868,7 @@ mod tests {
         let contact = rightward_ledge_contact();
         let momentum = Vec2::new(220.0, -120.0);
         let mut player = make_hanging_player_with_momentum(contact, momentum);
-        let mut events = crate::movement::FrameEvents::default();
+        let mut events = crate::engine_core::movement::FrameEvents::default();
         let tuning = MovementTuning::default();
         // Sit on the ledge for longer than the boost window with no
         // input (so we don't auto-climb).

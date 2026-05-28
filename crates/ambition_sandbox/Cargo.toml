@@ -265,7 +265,9 @@ baked_sheets = []
 profile = ["bevy/trace", "bevy/trace_tracy"]
 
 [dependencies]
-ambition_engine = { path = "../ambition_engine" }
+bevy_ecs = { version = "0.18.1", default-features = false }
+bevy_math = { version = "0.18.1", features = ["serialize"] }
+parry2d = "0.26"
 # `ambition_sfx` stays in the dep graph regardless of the `audio`
 # feature: it has no audio backend deps and the sim layer
 # (`features.rs`) needs `SfxId` to enqueue SFX-only events generically.
@@ -342,3 +344,7 @@ required-features = ["rl_sim"]
 [[bin]]
 name = "trace_replay"
 required-features = ["rl_sim"]
+
+[dev-dependencies]
+insta = { version = "1", features = ["ron"] }
+proptest = "1"

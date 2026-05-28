@@ -3,8 +3,8 @@
 
 use super::super::*;
 use super::{step, test_world};
-use crate::geometry::AabbExt;
-use crate::{AbilitySet, Vec2};
+use crate::engine_core::geometry::AabbExt;
+use crate::engine_core::{AbilitySet, Vec2};
 
 #[test]
 fn glide_caps_fall_speed_while_jump_held() {
@@ -211,7 +211,7 @@ fn pogo_bounce_records_orb_aabb_on_frame_events() {
     let orb_center = Vec2::new(700.0, 600.0);
     world
         .blocks
-        .push(crate::world::Block::pogo_orb("orb", orb_center, 18.0));
+        .push(crate::engine_core::world::Block::pogo_orb("orb", orb_center, 18.0));
 
     let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
     // Place the player just above the orb so a downward pogo press hits it.

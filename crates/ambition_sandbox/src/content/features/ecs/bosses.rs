@@ -33,7 +33,7 @@ use crate::features::{
     boss_attack_damage, boss_special_for_profile, bounding_aabb, BossVolumeContext,
 };
 use crate::presentation::character_sprites::registry::SheetRegistry;
-use ambition_engine::AabbExt;
+use crate::engine_core::AabbExt;
 use bevy::prelude::{Commands, MessageWriter};
 
 /// Marker that a boss entity has had its sprite metrics applied

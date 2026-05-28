@@ -21,7 +21,7 @@
 
 #![allow(unused_imports)]
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResizeConstraints, WindowResolution};

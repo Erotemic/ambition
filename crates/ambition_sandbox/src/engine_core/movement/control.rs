@@ -1,5 +1,5 @@
-use crate::world::World;
-use crate::Vec2;
+use crate::engine_core::world::World;
+use crate::engine_core::Vec2;
 
 use super::blink::{blink_destination, blink_destination_to_point, complete_blink};
 use super::collision::try_pogo;
@@ -81,13 +81,13 @@ fn handle_mode_toggles(player: &mut Player, input: InputState, events: &mut Fram
 #[allow(clippy::too_many_arguments)]
 pub fn handle_blink_clusters(
     world: &World,
-    kinematics: &mut crate::player_clusters::PlayerKinematics,
-    abilities: &crate::player_clusters::PlayerAbilities,
-    flight: &mut crate::player_clusters::PlayerFlightState,
-    wall: &mut crate::player_clusters::PlayerWallState,
-    dash: &mut crate::player_clusters::PlayerDashState,
-    blink: &mut crate::player_clusters::PlayerBlinkState,
-    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
+    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
+    flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
+    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
+    dash: &mut crate::engine_core::player_clusters::PlayerDashState,
+    blink: &mut crate::engine_core::player_clusters::PlayerBlinkState,
+    combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
     input: InputState,
     dt: f32,
     tuning: MovementTuning,
@@ -174,12 +174,12 @@ pub fn handle_blink_clusters(
 /// Cluster-ref variant of [`handle_attacks`].
 pub fn handle_attacks_clusters(
     world: &World,
-    kinematics: &mut crate::player_clusters::PlayerKinematics,
-    abilities: &crate::player_clusters::PlayerAbilities,
-    ground: &mut crate::player_clusters::PlayerGroundState,
-    dash: &mut crate::player_clusters::PlayerDashState,
-    jump_state: &mut crate::player_clusters::PlayerJumpState,
-    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
+    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
+    ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
+    dash: &mut crate::engine_core::player_clusters::PlayerDashState,
+    jump_state: &mut crate::engine_core::player_clusters::PlayerJumpState,
+    combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
     input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,

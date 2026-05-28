@@ -6,7 +6,7 @@ use bevy::time::TimeUpdateStrategy;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use crate::app::{SandboxSimulationPlugin, StartRoomOverride};
 use crate::game_mode::GameMode;

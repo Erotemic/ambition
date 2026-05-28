@@ -22,7 +22,7 @@
 //! RL policy can replace any single stage without touching the
 //! others.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::action_set::ActionSet;
 use super::snapshot::BrainSnapshot;

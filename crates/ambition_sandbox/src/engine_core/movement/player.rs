@@ -1,6 +1,6 @@
-use crate::abilities::AbilitySet;
-use crate::geometry::Aabb;
-use crate::Vec2;
+use crate::engine_core::abilities::AbilitySet;
+use crate::engine_core::geometry::Aabb;
+use crate::engine_core::Vec2;
 
 use super::{ComboMark, MovementOp, MovementTuning, BLINK_DISTANCE, DEFAULT_TUNING};
 
@@ -103,11 +103,11 @@ pub struct Player {
     pub damage_multiplier: i32,
     /// Generic resource meter the player spends on charge attacks /
     /// special abilities. Defaults to a full 100/100 meter with no
-    /// regen / decay. Surfaced through `crate::ResourceMeter` so any
+    /// regen / decay. Surfaced through `crate::engine_core::ResourceMeter` so any
     /// future ability can wire `try_spend` / `tick_regen`. The
     /// sandbox F3 inspector reads/writes i32 facades; this struct's
     /// f32 internals are converted at the editor boundary.
-    pub mana: crate::ResourceMeter,
+    pub mana: crate::engine_core::ResourceMeter,
     /// True → all incoming damage to this player is dropped before HP
     /// math runs. Used by the F3 stats editor's "invincible" toggle and
     /// any future invuln-frame mechanics.
@@ -120,14 +120,14 @@ pub struct Player {
     /// systems writing crouch / morph / slide should set this directly,
     /// gated on `BodyShape::fits_at` for collision-safe resize.
     /// Trace/HUD readers consult this field instead of inferring.
-    pub body_mode: crate::player_state::BodyMode,
+    pub body_mode: crate::engine_core::player_state::BodyMode,
     /// Cached water contact for this frame. Set at the top of
     /// `update_player_simulation_with_tuning` from
     /// `World::water_at(player.aabb)`. Movement uses this to:
     /// - drown when `!abilities.swim`,
     /// - convert buffered jump presses into swim impulses,
     /// - apply buoyancy / drag / fall-cap during integration.
-    pub water_contact: Option<crate::world::WaterContact>,
+    pub water_contact: Option<crate::engine_core::world::WaterContact>,
     /// Cached climbable-surface contact for this frame. Set by sandbox
     /// systems from `World::climbable_at(player.aabb)` immediately
     /// before / inside the gameplay loop (mirroring how
@@ -137,12 +137,12 @@ pub struct Player {
     /// HUD readouts) and for the RL/headless adapter's
     /// `AgentObservation`. Full `BodyMode::Climbing` integration is a
     /// follow-up.
-    pub climbable_contact: Option<crate::world::ClimbableContact>,
+    pub climbable_contact: Option<crate::engine_core::world::ClimbableContact>,
     /// Engine-owned ledge hang / pull-up state. `update_player_simulation` owns
     /// this state so ledge grabs participate in the same collision pipeline as
     /// wall contact, water, and gravity instead of being corrected by a later
     /// sandbox system.
-    pub ledge_grab: Option<crate::ledge_grab::LedgeGrabState>,
+    pub ledge_grab: Option<crate::engine_core::ledge_grab::LedgeGrabState>,
     /// Most recent **airborne free-flight velocity** — `player.vel`
     /// from the last frame the player was airborne AND not wall-
     /// clinging AND not climbing. The ledge-grab momentum-carry
@@ -237,8 +237,8 @@ impl Player {
             resets: 0,
             damage_multiplier: 1,
             invincible: false,
-            mana: crate::ResourceMeter::new(100.0, 0.0, 0.0),
-            body_mode: crate::player_state::BodyMode::Standing,
+            mana: crate::engine_core::ResourceMeter::new(100.0, 0.0, 0.0),
+            body_mode: crate::engine_core::player_state::BodyMode::Standing,
             water_contact: None,
             climbable_contact: None,
             ledge_grab: None,

@@ -4,7 +4,7 @@
 //! vocabulary for enemies, bosses, NPCs, moving hazards, and other authored
 //! entities before any one feature grows a bespoke sandbox-only system.
 
-use ambition_engine::Vec2;
+use crate::engine_core::Vec2;
 
 /// Coarse category for room entities that have identity or behavior.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

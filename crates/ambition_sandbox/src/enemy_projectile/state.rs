@@ -1,6 +1,6 @@
 //! Live state for enemy-fired projectiles.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::Resource;
 
 /// A spawn request describing an enemy projectile. Built by the

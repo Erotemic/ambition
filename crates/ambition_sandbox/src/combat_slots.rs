@@ -26,7 +26,7 @@
 //! where they should stand. Enemies without a slot fall back to a
 //! holding ring offset further out.
 
-use ambition_engine::Vec2;
+use crate::engine_core::Vec2;
 
 /// What family of slot this is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

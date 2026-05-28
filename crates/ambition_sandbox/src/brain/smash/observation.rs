@@ -6,7 +6,7 @@
 //! against a hand-built [`ObservationFrame`] and replayable
 //! deterministically.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::super::snapshot::BrainSnapshot;
 

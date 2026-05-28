@@ -6,7 +6,7 @@
 //! order inside that chain is expressed by the tuple `.chain()` in
 //! `add_simulation_plugins` rather than by `.after(name)` on each system.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use crate::audio::SfxMessage;

@@ -13,12 +13,12 @@
 //! construct a whole player; it will go away in Phase 3d once nothing
 //! references it.
 
-use crate::abilities::AbilitySet;
-use crate::ledge_grab::LedgeGrabState;
-use crate::movement::{ComboMark, Player, BLINK_DISTANCE};
-use crate::player_state::{BodyMode, ResourceMeter};
-use crate::world::{ClimbableContact, WaterContact};
-use crate::Vec2;
+use crate::engine_core::abilities::AbilitySet;
+use crate::engine_core::ledge_grab::LedgeGrabState;
+use crate::engine_core::movement::{ComboMark, Player, BLINK_DISTANCE};
+use crate::engine_core::player_state::{BodyMode, ResourceMeter};
+use crate::engine_core::world::{ClimbableContact, WaterContact};
+use crate::engine_core::Vec2;
 
 /// Mutable cluster references aggregated for the engine
 /// `update_player_*_with_clusters` entry points.
@@ -272,7 +272,7 @@ pub struct PlayerKinematics {
 
 impl Default for PlayerKinematics {
     fn default() -> Self {
-        let body = crate::movement::default_player_body_size();
+        let body = crate::engine_core::movement::default_player_body_size();
         Self {
             pos: Vec2::ZERO,
             vel: Vec2::ZERO,
@@ -294,8 +294,8 @@ impl PlayerKinematics {
         }
     }
 
-    pub fn aabb(self) -> crate::Aabb {
-        crate::Aabb::new(self.pos, self.size * 0.5)
+    pub fn aabb(self) -> crate::engine_core::Aabb {
+        crate::engine_core::Aabb::new(self.pos, self.size * 0.5)
     }
 }
 
@@ -550,7 +550,7 @@ impl PlayerComboTrace {
 /// The combo trace is wiped and a fresh `MovementOp::Reset` mark is
 /// pushed (matches `Player::reset_to`'s `self.record(MovementOp::Reset)`).
 pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) {
-    use crate::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
+    use crate::engine_core::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
 
     let new_resets = clusters.lifetime.resets + 1;
     let abilities = clusters.abilities.abilities;
@@ -602,7 +602,7 @@ pub fn refresh_movement_resources_clusters(
     abilities: &PlayerAbilities,
     dash: &mut PlayerDashState,
     jump: &mut PlayerJumpState,
-    tuning: crate::movement::MovementTuning,
+    tuning: crate::engine_core::movement::MovementTuning,
 ) {
     dash.charges_available = abilities.abilities.dash_charge_count();
     jump.air_jumps_available = abilities.abilities.air_jump_count(tuning.air_jumps);

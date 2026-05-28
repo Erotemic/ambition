@@ -1,10 +1,10 @@
-use ambition_engine::Vec2;
+use crate::engine_core::Vec2;
 
 use super::body::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
 use super::motion_input::{MotionDirection, MotionInputBuffer};
 use super::spawn::{ProjectileSpawner, SpawnFailure};
 use super::spec::{FireballChargeTuning, ProjectileKind, ProjectileSpec};
-use ambition_engine::{aabb_from_min_size, Aabb, AabbExt};
+use crate::engine_core::{aabb_from_min_size, Aabb, AabbExt};
 
 #[test]
 fn motion_buffer_recognizes_quarter_circle_right() {

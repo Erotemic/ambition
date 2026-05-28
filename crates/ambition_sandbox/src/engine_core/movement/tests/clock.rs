@@ -3,7 +3,7 @@
 
 use super::super::*;
 use super::test_world;
-use crate::Vec2;
+use crate::engine_core::Vec2;
 
 #[test]
 fn tiny_dt_preserves_bullet_time_scale() {

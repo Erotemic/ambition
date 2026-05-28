@@ -3,8 +3,8 @@
 
 use super::super::*;
 use super::{step, test_world};
-use crate::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
-use crate::{Aabb, AbilitySet, Vec2, World};
+use crate::engine_core::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
+use crate::engine_core::{Aabb, AbilitySet, Vec2, World};
 
 #[test]
 fn climbable_contact_is_populated_when_player_intersects_ladder() {
@@ -65,7 +65,7 @@ fn climbing_mode_suspends_gravity_and_drives_vertical_velocity() {
     let mut player = Player::new(Vec2::new(400.0, 600.0));
     // Force the climbing mode + populate contact (sandbox-side
     // driver does this in production; tests do it directly).
-    player.body_mode = crate::player_state::BodyMode::Climbing;
+    player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
     player.climbable_contact = world.climbable_at(player.aabb());
     // Push some y velocity into the player so the test can prove
     // that climbing replaces it (rather than just initializing
@@ -140,7 +140,7 @@ fn climbing_passes_through_solid_blocks_overlapping_ladder() {
     world.climbable_regions.push(ladder);
 
     let mut player = Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
-    player.body_mode = crate::player_state::BodyMode::Climbing;
+    player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
     player.climbable_contact = world.climbable_at(player.aabb());
     let initial_y = player.pos.y;
     // Drive 60 frames at fixed-60Hz climb-up. With the
@@ -160,7 +160,7 @@ fn climbing_passes_through_solid_blocks_overlapping_ladder() {
             DEFAULT_TUNING,
         );
         // Re-set climbing in case any control branch flipped it.
-        player.body_mode = crate::player_state::BodyMode::Climbing;
+        player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
     }
     let dy = initial_y - player.pos.y;
     // Expected motion: ~60 frames * 180 px/sec / 60 = 180 px.
@@ -202,7 +202,7 @@ fn climbing_player_still_collides_with_hazard_blocks_overlapping_ladder() {
     ));
 
     let mut player = Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
-    player.body_mode = crate::player_state::BodyMode::Climbing;
+    player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
     player.climbable_contact = world.climbable_at(player.aabb());
     let initial_pos = player.pos;
     // Drive the climb upward toward the hazard.
@@ -223,7 +223,7 @@ fn climbing_player_still_collides_with_hazard_blocks_overlapping_ladder() {
             hazard_fired = true;
             break;
         }
-        player.body_mode = crate::player_state::BodyMode::Climbing;
+        player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
     }
     assert!(
         hazard_fired,
@@ -251,7 +251,7 @@ fn non_climbing_player_still_collides_with_solid_blocks_overlapping_ladder() {
     ));
 
     let mut player = Player::new(Vec2::new(400.0, 480.0)); // below platform
-    player.body_mode = crate::player_state::BodyMode::Standing;
+    player.body_mode = crate::engine_core::player_state::BodyMode::Standing;
     // Aim downward to test horizontal sweep against the platform.
     player.vel = Vec2::new(0.0, -2000.0);
     let pre_y = player.pos.y;
@@ -290,7 +290,7 @@ fn climbing_mode_strafe_factor_caps_horizontal_input() {
         ClimbableSpec::default(),
     ));
     let mut player = Player::new(Vec2::new(400.0, 600.0));
-    player.body_mode = crate::player_state::BodyMode::Climbing;
+    player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
     player.climbable_contact = world.climbable_at(player.aabb());
 
     let _ = update_player_with_tuning(

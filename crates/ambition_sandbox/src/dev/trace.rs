@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ae::AabbExt;
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 use serde::Serialize;
 

@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::{LdtkEntityInstance, LdtkFieldInstance, LdtkLevel, AMBITION_LDTK_ENTITY_IDENTIFIERS};
 

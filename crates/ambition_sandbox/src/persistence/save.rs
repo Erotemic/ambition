@@ -1,6 +1,6 @@
 //! Sandbox save game I/O + autosave.
 //!
-//! The data shape lives in `ambition_engine::save` (`SandboxSaveData`,
+//! The data shape lives in `crate::engine_core::save` (`SandboxSaveData`,
 //! `PersistedEncounter`, `PersistedSwitch`). This module is the
 //! Bevy-side shim that loads/saves to disk and coordinates autosave.
 //!

@@ -4,8 +4,8 @@
 //! engine exposes simulation state; this module decides how to visualize that
 //! state for tuning and feel work.
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;

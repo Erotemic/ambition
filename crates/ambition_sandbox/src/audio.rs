@@ -15,7 +15,7 @@
 //! `TODO: kira_underwater_filter_backend` for the exact swap points.
 //! Reverb / heavier coloration remains future work.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use ambition_sfx::SfxId;
 #[cfg(feature = "audio")]
 use ambition_sfx::{self as sfx, SfxProvider};

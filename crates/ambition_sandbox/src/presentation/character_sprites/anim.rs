@@ -7,7 +7,7 @@
 //! any row a sheet doesn't carry, so simple characters can list only
 //! their relevant animations.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use crate::player::PlayerAnimState;
 

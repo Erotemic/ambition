@@ -6,8 +6,8 @@
 
 use bevy::prelude::*;
 
-use ambition_engine as ae;
-use ambition_engine::ProjectileKind;
+use crate::engine_core as ae;
+use crate::engine_core::ProjectileKind;
 
 use super::super::state::{PlayerProjectile, PlayerProjectileState};
 use super::super::systems::update_projectiles;

@@ -1,4 +1,4 @@
-use crate::world::World;
+use crate::engine_core::world::World;
 
 use super::collision::{standing_on_one_way, touching_hazard};
 use super::dec;
@@ -49,12 +49,12 @@ pub fn update_player_simulation_with_tuning(
 
     age_player(player, dt);
     update_simulation_timers(player, dt, tuning);
-    if crate::ledge_grab::tick_active_ledge_grab(player, input, dt, tuning, &mut events) {
+    if crate::engine_core::ledge_grab::tick_active_ledge_grab(player, input, dt, tuning, &mut events) {
         return events;
     }
     handle_jump_buffer(world, player, input, tuning, &mut events);
     integrate_velocity(world, player, input, dt, tuning, &mut events);
-    crate::ledge_grab::try_start_ledge_grab(world, player, input, &mut events);
+    crate::engine_core::ledge_grab::try_start_ledge_grab(world, player, input, &mut events);
 
     if touching_hazard(world, player) || player.pos.y > world.size.y + 200.0 {
         player.reset_to(world.spawn);
@@ -107,14 +107,14 @@ fn update_simulation_timers(player: &mut Player, dt: f32, tuning: MovementTuning
 /// Cluster-ref variant of [`handle_jump_buffer`].
 pub fn handle_jump_buffer_clusters(
     world: &World,
-    action_buffer: &mut crate::player_clusters::PlayerActionBuffer,
-    env_contact: &crate::player_clusters::PlayerEnvironmentContact,
-    abilities: &crate::player_clusters::PlayerAbilities,
-    kinematics: &mut crate::player_clusters::PlayerKinematics,
-    ground: &mut crate::player_clusters::PlayerGroundState,
-    wall: &mut crate::player_clusters::PlayerWallState,
-    jump_state: &mut crate::player_clusters::PlayerJumpState,
-    combo_trace: &mut crate::player_clusters::PlayerComboTrace,
+    action_buffer: &mut crate::engine_core::player_clusters::PlayerActionBuffer,
+    env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
+    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
+    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
+    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
+    jump_state: &mut crate::engine_core::player_clusters::PlayerJumpState,
+    combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
     input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,
@@ -136,7 +136,7 @@ pub fn handle_jump_buffer_clusters(
 
     if input.drop_through_pressed
         && ground.on_ground
-        && crate::movement::collision::standing_on_one_way_aabb(world, kinematics.aabb())
+        && crate::engine_core::movement::collision::standing_on_one_way_aabb(world, kinematics.aabb())
     {
         action_buffer.jump = 0.0;
         ground.on_ground = false;

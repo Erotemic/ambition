@@ -1,7 +1,7 @@
 //! Authoritative ECS movement-state components for the player entity.
 //!
 //! Phase 3a of the player-ecs-bandaid plan moved these cluster types
-//! into the engine ([`ambition_engine::player_clusters`]). The engine
+//! into the engine ([`crate::engine_core::player_clusters`]). The engine
 //! types `#[derive(Component)]` directly (engine is Bevy-native per
 //! ADR 0002), so the sandbox now just re-exports them under their
 //! original names — every consumer that imports
@@ -12,7 +12,7 @@
 //! `engine_player_bridge` shim once the helpers no longer need a
 //! tick-local `ae::Player` scratchpad.
 
-pub use ambition_engine::{
+pub use crate::engine_core::{
     EnginePlayerAbilities as PlayerAbilities, EnginePlayerActionBuffer as PlayerActionBuffer,
     EnginePlayerBlinkState as PlayerBlinkState, EnginePlayerBodyModeState as PlayerBodyModeState,
     EnginePlayerComboTrace as PlayerComboTrace, EnginePlayerDashState as PlayerDashState,

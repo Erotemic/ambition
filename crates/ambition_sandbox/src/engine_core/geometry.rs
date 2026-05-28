@@ -13,7 +13,7 @@ use parry2d::{
     shape::Cuboid,
 };
 
-use crate::Vec2;
+use crate::engine_core::Vec2;
 
 const CONTACT_EPS: f32 = 1.0e-4;
 

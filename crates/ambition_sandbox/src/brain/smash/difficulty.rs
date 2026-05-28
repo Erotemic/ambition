@@ -13,7 +13,7 @@
 //! - `mash_speed_hz` (informational; the EFFECTS-stage cooldown
 //!   gate is the authority for actual swing rate).
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use super::action::SpecificAction;
 use super::SmashState;

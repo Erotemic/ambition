@@ -107,8 +107,8 @@ pub fn compute_intro_flag_gated_lock_walls(
     project: &crate::world::ldtk_world::LdtkProject,
     active_room_id: &str,
     save: &crate::save::SandboxSaveData,
-) -> Vec<(String, ambition_engine::Vec2, ambition_engine::Vec2)> {
-    let mut out: Vec<(String, ambition_engine::Vec2, ambition_engine::Vec2)> = Vec::new();
+) -> Vec<(String, crate::engine_core::Vec2, crate::engine_core::Vec2)> {
+    let mut out: Vec<(String, crate::engine_core::Vec2, crate::engine_core::Vec2)> = Vec::new();
     for level in &project.levels {
         if level.active_area() != active_room_id {
             continue;
@@ -130,8 +130,8 @@ pub fn compute_intro_flag_gated_lock_walls(
             if save.flag(flag) {
                 continue;
             }
-            let min = ambition_engine::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
-            let size = ambition_engine::Vec2::new(entity.width as f32, entity.height as f32);
+            let min = crate::engine_core::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
+            let size = crate::engine_core::Vec2::new(entity.width as f32, entity.height as f32);
             out.push((id_trim.to_string(), min, size));
         }
     }
@@ -173,7 +173,7 @@ pub fn sync_intro_flag_gated_lock_walls(
             world
                 .0
                 .blocks
-                .push(ambition_engine::Block::solid(name, min, size));
+                .push(crate::engine_core::Block::solid(name, min, size));
         }
     }
 }
@@ -270,8 +270,8 @@ mod tests {
         assert_eq!(walls.len(), 1, "expected one lock wall");
         let (id, min, size) = &walls[0];
         assert_eq!(id, "alice_private_return_lock");
-        assert_eq!(*min, ambition_engine::Vec2::new(800.0, 624.0));
-        assert_eq!(*size, ambition_engine::Vec2::new(96.0, 112.0));
+        assert_eq!(*min, crate::engine_core::Vec2::new(800.0, 624.0));
+        assert_eq!(*size, crate::engine_core::Vec2::new(96.0, 112.0));
     }
 
     /// Once the unlock flag flips, compute should drop the LockWall

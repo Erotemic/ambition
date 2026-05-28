@@ -28,7 +28,7 @@
 //!    To make that swap painless we go through the high-level `GameAssets`
 //!    struct rather than baking specific paths into call sites.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 use std::collections::HashMap;
 

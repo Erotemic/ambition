@@ -103,7 +103,7 @@ pub struct AbilitySet {
     #[serde(default)]
     pub dodge: bool,
     /// Bubble shield: holding the shield button deploys a protective
-    /// bubble. The first [`crate::PARRY_WINDOW_TIME`] seconds grant
+    /// bubble. The first [`crate::engine_core::PARRY_WINDOW_TIME`] seconds grant
     /// full invulnerability (parry window). After that the shield
     /// remains visible but grants no damage reduction in the current
     /// implementation — the hook exists for future parry mechanics

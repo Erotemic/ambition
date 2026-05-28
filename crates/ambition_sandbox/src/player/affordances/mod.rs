@@ -113,7 +113,7 @@ pub fn compute_player_affordances(
     let body = PlayerBodyView {
         is_aerial: !ground.on_ground,
         on_ledge: ledge.grab.is_some(),
-        is_morphed: matches!(body_mode.body_mode, ambition_engine::BodyMode::MorphBall),
+        is_morphed: matches!(body_mode.body_mode, crate::engine_core::BodyMode::MorphBall),
         is_swimming: env_contact.water.is_some(),
     };
     let world = WorldView {
@@ -181,7 +181,7 @@ impl Plugin for AffordancesPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_engine as ae;
+    use crate::engine_core as ae;
 
     /// Minimal app harness: spawns a primary player + drives one
     /// `app.update()` so the affordance compute chain runs end-to-end

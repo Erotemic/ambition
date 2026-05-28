@@ -3,7 +3,7 @@
 
 use super::super::*;
 use super::{step, test_world};
-use crate::AbilitySet;
+use crate::engine_core::AbilitySet;
 
 #[test]
 fn double_jump_ability_controls_air_jump() {

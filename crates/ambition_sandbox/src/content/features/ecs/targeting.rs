@@ -8,7 +8,7 @@
 //! sticky-target or role-based selector here without touching any
 //! actor update signatures (OVERNIGHT-TODO #17.8).
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use super::super::components::{ActorFaction, ActorTarget, FeatureAabb};

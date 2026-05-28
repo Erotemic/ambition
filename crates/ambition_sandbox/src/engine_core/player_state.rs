@@ -23,8 +23,8 @@
 //! systems (HUD, future per-mode physics) can keep the value as a
 //! component or resource.
 
-use crate::movement::Player;
-use crate::Vec2;
+use crate::engine_core::movement::Player;
+use crate::engine_core::Vec2;
 use serde::{Deserialize, Serialize};
 
 /// Explicit movement / locomotion mode for the player.
@@ -253,11 +253,11 @@ impl BodyShape {
     /// predicate but typically gate on `BlockKind::Solid` (cannot
     /// stand into a ceiling) and `BlockKind::OneWay` for stand-up
     /// inside a one-way ceiling.
-    pub fn fits_at<F>(self, center: Vec2, world: &crate::world::World, predicate: F) -> bool
+    pub fn fits_at<F>(self, center: Vec2, world: &crate::engine_core::world::World, predicate: F) -> bool
     where
-        F: FnMut(&crate::world::Block) -> bool,
+        F: FnMut(&crate::engine_core::world::Block) -> bool,
     {
-        let aabb = crate::geometry::Aabb::new(center, self.size * 0.5);
+        let aabb = crate::engine_core::geometry::Aabb::new(center, self.size * 0.5);
         !world.body_overlaps_any(aabb, predicate)
     }
 }
@@ -280,13 +280,13 @@ impl BodyShape {
 /// so `feet_y == pos.y + size.y * 0.5`. Shrinking the body keeps feet
 /// planted by *increasing* `pos.y` by half the height delta.
 pub fn try_change_body_mode<F>(
-    player: &mut crate::movement::Player,
+    player: &mut crate::engine_core::movement::Player,
     new_mode: BodyMode,
-    world: &crate::world::World,
+    world: &crate::engine_core::world::World,
     predicate: F,
 ) -> bool
 where
-    F: FnMut(&crate::world::Block) -> bool,
+    F: FnMut(&crate::engine_core::world::Block) -> bool,
 {
     if player.body_mode == new_mode {
         return true;
@@ -308,14 +308,14 @@ where
 /// of the player state is untouched. Use this from cluster-aware
 /// sandbox systems to avoid the engine_player_bridge round-trip.
 pub fn try_change_body_mode_clusters<F>(
-    kinematics: &mut crate::player_clusters::PlayerKinematics,
-    body_mode_state: &mut crate::player_clusters::PlayerBodyModeState,
+    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    body_mode_state: &mut crate::engine_core::player_clusters::PlayerBodyModeState,
     new_mode: BodyMode,
-    world: &crate::world::World,
+    world: &crate::engine_core::world::World,
     predicate: F,
 ) -> bool
 where
-    F: FnMut(&crate::world::Block) -> bool,
+    F: FnMut(&crate::engine_core::world::Block) -> bool,
 {
     if body_mode_state.body_mode == new_mode {
         return true;
@@ -372,13 +372,13 @@ impl PlayerSafetyVerdict {
 /// looser margin so the camera can briefly extend past the room
 /// without auto-dumping.
 pub fn classify_player_safety<F>(
-    player: &crate::movement::Player,
-    world: &crate::world::World,
+    player: &crate::engine_core::movement::Player,
+    world: &crate::engine_core::world::World,
     margin: f32,
     mut solid_predicate: F,
 ) -> PlayerSafetyVerdict
 where
-    F: FnMut(&crate::world::Block) -> bool,
+    F: FnMut(&crate::engine_core::world::Block) -> bool,
 {
     if !player.pos.x.is_finite() || !player.pos.y.is_finite() {
         return PlayerSafetyVerdict::PositionNonFinite;
@@ -387,7 +387,7 @@ where
         return PlayerSafetyVerdict::VelocityNonFinite;
     }
     let aabb = player.aabb();
-    use crate::geometry::AabbExt;
+    use crate::engine_core::geometry::AabbExt;
     if aabb.left() < -margin || aabb.right() > world.size.x + margin {
         return PlayerSafetyVerdict::OutsideWorldEnvelope { axis: 'x' };
     }
@@ -484,8 +484,8 @@ impl ResourceMeter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::movement::default_player_body_size;
-    use crate::world::{Block, BlockKind, World};
+    use crate::engine_core::movement::default_player_body_size;
+    use crate::engine_core::world::{Block, BlockKind, World};
 
     #[test]
     fn locomotion_default_grounded_when_player_on_ground() {
@@ -558,7 +558,7 @@ mod tests {
         // collision-safe stand-up case directly.
         let standing = BodyMode::Standing.shape(Vec2::new(28.0, 46.0));
         assert!(!standing.fits_at(Vec2::new(70.0, 65.0), &world, |b| {
-            matches!(b.kind, crate::world::BlockKind::Solid)
+            matches!(b.kind, crate::engine_core::world::BlockKind::Solid)
         }));
     }
 
@@ -657,14 +657,14 @@ mod tests {
 
         // Crouching first must fit (ceiling is above the crouched body).
         let ok = try_change_body_mode(&mut player, BodyMode::Crouching, &world, |b| {
-            matches!(b.kind, crate::world::BlockKind::Solid)
+            matches!(b.kind, crate::engine_core::world::BlockKind::Solid)
         });
         assert!(ok);
 
         // Stand-up must be rejected because the standing body would
         // overlap the ceiling.
         let stand_attempt = try_change_body_mode(&mut player, BodyMode::Standing, &world, |b| {
-            matches!(b.kind, crate::world::BlockKind::Solid)
+            matches!(b.kind, crate::engine_core::world::BlockKind::Solid)
         });
         assert!(!stand_attempt);
         // State unchanged.

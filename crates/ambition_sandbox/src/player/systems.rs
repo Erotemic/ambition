@@ -1,6 +1,6 @@
 //! Player ECS systems.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use super::components::{

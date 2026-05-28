@@ -1,12 +1,12 @@
 //! Developer-facing tuning and inspection tools.
 //!
 //! This module is intentionally sandbox-side: it is allowed to depend on Bevy
-//! reflection and inspector UI crates, while `ambition_engine` stays focused on
+//! reflection and inspector UI crates, while `crate::engine_core` stays focused on
 //! reusable Bevy-native movement/collision logic. The reflected resources here mirror
 //! engine data so live tuning can happen without forcing Bevy dependencies into
 //! the reusable crate.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -548,7 +548,7 @@ pub fn world_inspector_visible(tools: Res<DeveloperTools>) -> bool {
     tools.world_inspector_visible
 }
 
-/// Reflected mirror of `ambition_engine::AbilitySet` for live inspector editing.
+/// Reflected mirror of `crate::engine_core::AbilitySet` for live inspector editing.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
 pub struct EditableAbilitySet {
@@ -652,7 +652,7 @@ impl Default for EditableAbilitySet {
     }
 }
 
-/// Reflected mirror of `ambition_engine::MovementTuning` for live inspector editing.
+/// Reflected mirror of `crate::engine_core::MovementTuning` for live inspector editing.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
 pub struct EditableMovementTuning {
@@ -868,7 +868,7 @@ pub fn apply_player_body_profile(player: &mut ae::Player, profile: PlayerBodyPro
 pub fn apply_movement_profile(
     editable_tuning: &mut EditableMovementTuning,
     profile: MovementProfile,
-    authority_player: Option<&mut ambition_engine::Player>,
+    authority_player: Option<&mut crate::engine_core::Player>,
 ) {
     let tuning = profile.tuning();
     *editable_tuning = EditableMovementTuning::from(tuning);

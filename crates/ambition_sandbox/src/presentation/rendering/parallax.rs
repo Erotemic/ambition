@@ -6,7 +6,7 @@
 //! fallback-friendly loading behavior without forcing the room renderer through
 //! an external API.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 

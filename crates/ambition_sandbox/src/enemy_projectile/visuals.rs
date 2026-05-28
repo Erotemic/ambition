@@ -104,7 +104,7 @@ fn spawn_lasersword_visual(
     commands: &mut Commands,
     texture: &Handle<Image>,
     translation: bevy::math::Vec3,
-    vel: ambition_engine::Vec2,
+    vel: crate::engine_core::Vec2,
 ) {
     // Bevy +Y is up; sandbox +Y is down — flip Y when computing the
     // sprite rotation from the velocity vector.

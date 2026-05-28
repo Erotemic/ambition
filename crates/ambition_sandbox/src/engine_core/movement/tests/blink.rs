@@ -3,8 +3,8 @@
 
 use super::super::*;
 use super::{step, test_world};
-use crate::world::BlinkWallTier;
-use crate::{AbilitySet, Vec2};
+use crate::engine_core::world::BlinkWallTier;
+use crate::engine_core::{AbilitySet, Vec2};
 
 #[test]
 fn held_blink_arms_when_cooldown_clears_without_new_press() {
@@ -209,7 +209,7 @@ fn post_blink_grace_suspends_gravity_for_tiny_window() {
 fn blink_walls_can_be_passed_by_upgrade_without_allowing_solid_walls() {
     let mut world = test_world();
     world.blocks.clear();
-    world.blocks.push(crate::world::Block::blink_wall(
+    world.blocks.push(crate::engine_core::world::Block::blink_wall(
         "test soft blink membrane",
         Vec2::new(220.0, 0.0),
         Vec2::new(22.0, 300.0),

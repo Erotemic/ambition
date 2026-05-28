@@ -16,7 +16,7 @@ use bevy::prelude::*;
 use crate::content::banter::CombatBanterRegistry;
 use crate::features::BossFeature;
 use crate::presentation::fx::VfxMessage;
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 /// Register hit-bark + idle-bark lines for all boss encounters.
 pub fn install_boss_banter(registry: &mut CombatBanterRegistry) {

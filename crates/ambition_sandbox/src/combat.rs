@@ -6,9 +6,9 @@
 //! renderer.
 
 use crate::actor::{ActorFaction, KinematicPath, RespawnPolicy};
-use ambition_engine::{Aabb, AabbExt};
-use ambition_engine::Player;
-use ambition_engine::Vec2;
+use crate::engine_core::{Aabb, AabbExt};
+use crate::engine_core::Player;
+use crate::engine_core::Vec2;
 
 /// The broad gameplay category of damage. This is intentionally separate from
 /// presentation so hazards, attacks, and projectiles can share damage handling.
@@ -409,7 +409,7 @@ pub fn attack_hitbox(player: &Player, spec: AttackSpec) -> Aabb {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_engine::Vec2;
+    use crate::engine_core::Vec2;
 
     /// Test helper: resolve the canonical attack pipeline
     /// (`resolve_attack_intent` → `attack_spec` → `attack_hitbox`) into

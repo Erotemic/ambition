@@ -1,6 +1,6 @@
-use crate::geometry::AabbExt;
-use crate::world::World;
-use crate::Vec2;
+use crate::engine_core::geometry::AabbExt;
+use crate::engine_core::world::World;
+use crate::engine_core::Vec2;
 
 /// Move `value` toward `target` by at most `delta`. Inlined from the
 /// removed `ae::scalar::approach`.
@@ -30,7 +30,7 @@ pub(super) fn integrate_velocity(
 ) {
     if player.dash_timer > 0.0 {
         player.dash_timer = dec(player.dash_timer, dt);
-    } else if player.body_mode == crate::player_state::BodyMode::Climbing
+    } else if player.body_mode == crate::engine_core::player_state::BodyMode::Climbing
         && player.climbable_contact.is_some()
     {
         integrate_climb(player, input, dt);

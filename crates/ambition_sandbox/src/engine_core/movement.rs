@@ -13,7 +13,7 @@
 //! focused child modules so movement actions, simulation clocks, collision,
 //! velocity integration, and blink pathing can evolve independently.
 
-use crate::world::World;
+use crate::engine_core::world::World;
 
 mod blink;
 pub(crate) mod collision;
@@ -140,7 +140,7 @@ pub fn update_player_simulation_with_tuning(
 /// via a localized scratchpad.
 pub fn update_player_control_with_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
     control_dt: f32,
     tuning: MovementTuning,
@@ -149,7 +149,7 @@ pub fn update_player_control_with_clusters(
 
     // Reset on edge press, cluster-native.
     if input.reset_pressed && clusters.abilities.abilities.reset {
-        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+        crate::engine_core::player_clusters::reset_player_clusters(clusters, world.spawn);
         events.reset = true;
         return events;
     }
@@ -315,7 +315,7 @@ pub fn update_player_control_with_clusters(
 /// variants and the scratchpad calls shrink.
 pub fn update_player_simulation_with_clusters(
     world: &World,
-    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
@@ -335,7 +335,7 @@ pub fn update_player_simulation_with_clusters(
 
     // Drowning gate — cluster-native reset.
     if clusters.env_contact.water.is_some() && !clusters.abilities.abilities.swim {
-        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+        crate::engine_core::player_clusters::reset_player_clusters(clusters, world.spawn);
         events.hazard = true;
         events.reset = true;
         return events;
@@ -371,7 +371,7 @@ pub fn update_player_simulation_with_clusters(
         }
         if clusters.ground.on_ground {
             clusters.ground.coyote_timer = tuning.coyote_time;
-            crate::player_clusters::refresh_movement_resources_clusters(
+            crate::engine_core::player_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
                 clusters.dash,
                 clusters.jump,
@@ -382,7 +382,7 @@ pub fn update_player_simulation_with_clusters(
 
     // Inner helpers that still take &mut Player — localized scratchpad.
     let mut player = clusters.to_player();
-    if crate::ledge_grab::tick_active_ledge_grab(&mut player, input, dt, tuning, &mut events) {
+    if crate::engine_core::ledge_grab::tick_active_ledge_grab(&mut player, input, dt, tuning, &mut events) {
         clusters.write_from_player(player);
         return events;
     }
@@ -406,14 +406,14 @@ pub fn update_player_simulation_with_clusters(
 
     let mut player = clusters.to_player();
     integration::integrate_velocity(world, &mut player, input, dt, tuning, &mut events);
-    crate::ledge_grab::try_start_ledge_grab(world, &mut player, input, &mut events);
+    crate::engine_core::ledge_grab::try_start_ledge_grab(world, &mut player, input, &mut events);
     clusters.write_from_player(player);
 
     // Hazard reset — cluster-native.
     if collision::touching_hazard_aabb(world, clusters.kinematics.aabb())
         || clusters.kinematics.pos.y > world.size.y + 200.0
     {
-        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+        crate::engine_core::player_clusters::reset_player_clusters(clusters, world.spawn);
         events.hazard = true;
         events.reset = true;
     }

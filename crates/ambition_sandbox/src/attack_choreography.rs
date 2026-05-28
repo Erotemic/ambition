@@ -32,7 +32,7 @@
 //! module merely consumes a slot offset the caller has already
 //! assigned.
 
-use ambition_engine::Vec2;
+use crate::engine_core::Vec2;
 
 /// Authored attack choreography for one enemy.
 ///

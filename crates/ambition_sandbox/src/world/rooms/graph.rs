@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ambition_engine::AabbExt;
+use crate::engine_core::AabbExt;
 use petgraph::graph::Graph;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;

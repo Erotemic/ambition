@@ -26,7 +26,7 @@
 //! the next attempt. Cross-session persistence inherits whatever
 //! state the boss runtime restores on respawn — no extra hookup here.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use crate::features::BossFeature;

@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 
 use crate::content::data::SandboxDataSpec;
 use crate::ldtk_world::{field_string, LdtkProject};

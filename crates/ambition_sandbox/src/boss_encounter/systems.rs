@@ -1,4 +1,4 @@
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use crate::content::quest::QuestRegistry;

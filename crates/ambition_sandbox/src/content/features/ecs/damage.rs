@@ -7,7 +7,7 @@
 //! attack/projectile systems can pre-check whether a queued damage event will
 //! actually land before kicking off cues.
 
-use ambition_engine::AabbExt;
+use crate::engine_core::AabbExt;
 use bevy::prelude::{Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With};
 
 use super::super::{

@@ -3,8 +3,8 @@
 //! `spawn_room_visuals` is the entry point called once per room
 //! load.
 
-use ambition_engine as ae;
-use ambition_engine::AabbExt;
+use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 

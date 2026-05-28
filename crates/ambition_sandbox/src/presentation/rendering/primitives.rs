@@ -1,7 +1,7 @@
 //! Visual marker components, scene entity registry, color/z helpers,
 //! and the small `spawn_world_label` utility.
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use crate::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};

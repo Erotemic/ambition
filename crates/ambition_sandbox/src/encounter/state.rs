@@ -1,7 +1,7 @@
 use bevy::math::bounding::IntersectsVolume;
 use bevy::prelude::Resource;
 
-use ambition_engine as ae;
+use crate::engine_core as ae;
 use crate::save::PersistedEncounterState;
 
 use super::{EncounterEvent, EncounterMobSpec, EncounterSpec};

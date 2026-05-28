@@ -177,9 +177,12 @@ impl SandboxSim {
     /// Useful for inspecting state mid-episode without burning a tick.
     pub fn observation(&mut self) -> AgentObservation {
         // Build per-entity cluster queries. Each one re-uses the
-        // `query_filtered::<&...>` shape; once Phase 3 collapses the
-        // bridge this can switch to a single `Query<PlayerClusterQueryData>`
-        // through a one-shot system.
+        // `query_filtered::<&...>` shape. Future cleanup: switch to a
+        // single `Query<PlayerClusterQueryData>` through a one-shot
+        // system. The cluster-native engine layer is in place (the
+        // 2026-05-28 ae::Player deletion finalized it); this site
+        // just hasn't been collapsed to use the query data struct
+        // yet.
         let mut kinematics_query = self
             .app
             .world_mut()

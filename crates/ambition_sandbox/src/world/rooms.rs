@@ -460,7 +460,46 @@ impl KinematicPathSpec {
     }
 
     pub fn matches_id(&self, query: &str) -> bool {
-        self.aliases().any(|alias| alias == query)
+        if self.aliases().any(|alias| alias == query) {
+            return true;
+        }
+        // Tolerate `compact_path_name`-style normalization (used by
+        // the LDtk path-lookup-id derivation): if the query, after
+        // slugifying the spec's `name` field with the same rules
+        // *minus* the "_path_" stripping, matches, accept it. This
+        // resolves the latent mismatch between authors who reference
+        // a path by its raw name-slug (e.g. `enemy_patrol_path_a`)
+        // and the runtime id derived from the same name with
+        // `_path_` collapsed away (`enemy_patrol_a`). See the comment
+        // on `validate_patrol_brain_paths` in `content_validation.rs`.
+        if let Some(slug) = name_slug(&self.name) {
+            if slug == query {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+fn name_slug(name: &str) -> Option<String> {
+    let mut slug = String::new();
+    let mut previous_was_sep = false;
+    for ch in name.trim().chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            previous_was_sep = false;
+        } else if !previous_was_sep && !slug.is_empty() {
+            slug.push('_');
+            previous_was_sep = true;
+        }
+    }
+    while slug.ends_with('_') {
+        slug.pop();
+    }
+    if slug.is_empty() {
+        None
+    } else {
+        Some(slug)
     }
 }
 

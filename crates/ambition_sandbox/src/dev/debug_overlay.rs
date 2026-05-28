@@ -104,8 +104,7 @@ pub fn draw_debug_overlay(
         return;
     };
     // Both debug-overlay helpers (`draw_player_debug`,
-    // `draw_health_bars`) take cluster refs directly now —
-    // no `to_player` snapshot needed (2026-05-28).
+    // `draw_health_bars`) take cluster refs directly.
     let clusters = cluster_item.as_clusters_mut();
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);

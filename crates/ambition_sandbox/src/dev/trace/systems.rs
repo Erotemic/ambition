@@ -133,8 +133,7 @@ pub fn record_frame_system(
         return;
     };
     // Trace recording is read-only. Walks the cluster components
-    // directly — no `to_player` snapshot needed since the trace
-    // helpers all read through `PlayerClustersMut` now (2026-05-28).
+    // directly through `PlayerClustersMut`.
     let clusters = cluster_item.as_clusters_mut();
     let control_frame = input.frame;
     let real_dt = time.delta_secs();

@@ -303,8 +303,9 @@ pub fn update_player_simulation_with_clusters(
 
     integration::integrate_velocity_clusters(world, clusters, input, dt, tuning, &mut events);
 
-    // `try_start_ledge_grab_clusters` is cluster-native — no
-    // scratchpad needed for this step (2026-05-28).
+    // Probe for a fresh ledge grab now that the integration step
+    // settled the new position. Required for the auto-snap-on-fall
+    // recovery path (slow drifts ignore this; fast falls latch).
     crate::engine_core::ledge_grab::try_start_ledge_grab_clusters(
         world,
         clusters,

@@ -121,9 +121,9 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
                 .unwrap_or_default()
         };
 
-        // Query the player's cluster components directly. The trace
-        // recorder takes `&PlayerClustersMut` natively now
-        // (2026-05-28); no `Player` snapshot is built.
+        // Query the player's 18 cluster components in one shot via
+        // `PlayerClusterQueryData::as_clusters_mut()` so the trace
+        // recorder can read them through a `PlayerClustersMut` view.
         let mut cluster_q = sim
             .world_mut()
             .query_filtered::<ambition_sandbox::engine_core::PlayerClusterQueryData, With<PlayerEntity>>();

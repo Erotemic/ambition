@@ -106,86 +106,15 @@ impl<'a> PlayerClustersMut<'a> {
         }
     }
 
-    /// Assemble a tick-local `Player` from these cluster refs, hand
-    /// it to the closure, and commit the result back. Use this from
-    /// any sandbox system that still needs to call an engine helper
-    /// taking `&mut Player`.
-    ///
-    /// Phase 3 transitional shim — Phase 3d removes both `ae::Player`
-    /// and this helper once every engine helper is cluster-native.
-    pub fn with_player_scratchpad<R, F: FnOnce(&mut Player) -> R>(&mut self, f: F) -> R {
-        let mut player = self.to_player();
-        let r = f(&mut player);
-        self.write_from_player(player);
-        r
-    }
-
-    /// Write the post-tick `Player` back to the cluster refs.
-    pub fn write_from_player(&mut self, player: Player) {
-        self.kinematics.pos = player.pos;
-        self.kinematics.vel = player.vel;
-        self.kinematics.size = player.size;
-        self.kinematics.base_size = player.base_size;
-        self.kinematics.facing = player.facing;
-
-        self.ground.on_ground = player.on_ground;
-        self.ground.coyote_timer = player.coyote_timer;
-        self.ground.drop_through_timer = player.drop_through_timer;
-        self.ground.rebound_cooldown = player.rebound_cooldown;
-
-        self.wall.on_wall = player.on_wall;
-        self.wall.wall_normal_x = player.wall_normal_x;
-        self.wall.wall_clinging = player.wall_clinging;
-        self.wall.wall_climbing = player.wall_climbing;
-        self.wall.pre_wall_vel = player.pre_wall_vel;
-        self.wall.pre_wall_vel_age = player.pre_wall_vel_age;
-
-        self.jump.air_jumps_available = player.air_jumps_available;
-
-        self.dash.charges_available = player.dash_charges_available;
-        self.dash.timer = player.dash_timer;
-        self.dash.cooldown = player.dash_cooldown;
-
-        self.flight.fly_enabled = player.fly_enabled;
-        self.flight.flight_phase = player.flight_phase;
-        self.flight.gliding = player.gliding;
-        self.flight.fast_falling = player.fast_falling;
-
-        self.blink.cooldown = player.blink_cooldown;
-        self.blink.hold_active = player.blink_hold_active;
-        self.blink.hold_timer = player.blink_hold_timer;
-        self.blink.aiming = player.blink_aiming;
-        self.blink.aim_offset = player.blink_aim_offset;
-        self.blink.grace_timer = player.blink_grace_timer;
-
-        self.ledge.grab = player.ledge_grab;
-        self.ledge.release_cooldown = player.ledge_release_cooldown;
-
-        self.dodge.roll_timer = player.dodge_roll_timer;
-        self.dodge.cooldown = player.dodge_roll_cooldown;
-
-        self.shield.active = player.shield_active;
-        self.shield.parry_window_timer = player.parry_window_timer;
-
-        self.body_mode.body_mode = player.body_mode;
-
-        self.env_contact.water = player.water_contact;
-        self.env_contact.climbable = player.climbable_contact;
-
-        self.mana.meter = player.mana;
-
-        self.offense.damage_multiplier = player.damage_multiplier;
-        self.offense.invincible = player.invincible;
-
-        self.action_buffer.jump = player.jump_buffer_timer;
-        self.action_buffer.dash = player.dash_buffer_timer;
-
-        self.lifetime.time_alive = player.time_alive;
-        self.lifetime.resets = player.resets;
-        self.lifetime.max_speed = player.max_speed;
-
-        self.combo_trace.combo = player.combo;
-    }
+    // `write_from_player` and `with_player_scratchpad` were removed
+    // 2026-05-28 once every engine helper had a cluster-native
+    // variant. `to_player` is kept (above) as a read-only snapshot
+    // used by debug overlay / trace recording / the combat helpers
+    // (`resolve_attack_intent`, `attack_spec`, `attack_hitbox`).
+    // Those readers don't mutate; they only synthesize a `Player`
+    // so the legacy `&Player`-shaped helpers can keep their flat
+    // field-access syntax. Once they're cluster-aware, `to_player`
+    // and the `Player` struct itself can go too.
 }
 
 /// Bevy query data that matches [`PlayerClustersMut`]. Use in a system

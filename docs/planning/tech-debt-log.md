@@ -18,10 +18,11 @@ to the bottom under "Closed" with the commit that fixed them.
   without per-player ownership** — closed by the full ECS player
   migration. All movement, health, combat timers, anim state, blink
   camera state, and interaction state live on dedicated ECS components
-  on the player entity (`PlayerMovementAuthority` and friends in
-  `crates/ambition_sandbox/src/player/`). The god-object resource is
-  gone; the `legacy_runtime_guardrail` integration test prevents
-  re-introduction.
+  on the player entity (18 cluster components + companions in
+  `crates/ambition_sandbox/src/player/` and
+  `crates/ambition_sandbox/src/engine_core/player_clusters.rs`,
+  finalized 2026-05-28). The god-object resource is gone; the
+  `legacy_runtime_guardrail` integration test prevents re-introduction.
 
 ### Runtime / state
 
@@ -201,9 +202,11 @@ to the bottom under "Closed" with the commit that fixed them.
     `sandbox_update` itself now runs only in `GameMode::Playing`. The
     remaining inline phases — `reset_phase`, `player_control_phase`,
     `player_simulation_phase`, the inline `player_damage_events`
-    collect, and `damage_heal_dialogue_phase` — still share
-    `&mut ae::Player` and `&mut FrameFeedback`. Promote one phase at
-    a time, gated by integration tests, when the borrow graph allows.
+    collect, and `damage_heal_dialogue_phase` — now share
+    `&mut PlayerClustersMut` and `&mut FrameFeedback`; the
+    `&mut ae::Player` half went away with the struct on 2026-05-28.
+    Promote one phase at a time, gated by integration tests, when the
+    borrow graph allows.
     See `feedback.rs` for the parallel `FrameFeedback` Vec-collector
     retirement plan (down to two channels: `sfx` and `vfx`).
 

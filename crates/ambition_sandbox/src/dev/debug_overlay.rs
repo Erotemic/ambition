@@ -103,14 +103,10 @@ pub fn draw_debug_overlay(
     let Ok((mut cluster_item, player_health, attack)) = player_q.single_mut() else {
         return;
     };
-    // Phase 2 transitional: the debug-overlay helpers
-    // (`draw_player_debug`, `draw_health_bars`) still take `&ae::Player`.
-    // Build a read-only snapshot from the cluster components and pass
-    // it through. Phase 3 will refactor those helpers to take cluster
-    // refs directly.
+    // Both debug-overlay helpers (`draw_player_debug`,
+    // `draw_health_bars`) take cluster refs directly now —
+    // no `to_player` snapshot needed (2026-05-28).
     let clusters = cluster_item.as_clusters_mut();
-    let snapshot_player = clusters.to_player();
-    let authority_player = &snapshot_player;
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);
     }
@@ -143,7 +139,7 @@ pub fn draw_debug_overlay(
     draw_player_debug(
         &mut gizmos,
         world,
-        authority_player,
+        &clusters,
         &platform_set.0,
         attack.0.as_ref(),
         actions,
@@ -151,7 +147,7 @@ pub fn draw_debug_overlay(
         &developer_tools,
     );
     if developer_tools.show_health_bars {
-        draw_health_bars(&mut gizmos, world, authority_player.aabb(), player_health);
+        draw_health_bars(&mut gizmos, world, clusters.kinematics.aabb(), player_health);
     }
     if developer_tools.show_feature_hitboxes {
         draw_feature_debug(&mut gizmos, world, &feature_q, &developer_tools);
@@ -357,50 +353,53 @@ fn draw_ldtk_runtime_spine(
 }
 
 #[cfg(feature = "input")]
+#[allow(clippy::too_many_arguments)]
 fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    player: &ae::Player,
+    clusters: &ae::PlayerClustersMut<'_>,
     moving_platforms: &[crate::world::platforms::MovingPlatformState],
     attack: Option<&crate::PlayerAttackState>,
     actions: Option<&ActionState<SandboxAction>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
 ) {
-    let body = player.aabb();
+    let pos = clusters.kinematics.pos;
+    let vel = clusters.kinematics.vel;
+    let size = clusters.kinematics.size;
+    let facing = clusters.kinematics.facing;
+    let on_ground = clusters.ground.on_ground;
+    let on_wall = clusters.wall.on_wall;
+    let wall_normal_x = clusters.wall.wall_normal_x;
+    let body = clusters.kinematics.aabb();
     if developer_tools.show_player_hitbox {
         draw_aabb_styled(gizmos, world, body, cyan(), developer_tools);
     }
 
-    let center = w2(world, player.pos);
+    let center = w2(world, pos);
 
     if developer_tools.show_player_vectors {
-        // Velocity is the most important feel-tuning vector. The scalar is visual
-        // only; it keeps endgame speeds readable inside the 1600x900 sandbox.
-        let velocity_delta = engine_delta_to_bevy(player.vel * 0.18);
+        let velocity_delta = engine_delta_to_bevy(vel * 0.18);
         draw_arrow(gizmos, center, center + velocity_delta, blue());
 
-        // Facing/control intent vector. This helps diagnose attack orientation and
-        // whether the current preset feels natural in the hands.
-        let facing_end = center + BVec2::new(player.facing * 58.0, 0.0);
+        let facing_end = center + BVec2::new(facing * 58.0, 0.0);
         draw_arrow(gizmos, center, facing_end, green());
 
-        // Contact hints: upward ground normal and lateral wall normal.
-        if player.on_ground {
-            let feet = w2(world, ae::Vec2::new(player.pos.x, body.bottom()));
+        if on_ground {
+            let feet = w2(world, ae::Vec2::new(pos.x, body.bottom()));
             draw_arrow(gizmos, feet, feet + BVec2::new(0.0, 44.0), green());
         }
-        if player.on_wall {
-            let side_x = if player.wall_normal_x < 0.0 {
+        if on_wall {
+            let side_x = if wall_normal_x < 0.0 {
                 body.left()
             } else {
                 body.right()
             };
-            let side = w2(world, ae::Vec2::new(side_x, player.pos.y));
+            let side = w2(world, ae::Vec2::new(side_x, pos.y));
             draw_arrow(
                 gizmos,
                 side,
-                side + BVec2::new(player.wall_normal_x * 48.0, 0.0),
+                side + BVec2::new(wall_normal_x * 48.0, 0.0),
                 green(),
             );
         }
@@ -418,8 +417,17 @@ fn draw_player_debug(
         .map(|actions| actions.pressed(&SandboxAction::Pogo))
         .unwrap_or(false);
     if gameplay_active && developer_tools.show_combat_preview {
+        let view = crate::combat::AttackView {
+            pos,
+            size,
+            facing,
+            on_ground,
+            wall_clinging: clusters.wall.wall_clinging,
+            dash_timer: clusters.dash.timer,
+            abilities_directional_primary: clusters.abilities.abilities.directional_primary,
+        };
         if let Some(attack_state) = attack {
-            let hitbox = crate::combat::attack_hitbox(player, attack_state.spec);
+            let hitbox = crate::combat::attack_hitbox_from_view(&view, attack_state.spec);
             let color = match attack_state.phase() {
                 Some(crate::combat::AttackPhase::Startup) => yellow(),
                 Some(crate::combat::AttackPhase::Active) => red(),
@@ -428,24 +436,25 @@ fn draw_player_debug(
             };
             draw_aabb(gizmos, world, hitbox, color);
         } else if attack_held || dedicated_pogo_held {
-            let intent = crate::combat::resolve_attack_intent(
-                player,
+            let intent = crate::combat::resolve_attack_intent_from_view(
+                &view,
                 controls.axis_x,
                 controls.axis_y,
                 dedicated_pogo_held || controls.pogo_pressed,
             );
-            let hitbox = crate::combat::attack_hitbox(player, crate::combat::attack_spec(player, intent));
+            let hitbox = crate::combat::attack_hitbox_from_view(
+                &view,
+                crate::combat::attack_spec_from_view(&view, intent),
+            );
             draw_aabb(gizmos, world, hitbox, yellow());
         }
     }
 
-    // Ledge grab / climb debug. Reuse the combat preview toggle because this
-    // is a high-tempo traversal affordance that should be visible during feel
-    // tuning without adding another F3 row.
+    // Ledge grab / climb debug.
     if developer_tools.show_combat_preview {
-        if let Some(ledge) = player.ledge_grab.as_ref() {
+        if let Some(ledge) = clusters.ledge.grab.as_ref() {
             let anchor_box = ae::Aabb::new(ledge.contact.anchor, ae::Vec2::splat(5.0));
-            let target_box = ae::Aabb::new(ledge.contact.climb_target, player.size * 0.35);
+            let target_box = ae::Aabb::new(ledge.contact.climb_target, size * 0.35);
             draw_aabb(gizmos, world, anchor_box, cyan());
             draw_aabb(
                 gizmos,
@@ -462,26 +471,32 @@ fn draw_player_debug(
         }
     }
 
-    // Blink aim preview. A quick tap blinks a short distance; once the hold
-    // crosses the threshold, the engine sets `blink_aiming` and the sandbox
-    // enters bullet-time while previewing the longer precision destination.
+    // Blink aim preview.
     if gameplay_active
         && developer_tools.show_blink_preview
-        && (controls.blink_held || player.blink_aiming)
+        && (controls.blink_held || clusters.blink.aiming)
     {
-        // Use the same temporary collision world that drives player movement.
-        // Otherwise the preview can claim a blink is clear while release-time
-        // resolution stops on sandbox-only geometry such as the moving platform.
         let blink_world = platforms::world_with_moving_platforms(world, moving_platforms);
-        let (desired, target) = if player.blink_aiming {
-            let desired = player.pos + player.blink_aim_offset;
-            let target = ae::blink_destination_to_point(&blink_world, player, desired);
+        let (desired, target) = if clusters.blink.aiming {
+            let desired = pos + clusters.blink.aim_offset;
+            let target = ae::blink_destination_to_point_clusters(
+                &blink_world,
+                clusters.kinematics,
+                clusters.abilities,
+                desired,
+            );
             (desired, target)
         } else {
             let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
-                .normalize_or(ae::Vec2::new(player.facing, 0.0));
-            let desired = player.pos + aim * ae::BLINK_DISTANCE;
-            let target = ae::blink_destination(&blink_world, player, aim, ae::BLINK_DISTANCE);
+                .normalize_or(ae::Vec2::new(facing, 0.0));
+            let desired = pos + aim * ae::BLINK_DISTANCE;
+            let target = ae::blink_destination_clusters(
+                &blink_world,
+                clusters.kinematics,
+                clusters.abilities,
+                aim,
+                ae::BLINK_DISTANCE,
+            );
             (desired, target)
         };
         let target_center = w2(world, target);
@@ -489,17 +504,14 @@ fn draw_player_debug(
         draw_aabb(
             gizmos,
             world,
-            ae::Aabb::new(target, player.size * 0.5),
+            ae::Aabb::new(target, size * 0.5),
             magenta(),
         );
-        // Raw desired cursor: useful when a hard wall blocks the actual blink.
-        // If the raw cursor and safe destination diverge, the blocked segment
-        // becomes obvious rather than feeling like the cursor is buggy.
         if (desired - target).length_squared() > 4.0 {
             draw_aabb(
                 gizmos,
                 world,
-                ae::Aabb::new(desired, player.size * 0.35),
+                ae::Aabb::new(desired, size * 0.35),
                 red(),
             );
             gizmos.line_2d(w2(world, desired), target_center, red());
@@ -508,10 +520,11 @@ fn draw_player_debug(
 
     // Small status ticks above the player: dash and air jump availability.
     let meter_y = body.top() - 18.0;
-    let dash_slots = player.abilities.dash_charge_count().max(1) as usize;
+    let abilities = &clusters.abilities.abilities;
+    let dash_slots = abilities.dash_charge_count().max(1) as usize;
     for i in 0..dash_slots {
-        let x0 = player.pos.x - 28.0 + i as f32 * 12.0;
-        let color = if i < player.dash_charges_available as usize {
+        let x0 = pos.x - 28.0 + i as f32 * 12.0;
+        let color = if i < clusters.dash.charges_available as usize {
             yellow()
         } else {
             gray()
@@ -520,10 +533,10 @@ fn draw_player_debug(
         let b = w2(world, ae::Vec2::new(x0 + 8.0, meter_y));
         gizmos.line_2d(a, b, color);
     }
-    let air_jump_slots = player.abilities.air_jump_count(ae::AIR_JUMPS).max(1) as usize;
+    let air_jump_slots = abilities.air_jump_count(ae::AIR_JUMPS).max(1) as usize;
     for i in 0..air_jump_slots {
-        let x0 = player.pos.x + 6.0 + i as f32 * 11.0;
-        let color = if i < player.air_jumps_available as usize {
+        let x0 = pos.x + 6.0 + i as f32 * 11.0;
+        let color = if i < clusters.jump.air_jumps_available as usize {
             cyan()
         } else {
             gray()

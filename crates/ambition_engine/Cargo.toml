@@ -8,6 +8,7 @@ description = "Core assetless movement/collision/sandbox logic for Ambition Engi
 
 [dependencies]
 bevy = { version = "0.18.1", default-features = false }
+bevy_ecs = { version = "0.18.1", default-features = false }
 bevy_math = { version = "0.18.1", features = ["serialize"] }
 parry2d = "0.26"
 serde = { version = "1", features = ["derive"] }

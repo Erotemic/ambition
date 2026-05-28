@@ -29,6 +29,7 @@ pub mod boss_encounter;
 pub mod character_ai;
 pub mod combat;
 pub mod combat_slots;
+pub mod player_clusters;
 pub mod cutscene;
 pub mod debug;
 pub mod geometry;
@@ -109,6 +110,20 @@ pub use save::{
     PersistedBossDefeat, PersistedDialogVisit, PersistedEncounter, PersistedEncounterState,
     PersistedFlag, PersistedQuest, PersistedQuestState, PersistedSwitch, SandboxSaveData,
     CURRENT_SAVE_VERSION,
+};
+pub use player_clusters::{
+    PlayerAbilities as EnginePlayerAbilities, PlayerActionBuffer as EnginePlayerActionBuffer,
+    PlayerBlinkState as EnginePlayerBlinkState,
+    PlayerBodyModeState as EnginePlayerBodyModeState,
+    PlayerComboTrace as EnginePlayerComboTrace, PlayerDashState as EnginePlayerDashState,
+    PlayerDodgeState as EnginePlayerDodgeState,
+    PlayerEnvironmentContact as EnginePlayerEnvironmentContact,
+    PlayerFlightState as EnginePlayerFlightState,
+    PlayerGroundState as EnginePlayerGroundState, PlayerJumpState as EnginePlayerJumpState,
+    PlayerKinematics as EnginePlayerKinematics, PlayerLedgeState as EnginePlayerLedgeState,
+    PlayerLifetime as EnginePlayerLifetime, PlayerMana as EnginePlayerMana,
+    PlayerOffense as EnginePlayerOffense, PlayerShieldState as EnginePlayerShieldState,
+    PlayerWallState as EnginePlayerWallState,
 };
 pub use scalar::approach;
 pub use world::{

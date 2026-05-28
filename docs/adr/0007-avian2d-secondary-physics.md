@@ -10,7 +10,7 @@ Use Avian2D as a secondary physics backend for dynamic props, debris, ragdoll-li
 
 Do **not** move the primary player controller to Avian by default. The player controller remains custom kinematic gameplay code because Ambition's movement identity depends on explicit platformer semantics: coyote time, buffered input, dash, blink, pogo, wall behavior, body modes, and collision-safe resizing.
 
-Expose backend-neutral physics intent in `ambition_engine` only where it helps gameplay data describe physical effects without depending directly on sandbox presentation adapters.
+Expose backend-neutral physics intent in `crates/ambition_sandbox/src/engine_core/` only where it helps gameplay data describe physical effects without depending directly on sandbox presentation adapters.
 
 ## Context
 

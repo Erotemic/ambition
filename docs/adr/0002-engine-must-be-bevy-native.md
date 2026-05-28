@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the older “engine may be Bevy-native” phrasing.
+Accepted. Supersedes the older “engine may be Bevy-native” phrasing. Largely subsumed 2026-05-28 by the deletion of the `ambition_engine` crate — what remains of "the engine" is now a sandbox module at `crates/ambition_sandbox/src/engine_core/`. The decision below still applies to that module: Bevy-native semantics, no presentation/app-shell concerns.
 
 ## Context
 
@@ -12,7 +12,7 @@ The important boundary is not "no Bevy." The important boundary is whether a typ
 
 ## Decision
 
-`ambition_engine` is Bevy-native. It may use Bevy math/types and Bevy-friendly vocabulary when that improves correctness, testability, or integration.
+The engine_core module is Bevy-native. It may use Bevy math/types and Bevy-friendly vocabulary when that improves correctness, testability, or integration.
 
 The project should lean into Bevy idioms:
 
@@ -22,7 +22,7 @@ The project should lean into Bevy idioms:
 - Bevy-friendly asset and platform integration,
 - tests that can run with minimal Bevy apps where useful.
 
-`ambition_engine` still should not own sandbox-only presentation concerns: sprite selection, HUD layout, inspector windows, debug overlay styling, temporary feature-room visuals, app shell wiring, or platform packaging scripts.
+The engine_core module still should not own sandbox-only presentation concerns: sprite selection, HUD layout, inspector windows, debug overlay styling, temporary feature-room visuals, app shell wiring, or platform packaging scripts.
 
 ## Consequences
 

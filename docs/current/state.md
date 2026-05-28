@@ -2,7 +2,7 @@
 
 This is the compact active-state document for Ambition. Update it when the current architecture or active direction changes. Keep old migration plans in `docs/archive/`, not here.
 
-**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+**Review date:** 2026-05-28. The `ambition_engine` crate was deleted on 2026-05-28; mechanics now live under `crates/ambition_sandbox/src/engine_core/` as a sandbox module.
 
 ## One-sentence summary
 
@@ -20,14 +20,15 @@ Bevy ECS runtime
   Sandbox systems adapt authored data into runtime entities and presentation.
 
 Reusable crates
-  ambition_engine: mechanics, geometry, collision, body modes, combat,
-    projectiles, actors, state vocabularies, and tests.
   ambition_asset_manager: asset identity, source selection, platform profiles.
   ambition_sfx / ambition_sfx_bank: generated SFX IDs and runtime banks.
 
 Playable shell
   ambition_sandbox: Bevy app composition, LDtk runtime, input/touch/controller,
-  audio, UI, debug/devtools, presentation, and platform feature sets.
+  audio, UI, debug/devtools, presentation, content, and the reusable
+  mechanics module (`src/engine_core/`: geometry, collision, abilities,
+  movement, ledge_grab, body modes, world, player clusters). The former
+  `ambition_engine` crate was collapsed into this module 2026-05-28.
 ```
 
 The old direction of keeping the engine backend-neutral is superseded. See ADR 0002.
@@ -40,7 +41,7 @@ Current rule:
 
 - LDtk owns areas, collision layers, loading zones, room/world spatial data, and authored level entities.
 - Bevy ECS owns the runtime representation.
-- `ambition_engine` owns reusable mechanics semantics.
+- `crates/ambition_sandbox/src/engine_core/` owns reusable mechanics semantics (formerly the standalone `ambition_engine` crate).
 - RON remains valid for tuning, save/settings, generated-audio specs, boss encounter specs, character catalogs, and other non-world data where it is still the best format.
 - Agents must not hand-edit `sandbox.ldtk`; use `python -m ambition_ldtk_tools` and validation tools.
 

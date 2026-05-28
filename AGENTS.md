@@ -86,7 +86,6 @@ python scripts/check_doc_links.py
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_engine
 cargo test -p ambition_sandbox --lib
 cargo run -p ambition_sandbox --bin headless
 python scripts/check_agent_kb.py

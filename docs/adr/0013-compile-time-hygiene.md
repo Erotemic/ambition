@@ -90,12 +90,13 @@ cargo run -p ambition_sandbox --release           # final build
 
 ### Workspace structure
 
-Preserve the engine/sandbox crate split. New reusable mechanics → 
-`ambition_engine`. New sandbox-specific content → `ambition_sandbox`.
-Future story/content/tooling crates split further so that changes to
-one area don't recompile the world. The principle: a focused 30-line
-edit to a sandbox file should not invalidate the engine's incremental
-cache.
+The original engine/sandbox crate split was collapsed 2026-05-28:
+`ambition_engine` was deleted and its mechanics moved into
+`crates/ambition_sandbox/src/engine_core/` as a sandbox submodule. The
+boundary is now intra-crate. New reusable mechanics still live in
+`engine_core/`; new sandbox-specific content stays in its themed
+sandbox module. Future story/content/tooling may split into separate
+crates again when concrete reuse demand emerges.
 
 ### Macro and generics discipline
 
@@ -125,7 +126,6 @@ cleanly with CI.
 
 ```bash
 cargo nextest run -p ambition_sandbox
-cargo nextest run -p ambition_engine
 ```
 
 ### Periodic audits

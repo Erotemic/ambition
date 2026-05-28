@@ -11,7 +11,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Capability | Status | Where to read next |
 |---|---:|---|
 | Kinematic platformer controller, coyote/buffered jump, dash, wall cling/jump, fast fall | Available | `docs/concepts/movement-collision.md`, `docs/mechanics/expressibility-checklist.md` |
-| Jump and dash input buffers | Available | `docs/mechanics/abilities.md`, `crates/ambition_engine/src/movement/tuning.rs` |
+| Jump and dash input buffers | Available | `docs/mechanics/abilities.md`, `crates/ambition_sandbox/src/engine_core/movement/tuning.rs` |
 | General action buffering for attack / pogo / projectile / tool / blink | Not yet unified | `docs/mechanics/abilities.md`, `docs/current/next.md` |
 | Blink / short-range teleport with collision safety policy | Available | `docs/mechanics/blink.md`, `docs/systems/collision-geometry-and-secondary-physics.md` |
 | Ledge grab / mantle | Partial but implemented | `docs/mechanics/abilities.md`, `docs/mechanics/expressibility-checklist.md` |
@@ -68,6 +68,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 
 | Capability | Status | Where to read next |
 |---|---:|---|
+| Engine + sandbox unified into a single crate | Available (landed 2026-05-28) | `crates/ambition_sandbox/src/engine_core/` (formerly the `ambition_engine` crate); `docs/adr/0002-engine-must-be-bevy-native.md` |
 | Headless simulation entry point | Available | `docs/systems/headless-simulation.md` |
 | Trace recording / replay for movement bugs | Available | `docs/systems/gameplay-trace-recorder.md` |
 | Agent-readable indexes | Available, generated | `.agent/manifest.yaml`, `.agent/index/` |

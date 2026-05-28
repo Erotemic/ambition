@@ -618,11 +618,20 @@ APP_DIR="$PROJECT_DIR/app"
 JNI_OUT="$APP_DIR/src/main/jniLibs"
 ASSETS_OUT="$APP_DIR/src/main/assets"
 ANDROID_ICON_SRC="$ROOT/assets/icons/android_icon2.png"
-ANDROID_ICON_RES_DIR="$APP_DIR/src/main/res/drawable"
-ANDROID_ICON_RES_NAME="android_icon"
+# Adaptive icon (mipmap-anydpi-v26): the launcher composites a
+# background drawable + foreground drawable inside its own mask shape
+# (circle / squircle / etc). Without an adaptive icon, Android wraps a
+# square PNG in a white border on most launchers. With one, the icon's
+# own dark backdrop blends seamlessly with the launcher's masked frame.
+ANDROID_ICON_RES_DIR_DRAWABLE="$APP_DIR/src/main/res/drawable"
+ANDROID_ICON_RES_DIR_MIPMAP_ANYDPI="$APP_DIR/src/main/res/mipmap-anydpi-v26"
+ANDROID_ICON_RES_DIR_MIPMAP_XXXHDPI="$APP_DIR/src/main/res/mipmap-xxxhdpi"
+# Sampled from the icon's edge pixels — the source PNG has a near-pure
+# black backdrop, so the launcher's masked background matches it.
+ANDROID_ICON_BACKGROUND_HEX="#000000"
 ANDROID_ICON_MANIFEST_ATTR=""
 if [[ -f "$ANDROID_ICON_SRC" ]]; then
-    ANDROID_ICON_MANIFEST_ATTR=$'\n        android:icon="@drawable/android_icon"'
+    ANDROID_ICON_MANIFEST_ATTR=$'\n        android:icon="@mipmap/ic_launcher"\n        android:roundIcon="@mipmap/ic_launcher"'
 fi
 
 if [[ "$CLEAN" == true ]]; then
@@ -765,9 +774,71 @@ EOF
 
 mkdir -p "$APP_DIR/src/main/res/values"
 if [[ -f "$ANDROID_ICON_SRC" ]]; then
-    mkdir -p "$ANDROID_ICON_RES_DIR"
-    cp "$ANDROID_ICON_SRC" "$ANDROID_ICON_RES_DIR/$ANDROID_ICON_RES_NAME.png"
-    log "using Android app icon: $ANDROID_ICON_SRC"
+    # Foreground PNG: drop the source icon into mipmap-xxxhdpi (Android
+    # scales down for lower densities). Adaptive icons render the
+    # foreground inside a 108×108 dp canvas where only the inner 66 dp
+    # circle is the "safe zone"; the outer 21 dp on each side can be
+    # cropped by launcher zoom / parallax. Pad the source artwork into a
+    # 432×432 canvas at ~72% scale so the visible artwork stays inside
+    # the safe zone with the icon's own dark backdrop filling the
+    # bleed region.
+    mkdir -p "$ANDROID_ICON_RES_DIR_MIPMAP_XXXHDPI"
+    if command -v python3 >/dev/null 2>&1 && python3 -c "import PIL" >/dev/null 2>&1; then
+        python3 - "$ANDROID_ICON_SRC" "$ANDROID_ICON_RES_DIR_MIPMAP_XXXHDPI/ic_launcher_foreground.png" <<'PY'
+import sys
+from PIL import Image
+src_path, dst_path = sys.argv[1], sys.argv[2]
+src = Image.open(src_path).convert("RGBA")
+# Adaptive-icon target: 432×432 px (mipmap-xxxhdpi == 4× 108 dp).
+canvas_size = 432
+inner_size = int(canvas_size * 0.72)
+inner = src.resize((inner_size, inner_size), Image.LANCZOS)
+canvas = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
+offset = (canvas_size - inner_size) // 2
+canvas.paste(inner, (offset, offset), inner)
+canvas.save(dst_path, "PNG")
+PY
+    else
+        # Fallback: PIL isn't available — copy the raw source. The
+        # launcher will likely still clip the corners but the icon is
+        # already corner-darkened so the cropping reads as black.
+        cp "$ANDROID_ICON_SRC" "$ANDROID_ICON_RES_DIR_MIPMAP_XXXHDPI/ic_launcher_foreground.png"
+    fi
+
+    # Adaptive icon XML — launcher composites background + foreground
+    # inside its mask shape (circle / squircle / etc).
+    mkdir -p "$ANDROID_ICON_RES_DIR_MIPMAP_ANYDPI"
+    cat > "$ANDROID_ICON_RES_DIR_MIPMAP_ANYDPI/ic_launcher.xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>
+EOF
+    cat > "$ANDROID_ICON_RES_DIR_MIPMAP_ANYDPI/ic_launcher_round.xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>
+EOF
+
+    # Background color resource referenced by the adaptive icon XML.
+    cat > "$APP_DIR/src/main/res/values/colors.xml" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">$ANDROID_ICON_BACKGROUND_HEX</color>
+</resources>
+EOF
+
+    # Legacy fallback: pre-API-26 launchers (and Gradle's resource
+    # linter) still want a plain bitmap @drawable/android_icon, so keep
+    # the old drawable around even though the manifest now points at
+    # @mipmap/ic_launcher.
+    mkdir -p "$ANDROID_ICON_RES_DIR_DRAWABLE"
+    cp "$ANDROID_ICON_SRC" "$ANDROID_ICON_RES_DIR_DRAWABLE/android_icon.png"
+
+    log "using Android app icon (adaptive): $ANDROID_ICON_SRC (bg $ANDROID_ICON_BACKGROUND_HEX)"
 else
     log "Android app icon: default generated icon (no assets/android_icon.png found)"
 fi

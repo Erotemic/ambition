@@ -345,3 +345,36 @@ fn loading_zone_hint_for_edge_exit_skips_prompt() {
     // Auto-firing edge exits don't need an Interact prompt.
     assert!(!hint.contains("Interact"));
 }
+
+#[test]
+fn kinematic_path_spec_matches_id_accepts_compacted_form() {
+    use crate::actor::KinematicPath;
+    use crate::world::rooms::KinematicPathSpec;
+
+    // Spec id is the `compact_path_name`-stripped form
+    // (`enemy_patrol_a`); the authored reference uses the raw
+    // snake-of-name (`enemy_patrol_path_a`). matches_id must accept
+    // both.
+    let spec = KinematicPathSpec::new(
+        "enemy_patrol_a",
+        "enemy patrol path A",
+        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+        KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(100.0, 0.0), 40.0),
+    );
+    assert!(
+        spec.matches_id("enemy_patrol_a"),
+        "exact id alias must match"
+    );
+    assert!(
+        spec.matches_id("enemy patrol path A"),
+        "exact name alias must match"
+    );
+    assert!(
+        spec.matches_id("enemy_patrol_path_a"),
+        "raw slug-of-name must match"
+    );
+    assert!(
+        !spec.matches_id("some_other_id"),
+        "unrelated id must NOT match"
+    );
+}

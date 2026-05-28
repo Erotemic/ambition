@@ -284,9 +284,11 @@ impl BodyShape {
 /// AABB convention: `pos` is the AABB center and Ambition uses +Y down,
 /// so `feet_y == pos.y + size.y * 0.5`. Shrinking the body keeps feet
 /// planted by *increasing* `pos.y` by half the height delta.
-/// Cluster-native body-mode transition. Mutates only the
-/// kinematics (pos, size) and body-mode cluster components; the rest
-/// of the player state is untouched.
+/// Transition the body mode while keeping the feet planted. Mutates
+/// only the kinematics (pos, size) and body-mode cluster components;
+/// the rest of the player state is untouched. Returns `false` (and
+/// leaves state unchanged) when the target shape doesn't fit in the
+/// current world geometry — e.g. a low ceiling rejecting a stand-up.
 pub fn try_change_body_mode_clusters<F>(
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
     body_mode_state: &mut crate::engine_core::player_clusters::PlayerBodyModeState,

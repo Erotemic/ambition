@@ -6,7 +6,10 @@ use super::events::{BlinkEvent, FrameEvents};
 use super::ops::MovementOp;
 use super::tuning::MovementTuning;
 
-/// Cluster-ref blink completion. Mutates kinematics
+/// Complete a blink: teleport to `to`, damp post-blink velocity,
+/// clamp downward speed, clear fast-fall / wall-cling / dash state,
+/// arm the post-blink grace timer + cooldown, and push the
+/// `Blink` / `PrecisionBlink` op + `BlinkEvent`. Mutates kinematics
 /// (pos, vel), flight (fast_falling), wall (wall_clinging, wall_climbing),
 /// dash (timer), blink (cooldown, aim_offset, hold_*), and pushes
 /// blink ops + the BlinkEvent.
@@ -61,7 +64,9 @@ pub fn complete_blink_clusters(
     });
 }
 
-/// Cluster-ref blink destination.
+/// Compute the blink destination in the player's aim direction,
+/// clamped to a collision-safe stopping point + the
+/// `blink_through_soft_walls` ability gate.
 pub fn blink_destination_clusters(
     world: &World,
     kinematics: &crate::engine_core::player_clusters::PlayerKinematics,

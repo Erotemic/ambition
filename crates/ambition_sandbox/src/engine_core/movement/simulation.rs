@@ -5,7 +5,11 @@ use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::{MovementTuning, ONE_WAY_DROP_THROUGH_GRACE};
 
-/// Cluster-ref jump-buffer handler used by `update_player_simulation_with_clusters`.
+/// Consume the buffered jump (if any) and emit the right verb:
+/// swim stroke while submerged + swim ability, drop-through gate
+/// while standing on a one-way + drop_through_pressed, wall-jump,
+/// regular jump, or double-jump. Each branch zeroes the buffer +
+/// coyote timer so the same press can't re-fire.
 pub fn handle_jump_buffer_clusters(
     world: &World,
     action_buffer: &mut crate::engine_core::player_clusters::PlayerActionBuffer,

@@ -215,7 +215,9 @@ pub(super) fn integrate_velocity_clusters(
     }
 }
 
-/// Cluster-native climb integration.
+/// Ladder integration: drive vel.y from `axis_y * climb_speed`,
+/// scale x by `strafe_factor`, and clear transient flight flags.
+/// Suspends gravity by overwriting `vel.y` rather than accumulating.
 pub(super) fn integrate_climb_clusters(
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
     env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
@@ -282,7 +284,11 @@ pub(super) fn integrate_flight_clusters(
         .clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
 }
 
-/// Cluster-native wall ability ride. Reads / writes through cluster components.
+/// Wall ability ride: while pressed into a wall (axis_x against the
+/// wall normal), engage wall-cling (clamp `vel.y` to `wall_slide_speed`)
+/// or, with `wall_climb` + |axis_y| > 0.25, drive `vel.y` directly.
+/// Records the first transition op so the trace recorder fires
+/// `WallCling` / `WallClimb` exactly once per engagement.
 ///
 pub(super) fn apply_wall_abilities_clusters(
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,

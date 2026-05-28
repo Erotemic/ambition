@@ -232,8 +232,8 @@ impl MovingPlatformState {
     /// frame. We carry the player by the platform delta before collision
     /// resolution so standing on it feels stable.
     ///
-    /// Cluster-native: callers pass the player AABB + on_ground directly so
-    /// this helper does not need to materialize an `ae::Player`.
+    /// Callers pass the player AABB + on_ground directly so this
+    /// helper stays free of any specific player aggregate shape.
     pub fn is_riding(&self, player_box: ae::Aabb, on_ground: bool) -> bool {
         if !on_ground {
             return false;

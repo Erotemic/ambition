@@ -6,7 +6,10 @@ use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::MovementTuning;
 
-/// Cluster-ref blink handler used by `update_player_control_with_clusters`.
+/// Drive the blink hold / aim / release lifecycle: arm on press
+/// when the cooldown has cleared, enter precision-aim after the hold
+/// threshold (precision_blink ability required), update the aim
+/// offset from stick input, and complete the blink on release.
 #[allow(clippy::too_many_arguments)]
 pub fn handle_blink_clusters(
     world: &World,

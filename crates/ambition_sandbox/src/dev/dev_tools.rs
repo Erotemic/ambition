@@ -855,7 +855,7 @@ pub fn sync_developer_body_profile(
 }
 
 /// Apply a player-body profile to the live player while keeping the feet planted.
-/// Cluster-native: callers pass the player's `PlayerKinematics` directly.
+/// Callers pass the player's `PlayerKinematics` directly.
 pub fn apply_player_body_profile(
     kinematics: &mut crate::player::PlayerKinematics,
     profile: PlayerBodyProfile,

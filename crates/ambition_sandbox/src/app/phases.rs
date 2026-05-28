@@ -259,7 +259,3 @@ pub(super) fn player_simulation_phase(
     PhaseOutcome::Continue
 }
 
-// Cluster-ref wrappers were removed 2026-05-28: `player_control_phase`
-// and `player_simulation_phase` now take `&mut PlayerClustersMut` directly
-// and call `ae::update_player_*_with_clusters`. No more to_player /
-// write_from_player round-trip.

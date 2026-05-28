@@ -133,11 +133,11 @@ pub fn update_player_simulation_with_tuning(
     simulation::update_player_simulation_with_tuning(world, player, input, raw_dt, tuning)
 }
 
-/// Cluster-ref entry point for the control phase. Builds an owned
-/// `Player` from the cluster refs, runs the legacy control update,
-/// and commits the post-tick player back. Sandbox callers should use
-/// this instead of the `&mut Player` variant — the legacy variant
-/// stays for engine-internal tests until Phase 3d.
+/// Cluster-ref entry point for the control phase. Operates on cluster
+/// refs natively for the easy parts (reset, facing, jump/dash buffer,
+/// mode toggles, dodge, dash, shield, jump release). Complex inner
+/// helpers (handle_blink, handle_attacks) still take `&mut Player`
+/// via a localized scratchpad.
 pub fn update_player_control_with_clusters(
     world: &World,
     clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
@@ -145,15 +145,140 @@ pub fn update_player_control_with_clusters(
     control_dt: f32,
     tuning: MovementTuning,
 ) -> FrameEvents {
+    let mut events = FrameEvents::default();
+
+    // Reset on edge press, cluster-native.
+    if input.reset_pressed && clusters.abilities.abilities.reset {
+        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+        events.reset = true;
+        return events;
+    }
+
+    // update_facing_and_control_intent — cluster-native.
+    {
+        let can_turn = clusters.ground.on_ground || clusters.flight.fly_enabled;
+        if can_turn && input.axis_x.abs() > 0.1 {
+            clusters.kinematics.facing = input.axis_x.signum();
+        }
+        if input.jump_pressed && clusters.abilities.abilities.jump {
+            clusters.action_buffer.jump = tuning.jump_buffer;
+        }
+        if input.dash_pressed && clusters.abilities.abilities.dash {
+            clusters.action_buffer.dash = tuning.dash_buffer;
+        }
+    }
+
+    // handle_mode_toggles — cluster-native (event push needs the
+    // scratchpad's Player because FrameEvents::op records combo).
+    if input.fly_toggle_pressed && clusters.abilities.abilities.fly {
+        clusters.flight.fly_enabled = !clusters.flight.fly_enabled;
+        if clusters.flight.fly_enabled {
+            clusters.flight.fast_falling = false;
+            clusters.wall.wall_clinging = false;
+            clusters.wall.wall_climbing = false;
+            clusters.dash.timer = 0.0;
+            clusters.blink.grace_timer = 0.0;
+        }
+        // events.op also writes player.combo — round-trip the combo
+        // alone is cheaper than a full to_player/write_from_player.
+        clusters.combo_trace.combo.push(ops::ComboMark {
+            op: ops::MovementOp::FlyToggle,
+            age: 0.0,
+        });
+        if clusters.combo_trace.combo.len() > 18 {
+            let excess = clusters.combo_trace.combo.len() - 18;
+            clusters.combo_trace.combo.drain(0..excess);
+        }
+    }
+
+    // handle_blink + handle_attacks still on Player — scratchpad.
     let mut player = clusters.to_player();
-    let events = control::update_player_control_with_tuning(
-        world,
-        &mut player,
-        input,
-        control_dt,
-        tuning,
-    );
+    control::handle_blink_pub(world, &mut player, input, control_dt, tuning, &mut events);
+    control::handle_attacks_pub(world, &mut player, input, tuning, &mut events);
     clusters.write_from_player(player);
+
+    // handle_dodge — cluster-native.
+    if clusters.action_buffer.dash > 0.0
+        && clusters.abilities.abilities.dodge
+        && clusters.ground.on_ground
+        && clusters.dodge.cooldown <= 0.0
+    {
+        let dir = if input.axis_x.abs() > 0.1 {
+            input.axis_x.signum()
+        } else {
+            clusters.kinematics.facing
+        };
+        clusters.kinematics.vel.x = dir * tuning.dodge_roll_speed;
+        clusters.kinematics.vel.y = clusters.kinematics.vel.y.min(0.0);
+        clusters.dodge.roll_timer = tuning.dodge_roll_time;
+        clusters.dodge.cooldown = tuning.dodge_roll_cooldown;
+        clusters.action_buffer.dash = 0.0;
+        clusters.combo_trace.combo.push(ops::ComboMark {
+            op: ops::MovementOp::DodgeRoll,
+            age: 0.0,
+        });
+        if clusters.combo_trace.combo.len() > 18 {
+            let excess = clusters.combo_trace.combo.len() - 18;
+            clusters.combo_trace.combo.drain(0..excess);
+        }
+    }
+
+    // handle_dash — cluster-native (note: spend_dash_charge picks
+    // Dash vs DoubleDash op based on charge count before decrement).
+    if clusters.action_buffer.dash > 0.0
+        && clusters.abilities.abilities.dash
+        && clusters.dash.charges_available > 0
+        && clusters.dash.cooldown <= 0.0
+    {
+        let fallback = bevy_math::Vec2::new(clusters.kinematics.facing, 0.0);
+        let aim = bevy_math::Vec2::new(input.axis_x, input.axis_y).normalize_or(fallback);
+        clusters.kinematics.vel = aim * tuning.dash_speed;
+        clusters.dash.timer = tuning.dash_time;
+        clusters.dash.cooldown = tuning.dash_cooldown;
+        clusters.action_buffer.dash = 0.0;
+        let before = clusters.dash.charges_available;
+        clusters.dash.charges_available = clusters.dash.charges_available.saturating_sub(1);
+        let op = if before >= 2 {
+            ops::MovementOp::DoubleDash
+        } else {
+            ops::MovementOp::Dash
+        };
+        clusters.combo_trace.combo.push(ops::ComboMark { op, age: 0.0 });
+        if clusters.combo_trace.combo.len() > 18 {
+            let excess = clusters.combo_trace.combo.len() - 18;
+            clusters.combo_trace.combo.drain(0..excess);
+        }
+    }
+
+    // handle_shield — cluster-native.
+    if !clusters.abilities.abilities.shield {
+        clusters.shield.active = false;
+        clusters.shield.parry_window_timer = 0.0;
+    } else {
+        let can_shield = clusters.dash.timer <= 0.0;
+        let want_shield = input.shield_held && can_shield;
+        if want_shield && !clusters.shield.active {
+            clusters.shield.parry_window_timer = tuning.parry_window_time;
+            clusters.combo_trace.combo.push(ops::ComboMark {
+                op: ops::MovementOp::ShieldUp,
+                age: 0.0,
+            });
+            if clusters.combo_trace.combo.len() > 18 {
+                let excess = clusters.combo_trace.combo.len() - 18;
+                clusters.combo_trace.combo.drain(0..excess);
+            }
+        }
+        clusters.shield.active = want_shield;
+    }
+
+    // handle_jump_release — cluster-native (variable jump height).
+    if clusters.abilities.abilities.variable_jump
+        && input.jump_released
+        && clusters.kinematics.vel.y < -120.0
+    {
+        clusters.kinematics.vel.y *= 0.54;
+    }
+
     events
 }
 

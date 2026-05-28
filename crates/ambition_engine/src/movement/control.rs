@@ -75,6 +75,27 @@ fn handle_mode_toggles(player: &mut Player, input: InputState, events: &mut Fram
     }
 }
 
+pub(super) fn handle_blink_pub(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    dt: f32,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
+    handle_blink(world, player, input, dt, tuning, events)
+}
+
+pub(super) fn handle_attacks_pub(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
+    handle_attacks(world, player, input, tuning, events)
+}
+
 fn handle_blink(
     world: &World,
     player: &mut Player,

@@ -855,25 +855,37 @@ pub fn sync_developer_body_profile(
 }
 
 /// Apply a player-body profile to the live player while keeping the feet planted.
-pub fn apply_player_body_profile(player: &mut ae::Player, profile: PlayerBodyProfile) {
+/// Cluster-native: callers pass the player's `PlayerKinematics` directly.
+pub fn apply_player_body_profile(
+    kinematics: &mut crate::player::PlayerKinematics,
+    profile: PlayerBodyProfile,
+) {
     let new_size = profile.size();
-    let old_bottom = player.pos.y + player.size.y * 0.5;
-    player.base_size = new_size;
-    player.size = new_size;
-    player.pos.y = old_bottom - new_size.y * 0.5;
+    let old_bottom = kinematics.pos.y + kinematics.size.y * 0.5;
+    kinematics.base_size = new_size;
+    kinematics.size = new_size;
+    kinematics.pos.y = old_bottom - new_size.y * 0.5;
 }
 
 /// Apply a movement profile to the reflected tuning resource and refresh live
 /// movement resources that depend on the configured number of air jumps.
+///
+/// `live_movement_refs` is `Some((abilities, dash, jump))` when there is a
+/// live player to refresh; `None` (e.g. unit tests, no player yet) skips the
+/// refresh and only updates `editable_tuning`.
 pub fn apply_movement_profile(
     editable_tuning: &mut EditableMovementTuning,
     profile: MovementProfile,
-    authority_player: Option<&mut crate::engine_core::Player>,
+    live_movement_refs: Option<(
+        &crate::player::PlayerAbilities,
+        &mut crate::player::PlayerDashState,
+        &mut crate::player::PlayerJumpState,
+    )>,
 ) {
     let tuning = profile.tuning();
     *editable_tuning = EditableMovementTuning::from(tuning);
-    if let Some(player) = authority_player {
-        player.refresh_movement_resources(tuning);
+    if let Some((abilities, dash, jump)) = live_movement_refs {
+        ae::refresh_movement_resources_clusters(abilities, dash, jump, tuning);
     }
 }
 

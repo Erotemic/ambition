@@ -147,12 +147,11 @@ pub(super) fn handle_ldtk_hot_reload(
     };
     if let Ok((mut cluster_item, mut combat, mut safety)) = player_q.single_mut() {
         let mut clusters = cluster_item.as_clusters_mut();
-        let mut player = clusters.to_player();
         let result = reload_ldtk_world_from_disk(
             &mut commands,
             &mut world,
             &mut room_set,
-            &mut player,
+            &mut clusters,
             &mut dev_state,
             &mut sim_state,
             &mut safety,
@@ -167,7 +166,6 @@ pub(super) fn handle_ldtk_hot_reload(
             &watch_path,
             &catalog,
         );
-        clusters.write_from_player(player);
         match result {
             Ok(active_room) => {
                 ldtk_reload.mark_applied(&active_room);
@@ -246,7 +244,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
-    player: &mut ae::Player,
+    clusters: &mut ae::PlayerClustersMut<'_>,
     dev_state: &mut SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     safety: &mut crate::player::PlayerSafetyState,
@@ -262,13 +260,13 @@ pub(super) fn reload_ldtk_world_from_disk(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
-    let preserved_pos = player.pos;
+    let preserved_pos = clusters.kinematics.pos;
     let transaction = prepare_ldtk_reload_transaction(
         watch_path,
         catalog,
         &current_room_id,
         preserved_pos,
-        player.size,
+        clusters.kinematics.size,
     )?;
 
     // Everything above this line is non-mutating: invalid edits, deleted active
@@ -287,8 +285,13 @@ pub(super) fn reload_ldtk_world_from_disk(
     *room_set = transaction.next_room_set;
     world.0 = transaction.next_spec.world.clone();
 
-    player.pos = transaction.safe_player_pos;
-    player.refresh_movement_resources(tuning);
+    clusters.kinematics.pos = transaction.safe_player_pos;
+    ae::refresh_movement_resources_clusters(
+        clusters.abilities,
+        &mut *clusters.dash,
+        &mut *clusters.jump,
+        tuning,
+    );
     safety.last_safe_pos = transaction.safe_player_pos;
     *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
     features::spawn_room_feature_entities(commands, &transaction.next_spec);

@@ -390,7 +390,6 @@ pub fn attack_advance_system(
     let frame_dt = time.delta_secs();
 
     let mut clusters = cluster_item.as_clusters_mut();
-    let mut player = clusters.to_player();
     // Player melee migration: the start-attack gate reads
     // `ActorActionMessage::Melee` for this player rather than the raw
     // `controls.attack_pressed`. The player brain produces the message
@@ -405,7 +404,7 @@ pub fn attack_advance_system(
         super::world_flow::start_attack(
             &mut sfx_writer,
             &mut vfx_writer,
-            &mut player,
+            &mut clusters,
             &mut attack.0,
             &mut anim,
             controls,
@@ -416,7 +415,7 @@ pub fn attack_advance_system(
         &mut vfx_writer,
         &world.0,
         &moving_platforms.0,
-        &mut player,
+        &mut clusters,
         &mut attack.0,
         &mut anim,
         &mut combat,
@@ -427,7 +426,6 @@ pub fn attack_advance_system(
         &mut damage_events,
         &mut pogo_bounces,
     );
-    clusters.write_from_player(player);
 }
 
 /// Resolve this tick's `PlayerDamageEvent`s + remember the last

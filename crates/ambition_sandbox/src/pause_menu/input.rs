@@ -133,20 +133,19 @@ pub fn pause_menu_navigate(
             );
         }
         PauseMenuPage::Settings(page) => {
-            // Build a scratch ae::Player from cluster components so the
-            // settings code (which still mutates the legacy aggregate)
-            // can keep its signature; commit back at the end. Phase 3
-            // refactors `apply_action` to take cluster refs directly.
             let mut cluster_item = dev_toggles.player_q.single_mut().ok();
-            let (mut clusters_owned, mut scratch_player) = match cluster_item.as_mut() {
-                Some(item) => {
-                    let clusters = item.as_clusters_mut();
-                    let player =
-                        clusters.to_player();
-                    (Some(clusters), Some(player))
-                }
-                None => (None, None),
-            };
+            let live_movement_refs = cluster_item.as_mut().map(|item| {
+                let clusters = item.as_clusters_mut();
+                // Pass individual cluster refs through; the settings
+                // code drives `apply_player_body_profile` and
+                // `apply_movement_profile` directly.
+                (
+                    clusters.kinematics,
+                    &*clusters.abilities,
+                    clusters.dash,
+                    clusters.jump,
+                )
+            });
             handle_settings_page_input(
                 frame,
                 page,
@@ -159,11 +158,8 @@ pub fn pause_menu_navigate(
                 &mut dev_toggles.developer,
                 &mut dev_toggles.editable_tuning,
                 &mut dev_toggles.ldtk_reload,
-                scratch_player.as_mut(),
+                live_movement_refs,
             );
-            if let (Some(player), Some(clusters)) = (scratch_player, clusters_owned.as_mut()) {
-                clusters.write_from_player(player);
-            }
         }
         PauseMenuPage::Radio => {
             #[cfg(feature = "audio")]
@@ -334,7 +330,12 @@ fn handle_settings_page_input(
     developer: &mut DeveloperTools,
     editable_tuning: &mut crate::dev::dev_tools::EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
-    authority_player: Option<&mut crate::engine_core::Player>,
+    live_movement_refs: Option<(
+        &mut crate::player::PlayerKinematics,
+        &crate::player::PlayerAbilities,
+        &mut crate::player::PlayerDashState,
+        &mut crate::player::PlayerJumpState,
+    )>,
 ) {
     let rows = SettingsItem::rows_for(page);
     if rows.is_empty() {
@@ -366,7 +367,7 @@ fn handle_settings_page_input(
             developer,
             editable_tuning,
             ldtk_reload,
-            authority_player,
+            live_movement_refs,
         );
         match outcome {
             SettingsOutcome::Stay => {}

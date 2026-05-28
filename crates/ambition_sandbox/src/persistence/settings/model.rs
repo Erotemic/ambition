@@ -680,7 +680,12 @@ pub fn apply_action(
     developer: &mut DeveloperTools,
     editable_tuning: &mut EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
-    authority_player: Option<&mut crate::engine_core::Player>,
+    live_movement_refs: Option<(
+        &mut crate::player::PlayerKinematics,
+        &crate::player::PlayerAbilities,
+        &mut crate::player::PlayerDashState,
+        &mut crate::player::PlayerJumpState,
+    )>,
 ) -> SettingsOutcome {
     // Page-navigation rows (Open* + Back) share identical behavior:
     // `Confirm` → push/pop the page in `PAGE_NAV_ROWS`. Dispatch them
@@ -713,7 +718,7 @@ pub fn apply_action(
                 apply_movement_profile(
                     editable_tuning,
                     developer.movement_profile,
-                    authority_player,
+                    live_movement_refs.map(|(_, a, d, j)| (a, d, j)),
                 );
             }
         }
@@ -1032,14 +1037,14 @@ pub fn apply_action(
         SettingsItem::PlayerBodyProfile => match action {
             SettingsAction::Prev => {
                 developer.player_body_profile = developer.player_body_profile.prev();
-                if let Some(player) = authority_player {
-                    apply_player_body_profile(player, developer.player_body_profile);
+                if let Some((kinematics, _, _, _)) = live_movement_refs {
+                    apply_player_body_profile(kinematics, developer.player_body_profile);
                 }
             }
             SettingsAction::Next | SettingsAction::Confirm => {
                 developer.player_body_profile = developer.player_body_profile.next();
-                if let Some(player) = authority_player {
-                    apply_player_body_profile(player, developer.player_body_profile);
+                if let Some((kinematics, _, _, _)) = live_movement_refs {
+                    apply_player_body_profile(kinematics, developer.player_body_profile);
                 }
             }
         },
@@ -1049,7 +1054,7 @@ pub fn apply_action(
                 apply_movement_profile(
                     editable_tuning,
                     developer.movement_profile,
-                    authority_player,
+                    live_movement_refs.map(|(_, a, d, j)| (a, d, j)),
                 );
             }
             SettingsAction::Next | SettingsAction::Confirm => {
@@ -1057,7 +1062,7 @@ pub fn apply_action(
                 apply_movement_profile(
                     editable_tuning,
                     developer.movement_profile,
-                    authority_player,
+                    live_movement_refs.map(|(_, a, d, j)| (a, d, j)),
                 );
             }
         },

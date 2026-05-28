@@ -804,28 +804,36 @@ pub(super) fn engine_input_from_actor_control(
 pub(super) fn start_attack(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    player: &mut ae::Player,
+    clusters: &mut ae::PlayerClustersMut<'_>,
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
     controls: ControlFrame,
 ) {
-    if !player.abilities.attack || attack.is_some() {
+    if !clusters.abilities.abilities.attack || attack.is_some() {
         return;
     }
+    // Combat helpers still read a flat `&Player`. Materialize a temp
+    // snapshot for `resolve_attack_intent` / `attack_spec` /
+    // `attack_hitbox` so this seam doesn't grow per-field signatures.
+    // We never write back from `player`; cluster fields are the
+    // authoritative target for any state changes below.
+    let player = clusters.to_player();
     let intent = crate::combat::resolve_attack_intent(
-        player,
+        &player,
         controls.axis_x,
         controls.axis_y,
         controls.pogo_pressed,
     );
-    let spec = crate::combat::attack_spec(player, intent);
+    let spec = crate::combat::attack_spec(&player, intent);
 
     // Directional attacks get small self-motion so the hitbox feels connected
     // to the controller. Keep these impulses modest; the engine control path
     // still owns the canonical slash/pogo op + recoil bookkeeping.
-    player.vel += spec.self_impulse;
-    if matches!(intent, crate::combat::AttackIntent::AirUp | crate::combat::AttackIntent::Up) && player.vel.y > -40.0 {
-        player.vel.y = -40.0;
+    clusters.kinematics.vel += spec.self_impulse;
+    if matches!(intent, crate::combat::AttackIntent::AirUp | crate::combat::AttackIntent::Up)
+        && clusters.kinematics.vel.y > -40.0
+    {
+        clusters.kinematics.vel.y = -40.0;
     }
     // Force downward commitment ONLY for the aerial down spike. The
     // grounded `Down` is now a kneeling forward poke (Marth-style
@@ -839,18 +847,18 @@ pub(super) fn start_attack(
     // slash startup must not overwrite the negative Y velocity.
     if !controls.pogo_pressed
         && intent == crate::combat::AttackIntent::AirDown
-        && player.vel.y >= 0.0
-        && player.vel.y < 80.0
+        && clusters.kinematics.vel.y >= 0.0
+        && clusters.kinematics.vel.y < 80.0
     {
-        player.vel.y = 80.0;
+        clusters.kinematics.vel.y = 80.0;
     }
 
-    let player_pos = player.pos;
+    let player_pos = clusters.kinematics.pos;
     sfx.write(SfxMessage::Slash { pos: player_pos });
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
     *attack = Some(crate::PlayerAttackState::new(spec));
     vfx.write(VfxMessage::SlashPreview {
-        hitbox: crate::combat::attack_hitbox(player, spec),
+        hitbox: crate::combat::attack_hitbox(&player, spec),
     });
 }
 
@@ -859,7 +867,7 @@ pub(super) fn advance_attack(
     vfx: &mut MessageWriter<VfxMessage>,
     world: &ae::World,
     moving_platforms: &[crate::world::platforms::MovingPlatformState],
-    player: &mut ae::Player,
+    clusters: &mut ae::PlayerClustersMut<'_>,
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
@@ -881,16 +889,22 @@ pub(super) fn advance_attack(
     };
 
     if phase == crate::combat::AttackPhase::Active {
-        let attack = crate::combat::attack_hitbox(player, attack_state.spec);
+        // Snapshot `Player` once for the combat helpers (they read
+        // facing, abilities, aabb, etc.). Mutations stay on clusters.
+        let player = clusters.to_player();
+        let attack = crate::combat::attack_hitbox(&player, attack_state.spec);
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;
             vfx.write(VfxMessage::SlashPreview { hitbox: attack });
         }
 
-        let player_pos = player.pos;
+        let player_pos = clusters.kinematics.pos;
         let mut pogo_landed = false;
-        if player.abilities.pogo && attack_state.spec.can_pogo && !attack_state.pogo_applied {
+        if clusters.abilities.abilities.pogo
+            && attack_state.spec.can_pogo
+            && !attack_state.pogo_applied
+        {
             let attack_world =
                 features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
             if let Some(orb_aabb) = attack_world.blocks.iter().find_map(|block| {
@@ -904,20 +918,25 @@ pub(super) fn advance_attack(
                 );
                 (valid_target && attack.strict_intersects(block.aabb)).then_some(block.aabb)
             }) {
-                player.vel.y = -tuning.pogo_speed;
-                player.refresh_movement_resources(tuning);
-                player.on_ground = false;
+                clusters.kinematics.vel.y = -tuning.pogo_speed;
+                ae::refresh_movement_resources_clusters(
+                    clusters.abilities,
+                    &mut *clusters.dash,
+                    &mut *clusters.jump,
+                    tuning,
+                );
+                clusters.ground.on_ground = false;
                 attack_state.pogo_applied = true;
                 pogo_landed = true;
                 sfx.write(SfxMessage::Pogo { pos: player_pos });
                 pogo_bounces.write(features::PogoBounceEvent::new(orb_aabb, 1));
             }
         }
-        let slash_damage = player.damage_multiplier.max(1);
+        let slash_damage = clusters.offense.damage_multiplier.max(1);
         let knock_x = if attack_state.spec.knockback.x.abs() > 0.0 {
             attack_state.spec.knockback.x
         } else {
-            player.facing * 300.0
+            clusters.kinematics.facing * 300.0
         };
         if first_active_frame {
             damage_events.write(features::DamageEvent {
@@ -944,12 +963,17 @@ pub(super) fn advance_attack(
             sfx.write(SfxMessage::Death { pos: player_pos });
         }
         if landed
-            && player.abilities.pogo
+            && clusters.abilities.abilities.pogo
             && attack_state.spec.can_pogo
             && !attack_state.pogo_applied
         {
-            player.vel.y = -tuning.pogo_speed;
-            player.refresh_movement_resources(tuning);
+            clusters.kinematics.vel.y = -tuning.pogo_speed;
+            ae::refresh_movement_resources_clusters(
+                clusters.abilities,
+                &mut *clusters.dash,
+                &mut *clusters.jump,
+                tuning,
+            );
             attack_state.pogo_applied = true;
             sfx.write(SfxMessage::Pogo { pos: player_pos });
         }

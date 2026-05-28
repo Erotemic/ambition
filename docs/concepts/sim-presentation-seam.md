@@ -6,7 +6,7 @@ aliases:
   - presentation adapter
   - gameplay effects
 implemented_by:
-  - crates/ambition_engine/src
+  - crates/ambition_sandbox/src/engine_core
   - crates/ambition_sandbox/src/presentation.rs
   - crates/ambition_sandbox/tests/scripted_gameplay.rs
 related_adrs:

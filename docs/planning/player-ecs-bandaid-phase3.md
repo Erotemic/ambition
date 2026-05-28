@@ -109,7 +109,7 @@ inner movement code mutates each tick. Deleting it requires:
    accesses).
 
 2. **Engine test migration.** ~50 movement test cases in
-   `crates/ambition_engine/src/movement/tests/` construct
+   `crates/ambition_sandbox/src/engine_core/movement/tests/` construct
    `Player::new(...)` + call the legacy entry points. They need to
    migrate to cluster-component fixtures. A `Player::into_clusters` /
    `Player::from_clusters` pair plus a small `run_player_simulation`

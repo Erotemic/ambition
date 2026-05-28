@@ -10,12 +10,12 @@ aliases:
   - shield parry
   - projectile collision
 implemented_by:
-  - crates/ambition_engine/src/movement.rs
-  - crates/ambition_engine/src/kinematic.rs
-  - crates/ambition_engine/src/combat.rs
-  - crates/ambition_engine/src/projectile.rs
-  - crates/ambition_engine/src/player_state.rs
-  - crates/ambition_engine/src/ledge_grab.rs
+  - crates/ambition_sandbox/src/engine_core/movement.rs
+  - crates/ambition_sandbox/src/kinematic.rs
+  - crates/ambition_sandbox/src/combat.rs
+  - crates/ambition_sandbox/src/projectile.rs
+  - crates/ambition_sandbox/src/engine_core/player_state.rs
+  - crates/ambition_sandbox/src/engine_core/ledge_grab.rs
 related_docs:
   - docs/mechanics/expressibility-checklist.md
   - docs/mechanics/body-modes.md

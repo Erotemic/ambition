@@ -5,9 +5,9 @@ Progression is the set of save-backed facts that change what the player can do o
 ## Current paths
 
 ```text
-crates/ambition_engine/src/quest.rs
-crates/ambition_engine/src/cutscene.rs
-crates/ambition_engine/src/save.rs
+crates/ambition_sandbox/src/quest.rs
+crates/ambition_sandbox/src/cutscene.rs
+crates/ambition_sandbox/src/save.rs
 crates/ambition_sandbox/src/content/quest.rs
 crates/ambition_sandbox/src/content/features/
 crates/ambition_sandbox/src/persistence/save.rs

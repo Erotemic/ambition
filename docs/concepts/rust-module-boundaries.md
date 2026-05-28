@@ -7,7 +7,7 @@ aliases:
   - visibility drift
   - attribute drift
 implemented_by:
-  - crates/ambition_engine/src
+  - crates/ambition_sandbox/src/engine_core
   - crates/ambition_sandbox/src
 related_memory:
   - dev/journals/rust-module-split-import-visibility-lessons-2026-05-11.md
@@ -44,7 +44,7 @@ Rust module-boundary work includes splitting large facade files into private chi
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_engine
+cargo test -p ambition_sandbox
 cargo test -p ambition_sandbox --lib
 ```
 

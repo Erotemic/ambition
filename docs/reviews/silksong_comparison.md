@@ -61,14 +61,14 @@ The biggest remaining gaps are not basic movement verbs. They are the systems th
 | Area | Status | Current code evidence | Notes |
 | --- | --- | --- | --- |
 | Input snapshot | Present | `crates/ambition_sandbox/src/input/control.rs` | `ControlFrame` is rebuilt each frame from semantic actions. It captures press/hold/release edges but does not itself store gameplay queues. |
-| Jump buffer | Present | `crates/ambition_engine/src/movement/tuning.rs`, `movement/player.rs`, `movement/control.rs`, `movement/simulation.rs` | `JUMP_BUFFER` fills `Player::jump_buffer_timer`; simulation consumes it for swim stroke, drop-through cancellation, wall jump, ground/coyote jump, and double jump. |
+| Jump buffer | Present | `crates/ambition_sandbox/src/engine_core/movement/tuning.rs`, `movement/player.rs`, `movement/control.rs`, `movement/simulation.rs` | `JUMP_BUFFER` fills `Player::jump_buffer_timer`; simulation consumes it for swim stroke, drop-through cancellation, wall jump, ground/coyote jump, and double jump. |
 | Dash buffer | Present | `movement/tuning.rs`, `movement/player.rs`, `movement/control.rs`, `movement/simulation.rs` | `DASH_BUFFER` fills `Player::dash_buffer_timer`; dash and ground dodge consume it when legal. |
 | Coyote time | Present | `movement/tuning.rs`, `movement/simulation.rs` | `COYOTE_TIME` refreshes while grounded and is consumed by jump. |
 | Variable jump / short hop | Present | `movement/control.rs` | Releasing jump while rising cuts vertical velocity. This is not the same as held-jump sustain. |
 | Terminal fall caps | Present | `movement/tuning.rs`, `movement/integration.rs` | Normal fall cap plus separate fast-fall and glide caps. |
 | Double jump / air jump | Present | `movement/simulation.rs`, `abilities` | Uses generic jump buffer and `air_jumps_available`. No separately tuned double-jump queue was found. |
-| Wall cling / wall climb / wall jump | Present | `movement/integration.rs`, `movement/simulation.rs`, `crates/ambition_engine/tests/wall_*`, `crates/ambition_sandbox/tests/repro_walls.rs` | Wall behavior has explicit state and regression/fuzz coverage. |
-| Ledge grab / getup / release / roll / attack / jump | Present | `crates/ambition_engine/src/ledge_grab.rs` | The previous note's `movement/ledge_grab.rs` path is stale; ledge logic currently lives at engine root. |
+| Wall cling / wall climb / wall jump | Present | `movement/integration.rs`, `movement/simulation.rs`, `crates/ambition_sandbox/src/engine_core/movement/tests/wall_collision.rs`, `crates/ambition_sandbox/tests/repro_walls.rs` | Wall behavior has explicit state and regression/fuzz coverage. |
+| Ledge grab / getup / release / roll / attack / jump | Present | `crates/ambition_sandbox/src/engine_core/ledge_grab.rs` | The previous note's `movement/ledge_grab.rs` path is stale; ledge logic currently lives at engine root. |
 | Ledge momentum carry | Present | `movement/tuning.rs`, `ledge_grab.rs` | `LedgeMomentumTuning` carries recent airborne approach momentum into quick getups. This is the closest current equivalent to the reference article's edge-spring feel. |
 | Pogo / down-air bounce | Present / Partial | `movement/control.rs`, `app/world_flow.rs`, `content/features/ecs/damage.rs` | Pogo exists as a movement bounce and as attack-active contact with pogo-capable world/breakable targets. It is not buffered as its own action. |
 | Directional melee | Present | `ambition_engine/src/combat.rs`, `app/world_flow.rs`, `app/sim_systems.rs` | `AttackIntent` and `AttackSpec` cover neutral/forward/back/up/down/aerial/wall-out style attacks. |
@@ -489,6 +489,6 @@ Testing/docs:
 
 ## Notes for future reviews
 
-- The repo has already moved some code paths compared with earlier notes; for example, ledge logic is currently `crates/ambition_engine/src/ledge_grab.rs`, not `crates/ambition_engine/src/movement/ledge_grab.rs`.
+- The repo has already moved some code paths compared with earlier notes; for example, ledge logic is currently `crates/ambition_sandbox/src/engine_core/ledge_grab.rs`, not `crates/ambition_sandbox/src/engine_core/movement/ledge_grab.rs`.
 - The current source already has more combat structure than a minimal prototype: explicit hostile hitbox entities, player outgoing `DamageEvent`, player incoming `PlayerDamageEvent`, projectile traces, boss damageable volumes, and boss encounter damage outcomes. Do not describe combat as "no damage system"; describe it as fragmented and not yet unified around a per-hit instance.
 - Avoid exact line numbers unless linking to a stable commit. Function/type names and file paths are less likely to make the document stale.

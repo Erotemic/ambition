@@ -151,7 +151,7 @@ to the bottom under "Closed" with the commit that fixed them.
   - Resolved by promoting to `Player::mana: ResourceMeter` at the
     engine layer. The F3 inspector keeps the `i32` editable surface
     and converts at the boundary; reset path uses `mana.refill_full()`.
-    See `crates/ambition_engine/src/movement.rs` and
+    See `crates/ambition_sandbox/src/engine_core/movement.rs` and
     `crates/ambition_sandbox/src/dev_tools.rs::sync_player_stats_with_inspector`.
 
 ### Encounter
@@ -254,7 +254,7 @@ to the bottom under "Closed" with the commit that fixed them.
     HUD display string and the save key.
 
 - **MED — Music tracks for boss phases are placeholders**
-  - File: `crates/ambition_engine/src/boss_encounter.rs:BossEncounterSpec::gradient_sentinel`
+  - File: `crates/ambition_sandbox/src/boss_encounter.rs:BossEncounterSpec::gradient_sentinel`
   - Phase 1 / 2 / Enrage all reuse existing sandbox tracks. The swap
     *mechanism* works end-to-end (see the integration test) but the
     audio identity doesn't change yet. Authoring 3–4 tracks in the
@@ -304,7 +304,7 @@ to the bottom under "Closed" with the commit that fixed them.
     boss tracks land.
 
 - **LOW — Ledge grab probe doesn't test the "diagonal corner" case**
-  - File: `crates/ambition_engine/src/ledge_grab.rs`
+  - File: `crates/ambition_sandbox/src/engine_core/ledge_grab.rs`
   - We test wall-on-right + clear-above and reject blocked-above; we
     don't test what happens when two adjacent solid blocks form a
     long wall and the ledge is at the corner of the upper one. Edge

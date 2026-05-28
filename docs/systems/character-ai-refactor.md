@@ -2,7 +2,7 @@
 
 **Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
 
-This is the companion doc referenced from `crates/ambition_engine/src/character_ai.rs`. It captures the current state of the shared character-AI vocabulary and the path forward for making actor policy, movement, and effects reusable across NPCs, enemies, bosses, and future player-controlled bodies.
+This is the companion doc referenced from `crates/ambition_sandbox/src/character_ai.rs`. It captures the current state of the shared character-AI vocabulary and the path forward for making actor policy, movement, and effects reusable across NPCs, enemies, bosses, and future player-controlled bodies.
 
 ## Current status
 

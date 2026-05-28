@@ -139,7 +139,7 @@ After every brain/action change:
 ```bash
 cargo check -p ambition_engine
 cargo check -p ambition_sandbox
-cargo test -p ambition_engine --lib
+cargo test -p ambition_sandbox --lib engine_core
 cargo test -p ambition_sandbox --lib brain::
 cargo test -p ambition_sandbox --lib content::features::ecs::brain_effects
 cargo test -p ambition_sandbox --lib

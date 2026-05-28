@@ -6,7 +6,7 @@ aliases:
   - regression tests
   - property tests
 implemented_by:
-  - crates/ambition_engine/tests
+  - crates/ambition_sandbox/src/engine_core/movement/tests
   - crates/ambition_sandbox/tests
   - .github/workflows
 related_docs:
@@ -44,7 +44,7 @@ Testing and validation are part of the knowledge system. Every non-trivial patch
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_engine
+cargo test -p ambition_sandbox
 cargo test -p ambition_sandbox --lib
 cargo run -p ambition_sandbox --bin headless
 ```

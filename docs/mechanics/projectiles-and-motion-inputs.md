@@ -80,7 +80,7 @@ cargo test -p ambition_sandbox projectile
 Useful code anchors:
 
 ```text
-crates/ambition_engine/src/projectile/
+crates/ambition_sandbox/src/projectile/
 crates/ambition_sandbox/src/projectile/
 crates/ambition_sandbox/src/projectile/systems.rs
 ```

@@ -23,16 +23,25 @@ PlayerClustersMut<'a>   (struct of &mut to each cluster, built from
 player_control_phase / player_simulation_phase
   ↓
 ae::update_player_{control,simulation}_with_clusters
-  ↓ (2 scratchpads remain inside engine_core/movement.rs:)
-  to_player → tick_active_ledge_grab(&mut Player) → write_from_player
-  to_player → integrate_velocity(&mut Player) → write_from_player
+  ↓
+  tick_active_ledge_grab_clusters       (cluster-native)
+  try_start_ledge_grab_clusters         (cluster-native)
+  integrate_velocity_clusters           (cluster-native; calls
+    integrate_climb_clusters,
+    integrate_flight_clusters,
+    sweep_player_x_clusters,
+    sweep_player_y_clusters,
+    apply_wall_abilities_clusters,
+    touching_rebound_aabb,
+    refresh_movement_resources_clusters)
 ```
 
-The sandbox runtime no longer writes through `&mut ae::Player` for
-*anything*. The two scratchpads above are localized to
-`update_player_simulation_with_clusters` and only because two big
-inner helpers (~600 lines combined) still take `&mut Player`.
-Everything outside that function is cluster-native.
+**Zero scratchpads** in production code. The sandbox runtime never
+writes through `&mut ae::Player` anywhere, and the engine internals
+follow the same rule. `write_from_player` and
+`with_player_scratchpad` were deleted (`780951af`); `to_player` is
+read-only and used only by 3 callers (debug overlay, trace recorder,
+headless bin) plus the engine-internal regression-test suite.
 
 ## What landed (phases 3d.1 – 3d.4)
 

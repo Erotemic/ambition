@@ -1,9 +1,11 @@
 //! Guardrail: production Rust under `src/` must not re-introduce the
 //! legacy `SandboxRuntime` / `FeatureRuntime` god-objects, the
-//! `runtime.player` shadow cache, or the `feature_runtime_phase`
-//! procedural helper. The ECS migration deleted these intentionally;
-//! the canonical replacements live on dedicated components and
-//! systems.
+//! `runtime.player` shadow cache, the `feature_runtime_phase`
+//! procedural helper, or the monolithic `ae::Player` aggregate. The
+//! ECS migration deleted these intentionally; the canonical
+//! replacements live on dedicated components and systems
+//! (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`,
+//! `PlayerClustersMut`, `PlayerClusterScratch`).
 //!
 //! This test walks the sandbox crate's `src/` tree and fails if any
 //! identifier matches. Test files and historical/archived docs are
@@ -24,6 +26,17 @@ const FORBIDDEN: &[&str] = &[
     "FeatureRuntime",
     "feature_runtime_phase",
     "runtime.player",
+    // Player ECS migration final step (2026-05-28): the monolithic
+    // `ae::Player` aggregate is gone. The cluster components on the
+    // player entity (and `PlayerClusterScratch` for tests) are the
+    // only path. Re-introducing any of these spellings means a
+    // shadow scratchpad has crept back in.
+    "ae::Player::new",
+    "PlayerClustersMut::to_player",
+    "::from_player(",
+    "update_player_with_tuning(",
+    "update_player_control_with_tuning(",
+    "update_player_simulation_with_tuning(",
 ];
 
 const ALLOW_MARKER: &str = "ALLOW_LEGACY_RUNTIME";
@@ -127,6 +140,12 @@ pub struct SandboxRuntime;
 pub fn touch_runtime() { let _ = runtime.player; }
 fn feature_runtime_phase() {}
 mod thing { struct FeatureRuntime; }
+let p = ae::Player::new(spawn);
+let snap = PlayerClustersMut::to_player(&clusters);
+let scratch = PlayerKinematics::from_player(&p);
+let e = update_player_with_tuning(&world, &mut p, input, dt, tuning);
+let e = update_player_control_with_tuning(&world, &mut p, input, dt, tuning);
+let e = update_player_simulation_with_tuning(&world, &mut p, input, dt, tuning);
 let allowed = SandboxRuntime; // ALLOW_LEGACY_RUNTIME
 ";
     let lines: Vec<&str> = scannable_lines(src).map(|(_, l)| l).collect();

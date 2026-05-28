@@ -327,7 +327,13 @@ pub(super) fn try_pogo(world: &World, player: &mut Player, tuning: MovementTunin
 }
 
 pub(super) fn touching_hazard(world: &World, player: &Player) -> bool {
-    let aabb = player.aabb();
+    touching_hazard_aabb(world, player.aabb())
+}
+
+/// AABB-only variant of [`touching_hazard`]. Cluster-aware callers
+/// pass `PlayerKinematics::aabb()` directly without building an
+/// `ae::Player`.
+pub fn touching_hazard_aabb(world: &World, aabb: crate::Aabb) -> bool {
     world
         .blocks
         .iter()

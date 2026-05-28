@@ -23,7 +23,11 @@ Useful companion docs:
 
 # LOW HANGING FRUIT MAYBE
 
-- [ ] Grinning Colossus-like boss (Smiling Big Guy) where you have to "cut the rope". Big square, shoots circle-bubble eye beams. Exercise the pickup items systems.
+- [x] **diff from codex/intro-content-cleanup** (CLOSED 2026-05-28) — cherry-picked `43012353` (intro: replace early faction names with generic raiders) and `13fe1c59` (content: rename fascist-facing labels to raid enforcer). One conflict in `intro/cutscene.rs` (namespace was `crate::cutscene::` post-engine-port vs `ae::` on the branch) was resolved keeping the new dialogue content. rl_smoke 42/42 ok.
+
+## Persistent autonomous-loop instruction
+
+When you wake up here, pick the next task from this list and work on it without asking permission. Honor the long-running discipline (`[[never-stop-during-long-run]]` in memory): never stop until the time limit, even if the headline task feels finished — there's always more on this file. When you do close a task, leave this instruction in place so the next agent finds it.
 
 - [ ] Develop a Boss to flex / force the player / boss unification code (do a new boss with a more humanoid or maybe bipedal character like the trex).
 
@@ -32,6 +36,8 @@ Useful companion docs:
 - [ ] Goblins need to have an action set as rich as the player (flexing or giving a use case to force the player / enemy unification)
 
 - [ ] Goblins need more sprites for more animations to go with the different actions.
+
+- [ ] Grinning Colossus-like boss (Smiling Big Guy) where you have to "cut the rope". Big square, shoots circle-bubble eye beams. Exercise the pickup items systems.
 
 - [ ] The player need more sprites for more animations to go with the different actions.
 

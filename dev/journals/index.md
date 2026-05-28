@@ -33,6 +33,7 @@ Use this index when debugging a symptom. Search `dev/journals/` when in doubt; t
 | Content validation refactor changes error-mode counts unexpectedly | [`content-validation-refactor-lessons-2026-05-11.md`](content-validation-refactor-lessons-2026-05-11.md) |
 | Boss profile validation misses event-bus import closure | [`boss-profile-event-bus-import-closure-2026-05-11.md`](boss-profile-event-bus-import-closure-2026-05-11.md) |
 | Collapsing a workspace crate into another — sed patterns, bin-vs-lib `crate::` resolution, dep migration | [`engine-crate-collapse-2026-05-28.md`](engine-crate-collapse-2026-05-28.md) |
+| Refactoring every `&mut ae::Player` sandbox path to `&mut PlayerClustersMut`; reborrow / mut-aliasing gotchas | [`player-cluster-native-push-2026-05-28.md`](player-cluster-native-push-2026-05-28.md) |
 
 ## Build / commands / platform
 

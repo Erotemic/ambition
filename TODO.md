@@ -23,8 +23,6 @@ Useful companion docs:
 
 # LOW HANGING FRUIT MAYBE
 
-- [x] **diff from codex/intro-content-cleanup** (CLOSED 2026-05-28) — cherry-picked `43012353` (intro: replace early faction names with generic raiders) and `13fe1c59` (content: rename fascist-facing labels to raid enforcer). One conflict in `intro/cutscene.rs` (namespace was `crate::cutscene::` post-engine-port vs `ae::` on the branch) was resolved keeping the new dialogue content. rl_smoke 42/42 ok.
-
 ## Persistent autonomous-loop instruction
 
 When you wake up here, pick the next task from this list and work on it without asking permission. Honor the long-running discipline (`[[never-stop-during-long-run]]` in memory): never stop until the time limit, even if the headline task feels finished — there's always more on this file. When you do close a task, leave this instruction in place so the next agent finds it.
@@ -47,8 +45,6 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Boss phase transitions "screams" / "animations"
 
-- [x] **Screen shake on a hard fall** (CLOSED 2026-05-28) — added `CameraShakeState` resource in `time/camera_ease.rs` with `kick(amplitude_px)` (max-wins, capped at 14 px) and `offset()` (xorshift per-axis), plus `tick_camera_shake` decay system at 30 px/s. Wired into `camera_follow` via `transform.translation += shake.offset()`. Trigger lives in `player_simulation_phase`: on a `was_grounded=false → on_ground=true` landing transition with pre-sim `vel.y > 360`, shake amplitude scales linearly with the excess (gain 1/60). rl_smoke 42/42 ok.
-
 - [ ] Implement the TODOS for the kernel NPC dialog tree
 
 - [ ] Silksong levels of input buffering.
@@ -59,15 +55,9 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] For mounted pirates, we aren't keeping a separate healthpool for the pirates and the sharks. We need to do that. In general the mount and rider always need separate health pools. Also when you kill one, it looks like the pirate should fall to the ground, but its the shark that falls to the ground and I think gets a pirate brain. Really what should happen is if the shark is killed the pirate falls, and if the pirate is killed the shark continues to fly and attack, but with its own patterns (so it feels maybe more wild than the pirate who was controlling it). Maybe it charges and if it hits a wall because it charges too far it explodes. 
 
-- [x] **NO BAKED DROP SHADOWS (2026-05-22)** — Project rule in agent memory ([[feedback-no-drop-shadows-on-sprites]]). Active generators (`intro_cart`, `creator_lab_props`) stripped in 3a2f5e3. Future generators must omit baked shadows by default; cast shadows belong in the ECS visual layer. **Follow-up:** add a renderer-time assertion that fails if there are opaque pixels below the foot-anchor row on a generated sprite, so a baked shadow trips CI instead of silently shipping.
-
-- [x] **LDtk authoring lint trio (2026-05-22, 3a2f5e3)** — `validate` now warns on (a) DebugLabel overlaps, (b) mid-air `Door` LoadingZones, (c) level boundaries that have no Solid AND no EdgeExit. Surfaces 32 warnings on the live intro slice — the actual content cleanup is the next item.
+- [ ] **Drop-shadow CI assertion follow-up** — generator-side rule [[feedback-no-drop-shadows-on-sprites]] is in memory, but it would help to add a renderer-time assertion that fails if there are opaque pixels below the foot-anchor row on a generated sprite (so a baked shadow trips CI instead of silently shipping).
 
 - [ ] **Fix the 32 intro warnings surfaced by the new lint** `[V4/D3]` — run `python -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk` and resolve each warning (missing walls → add Solids covering boundaries; mid-air doors → either add support under them or convert to EdgeExits; DebugLabel overlaps → space them out). Touches `intro_*_area.yaml` specs and the live `intro.ldtk`. Pair this with the gridvania conversion below.
-
-- [x] **News Board sprite (2026-05-22, 16641b6+)** — procedural `news_board` target ships a wall-mounted bulletin board with Disruptor Industries header + blinking LED, wired through `NEWS_BOARD_SHEET` so the bulletin no longer renders as a person.
-
-- [x] **Gate-stack reveal cutscene removed (2026-05-22)** — auto-fire cutscene that interrupted every entry to `gate_stack_lower` is gone. Future polish can re-add a quieter banner-only beat.
 
 - [ ] **Avoid doors + teleports in the vertical slice; build a gridvania world.** `[V5/D5]` — Current intro chains 10+ rooms via Door LoadingZones, which makes the slice feel like a hub with a million side-rooms. Convert to EdgeExits (stitched corridors) and connected geometry so the player traverses continuously. The new mid-air-doors lint already flags the doors that need to go.
 
@@ -77,13 +67,11 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] **Wall-clipping bugs in the intro** `[V4/D4]` — Jon's noted ongoing bad-clipping-through-walls errors during intro playthroughs. Probably a mix of (a) sub-pixel collision drift at high speeds, (b) thin-wall (16-px) corner cases, (c) the trace-replay-driven lock-wall debt already in the active blockers list. Cross-link with the existing wall-cling teleport entry in `docs/planning/tech-debt-log.md`.
 
-- [x] **Wire contextual button labels into the UI (2026-05-23)** — Replaced by a richer `player::affordances` module: typed per-verb `*Variant` enums + pure resolvers + a `PlayerAffordances` resource updated each frame. Touch HUD reads the resource through `ButtonVerb` + `ButtonGlyph` + `ButtonPressed` components (per-device key/button glyphs for keyboard, gamepad-stub, touch; pressed-state highlight doubles the overlay as a streamer-style input display). The L-stick has no separate label overlay — per Jon, the knob's drag position is the direction indicator on its own. `contextual_actions.rs` deleted. See `docs/systems/control-affordances.md`. Followups: thread the player's selected `KeyboardPreset` through to the glyph adapter (today reads the default Arrows+ZXC preset); wire gamepad-kind detection once Bevy 0.18's gamepad API is verified; add a regression test once gameplay subsystems start consuming the same resolvers so HUD/sim can't drift.
+- [ ] **Contextual button label follow-ups** — `player::affordances` module + touch HUD overlay shipped 2026-05-23. Outstanding: (a) thread the player's selected `KeyboardPreset` through the glyph adapter (today reads the default Arrows+ZXC); (b) wire gamepad-kind detection once Bevy 0.18's gamepad API is verified; (c) add a regression test once gameplay subsystems start consuming the same resolvers so HUD/sim can't drift. See `docs/systems/control-affordances.md`.
 
-- [x] **Auto-spacer for overlapping DebugLabels** `[V2/D2]` — Done 2026-05-24. `space_debug_labels` subcommand under `ambition_ldtk_tools edit` shoves overlapping labels into a vertical stack with sensible padding, in place. Used to clear the last 2 overlap warnings from intro.ldtk. _Bonus deferred:_ widen the entity `width` field to fit the actual text when text is longer than authored width — no concrete need yet.
 
 - [ ] **Renderer-time "no shadow below foot" assertion** `[V2/D1]` — pair with the no-drop-shadow rule. After auto-cropping a generated sprite, assert that the bottom row of the alpha bbox has at least some opaque pixels (true foot present), AND that there are no opaque pixels below the body in any frame (no soft baked shadow). Fails the renderer at CI time before any artist re-introduces a shadow.
 
-- [x] **Character catalog refactor + Hall of Characters (2026-05-24)** — Full plan executed in 7 phases (`TODO-character-catalog-and-hall.md`). Lands `assets/data/character_catalog.ron` as the single source of truth for spawnable characters (99 entries), `CharacterCatalogPlugin` with Startup validator, LDtk `NpcSpawn.character_id` schema, the auto-generated Hall of Characters room (89 main + 10 basement pedestals), YAML→RON area-spec migration, `NPC_SPRITE_REGISTRY` + `npc_sprite_label` deletion, and the renderer `review_npcs`→`characters` category merge. Architectural posture codified in ADR 0017. See `docs/systems/character-catalog.md` for the live system doc.
 
   Follow-ups deferred from this refactor:
   - **`boss_encounters/<id>.ron` per-boss phase schedules** `[V3/D3]` — `BossPattern` brain preset references encounter ids but the schedules are still hardcoded in Rust. Move to RON files under `crates/ambition_sandbox/assets/data/boss_encounters/`. _Status 2026-05-24:_ numeric-fields half landed for all 3 authored bosses (`gnu_ton`, `mockingbird`, `clockwork_warden`); each ships an `<id>.ron` that overrides the hardcoded `BossEncounterSpec` constructor via `default_boss_profiles`. Remaining: move per-phase brain schedules once `BossPattern` has hooks for them.
@@ -98,16 +86,6 @@ When you wake up here, pick the next task from this list and work on it without 
 - **`[V?/D?]`** value / difficulty, both 1-5. V: 1=marginal, 5=critical. D: 1=<=30min, 2=1-3hr, 3=half day, 4=multi-day, 5=week+ or risky.
 
 ## S - Active blockers and high-signal defects
-
-- [x] Morph ball is broken. Sprite appears spawns in the room and moves when you enter morph ball and then stays when you leave. The robot sprite is also drawn when in morph ball mode, squished on top of the morph ball.
-
-- [x] Pickups are broken. They don't disappear when collected.
-
-- [x] The guy on gnuton's shoulders looks too much like Harry potter. Get rid of the glasses. He should look like Isaac Newton with a powdered wig.
-
-- [x] A character should generally not bark a dialog response line if they are already in the middle of another one. 
-
-- [x] I would like to have a better ledge get-up effect that isn't just a diagonal motion. I would also like a rolling getup option in addition to the normal getup option. In both cases we should make sure the path doesn't go through a wall or we should not allow the getup / roll (really we shouldn't even allow a ledge grab unless the ledge itself has an open path to it)
 
 - [~] Enemy hurt boxes still don't visualize correctly. I can throw a fireball at gnuton and he will get hit before the fire ball collides with the visible box, so something is up with collision or the box isn't drawing.
 
@@ -150,7 +128,6 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] **Bubble shield dodge / roll extension** `[V3/D3]` - Bubble + Down should dodge; Bubble + direction should roll. Define resource cost, invulnerability frames, collision safety, and whether roll is a locomotion state or gameplay effect.
 
-- [x] **Context-sensitive action buttons / control HUD (2026-05-23)** - The on-screen touch HUD now reads as a context-sensitive control overlay even on desktop builds. Each button shows the verb it would invoke right now (Attack → `Jab` / `D-Tilt` / `N-Air` / `D-Air` / `B-Air` / `Pogo` based on stick + aerial + facing + pogo-target proximity; Shield → `Roll` on a ledge; Jump → `Climb` / `Unmorph` / `Stroke`; Interact → `Talk` / `Open` / `Activate` / authored prompt; Special → `N-Special` / `S-Special` / `U-Special` / `D-Special` / `Hadouken` seam) plus a per-device glyph subtitle ("Z" on keyboard, "A" / "X" / "RB" on Xbox-like pads, shape names on PlayStation; touch buttons render as themselves). Held buttons brighten as a streamer-style input display; the L-stick stays unlabelled so the knob's drag position is the only direction indicator (per Jon's "the control stick itself would be the thing that moves"). See `docs/systems/control-affordances.md` for the architecture.
 
 - [~] **More enemy varieties across size and aggression bands** `[V4/D4]` - `EnemyArchetype` already covers several combat shapes. Finish the missing low/medium/high combinations only if they create distinct encounters, not just more enum values. Validate HP, aggro radius, damage, and LDtk brain IDs.
 
@@ -256,12 +233,7 @@ Agents may append new ideas here freely. Jon promotes them into the accepted sec
   Until then, the per-slug HSV cycle in `sync_puppy_slug_deep_dream_overlays` provides the user-visible "surreal" look. The full-screen variant remains available via `settings.video.shaders.deep_dream_strength`.
 - **PyO3 binding for `SandboxSim`** `[V3/D3]` - Wrap `SandboxSim::{new, step, observation, reset_episode}` plus `AgentAction` / `AgentObservation` as a Python module.
 - **N64/OOT-style spinning-cube inventory** `[V2/D5]` - Deferred on purpose. Keep as a design idea, not active implementation, until inventory/menu identity becomes a priority.
-- [x] **Hurtbox = debug-drawn invariant** (CLOSED 2026-05-28) — Resolved by option (b) from the original TODO. Both `dev/debug_overlay.rs::draw_feature_debug` (boss hurtbox draw pass) and `content/features/ecs/damage.rs` (the boss damage system) call the SAME function `crate::features::damageable_volumes(&BossVolumeContext::from_runtime(boss, attack_state))`. The single-source-of-truth function is the enforcement — they cannot diverge by construction. If a future boss/enemy/hazard adds a new damage AABB source, adding it to `damageable_volumes`/`telegraph_volumes`/`active_attack_volumes` (the canonical sources) automatically makes it draw. The witnessed GNU-ton bug from 2026-05-20 was caused by the overlay using a separate code path; that's been fixed and the architecture now prevents recurrence.
 - **LDtk spatial-question tooling for LLM authoring** `[V3/D3]` - See `docs/concepts/llm-spatial-authoring-discipline.md`. Needed subcommands: `paths describe --level X` (list reachable exits from spawn + traversal kind), `intgrid query --px X,Y --size W,H` (read-only mirror of `intgrid erase` for "what's here"), `room measure --level X --entity foo` (entity width/height/center + nearest solids), `gates audit --level X` (list every gateable solid/blink/breakable and which encounter/boss/switch gates it). Each one shaves a "where exactly?" round trip during boss/encounter authoring.
-
-- [x] **Wire ledge-momentum-carry boost params into the dev-tools panel** (CLOSED 2026-05-28) — Done by commit `f1309d1d` (2026-05-23). `EditableMovementTuning` now carries `ledge_boost_{window,x_gain,y_gain,x_cap,y_cap,getup_speedup_gain}` and `as_engine()` maps them into `ae::LedgeMomentumTuning`. The egui inspector auto-renders sliders via `#[derive(Resource, Reflect)]` — no extra UI rendering needed.
-
-- [x] **Re-examine `ambition_engine` crate scope** (CLOSED 2026-05-28) — Resolved by deletion. The crate was collapsed into `crates/ambition_sandbox/src/engine_core/` as a sandbox module; the standalone `ambition_engine` crate no longer exists. The ECS-component decomposition (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`) lives on the player entity and the cluster-ref engine entry points (`update_player_*_with_clusters`) write directly to them. Remaining work tracked under item D (player + multi-player unification onto `ActorControlFrame`): delete `ae::Player` + `update_player_*_with_tuning` once `app/phases.rs` is fully cluster-native. rl_smoke green (42/42 rooms).
 
 - **Promote batch-2 crypto sketches to bespoke templates as needed** `[V2/D3]` - Batch 1 (Bob, Alice, Eve, Mallory, Trent, Judy) + batch 2 (Trudy, Craig, Sybil, Victor, Peggy, Walter, Olivia) all landed as toon-target sketches or bespoke templates. See `docs/concepts/cryptography-crew.md` → "Promotion criteria" for when to upgrade a sketch to a bespoke target. No specific promotion queued; do as story rooms demand.
 

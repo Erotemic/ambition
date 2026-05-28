@@ -62,6 +62,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Settings persistence across audio/video/gameplay/controls | Available | `docs/systems/settings-and-persistence.md` |
 | Mobile touch controls | Available, platform-sensitive | `docs/systems/mobile-touch-controls.md` |
 | Context-sensitive control HUD (verb + per-device glyph + pressed-state) | Available; gameplay still owns its own execution branches | `docs/systems/control-affordances.md` |
+| Camera screen shake on a hard fall | Available (landed 2026-05-28) | `crates/ambition_sandbox/src/time/camera_ease.rs` — `CameraShakeState`, `tick_camera_shake`, `hard_fall_shake_amplitude` |
 | Desktop, web, Android/mobile, controller, Steam Deck paths | Current targets | `docs/concepts/platform-targets.md`, `docs/recipes/index.md` |
 
 ## Validation and agent support

@@ -9,10 +9,10 @@ use super::components::{
     PlayerMovementAuthority, PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 use super::movement_components::{
-    PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerDashState,
-    PlayerDodgeState, PlayerEnvironmentContact, PlayerFlightState, PlayerGroundState,
-    PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerMana, PlayerOffense,
-    PlayerShieldState, PlayerWallState,
+    PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerComboTrace,
+    PlayerDashState, PlayerDodgeState, PlayerEnvironmentContact, PlayerFlightState,
+    PlayerGroundState, PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerLifetime,
+    PlayerMana, PlayerOffense, PlayerShieldState, PlayerWallState,
 };
 use crate::brain::{ActionSet, ActorControl, Brain};
 use crate::features::ActorFaction;
@@ -91,6 +91,8 @@ pub struct PlayerSimulationBundle {
     pub mana: PlayerMana,
     pub offense: PlayerOffense,
     pub action_buffer: PlayerActionBuffer,
+    pub lifetime: PlayerLifetime,
+    pub combo_trace: PlayerComboTrace,
 }
 
 impl PlayerSimulationBundle {
@@ -127,6 +129,8 @@ impl PlayerSimulationBundle {
         let mana = PlayerMana::from_player(&player);
         let offense = PlayerOffense::from_player(&player);
         let action_buffer = PlayerActionBuffer::from_player(&player);
+        let lifetime = PlayerLifetime::from_player(&player);
+        let combo_trace = PlayerComboTrace::from_player(&player);
 
         let authority = PlayerMovementAuthority::new(player);
         let body = authority.body();
@@ -174,6 +178,8 @@ impl PlayerSimulationBundle {
             mana,
             offense,
             action_buffer,
+            lifetime,
+            combo_trace,
         }
     }
 }

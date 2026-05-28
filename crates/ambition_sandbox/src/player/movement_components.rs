@@ -336,16 +336,22 @@ impl PlayerMana {
 
 /// Offensive scaling knobs (damage multiplier today; future crit /
 /// armor-pierce / charge-attack damage scales attach here so the
-/// damage gate stays a single-component read).
+/// damage gate stays a single-component read). Also carries the
+/// `invincible` flag the dev-tools "godmode" toggle writes — the
+/// ledger floated putting that on `PlayerHealth` but a separate
+/// component bundle keeps `PlayerHealth`'s public shape (which other
+/// tests pin) untouched.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlayerOffense {
     pub damage_multiplier: i32,
+    pub invincible: bool,
 }
 
 impl Default for PlayerOffense {
     fn default() -> Self {
         Self {
             damage_multiplier: 1,
+            invincible: false,
         }
     }
 }
@@ -354,7 +360,69 @@ impl PlayerOffense {
     pub fn from_player(player: &ae::Player) -> Self {
         Self {
             damage_multiplier: player.damage_multiplier,
+            invincible: player.invincible,
         }
+    }
+}
+
+/// Lifetime + diagnostic counters that the trace recorder and RL
+/// observation builder read every frame. None of these influence
+/// gameplay simulation; they exist so the `time_alive` / `resets` /
+/// `max_speed` columns on `AgentObservation` and the trace JSON keep
+/// reporting truth after the engine `ae::Player` aggregate is gone.
+///
+/// `resets` increments via [`crate::reset_player`]; `time_alive`
+/// accumulates per sim tick; `max_speed` is the per-life velocity
+/// magnitude high-watermark.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct PlayerLifetime {
+    pub time_alive: f32,
+    pub resets: u32,
+    pub max_speed: f32,
+}
+
+impl PlayerLifetime {
+    pub fn from_player(player: &ae::Player) -> Self {
+        Self {
+            time_alive: player.time_alive,
+            resets: player.resets,
+            max_speed: player.max_speed,
+        }
+    }
+}
+
+/// Symbolic operation trace ("J o D o D"), preserved across the
+/// engine-Player tick scratchpad so the HUD combo readout doesn't
+/// blank every frame. The engine helper `update_player_*` appends
+/// `MovementOp` entries via `Player::record`; the bridge mirrors
+/// them onto / off of this component.
+///
+/// Holds at most 18 marks (matching the engine cap). Non-Copy
+/// because of the inner `Vec`; clone is cheap (≤ 18 entries).
+/// No `PartialEq` because `ae::ComboMark` doesn't impl it.
+#[derive(Component, Clone, Debug, Default)]
+pub struct PlayerComboTrace {
+    pub combo: Vec<ae::ComboMark>,
+}
+
+impl PlayerComboTrace {
+    pub fn from_player(player: &ae::Player) -> Self {
+        Self {
+            combo: player.combo.clone(),
+        }
+    }
+
+    /// Symbolic combo string (the HUD readout). Empty trace returns
+    /// `-` so the HUD field always renders something.
+    pub fn symbols(&self) -> String {
+        if self.combo.is_empty() {
+            return "-".to_string();
+        }
+        self.combo
+            .iter()
+            .map(|m| m.op.symbol())
+            .collect::<Vec<_>>()
+            .join(" o ")
     }
 }
 
@@ -510,6 +578,16 @@ mod tests {
 
         let offense = PlayerOffense::from_player(&p);
         assert_eq!(offense.damage_multiplier, p.damage_multiplier);
+        assert_eq!(offense.invincible, p.invincible);
+
+        let lifetime = PlayerLifetime::from_player(&p);
+        assert_eq!(lifetime.time_alive, p.time_alive);
+        assert_eq!(lifetime.resets, p.resets);
+        assert_eq!(lifetime.max_speed, p.max_speed);
+
+        let combo = PlayerComboTrace::from_player(&p);
+        assert_eq!(combo.combo.len(), p.combo.len());
+        assert_eq!(combo.symbols(), "-");
 
         let buf = PlayerActionBuffer::from_player(&p);
         assert_eq!(buf.jump, p.jump_buffer_timer);

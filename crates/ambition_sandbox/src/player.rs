@@ -17,6 +17,7 @@ pub mod affordances;
 pub mod bubble_shield;
 pub mod bundles;
 pub mod components;
+pub mod engine_player_bridge;
 pub mod events;
 pub mod ledge_grab;
 pub mod movement_components;
@@ -31,10 +32,10 @@ pub use components::{
     PlayerMovementAuthority, PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 pub use movement_components::{
-    PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerDashState,
-    PlayerDodgeState, PlayerEnvironmentContact, PlayerFlightState, PlayerGroundState,
-    PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerMana, PlayerOffense,
-    PlayerShieldState, PlayerWallState,
+    PlayerAbilities, PlayerActionBuffer, PlayerBlinkState, PlayerBodyModeState, PlayerComboTrace,
+    PlayerDashState, PlayerDodgeState, PlayerEnvironmentContact, PlayerFlightState,
+    PlayerGroundState, PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerLifetime,
+    PlayerMana, PlayerOffense, PlayerShieldState, PlayerWallState,
 };
 pub use events::{PlayerDamageRequested, PlayerHealRequested};
 pub use queries::{primary_player_entity, sort_players_by_slot, PrimaryPlayerOnly};

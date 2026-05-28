@@ -103,8 +103,7 @@ pub fn update_player_control_with_clusters(
         events.op_clusters(clusters.combo_trace, ops::MovementOp::FlyToggle);
     }
 
-    // handle_blink + handle_attacks are now cluster-native — no
-    // Player scratchpad needed.
+    // Blink hold / aim / release + melee + pogo dispatch.
     control::handle_blink_clusters(
         world,
         clusters.kinematics,
@@ -217,7 +216,9 @@ pub fn update_player_simulation_with_clusters(
     }
     let dt = raw_dt.min(1.0 / 30.0);
 
-    // Cluster-native setup: water/climbable contact + ledge clear.
+    // Cache water + climbable contact once per tick so movement,
+    // jump-buffer, and integration all see the same answer. Also
+    // clear a stale ledge grab if the ability is no longer enabled.
     clusters.env_contact.water = world.water_at(clusters.kinematics.aabb());
     clusters.env_contact.climbable = world.climbable_at(clusters.kinematics.aabb());
     if !clusters.abilities.abilities.ledge_grab {
@@ -271,9 +272,8 @@ pub fn update_player_simulation_with_clusters(
         }
     }
 
-    // Cluster-native ledge-grab tick. Was the third inner Player
-    // scratchpad; replaced by `tick_active_ledge_grab_clusters`
-    // (2026-05-28).
+    // Active ledge-grab tick. Returns true if it consumed the frame
+    // (the rest of the simulation phase short-circuits).
     if crate::engine_core::ledge_grab::tick_active_ledge_grab_clusters(
         clusters,
         input,
@@ -284,7 +284,8 @@ pub fn update_player_simulation_with_clusters(
         return events;
     }
 
-    // handle_jump_buffer is now cluster-native (no Player scratchpad).
+    // Consume the buffered jump (or convert to swim stroke /
+    // drop-through / wall-jump / double-jump).
     simulation::handle_jump_buffer_clusters(
         world,
         clusters.action_buffer,

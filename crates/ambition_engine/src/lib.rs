@@ -40,7 +40,6 @@ pub mod player_state;
 pub mod projectile;
 pub mod quest;
 pub mod save;
-pub mod scalar;
 pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
@@ -127,7 +126,6 @@ pub use player_clusters::{
     PlayerOffense as EnginePlayerOffense, PlayerShieldState as EnginePlayerShieldState,
     PlayerWallState as EnginePlayerWallState,
 };
-pub use scalar::approach;
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,
     ClimbableSpec, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,

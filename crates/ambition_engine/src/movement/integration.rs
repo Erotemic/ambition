@@ -1,6 +1,16 @@
 use crate::geometry::AabbExt;
 use crate::world::World;
-use crate::{approach, Vec2};
+use crate::Vec2;
+
+/// Move `value` toward `target` by at most `delta`. Inlined from the
+/// removed `ae::scalar::approach`.
+fn approach(value: f32, target: f32, delta: f32) -> f32 {
+    if value < target {
+        (value + delta).min(target)
+    } else {
+        (value - delta).max(target)
+    }
+}
 
 use super::collision::{sweep_player_x, sweep_player_y, touching_rebound};
 use super::dec;

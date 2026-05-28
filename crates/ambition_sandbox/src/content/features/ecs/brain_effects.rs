@@ -1120,7 +1120,7 @@ mod tests {
             enemy_after.attack_cooldown,
         );
         assert!(
-            matches!(enemy_after.ai_mode, ae::CharacterAiMode::Telegraph),
+            matches!(enemy_after.ai_mode, crate::character_ai::CharacterAiMode::Telegraph),
             "ai_mode should flip to Telegraph; got {:?}",
             enemy_after.ai_mode,
         );

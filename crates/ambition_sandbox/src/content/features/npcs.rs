@@ -39,7 +39,7 @@ pub struct NpcRuntime {
     /// inverse of an enemy "chase" — a peaceful NPC interrupts its
     /// own behavior to face the visitor), `Idle` is the
     /// no-patrol-radius fallback.
-    pub ai_mode: ae::CharacterAiMode,
+    pub ai_mode: crate::character_ai::CharacterAiMode,
     /// Hostility flag. Becomes true after the player strikes the NPC
     /// enough times to provoke them. The save flag mirrors this so
     /// hostility persists across rooms / saves. ECS actor systems flip
@@ -126,7 +126,7 @@ impl NpcRuntime {
             patrol_radius,
             motion,
             talk_radius: NPC_TALK_RADIUS,
-            ai_mode: ae::CharacterAiMode::Idle,
+            ai_mode: crate::character_ai::CharacterAiMode::Idle,
             hostile: false,
             strikes: 0,
             hit_flash: 0.0,
@@ -232,7 +232,7 @@ impl NpcRuntime {
         brain.tick(&snapshot, &mut frame);
 
         // Cache ai_mode for HUD / sprite picker. Patrol's internal
-        // state mirrors `ae::CharacterAiMode`; StandStill is always
+        // state mirrors `crate::character_ai::CharacterAiMode`; StandStill is always
         // Idle.
         self.ai_mode = match brain {
             crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
@@ -240,9 +240,9 @@ impl NpcRuntime {
                 ..
             }) => state.mode,
             crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {
-                ae::CharacterAiMode::Idle
+                crate::character_ai::CharacterAiMode::Idle
             }
-            _ => ae::CharacterAiMode::Idle,
+            _ => crate::character_ai::CharacterAiMode::Idle,
         };
 
         // Apply brain's facing intent (zero = leave alone).
@@ -253,7 +253,7 @@ impl NpcRuntime {
         // Path motion overrides the brain's `desired_vel` when we're
         // in Patrol mode — the curve is the authored intent, not a
         // raw horizontal step.
-        if matches!(self.ai_mode, ae::CharacterAiMode::Patrol) {
+        if matches!(self.ai_mode, crate::character_ai::CharacterAiMode::Patrol) {
             if let Some(motion) = &mut self.motion {
                 let old = self.pos;
                 self.pos = motion.advance(self.pos, dt);
@@ -299,7 +299,7 @@ impl NpcRuntime {
         // The brain's Patrol template handles geometric bound flips
         // via `cfg.spawn_x ± radius`; this catches the "I bumped a
         // solid mid-patrol" case which the brain doesn't see.
-        if matches!(self.ai_mode, ae::CharacterAiMode::Patrol)
+        if matches!(self.ai_mode, crate::character_ai::CharacterAiMode::Patrol)
             && prev_vel_x.abs() > 1.0
             && self.vel.x.abs() < 0.01
         {
@@ -310,7 +310,7 @@ impl NpcRuntime {
         // prompts render on the right side of the NPC. The brain
         // already set facing once; if the player has moved we
         // refresh it.
-        if matches!(self.ai_mode, ae::CharacterAiMode::Chase) {
+        if matches!(self.ai_mode, crate::character_ai::CharacterAiMode::Chase) {
             let dx = target_pos.x - self.pos.x;
             if dx.abs() > 4.0 {
                 self.facing = dx.signum();

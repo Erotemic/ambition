@@ -26,6 +26,7 @@ pub mod headless;
 pub mod input;
 pub mod kinematic;
 pub mod cutscene;
+pub mod character_ai;
 pub mod player;
 #[cfg(feature = "rl_sim")]
 pub mod rl_sim;

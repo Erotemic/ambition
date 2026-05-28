@@ -53,7 +53,7 @@ pub struct EnemyRuntime {
     /// Last-evaluated `CharacterAiMode`. Updated by `update`. Read by
     /// HUD / rendering / debug overlay so they can branch on a single
     /// vocabulary instead of inferring it from the timer fields.
-    pub ai_mode: ae::CharacterAiMode,
+    pub ai_mode: crate::character_ai::CharacterAiMode,
     /// Set by [`crate::kinematic::step_kinematic`](ambition_engine::step_kinematic)
     /// each tick. Used by chase-drop-through
     /// (enemy must be standing on something before it tries to fall
@@ -618,7 +618,7 @@ impl EnemyRuntime {
             attack_cooldown: 0.2,
             respawn_timer: 0.0,
             hit_flash: 0.0,
-            ai_mode: ae::CharacterAiMode::Idle,
+            ai_mode: crate::character_ai::CharacterAiMode::Idle,
             on_ground: false,
             sprite_override_npc_name: None,
             gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
@@ -657,7 +657,7 @@ impl EnemyRuntime {
         self.attack_cooldown = 0.2;
         self.respawn_timer = 0.0;
         self.hit_flash = 0.0;
-        self.ai_mode = ae::CharacterAiMode::Idle;
+        self.ai_mode = crate::character_ai::CharacterAiMode::Idle;
         self.on_ground = false;
         self.facing = -1.0;
         // Surface walkers reset to floor — even if the slug died on
@@ -878,7 +878,7 @@ impl EnemyRuntime {
                 self.vel = ae::Vec2::ZERO;
                 self.hit_flash = 0.24;
             }
-            self.ai_mode = ae::CharacterAiMode::Dead;
+            self.ai_mode = crate::character_ai::CharacterAiMode::Dead;
             return ae::ActorControlFrame::neutral();
         }
 
@@ -903,7 +903,7 @@ impl EnemyRuntime {
             ae::EnemyBrain::Guard { leash_radius } => *leash_radius,
             _ => self.archetype.aggro_radius(),
         };
-        let ai = ae::evaluate_character_ai_output(ae::CharacterAiSnapshot {
+        let ai = crate::character_ai::evaluate_character_ai_output(crate::character_ai::CharacterAiSnapshot {
             actor_pos: self.pos,
             player_pos: target_pos,
             aggro_radius: effective_aggro_radius,
@@ -1063,7 +1063,7 @@ impl EnemyRuntime {
             // flip facing so the next tick walks back. Aerial actors
             // skip this — they bend around obstacles by re-steering.
             if !is_aerial
-                && matches!(ai.intent, ae::CharacterAiIntent::Patrol)
+                && matches!(ai.intent, crate::character_ai::CharacterAiIntent::Patrol)
                 && prev_vel_x.abs() > 1.0
                 && self.vel.x.abs() < 0.01
             {
@@ -1091,8 +1091,8 @@ impl EnemyRuntime {
         // `docs/planning/universal-brain-interface.md`).
         if self.archetype.attacks_player() {
             match ai.intent {
-                ae::CharacterAiIntent::Chase { direction_x }
-                | ae::CharacterAiIntent::Attack { direction_x }
+                crate::character_ai::CharacterAiIntent::Chase { direction_x }
+                | crate::character_ai::CharacterAiIntent::Attack { direction_x }
                     if direction_x.abs() > 0.001 =>
                 {
                     self.facing = direction_x.signum();
@@ -1127,7 +1127,7 @@ impl EnemyRuntime {
         // `update` keeps `ai_mode = Attack` when `frame.fire.is_some()`
         // since that HUD signal is integration-side state.
         if frame.fire.is_some() {
-            self.ai_mode = ae::CharacterAiMode::Attack;
+            self.ai_mode = crate::character_ai::CharacterAiMode::Attack;
         }
         frame
     }
@@ -1139,7 +1139,7 @@ impl EnemyRuntime {
     /// unchanged.
     fn build_control_frame(
         &mut self,
-        ai: &ae::CharacterAiOutput,
+        ai: &crate::character_ai::CharacterAiOutput,
         choreo_tick: &ae::ChoreographyTick,
         target_pos: ae::Vec2,
         is_aerial: bool,
@@ -1153,7 +1153,7 @@ impl EnemyRuntime {
         // no on_ground so this is naturally a no-op for them.
         let delta_y = target_pos.y - self.pos.y;
         frame.drop_through = !is_aerial
-            && matches!(ai.intent, ae::CharacterAiIntent::Chase { .. })
+            && matches!(ai.intent, crate::character_ai::CharacterAiIntent::Chase { .. })
             && self.on_ground
             && delta_y > 48.0;
 
@@ -1182,7 +1182,7 @@ impl EnemyRuntime {
             // advances the cursor separately so the path remains
             // the source of truth even when collision blocks the
             // body.
-            if matches!(ai.intent, ae::CharacterAiIntent::Patrol) {
+            if matches!(ai.intent, crate::character_ai::CharacterAiIntent::Patrol) {
                 let target_pos = motion.lookahead(self.pos, dt);
                 let dx = target_pos.x - self.pos.x;
                 let desired_x = if dt > 0.0 { dx / dt } else { 0.0 };
@@ -1191,15 +1191,15 @@ impl EnemyRuntime {
             }
         } else {
             let desired_x = match ai.intent {
-                ae::CharacterAiIntent::Hold | ae::CharacterAiIntent::Attack { .. } => {
+                crate::character_ai::CharacterAiIntent::Hold | crate::character_ai::CharacterAiIntent::Attack { .. } => {
                     if ai.committed() {
                         self.vel.x * 0.4
                     } else {
                         0.0
                     }
                 }
-                ae::CharacterAiIntent::Patrol => self.facing * self.archetype.patrol_speed(),
-                ae::CharacterAiIntent::Chase { .. } => {
+                crate::character_ai::CharacterAiIntent::Patrol => self.facing * self.archetype.patrol_speed(),
+                crate::character_ai::CharacterAiIntent::Chase { .. } => {
                     let dx = choreo_tick.steering_target.x - self.pos.x;
                     let sign = if dx.abs() < 1.0 { 0.0 } else { dx.signum() };
                     let speed = choreo_tick
@@ -1600,7 +1600,7 @@ impl EnemyRuntime {
             } else {
                 1.0
             };
-        self.ai_mode = ae::CharacterAiMode::Telegraph;
+        self.ai_mode = crate::character_ai::CharacterAiMode::Telegraph;
         self.pending_attack_axis = if attack_axis.length_squared() > 0.01 {
             attack_axis.normalize_or_zero()
         } else {

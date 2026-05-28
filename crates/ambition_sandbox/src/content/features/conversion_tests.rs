@@ -131,7 +131,7 @@ mod conversion_tests {
             npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
         }
         assert!(
-            matches!(npc.ai_mode, ae::CharacterAiMode::Chase),
+            matches!(npc.ai_mode, crate::character_ai::CharacterAiMode::Chase),
             "expected Chase mode (NPC interprets as hold-and-face), got {:?}",
             npc.ai_mode
         );
@@ -166,7 +166,7 @@ mod conversion_tests {
         );
         assert!(matches!(
             npc.ai_mode,
-            ae::CharacterAiMode::Idle | ae::CharacterAiMode::Chase
+            crate::character_ai::CharacterAiMode::Idle | crate::character_ai::CharacterAiMode::Chase
         ));
     }
 
@@ -231,8 +231,8 @@ mod conversion_tests {
         for _ in 0..300 {
             npc.tick_via_brain(&mut brain, &world, player.pos, 0.0, 0.016);
             match npc.ai_mode {
-                ae::CharacterAiMode::Patrol => patrol_ticks += 1,
-                ae::CharacterAiMode::Chase => chase_ticks += 1,
+                crate::character_ai::CharacterAiMode::Patrol => patrol_ticks += 1,
+                crate::character_ai::CharacterAiMode::Chase => chase_ticks += 1,
                 _ => {}
             }
         }
@@ -416,7 +416,7 @@ mod conversion_tests {
             None,
             0.05,
         );
-        assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Chase);
+        assert_eq!(enemy.ai_mode, crate::character_ai::CharacterAiMode::Chase);
         assert!(
             enemy.vel.x > 0.0,
             "CharacterAI Chase intent should drive rightward motion"
@@ -471,7 +471,7 @@ mod conversion_tests {
             ae::Vec2::new(1.0, 0.0),
         );
         assert!(started, "begin_melee_attack should accept the intent");
-        assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Telegraph);
+        assert_eq!(enemy.ai_mode, crate::character_ai::CharacterAiMode::Telegraph);
         assert!(enemy.attack_windup_timer > 0.0);
         assert_eq!(
             enemy.pos,

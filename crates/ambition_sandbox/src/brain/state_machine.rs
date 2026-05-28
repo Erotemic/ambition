@@ -183,7 +183,7 @@ impl PatrolCfg {
 pub struct PatrolState {
     /// Most recently evaluated mode. Cached so HUD / animation
     /// systems can read it without re-evaluating.
-    pub mode: ae::CharacterAiMode,
+    pub mode: crate::character_ai::CharacterAiMode,
 }
 
 fn tick_patrol(
@@ -192,7 +192,7 @@ fn tick_patrol(
     snapshot: &BrainSnapshot,
     out: &mut ae::ActorControlFrame,
 ) {
-    let ai = ae::evaluate_character_ai_output(snapshot.to_character_ai_snapshot(
+    let ai = crate::character_ai::evaluate_character_ai_output(snapshot.to_character_ai_snapshot(
         cfg.aggro_radius,
         cfg.attack_range,
         true,
@@ -200,7 +200,7 @@ fn tick_patrol(
     state.mode = ai.mode;
     *out = ae::ActorControlFrame::neutral();
     match ai.intent {
-        ae::CharacterAiIntent::Hold => {
+        crate::character_ai::CharacterAiIntent::Hold => {
             // Player in talk range or otherwise hold position.
             // Face toward target if any.
             if snapshot.target_alive {
@@ -210,7 +210,7 @@ fn tick_patrol(
                 }
             }
         }
-        ae::CharacterAiIntent::Patrol => {
+        crate::character_ai::CharacterAiIntent::Patrol => {
             // Bounce within `[spawn_x ± radius]`. Caller is
             // expected to flip `facing` on wall contact; brain
             // also flips at the geometric bound.
@@ -225,7 +225,7 @@ fn tick_patrol(
             out.facing = facing;
             out.desired_vel = ae::Vec2::new(facing * cfg.speed, 0.0);
         }
-        ae::CharacterAiIntent::Chase { direction_x } => {
+        crate::character_ai::CharacterAiIntent::Chase { direction_x } => {
             // Only triggers when `aggressiveness > 0` — peaceful
             // patrollers' aggro_radius gates as "talk", which the
             // evaluator returns as Hold for `attack_range = 0`.
@@ -242,7 +242,7 @@ fn tick_patrol(
                 }
             }
         }
-        ae::CharacterAiIntent::Attack { direction_x } => {
+        crate::character_ai::CharacterAiIntent::Attack { direction_x } => {
             if cfg.aggressiveness > 0.0 {
                 out.facing = direction_x.signum_or(snapshot.actor_facing);
                 out.melee_pressed = snapshot.attack_cooldown_remaining <= 0.0;
@@ -387,7 +387,7 @@ impl MeleeBruteCfg {
 /// Per-actor MeleeBrute state.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct MeleeBruteState {
-    pub mode: ae::CharacterAiMode,
+    pub mode: crate::character_ai::CharacterAiMode,
 }
 
 fn tick_melee_brute(
@@ -396,7 +396,7 @@ fn tick_melee_brute(
     snapshot: &BrainSnapshot,
     out: &mut ae::ActorControlFrame,
 ) {
-    let ai = ae::evaluate_character_ai_output(snapshot.to_character_ai_snapshot(
+    let ai = crate::character_ai::evaluate_character_ai_output(snapshot.to_character_ai_snapshot(
         cfg.aggro_radius,
         cfg.attack_range,
         false,
@@ -404,15 +404,15 @@ fn tick_melee_brute(
     state.mode = ai.mode;
     *out = ae::ActorControlFrame::neutral();
     match ai.intent {
-        ae::CharacterAiIntent::Hold => {}
-        ae::CharacterAiIntent::Patrol => {
+        crate::character_ai::CharacterAiIntent::Hold => {}
+        crate::character_ai::CharacterAiIntent::Patrol => {
             // Not used by MeleeBrute today (patrol_enabled=false).
         }
-        ae::CharacterAiIntent::Chase { direction_x } => {
+        crate::character_ai::CharacterAiIntent::Chase { direction_x } => {
             out.desired_vel = ae::Vec2::new(direction_x * cfg.chase_speed, 0.0);
             out.facing = direction_x.signum_or(snapshot.actor_facing);
         }
-        ae::CharacterAiIntent::Attack { direction_x } => {
+        crate::character_ai::CharacterAiIntent::Attack { direction_x } => {
             out.facing = direction_x.signum_or(snapshot.actor_facing);
             // Brain wants to start an attack windup if the cooldown
             // is clear. The ActionSet's attack spec timing then
@@ -452,7 +452,7 @@ impl SkirmisherCfg {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SkirmisherState {
-    pub mode: ae::CharacterAiMode,
+    pub mode: crate::character_ai::CharacterAiMode,
     /// Sim-time of the last shot. Used with `fire_cooldown_s`.
     pub last_fire_t: f32,
 }
@@ -470,10 +470,10 @@ fn tick_skirmisher(
     let to_target = snapshot.target_pos - snapshot.actor_pos;
     let dist = to_target.length();
     if dist > cfg.aggro_radius {
-        state.mode = ae::CharacterAiMode::Idle;
+        state.mode = crate::character_ai::CharacterAiMode::Idle;
         return;
     }
-    state.mode = ae::CharacterAiMode::Chase;
+    state.mode = crate::character_ai::CharacterAiMode::Chase;
     // Move toward the standoff distance.
     let dir = to_target.normalize_or_zero();
     out.facing = dir.x.signum_or(snapshot.actor_facing);
@@ -487,7 +487,7 @@ fn tick_skirmisher(
         // builds the projectile spawn.
         out.fire = Some(ae::ActorFireRequest { dir, speed: 0.0 });
         state.last_fire_t = snapshot.sim_time;
-        state.mode = ae::CharacterAiMode::Attack;
+        state.mode = crate::character_ai::CharacterAiMode::Attack;
     }
 }
 
@@ -687,7 +687,7 @@ mod tests {
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Patrol { state, .. } = &sm {
             // Far target → evaluator picks Patrol (not Idle/Chase/Attack).
-            assert_eq!(state.mode, ae::CharacterAiMode::Patrol);
+            assert_eq!(state.mode, crate::character_ai::CharacterAiMode::Patrol);
         } else {
             unreachable!();
         }
@@ -698,7 +698,7 @@ mod tests {
         if let StateMachineCfg::Patrol { state, .. } = &sm {
             assert_ne!(
                 state.mode,
-                ae::CharacterAiMode::Patrol,
+                crate::character_ai::CharacterAiMode::Patrol,
                 "close target should leave Patrol",
             );
         }
@@ -1087,7 +1087,7 @@ mod tests {
         let mut out = ae::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Skirmisher { state, .. } = &sm {
-            assert_eq!(state.mode, ae::CharacterAiMode::Idle);
+            assert_eq!(state.mode, crate::character_ai::CharacterAiMode::Idle);
         } else {
             unreachable!();
         }
@@ -1098,14 +1098,14 @@ mod tests {
         let mut out = ae::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Skirmisher { state, .. } = &sm {
-            assert_eq!(state.mode, ae::CharacterAiMode::Chase);
+            assert_eq!(state.mode, crate::character_ai::CharacterAiMode::Chase);
         }
         // Advance sim_time past the first cooldown → Attack on fire.
         s.sim_time = 1.0; // > fire_cooldown_s 0.8
         let mut out = ae::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Skirmisher { state, .. } = &sm {
-            assert_eq!(state.mode, ae::CharacterAiMode::Attack);
+            assert_eq!(state.mode, crate::character_ai::CharacterAiMode::Attack);
         }
         assert!(out.fire.is_some(), "should fire after cooldown");
     }

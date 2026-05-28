@@ -26,7 +26,6 @@ pub mod actor;
 pub mod actor_control;
 pub mod attack_choreography;
 pub mod boss_encounter;
-pub mod character_ai;
 pub mod combat;
 pub mod combat_slots;
 pub mod player_clusters;
@@ -55,10 +54,6 @@ pub use attack_choreography::{
 pub use bevy_math::Vec2;
 pub use boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
-};
-pub use character_ai::{
-    evaluate_character_ai, evaluate_character_ai_output, CharacterAiIntent, CharacterAiMode,
-    CharacterAiOutput, CharacterAiSnapshot,
 };
 pub use combat::{
     attack_hitbox, attack_spec, resolve_attack_intent, AttackIntent, AttackPhase, AttackSpec,

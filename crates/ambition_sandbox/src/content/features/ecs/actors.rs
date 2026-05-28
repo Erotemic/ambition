@@ -139,7 +139,7 @@ pub(crate) fn actor_component_snapshot(
             ActorDisposition::Peaceful,
             ActorHealth::new(ae::Health::new(1)),
             ActorCombatState::peaceful(npc.strikes, npc.hit_flash),
-            ActorIntent::new(ae::CharacterAiMode::Idle),
+            ActorIntent::new(crate::character_ai::CharacterAiMode::Idle),
             ActorCooldowns::default(),
         ),
         ActorRuntime::Hostile(enemy) => (

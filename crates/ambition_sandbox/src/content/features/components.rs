@@ -395,17 +395,17 @@ impl ActorCombatState {
     }
 }
 
-/// ECS-visible actor AI intent. Mirrors `ae::CharacterAiMode` so rendering and
+/// ECS-visible actor AI intent. Mirrors `crate::character_ai::CharacterAiMode` so rendering and
 /// HUD systems can branch on actor state without pattern-matching `ActorRuntime`.
 /// Synced from the runtime each frame by `update_ecs_actors`.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ActorIntent(pub ae::CharacterAiMode);
+pub struct ActorIntent(pub crate::character_ai::CharacterAiMode);
 
 impl ActorIntent {
-    pub fn new(mode: ae::CharacterAiMode) -> Self {
+    pub fn new(mode: crate::character_ai::CharacterAiMode) -> Self {
         Self(mode)
     }
-    pub fn mode(self) -> ae::CharacterAiMode {
+    pub fn mode(self) -> crate::character_ai::CharacterAiMode {
         self.0
     }
     pub fn is_dangerous(self) -> bool {

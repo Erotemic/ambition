@@ -32,6 +32,7 @@ Use this index when debugging a symptom. Search `dev/journals/` when in doubt; t
 | Child module extraction loses local imports, helper visibility, attributes, or tests | [`rust-module-split-import-visibility-lessons-2026-05-11.md`](rust-module-split-import-visibility-lessons-2026-05-11.md), [`rl-sim-refactor-lessons-2026-05-11.md`](rl-sim-refactor-lessons-2026-05-11.md), [`music-director-refactor-lessons-2026-05-11.md`](music-director-refactor-lessons-2026-05-11.md) |
 | Content validation refactor changes error-mode counts unexpectedly | [`content-validation-refactor-lessons-2026-05-11.md`](content-validation-refactor-lessons-2026-05-11.md) |
 | Boss profile validation misses event-bus import closure | [`boss-profile-event-bus-import-closure-2026-05-11.md`](boss-profile-event-bus-import-closure-2026-05-11.md) |
+| Collapsing a workspace crate into another — sed patterns, bin-vs-lib `crate::` resolution, dep migration | [`engine-crate-collapse-2026-05-28.md`](engine-crate-collapse-2026-05-28.md) |
 
 ## Build / commands / platform
 

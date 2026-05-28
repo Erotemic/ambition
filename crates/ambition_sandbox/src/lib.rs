@@ -344,24 +344,27 @@ impl PlayerAttackState {
 /// teleport polluted `last_safe_player_pos` with `(62, -23)`.
 pub fn remember_safe_player_position(
     safety: &mut crate::player::PlayerSafetyState,
-    player: &ae::Player,
+    clusters: &ae::PlayerClustersMut<'_>,
     world: &ae::World,
     ctx: SafePositionContext,
 ) {
-    if !player.on_ground {
+    if !clusters.ground.on_ground {
         return;
     }
     if !ctx.is_eligible() {
         return;
     }
-    let verdict = ae::classify_player_safety(player, world, 0.0, |block| {
+    let pos = clusters.kinematics.pos;
+    let vel = clusters.kinematics.vel;
+    let aabb = clusters.kinematics.aabb();
+    let verdict = ae::classify_safety_from_kinematics(pos, vel, aabb, world, 0.0, |block| {
         matches!(
             block.kind,
             ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
         )
     });
     if verdict.is_safe() {
-        safety.last_safe_pos = player.pos;
+        safety.last_safe_pos = pos;
     }
 }
 

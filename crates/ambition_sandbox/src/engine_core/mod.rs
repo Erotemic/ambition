@@ -56,7 +56,8 @@ pub use movement::{
     WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 pub use player_state::{
-    classify_player_safety, try_change_body_mode, try_change_body_mode_clusters, BodyMode,
+    classify_player_safety, classify_safety_from_kinematics, try_change_body_mode,
+    try_change_body_mode_clusters, BodyMode,
     BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
 pub use player_clusters::{

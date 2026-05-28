@@ -516,13 +516,12 @@ pub fn apply_player_damage_system(
         let damaged_this_frame = !target_events.is_empty();
 
         let mut clusters = cluster_item.as_clusters_mut();
-        let mut player = clusters.to_player();
         super::world_flow::handle_player_damage_events(
             &world.0,
             &mut sfx_writer,
             &mut vfx_writer,
             &mut died_writer,
-            &mut player,
+            &mut clusters,
             &mut sim_state,
             &mut safety,
             &mut banner,
@@ -539,11 +538,10 @@ pub fn apply_player_damage_system(
             damaged_this_frame,
             in_hitstun: combat.hitstun_timer > 0.0,
             feature_requested_reset: false,
-            blink_grace_active: player.blink_grace_timer > 0.0,
+            blink_grace_active: clusters.blink.grace_timer > 0.0,
             room_transitioning: sim_state.room_transition_cooldown > 0.0,
         };
-        crate::remember_safe_player_position(&mut safety, &player, &safe_world, ctx);
-        clusters.write_from_player(player);
+        crate::remember_safe_player_position(&mut safety, &clusters, &safe_world, ctx);
     }
 }
 

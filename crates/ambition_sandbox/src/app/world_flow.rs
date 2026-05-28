@@ -76,7 +76,7 @@ pub(super) fn load_room(
     commands: &mut Commands,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    player: &mut ae::Player,
+    clusters: &mut ae::PlayerClustersMut<'_>,
     dev_state: &mut crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     safety: &mut crate::player::PlayerSafetyState,
@@ -94,9 +94,9 @@ pub(super) fn load_room(
     physics_settings: physics::PhysicsSandboxSettings,
     assets: Option<&crate::assets::game_assets::GameAssets>,
 ) {
-    let old_velocity = player.vel;
-    let abilities = player.abilities;
-    let fly_enabled = player.fly_enabled;
+    let old_velocity = clusters.kinematics.vel;
+    let fly_enabled = clusters.flight.fly_enabled;
+    let player_size = clusters.kinematics.size;
     let edge_exit = matches!(
         transition.zone.activation,
         rooms::LoadingZoneActivation::EdgeExit
@@ -116,16 +116,21 @@ pub(super) fn load_room(
     // state, but preserve ability progression and, for edge exits, preserve
     // velocity so side-to-side room changes feel continuous. Door transitions
     // intentionally zero velocity because they are discrete interactions.
-    let arrival = rooms::validated_spawn(&world.0, transition.arrival, player.size);
-    *player = ae::Player::new_with_abilities(arrival, abilities);
-    player.refresh_movement_resources(tuning);
-    player.fly_enabled = fly_enabled && player.abilities.fly;
+    let arrival = rooms::validated_spawn(&world.0, transition.arrival, player_size);
+    ae::reset_player_clusters(clusters, arrival);
+    ae::refresh_movement_resources_clusters(
+        clusters.abilities,
+        &mut *clusters.dash,
+        &mut *clusters.jump,
+        tuning,
+    );
+    clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
     if edge_exit {
-        player.vel = old_velocity;
+        clusters.kinematics.vel = old_velocity;
     }
     blink_cam.blink_in_timer = 0.0;
-    blink_cam.blink_camera_from = player.pos;
-    blink_cam.blink_camera_to = player.pos;
+    blink_cam.blink_camera_from = clusters.kinematics.pos;
+    blink_cam.blink_camera_to = clusters.kinematics.pos;
     blink_cam.camera_snap_timer = if edge_exit {
         0.0
     } else {
@@ -139,7 +144,7 @@ pub(super) fn load_room(
     combat.hitstop_timer = 0.0;
     combat.damage_invuln_timer = 0.0;
     combat.hitstun_timer = 0.0;
-    safety.last_safe_pos = player.pos;
+    safety.last_safe_pos = clusters.kinematics.pos;
     sim_state.time_scale = 1.0;
     interaction.down_tap_timer = 0.0;
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
@@ -163,13 +168,14 @@ pub(super) fn load_room(
     );
     spawn_room_visuals(commands, &spec, physics_settings, assets);
     platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);
-    sfx.write(SfxMessage::Reset { pos: player.pos });
+    let arrival_pos = clusters.kinematics.pos;
+    sfx.write(SfxMessage::Reset { pos: arrival_pos });
     if edge_exit {
         // Edge exits should feel like contiguous room scrolling, not a death-like
         // teleport. Only show an arrival puff in the new room because `from` was
         // expressed in the previous room's coordinate space.
         vfx.write(VfxMessage::Burst {
-            pos: player.pos,
+            pos: arrival_pos,
             count: 18,
             speed: 260.0,
             color: [0.35, 0.95, 1.0, 0.75],
@@ -180,8 +186,8 @@ pub(super) fn load_room(
         // is acceptable; use the destination for both endpoints to avoid mixing
         // coordinate systems from two rooms.
         vfx.write(VfxMessage::ResetEffects {
-            from: player.pos,
-            to: player.pos,
+            from: arrival_pos,
+            to: arrival_pos,
         });
     }
 }
@@ -232,11 +238,9 @@ pub fn apply_room_transition_system(
         // every reservation now and let the next tick rebuild.
         combat_reset.clear_carryover();
         let mut clusters = cluster_item.as_clusters_mut();
-        let mut player =
-            clusters.to_player();
         // Play the zone-entry SFX at the pre-load player position so it sounds
         // like it originates from the door/edge the player walked through.
-        let player_pos_before = player.pos;
+        let player_pos_before = clusters.kinematics.pos;
         if let Some(sfx_id) = request.zone_sfx {
             event_writers.sfx.write(SfxMessage::Play {
                 id: sfx_id,
@@ -248,7 +252,7 @@ pub fn apply_room_transition_system(
             &mut commands,
             &mut event_writers.sfx,
             &mut event_writers.vfx,
-            &mut player,
+            &mut clusters,
             &mut dev_state,
             &mut sim_state,
             &mut safety,
@@ -269,11 +273,11 @@ pub fn apply_room_transition_system(
         log_room_transition_landing(
             target_room,
             &room_set,
-            &player,
+            clusters.kinematics.pos,
+            clusters.kinematics.size,
             &world.0,
             &combat_reset.feature_overlay,
         );
-        clusters.write_from_player(player);
     }
 }
 
@@ -296,7 +300,8 @@ pub fn apply_room_transition_system(
 fn log_room_transition_landing(
     target_room: usize,
     room_set: &rooms::RoomSet,
-    player: &ae::Player,
+    pos: ae::Vec2,
+    size: ae::Vec2,
     world: &ae::World,
     feature_overlay: &crate::features::FeatureEcsWorldOverlay,
 ) {
@@ -305,8 +310,8 @@ fn log_room_transition_landing(
         .get(target_room)
         .map(|spec| spec.id.clone())
         .unwrap_or_else(|| format!("<index {target_room}>"));
-    let feet_y = player.pos.y + player.size.y * 0.5;
-    let body = ae::Aabb::new(player.pos, player.size * 0.5);
+    let feet_y = pos.y + size.y * 0.5;
+    let body = ae::Aabb::new(pos, size * 0.5);
     let overlapping_world = world
         .blocks
         .iter()
@@ -327,8 +332,8 @@ fn log_room_transition_landing(
         "room transition: target={target_id} player_pos=({:.1},{:.1}) \
          world_blocks={} overlay_blocks={} gap_below_feet={gap_desc} \
          body_overlaps[world={overlapping_world}, overlay={overlapping_overlay}]",
-        player.pos.x,
-        player.pos.y,
+        pos.x,
+        pos.y,
         world.blocks.len(),
         feature_overlay.blocks.len(),
     );
@@ -541,7 +546,7 @@ pub(super) fn death_respawn_player(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<PlayerDiedMessage>,
-    player: &mut ae::Player,
+    clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
     safety: &mut crate::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
@@ -553,9 +558,14 @@ pub(super) fn death_respawn_player(
     combat: &mut crate::player::PlayerCombatState,
 ) {
     let to = world.spawn;
-    player.reset_to(world.spawn);
-    player.refresh_movement_resources(tuning);
-    player.mana.refill_full();
+    ae::reset_player_clusters(clusters, world.spawn);
+    ae::refresh_movement_resources_clusters(
+        clusters.abilities,
+        &mut *clusters.dash,
+        &mut *clusters.jump,
+        tuning,
+    );
+    clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;
     sim_state.time_scale = 1.0;
     sim_state.room_transition_cooldown = 0.0;
@@ -577,7 +587,7 @@ pub(super) fn handle_player_damage_events(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<PlayerDiedMessage>,
-    player: &mut ae::Player,
+    clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
     safety: &mut crate::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
@@ -595,7 +605,7 @@ pub(super) fn handle_player_damage_events(
     // Invincibility (debug toggle): drop the damage event entirely
     // before any state mutates so testing systems that consume HP
     // (boss phases, encounter pacing, music) can run uninterrupted.
-    if player.invincible {
+    if clusters.offense.invincible {
         return;
     }
     // Difficulty / assist scaling. Easy halves incoming damage, hard
@@ -615,7 +625,7 @@ pub(super) fn handle_player_damage_events(
             sfx,
             vfx,
             died,
-            player,
+            clusters,
             sim_state,
             safety,
             banner,
@@ -633,7 +643,7 @@ pub(super) fn handle_player_damage_events(
             safe_respawn_player(
                 sfx,
                 vfx,
-                player,
+                clusters,
                 sim_state,
                 safety,
                 combat,
@@ -643,7 +653,7 @@ pub(super) fn handle_player_damage_events(
             );
         }
         features::PlayerDamageMode::Knockback => {
-            apply_player_knockback(sfx, vfx, player, combat, tuning, feel, damage);
+            apply_player_knockback(sfx, vfx, clusters, combat, tuning, feel, damage);
         }
     }
 }
@@ -651,7 +661,7 @@ pub(super) fn handle_player_damage_events(
 pub(super) fn safe_respawn_player(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    player: &mut ae::Player,
+    clusters: &mut ae::PlayerClustersMut<'_>,
     sim_state: &mut crate::SandboxSimState,
     safety: &crate::player::PlayerSafetyState,
     combat: &mut crate::player::PlayerCombatState,
@@ -660,8 +670,13 @@ pub(super) fn safe_respawn_player(
     from: ae::Vec2,
 ) {
     let to = safety.last_safe_pos;
-    player.reset_to(to);
-    player.refresh_movement_resources(tuning);
+    ae::reset_player_clusters(clusters, to);
+    ae::refresh_movement_resources_clusters(
+        clusters.abilities,
+        &mut *clusters.dash,
+        &mut *clusters.jump,
+        tuning,
+    );
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hitstun_timer = 0.0;
     combat.hitstop_timer = 0.0;
@@ -674,7 +689,7 @@ pub(super) fn safe_respawn_player(
 pub(super) fn apply_player_knockback(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
-    player: &mut ae::Player,
+    clusters: &mut ae::PlayerClustersMut<'_>,
     combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -686,7 +701,7 @@ pub(super) fn apply_player_knockback(
         features::PlayerDamageSource::BossBody | features::PlayerDamageSource::BossAttack
     );
     let dir = if damage.knockback_dir.abs() <= 0.001 {
-        -player.facing
+        -clusters.kinematics.facing
     } else {
         damage.knockback_dir.signum()
     };
@@ -701,9 +716,14 @@ pub(super) fn apply_player_knockback(
     } else {
         feel.enemy_knockback_y
     };
-    player.vel.x = dir * knock_x * strength;
-    player.vel.y = -knock_y * strength;
-    player.refresh_movement_resources(tuning);
+    clusters.kinematics.vel.x = dir * knock_x * strength;
+    clusters.kinematics.vel.y = -knock_y * strength;
+    ae::refresh_movement_resources_clusters(
+        clusters.abilities,
+        &mut *clusters.dash,
+        &mut *clusters.jump,
+        tuning,
+    );
     combat.hitstun_timer = if boss_hit {
         feel.boss_hitstun_time
     } else {

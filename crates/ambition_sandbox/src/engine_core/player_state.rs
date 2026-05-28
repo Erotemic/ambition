@@ -375,18 +375,34 @@ pub fn classify_player_safety<F>(
     player: &crate::engine_core::movement::Player,
     world: &crate::engine_core::world::World,
     margin: f32,
+    solid_predicate: F,
+) -> PlayerSafetyVerdict
+where
+    F: FnMut(&crate::engine_core::world::Block) -> bool,
+{
+    classify_safety_from_kinematics(player.pos, player.vel, player.aabb(), world, margin, solid_predicate)
+}
+
+/// Cluster-native variant of `classify_player_safety`. Takes the
+/// pos/vel/aabb directly so callers driving cluster components do not
+/// need to materialize an `ae::Player`.
+pub fn classify_safety_from_kinematics<F>(
+    pos: crate::engine_core::Vec2,
+    vel: crate::engine_core::Vec2,
+    aabb: crate::engine_core::Aabb,
+    world: &crate::engine_core::world::World,
+    margin: f32,
     mut solid_predicate: F,
 ) -> PlayerSafetyVerdict
 where
     F: FnMut(&crate::engine_core::world::Block) -> bool,
 {
-    if !player.pos.x.is_finite() || !player.pos.y.is_finite() {
+    if !pos.x.is_finite() || !pos.y.is_finite() {
         return PlayerSafetyVerdict::PositionNonFinite;
     }
-    if !player.vel.x.is_finite() || !player.vel.y.is_finite() {
+    if !vel.x.is_finite() || !vel.y.is_finite() {
         return PlayerSafetyVerdict::VelocityNonFinite;
     }
-    let aabb = player.aabb();
     use crate::engine_core::geometry::AabbExt;
     if aabb.left() < -margin || aabb.right() > world.size.x + margin {
         return PlayerSafetyVerdict::OutsideWorldEnvelope { axis: 'x' };

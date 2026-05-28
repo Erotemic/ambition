@@ -42,7 +42,7 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
 
 fn spawn_hazard(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ae::DamageVolume>,
+    authored: &crate::rooms::Authored<crate::combat::DamageVolume>,
     paths: &[(String, ae::KinematicPath)],
 ) {
     let hazard = HazardRuntime::new_with_paths(

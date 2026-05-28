@@ -5,10 +5,10 @@
 //! here lets tests and future headless validators reason about combat without a
 //! renderer.
 
-use crate::actor::{ActorFaction, KinematicPath, RespawnPolicy};
-use crate::geometry::{Aabb, AabbExt};
-use crate::movement::Player;
-use crate::Vec2;
+use ambition_engine::{ActorFaction, KinematicPath, RespawnPolicy};
+use ambition_engine::{Aabb, AabbExt};
+use ambition_engine::Player;
+use ambition_engine::Vec2;
 
 /// The broad gameplay category of damage. This is intentionally separate from
 /// presentation so hazards, attacks, and projectiles can share damage handling.
@@ -409,7 +409,7 @@ pub fn attack_hitbox(player: &Player, spec: AttackSpec) -> Aabb {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Vec2;
+    use ambition_engine::Vec2;
 
     /// Test helper: resolve the canonical attack pipeline
     /// (`resolve_attack_intent` → `attack_spec` → `attack_hitbox`) into

@@ -785,7 +785,7 @@ pub fn entity_sprite_or_color(
 /// Per-family entity-sprite resolvers. Stateless choices — the
 /// runtime sync system swaps the sprite later for state-driven kinds
 /// (chest open, breakable cracked).
-pub fn entity_sprite_for_hazard(_volume: &ae::DamageVolume) -> Option<EntitySprite> {
+pub fn entity_sprite_for_hazard(_volume: &crate::combat::DamageVolume) -> Option<EntitySprite> {
     Some(EntitySprite::HazardSpikes)
 }
 

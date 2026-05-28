@@ -419,22 +419,22 @@ fn draw_player_debug(
         .unwrap_or(false);
     if gameplay_active && developer_tools.show_combat_preview {
         if let Some(attack_state) = attack {
-            let hitbox = ae::attack_hitbox(player, attack_state.spec);
+            let hitbox = crate::combat::attack_hitbox(player, attack_state.spec);
             let color = match attack_state.phase() {
-                Some(ae::AttackPhase::Startup) => yellow(),
-                Some(ae::AttackPhase::Active) => red(),
-                Some(ae::AttackPhase::Recovery) => gray(),
+                Some(crate::combat::AttackPhase::Startup) => yellow(),
+                Some(crate::combat::AttackPhase::Active) => red(),
+                Some(crate::combat::AttackPhase::Recovery) => gray(),
                 None => gray(),
             };
             draw_aabb(gizmos, world, hitbox, color);
         } else if attack_held || dedicated_pogo_held {
-            let intent = ae::resolve_attack_intent(
+            let intent = crate::combat::resolve_attack_intent(
                 player,
                 controls.axis_x,
                 controls.axis_y,
                 dedicated_pogo_held || controls.pogo_pressed,
             );
-            let hitbox = ae::attack_hitbox(player, ae::attack_spec(player, intent));
+            let hitbox = crate::combat::attack_hitbox(player, crate::combat::attack_spec(player, intent));
             draw_aabb(gizmos, world, hitbox, yellow());
         }
     }

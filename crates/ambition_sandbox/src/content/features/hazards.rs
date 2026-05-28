@@ -6,7 +6,7 @@ pub struct HazardRuntime {
     pub name: String,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub volume: ae::DamageVolume,
+    pub volume: crate::combat::DamageVolume,
     pub motion: Option<PathMotion>,
     /// How a hit should resolve. Tile-grid hazards (`BlockKind::Hazard`)
     /// run through the engine's reset-to-spawn path and never reach
@@ -22,7 +22,7 @@ impl HazardRuntime {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        volume: ae::DamageVolume,
+        volume: crate::combat::DamageVolume,
     ) -> Self {
         Self {
             id: id.into(),
@@ -39,7 +39,7 @@ impl HazardRuntime {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        mut volume: ae::DamageVolume,
+        mut volume: crate::combat::DamageVolume,
         paths: &[(String, ae::KinematicPath)],
     ) -> Self {
         if let Some(path_id) = volume

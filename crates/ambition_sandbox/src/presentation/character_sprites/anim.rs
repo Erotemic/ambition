@@ -297,7 +297,7 @@ pub fn pick_player_anim(
 /// shapes — multiple intents share one row because the sprite already
 /// flips with the player's facing.
 fn directional_attack_anim(attack: Option<&crate::PlayerAttackState>) -> CharacterAnim {
-    use ae::AttackIntent;
+    use crate::combat::AttackIntent;
     let Some(attack) = attack else {
         // Defensive fallback: slash_anim_timer is set but no attack
         // state — keep the old side-swing read until the timer drains.

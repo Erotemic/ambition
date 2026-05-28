@@ -23,7 +23,6 @@
 
 pub mod abilities;
 pub mod actor;
-pub mod combat;
 pub mod player_clusters;
 pub mod geometry;
 pub mod ledge_grab;
@@ -39,10 +38,6 @@ pub use actor::{
     KinematicPathMode, RespawnPolicy,
 };
 pub use bevy_math::Vec2;
-pub use combat::{
-    attack_hitbox, attack_spec, resolve_attack_intent, AttackIntent, AttackPhase, AttackSpec,
-    Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
-};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
 pub use ledge_grab::{
     probe_ledge_grab, LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,

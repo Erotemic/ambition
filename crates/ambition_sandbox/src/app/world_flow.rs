@@ -796,19 +796,19 @@ pub(super) fn start_attack(
     if !player.abilities.attack || attack.is_some() {
         return;
     }
-    let intent = ae::resolve_attack_intent(
+    let intent = crate::combat::resolve_attack_intent(
         player,
         controls.axis_x,
         controls.axis_y,
         controls.pogo_pressed,
     );
-    let spec = ae::attack_spec(player, intent);
+    let spec = crate::combat::attack_spec(player, intent);
 
     // Directional attacks get small self-motion so the hitbox feels connected
     // to the controller. Keep these impulses modest; the engine control path
     // still owns the canonical slash/pogo op + recoil bookkeeping.
     player.vel += spec.self_impulse;
-    if matches!(intent, ae::AttackIntent::AirUp | ae::AttackIntent::Up) && player.vel.y > -40.0 {
+    if matches!(intent, crate::combat::AttackIntent::AirUp | crate::combat::AttackIntent::Up) && player.vel.y > -40.0 {
         player.vel.y = -40.0;
     }
     // Force downward commitment ONLY for the aerial down spike. The
@@ -822,7 +822,7 @@ pub(super) fn start_attack(
     // the bounce is real even when the orb shatters immediately, so
     // slash startup must not overwrite the negative Y velocity.
     if !controls.pogo_pressed
-        && intent == ae::AttackIntent::AirDown
+        && intent == crate::combat::AttackIntent::AirDown
         && player.vel.y >= 0.0
         && player.vel.y < 80.0
     {
@@ -834,7 +834,7 @@ pub(super) fn start_attack(
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
     *attack = Some(crate::PlayerAttackState::new(spec));
     vfx.write(VfxMessage::SlashPreview {
-        hitbox: ae::attack_hitbox(player, spec),
+        hitbox: crate::combat::attack_hitbox(player, spec),
     });
 }
 
@@ -864,8 +864,8 @@ pub(super) fn advance_attack(
         return;
     };
 
-    if phase == ae::AttackPhase::Active {
-        let attack = ae::attack_hitbox(player, attack_state.spec);
+    if phase == crate::combat::AttackPhase::Active {
+        let attack = crate::combat::attack_hitbox(player, attack_state.spec);
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;

@@ -544,7 +544,7 @@ pub struct RoomSpec {
     // --- Per-family authored entity lists (replaces the retired
     //     `ae::World::objects: Vec<RoomObject>` / `RoomObjectKind`
     //     dispatch IR). Each family spawns through its own ECS path.
-    pub hazards: Vec<Authored<ae::DamageVolume>>,
+    pub hazards: Vec<Authored<crate::combat::DamageVolume>>,
     pub interactables: Vec<Authored<crate::interaction::Interactable>>,
     pub pickups: Vec<Authored<crate::interaction::Pickup>>,
     pub chests: Vec<Authored<crate::interaction::Chest>>,

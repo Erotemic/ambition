@@ -380,7 +380,7 @@ mod multiplayer_smoke_tests {
     use crate::player::PrimaryPlayerOnly;
     use ambition_engine as ae;
 
-    fn dummy_attack_spec() -> ae::AttackSpec {
+    fn dummy_attack_spec() -> crate::combat::AttackSpec {
         // Construct via the live `attack_spec` builder; a minimal Player
         // is enough — only the `intent` field is meaningful for these
         // tests, and the builder gives us a well-formed spec with
@@ -393,7 +393,7 @@ mod multiplayer_smoke_tests {
             vec![],
         );
         let player = ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
-        ae::attack_spec(&player, ae::AttackIntent::Forward)
+        crate::combat::attack_spec(&player, crate::combat::AttackIntent::Forward)
     }
 
     /// Two player entities each carry their own `ActivePlayerAttack`,

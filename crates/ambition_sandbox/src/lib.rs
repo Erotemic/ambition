@@ -27,6 +27,7 @@ pub mod input;
 pub mod kinematic;
 pub mod cutscene;
 pub mod attack_choreography;
+pub mod combat;
 pub mod actor_control;
 pub mod character_ai;
 pub mod interaction;
@@ -295,7 +296,7 @@ impl SandboxDevState {
 /// Sandbox-side state for one active player melee swing.
 #[derive(Clone, Debug)]
 pub struct PlayerAttackState {
-    pub spec: ae::AttackSpec,
+    pub spec: crate::combat::AttackSpec,
     pub elapsed: f32,
     pub hit_targets: Vec<String>,
     pub active_started: bool,
@@ -305,7 +306,7 @@ pub struct PlayerAttackState {
 }
 
 impl PlayerAttackState {
-    pub fn new(spec: ae::AttackSpec) -> Self {
+    pub fn new(spec: crate::combat::AttackSpec) -> Self {
         Self {
             spec,
             elapsed: 0.0,
@@ -315,7 +316,7 @@ impl PlayerAttackState {
         }
     }
 
-    pub fn phase(&self) -> Option<ae::AttackPhase> {
+    pub fn phase(&self) -> Option<crate::combat::AttackPhase> {
         self.spec.phase_at(self.elapsed)
     }
 

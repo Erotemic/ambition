@@ -122,7 +122,7 @@ impl LdtkProject {
         // Per-family authored entity lists. Each LDtk entity emits into
         // exactly one of these (or into one of the non-authored Vecs
         // above).
-        let mut hazards: Vec<crate::rooms::Authored<ae::DamageVolume>> = Vec::new();
+        let mut hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>> = Vec::new();
         let mut interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>> = Vec::new();
         let mut pickups: Vec<crate::rooms::Authored<crate::interaction::Pickup>> = Vec::new();
         let mut chests: Vec<crate::rooms::Authored<crate::interaction::Chest>> = Vec::new();
@@ -302,7 +302,7 @@ pub(super) struct RuntimeEntityEmission {
     /// [`PropSpec`].
     pub(super) props: Vec<PropSpec>,
     // --- Per-family authored entity emissions:
-    pub(super) hazards: Vec<crate::rooms::Authored<ae::DamageVolume>>,
+    pub(super) hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>>,
     pub(super) interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>>,
     pub(super) pickups: Vec<crate::rooms::Authored<crate::interaction::Pickup>>,
     pub(super) chests: Vec<crate::rooms::Authored<crate::interaction::Chest>>,
@@ -380,7 +380,7 @@ impl RuntimeEntityEmission {
 
     // Per-family typed emitters. The conversion sites use these instead of
     // wrapping payloads in a generic `RoomObject { kind: ... }`.
-    fn hazard(authored: crate::rooms::Authored<ae::DamageVolume>) -> Self {
+    fn hazard(authored: crate::rooms::Authored<crate::combat::DamageVolume>) -> Self {
         Self {
             hazards: vec![authored],
             ..Self::default()
@@ -560,7 +560,7 @@ fn convert_damage_volume(
     offset: ae::Vec2,
 ) -> RuntimeEntityEmission {
     let aabb = object_aabb(min, size);
-    let mut volume = ae::DamageVolume::new(
+    let mut volume = crate::combat::DamageVolume::new(
         entity.iid.clone(),
         aabb,
         field_i32(entity, "damage").unwrap_or(1),

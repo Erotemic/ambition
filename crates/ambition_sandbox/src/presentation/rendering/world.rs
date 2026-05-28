@@ -462,7 +462,7 @@ fn spawn_authored_basic(
 fn spawn_authored_hazard(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &crate::rooms::Authored<ae::DamageVolume>,
+    authored: &crate::rooms::Authored<crate::combat::DamageVolume>,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(

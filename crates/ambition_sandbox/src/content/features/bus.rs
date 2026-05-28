@@ -1,4 +1,3 @@
-use super::*;
 use crate::features::events::GameplayEffect;
 use bevy::prelude::{
     App, IntoScheduleConfigs, MessageReader, MessageWriter, Plugin, ResMut, Update,

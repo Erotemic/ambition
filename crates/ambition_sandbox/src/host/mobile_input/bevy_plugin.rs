@@ -757,9 +757,15 @@ pub fn update_button_glyph_from_active_input(
 }
 
 /// Per-frame: write each button's pressed flag from
-/// `ActionState<SandboxAction>` on the primary player. Skips writing
-/// when the value is unchanged so the visual-sync system can filter
-/// on `Changed<ButtonPressed>`. Operates on the Button entity (which
+/// `ActionState<SandboxAction>` on the primary player OR the live
+/// [`MobileTouchState`]. The OR with touch state is what makes the
+/// on-screen buttons light up when poked with the mouse / a finger:
+/// touch input never round-trips through leafwing's `ActionState`
+/// (it folds straight into the gameplay `ControlFrame`), so without
+/// this merge a mouse click would drive the sim without ever
+/// tinting the button the player clicked on. Skips writing when the
+/// value is unchanged so the visual-sync system can filter on
+/// `Changed<ButtonPressed>`. Operates on the Button entity (which
 /// carries both `TouchActionButton` and `ButtonPressed`), so no
 /// parent walk is needed.
 pub fn update_button_pressed_from_actions(
@@ -767,17 +773,37 @@ pub fn update_button_pressed_from_actions(
         &leafwing_input_manager::prelude::ActionState<SandboxAction>,
         With<crate::player::PrimaryPlayer>,
     >,
+    touch_state: Res<MobileTouchState>,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,
 ) {
-    let Ok(actions) = actions_q.single() else {
-        return;
-    };
+    let actions = actions_q.single().ok();
     for (touch_action, mut pressed) in &mut buttons {
         let sa = touch_action_to_sandbox_action(*touch_action);
-        let held = actions.pressed(&sa);
+        let action_held = actions.map(|a| a.pressed(&sa)).unwrap_or(false);
+        let touch_held = touch_button_held(&touch_state.0, *touch_action);
+        let held = action_held || touch_held;
         if pressed.0 != held {
             pressed.0 = held;
         }
+    }
+}
+
+/// Read the held flag for one [`TouchActionButton`] off the live
+/// [`TouchInputState`]. Mirror of [`touch_action_to_sandbox_action`]
+/// for the touch-side state struct so the on-screen highlight stays
+/// in lockstep with the input contribution.
+fn touch_button_held(state: &TouchInputState, action: TouchActionButton) -> bool {
+    match action {
+        TouchActionButton::Jump => state.jump.held,
+        TouchActionButton::Attack => state.attack.held,
+        TouchActionButton::Dash => state.dash.held,
+        TouchActionButton::Blink => state.blink.held,
+        TouchActionButton::Interact => state.interact.held,
+        TouchActionButton::Projectile => state.projectile.held,
+        TouchActionButton::FlyToggle => state.fly_toggle.held,
+        TouchActionButton::Shield => state.shield.held,
+        TouchActionButton::Start => state.start.held,
+        TouchActionButton::Reset => state.reset.held,
     }
 }
 
@@ -939,17 +965,45 @@ fn drive_joystick_knob_from_axis(
     base_q: Query<&ComputedNode, With<VirtualJoystickUIBackground>>,
     mut knob_q: Query<(&mut Node, &ComputedNode), With<VirtualJoystickUIKnob>>,
 ) {
+    // Treat axes inside ±1e-3 as "no input." Below this the knob must
+    // snap to the base's center regardless of any active or stale
+    // `state.touch_state`: on Android the crate occasionally holds a
+    // non-`None` touch_state after release, which left the knob pinned
+    // bottom-right of the base ring even with zero stick input. The
+    // stick-active gate in the menu_bridge fold already prevents this
+    // tiny dead-band from contributing to gameplay.
+    const NEUTRAL_EPS: f32 = 1.0e-3;
+
     for (state, children) in &joystick_q {
-        // Real drag wins. The crate's `update_ui` already placed the
-        // knob from `state.delta` based on the actual cursor.
-        if state.touch_state.is_some() {
+        let axis_raw = Vec2::new(
+            control_frame.axis_x.clamp(-1.0, 1.0),
+            control_frame.axis_y.clamp(-1.0, 1.0),
+        );
+        let neutral = axis_raw.x.abs() < NEUTRAL_EPS && axis_raw.y.abs() < NEUTRAL_EPS;
+
+        // Real drag wins -- but only while the axis is actually moving.
+        // The crate's `update_ui` already placed the knob from
+        // `state.delta` based on the live cursor, so we don't fight it
+        // there. A neutral axis means we DO need to override (see the
+        // NEUTRAL_EPS comment above).
+        if state.touch_state.is_some() && !neutral {
             continue;
         }
         let mut base_size: Option<Vec2> = None;
         let mut knob_entity: Option<Entity> = None;
         for child in children.iter() {
             if let Ok(base) = base_q.get(child) {
-                base_size = Some(base.size());
+                // Multiply by `inverse_scale_factor` so we read sizes in
+                // *logical* pixels, matching the `Val::Px` units we
+                // write back to `Node.left` / `Node.top`. On Android
+                // the window scale factor is typically 2.5–3×, so the
+                // raw `ComputedNode::size()` (which is *physical*
+                // pixels) overshoots by that factor and parks the knob
+                // bottom-right of the base ring. Mirrors the crate's
+                // own `update_ui` (see virtual_joystick::systems::
+                // node_rect, which scales the same way before doing
+                // the same math).
+                base_size = Some(base.size() * base.inverse_scale_factor);
             }
             if knob_q.contains(child) {
                 knob_entity = Some(child);
@@ -961,31 +1015,35 @@ fn drive_joystick_knob_from_axis(
         let Ok((mut knob_node, knob_computed)) = knob_q.get_mut(knob_entity) else {
             continue;
         };
-        let knob_size = knob_computed.size();
+        let knob_size = knob_computed.size() * knob_computed.inverse_scale_factor;
         let base_half = base_size * 0.5;
         let knob_half = knob_size * 0.5;
 
-        // Clamp the axis vector to the unit circle so diagonal inputs
-        // ride the rim of the base ring instead of overshooting into
-        // the corners (which would push the knob outside the visible
-        // circle). Matches the crate's `joystick_delta` circular
-        // clamp.
-        let axis = Vec2::new(
-            control_frame.axis_x.clamp(-1.0, 1.0),
-            control_frame.axis_y.clamp(-1.0, 1.0),
-        );
-        let mag_sq = axis.length_squared();
+        // Clamp to the unit circle so diagonal inputs ride the rim of
+        // the base ring instead of overshooting into the corners (which
+        // would push the knob outside the visible circle). Matches the
+        // crate's `joystick_delta` circular clamp.
+        let mag_sq = axis_raw.length_squared();
         let axis = if mag_sq > 1.0 {
-            axis / mag_sq.sqrt()
+            axis_raw / mag_sq.sqrt()
         } else {
-            axis
+            axis_raw
         };
 
-        // Same geometry as `virtual_joystick`'s update_ui for an
-        // un-offset base + visual delta = axis (already in UI Y-down).
-        // Reduces to: top-left = knob_half + base_half * axis.
-        let target_left = knob_half.x + base_half.x * axis.x;
-        let target_top = knob_half.y + base_half.y * axis.y;
+        // Anchor the knob's *center* on the base's center, then offset
+        // by the axis vector scaled to the knob's travel radius
+        // (`base_half - knob_half`, so a full deflection keeps the knob
+        // fully inside the ring). `Node.left`/`Node.top` address the
+        // knob's top-left corner, so subtract `knob_half` to land its
+        // center at the target. Prior formula assumed `knob_size ==
+        // base_size / 2` and left the knob ~4 px off on desktop
+        // (cosmetically fine there) and visibly down-right on Android
+        // where DPI scaling magnified the error.
+        let travel = base_half - knob_half;
+        let center_left = base_half.x - knob_half.x;
+        let center_top = base_half.y - knob_half.y;
+        let target_left = center_left + travel.x * axis.x;
+        let target_top = center_top + travel.y * axis.y;
         let new_left = Val::Px(target_left);
         let new_top = Val::Px(target_top);
         // Avoid thrashing Bevy's change-detection bit on idle frames

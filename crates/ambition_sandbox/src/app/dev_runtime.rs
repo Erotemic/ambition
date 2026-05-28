@@ -106,7 +106,7 @@ pub(super) fn handle_ldtk_hot_reload(
     game_assets: Option<Res<crate::assets::game_assets::GameAssets>>,
     mut player_q: Query<
         (
-            crate::player::engine_player_bridge::PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerSafetyState,
         ),
@@ -147,7 +147,7 @@ pub(super) fn handle_ldtk_hot_reload(
     };
     if let Ok((mut cluster_item, mut combat, mut safety)) = player_q.single_mut() {
         let mut clusters = cluster_item.as_clusters_mut();
-        let mut player = crate::player::engine_player_bridge::assemble_player(&clusters);
+        let mut player = clusters.to_player();
         let result = reload_ldtk_world_from_disk(
             &mut commands,
             &mut world,
@@ -167,7 +167,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &watch_path,
             &catalog,
         );
-        crate::player::engine_player_bridge::commit_player(player, &mut clusters);
+        clusters.write_from_player(player);
         match result {
             Ok(active_room) => {
                 ldtk_reload.mark_applied(&active_room);

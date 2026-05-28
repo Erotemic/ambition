@@ -85,6 +85,7 @@ pub use ledge_grab::{
 pub use movement::{
     blink_destination, blink_destination_clusters, blink_destination_to_point,
     blink_destination_to_point_clusters, default_player_body_size, update_player,
+    update_player_control_with_clusters, update_player_simulation_with_clusters,
     update_player_control, update_player_control_with_tuning, update_player_simulation,
     update_player_simulation_with_tuning, update_player_with_tuning, BlinkEvent, ComboMark,
     FrameEvents, InputState, LedgeMomentumTuning, MovementOp, MovementTuning, Player, AIR_ACCEL,
@@ -115,7 +116,8 @@ pub use save::{
 pub use player_clusters::{
     PlayerAbilities as EnginePlayerAbilities, PlayerActionBuffer as EnginePlayerActionBuffer,
     PlayerBlinkState as EnginePlayerBlinkState,
-    PlayerBodyModeState as EnginePlayerBodyModeState,
+    PlayerBodyModeState as EnginePlayerBodyModeState, PlayerClusterQueryData,
+    PlayerClusterQueryDataItem, PlayerClustersMut,
     PlayerComboTrace as EnginePlayerComboTrace, PlayerDashState as EnginePlayerDashState,
     PlayerDodgeState as EnginePlayerDodgeState,
     PlayerEnvironmentContact as EnginePlayerEnvironmentContact,

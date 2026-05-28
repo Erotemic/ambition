@@ -133,6 +133,50 @@ pub fn update_player_simulation_with_tuning(
     simulation::update_player_simulation_with_tuning(world, player, input, raw_dt, tuning)
 }
 
+/// Cluster-ref entry point for the control phase. Builds an owned
+/// `Player` from the cluster refs, runs the legacy control update,
+/// and commits the post-tick player back. Sandbox callers should use
+/// this instead of the `&mut Player` variant — the legacy variant
+/// stays for engine-internal tests until Phase 3d.
+pub fn update_player_control_with_clusters(
+    world: &World,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    control_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let mut player = clusters.to_player();
+    let events = control::update_player_control_with_tuning(
+        world,
+        &mut player,
+        input,
+        control_dt,
+        tuning,
+    );
+    clusters.write_from_player(player);
+    events
+}
+
+/// Cluster-ref entry point for the simulation phase.
+pub fn update_player_simulation_with_clusters(
+    world: &World,
+    clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let mut player = clusters.to_player();
+    let events = simulation::update_player_simulation_with_tuning(
+        world,
+        &mut player,
+        input,
+        raw_dt,
+        tuning,
+    );
+    clusters.write_from_player(player);
+    events
+}
+
 fn dec(value: f32, dt: f32) -> f32 {
     (value - dt).max(0.0)
 }

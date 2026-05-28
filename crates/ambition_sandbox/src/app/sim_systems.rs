@@ -16,9 +16,6 @@ use crate::features::{
     PlayerDamageEvent, PogoBounceEvent,
 };
 use crate::input::ControlFrame;
-use crate::player::engine_player_bridge::{
-    assemble_player, commit_player, PlayerClusterQueryData,
-};
 use crate::presentation::fx::VfxMessage;
 use crate::rooms::{LoadingZoneActivation, PortalRegistry, RoomSet, RoomTransitionRequested};
 use crate::time::feel::SandboxFeelTuning;
@@ -219,7 +216,7 @@ pub fn apply_player_reset_input_system(
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
         (
-            PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
@@ -251,7 +248,7 @@ pub fn apply_player_reset_input_system(
     control_frame.reset_pressed = false;
 
     let mut clusters = cluster_item.as_clusters_mut();
-    let mut player = assemble_player(&clusters);
+    let mut player = clusters.to_player();
     super::world_flow::reset_sandbox(
         &world.0,
         &mut sfx_writer,
@@ -267,7 +264,7 @@ pub fn apply_player_reset_input_system(
         editable_tuning.as_engine(),
         *feel_tuning,
     );
-    commit_player(player, &mut clusters);
+    clusters.write_from_player(player);
     reset_room_features.write(features::ResetRoomFeaturesEvent);
 }
 
@@ -296,7 +293,7 @@ pub fn detect_room_transition_system(
     mut transition_writer: MessageWriter<RoomTransitionRequested>,
     mut player_q: Query<
         (
-            PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             &mut crate::player::PlayerInteractionState,
         ),
         With<crate::player::PlayerEntity>,
@@ -312,7 +309,7 @@ pub fn detect_room_transition_system(
     // will refactor it to take only the kinematics + interaction
     // state it actually needs; for now assemble a scratchpad.
     let clusters = cluster_item.as_clusters_mut();
-    let player = assemble_player(&clusters);
+    let player = clusters.to_player();
     let Some(zone) = room_set.transition_for_player(&player, interaction.buffered()) else {
         return;
     };
@@ -366,7 +363,7 @@ pub fn attack_advance_system(
     mut player_q: Query<
         (
             Entity,
-            PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::ActivePlayerAttack,
@@ -395,7 +392,7 @@ pub fn attack_advance_system(
     let frame_dt = time.delta_secs();
 
     let mut clusters = cluster_item.as_clusters_mut();
-    let mut player = assemble_player(&clusters);
+    let mut player = clusters.to_player();
     // Player melee migration: the start-attack gate reads
     // `ActorActionMessage::Melee` for this player rather than the raw
     // `controls.attack_pressed`. The player brain produces the message
@@ -432,7 +429,7 @@ pub fn attack_advance_system(
         &mut damage_events,
         &mut pogo_bounces,
     );
-    commit_player(player, &mut clusters);
+    clusters.write_from_player(player);
 }
 
 /// Resolve this tick's `PlayerDamageEvent`s + remember the last
@@ -476,7 +473,7 @@ pub fn apply_player_damage_system(
     mut player_q: Query<
         (
             Entity,
-            PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             Option<&mut crate::player::PlayerHealth>,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
@@ -521,7 +518,7 @@ pub fn apply_player_damage_system(
         let damaged_this_frame = !target_events.is_empty();
 
         let mut clusters = cluster_item.as_clusters_mut();
-        let mut player = assemble_player(&clusters);
+        let mut player = clusters.to_player();
         super::world_flow::handle_player_damage_events(
             &world.0,
             &mut sfx_writer,
@@ -548,7 +545,7 @@ pub fn apply_player_damage_system(
             room_transitioning: sim_state.room_transition_cooldown > 0.0,
         };
         crate::remember_safe_player_position(&mut safety, &player, &safe_world, ctx);
-        commit_player(player, &mut clusters);
+        clusters.write_from_player(player);
     }
 }
 

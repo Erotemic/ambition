@@ -1,4 +1,5 @@
 use super::*;
+use ambition_engine as ae;
 
 /// Mutable bundle of the resources the Developer settings page toggles.
 /// Packed into a single `SystemParam` so `pause_menu_navigate` stays
@@ -12,7 +13,7 @@ pub struct DevToggleParams<'w, 's> {
     pub player_q: Query<
         'w,
         's,
-        crate::player::engine_player_bridge::PlayerClusterQueryData,
+        ae::PlayerClusterQueryData,
         crate::player::PrimaryPlayerOnly,
     >,
 }

@@ -17,7 +17,6 @@ pub mod affordances;
 pub mod bubble_shield;
 pub mod bundles;
 pub mod components;
-pub mod engine_player_bridge;
 pub mod events;
 pub mod ledge_grab;
 pub mod movement_components;

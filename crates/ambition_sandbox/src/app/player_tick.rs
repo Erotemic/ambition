@@ -47,9 +47,7 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
-use crate::player::engine_player_bridge::{
-    assemble_player, commit_player, PlayerClusterQueryData,
-};
+use ambition_engine as ae;
 
 /// First system in the player tick chain: clear the per-frame
 /// `SandboxResetThisFrame` flag.
@@ -86,7 +84,7 @@ pub fn player_control_system(
     mut queues: SandboxQueues,
     mut player_q: Query<
         (
-            PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
@@ -123,11 +121,10 @@ pub fn player_control_system(
     let _ = input;
 
     let mut clusters = cluster_item.as_clusters_mut();
-    let mut player = assemble_player(&clusters);
-    let outcome = player_control_phase(
+    let outcome = player_control_phase_clusters(
         actor_control.0,
         &world.0,
-        &mut player,
+        &mut clusters,
         &mut queues.sim_state,
         &mut safety,
         &queues.moving_platforms.0,
@@ -145,7 +142,6 @@ pub fn player_control_system(
         &mut interaction,
         &mut blink_cam,
     );
-    commit_player(player, &mut clusters);
     if matches!(outcome, PhaseOutcome::Return) {
         reset_this_frame.0 = true;
     }
@@ -167,7 +163,7 @@ pub fn player_simulation_system(
     mut queues: SandboxQueues,
     mut player_q: Query<
         (
-            PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
@@ -208,11 +204,10 @@ pub fn player_simulation_system(
     let _ = input;
 
     let mut clusters = cluster_item.as_clusters_mut();
-    let mut player = assemble_player(&clusters);
-    let outcome = player_simulation_phase(
+    let outcome = player_simulation_phase_clusters(
         actor_control.0,
         &world.0,
-        &mut player,
+        &mut clusters,
         &queues.dev_state,
         &mut queues.sim_state,
         &mut safety,
@@ -231,7 +226,6 @@ pub fn player_simulation_system(
         &mut blink_cam,
         &mut ride,
     );
-    commit_player(player, &mut clusters);
     if matches!(outcome, PhaseOutcome::Return) {
         reset_this_frame.0 = true;
     }

@@ -115,7 +115,7 @@ pub fn record_frame_system(
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut player_q: Query<
         (
-            crate::player::engine_player_bridge::PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             Option<&crate::player::PlayerHealth>,
             &crate::player::PlayerSafetyState,
             &crate::player::PlayerInputFrame,
@@ -130,7 +130,7 @@ pub fn record_frame_system(
     // the cluster components and don't commit back.
     let clusters = cluster_item.as_clusters_mut();
     let snapshot_player =
-        crate::player::engine_player_bridge::assemble_player(&clusters);
+        clusters.to_player();
     let player = &snapshot_player;
     // Trace records this frame's input alongside player state. Read
     // from the per-player input component (OVERNIGHT-TODO #17.5).

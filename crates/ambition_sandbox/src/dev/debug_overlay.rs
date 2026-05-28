@@ -77,7 +77,7 @@ pub fn draw_debug_overlay(
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut player_q: Query<
         (
-            crate::player::engine_player_bridge::PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             Option<&crate::player::PlayerHealth>,
             &crate::player::ActivePlayerAttack,
         ),
@@ -109,7 +109,7 @@ pub fn draw_debug_overlay(
     // it through. Phase 3 will refactor those helpers to take cluster
     // refs directly.
     let clusters = cluster_item.as_clusters_mut();
-    let snapshot_player = crate::player::engine_player_bridge::assemble_player(&clusters);
+    let snapshot_player = clusters.to_player();
     let authority_player = &snapshot_player;
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);

@@ -108,7 +108,7 @@ pub fn process_sandbox_reset_request(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     mut player_q: Query<
         (
-            crate::player::engine_player_bridge::PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerBlinkCameraState,
@@ -169,11 +169,11 @@ pub fn process_sandbox_reset_request(
         player_q.single_mut()
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        let mut player = crate::player::engine_player_bridge::assemble_player(&clusters);
+        let mut player = clusters.to_player();
         player.reset_to(world.0.spawn);
         player.refresh_movement_resources(tuning.as_engine());
         player.mana.refill_full();
-        crate::player::engine_player_bridge::commit_player(player, &mut clusters);
+        clusters.write_from_player(player);
         anim.reset();
         combat.reset();
         combat.flash_timer = 0.18;

@@ -230,3 +230,108 @@ pub(super) fn player_simulation_phase(
     );
     PhaseOutcome::Continue
 }
+
+/// Cluster-ref wrapper for [`player_control_phase`]. Phase 3 transitional:
+/// internally round-trips through `to_player`/`write_from_player` so the
+/// legacy `&mut ae::Player`-shaped helper can stay untouched. Sandbox
+/// systems should call this variant directly with cluster refs from a
+/// `Query<PlayerClusterQueryData>` so the sandbox engine_player_bridge
+/// module isn't needed.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn player_control_phase_clusters(
+    actor_control: ae::ActorControlFrame,
+    world: &ae::World,
+    clusters: &mut ae::PlayerClustersMut<'_>,
+    sim_state: &mut crate::SandboxSimState,
+    safety: &mut crate::player::PlayerSafetyState,
+    moving_platforms: &[crate::world::platforms::MovingPlatformState],
+    attack: &mut Option<crate::PlayerAttackState>,
+    sfx_writer: &mut MessageWriter<SfxMessage>,
+    vfx_writer: &mut MessageWriter<VfxMessage>,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+    frame_dt: f32,
+    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
+    reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
+    pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
+    anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
+    interaction: &mut crate::player::PlayerInteractionState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
+) -> PhaseOutcome {
+    let mut player = clusters.to_player();
+    let outcome = player_control_phase(
+        actor_control,
+        world,
+        &mut player,
+        sim_state,
+        safety,
+        moving_platforms,
+        attack,
+        sfx_writer,
+        vfx_writer,
+        tuning,
+        feel,
+        frame_dt,
+        feature_ecs_overlay,
+        reset_room_features,
+        pogo_bounces,
+        anim,
+        combat,
+        interaction,
+        blink_cam,
+    );
+    clusters.write_from_player(player);
+    outcome
+}
+
+/// Cluster-ref wrapper for [`player_simulation_phase`].
+#[allow(clippy::too_many_arguments)]
+pub(super) fn player_simulation_phase_clusters(
+    actor_control: ae::ActorControlFrame,
+    world: &ae::World,
+    clusters: &mut ae::PlayerClustersMut<'_>,
+    dev_state: &crate::SandboxDevState,
+    sim_state: &mut crate::SandboxSimState,
+    safety: &mut crate::player::PlayerSafetyState,
+    moving_platforms: &mut [crate::world::platforms::MovingPlatformState],
+    attack: &mut Option<crate::PlayerAttackState>,
+    sfx_writer: &mut MessageWriter<SfxMessage>,
+    vfx_writer: &mut MessageWriter<VfxMessage>,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+    frame_dt: f32,
+    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
+    reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
+    anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
+    interaction: &mut crate::player::PlayerInteractionState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
+    ride: &mut crate::player::PlayerPlatformRideState,
+) -> PhaseOutcome {
+    let mut player = clusters.to_player();
+    let outcome = player_simulation_phase(
+        actor_control,
+        world,
+        &mut player,
+        dev_state,
+        sim_state,
+        safety,
+        moving_platforms,
+        attack,
+        sfx_writer,
+        vfx_writer,
+        tuning,
+        feel,
+        frame_dt,
+        feature_ecs_overlay,
+        reset_room_features,
+        anim,
+        combat,
+        interaction,
+        blink_cam,
+        ride,
+    );
+    clusters.write_from_player(player);
+    outcome
+}

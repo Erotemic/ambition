@@ -142,7 +142,7 @@ pub fn pause_menu_navigate(
                 Some(item) => {
                     let clusters = item.as_clusters_mut();
                     let player =
-                        crate::player::engine_player_bridge::assemble_player(&clusters);
+                        clusters.to_player();
                     (Some(clusters), Some(player))
                 }
                 None => (None, None),
@@ -162,7 +162,7 @@ pub fn pause_menu_navigate(
                 scratch_player.as_mut(),
             );
             if let (Some(player), Some(clusters)) = (scratch_player, clusters_owned.as_mut()) {
-                crate::player::engine_player_bridge::commit_player(player, clusters);
+                clusters.write_from_player(player);
             }
         }
         PauseMenuPage::Radio => {

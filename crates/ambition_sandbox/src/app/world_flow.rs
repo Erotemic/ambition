@@ -193,7 +193,7 @@ pub fn apply_room_transition_system(
     mut event_writers: SandboxEventWriters,
     mut player_q: Query<
         (
-            crate::player::engine_player_bridge::PlayerClusterQueryData,
+            ae::PlayerClusterQueryData,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerBlinkCameraState,
@@ -228,7 +228,7 @@ pub fn apply_room_transition_system(
         combat_reset.clear_carryover();
         let mut clusters = cluster_item.as_clusters_mut();
         let mut player =
-            crate::player::engine_player_bridge::assemble_player(&clusters);
+            clusters.to_player();
         // Play the zone-entry SFX at the pre-load player position so it sounds
         // like it originates from the door/edge the player walked through.
         let player_pos_before = player.pos;
@@ -268,7 +268,7 @@ pub fn apply_room_transition_system(
             &world.0,
             &combat_reset.feature_overlay,
         );
-        crate::player::engine_player_bridge::commit_player(player, &mut clusters);
+        clusters.write_from_player(player);
     }
 }
 

@@ -274,3 +274,47 @@ fn apply_wall_abilities(
         }
     }
 }
+
+/// Cluster-native variant of [`apply_wall_abilities`]. Field-for-field
+/// translation reading / writing through cluster components.
+///
+/// Currently unused — sister to the in-flight `integrate_velocity`
+/// cluster migration. The wrapping `integrate_velocity_clusters`
+/// hasn't been written yet, so this stays opted out of the
+/// dead-code lint until it has a caller.
+#[allow(dead_code)]
+pub(super) fn apply_wall_abilities_clusters(
+    kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
+    ground: &crate::engine_core::player_clusters::PlayerGroundState,
+    wall: &mut crate::engine_core::player_clusters::PlayerWallState,
+    abilities: &crate::engine_core::player_clusters::PlayerAbilities,
+    combo_trace: &mut crate::engine_core::player_clusters::PlayerComboTrace,
+    input: InputState,
+    tuning: MovementTuning,
+    was_clinging: bool,
+    events: &mut FrameEvents,
+) {
+    if !wall.on_wall || ground.on_ground || !abilities.abilities.wall_cling {
+        return;
+    }
+    let pressing_into_wall =
+        input.axis_x.abs() > 0.1 && input.axis_x.signum() == -wall.wall_normal_x;
+    if !pressing_into_wall {
+        return;
+    }
+    wall.wall_clinging = true;
+    if abilities.abilities.wall_climb && input.axis_y.abs() > 0.25 {
+        wall.wall_climbing = true;
+        kinematics.vel.y = input.axis_y * tuning.wall_climb_speed;
+        if !was_clinging {
+            events.op_clusters(combo_trace, MovementOp::WallClimb);
+        }
+    } else {
+        if kinematics.vel.y > tuning.wall_slide_speed {
+            kinematics.vel.y = tuning.wall_slide_speed;
+        }
+        if !was_clinging {
+            events.op_clusters(combo_trace, MovementOp::WallCling);
+        }
+    }
+}

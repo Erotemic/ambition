@@ -96,16 +96,24 @@ Everything outside that function is cluster-native.
      work.
    - 🔜 `bin/headless.rs:244` — constructs a `Player` explicitly
      for the headless reporting path.
-5. **Delete the legacy engine helpers + `ae::Player`**:
-   `integrate_velocity`, `integrate_climb`, `integrate_flight`,
-   `apply_wall_abilities`, `sweep_player_x`, `sweep_player_y`,
-   `resolve_axis`, `resolve_vertical`, `tick_active_ledge_grab`,
-   `try_start_ledge_grab`, `requested_wall_normal`,
-   `block_passable_during_climb`, `standing_on_one_way`,
-   `touching_rebound`, plus `update_player`,
-   `update_player_with_tuning`, `update_player_control`,
-   `update_player_control_with_tuning`, `update_player_simulation`,
-   `update_player_simulation_with_tuning`. Probably ~1000 lines net.
+5. **Delete the legacy engine helpers + `ae::Player`** —
+   only feasible AFTER #4 lands, and AFTER the
+   `engine_core/movement/tests/` regression suite + sandbox-side
+   `player/{ledge_grab,swim}.rs` test files are ported. The legacy
+   entry points (`update_player`, `update_player_with_tuning`,
+   `update_player_control`, `update_player_control_with_tuning`,
+   `update_player_simulation`, `update_player_simulation_with_tuning`)
+   plus their inner helpers (`integrate_velocity`, `integrate_climb`,
+   `integrate_flight`, `apply_wall_abilities`, `sweep_player_x`,
+   `sweep_player_y`, `resolve_axis`, `resolve_vertical`,
+   `tick_active_ledge_grab`, `try_start_ledge_grab`,
+   `requested_wall_normal`, `block_passable_during_climb`,
+   `standing_on_one_way`, `touching_rebound`) have **zero production
+   callers** — they survive only because the engine-internal movement
+   regression suite and a handful of sandbox `player/*.rs` test
+   files still drive them. Porting those tests + deleting both the
+   tests' fallback path and `ae::Player` is multi-hour work, probably
+   ~1500 lines net.
 
 ## Gotchas worth remembering
 
@@ -126,14 +134,24 @@ Everything outside that function is cluster-native.
   `use super::*` if the file scope removed the import. Either keep
   the alias at file scope (cfg-gate it for non-test builds to
   silence unused-import) or repeat the alias inside the test mod.
-- **The `PlayerClustersMut::to_player` / `write_from_player` pair is
-  still used internally by `engine_core/movement.rs`** for the two
-  remaining scratchpads. Delete it after those clear.
+- ~~The `PlayerClustersMut::to_player` / `write_from_player` pair is
+  still used internally by `engine_core/movement.rs`~~ — `write_from_player`
+  and `with_player_scratchpad` deleted `780951af`. `to_player` is
+  read-only; production code never writes through Player back into
+  clusters.
 
 ## Test posture
 
-- `cargo run --bin rl_smoke -- --frames 30` → 42/42 rooms ok at
-  every commit through the push.
-- `cargo test -p ambition_sandbox --lib` → 1132/1133.
+- `cargo run --bin rl_smoke` → 42/42 rooms ok at every commit
+  through the push (200 ticks each, 8400 frames per pass).
+- `cargo test -p ambition_sandbox --lib` → 1139/1140 (was 1132/1133
+  earlier in the session; bumped by parity tests for
+  `LocomotionState::from_clusters` and `BodyMode::from_clusters`).
+- All integration tests green: `repro_walls` (6), `crouch_stability`,
+  `dash_stability` (2), `scripted_gameplay` (3),
+  `replay_fixture_regression`, `plugin_minimal_app` (7),
+  `fuzz_random_walker` (5). Total: ~25 integration tests passing.
 - The 1 failing lib test (`embedded_ldtk_patrol_enemy_resolves_kinematic_path_index`)
-  is an LDtk-content authoring issue, not code; deferred.
+  is an LDtk-content authoring issue (a patrol enemy's `path_id`
+  doesn't match any `RoomSpec::kinematic_paths` entry in
+  `basement_enemies`); deferred to LDtk content fix.

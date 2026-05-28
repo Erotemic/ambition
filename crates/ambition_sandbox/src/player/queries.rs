@@ -32,7 +32,7 @@ use super::components::{PlayerEntity, PlayerSlot, PrimaryPlayer};
 /// Example:
 /// ```text
 /// fn camera_follow(
-///     primary: Query<&PlayerBody, PrimaryPlayerOnly>,
+///     primary: Query<&PlayerKinematics, PrimaryPlayerOnly>,
 /// ) { /* … */ }
 /// ```
 pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);

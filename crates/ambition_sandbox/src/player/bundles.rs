@@ -67,12 +67,10 @@ pub struct PlayerSimulationBundle {
     pub brain: Brain,
     pub action_set: ActionSet,
     pub actor_control: ActorControl,
-    // Phase 1 cluster components (see
-    // `docs/planning/player-ecs-bandaid-phase0.md`). Spawned and
-    // initialized from `ae::Player` at construction; no system reads
-    // or writes them yet. Phase 2 cuts `PlayerMovementAuthority` and
-    // flips writers onto these; Phase 3 rebuilds movement against
-    // them.
+    // The 18 player cluster components. Authoritative player state —
+    // every engine entry point reads / writes them through
+    // `PlayerClustersMut`. See `engine_core/player_clusters.rs` for
+    // the per-cluster shape.
     pub abilities: PlayerAbilities,
     pub kinematics: PlayerKinematics,
     pub ground: PlayerGroundState,

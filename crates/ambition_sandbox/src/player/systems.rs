@@ -1,6 +1,5 @@
 //! Player ECS systems.
 
-use crate::engine_core as ae;
 use bevy::prelude::*;
 
 use super::components::{

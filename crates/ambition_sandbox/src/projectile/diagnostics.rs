@@ -1,7 +1,6 @@
 //! Developer-facing logging and HUD summaries for the projectile
 //! system. Pure formatting helpers — no Bevy systems live here.
 
-use crate::engine_core as ae;
 use bevy::prelude::info;
 
 /// One-line summary of the motion buffer plus what the recognizer

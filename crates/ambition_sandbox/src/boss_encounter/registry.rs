@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use crate::engine_core as ae;
 use bevy::prelude::Resource;
 
 use super::BossProfile;

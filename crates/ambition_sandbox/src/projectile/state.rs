@@ -2,7 +2,6 @@
 //! resource, tracked unlocks, in-flight body wrapper, and the trace-
 //! event enum the system emits.
 
-use crate::engine_core as ae;
 use bevy::prelude::Resource;
 
 use crate::trace::GameplayTraceEvent;

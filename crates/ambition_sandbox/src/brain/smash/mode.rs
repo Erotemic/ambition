@@ -120,6 +120,7 @@ mod tests {
             self_on_ground: true,
             self_alive: true,
             self_attacking: false,
+            self_air_jumps_remaining: 0,
             attack_cooldown_remaining: 0.0,
             stun_remaining: 0.0,
             target_pos: ae::Vec2::new(distance_x, 0.0),

@@ -265,9 +265,8 @@ mod tests {
 
         // Side-stick (forward relative to right-facing) → SideSpecial.
         {
-            let mut kin = app
-                .world_mut()
-                .entity_mut(player_entity)
+            let mut entity = app.world_mut().entity_mut(player_entity);
+            let mut kin = entity
                 .get_mut::<crate::player::PlayerKinematics>()
                 .unwrap();
             kin.facing = 1.0;
@@ -290,9 +289,8 @@ mod tests {
             .axis_y = 1.0;
         // Lift the player off the ground.
         {
-            let mut ground = app
-                .world_mut()
-                .entity_mut(player_entity)
+            let mut entity = app.world_mut().entity_mut(player_entity);
+            let mut ground = entity
                 .get_mut::<crate::player::PlayerGroundState>()
                 .unwrap();
             ground.on_ground = false;
@@ -308,9 +306,8 @@ mod tests {
     fn ledge_grab_flips_jump_and_shield() {
         let (mut app, player_entity) = build_test_app();
         {
-            let mut ledge = app
-                .world_mut()
-                .entity_mut(player_entity)
+            let mut entity = app.world_mut().entity_mut(player_entity);
+            let mut ledge = entity
                 .get_mut::<crate::player::PlayerLedgeState>()
                 .unwrap();
             ledge.grab = Some(ae::LedgeGrabState::hanging(ae::LedgeContact {

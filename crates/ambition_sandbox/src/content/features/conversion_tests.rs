@@ -415,6 +415,7 @@ mod conversion_tests {
             Some(player.pos),
             None,
             0.05,
+            None,
         );
         assert_eq!(enemy.ai_mode, crate::character_ai::CharacterAiMode::Chase);
         assert!(
@@ -461,6 +462,7 @@ mod conversion_tests {
             Some(player.pos),
             None,
             0.10,
+            None,
         );
         assert!(
             frame.melee_pressed,
@@ -604,6 +606,7 @@ mod conversion_tests {
                 Some(player_pos),
                 None,
                 1.0 / 60.0,
+                None,
             );
         }
         let half_w = enemy.size.x * 0.5;
@@ -667,6 +670,7 @@ mod conversion_tests {
                 Some(player_pos_far),
                 None,
                 1.0 / 60.0,
+                None,
             );
         }
         let half_w = enemy.size.x * 0.5;
@@ -714,6 +718,7 @@ mod conversion_tests {
                 Some(player_pos),
                 None,
                 1.0 / 60.0,
+                None,
             );
             if let Some(req) = frame.fire {
                 // Player is to the right; fire direction should be +x.

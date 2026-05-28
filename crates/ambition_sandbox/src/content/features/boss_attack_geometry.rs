@@ -917,17 +917,24 @@ mod sprite_metadata_derivation_tests {
             animations: HashMap::new(),
         };
 
-        let make_ctx = |metrics: &BossSpriteMetrics| BossVolumeContext {
+        let legacy_ctx = BossVolumeContext {
             pos: ae::Vec2::ZERO,
             size: ae::Vec2::new(128.0, 160.0),
             combat_size: ae::Vec2::new(54.0, 56.0),
             behavior: &behavior,
             attack_state: &attack_state,
-            sprite_metrics: Some(metrics),
+            sprite_metrics: Some(&legacy_metrics),
         };
-
-        let legacy = damageable_volumes(&make_ctx(&legacy_metrics))[0];
-        let render = damageable_volumes(&make_ctx(&render_metrics))[0];
+        let render_ctx = BossVolumeContext {
+            pos: ae::Vec2::ZERO,
+            size: ae::Vec2::new(128.0, 160.0),
+            combat_size: ae::Vec2::new(54.0, 56.0),
+            behavior: &behavior,
+            attack_state: &attack_state,
+            sprite_metrics: Some(&render_metrics),
+        };
+        let legacy = damageable_volumes(&legacy_ctx)[0];
+        let render = damageable_volumes(&render_ctx)[0];
 
         // ctx.size = (128, 160) → scale (1, 1.25) → body half (53, 51.875).
         // sprite_render_size = (256, 256) → scale (2, 2) → body half (106, 83).

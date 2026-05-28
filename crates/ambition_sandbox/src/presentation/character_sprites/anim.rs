@@ -384,17 +384,57 @@ mod tests {
     /// Build a player + the three default state inputs that
     /// `pick_player_anim` consumes. Tests then mutate just the
     /// fields relevant to the case under test.
+    /// Bundle of every cluster component `pick_player_anim` reads.
+    /// Tests mutate just the fields relevant to the case under test.
+    struct PickClusters {
+        kinematics: crate::player::PlayerKinematics,
+        ground: crate::player::PlayerGroundState,
+        wall: crate::player::PlayerWallState,
+        blink: crate::player::PlayerBlinkState,
+        flight: crate::player::PlayerFlightState,
+        dash: crate::player::PlayerDashState,
+        ledge: crate::player::PlayerLedgeState,
+    }
+
+    impl PickClusters {
+        fn defaults() -> Self {
+            Self {
+                kinematics: Default::default(),
+                ground: Default::default(),
+                wall: Default::default(),
+                blink: Default::default(),
+                flight: Default::default(),
+                dash: Default::default(),
+                ledge: Default::default(),
+            }
+        }
+    }
+
     fn pick_inputs() -> (
         PlayerAnimState,
         PlayerCombatState,
         PlayerBlinkCameraState,
-        ae::Player,
+        PickClusters,
     ) {
         (
             PlayerAnimState::default(),
             PlayerCombatState::default(),
             PlayerBlinkCameraState::default(),
-            ae::Player::new(ae::Vec2::ZERO),
+            PickClusters::defaults(),
+        )
+    }
+
+    fn pick(
+        anim: &PlayerAnimState,
+        combat: &PlayerCombatState,
+        blink_cam: &PlayerBlinkCameraState,
+        attack: Option<&crate::PlayerAttackState>,
+        c: &PickClusters,
+    ) -> CharacterAnim {
+        pick_player_anim(
+            anim, combat, blink_cam, attack,
+            &c.kinematics, &c.ground, &c.wall,
+            &c.blink, &c.flight, &c.dash, &c.ledge,
         )
     }
 
@@ -424,10 +464,10 @@ mod tests {
             ae::LedgeGetupKind::Roll,
             ae::LedgeGetupKind::Attack,
         ] {
-            let (anim, combat, blink, mut player) = pick_inputs();
-            player.ledge_grab = Some(hang_state(kind, false));
+            let (anim, combat, blink_cam, mut clusters) = pick_inputs();
+            clusters.ledge.grab = Some(hang_state(kind, false));
             assert_eq!(
-                pick_player_anim(&anim, &combat, &blink, None, &player),
+                pick(&anim, &combat, &blink_cam, None, &clusters),
                 CharacterAnim::LedgeGrab,
                 "hang with kind {:?} must read as LedgeGrab",
                 kind,
@@ -439,10 +479,10 @@ mod tests {
     /// `LedgeGetup` row (the existing mantle pop-up animation).
     #[test]
     fn climbing_with_climb_kind_returns_ledge_getup() {
-        let (anim, combat, blink, mut player) = pick_inputs();
-        player.ledge_grab = Some(hang_state(ae::LedgeGetupKind::Climb, true));
+        let (anim, combat, blink_cam, mut clusters) = pick_inputs();
+        clusters.ledge.grab = Some(hang_state(ae::LedgeGetupKind::Climb, true));
         assert_eq!(
-            pick_player_anim(&anim, &combat, &blink, None, &player),
+            pick(&anim, &combat, &blink_cam, None, &clusters),
             CharacterAnim::LedgeGetup,
         );
     }
@@ -450,10 +490,10 @@ mod tests {
     /// Roll getup picks the new `LedgeRoll` row.
     #[test]
     fn climbing_with_roll_kind_returns_ledge_roll() {
-        let (anim, combat, blink, mut player) = pick_inputs();
-        player.ledge_grab = Some(hang_state(ae::LedgeGetupKind::Roll, true));
+        let (anim, combat, blink_cam, mut clusters) = pick_inputs();
+        clusters.ledge.grab = Some(hang_state(ae::LedgeGetupKind::Roll, true));
         assert_eq!(
-            pick_player_anim(&anim, &combat, &blink, None, &player),
+            pick(&anim, &combat, &blink_cam, None, &clusters),
             CharacterAnim::LedgeRoll,
         );
     }
@@ -464,10 +504,10 @@ mod tests {
     /// the next test pins that ordering.
     #[test]
     fn climbing_with_attack_kind_returns_ledge_getup_attack() {
-        let (anim, combat, blink, mut player) = pick_inputs();
-        player.ledge_grab = Some(hang_state(ae::LedgeGetupKind::Attack, true));
+        let (anim, combat, blink_cam, mut clusters) = pick_inputs();
+        clusters.ledge.grab = Some(hang_state(ae::LedgeGetupKind::Attack, true));
         assert_eq!(
-            pick_player_anim(&anim, &combat, &blink, None, &player),
+            pick(&anim, &combat, &blink_cam, None, &clusters),
             CharacterAnim::LedgeGetupAttack,
         );
     }

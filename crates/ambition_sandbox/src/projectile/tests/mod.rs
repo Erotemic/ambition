@@ -42,31 +42,19 @@ fn dummy_world() -> World {
 }
 
 fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
-    let size = ae::Vec2::new(20.0, 30.0);
-    let body = crate::player::PlayerBody {
-        pos,
-        size,
-        base_size: size,
-        facing,
-        on_ground: true,
-        body_mode: ae::BodyMode::Standing,
-        ..Default::default()
-    };
-    // Projectile spawn queries `PrimaryPlayerOnly` + `PlayerInputFrame`;
-    // the test fixture must mark the spawned player as primary AND
-    // local AND carry `PlayerInputFrame` or the system will see an
-    // empty query and silently skip fire-press handling.
-    // `sync_local_player_input_frame` (added to the test schedule)
-    // mirrors `Res<ControlFrame>` into the component each tick so
-    // existing tests that mutate the resource continue to drive the
-    // projectile system unchanged.
-    app.world_mut().spawn((
-        crate::player::PlayerEntity,
-        crate::player::PrimaryPlayer,
-        crate::player::LocalPlayer,
-        crate::player::PlayerInputFrame::default(),
-        body,
-    ));
+    // Cluster-native (2026-05-28): `PlayerBody` was removed in the
+    // sandbox-wide cluster migration. Spawn via
+    // `PlayerSimulationBundle` so the spawned entity carries every
+    // component the projectile system + visuals path queries
+    // (`PlayerKinematics`, `PlayerEntity`, `PrimaryPlayer`,
+    // `LocalPlayer`, `PlayerInputFrame`, …) with no manual list.
+    let mut player =
+        ae::Player::new_with_abilities(pos, ae::AbilitySet::sandbox_all());
+    player.facing = facing;
+    player.on_ground = true;
+    let bundle =
+        crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
+    app.world_mut().spawn(bundle);
 }
 
 fn min_app() -> App {

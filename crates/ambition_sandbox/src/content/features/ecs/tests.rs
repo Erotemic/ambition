@@ -14,22 +14,17 @@ use bevy::prelude::{App, Update, With};
 /// buffer is pre-filled so the system sees it as buffered on the first
 /// `app.update()` call.
 fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
-    let player_size = ae::Vec2::new(20.0, 30.0);
-    let body = crate::player::PlayerBody {
-        pos: player_pos,
-        size: player_size,
-        base_size: player_size,
-        facing: 1.0,
-        on_ground: true,
-        body_mode: crate::engine_core::BodyMode::Standing,
-        ..Default::default()
-    };
-    let interaction = crate::player::PlayerInteractionState {
-        interact_buffer_timer: 0.15,
-        ..Default::default()
-    };
-    app.world_mut()
-        .spawn((crate::player::PlayerEntity, body, interaction));
+    // Cluster-native (2026-05-28): `PlayerBody` is gone. The
+    // interaction system queries `PlayerKinematics` + `PlayerEntity`
+    // (and reads interact_buffer_timer); `PlayerSimulationBundle`
+    // covers all of that.
+    let mut player =
+        ae::Player::new_with_abilities(player_pos, ae::AbilitySet::sandbox_all());
+    player.on_ground = true;
+    let mut bundle =
+        crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
+    bundle.interaction.interact_buffer_timer = 0.15;
+    app.world_mut().spawn(bundle);
 }
 
 #[test]

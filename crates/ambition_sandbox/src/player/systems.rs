@@ -9,6 +9,7 @@ use super::components::{
 use super::events::PlayerHealRequested;
 use super::movement_components::{PlayerGroundState, PlayerKinematics};
 use crate::brain::{ActorControl, Brain, BrainSnapshot};
+use crate::engine_core as ae;
 use crate::input::ControlFrame;
 
 /// Mirror the global [`ControlFrame`] resource onto the local primary
@@ -348,18 +349,12 @@ mod tests {
             ae::AbilitySet::sandbox_all(),
         );
         player.refresh_movement_resources(ae::DEFAULT_TUNING);
-        let body = PlayerBody::from_player(&player);
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            LocalPlayer,
-            PlayerSlot::PRIMARY,
-            PlayerInputFrame::default(),
-            PlayerMovementAuthority::new(player),
-            body,
-            Brain::Player(PlayerSlot::PRIMARY),
-            ActorControl::default(),
-        ));
+        // `PlayerSimulationBundle` carries the same cluster components
+        // that `PlayerMovementAuthority` + `PlayerBody` used to be
+        // synthesized from. `Brain` / `ActorControl` are bundle fields
+        // too, so no extra spawn-tuple state is needed.
+        let bundle = crate::player::PlayerSimulationBundle::new(player, crate::actor::Health::new(10));
+        app.world_mut().spawn(bundle);
         app.add_systems(
             Update,
             (sync_local_player_input_frame, tick_player_brains).chain(),

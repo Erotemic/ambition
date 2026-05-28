@@ -348,15 +348,37 @@ pub fn remember_safe_player_position(
     world: &ae::World,
     ctx: SafePositionContext,
 ) {
-    if !clusters.ground.on_ground {
+    remember_safe_player_position_from_kinematics(
+        safety,
+        clusters.kinematics.pos,
+        clusters.kinematics.vel,
+        clusters.kinematics.aabb(),
+        clusters.ground.on_ground,
+        world,
+        ctx,
+    );
+}
+
+/// Tuple-arg variant of [`remember_safe_player_position`] for callers
+/// that already hold the four kinematic facts the safety classifier
+/// reads (legacy tests against `ae::Player`, future call sites that
+/// haven't migrated to clusters). Production path uses the cluster
+/// wrapper above.
+pub fn remember_safe_player_position_from_kinematics(
+    safety: &mut crate::player::PlayerSafetyState,
+    pos: ae::Vec2,
+    vel: ae::Vec2,
+    aabb: ae::Aabb,
+    on_ground: bool,
+    world: &ae::World,
+    ctx: SafePositionContext,
+) {
+    if !on_ground {
         return;
     }
     if !ctx.is_eligible() {
         return;
     }
-    let pos = clusters.kinematics.pos;
-    let vel = clusters.kinematics.vel;
-    let aabb = clusters.kinematics.aabb();
     let verdict = ae::classify_safety_from_kinematics(pos, vel, aabb, world, 0.0, |block| {
         matches!(
             block.kind,
@@ -415,7 +437,7 @@ mod safe_pos_tests {
         let world = dummy_world();
         let (player, mut safety) = player_at(&world, ae::Vec2::new(62.0, -23.0));
         let initial = safety.last_safe_pos;
-        remember_safe_player_position(&mut safety, &player, &world, SafePositionContext::ideal());
+        remember_safe_player_position_from_kinematics(&mut safety, player.pos, player.vel, player.aabb(), player.on_ground, &world, SafePositionContext::ideal());
         assert_eq!(
             safety.last_safe_pos, initial,
             "above-world position must not become last_safe_pos"
@@ -428,7 +450,7 @@ mod safe_pos_tests {
     fn accepts_legitimate_grounded_position() {
         let world = dummy_world();
         let (player, mut safety) = player_at(&world, ae::Vec2::new(200.0, 900.0));
-        remember_safe_player_position(&mut safety, &player, &world, SafePositionContext::ideal());
+        remember_safe_player_position_from_kinematics(&mut safety, player.pos, player.vel, player.aabb(), player.on_ground, &world, SafePositionContext::ideal());
         assert_eq!(
             safety.last_safe_pos,
             ae::Vec2::new(200.0, 900.0),
@@ -448,27 +470,27 @@ mod safe_pos_tests {
 
         let mut ctx = SafePositionContext::ideal();
         ctx.damaged_this_frame = true;
-        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        remember_safe_player_position_from_kinematics(&mut safety, player.pos, player.vel, player.aabb(), player.on_ground, &world, ctx);
         assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.feature_requested_reset = true;
-        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        remember_safe_player_position_from_kinematics(&mut safety, player.pos, player.vel, player.aabb(), player.on_ground, &world, ctx);
         assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.in_hitstun = true;
-        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        remember_safe_player_position_from_kinematics(&mut safety, player.pos, player.vel, player.aabb(), player.on_ground, &world, ctx);
         assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.blink_grace_active = true;
-        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        remember_safe_player_position_from_kinematics(&mut safety, player.pos, player.vel, player.aabb(), player.on_ground, &world, ctx);
         assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.room_transitioning = true;
-        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        remember_safe_player_position_from_kinematics(&mut safety, player.pos, player.vel, player.aabb(), player.on_ground, &world, ctx);
         assert_eq!(safety.last_safe_pos, initial);
     }
 
@@ -482,7 +504,7 @@ mod safe_pos_tests {
         // the wall.
         let (player, mut safety) = player_at(&world, ae::Vec2::new(18.0, 900.0));
         let initial = safety.last_safe_pos;
-        remember_safe_player_position(&mut safety, &player, &world, SafePositionContext::ideal());
+        remember_safe_player_position_from_kinematics(&mut safety, player.pos, player.vel, player.aabb(), player.on_ground, &world, SafePositionContext::ideal());
         assert_eq!(safety.last_safe_pos, initial);
     }
 

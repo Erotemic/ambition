@@ -25,6 +25,8 @@
 
 use super::action_set::ActionSet;
 use super::snapshot::BrainSnapshot;
+#[cfg(test)]
+use crate::engine_core as ae;
 
 pub mod action;
 pub mod difficulty;

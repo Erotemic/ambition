@@ -106,7 +106,7 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
 pub fn compute_intro_flag_gated_lock_walls(
     project: &crate::world::ldtk_world::LdtkProject,
     active_room_id: &str,
-    save: &ambition_engine::SandboxSaveData,
+    save: &crate::save::SandboxSaveData,
 ) -> Vec<(String, ambition_engine::Vec2, ambition_engine::Vec2)> {
     let mut out: Vec<(String, ambition_engine::Vec2, ambition_engine::Vec2)> = Vec::new();
     for level in &project.levels {
@@ -265,7 +265,7 @@ mod tests {
     #[test]
     fn lock_wall_compute_returns_block_when_flag_clear() {
         let project = synthetic_alice_relay_project();
-        let save = ambition_engine::SandboxSaveData::default();
+        let save = crate::save::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert_eq!(walls.len(), 1, "expected one lock wall");
         let (id, min, size) = &walls[0];
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn lock_wall_compute_drops_block_when_flag_set() {
         let project = synthetic_alice_relay_project();
-        let mut save = ambition_engine::SandboxSaveData::default();
+        let mut save = crate::save::SandboxSaveData::default();
         save.set_flag("bob_field_survey_received", true);
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert!(walls.is_empty(), "expected no lock walls after unlock");
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn lock_wall_compute_skips_other_rooms() {
         let project = synthetic_alice_relay_project();
-        let save = ambition_engine::SandboxSaveData::default();
+        let save = crate::save::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "drain_alley", &save);
         assert!(walls.is_empty(), "expected no lock walls for inactive room");
     }
@@ -315,7 +315,7 @@ mod tests {
                 real_editor_values: vec![serde_json::Value::Null],
             }];
         }
-        let save = ambition_engine::SandboxSaveData::default();
+        let save = crate::save::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert!(
             walls.is_empty(),
@@ -442,7 +442,7 @@ mod tests {
             .data_mut()
             .set_flag("alice_route_note_carried", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_engine::QuestAdvanceEvent::FlagSet("alice_route_note_carried".into()),
+            crate::quest::QuestAdvanceEvent::FlagSet("alice_route_note_carried".into()),
         );
         app.update();
         assert_eq!(
@@ -457,7 +457,7 @@ mod tests {
             .data_mut()
             .set_flag("bob_field_survey_received", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_engine::QuestAdvanceEvent::FlagSet("bob_field_survey_received".into()),
+            crate::quest::QuestAdvanceEvent::FlagSet("bob_field_survey_received".into()),
         );
         app.update();
         assert_eq!(step(&app), 2, "after bob survey, quest should be at step 2");
@@ -470,7 +470,7 @@ mod tests {
             .data_mut()
             .set_flag("intro_p5_route_memory_received", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_engine::QuestAdvanceEvent::FlagSet("intro_p5_route_memory_received".into()),
+            crate::quest::QuestAdvanceEvent::FlagSet("intro_p5_route_memory_received".into()),
         );
         app.update();
         let registry = app.world().resource::<QuestRegistry>();

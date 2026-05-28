@@ -240,7 +240,7 @@ pub fn update_encounters_from_world(
             3.0,
         ));
         // Quest hook: a "clear encounter" step can advance now.
-        quests.push_event(ae::QuestAdvanceEvent::EncounterCleared(
+        quests.push_event(crate::quest::QuestAdvanceEvent::EncounterCleared(
             encounter_id.clone(),
         ));
     }
@@ -258,7 +258,7 @@ pub fn update_encounters_from_world(
         save.data_mut().set_flag("test_switch_toggled", true);
         save.data_mut()
             .set_flag(format!("switch_{}_used", activation.id), true);
-        quests.push_event(ae::QuestAdvanceEvent::FlagSet("test_switch_toggled".into()));
+        quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet("test_switch_toggled".into()));
         if !matches!(activation.action.as_str(), "ResetEncounter") {
             continue;
         }

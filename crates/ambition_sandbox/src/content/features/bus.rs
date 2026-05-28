@@ -15,7 +15,7 @@ pub fn apply_flag_effects(
     for effect in effects.read() {
         if let GameplayEffect::SetFlag { id, on } = effect {
             if *on {
-                quests.push_event(ae::QuestAdvanceEvent::FlagSet(id.clone()));
+                quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet(id.clone()));
             }
             save.data_mut().set_flag(id.clone(), *on);
         }
@@ -139,7 +139,7 @@ mod tests {
                 id: "flag".into(),
                 on: true,
             },
-            GameplayEffect::AdvanceQuest(ae::QuestAdvanceEvent::NpcTalked("guide".into())),
+            GameplayEffect::AdvanceQuest(crate::quest::QuestAdvanceEvent::NpcTalked("guide".into())),
             GameplayEffect::ActivateSwitch {
                 activation: crate::encounter::SwitchActivation {
                     id: "goblin_encounter".into(),

@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 
 use bevy::prelude::*;
 
-use ambition_engine::SandboxSaveData;
+use crate::save::SandboxSaveData;
 
 pub const SANDBOX_SAVE_FILE: &str = "ambition/sandbox_save.ron";
 
@@ -136,7 +136,7 @@ pub fn autosave_sandbox_save(_save: Res<SandboxSave>) {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_engine::PersistedEncounterState;
+    use crate::save::PersistedEncounterState;
     use std::sync::Mutex;
 
     static TEST_DIR_LOCK: Mutex<()> = Mutex::new(());

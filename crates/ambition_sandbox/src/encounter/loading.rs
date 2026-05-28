@@ -1,5 +1,5 @@
 use ambition_engine as ae;
-use ambition_engine::PersistedEncounterState;
+use crate::save::PersistedEncounterState;
 
 use crate::ldtk_world::LdtkProject;
 
@@ -15,7 +15,7 @@ use super::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 /// tune than in the LDtk JSON.
 pub fn load_encounter_specs_from_ldtk(
     project: &LdtkProject,
-    save: &ae::SandboxSaveData,
+    save: &crate::save::SandboxSaveData,
 ) -> Vec<(String, EncounterSpec, PersistedEncounterState)> {
     let mut out = Vec::new();
     for level in &project.levels {

@@ -86,13 +86,13 @@ pub fn refresh_yarn_state_mirror(
     }
     snap.bosses_cleared.clear();
     for boss in &data.bosses {
-        if matches!(boss.state, ae::PersistedEncounterState::Cleared) {
+        if matches!(boss.state, crate::save::PersistedEncounterState::Cleared) {
             snap.bosses_cleared.insert(boss.id.clone());
         }
     }
     snap.quests_active.clear();
     for quest in &data.quests {
-        if matches!(quest.state, ae::PersistedQuestState::InProgress) {
+        if matches!(quest.state, crate::save::PersistedQuestState::InProgress) {
             snap.quests_active.insert(quest.id.clone());
         }
     }

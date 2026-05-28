@@ -34,8 +34,6 @@ pub mod ledge_grab;
 pub mod movement;
 pub mod player_state;
 pub mod projectile;
-pub mod quest;
-pub mod save;
 pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
@@ -89,12 +87,6 @@ pub use projectile::{
     FireballChargeTuning, MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody,
     ProjectileFaction, ProjectileKind, ProjectileSolidHit, ProjectileSpawner, ProjectileSpec,
     SpawnFailure,
-};
-pub use quest::{QuestAdvanceEvent, QuestSpec, QuestState, QuestStepCondition, QuestStepSpec};
-pub use save::{
-    PersistedBossDefeat, PersistedDialogVisit, PersistedEncounter, PersistedEncounterState,
-    PersistedFlag, PersistedQuest, PersistedQuestState, PersistedSwitch, SandboxSaveData,
-    CURRENT_SAVE_VERSION,
 };
 pub use player_clusters::{
     refresh_movement_resources_clusters, reset_player_clusters,

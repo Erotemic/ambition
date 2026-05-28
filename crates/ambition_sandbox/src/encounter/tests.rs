@@ -223,7 +223,7 @@ fn to_persisted_collapses_active_to_untouched() {
 #[test]
 fn load_encounter_specs_picks_up_goblin_encounter() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-    let save = ae::SandboxSaveData::default();
+    let save = crate::save::SandboxSaveData::default();
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let goblin_encounter = entries
         .iter()
@@ -237,7 +237,7 @@ fn load_encounter_specs_picks_up_goblin_encounter() {
 #[test]
 fn load_encounter_specs_respects_persisted_cleared() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-    let mut save = ae::SandboxSaveData::default();
+    let mut save = crate::save::SandboxSaveData::default();
     save.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let (_, _, state) = entries
@@ -282,7 +282,7 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
 #[test]
 fn goblin_encounter_loaded_spec_has_three_waves_lockwall_and_intro() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-    let save = ae::SandboxSaveData::default();
+    let save = crate::save::SandboxSaveData::default();
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let (_, spec, _) = entries
         .iter()

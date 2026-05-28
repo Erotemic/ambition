@@ -36,22 +36,22 @@ pub const PIRATE_TREASURE_REWARD: &[(ItemKind, u32)] = &[
 /// Sandbox quest registry. Keyed by quest id matching `QuestSpec::id`.
 #[derive(Resource, Default)]
 pub struct QuestRegistry {
-    pub quests: BTreeMap<String, ae::QuestState>,
+    pub quests: BTreeMap<String, crate::quest::QuestState>,
     /// Pending advance events queued by the simulation half. Drained
     /// by `apply_quest_advance_events` each frame.
-    pub pending_events: Vec<ae::QuestAdvanceEvent>,
+    pub pending_events: Vec<crate::quest::QuestAdvanceEvent>,
     pub initialized: bool,
 }
 
 impl QuestRegistry {
-    pub fn ensure(&mut self, spec: ae::QuestSpec) {
+    pub fn ensure(&mut self, spec: crate::quest::QuestSpec) {
         let id = spec.id.clone();
         self.quests
             .entry(id)
-            .or_insert_with(|| ae::QuestState::new(spec));
+            .or_insert_with(|| crate::quest::QuestState::new(spec));
     }
 
-    pub fn get(&self, id: &str) -> Option<&ae::QuestState> {
+    pub fn get(&self, id: &str) -> Option<&crate::quest::QuestState> {
         self.quests.get(id)
     }
 
@@ -63,7 +63,7 @@ impl QuestRegistry {
         }
     }
 
-    pub fn push_event(&mut self, event: ae::QuestAdvanceEvent) {
+    pub fn push_event(&mut self, event: crate::quest::QuestAdvanceEvent) {
         self.pending_events.push(event);
     }
 
@@ -87,52 +87,52 @@ impl QuestRegistry {
 /// a tutorial that walks the player through talking to a hub NPC,
 /// clearing the goblin encounter, and defeating the prototype boss — exactly
 /// the systems the rest of this build pass introduces.
-pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
+pub fn default_quest_specs() -> Vec<crate::quest::QuestSpec> {
     vec![
-        ae::QuestSpec::new(
+        crate::quest::QuestSpec::new(
             "first_steps",
             "First Steps",
             "Find your bearings as a new instance.",
             vec![
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Speak with someone in the hub.",
-                    ae::QuestStepCondition::FlagSet("met_any_hub_npc".into()),
+                    crate::quest::QuestStepCondition::FlagSet("met_any_hub_npc".into()),
                 ),
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Clear the goblin encounter.",
-                    ae::QuestStepCondition::EncounterCleared("goblin_encounter".into()),
+                    crate::quest::QuestStepCondition::EncounterCleared("goblin_encounter".into()),
                 ),
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Defeat the clockwork warden.",
-                    ae::QuestStepCondition::BossDefeated("clockwork_warden".into()),
+                    crate::quest::QuestStepCondition::BossDefeated("clockwork_warden".into()),
                 ),
             ],
         ),
-        ae::QuestSpec::new(
+        crate::quest::QuestSpec::new(
             "test_switch_quest",
             "Test the Memory",
             "Verify that the world remembers what you do.",
-            vec![ae::QuestStepSpec::new(
+            vec![crate::quest::QuestStepSpec::new(
                 "Toggle the persistence test switch.",
-                ae::QuestStepCondition::FlagSet("test_switch_toggled".into()),
+                crate::quest::QuestStepCondition::FlagSet("test_switch_toggled".into()),
             )],
         ),
         // Quest lab proof: minimal RoomEntered-driven quest. Auto-
         // starts at boot, advances when the player enters the
         // quest_lab room, completes when they walk back to the
         // basement.
-        ae::QuestSpec::new(
+        crate::quest::QuestSpec::new(
             "quest_lab_visit",
             "Visit the Quest Lab",
             "Walk into the quest lab and back to verify quest progression.",
             vec![
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Enter the quest lab from the basement door.",
-                    ae::QuestStepCondition::RoomEntered("quest_lab".into()),
+                    crate::quest::QuestStepCondition::RoomEntered("quest_lab".into()),
                 ),
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Return to the basement.",
-                    ae::QuestStepCondition::RoomEntered("central_hub_complex".into()),
+                    crate::quest::QuestStepCondition::RoomEntered("central_hub_complex".into()),
                 ),
             ],
         ),
@@ -146,18 +146,18 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
         // doesn't match step 0 and the quest stays put. The fallback
         // path (kill the bird first, then walk in) lands the player
         // at step 1 with no extra preamble required.
-        ae::QuestSpec::new(
+        crate::quest::QuestSpec::new(
             "pirate_treasure",
             "The Plundered Hoard",
             "A mockingbird looted the pirate cove. Bring the chest back.",
             vec![
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Hunt the mockingbird and reclaim the chest.",
-                    ae::QuestStepCondition::BossDefeated("mockingbird".into()),
+                    crate::quest::QuestStepCondition::BossDefeated("mockingbird".into()),
                 ),
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Return the treasure to the pirate admiral.",
-                    ae::QuestStepCondition::FlagSet("npc_pirate_admiral_talked".into()),
+                    crate::quest::QuestStepCondition::FlagSet("npc_pirate_admiral_talked".into()),
                 ),
             ],
         ),
@@ -167,40 +167,40 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
         // placed in alice_relay, bob_relay, and first_system_boss.
         // Auto-starts at boot so the player sees the quest from the
         // moment they leave the lab.
-        ae::QuestSpec::new(
+        crate::quest::QuestSpec::new(
             "intro_cartography_route",
             "Carry the Quiet Route",
             "Alice trusts you with a sealed note. Bob owes her a survey.",
             vec![
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Find Alice and accept her sealed route note.",
-                    ae::QuestStepCondition::FlagSet("alice_route_note_carried".into()),
+                    crate::quest::QuestStepCondition::FlagSet("alice_route_note_carried".into()),
                 ),
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Reach Bob and pick up his field survey.",
-                    ae::QuestStepCondition::FlagSet("bob_field_survey_received".into()),
+                    crate::quest::QuestStepCondition::FlagSet("bob_field_survey_received".into()),
                 ),
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Clear the first system encounter and bank route memory.",
-                    ae::QuestStepCondition::FlagSet("intro_p5_route_memory_received".into()),
+                    crate::quest::QuestStepCondition::FlagSet("intro_p5_route_memory_received".into()),
                 ),
             ],
         ),
         // Intro-v1 P1 Stabilizer beat. Oiler is the social anchor in
         // Drain Market; talking to him plus picking up the stabilizer
         // entity (drain_alley spec) closes the beat.
-        ae::QuestSpec::new(
+        crate::quest::QuestSpec::new(
             "intro_p1_stabilizer",
             "Stabilizer Drop",
             "Oiler can stabilize the under-town descent.",
             vec![
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Speak with Oiler in Drain Market.",
-                    ae::QuestStepCondition::FlagSet("npc_oiler_intro_talked".into()),
+                    crate::quest::QuestStepCondition::FlagSet("npc_oiler_intro_talked".into()),
                 ),
-                ae::QuestStepSpec::new(
+                crate::quest::QuestStepSpec::new(
                     "Pick up the stabilizer kit.",
-                    ae::QuestStepCondition::FlagSet("p1_stabilizer_received".into()),
+                    crate::quest::QuestStepCondition::FlagSet("p1_stabilizer_received".into()),
                 ),
             ],
         ),
@@ -210,13 +210,13 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
         // Mirrors the existing pirate_treasure / first_steps boss
         // hooks so the cartography quest stays flag-driven while the
         // boss-kill itself produces a separate durable record.
-        ae::QuestSpec::new(
+        crate::quest::QuestSpec::new(
             "intro_first_system_boss",
             "Capstone: First System",
             "Reach the system boss at the end of the gate stack and clear it.",
-            vec![ae::QuestStepSpec::new(
+            vec![crate::quest::QuestStepSpec::new(
                 "Defeat the system boss (clockwork_warden brain).",
-                ae::QuestStepCondition::BossDefeated("clockwork_warden".into()),
+                crate::quest::QuestStepCondition::BossDefeated("clockwork_warden".into()),
             )],
         ),
     ]
@@ -277,7 +277,7 @@ pub fn push_room_entered_quest_events(
         return;
     }
     *last_room = Some(current.clone());
-    registry.push_event(ae::QuestAdvanceEvent::RoomEntered(current));
+    registry.push_event(crate::quest::QuestAdvanceEvent::RoomEntered(current));
 }
 
 /// Drain pending advance events into the registry and write quest
@@ -346,7 +346,7 @@ pub fn grant_quest_completion_rewards(
 mod tests {
     use super::*;
 
-    fn first_steps_spec() -> ae::QuestSpec {
+    fn first_steps_spec() -> crate::quest::QuestSpec {
         default_quest_specs()
             .into_iter()
             .find(|s| s.id == "first_steps")
@@ -394,20 +394,20 @@ mod tests {
     #[test]
     fn push_event_buffers_pending() {
         let mut registry = QuestRegistry::default();
-        registry.push_event(ae::QuestAdvanceEvent::FlagSet("foo".into()));
-        registry.push_event(ae::QuestAdvanceEvent::FlagSet("bar".into()));
+        registry.push_event(crate::quest::QuestAdvanceEvent::FlagSet("foo".into()));
+        registry.push_event(crate::quest::QuestAdvanceEvent::FlagSet("bar".into()));
         assert_eq!(registry.pending_events.len(), 2);
     }
 
-    fn pirate_treasure_spec() -> ae::QuestSpec {
+    fn pirate_treasure_spec() -> crate::quest::QuestSpec {
         default_quest_specs()
             .into_iter()
             .find(|s| s.id == "pirate_treasure")
             .expect("pirate_treasure spec")
     }
 
-    fn pirate_treasure_state() -> ae::QuestState {
-        let mut state = ae::QuestState::new(pirate_treasure_spec());
+    fn pirate_treasure_state() -> crate::quest::QuestState {
+        let mut state = crate::quest::QuestState::new(pirate_treasure_spec());
         state.start();
         state
     }
@@ -416,9 +416,9 @@ mod tests {
     fn pirate_treasure_completes_when_bird_defeated_then_admiral_talked() {
         let mut state = pirate_treasure_state();
         assert!(state.is_active());
-        assert!(state.try_advance(&ae::QuestAdvanceEvent::BossDefeated("mockingbird".into())));
+        assert!(state.try_advance(&crate::quest::QuestAdvanceEvent::BossDefeated("mockingbird".into())));
         assert!(state.is_active());
-        assert!(state.try_advance(&ae::QuestAdvanceEvent::FlagSet(
+        assert!(state.try_advance(&crate::quest::QuestAdvanceEvent::FlagSet(
             "npc_pirate_admiral_talked".into()
         )));
         assert!(state.is_complete());
@@ -434,16 +434,16 @@ mod tests {
         let mut state = pirate_treasure_state();
         // Talk to admiral first — wrong condition for step 0 (which
         // wants BossDefeated). Quest must stay put.
-        assert!(!state.try_advance(&ae::QuestAdvanceEvent::FlagSet(
+        assert!(!state.try_advance(&crate::quest::QuestAdvanceEvent::FlagSet(
             "npc_pirate_admiral_talked".into()
         )));
         assert_eq!(state.step, 0);
         assert!(state.is_active());
         // Kill the bird → step advances.
-        assert!(state.try_advance(&ae::QuestAdvanceEvent::BossDefeated("mockingbird".into())));
+        assert!(state.try_advance(&crate::quest::QuestAdvanceEvent::BossDefeated("mockingbird".into())));
         assert_eq!(state.step, 1);
         // Walk back and talk again → completes.
-        assert!(state.try_advance(&ae::QuestAdvanceEvent::FlagSet(
+        assert!(state.try_advance(&crate::quest::QuestAdvanceEvent::FlagSet(
             "npc_pirate_admiral_talked".into()
         )));
         assert!(state.is_complete());

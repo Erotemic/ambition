@@ -10,7 +10,6 @@
 //! intro should not become a long cutscene wall. Each room gets at
 //! most a few banner/dialogue beats before control returns.
 
-use ambition_engine as ae;
 
 use crate::presentation::cutscene::CutsceneLibrary;
 

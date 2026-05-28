@@ -23,7 +23,7 @@ Useful companion docs:
 
 # LOW HANGING FRUIT MAYBE
 
-- [ ] Grinning Colossus-like boss (Smiling Big Guy) where you have to "cut the rope". Big square, shoots circle-bubble eye beams.
+- [ ] Grinning Colossus-like boss (Smiling Big Guy) where you have to "cut the rope". Big square, shoots circle-bubble eye beams. Exercise the pickup items systems.
 
 - [ ] Develop a Boss to flex / force the player / boss unification code (do a new boss with a more humanoid or maybe bipedal character like the trex).
 

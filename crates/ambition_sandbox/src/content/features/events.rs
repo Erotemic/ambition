@@ -111,7 +111,7 @@ pub enum GameplayEffect {
     /// same frame as the save write.
     SetFlag { id: String, on: bool },
     /// Feed a structured quest event into `QuestRegistry`.
-    AdvanceQuest(ae::QuestAdvanceEvent),
+    AdvanceQuest(crate::quest::QuestAdvanceEvent),
     /// A Switch interactable was activated. Carries the parsed
     /// `SwitchActivation` (private to `crate::encounter`) directly — the
     /// `switch:<id>:<action>:<target>` wire string lives only at the

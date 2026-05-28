@@ -106,8 +106,8 @@ pub fn sync_ecs_bosses_with_save(
         let encounter_id = boss.behavior.id.clone();
         if matches!(
             data.boss(&encounter_id),
-            ae::PersistedEncounterState::Cleared
-        ) || matches!(data.boss(&boss.id), ae::PersistedEncounterState::Cleared)
+            crate::save::PersistedEncounterState::Cleared
+        ) || matches!(data.boss(&boss.id), crate::save::PersistedEncounterState::Cleared)
         {
             boss.alive = false;
             boss.health.current = 0;

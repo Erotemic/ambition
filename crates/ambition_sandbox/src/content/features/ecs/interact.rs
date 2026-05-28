@@ -60,7 +60,7 @@ pub fn interact_ecs_actors_and_switches(
             dialogue.start(&request.dialogue_id, &request.npc_name);
             next_mode.set(crate::GameMode::Dialogue);
             gameplay_effects.write(GameplayEffect::AdvanceQuest(
-                ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()),
+                crate::quest::QuestAdvanceEvent::NpcTalked(npc.id.clone()),
             ));
             gameplay_effects.write(GameplayEffect::SetFlag {
                 id: "met_any_hub_npc".into(),

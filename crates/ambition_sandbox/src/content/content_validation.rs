@@ -334,7 +334,7 @@ fn validate_quest_conditions(
         .collect::<BTreeSet<_>>();
 
     let loaded_encounters =
-        crate::encounter::load_encounter_specs_from_ldtk(project, &ae::SandboxSaveData::default());
+        crate::encounter::load_encounter_specs_from_ldtk(project, &crate::save::SandboxSaveData::default());
     for (id, spec, _) in loaded_encounters {
         if !spec.music_track.trim().is_empty() && !valid_tracks.contains(spec.music_track.as_str())
         {
@@ -351,7 +351,7 @@ fn validate_quest_conditions(
         }
         for (index, step) in spec.steps.iter().enumerate() {
             match &step.condition {
-                ae::QuestStepCondition::RoomEntered(room) => {
+                crate::quest::QuestStepCondition::RoomEntered(room) => {
                     if !room_ids.contains(room.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown room '{}'",
@@ -359,7 +359,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ae::QuestStepCondition::EncounterCleared(encounter) => {
+                crate::quest::QuestStepCondition::EncounterCleared(encounter) => {
                     if !encounter_ids.contains(encounter.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown encounter '{}'",
@@ -367,7 +367,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ae::QuestStepCondition::BossDefeated(boss) => {
+                crate::quest::QuestStepCondition::BossDefeated(boss) => {
                     if !boss_ids.contains(boss.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown authored boss encounter '{}'",
@@ -375,7 +375,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ae::QuestStepCondition::FlagSet(flag) => {
+                crate::quest::QuestStepCondition::FlagSet(flag) => {
                     if !known_flags.contains(flag.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown authored flag '{}'",
@@ -383,7 +383,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ae::QuestStepCondition::ItemCollected(item) => {
+                crate::quest::QuestStepCondition::ItemCollected(item) => {
                     if !item_ids.contains(item.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown pickup/item id '{}'",
@@ -391,7 +391,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ae::QuestStepCondition::NpcTalked(npc) => {
+                crate::quest::QuestStepCondition::NpcTalked(npc) => {
                     // Gameplay emits the runtime NPC object id for NpcTalked. Most current
                     // quests use flags instead, but keep the validator honest for future ones.
                     if !authored_npc_ids(project).contains(npc.as_str()) {
@@ -592,7 +592,7 @@ mod tests {
         assert!(boss_ids.contains("clockwork_warden"));
         for spec in crate::content::quest::default_quest_specs() {
             for step in &spec.steps {
-                if let ae::QuestStepCondition::BossDefeated(id) = &step.condition {
+                if let crate::quest::QuestStepCondition::BossDefeated(id) = &step.condition {
                     assert!(
                         boss_ids.contains(id.as_str()),
                         "quest '{}' references boss '{}' not authored in LDtk; authored bosses: {:?}",

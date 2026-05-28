@@ -283,7 +283,7 @@ pub enum ActorFaction {
 
 impl ActorFaction {
     /// True iff `self` is on the player's side. Projectile faction
-    /// (`ae::ProjectileFaction`) and actor faction agree on this:
+    /// (`crate::projectile::ProjectileFaction`) and actor faction agree on this:
     /// player projectiles damage non-player factions, enemy
     /// projectiles damage player factions only.
     pub fn is_player_side(self) -> bool {

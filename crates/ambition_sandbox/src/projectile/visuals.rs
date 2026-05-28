@@ -57,7 +57,7 @@ pub fn sync_projectile_visuals(
     // committed to a Hadouken motion.
     if let Some(hold) = state.charging {
         let tier = state.charge_tuning.tier_for_hold(hold);
-        let base = ae::ProjectileKind::Fireball.half_extent();
+        let base = crate::projectile::ProjectileKind::Fireball.half_extent();
         let (size_mult, alpha) = match tier {
             0 => (0.7, 0.55),
             1 => (1.1, 0.78),
@@ -106,11 +106,11 @@ pub fn sync_projectile_visuals(
         // orange). The tint applies whether or not the textured sprite
         // loads; a missing texture falls through to a colored quad.
         let tint = match body.kind {
-            ae::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
-            ae::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
+            crate::projectile::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
+            crate::projectile::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
             // Stronger tint for the Super so the player can see at a
             // glance that they fired the harder gesture.
-            ae::ProjectileKind::HadoukenSuper => Color::srgba(0.30, 0.55, 1.0, 1.0),
+            crate::projectile::ProjectileKind::HadoukenSuper => Color::srgba(0.30, 0.55, 1.0, 1.0),
         };
         let mut sprite = match handle.clone() {
             Some(image) => Sprite {
@@ -133,9 +133,9 @@ pub fn sync_projectile_visuals(
             )),
             PlayerProjectileVisual,
             Name::new(match body.kind {
-                ae::ProjectileKind::Fireball => "Player projectile: fireball",
-                ae::ProjectileKind::Hadouken => "Player projectile: hadouken",
-                ae::ProjectileKind::HadoukenSuper => "Player projectile: hadouken_super",
+                crate::projectile::ProjectileKind::Fireball => "Player projectile: fireball",
+                crate::projectile::ProjectileKind::Hadouken => "Player projectile: hadouken",
+                crate::projectile::ProjectileKind::HadoukenSuper => "Player projectile: hadouken_super",
             }),
         ));
     }

@@ -42,13 +42,13 @@ fn fireball_damages_enemy_on_intersect() {
     // Inject a fireball moving toward the enemy.
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
-        let spec = ae::ProjectileSpec::new(
+        let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(395.0, 300.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,
         );
-        let mut body = ae::ProjectileBody::from_spec(spec);
+        let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         // Override velocity / pos so the next tick definitely
         // overlaps the enemy AABB regardless of arc tuning.
         body.pos = ae::Vec2::new(395.0, 300.0);
@@ -126,13 +126,13 @@ fn fireball_bounces_off_floor_in_system() {
     let starting_bounces;
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
-        let spec = ae::ProjectileSpec::new(
+        let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(500.0, 380.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,
         );
-        let mut body = ae::ProjectileBody::from_spec(spec);
+        let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         body.pos = ae::Vec2::new(500.0, 395.0);
         body.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.bounces_remaining;
@@ -202,13 +202,13 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     let starting_bounces;
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
-        let spec = ae::ProjectileSpec::new(
+        let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(500.0, 380.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,
         );
-        let mut body = ae::ProjectileBody::from_spec(spec);
+        let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         body.pos = ae::Vec2::new(500.0, 395.0);
         body.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.bounces_remaining;
@@ -279,13 +279,13 @@ fn fireball_passes_through_one_way_from_below_in_system() {
 
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
-        let spec = ae::ProjectileSpec::new(
+        let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(500.0, 405.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,
         );
-        let mut body = ae::ProjectileBody::from_spec(spec);
+        let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         // Centre the body inside the platform's y-range so the
         // contact is unambiguously a side / overlap, not a top
         // landing. Velocity is purely horizontal.
@@ -354,13 +354,13 @@ fn hadouken_expires_on_solid_in_system() {
 
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
-        let spec = ae::ProjectileSpec::new(
+        let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Hadouken,
             ae::Vec2::new(580.0, 300.0),
             ae::Vec2::new(1.0, 0.0),
             1.0,
         );
-        let mut body = ae::ProjectileBody::from_spec(spec);
+        let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         body.pos = ae::Vec2::new(595.0, 300.0);
         body.vel = ae::Vec2::new(520.0, 0.0);
         state.bodies.push(PlayerProjectile { body });

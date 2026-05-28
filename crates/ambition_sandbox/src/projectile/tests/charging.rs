@@ -79,7 +79,7 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
     assert_eq!(body.kind, ProjectileKind::Fireball);
     // Tier-1 size scaling is 1.4x on baseline half-extent (12, 9)
     // → at least 16x12 — meaningfully bigger than tier 0.
-    let baseline = ae::ProjectileKind::Fireball.half_extent();
+    let baseline = crate::projectile::ProjectileKind::Fireball.half_extent();
     assert!(
         body.half_extent.x > baseline.x * 1.2,
         "charged fireball must be visibly larger; got {:?} vs baseline {:?}",

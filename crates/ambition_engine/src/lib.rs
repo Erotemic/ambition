@@ -30,7 +30,6 @@ pub mod geometry;
 pub mod ledge_grab;
 pub mod movement;
 pub mod player_state;
-pub mod projectile;
 pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
@@ -73,11 +72,6 @@ pub use movement::{
 pub use player_state::{
     classify_player_safety, try_change_body_mode, try_change_body_mode_clusters, BodyMode,
     BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
-};
-pub use projectile::{
-    FireballChargeTuning, MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody,
-    ProjectileFaction, ProjectileKind, ProjectileSolidHit, ProjectileSpawner, ProjectileSpec,
-    SpawnFailure,
 };
 pub use player_clusters::{
     refresh_movement_resources_clusters, reset_player_clusters,

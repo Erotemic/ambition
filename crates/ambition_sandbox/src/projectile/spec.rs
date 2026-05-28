@@ -1,7 +1,7 @@
 //! Authored-intent types for projectiles: kind enum + per-shot spec
 //! plus the fireball charge tuning tier table.
 
-use bevy_math::Vec2;
+use ambition_engine::Vec2;
 use serde::{Deserialize, Serialize};
 
 /// What kind of projectile to spawn.

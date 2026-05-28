@@ -2,9 +2,9 @@
 //!
 //! The engine owns the reusable primitives:
 //!
-//! * `ae::ProjectileSpec` / `ProjectileBody` (data + per-frame tick),
-//! * `ae::ProjectileSpawner` (cooldown + resource meter),
-//! * `ae::MotionInputBuffer` (quarter / half-circle motion recognition).
+//! * `crate::projectile::ProjectileSpec` / `ProjectileBody` (data + per-frame tick),
+//! * `crate::projectile::ProjectileSpawner` (cooldown + resource meter),
+//! * `crate::projectile::MotionInputBuffer` (quarter / half-circle motion recognition).
 //!
 //! This module wires those primitives into the Bevy sandbox: input
 //! sampling, collision against the active world, and trace events.
@@ -22,6 +22,10 @@
 //!   components.
 //! - [`diagnostics`] — internal motion-press logging helper.
 
+mod body;
+mod motion_input;
+mod spawn;
+mod spec;
 mod collision;
 mod diagnostics;
 mod state;
@@ -35,3 +39,12 @@ pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 pub use state::PlayerProjectileState;
 pub use systems::update_projectiles;
 pub use visuals::{sync_projectile_visuals, PlayerProjectileVisual};
+
+#[cfg(test)]
+mod engine_tests;
+
+// Re-export the engine-side projectile primitives (moved from ambition_engine 2026-05-28).
+pub use body::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
+pub use motion_input::{MotionDirection, MotionInputBuffer, MotionSample};
+pub use spawn::{ProjectileSpawner, SpawnFailure};
+pub use spec::{FireballChargeTuning, ProjectileKind, ProjectileSpec};

@@ -246,7 +246,7 @@ pub enum DamageSource {
     PlayerSlash { knock_x: f32 },
     /// Player projectile (Fireball / Hadouken). No knockback today;
     /// the projectile's own velocity carries the visual feedback.
-    PlayerProjectile { kind: ae::ProjectileKind },
+    PlayerProjectile { kind: crate::projectile::ProjectileKind },
     /// Pogo bounce on a breakable orb. Kept here so future damage-source
     /// consumers see the full set in one place; pogo-orb resolution itself
     /// uses [`PogoBounceEvent`].

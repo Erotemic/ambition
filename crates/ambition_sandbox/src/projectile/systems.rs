@@ -84,7 +84,7 @@ pub fn update_projectiles(
     // sign and silently mapping every "press Down" sample to `Up`,
     // which made every QCF detection fail forever.
     let control_frame = primary.map(|(_, input)| input.frame).unwrap_or_default();
-    let dir = ae::MotionDirection::from_axis(control_frame.axis_x, control_frame.axis_y, 0.55);
+    let dir = crate::projectile::MotionDirection::from_axis(control_frame.axis_x, control_frame.axis_y, 0.55);
     let now = state.clock;
     state.motion_buffer.push(dir, now);
 
@@ -180,9 +180,9 @@ pub fn update_projectiles(
 
         let motion_kind =
             if (super_qcf.is_some() || half_circle.is_some()) && state.unlocked.hadouken_super {
-                Some(ae::ProjectileKind::HadoukenSuper)
+                Some(crate::projectile::ProjectileKind::HadoukenSuper)
             } else if grace_qcf.is_some() && state.unlocked.hadouken {
-                Some(ae::ProjectileKind::Hadouken)
+                Some(crate::projectile::ProjectileKind::Hadouken)
             } else {
                 None
             };
@@ -228,7 +228,7 @@ pub fn update_projectiles(
             let tier = state.charge_tuning.tier_for_hold(hold);
             try_fire_projectile(
                 &mut state,
-                ae::ProjectileKind::Fireball,
+                crate::projectile::ProjectileKind::Fireball,
                 origin,
                 direction,
                 damage_mult,
@@ -251,7 +251,7 @@ pub fn update_projectiles(
 /// keeps "spawned a projectile" a single place to grep.
 fn try_fire_projectile(
     state: &mut PlayerProjectileState,
-    kind: ae::ProjectileKind,
+    kind: crate::projectile::ProjectileKind,
     origin: ae::Vec2,
     direction: ae::Vec2,
     damage_mult: f32,
@@ -265,13 +265,13 @@ fn try_fire_projectile(
         Ok(spec) => {
             let spec = spec.with_charge_tier(charge_tier);
             state.bodies.push(PlayerProjectile {
-                body: ae::ProjectileBody::from_spec(spec),
+                body: crate::projectile::ProjectileBody::from_spec(spec),
             });
             events.push(ProjectileTraceEvent::Fired { kind });
         }
-        Err(ae::SpawnFailure::OutOfResource) => {
+        Err(crate::projectile::SpawnFailure::OutOfResource) => {
             events.push(ProjectileTraceEvent::BlockedByResource { kind });
         }
-        Err(ae::SpawnFailure::Cooldown) => {}
+        Err(crate::projectile::SpawnFailure::Cooldown) => {}
     }
 }

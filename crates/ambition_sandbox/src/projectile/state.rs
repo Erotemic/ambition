@@ -11,8 +11,8 @@ use crate::trace::GameplayTraceEvent;
 /// the rolling motion-input buffer.
 #[derive(Resource)]
 pub struct PlayerProjectileState {
-    pub spawner: ae::ProjectileSpawner,
-    pub motion_buffer: ae::MotionInputBuffer,
+    pub spawner: crate::projectile::ProjectileSpawner,
+    pub motion_buffer: crate::projectile::MotionInputBuffer,
     /// Time since first sample, in monotonic seconds.
     pub clock: f32,
     /// Live projectiles in flight. Sandbox owns this rather than
@@ -20,7 +20,7 @@ pub struct PlayerProjectileState {
     /// observe motion / collision without rendering machinery.
     pub bodies: Vec<PlayerProjectile>,
     pub unlocked: ProjectileUnlocks,
-    pub charge_tuning: ae::FireballChargeTuning,
+    pub charge_tuning: crate::projectile::FireballChargeTuning,
     /// Hold-time accumulator for the fireball charge mechanic.
     /// `Some(t)` while the player is holding the fire button without
     /// having consumed the press for a Hadouken / HadoukenSuper.
@@ -57,12 +57,12 @@ impl Default for ProjectileUnlocks {
 impl Default for PlayerProjectileState {
     fn default() -> Self {
         Self {
-            spawner: ae::ProjectileSpawner::new(8.0, 1.5),
-            motion_buffer: ae::MotionInputBuffer::new(0.45),
+            spawner: crate::projectile::ProjectileSpawner::new(8.0, 1.5),
+            motion_buffer: crate::projectile::MotionInputBuffer::new(0.45),
             clock: 0.0,
             bodies: Vec::new(),
             unlocked: ProjectileUnlocks::default(),
-            charge_tuning: ae::FireballChargeTuning::DEFAULT,
+            charge_tuning: crate::projectile::FireballChargeTuning::DEFAULT,
             charging: None,
         }
     }
@@ -70,23 +70,23 @@ impl Default for PlayerProjectileState {
 
 #[derive(Clone, Debug)]
 pub struct PlayerProjectile {
-    pub body: ae::ProjectileBody,
+    pub body: crate::projectile::ProjectileBody,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ProjectileTraceEvent {
     Fired {
-        kind: ae::ProjectileKind,
+        kind: crate::projectile::ProjectileKind,
     },
     BlockedByResource {
-        kind: ae::ProjectileKind,
+        kind: crate::projectile::ProjectileKind,
     },
     Hit {
-        kind: ae::ProjectileKind,
+        kind: crate::projectile::ProjectileKind,
         damage: i32,
     },
     Expired {
-        kind: ae::ProjectileKind,
+        kind: crate::projectile::ProjectileKind,
     },
 }
 

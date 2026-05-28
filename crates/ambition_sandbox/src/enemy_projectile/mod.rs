@@ -6,7 +6,7 @@
 //! - Are spawned by `EnemyRuntime` choreography requests, not by
 //!   input.
 //! - Damage the *player* on contact (not enemies / breakables).
-//! - Use the same `ae::ProjectileBody` engine primitive for physics,
+//! - Use the same `crate::projectile::ProjectileBody` engine primitive for physics,
 //!   collision, and lifetime — only the routing is faction-flipped.
 //!
 //! Splitting the state keeps the player-vs-enemy faction explicit and

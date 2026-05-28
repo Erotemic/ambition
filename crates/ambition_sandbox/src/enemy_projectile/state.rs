@@ -29,11 +29,11 @@ pub struct EnemyProjectileSpawn {
     pub gravity: f32,
 }
 
-/// Wrapper around an in-flight `ae::ProjectileBody` plus enemy
+/// Wrapper around an in-flight `crate::projectile::ProjectileBody` plus enemy
 /// faction metadata.
 #[derive(Clone, Debug)]
 pub struct EnemyProjectile {
-    pub body: ae::ProjectileBody,
+    pub body: crate::projectile::ProjectileBody,
     pub owner_id: String,
 }
 
@@ -53,10 +53,10 @@ impl EnemyProjectileState {
         } else {
             request.dir / request.dir.length()
         };
-        let spec = ae::ProjectileSpec {
+        let spec = crate::projectile::ProjectileSpec {
             // We reuse the Fireball kind for sprite/lifetime tables;
             // damage/speed/lifetime are overridden below.
-            kind: ae::ProjectileKind::Fireball,
+            kind: crate::projectile::ProjectileKind::Fireball,
             origin: request.origin,
             direction: dir,
             damage: request.damage.max(1),
@@ -67,7 +67,7 @@ impl EnemyProjectileState {
             charge_tier: 0,
         };
         let mut body =
-            ae::ProjectileBody::from_spec_with_faction(spec, ae::ProjectileFaction::Enemy);
+            crate::projectile::ProjectileBody::from_spec_with_faction(spec, crate::projectile::ProjectileFaction::Enemy);
         // Enemy projectiles travel in a straight line (no bouncing —
         // a bouncing volley reads as a pinball and confuses the
         // player about the hostile path).
@@ -106,7 +106,7 @@ mod tests {
         let mut state = EnemyProjectileState::default();
         state.spawn(spawn_request(120.0, 1));
         assert_eq!(state.bodies.len(), 1);
-        assert_eq!(state.bodies[0].body.faction, ae::ProjectileFaction::Enemy);
+        assert_eq!(state.bodies[0].body.faction, crate::projectile::ProjectileFaction::Enemy);
     }
 
     #[test]

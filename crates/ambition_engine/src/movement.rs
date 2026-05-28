@@ -158,6 +158,13 @@ pub fn update_player_control_with_clusters(
 }
 
 /// Cluster-ref entry point for the simulation phase.
+///
+/// Phase 3d: operates on cluster refs natively. Inner helpers that
+/// still take `&mut Player` (integrate_velocity, handle_jump_buffer,
+/// ledge_grab functions) get a localized scratchpad — `to_player` /
+/// `write_from_player` is called around each unrefactored helper.
+/// As Phase 3d progresses, more inner helpers gain cluster-ref
+/// variants and the scratchpad calls shrink.
 pub fn update_player_simulation_with_clusters(
     world: &World,
     clusters: &mut crate::player_clusters::PlayerClustersMut<'_>,
@@ -165,15 +172,88 @@ pub fn update_player_simulation_with_clusters(
     raw_dt: f32,
     tuning: MovementTuning,
 ) -> FrameEvents {
+    let mut events = FrameEvents::default();
+    if raw_dt <= 0.0 {
+        return events;
+    }
+    let dt = raw_dt.min(1.0 / 30.0);
+
+    // Cluster-native setup: water/climbable contact + ledge clear.
+    clusters.env_contact.water = world.water_at(clusters.kinematics.aabb());
+    clusters.env_contact.climbable = world.climbable_at(clusters.kinematics.aabb());
+    if !clusters.abilities.abilities.ledge_grab {
+        clusters.ledge.grab = None;
+    }
+
+    // Drowning gate — cluster-native reset.
+    if clusters.env_contact.water.is_some() && !clusters.abilities.abilities.swim {
+        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+        events.hazard = true;
+        events.reset = true;
+        return events;
+    }
+
+    // age_player + update_simulation_timers — cluster-native inline.
+    {
+        clusters.lifetime.time_alive += dt;
+        let speed = clusters.kinematics.vel.length();
+        clusters.lifetime.max_speed = clusters.lifetime.max_speed.max(speed);
+        for mark in clusters.combo_trace.combo.iter_mut() {
+            mark.age += dt;
+        }
+        clusters.combo_trace.combo.retain(|m| {
+            m.age < 4.0 || m.op == ops::MovementOp::Reset
+        });
+
+        let dec = |v: f32| (v - dt).max(0.0);
+        clusters.action_buffer.jump = dec(clusters.action_buffer.jump);
+        clusters.action_buffer.dash = dec(clusters.action_buffer.dash);
+        clusters.ground.coyote_timer = dec(clusters.ground.coyote_timer);
+        clusters.ground.drop_through_timer = dec(clusters.ground.drop_through_timer);
+        clusters.dash.cooldown = dec(clusters.dash.cooldown);
+        clusters.blink.cooldown = dec(clusters.blink.cooldown);
+        clusters.blink.grace_timer = dec(clusters.blink.grace_timer);
+        clusters.ground.rebound_cooldown = dec(clusters.ground.rebound_cooldown);
+        clusters.dodge.roll_timer = dec(clusters.dodge.roll_timer);
+        clusters.dodge.cooldown = dec(clusters.dodge.cooldown);
+        clusters.shield.parry_window_timer = dec(clusters.shield.parry_window_timer);
+        clusters.ledge.release_cooldown = dec(clusters.ledge.release_cooldown);
+        if clusters.wall.wall_clinging || clusters.ground.on_ground {
+            clusters.wall.pre_wall_vel_age += dt;
+        }
+        if clusters.ground.on_ground {
+            clusters.ground.coyote_timer = tuning.coyote_time;
+            crate::player_clusters::refresh_movement_resources_clusters(
+                clusters.abilities,
+                clusters.dash,
+                clusters.jump,
+                tuning,
+            );
+        }
+    }
+
+    // Inner helpers that still take &mut Player — localized scratchpad.
     let mut player = clusters.to_player();
-    let events = simulation::update_player_simulation_with_tuning(
-        world,
-        &mut player,
-        input,
-        raw_dt,
-        tuning,
-    );
+    if crate::ledge_grab::tick_active_ledge_grab(&mut player, input, dt, tuning, &mut events) {
+        clusters.write_from_player(player);
+        return events;
+    }
+    // Inline jump-buffer handling continues to be on Player for now
+    // (it touches many fields and needs a deeper refactor).
+    simulation::handle_jump_buffer_pub(world, &mut player, input, tuning, &mut events);
+    integration::integrate_velocity(world, &mut player, input, dt, tuning, &mut events);
+    crate::ledge_grab::try_start_ledge_grab(world, &mut player, input, &mut events);
     clusters.write_from_player(player);
+
+    // Hazard reset — cluster-native.
+    if collision::touching_hazard_aabb(world, clusters.kinematics.aabb())
+        || clusters.kinematics.pos.y > world.size.y + 200.0
+    {
+        crate::player_clusters::reset_player_clusters(clusters, world.spawn);
+        events.hazard = true;
+        events.reset = true;
+    }
+
     events
 }
 

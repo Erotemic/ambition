@@ -103,6 +103,16 @@ fn update_simulation_timers(player: &mut Player, dt: f32, tuning: MovementTuning
     }
 }
 
+pub(super) fn handle_jump_buffer_pub(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
+    handle_jump_buffer(world, player, input, tuning, events)
+}
+
 fn handle_jump_buffer(
     world: &World,
     player: &mut Player,

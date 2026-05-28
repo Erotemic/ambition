@@ -2,9 +2,18 @@
 //! hazard interactions, strafe scaling.
 
 use super::super::*;
-use super::{step, test_world};
+use super::{step_scratch, test_world};
+use crate::engine_core::player_clusters::PlayerClusterScratch;
 use crate::engine_core::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
 use crate::engine_core::{Aabb, AbilitySet, Vec2, World};
+
+fn scratch_at(spawn: Vec2) -> PlayerClusterScratch {
+    PlayerClusterScratch::from_player(&Player::new(spawn))
+}
+
+fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
+    PlayerClusterScratch::from_player(&Player::new_with_abilities(spawn, abilities))
+}
 
 #[test]
 fn climbable_contact_is_populated_when_player_intersects_ladder() {
@@ -20,12 +29,13 @@ fn climbable_contact_is_populated_when_player_intersects_ladder() {
         ClimbableKind::Ladder,
         ClimbableSpec::default(),
     ));
-    let mut player = Player::new(Vec2::new(400.0, 600.0));
+    let mut scratch = scratch_at(Vec2::new(400.0, 600.0));
     // No input, no time: just run one update so `update_player`'s
     // contact-population block runs.
-    let _ = step(&world, &mut player, InputState::default());
-    let contact = player
-        .climbable_contact
+    let _ = step_scratch(&world, &mut scratch, InputState::default());
+    let contact = scratch
+        .env_contact
+        .climbable
         .expect("player AABB intersecting ladder should populate climbable_contact");
     assert_eq!(contact.kind, ClimbableKind::Ladder);
     assert!(
@@ -41,10 +51,10 @@ fn climbable_contact_is_none_when_player_far_from_any_ladder() {
     // across an update. This pins the "default to None" semantics
     // that sandbox systems will rely on.
     let world = test_world();
-    let mut player = Player::new(world.spawn);
-    let _ = step(&world, &mut player, InputState::default());
+    let mut scratch = scratch_at(world.spawn);
+    let _ = step_scratch(&world, &mut scratch, InputState::default());
     assert!(
-        player.climbable_contact.is_none(),
+        scratch.env_contact.climbable.is_none(),
         "no ladders in world → climbable_contact must stay None"
     );
 }
@@ -62,19 +72,19 @@ fn climbing_mode_suspends_gravity_and_drives_vertical_velocity() {
         ClimbableKind::Ladder,
         ClimbableSpec::default(),
     ));
-    let mut player = Player::new(Vec2::new(400.0, 600.0));
+    let mut scratch = scratch_at(Vec2::new(400.0, 600.0));
     // Force the climbing mode + populate contact (sandbox-side
     // driver does this in production; tests do it directly).
-    player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
-    player.climbable_contact = world.climbable_at(player.aabb());
+    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+    scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
     // Push some y velocity into the player so the test can prove
     // that climbing replaces it (rather than just initializing
     // from zero).
-    player.vel = Vec2::new(0.0, 800.0);
+    scratch.kinematics.vel = Vec2::new(0.0, 800.0);
 
-    let _ = update_player_with_tuning(
+    let _ = update_player_with_tuning_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             axis_y: -1.0, // press up
             control_dt: 1.0 / 60.0,
@@ -90,22 +100,22 @@ fn climbing_mode_suspends_gravity_and_drives_vertical_velocity() {
     // Tolerance accounts for any post-integrate damping the
     // movement code adds.
     assert!(
-        player.vel.y < 0.0,
+        scratch.kinematics.vel.y < 0.0,
         "climbing up should produce upward (negative) y velocity; got {}",
-        player.vel.y
+        scratch.kinematics.vel.y
     );
     assert!(
-        (player.vel.y + spec.climb_speed).abs() < 50.0,
+        (scratch.kinematics.vel.y + spec.climb_speed).abs() < 50.0,
         "vel.y should be near -climb_speed ({}); got {}",
         -spec.climb_speed,
-        player.vel.y
+        scratch.kinematics.vel.y
     );
     // The 800.0 starting downward velocity must NOT have survived
     // (gravity suspended, target velocity replaces it).
     assert!(
-        player.vel.y < 100.0,
+        scratch.kinematics.vel.y < 100.0,
         "starting downward velocity should not survive climbing integration; got {}",
-        player.vel.y
+        scratch.kinematics.vel.y
     );
 }
 
@@ -139,18 +149,18 @@ fn climbing_passes_through_solid_blocks_overlapping_ladder() {
     ));
     world.climbable_regions.push(ladder);
 
-    let mut player = Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
-    player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
-    player.climbable_contact = world.climbable_at(player.aabb());
-    let initial_y = player.pos.y;
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 700.0));
+    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+    scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
+    let initial_y = scratch.kinematics.pos.y;
     // Drive 60 frames at fixed-60Hz climb-up. With the
     // passthrough rule, the player should make significant
     // upward progress past the platform at y=460. Without the
     // fix, they'd hit the platform from below and stop.
     for _ in 0..60 {
-        let _ = update_player_with_tuning(
+        let _ = update_player_with_tuning_scratch(
             &world,
-            &mut player,
+            &mut scratch,
             InputState {
                 axis_y: -1.0,
                 control_dt: 1.0 / 60.0,
@@ -160,9 +170,9 @@ fn climbing_passes_through_solid_blocks_overlapping_ladder() {
             DEFAULT_TUNING,
         );
         // Re-set climbing in case any control branch flipped it.
-        player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+        scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
     }
-    let dy = initial_y - player.pos.y;
+    let dy = initial_y - scratch.kinematics.pos.y;
     // Expected motion: ~60 frames * 180 px/sec / 60 = 180 px.
     // Without the passthrough, the player gets stuck at the
     // platform top (y=452, body bottom would land here) -- which
@@ -173,7 +183,7 @@ fn climbing_passes_through_solid_blocks_overlapping_ladder() {
         dy > 100.0,
         "climbing player should pass through platform at y=460; \
              initial_y={initial_y}, ended_y={}, dy={dy}",
-        player.pos.y
+        scratch.kinematics.pos.y
     );
 }
 
@@ -201,16 +211,16 @@ fn climbing_player_still_collides_with_hazard_blocks_overlapping_ladder() {
         Vec2::new(60.0, 16.0),
     ));
 
-    let mut player = Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
-    player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
-    player.climbable_contact = world.climbable_at(player.aabb());
-    let initial_pos = player.pos;
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 700.0));
+    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+    scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
+    let initial_pos = scratch.kinematics.pos;
     // Drive the climb upward toward the hazard.
     let mut hazard_fired = false;
     for _ in 0..120 {
-        let evs = update_player_with_tuning(
+        let evs = update_player_with_tuning_scratch(
             &world,
-            &mut player,
+            &mut scratch,
             InputState {
                 axis_y: -1.0,
                 control_dt: 1.0 / 60.0,
@@ -223,13 +233,13 @@ fn climbing_player_still_collides_with_hazard_blocks_overlapping_ladder() {
             hazard_fired = true;
             break;
         }
-        player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+        scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
     }
     assert!(
         hazard_fired,
         "hazard in the ladder column should still kill the player while climbing; \
              initial_pos={:?}, final_pos={:?}",
-        initial_pos, player.pos
+        initial_pos, scratch.kinematics.pos
     );
 }
 
@@ -250,15 +260,15 @@ fn non_climbing_player_still_collides_with_solid_blocks_overlapping_ladder() {
         Vec2::new(60.0, 16.0),
     ));
 
-    let mut player = Player::new(Vec2::new(400.0, 480.0)); // below platform
-    player.body_mode = crate::engine_core::player_state::BodyMode::Standing;
+    let mut scratch = scratch_at(Vec2::new(400.0, 480.0)); // below platform
+    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Standing;
     // Aim downward to test horizontal sweep against the platform.
-    player.vel = Vec2::new(0.0, -2000.0);
-    let pre_y = player.pos.y;
+    scratch.kinematics.vel = Vec2::new(0.0, -2000.0);
+    let pre_y = scratch.kinematics.pos.y;
     for _ in 0..30 {
-        let _ = update_player_with_tuning(
+        let _ = update_player_with_tuning_scratch(
             &world,
-            &mut player,
+            &mut scratch,
             InputState {
                 control_dt: 1.0 / 60.0,
                 ..InputState::default()
@@ -271,10 +281,10 @@ fn non_climbing_player_still_collides_with_solid_blocks_overlapping_ladder() {
     // hits the platform from below and stops. We don't pin an
     // exact y, just that they didn't pass through it.
     assert!(
-        player.pos.y > pre_y - 100.0 || player.pos.y > 460.0 - 24.0,
+        scratch.kinematics.pos.y > pre_y - 100.0 || scratch.kinematics.pos.y > 460.0 - 24.0,
         "Standing player should not pass through the platform; pre={} post={}",
         pre_y,
-        player.pos.y
+        scratch.kinematics.pos.y
     );
 }
 
@@ -289,13 +299,13 @@ fn climbing_mode_strafe_factor_caps_horizontal_input() {
         ClimbableKind::Ladder,
         ClimbableSpec::default(),
     ));
-    let mut player = Player::new(Vec2::new(400.0, 600.0));
-    player.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
-    player.climbable_contact = world.climbable_at(player.aabb());
+    let mut scratch = scratch_at(Vec2::new(400.0, 600.0));
+    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Climbing;
+    scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
 
-    let _ = update_player_with_tuning(
+    let _ = update_player_with_tuning_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             axis_x: 1.0,
             control_dt: 1.0 / 60.0,
@@ -310,14 +320,14 @@ fn climbing_mode_strafe_factor_caps_horizontal_input() {
     // value may shift slightly but should stay well under
     // max_run_speed (which is 360+).
     assert!(
-        player.vel.x > 0.0,
+        scratch.kinematics.vel.x > 0.0,
         "axis_x = 1.0 should produce positive x velocity; got {}",
-        player.vel.x
+        scratch.kinematics.vel.x
     );
     assert!(
-        player.vel.x < DEFAULT_TUNING.max_run_speed * 0.5,
+        scratch.kinematics.vel.x < DEFAULT_TUNING.max_run_speed * 0.5,
         "strafe_factor = 0.25 should keep vel.x well under max_run_speed; got {} (cap={})",
-        player.vel.x,
+        scratch.kinematics.vel.x,
         DEFAULT_TUNING.max_run_speed * 0.5
     );
 }

@@ -168,8 +168,7 @@ pub fn update_player_control_with_clusters(
         }
     }
 
-    // handle_mode_toggles — cluster-native (event push needs the
-    // scratchpad's Player because FrameEvents::op records combo).
+    // handle_mode_toggles — cluster-native.
     if input.fly_toggle_pressed && clusters.abilities.abilities.fly {
         clusters.flight.fly_enabled = !clusters.flight.fly_enabled;
         if clusters.flight.fly_enabled {
@@ -179,16 +178,7 @@ pub fn update_player_control_with_clusters(
             clusters.dash.timer = 0.0;
             clusters.blink.grace_timer = 0.0;
         }
-        // events.op also writes player.combo — round-trip the combo
-        // alone is cheaper than a full to_player/write_from_player.
-        clusters.combo_trace.combo.push(ops::ComboMark {
-            op: ops::MovementOp::FlyToggle,
-            age: 0.0,
-        });
-        if clusters.combo_trace.combo.len() > 18 {
-            let excess = clusters.combo_trace.combo.len() - 18;
-            clusters.combo_trace.combo.drain(0..excess);
-        }
+        events.op_clusters(clusters.combo_trace, ops::MovementOp::FlyToggle);
     }
 
     // handle_blink + handle_attacks are now cluster-native — no
@@ -236,14 +226,7 @@ pub fn update_player_control_with_clusters(
         clusters.dodge.roll_timer = tuning.dodge_roll_time;
         clusters.dodge.cooldown = tuning.dodge_roll_cooldown;
         clusters.action_buffer.dash = 0.0;
-        clusters.combo_trace.combo.push(ops::ComboMark {
-            op: ops::MovementOp::DodgeRoll,
-            age: 0.0,
-        });
-        if clusters.combo_trace.combo.len() > 18 {
-            let excess = clusters.combo_trace.combo.len() - 18;
-            clusters.combo_trace.combo.drain(0..excess);
-        }
+        events.op_clusters(clusters.combo_trace, ops::MovementOp::DodgeRoll);
     }
 
     // handle_dash — cluster-native (note: spend_dash_charge picks
@@ -266,11 +249,7 @@ pub fn update_player_control_with_clusters(
         } else {
             ops::MovementOp::Dash
         };
-        clusters.combo_trace.combo.push(ops::ComboMark { op, age: 0.0 });
-        if clusters.combo_trace.combo.len() > 18 {
-            let excess = clusters.combo_trace.combo.len() - 18;
-            clusters.combo_trace.combo.drain(0..excess);
-        }
+        events.op_clusters(clusters.combo_trace, op);
     }
 
     // handle_shield — cluster-native.
@@ -282,14 +261,7 @@ pub fn update_player_control_with_clusters(
         let want_shield = input.shield_held && can_shield;
         if want_shield && !clusters.shield.active {
             clusters.shield.parry_window_timer = tuning.parry_window_time;
-            clusters.combo_trace.combo.push(ops::ComboMark {
-                op: ops::MovementOp::ShieldUp,
-                age: 0.0,
-            });
-            if clusters.combo_trace.combo.len() > 18 {
-                let excess = clusters.combo_trace.combo.len() - 18;
-                clusters.combo_trace.combo.drain(0..excess);
-            }
+            events.op_clusters(clusters.combo_trace, ops::MovementOp::ShieldUp);
         }
         clusters.shield.active = want_shield;
     }
@@ -438,6 +410,93 @@ pub fn update_player_simulation_with_clusters(
 
 fn dec(value: f32, dt: f32) -> f32 {
     (value - dt).max(0.0)
+}
+
+/// Combined cluster-native equivalent of `update_player_with_tuning`.
+/// Runs control then simulation, mirroring the legacy entry point.
+pub fn update_player_with_tuning_clusters(
+    world: &World,
+    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let control_dt = if input.control_dt > 0.0 {
+        input.control_dt
+    } else {
+        raw_dt
+    };
+    let mut events = update_player_control_with_clusters(world, clusters, input, control_dt, tuning);
+    let sim_events = update_player_simulation_with_clusters(world, clusters, input, raw_dt, tuning);
+    events.extend(sim_events);
+    events
+}
+
+/// `PlayerClusterScratch`-based test wrapper: builds the cluster view
+/// in-place and dispatches to `update_player_with_tuning_clusters`. Goes
+/// away with the legacy `update_player_with_tuning` once
+/// `ae::Player`/the scratch are deleted.
+pub fn update_player_with_tuning_scratch(
+    world: &World,
+    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    input: InputState,
+    raw_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let mut clusters = scratch.as_mut();
+    update_player_with_tuning_clusters(world, &mut clusters, input, raw_dt, tuning)
+}
+
+/// Convenience wrapper using `DEFAULT_TUNING`.
+pub fn update_player_scratch(
+    world: &World,
+    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    input: InputState,
+    raw_dt: f32,
+) -> FrameEvents {
+    update_player_with_tuning_scratch(world, scratch, input, raw_dt, DEFAULT_TUNING)
+}
+
+/// `PlayerClusterScratch`-based control-phase wrapper for tests.
+pub fn update_player_control_with_tuning_scratch(
+    world: &World,
+    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    input: InputState,
+    control_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let mut clusters = scratch.as_mut();
+    update_player_control_with_clusters(world, &mut clusters, input, control_dt, tuning)
+}
+
+pub fn update_player_control_scratch(
+    world: &World,
+    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    input: InputState,
+    control_dt: f32,
+) -> FrameEvents {
+    update_player_control_with_tuning_scratch(world, scratch, input, control_dt, DEFAULT_TUNING)
+}
+
+/// `PlayerClusterScratch`-based simulation-phase wrapper for tests.
+pub fn update_player_simulation_with_tuning_scratch(
+    world: &World,
+    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    input: InputState,
+    raw_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let mut clusters = scratch.as_mut();
+    update_player_simulation_with_clusters(world, &mut clusters, input, raw_dt, tuning)
+}
+
+pub fn update_player_simulation_scratch(
+    world: &World,
+    scratch: &mut crate::engine_core::player_clusters::PlayerClusterScratch,
+    input: InputState,
+    raw_dt: f32,
+) -> FrameEvents {
+    update_player_simulation_with_tuning_scratch(world, scratch, input, raw_dt, DEFAULT_TUNING)
 }
 
 #[cfg(test)]

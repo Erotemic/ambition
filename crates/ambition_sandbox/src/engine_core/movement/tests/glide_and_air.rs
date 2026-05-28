@@ -2,24 +2,29 @@
 //! AABB feedback — anything air-borne that isn't a blink.
 
 use super::super::*;
-use super::{step, test_world};
+use super::{step_scratch, test_world};
 use crate::engine_core::geometry::AabbExt;
+use crate::engine_core::player_clusters::PlayerClusterScratch;
 use crate::engine_core::{AbilitySet, Vec2};
+
+fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
+    PlayerClusterScratch::from_player(&Player::new_with_abilities(spawn, abilities))
+}
 
 #[test]
 fn glide_caps_fall_speed_while_jump_held() {
     let world = test_world();
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
-    player.on_ground = false;
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.ground.on_ground = false;
     // Drop the player into free fall well above any contact, with
     // velocity already above the glide cap so the cap clamp is the
     // only thing that can pull it back down.
-    player.pos = Vec2::new(world.spawn.x, world.spawn.y - 600.0);
-    player.vel = Vec2::new(0.0, 800.0);
+    scratch.kinematics.pos = Vec2::new(world.spawn.x, world.spawn.y - 600.0);
+    scratch.kinematics.vel = Vec2::new(0.0, 800.0);
 
-    let events = step(
+    let events = step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             jump_held: true,
             ..Default::default()
@@ -28,44 +33,44 @@ fn glide_caps_fall_speed_while_jump_held() {
     let _ = events; // unused
 
     assert!(
-        player.gliding,
+        scratch.flight.gliding,
         "hold-jump while falling should engage glide"
     );
     assert!(
-        player.vel.y <= DEFAULT_TUNING.glide_fall_speed + 1.0,
+        scratch.kinematics.vel.y <= DEFAULT_TUNING.glide_fall_speed + 1.0,
         "glide cap should clamp fall speed; got {}",
-        player.vel.y
+        scratch.kinematics.vel.y
     );
     assert!(
-        player.vel.y < DEFAULT_TUNING.max_fall_speed * 0.5,
+        scratch.kinematics.vel.y < DEFAULT_TUNING.max_fall_speed * 0.5,
         "glide cap must be markedly below max_fall_speed; got {}",
-        player.vel.y
+        scratch.kinematics.vel.y
     );
 }
 
 #[test]
 fn glide_disengages_when_jump_released() {
     let world = test_world();
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
-    player.on_ground = false;
-    player.pos = Vec2::new(world.spawn.x, world.spawn.y - 600.0);
-    player.vel = Vec2::new(0.0, 800.0);
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.ground.on_ground = false;
+    scratch.kinematics.pos = Vec2::new(world.spawn.x, world.spawn.y - 600.0);
+    scratch.kinematics.vel = Vec2::new(0.0, 800.0);
 
     // Frame 1: held → glide engages
-    step(
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             jump_held: true,
             ..Default::default()
         },
     );
-    assert!(player.gliding);
+    assert!(scratch.flight.gliding);
 
     // Frame 2: released → glide disengages, fall speed climbs back
     // toward max_fall_speed (gravity reapplied without the glide cap)
-    step(&world, &mut player, InputState::default());
-    assert!(!player.gliding);
+    step_scratch(&world, &mut scratch, InputState::default());
+    assert!(!scratch.flight.gliding);
 }
 
 #[test]
@@ -73,21 +78,21 @@ fn glide_requires_ability_flag() {
     let world = test_world();
     let mut abilities = AbilitySet::sandbox_all();
     abilities.glide = false;
-    let mut player = Player::new_with_abilities(world.spawn, abilities);
-    player.on_ground = false;
-    player.pos = Vec2::new(world.spawn.x, world.spawn.y - 600.0);
-    player.vel = Vec2::new(0.0, 800.0);
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.ground.on_ground = false;
+    scratch.kinematics.pos = Vec2::new(world.spawn.x, world.spawn.y - 600.0);
+    scratch.kinematics.vel = Vec2::new(0.0, 800.0);
 
-    step(
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             jump_held: true,
             ..Default::default()
         },
     );
     assert!(
-        !player.gliding,
+        !scratch.flight.gliding,
         "glide should not engage when the ability flag is off"
     );
 }
@@ -101,23 +106,23 @@ fn glide_requires_ability_flag() {
 #[test]
 fn glide_sustains_across_many_frames() {
     let world = test_world();
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
-    player.on_ground = false;
-    player.pos = Vec2::new(world.spawn.x, world.spawn.y - 800.0);
-    player.vel = Vec2::new(0.0, 0.0);
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.ground.on_ground = false;
+    scratch.kinematics.pos = Vec2::new(world.spawn.x, world.spawn.y - 800.0);
+    scratch.kinematics.vel = Vec2::new(0.0, 0.0);
 
     let dt = 1.0 / 60.0;
     for frame in 0..60 {
-        step(
+        step_scratch(
             &world,
-            &mut player,
+            &mut scratch,
             InputState {
                 jump_held: true,
                 control_dt: dt,
                 ..Default::default()
             },
         );
-        if player.on_ground {
+        if scratch.ground.on_ground {
             break;
         }
         // After the first ~5 frames gravity has bumped vel.y past
@@ -125,14 +130,16 @@ fn glide_sustains_across_many_frames() {
         // assert on the very first frames where vel.y < cap.
         if frame >= 6 {
             assert!(
-                player.gliding,
+                scratch.flight.gliding,
                 "frame {frame}: gliding flipped off (vel=({},{}) on_ground={})",
-                player.vel.x, player.vel.y, player.on_ground,
+                scratch.kinematics.vel.x,
+                scratch.kinematics.vel.y,
+                scratch.ground.on_ground,
             );
             assert!(
-                player.vel.y <= DEFAULT_TUNING.glide_fall_speed + 5.0,
+                scratch.kinematics.vel.y <= DEFAULT_TUNING.glide_fall_speed + 5.0,
                 "frame {frame}: vel.y exceeded glide cap ({} > {})",
-                player.vel.y,
+                scratch.kinematics.vel.y,
                 DEFAULT_TUNING.glide_fall_speed,
             );
         }
@@ -142,63 +149,63 @@ fn glide_sustains_across_many_frames() {
 #[test]
 fn fast_fall_requires_double_tap_signal() {
     let world = test_world();
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
-    player.on_ground = false;
-    player.vel.y = 0.0;
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.ground.on_ground = false;
+    scratch.kinematics.vel.y = 0.0;
 
     // Holding down is still useful for pogo / downward attack intent, but
     // should not automatically trigger fast-fall.
-    step(
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             axis_y: 1.0,
             ..Default::default()
         },
     );
-    assert!(!player.fast_falling);
+    assert!(!scratch.flight.fast_falling);
 
     // The presentation layer recognizes double-tap-down and sends this
     // explicit event to the engine.
-    step(
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             axis_y: 1.0,
             fast_fall_pressed: true,
             ..Default::default()
         },
     );
-    assert!(player.fast_falling);
+    assert!(scratch.flight.fast_falling);
 }
 
 #[test]
 fn fly_toggle_switches_mode_and_counters_gravity() {
     let world = test_world();
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
-    assert!(!player.fly_enabled);
-    let events = step(
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    assert!(!scratch.flight.fly_enabled);
+    let events = step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             fly_toggle_pressed: true,
             ..Default::default()
         },
     );
-    assert!(player.fly_enabled);
+    assert!(scratch.flight.fly_enabled);
     assert!(events.operations.contains(&MovementOp::FlyToggle));
-    player.on_ground = false;
-    player.vel = Vec2::ZERO;
-    step(
+    scratch.ground.on_ground = false;
+    scratch.kinematics.vel = Vec2::ZERO;
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             axis_y: -1.0,
             ..Default::default()
         },
     );
     assert!(
-        player.vel.y < 0.0,
+        scratch.kinematics.vel.y < 0.0,
         "flying upward input should accelerate upward"
     );
 }
@@ -213,15 +220,15 @@ fn pogo_bounce_records_orb_aabb_on_frame_events() {
         .blocks
         .push(crate::engine_core::world::Block::pogo_orb("orb", orb_center, 18.0));
 
-    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     // Place the player just above the orb so a downward pogo press hits it.
-    player.pos = Vec2::new(orb_center.x, orb_center.y - 24.0);
-    player.vel = Vec2::ZERO;
-    player.on_ground = false;
+    scratch.kinematics.pos = Vec2::new(orb_center.x, orb_center.y - 24.0);
+    scratch.kinematics.vel = Vec2::ZERO;
+    scratch.ground.on_ground = false;
 
-    let events = update_player_control_with_tuning(
+    let events = update_player_control_with_tuning_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             pogo_pressed: true,
             control_dt: 1.0 / 60.0,

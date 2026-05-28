@@ -2,19 +2,29 @@
 //! activation, deactivation, dash conflict, parry window reset.
 
 use super::super::*;
-use super::{step, test_world};
+use super::{step_scratch, test_world};
+use crate::engine_core::player_clusters::PlayerClusterScratch;
 use crate::engine_core::AbilitySet;
+use crate::engine_core::Vec2;
+
+fn scratch_at(spawn: Vec2) -> PlayerClusterScratch {
+    PlayerClusterScratch::from_player(&Player::new(spawn))
+}
+
+fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
+    PlayerClusterScratch::from_player(&Player::new_with_abilities(spawn, abilities))
+}
 
 #[test]
 fn dodge_roll_triggers_on_ground_with_ability() {
     let world = test_world();
-    let mut player = Player::new(world.spawn);
-    player.on_ground = true;
-    player.dodge_roll_cooldown = 0.0;
-    assert!(player.abilities.dodge, "sandbox_all enables dodge");
-    let events = step(
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.dodge.cooldown = 0.0;
+    assert!(scratch.abilities.abilities.dodge, "sandbox_all enables dodge");
+    let events = step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             dash_pressed: true,
             ..Default::default()
@@ -25,11 +35,11 @@ fn dodge_roll_triggers_on_ground_with_ability() {
         "dash on ground with dodge ability should trigger DodgeRoll"
     );
     assert!(
-        player.dodge_roll_timer > 0.0,
+        scratch.dodge.roll_timer > 0.0,
         "dodge_roll_timer should be set"
     );
     assert!(
-        player.vel.x.abs() > 100.0,
+        scratch.kinematics.vel.x.abs() > 100.0,
         "should have lateral velocity from dodge"
     );
 }
@@ -37,12 +47,12 @@ fn dodge_roll_triggers_on_ground_with_ability() {
 #[test]
 fn dodge_roll_blocked_by_cooldown() {
     let world = test_world();
-    let mut player = Player::new(world.spawn);
-    player.on_ground = true;
-    player.dodge_roll_cooldown = 0.3;
-    let events = step(
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.dodge.cooldown = 0.3;
+    let events = step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             dash_pressed: true,
             ..Default::default()
@@ -59,12 +69,12 @@ fn dodge_roll_disabled_when_ability_off() {
     let world = test_world();
     let mut abilities = AbilitySet::sandbox_all();
     abilities.dodge = false;
-    let mut player = Player::new_with_abilities(world.spawn, abilities);
-    player.on_ground = true;
-    player.dodge_roll_cooldown = 0.0;
-    let events = step(
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.dodge.cooldown = 0.0;
+    let events = step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             dash_pressed: true,
             ..Default::default()
@@ -79,20 +89,20 @@ fn dodge_roll_disabled_when_ability_off() {
 #[test]
 fn shield_activates_when_held_with_ability() {
     let world = test_world();
-    let mut player = Player::new(world.spawn);
-    player.on_ground = true;
-    player.abilities.shield = true;
-    let events = step(
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.abilities.abilities.shield = true;
+    let events = step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             shield_held: true,
             ..Default::default()
         },
     );
-    assert!(player.shield_active, "shield should be active while held");
+    assert!(scratch.shield.active, "shield should be active while held");
     assert!(
-        player.parry_window_timer > 0.0,
+        scratch.shield.parry_window_timer > 0.0,
         "parry window should start on first activation"
     );
     assert!(
@@ -104,28 +114,28 @@ fn shield_activates_when_held_with_ability() {
 #[test]
 fn shield_deactivates_when_released() {
     let world = test_world();
-    let mut player = Player::new(world.spawn);
-    player.on_ground = true;
-    player.abilities.shield = true;
-    step(
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.abilities.abilities.shield = true;
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             shield_held: true,
             ..Default::default()
         },
     );
-    assert!(player.shield_active);
-    step(
+    assert!(scratch.shield.active);
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             shield_held: false,
             ..Default::default()
         },
     );
     assert!(
-        !player.shield_active,
+        !scratch.shield.active,
         "shield should drop when button released"
     );
 }
@@ -133,20 +143,20 @@ fn shield_deactivates_when_released() {
 #[test]
 fn shield_blocked_during_dash() {
     let world = test_world();
-    let mut player = Player::new(world.spawn);
-    player.on_ground = true;
-    player.abilities.shield = true;
-    player.dash_timer = 0.10; // force active dash
-    step(
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.abilities.abilities.shield = true;
+    scratch.dash.timer = 0.10; // force active dash
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             shield_held: true,
             ..Default::default()
         },
     );
     assert!(
-        !player.shield_active,
+        !scratch.shield.active,
         "shield cannot be raised during a dash"
     );
 }
@@ -154,39 +164,39 @@ fn shield_blocked_during_dash() {
 #[test]
 fn shield_gives_fresh_parry_on_each_activation() {
     let world = test_world();
-    let mut player = Player::new(world.spawn);
-    player.on_ground = true;
-    player.abilities.shield = true;
-    step(
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.abilities.abilities.shield = true;
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             shield_held: true,
             ..Default::default()
         },
     );
-    assert!(player.parry_window_timer > 0.0);
+    assert!(scratch.shield.parry_window_timer > 0.0);
     // Expire the parry window and drop shield.
-    player.parry_window_timer = 0.0;
-    step(
+    scratch.shield.parry_window_timer = 0.0;
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             shield_held: false,
             ..Default::default()
         },
     );
     // Re-raise: fresh parry window.
-    step(
+    step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             shield_held: true,
             ..Default::default()
         },
     );
     assert!(
-        player.parry_window_timer > 0.0,
+        scratch.shield.parry_window_timer > 0.0,
         "raising shield again should reset the parry window"
     );
 }
@@ -195,18 +205,18 @@ fn shield_gives_fresh_parry_on_each_activation() {
 fn shield_disabled_when_ability_off() {
     let world = test_world();
     let abilities = AbilitySet::basic(); // basic() has shield: false
-    let mut player = Player::new_with_abilities(world.spawn, abilities);
-    player.on_ground = true;
-    let events = step(
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.ground.on_ground = true;
+    let events = step_scratch(
         &world,
-        &mut player,
+        &mut scratch,
         InputState {
             shield_held: true,
             ..Default::default()
         },
     );
     assert!(
-        !player.shield_active,
+        !scratch.shield.active,
         "shield should not activate without the ability"
     );
     assert!(

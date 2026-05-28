@@ -14,10 +14,19 @@
 //! them via `super::`.
 
 use super::*;
+use crate::engine_core::player_clusters::PlayerClusterScratch;
 use crate::engine_core::{Vec2, World};
 
 pub(super) fn step(world: &World, player: &mut Player, input: InputState) -> FrameEvents {
     update_player_with_tuning(world, player, input, 1.0 / 60.0, DEFAULT_TUNING)
+}
+
+pub(super) fn step_scratch(
+    world: &World,
+    scratch: &mut PlayerClusterScratch,
+    input: InputState,
+) -> FrameEvents {
+    update_player_with_tuning_scratch(world, scratch, input, 1.0 / 60.0, DEFAULT_TUNING)
 }
 
 pub(super) fn test_world() -> World {

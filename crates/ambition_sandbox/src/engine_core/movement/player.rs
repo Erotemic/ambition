@@ -272,16 +272,6 @@ impl Player {
         self.air_jumps_available = self.abilities.air_jump_count(tuning.air_jumps);
     }
 
-    pub(super) fn spend_dash_charge(&mut self) -> MovementOp {
-        let before = self.dash_charges_available;
-        self.dash_charges_available = self.dash_charges_available.saturating_sub(1);
-        if before >= 2 {
-            MovementOp::DoubleDash
-        } else {
-            MovementOp::Dash
-        }
-    }
-
     pub(super) fn record(&mut self, op: MovementOp) {
         self.combo.push(ComboMark { op, age: 0.0 });
         if self.combo.len() > 18 {

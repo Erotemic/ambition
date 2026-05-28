@@ -237,13 +237,23 @@ fn blink_walls_can_be_passed_by_upgrade_without_allowing_solid_walls() {
 
     let mut blocked_abilities = AbilitySet::basic();
     blocked_abilities.blink = true;
-    let blocked_player = Player::new_with_abilities(Vec2::new(140.0, 140.0), blocked_abilities);
-    let blocked = blink_destination_to_point(&world, &blocked_player, Vec2::new(340.0, 140.0));
-    assert!(blocked.x < 220.0);
+    let blocked = scratch_with(blocked_abilities, Vec2::new(140.0, 140.0));
+    let blocked_to = blink_destination_to_point_clusters(
+        &world,
+        &blocked.kinematics,
+        &blocked.abilities,
+        Vec2::new(340.0, 140.0),
+    );
+    assert!(blocked_to.x < 220.0);
 
     let mut pass_abilities = blocked_abilities;
     pass_abilities.blink_through_soft_walls = true;
-    let pass_player = Player::new_with_abilities(Vec2::new(140.0, 140.0), pass_abilities);
-    let passed = blink_destination_to_point(&world, &pass_player, Vec2::new(340.0, 140.0));
-    assert!(passed.x > 300.0);
+    let pass = scratch_with(pass_abilities, Vec2::new(140.0, 140.0));
+    let passed_to = blink_destination_to_point_clusters(
+        &world,
+        &pass.kinematics,
+        &pass.abilities,
+        Vec2::new(340.0, 140.0),
+    );
+    assert!(passed_to.x > 300.0);
 }

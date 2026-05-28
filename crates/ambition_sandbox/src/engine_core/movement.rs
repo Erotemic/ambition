@@ -26,10 +26,7 @@ mod player;
 mod simulation;
 mod tuning;
 
-pub use blink::{
-    blink_destination, blink_destination_clusters, blink_destination_to_point,
-    blink_destination_to_point_clusters,
-};
+pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
 pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;
 pub use ops::{ComboMark, MovementOp};
@@ -50,88 +47,6 @@ pub use tuning::{
 
 #[cfg(test)]
 use collision::body_is_side_contact;
-
-pub fn update_player(
-    world: &World,
-    player: &mut Player,
-    input: InputState,
-    raw_dt: f32,
-) -> FrameEvents {
-    update_player_with_tuning(world, player, input, raw_dt, DEFAULT_TUNING)
-}
-
-/// Advance the player for callers that do not care about separate clocks.
-///
-/// This compatibility wrapper uses the same duration for control and simulation.
-/// The Bevy sandbox uses the split functions below so bullet-time can freeze
-/// physical evolution while keeping input/aim control responsive.
-pub fn update_player_with_tuning(
-    world: &World,
-    player: &mut Player,
-    input: InputState,
-    raw_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let control_dt = if input.control_dt > 0.0 {
-        input.control_dt
-    } else {
-        raw_dt
-    };
-    let mut events = update_player_control_with_tuning(world, player, input, control_dt, tuning);
-    let sim_events = update_player_simulation_with_tuning(world, player, input, raw_dt, tuning);
-    events.extend(sim_events);
-    events
-}
-
-/// Process player intent and instantaneous actions using real, unscaled time.
-///
-/// Input should remain responsive during bullet-time: the blink aim cursor,
-/// button-hold thresholds, toggles, dash presses, attack presses, and jump
-/// buffering are control-layer concepts. They advance from real frame time,
-/// not from slowed simulation time.
-pub fn update_player_control(
-    world: &World,
-    player: &mut Player,
-    input: InputState,
-    control_dt: f32,
-) -> FrameEvents {
-    update_player_control_with_tuning(world, player, input, control_dt, DEFAULT_TUNING)
-}
-
-pub fn update_player_control_with_tuning(
-    world: &World,
-    player: &mut Player,
-    input: InputState,
-    control_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    control::update_player_control_with_tuning(world, player, input, control_dt, tuning)
-}
-
-/// Advance physical world evolution using scaled game time.
-///
-/// Gravity, velocity integration, timers, coyote time, cooldowns, enemies,
-/// platforms, and particles should all consume this same scaled timestep. Tiny
-/// positive values are preserved so near-frozen bullet-time is honored; only
-/// large frame spikes are capped.
-pub fn update_player_simulation(
-    world: &World,
-    player: &mut Player,
-    input: InputState,
-    raw_dt: f32,
-) -> FrameEvents {
-    update_player_simulation_with_tuning(world, player, input, raw_dt, DEFAULT_TUNING)
-}
-
-pub fn update_player_simulation_with_tuning(
-    world: &World,
-    player: &mut Player,
-    input: InputState,
-    raw_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    simulation::update_player_simulation_with_tuning(world, player, input, raw_dt, tuning)
-}
 
 /// Cluster-ref entry point for the control phase. Operates on cluster
 /// refs natively for the easy parts (reset, facing, jump/dash buffer,

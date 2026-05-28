@@ -105,26 +105,38 @@ impl PlayerSimulationBundle {
     /// this helper, since the second player should not inherit
     /// `PrimaryPlayer` and may not be `LocalPlayer`.
     pub fn new(player: ae::Player, health: crate::actor::Health) -> Self {
-        let action_set = default_player_action_set(player.abilities);
-        let abilities = PlayerAbilities::from_player(&player);
-        let kinematics = PlayerKinematics::from_player(&player);
-        let ground = PlayerGroundState::from_player(&player);
-        let wall = PlayerWallState::from_player(&player);
-        let jump = PlayerJumpState::from_player(&player);
-        let dash = PlayerDashState::from_player(&player);
-        let flight = PlayerFlightState::from_player(&player);
-        let blink = PlayerBlinkState::from_player(&player);
-        let ledge = PlayerLedgeState::from_player(&player);
-        let dodge = PlayerDodgeState::from_player(&player);
-        let shield = PlayerShieldState::from_player(&player);
-        let body_mode = PlayerBodyModeState::from_player(&player);
-        let env_contact = PlayerEnvironmentContact::from_player(&player);
-        let mana = PlayerMana::from_player(&player);
-        let offense = PlayerOffense::from_player(&player);
-        let action_buffer = PlayerActionBuffer::from_player(&player);
-        let lifetime = PlayerLifetime::from_player(&player);
-        let combo_trace = PlayerComboTrace::from_player(&player);
-        let initial_safe_pos = player.pos;
+        Self::from_scratch(ae::PlayerClusterScratch::from_player(&player), health)
+    }
+
+    /// Build the canonical local-primary player bundle directly from a
+    /// `PlayerClusterScratch`. Once `ae::Player` is deleted, this
+    /// becomes the only constructor.
+    pub fn from_scratch(
+        scratch: ae::PlayerClusterScratch,
+        health: crate::actor::Health,
+    ) -> Self {
+        let action_set = default_player_action_set(scratch.abilities.abilities);
+        let initial_safe_pos = scratch.kinematics.pos;
+        let ae::PlayerClusterScratch {
+            abilities,
+            kinematics,
+            ground,
+            wall,
+            jump,
+            dash,
+            flight,
+            blink,
+            ledge,
+            dodge,
+            shield,
+            body_mode,
+            env_contact,
+            mana,
+            offense,
+            action_buffer,
+            lifetime,
+            combo_trace,
+        } = scratch;
         Self {
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,

@@ -4,38 +4,9 @@ use crate::engine_core::Vec2;
 
 use super::events::{BlinkEvent, FrameEvents};
 use super::ops::MovementOp;
-use super::player::Player;
 use super::tuning::MovementTuning;
 
-pub(super) fn complete_blink(
-    player: &mut Player,
-    from: Vec2,
-    to: Vec2,
-    precision: bool,
-    tuning: MovementTuning,
-    events: &mut FrameEvents,
-) {
-    player.pos = to;
-    apply_post_blink_motion(player, precision, tuning);
-    player.blink_cooldown = tuning.blink_cooldown;
-    player.blink_hold_active = false;
-    player.blink_hold_timer = 0.0;
-    player.blink_aiming = false;
-    player.blink_aim_offset = Vec2::new(tuning.blink_distance * player.facing, 0.0);
-    let op = if precision {
-        MovementOp::PrecisionBlink
-    } else {
-        MovementOp::Blink
-    };
-    events.op(player, op);
-    events.blinks.push(BlinkEvent {
-        from,
-        to,
-        precision,
-    });
-}
-
-/// Cluster-ref variant of [`complete_blink`]. Mutates kinematics
+/// Cluster-ref blink completion. Mutates kinematics
 /// (pos, vel), flight (fast_falling), wall (wall_clinging, wall_climbing),
 /// dash (timer), blink (cooldown, aim_offset, hold_*), and pushes
 /// blink ops + the BlinkEvent.
@@ -90,37 +61,7 @@ pub fn complete_blink_clusters(
     });
 }
 
-fn apply_post_blink_motion(player: &mut Player, precision: bool, tuning: MovementTuning) {
-    let damping = if precision { 0.35 } else { 0.55 };
-    let max_downward = if precision {
-        tuning.precision_blink_max_downward_speed
-    } else {
-        tuning.blink_max_downward_speed
-    };
-
-    player.vel.x *= damping;
-    if player.vel.y > max_downward {
-        player.vel.y = max_downward;
-    } else {
-        player.vel.y *= damping;
-    }
-
-    player.fast_falling = false;
-    player.wall_clinging = false;
-    player.wall_climbing = false;
-    player.dash_timer = 0.0;
-    player.blink_grace_timer = tuning.blink_grace_time;
-}
-
-pub fn blink_destination(world: &World, player: &Player, aim: Vec2, max_distance: f32) -> Vec2 {
-    blink_destination_internal(world, player.pos, player.size, player.facing, &player.abilities, aim, max_distance)
-}
-
-pub fn blink_destination_to_point(world: &World, player: &Player, target: Vec2) -> Vec2 {
-    blink_destination_to_point_internal(world, player.pos, player.size, &player.abilities, target)
-}
-
-/// Cluster-ref variant of [`blink_destination`].
+/// Cluster-ref blink destination.
 pub fn blink_destination_clusters(
     world: &World,
     kinematics: &crate::engine_core::player_clusters::PlayerKinematics,

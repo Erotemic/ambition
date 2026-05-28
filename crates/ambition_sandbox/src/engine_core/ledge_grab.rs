@@ -594,6 +594,197 @@ pub fn tick_active_ledge_grab(
     true
 }
 
+/// Cluster-native variant of [`tick_active_ledge_grab`]. Drops the
+/// internal `to_player`/`write_from_player` scratchpad in
+/// `update_player_simulation_with_clusters` for the active-ledge tick.
+///
+/// Behavior parity is preserved field-for-field; the only divergence
+/// is that `events.op_clusters` is used in place of
+/// `events.op(player, …)` (cluster combo trace instead of
+/// `Player::record`).
+pub fn tick_active_ledge_grab_clusters(
+    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    dt: f32,
+    tuning: MovementTuning,
+    events: &mut crate::engine_core::movement::FrameEvents,
+) -> bool {
+    let Some(mut state) = clusters.ledge.grab else {
+        return false;
+    };
+    if !clusters.abilities.abilities.ledge_grab {
+        clusters.ledge.grab = None;
+        return false;
+    }
+
+    state.elapsed += dt;
+    clusters.kinematics.facing = into_platform_axis(state.contact);
+
+    if state.climbing {
+        state.climb_elapsed += dt;
+        let duration_scale = ledge_getup_duration_scale(state, &tuning);
+        let duration = state.getup_duration() * duration_scale;
+        let progress = (state.climb_elapsed / duration).clamp(0.0, 1.0);
+        clusters.kinematics.pos = getup_position(state, progress);
+        clusters.kinematics.vel = Vec2::ZERO;
+        clusters.ground.on_ground = false;
+        clusters.wall.wall_clinging = false;
+        clusters.wall.wall_climbing = false;
+        clusters.wall.on_wall = false;
+
+        if progress >= 1.0 {
+            clusters.kinematics.pos = getup_end_position(state);
+            // Carry HORIZONTAL momentum into exit; drop the Y so the
+            // player doesn't relaunch off the platform they just stood
+            // on. (Ledge-jump path keeps Y because that's a hop.)
+            let boost = ledge_boost_for_state(state, &tuning);
+            clusters.kinematics.vel = Vec2::new(boost.x, 0.0);
+            clusters.ground.on_ground = true;
+            clusters.wall.wall_clinging = false;
+            clusters.wall.wall_climbing = false;
+            clusters.wall.on_wall = false;
+            clusters.ledge.grab = None;
+            events.op_clusters(clusters.combo_trace, MovementOp::LedgeClimbFinish);
+        } else {
+            clusters.ledge.grab = Some(state);
+        }
+        return true;
+    }
+
+    let input_up = input.axis_y < -0.4;
+    let input_down = input.axis_y > 0.4;
+    let input_into_platform = input.axis_x * into_platform_axis(state.contact) > 0.4;
+    let input_away_from_platform = input.axis_x * away_from_platform_axis(state.contact) > 0.4;
+    let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;
+
+    let want_roll = climb_unlocked && input.shield_held && clusters.abilities.abilities.shield;
+    let want_ledge_release =
+        climb_unlocked && !want_roll && input.jump_pressed && input_away_from_platform;
+    let want_ledge_jump =
+        climb_unlocked && !want_roll && !want_ledge_release && input.jump_pressed;
+    let want_getup_attack = climb_unlocked
+        && !want_roll
+        && !want_ledge_release
+        && !want_ledge_jump
+        && input.attack_pressed;
+    let want_climb = climb_unlocked
+        && !want_roll
+        && !want_ledge_release
+        && !want_ledge_jump
+        && !want_getup_attack
+        && (input_up
+            || input.interact_pressed
+            || (state.elapsed >= LEDGE_TOWARD_CLIMB_DELAY && input_into_platform));
+    let want_drop = !want_roll
+        && !want_ledge_jump
+        && !want_getup_attack
+        && (input_down || (input_away_from_platform && !want_ledge_release));
+
+    if want_roll {
+        state.climbing = true;
+        state.getup_kind = LedgeGetupKind::Roll;
+        state.climb_elapsed = 0.0;
+        clusters.kinematics.pos = state.contact.anchor;
+        clusters.kinematics.vel = Vec2::ZERO;
+        clusters.ground.on_ground = false;
+        clusters.wall.wall_clinging = false;
+        clusters.wall.wall_climbing = false;
+        clusters.wall.on_wall = false;
+        clusters.dodge.roll_timer = LEDGE_ROLL_TIME + 0.10;
+        clusters.ledge.grab = Some(state);
+        events.op_clusters(clusters.combo_trace, MovementOp::LedgeRoll);
+        return true;
+    }
+    if want_ledge_release {
+        let away_x = away_from_platform_axis(state.contact);
+        clusters.wall.wall_clinging = false;
+        clusters.wall.wall_climbing = false;
+        clusters.wall.on_wall = false;
+        clusters.ground.on_ground = false;
+        clusters.ledge.grab = None;
+        clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
+        clusters.kinematics.vel = Vec2::new(away_x * tuning.wall_jump_x, -tuning.jump_speed);
+        crate::engine_core::player_clusters::refresh_movement_resources_clusters(
+            clusters.abilities,
+            &mut *clusters.dash,
+            &mut *clusters.jump,
+            tuning,
+        );
+        events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);
+        return true;
+    }
+    if want_ledge_jump {
+        let into_x = into_platform_axis(state.contact);
+        clusters.wall.wall_clinging = false;
+        clusters.wall.wall_climbing = false;
+        clusters.wall.on_wall = false;
+        clusters.ground.on_ground = false;
+        clusters.ledge.grab = None;
+        clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
+        let mut launch =
+            Vec2::new(into_x * tuning.jump_speed * 0.35, -tuning.jump_speed);
+        launch += ledge_boost_for_state(state, &tuning);
+        clusters.kinematics.vel = launch;
+        crate::engine_core::player_clusters::refresh_movement_resources_clusters(
+            clusters.abilities,
+            &mut *clusters.dash,
+            &mut *clusters.jump,
+            tuning,
+        );
+        events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);
+        return true;
+    }
+    if want_drop && !want_climb && !want_getup_attack {
+        clusters.wall.wall_clinging = false;
+        clusters.wall.wall_climbing = false;
+        clusters.wall.on_wall = false;
+        clusters.ledge.grab = None;
+        clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
+        events.op_clusters(clusters.combo_trace, MovementOp::LedgeDrop);
+        return true;
+    }
+    if want_getup_attack {
+        state.climbing = true;
+        state.getup_kind = LedgeGetupKind::Attack;
+        state.climb_elapsed = 0.0;
+        clusters.kinematics.pos = state.contact.anchor;
+        clusters.kinematics.vel = Vec2::ZERO;
+        clusters.ground.on_ground = false;
+        clusters.wall.wall_clinging = false;
+        clusters.wall.wall_climbing = false;
+        clusters.wall.on_wall = false;
+        clusters.dodge.roll_timer = LEDGE_GETUP_ATTACK_TIME;
+        clusters.ledge.grab = Some(state);
+        events.op_clusters(clusters.combo_trace, MovementOp::LedgeGetupAttack);
+        events.op_clusters(clusters.combo_trace, MovementOp::Slash);
+        return true;
+    }
+    if want_climb {
+        state.climbing = true;
+        state.getup_kind = LedgeGetupKind::Climb;
+        state.climb_elapsed = 0.0;
+        clusters.kinematics.pos = state.contact.anchor;
+        clusters.kinematics.vel = Vec2::ZERO;
+        clusters.ground.on_ground = false;
+        clusters.wall.wall_clinging = false;
+        clusters.wall.wall_climbing = false;
+        clusters.wall.on_wall = false;
+        clusters.ledge.grab = Some(state);
+        events.op_clusters(clusters.combo_trace, MovementOp::LedgeClimbStart);
+        return true;
+    }
+
+    // Default: stay in the hang. Re-pin pos to the anchor and zero vel
+    // so gravity / wall-slide doesn't drift the player off the lip.
+    clusters.kinematics.pos = state.contact.anchor;
+    clusters.kinematics.vel = Vec2::ZERO;
+    clusters.wall.wall_clinging = true;
+    clusters.wall.wall_climbing = false;
+    clusters.wall.on_wall = true;
+    clusters.ledge.grab = Some(state);
+    true
+}
+
 fn requested_wall_normal(player: &Player, input: InputState) -> Option<f32> {
     if player.wall_clinging && player.wall_normal_x.abs() >= 0.5 {
         return Some(player.wall_normal_x);

@@ -380,13 +380,18 @@ pub fn update_player_simulation_with_clusters(
         }
     }
 
-    // Inner helpers that still take &mut Player — localized scratchpad.
-    let mut player = clusters.to_player();
-    if crate::engine_core::ledge_grab::tick_active_ledge_grab(&mut player, input, dt, tuning, &mut events) {
-        clusters.write_from_player(player);
+    // Cluster-native ledge-grab tick. Was the third inner Player
+    // scratchpad; replaced by `tick_active_ledge_grab_clusters`
+    // (2026-05-28).
+    if crate::engine_core::ledge_grab::tick_active_ledge_grab_clusters(
+        clusters,
+        input,
+        dt,
+        tuning,
+        &mut events,
+    ) {
         return events;
     }
-    clusters.write_from_player(player);
 
     // handle_jump_buffer is now cluster-native (no Player scratchpad).
     simulation::handle_jump_buffer_clusters(

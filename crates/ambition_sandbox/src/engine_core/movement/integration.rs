@@ -20,6 +20,202 @@ use super::ops::MovementOp;
 use super::player::Player;
 use super::tuning::MovementTuning;
 
+/// Cluster-native variant of [`integrate_velocity`]. Mode-select, the
+/// integration pass for each mode (run / climb / flight), the
+/// wall-ability ride, the on-ground reset, the rebound impulse, and
+/// the end-of-frame `pre_wall_vel` snapshot all read / write cluster
+/// fields directly.
+///
+/// The two collision sweeps still need an `ae::Player` scratchpad
+/// because `sweep_player_x` / `sweep_player_y` (and their inner
+/// helpers `resolve_axis`, `block_passable_during_climb`,
+/// `body_is_side_contact`) haven't been ported yet. The scratchpad is
+/// scoped to each sweep call — outside those blocks, this function
+/// has no `to_player` / `write_from_player` work.
+pub(super) fn integrate_velocity_clusters(
+    world: &World,
+    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    dt: f32,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
+    use crate::engine_core::player_state::BodyMode;
+
+    if clusters.dash.timer > 0.0 {
+        clusters.dash.timer = dec(clusters.dash.timer, dt);
+    } else if clusters.body_mode.body_mode == BodyMode::Climbing
+        && clusters.env_contact.climbable.is_some()
+    {
+        integrate_climb_clusters(
+            clusters.kinematics,
+            clusters.env_contact,
+            clusters.flight,
+            clusters.wall,
+            input,
+            dt,
+        );
+    } else if clusters.flight.fly_enabled && clusters.abilities.abilities.fly {
+        integrate_flight_clusters(
+            clusters.kinematics,
+            clusters.flight,
+            clusters.wall,
+            input,
+            dt,
+            tuning,
+        );
+    } else {
+        let blink_hang_active =
+            clusters.blink.grace_timer > 0.0 && clusters.kinematics.vel.y >= 0.0;
+        let water_gravity_scale = clusters
+            .env_contact
+            .water
+            .map(|c| c.spec.gravity_scale)
+            .unwrap_or(1.0);
+        if !blink_hang_active {
+            clusters.kinematics.vel.y += tuning.gravity * water_gravity_scale * dt;
+        }
+        if input.fast_fall_pressed
+            && clusters.abilities.abilities.fast_fall
+            && !clusters.ground.on_ground
+        {
+            clusters.flight.fast_falling = true;
+        }
+        if clusters.flight.fast_falling
+            && !blink_hang_active
+            && clusters.env_contact.water.is_none()
+        {
+            clusters.kinematics.vel.y += tuning.fast_fall_accel * dt;
+        }
+        clusters.flight.gliding = clusters.abilities.abilities.glide
+            && !clusters.ground.on_ground
+            && !clusters.flight.fast_falling
+            && !blink_hang_active
+            && clusters.env_contact.water.is_none()
+            && input.jump_held
+            && clusters.kinematics.vel.y > 0.0;
+
+        if clusters.abilities.abilities.move_horizontal {
+            let accel = if clusters.ground.on_ground {
+                tuning.run_accel
+            } else if clusters.flight.gliding {
+                tuning.glide_air_accel
+            } else {
+                tuning.air_accel
+            };
+            let target_vx = input.axis_x * tuning.max_run_speed;
+            clusters.kinematics.vel.x =
+                approach(clusters.kinematics.vel.x, target_vx, accel * dt);
+            let friction = if clusters.ground.on_ground {
+                tuning.ground_friction
+            } else {
+                tuning.air_friction
+            };
+            if input.axis_x.abs() <= 0.1 {
+                clusters.kinematics.vel.x =
+                    approach(clusters.kinematics.vel.x, 0.0, friction * dt);
+            }
+        }
+
+        if let Some(contact) = clusters.env_contact.water {
+            let drag = contact.spec.drag.clamp(0.0, 1.0);
+            clusters.kinematics.vel.x *= 1.0 - drag;
+            clusters.kinematics.vel.y *= 1.0 - drag;
+            clusters.kinematics.vel.y =
+                clusters.kinematics.vel.y.min(contact.spec.max_fall_speed);
+        } else {
+            let fall_cap = if clusters.flight.fast_falling {
+                tuning.fast_fall_speed
+            } else if clusters.flight.gliding {
+                tuning.glide_fall_speed
+            } else {
+                tuning.max_fall_speed
+            };
+            clusters.kinematics.vel.y = clusters.kinematics.vel.y.min(fall_cap);
+        }
+    }
+
+    // Pre-X-sweep state.
+    clusters.wall.on_wall = false;
+    let pre_wall_snapshot = clusters.kinematics.vel;
+    clusters.wall.wall_normal_x = 0.0;
+    clusters.wall.wall_climbing = false;
+    let was_clinging = clusters.wall.wall_clinging;
+    clusters.wall.wall_clinging = false;
+
+    // X-sweep — last remaining scratchpad.
+    let dt_x = clusters.kinematics.vel.x * dt;
+    {
+        let mut player = clusters.to_player();
+        sweep_player_x(world, &mut player, dt_x);
+        clusters.write_from_player(player);
+    }
+
+    apply_wall_abilities_clusters(
+        clusters.kinematics,
+        clusters.ground,
+        clusters.wall,
+        clusters.abilities,
+        clusters.combo_trace,
+        input,
+        tuning,
+        was_clinging,
+        events,
+    );
+
+    // Pre-Y-sweep state.
+    let prev_bottom = clusters.kinematics.aabb().bottom();
+    clusters.ground.on_ground = false;
+    let drop_through = input.drop_through_pressed || clusters.ground.drop_through_timer > 0.0;
+    let dt_y = clusters.kinematics.vel.y * dt;
+    {
+        let mut player = clusters.to_player();
+        sweep_player_y(world, &mut player, dt_y, prev_bottom, drop_through);
+        clusters.write_from_player(player);
+    }
+
+    if clusters.ground.on_ground {
+        crate::engine_core::player_clusters::refresh_movement_resources_clusters(
+            clusters.abilities,
+            &mut *clusters.dash,
+            &mut *clusters.jump,
+            tuning,
+        );
+        clusters.blink.grace_timer = 0.0;
+        clusters.flight.fast_falling = false;
+        clusters.flight.gliding = false;
+        clusters.wall.wall_clinging = false;
+        clusters.wall.wall_climbing = false;
+        clusters.ground.drop_through_timer = 0.0;
+    }
+
+    if clusters.abilities.abilities.rebound && clusters.ground.rebound_cooldown <= 0.0 {
+        if let Some(impulse) = super::collision::touching_rebound_aabb(
+            world,
+            clusters.kinematics.aabb(),
+        ) {
+            clusters.kinematics.vel = impulse;
+            crate::engine_core::player_clusters::refresh_movement_resources_clusters(
+                clusters.abilities,
+                &mut *clusters.dash,
+                &mut *clusters.jump,
+                tuning,
+            );
+            clusters.ground.on_ground = false;
+            clusters.ground.rebound_cooldown = 0.18;
+            events.op_clusters(clusters.combo_trace, MovementOp::Rebound);
+        }
+    }
+
+    // End-of-integration: if the frame settled into airborne free
+    // flight, commit the pre-wall snapshot as the most recent valid
+    // `pre_wall_vel`.
+    if !clusters.ground.on_ground && !clusters.wall.wall_clinging {
+        clusters.wall.pre_wall_vel = pre_wall_snapshot;
+        clusters.wall.pre_wall_vel_age = 0.0;
+    }
+}
+
 pub(super) fn integrate_velocity(
     world: &World,
     player: &mut Player,

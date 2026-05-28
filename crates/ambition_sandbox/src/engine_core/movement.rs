@@ -307,15 +307,16 @@ pub fn update_player_control_with_clusters(
 
 /// Cluster-ref entry point for the simulation phase.
 ///
-/// Operates on cluster refs natively. As of 2026-05-28 only
-/// `integrate_velocity` (plus its deep sub-helpers — `integrate_climb`,
-/// `integrate_flight`, `apply_wall_abilities`, `sweep_player_x`,
-/// `sweep_player_y`, `touching_rebound`) still needs the
-/// `to_player` / `write_from_player` round-trip. Everything else
-/// — `handle_jump_buffer_clusters`, `try_start_ledge_grab_clusters`,
-/// `tick_active_ledge_grab_clusters`, the body-mode / blink / hazard
-/// passes — is cluster-native. Killing the last scratchpad deletes
-/// `ae::Player` outright.
+/// Operates on cluster refs natively. As of 2026-05-28 the only
+/// remaining `to_player` / `write_from_player` round-trips are
+/// scoped around the X and Y collision sweeps inside
+/// `integrate_velocity_clusters` (`sweep_player_x` /
+/// `sweep_player_y` still take `&mut Player` along with their inner
+/// helpers `resolve_axis`, `block_passable_during_climb`,
+/// `body_is_side_contact`). Everything else — the integrate-mode
+/// branches (climb / flight / normal physics), wall abilities,
+/// rebound, body-mode / blink / hazard / ledge-grab passes — is
+/// cluster-native. Porting the sweep helpers deletes `ae::Player`.
 pub fn update_player_simulation_with_clusters(
     world: &World,
     clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
@@ -412,9 +413,7 @@ pub fn update_player_simulation_with_clusters(
         &mut events,
     );
 
-    let mut player = clusters.to_player();
-    integration::integrate_velocity(world, &mut player, input, dt, tuning, &mut events);
-    clusters.write_from_player(player);
+    integration::integrate_velocity_clusters(world, clusters, input, dt, tuning, &mut events);
 
     // `try_start_ledge_grab_clusters` is cluster-native — no
     // scratchpad needed for this step (2026-05-28).

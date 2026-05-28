@@ -130,6 +130,7 @@ impl Plugin for GameplayEffectsSchedulePlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engine_core as ae;
 
     #[test]
     fn gameplay_effect_variants_remain_typed_and_orderable() {

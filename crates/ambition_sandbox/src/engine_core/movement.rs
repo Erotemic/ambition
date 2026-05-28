@@ -406,8 +406,16 @@ pub fn update_player_simulation_with_clusters(
 
     let mut player = clusters.to_player();
     integration::integrate_velocity(world, &mut player, input, dt, tuning, &mut events);
-    crate::engine_core::ledge_grab::try_start_ledge_grab(world, &mut player, input, &mut events);
     clusters.write_from_player(player);
+
+    // `try_start_ledge_grab_clusters` is cluster-native — no
+    // scratchpad needed for this step (2026-05-28).
+    crate::engine_core::ledge_grab::try_start_ledge_grab_clusters(
+        world,
+        clusters,
+        input,
+        &mut events,
+    );
 
     // Hazard reset — cluster-native.
     if collision::touching_hazard_aabb(world, clusters.kinematics.aabb())

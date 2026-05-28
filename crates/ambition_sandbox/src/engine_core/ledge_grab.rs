@@ -604,6 +604,23 @@ fn requested_wall_normal(player: &Player, input: InputState) -> Option<f32> {
     None
 }
 
+/// Cluster-native variant of [`requested_wall_normal`]. Reads
+/// `wall_clinging` / `wall_normal_x` / `on_ground` from cluster
+/// components so callers don't need to materialize an `ae::Player`.
+fn requested_wall_normal_clusters(
+    wall: &crate::engine_core::player_clusters::PlayerWallState,
+    ground: &crate::engine_core::player_clusters::PlayerGroundState,
+    input: InputState,
+) -> Option<f32> {
+    if wall.wall_clinging && wall.wall_normal_x.abs() >= 0.5 {
+        return Some(wall.wall_normal_x);
+    }
+    if !ground.on_ground && input.axis_x.abs() > 0.4 {
+        return Some(-input.axis_x.signum());
+    }
+    None
+}
+
 /// Probe for and start a new ledge grab after normal collision has established
 /// this frame's wall/airborne state. Returns true when a new grab latched.
 ///
@@ -785,6 +802,88 @@ pub fn try_start_ledge_grab(
 /// who is loitering near a ledge with no stick input doesn't get
 /// snagged on it by accident.
 const FALL_SNAP_MIN_VY: f32 = 80.0;
+
+/// Cluster-native variant of [`try_start_ledge_grab`]. Reads /
+/// writes the same player state via the cluster components on the
+/// player entity so the engine's `update_player_simulation_with_clusters`
+/// can drop one of its internal `to_player`/`write_from_player`
+/// round-trips.
+pub fn try_start_ledge_grab_clusters(
+    world: &World,
+    clusters: &mut crate::engine_core::player_clusters::PlayerClustersMut<'_>,
+    input: InputState,
+    events: &mut crate::engine_core::movement::FrameEvents,
+) -> bool {
+    if !clusters.abilities.abilities.ledge_grab
+        || clusters.ledge.grab.is_some()
+        || clusters.ground.on_ground
+    {
+        return false;
+    }
+    if clusters.ledge.release_cooldown > 0.0 {
+        return false;
+    }
+
+    let mut contact: Option<LedgeContact> = None;
+    if let Some(wall_normal) = requested_wall_normal_clusters(clusters.wall, clusters.ground, input)
+    {
+        contact = probe_ledge_grab(
+            clusters.kinematics.pos,
+            clusters.kinematics.size,
+            wall_normal,
+            world,
+        );
+    }
+    if contact.is_none() && clusters.kinematics.vel.y > FALL_SNAP_MIN_VY {
+        // Smash-style auto-snap during a falling recovery: try BOTH
+        // sides and snap to whichever has a grabbable lip in the chin
+        // band.
+        for trial_normal in [-1.0_f32, 1.0_f32] {
+            if let Some(found) = probe_ledge_grab(
+                clusters.kinematics.pos,
+                clusters.kinematics.size,
+                trial_normal,
+                world,
+            ) {
+                contact = Some(found);
+                break;
+            }
+        }
+    }
+    let Some(contact) = contact else {
+        return false;
+    };
+
+    let pre_wall_fresh = clusters.wall.pre_wall_vel_age <= LEDGE_REGRAB_COOLDOWN;
+    let momentum_at_grab = if pre_wall_fresh
+        && clusters.wall.pre_wall_vel.length_squared()
+            > clusters.kinematics.vel.length_squared()
+    {
+        clusters.wall.pre_wall_vel
+    } else {
+        clusters.kinematics.vel
+    };
+
+    clusters.kinematics.pos = contact.anchor;
+    clusters.kinematics.vel = Vec2::ZERO;
+    clusters.kinematics.facing = into_platform_axis(contact);
+    clusters.wall.wall_clinging = true;
+    clusters.wall.wall_climbing = false;
+    clusters.wall.on_wall = true;
+    clusters.wall.wall_normal_x = contact.wall_normal_x;
+    clusters.ledge.grab = Some(LedgeGrabState {
+        momentum_at_grab,
+        ..LedgeGrabState::hanging(contact)
+    });
+    // Smash-Bros style ledge intangibility: a brief invuln window on
+    // grab. Reuses `dodge_roll_timer` because that field already gates
+    // damage — same pipeline, single source of truth.
+    if clusters.dodge.roll_timer < LEDGE_GRAB_INVULN_TIME {
+        clusters.dodge.roll_timer = LEDGE_GRAB_INVULN_TIME;
+    }
+    events.op_clusters(clusters.combo_trace, MovementOp::LedgeGrab);
+    true
+}
 
 #[cfg(test)]
 mod tests {

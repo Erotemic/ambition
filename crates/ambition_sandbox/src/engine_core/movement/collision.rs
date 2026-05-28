@@ -47,8 +47,11 @@ pub(super) fn body_is_side_contact(body: Aabb, block: Aabb) -> bool {
     body.top() >= block.top() - Y_NESTED_EPS && body.bottom() <= block.bottom() + Y_NESTED_EPS
 }
 
-/// Cluster-native X-axis sweep. Mirrors [`sweep_player_x_clusters`] field-for-
-/// field but writes through cluster components.
+/// Swept-AABB X-axis collision step. Shape-casts the player body
+/// against the world by `delta_x`; on a TOI hit, snaps to the touch
+/// face and zeros `vel.x` / arms `wall.on_wall`. Falls back to the
+/// positional `resolve_axis_clusters` repair for stacked contacts or
+/// pre-existing penetrations.
 pub(super) fn sweep_player_x_clusters(
     world: &World,
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
@@ -104,8 +107,11 @@ pub(super) fn sweep_player_x_clusters(
     resolve_axis_clusters(world, kinematics, wall, body_mode, env_contact, Axis::X);
 }
 
-/// Cluster-native Y-axis sweep. Mirrors [`sweep_player_y`] field-for-
-/// field but writes through cluster components.
+/// Swept-AABB Y-axis collision step. Handles the OneWay
+/// landing-from-above gate, rejects pre-existing penetrations + wall-
+/// cling-side contacts (the y-sweep can't resolve those), and snaps
+/// to a TOI hit. Falls back to `resolve_vertical_clusters` for the
+/// positional repair.
 pub(super) fn sweep_player_y_clusters(
     world: &World,
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,

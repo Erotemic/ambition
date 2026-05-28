@@ -116,14 +116,13 @@ impl RoomSet {
 
     pub fn transition_for_player(
         &self,
-        player: &ae::Player,
+        player_aabb: ae::Aabb,
         wants_interact: bool,
     ) -> Option<RoomTransition> {
-        let body = player.aabb();
         let zone = self
             .active_loading_zones()
             .iter()
-            .find(|zone| body.strict_intersects(zone.aabb) && zone.is_ready(wants_interact))?
+            .find(|zone| player_aabb.strict_intersects(zone.aabb) && zone.is_ready(wants_interact))?
             .clone();
         self.transition_from_zone(zone)
     }

@@ -303,12 +303,10 @@ pub fn detect_room_transition_system(
     let Ok((mut cluster_item, mut interaction)) = player_q.single_mut() else {
         return;
     };
-    // The transition predicate takes a full `&ae::Player`. Phase 3
-    // will refactor it to take only the kinematics + interaction
-    // state it actually needs; for now assemble a scratchpad.
     let clusters = cluster_item.as_clusters_mut();
-    let player = clusters.to_player();
-    let Some(zone) = room_set.transition_for_player(&player, interaction.buffered()) else {
+    let Some(zone) =
+        room_set.transition_for_player(clusters.kinematics.aabb(), interaction.buffered())
+    else {
         return;
     };
     // Portal check: if this zone is registered as a portal, the

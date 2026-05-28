@@ -378,7 +378,6 @@ pub(super) fn integrate_velocity(
 }
 
 /// Cluster-native variant of [`integrate_climb`].
-#[allow(dead_code)]
 pub(super) fn integrate_climb_clusters(
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
     env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
@@ -404,7 +403,6 @@ pub(super) fn integrate_climb_clusters(
 }
 
 /// Cluster-native variant of [`integrate_flight`].
-#[allow(dead_code)]
 pub(super) fn integrate_flight_clusters(
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
     flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
@@ -549,11 +547,6 @@ fn apply_wall_abilities(
 /// Cluster-native variant of [`apply_wall_abilities`]. Field-for-field
 /// translation reading / writing through cluster components.
 ///
-/// Currently unused — sister to the in-flight `integrate_velocity`
-/// cluster migration. The wrapping `integrate_velocity_clusters`
-/// hasn't been written yet, so this stays opted out of the
-/// dead-code lint until it has a caller.
-#[allow(dead_code)]
 pub(super) fn apply_wall_abilities_clusters(
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
     ground: &crate::engine_core::player_clusters::PlayerGroundState,

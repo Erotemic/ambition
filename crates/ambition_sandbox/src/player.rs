@@ -6,9 +6,11 @@
 //!
 //! Submodules:
 //! - [`components`] — the per-frame ECS components on the player entity.
-//! - [`movement_components`] — Phase 1 cluster components that will replace
-//!   the live `PlayerMovementAuthority` aggregate (see
-//!   `docs/planning/player-ecs-bandaid-phase0.md`).
+//! - [`movement_components`] — re-exports of the 18 player cluster
+//!   components from [`crate::engine_core::player_clusters`]. These
+//!   replaced the (now-deleted) `PlayerMovementAuthority` /
+//!   `PlayerBody` aggregates in the cluster-native migration
+//!   (finalized 2026-05-28).
 //! - [`bundles`]    — [`PlayerSimulationBundle`] for spawning a sim-side player.
 //! - [`events`]     — player-domain message types.
 //! - [`systems`]    — frame systems that read or sync the player components.

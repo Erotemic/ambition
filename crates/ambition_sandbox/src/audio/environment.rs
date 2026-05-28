@@ -64,8 +64,8 @@ pub enum AudioEnvironmentMode {
 
 /// ECS resource describing "what should the world sound like right
 /// now". `target` is set by gameplay (typically
-/// [`detect_audio_environment`] reading
-/// [`crate::player::PlayerMovementAuthority`]'s `player.water_contact`).
+/// [`detect_audio_environment`] reading the player's
+/// [`crate::player::PlayerEnvironmentContact::water`] cluster field).
 /// `wetness` is smoothed toward `target_wetness()` by
 /// [`smooth_audio_environment`] using wall-clock dt, so the transition
 /// keeps progressing while the world is paused or in bullet-time

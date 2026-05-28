@@ -1440,7 +1440,7 @@ mod tests {
     /// Sanity: OverfitVolley consumer with a seeded sample fires
     /// projectiles on the strike tick.
     ///
-    /// Building a real `PlayerBody` for this test is heavyweight
+    /// Building a real player entity for this test is heavyweight
     /// (drags the entire player module in). Instead we seed
     /// samples directly into `OverfitVolleyState` to simulate the
     /// telegraph having already happened, then drive one strike
@@ -1455,9 +1455,9 @@ mod tests {
         app.add_message::<ActorActionMessage>();
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<WorldTime>();
-        // We can't easily build a real player body without
+        // We can't easily build a real player entity without
         // dragging in PlayerPlugin. Reproduce the bolts via a
-        // narrower fixture system that doesn't query PlayerBody —
+        // narrower fixture system that doesn't query the player —
         // we exercise the bolts-from-seeded-samples branch by
         // calling spawn_overfit_volley_from_special_messages with
         // a Query that returns no player. The seed-on-telegraph
@@ -1551,7 +1551,7 @@ mod tests {
 
     /// MinimaTrap consumer spawns a World-anchored hitbox at a
     /// position when the Special message arrives. We can't easily
-    /// fetch the player position without a full PlayerBody, but
+    /// fetch the player position without a full player entity, but
     /// the consumer falls back to the boss position when no player
     /// is found — that's the path this test exercises.
     #[test]

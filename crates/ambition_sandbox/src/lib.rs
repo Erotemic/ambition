@@ -7,7 +7,8 @@
 //! (`GameWorld`, `SandboxSimState`, `SandboxDevState`) that submodules reference
 //! via `crate::*`.
 //!
-//! Player state is authoritative on the `PlayerMovementAuthority` ECS component.
+//! Player state is authoritative on the 18 player cluster components
+//! (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`).
 //! Do not introduce a god-object runtime resource; add narrow resources or ECS
 //! components instead.
 //!

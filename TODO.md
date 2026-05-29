@@ -27,6 +27,8 @@ Useful companion docs:
 
 When you wake up here, pick the next task from this list and work on it without asking permission. Honor the long-running discipline (`[[never-stop-during-long-run]]` in memory): never stop until the time limit, even if the headline task feels finished — there's always more on this file. When you do close a task, leave this instruction in place so the next agent finds it.
 
+- [ ] The roll ledge recovery does a mostly diagnoal move in its current state and we don't want this, the roll needs to use a curved trajectory to get onto the platform and then perform the roll smoothly. 
+
 - [ ] Develop a Boss to flex / force the player / boss unification code (do a new boss with a more humanoid or maybe bipedal character like the trex).
 
 - [ ] Develop an NPC to flex / force the player / boss unification code (do this with Alice).

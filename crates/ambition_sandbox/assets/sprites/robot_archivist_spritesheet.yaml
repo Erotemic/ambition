@@ -513,10 +513,10 @@ body_metrics:
     walk:
       hurtbox:
         bbox:
-          x: 22
-          y: 0
-          w: 70
-          h: 105
+          x: 21
+          y: 1
+          w: 72
+          h: 104
     talk:
       hurtbox:
         bbox:

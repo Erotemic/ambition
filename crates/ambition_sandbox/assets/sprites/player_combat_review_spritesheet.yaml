@@ -952,17 +952,17 @@ body_metrics:
     walk:
       hurtbox:
         bbox:
-          x: 28
+          x: 27
           y: 0
-          w: 72
+          w: 74
           h: 106
     run:
       hurtbox:
         bbox:
-          x: 27
+          x: 26
           y: 0
-          w: 74
-          h: 107
+          w: 77
+          h: 105
     jump:
       hurtbox:
         bbox:

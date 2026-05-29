@@ -460,7 +460,7 @@ body_metrics:
         bbox:
           x: 11
           y: 0
-          w: 76
+          w: 77
           h: 107
     talk:
       hurtbox:

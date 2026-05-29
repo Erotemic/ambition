@@ -345,10 +345,10 @@ body_metrics:
     walk:
       hurtbox:
         bbox:
-          x: 12
+          x: 11
           y: 0
-          w: 77
-          h: 110
+          w: 80
+          h: 109
     block:
       hurtbox:
         bbox:

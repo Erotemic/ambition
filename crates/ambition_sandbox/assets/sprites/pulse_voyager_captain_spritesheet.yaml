@@ -448,15 +448,15 @@ body_metrics:
         bbox:
           x: 5
           y: 0
-          w: 87
+          w: 88
           h: 106
     run:
       hurtbox:
         bbox:
           x: 4
           y: 0
-          w: 89
-          h: 107
+          w: 91
+          h: 105
     talk:
       hurtbox:
         bbox:

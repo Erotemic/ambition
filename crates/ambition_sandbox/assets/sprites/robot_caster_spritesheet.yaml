@@ -603,17 +603,17 @@ body_metrics:
     walk:
       hurtbox:
         bbox:
-          x: 22
+          x: 21
           y: 0
-          w: 78
+          w: 80
           h: 105
     run:
       hurtbox:
         bbox:
-          x: 22
+          x: 21
           y: 0
-          w: 79
-          h: 106
+          w: 81
+          h: 105
     aim:
       hurtbox:
         bbox:

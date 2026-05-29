@@ -467,16 +467,16 @@ body_metrics:
     walk:
       hurtbox:
         bbox:
-          x: 29
+          x: 28
           y: 0
-          w: 89
+          w: 91
           h: 105
     run:
       hurtbox:
         bbox:
-          x: 29
+          x: 28
           y: 0
-          w: 90
+          w: 92
           h: 105
     crouch:
       hurtbox:

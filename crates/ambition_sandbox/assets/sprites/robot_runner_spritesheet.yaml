@@ -13,7 +13,7 @@ tags:
 - runner
 sheet_tuning: null
 frame_width: 105
-frame_height: 108
+frame_height: 107
 label_width: 120
 border: 0
 spec:
@@ -49,234 +49,234 @@ animations:
       x: 120
       y: 0
       w: 105
-      h: 108
+      h: 107
       duration_ms: 120
     - index: 1
       x: 225
       y: 0
       w: 105
-      h: 108
+      h: 107
       duration_ms: 120
     - index: 2
       x: 330
       y: 0
       w: 105
-      h: 108
+      h: 107
       duration_ms: 120
     - index: 3
       x: 435
       y: 0
       w: 105
-      h: 108
+      h: 107
       duration_ms: 120
     - index: 4
       x: 540
       y: 0
       w: 105
-      h: 108
+      h: 107
       duration_ms: 120
     - index: 5
       x: 645
       y: 0
       w: 105
-      h: 108
+      h: 107
       duration_ms: 120
     - index: 6
       x: 750
       y: 0
       w: 105
-      h: 108
+      h: 107
       duration_ms: 120
     - index: 7
       x: 855
       y: 0
       w: 105
-      h: 108
+      h: 107
       duration_ms: 120
     duration_ms: 120
   run:
     frames:
     - index: 0
       x: 120
-      y: 108
+      y: 107
       w: 105
-      h: 108
+      h: 107
       duration_ms: 75
     - index: 1
       x: 225
-      y: 108
+      y: 107
       w: 105
-      h: 108
+      h: 107
       duration_ms: 75
     - index: 2
       x: 330
-      y: 108
+      y: 107
       w: 105
-      h: 108
+      h: 107
       duration_ms: 75
     - index: 3
       x: 435
-      y: 108
+      y: 107
       w: 105
-      h: 108
+      h: 107
       duration_ms: 75
     - index: 4
       x: 540
-      y: 108
+      y: 107
       w: 105
-      h: 108
+      h: 107
       duration_ms: 75
     - index: 5
       x: 645
-      y: 108
+      y: 107
       w: 105
-      h: 108
+      h: 107
       duration_ms: 75
     - index: 6
       x: 750
-      y: 108
+      y: 107
       w: 105
-      h: 108
+      h: 107
       duration_ms: 75
     - index: 7
       x: 855
-      y: 108
+      y: 107
       w: 105
-      h: 108
+      h: 107
       duration_ms: 75
     duration_ms: 75
   dash:
     frames:
     - index: 0
       x: 120
-      y: 216
+      y: 214
       w: 105
-      h: 108
+      h: 107
       duration_ms: 65
     - index: 1
       x: 225
-      y: 216
+      y: 214
       w: 105
-      h: 108
+      h: 107
       duration_ms: 65
     - index: 2
       x: 330
-      y: 216
+      y: 214
       w: 105
-      h: 108
+      h: 107
       duration_ms: 65
     - index: 3
       x: 435
-      y: 216
+      y: 214
       w: 105
-      h: 108
+      h: 107
       duration_ms: 65
     - index: 4
       x: 540
-      y: 216
+      y: 214
       w: 105
-      h: 108
+      h: 107
       duration_ms: 65
     - index: 5
       x: 645
-      y: 216
+      y: 214
       w: 105
-      h: 108
+      h: 107
       duration_ms: 65
     duration_ms: 65
   wall_jump:
     frames:
     - index: 0
       x: 120
-      y: 324
+      y: 321
       w: 105
-      h: 108
+      h: 107
       duration_ms: 85
     - index: 1
       x: 225
-      y: 324
+      y: 321
       w: 105
-      h: 108
+      h: 107
       duration_ms: 85
     - index: 2
       x: 330
-      y: 324
+      y: 321
       w: 105
-      h: 108
+      h: 107
       duration_ms: 85
     - index: 3
       x: 435
-      y: 324
+      y: 321
       w: 105
-      h: 108
+      h: 107
       duration_ms: 85
     - index: 4
       x: 540
-      y: 324
+      y: 321
       w: 105
-      h: 108
+      h: 107
       duration_ms: 85
     - index: 5
       x: 645
-      y: 324
+      y: 321
       w: 105
-      h: 108
+      h: 107
       duration_ms: 85
     duration_ms: 85
   swim:
     frames:
     - index: 0
       x: 120
-      y: 432
+      y: 428
       w: 105
-      h: 108
+      h: 107
       duration_ms: 105
     - index: 1
       x: 225
-      y: 432
+      y: 428
       w: 105
-      h: 108
+      h: 107
       duration_ms: 105
     - index: 2
       x: 330
-      y: 432
+      y: 428
       w: 105
-      h: 108
+      h: 107
       duration_ms: 105
     - index: 3
       x: 435
-      y: 432
+      y: 428
       w: 105
-      h: 108
+      h: 107
       duration_ms: 105
     - index: 4
       x: 540
-      y: 432
+      y: 428
       w: 105
-      h: 108
+      h: 107
       duration_ms: 105
     - index: 5
       x: 645
-      y: 432
+      y: 428
       w: 105
-      h: 108
+      h: 107
       duration_ms: 105
     - index: 6
       x: 750
-      y: 432
+      y: 428
       w: 105
-      h: 108
+      h: 107
       duration_ms: 105
     - index: 7
       x: 855
-      y: 432
+      y: 428
       w: 105
-      h: 108
+      h: 107
       duration_ms: 105
     duration_ms: 105
 body_metrics:
   frame_width: 105
-  frame_height: 108
+  frame_height: 107
   body_pixel_bbox:
     x: 10
     y: 0
@@ -287,7 +287,7 @@ body_metrics:
     y: 104.0
   feet_anchor_norm:
     x: -0.01428571428571429
-    y: -0.4629629629629629
+    y: -0.4719626168224299
   animations:
     idle:
       hurtbox:
@@ -299,10 +299,10 @@ body_metrics:
     run:
       hurtbox:
         bbox:
-          x: 9
+          x: 8
           y: 0
-          w: 87
-          h: 106
+          w: 90
+          h: 105
     dash:
       hurtbox:
         bbox:

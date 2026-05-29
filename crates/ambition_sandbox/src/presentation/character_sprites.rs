@@ -48,11 +48,15 @@ pub use assets::{
 };
 #[allow(unused_imports)]
 pub use registry::{SheetRecord, SheetRegistry};
+#[allow(
+    unused_imports,
+    reason = "Public sheet constants are consumed by tests and future spawn-site callers."
+)]
 pub use sheets::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
     feet_anchor_for_render_size, player_placeholder_render_size, sprite_render_size,
     CharacterSheetSpec, ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CREATOR_SHEET,
-    ERDISH_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET, LAB_PROP_GENESIS_VAT,
-    LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE, LAB_PROP_RESONANCE_COIL,
-    NEWS_BOARD_SHEET, OILER_SHEET, RAID_ENFORCER_SHEET,
+    ERDISH_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET,
+    LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
+    LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET, OILER_SHEET, RAID_ENFORCER_SHEET,
 };

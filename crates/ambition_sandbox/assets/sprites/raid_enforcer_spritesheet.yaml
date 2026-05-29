@@ -8,12 +8,7 @@ held_item: null
 faction: null
 role: enemy
 music_cue: null
-tags:
-- story
-- humanoid
-- enemy
-- combatant
-- authoritarian
+tags: []
 sheet_tuning: null
 frame_width: 128
 frame_height: 122

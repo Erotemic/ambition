@@ -1024,16 +1024,16 @@ body_metrics:
     walk:
       hurtbox:
         bbox:
-          x: 19
+          x: 18
           y: 0
-          w: 81
+          w: 83
           h: 105
     run:
       hurtbox:
         bbox:
-          x: 18
+          x: 17
           y: 0
-          w: 83
+          w: 85
           h: 105
     jump:
       hurtbox:
@@ -1160,7 +1160,7 @@ body_metrics:
           x: 20
           y: 0
           w: 80
-          h: 111
+          h: 128
     stomp:
       hurtbox:
         bbox:

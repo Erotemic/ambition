@@ -17,9 +17,9 @@ use ambition_asset_manager::AssetId;
 
 use crate::presentation::character_sprites::{
     CharacterSheetSpec, ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CREATOR_SHEET,
-    ERDISH_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET, LAB_PROP_GENESIS_VAT,
-    LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE, LAB_PROP_RESONANCE_COIL,
-    NEWS_BOARD_SHEET, OILER_SHEET, RAID_ENFORCER_SHEET,
+    ERDISH_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET,
+    LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
+    LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET, OILER_SHEET,
 };
 
 /// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
@@ -55,20 +55,12 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(
     // `name: Erdish` is authored in a later room), but pre-registered
     // so the sprite is ready the moment LDtk authoring catches up.
     ("Erdish", "erdish_spritesheet.png", &ERDISH_SHEET),
-    // Lab Raider: generic intro pressure enemy. Reuses the uniformed
-    // raid-grunt sheet until dedicated intro enemy art lands.
-    (
-        "Lab Raider",
-        "raid_enforcer_spritesheet.png",
-        &RAID_ENFORCER_SHEET,
-    ),
+    // Lab Raider: generic intro pressure enemy. Uses the goblin sheet
+    // for now while the act 1 faction identity settles.
+    ("Lab Raider", "goblin_spritesheet.png", &GOBLIN_SHEET),
     // Salvage Guard: second generic intro pressure enemy. Shares the
-    // temporary raid-grunt sheet so the intro stays content-driven.
-    (
-        "Salvage Guard",
-        "raid_enforcer_spritesheet.png",
-        &RAID_ENFORCER_SHEET,
-    ),
+    // same goblin fallback so the intro stays content-driven.
+    ("Salvage Guard", "goblin_spritesheet.png", &GOBLIN_SHEET),
     // Manifest clerk: bureaucratic kiosk operator. Architect sheet
     // reads as "person at a podium pointing at things."
     (

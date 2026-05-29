@@ -571,9 +571,9 @@ body_metrics:
     walk:
       hurtbox:
         bbox:
-          x: 12
+          x: 11
           y: 0
-          w: 71
+          w: 73
           h: 105
     interact:
       hurtbox:

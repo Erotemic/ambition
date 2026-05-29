@@ -521,8 +521,8 @@
         ),
         "npc_lab_raider": (
             display_name: "Lab Raider",
-            spritesheet: "sprites/raid_enforcer_spritesheet.png",
-            manifest: "sprites/raid_enforcer_spritesheet.ron",
+            spritesheet: "sprites/goblin_spritesheet.png",
+            manifest: "sprites/goblin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -532,8 +532,8 @@
         ),
         "npc_salvage_guard": (
             display_name: "Salvage Guard",
-            spritesheet: "sprites/raid_enforcer_spritesheet.png",
-            manifest: "sprites/raid_enforcer_spritesheet.ron",
+            spritesheet: "sprites/goblin_spritesheet.png",
+            manifest: "sprites/goblin_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,

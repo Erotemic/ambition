@@ -7,7 +7,7 @@
     label_width: 120,
     frame_width: 110,
     frame_height: 128,
-    body_metrics: Some((body_pixel_bbox: Some((x: 6, y: 0, w: 84, h: 105)), feet_pixel: Some((x: 47.5, y: 104.0)), feet_anchor_norm: Some((x: -0.06818181818181818, y: -0.3125)), animations: {"celebrate": (hurtbox: Some((bbox: Some((x: 6, y: 0, w: 85, h: 104))))), "dash": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 97, h: 98))))), "death": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 106, h: 128))))), "hit": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 88, h: 106))))), "idle": (hurtbox: Some((bbox: Some((x: 6, y: 0, w: 84, h: 105))))), "run": (hurtbox: Some((bbox: Some((x: 4, y: 0, w: 89, h: 107))))), "talk": (hurtbox: Some((bbox: Some((x: 6, y: 0, w: 85, h: 105))))), "walk": (hurtbox: Some((bbox: Some((x: 5, y: 0, w: 87, h: 106)))))})),
+    body_metrics: Some((body_pixel_bbox: Some((x: 6, y: 0, w: 84, h: 105)), feet_pixel: Some((x: 47.5, y: 104.0)), feet_anchor_norm: Some((x: -0.06818181818181818, y: -0.3125)), animations: {"celebrate": (hurtbox: Some((bbox: Some((x: 6, y: 0, w: 85, h: 104))))), "dash": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 97, h: 98))))), "death": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 106, h: 128))))), "hit": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 88, h: 106))))), "idle": (hurtbox: Some((bbox: Some((x: 6, y: 0, w: 84, h: 105))))), "run": (hurtbox: Some((bbox: Some((x: 4, y: 0, w: 91, h: 105))))), "talk": (hurtbox: Some((bbox: Some((x: 6, y: 0, w: 85, h: 105))))), "walk": (hurtbox: Some((bbox: Some((x: 5, y: 0, w: 88, h: 106)))))})),
     rows: [
     (
         animation: "idle",

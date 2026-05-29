@@ -474,17 +474,17 @@ body_metrics:
     walk:
       hurtbox:
         bbox:
-          x: 12
-          y: 0
-          w: 71
-          h: 105
+          x: 11
+          y: 1
+          w: 73
+          h: 104
     run:
       hurtbox:
         bbox:
-          x: 12
-          y: 0
-          w: 72
-          h: 105
+          x: 11
+          y: 1
+          w: 75
+          h: 104
     interact:
       hurtbox:
         bbox:

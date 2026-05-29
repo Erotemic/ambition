@@ -376,119 +376,27 @@ mod conversion_tests {
         );
     }
 
-    fn enemy_test_world() -> ae::World {
-        ae::World::new(
-            String::from("enemy_ai_test"),
-            ae::Vec2::new(800.0, 600.0),
-            ae::Vec2::new(100.0, 100.0),
-            vec![ae::Block::solid(
-                String::from("floor"),
-                ae::Vec2::new(0.0, 560.0),
-                ae::Vec2::new(800.0, 40.0),
-            )],
-        )
-    }
+    // `enemy_test_world` was deleted alongside the legacy AI tests
+    // that consumed it. The remaining patrol-collision test builds
+    // its own collision world inline.
 
     fn enemy_aabb(pos: ae::Vec2) -> ae::Aabb {
         ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0))
     }
 
-    #[test]
-    fn enemy_ai_output_drives_chase_motion() {
-        let world = enemy_test_world();
-        let aabb = enemy_aabb(ae::Vec2::new(100.0, 536.0));
-        let mut enemy = EnemyRuntime::new(
-            "skitter",
-            "skitter",
-            aabb,
-            crate::actor::EnemyBrain::Custom("small_skitter".into()),
-            &[],
-        );
-        // Newly spawned enemies carry a short spawn grace cooldown.
-        // Clear it here so this test isolates the CharacterAI Chase
-        // decision rather than the recovery/spawn-grace state.
-        enemy.attack_cooldown = 0.0;
-        let mut player = crate::player::primary_player_scratch(
-            ae::Vec2::new(240.0, 536.0),
-            ae::AbilitySet::sandbox_all(),
-        );
-        player.kinematics.size = ae::Vec2::new(28.0, 46.0);
-        enemy.update(
-            &world,
-            player.kinematics.pos,
-            FeatureCombatTuning::default(),
-            Some(player.kinematics.pos),
-            None,
-            0.05,
-            None,
-        );
-        assert_eq!(enemy.ai_mode, crate::character_ai::CharacterAiMode::Chase);
-        assert!(
-            enemy.vel.x > 0.0,
-            "CharacterAI Chase intent should drive rightward motion"
-        );
-    }
+    // `enemy_ai_output_drives_chase_motion` was deleted with the
+    // brain-authority GC pass that dropped the legacy
+    // `build_control_frame` choreography path. Chase motion now
+    // comes from the brain's tick output, not from
+    // `evaluate_character_ai_output`; brain-side tick equivalence
+    // lives in `crate::brain::state_machine` tests.
 
-    #[test]
-    fn path_enemy_holds_patrol_and_starts_attack_from_character_ai_output() {
-        let world = enemy_test_world();
-        let aabb = enemy_aabb(ae::Vec2::new(100.0, 536.0));
-        let path = crate::actor::KinematicPath {
-            points: vec![ae::Vec2::new(100.0, 536.0), ae::Vec2::new(260.0, 536.0)],
-            speed: 120.0,
-            mode: crate::actor::KinematicPathMode::PingPong,
-            start_offset_seconds: 0.0,
-        };
-        let paths = vec![("skitter_path".to_string(), path)];
-        let mut enemy = EnemyRuntime::new(
-            "path_skitter",
-            "path_skitter",
-            aabb,
-            crate::actor::EnemyBrain::Patrol {
-                path_id: Some("skitter_path".into()),
-            },
-            &paths,
-        );
-        // Clear the spawn grace cooldown so the path enemy can enter
-        // Telegraph immediately when the player is already in range.
-        enemy.attack_cooldown = 0.0;
-        let mut player = crate::player::primary_player_scratch(
-            ae::Vec2::new(130.0, 536.0),
-            ae::AbilitySet::sandbox_all(),
-        );
-        player.kinematics.size = ae::Vec2::new(28.0, 46.0);
-        // Post-actor-brain-migration: `enemy.update()` returns the
-        // intent frame; the EFFECTS-stage consumer
-        // `start_enemy_melee_from_brain_actions` reads
-        // `ActorActionMessage::Melee` and calls `begin_melee_attack`.
-        // Here we drive both halves directly to keep the test as a
-        // unit test rather than a full-pipeline integration test.
-        let frame = enemy.update(
-            &world,
-            player.kinematics.pos,
-            FeatureCombatTuning::default(),
-            Some(player.kinematics.pos),
-            None,
-            0.10,
-            None,
-        );
-        assert!(
-            frame.melee_pressed,
-            "intent frame must request a melee when the player is in range"
-        );
-        let started = enemy.begin_melee_attack(
-            FeatureCombatTuning::default(),
-            ae::Vec2::new(1.0, 0.0),
-        );
-        assert!(started, "begin_melee_attack should accept the intent");
-        assert_eq!(enemy.ai_mode, crate::character_ai::CharacterAiMode::Telegraph);
-        assert!(enemy.attack_windup_timer > 0.0);
-        assert_eq!(
-            enemy.pos,
-            ae::Vec2::new(100.0, 536.0),
-            "path patrol must hold when CharacterAI requests an attack"
-        );
-    }
+    // `path_enemy_holds_patrol_and_starts_attack_from_character_ai_output`
+    // was deleted with the brain-authority GC pass. Path patrol +
+    // melee-pressed routing now comes from the brain frame; the
+    // integration's job is just to react to whatever frame the
+    // brain emits. Brain-side coverage for path patrol lives in
+    // `crate::brain::state_machine::tick_patrol` tests.
 
     /// `reset_to_spawn` must restore a morphed PirateOnShark back to
     /// its original fused archetype with the right size, gravity,
@@ -606,15 +514,20 @@ mod conversion_tests {
         );
         enemy.attack_cooldown = 0.0;
         let player_pos = ae::Vec2::new(500.0, 300.0);
+        // Drive the enemy directly with a brain-shaped frame
+        // requesting rightward motion at chase speed — the test
+        // verifies the integration step blocks the body against
+        // the wall, not the choreography that picks the velocity.
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        frame.desired_vel = ae::Vec2::new(enemy.archetype.chase_speed(), 0.0);
         for _ in 0..120 {
             enemy.update(
                 &world,
                 player_pos,
                 FeatureCombatTuning::default(),
-                Some(player_pos),
                 None,
                 1.0 / 60.0,
-                None,
+                frame,
             );
         }
         let half_w = enemy.size.x * 0.5;
@@ -670,15 +583,19 @@ mod conversion_tests {
         );
         enemy.attack_cooldown = 0.0;
         let player_pos_far = ae::Vec2::new(2000.0, 536.0);
+        // Drive directly with a brain-shaped frame requesting
+        // rightward patrol motion — the test verifies the
+        // integration step blocks the body against the wall.
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        frame.desired_vel = ae::Vec2::new(enemy.archetype.patrol_speed(), 0.0);
         for _ in 0..120 {
             enemy.update(
                 &world,
                 player_pos_far,
                 FeatureCombatTuning::default(),
-                Some(player_pos_far),
                 None,
                 1.0 / 60.0,
-                None,
+                frame,
             );
         }
         let half_w = enemy.size.x * 0.5;
@@ -691,57 +608,12 @@ mod conversion_tests {
         );
     }
 
-    /// When a PirateOnShark fires, the projectile spawn must:
-    ///   1. carry an owner_id with the `lasersword:` prefix so the
-    ///      visuals layer renders it with the laser-sword sprite, and
-    ///   2. originate from the rider's hand (NOT the enemy centre)
-    ///      so the muzzle flash and the projectile track the visible
-    ///      gun-sword. The projectile spawn + origin + owner_id are
-    ///      pinned in the EFFECTS consumer test
-    ///      `spawn_enemy_projectiles_from_brain_actions::tests::*`;
-    ///      here we pin the INTENT — the runtime's per-tick frame
-    ///      eventually carries `fire = Some(...)`.
-    #[test]
-    fn pirate_on_shark_fire_intent_lands_on_actor_control_frame() {
-        let world = enemy_test_world();
-        let aabb = ae::Aabb::new(ae::Vec2::new(300.0, 300.0), ae::Vec2::new(14.0, 23.0));
-        let mut enemy = EnemyRuntime::new(
-            "shark_a",
-            "Burning Flying Shark",
-            aabb,
-            crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
-            &[],
-        );
-        assert_eq!(enemy.archetype, EnemyArchetype::PirateOnShark);
-        enemy.attack_cooldown = 0.0;
-        let player_pos = ae::Vec2::new(500.0, 300.0);
-        let mut fire_seen = false;
-        // Drive long enough that the orbit-and-fire choreography
-        // emits at least one shot (`fire_interval` is 1.4s).
-        for _ in 0..200 {
-            let frame = enemy.update(
-                &world,
-                player_pos,
-                FeatureCombatTuning::default(),
-                Some(player_pos),
-                None,
-                1.0 / 60.0,
-                None,
-            );
-            if let Some(req) = frame.fire {
-                // Player is to the right; fire direction should be +x.
-                assert!(
-                    req.dir.x > 0.0,
-                    "fire dir should point at player (+x), got {}",
-                    req.dir.x
-                );
-                fire_seen = true;
-                break;
-            }
-        }
-        assert!(
-            fire_seen,
-            "no fire intent in 200 ticks — choreography may have changed"
-        );
-    }
+    // `pirate_on_shark_fire_intent_lands_on_actor_control_frame`
+    // was deleted with the brain-authority GC pass. Fire intent now
+    // comes from the brain's tick output, not the legacy orbit-and-
+    // fire choreography that lived inside `build_control_frame`.
+    // The EFFECTS-consumer test
+    // `spawn_enemy_projectiles_from_brain_actions::tests::*` still
+    // covers the projectile spawn shape; brain-side fire-intent
+    // generation belongs in the relevant brain backend's tests.
 }

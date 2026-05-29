@@ -50,42 +50,6 @@ impl PathMotion {
         pos
     }
 
-    /// Where the path would steer the actor across `dt` seconds, without
-    /// mutating the cursor. Used by the brain stage to derive a desired
-    /// velocity that the integration stage feeds into `step_kinematic`.
-    pub(super) fn lookahead(&self, mut pos: ae::Vec2, dt: f32) -> ae::Vec2 {
-        if !self.path.is_valid() || dt <= 0.0 {
-            return pos;
-        }
-        let last_segment = self.path.points.len().saturating_sub(2);
-        let mut segment = self.segment;
-        let mut dir = self.dir;
-        let mut remaining = self.path.speed * dt;
-        while remaining > 0.0 {
-            let target_index = if dir >= 0 { segment + 1 } else { segment };
-            let Some(target) = self.path.points.get(target_index).copied() else {
-                break;
-            };
-            let to_target = target - pos;
-            let distance = to_target.length();
-            if distance <= 0.001 {
-                if !lookahead_advance(&mut segment, &mut dir, last_segment, self.path.mode) {
-                    break;
-                }
-                continue;
-            }
-            let step = remaining.min(distance);
-            pos += to_target / distance * step;
-            remaining -= step;
-            if step >= distance - 0.001
-                && !lookahead_advance(&mut segment, &mut dir, last_segment, self.path.mode)
-            {
-                break;
-            }
-        }
-        pos
-    }
-
     pub(super) fn advance_segment(&mut self) {
         let last_segment = self.path.points.len().saturating_sub(2);
         lookahead_advance(

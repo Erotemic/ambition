@@ -74,8 +74,17 @@ pub struct EnemyRuntime {
     pub gravity_scale: f32,
     /// Authored attack choreography. `MeleeContact` for legacy
     /// enemies; the pirate-sky archetypes use volley/orbit/dive.
+    ///
+    /// Dead storage today — the legacy `build_control_frame`
+    /// choreography path inside `update` was deleted in the brain-
+    /// authority GC pass. The field is preserved so spawn paths
+    /// still compile; a future cleanup pass can drop it once we're
+    /// confident no consumer needs the archetype's choreography
+    /// hint for animation routing.
     pub choreography: crate::attack_choreography::AttackChoreography,
     /// Persistent per-tick state for the choreography evaluator.
+    ///
+    /// Dead storage today (see `choreography` above).
     pub choreography_state: crate::attack_choreography::ChoreographyState,
     /// Optional separate "rider" health — used by the fused
     /// `PirateOnShark` actor where the pirate on top can be killed
@@ -826,50 +835,40 @@ impl EnemyRuntime {
     /// single-player build it's always the player's `pos`; a future
     /// co-op build varies it per-enemy without changing this
     /// function's shape.
-    /// Tick the enemy's AI + integration. Returns the per-tick
-    /// `ActorControlFrame` the runtime's legacy choreography
-    /// computed; the caller writes it into the entity's
-    /// `ActorControl` component so `emit_brain_action_messages`
-    /// + EFFECTS-stage consumers see the intent. Per the
-    /// actor/brain migration mandate, this is the seam the brain
-    /// will eventually take over from — for now the legacy AI is
-    /// the authority for fire/melee intent on hostile actors.
-    /// Tick the enemy: decrement timers, run the legacy AI +
-    /// choreography (still drives `ai_mode` + `choreography_state`
-    /// for HUD / animation), and integrate one kinematic step.
+    /// Tick the enemy: decrement attack-lifecycle timers, refresh
+    /// the `ai_mode` HUD signal from `evaluate_character_ai_output`,
+    /// and integrate one kinematic step from the brain-emitted
+    /// `frame`. Returns the same `frame` so the caller can write
+    /// it into the entity's `ActorControl` component for
+    /// `emit_brain_action_messages` + the EFFECTS-stage consumers.
     ///
-    /// When `override_frame` is `Some`, the integration uses THAT
-    /// frame's `desired_vel` / `drop_through` / facing instead of
-    /// the legacy-AI's. Every brain-attached actor (Smash + every
-    /// other state-machine variant) takes this path: actors.rs runs
-    /// the brain to build a frame, then calls `update` with that
-    /// frame as the override. The legacy choreography still ticks
-    /// (so animation state + the windup → active attack timing
-    /// stays sensible) but its movement intent is shelved. `None` =
-    /// pre-brain behavior, used today only by debug-spawned actors
-    /// without a Brain component.
+    /// `frame` is the brain's authoritative intent for this tick.
+    /// Every brain-attached actor (Smash + every other state-machine
+    /// variant) supplies one via actors.rs's per-actor brain tick;
+    /// debug actors without a Brain pass `ActorControlFrame::neutral()`
+    /// and stand still. The integration stage reads only the frame —
+    /// the legacy `build_control_frame` choreography path was deleted
+    /// in the brain-authority GC pass.
+    ///
+    /// Still owned here (not the brain): the windup → active → recover
+    /// attack lifecycle timers, the per-tick `ai_mode` HUD signal
+    /// (computed by `evaluate_character_ai_output` and mirrored onto
+    /// `ActorIntent`), and the kinematic integration step itself
+    /// (gravity, ground contact, surface-walker crawl).
     pub(super) fn update(
         &mut self,
         world: &ae::World,
         target_pos: ae::Vec2,
         tuning: FeatureCombatTuning,
-        slot_pos: Option<ae::Vec2>,
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
-        override_frame: Option<crate::actor_control::ActorControlFrame>,
+        frame: crate::actor_control::ActorControlFrame,
     ) -> crate::actor_control::ActorControlFrame {
         // `EnemyTickOutputs` is gone — projectile spawns flow through
         // the EFFECTS-stage consumer per the actor/brain migration.
         // The struct is preserved for future runtime-internal side
         // effects (telegraph SFX requests, area-of-effect hazards).
         let _ = EnemyTickOutputs;
-        // Seed is derived from the actor id and cached on the
-        // choreography state. Done lazily here (rather than in
-        // `new`) so reset_to_spawn — which `Default`s the state —
-        // re-establishes the seed automatically on the next tick.
-        if self.choreography_state.seed == 0 {
-            self.choreography_state.seed = crate::attack_choreography::seed_from_id(&self.id);
-        }
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         if !self.alive {
             self.respawn_timer = (self.respawn_timer - dt).max(0.0);
@@ -892,6 +891,12 @@ impl EnemyRuntime {
             self.attack_timer = tuning.enemy_attack_active.max(0.01);
         }
 
+        // `ai_mode` is the HUD / animation signal mirrored onto
+        // `ActorIntent` by actors.rs. Compute it from the same
+        // `evaluate_character_ai_output` table the legacy path used
+        // so animation states (Telegraph, Recover, Patrol, etc.)
+        // stay consistent; the *intent* fields from `ai` are no
+        // longer consulted (the brain frame replaces them).
         let recover_remaining = if self.attack_cooldown > 0.0
             && self.attack_windup_timer <= 0.0
             && self.attack_timer <= 0.0
@@ -920,42 +925,8 @@ impl EnemyRuntime {
         });
         self.ai_mode = ai.mode;
 
-        // Run the authored attack choreography. It produces a
-        // steering target (where the actor would *like* to be) plus
-        // an optional attack action (melee swing / fire projectile).
-        // The choreography is consulted regardless of `ai.intent` —
-        // it does not bypass the AI mode, just refines spatial
-        // targeting and attack flavor.
-        let assigned_slot_pos = slot_pos.unwrap_or(target_pos);
-        self.choreography_state.has_slot = slot_pos.is_some();
-        let choreo_tick = crate::attack_choreography::evaluate_choreography(
-            self.choreography,
-            &mut self.choreography_state,
-            crate::attack_choreography::ChoreographyInput {
-                actor_pos: self.pos,
-                target_pos,
-                assigned_slot_pos,
-                dt,
-                nearest_neighbor,
-            },
-        );
-
-        // BRAIN STAGE — read AI mode + choreography output, plus the
-        // archetype's patrol/chase speeds and (when present) the
-        // KinematicPath the enemy is bound to, and pack the whole
-        // "what does this actor want this tick" decision into a
-        // single `ActorControlFrame`. The integration stage below
-        // only reads the frame, never the underlying brain — so a
-        // future RL-policy or scripted brain that fills the same
-        // frame plugs in without touching collision logic.
         let is_aerial = self.gravity_scale <= 0.001;
         let is_surface_walker = self.archetype == EnemyArchetype::PuppySlug;
-
-        let legacy_frame = self.build_control_frame(&ai, &choreo_tick, target_pos, is_aerial, dt);
-        // When the caller supplied an override (Smash brain has
-        // authority), use it for integration. Otherwise fall back to
-        // the legacy AI frame the choreography just produced.
-        let frame = override_frame.unwrap_or(legacy_frame);
 
         if is_surface_walker {
             // Surface-walker integration: the slug crawls along any
@@ -1073,40 +1044,15 @@ impl EnemyRuntime {
             }
         }
 
-        // Facing: AI/choreography facing always wins over derived
-        // facing; brain-frame facing (when set) wins over both. This
-        // ordering matches the pre-refactor behaviour.
-        //
-        // Non-aggressive archetypes (PuppySlug + peaceful patrollers
-        // like PirateHeavy in the cove — anyone with
-        // `attacks_player() == false`) opt OUT of every player-aware
-        // facing override. The melee choreography's
-        // `face_x = face_toward(self, player)` runs unconditionally
-        // — leaving it enabled here means a peaceful patroller's
-        // facing flips toward the player every tick, and since
-        // `desired_x = facing * patrol_speed`, the patroller ends
-        // up *walking toward* the player rather than pacing in
-        // place. Gating on `attacks_player()` keeps cove crew
-        // visually "patrolling on their own beat" instead of
-        // shadowing the player. This is the stop-gap until the
-        // universal-brain refactor lands (see
-        // `docs/planning/universal-brain-interface.md`).
-        if self.archetype.attacks_player() {
-            match ai.intent {
-                crate::character_ai::CharacterAiIntent::Chase { direction_x }
-                | crate::character_ai::CharacterAiIntent::Attack { direction_x }
-                    if direction_x.abs() > 0.001 =>
-                {
-                    self.facing = direction_x.signum();
-                }
-                _ => {}
-            }
-            if choreo_tick.face_x.abs() > 0.001 {
-                self.facing = choreo_tick.face_x;
-            }
-            if frame.facing.abs() > 0.001 {
-                self.facing = frame.facing.signum();
-            }
+        // Facing: brain-frame facing is now authoritative. The legacy
+        // ai.intent / choreography face_x fallbacks were removed in
+        // the brain-authority GC pass — every brain emits a facing
+        // intent based on its own snapshot, and that intent wins.
+        // Peaceful archetypes (`attacks_player() == false`) still
+        // opt out so a passive patroller's brain frame can't make
+        // it shadow the player.
+        if self.archetype.attacks_player() && frame.facing.abs() > 0.001 {
+            self.facing = frame.facing.signum();
         }
 
         // EFFECTS STAGE — translate the frame's attack intents into
@@ -1131,100 +1077,6 @@ impl EnemyRuntime {
         if frame.fire.is_some() {
             self.ai_mode = crate::character_ai::CharacterAiMode::Attack;
         }
-        frame
-    }
-
-    /// Pack the per-tick AI + choreography decision into a flat
-    /// `ActorControlFrame`. This is the brain-to-sim seam — a
-    /// future RL policy that wants to control an enemy fills the
-    /// SAME frame and the integration code in `update` is
-    /// unchanged.
-    fn build_control_frame(
-        &mut self,
-        ai: &crate::character_ai::CharacterAiOutput,
-        choreo_tick: &crate::attack_choreography::ChoreographyTick,
-        target_pos: ae::Vec2,
-        is_aerial: bool,
-        dt: f32,
-    ) -> crate::actor_control::ActorControlFrame {
-        let mut frame = crate::actor_control::ActorControlFrame::neutral();
-
-        // Drop-through: chasing a player meaningfully below the actor
-        // while currently grounded. Lets enemies follow through
-        // one-way platforms the player just used. Aerial bodies have
-        // no on_ground so this is naturally a no-op for them.
-        let delta_y = target_pos.y - self.pos.y;
-        frame.drop_through = !is_aerial
-            && matches!(ai.intent, crate::character_ai::CharacterAiIntent::Chase { .. })
-            && self.on_ground
-            && delta_y > 48.0;
-
-        // Desired velocity. Aerial actors fly in 2D toward the
-        // choreography's steering target; grounded actors get an
-        // x-axis intent that the integration stage ramps toward.
-        // KinematicPath patrol overrides the x intent with the
-        // path's lookahead so patrols actually walk their curve.
-        if is_aerial {
-            let steering_speed = choreo_tick
-                .steering_speed_override
-                .unwrap_or_else(|| self.archetype.chase_speed());
-            let to_target = choreo_tick.steering_target - self.pos;
-            let dist = to_target.length();
-            frame.desired_vel = if dist > 1.0 {
-                (to_target / dist) * steering_speed
-            } else {
-                ae::Vec2::ZERO
-            };
-        } else if let Some(motion) = self.motion.as_ref() {
-            // Path patrols only walk their curve when the AI is in
-            // Patrol intent. Hold/Attack must keep the actor pinned
-            // (e.g. during a telegraph against an in-range player).
-            // Lookahead-by-dt asks the path where it wants to be
-            // next tick without mutating the cursor; `update`
-            // advances the cursor separately so the path remains
-            // the source of truth even when collision blocks the
-            // body.
-            if matches!(ai.intent, crate::character_ai::CharacterAiIntent::Patrol) {
-                let target_pos = motion.lookahead(self.pos, dt);
-                let dx = target_pos.x - self.pos.x;
-                let desired_x = if dt > 0.0 { dx / dt } else { 0.0 };
-                frame.desired_vel = ae::Vec2::new(desired_x, 0.0);
-                frame.facing = dx.signum_or(self.facing);
-            }
-        } else {
-            let desired_x = match ai.intent {
-                crate::character_ai::CharacterAiIntent::Hold | crate::character_ai::CharacterAiIntent::Attack { .. } => {
-                    if ai.committed() {
-                        self.vel.x * 0.4
-                    } else {
-                        0.0
-                    }
-                }
-                crate::character_ai::CharacterAiIntent::Patrol => self.facing * self.archetype.patrol_speed(),
-                crate::character_ai::CharacterAiIntent::Chase { .. } => {
-                    let dx = choreo_tick.steering_target.x - self.pos.x;
-                    let sign = if dx.abs() < 1.0 { 0.0 } else { dx.signum() };
-                    let speed = choreo_tick
-                        .steering_speed_override
-                        .unwrap_or_else(|| self.archetype.chase_speed());
-                    sign * speed
-                }
-            };
-            frame.desired_vel = ae::Vec2::new(desired_x, 0.0);
-        }
-
-        // Attack intents from the choreography are forwarded onto
-        // the frame; the simulation half handles cooldown gating.
-        match choreo_tick.action {
-            Some(crate::attack_choreography::ChoreographyAction::Melee) => {
-                frame.melee_pressed = true;
-            }
-            Some(crate::attack_choreography::ChoreographyAction::FireProjectile { dir, speed }) => {
-                frame.fire = Some(crate::actor_control::ActorFireRequest { dir, speed });
-            }
-            None => {}
-        }
-
         frame
     }
 

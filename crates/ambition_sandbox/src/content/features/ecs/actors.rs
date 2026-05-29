@@ -472,44 +472,41 @@ pub fn update_ecs_actors(
 
                 // Every brain-attached enemy ticks its brain FIRST to
                 // build an authoritative frame, then calls
-                // `enemy.update` with that frame as the override.
-                // The override drives the integration step (so
-                // movement follows the brain — Patrol/Chase/Approach
-                // etc actually move the actor) AND lands in
-                // `ActorControl` for the EFFECTS consumers (so
-                // attacks fire). Smash + Patrol + MeleeBrute +
-                // Skirmisher + Sniper + Wanderer all flow through
-                // this same brain-authoritative path; the legacy
-                // choreography in `enemy.update` still runs (it
-                // drives `ai_mode` for HUD / animation cues and the
-                // attack windup → active state machine) but the
-                // brain's intent supersedes it for integration.
+                // `enemy.update` with that frame. The frame drives
+                // the integration step (Patrol / Chase / Approach all
+                // actually move the actor) AND lands in `ActorControl`
+                // for the EFFECTS consumers (so melee + ranged fire).
+                // Smash + Patrol + MeleeBrute + Skirmisher + Sniper +
+                // Wanderer all flow through this single path; the
+                // legacy `build_control_frame` choreography branch
+                // inside `EnemyRuntime::update` was deleted in the
+                // brain-authority GC pass.
                 //
                 // Actors without a brain (dynamically-spawned debug
-                // entities) fall through to the legacy path:
-                // `override_frame = None` → `enemy.update` uses its
-                // own choreography-derived frame.
-                let brain_override = if let Some(brain_ref) = brain.as_deref_mut() {
+                // entities) get a neutral frame and stand still —
+                // production spawn paths always attach a brain, so
+                // this is the safe no-op fallback.
+                let _ = slot_pos;
+                let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&enemy.id).copied();
                     let snapshot =
                         build_enemy_brain_snapshot(enemy, target_pos, crowding, dt);
-                    let mut brain_frame = crate::actor_control::ActorControlFrame::neutral();
+                    let mut bf = crate::actor_control::ActorControlFrame::neutral();
                     let peaceful = crate::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
-                    brain_ref.tick_with_actions(actions, &snapshot, &mut brain_frame);
-                    Some(brain_frame)
+                    brain_ref.tick_with_actions(actions, &snapshot, &mut bf);
+                    bf
                 } else {
-                    None
+                    crate::actor_control::ActorControlFrame::neutral()
                 };
 
                 let frame = enemy.update(
                     &feature_world,
                     target_pos,
                     combat_tuning,
-                    slot_pos,
                     nearest_neighbor,
                     dt,
-                    brain_override,
+                    brain_frame,
                 );
                 aabb.center = enemy.pos;
                 aabb.half_size = enemy.size * 0.5;

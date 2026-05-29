@@ -361,7 +361,20 @@ pub static ABSURD_GENERAL_SHEET: LazyLock<CharacterSheetSpec> =
 /// flyer), chomp row → Slash (attack picker), dive row → Dash. There
 /// is no hit / death row in this generated sheet; the resolver falls
 /// back to Idle for those animations.
-const BURNING_FLYING_SHARK_TUNING: SheetTuning = SheetTuning::new(1.4, 1);
+///
+/// collision_scale chosen so the visible shark body (160×66 px of
+/// the 192×128 frame, per `burning_flying_shark_actor.ron`'s
+/// `body_pixel_bbox`) fits the AABB tightly. With cs=0.8 and an
+/// authored AABB of (126, 52):
+///   render = 126*0.8 = 100.8 tall, 151.2 wide
+///   visible body inside render = 151.2 * (160/192) = 126.0 wide,
+///   100.8 * (66/128) = 52.0 tall → matches AABB exactly.
+///
+/// Pre-fix this was 1.4, which gave a 151×101 render with the
+/// visible body at ~126×52 inside a (72, 56) AABB — the shark was
+/// drawn ~75% wider than its hitbox so player hits at the visible
+/// silhouette missed.
+const BURNING_FLYING_SHARK_TUNING: SheetTuning = SheetTuning::new(0.8, 1);
 pub static BURNING_FLYING_SHARK_SHEET: LazyLock<CharacterSheetSpec> =
     LazyLock::new(|| load_spec("burning_flying_shark", &BURNING_FLYING_SHARK_TUNING));
 

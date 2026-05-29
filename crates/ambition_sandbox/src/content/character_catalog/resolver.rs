@@ -97,6 +97,12 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                 standoff_px: *standoff_px,
                 strafe_speed: *strafe_speed,
                 fire_cooldown_s: *fire_cooldown_s,
+                // Default orbit drift — slow circle (~10s lap). The
+                // per-archetype variation lives in
+                // `enemy_default_brain`; this character-catalog path
+                // is the data-driven NPC spawn helper and uses a
+                // sensible fallback.
+                orbit_drift_rad_s: 0.6,
             },
             state: SkirmisherState::default(),
         },

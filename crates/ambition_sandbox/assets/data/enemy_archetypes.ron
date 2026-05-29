@@ -267,7 +267,14 @@
         contact_strength: 1.10,
         damage_amount: 2,
         is_aerial: true,
-        default_size: Some((108.0, 96.0)),
+        // Shark body — scaled down from the original (108, 96) which
+        // dominated arenas and dwarfed every other enemy. The render
+        // size is also driven by this field (see actors.rs sprite
+        // path), so this controls both the collision footprint and
+        // the on-screen shark silhouette. The rider visual scales
+        // off the shark's render height in pirate_rider.rs so the
+        // composite stays proportional.
+        default_size: Some((126.0, 52.0)),
         brain_template: MeleeBrute,
         melee: Some(Bite((
             windup_s: 0.18,
@@ -288,7 +295,14 @@
         contact_strength: 1.10,
         damage_amount: 2,
         is_aerial: true,
-        default_size: Some((108.0, 96.0)),
+        // Shark body — scaled down from the original (108, 96) which
+        // dominated arenas and dwarfed every other enemy. The render
+        // size is also driven by this field (see actors.rs sprite
+        // path), so this controls both the collision footprint and
+        // the on-screen shark silhouette. The rider visual scales
+        // off the shark's render height in pirate_rider.rs so the
+        // composite stays proportional.
+        default_size: Some((126.0, 52.0)),
         // Skirmisher: orbit-and-fire. The legacy `MeleeBrute` template
         // never emitted `frame.fire` so the shark-rider's ranged
         // `Bolt` capability was inert under the brain-authoritative
@@ -324,7 +338,14 @@
         contact_strength: 1.30,
         damage_amount: 3,
         is_aerial: true,
-        default_size: Some((108.0, 96.0)),
+        // Shark body — scaled down from the original (108, 96) which
+        // dominated arenas and dwarfed every other enemy. The render
+        // size is also driven by this field (see actors.rs sprite
+        // path), so this controls both the collision footprint and
+        // the on-screen shark silhouette. The rider visual scales
+        // off the shark's render height in pirate_rider.rs so the
+        // composite stays proportional.
+        default_size: Some((126.0, 52.0)),
         // Skirmisher: see `PirateOnShark` above. Same orbit-and-fire
         // shape; only the Bolt damage scales up.
         brain_template: Skirmisher,

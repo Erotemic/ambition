@@ -640,7 +640,22 @@ impl EnemyRuntime {
             hit_flash: 0.0,
             ai_mode: crate::character_ai::CharacterAiMode::Idle,
             on_ground: false,
-            sprite_override_npc_name: None,
+            // Shark-rider archetypes carry an authored spawn name
+            // (e.g. "Iron Mary on Shark", "Burning Flying Shark")
+            // that the rider-visual layer parses to pick the heavy
+            // sheet on top. The BASE sprite, though, is always the
+            // shark — override the npc-name lookup so the
+            // upgrade_enemy_sprites pass resolves to the
+            // BURNING_FLYING_SHARK_SHEET even when the authored
+            // name doesn't match the shark catalog key directly.
+            // Without this, "Iron Mary on Shark" falls through the
+            // npc-name → enemy-asset chain and renders as a goblin.
+            sprite_override_npc_name: match archetype {
+                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark => {
+                    Some("Burning Flying Shark".to_string())
+                }
+                _ => None,
+            },
             gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
             choreography: archetype.choreography(),
             choreography_state: crate::attack_choreography::ChoreographyState::default(),
@@ -697,21 +712,28 @@ impl EnemyRuntime {
         self.rider_health.map(|h| h.alive()).unwrap_or(false)
     }
 
-    /// AABB covering the upper half of the actor — the "rider"
-    /// hitbox on a fused pirate-on-shark. Player hits that overlap
-    /// this region damage the rider's HP pool, not the shark's.
+    /// AABB covering the rider on a fused pirate-on-shark. Player
+    /// hits that overlap this region damage the rider's HP pool, not
+    /// the shark's.
+    ///
+    /// Geometry derives from `self.size.y` (the shark body height)
+    /// using the same ratios `pirate_rider.rs` uses for the visual:
+    ///   center.y = shark_center.y - 0.35 * shark.y  (visual offset)
+    ///   half_h   = 0.5 * 0.75 * shark.y             (visual height)
+    /// Width is bounded to roughly the visible pirate silhouette
+    /// (~half the shark's height; the pirate raider sprite's body
+    /// pixel bbox is 59 wide of a 128-tall frame rendered square).
+    /// Pre-fix the formula used `self.size.x * 0.4` for half-w and
+    /// a hardcoded 52 px rider_height, which after the shark-size
+    /// retune put the AABB well above the visible pirate and made
+    /// it wider than the shark.
     pub fn rider_aabb(&self) -> Option<ae::Aabb> {
         self.rider_health?;
-        // The pirate sits on top of the shark. The shark sprite is
-        // ~96 tall; the pirate occupies the top ~52 px (its sprite is
-        // 128 tall but visually compressed when riding).
-        let rider_height = 52.0;
-        let half_h = rider_height * 0.5;
-        let center = ae::Vec2::new(self.pos.x, self.pos.y - (self.size.y * 0.5) - half_h + 8.0);
-        Some(ae::Aabb::new(
-            center,
-            ae::Vec2::new(self.size.x * 0.4, half_h),
-        ))
+        let shark_h = self.size.y;
+        let center = ae::Vec2::new(self.pos.x, self.pos.y - 0.35 * shark_h);
+        let half_h = 0.375 * shark_h;
+        let half_w = 0.25 * shark_h;
+        Some(ae::Aabb::new(center, ae::Vec2::new(half_w, half_h)))
     }
 
     /// Route an incoming player attack hit to either the rider or

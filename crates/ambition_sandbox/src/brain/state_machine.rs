@@ -438,6 +438,12 @@ pub struct SkirmisherCfg {
     pub strafe_speed: f32,
     /// Cooldown between shots (s).
     pub fire_cooldown_s: f32,
+    /// How fast the orbital phase drifts (radians / s). Drives the
+    /// "reposition to different locations" behavior the user asked
+    /// for — without drift the actor would lock onto its initial
+    /// offset and never move around the target. Range ~0.4 to 1.2
+    /// reads as a slow orbit that takes 5-15s to circle.
+    pub orbit_drift_rad_s: f32,
 }
 
 impl SkirmisherCfg {
@@ -447,6 +453,7 @@ impl SkirmisherCfg {
         standoff_px: 140.0,
         strafe_speed: 85.0,
         fire_cooldown_s: 0.8,
+        orbit_drift_rad_s: 0.6,
     };
 }
 
@@ -463,6 +470,16 @@ pub struct SkirmisherState {
     /// what MeleeBrute uses via `attack_cooldown_remaining` and
     /// avoids the global-clock dependency.
     pub cooldown_remaining: f32,
+    /// Per-actor orbital phase in radians. The Skirmisher orbits
+    /// the target on a circle of radius `cfg.standoff_px` and picks
+    /// its desired position via
+    /// `target_pos + (cos θ, sin θ) * standoff_px` where θ is this
+    /// phase. Seeding it from the actor's stable id-derived RNG
+    /// spreads a squadron of shark-riders around the player
+    /// (above / below / left / right) instead of stacking them all
+    /// at the same offset axis. The phase drifts slowly over time
+    /// (`drift_rate_rad_s`) so the orbit isn't fixed.
+    pub orbit_phase: f32,
 }
 
 fn tick_skirmisher(
@@ -476,33 +493,70 @@ fn tick_skirmisher(
     // a Skirmisher that loses sight mid-cooldown doesn't get a free
     // first shot the moment the player re-enters aggro.
     state.cooldown_remaining = (state.cooldown_remaining - snapshot.dt).max(0.0);
+    // Orbital phase drifts continuously so the actor circles the
+    // target instead of locking onto a fixed offset. The per-actor
+    // initial phase (seeded at spawn) keeps a squadron spread out
+    // around the player.
+    state.orbit_phase += cfg.orbit_drift_rad_s * snapshot.dt;
+    if state.orbit_phase > std::f32::consts::TAU {
+        state.orbit_phase -= std::f32::consts::TAU;
+    }
     if !snapshot.target_alive {
         return;
     }
-    let to_target = snapshot.target_pos - snapshot.actor_pos;
-    let dist = to_target.length();
-    if dist > cfg.aggro_radius {
+    let to_target_raw = snapshot.target_pos - snapshot.actor_pos;
+    let raw_dist = to_target_raw.length();
+    if raw_dist > cfg.aggro_radius {
         state.mode = crate::character_ai::CharacterAiMode::Idle;
         return;
     }
     state.mode = crate::character_ai::CharacterAiMode::Chase;
-    // Move toward the standoff distance. Aerial archetypes (sharks
-    // etc.) need 2D motion to actually orbit; the integration uses
-    // both x and y when `is_aerial = true`.
-    let dir = to_target.normalize_or_zero();
-    out.facing = dir.x.signum_or(snapshot.actor_facing);
-    let approach_sign = (dist - cfg.standoff_px).signum_or(0.0);
-    out.desired_vel = ae::Vec2::new(
-        dir.x * cfg.strafe_speed * approach_sign,
-        dir.y * cfg.strafe_speed * approach_sign,
-    );
-    // Fire when the cooldown timer is clear. ActionSet supplies the
-    // concrete projectile (speed, damage); brain just emits dir.
+    // Compute the actor's desired position offset from the target.
+    // The horizontal component sweeps the full ±standoff range so
+    // shark-riders fan out left and right of the player. The
+    // vertical component is biased upward (negative y in sandbox
+    // coordinates) and clamped to a shallow band so aerial actors
+    // stay at altitude rather than orbiting through the floor. Each
+    // actor has its own initial phase, so a squadron spreads to
+    // different positions around the target; the phase drifts so
+    // the offsets aren't static.
+    //
+    // Sandbox world Y grows DOWNWARD, so "above the player" is
+    // `target_y - something`. The bias `vertical_center` plus the
+    // sine modulation `vertical_amp` keeps the actor above the
+    // player throughout the orbit.
+    let (sin_p, cos_p) = state.orbit_phase.sin_cos();
+    let horizontal = cos_p * cfg.standoff_px;
+    let vertical_center = -0.45 * cfg.standoff_px;
+    let vertical_amp = 0.20 * cfg.standoff_px;
+    let vertical = vertical_center + sin_p * vertical_amp;
+    let orbit_offset = ae::Vec2::new(horizontal, vertical);
+    let desired_pos = snapshot.target_pos + orbit_offset;
+    let to_orbit = desired_pos - snapshot.actor_pos;
+    let approach_dist = to_orbit.length();
+    let approach_dir = to_orbit.normalize_or_zero();
+    // Facing always toward the actual target so the rider / muzzle
+    // aims at the player rather than the orbit point.
+    let aim_dir = to_target_raw.normalize_or_zero();
+    out.facing = aim_dir.x.signum_or(snapshot.actor_facing);
+    // Move toward the orbit point at strafe_speed. Aerial archetypes
+    // (sharks etc.) need 2D motion to actually orbit; the
+    // integration uses both x and y when `is_aerial = true`.
+    // Scale down speed when within a small radius of the desired
+    // position so the actor doesn't oscillate around it.
+    let speed_scale = (approach_dist / 24.0).min(1.0);
+    out.desired_vel = approach_dir * cfg.strafe_speed * speed_scale;
+    // Fire at the actual target when the cooldown timer is clear.
+    // ActionSet supplies the concrete projectile (speed, damage);
+    // brain just emits dir.
     if state.cooldown_remaining <= 0.0 {
         // Speed = 0.0 here is a sentinel; the action_set resolver
         // pulls speed from the actor's RangedActionSpec when it
         // builds the projectile spawn.
-        out.fire = Some(crate::actor_control::ActorFireRequest { dir, speed: 0.0 });
+        out.fire = Some(crate::actor_control::ActorFireRequest {
+            dir: aim_dir,
+            speed: 0.0,
+        });
         state.cooldown_remaining = cfg.fire_cooldown_s;
         state.mode = crate::character_ai::CharacterAiMode::Attack;
     }

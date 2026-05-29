@@ -1,8 +1,8 @@
 //! Gun-sword (`lasersword_with_guns`) visual mounted on the rider of
-//! a `PirateOnShark`.
+//! a `PirateOnShark` or `PirateHeavyOnShark` actor.
 //!
 //! Each frame we:
-//! 1. Find every live-rider `PirateOnShark` actor in the ECS.
+//! 1. Find every live-rider shark-rider actor in the ECS.
 //! 2. Compute the rider's hand world position from the enemy's `pos`
 //!    + facing-aware hand offset (`HAND_OFFSET_NORM`).
 //! 3. Compute the aim direction from the hand to the primary player
@@ -55,11 +55,10 @@ const WEAPON_IDLE_FRAME_Y: f32 = 0.0;
 const WEAPON_GRIP_X_PX: f32 = 36.45;
 const WEAPON_GRIP_Y_PX: f32 = 23.8;
 
-/// How big to render the gun-sword in world space. The pirate rider
-/// itself renders at ~72 px tall; the gun-sword needs to be visibly
-/// proportional but not dwarf the wielder. ~36 px wide reads as a
-/// hand-held weapon at the same scale.
-const WEAPON_RENDER_WIDTH: f32 = 64.0;
+/// Gun-sword render width as a fraction of the rider's height. A
+/// fraction (not a constant) keeps the weapon visibly proportional
+/// to the rider after the shark-size shrink.
+const WEAPON_WIDTH_PER_RIDER_HEIGHT: f32 = 64.0 / 72.0;
 
 /// Hand position relative to the pirate rider's CENTER, normalized to
 /// the rider's render size, in a "facing-right" convention. X is
@@ -67,26 +66,45 @@ const WEAPON_RENDER_WIDTH: f32 = 64.0;
 /// - +x: in front of the body (sword-arm side)
 /// - -y: above the rider's center (small-of-back / waist height)
 ///
-/// The rider sprite is 128×128 design but renders at 72 px tall in
-/// `pirate_rider.rs`. Hand anchor at (0.18, -0.05) puts the weapon
-/// roughly at the pirate's right hand (forward shoulder, slightly
-/// above center).
+/// The rider sprite is 128×128 design; render height is derived from
+/// the shark body size at runtime (`pirate_rider.rs`). Hand anchor at
+/// (0.18, -0.05) puts the weapon roughly at the pirate's right hand
+/// (forward shoulder, slightly above center).
 const HAND_OFFSET_NORM: Vec2 = Vec2::new(0.18, -0.05);
-const RIDER_RENDER_HEIGHT: f32 = 72.0;
-const RIDER_VERTICAL_OFFSET: f32 = -34.0; // mirror of `pirate_rider.rs`
 
-/// World-space hand position for a rider. Mirrors the rider visual's
-/// own anchor math so the weapon mounts where the visible hand is.
+/// Mirror of `pirate_rider::rider_render_height`. The two visual
+/// systems need to agree on the rider's height so the gun-sword's
+/// hand position lines up with the visible hand pixel.
+fn rider_render_height(shark_height: f32) -> f32 {
+    0.75 * shark_height
+}
+
+/// Mirror of `pirate_rider::rider_vertical_offset`.
+fn rider_vertical_offset(shark_height: f32) -> f32 {
+    -0.35 * shark_height
+}
+
+/// Default shark body height used by unit tests in this module that
+/// don't have an `EnemyRuntime` in scope. Production paths always
+/// pass `enemy.size.y` from the live runtime.
+#[cfg(test)]
+const DEFAULT_SHARK_HEIGHT_PX: f32 = 56.0;
+
+/// World-space hand position for a rider, derived from the shark's
+/// live body height. Mirrors the rider visual's own anchor math so
+/// the weapon mounts where the visible hand is.
 pub fn rider_hand_world_pos(
     enemy_pos: crate::engine_core::Vec2,
     facing: f32,
+    shark_height: f32,
 ) -> crate::engine_core::Vec2 {
+    let rider_h = rider_render_height(shark_height);
     let facing_sign = if facing >= 0.0 { 1.0 } else { -1.0 };
-    let hand_local_x = HAND_OFFSET_NORM.x * RIDER_RENDER_HEIGHT * facing_sign;
-    let hand_local_y = HAND_OFFSET_NORM.y * RIDER_RENDER_HEIGHT;
+    let hand_local_x = HAND_OFFSET_NORM.x * rider_h * facing_sign;
+    let hand_local_y = HAND_OFFSET_NORM.y * rider_h;
     crate::engine_core::Vec2::new(
         enemy_pos.x + hand_local_x,
-        enemy_pos.y + RIDER_VERTICAL_OFFSET + hand_local_y,
+        enemy_pos.y + rider_vertical_offset(shark_height) + hand_local_y,
     )
 }
 
@@ -116,14 +134,18 @@ pub fn sync_pirate_weapon_visuals(
         let ActorRuntime::Hostile(enemy) = actor else {
             continue;
         };
-        if enemy.archetype != EnemyArchetype::PirateOnShark {
+        if !matches!(
+            enemy.archetype,
+            EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
+        ) {
             continue;
         }
         if !enemy.alive || !enemy.has_live_rider() {
             continue;
         }
 
-        let hand_world = rider_hand_world_pos(enemy.pos, enemy.facing);
+        let shark_height = enemy.size.y;
+        let hand_world = rider_hand_world_pos(enemy.pos, enemy.facing, shark_height);
         let aim_world = player.pos;
         let dx = aim_world.x - hand_world.x;
         let dy = aim_world.y - hand_world.y;
@@ -141,7 +163,8 @@ pub fn sync_pirate_weapon_visuals(
         let anchor_y_norm = -(WEAPON_GRIP_Y_PX - WEAPON_FRAME_H * 0.5) / WEAPON_FRAME_H;
 
         let aspect = WEAPON_FRAME_W / WEAPON_FRAME_H;
-        let render = bevy::math::Vec2::new(WEAPON_RENDER_WIDTH, WEAPON_RENDER_WIDTH / aspect);
+        let weapon_width = WEAPON_WIDTH_PER_RIDER_HEIGHT * rider_render_height(shark_height);
+        let render = bevy::math::Vec2::new(weapon_width, weapon_width / aspect);
 
         let translation = world_to_bevy(
             &world.0,
@@ -217,8 +240,8 @@ mod tests {
     #[test]
     fn hand_offset_flips_with_facing() {
         let pos = crate::engine_core::Vec2::new(100.0, 50.0);
-        let right = rider_hand_world_pos(pos, 1.0);
-        let left = rider_hand_world_pos(pos, -1.0);
+        let right = rider_hand_world_pos(pos, 1.0, DEFAULT_SHARK_HEIGHT_PX);
+        let left = rider_hand_world_pos(pos, -1.0, DEFAULT_SHARK_HEIGHT_PX);
         assert!(right.x > pos.x, "right-facing hand should be to the right");
         assert!(left.x < pos.x, "left-facing hand should be to the left");
         // Y is the same regardless of facing.

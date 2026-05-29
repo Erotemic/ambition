@@ -445,38 +445,61 @@ pub(in crate::content::features) fn enemy_default_brain(
             state: MeleeBruteState::default(),
         }),
         EnemyBrainTemplate::Skirmisher => {
-            let fire_cooldown_s = 1.5;
+            // Per-actor jitter from the actor's stable id-derived
+            // seed. Independent f32s in [0, 1) drive cadence, initial
+            // stagger, standoff radius, orbital phase, and drift rate
+            // so a squadron of shark-riders doesn't synchronize: each
+            // shark has its own cooldown, its own first-shot offset,
+            // its own orbit distance, AND its own starting position
+            // around the player. Without this, every Skirmisher
+            // seeded with the same `cooldown_remaining` ticks by the
+            // same `dt` and fires on the same beat (the
+            // "all enemies fire at once" bug the player reported).
+            let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+            let jitters = five_f32s_from_seed(seed);
+            let base_cooldown_s = 1.5;
+            // Cooldown cadence: ±25% per actor. Range ~1.13s-1.88s.
+            let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
+            // Initial stagger: random fraction of the per-actor
+            // cooldown. First shot lands between 0.3 and 1.0 of the
+            // full cooldown, so a fresh squadron's first volley is
+            // spread out instead of all firing on the same frame.
+            let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
+            // Standoff radius: ±20% per actor so orbits stack at
+            // different distances. Floor at 120 px to keep close-
+            // range archetypes engaged.
+            let standoff_base = (archetype.attack_range() * 0.35).max(120.0);
+            let standoff_px = standoff_base * (0.8 + 0.4 * jitters.2);
+            // Initial orbital phase: full circle so a squadron's
+            // starting positions spread around the player (above,
+            // below, left, right).
+            let orbit_phase = jitters.3 * std::f32::consts::TAU;
+            // Drift rate per actor: 0.4 to 1.2 rad/s. Different
+            // drift speeds mean two sharks that start on the same
+            // side of the player don't stay on the same side.
+            let orbit_drift_rad_s = 0.4 + 0.8 * jitters.4;
             Brain::StateMachine(StateMachineCfg::Skirmisher {
                 cfg: SkirmisherCfg {
                     aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
                     aggro_radius: archetype.aggro_radius(),
-                    // `attack_range` in the archetype row is the
-                    // AI-side *firing* distance — the upper bound at
-                    // which the brain is willing to engage. Standoff
-                    // should be a smaller fraction so the actor
-                    // orbits inside firing range rather than backing
-                    // all the way to the edge. Pre-fix, this was set
-                    // to `attack_range` directly, which on a 1100-px
-                    // shark-rider made the shark try to flee to
-                    // 1100 px from the player — practically always
-                    // farther than its current position, so it moved
-                    // away forever instead of engaging.
-                    standoff_px: (archetype.attack_range() * 0.35).max(120.0),
+                    standoff_px,
                     strafe_speed: archetype.chase_speed(),
                     fire_cooldown_s,
+                    orbit_drift_rad_s,
                 },
-                // Seed cooldown so a freshly-spawned Skirmisher
-                // doesn't fire on tick 1 of engagement; the player
-                // gets a full cooldown of warmup before the first
-                // shot, matching the legacy sim_time-based gate.
                 state: SkirmisherState {
-                    cooldown_remaining: fire_cooldown_s,
+                    cooldown_remaining: initial_cooldown_s,
+                    orbit_phase,
                     ..Default::default()
                 },
             })
         }
         EnemyBrainTemplate::Sniper => {
-            let fire_cooldown_s = 1.5;
+            let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+            let jitters = five_f32s_from_seed(seed);
+            let base_cooldown_s = 1.5;
+            let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
+            let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
             Brain::StateMachine(StateMachineCfg::Sniper {
                 cfg: SniperCfg {
                     aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
@@ -484,7 +507,7 @@ pub(in crate::content::features) fn enemy_default_brain(
                     fire_cooldown_s,
                 },
                 state: SniperState {
-                    cooldown_remaining: fire_cooldown_s,
+                    cooldown_remaining: initial_cooldown_s,
                 },
             })
         }
@@ -650,6 +673,28 @@ pub fn spawn_encounter_mob(
         // are silently skipped by `emit_brain_action_messages`.
         bevy::transform::components::Transform::from_xyz(pos.x, pos.y, 0.0),
     ));
+}
+
+/// Derive five deterministic f32s in `[0, 1)` from a u32 seed.
+/// Used to give each per-actor brain a stable but distinct random
+/// signature without dragging a real PRNG into the spawn path. The
+/// values are statistically independent enough for "jitter the
+/// cooldown / stagger / standoff / orbit-phase / orbit-drift per
+/// actor". The seed comes from `attack_choreography::seed_from_id`
+/// so the same authored actor id always picks the same variation
+/// across runs.
+fn five_f32s_from_seed(seed: u32) -> (f32, f32, f32, f32, f32) {
+    // Mix the seed via xorshift to get a sequence of uncorrelated
+    // draws. The shift amounts are arbitrary constants from a
+    // standard xorshift32 implementation.
+    let mut x = seed.wrapping_mul(0x9E3779B1).wrapping_add(0xDEADBEEF);
+    let mut take = || {
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        (x as f32) / (u32::MAX as f32)
+    };
+    (take(), take(), take(), take(), take())
 }
 
 /// Despawn all ECS mobs owned by an encounter attempt.

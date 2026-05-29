@@ -98,8 +98,11 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             // The `lasersword:` prefix on `owner_id` routes the
             // projectile to the lasersword visual in
             // `enemy_projectile/visuals.rs`.
-            let hand =
-                crate::presentation::rendering::rider_hand_world_pos(enemy.pos, enemy.facing);
+            let hand = crate::presentation::rendering::rider_hand_world_pos(
+                enemy.pos,
+                enemy.facing,
+                enemy.size.y,
+            );
             let muzzle = hand + dir.normalize_or_zero() * 18.0;
             (muzzle, format!("lasersword:{}", enemy.id))
         } else {

@@ -33,17 +33,25 @@ use crate::presentation::character_sprites::{
 #[derive(Component)]
 pub struct PirateRiderVisual;
 
-/// Pixel offset of the rider's center above the shark's center.
-/// Tuned against the 192×128 shark sprite + 128×128 pirate sprite so
-/// the pirate visually sits on the shark's back without floating.
-/// Negative Y because sandbox world-Y grows downward.
-const RIDER_VERTICAL_OFFSET: f32 = -34.0;
+/// Rider size derivation: both the vertical offset above the shark
+/// center and the rider's render height scale off the live shark
+/// body height (`enemy.size.y`) so an authored size tweak in
+/// `enemy_archetypes.ron` propagates without re-tuning the constants
+/// here. Pre-fix these were hardcoded for a 96-tall shark; the
+/// shrink to 56-tall would have left the rider floating above and
+/// visually dwarfing the shark.
+///
+/// Ratios chosen against the original 96-tall shark:
+/// - rider center sits `0.35 * shark.y` above the shark's center
+/// - rider renders at `0.75 * shark.y` tall (so a 56-tall shark
+///   carries a 42-tall pirate, preserving the original visual ratio)
+fn rider_vertical_offset(shark_height: f32) -> f32 {
+    -0.35 * shark_height
+}
 
-/// Render size for the rider on top of the shark. The full
-/// `pirate_raider` sprite is 128 tall; that would dwarf the shark.
-/// Scale to ~64 px so the silhouette reads at the same coarse scale
-/// as the shark's 96-tall body.
-const RIDER_RENDER_HEIGHT: f32 = 72.0;
+fn rider_render_height(shark_height: f32) -> f32 {
+    0.75 * shark_height
+}
 
 /// Rebuild a `PirateRiderVisual` sprite for every live-rider
 /// `PirateOnShark` actor. Runs after `update_ecs_actors` so the
@@ -82,13 +90,17 @@ pub fn sync_pirate_rider_visuals(
         if images.get(&rider_asset.texture).is_none() {
             continue;
         }
-        let rider_pos =
-            crate::engine_core::Vec2::new(enemy.pos.x, enemy.pos.y + RIDER_VERTICAL_OFFSET);
+        let shark_height = enemy.size.y;
+        let rider_height = rider_render_height(shark_height);
+        let rider_pos = crate::engine_core::Vec2::new(
+            enemy.pos.x,
+            enemy.pos.y + rider_vertical_offset(shark_height),
+        );
         // Scale render size to match the desired rider height while
         // preserving the sheet's aspect ratio (frame is 128×128 for
         // the pirate raider; ~172×138 for heavy variants).
         let aspect = rider_asset.spec.frame_width as f32 / rider_asset.spec.frame_height as f32;
-        let render = bevy::math::Vec2::new(RIDER_RENDER_HEIGHT * aspect, RIDER_RENDER_HEIGHT);
+        let render = bevy::math::Vec2::new(rider_height * aspect, rider_height);
         let mut sprite = build_character_sprite_with_render_size(rider_asset, render);
         sprite.flip_x = enemy.facing < 0.0;
         let translation = world_to_bevy(

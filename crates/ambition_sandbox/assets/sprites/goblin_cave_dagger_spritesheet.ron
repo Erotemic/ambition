@@ -3,11 +3,11 @@
 [
 (
     target: "goblin",
-    image: "goblin_spritesheet.png",
+    image: "goblin_cave_dagger_spritesheet.png",
     label_width: 132,
     frame_width: 116,
     frame_height: 116,
-    body_metrics: Some((body_pixel_bbox: Some((x: 17, y: 2, w: 79, h: 94)), feet_pixel: Some((x: 56.0, y: 95.0)), feet_anchor_norm: Some((x: -0.017241379310344807, y: -0.31896551724137934)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 17, y: 2, w: 79, h: 94)), feet_pixel: Some((x: 56.0, y: 95.0)), feet_anchor_norm: Some((x: -0.017241379310344807, y: -0.31896551724137934)), animations: {"dash": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 91, h: 94))))), "death": (hurtbox: Some((bbox: Some((x: 15, y: 2, w: 85, h: 112))))), "hit": (hurtbox: Some((bbox: Some((x: 9, y: 2, w: 76, h: 96))))), "idle": (hurtbox: Some((bbox: Some((x: 17, y: 2, w: 79, h: 94))))), "run": (hurtbox: Some((bbox: Some((x: 16, y: 2, w: 84, h: 94))))), "slash": (hurtbox: Some((bbox: Some((x: 13, y: 2, w: 103, h: 94))))), "walk": (hurtbox: Some((bbox: Some((x: 16, y: 2, w: 82, h: 94)))))})),
     rows: [
     (
         animation: "idle",

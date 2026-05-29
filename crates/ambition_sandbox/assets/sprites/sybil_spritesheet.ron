@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "sybil_spritesheet.png",
     label_width: 112,
     frame_width: 79,
     frame_height: 92,
-    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 3, w: 72, h: 86)), feet_pixel: Some((x: 38.5, y: 88.0)), feet_anchor_norm: Some((x: -0.012658227848101278, y: -0.4565217391304348)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 3, w: 72, h: 86)), feet_pixel: Some((x: 38.5, y: 88.0)), feet_anchor_norm: Some((x: -0.012658227848101278, y: -0.4565217391304348)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 3, y: 3, w: 72, h: 86))))), "interact": (hurtbox: Some((bbox: Some((x: 3, y: 4, w: 73, h: 86))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 3, w: 74, h: 87))))), "walk": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 75, h: 87)))))})),
     rows: [
     (
         animation: "idle",

@@ -8,7 +8,15 @@ held_item: spear
 faction: null
 role: null
 music_cue: null
-tags: []
+tags:
+- story
+- humanoid
+- enemy
+- combatant
+- goblin
+- forest
+- spear
+sheet_tuning: null
 frame_width: 119
 frame_height: 114
 label_width: 120
@@ -380,3 +388,53 @@ body_metrics:
   feet_anchor_norm:
     x: 0.02941176470588236
     y: -0.33333333333333337
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 18
+          y: 8
+          w: 91
+          h: 88
+    walk:
+      hurtbox:
+        bbox:
+          x: 17
+          y: 8
+          w: 95
+          h: 88
+    run:
+      hurtbox:
+        bbox:
+          x: 17
+          y: 8
+          w: 96
+          h: 88
+    slash:
+      hurtbox:
+        bbox:
+          x: 14
+          y: 7
+          w: 105
+          h: 89
+    hit:
+      hurtbox:
+        bbox:
+          x: 10
+          y: 2
+          w: 79
+          h: 96
+    death:
+      hurtbox:
+        bbox:
+          x: 16
+          y: 8
+          w: 85
+          h: 106
+    dash:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 5
+          w: 95
+          h: 91

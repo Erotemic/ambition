@@ -3,11 +3,11 @@
 [
 (
     target: "robot",
-    image: "robot_spritesheet.png",
+    image: "robot_miner_spritesheet.png",
     label_width: 132,
     frame_width: 126,
     frame_height: 128,
-    body_metrics: Some((body_pixel_bbox: Some((x: 30, y: 0, w: 88, h: 105)), feet_pixel: Some((x: 73.5, y: 104.0)), feet_anchor_norm: Some((x: 0.08333333333333337, y: -0.3125)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 30, y: 0, w: 88, h: 105)), feet_pixel: Some((x: 73.5, y: 104.0)), feet_anchor_norm: Some((x: 0.08333333333333337, y: -0.3125)), animations: {"crouch": (hurtbox: Some((bbox: Some((x: 25, y: 0, w: 93, h: 110))))), "crouch_walk": (hurtbox: Some((bbox: Some((x: 26, y: 5, w: 92, h: 105))))), "death": (hurtbox: Some((bbox: Some((x: 26, y: 0, w: 100, h: 127))))), "hit": (hurtbox: Some((bbox: Some((x: 19, y: 0, w: 99, h: 106))))), "idle": (hurtbox: Some((bbox: Some((x: 30, y: 0, w: 88, h: 105))))), "interact": (hurtbox: Some((bbox: Some((x: 28, y: 0, w: 91, h: 105))))), "run": (hurtbox: Some((bbox: Some((x: 29, y: 0, w: 90, h: 105))))), "stomp": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 116, h: 110))))), "walk": (hurtbox: Some((bbox: Some((x: 29, y: 0, w: 89, h: 105)))))})),
     rows: [
     (
         animation: "idle",

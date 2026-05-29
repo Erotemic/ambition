@@ -8,7 +8,15 @@ held_item: hammer
 faction: null
 role: null
 music_cue: null
-tags: []
+tags:
+- story
+- humanoid
+- enemy
+- combatant
+- goblin
+- brute
+- hammer
+sheet_tuning: null
 frame_width: 116
 frame_height: 128
 label_width: 132
@@ -380,3 +388,53 @@ body_metrics:
   feet_anchor_norm:
     x: 0.051724137931034475
     y: -0.3359375
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 15
+          y: 0
+          w: 99
+          h: 108
+    walk:
+      hurtbox:
+        bbox:
+          x: 14
+          y: 0
+          w: 102
+          h: 108
+    run:
+      hurtbox:
+        bbox:
+          x: 13
+          y: 0
+          w: 103
+          h: 108
+    slash:
+      hurtbox:
+        bbox:
+          x: 11
+          y: 0
+          w: 105
+          h: 108
+    hit:
+      hurtbox:
+        bbox:
+          x: 6
+          y: 0
+          w: 81
+          h: 110
+    death:
+      hurtbox:
+        bbox:
+          x: 13
+          y: 0
+          w: 90
+          h: 128
+    dash:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 94
+          h: 108

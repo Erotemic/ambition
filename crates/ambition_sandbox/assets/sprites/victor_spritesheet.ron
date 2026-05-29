@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "victor_spritesheet.png",
     label_width: 112,
     frame_width: 91,
     frame_height: 104,
-    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 4, w: 84, h: 97)), feet_pixel: Some((x: 44.5, y: 100.0)), feet_anchor_norm: Some((x: -0.010989010989011005, y: -0.46153846153846156)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 4, w: 84, h: 97)), feet_pixel: Some((x: 44.5, y: 100.0)), feet_anchor_norm: Some((x: -0.010989010989011005, y: -0.46153846153846156)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 3, y: 3, w: 85, h: 98))))), "interact": (hurtbox: Some((bbox: Some((x: 3, y: 4, w: 85, h: 98))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 4, w: 86, h: 97))))), "walk": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 87, h: 99)))))})),
     rows: [
     (
         animation: "idle",

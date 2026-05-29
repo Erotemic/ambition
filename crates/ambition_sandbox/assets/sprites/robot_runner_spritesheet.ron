@@ -3,11 +3,11 @@
 [
 (
     target: "robot",
-    image: "robot_spritesheet.png",
+    image: "robot_runner_spritesheet.png",
     label_width: 120,
     frame_width: 105,
     frame_height: 108,
-    body_metrics: Some((body_pixel_bbox: Some((x: 10, y: 0, w: 83, h: 105)), feet_pixel: Some((x: 51.0, y: 104.0)), feet_anchor_norm: Some((x: -0.01428571428571429, y: -0.4629629629629629)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 10, y: 0, w: 83, h: 105)), feet_pixel: Some((x: 51.0, y: 104.0)), feet_anchor_norm: Some((x: -0.01428571428571429, y: -0.4629629629629629)), animations: {"dash": (hurtbox: Some((bbox: Some((x: 4, y: 0, w: 97, h: 99))))), "idle": (hurtbox: Some((bbox: Some((x: 10, y: 0, w: 83, h: 105))))), "run": (hurtbox: Some((bbox: Some((x: 9, y: 0, w: 87, h: 106))))), "swim": (hurtbox: Some((bbox: Some((x: 10, y: 0, w: 85, h: 96))))), "wall_jump": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 101, h: 105)))))})),
     rows: [
     (
         animation: "idle",

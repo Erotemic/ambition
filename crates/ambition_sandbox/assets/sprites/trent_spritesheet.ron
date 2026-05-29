@@ -3,11 +3,11 @@
 [
 (
     target: "trent_elder",
-    image: "trent_elder_spritesheet.png",
+    image: "trent_spritesheet.png",
     label_width: 112,
     frame_width: 63,
     frame_height: 121,
-    body_metrics: Some((body_pixel_bbox: Some((x: 2, y: 0, w: 55, h: 119)), feet_pixel: Some((x: 29.0, y: 118.0)), feet_anchor_norm: Some((x: -0.03968253968253971, y: -0.4752066115702479)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 2, y: 0, w: 55, h: 119)), feet_pixel: Some((x: 29.0, y: 118.0)), feet_anchor_norm: Some((x: -0.03968253968253971, y: -0.4752066115702479)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 55, h: 119))))), "interact": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 59, h: 119))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 57, h: 119))))), "walk": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 55, h: 119)))))})),
     rows: [
     (
         animation: "idle",

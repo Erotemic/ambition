@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "vault_keeper_spritesheet.png",
     label_width: 112,
     frame_width: 99,
     frame_height: 116,
-    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 1, w: 92, h: 112)), feet_pixel: Some((x: 48.5, y: 112.0)), feet_anchor_norm: Some((x: -0.01010101010101011, y: -0.4655172413793104)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 1, w: 92, h: 112)), feet_pixel: Some((x: 48.5, y: 112.0)), feet_anchor_norm: Some((x: -0.01010101010101011, y: -0.4655172413793104)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 3, y: 0, w: 92, h: 113))))), "interact": (hurtbox: Some((bbox: Some((x: 3, y: 1, w: 93, h: 113))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 1, w: 95, h: 113))))), "walk": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 95, h: 113)))))})),
     rows: [
     (
         animation: "idle",

@@ -3,11 +3,11 @@
 [
 (
     target: "robot",
-    image: "robot_spritesheet.png",
+    image: "robot_engineer_spritesheet.png",
     label_width: 138,
     frame_width: 106,
     frame_height: 128,
-    body_metrics: Some((body_pixel_bbox: Some((x: 13, y: 0, w: 66, h: 105)), feet_pixel: Some((x: 45.5, y: 104.0)), feet_anchor_norm: Some((x: -0.07075471698113206, y: -0.3125)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 13, y: 0, w: 66, h: 105)), feet_pixel: Some((x: 45.5, y: 104.0)), feet_anchor_norm: Some((x: -0.07075471698113206, y: -0.3125)), animations: {"block": (hurtbox: Some((bbox: Some((x: 5, y: 0, w: 74, h: 104))))), "crouch": (hurtbox: Some((bbox: Some((x: 8, y: 0, w: 73, h: 110))))), "crouch_walk": (hurtbox: Some((bbox: Some((x: 9, y: 4, w: 73, h: 106))))), "death": (hurtbox: Some((bbox: Some((x: 9, y: 0, w: 90, h: 127))))), "hit": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 77, h: 106))))), "idle": (hurtbox: Some((bbox: Some((x: 13, y: 0, w: 67, h: 105))))), "interact": (hurtbox: Some((bbox: Some((x: 11, y: 0, w: 83, h: 105))))), "pickup": (hurtbox: Some((bbox: Some((x: 7, y: 0, w: 75, h: 106))))), "run": (hurtbox: Some((bbox: Some((x: 12, y: 0, w: 71, h: 105))))), "talk": (hurtbox: Some((bbox: Some((x: 13, y: 0, w: 68, h: 105))))), "throw": (hurtbox: Some((bbox: Some((x: 5, y: 0, w: 99, h: 104))))), "walk": (hurtbox: Some((bbox: Some((x: 12, y: 0, w: 70, h: 105)))))})),
     rows: [
     (
         animation: "idle",

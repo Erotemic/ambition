@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "peggy_spritesheet.png",
     label_width: 112,
     frame_width: 101,
     frame_height: 105,
-    body_metrics: Some((body_pixel_bbox: Some((x: 4, y: 4, w: 93, h: 99)), feet_pixel: Some((x: 50.0, y: 102.0)), feet_anchor_norm: Some((x: -0.004950495049504955, y: -0.4714285714285714)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 4, y: 4, w: 93, h: 99)), feet_pixel: Some((x: 50.0, y: 102.0)), feet_anchor_norm: Some((x: -0.004950495049504955, y: -0.4714285714285714)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 3, y: 3, w: 95, h: 100))))), "interact": (hurtbox: Some((bbox: Some((x: 4, y: 4, w: 94, h: 99))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 4, w: 97, h: 99))))), "walk": (hurtbox: Some((bbox: Some((x: 3, y: 2, w: 96, h: 101)))))})),
     rows: [
     (
         animation: "idle",

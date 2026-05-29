@@ -3,11 +3,11 @@
 [
 (
     target: "robot",
-    image: "robot_spritesheet.png",
+    image: "robot_guardian_spritesheet.png",
     label_width: 120,
     frame_width: 113,
     frame_height: 128,
-    body_metrics: Some((body_pixel_bbox: Some((x: 14, y: 0, w: 73, h: 107)), feet_pixel: Some((x: 50.0, y: 106.0)), feet_anchor_norm: Some((x: -0.05752212389380529, y: -0.328125)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 14, y: 0, w: 73, h: 107)), feet_pixel: Some((x: 50.0, y: 106.0)), feet_anchor_norm: Some((x: -0.05752212389380529, y: -0.328125)), animations: {"block": (hurtbox: Some((bbox: Some((x: 5, y: 0, w: 81, h: 106))))), "death": (hurtbox: Some((bbox: Some((x: 9, y: 0, w: 96, h: 128))))), "hit": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 84, h: 108))))), "idle": (hurtbox: Some((bbox: Some((x: 14, y: 0, w: 73, h: 108))))), "slash": (hurtbox: Some((bbox: Some((x: 6, y: 0, w: 107, h: 107))))), "walk": (hurtbox: Some((bbox: Some((x: 12, y: 0, w: 77, h: 110)))))})),
     rows: [
     (
         animation: "idle",

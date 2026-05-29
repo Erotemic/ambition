@@ -3,11 +3,11 @@
 [
 (
     target: "alice_cryptographer",
-    image: "alice_cryptographer_spritesheet.png",
+    image: "alice_spritesheet.png",
     label_width: 112,
     frame_width: 43,
     frame_height: 104,
-    body_metrics: Some((body_pixel_bbox: Some((x: 2, y: 3, w: 38, h: 99)), feet_pixel: Some((x: 20.5, y: 101.0)), feet_anchor_norm: Some((x: -0.023255813953488358, y: -0.47115384615384615)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 2, y: 3, w: 38, h: 99)), feet_pixel: Some((x: 20.5, y: 101.0)), feet_anchor_norm: Some((x: -0.023255813953488358, y: -0.47115384615384615)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 38, h: 100))))), "idle_side": (hurtbox: Some((bbox: Some((x: 8, y: 5, w: 29, h: 97))))), "interact": (hurtbox: Some((bbox: Some((x: 2, y: 3, w: 39, h: 99))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 3, w: 38, h: 99))))), "walk": (hurtbox: Some((bbox: Some((x: 7, y: 6, w: 32, h: 96)))))})),
     rows: [
     (
         animation: "idle",

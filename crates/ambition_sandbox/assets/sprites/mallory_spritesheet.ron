@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "mallory_spritesheet.png",
     label_width: 112,
     frame_width: 88,
     frame_height: 107,
-    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 4, w: 81, h: 100)), feet_pixel: Some((x: 43.0, y: 103.0)), feet_anchor_norm: Some((x: -0.011363636363636354, y: -0.46261682242990654)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 4, w: 81, h: 100)), feet_pixel: Some((x: 43.0, y: 103.0)), feet_anchor_norm: Some((x: -0.011363636363636354, y: -0.46261682242990654)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 3, y: 3, w: 81, h: 101))))), "interact": (hurtbox: Some((bbox: Some((x: 3, y: 4, w: 82, h: 101))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 4, w: 84, h: 101))))), "walk": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 84, h: 103)))))})),
     rows: [
     (
         animation: "idle",

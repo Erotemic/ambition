@@ -3,11 +3,11 @@
 [
 (
     target: "robot",
-    image: "robot_spritesheet.png",
+    image: "player_combat_review_spritesheet.png",
     label_width: 142,
     frame_width: 126,
     frame_height: 128,
-    body_metrics: Some((body_pixel_bbox: Some((x: 29, y: 0, w: 68, h: 105)), feet_pixel: Some((x: 62.5, y: 104.0)), feet_anchor_norm: Some((x: -0.003968253968253954, y: -0.3125)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 29, y: 0, w: 68, h: 105)), feet_pixel: Some((x: 62.5, y: 104.0)), feet_anchor_norm: Some((x: -0.003968253968253954, y: -0.3125)), animations: {"aim": (hurtbox: Some((bbox: Some((x: 22, y: 0, w: 97, h: 105))))), "blink_in": (hurtbox: Some((bbox: Some((x: 14, y: 0, w: 101, h: 105))))), "blink_out": (hurtbox: Some((bbox: Some((x: 7, y: 0, w: 98, h: 105))))), "block": (hurtbox: Some((bbox: Some((x: 20, y: 0, w: 77, h: 105))))), "cast": (hurtbox: Some((bbox: Some((x: 21, y: 0, w: 100, h: 105))))), "celebrate": (hurtbox: Some((bbox: Some((x: 23, y: 0, w: 77, h: 105))))), "charge": (hurtbox: Some((bbox: Some((x: 21, y: 0, w: 94, h: 104))))), "dash": (hurtbox: Some((bbox: Some((x: 12, y: 0, w: 95, h: 100))))), "death": (hurtbox: Some((bbox: Some((x: 25, y: 0, w: 93, h: 128))))), "fall": (hurtbox: Some((bbox: Some((x: 21, y: 0, w: 79, h: 105))))), "hit": (hurtbox: Some((bbox: Some((x: 17, y: 0, w: 80, h: 106))))), "idle": (hurtbox: Some((bbox: Some((x: 29, y: 0, w: 70, h: 105))))), "jump": (hurtbox: Some((bbox: Some((x: 24, y: 0, w: 78, h: 105))))), "pickup": (hurtbox: Some((bbox: Some((x: 23, y: 0, w: 77, h: 108))))), "run": (hurtbox: Some((bbox: Some((x: 27, y: 0, w: 74, h: 107))))), "shoot": (hurtbox: Some((bbox: Some((x: 20, y: 0, w: 99, h: 105))))), "slash": (hurtbox: Some((bbox: Some((x: 22, y: 0, w: 104, h: 105))))), "stomp": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 116, h: 112))))), "throw": (hurtbox: Some((bbox: Some((x: 20, y: 0, w: 101, h: 105))))), "walk": (hurtbox: Some((bbox: Some((x: 28, y: 0, w: 72, h: 106)))))})),
     rows: [
     (
         animation: "idle",

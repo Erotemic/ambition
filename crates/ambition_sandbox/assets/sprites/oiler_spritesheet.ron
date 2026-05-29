@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "oiler_spritesheet.png",
     label_width: 112,
     frame_width: 84,
     frame_height: 109,
-    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 3, w: 77, h: 103)), feet_pixel: Some((x: 41.0, y: 105.0)), feet_anchor_norm: Some((x: -0.011904761904761918, y: -0.463302752293578)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 3, w: 77, h: 103)), feet_pixel: Some((x: 41.0, y: 105.0)), feet_anchor_norm: Some((x: -0.011904761904761918, y: -0.463302752293578)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 3, y: 3, w: 77, h: 103))))), "interact": (hurtbox: Some((bbox: Some((x: 3, y: 4, w: 78, h: 103))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 3, w: 80, h: 104))))), "walk": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 80, h: 105)))))})),
     rows: [
     (
         animation: "idle",

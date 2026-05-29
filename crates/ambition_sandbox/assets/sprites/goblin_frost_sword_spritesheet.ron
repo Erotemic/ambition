@@ -3,11 +3,11 @@
 [
 (
     target: "goblin",
-    image: "goblin_spritesheet.png",
+    image: "goblin_frost_sword_spritesheet.png",
     label_width: 132,
     frame_width: 109,
     frame_height: 109,
-    body_metrics: Some((body_pixel_bbox: Some((x: 10, y: 6, w: 84, h: 85)), feet_pixel: Some((x: 51.5, y: 90.0)), feet_anchor_norm: Some((x: -0.027522935779816515, y: -0.32568807339449546)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 10, y: 6, w: 84, h: 85)), feet_pixel: Some((x: 51.5, y: 90.0)), feet_anchor_norm: Some((x: -0.027522935779816515, y: -0.32568807339449546)), animations: {"death": (hurtbox: Some((bbox: Some((x: 9, y: 7, w: 88, h: 100))))), "hit": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 79, h: 91))))), "idle": (hurtbox: Some((bbox: Some((x: 10, y: 6, w: 84, h: 85))))), "run": (hurtbox: Some((bbox: Some((x: 9, y: 6, w: 89, h: 85))))), "slash": (hurtbox: Some((bbox: Some((x: 7, y: 5, w: 102, h: 86))))), "walk": (hurtbox: Some((bbox: Some((x: 9, y: 6, w: 88, h: 85)))))})),
     rows: [
     (
         animation: "idle",

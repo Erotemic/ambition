@@ -3,11 +3,11 @@
 [
 (
     target: "sandbag",
-    image: "sandbag_spritesheet.png",
+    image: "sandbag_armored_review_spritesheet.png",
     label_width: 132,
     frame_width: 128,
     frame_height: 128,
-    body_metrics: Some((body_pixel_bbox: Some((x: 41, y: 28, w: 48, h: 85)), feet_pixel: Some((x: 64.5, y: 112.0)), feet_anchor_norm: Some((x: 0.00390625, y: -0.375)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 41, y: 28, w: 48, h: 85)), feet_pixel: Some((x: 64.5, y: 112.0)), feet_anchor_norm: Some((x: 0.00390625, y: -0.375)), animations: {"block": (hurtbox: Some((bbox: Some((x: 25, y: 26, w: 69, h: 90))))), "death": (hurtbox: Some((bbox: Some((x: 36, y: 28, w: 75, h: 100))))), "hit": (hurtbox: Some((bbox: Some((x: 13, y: 28, w: 86, h: 93))))), "idle": (hurtbox: Some((bbox: Some((x: 41, y: 28, w: 49, h: 87))))), "land": (hurtbox: Some((bbox: Some((x: 22, y: 28, w: 85, h: 87))))), "stomp": (hurtbox: Some((bbox: Some((x: 22, y: 9, w: 85, h: 109)))))})),
     rows: [
     (
         animation: "idle",

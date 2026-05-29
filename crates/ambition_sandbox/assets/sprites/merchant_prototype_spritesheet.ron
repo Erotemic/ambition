@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "merchant_prototype_spritesheet.png",
     label_width: 112,
     frame_width: 83,
     frame_height: 91,
-    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 3, w: 76, h: 86)), feet_pixel: Some((x: 40.5, y: 88.0)), feet_anchor_norm: Some((x: -0.01204819277108432, y: -0.46703296703296704)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 3, w: 76, h: 86)), feet_pixel: Some((x: 40.5, y: 88.0)), feet_anchor_norm: Some((x: -0.01204819277108432, y: -0.46703296703296704)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 3, y: 3, w: 77, h: 86))))), "interact": (hurtbox: Some((bbox: Some((x: 3, y: 4, w: 78, h: 85))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 3, w: 79, h: 86))))), "walk": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 79, h: 87)))))})),
     rows: [
     (
         animation: "idle",

@@ -8,7 +8,16 @@ held_item: bow
 faction: null
 role: null
 music_cue: null
-tags: []
+tags:
+- story
+- humanoid
+- enemy
+- combatant
+- ranged
+- goblin
+- desert
+- bow
+sheet_tuning: null
 frame_width: 116
 frame_height: 114
 label_width: 132
@@ -380,3 +389,53 @@ body_metrics:
   feet_anchor_norm:
     x: 0.07327586206896552
     y: -0.33333333333333337
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 18
+          y: 2
+          w: 98
+          h: 94
+    walk:
+      hurtbox:
+        bbox:
+          x: 17
+          y: 2
+          w: 99
+          h: 94
+    run:
+      hurtbox:
+        bbox:
+          x: 17
+          y: 2
+          w: 99
+          h: 94
+    slash:
+      hurtbox:
+        bbox:
+          x: 15
+          y: 2
+          w: 101
+          h: 94
+    dash:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 2
+          w: 97
+          h: 94
+    hit:
+      hurtbox:
+        bbox:
+          x: 10
+          y: 2
+          w: 81
+          h: 96
+    death:
+      hurtbox:
+        bbox:
+          x: 17
+          y: 2
+          w: 90
+          h: 110

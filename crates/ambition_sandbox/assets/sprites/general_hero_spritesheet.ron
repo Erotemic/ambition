@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "general_hero_spritesheet.png",
     label_width: 112,
     frame_width: 124,
     frame_height: 123,
-    body_metrics: Some((body_pixel_bbox: Some((x: 7, y: 15, w: 93, h: 102)), feet_pixel: Some((x: 53.0, y: 116.0)), feet_anchor_norm: Some((x: -0.07258064516129031, y: -0.44308943089430897)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 7, y: 15, w: 93, h: 102)), feet_pixel: Some((x: 53.0, y: 116.0)), feet_anchor_norm: Some((x: -0.07258064516129031, y: -0.44308943089430897)), animations: {"celebrate": (hurtbox: Some((bbox: Some((x: 6, y: 15, w: 83, h: 103))))), "dash": (hurtbox: Some((bbox: Some((x: 2, y: 16, w: 108, h: 101))))), "fall": (hurtbox: Some((bbox: Some((x: 2, y: 6, w: 91, h: 115))))), "idle": (hurtbox: Some((bbox: Some((x: 7, y: 15, w: 94, h: 102))))), "interact": (hurtbox: Some((bbox: Some((x: 7, y: 16, w: 95, h: 102))))), "jump": (hurtbox: Some((bbox: Some((x: 5, y: 0, w: 99, h: 118))))), "run": (hurtbox: Some((bbox: Some((x: 7, y: 13, w: 97, h: 105))))), "slash": (hurtbox: Some((bbox: Some((x: 3, y: 7, w: 119, h: 111))))), "talk": (hurtbox: Some((bbox: Some((x: 6, y: 15, w: 96, h: 103))))), "walk": (hurtbox: Some((bbox: Some((x: 6, y: 14, w: 97, h: 104)))))})),
     rows: [
     (
         animation: "idle",

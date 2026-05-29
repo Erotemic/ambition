@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "kernel_guide_spritesheet.png",
     label_width: 112,
     frame_width: 89,
     frame_height: 89,
-    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 4, w: 82, h: 83)), feet_pixel: Some((x: 43.5, y: 86.0)), feet_anchor_norm: Some((x: -0.011235955056179803, y: -0.4662921348314607)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 4, w: 82, h: 83)), feet_pixel: Some((x: 43.5, y: 86.0)), feet_anchor_norm: Some((x: -0.011235955056179803, y: -0.4662921348314607)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 3, y: 3, w: 83, h: 84))))), "interact": (hurtbox: Some((bbox: Some((x: 3, y: 4, w: 83, h: 83))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 3, w: 85, h: 84))))), "walk": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 85, h: 85)))))})),
     rows: [
     (
         animation: "idle",

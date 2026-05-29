@@ -3,11 +3,11 @@
 [
 (
     target: "goblin",
-    image: "goblin_spritesheet.png",
+    image: "goblin_shaman_staff_spritesheet.png",
     label_width: 132,
     frame_width: 120,
     frame_height: 127,
-    body_metrics: Some((body_pixel_bbox: Some((x: 21, y: 0, w: 94, h: 108)), feet_pixel: Some((x: 67.5, y: 107.0)), feet_anchor_norm: Some((x: 0.0625, y: -0.34251968503937)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 21, y: 0, w: 94, h: 108)), feet_pixel: Some((x: 67.5, y: 107.0)), feet_anchor_norm: Some((x: 0.0625, y: -0.34251968503937)), animations: {"blink_in": (hurtbox: Some((bbox: Some((x: 9, y: 0, w: 111, h: 109))))), "blink_out": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 118, h: 109))))), "death": (hurtbox: Some((bbox: Some((x: 19, y: 0, w: 91, h: 125))))), "hit": (hurtbox: Some((bbox: Some((x: 13, y: 0, w: 81, h: 110))))), "idle": (hurtbox: Some((bbox: Some((x: 21, y: 0, w: 94, h: 108))))), "run": (hurtbox: Some((bbox: Some((x: 19, y: 0, w: 100, h: 108))))), "slash": (hurtbox: Some((bbox: Some((x: 17, y: 0, w: 103, h: 108))))), "walk": (hurtbox: Some((bbox: Some((x: 20, y: 0, w: 98, h: 108)))))})),
     rows: [
     (
         animation: "idle",

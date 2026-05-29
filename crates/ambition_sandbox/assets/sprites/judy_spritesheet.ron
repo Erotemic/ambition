@@ -3,11 +3,11 @@
 [
 (
     target: "toon",
-    image: "toon_spritesheet.png",
+    image: "judy_spritesheet.png",
     label_width: 112,
     frame_width: 98,
     frame_height: 102,
-    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 4, w: 91, h: 96)), feet_pixel: Some((x: 48.0, y: 99.0)), feet_anchor_norm: Some((x: -0.010204081632653073, y: -0.47058823529411764)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 3, y: 4, w: 91, h: 96)), feet_pixel: Some((x: 48.0, y: 99.0)), feet_anchor_norm: Some((x: -0.010204081632653073, y: -0.47058823529411764)), animations: {"idle": (hurtbox: Some((bbox: Some((x: 3, y: 3, w: 91, h: 97))))), "interact": (hurtbox: Some((bbox: Some((x: 3, y: 4, w: 92, h: 96))))), "talk": (hurtbox: Some((bbox: Some((x: 2, y: 4, w: 93, h: 96))))), "walk": (hurtbox: Some((bbox: Some((x: 2, y: 2, w: 94, h: 98)))))})),
     rows: [
     (
         animation: "idle",

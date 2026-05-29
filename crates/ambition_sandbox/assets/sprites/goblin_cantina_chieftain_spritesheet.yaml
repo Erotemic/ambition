@@ -11,6 +11,7 @@ music_cue: first_goblin_tune_v2
 tags:
 - faction
 - leader
+sheet_tuning: null
 frame_width: 114
 frame_height: 128
 label_width: 120
@@ -394,3 +395,53 @@ body_metrics:
   feet_anchor_norm:
     x: 0.04385964912280704
     y: -0.3515625
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 11
+          y: 0
+          w: 103
+          h: 110
+    walk:
+      hurtbox:
+        bbox:
+          x: 9
+          y: 0
+          w: 105
+          h: 110
+    talk:
+      hurtbox:
+        bbox:
+          x: 7
+          y: 0
+          w: 81
+          h: 110
+    slash:
+      hurtbox:
+        bbox:
+          x: 7
+          y: 0
+          w: 107
+          h: 110
+    celebrate:
+      hurtbox:
+        bbox:
+          x: 8
+          y: 0
+          w: 80
+          h: 110
+    hit:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 86
+          h: 112
+    death:
+      hurtbox:
+        bbox:
+          x: 8
+          y: 0
+          w: 92
+          h: 128

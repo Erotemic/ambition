@@ -8,7 +8,15 @@ held_item: sword
 faction: null
 role: null
 music_cue: null
-tags: []
+tags:
+- story
+- humanoid
+- enemy
+- combatant
+- goblin
+- frost
+- sword
+sheet_tuning: null
 frame_width: 109
 frame_height: 109
 label_width: 132
@@ -341,3 +349,46 @@ body_metrics:
   feet_anchor_norm:
     x: -0.027522935779816515
     y: -0.32568807339449546
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 10
+          y: 6
+          w: 84
+          h: 85
+    walk:
+      hurtbox:
+        bbox:
+          x: 9
+          y: 6
+          w: 88
+          h: 85
+    run:
+      hurtbox:
+        bbox:
+          x: 9
+          y: 6
+          w: 89
+          h: 85
+    slash:
+      hurtbox:
+        bbox:
+          x: 7
+          y: 5
+          w: 102
+          h: 86
+    hit:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 2
+          w: 79
+          h: 91
+    death:
+      hurtbox:
+        bbox:
+          x: 9
+          y: 7
+          w: 88
+          h: 100

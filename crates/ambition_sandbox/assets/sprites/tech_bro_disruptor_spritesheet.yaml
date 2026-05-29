@@ -11,6 +11,7 @@ music_cue: tech_bros_disruption
 tags:
 - faction
 - leader
+sheet_tuning: null
 frame_width: 111
 frame_height: 128
 label_width: 120
@@ -446,3 +447,60 @@ body_metrics:
   feet_anchor_norm:
     x: -0.06756756756756754
     y: -0.3125
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 12
+          y: 0
+          w: 73
+          h: 106
+    walk:
+      hurtbox:
+        bbox:
+          x: 11
+          y: 0
+          w: 76
+          h: 107
+    talk:
+      hurtbox:
+        bbox:
+          x: 12
+          y: 0
+          w: 74
+          h: 106
+    charge:
+      hurtbox:
+        bbox:
+          x: 6
+          y: 0
+          w: 97
+          h: 105
+    cast:
+      hurtbox:
+        bbox:
+          x: 6
+          y: 0
+          w: 103
+          h: 105
+    celebrate:
+      hurtbox:
+        bbox:
+          x: 8
+          y: 0
+          w: 77
+          h: 105
+    hit:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 83
+          h: 107
+    death:
+      hurtbox:
+        bbox:
+          x: 10
+          y: 0
+          w: 93
+          h: 128

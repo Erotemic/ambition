@@ -3,11 +3,11 @@
 [
 (
     target: "robot",
-    image: "robot_spritesheet.png",
+    image: "robot_caster_spritesheet.png",
     label_width: 132,
     frame_width: 120,
     frame_height: 128,
-    body_metrics: Some((body_pixel_bbox: Some((x: 24, y: 0, w: 76, h: 105)), feet_pixel: Some((x: 61.5, y: 104.0)), feet_anchor_norm: Some((x: 0.012499999999999956, y: -0.3125)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 24, y: 0, w: 76, h: 105)), feet_pixel: Some((x: 61.5, y: 104.0)), feet_anchor_norm: Some((x: 0.012499999999999956, y: -0.3125)), animations: {"aim": (hurtbox: Some((bbox: Some((x: 17, y: 0, w: 96, h: 105))))), "blink_in": (hurtbox: Some((bbox: Some((x: 9, y: 0, w: 107, h: 105))))), "blink_out": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 102, h: 105))))), "cast": (hurtbox: Some((bbox: Some((x: 16, y: 0, w: 99, h: 105))))), "charge": (hurtbox: Some((bbox: Some((x: 16, y: 0, w: 93, h: 104))))), "dash": (hurtbox: Some((bbox: Some((x: 6, y: 0, w: 103, h: 99))))), "death": (hurtbox: Some((bbox: Some((x: 20, y: 0, w: 98, h: 128))))), "hit": (hurtbox: Some((bbox: Some((x: 12, y: 0, w: 88, h: 106))))), "idle": (hurtbox: Some((bbox: Some((x: 24, y: 0, w: 76, h: 105))))), "run": (hurtbox: Some((bbox: Some((x: 22, y: 0, w: 79, h: 106))))), "shoot": (hurtbox: Some((bbox: Some((x: 15, y: 0, w: 98, h: 105))))), "walk": (hurtbox: Some((bbox: Some((x: 22, y: 0, w: 78, h: 105)))))})),
     rows: [
     (
         animation: "idle",

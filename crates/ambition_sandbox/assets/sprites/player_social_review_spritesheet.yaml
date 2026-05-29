@@ -8,7 +8,12 @@ held_item: null
 faction: null
 role: null
 music_cue: null
-tags: []
+tags:
+- robot
+- player
+- review
+- social
+sheet_tuning: null
 frame_width: 107
 frame_height: 128
 label_width: 142
@@ -555,3 +560,81 @@ body_metrics:
   feet_anchor_norm:
     x: -0.060747663551401876
     y: -0.3125
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 14
+          y: 0
+          w: 67
+          h: 105
+    walk:
+      hurtbox:
+        bbox:
+          x: 12
+          y: 0
+          w: 71
+          h: 105
+    interact:
+      hurtbox:
+        bbox:
+          x: 11
+          y: 0
+          w: 84
+          h: 105
+    talk:
+      hurtbox:
+        bbox:
+          x: 14
+          y: 0
+          w: 68
+          h: 105
+    pickup:
+      hurtbox:
+        bbox:
+          x: 8
+          y: 0
+          w: 75
+          h: 107
+    throw:
+      hurtbox:
+        bbox:
+          x: 5
+          y: 0
+          w: 100
+          h: 105
+    sit:
+      hurtbox:
+        bbox:
+          x: 9
+          y: 0
+          w: 81
+          h: 105
+    sleep:
+      hurtbox:
+        bbox:
+          x: 8
+          y: 12
+          w: 81
+          h: 97
+    celebrate:
+      hurtbox:
+        bbox:
+          x: 8
+          y: 0
+          w: 74
+          h: 105
+    hit:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 78
+          h: 106
+    death:
+      hurtbox:
+        bbox:
+          x: 10
+          y: 0
+          w: 90
+          h: 128

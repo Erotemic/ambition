@@ -8,7 +8,17 @@ held_item: staff
 faction: null
 role: null
 music_cue: null
-tags: []
+tags:
+- story
+- humanoid
+- enemy
+- combatant
+- ranged
+- goblin
+- shaman
+- staff
+- caster
+sheet_tuning: null
 frame_width: 120
 frame_height: 127
 label_width: 132
@@ -419,3 +429,60 @@ body_metrics:
   feet_anchor_norm:
     x: 0.0625
     y: -0.34251968503937
+  animations:
+    idle:
+      hurtbox:
+        bbox:
+          x: 21
+          y: 0
+          w: 94
+          h: 108
+    walk:
+      hurtbox:
+        bbox:
+          x: 20
+          y: 0
+          w: 98
+          h: 108
+    run:
+      hurtbox:
+        bbox:
+          x: 19
+          y: 0
+          w: 100
+          h: 108
+    slash:
+      hurtbox:
+        bbox:
+          x: 17
+          y: 0
+          w: 103
+          h: 108
+    blink_out:
+      hurtbox:
+        bbox:
+          x: 2
+          y: 0
+          w: 118
+          h: 109
+    blink_in:
+      hurtbox:
+        bbox:
+          x: 9
+          y: 0
+          w: 111
+          h: 109
+    hit:
+      hurtbox:
+        bbox:
+          x: 13
+          y: 0
+          w: 81
+          h: 110
+    death:
+      hurtbox:
+        bbox:
+          x: 19
+          y: 0
+          w: 91
+          h: 125

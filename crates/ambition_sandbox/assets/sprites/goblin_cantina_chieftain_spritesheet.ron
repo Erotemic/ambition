@@ -3,11 +3,11 @@
 [
 (
     target: "goblin",
-    image: "goblin_spritesheet.png",
+    image: "goblin_cantina_chieftain_spritesheet.png",
     label_width: 120,
     frame_width: 114,
     frame_height: 128,
-    body_metrics: Some((body_pixel_bbox: Some((x: 11, y: 0, w: 103, h: 110)), feet_pixel: Some((x: 62.0, y: 109.0)), feet_anchor_norm: Some((x: 0.04385964912280704, y: -0.3515625)))),
+    body_metrics: Some((body_pixel_bbox: Some((x: 11, y: 0, w: 103, h: 110)), feet_pixel: Some((x: 62.0, y: 109.0)), feet_anchor_norm: Some((x: 0.04385964912280704, y: -0.3515625)), animations: {"celebrate": (hurtbox: Some((bbox: Some((x: 8, y: 0, w: 80, h: 110))))), "death": (hurtbox: Some((bbox: Some((x: 8, y: 0, w: 92, h: 128))))), "hit": (hurtbox: Some((bbox: Some((x: 2, y: 0, w: 86, h: 112))))), "idle": (hurtbox: Some((bbox: Some((x: 11, y: 0, w: 103, h: 110))))), "slash": (hurtbox: Some((bbox: Some((x: 7, y: 0, w: 107, h: 110))))), "talk": (hurtbox: Some((bbox: Some((x: 7, y: 0, w: 81, h: 110))))), "walk": (hurtbox: Some((bbox: Some((x: 9, y: 0, w: 105, h: 110)))))})),
     rows: [
     (
         animation: "idle",

@@ -889,6 +889,7 @@ pub(super) fn start_attack(
 }
 
 pub(super) fn advance_attack(
+    player_entity: bevy::prelude::Entity,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     world: &ae::World,
@@ -964,7 +965,11 @@ pub(super) fn advance_attack(
                     volume: orb_aabb,
                     damage: 1,
                     source: features::HitSource::PogoBounce,
-                    attacker: None,
+                    // Player melee-driven pogo: this player's
+                    // downward strike landed on the orb. The hit
+                    // belongs to them; stamp for multi-player
+                    // attribution.
+                    attacker: Some(player_entity),
                     target: features::HitTarget::OrbMatch,
                     mode: features::HitMode::Knockback,
                     knockback: None,
@@ -983,7 +988,11 @@ pub(super) fn advance_attack(
                 volume: attack,
                 damage: slash_damage,
                 source: features::HitSource::PlayerSlash { knock_x },
-                attacker: None,
+                // Slash hits attribute to the player whose attack
+                // landed — the feature-side consumer reads this
+                // to apply hitstop / flash to the right player
+                // rather than always landing it on primary.
+                attacker: Some(player_entity),
                 target: features::HitTarget::Volume,
                 mode: features::HitMode::Knockback,
                 knockback: None,

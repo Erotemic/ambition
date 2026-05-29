@@ -409,6 +409,7 @@ pub fn attack_advance_system(
         );
     }
     super::world_flow::advance_attack(
+        player_entity,
         &mut sfx_writer,
         &mut vfx_writer,
         &world.0,

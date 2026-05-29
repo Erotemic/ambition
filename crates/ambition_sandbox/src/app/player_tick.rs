@@ -82,6 +82,7 @@ pub fn player_control_system(
     mut queues: SandboxQueues,
     mut player_q: Query<
         (
+            Entity,
             ae::PlayerClusterQueryData,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
@@ -96,6 +97,7 @@ pub fn player_control_system(
     >,
 ) {
     let Ok((
+        player_entity,
         mut cluster_item,
         mut anim,
         mut combat,
@@ -120,6 +122,7 @@ pub fn player_control_system(
 
     let mut clusters = cluster_item.as_clusters_mut();
     let outcome = player_control_phase(
+        player_entity,
         actor_control.0,
         &world.0,
         &mut clusters,

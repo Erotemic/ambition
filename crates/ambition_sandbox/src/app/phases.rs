@@ -32,6 +32,7 @@ use super::*;
 /// real time (jump buffers, blink aim, dash chains) belong here. Returns
 /// `Return` if the engine asked for a sandbox reset.
 pub(super) fn player_control_phase(
+    player_entity: bevy::prelude::Entity,
     actor_control: crate::actor_control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::PlayerClustersMut<'_>,
@@ -101,7 +102,12 @@ pub(super) fn player_control_phase(
             volume: orb_aabb,
             damage: 1,
             source: features::HitSource::PogoBounce,
-            attacker: None,
+            // Engine-reported pogo bounces from `control_events`
+            // belong to the player whose control phase produced
+            // them — stamp the attacker so the player-side
+            // consumer can attribute the hit back to this player
+            // (multi-player ready).
+            attacker: Some(player_entity),
             target: features::HitTarget::OrbMatch,
             mode: features::HitMode::Knockback,
             knockback: None,

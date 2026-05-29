@@ -72,11 +72,12 @@ pub fn apply_feature_hit_events(
     >,
     // Hitstop / flash on a successful player attack apply to the
     // attacker that landed the hit. Iterates every player and uses
-    // `HitEvent::attacker` (stamped by emit sites that know which
-    // player attacked — projectile, hitbox owner). Events with
-    // `attacker = None` fall back to applying hitstop to the primary
-    // player (preserves current single-player behavior for slash /
-    // pogo, which haven't threaded the attacker yet).
+    // `HitEvent::attacker` (now stamped by every player-attacker
+    // emit site — slash, pogo, and player projectile). Events with
+    // `attacker = None` are environmental / anonymous hits (hazards,
+    // enemy strikes) and fall back to primary on the rare path
+    // where a feature-target consumer ever needs to apply hitstop
+    // for them.
     mut player_combat_q: Query<
         (
             bevy::prelude::Entity,

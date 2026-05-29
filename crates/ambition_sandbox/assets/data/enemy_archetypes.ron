@@ -34,7 +34,15 @@
 //   is_sandbag         Tags the archetype as a training-dummy variant.
 //   default_size       Optional render/collision size override (px).
 //                      `None` = use the engine's default body box.
-//   brain_template     One of StandStill / Wanderer / MeleeBrute.
+//   brain_template     One of StandStill / Wanderer / MeleeBrute /
+//                      Skirmisher / Sniper / Smash. Pick by the
+//                      archetype's combat shape: Skirmisher = strafe
+//                      + ranged, Sniper = hold + ranged, MeleeBrute
+//                      = approach + swing, Smash = humanoid brawler.
+//                      A row with `ranged: Some(...)` MUST pick a
+//                      template that emits fire (Skirmisher / Sniper
+//                      / Smash); MeleeBrute swallows the ranged
+//                      capability silently.
 //   melee              Optional concrete melee attack spec. One of:
 //                          Swipe((windup_s, active_s, recover_s, damage, reach_px))
 //                          Lunge((windup_s, active_s, recover_s, damage, reach_px, step_px))
@@ -281,7 +289,13 @@
         damage_amount: 2,
         is_aerial: true,
         default_size: Some((108.0, 96.0)),
-        brain_template: MeleeBrute,
+        // Skirmisher: orbit-and-fire. The legacy `MeleeBrute` template
+        // never emitted `frame.fire` so the shark-rider's ranged
+        // `Bolt` capability was inert under the brain-authoritative
+        // pipeline. Skirmisher maintains the `attack_range` standoff
+        // (1100 px) and emits fire on cooldown — the resolver pulls
+        // Bolt speed / damage from the `ranged` row below.
+        brain_template: Skirmisher,
         ranged: Some(Bolt(speed: 500.0, damage: 2)),
         move_style: Float,
     ),
@@ -311,7 +325,9 @@
         damage_amount: 3,
         is_aerial: true,
         default_size: Some((108.0, 96.0)),
-        brain_template: MeleeBrute,
+        // Skirmisher: see `PirateOnShark` above. Same orbit-and-fire
+        // shape; only the Bolt damage scales up.
+        brain_template: Skirmisher,
         ranged: Some(Bolt(speed: 500.0, damage: 3)),
         move_style: Float,
     ),

@@ -420,11 +420,13 @@ pub(super) fn enemy_default_action_set(enemy: &EnemyRuntime) -> crate::brain::Ac
 /// Build the enemy's default `Brain` from its archetype spec.
 /// Reads `brain_template()` off the consolidated `EnemyArchetypeSpec`
 /// so adding a new archetype is a single row, not a parallel match.
-pub(super) fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
+pub(in crate::content::features) fn enemy_default_brain(
+    enemy: &EnemyRuntime,
+) -> crate::brain::Brain {
     use super::super::enemies::EnemyBrainTemplate;
     use crate::brain::{
-        Brain, MeleeBruteCfg, MeleeBruteState, SmashState, StateMachineCfg, WandererCfg,
-        WandererState,
+        Brain, MeleeBruteCfg, MeleeBruteState, SkirmisherCfg, SkirmisherState, SmashState,
+        SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
     };
     let archetype = enemy.archetype;
     match archetype.brain_template() {
@@ -441,6 +443,28 @@ pub(super) fn enemy_default_brain(enemy: &EnemyRuntime) -> crate::brain::Brain {
                 chase_speed: archetype.chase_speed(),
             },
             state: MeleeBruteState::default(),
+        }),
+        EnemyBrainTemplate::Skirmisher => Brain::StateMachine(StateMachineCfg::Skirmisher {
+            cfg: SkirmisherCfg {
+                aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+                aggro_radius: archetype.aggro_radius(),
+                // `attack_range` in the archetype row is the AI-side
+                // firing distance; the skirmisher uses it as both the
+                // standoff target (where it tries to be) and — via the
+                // resolver — the upper bound for fire intent.
+                standoff_px: archetype.attack_range(),
+                strafe_speed: archetype.chase_speed(),
+                fire_cooldown_s: 1.5,
+            },
+            state: SkirmisherState::default(),
+        }),
+        EnemyBrainTemplate::Sniper => Brain::StateMachine(StateMachineCfg::Sniper {
+            cfg: SniperCfg {
+                aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+                aggro_radius: archetype.aggro_radius(),
+                fire_cooldown_s: 1.5,
+            },
+            state: SniperState::default(),
         }),
         EnemyBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
             cfg: smash_cfg_for_archetype(archetype),

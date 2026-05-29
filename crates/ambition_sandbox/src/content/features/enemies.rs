@@ -308,6 +308,17 @@ pub(super) enum EnemyBrainTemplate {
     /// chase_speed / attack_range / aggro_radius pulled into the
     /// cfg.
     MeleeBrute,
+    /// Strafe-and-fire ranged policy. Maintains a standoff distance
+    /// from the target and emits `frame.fire` on a fixed cooldown.
+    /// Use for archetypes that should harass with projectiles —
+    /// shark-riders are the canonical case (aerial body + Bolt
+    /// ranged capability). Pairs with a `ranged: Some(...)` row in
+    /// the archetype data; without it the resolver swallows the fire
+    /// intent.
+    Skirmisher,
+    /// Hold position + long-range fire. Like `Skirmisher` but does
+    /// not strafe — used by stationary turret-like enemies.
+    Sniper,
     /// Smash-brawl pipeline: observe → mode → action → difficulty
     /// → emit. See `crate::brain::smash`. Use for humanoid melee
     /// archetypes that should approach, swing, and step back with

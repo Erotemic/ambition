@@ -907,6 +907,58 @@ mod tests {
         }
     }
 
+    /// End-to-end ranged path: a Skirmisher brain ticking past its
+    /// fire cooldown inside aggro range produces `frame.fire`, and
+    /// the resolver translates that — gated by the actor's ranged
+    /// `ActionSet` — into a concrete `ActionRequest::Ranged`. Pins
+    /// the seam shark-rider archetypes rely on: without it, the
+    /// `ranged: Some(Bolt(...))` row in `enemy_archetypes.ron` is
+    /// silently inert. This test was added when the legacy
+    /// choreography path was deleted (which previously kept
+    /// shark-riders firing even though their `MeleeBrute` brain
+    /// only emitted melee intent — the brain template was switched
+    /// to `Skirmisher` in the same wave).
+    #[test]
+    fn skirmisher_brain_resolves_through_action_set_to_ranged_request() {
+        // Inside aggro radius, past cooldown.
+        let cfg = SkirmisherCfg::RANGER_DEFAULT;
+        let mut brain = Brain::StateMachine(StateMachineCfg::Skirmisher {
+            cfg,
+            state: SkirmisherState::default(),
+        });
+        let mut snap = BrainSnapshot::idle();
+        snap.actor_pos = ae::Vec2::ZERO;
+        snap.target_pos = ae::Vec2::new(200.0, 0.0); // inside aggro 320
+        snap.sim_time = 5.0; // past fire_cooldown_s 0.8
+
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        brain.tick(&snap, &mut frame);
+        assert!(
+            frame.fire.is_some(),
+            "Skirmisher inside aggro + past cooldown must emit fire intent",
+        );
+
+        let kit = ActionSet {
+            ranged: Some(RangedActionSpec::Bolt {
+                speed: 500.0,
+                damage: 2,
+            }),
+            ..Default::default()
+        };
+        let req = resolve_action_requests(&kit, &frame, snap.actor_pos);
+        assert_eq!(req.len(), 1, "exactly one ranged request");
+        match req[0] {
+            ActionRequest::Ranged { spec, dir, .. } => {
+                assert!(
+                    matches!(spec, RangedActionSpec::Bolt { .. }),
+                    "spec should come from the Bolt kit",
+                );
+                assert!(dir.x > 0.0, "fire direction should point at target");
+            }
+            other => panic!("expected ActionRequest::Ranged, got {:?}", other),
+        }
+    }
+
     /// End-to-end: a MeleeBrute brain ticks at attack range; its
     /// emitted frame routes through the actor's ActionSet to a
     /// concrete Melee request. Same brain + different ActionSet =

@@ -398,6 +398,57 @@ mod conversion_tests {
     // brain emits. Brain-side coverage for path patrol lives in
     // `crate::brain::state_machine::tick_patrol` tests.
 
+    /// `PirateOnShark` (and `PirateHeavyOnShark`) is a ranged-aerial
+    /// archetype — its data row carries `ranged: Some(Bolt(...))` and
+    /// the `brain_template: Skirmisher` row picks the strafe-and-fire
+    /// brain. The legacy GC pass deleted the choreography path that
+    /// previously kept shark-riders firing even with the wrong
+    /// brain template (MeleeBrute swallows fire intent silently);
+    /// this test pins the post-GC seam by spawning a PirateOnShark
+    /// the canonical way (`EnemyRuntime::new` + `enemy_default_brain`)
+    /// and proving the brain emits a fire intent at firing-ready
+    /// distance + cooldown.
+    #[test]
+    fn pirate_on_shark_brain_emits_fire_intent_inside_aggro() {
+        use crate::content::features::ecs::enemy_default_brain;
+
+        let aabb = ae::Aabb::new(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(54.0, 48.0));
+        let enemy = EnemyRuntime::new(
+            "shark_a",
+            "Burning Flying Shark",
+            aabb,
+            crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            &[],
+        );
+        assert_eq!(enemy.archetype, EnemyArchetype::PirateOnShark);
+        let mut brain = enemy_default_brain(&enemy);
+        assert!(
+            matches!(
+                brain,
+                crate::brain::Brain::StateMachine(
+                    crate::brain::StateMachineCfg::Skirmisher { .. }
+                ),
+            ),
+            "PirateOnShark must map to a Skirmisher brain after the \
+             choreography GC; legacy MeleeBrute mapping silently \
+             dropped ranged fire intent",
+        );
+
+        // Inside aggro (1200 px) + past Skirmisher's default fire
+        // cooldown — brain should emit `fire`.
+        let mut snap = crate::brain::BrainSnapshot::idle();
+        snap.actor_pos = enemy.pos;
+        snap.target_pos = enemy.pos + ae::Vec2::new(500.0, 0.0);
+        snap.sim_time = 5.0;
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        brain.tick(&snap, &mut frame);
+        assert!(
+            frame.fire.is_some(),
+            "PirateOnShark Skirmisher brain must emit fire intent \
+             inside aggro range past cooldown",
+        );
+    }
+
     /// `reset_to_spawn` must restore a morphed PirateOnShark back to
     /// its original fused archetype with the right size, gravity,
     /// rider health, and choreography. Same-room reset relies on

@@ -19,30 +19,23 @@ use crate::GameWorld;
 pub fn update_projectiles(
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
-    // Projectile spawn origin/direction reads input from the primary
-    // local player's `PlayerInputFrame` component (the per-player input
-    // migration target, OVERNIGHT-TODO #17.5). The single global
-    // `Res<ControlFrame>` is still written by the input pipeline and
-    // mirrored into this component by `sync_local_player_input_frame`,
-    // so today the `PrimaryPlayerOnly` filter keeps single-player
-    // behavior identical. Future co-op / network builds populate this
-    // component on additional player entities without ever competing
-    // for the global resource — projectile spawn becomes per-player at
-    // that point by simply dropping the filter.
-    player_input_q: Query<
-        (
-            &crate::player::PlayerKinematics,
-            &crate::player::PlayerInputFrame,
-        ),
+    // Universal-brain seam: read the primary player's per-tick
+    // projectile state via `ActorActionMessage::PlayerProjectileTick`
+    // emitted by `crate::brain::emit_player_projectile_tick_messages`.
+    // Single primary player today (`PrimaryPlayerOnly` filter on the
+    // kinematics query); future co-op iterates per-actor messages.
+    player_kin_q: Query<
+        (Entity, &crate::player::PlayerKinematics),
         crate::player::PrimaryPlayerOnly,
     >,
-    // Held separately from `player_input_q` because anim state is the
-    // only piece this system writes back; keeping the read-only input
-    // query intact avoids forcing a `&mut` on the kinematics borrow.
+    // Held separately from `player_kin_q` because anim state is the
+    // only piece this system writes back; keeping the read-only
+    // kinematics query intact avoids forcing a `&mut` on the borrow.
     mut player_anim_q: Query<
         &mut crate::player::PlayerAnimState,
         crate::player::PrimaryPlayerOnly,
     >,
+    mut brain_actions: MessageReader<crate::brain::ActorActionMessage>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
@@ -77,21 +70,50 @@ pub fn update_projectiles(
     state.clock += dt;
     state.spawner.tick(dt);
 
-    // Resolve the primary local player's body + input frame from the
-    // ECS. `PrimaryPlayerOnly` keeps single-player behavior; future
-    // multiplayer drops the filter and iterates over input-bearing
-    // players.
-    let primary = player_input_q.single().ok();
+    // Resolve the primary local player's body from the ECS.
+    // `PrimaryPlayerOnly` keeps single-player behavior; future
+    // multiplayer drops the filter and iterates per-actor messages.
+    let primary = player_kin_q.single().ok();
+    let primary_entity = primary.map(|(e, _)| e);
 
-    // Sample motion for Hadouken recognition. Both `ControlFrame::axis_y`
-    // and `MotionDirection::from_axis` use the +Y-DOWN convention
+    // Find this player's PlayerProjectileTick message for the frame.
+    // The brain-side emitter
+    // (`crate::brain::emit_player_projectile_tick_messages`)
+    // produces exactly one per player-brain actor per tick, so the
+    // first match wins.
+    let player_tick = primary_entity.and_then(|entity| {
+        brain_actions.read().find_map(|msg| {
+            if msg.actor != entity {
+                return None;
+            }
+            match msg.request {
+                crate::brain::ActionRequest::PlayerProjectileTick {
+                    axis,
+                    aim,
+                    press,
+                    held,
+                    released,
+                } => Some(PlayerProjectileTickInfo {
+                    axis,
+                    aim,
+                    press,
+                    held,
+                    released,
+                }),
+                _ => None,
+            }
+        })
+    });
+    let tick_info = player_tick.unwrap_or_default();
+
+    // Sample motion for Hadouken recognition. Both the action message
+    // axis and `MotionDirection::from_axis` use the +Y-DOWN convention
     // (the engine matcher returns `Down` for y > 0; pinned by the
-    // `motion_direction_quantization` engine test). Pass axis_y
-    // straight through — an earlier negation here was inverting the
-    // sign and silently mapping every "press Down" sample to `Up`,
-    // which made every QCF detection fail forever.
-    let control_frame = primary.map(|(_, input)| input.frame).unwrap_or_default();
-    let dir = crate::projectile::MotionDirection::from_axis(control_frame.axis_x, control_frame.axis_y, 0.55);
+    // `motion_direction_quantization` engine test). Pass axis through
+    // unchanged — an earlier negation here was inverting the sign
+    // and silently mapping every "press Down" sample to `Up`, which
+    // made every QCF detection fail forever.
+    let dir = crate::projectile::MotionDirection::from_axis(tick_info.axis.x, tick_info.axis.y, 0.55);
     let now = state.clock;
     state.motion_buffer.push(dir, now);
 
@@ -160,7 +182,7 @@ pub fn update_projectiles(
     }
     state.bodies = still_alive;
 
-    let Some((body, _input)) = primary else {
+    let Some((_, body)) = primary else {
         return;
     };
     let facing = if body.facing.abs() < f32::EPSILON {
@@ -184,7 +206,7 @@ pub fn update_projectiles(
     // wins), else start charging a Fireball. Order matters — the
     // grace shape is a SUBSEQUENCE of the full QCF, so check Super
     // first; otherwise a 3-step input would fire a weak Hadouken.
-    if control_frame.projectile_pressed {
+    if tick_info.press {
         let super_qcf = state.motion_buffer.detect_quarter_circle();
         let half_circle = state.motion_buffer.detect_half_circle();
         let grace_qcf = state.motion_buffer.detect_quarter_circle_grace();
@@ -230,11 +252,11 @@ pub fn update_projectiles(
             // commits the charged shot.
             state.charging = Some(0.0);
         }
-    } else if control_frame.projectile_held {
+    } else if tick_info.held {
         if let Some(t) = state.charging.as_mut() {
             *t += dt;
         }
-    } else if control_frame.projectile_released {
+    } else if tick_info.released {
         if let Some(hold) = state.charging.take() {
             let tier = state.charge_tuning.tier_for_hold(hold);
             try_fire_projectile(
@@ -302,4 +324,18 @@ fn try_fire_projectile(
         }
         Err(crate::projectile::SpawnFailure::Cooldown) => {}
     }
+}
+
+/// Flattened view of the `PlayerProjectileTick` request — used inside
+/// `update_projectiles` after destructuring the matched
+/// `ActorActionMessage`. A separate type so the "no message arrived
+/// this tick" fallback can rely on `Default`.
+#[derive(Clone, Copy, Debug, Default)]
+struct PlayerProjectileTickInfo {
+    axis: ae::Vec2,
+    #[allow(dead_code, reason = "carried for future aim-driven fire direction")]
+    aim: ae::Vec2,
+    press: bool,
+    held: bool,
+    released: bool,
 }

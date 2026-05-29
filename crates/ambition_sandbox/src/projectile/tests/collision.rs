@@ -110,10 +110,13 @@ fn fireball_bounces_off_floor_in_system() {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
+            crate::player::tick_player_brains,
+            crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
             crate::features::apply_feature_hit_events,
         )
@@ -186,10 +189,13 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
+            crate::player::tick_player_brains,
+            crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
             crate::features::apply_feature_hit_events,
         )
@@ -263,10 +269,13 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
+            crate::player::tick_player_brains,
+            crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
             crate::features::apply_feature_hit_events,
         )
@@ -337,10 +346,13 @@ fn hadouken_expires_on_solid_in_system() {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
+            crate::player::tick_player_brains,
+            crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
             crate::features::apply_feature_hit_events,
         )

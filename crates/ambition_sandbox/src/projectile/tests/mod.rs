@@ -65,16 +65,23 @@ fn min_app() -> App {
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
-    // Buffered-message channels the system writes into.
+    // Buffered-message channels the system writes into. The brain
+    // plugin owns the `ActorActionMessage` channel; install it so
+    // `tick_player_brains` → `emit_player_projectile_tick_messages` →
+    // `update_projectiles` form the same chain that production uses
+    // for the player projectile path.
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
+            crate::player::tick_player_brains,
+            crate::brain::emit_player_projectile_tick_messages,
             update_projectiles,
             crate::features::apply_feature_hit_events,
         )

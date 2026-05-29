@@ -320,6 +320,16 @@ impl ActorActionMessage {
     pub fn is_special(&self) -> bool {
         matches!(self.request, action_set::ActionRequest::Special { .. })
     }
+
+    /// True iff this message carries a player projectile tick. The
+    /// player projectile EFFECTS consumer filters the action stream
+    /// with this predicate to drive its charge state machine.
+    pub fn is_player_projectile_tick(&self) -> bool {
+        matches!(
+            self.request,
+            action_set::ActionRequest::PlayerProjectileTick { .. }
+        )
+    }
 }
 
 /// Bevy system: walk every actor entity that has a Brain +
@@ -344,6 +354,40 @@ pub fn emit_brain_action_messages(
                 request,
             });
         }
+    }
+}
+
+/// Bevy system: emit one `ActorActionMessage::PlayerProjectileTick`
+/// per player-brain actor per tick. The player projectile EFFECTS
+/// consumer (`crate::projectile::update_projectiles`) drives its
+/// motion-recognition buffer + Fireball charge state machine from
+/// this stream instead of reading `PlayerInputFrame` directly.
+///
+/// Emitted every tick — even on neutral input — because the
+/// motion-recognition buffer needs continuous axis samples to detect
+/// QCF / half-circle gestures (a "down → down-right → right → press"
+/// sequence needs samples from every frame of the rotation, not just
+/// the press frame). The consumer cheaply pushes the axis sample
+/// into the buffer on idle ticks.
+pub fn emit_player_projectile_tick_messages(
+    actors: Query<(Entity, &Brain, &ActorControl)>,
+    mut writer: MessageWriter<ActorActionMessage>,
+) {
+    for (entity, brain, control) in &actors {
+        if !brain.is_player() {
+            continue;
+        }
+        let frame = &control.0;
+        writer.write(ActorActionMessage {
+            actor: entity,
+            request: action_set::ActionRequest::PlayerProjectileTick {
+                axis: frame.desired_vel,
+                aim: frame.aim,
+                press: frame.projectile_pressed,
+                held: frame.projectile_held,
+                released: frame.projectile_released,
+            },
+        });
     }
 }
 

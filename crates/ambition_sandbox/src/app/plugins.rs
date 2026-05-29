@@ -167,10 +167,18 @@ fn register_player_input_systems(app: &mut App) {
             // emit ActorActionMessage entries for each concrete
             // request. Live consumers read the emitted stream in
             // Combat: enemy ranged, enemy melee start, player
-            // melee-start gating, GNU-ton apple rain, and Gradient
-            // Sentinel specials. Player projectile charging and pogo
-            // remain explicit player-specific direct paths.
+            // melee + pogo start gating, GNU-ton apple rain, and
+            // Gradient Sentinel specials.
             crate::brain::emit_brain_action_messages,
+            // Sibling emitter: for every player-brain actor, surface
+            // the per-tick projectile state (axis sample + press /
+            // held / released edges) into the same ActorActionMessage
+            // channel under `ActionRequest::PlayerProjectileTick`.
+            // `crate::projectile::update_projectiles` consumes this
+            // stream instead of reading `PlayerInputFrame` directly,
+            // so player projectile charging now flows through the
+            // universal action seam.
+            crate::brain::emit_player_projectile_tick_messages,
             // Observe the resolver output into a per-frame counter
             // so the HUD + debug tooling have a quick "any brain
             // wants something this tick" signal.

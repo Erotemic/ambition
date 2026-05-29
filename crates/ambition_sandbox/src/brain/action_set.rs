@@ -384,7 +384,11 @@ pub enum ActionRequest {
         facing: f32,
         attack_axis: ae::Vec2,
     },
-    /// Spawn a projectile traveling in `dir`.
+    /// Spawn a projectile traveling in `dir`. Used by NPC / enemy /
+    /// boss ranged: a single "fire now" edge resolved from
+    /// `frame.fire = Some(...)` by [`resolve`]. Player ranged uses
+    /// `PlayerProjectileTick` instead so the EFFECTS consumer can
+    /// drive the charge state machine + motion-recognition buffer.
     Ranged {
         spec: RangedActionSpec,
         origin: ae::Vec2,
@@ -394,6 +398,37 @@ pub enum ActionRequest {
     /// special handler (player ability system, boss encounter
     /// driver, etc.).
     Special { spec: SpecialActionSpec },
+    /// Per-tick player projectile signal — drives the player
+    /// projectile EFFECTS consumer's charge state machine + motion
+    /// recognition buffer. Emitted by a dedicated player-projectile
+    /// emit system (not by [`resolve`]) because the per-player
+    /// charge tiers / projectile kinds live in the projectile
+    /// system's own config rather than as a per-actor `ActionSet`
+    /// capability. Keeps the player's combat verbs flowing through
+    /// the same `ActorActionMessage` channel as melee and NPC
+    /// ranged.
+    ///
+    /// The variant intentionally omits `origin` and `facing` — the
+    /// projectile EFFECTS consumer reads those from its
+    /// `PlayerKinematics` query (the authoritative source of player
+    /// body position / facing), so dragging them through the
+    /// message would just duplicate state and force the emit side
+    /// to query Transform too.
+    PlayerProjectileTick {
+        /// Movement axis sample (mirrors `ActorControlFrame::
+        /// desired_vel`). Pushed into the motion-recognition buffer
+        /// every tick so QCF / half-circle detection survives the
+        /// migration.
+        axis: ae::Vec2,
+        /// Aim direction (twin-stick / mouse). Zero = use facing.
+        aim: ae::Vec2,
+        /// Rising edge: projectile button pressed this tick.
+        press: bool,
+        /// Sustain: projectile button held this tick.
+        held: bool,
+        /// Falling edge: projectile button released this tick.
+        released: bool,
+    },
 }
 
 impl std::fmt::Display for ActionRequest {
@@ -406,6 +441,23 @@ impl std::fmt::Display for ActionRequest {
                 write!(f, "{}(from {:?} dir {:?})", self.label(), origin, dir,)
             }
             Self::Special { .. } => write!(f, "{}", self.label()),
+            Self::PlayerProjectileTick {
+                press,
+                held,
+                released,
+                ..
+            } => {
+                let edge = if *press {
+                    "press"
+                } else if *released {
+                    "release"
+                } else if *held {
+                    "held"
+                } else {
+                    "sample"
+                };
+                write!(f, "{}({})", self.label(), edge)
+            }
         }
     }
 }
@@ -440,6 +492,7 @@ impl ActionRequest {
                 SpecialActionSpec::SaddlePoint { .. } => "special_saddle_point",
                 SpecialActionSpec::GradientCascade { .. } => "special_gradient_cascade",
             },
+            Self::PlayerProjectileTick { .. } => "player_projectile_tick",
         }
     }
 }

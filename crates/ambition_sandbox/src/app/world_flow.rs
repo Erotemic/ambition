@@ -605,14 +605,14 @@ pub(super) fn handle_player_damage_events(
     safety: &mut crate::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
-    damage_events: &[features::PlayerDamageEvent],
+    damage_events: &[features::HitEvent],
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
 ) {
-    let Some(mut damage) = damage_events.first().copied() else {
+    let Some(mut damage) = damage_events.first().cloned() else {
         return;
     };
     // Invincibility (debug toggle): drop the damage event entirely
@@ -625,13 +625,18 @@ pub(super) fn handle_player_damage_events(
     // doubles it; the menu setting also exposes a fine-grained
     // gameplay damage multiplier. The minimum is one HP so a damage
     // event always lands somewhere.
-    let scaled = ((damage.amount as f32) * difficulty_multiplier).round() as i32;
-    damage.amount = scaled.max(1);
+    let scaled = ((damage.damage as f32) * difficulty_multiplier).round() as i32;
+    damage.damage = scaled.max(1);
     let died_from_damage = if let Some(health) = player_health.as_deref_mut() {
-        health.damage(damage.amount)
+        health.damage(damage.damage)
     } else {
         false
     };
+    let impact_pos = damage
+        .knockback
+        .as_ref()
+        .map(|k| k.impact_pos)
+        .unwrap_or_else(|| damage.volume.center());
     if died_from_damage {
         death_respawn_player(
             world,
@@ -645,14 +650,14 @@ pub(super) fn handle_player_damage_events(
             player_health,
             tuning,
             feel,
-            damage.impact_pos,
+            impact_pos,
             anim,
             combat,
         );
         return;
     }
     match damage.mode {
-        features::PlayerDamageMode::SafeRespawn => {
+        features::HitMode::SafeRespawn => {
             safe_respawn_player(
                 sfx,
                 vfx,
@@ -662,11 +667,11 @@ pub(super) fn handle_player_damage_events(
                 combat,
                 tuning,
                 feel,
-                damage.impact_pos,
+                impact_pos,
             );
         }
-        features::PlayerDamageMode::Knockback => {
-            apply_player_knockback(sfx, vfx, clusters, combat, tuning, feel, damage);
+        features::HitMode::Knockback => {
+            apply_player_knockback(sfx, vfx, clusters, combat, tuning, feel, &damage);
         }
     }
 }
@@ -706,19 +711,23 @@ pub(super) fn apply_player_knockback(
     combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
-    damage: features::PlayerDamageEvent,
+    damage: &features::HitEvent,
 ) {
-    let _source_pos_for_future_directional_rules = damage.source_pos;
     let boss_hit = matches!(
         damage.source,
-        features::PlayerDamageSource::BossBody | features::PlayerDamageSource::BossAttack
+        features::HitSource::BossBody | features::HitSource::BossAttack
     );
-    let dir = if damage.knockback_dir.abs() <= 0.001 {
+    let knockback = damage.knockback.as_ref();
+    let impact_pos = knockback
+        .map(|k| k.impact_pos)
+        .unwrap_or_else(|| damage.volume.center());
+    let knockback_dir = knockback.map(|k| k.dir).unwrap_or(0.0);
+    let dir = if knockback_dir.abs() <= 0.001 {
         -clusters.kinematics.facing
     } else {
-        damage.knockback_dir.signum()
+        knockback_dir.signum()
     };
-    let strength = damage.strength.max(0.0);
+    let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
     let knock_x = if boss_hit {
         feel.boss_knockback_x
     } else {
@@ -745,12 +754,8 @@ pub(super) fn apply_player_knockback(
     combat.damage_invuln_timer = feel.knockback_invulnerability_time;
     combat.hitstop_timer = feel.player_damage_hitstop_time;
     combat.flash_timer = 0.20;
-    sfx.write(SfxMessage::Hit {
-        pos: damage.impact_pos,
-    });
-    vfx.write(VfxMessage::Impact {
-        pos: damage.impact_pos,
-    });
+    sfx.write(SfxMessage::Hit { pos: impact_pos });
+    vfx.write(VfxMessage::Impact { pos: impact_pos });
 }
 
 /// Build the engine's `InputState` purely from `ActorControl` —
@@ -959,6 +964,9 @@ pub(super) fn advance_attack(
                     volume: orb_aabb,
                     damage: 1,
                     source: features::HitSource::PogoBounce,
+                    target: features::HitTarget::OrbMatch,
+                    mode: features::HitMode::Knockback,
+                    knockback: None,
                     ignored_targets: Vec::new(),
                 });
             }
@@ -974,6 +982,9 @@ pub(super) fn advance_attack(
                 volume: attack,
                 damage: slash_damage,
                 source: features::HitSource::PlayerSlash { knock_x },
+                target: features::HitTarget::Volume,
+                mode: features::HitMode::Knockback,
+                knockback: None,
                 ignored_targets: attack_state.hit_targets.clone(),
             });
         }

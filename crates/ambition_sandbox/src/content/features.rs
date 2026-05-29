@@ -114,8 +114,8 @@ pub use ecs::{
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{
     FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner, GameplayBannerRequested,
-    GameplayEffect, HitEvent, HitSource, NpcDialogueRequest, PlayerDamageEvent, PlayerDamageMode,
-    PlayerDamageSource, ResetRoomFeaturesEvent,
+    GameplayEffect, HitEvent, HitKnockback, HitMode, HitSource, HitTarget, NpcDialogueRequest,
+    ResetRoomFeaturesEvent,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::{NpcRuntime, NPC_PATROL_SPEED};

@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use super::state::EnemyProjectileState;
 use crate::audio::SfxMessage;
-use crate::features::{PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource};
+use crate::features::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use crate::presentation::fx::VfxMessage;
 use crate::projectile::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 use crate::GameWorld;
@@ -26,7 +26,7 @@ pub fn update_enemy_projectiles(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    mut player_damage: MessageWriter<PlayerDamageEvent>,
+    mut hit_events: MessageWriter<HitEvent>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
@@ -67,20 +67,24 @@ pub fn update_enemy_projectiles(
                 (kin.pos.x + shot.body.pos.x) * 0.5,
                 (kin.pos.y + shot.body.pos.y) * 0.5,
             );
-            player_damage.write(PlayerDamageEvent {
-                mode: PlayerDamageMode::Knockback,
-                source: PlayerDamageSource::EnemyProjectile,
-                source_pos: shot.body.pos,
-                impact_pos,
-                knockback_dir: knock_dir,
-                strength: 0.85,
-                amount: shot.body.damage.max(1),
+            hit_events.write(HitEvent {
+                volume: shot.body.aabb(),
+                damage: shot.body.damage.max(1),
+                source: HitSource::EnemyProjectile,
                 // Enemy projectiles iterate every player; the first
-                // vulnerable overlapping player wins this volley. Stamp
-                // the target so the reader-side per-player damage path
-                // (#17.6) can apply it to the right player rather than
-                // routing onto the primary.
-                target: Some(player_entity),
+                // vulnerable overlapping player wins this volley.
+                // Stamp the target so the player-damage reader lands
+                // the hit on the right player rather than the primary
+                // by default.
+                target: HitTarget::Player(player_entity),
+                mode: HitMode::Knockback,
+                knockback: Some(HitKnockback {
+                    dir: knock_dir,
+                    strength: 0.85,
+                    source_pos: shot.body.pos,
+                    impact_pos,
+                }),
+                ignored_targets: Vec::new(),
             });
             sfx.write(SfxMessage::Hit { pos: shot.body.pos });
             vfx.write(VfxMessage::Impact { pos: shot.body.pos });

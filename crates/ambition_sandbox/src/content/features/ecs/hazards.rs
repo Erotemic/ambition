@@ -10,7 +10,7 @@ pub fn update_ecs_hazards(
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
-    mut player_damage: MessageWriter<PlayerDamageEvent>,
+    mut hit_events: MessageWriter<HitEvent>,
     player: Query<
         (
             Entity,
@@ -82,23 +82,22 @@ pub fn update_ecs_hazards(
                 id: hazard_sfx_id(&hazard.name),
                 pos,
             });
-            player_damage.write(PlayerDamageEvent {
-                mode: hazard.mode,
-                source: PlayerDamageSource::Hazard,
-                source_pos: hazard.pos,
-                impact_pos: pos,
-                knockback_dir,
-                strength: 1.0,
-                amount: hazard.volume.damage.amount.max(1),
+            hit_events.write(HitEvent {
+                volume: hazard.aabb(),
+                damage: hazard.volume.damage.amount.max(1),
+                source: HitSource::Hazard,
                 // Hazards iterate every overlapping player; tag the
-                // event with the player who actually overlapped so the
-                // reader-side per-player damage routing (#17.6 deeper
-                // form) can land the hit on the right one. With the
-                // current reader (still primary-only), `target == Some`
-                // documents producer intent — when the reader migrates,
-                // these events route to `player_entity` rather than
-                // amplifying onto primary.
-                target: Some(player_entity),
+                // event with the player who actually overlapped so
+                // the reader lands the hit on the right one.
+                target: HitTarget::Player(player_entity),
+                mode: hazard.mode,
+                knockback: Some(HitKnockback {
+                    dir: knockback_dir,
+                    strength: 1.0,
+                    source_pos: hazard.pos,
+                    impact_pos: pos,
+                }),
+                ignored_targets: Vec::new(),
             });
         }
     }

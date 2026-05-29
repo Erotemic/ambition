@@ -138,6 +138,9 @@ pub fn update_projectiles(
             volume: p.body.aabb(),
             damage: p.body.damage,
             source: HitSource::PlayerProjectile { kind: p.body.kind },
+            target: crate::features::HitTarget::Volume,
+            mode: crate::features::HitMode::Knockback,
+            knockback: None,
             ignored_targets: Vec::new(),
         };
         let ecs_breakable_hit =

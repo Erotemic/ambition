@@ -939,7 +939,7 @@ pub struct EditablePlayerStats {
     pub mana: i32,
     pub max_mana: i32,
     pub slash_damage: i32,
-    /// True → all `PlayerDamageEvent`s are ignored before they reach
+    /// True → all `HitEvent`s are ignored before they reach
     /// `handle_player_damage_events`.
     pub invincible: bool,
     /// True → fully refill HP & mana on the next frame's sync.

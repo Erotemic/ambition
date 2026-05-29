@@ -37,6 +37,9 @@ impl PlayerHealRequested {
     }
 }
 
-/// Damage already travels through the feature-domain rich message. This alias
-/// documents that the same message is the player damage request seam.
-pub type PlayerDamageRequested = crate::features::PlayerDamageEvent;
+// Damage requests travel through the unified `crate::features::HitEvent`
+// channel — there is no longer a player-specific alias because both
+// directions (attacker → feature, *  → player) share the same shape
+// and message type. Producers emit `HitEvent` with a victim-side
+// `HitSource` (Hazard / Enemy* / Boss*); the player-side consumer
+// (`apply_player_hit_events`) drains those.

@@ -566,7 +566,7 @@ const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 ///   the player has a moving threat to deal with alongside the pit.
 ///
 /// The hitbox is a regular `Hitbox` entity, so it flows through the
-/// standard `apply_hitbox_damage` → `PlayerDamageEvent` path. The
+/// standard `apply_hitbox_damage` → `HitEvent` path. The
 /// once-per-strike `HitboxHits` set ensures the player takes at
 /// most one hit per pit lifetime.
 pub fn spawn_minima_trap_from_special_messages(

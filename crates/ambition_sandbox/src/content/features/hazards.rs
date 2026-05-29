@@ -14,7 +14,7 @@ pub struct HazardRuntime {
     /// default to `Knockback`. Authors can still pick `SafeRespawn`
     /// per-volume when an entity hazard is meant to bounce the player
     /// back to safety (e.g. lava pits).
-    pub mode: PlayerDamageMode,
+    pub mode: HitMode,
 }
 
 impl HazardRuntime {
@@ -31,7 +31,7 @@ impl HazardRuntime {
             size: aabb.half_size() * 2.0,
             motion: volume.motion.clone().map(PathMotion::new),
             volume,
-            mode: PlayerDamageMode::Knockback,
+            mode: HitMode::Knockback,
         }
     }
 

@@ -204,7 +204,7 @@ fn register_player_input_systems(app: &mut App) {
 ///    short-circuits when the flag is set so the same-frame reset
 ///    isn't clobbered. May set the flag itself if its own engine
 ///    call reports a reset.
-/// 4. `apply_player_damage_system` drains pending damage events.
+/// 4. `apply_player_hit_events` drains pending damage events.
 ///
 /// Both systems read `ActorControl` as the brain-output authority +
 /// `PlayerInputFrame` for player-specific verbs (the polarity flip).
@@ -216,7 +216,7 @@ fn register_player_simulation_systems(app: &mut App) {
             clear_sandbox_reset_this_frame,
             player_control_system.run_if(gameplay_allowed),
             player_simulation_system.run_if(gameplay_allowed),
-            apply_player_damage_system.run_if(gameplay_allowed),
+            apply_player_hit_events.run_if(gameplay_allowed),
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation),

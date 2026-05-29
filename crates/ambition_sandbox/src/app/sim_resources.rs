@@ -40,7 +40,6 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_message::<DebrisBurstMessage>()
             .add_message::<PlayerDiedMessage>()
             .add_message::<crate::features::GameplayEffect>()
-            .add_message::<crate::features::PlayerDamageEvent>()
             .add_message::<crate::features::HitEvent>()
             .add_message::<crate::features::ResetRoomFeaturesEvent>()
             .add_message::<crate::features::GameplayBannerRequested>()

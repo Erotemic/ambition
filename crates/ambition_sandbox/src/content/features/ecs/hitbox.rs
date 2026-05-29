@@ -33,7 +33,7 @@ use crate::engine_core as ae;
 use crate::engine_core::AabbExt;
 
 use super::super::components::ActorFaction;
-use super::super::events::{PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource};
+use super::super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use super::super::util::midpoint;
 use crate::audio::SfxMessage;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
@@ -102,10 +102,11 @@ impl Hitbox {
 
 /// Apply each live hitbox's damage to the right faction's targets.
 ///
-/// Enemy / Boss hitboxes hit the player and emit `PlayerDamageEvent`.
-/// Player / Npc / Neutral hitboxes are routed through other paths
-/// (player slash still flows via `HitEvent`; this system is the
-/// catch-all for hostile melee).
+/// Enemy / Boss hitboxes hit the player and emit `HitEvent` with a
+/// victim-side `HitSource`. Player / Npc / Neutral hitboxes are
+/// routed through other paths (player slash flows as
+/// `HitSource::PlayerSlash`); this system is the catch-all for
+/// hostile melee.
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
     owners: Query<&super::super::components::FeatureAabb>,
@@ -123,7 +124,7 @@ pub fn apply_hitbox_damage(
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
-    mut player_damage: MessageWriter<PlayerDamageEvent>,
+    mut hit_events: MessageWriter<HitEvent>,
 ) {
     let Ok((player_entity, kin, offense, dodge, shield, combat)) = player_query.single() else {
         return;
@@ -165,9 +166,9 @@ pub fn apply_hitbox_damage(
                     -1.0
                 };
                 let source_kind = if matches!(hitbox.source, ActorFaction::Boss) {
-                    PlayerDamageSource::BossAttack
+                    HitSource::BossAttack
                 } else {
-                    PlayerDamageSource::EnemyAttack
+                    HitSource::EnemyAttack
                 };
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_DAMAGE,
@@ -185,17 +186,24 @@ pub fn apply_hitbox_damage(
                     pos: impact,
                     cue: PhysicsDebrisCue::Impact,
                 });
-                player_damage.write(PlayerDamageEvent {
-                    mode: PlayerDamageMode::Knockback,
+                hit_events.write(HitEvent {
+                    volume: world_aabb,
+                    damage: hitbox.damage.max(1),
                     source: source_kind,
-                    source_pos: owner_pos,
-                    impact_pos: impact,
-                    knockback_dir,
-                    strength: hitbox.knockback_strength.max(0.0),
-                    amount: hitbox.damage.max(1),
-                    // Hostile melee targets primary today; per-target
-                    // routing arrives with OVERNIGHT-TODO #17.6.
-                    target: None,
+                    // Hitboxes test against every player whose AABB
+                    // intersects this swing; the producer already
+                    // picked this player as the victim, so stamp the
+                    // target so the reader doesn't fall back to
+                    // primary.
+                    target: HitTarget::Player(player_entity),
+                    mode: HitMode::Knockback,
+                    knockback: Some(HitKnockback {
+                        dir: knockback_dir,
+                        strength: hitbox.knockback_strength.max(0.0),
+                        source_pos: owner_pos,
+                        impact_pos: impact,
+                    }),
+                    ignored_targets: Vec::new(),
                 });
                 hits.hit.insert(player_entity);
             }

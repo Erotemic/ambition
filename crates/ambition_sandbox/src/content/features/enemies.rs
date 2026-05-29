@@ -1656,22 +1656,27 @@ impl EnemyRuntime {
     /// Per the actor/brain follow-up plan
     /// (`dev/journals/actor-brain-migration-followups-plan.md`,
     /// Task A "What stays in `EnemyRuntime`").
-    pub(super) fn body_contact_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
+    pub(super) fn body_contact_damage(&self, player_body: ae::Aabb) -> Option<HitEvent> {
         let body_damage = self.body_damage_aabb()?;
         if !body_damage.strict_intersects(player_body) {
             return None;
         }
-        Some(PlayerDamageEvent {
-            mode: PlayerDamageMode::Knockback,
-            source: PlayerDamageSource::EnemyBody,
-            source_pos: self.pos,
-            impact_pos: midpoint(player_body.center(), body_damage.center()),
-            knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
-            strength: self.archetype.contact_strength(),
-            amount: self.archetype.damage_amount(),
-            // Hostile body contact targets primary today; per-target
-            // routing arrives with OVERNIGHT-TODO #17.6.
-            target: None,
+        let impact = midpoint(player_body.center(), body_damage.center());
+        Some(HitEvent {
+            volume: body_damage,
+            damage: self.archetype.damage_amount(),
+            source: HitSource::EnemyBody,
+            // Body contact targets primary today; producer doesn't
+            // know which player ran in. Reader falls back to primary.
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: Some(HitKnockback {
+                dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
+                strength: self.archetype.contact_strength(),
+                source_pos: self.pos,
+                impact_pos: impact,
+            }),
+            ignored_targets: Vec::new(),
         })
     }
 }

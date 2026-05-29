@@ -365,7 +365,7 @@ pub fn update_ecs_bosses(
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
-    mut player_damage: MessageWriter<PlayerDamageEvent>,
+    mut hit_events: MessageWriter<HitEvent>,
     // Bosses target the primary player today. Real multiplayer
     // boss AI (per-player targeting, agro lists, phase transitions
     // that respond to multiple players) is a deeper redesign than
@@ -435,7 +435,11 @@ pub fn update_ecs_bosses(
         if player_vulnerable && boss.alive {
             let ctx = BossVolumeContext::from_runtime(boss, attack_state);
             if let Some(damage) = boss_attack_damage(&ctx, player_body) {
-                let pos = damage.impact_pos;
+                let pos = damage
+                    .knockback
+                    .as_ref()
+                    .map(|k| k.impact_pos)
+                    .unwrap_or_else(|| damage.volume.center());
                 sfx.write(crate::audio::SfxMessage::Play {
                     id: ambition_sfx::ids::PLAYER_DAMAGE,
                     pos,
@@ -452,7 +456,7 @@ pub fn update_ecs_bosses(
                     pos,
                     cue: PhysicsDebrisCue::Impact,
                 });
-                player_damage.write(damage);
+                hit_events.write(damage);
             }
         }
     }

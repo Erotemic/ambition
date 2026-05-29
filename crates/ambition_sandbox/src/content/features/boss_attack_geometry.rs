@@ -397,7 +397,7 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 /// scalars. Replaces `BossRuntime::player_damage`, which used to
 /// poll mirror fields on the runtime.
 ///
-/// Returns `Some(PlayerDamageEvent)` when:
+/// Returns `Some(HitEvent)` when:
 ///   - A strike is live (`attack_state.active_profile.is_some()`)
 ///     and one of its volumes overlaps `player_body`, OR
 ///   - The boss body has positive `body_damage` and overlaps the
@@ -408,10 +408,18 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 pub fn boss_attack_damage(
     ctx: &BossVolumeContext,
     player_body: ae::Aabb,
-) -> Option<crate::features::PlayerDamageEvent> {
+) -> Option<crate::features::HitEvent> {
     use super::util::midpoint;
-    use crate::features::{PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource};
+    use crate::features::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
     use crate::engine_core::AabbExt;
+
+    let signum_or = |x: f32, fallback: f32| {
+        if x.abs() < f32::EPSILON {
+            fallback
+        } else {
+            x.signum()
+        }
+    };
 
     // Strike arm: the brain's `active_profile` is the single source
     // of truth for "there's a live boss hitbox right now".
@@ -421,24 +429,19 @@ pub fn boss_attack_damage(
             .into_iter()
             .find(|volume| volume.strict_intersects(player_body))
         {
-            let signum_or = |x: f32, fallback: f32| {
-                if x.abs() < f32::EPSILON {
-                    fallback
-                } else {
-                    x.signum()
-                }
-            };
-            return Some(PlayerDamageEvent {
-                mode: PlayerDamageMode::Knockback,
-                source: PlayerDamageSource::BossAttack,
-                source_pos: ctx.pos,
-                impact_pos: midpoint(player_body.center(), volume.center()),
-                knockback_dir: signum_or(player_body.center().x - ctx.pos.x, 1.0),
-                strength: 1.25,
-                amount: ctx.behavior.attack_damage.max(1),
-                // Boss AI targets primary today; per-target routing
-                // arrives with OVERNIGHT-TODO #17.6.
-                target: None,
+            return Some(HitEvent {
+                volume,
+                damage: ctx.behavior.attack_damage.max(1),
+                source: HitSource::BossAttack,
+                target: HitTarget::Volume,
+                mode: HitMode::Knockback,
+                knockback: Some(HitKnockback {
+                    dir: signum_or(player_body.center().x - ctx.pos.x, 1.0),
+                    strength: 1.25,
+                    source_pos: ctx.pos,
+                    impact_pos: midpoint(player_body.center(), volume.center()),
+                }),
+                ignored_targets: Vec::new(),
             });
         }
     }
@@ -460,22 +463,19 @@ pub fn boss_attack_damage(
             .unwrap_or(ae::Vec2::ZERO);
         let body = body_damage_aabb(ctx.pos + combat_offset, ctx.combat_size);
         if body.strict_intersects(player_body) {
-            let signum_or = |x: f32, fallback: f32| {
-                if x.abs() < f32::EPSILON {
-                    fallback
-                } else {
-                    x.signum()
-                }
-            };
-            return Some(PlayerDamageEvent {
-                mode: PlayerDamageMode::Knockback,
-                source: PlayerDamageSource::BossBody,
-                source_pos: ctx.pos,
-                impact_pos: midpoint(player_body.center(), body.center()),
-                knockback_dir: signum_or(player_body.center().x - ctx.pos.x, 1.0),
-                strength: 1.0,
-                amount: body_damage_amount,
-                target: None,
+            return Some(HitEvent {
+                volume: body,
+                damage: body_damage_amount,
+                source: HitSource::BossBody,
+                target: HitTarget::Volume,
+                mode: HitMode::Knockback,
+                knockback: Some(HitKnockback {
+                    dir: signum_or(player_body.center().x - ctx.pos.x, 1.0),
+                    strength: 1.0,
+                    source_pos: ctx.pos,
+                    impact_pos: midpoint(player_body.center(), body.center()),
+                }),
+                ignored_targets: Vec::new(),
             });
         }
     }

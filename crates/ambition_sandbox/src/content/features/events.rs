@@ -53,46 +53,33 @@ impl Default for FeatureCombatTuning {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PlayerDamageMode {
-    /// Lava/spike-pit style recovery: put the player back on the last safe platform.
-    SafeRespawn,
-    /// Normal combat damage: preserve the room and apply knockback plus hitstun.
+/// Victim reaction mode for `HitEvent`s landing on a player. Ignored
+/// for non-player targets.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HitMode {
+    /// Normal combat damage: preserve the room and apply knockback
+    /// plus hitstun.
+    #[default]
     Knockback,
+    /// Lava / spike-pit style recovery: put the player back on the
+    /// last safe platform.
+    SafeRespawn,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PlayerDamageSource {
-    Hazard,
-    EnemyBody,
-    EnemyAttack,
-    /// Hit by a projectile fired by an enemy (pirate volley, etc).
-    /// Distinct from `EnemyAttack` so the HUD/trace can tell the
-    /// player whether they took a contact swing or a ranged shot.
-    EnemyProjectile,
-    BossBody,
-    BossAttack,
-}
-
-#[derive(Message, Clone, Copy, Debug, PartialEq)]
-pub struct PlayerDamageEvent {
-    pub mode: PlayerDamageMode,
-    pub source: PlayerDamageSource,
-    pub source_pos: ae::Vec2,
-    pub impact_pos: ae::Vec2,
-    pub knockback_dir: f32,
+/// Knockback impulse carried by a `HitEvent`. Producers fill this on
+/// hits that should push the victim around (enemy melee, enemy
+/// projectile, boss swing); leave `None` for impulse-free hits
+/// (player slash, player projectile into a feature, pogo).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HitKnockback {
+    /// Horizontal impulse direction (±1).
+    pub dir: f32,
+    /// Strength multiplier. 1.0 is "standard".
     pub strength: f32,
-    pub amount: i32,
-    /// Player entity the damage targets. `None` keeps the legacy
-    /// "primary player takes it" routing (used by enemy contact / boss
-    /// patterns whose AI already targets primary via `PrimaryPlayerOnly`).
-    /// `Some(entity)` is what iterate-all-players producers (hazards,
-    /// enemy projectiles) stamp once per overlapping player so the
-    /// reader-side per-player damage routing (OVERNIGHT-TODO #17.6) can
-    /// land them on the right player rather than amplifying onto the
-    /// primary. The reader honors the field where the per-entity apply
-    /// path is wired up; until then the field documents producer intent.
-    pub target: Option<bevy::prelude::Entity>,
+    /// World-space attacker position — used for VFX direction.
+    pub source_pos: ae::Vec2,
+    /// World-space impact position — used for VFX position.
+    pub impact_pos: ae::Vec2,
 }
 
 /// Typed cross-system gameplay effects emitted by feature code.
@@ -215,16 +202,19 @@ pub struct NpcDialogueRequest {
 }
 
 /// Source of a hit event. Lets per-target damage logic branch on the
-/// originator (slash applies upward + horizontal knockback; projectile
-/// doesn't push the target around; pogo bounces target an exact orb
-/// AABB rather than a broadcast volume) and lets the trace / HUD label
-/// hits.
+/// originator and lets the trace / HUD label hits.
 ///
-/// New attack sources should add a variant here rather than building a
-/// parallel `apply_*_attack` path. The canonical path is `HitEvent`
-/// consumed by ECS feature-damage systems. `PlayerDamageEvent` still
-/// covers the *->player direction; folding that into `HitEvent` is the
-/// next planned consolidation.
+/// `HitSource` partitions naturally into two directions:
+/// - **Attacker-side** (`PlayerSlash`, `PlayerProjectile`,
+///   `PogoBounce`) — consumed by the feature-damage system to apply
+///   damage to enemies / bosses / breakables.
+/// - **Victim-side** (`Hazard`, `EnemyBody`, `EnemyAttack`,
+///   `EnemyProjectile`, `BossBody`, `BossAttack`) — consumed by the
+///   player-damage system to apply damage to players.
+///
+/// New attack sources should add a variant here rather than building
+/// a parallel `apply_*_attack` path. The canonical channel is
+/// [`HitEvent`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum HitSource {
     /// Player melee slash. `knock_x` is the horizontal impulse to
@@ -241,24 +231,95 @@ pub enum HitSource {
     /// `strict_intersects` used by every other source. Actor / boss
     /// targets are skipped under this source.
     PogoBounce,
+    /// Environmental hazard (spike, lava, falling debris). Victim
+    /// reaction depends on `HitEvent::mode` — `SafeRespawn` returns
+    /// the player to the last safe platform; `Knockback` applies
+    /// hitstun + knockback.
+    Hazard,
+    /// Contact with an enemy body (touched the enemy itself, not
+    /// its swing). Always knockback mode.
+    EnemyBody,
+    /// Hit by an enemy melee swing.
+    EnemyAttack,
+    /// Hit by an enemy-fired projectile (pirate volley, etc).
+    /// Distinct from `EnemyAttack` so the HUD / trace can tell the
+    /// player whether they took a contact swing or a ranged shot.
+    EnemyProjectile,
+    /// Contact with a boss body (touched the boss itself).
+    BossBody,
+    /// Hit by a boss melee swing.
+    BossAttack,
 }
 
-/// One hit event in world space: an AABB volume, the amount of damage
-/// to apply, and the source. Producers emit these as Bevy messages; ECS
-/// feature-damage systems resolve them against actor, boss, and
-/// breakable components.
+impl HitSource {
+    /// True iff the source is attacker-side (player → feature). The
+    /// feature-damage consumer filters by this; the player-damage
+    /// consumer filters by the complement.
+    pub fn is_attacker_side(&self) -> bool {
+        matches!(
+            self,
+            HitSource::PlayerSlash { .. }
+                | HitSource::PlayerProjectile { .. }
+                | HitSource::PogoBounce
+        )
+    }
+}
+
+/// How a hit event resolves its victim.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HitTarget {
+    /// Broadcast: any feature / actor / boss whose AABB intersects
+    /// `volume` takes the hit. Default for attacker-side broadcast
+    /// hits (player slash, player projectile, hazard areas in
+    /// authoring zones).
+    #[default]
+    Volume,
+    /// Single pre-resolved player victim. Producers that already
+    /// iterated players and picked the overlapping one stamp this
+    /// so the reader doesn't re-pick the primary by default.
+    Player(bevy::prelude::Entity),
+    /// Orb-AABB match (pogo). Only the breakable whose AABB
+    /// approximately equals `volume` is hit; actors / bosses are
+    /// skipped.
+    OrbMatch,
+}
+
+/// One hit event in world space — the single canonical channel for
+/// damage in either direction (attacker → feature, or anything →
+/// player). Producers emit these as Bevy messages; the feature- and
+/// player-damage systems filter by source-direction and apply.
 ///
 /// Source-specific resolution:
 /// - `PlayerSlash` / `PlayerProjectile`: broadcast match — every
 ///   feature whose AABB strict-intersects `volume` takes a hit.
 /// - `PogoBounce`: orb-exact match — only the breakable whose AABB
 ///   approximately equals `volume` is hit; actors / bosses are skipped.
+/// - `Hazard` / `Enemy*` / `Boss*` with `target = Player(e)`: the
+///   pre-resolved player victim takes the hit (mode + knockback
+///   applied). `target = Volume` falls back to the primary player.
 #[derive(Message, Clone, Debug)]
 pub struct HitEvent {
+    /// World-space volume the hit covers. For broadcast / orb-match
+    /// hits this is the broadcast / orb AABB; for resolved single-
+    /// victim hits this is the AABB at the impact location.
     pub volume: ae::Aabb,
+    /// Damage to apply.
     pub damage: i32,
+    /// Who or what dealt the hit.
     pub source: HitSource,
-    /// Target keys that have already been hit by this one-hit-per-target
-    /// source. Empty for ordinary one-frame projectiles / hazards / pogos.
+    /// Hint for how the consumer resolves the victim. See
+    /// [`HitTarget`].
+    pub target: HitTarget,
+    /// Reaction mode for player victims (`Knockback` / `SafeRespawn`).
+    /// Ignored for non-player targets.
+    pub mode: HitMode,
+    /// Knockback impulse to apply to the victim. `None` for impulse-
+    /// free sources (player slash uses its own per-source `knock_x`
+    /// field on `HitSource::PlayerSlash`; pogo / player-projectile
+    /// don't push their target around).
+    pub knockback: Option<HitKnockback>,
+    /// Target keys that have already been hit by this one-hit-per-
+    /// target source. Empty for ordinary one-frame projectiles /
+    /// hazards / pogos.
     pub ignored_targets: Vec<String>,
 }

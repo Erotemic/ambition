@@ -196,7 +196,7 @@ pub fn update_ecs_actors(
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
-    mut player_damage: MessageWriter<PlayerDamageEvent>,
+    mut hit_events: MessageWriter<HitEvent>,
     // Enemies target the primary player today. Real "nearest hostile
     // actor of faction Player" target selection is OVERNIGHT-TODO
     // #17.8; the `PrimaryPlayerOnly` filter documents the targeting
@@ -545,7 +545,11 @@ pub fn update_ecs_actors(
                 // strike.
                 if player_vulnerable && enemy.alive {
                     if let Some(damage) = enemy.body_contact_damage(player_body) {
-                        let pos = damage.impact_pos;
+                        let pos = damage
+                            .knockback
+                            .as_ref()
+                            .map(|k| k.impact_pos)
+                            .unwrap_or_else(|| damage.volume.center());
                         sfx.write(crate::audio::SfxMessage::Play {
                             id: ambition_sfx::ids::PLAYER_DAMAGE,
                             pos,
@@ -562,7 +566,7 @@ pub fn update_ecs_actors(
                             pos,
                             cue: PhysicsDebrisCue::Impact,
                         });
-                        player_damage.write(damage);
+                        hit_events.write(damage);
                     }
                 }
             }

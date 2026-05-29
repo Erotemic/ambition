@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use crate::audio::SfxMessage;
 use crate::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use crate::features::{
-    self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent, PlayerDamageEvent,
+    self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent,
 };
 use crate::input::ControlFrame;
 use crate::presentation::fx::VfxMessage;
@@ -425,16 +425,19 @@ pub fn attack_advance_system(
     );
 }
 
-/// Resolve this tick's `PlayerDamageEvent`s + remember the last
+/// Resolve this tick's victim-side `HitEvent`s + remember the last
 /// safe-spawn position. Replaces the inline `damage_heal_dialogue_phase`
 /// that used to run inside the legacy `sandbox_update` orchestrator.
 ///
-/// Reads `MessageReader<PlayerDamageEvent>` (no intermediate Vec
-/// needed), routes the first event through `handle_player_damage_events`
-/// — which can knock back, hitstun, hazard-respawn, or fully kill the
-/// player — and writes resulting sfx / vfx / died messages directly to
-/// their `MessageWriter`s. Then runs `remember_safe_player_position`
-/// to update `sim_state.last_safe_player_pos` when the player wasn't
+/// Reads `MessageReader<HitEvent>` and filters to victim-side
+/// sources (hazard / enemy / boss); attacker-side hits (player slash,
+/// player projectile, pogo) are consumed by
+/// `apply_feature_hit_events` separately. Routes the first event
+/// through `handle_player_damage_events` — which can knock back,
+/// hitstun, hazard-respawn, or fully kill the player — and writes
+/// resulting sfx / vfx / died messages directly to their
+/// `MessageWriter`s. Then runs `remember_safe_player_position` to
+/// update `sim_state.last_safe_player_pos` when the player wasn't
 /// damaged this frame, isn't blinking, isn't in hitstun, and isn't
 /// mid-room-transition.
 ///
@@ -443,7 +446,7 @@ pub fn attack_advance_system(
 /// for this frame) and before `attack_advance_system` /
 /// `detect_room_transition_system` (which both read post-damage player
 /// state). Gated by `gameplay_allowed`.
-pub fn apply_player_damage_system(
+pub fn apply_player_hit_events(
     world: Res<GameWorld>,
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,
@@ -452,7 +455,7 @@ pub fn apply_player_damage_system(
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     mut sim_state: ResMut<SandboxSimState>,
     mut banner: ResMut<GameplayBanner>,
-    mut damage_events: MessageReader<PlayerDamageEvent>,
+    mut hit_events: MessageReader<FeatureHitEvent>,
     mut died_writer: MessageWriter<PlayerDiedMessage>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -476,7 +479,15 @@ pub fn apply_player_damage_system(
     >,
 ) {
     let primary = primary_q.single().ok();
-    let events: Vec<PlayerDamageEvent> = damage_events.read().copied().collect();
+    // Drain only victim-side hits — attacker-side hits flow to
+    // `apply_feature_hit_events`. The two consumers read the same
+    // `HitEvent` channel from independent `MessageReader` positions
+    // so both see every event but each filters by source-direction.
+    let events: Vec<FeatureHitEvent> = hit_events
+        .read()
+        .filter(|e| !e.source.is_attacker_side())
+        .cloned()
+        .collect();
 
     let assist_factor = match user_settings.gameplay.assist {
         crate::persistence::settings::AssistMode::Off => 1.0,
@@ -490,23 +501,30 @@ pub fn apply_player_damage_system(
     let safe_world =
         features::world_with_sandbox_solids(&world.0, &moving_platforms.0, &feature_ecs_overlay);
 
-    // Resolve every event to a concrete target entity once, so the
-    // per-player loop below can filter without re-doing the
-    // `target.or(primary)` math. Events that never resolve (no
-    // primary, e.g. headless pre-spawn) are silently dropped — they
-    // would have been in the legacy `single_mut()` early-return path.
-    let resolved: Vec<(Entity, PlayerDamageEvent)> = events
+    // Resolve every event to a concrete target entity once: events
+    // with `HitTarget::Player(e)` route to that player; events with
+    // `HitTarget::Volume` (legacy "iterates-and-takes-primary") fall
+    // back to the primary player. Events that never resolve (no
+    // primary, e.g. headless pre-spawn) are silently dropped.
+    let resolved: Vec<(Entity, FeatureHitEvent)> = events
         .into_iter()
-        .filter_map(|e| e.target.or(primary).map(|t| (t, e)))
+        .filter_map(|e| {
+            let target = match e.target {
+                features::HitTarget::Player(entity) => Some(entity),
+                features::HitTarget::Volume => primary,
+                features::HitTarget::OrbMatch => None,
+            };
+            target.map(|t| (t, e))
+        })
         .collect();
 
     for (player_entity, mut cluster_item, player_health, mut anim, mut combat, mut safety) in
         &mut player_q
     {
-        let target_events: Vec<PlayerDamageEvent> = resolved
+        let target_events: Vec<FeatureHitEvent> = resolved
             .iter()
             .filter(|(t, _)| *t == player_entity)
-            .map(|(_, e)| *e)
+            .map(|(_, e)| e.clone())
             .collect();
         let damaged_this_frame = !target_events.is_empty();
 

@@ -555,8 +555,14 @@ pub fn update_ecs_actors(
                 // player this enemy is currently tracking. Falls back
                 // to no-op when the target's player entity is None
                 // (e.g. dropped-to-volume targeting in test fixtures).
-                let target_player = target.entity.and_then(|e| player_query.get(e).ok());
-                let Some((_, target_kin, target_offense, target_dodge, target_shield, target_combat)) = target_player else {
+                // `target_entity` is threaded onto the emitted
+                // `HitEvent::target` so the player-side reader lands
+                // body-contact damage on this specific player rather
+                // than falling back to primary.
+                let Some(target_entity) = target.entity else {
+                    continue;
+                };
+                let Ok((_, target_kin, target_offense, target_dodge, target_shield, target_combat)) = player_query.get(target_entity) else {
                     continue;
                 };
                 let target_body = target_kin.aabb();
@@ -566,7 +572,7 @@ pub fn update_ecs_actors(
                     && !target_shield.parrying()
                     && target_combat.vulnerable();
                 if target_vulnerable && enemy.alive {
-                    if let Some(damage) = enemy.body_contact_damage(target_body) {
+                    if let Some(damage) = enemy.body_contact_damage(target_entity, target_body) {
                         let pos = damage
                             .knockback
                             .as_ref()

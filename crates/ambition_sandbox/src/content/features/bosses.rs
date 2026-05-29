@@ -1099,8 +1099,12 @@ mod scripted_pattern_tests {
         let attack_state = crate::brain::BossAttackState::default();
         let ctx = crate::features::BossVolumeContext::from_runtime(&boss, &attack_state);
         let player_body = crate::features::body_damage_aabb(boss.pos, boss.combat_size());
+        // Synthetic player entity — the test only checks the
+        // None branch, the entity is never read out of the event.
+        let synthetic_player = bevy::prelude::Entity::from_raw_u32(1)
+            .expect("nonzero raw entity index");
         assert!(
-            crate::features::boss_attack_damage(&ctx, player_body).is_none(),
+            crate::features::boss_attack_damage(&ctx, synthetic_player, player_body).is_none(),
             "gnu_ton must not deal contact damage when body_damage = 0"
         );
     }

@@ -421,8 +421,11 @@ pub fn update_ecs_bosses(
         // Resolve this boss's targeted player. If the target's
         // entity has despawned or no players exist, skip the body-
         // contact check — body still integrates so the boss keeps
-        // animating its pattern.
-        let target_player = actor_target.entity.and_then(|e| player_query.get(e).ok());
+        // animating its pattern. `target_entity` is threaded onto
+        // the emitted `HitEvent::target` so the player-side reader
+        // lands boss-attack damage on this specific player.
+        let target_entity = actor_target.entity;
+        let target_player = target_entity.and_then(|e| player_query.get(e).ok());
         let boss = &mut feature.boss;
         // Integration: take the brain-emitted desired_vel and let
         // `step_kinematic` translate it into a collision-resolved
@@ -441,7 +444,9 @@ pub fn update_ecs_bosses(
             _ => 0.0,
         };
         *phase = BossPhase::from_alive(boss.alive);
-        let Some((kin, offense, dodge, shield, combat)) = target_player else {
+        let (Some(target_entity), Some((kin, offense, dodge, shield, combat))) =
+            (target_entity, target_player)
+        else {
             continue;
         };
         let player_body = kin.aabb();
@@ -452,7 +457,7 @@ pub fn update_ecs_bosses(
             && combat.vulnerable();
         if player_vulnerable && boss.alive {
             let ctx = BossVolumeContext::from_runtime(boss, attack_state);
-            if let Some(damage) = boss_attack_damage(&ctx, player_body) {
+            if let Some(damage) = boss_attack_damage(&ctx, target_entity, player_body) {
                 let pos = damage
                     .knockback
                     .as_ref()

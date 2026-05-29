@@ -405,8 +405,15 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 ///
 /// Body contact wins only if the strike arm didn't fire — same
 /// priority order as the legacy `BossRuntime::player_damage`.
+///
+/// `player_entity` is the player whose body is being tested; it's
+/// stamped on the returned event's `target` so the player-side
+/// reader lands the hit on that player rather than primary. The
+/// caller (`update_ecs_bosses`) reads each boss's `ActorTarget` to
+/// pick the per-boss victim and passes it down here.
 pub fn boss_attack_damage(
     ctx: &BossVolumeContext,
+    player_entity: bevy::prelude::Entity,
     player_body: ae::Aabb,
 ) -> Option<crate::features::HitEvent> {
     use super::util::midpoint;
@@ -434,7 +441,7 @@ pub fn boss_attack_damage(
                 damage: ctx.behavior.attack_damage.max(1),
                 source: HitSource::BossAttack,
                 attacker: None,
-                target: HitTarget::Volume,
+                target: HitTarget::Player(player_entity),
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
                     dir: signum_or(player_body.center().x - ctx.pos.x, 1.0),
@@ -469,7 +476,7 @@ pub fn boss_attack_damage(
                 damage: body_damage_amount,
                 source: HitSource::BossBody,
                 attacker: None,
-                target: HitTarget::Volume,
+                target: HitTarget::Player(player_entity),
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
                     dir: signum_or(player_body.center().x - ctx.pos.x, 1.0),

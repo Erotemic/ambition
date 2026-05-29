@@ -1518,10 +1518,18 @@ impl EnemyRuntime {
     /// `content/features/ecs/hitbox.rs`); body contact is "you ran
     /// into the enemy" — a per-tick test against the integration
     /// state, not a discrete strike — and keeps its polled shape.
-    /// Per the actor/brain follow-up plan
-    /// (`dev/journals/actor-brain-migration-followups-plan.md`,
-    /// Task A "What stays in `EnemyRuntime`").
-    pub(super) fn body_contact_damage(&self, player_body: ae::Aabb) -> Option<HitEvent> {
+    ///
+    /// `player_entity` is the player whose body the caller is
+    /// checking against; it's stamped on the returned `HitEvent`'s
+    /// `target` so the player-side reader lands the hit on that
+    /// specific player rather than falling back to primary. The
+    /// caller (`update_ecs_actors`) iterates every player and calls
+    /// this once per (enemy, player) pair.
+    pub(super) fn body_contact_damage(
+        &self,
+        player_entity: bevy::prelude::Entity,
+        player_body: ae::Aabb,
+    ) -> Option<HitEvent> {
         let body_damage = self.body_damage_aabb()?;
         if !body_damage.strict_intersects(player_body) {
             return None;
@@ -1532,9 +1540,9 @@ impl EnemyRuntime {
             damage: self.archetype.damage_amount(),
             source: HitSource::EnemyBody,
             attacker: None,
-            // Body contact targets primary today; producer doesn't
-            // know which player ran in. Reader falls back to primary.
-            target: HitTarget::Volume,
+            // Pre-resolved victim: the caller already picked the
+            // overlapping player. Multi-player ready.
+            target: HitTarget::Player(player_entity),
             mode: HitMode::Knockback,
             knockback: Some(HitKnockback {
                 dir: (player_body.center().x - self.pos.x).signum_or(self.facing),

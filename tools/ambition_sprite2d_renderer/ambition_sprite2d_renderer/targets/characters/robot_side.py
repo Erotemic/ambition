@@ -272,23 +272,42 @@ class SideRobotGenerator:
             p.near_leg_lower = 80.0 + 10.0 * recoil
             p.eye_squint = 0.28 + 0.20 * recoil
         elif animation in {"walk", "run"}:
+            # Stride amplitude bumped 2026-05-29 so the legs read
+            # clearly across the 8-frame cycle. The previous amp=18/27
+            # gave a ~36° hip swing; against the supersample-3 → 128px
+            # downsample the alternating-foot read came across as a
+            # shuffle. The new amp=34/52 lifts each foot well past the
+            # standing pose. `lift_phase` adds a clear knee-bend on the
+            # forward foot (lower-leg tucks up under the body) so the
+            # silhouette has a visible "step" shape, not just a hip
+            # sway. Body_bob + arm swing scale together.
             stride = math.sin(t * math.tau)
             bounce = (1.0 - math.cos(t * math.tau * 2.0)) * 0.5
-            amp = 18.0 if animation == "walk" else 27.0
-            arm = 10.0 if animation == "walk" else 15.0
-            lean = -1.5 if animation == "walk" else -7.0
-            p.root_x = stride * (1.0 if animation == "walk" else 1.7)
-            p.body_bob = 0.5 + bounce * (1.8 if animation == "walk" else 2.5)
-            p.body_tilt = lean - stride * 3.5
-            p.head_tilt = -bounce * 1.5
+            is_run = animation == "run"
+            amp = 34.0 if not is_run else 52.0
+            arm = 18.0 if not is_run else 28.0
+            lean = -2.0 if not is_run else -9.0
+            # The forward-foot knee tuck. `clamp(...)` so only the
+            # rising-back leg lifts, not the planted one.
+            forward_lift = max(0.0, stride)
+            back_lift = max(0.0, -stride)
+            knee_tuck = 30.0 if not is_run else 44.0
+            heel_kick = 14.0 if not is_run else 22.0
+            p.root_x = stride * (1.4 if not is_run else 2.4)
+            p.body_bob = 0.5 + bounce * (2.2 if not is_run else 3.2)
+            p.body_tilt = lean - stride * 4.5
+            p.head_tilt = -bounce * 1.8 - stride * 0.6
             p.far_arm_upper = 145 + stride * arm
             p.far_arm_lower = 122 + stride * arm * 0.55
             p.near_arm_upper = 32 - stride * arm
             p.near_arm_lower = 20 - stride * arm * 0.55
+            # Far leg = leg behind on positive stride, leg lifting on
+            # negative stride; the lower-leg knee tuck is keyed off the
+            # *lifting* phase so the bent knee always faces forward.
             p.far_leg_upper = 105 + stride * amp
-            p.far_leg_lower = 97 - max(0.0, stride) * 22.0 + max(0.0, -stride) * 8.0
+            p.far_leg_lower = 97 - forward_lift * knee_tuck + back_lift * heel_kick
             p.near_leg_upper = 72 - stride * amp
-            p.near_leg_lower = 85 - max(0.0, -stride) * 22.0 + max(0.0, stride) * 8.0
+            p.near_leg_lower = 85 - back_lift * knee_tuck + forward_lift * heel_kick
             p.eye_squint = 0.08 + bounce * 0.12
         elif animation == "jump":
             arc = math.sin(t * math.pi)
@@ -781,24 +800,34 @@ class SideRobotGenerator:
             p.near_leg_lower = 50.0 + 36.0 * rise
             p.eye_squint = 0.20 * (1.0 - rise)
         elif animation == "wall_grab":
-            # Pinned-against-wall hold. Both hands flat on the wall in front,
-            # body presses forward, legs dangle/coil with a subtle breathing
-            # micro-bob. Distinct from wall_slide (which is a downward scrape)
-            # and ledge_grab (which is overhead grip).
+            # Pinned-against-wall hold. Both arms locked straight out
+            # forward against the wall surface, body leans hard into
+            # the wall, knees drawn up so the silhouette reads "hanging
+            # on by the hands" rather than just "standing leaning."
+            # 2026-05-29: rewrote the pose for a much clearer read.
+            # Old pose had arms at near-shoulder angles + extended
+            # legs, which looked almost identical to idle. New pose:
+            # arms aim FORWARD (clamped horizontally toward the wall),
+            # body tilts ~22° into the wall, near leg pulled up high
+            # so a bent knee crosses the body silhouette.
             breathe = math.sin(t * math.tau)
-            p.root_x = 4.0 + breathe * 0.4
-            p.root_y = -1.0 + breathe * 0.6
-            p.body_tilt = 8.0 + breathe * 1.0
-            p.head_tilt = 4.0
-            p.far_arm_upper = 18.0 + breathe * 1.5
-            p.far_arm_lower = -6.0 + breathe * 1.5
-            p.near_arm_upper = 8.0 - breathe * 1.5
-            p.near_arm_lower = -14.0 - breathe * 1.5
-            p.far_leg_upper = 118.0 + breathe * 2.0
-            p.far_leg_lower = 96.0 - breathe * 2.0
-            p.near_leg_upper = 82.0 - breathe * 2.0
-            p.near_leg_lower = 92.0 + breathe * 2.0
-            p.eye_squint = 0.22
+            p.root_x = 9.0 + breathe * 0.6
+            p.root_y = -2.0 + breathe * 0.8
+            p.body_tilt = 22.0 + breathe * 1.4
+            p.head_tilt = 10.0 + breathe * 0.8
+            # Arms straight forward + slightly down (slammed onto wall).
+            p.far_arm_upper = 92.0 + breathe * 1.2
+            p.far_arm_lower = 88.0 + breathe * 1.0
+            p.near_arm_upper = 88.0 - breathe * 1.2
+            p.near_arm_lower = 84.0 - breathe * 1.0
+            # Near leg pulled up high (knee bent across body), far leg
+            # extended down to plant against the wall. Creates the
+            # "frog-on-glass" silhouette that reads as wall-cling.
+            p.far_leg_upper = 130.0 + breathe * 1.8
+            p.far_leg_lower = 64.0 - breathe * 1.4
+            p.near_leg_upper = 36.0 - breathe * 1.8
+            p.near_leg_lower = 28.0 + breathe * 1.4
+            p.eye_squint = 0.18
         elif animation == "ledge_climb":
             # Slow, deliberate haul-up against an overhead grip. Arms remain
             # locked overhead; the body pulls upward in two pump phases while
@@ -1543,7 +1572,14 @@ class SideRobotGenerator:
                 y = (42 - zt * 24) * S
                 d.text((x, y), "Z", fill=_with_alpha(pal["visor_glow"], int(150 * (1.0 - zt * 0.45))))
         if animation == "hover":
-            flame = 0.6 + 0.4 * math.sin(frame_index * 1.7)
+            # 2026-05-29: doubled the jet plume length and added a
+            # bright white-hot inner core so the fly pose reads as
+            # genuine thrust rather than "small flicker under feet."
+            # Two flicker phases (offset 90°) so the two jets pulse
+            # slightly out of sync — visually busier and obviously
+            # "alive" instead of mirrored.
+            flame_l = 0.65 + 0.35 * math.sin(frame_index * 1.7)
+            flame_r = 0.65 + 0.35 * math.sin(frame_index * 1.7 + math.pi / 2)
             # Anchor each jet at the actual foot position, mirroring
             # the leg_chain / foot_center math used by the body draw
             # below. The previous fixed-canvas flames floated ~10px
@@ -1552,26 +1588,59 @@ class SideRobotGenerator:
             hover_body_x = root_x + lerp(0.0, 12 * S, p.collapse)
             hover_body_y = ground_y - lerp(39 * S, 11 * S, p.collapse) + p.body_bob * S
             jet_hips = (
-                (hover_body_x - 6 * S, hover_body_y + 11 * S, p.far_leg_upper, p.far_leg_lower, -2.0),
-                (hover_body_x + 8 * S, hover_body_y + 10 * S, p.near_leg_upper, p.near_leg_lower, 3.0),
+                (hover_body_x - 6 * S, hover_body_y + 11 * S, p.far_leg_upper, p.far_leg_lower, -2.0, flame_l),
+                (hover_body_x + 8 * S, hover_body_y + 10 * S, p.near_leg_upper, p.near_leg_lower, 3.0, flame_r),
             )
-            for hx, hy, a1, a2, foot_shift in jet_hips:
+            for hx, hy, a1, a2, foot_shift, flame in jet_hips:
                 _, ankle = self._leg_chain((hx, hy), spec.leg_upper * S, spec.leg_lower * S, a1, a2)
                 foot_w = 12 * S
                 foot_cx = ankle[0] + (foot_w * 0.34) + foot_shift * S
                 foot_cy = min(ground_y - 2 * S, ankle[1] + 2 * S)
-                # Outer cyan plume + inner yellow core, top of the
-                # triangle on the foot, base extending downward.
+                # Three-layer plume so the jets read clearly even
+                # downsampled. Width-then-length so the silhouette is
+                # a tall, slightly-tapered teardrop.
                 top = (foot_cx, foot_cy + 1 * S)
-                outer_base = foot_cy + (10 + 6 * flame) * S
-                inner_base = foot_cy + (8 + 4 * flame) * S
+                # Outer glow halo (faint cyan, widest, longest).
+                halo_w = (7 + 3 * flame) * S
+                halo_base = foot_cy + (22 + 14 * flame) * S
                 d.polygon(
-                    [top, (foot_cx - 4 * S, outer_base), (foot_cx + 4 * S, outer_base)],
-                    fill=_with_alpha(pal["visor_glow"], int(150 * flame)),
+                    [
+                        (foot_cx, foot_cy - 1 * S),
+                        (foot_cx - halo_w, halo_base),
+                        (foot_cx + halo_w, halo_base),
+                    ],
+                    fill=_with_alpha(pal["visor_glow"], int(70 * flame)),
                 )
+                # Mid cyan plume — the main flame body.
+                outer_base = foot_cy + (18 + 12 * flame) * S
                 d.polygon(
-                    [(foot_cx, foot_cy + 3 * S), (foot_cx - 2 * S, inner_base), (foot_cx + 2 * S, inner_base)],
-                    fill=(255, 245, 166, int(160 * flame)),
+                    [
+                        top,
+                        (foot_cx - 5 * S, outer_base),
+                        (foot_cx + 5 * S, outer_base),
+                    ],
+                    fill=_with_alpha(pal["visor_glow"], int(180 * flame)),
+                )
+                # Inner yellow flame.
+                inner_base = foot_cy + (12 + 8 * flame) * S
+                d.polygon(
+                    [
+                        (foot_cx, foot_cy + 2 * S),
+                        (foot_cx - 3 * S, inner_base),
+                        (foot_cx + 3 * S, inner_base),
+                    ],
+                    fill=(255, 235, 130, int(210 * flame)),
+                )
+                # White-hot core (narrowest, brightest, anchored at
+                # the nozzle so the eye locks on to "this is a jet").
+                core_base = foot_cy + (7 + 5 * flame) * S
+                d.polygon(
+                    [
+                        (foot_cx, foot_cy + 2 * S),
+                        (foot_cx - 1.6 * S, core_base),
+                        (foot_cx + 1.6 * S, core_base),
+                    ],
+                    fill=(255, 255, 240, int(240 * flame)),
                 )
 
         character_img = img if animation not in {"blink_out", "blink_in"} else Image.new("RGBA", (W, H), (0, 0, 0, 0))

@@ -105,6 +105,7 @@ pub(super) fn player_control_phase(
         clusters,
         combat,
         blink_cam,
+        anim,
         control_events,
         None,
     );
@@ -257,6 +258,7 @@ pub(super) fn player_simulation_phase(
         clusters,
         combat,
         blink_cam,
+        anim,
         sim_events,
         Some(was_grounded),
     );

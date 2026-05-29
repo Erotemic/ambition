@@ -575,6 +575,9 @@ pub fn cleanup_timers_system(
     combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
     dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
     anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
+    anim.shoot_anim_timer = (anim.shoot_anim_timer - frame_dt).max(0.0);
+    anim.wall_jump_anim_timer = (anim.wall_jump_anim_timer - frame_dt).max(0.0);
+    anim.interact_anim_timer = (anim.interact_anim_timer - frame_dt).max(0.0);
     blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
     blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
     update_anim_signal_timers(

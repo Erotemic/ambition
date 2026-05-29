@@ -36,6 +36,13 @@ pub fn update_projectiles(
         ),
         crate::player::PrimaryPlayerOnly,
     >,
+    // Held separately from `player_input_q` because anim state is the
+    // only piece this system writes back; keeping the read-only input
+    // query intact avoids forcing a `&mut` on the kinematics borrow.
+    mut player_anim_q: Query<
+        &mut crate::player::PlayerAnimState,
+        crate::player::PrimaryPlayerOnly,
+    >,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
@@ -169,6 +176,11 @@ pub fn update_projectiles(
     let direction = ae::Vec2::new(facing, 0.0);
     let damage_mult = user_settings.gameplay.player_damage_multiplier;
 
+    // Length before the input processing block so we can detect "a
+    // projectile spawned this frame" without threading a bool through
+    // every fire branch.
+    let bodies_before = state.bodies.len();
+
     // Press edge: try Hadouken tiers first (most-specific motion gate
     // wins), else start charging a Fireball. Order matters — the
     // grace shape is a SUBSEQUENCE of the full QCF, so check Super
@@ -235,6 +247,23 @@ pub fn update_projectiles(
                 tier,
                 &mut events,
             );
+        }
+    }
+
+    // Mirror projectile state onto the player's animation flags. `aim`
+    // tracks the held-charge pose every frame; `shoot` is a short
+    // post-fire pulse triggered only on the frame the body count grew.
+    // SHOOT_ANIM_HOLD_SECS is short enough that a rapid-fire stream
+    // visibly stutters between Shoot and Idle/Walk rather than locking
+    // out the locomotion read.
+    const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
+    if let Ok(mut anim) = player_anim_q.single_mut() {
+        let charging = state.charging.is_some();
+        if anim.aim_anim_active != charging {
+            anim.aim_anim_active = charging;
+        }
+        if state.bodies.len() > bodies_before {
+            anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
         }
     }
 

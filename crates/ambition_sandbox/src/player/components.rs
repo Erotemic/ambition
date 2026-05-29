@@ -207,6 +207,23 @@ pub struct PlayerAnimState {
     pub anim_prev_vel_y: f32,
     /// Previous frame's `dash_timer`; used to detect the dash rising edge.
     pub anim_prev_dash_timer: f32,
+    /// Time remaining for the projectile-release `Shoot` pose. Armed by
+    /// `update_projectiles` whenever a projectile body is spawned (any
+    /// kind — Fireball/Hadouken/HadoukenSuper). Single-shot, short.
+    pub shoot_anim_timer: f32,
+    /// Set each frame by `update_projectiles` to mirror
+    /// `PlayerProjectileState.charging.is_some()`. While true the
+    /// player is holding a charge and the `Aim` row plays.
+    pub aim_anim_active: bool,
+    /// Time remaining for the wall-jump push-off pose. Armed by
+    /// `handle_player_events` on a `MovementOp::WallJump` op. Distinct
+    /// from `Jump` so the wall departure reads as a kick-off rather
+    /// than a ground arc.
+    pub wall_jump_anim_timer: f32,
+    /// Time remaining for the interact-gesture pose. Armed when an
+    /// interaction (door, NPC, pickup) consumes
+    /// `interact_buffer_timer`.
+    pub interact_anim_timer: f32,
 }
 
 impl PlayerAnimState {

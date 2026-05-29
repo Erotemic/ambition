@@ -389,18 +389,31 @@ pub(super) fn handle_player_events(
     clusters: &ae::PlayerClustersMut<'_>,
     combat: &mut crate::player::PlayerCombatState,
     blink_cam: &mut crate::player::PlayerBlinkCameraState,
+    anim: &mut crate::player::PlayerAnimState,
     events: ae::FrameEvents,
     was_grounded: Option<bool>,
 ) {
+    /// How long the wall-jump push-off pose holds after the WallJump op
+    /// fires. Short enough to clear before the apex of the jump arc so
+    /// the regular `Jump` row picks back up; long enough that the kick
+    /// reads at typical playback rates.
+    const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
     let pos = clusters.kinematics.pos;
     let facing = clusters.kinematics.facing;
     let size = clusters.kinematics.size;
     let on_ground = clusters.ground.on_ground;
     for op in &events.operations {
         match op {
-            ae::MovementOp::Jump | ae::MovementOp::WallJump => {
+            ae::MovementOp::Jump => {
                 sfx.write(SfxMessage::Jump { pos });
                 vfx.write(VfxMessage::Dust { pos, facing });
+            }
+            ae::MovementOp::WallJump => {
+                sfx.write(SfxMessage::Jump { pos });
+                vfx.write(VfxMessage::Dust { pos, facing });
+                // Arm the push-off pose. Held briefly so the kick
+                // reads even after the regular jump arc takes over.
+                anim.wall_jump_anim_timer = WALL_JUMP_ANIM_HOLD_SECS;
             }
             ae::MovementOp::DoubleJump => {
                 sfx.write(SfxMessage::DoubleJump { pos });

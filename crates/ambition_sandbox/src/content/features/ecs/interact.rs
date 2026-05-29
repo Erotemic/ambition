@@ -17,6 +17,7 @@ pub fn interact_ecs_actors_and_switches(
         (
             &crate::player::PlayerKinematics,
             &mut crate::player::PlayerInteractionState,
+            &mut crate::player::PlayerAnimState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -41,7 +42,11 @@ pub fn interact_ecs_actors_and_switches(
     // per-player dialogue surface (OVERNIGHT-TODO #17) would let
     // simultaneous NPC interactions land per-player. Single-player
     // behavior preserved because the iterator has one entity today.
-    for (player_kin, mut interaction) in &mut player {
+    // How long the player's `Interact` pose holds after the interaction
+    // commits. Short enough that the gesture clears before dialogue UI
+    // or the room transition takes camera focus.
+    const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
+    for (player_kin, mut interaction, mut anim) in &mut player {
         if !interaction.buffered() {
             continue;
         }
@@ -55,6 +60,7 @@ pub fn interact_ecs_actors_and_switches(
                 continue;
             }
             interaction.clear();
+            anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
             banner.show(npc.message(), 2.6);
             let request = npc.dialogue_request();
             dialogue.start(&request.dialogue_id, &request.npc_name);
@@ -88,6 +94,7 @@ pub fn interact_ecs_actors_and_switches(
                 continue;
             }
             interaction.clear();
+            anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
             banner.show(format!("activated {}", name.0.as_str()), 2.6);
             on.0 = true;
             gameplay_effects.write(GameplayEffect::ActivateSwitch {

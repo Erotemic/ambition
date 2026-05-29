@@ -11,6 +11,7 @@ pub fn open_ecs_chests(
         (
             &crate::player::PlayerKinematics,
             &mut crate::player::PlayerInteractionState,
+            &mut crate::player::PlayerAnimState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -37,7 +38,12 @@ pub fn open_ecs_chests(
     // the `Opened` marker, which keeps subsequent attempts no-ops).
     // OVERNIGHT-TODO #17.6/#17.8 — preserve single-player behavior
     // because the iterator has one entity today.
-    for (player_kin, mut interaction) in &mut player {
+    // Same hold time as the NPC / switch interact gesture. Kept in
+    // sync with `interact_ecs_actors_and_switches::INTERACT_ANIM_HOLD_SECS`
+    // so the player's reach-and-open animation feels uniform across
+    // every interactable kind.
+    const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
+    for (player_kin, mut interaction, mut anim) in &mut player {
         if !interaction.buffered() {
             continue;
         }
@@ -49,6 +55,7 @@ pub fn open_ecs_chests(
             }
             commands.entity(entity).insert(Opened);
             interaction.clear();
+            anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
             banner.show(format!("opened {}", name.0.as_str()), 2.6);
             let pos = aabb.center;
             vfx.write(VfxMessage::Burst {

@@ -80,6 +80,17 @@ pub fn spawn_room_visuals(
         } else {
             FeatureVisualKind::Enemy
         };
+        // Composite "X on Shark" spawns become a mount entity + a
+        // rider entity on the sim side (see
+        // `content::features::ecs::mount`). Fan the same way here
+        // so each side has its own FeatureVisual entity — without
+        // this both sims point at ids that don't match any room
+        // visual, and `sync_visuals` hides them.
+        let archetype = crate::features::EnemyArchetype::from_brain(&enemy.payload);
+        if crate::features::is_composite_spawn(archetype) {
+            spawn_composite_visuals(commands, world, enemy, kind, assets);
+            continue;
+        }
         spawn_authored_basic(
             commands,
             world,
@@ -457,6 +468,81 @@ fn spawn_authored_basic(
         crate::features::FeatureName::new(name.to_string()),
         RoomVisual,
     ));
+}
+
+/// Spawn the mount + rider FeatureVisual entities for an authored
+/// composite "X on Shark" enemy. Mirrors the sim-side fan out in
+/// `content::features::ecs::spawn::spawn_composite_mount_rider`: the
+/// mount keeps the AUTHORED id (so existing same-room reset paths
+/// and id-keyed save flags still target the mount entry), and the
+/// rider takes the `<id>:rider` suffix.
+///
+/// The actual positions / sizes get rewritten by `sync_visuals`
+/// each frame off the FeatureViewIndex (which the sim entities
+/// populate); the spawn just needs a placeholder Sprite + Transform
+/// big enough for `upgrade_enemy_sprites` to replace with a textured
+/// CharacterSprite once the asset bank loads.
+fn spawn_composite_visuals(
+    commands: &mut Commands,
+    world: &ae::World,
+    enemy: &crate::rooms::Authored<crate::actor::EnemyBrain>,
+    kind: FeatureVisualKind,
+    assets: Option<&GameAssets>,
+) {
+    use crate::features::EnemyArchetype;
+    let composite = crate::features::EnemyArchetype::from_brain(&enemy.payload);
+    // Mount: keep authored id; reuse the authored aabb (the
+    // BurningFlyingShark default_size is what `spawn_composite_*`
+    // uses for the sim mount).
+    spawn_authored_basic(
+        commands,
+        world,
+        &enemy.id,
+        "Burning Flying Shark",
+        enemy.aabb,
+        kind,
+        game_assets::entity_sprite_for_enemy(&crate::actor::EnemyBrain::Custom(
+            "burning_flying_shark".into(),
+        )),
+        assets,
+    );
+    // Rider: ":rider" suffix, name parsed from the authored spawn
+    // name. The rider's initial AABB is placed at a sensible
+    // position above the mount; `sync_visuals` overwrites it next
+    // frame off the rider sim entity's pos.
+    let rider_name = match composite {
+        EnemyArchetype::PirateHeavyOnShark => enemy
+            .name
+            .strip_suffix(" on Shark")
+            .map(str::to_owned)
+            .unwrap_or_else(|| "Broadside Bess".to_string()),
+        _ => "Pirate Raider".to_string(),
+    };
+    let rider_brain = match composite {
+        EnemyArchetype::PirateHeavyOnShark => {
+            crate::actor::EnemyBrain::Custom("pirate_heavy".into())
+        }
+        _ => crate::actor::EnemyBrain::Custom("pirate_raider".into()),
+    };
+    let rider_size = EnemyArchetype::from_brain(&rider_brain)
+        .default_size()
+        .unwrap_or(ae::Vec2::new(44.0, 78.0));
+    let mount_size = EnemyArchetype::BurningFlyingShark
+        .default_size()
+        .unwrap_or(ae::Vec2::new(126.0, 52.0));
+    let rider_offset_y = -(mount_size.y * 0.5) - (rider_size.y * 0.5) + 8.0;
+    let rider_pos = enemy.aabb.center() + ae::Vec2::new(0.0, rider_offset_y);
+    let rider_aabb = ae::Aabb::new(rider_pos, rider_size * 0.5);
+    spawn_authored_basic(
+        commands,
+        world,
+        &format!("{}:rider", enemy.id),
+        &rider_name,
+        rider_aabb,
+        kind,
+        game_assets::entity_sprite_for_enemy(&rider_brain),
+        assets,
+    );
 }
 
 fn spawn_authored_hazard(

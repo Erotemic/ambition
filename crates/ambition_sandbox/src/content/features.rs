@@ -110,7 +110,8 @@ pub use ecs::{
     update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorRuntime,
     AppleRainSpawnState, BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex,
     GradientCascadeState, HazardFeature, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
-    MinimaTrapState, MountSlot, Mountable, OverfitVolleyState, RidingOn, SaddlePointState,
+    MinimaTrapState, MountSlot, Mountable, Mounted, MountedBrainCache, OverfitVolleyState,
+    RidingOn, SaddlePointState,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{

@@ -403,7 +403,7 @@ impl EnemyArchetype {
         Self::PirateHeavyOnShark,
     ];
 
-    pub(super) fn from_brain(brain: &crate::actor::EnemyBrain) -> Self {
+    pub fn from_brain(brain: &crate::actor::EnemyBrain) -> Self {
         let crate::actor::EnemyBrain::Custom(name) = brain else {
             return Self::Combatant;
         };
@@ -526,7 +526,7 @@ impl EnemyArchetype {
 
     /// Body size (px) for actors of this archetype. Aerial actors
     /// are larger because the shark sprite is 192×128.
-    pub(super) fn default_size(self) -> Option<ae::Vec2> {
+    pub fn default_size(self) -> Option<ae::Vec2> {
         self.spec().default_size
     }
 

@@ -421,7 +421,13 @@ fn spawn_composite_mount_rider(
     // standalone BurningFlyingShark's default, so tuning the
     // composite's HP in the RON works as expected.
     let composite_hp = composite_archetype.max_health();
-    let mount_id = format!("{}:mount", authored.id);
+    // Mount keeps the authored id so the room-side FeatureVisual
+    // entity (spawned by `spawn_room_visuals`) matches and resolves
+    // its sprite via the standard upgrade path. The rider takes a
+    // suffixed id (`<authored>:rider`) and gets its own FeatureVisual
+    // entity from `spawn_composite_visuals` in
+    // `presentation::rendering::world`.
+    let mount_id = authored.id.clone();
     let mount_name = "Burning Flying Shark".to_string();
     let mut mount_enemy = EnemyRuntime::new(
         mount_id.clone(),
@@ -552,6 +558,14 @@ fn spawn_composite_mount_rider(
     let (r_identity, r_disposition, r_health, r_combat, r_intent, r_cooldowns) =
         actor_component_snapshot(&rider_actor);
     let rider_feature_aabb = FeatureAabb::from_aabb(rider_aabb);
+    // Cache the mounted brain on the rider so the same-room reset
+    // path can restore it after a mount-death-then-reset cycle
+    // (without the cache, the rider would keep their solo brain
+    // after reset and the gun-sword would go silent).
+    let mounted_brain_cache = super::MountedBrainCache {
+        brain: rider_brain.clone(),
+        action_set: rider_action_set.clone(),
+    };
     let rider_entity = commands
         .spawn((
             Name::new(format!("Feature actor rider: {rider_variant_name}")),
@@ -575,6 +589,8 @@ fn spawn_composite_mount_rider(
                 rider_feature_aabb.center.y,
                 0.0,
             ),
+            mounted_brain_cache,
+            super::Mounted,
             super::RidingOn {
                 mount: mount_entity,
             },

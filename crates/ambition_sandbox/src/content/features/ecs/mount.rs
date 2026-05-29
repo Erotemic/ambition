@@ -55,10 +55,39 @@ pub struct MountSlot {
 /// Attached to a rider entity. Points at the mount the rider is
 /// currently on. The presence of this component is what tells the
 /// per-tick sync system to lock the rider's pos to the mount.
+///
+/// Stays attached even after the mount dies — `sync_riders_to_mounts`
+/// checks `mount.alive` each frame and skips the snap for a dead
+/// mount. Keeping the link record lets the same-room reset path
+/// re-mount the rider without having to look it up by id.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct RidingOn {
     pub mount: Entity,
 }
+
+/// Cache of the rider's MOUNTED brain + action set, attached at
+/// composite spawn. Survives mount death (so the rider keeps a
+/// record of "what behavior to take if remounted") and is the
+/// authority the same-room reset path consults to restore Skirmisher
+/// + Bolt firing after the mount comes back alive.
+///
+/// Without this, a dismounted-then-reset rider would keep their
+/// solo melee brain (whatever `enemy_default_brain` returns for the
+/// PirateRaider / PirateHeavy archetype) and refuse to fire the
+/// gun-sword even while their freshly-respawned shark is alive
+/// underneath them.
+#[derive(Component, Clone, Debug)]
+pub struct MountedBrainCache {
+    pub brain: crate::brain::Brain,
+    pub action_set: crate::brain::ActionSet,
+}
+
+/// Tag marker on a rider whose brain is currently in MOUNTED mode
+/// (Skirmisher + Bolt). Absent means the rider's brain is its solo
+/// archetype default. [`enforce_mount_rider_link`] toggles this
+/// marker on alive-transitions of the mount entity.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct Mounted;
 
 /// Lock every rider's position / facing / vel / gravity to its
 /// mount each tick. Runs after the per-actor brain tick so the
@@ -116,93 +145,105 @@ pub fn sync_riders_to_mounts(
 /// Dissolve a rider / mount link when either side dies. Runs after
 /// the damage pass.
 ///
-/// - Mount dies: rider's [`RidingOn`] is removed, gravity flips on,
-///   and the rider's brain + action set are re-derived for its
-///   STANDALONE archetype so a pirate raider falling off a dead
-///   shark walks at the player swinging melee instead of orbit-and-
-///   firing a gun-sword that no longer has a platform.
-/// - Rider dies: the mount's [`MountSlot`] clears. The mount's own
-///   brain (already its solo brain — the shark is just a Burning
-///   Flying Shark) keeps running unchanged.
+/// - Mount dies: rider's gravity flips on (so they fall), and their
+///   brain + action set are re-derived for the rider's STANDALONE
+///   archetype so a pirate raider falling off a dead shark walks
+///   at the player swinging melee instead of orbit-and-firing a
+///   gun-sword that no longer has a platform. The [`RidingOn`]
+///   component itself STAYS attached — `sync_riders_to_mounts`
+///   gates on `mount.alive` and won't snap the rider while the
+///   mount is dead. Keeping the link record lets the same-room
+///   reset path re-mount the rider once the mount is alive again
+///   without having to look it up by id.
+/// - Rider dies: the mount keeps running with its own (already
+///   standalone) brain. The mount's [`MountSlot`] keeps its
+///   `rider` back-reference so the reset path can re-arm the link.
+///
+/// The dissolution is idempotent — applying it twice to the same
+/// dead-mount situation is a no-op because the second pass sees
+/// the rider's brain is already the solo brain. The fired hook
+/// is the (transitively-tracked) alive transition, but we don't
+/// trust that to fire only once because reset_to_spawn brings
+/// `mount.alive` back to true and a future death would mean
+/// re-applying the dissolve.
 pub fn enforce_mount_rider_link(
     mut commands: Commands,
-    mut riders: Query<(Entity, &RidingOn, &mut ActorRuntime), Without<MountSlot>>,
-    mut mounts: Query<(Entity, &mut MountSlot, &ActorRuntime), With<MountSlot>>,
+    mut riders: Query<
+        (
+            Entity,
+            &RidingOn,
+            &mut ActorRuntime,
+            Option<&MountedBrainCache>,
+            Option<&Mounted>,
+        ),
+        Without<MountSlot>,
+    >,
+    mounts: Query<(Entity, &ActorRuntime), With<MountSlot>>,
 ) {
-    // First: dead mounts release their riders. Iterate mounts so we
-    // can clear MountSlot.rider authoritatively from the mount side.
-    let mut released_riders: Vec<Entity> = Vec::new();
-    for (_mount_entity, mut slot, mount_actor) in &mut mounts {
-        let mount_dead = match mount_actor {
-            ActorRuntime::Hostile(m) => !m.alive,
-            _ => true,
-        };
-        if !mount_dead {
-            continue;
-        }
-        if let Some(rider) = slot.rider.take() {
-            released_riders.push(rider);
-        }
+    // Build a lookup of mount alive-ness. With two-pirate fights
+    // this is O(R+M) per frame and the hashmap stays small.
+    use std::collections::HashMap;
+    let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
+    for (mount_entity, mount_actor) in &mounts {
+        let alive = matches!(mount_actor, ActorRuntime::Hostile(m) if m.alive);
+        mount_alive.insert(mount_entity, alive);
     }
-    // Apply rider-side cleanup for released riders.
-    for rider_entity in released_riders {
-        let Ok((_, _, mut rider_actor)) = riders.get_mut(rider_entity) else {
-            continue;
-        };
-        commands.entity(rider_entity).remove::<RidingOn>();
+
+    for (rider_entity, riding, mut rider_actor, cache, was_mounted) in &mut riders {
         let ActorRuntime::Hostile(rider) = &mut *rider_actor else {
             continue;
         };
-        rider.gravity_scale = if rider.archetype.is_aerial() {
-            0.0
-        } else {
-            1.0
-        };
-        // Re-derive solo brain + action set. The rider's archetype
-        // is whatever the standalone form was (e.g. PirateRaider);
-        // `enemy_default_brain` / `enemy_default_action_set` read
-        // the spec table and return the right melee / Smash config
-        // for that archetype.
-        //
-        // Aggressiveness is forced ON after the rebuild because the
-        // rider was already a combatant (hostile rider on a hostile
-        // mount); a PirateHeavy variant (Iron Mary / Broadside Bess
-        // / Salt Annet) is authored as peaceful Cove crew, but a
-        // PirateHeavyOnShark rider should keep fighting after the
-        // shark dies under her. Aggressiveness is a per-instance
-        // property, not per-archetype.
-        let mut new_brain = super::spawn::enemy_default_brain(rider);
-        force_hostile(&mut new_brain);
-        let new_action_set = super::spawn::enemy_default_action_set(rider);
-        commands
-            .entity(rider_entity)
-            .insert((new_brain, new_action_set))
-            // Sprite-binding refresh — same trick the legacy fused
-            // dismount used. The rider entity might already have
-            // the right BoundFeatureKind; removing it forces a
-            // re-resolve on the next presentation pass and is
-            // cheap.
-            .remove::<crate::presentation::rendering::BoundFeatureKind>();
-    }
-    // Second: dead riders clear MountSlot on their mounts. Iterate
-    // mounts again to update the slot reference. (Dead-rider
-    // entities themselves are despawned by the standard kill path;
-    // we just unhook the back-reference.)
-    let mut dead_rider_entities: Vec<Entity> = Vec::new();
-    for (rider_entity, _riding, rider_actor) in &riders {
-        let dead = match rider_actor {
-            ActorRuntime::Hostile(r) => !r.alive,
-            _ => true,
-        };
-        if dead {
-            dead_rider_entities.push(rider_entity);
+        if !rider.alive {
+            continue;
         }
-    }
-    for (_mount_entity, mut slot, _mount_actor) in &mut mounts {
-        if let Some(rider) = slot.rider {
-            if dead_rider_entities.contains(&rider) {
-                slot.rider = None;
+        let alive = mount_alive.get(&riding.mount).copied().unwrap_or(false);
+        match (alive, was_mounted.is_some()) {
+            // Mount alive, rider already mounted → steady state. The
+            // sync system snaps each frame; nothing to do here.
+            (true, true) => {}
+            // Mount alive, rider missing the Mounted marker → we
+            // either just spawned without the marker (first tick)
+            // or the same-room reset path brought the mount back to
+            // life. Restore the cached MOUNTED brain + action set
+            // and zero gravity. Re-arm idempotently.
+            (true, false) => {
+                if let Some(cache) = cache {
+                    rider.gravity_scale = 0.0;
+                    commands.entity(rider_entity).insert((
+                        cache.brain.clone(),
+                        cache.action_set.clone(),
+                        Mounted,
+                    ));
+                }
             }
+            // Mount dead, rider currently mounted → dissolve. Flip
+            // gravity on, install the rider's solo brain + action
+            // set so a PirateRaider falls and walks at the player
+            // swinging melee.
+            //
+            // Aggressiveness is forced ON after the rebuild — a
+            // PirateHeavy variant (peaceful Cove crew when
+            // standalone) should keep fighting after the shark dies
+            // under her.
+            (false, true) => {
+                rider.gravity_scale = if rider.archetype.is_aerial() {
+                    0.0
+                } else {
+                    1.0
+                };
+                let mut new_brain = super::spawn::enemy_default_brain(rider);
+                force_hostile(&mut new_brain);
+                let new_action_set = super::spawn::enemy_default_action_set(rider);
+                commands
+                    .entity(rider_entity)
+                    .insert((new_brain, new_action_set))
+                    .remove::<Mounted>()
+                    // Sprite-binding refresh so the rider's sheet
+                    // re-resolves on the next presentation pass.
+                    .remove::<crate::presentation::rendering::BoundFeatureKind>();
+            }
+            // Mount dead, rider already dissolved → steady state.
+            (false, false) => {}
         }
     }
 }
@@ -344,20 +385,37 @@ mod tests {
         assert_eq!(aabb.center, r.pos, "FeatureAabb mirror updated to synced pos");
     }
 
-    /// Mount's death releases the rider — RidingOn is removed,
-    /// gravity flips on, and the rider's brain is re-derived for its
-    /// solo archetype (which for a PirateRaider is the Smash brain).
-    #[test]
-    fn dead_mount_releases_rider_and_restores_solo_brain() {
-        let mut app = build_app();
-        app.add_systems(Update, enforce_mount_rider_link);
-
-        // Spawn a mount entity flagged dead.
+    /// Helper: spawn a mount + rider pair wired the same way the
+    /// composite-spawn helper does, but using a placeholder mounted
+    /// brain (Skirmisher with explicit cfg) so the cache check has
+    /// something concrete to compare against.
+    fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, Entity) {
+        use crate::brain::{
+            ActionSet, Brain, RangedActionSpec, SkirmisherCfg, SkirmisherState, StateMachineCfg,
+        };
+        let mounted_brain = Brain::StateMachine(StateMachineCfg::Skirmisher {
+            cfg: SkirmisherCfg {
+                aggressiveness: 1.0,
+                aggro_radius: 1200.0,
+                standoff_px: 385.0,
+                strafe_speed: 230.0,
+                fire_cooldown_s: 1.5,
+                orbit_drift_rad_s: 0.6,
+            },
+            state: SkirmisherState::default(),
+        });
+        let mounted_action_set = ActionSet {
+            ranged: Some(RangedActionSpec::Bolt {
+                speed: 500.0,
+                damage: 2,
+            }),
+            ..Default::default()
+        };
         let mount_pos = ae::Vec2::new(0.0, 0.0);
         let mount_size = ae::Vec2::new(126.0, 52.0);
         let mut mount_actor = hostile("mount", "burning_flying_shark", mount_pos, mount_size);
         if let ActorRuntime::Hostile(m) = &mut mount_actor {
-            m.alive = false;
+            m.alive = mount_alive;
         }
         let mount = app
             .world_mut()
@@ -370,41 +428,62 @@ mod tests {
             ))
             .id();
 
-        // Live rider linked to the dead mount.
         let rider_pos = ae::Vec2::new(0.0, -40.0);
         let rider_size = ae::Vec2::new(44.0, 78.0);
+        let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
+        if let ActorRuntime::Hostile(r) = &mut rider_actor {
+            r.alive = rider_alive;
+            r.gravity_scale = 0.0;
+        }
         let rider = app
             .world_mut()
             .spawn((
-                hostile("rider", "pirate_raider", rider_pos, rider_size),
+                rider_actor,
                 FeatureAabb::from_center_size(rider_pos, rider_size),
+                mounted_brain.clone(),
+                mounted_action_set.clone(),
+                MountedBrainCache {
+                    brain: mounted_brain,
+                    action_set: mounted_action_set,
+                },
+                Mounted,
                 RidingOn { mount },
             ))
             .id();
-        // Point MountSlot at the rider, mirroring what the spawn
-        // helper would do — so the rider-dies path doesn't trigger
-        // here (only mount-died should).
         app.world_mut()
             .entity_mut(mount)
             .insert(MountSlot {
                 rider: Some(rider),
             });
+        (mount, rider)
+    }
+
+    /// Mount's death dissolves the link: rider's gravity flips on,
+    /// brain swaps to the solo PirateRaider Smash, and the Mounted
+    /// marker is removed. RidingOn + MountSlot stay attached so the
+    /// same-room reset path can re-arm the link without an id
+    /// lookup.
+    #[test]
+    fn dead_mount_dissolves_link_keeping_records() {
+        let mut app = build_app();
+        app.add_systems(Update, enforce_mount_rider_link);
+        let (mount, rider) = spawn_pair(&mut app, /*mount_alive*/ false, true);
 
         app.update();
 
-        // RidingOn should be removed.
-        let still_riding = app.world().entity(rider).get::<RidingOn>();
         assert!(
-            still_riding.is_none(),
-            "RidingOn should be removed when mount dies",
+            app.world().entity(rider).get::<RidingOn>().is_some(),
+            "RidingOn stays attached so reset can re-arm without id lookup",
         );
-        // Gravity should flip on for a non-aerial archetype.
+        assert!(
+            app.world().entity(rider).get::<Mounted>().is_none(),
+            "Mounted marker removed on dissolve",
+        );
         let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
         let ActorRuntime::Hostile(r) = actor else {
             panic!()
         };
         assert_eq!(r.gravity_scale, 1.0, "PirateRaider rider gets gravity 1.0");
-        // Brain should be the solo PirateRaider's (Smash).
         let brain = app.world().entity(rider).get::<crate::brain::Brain>().unwrap();
         assert!(
             matches!(
@@ -413,68 +492,84 @@ mod tests {
                     crate::brain::StateMachineCfg::Smash { .. }
                 ),
             ),
-            "after dismount the rider's solo brain (Smash) should be restored",
+            "after dismount the rider's solo brain (Smash) should be installed",
         );
-        // MountSlot should be cleared back-reference (the mount is
-        // dead so it'll be despawned by the normal kill path; here
-        // we just verify the back-ref unhook).
         let slot = app.world().entity(mount).get::<MountSlot>().unwrap();
         assert!(
-            slot.rider.is_none(),
-            "MountSlot.rider should be cleared when mount dies",
+            slot.rider.is_some(),
+            "MountSlot.rider stays populated so reset can re-arm",
         );
     }
 
-    /// Rider's death clears the mount's MountSlot.rider back-
-    /// reference; the mount itself keeps running unchanged.
+    /// Same-room reset re-arms the link: starting from a dissolved
+    /// state (mount dead, rider with solo brain), once the mount's
+    /// `alive` flag is set back to true the enforcer restores the
+    /// MOUNTED brain + Mounted marker + zero gravity on the rider.
     #[test]
-    fn dead_rider_clears_mount_slot() {
+    fn reviving_mount_re_arms_rider_to_mounted_brain() {
         let mut app = build_app();
         app.add_systems(Update, enforce_mount_rider_link);
+        let (mount, rider) = spawn_pair(&mut app, /*mount_alive*/ false, true);
 
-        let mount_pos = ae::Vec2::new(0.0, 0.0);
-        let mount_size = ae::Vec2::new(126.0, 52.0);
-        let mount = app
-            .world_mut()
-            .spawn((
-                hostile("mount", "burning_flying_shark", mount_pos, mount_size),
-                Mountable {
-                    rider_offset: ae::Vec2::new(0.0, -40.0),
-                },
-                MountSlot { rider: None },
-            ))
-            .id();
+        // First tick: dissolve.
+        app.update();
+        assert!(app.world().entity(rider).get::<Mounted>().is_none());
 
-        // Dead rider.
-        let mut rider_actor = hostile(
-            "rider",
-            "pirate_raider",
-            ae::Vec2::new(0.0, -40.0),
-            ae::Vec2::new(44.0, 78.0),
-        );
-        if let ActorRuntime::Hostile(r) = &mut rider_actor {
-            r.alive = false;
+        // Simulate the same-room reset: flip mount.alive back to
+        // true (reset_to_spawn would do this). The enforcer should
+        // re-arm the link on the next tick.
+        if let Some(mut actor) = app.world_mut().entity_mut(mount).get_mut::<ActorRuntime>() {
+            if let ActorRuntime::Hostile(m) = &mut *actor {
+                m.alive = true;
+            }
         }
-        let rider = app
-            .world_mut()
-            .spawn((
-                rider_actor,
-                FeatureAabb::from_center_size(ae::Vec2::new(0.0, -40.0), ae::Vec2::new(44.0, 78.0)),
-                RidingOn { mount },
-            ))
-            .id();
-        app.world_mut()
-            .entity_mut(mount)
-            .insert(MountSlot {
-                rider: Some(rider),
-            });
+        app.update();
+
+        assert!(
+            app.world().entity(rider).get::<Mounted>().is_some(),
+            "Mounted marker should be re-added on revive",
+        );
+        let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
+        let ActorRuntime::Hostile(r) = actor else {
+            panic!()
+        };
+        assert_eq!(
+            r.gravity_scale, 0.0,
+            "rider gravity should be zeroed back to mounted state",
+        );
+        let brain = app.world().entity(rider).get::<crate::brain::Brain>().unwrap();
+        assert!(
+            matches!(
+                brain,
+                crate::brain::Brain::StateMachine(
+                    crate::brain::StateMachineCfg::Skirmisher { .. }
+                ),
+            ),
+            "after revive the rider's mounted brain (Skirmisher) should be restored",
+        );
+    }
+
+    /// Dead rider leaves the link records in place — the mount keeps
+    /// its MountSlot back-reference (no re-arming needed since the
+    /// rider's just dead, not transitioning). Mount stays alive.
+    #[test]
+    fn dead_rider_does_not_disturb_mount_records() {
+        let mut app = build_app();
+        app.add_systems(Update, enforce_mount_rider_link);
+        let (mount, _rider) =
+            spawn_pair(&mut app, /*mount_alive*/ true, /*rider_alive*/ false);
 
         app.update();
 
         let slot = app.world().entity(mount).get::<MountSlot>().unwrap();
         assert!(
-            slot.rider.is_none(),
-            "dead rider should clear MountSlot.rider",
+            slot.rider.is_some(),
+            "MountSlot.rider stays populated even with dead rider",
         );
+        let mount_actor = app.world().entity(mount).get::<ActorRuntime>().unwrap();
+        let ActorRuntime::Hostile(m) = mount_actor else {
+            panic!()
+        };
+        assert!(m.alive, "mount stays alive when rider dies");
     }
 }

@@ -34,6 +34,22 @@ animations:
 - air_up
 - ledge_roll
 - ledge_getup_attack
+# Newly requested rows for actions the player can already perform but
+# previously fell back to Idle / Jump / WallGrab. The renderer's
+# robot_side.py defines all of these poses; pick_player_anim now routes
+# the underlying ECS state (body_mode, env_contact, dodge, shield).
+- crouch
+- crouch_walk     # rendered as the crawl pose
+- slide
+- climb           # ladder climb (distinct from wall_grab)
+- swim
+- block           # shield-up bubble pose
+- roll            # dodge roll (distinct from ledge_roll)
+- wall_jump       # push-off pose (currently falls back to jump)
+- shoot           # projectile fire (needs shoot_anim_timer wiring)
+- aim             # held projectile charge (needs aim flag wiring)
+- charge          # held heavy-attack wind-up
+- interact        # talk / open / pickup gesture
 render:
   frame_width: 128
   frame_height: 128

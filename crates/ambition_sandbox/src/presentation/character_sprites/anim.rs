@@ -103,6 +103,60 @@ pub enum CharacterAnim {
     /// sprite should peak the swing mid-animation so visual + hitbox
     /// read as a single beat.
     LedgeGetupAttack = 30,
+    /// Compressed crouch pose. Selected by `pick_player_anim` while
+    /// `body_mode.body_mode == BodyMode::Crouching` and the player is
+    /// not actively walking. Matches the generator's `crouch` row.
+    Crouch = 31,
+    /// Hands-and-knees crawl. Selected while
+    /// `body_mode.body_mode == BodyMode::Crawling`. Matches the
+    /// generator's `crouch_walk` row (the renderer reuses the crouch
+    /// silhouette with a longer stride).
+    Crawl = 32,
+    /// Forward slide along the ground (low profile, momentum-carrying).
+    /// Selected while `body_mode.body_mode == BodyMode::Sliding`.
+    /// Matches the generator's `slide` row.
+    Slide = 33,
+    /// Ladder / vine climb. Selected while
+    /// `body_mode.body_mode == BodyMode::Climbing`. Maps to the
+    /// generator's `climb` row (one hand over the other).
+    LadderClimb = 34,
+    /// Submerged swim stroke. Selected while the player is in water
+    /// (`env_contact.water.is_some()`) and the `swim` ability is
+    /// enabled. Maps to the generator's `swim` row.
+    Swim = 35,
+    /// Projectile fire pose — single-frame arm extension at the
+    /// release point. Generator row `shoot`. Not yet auto-routed by
+    /// `pick_player_anim`; needs a `shoot_anim_timer` on
+    /// `PlayerAnimState` set when a projectile spawns.
+    Shoot = 36,
+    /// Held-projectile charge / aim pose. Generator row `aim`. Not
+    /// yet auto-routed; needs the projectile charge state on the
+    /// player to surface as a presentation flag.
+    Aim = 37,
+    /// Held-attack charge pose (heavy/release combo wind-up).
+    /// Generator row `charge`. No engine intent maps to this today;
+    /// the row exists so designers can iterate the wind-up shape.
+    Charge = 38,
+    /// Defensive bubble / shield-up pose. Generator row `block`.
+    /// Routes from the player's shield-held state once that's mirrored
+    /// onto `PlayerAnimState` (today the input is `ControlFrame.
+    /// shield_held` + `AbilitySet::shield`).
+    Block = 39,
+    /// Tumbling dodge roll across the ground — invulnerability frames
+    /// during the curl. Generator row `roll`. Selected by
+    /// `pick_player_anim` once the dodge-roll timer surfaces on
+    /// `PlayerAnimState`; distinct from `LedgeRoll` (the latter is
+    /// specifically the ledge-getup variant).
+    DodgeRoll = 40,
+    /// Wall-jump push-off pose. Generator row `wall_jump`. Distinct
+    /// from `Jump` (which is the grounded jump arc) and `WallGrab`
+    /// (which is the cling pose). Not yet auto-routed; needs a brief
+    /// `wall_jump_anim_timer` armed by the wall-jump op.
+    WallJump = 41,
+    /// Interaction gesture (talk / open / pickup). Generator row
+    /// `interact`. Not yet auto-routed; needs an `interact_anim_timer`
+    /// armed by the interact buffer firing.
+    Interact = 42,
 }
 
 impl CharacterAnim {
@@ -161,6 +215,19 @@ impl CharacterAnim {
             "air_up" => Self::AirUp,
             "ledge_roll" => Self::LedgeRoll,
             "ledge_getup_attack" => Self::LedgeGetupAttack,
+            "crouch" => Self::Crouch,
+            // The generator emits `crouch_walk` for the crawl pose.
+            "crouch_walk" | "crawl" => Self::Crawl,
+            "slide" => Self::Slide,
+            "climb" | "ladder_climb" => Self::LadderClimb,
+            "swim" => Self::Swim,
+            "shoot" => Self::Shoot,
+            "aim" => Self::Aim,
+            "charge" => Self::Charge,
+            "block" | "shield" => Self::Block,
+            "roll" | "dodge_roll" => Self::DodgeRoll,
+            "wall_jump" => Self::WallJump,
+            "interact" => Self::Interact,
             _ => return None,
         })
     }
@@ -187,6 +254,12 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
             | CharacterAnim::AirBack
             | CharacterAnim::AirDown
             | CharacterAnim::AirUp
+            // New action poses: one-shot reads that should hold the
+            // final frame instead of looping back.
+            | CharacterAnim::Shoot
+            | CharacterAnim::DodgeRoll
+            | CharacterAnim::WallJump
+            | CharacterAnim::Interact
     )
 }
 
@@ -211,6 +284,7 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// wall, blink/aim, flight, dash, ledge) comes in as five cluster
 /// component references so this helper has no dependency on the
 /// legacy `ae::Player` aggregate.
+#[allow(clippy::too_many_arguments)]
 pub fn pick_player_anim(
     anim: &PlayerAnimState,
     combat: &crate::player::PlayerCombatState,
@@ -223,12 +297,28 @@ pub fn pick_player_anim(
     flight: &crate::player::PlayerFlightState,
     dash: &crate::player::PlayerDashState,
     ledge: &crate::player::PlayerLedgeState,
+    body_mode: &crate::player::PlayerBodyModeState,
+    env_contact: &crate::player::PlayerEnvironmentContact,
+    abilities: &crate::player::PlayerAbilities,
+    dodge: &crate::player::PlayerDodgeState,
+    shield: &crate::player::PlayerShieldState,
 ) -> CharacterAnim {
     if combat.hitstun_timer > 0.05 {
         return CharacterAnim::Hit;
     }
+    // Dodge roll wins over slash / blink-aim — once the player commits
+    // to a ground roll the curl-pose carries the i-frames; nothing else
+    // should clobber the read until the timer drains.
+    if dodge.roll_timer > 0.0 {
+        return CharacterAnim::DodgeRoll;
+    }
     if blink_cam.blink_in_timer > 0.0 {
         return CharacterAnim::BlinkIn;
+    }
+    // Shield held wins over slash so the bubble-up posture stays
+    // legible while the parry window is open.
+    if shield.active && abilities.abilities.shield {
+        return CharacterAnim::Block;
     }
     if anim.slash_anim_timer > 0.0 {
         return directional_attack_anim(attack);
@@ -249,11 +339,26 @@ pub fn pick_player_anim(
     if flight.fly_enabled {
         return CharacterAnim::Fly;
     }
+    // Submerged + swim-capable overrides ground locomotion. Body shape
+    // doesn't change but the stroke pose is distinct from walk/run.
+    if env_contact.water.is_some() && abilities.abilities.swim {
+        return CharacterAnim::Swim;
+    }
     if anim.dash_startup_timer > 0.0 {
         return CharacterAnim::DashStartup;
     }
     if dash.timer > 0.0 {
         return CharacterAnim::Dash;
+    }
+    // Ladder climb pose: BodyMode::Climbing is set by the body-mode
+    // driver when the player is on a climbable contact and pushes
+    // up/down. Suppresses gravity; needs its own row distinct from
+    // wall-climb on solid blocks.
+    if matches!(
+        body_mode.body_mode,
+        crate::engine_core::player_state::BodyMode::Climbing
+    ) {
+        return CharacterAnim::LadderClimb;
     }
     // Wall pin (held against the wall, neither sliding nor climbing) reads
     // distinct from the engine's downward `wall_slide` integration.
@@ -280,6 +385,16 @@ pub fn pick_player_anim(
         } else {
             CharacterAnim::LandRecovery
         };
+    }
+    // Compact body modes — same shape as the engine collision change,
+    // distinct silhouette read. Sliding wins over Crawl/Crouch because
+    // it usually carries kinetic momentum and the pose differs.
+    use crate::engine_core::player_state::BodyMode;
+    match body_mode.body_mode {
+        BodyMode::Sliding => return CharacterAnim::Slide,
+        BodyMode::Crawling => return CharacterAnim::Crawl,
+        BodyMode::Crouching => return CharacterAnim::Crouch,
+        _ => {}
     }
     let speed = kinematics.vel.x.abs();
     if speed < 12.0 {
@@ -394,6 +509,11 @@ mod tests {
         flight: crate::player::PlayerFlightState,
         dash: crate::player::PlayerDashState,
         ledge: crate::player::PlayerLedgeState,
+        body_mode: crate::player::PlayerBodyModeState,
+        env_contact: crate::player::PlayerEnvironmentContact,
+        abilities: crate::player::PlayerAbilities,
+        dodge: crate::player::PlayerDodgeState,
+        shield: crate::player::PlayerShieldState,
     }
 
     impl PickClusters {
@@ -406,6 +526,11 @@ mod tests {
                 flight: Default::default(),
                 dash: Default::default(),
                 ledge: Default::default(),
+                body_mode: Default::default(),
+                env_contact: Default::default(),
+                abilities: Default::default(),
+                dodge: Default::default(),
+                shield: Default::default(),
             }
         }
     }
@@ -435,6 +560,8 @@ mod tests {
             anim, combat, blink_cam, attack,
             &c.kinematics, &c.ground, &c.wall,
             &c.blink, &c.flight, &c.dash, &c.ledge,
+            &c.body_mode, &c.env_contact, &c.abilities,
+            &c.dodge, &c.shield,
         )
     }
 

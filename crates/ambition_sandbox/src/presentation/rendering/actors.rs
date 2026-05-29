@@ -305,43 +305,59 @@ pub fn upgrade_npc_sprites(
 
 /// Drive the player sprite's animation state, atlas index, and facing flip.
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
+///
+/// Query items are split into nested tuples because Bevy 0.18's `Query`
+/// tuple impl caps at 15 entries and the picker now reads three more
+/// clusters (body_mode, env_contact, abilities) to cover crouch /
+/// crawl / slide / ladder / swim.
 pub fn animate_player(
     world_time: Res<crate::WorldTime>,
     primary_attack: Query<&crate::player::ActivePlayerAttack, crate::player::PrimaryPlayerOnly>,
     entities: Res<SceneEntities>,
     mut query: Query<
         (
-            &mut Sprite,
-            &mut CharacterAnimator,
-            &crate::player::PlayerKinematics,
-            &crate::player::PlayerGroundState,
-            &crate::player::PlayerWallState,
-            &crate::player::PlayerBlinkState,
-            &crate::player::PlayerFlightState,
-            &crate::player::PlayerDashState,
-            &crate::player::PlayerLedgeState,
-            &crate::player::PlayerCombatState,
-            &crate::player::PlayerAnimState,
-            &crate::player::PlayerBlinkCameraState,
-            Option<&crate::time::time_control::ProperTimeScale>,
+            (
+                &mut Sprite,
+                &mut CharacterAnimator,
+                &crate::player::PlayerKinematics,
+                &crate::player::PlayerGroundState,
+                &crate::player::PlayerWallState,
+                &crate::player::PlayerBlinkState,
+                &crate::player::PlayerFlightState,
+                &crate::player::PlayerDashState,
+                &crate::player::PlayerLedgeState,
+                &crate::player::PlayerCombatState,
+                &crate::player::PlayerAnimState,
+                &crate::player::PlayerBlinkCameraState,
+            ),
+            (
+                &crate::player::PlayerBodyModeState,
+                &crate::player::PlayerEnvironmentContact,
+                &crate::player::PlayerAbilities,
+                &crate::player::PlayerDodgeState,
+                &crate::player::PlayerShieldState,
+                Option<&crate::time::time_control::ProperTimeScale>,
+            ),
         ),
         With<PlayerVisual>,
     >,
 ) {
     let Ok((
-        mut sprite,
-        mut animator,
-        kinematics,
-        ground,
-        wall,
-        blink,
-        flight,
-        dash,
-        ledge,
-        player_combat,
-        anim_state,
-        blink_cam,
-        scale,
+        (
+            mut sprite,
+            mut animator,
+            kinematics,
+            ground,
+            wall,
+            blink,
+            flight,
+            dash,
+            ledge,
+            player_combat,
+            anim_state,
+            blink_cam,
+        ),
+        (body_mode, env_contact, abilities, dodge, shield, scale),
     )) = query.get_mut(entities.player)
     else {
         return;
@@ -359,6 +375,11 @@ pub fn animate_player(
         flight,
         dash,
         ledge,
+        body_mode,
+        env_contact,
+        abilities,
+        dodge,
+        shield,
     );
     animator.request(anim);
     // ADR 0011 — `entity_dt` collapses to `sim_dt` when no

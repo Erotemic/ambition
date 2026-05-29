@@ -1,14 +1,18 @@
-//! Persistent projectile data: per-player spawner / motion-buffer
-//! resource, tracked unlocks, in-flight body wrapper, and the trace-
-//! event enum the system emits.
+//! Per-player projectile data: charge state machine, motion-input
+//! buffer, in-flight body list, tracked unlocks. Lives as a
+//! `Component` on each player entity so co-op / possession
+//! builds get one independent charge timer + body list per player
+//! without sharing a singleton.
 
-use bevy::prelude::Resource;
+use bevy::prelude::Component;
 
 use crate::trace::GameplayTraceEvent;
 
-/// Bevy resource holding the player's projectile spawner state plus
-/// the rolling motion-input buffer.
-#[derive(Resource)]
+/// Per-player projectile state: spawner cooldowns + motion-input
+/// buffer + in-flight body list. Attached to each player entity by
+/// `PlayerSimulationBundle`; `update_projectiles` iterates every
+/// player and ticks their own state independently.
+#[derive(Component)]
 pub struct PlayerProjectileState {
     pub spawner: crate::projectile::ProjectileSpawner,
     pub motion_buffer: crate::projectile::MotionInputBuffer,

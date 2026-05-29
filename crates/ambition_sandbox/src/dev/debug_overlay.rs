@@ -72,7 +72,12 @@ pub fn draw_debug_overlay(
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
-    player_projectiles: Res<crate::projectile::PlayerProjectileState>,
+    // Per-player projectile state lives on player entities now —
+    // iterate every player to render their bodies.
+    player_projectiles: Query<
+        &crate::projectile::PlayerProjectileState,
+        With<crate::player::PlayerEntity>,
+    >,
     enemy_projectiles: Res<crate::enemy_projectile::EnemyProjectileState>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut player_q: Query<
@@ -153,7 +158,7 @@ pub fn draw_debug_overlay(
         draw_projectile_debug(
             &mut gizmos,
             world,
-            &player_projectiles,
+            player_projectiles.iter(),
             &enemy_projectiles,
             &developer_tools,
         );
@@ -757,23 +762,25 @@ fn draw_feature_debug(
 /// visible when `hide_sprites` strips the textured projectile ring.
 /// Player projectiles use a warm orange (matches charge tint); enemy
 /// projectiles use red so the faction is immediately readable.
-fn draw_projectile_debug(
+fn draw_projectile_debug<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    player_state: &crate::projectile::PlayerProjectileState,
+    player_states: impl IntoIterator<Item = &'a crate::projectile::PlayerProjectileState>,
     enemy_state: &crate::enemy_projectile::EnemyProjectileState,
     developer_tools: &DeveloperTools,
 ) {
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);
     let enemy_color = Color::srgba(1.00, 0.32, 0.32, 0.92);
-    for proj in &player_state.bodies {
-        draw_aabb_styled(
-            gizmos,
-            world,
-            proj.body.aabb(),
-            player_color,
-            developer_tools,
-        );
+    for state in player_states {
+        for proj in &state.bodies {
+            draw_aabb_styled(
+                gizmos,
+                world,
+                proj.body.aabb(),
+                player_color,
+                developer_tools,
+            );
+        }
     }
     for proj in &enemy_state.bodies {
         draw_aabb_styled(

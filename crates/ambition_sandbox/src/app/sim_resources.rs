@@ -103,7 +103,9 @@ impl Plugin for SandboxSimulationResourcesPlugin {
                 )
                     .chain(),
             )
-            .insert_resource(crate::projectile::PlayerProjectileState::default())
+            // Player projectile state is per-player and lives on each
+            // player entity (attached via `PlayerSimulationBundle`).
+            // No global resource registration needed.
             // Enemy projectiles (pirate volleys etc) — separate from
             // player projectiles so faction routing stays explicit.
             .insert_resource(crate::enemy_projectile::EnemyProjectileState::default())

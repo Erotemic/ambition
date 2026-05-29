@@ -4,7 +4,6 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use super::state::PlayerProjectileState;
 
 /// Marker on the per-frame projectile sprite entities produced by
 /// [`sync_projectile_visuals`]. Despawned and rebuilt each tick so
@@ -33,14 +32,17 @@ pub struct PlayerChargeVisual;
 pub fn sync_projectile_visuals(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
-    state: Res<PlayerProjectileState>,
     assets: Option<Res<crate::assets::game_assets::GameAssets>>,
-    // The charge indicator anchors to the primary player who actually
-    // released the charge (the input lives on `ControlFrame`, a single
-    // local-player resource). `PrimaryPlayerOnly` documents that this
-    // is a presentation decision tied to the input owner — per-player
-    // charge UI is a #17.5 follow-up.
-    player_body_q: Query<&crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
+    // Per-player projectile state lives on the player entity now;
+    // iterate every player so each one's charge UI + in-flight bodies
+    // render independently. Single-player behavior is unchanged.
+    player_q: Query<
+        (
+            &crate::player::PlayerKinematics,
+            &crate::projectile::PlayerProjectileState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
     existing: Query<Entity, With<PlayerProjectileVisual>>,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
 ) {
@@ -50,6 +52,14 @@ pub fn sync_projectile_visuals(
     for entity in &existing_charge {
         commands.entity(entity).despawn();
     }
+    let handle = assets
+        .as_deref()
+        .and_then(|a| {
+            a.entities
+                .get(crate::assets::game_assets::EntitySprite::ProjectileEnergy)
+        })
+        .cloned();
+    for (body, state) in &player_q {
     // Charge indicator: a growing tinted quad in front of the player.
     // Size scales with the live charge tier so the player sees the
     // "winding up" state and can time the release. Only rendered
@@ -64,38 +74,29 @@ pub fn sync_projectile_visuals(
             _ => (1.5, 0.95),
         };
         let render_size = bevy::math::Vec2::new(base.x * 2.0 * size_mult, base.y * 2.0 * size_mult);
-        if let Ok(body) = player_body_q.single() {
-            let facing = if body.facing.abs() < f32::EPSILON {
-                1.0
-            } else {
-                body.facing.signum()
-            };
-            let charge_pos = ae::Vec2::new(
-                body.pos.x + facing * (body.size.x * 0.5 + 6.0),
-                body.pos.y - body.size.y * 0.20,
-            );
-            commands.spawn((
-                Sprite::from_color(
-                    Color::srgba(1.0, 0.74, 0.30, alpha),
-                    bevy::math::Vec2::new(render_size.x, render_size.y),
-                ),
-                Transform::from_translation(crate::config::world_to_bevy(
-                    &world.0,
-                    charge_pos,
-                    crate::config::WORLD_Z_PLAYER + 1.5,
-                )),
-                PlayerChargeVisual,
-                Name::new("Player projectile charge indicator"),
-            ));
-        } // if let Ok(body)
+        let facing = if body.facing.abs() < f32::EPSILON {
+            1.0
+        } else {
+            body.facing.signum()
+        };
+        let charge_pos = ae::Vec2::new(
+            body.pos.x + facing * (body.size.x * 0.5 + 6.0),
+            body.pos.y - body.size.y * 0.20,
+        );
+        commands.spawn((
+            Sprite::from_color(
+                Color::srgba(1.0, 0.74, 0.30, alpha),
+                bevy::math::Vec2::new(render_size.x, render_size.y),
+            ),
+            Transform::from_translation(crate::config::world_to_bevy(
+                &world.0,
+                charge_pos,
+                crate::config::WORLD_Z_PLAYER + 1.5,
+            )),
+            PlayerChargeVisual,
+            Name::new("Player projectile charge indicator"),
+        ));
     }
-    let handle = assets
-        .as_deref()
-        .and_then(|a| {
-            a.entities
-                .get(crate::assets::game_assets::EntitySprite::ProjectileEnergy)
-        })
-        .cloned();
     for projectile in &state.bodies {
         let body = &projectile.body;
         let render_size = bevy::math::Vec2::new(
@@ -139,4 +140,5 @@ pub fn sync_projectile_visuals(
             }),
         ));
     }
+    } // end per-player loop
 }

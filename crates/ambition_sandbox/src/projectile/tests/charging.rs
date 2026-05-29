@@ -5,14 +5,13 @@
 use crate::projectile::motion_input::MotionDirection;
 use crate::projectile::spec::ProjectileKind;
 
-use super::super::state::PlayerProjectileState;
 use super::{advance_time, min_app, tap_projectile, ControlFrame};
 
 #[test]
 fn tap_release_fires_one_fireball() {
     let mut app = min_app();
     tap_projectile(&mut app);
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
     assert_eq!(state.bodies[0].body.kind, ProjectileKind::Fireball);
     // Tap-release is below the medium threshold → tier 0.
@@ -31,7 +30,7 @@ fn press_without_release_only_starts_charge() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert!(
         state.bodies.is_empty(),
         "press without release must not spawn a fireball"
@@ -74,7 +73,7 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
     let body = &state.bodies[0].body;
     assert_eq!(body.kind, ProjectileKind::Fireball);
@@ -98,7 +97,7 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
 fn grace_qcf_then_press_fires_hadouken_immediately() {
     let mut app = min_app();
     {
-        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let mut t = 0.0;
         for dir in [MotionDirection::Down, MotionDirection::Right] {
             state.motion_buffer.push(dir, t);
@@ -113,7 +112,7 @@ fn grace_qcf_then_press_fires_hadouken_immediately() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
     assert_eq!(state.bodies[0].body.kind, ProjectileKind::Hadouken);
 }
@@ -122,7 +121,7 @@ fn grace_qcf_then_press_fires_hadouken_immediately() {
 fn full_qcf_then_press_fires_hadouken_super() {
     let mut app = min_app();
     {
-        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let mut t = 0.0;
         for dir in [
             MotionDirection::Down,
@@ -141,7 +140,7 @@ fn full_qcf_then_press_fires_hadouken_super() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
     assert_eq!(state.bodies[0].body.kind, ProjectileKind::HadoukenSuper);
 }
@@ -150,7 +149,7 @@ fn full_qcf_then_press_fires_hadouken_super() {
 fn half_circle_still_fires_hadouken_super() {
     let mut app = min_app();
     {
-        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let mut t = 0.0;
         for dir in [
             MotionDirection::Left,
@@ -171,7 +170,7 @@ fn half_circle_still_fires_hadouken_super() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
     assert_eq!(state.bodies[0].body.kind, ProjectileKind::HadoukenSuper);
 }
@@ -182,7 +181,7 @@ fn cooldown_blocks_second_fire_in_same_window() {
     tap_projectile(&mut app);
     // Don't advance past the cooldown — second tap should be no-op.
     tap_projectile(&mut app);
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(state.bodies.len(), 1);
 }
 
@@ -190,10 +189,10 @@ fn cooldown_blocks_second_fire_in_same_window() {
 fn out_of_resource_blocks_fire() {
     let mut app = min_app();
     {
-        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         state.spawner.meter.current = 0.0;
     }
     tap_projectile(&mut app);
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert!(state.bodies.is_empty());
 }

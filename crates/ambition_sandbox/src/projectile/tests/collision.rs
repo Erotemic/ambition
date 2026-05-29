@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use crate::engine_core as ae;
 use crate::projectile::spec::ProjectileKind;
 
-use super::super::state::{PlayerProjectile, PlayerProjectileState};
+use super::super::state::PlayerProjectile;
 use super::super::systems::update_projectiles;
 use super::{
     advance_time, min_app, spawn_player, ActorHealth, ActorIdentity, ControlFrame,
@@ -41,7 +41,7 @@ fn fireball_damages_enemy_on_intersect() {
     app.update();
     // Inject a fireball moving toward the enemy.
     {
-        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(395.0, 300.0),
@@ -67,7 +67,7 @@ fn fireball_damages_enemy_on_intersect() {
             .expect("test enemy should be spawned as an ECS actor");
         (health.health.current, health.health.max)
     };
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert!(
         enemy_health < enemy_max,
         "enemy must lose HP from a projectile hit (was {}, now {})",
@@ -104,7 +104,6 @@ fn fireball_bounces_off_floor_in_system() {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -127,7 +126,7 @@ fn fireball_bounces_off_floor_in_system() {
     // Spawn a fireball just above the floor moving downward.
     let starting_bounces;
     {
-        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(500.0, 380.0),
@@ -143,7 +142,7 @@ fn fireball_bounces_off_floor_in_system() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(
         state.bodies.len(),
         1,
@@ -183,7 +182,6 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -205,7 +203,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
 
     let starting_bounces;
     {
-        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(500.0, 380.0),
@@ -221,7 +219,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(
         state.bodies.len(),
         1,
@@ -263,7 +261,6 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -284,7 +281,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     spawn_player(&mut app, ae::Vec2::new(200.0, 500.0), 1.0);
 
     {
-        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Fireball,
             ae::Vec2::new(500.0, 405.0),
@@ -301,7 +298,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert_eq!(
         state.bodies.len(),
         1,
@@ -340,7 +337,6 @@ fn hadouken_expires_on_solid_in_system() {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -361,7 +357,7 @@ fn hadouken_expires_on_solid_in_system() {
     spawn_player(&mut app, ae::Vec2::new(500.0, 300.0), 1.0);
 
     {
-        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let mut state = crate::projectile::tests::projectile_state_mut(&mut app);
         let spec = crate::projectile::ProjectileSpec::new(
             ProjectileKind::Hadouken,
             ae::Vec2::new(580.0, 300.0),
@@ -375,7 +371,7 @@ fn hadouken_expires_on_solid_in_system() {
     }
     advance_time(&mut app, 0.016);
     app.update();
-    let state = app.world().resource::<PlayerProjectileState>();
+    let state = crate::projectile::tests::projectile_state_ref(&app);
     assert!(
         state.bodies.is_empty(),
         "Hadouken must expire on first solid hit (no bounces); still alive: {}",

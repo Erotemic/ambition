@@ -116,7 +116,9 @@ pub use spawn::{despawn_encounter_mobs, spawn_encounter_mob, spawn_room_feature_
 // Brain-template mapping helper. Crate-internal scope so the
 // conversion tests can verify shark-rider / similar archetypes
 // land on the right brain after RON-data + template-enum
-// changes; not exported beyond the features module.
+// changes; not exported beyond the features module. Gated by
+// cfg(test) so the lib build doesn't warn on the unused re-export.
+#[cfg(test)]
 pub(in crate::content::features) use spawn::enemy_default_brain;
 pub use targeting::select_actor_targets;
 pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};

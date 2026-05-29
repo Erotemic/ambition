@@ -89,6 +89,11 @@ pub struct PlayerSimulationBundle {
     pub action_buffer: PlayerActionBuffer,
     pub lifetime: PlayerLifetime,
     pub combo_trace: PlayerComboTrace,
+    /// Per-player projectile state — spawner cooldowns, charge timer,
+    /// motion-input buffer, in-flight body list. Was previously a
+    /// global `Res<PlayerProjectileState>`; per-actor migration so
+    /// co-op / possession builds get one independent set per player.
+    pub projectile: crate::projectile::PlayerProjectileState,
 }
 
 impl PlayerSimulationBundle {
@@ -171,6 +176,7 @@ impl PlayerSimulationBundle {
             action_buffer,
             lifetime,
             combo_trace,
+            projectile: crate::projectile::PlayerProjectileState::default(),
         }
     }
 }

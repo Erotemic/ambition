@@ -19,25 +19,21 @@ use crate::GameWorld;
 pub fn update_projectiles(
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
-    // Universal-brain seam: read the primary player's per-tick
-    // projectile state via `ActorActionMessage::PlayerProjectileTick`
-    // emitted by `crate::brain::emit_player_projectile_tick_messages`.
-    // Single primary player today (`PrimaryPlayerOnly` filter on the
-    // kinematics query); future co-op iterates per-actor messages.
-    player_kin_q: Query<
-        (Entity, &crate::player::PlayerKinematics),
-        crate::player::PrimaryPlayerOnly,
-    >,
-    // Held separately from `player_kin_q` because anim state is the
-    // only piece this system writes back; keeping the read-only
-    // kinematics query intact avoids forcing a `&mut` on the borrow.
-    mut player_anim_q: Query<
-        &mut crate::player::PlayerAnimState,
-        crate::player::PrimaryPlayerOnly,
+    // Per-player projectile state lives on the player entity itself
+    // (was a singleton `Res<PlayerProjectileState>`). Iterates every
+    // player so co-op / possession builds get one independent charge
+    // timer + body list per player without sharing a singleton.
+    mut player_q: Query<
+        (
+            Entity,
+            &crate::player::PlayerKinematics,
+            &mut crate::projectile::PlayerProjectileState,
+            &mut crate::player::PlayerAnimState,
+        ),
+        With<crate::player::PlayerEntity>,
     >,
     mut brain_actions: MessageReader<crate::brain::ActorActionMessage>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
-    mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
@@ -67,44 +63,40 @@ pub fn update_projectiles(
     // projectile in mid-arc should not advance while the world
     // is stopped.
     let dt = world_time.sim_dt();
+
+    // Build a per-actor map of PlayerProjectileTick infos so the
+    // per-player loop below can look up each player's tick info by
+    // entity without re-iterating the message stream. The brain-side
+    // emitter (`emit_player_projectile_tick_messages`) produces
+    // exactly one per player-brain actor per tick.
+    let tick_infos: std::collections::HashMap<Entity, PlayerProjectileTickInfo> = brain_actions
+        .read()
+        .filter_map(|msg| match msg.request {
+            crate::brain::ActionRequest::PlayerProjectileTick {
+                axis,
+                aim,
+                press,
+                held,
+                released,
+            } => Some((
+                msg.actor,
+                PlayerProjectileTickInfo {
+                    axis,
+                    aim,
+                    press,
+                    held,
+                    released,
+                },
+            )),
+            _ => None,
+        })
+        .collect();
+
+    let damage_mult = user_settings.gameplay.player_damage_multiplier;
+    for (player_entity, kin, mut state, mut anim) in &mut player_q {
+    let tick_info = tick_infos.get(&player_entity).copied().unwrap_or_default();
     state.clock += dt;
     state.spawner.tick(dt);
-
-    // Resolve the primary local player's body from the ECS.
-    // `PrimaryPlayerOnly` keeps single-player behavior; future
-    // multiplayer drops the filter and iterates per-actor messages.
-    let primary = player_kin_q.single().ok();
-    let primary_entity = primary.map(|(e, _)| e);
-
-    // Find this player's PlayerProjectileTick message for the frame.
-    // The brain-side emitter
-    // (`crate::brain::emit_player_projectile_tick_messages`)
-    // produces exactly one per player-brain actor per tick, so the
-    // first match wins.
-    let player_tick = primary_entity.and_then(|entity| {
-        brain_actions.read().find_map(|msg| {
-            if msg.actor != entity {
-                return None;
-            }
-            match msg.request {
-                crate::brain::ActionRequest::PlayerProjectileTick {
-                    axis,
-                    aim,
-                    press,
-                    held,
-                    released,
-                } => Some(PlayerProjectileTickInfo {
-                    axis,
-                    aim,
-                    press,
-                    held,
-                    released,
-                }),
-                _ => None,
-            }
-        })
-    });
-    let tick_info = player_tick.unwrap_or_default();
 
     // Sample motion for Hadouken recognition. Both the action message
     // axis and `MotionDirection::from_axis` use the +Y-DOWN convention
@@ -138,7 +130,7 @@ pub fn update_projectiles(
             volume: p.body.aabb(),
             damage: p.body.damage,
             source: HitSource::PlayerProjectile { kind: p.body.kind },
-            attacker: primary_entity,
+            attacker: Some(player_entity),
             target: crate::features::HitTarget::Volume,
             mode: crate::features::HitMode::Knockback,
             knockback: None,
@@ -186,20 +178,16 @@ pub fn update_projectiles(
     }
     state.bodies = still_alive;
 
-    let Some((_, body)) = primary else {
-        return;
-    };
-    let facing = if body.facing.abs() < f32::EPSILON {
+    let facing = if kin.facing.abs() < f32::EPSILON {
         1.0
     } else {
-        body.facing.signum()
+        kin.facing.signum()
     };
     let origin = ae::Vec2::new(
-        body.pos.x + facing * (body.size.x * 0.5 + 4.0),
-        body.pos.y - body.size.y * 0.20,
+        kin.pos.x + facing * (kin.size.x * 0.5 + 4.0),
+        kin.pos.y - kin.size.y * 0.20,
     );
     let direction = ae::Vec2::new(facing, 0.0);
-    let damage_mult = user_settings.gameplay.player_damage_multiplier;
 
     // Length before the input processing block so we can detect "a
     // projectile spawned this frame" without threading a bool through
@@ -282,20 +270,19 @@ pub fn update_projectiles(
     // visibly stutters between Shoot and Idle/Walk rather than locking
     // out the locomotion read.
     const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
-    if let Ok(mut anim) = player_anim_q.single_mut() {
-        let charging = state.charging.is_some();
-        if anim.aim_anim_active != charging {
-            anim.aim_anim_active = charging;
-        }
-        if state.bodies.len() > bodies_before {
-            anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
-        }
+    let charging = state.charging.is_some();
+    if anim.aim_anim_active != charging {
+        anim.aim_anim_active = charging;
+    }
+    if state.bodies.len() > bodies_before {
+        anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
     }
 
     let tick = trace.current_tick();
     for event in events {
         trace.push_event(event.into_trace_event(tick));
     }
+    } // end per-player loop
 }
 
 /// Run the spawner's cooldown / resource-meter checks for `kind`,

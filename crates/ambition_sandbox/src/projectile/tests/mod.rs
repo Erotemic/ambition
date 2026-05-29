@@ -64,7 +64,9 @@ fn min_app() -> App {
     app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(PlayerProjectileState::default());
+    // PlayerProjectileState is now a per-player Component attached
+    // by `PlayerSimulationBundle::from_scratch` — no resource init
+    // needed.
     // Buffered-message channels the system writes into. The brain
     // plugin owns the `ActorActionMessage` channel; install it so
     // `tick_player_brains` → `emit_player_projectile_tick_messages` →
@@ -89,6 +91,36 @@ fn min_app() -> App {
     );
     spawn_player(&mut app, ae::Vec2::new(300.0, 300.0), 1.0);
     app
+}
+
+/// Read-only view of the primary player's `PlayerProjectileState`.
+/// Tests previously read it as a `Res<PlayerProjectileState>`; the
+/// per-player migration moved it onto the player entity, so this
+/// helper hides the resource-vs-component difference at the test
+/// boundary.
+pub(in crate::projectile) fn projectile_state_ref(app: &App) -> &PlayerProjectileState {
+    let world = app.world();
+    let mut q = world.try_query::<&PlayerProjectileState>().unwrap();
+    q.iter(world)
+        .next()
+        .expect("min_app spawned exactly one player with PlayerProjectileState")
+}
+
+/// Mutable handle to the primary player's `PlayerProjectileState`.
+pub(in crate::projectile) fn projectile_state_mut(
+    app: &mut App,
+) -> bevy::prelude::Mut<'_, PlayerProjectileState> {
+    let world = app.world_mut();
+    let entity = {
+        let mut q = world.try_query::<(bevy::prelude::Entity, &PlayerProjectileState)>().unwrap();
+        q.iter(world)
+            .next()
+            .expect("min_app spawned exactly one player with PlayerProjectileState")
+            .0
+    };
+    world
+        .get_mut::<PlayerProjectileState>(entity)
+        .expect("entity has PlayerProjectileState")
 }
 
 fn advance_time(app: &mut App, dt_seconds: f32) {

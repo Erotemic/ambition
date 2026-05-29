@@ -434,12 +434,16 @@ mod conversion_tests {
              dropped ranged fire intent",
         );
 
-        // Inside aggro (1200 px) + past Skirmisher's default fire
-        // cooldown — brain should emit `fire`.
+        // Inside aggro (1200 px) — brain should emit `fire` once the
+        // seeded cooldown drains. The spawn helper pre-seeds
+        // cooldown_remaining = fire_cooldown_s (1.5s) so a fresh
+        // shark-rider doesn't shoot the player on tick 1; here we
+        // drain that with a one-shot oversized dt to skip the
+        // warmup and assert the firing seam.
         let mut snap = crate::brain::BrainSnapshot::idle();
         snap.actor_pos = enemy.pos;
         snap.target_pos = enemy.pos + ae::Vec2::new(500.0, 0.0);
-        snap.sim_time = 5.0;
+        snap.dt = 5.0; // drains any reasonable cooldown in one tick
         let mut frame = crate::actor_control::ActorControlFrame::neutral();
         brain.tick(&snap, &mut frame);
         assert!(

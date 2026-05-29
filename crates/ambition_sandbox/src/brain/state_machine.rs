@@ -453,8 +453,16 @@ impl SkirmisherCfg {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SkirmisherState {
     pub mode: crate::character_ai::CharacterAiMode,
-    /// Sim-time of the last shot. Used with `fire_cooldown_s`.
-    pub last_fire_t: f32,
+    /// Seconds remaining until the next shot can fire. Counts down
+    /// each tick by `snapshot.dt`. Reset to `cfg.fire_cooldown_s`
+    /// on fire. The previous shape compared an absolute `sim_time`
+    /// against `last_fire_t`, but the sandbox actors path doesn't
+    /// populate `snapshot.sim_time` — it's hard-coded to 0.0 — so
+    /// every comparison evaluated `0 - 0 >= 1.5` and Skirmisher
+    /// never fired in production. The decrementing-timer shape is
+    /// what MeleeBrute uses via `attack_cooldown_remaining` and
+    /// avoids the global-clock dependency.
+    pub cooldown_remaining: f32,
 }
 
 fn tick_skirmisher(
@@ -464,6 +472,10 @@ fn tick_skirmisher(
     out: &mut crate::actor_control::ActorControlFrame,
 ) {
     *out = crate::actor_control::ActorControlFrame::neutral();
+    // Cooldown ticks down every frame regardless of target state so
+    // a Skirmisher that loses sight mid-cooldown doesn't get a free
+    // first shot the moment the player re-enters aggro.
+    state.cooldown_remaining = (state.cooldown_remaining - snapshot.dt).max(0.0);
     if !snapshot.target_alive {
         return;
     }
@@ -474,19 +486,24 @@ fn tick_skirmisher(
         return;
     }
     state.mode = crate::character_ai::CharacterAiMode::Chase;
-    // Move toward the standoff distance.
+    // Move toward the standoff distance. Aerial archetypes (sharks
+    // etc.) need 2D motion to actually orbit; the integration uses
+    // both x and y when `is_aerial = true`.
     let dir = to_target.normalize_or_zero();
     out.facing = dir.x.signum_or(snapshot.actor_facing);
     let approach_sign = (dist - cfg.standoff_px).signum_or(0.0);
-    out.desired_vel = ae::Vec2::new(dir.x * cfg.strafe_speed * approach_sign, 0.0);
-    // Fire when the cooldown is clear. ActionSet supplies the
-    // concrete projectile (speed, damage). Brain just emits dir.
-    if snapshot.sim_time - state.last_fire_t >= cfg.fire_cooldown_s {
+    out.desired_vel = ae::Vec2::new(
+        dir.x * cfg.strafe_speed * approach_sign,
+        dir.y * cfg.strafe_speed * approach_sign,
+    );
+    // Fire when the cooldown timer is clear. ActionSet supplies the
+    // concrete projectile (speed, damage); brain just emits dir.
+    if state.cooldown_remaining <= 0.0 {
         // Speed = 0.0 here is a sentinel; the action_set resolver
         // pulls speed from the actor's RangedActionSpec when it
         // builds the projectile spawn.
         out.fire = Some(crate::actor_control::ActorFireRequest { dir, speed: 0.0 });
-        state.last_fire_t = snapshot.sim_time;
+        state.cooldown_remaining = cfg.fire_cooldown_s;
         state.mode = crate::character_ai::CharacterAiMode::Attack;
     }
 }
@@ -512,7 +529,10 @@ impl SniperCfg {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SniperState {
-    pub last_fire_t: f32,
+    /// Seconds remaining until the next shot can fire. Decrements
+    /// each tick by `snapshot.dt`. See `SkirmisherState` doc for why
+    /// this replaces the previous `last_fire_t` / `sim_time` shape.
+    pub cooldown_remaining: f32,
 }
 
 fn tick_sniper(
@@ -522,6 +542,7 @@ fn tick_sniper(
     out: &mut crate::actor_control::ActorControlFrame,
 ) {
     *out = crate::actor_control::ActorControlFrame::neutral();
+    state.cooldown_remaining = (state.cooldown_remaining - snapshot.dt).max(0.0);
     if !snapshot.target_alive {
         return;
     }
@@ -532,9 +553,9 @@ fn tick_sniper(
     }
     let dir = to_target.normalize_or_zero();
     out.facing = dir.x.signum_or(snapshot.actor_facing);
-    if snapshot.sim_time - state.last_fire_t >= cfg.fire_cooldown_s {
+    if state.cooldown_remaining <= 0.0 {
         out.fire = Some(crate::actor_control::ActorFireRequest { dir, speed: 0.0 });
-        state.last_fire_t = snapshot.sim_time;
+        state.cooldown_remaining = cfg.fire_cooldown_s;
     }
 }
 
@@ -1078,9 +1099,15 @@ mod tests {
         // reads state.mode for HUD / sprite picking, so a future
         // refactor that drops a mode write would silently break
         // the HUD without tripping any other test.
+        // Seed the cooldown timer so the first in-aggro tick stays
+        // in Chase rather than immediately firing — the production
+        // spawn helper (`enemy_default_brain`) seeds it the same way.
         let mut sm = StateMachineCfg::Skirmisher {
             cfg: SkirmisherCfg::RANGER_DEFAULT,
-            state: SkirmisherState::default(),
+            state: SkirmisherState {
+                cooldown_remaining: SkirmisherCfg::RANGER_DEFAULT.fire_cooldown_s,
+                ..Default::default()
+            },
         };
         // Far outside aggro → Idle.
         let mut s = snap_at(0.0, 5000.0);
@@ -1091,17 +1118,17 @@ mod tests {
         } else {
             unreachable!();
         }
-        // Inside aggro at sim_time=0 → Chase (cooldown not satisfied,
-        // 0 - 0 < fire_cooldown_s 0.8).
+        // Inside aggro with the seeded cooldown still draining →
+        // Chase (one dt tick is small relative to the seed).
         s = snap_at(0.0, 200.0);
-        s.sim_time = 0.0;
         let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Skirmisher { state, .. } = &sm {
             assert_eq!(state.mode, crate::character_ai::CharacterAiMode::Chase);
         }
-        // Advance sim_time past the first cooldown → Attack on fire.
-        s.sim_time = 1.0; // > fire_cooldown_s 0.8
+        // Drain the cooldown by passing a one-shot dt that exceeds
+        // the remaining timer; next tick → Attack + fire.
+        s.dt = 5.0;
         let mut out = crate::actor_control::ActorControlFrame::neutral();
         tick_state_machine(&mut sm, &s, &mut out);
         if let StateMachineCfg::Skirmisher { state, .. } = &sm {

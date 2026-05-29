@@ -444,28 +444,50 @@ pub(in crate::content::features) fn enemy_default_brain(
             },
             state: MeleeBruteState::default(),
         }),
-        EnemyBrainTemplate::Skirmisher => Brain::StateMachine(StateMachineCfg::Skirmisher {
-            cfg: SkirmisherCfg {
-                aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
-                aggro_radius: archetype.aggro_radius(),
-                // `attack_range` in the archetype row is the AI-side
-                // firing distance; the skirmisher uses it as both the
-                // standoff target (where it tries to be) and — via the
-                // resolver — the upper bound for fire intent.
-                standoff_px: archetype.attack_range(),
-                strafe_speed: archetype.chase_speed(),
-                fire_cooldown_s: 1.5,
-            },
-            state: SkirmisherState::default(),
-        }),
-        EnemyBrainTemplate::Sniper => Brain::StateMachine(StateMachineCfg::Sniper {
-            cfg: SniperCfg {
-                aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
-                aggro_radius: archetype.aggro_radius(),
-                fire_cooldown_s: 1.5,
-            },
-            state: SniperState::default(),
-        }),
+        EnemyBrainTemplate::Skirmisher => {
+            let fire_cooldown_s = 1.5;
+            Brain::StateMachine(StateMachineCfg::Skirmisher {
+                cfg: SkirmisherCfg {
+                    aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+                    aggro_radius: archetype.aggro_radius(),
+                    // `attack_range` in the archetype row is the
+                    // AI-side *firing* distance — the upper bound at
+                    // which the brain is willing to engage. Standoff
+                    // should be a smaller fraction so the actor
+                    // orbits inside firing range rather than backing
+                    // all the way to the edge. Pre-fix, this was set
+                    // to `attack_range` directly, which on a 1100-px
+                    // shark-rider made the shark try to flee to
+                    // 1100 px from the player — practically always
+                    // farther than its current position, so it moved
+                    // away forever instead of engaging.
+                    standoff_px: (archetype.attack_range() * 0.35).max(120.0),
+                    strafe_speed: archetype.chase_speed(),
+                    fire_cooldown_s,
+                },
+                // Seed cooldown so a freshly-spawned Skirmisher
+                // doesn't fire on tick 1 of engagement; the player
+                // gets a full cooldown of warmup before the first
+                // shot, matching the legacy sim_time-based gate.
+                state: SkirmisherState {
+                    cooldown_remaining: fire_cooldown_s,
+                    ..Default::default()
+                },
+            })
+        }
+        EnemyBrainTemplate::Sniper => {
+            let fire_cooldown_s = 1.5;
+            Brain::StateMachine(StateMachineCfg::Sniper {
+                cfg: SniperCfg {
+                    aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+                    aggro_radius: archetype.aggro_radius(),
+                    fire_cooldown_s,
+                },
+                state: SniperState {
+                    cooldown_remaining: fire_cooldown_s,
+                },
+            })
+        }
         EnemyBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
             cfg: smash_cfg_for_archetype(archetype),
             state: SmashState {

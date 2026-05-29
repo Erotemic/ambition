@@ -820,7 +820,7 @@ pub(super) fn start_attack(
     clusters: &mut ae::PlayerClustersMut<'_>,
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
-    controls: ControlFrame,
+    actor: crate::actor_control::ActorControlFrame,
 ) {
     if !clusters.abilities.abilities.attack || attack.is_some() {
         return;
@@ -841,9 +841,9 @@ pub(super) fn start_attack(
     };
     let intent = crate::combat::resolve_attack_intent_from_view(
         &view,
-        controls.axis_x,
-        controls.axis_y,
-        controls.pogo_pressed,
+        actor.desired_vel.x,
+        actor.desired_vel.y,
+        actor.pogo_pressed,
     );
     let spec = crate::combat::attack_spec_from_view(&view, intent);
 
@@ -866,7 +866,7 @@ pub(super) fn start_attack(
     // That same-frame ordering matters for 1hp breakable pogo orbs:
     // the bounce is real even when the orb shatters immediately, so
     // slash startup must not overwrite the negative Y velocity.
-    if !controls.pogo_pressed
+    if !actor.pogo_pressed
         && intent == crate::combat::AttackIntent::AirDown
         && clusters.kinematics.vel.y >= 0.0
         && clusters.kinematics.vel.y < 80.0

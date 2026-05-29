@@ -364,7 +364,7 @@ pub fn attack_advance_system(
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::ActivePlayerAttack,
-            &crate::player::PlayerInputFrame,
+            &crate::brain::ActorControl,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -373,39 +373,39 @@ pub fn attack_advance_system(
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
 ) {
-    let Ok((player_entity, mut cluster_item, mut anim, mut combat, mut attack, input)) =
+    let Ok((player_entity, mut cluster_item, mut anim, mut combat, mut attack, actor_control)) =
         player_q.single_mut()
     else {
         return;
     };
-    // Per-player input (OVERNIGHT-TODO #17.5). `sync_local_player_input_frame`
-    // ran at the tail of PlayerInput; this Combat-set system sees a fresh
-    // snapshot. Future co-op drops the singleton query and iterates
-    // attack-bearing players, each with their own input frame.
-    let controls = input.frame;
+    // The brain-driver system populated this `ActorControl` for the
+    // current player upstream (PlayerInput set). Every combat verb
+    // start_attack needs (pogo, axes for attack-intent resolution)
+    // lives on the brain-driven frame — the raw `PlayerInputFrame`
+    // is no longer read in this system.
+    let actor_frame = actor_control.0;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 
     let mut clusters = cluster_item.as_clusters_mut();
-    // Player melee migration: the start-attack gate reads
-    // `ActorActionMessage::Melee` for this player rather than the raw
-    // `controls.attack_pressed`. The player brain produces the message
-    // upstream (PlayerInput set) from the same input axis; the
-    // EFFECTS consumer (this gate) decides whether to spawn the
-    // hitbox. Pogo stays raw because it's a player-specific verb
-    // ActorControlFrame doesn't yet carry.
+    // Player melee + pogo migration: both gates read the brain-driven
+    // ActorControl rather than the raw PlayerInputFrame. Melee comes
+    // through `ActorActionMessage::Melee` (the ActionSet-resolved
+    // verb); pogo is a player-specific intent surfaced directly on
+    // `ActorControlFrame::pogo_pressed`, which the player brain
+    // mirrors from raw input.
     let melee_requested = brain_actions
         .read()
         .any(|msg| msg.actor == player_entity && msg.is_melee());
-    if combat.hitstun_timer <= 0.0 && (melee_requested || controls.pogo_pressed) {
+    if combat.hitstun_timer <= 0.0 && (melee_requested || actor_frame.pogo_pressed) {
         super::world_flow::start_attack(
             &mut sfx_writer,
             &mut vfx_writer,
             &mut clusters,
             &mut attack.0,
             &mut anim,
-            controls,
+            actor_frame,
         );
     }
     super::world_flow::advance_attack(

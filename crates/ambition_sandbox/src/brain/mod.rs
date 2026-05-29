@@ -28,8 +28,10 @@
 //!   sandbox's `player_control_system` / `player_simulation_system`
 //!   via `engine_input_from_actor_control` (the polarity flip).
 //! - Player melee-start gating reads this player's
-//!   `ActorActionMessage::Melee`. Pogo is still a player-specific
-//!   direct path.
+//!   `ActorActionMessage::Melee`. Pogo-start gating reads the
+//!   player's `ActorControl::pogo_pressed` (the brain mirrors the
+//!   raw input onto the frame upstream); no remaining
+//!   `PlayerInputFrame` read in the attack pipeline.
 //! - Enemy ranged projectiles flow through `ActorActionMessage::Ranged`
 //!   via `content::features::ecs::spawn_enemy_projectiles_from_brain_actions`.
 //! - Hostile enemy melee windups start from
@@ -40,8 +42,9 @@
 //!   consumers in `content::features::ecs::brain_effects`.
 //!
 //! **Remaining direct paths:** player projectile charge / motion-input
-//! recognition still reads `PlayerInputFrame`; pogo is still a
-//! player-specific input. The legacy `ae::Player` aggregate / the
+//! recognition still reads `PlayerInputFrame` (the charge state
+//! machine in `update_projectiles`). The legacy `ae::Player`
+//! aggregate / the
 //! `PlayerMovementAuthority` wrapper were deleted 2026-05-28; the
 //! player entity carries 18 cluster components instead.
 //!

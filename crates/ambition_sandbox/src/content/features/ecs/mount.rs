@@ -163,7 +163,16 @@ pub fn enforce_mount_rider_link(
         // `enemy_default_brain` / `enemy_default_action_set` read
         // the spec table and return the right melee / Smash config
         // for that archetype.
-        let new_brain = super::spawn::enemy_default_brain(rider);
+        //
+        // Aggressiveness is forced ON after the rebuild because the
+        // rider was already a combatant (hostile rider on a hostile
+        // mount); a PirateHeavy variant (Iron Mary / Broadside Bess
+        // / Salt Annet) is authored as peaceful Cove crew, but a
+        // PirateHeavyOnShark rider should keep fighting after the
+        // shark dies under her. Aggressiveness is a per-instance
+        // property, not per-archetype.
+        let mut new_brain = super::spawn::enemy_default_brain(rider);
+        force_hostile(&mut new_brain);
         let new_action_set = super::spawn::enemy_default_action_set(rider);
         commands
             .entity(rider_entity)
@@ -222,6 +231,28 @@ pub fn is_composite_spawn(archetype: EnemyArchetype) -> bool {
         archetype,
         EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
     )
+}
+
+/// Set every aggressiveness-carrying brain cfg's aggressiveness to
+/// 1.0 in place. Used by [`enforce_mount_rider_link`] to keep a
+/// dismounted rider hostile when their archetype's default
+/// aggression is 0 (PirateHeavy is authored as peaceful Cove crew).
+fn force_hostile(brain: &mut crate::brain::Brain) {
+    use crate::brain::{Brain, StateMachineCfg};
+    let Brain::StateMachine(cfg) = brain else {
+        return;
+    };
+    match cfg {
+        StateMachineCfg::Patrol { cfg, .. } => cfg.aggressiveness = 1.0,
+        StateMachineCfg::Wanderer { cfg, .. } => cfg.aggressiveness = 1.0,
+        StateMachineCfg::MeleeBrute { cfg, .. } => cfg.aggressiveness = 1.0,
+        StateMachineCfg::Skirmisher { cfg, .. } => cfg.aggressiveness = 1.0,
+        StateMachineCfg::Sniper { cfg, .. } => cfg.aggressiveness = 1.0,
+        // StandStill / Smash / BossPattern carry no aggressiveness
+        // field; the brain template itself is hostile-by-construction
+        // (Smash) or scripted (BossPattern).
+        _ => {}
+    }
 }
 
 #[cfg(test)]

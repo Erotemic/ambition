@@ -28,3 +28,5 @@ Use an ADR when a decision:
 - [0014: Adopt Bevy dev tools where they improve iteration](0014-bevy-dev-tools-adoption.md)
 - [0015: LDtk tileset rendering is presentation-only](0015-ldtk-tileset-rendering.md)
 - [0016: Unify NPCs, enemies, hazards, and interactables as actor-like ECS data](0016-actor-unification.md)
+- [0017: Rust holds behavior; RON authors content; LDtk authors space](0017-rust-behavior-ron-content-ldtk-space.md)
+- [0018: Enemy cluster variation — per-actor jitter is mandatory at every brain-spawn site](0018-enemy-cluster-variation.md)

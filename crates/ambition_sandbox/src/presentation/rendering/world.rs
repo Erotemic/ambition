@@ -524,9 +524,17 @@ fn spawn_composite_visuals(
         }
         _ => crate::actor::EnemyBrain::Custom("pirate_raider".into()),
     };
-    let rider_size = EnemyArchetype::from_brain(&rider_brain)
+    // Rider renders at HALF its standalone size while mounted so it
+    // fits visually on the shark. Mirrors the sim-side mounted size
+    // (`MountedSize` in `content::features::ecs::mount`); the sim
+    // entity carries the mounted size in `EnemyRuntime.size`, the
+    // FeatureViewIndex publishes that, and `sync_visuals` will pick
+    // it up on the first frame — but the initial visual entity here
+    // also needs to be sized correctly so it doesn't pop on tick 1.
+    let standalone_rider_size = EnemyArchetype::from_brain(&rider_brain)
         .default_size()
         .unwrap_or(ae::Vec2::new(44.0, 78.0));
+    let rider_size = standalone_rider_size * 0.5;
     let mount_size = EnemyArchetype::BurningFlyingShark
         .default_size()
         .unwrap_or(ae::Vec2::new(126.0, 52.0));

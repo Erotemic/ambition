@@ -453,12 +453,20 @@ fn spawn_composite_mount_rider(
         }
         _ => (EnemyArchetype::PirateRaider, "Pirate Raider".to_string()),
     };
-    let rider_size = rider_archetype
+    // Standalone size = full cove-pirate hitbox (44x78 for the
+    // raider; 72x110 for a heavy). Mounted size = half that, so the
+    // rider visually fits ON the shark instead of dwarfing it. The
+    // dissolve path restores standalone size to `EnemyRuntime.size`.
+    let standalone_size = rider_archetype
         .default_size()
         .expect("rider archetype has a default_size");
-    let rider_offset = super::mount::pirate_on_shark_rider_offset(mount_size, rider_size);
+    let mounted_size = standalone_size * 0.5;
+    // Rider starts at the mounted footprint so its initial AABB
+    // matches the visual that will resolve through
+    // `upgrade_enemy_sprites` (which reads `view.size`).
+    let rider_offset = super::mount::pirate_on_shark_rider_offset(mount_size, mounted_size);
     let rider_pos = center + rider_offset;
-    let rider_aabb = ae::Aabb::new(rider_pos, rider_size * 0.5);
+    let rider_aabb = ae::Aabb::new(rider_pos, mounted_size * 0.5);
     let rider_id = format!("{}:rider", authored.id);
     let rider_brain_payload = match rider_archetype {
         EnemyArchetype::PirateHeavy => crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
@@ -471,6 +479,14 @@ fn spawn_composite_mount_rider(
         rider_brain_payload,
         paths,
     );
+    // Override `spawn_size` so `reset_to_spawn` restores STANDALONE
+    // size (not the mounted-half size we just constructed with).
+    // `EnemyRuntime::new` initializes `spawn_size = size`, but the
+    // dissolve path (and reset's restore-to-standalone semantics)
+    // wants the full cove-pirate footprint when the rider hits the
+    // ground.
+    rider_enemy.spawn_size = standalone_size;
+    rider_enemy.size = mounted_size;
     // Rider HP from the composite spec's `rider_max_health`.
     if let Some(rider_hp) = composite_archetype.rider_max_health() {
         rider_enemy.health = crate::actor::Health::new(rider_hp);
@@ -478,33 +494,43 @@ fn spawn_composite_mount_rider(
     rider_enemy.gravity_scale = 0.0;
 
     // Build the rider's MOUNTED brain: Skirmisher with the
-    // composite's Bolt ranged spec. Aggressiveness forced to 1.0 so
-    // a PirateHeavy variant (peaceful standalone) still engages
+    // composite's Bolt ranged spec + per-actor jitter so a squadron
+    // of riders doesn't fire in unison. Aggressiveness forced to 1.0
+    // so a PirateHeavy variant (peaceful standalone) still engages
     // while riding.
     let ranged = composite_archetype.ranged_spec();
     let bolt = match ranged {
         Some(RangedActionSpec::Bolt { speed, damage }) => Some((speed, damage)),
         _ => None,
     };
+    // Per-rider jitter — same generator the solo-Skirmisher spawn
+    // path uses (see `enemy_default_brain`). Without this, every
+    // rider seeded with `cooldown_remaining = 0.0` ticks the same
+    // dt and fires on the same beat ("all riders shoot at once").
+    let seed = crate::attack_choreography::seed_from_id(&rider_id);
+    let jitters = five_f32s_from_seed(seed);
+    let base_cooldown_s = 1.5;
+    let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
+    let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
+    let standoff_base = (composite_archetype.attack_range() * 0.35).max(120.0);
+    let standoff_px = standoff_base * (0.8 + 0.4 * jitters.2);
+    let orbit_phase = jitters.3 * std::f32::consts::TAU;
+    let orbit_drift_rad_s = 0.4 + 0.8 * jitters.4;
     let mounted_skirmisher_cfg = SkirmisherCfg {
         aggressiveness: 1.0,
-        // Composite's spec carries the orbit-and-fire tuning:
-        // standoff_px is a fraction of attack_range, capped at a
-        // sensible floor; the firing cadence is the same 1.5 s base
-        // the legacy fused archetype used.
         aggro_radius: composite_archetype.aggro_radius(),
-        standoff_px: (composite_archetype.attack_range() * 0.35).max(120.0),
+        standoff_px,
         strafe_speed: composite_archetype.chase_speed(),
-        fire_cooldown_s: 1.5,
-        // Orbital drift / phase don't actually steer the rider
-        // (the sync system snaps it to the mount each frame), but
-        // they're part of the cfg shape. Use sensible defaults so
-        // the brain's fire intent uses a stable target dir.
-        orbit_drift_rad_s: 0.6,
+        fire_cooldown_s,
+        orbit_drift_rad_s,
     };
     let rider_brain = Brain::StateMachine(StateMachineCfg::Skirmisher {
         cfg: mounted_skirmisher_cfg,
-        state: SkirmisherState::default(),
+        state: SkirmisherState {
+            cooldown_remaining: initial_cooldown_s,
+            orbit_phase,
+            ..Default::default()
+        },
     });
     let rider_action_set = ActionSet {
         melee: None,
@@ -591,6 +617,7 @@ fn spawn_composite_mount_rider(
             ),
             mounted_brain_cache,
             super::Mounted,
+            super::MountedSize(mounted_size),
             super::RidingOn {
                 mount: mount_entity,
             },
@@ -671,15 +698,29 @@ pub(in crate::content::features) fn enemy_default_brain(
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
             state: WandererState::default(),
         }),
-        EnemyBrainTemplate::MeleeBrute => Brain::StateMachine(StateMachineCfg::MeleeBrute {
-            cfg: MeleeBruteCfg {
-                aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
-                aggro_radius: archetype.aggro_radius(),
-                attack_range: archetype.attack_range(),
-                chase_speed: archetype.chase_speed(),
-            },
-            state: MeleeBruteState::default(),
-        }),
+        EnemyBrainTemplate::MeleeBrute => {
+            // Per-actor jitter on aggro / chase / range so a cluster
+            // of MeleeBrute enemies doesn't pick the same chase
+            // vector and step together. See `docs/adr/0012-cluster-
+            // variation.md` for the policy + intent. ±20% aggro,
+            // ±15% chase, ±10% range — enough to noticeably
+            // de-sync a pair without breaking the encounter's
+            // authored tuning intent.
+            let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+            let jitters = five_f32s_from_seed(seed);
+            let aggro_radius = archetype.aggro_radius() * (0.8 + 0.4 * jitters.0);
+            let chase_speed = archetype.chase_speed() * (0.85 + 0.3 * jitters.1);
+            let attack_range = archetype.attack_range() * (0.9 + 0.2 * jitters.2);
+            Brain::StateMachine(StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg {
+                    aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+                    aggro_radius,
+                    attack_range,
+                    chase_speed,
+                },
+                state: MeleeBruteState::default(),
+            })
+        }
         EnemyBrainTemplate::Skirmisher => {
             // Per-actor jitter from the actor's stable id-derived
             // seed. Independent f32s in [0, 1) drive cadence, initial

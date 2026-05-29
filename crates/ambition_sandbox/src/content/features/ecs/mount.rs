@@ -89,6 +89,17 @@ pub struct MountedBrainCache {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct Mounted;
 
+/// Authored "while mounted" collision size for a rider. A standalone
+/// PirateRaider is 44x78 (~125 px tall rendered through the
+/// 1.6× pirate sheet collision_scale) — fine on the ground, but
+/// dwarfs a ~100 px-tall flying shark when stacked on top. Mounted
+/// riders carry a smaller `MountedSize` that the per-tick sync
+/// system snaps `EnemyRuntime.size` to; the dissolve path restores
+/// the standalone `spawn_size` so a dismounted pirate fights at
+/// full cove-pirate proportions.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct MountedSize(pub ae::Vec2);
+
 /// Lock every rider's position / facing / vel / gravity to its
 /// mount each tick. Runs after the per-actor brain tick so the
 /// rider's brain has had a chance to emit a fire intent against
@@ -102,10 +113,18 @@ pub struct Mounted;
 /// composite and a mount in a separate composite; never the same
 /// entity playing both roles in one frame.)
 pub fn sync_riders_to_mounts(
-    mut riders: Query<(&RidingOn, &mut ActorRuntime, &mut FeatureAabb), Without<MountSlot>>,
+    mut riders: Query<
+        (
+            &RidingOn,
+            &mut ActorRuntime,
+            &mut FeatureAabb,
+            Option<&MountedSize>,
+        ),
+        Without<MountSlot>,
+    >,
     mounts: Query<(&ActorRuntime, &Mountable), With<MountSlot>>,
 ) {
-    for (riding, mut rider_actor, mut rider_aabb) in &mut riders {
+    for (riding, mut rider_actor, mut rider_aabb, mounted_size) in &mut riders {
         let Ok((mount_actor, mountable)) = mounts.get(riding.mount) else {
             continue;
         };
@@ -120,6 +139,14 @@ pub fn sync_riders_to_mounts(
         };
         if !rider.alive {
             continue;
+        }
+        // Mounted size: snap collision footprint to the smaller
+        // "while mounted" size so the rider renders proportional to
+        // the mount instead of dwarfing it with the full standalone
+        // hitbox. Standalone size returns via `enforce_mount_rider_link`
+        // on dissolve.
+        if let Some(size) = mounted_size {
+            rider.size = size.0;
         }
         // Snap pose to the mount. Vel zeroed so update_ecs_actors'
         // integrator can't drift the rider off the mount on the
@@ -217,23 +244,69 @@ pub fn enforce_mount_rider_link(
                 }
             }
             // Mount dead, rider currently mounted → dissolve. Flip
-            // gravity on, install the rider's solo brain + action
-            // set so a PirateRaider falls and walks at the player
-            // swinging melee.
+            // gravity on, restore rider to its full standalone
+            // size, install an explicitly-hostile MeleeBrute brain
+            // + melee ActionSet so a PirateRaider / PirateHeavy
+            // variant falls and walks at the player swinging melee.
             //
-            // Aggressiveness is forced ON after the rebuild — a
-            // PirateHeavy variant (peaceful Cove crew when
-            // standalone) should keep fighting after the shark dies
-            // under her.
+            // We build the brain inline rather than calling
+            // `enemy_default_brain` because (a) PirateRaider's
+            // archetype default is Smash which has tighter ground
+            // / observation requirements than MeleeBrute and was
+            // observed to stand inert when the rider landed
+            // mid-arena, and (b) PirateHeavy's archetype default is
+            // a *peaceful* MeleeBrute (aggressiveness 0). Inline is
+            // explicit about the dismount intent: be aggressively
+            // hostile.
+            //
+            // Per-actor jitter on the dismount brain prevents a pair
+            // of riders dying together from then ticking in unison.
             (false, true) => {
+                use crate::brain::{
+                    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg,
+                };
                 rider.gravity_scale = if rider.archetype.is_aerial() {
                     0.0
                 } else {
                     1.0
                 };
-                let mut new_brain = super::spawn::enemy_default_brain(rider);
-                force_hostile(&mut new_brain);
-                let new_action_set = super::spawn::enemy_default_action_set(rider);
+                rider.size = rider.spawn_size;
+                let seed =
+                    crate::attack_choreography::seed_from_id(&rider.id).wrapping_add(0xDEAD);
+                let jitter = ((seed % 1024) as f32) / 1024.0;
+                // Aggro: dismounted rider engages from a generous
+                // radius (so they don't have to walk into the
+                // player just to start chasing) plus a small
+                // per-actor jitter so two riders dying at the same
+                // moment don't share a tick-for-tick chase.
+                let aggro_radius = 540.0 + 60.0 * jitter;
+                let chase_speed = rider.archetype.chase_speed().max(140.0)
+                    * (0.9 + 0.2 * jitter);
+                let attack_range = rider.archetype.attack_range().max(56.0);
+                let new_brain = Brain::StateMachine(StateMachineCfg::MeleeBrute {
+                    cfg: MeleeBruteCfg {
+                        aggressiveness: 1.0,
+                        aggro_radius,
+                        attack_range,
+                        chase_speed,
+                    },
+                    state: MeleeBruteState::default(),
+                });
+                // Ensure the rider has a melee action; PirateRaider
+                // / PirateHeavy archetypes already carry melee in
+                // their spec, but a future "lifted" archetype with
+                // no melee would otherwise leave the dismounted
+                // pirate with no way to attack.
+                let melee = rider
+                    .archetype
+                    .melee_spec()
+                    .or_else(|| crate::content::features::EnemyArchetype::PirateRaider.melee_spec());
+                let new_action_set = ActionSet {
+                    melee,
+                    ranged: None,
+                    move_style: rider.archetype.move_style(),
+                    ..Default::default()
+                };
                 commands
                     .entity(rider_entity)
                     .insert((new_brain, new_action_set))
@@ -274,27 +347,10 @@ pub fn is_composite_spawn(archetype: EnemyArchetype) -> bool {
     )
 }
 
-/// Set every aggressiveness-carrying brain cfg's aggressiveness to
-/// 1.0 in place. Used by [`enforce_mount_rider_link`] to keep a
-/// dismounted rider hostile when their archetype's default
-/// aggression is 0 (PirateHeavy is authored as peaceful Cove crew).
-fn force_hostile(brain: &mut crate::brain::Brain) {
-    use crate::brain::{Brain, StateMachineCfg};
-    let Brain::StateMachine(cfg) = brain else {
-        return;
-    };
-    match cfg {
-        StateMachineCfg::Patrol { cfg, .. } => cfg.aggressiveness = 1.0,
-        StateMachineCfg::Wanderer { cfg, .. } => cfg.aggressiveness = 1.0,
-        StateMachineCfg::MeleeBrute { cfg, .. } => cfg.aggressiveness = 1.0,
-        StateMachineCfg::Skirmisher { cfg, .. } => cfg.aggressiveness = 1.0,
-        StateMachineCfg::Sniper { cfg, .. } => cfg.aggressiveness = 1.0,
-        // StandStill / Smash / BossPattern carry no aggressiveness
-        // field; the brain template itself is hostile-by-construction
-        // (Smash) or scripted (BossPattern).
-        _ => {}
-    }
-}
+// `force_hostile` was used by the prior enemy_default_brain-based
+// dissolve path; the inline MeleeBrute build replaces it. Kept the
+// trace as a comment because future dissolve modes (Skirmisher
+// dismount, Sniper dismount) will likely want this same flip.
 
 #[cfg(test)]
 mod tests {
@@ -489,10 +545,10 @@ mod tests {
             matches!(
                 brain,
                 crate::brain::Brain::StateMachine(
-                    crate::brain::StateMachineCfg::Smash { .. }
+                    crate::brain::StateMachineCfg::MeleeBrute { .. }
                 ),
             ),
-            "after dismount the rider's solo brain (Smash) should be installed",
+            "after dismount the rider should be MeleeBrute (explicit chase + swipe)",
         );
         let slot = app.world().entity(mount).get::<MountSlot>().unwrap();
         assert!(

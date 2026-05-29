@@ -86,6 +86,7 @@ pub fn update_ecs_hazards(
                 volume: hazard.aabb(),
                 damage: hazard.volume.damage.amount.max(1),
                 source: HitSource::Hazard,
+                attacker: None,
                 // Hazards iterate every overlapping player; tag the
                 // event with the player who actually overlapped so
                 // the reader lands the hit on the right one.

@@ -433,6 +433,7 @@ pub fn boss_attack_damage(
                 volume,
                 damage: ctx.behavior.attack_damage.max(1),
                 source: HitSource::BossAttack,
+                attacker: None,
                 target: HitTarget::Volume,
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
@@ -467,6 +468,7 @@ pub fn boss_attack_damage(
                 volume: body,
                 damage: body_damage_amount,
                 source: HitSource::BossBody,
+                attacker: None,
                 target: HitTarget::Volume,
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {

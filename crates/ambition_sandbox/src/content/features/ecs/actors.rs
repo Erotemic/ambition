@@ -197,20 +197,30 @@ pub fn update_ecs_actors(
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
-    // Enemies target the primary player today. Real "nearest hostile
-    // actor of faction Player" target selection is OVERNIGHT-TODO
-    // #17.8; the `PrimaryPlayerOnly` filter documents the targeting
-    // decision at the query so a future per-actor `ActorTarget`
-    // component lands as a query change, not a semantic shift.
+    // Multi-player ready: iterate every player and resolve each
+    // actor's body-contact check against the player its `ActorTarget`
+    // points at. The combat slot board (which arbitrates which enemy
+    // commits to an attack this tick) still anchors on a single
+    // global "target player" position — primary today; per-player
+    // slot boards are a follow-up. Single-player behavior is
+    // identical because there's only one player.
     player_query: Query<
         (
+            bevy::prelude::Entity,
             &crate::player::PlayerKinematics,
             &crate::player::PlayerOffense,
             &crate::player::PlayerDodgeState,
             &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
-        crate::player::PrimaryPlayerOnly,
+        bevy::prelude::With<crate::player::PlayerEntity>,
+    >,
+    primary_q: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<crate::player::PlayerEntity>,
+            bevy::prelude::With<crate::player::PrimaryPlayer>,
+        ),
     >,
     mut actors: Query<
         (
@@ -246,16 +256,17 @@ pub fn update_ecs_actors(
     // alongside the player. ADR 0010 + reference_lessons_learned.
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    let Ok((kin, offense, dodge, shield, combat)) = player_query.single() else {
+    // Pick the slot-board anchor: the primary player by default, or
+    // fall back to the first available player so combat slot
+    // assignment still works on a multi-player non-primary build.
+    let primary_entity = primary_q.single().ok();
+    let slot_anchor_pos = primary_entity
+        .and_then(|e| player_query.get(e).ok())
+        .or_else(|| player_query.iter().next())
+        .map(|(_, kin, _, _, _, _)| kin.pos);
+    let Some(player_pos) = slot_anchor_pos else {
         return;
     };
-    let player_pos = kin.pos;
-    let player_body = kin.aabb();
-    let dodge_rolling = dodge.roll_timer > 0.0;
-    let player_vulnerable = !offense.invincible
-        && !dodge_rolling
-        && !shield.parrying()
-        && combat.vulnerable();
 
     // Pass 1: collect slot requests from every live hostile enemy.
     // The slot board is per-target (player) and arbitrates which
@@ -543,8 +554,22 @@ pub fn update_ecs_actors(
                 // damage stays polled — "you ran into the enemy"
                 // is a per-tick integration test, not a discrete
                 // strike.
-                if player_vulnerable && enemy.alive {
-                    if let Some(damage) = enemy.body_contact_damage(player_body) {
+                // Per-actor vulnerability + body check: look up the
+                // player this enemy is currently tracking. Falls back
+                // to no-op when the target's player entity is None
+                // (e.g. dropped-to-volume targeting in test fixtures).
+                let target_player = target.entity.and_then(|e| player_query.get(e).ok());
+                let Some((_, target_kin, target_offense, target_dodge, target_shield, target_combat)) = target_player else {
+                    continue;
+                };
+                let target_body = target_kin.aabb();
+                let target_dodge_rolling = target_dodge.roll_timer > 0.0;
+                let target_vulnerable = !target_offense.invincible
+                    && !target_dodge_rolling
+                    && !target_shield.parrying()
+                    && target_combat.vulnerable();
+                if target_vulnerable && enemy.alive {
+                    if let Some(damage) = enemy.body_contact_damage(target_body) {
                         let pos = damage
                             .knockback
                             .as_ref()

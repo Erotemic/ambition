@@ -437,13 +437,19 @@ pub fn spawn_overfit_volley_from_special_messages(
     world_time: Res<WorldTime>,
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
     mut messages: MessageReader<ActorActionMessage>,
-    player_query: Query<&crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
+    // Per-actor target: each boss carries an `ActorTarget` populated
+    // upstream by `select_actor_targets` (nearest-player resolution).
+    // Reading the target's player kinematics by Entity makes this
+    // system multi-player ready — single-player behavior is preserved
+    // because there's only one player today.
+    player_query: Query<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>,
     mut bosses: Query<
         (
             Entity,
             &BossFeature,
             &BossAttackState,
             &mut OverfitVolleyState,
+            Option<&super::super::components::ActorTarget>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -467,10 +473,21 @@ pub fn spawn_overfit_volley_from_special_messages(
         }
     }
 
-    let player_pos = player_query.single().ok().map(|kin| kin.aabb().center());
-
-    for (entity, boss_feature, attack_state, mut state) in &mut bosses {
+    for (entity, boss_feature, attack_state, mut state, actor_target) in &mut bosses {
         let boss = &boss_feature.boss;
+        // Per-boss target: read kinematics for the player this boss
+        // is tracking. Falls back to `actor_target.pos` (set by
+        // `select_actor_targets` even when the player entity is None)
+        // when present; tests that spawn bosses without an
+        // `ActorTarget` exercise the fully-absent path with no
+        // sample fallback (consumer gates on Some).
+        let player_pos = actor_target
+            .and_then(|t| {
+                t.entity
+                    .and_then(|e| player_query.get(e).ok())
+                    .map(|kin| kin.aabb().center())
+                    .or(Some(t.pos))
+            });
         if !boss.alive {
             // Dead boss: clear samples so a respawned-then-attacking
             // boss doesn't inherit stale memory.
@@ -572,8 +589,19 @@ const MINIMA_TRAP_MINION_SPAWN_OFFSET_PX: f32 = 90.0;
 pub fn spawn_minima_trap_from_special_messages(
     mut commands: Commands,
     mut messages: MessageReader<ActorActionMessage>,
-    player_query: Query<&crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
-    mut bosses: Query<(Entity, &BossFeature, &mut MinimaTrapState), With<FeatureSimEntity>>,
+    // Per-boss target via `ActorTarget` (populated by
+    // `select_actor_targets`); same multi-player-ready pattern as
+    // the overfit-volley consumer above.
+    player_query: Query<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>,
+    mut bosses: Query<
+        (
+            Entity,
+            &BossFeature,
+            &mut MinimaTrapState,
+            Option<&super::super::components::ActorTarget>,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     let mut active_strike_params: std::collections::HashMap<Entity, (f32, i32, f32, f32, bool)> =
         std::collections::HashMap::new();
@@ -602,10 +630,14 @@ pub fn spawn_minima_trap_from_special_messages(
         }
     }
 
-    let player_pos = player_query.single().ok().map(|kin| kin.aabb().center());
-
-    for (entity, boss_feature, mut state) in &mut bosses {
+    for (entity, boss_feature, mut state, actor_target) in &mut bosses {
         let boss = &boss_feature.boss;
+        let player_pos = actor_target.and_then(|t| {
+            t.entity
+                .and_then(|e| player_query.get(e).ok())
+                .map(|kin| kin.aabb().center())
+                .or(Some(t.pos))
+        });
         let Some(params) = active_strike_params.get(&entity).copied() else {
             // Strike window closed — reset the fired gate so the next
             // strike re-spawns the pit.

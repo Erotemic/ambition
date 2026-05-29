@@ -307,6 +307,13 @@ pub struct HitEvent {
     pub damage: i32,
     /// Who or what dealt the hit.
     pub source: HitSource,
+    /// Attacker entity, if the producer knows it. For player attacks
+    /// (slash, projectile, pogo) this is the player whose attack
+    /// landed — `apply_feature_hit_events` uses it to attribute
+    /// hitstop / flash to the correct player rather than always
+    /// applying to primary. `None` is acceptable for environmental
+    /// or anonymous-attacker hits.
+    pub attacker: Option<bevy::prelude::Entity>,
     /// Hint for how the consumer resolves the victim. See
     /// [`HitTarget`].
     pub target: HitTarget,

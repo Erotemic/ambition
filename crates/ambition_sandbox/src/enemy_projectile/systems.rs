@@ -71,6 +71,7 @@ pub fn update_enemy_projectiles(
                 volume: shot.body.aabb(),
                 damage: shot.body.damage.max(1),
                 source: HitSource::EnemyProjectile,
+                attacker: None,
                 // Enemy projectiles iterate every player; the first
                 // vulnerable overlapping player wins this volley.
                 // Stamp the target so the player-damage reader lands

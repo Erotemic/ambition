@@ -374,6 +374,10 @@ pub fn update_ecs_bosses(
     // `PrimaryPlayerOnly` filter documents the targeting decision
     // at the query rather than leaving it as an implicit
     // `single()` semantic.
+    // Per-boss target via `ActorTarget` (populated by
+    // `select_actor_targets`). Read each boss's targeted player by
+    // Entity from the all-players query — single-player behavior is
+    // preserved because there's only one player today.
     player_query: Query<
         (
             &crate::player::PlayerKinematics,
@@ -382,7 +386,7 @@ pub fn update_ecs_bosses(
             &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
-        crate::player::PrimaryPlayerOnly,
+        With<crate::player::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -393,6 +397,7 @@ pub fn update_ecs_bosses(
             &ActorControl,
             &BossAttackState,
             &Brain,
+            &super::super::components::ActorTarget,
         ),
         With<FeatureSimEntity>,
     >,
@@ -402,18 +407,22 @@ pub fn update_ecs_bosses(
     // the player triggers bullet-time mid-pattern.
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    let Ok((kin, offense, dodge, shield, combat)) = player_query.single() else {
-        return;
-    };
-    let player_body = kin.aabb();
-    let dodge_rolling = dodge.roll_timer > 0.0;
-    let player_vulnerable = !offense.invincible
-        && !dodge_rolling
-        && !shield.parrying()
-        && combat.vulnerable();
-    for (mut aabb, mut feature, mut pattern_timer, mut phase, control, attack_state, brain) in
-        &mut bosses
+    for (
+        mut aabb,
+        mut feature,
+        mut pattern_timer,
+        mut phase,
+        control,
+        attack_state,
+        brain,
+        actor_target,
+    ) in &mut bosses
     {
+        // Resolve this boss's targeted player. If the target's
+        // entity has despawned or no players exist, skip the body-
+        // contact check — body still integrates so the boss keeps
+        // animating its pattern.
+        let target_player = actor_target.entity.and_then(|e| player_query.get(e).ok());
         let boss = &mut feature.boss;
         // Integration: take the brain-emitted desired_vel and let
         // `step_kinematic` translate it into a collision-resolved
@@ -432,6 +441,15 @@ pub fn update_ecs_bosses(
             _ => 0.0,
         };
         *phase = BossPhase::from_alive(boss.alive);
+        let Some((kin, offense, dodge, shield, combat)) = target_player else {
+            continue;
+        };
+        let player_body = kin.aabb();
+        let dodge_rolling = dodge.roll_timer > 0.0;
+        let player_vulnerable = !offense.invincible
+            && !dodge_rolling
+            && !shield.parrying()
+            && combat.vulnerable();
         if player_vulnerable && boss.alive {
             let ctx = BossVolumeContext::from_runtime(boss, attack_state);
             if let Some(damage) = boss_attack_damage(&ctx, player_body) {

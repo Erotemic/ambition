@@ -110,6 +110,9 @@ impl Hitbox {
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
     owners: Query<&super::super::components::FeatureAabb>,
+    // Iterate every player so a multi-player build hits each
+    // overlapping player independently. Single-player behavior is
+    // preserved because the iterator has exactly one entity today.
     player_query: Query<
         (
             Entity,
@@ -119,23 +122,13 @@ pub fn apply_hitbox_damage(
             &crate::player::PlayerShieldState,
             &crate::player::PlayerCombatState,
         ),
-        crate::player::PrimaryPlayerOnly,
+        bevy::prelude::With<crate::player::PlayerEntity>,
     >,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,
 ) {
-    let Ok((player_entity, kin, offense, dodge, shield, combat)) = player_query.single() else {
-        return;
-    };
-    let player_body = kin.aabb();
-    let dodge_rolling = dodge.roll_timer > 0.0;
-    let player_vulnerable = !offense.invincible
-        && !dodge_rolling
-        && !shield.parrying()
-        && combat.vulnerable();
-
     for (_hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         let owner_pos = match owners.get(hitbox.owner) {
             Ok(aabb) => aabb.center,
@@ -150,62 +143,77 @@ pub fn apply_hitbox_damage(
 
         match hitbox.source {
             ActorFaction::Enemy | ActorFaction::Boss => {
-                if !player_vulnerable {
-                    continue;
+                // Iterate every player and emit one HitEvent per
+                // overlapping vulnerable player. `HitboxHits`
+                // tracks which players this hitbox has already
+                // damaged so a long active window doesn't double-
+                // tap a stationary player.
+                for (player_entity, kin, offense, dodge, shield, combat) in &player_query {
+                    let player_body = kin.aabb();
+                    let dodge_rolling = dodge.roll_timer > 0.0;
+                    let player_vulnerable = !offense.invincible
+                        && !dodge_rolling
+                        && !shield.parrying()
+                        && combat.vulnerable();
+                    if !player_vulnerable {
+                        continue;
+                    }
+                    if hits.hit.contains(&player_entity) {
+                        continue;
+                    }
+                    if !world_aabb.strict_intersects(player_body) {
+                        continue;
+                    }
+                    let impact = midpoint(player_body.center(), world_aabb.center());
+                    let knockback_dir = if player_body.center().x >= owner_pos.x {
+                        1.0
+                    } else {
+                        -1.0
+                    };
+                    let source_kind = if matches!(hitbox.source, ActorFaction::Boss) {
+                        HitSource::BossAttack
+                    } else {
+                        HitSource::EnemyAttack
+                    };
+                    sfx.write(SfxMessage::Play {
+                        id: ambition_sfx::ids::PLAYER_DAMAGE,
+                        pos: impact,
+                    });
+                    vfx.write(VfxMessage::Impact { pos: impact });
+                    vfx.write(VfxMessage::Burst {
+                        pos: impact,
+                        count: 14,
+                        speed: 300.0,
+                        color: [1.0, 0.34, 0.28, 0.88],
+                        kind: ParticleKind::Shard,
+                    });
+                    debris.write(DebrisBurstMessage {
+                        pos: impact,
+                        cue: PhysicsDebrisCue::Impact,
+                    });
+                    hit_events.write(HitEvent {
+                        volume: world_aabb,
+                        damage: hitbox.damage.max(1),
+                        source: source_kind,
+                        // Enemy / boss hitboxes know their owner — the
+                        // entity that spawned the hitbox is the
+                        // attacker. Read on the player side to
+                        // attribute hitstun to the right attacker.
+                        attacker: Some(hitbox.owner),
+                        // Stamp the victim so the player-damage
+                        // reader doesn't fall back to primary.
+                        target: HitTarget::Player(player_entity),
+                        mode: HitMode::Knockback,
+                        knockback: Some(HitKnockback {
+                            dir: knockback_dir,
+                            strength: hitbox.knockback_strength.max(0.0),
+                            source_pos: owner_pos,
+                            impact_pos: impact,
+                        }),
+                        ignored_targets: Vec::new(),
+                    });
+                    hits.hit.insert(player_entity);
                 }
-                if hits.hit.contains(&player_entity) {
-                    continue;
-                }
-                if !world_aabb.strict_intersects(player_body) {
-                    continue;
-                }
-                let impact = midpoint(player_body.center(), world_aabb.center());
-                let knockback_dir = if player_body.center().x >= owner_pos.x {
-                    1.0
-                } else {
-                    -1.0
-                };
-                let source_kind = if matches!(hitbox.source, ActorFaction::Boss) {
-                    HitSource::BossAttack
-                } else {
-                    HitSource::EnemyAttack
-                };
-                sfx.write(SfxMessage::Play {
-                    id: ambition_sfx::ids::PLAYER_DAMAGE,
-                    pos: impact,
-                });
-                vfx.write(VfxMessage::Impact { pos: impact });
-                vfx.write(VfxMessage::Burst {
-                    pos: impact,
-                    count: 14,
-                    speed: 300.0,
-                    color: [1.0, 0.34, 0.28, 0.88],
-                    kind: ParticleKind::Shard,
-                });
-                debris.write(DebrisBurstMessage {
-                    pos: impact,
-                    cue: PhysicsDebrisCue::Impact,
-                });
-                hit_events.write(HitEvent {
-                    volume: world_aabb,
-                    damage: hitbox.damage.max(1),
-                    source: source_kind,
-                    // Hitboxes test against every player whose AABB
-                    // intersects this swing; the producer already
-                    // picked this player as the victim, so stamp the
-                    // target so the reader doesn't fall back to
-                    // primary.
-                    target: HitTarget::Player(player_entity),
-                    mode: HitMode::Knockback,
-                    knockback: Some(HitKnockback {
-                        dir: knockback_dir,
-                        strength: hitbox.knockback_strength.max(0.0),
-                        source_pos: owner_pos,
-                        impact_pos: impact,
-                    }),
-                    ignored_targets: Vec::new(),
-                });
-                hits.hit.insert(player_entity);
             }
             // Player / Npc / Neutral hitboxes: player slash damage
             // still flows through the legacy HitEvent path

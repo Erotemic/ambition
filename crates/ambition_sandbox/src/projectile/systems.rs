@@ -138,6 +138,7 @@ pub fn update_projectiles(
             volume: p.body.aabb(),
             damage: p.body.damage,
             source: HitSource::PlayerProjectile { kind: p.body.kind },
+            attacker: primary_entity,
             target: crate::features::HitTarget::Volume,
             mode: crate::features::HitMode::Knockback,
             knockback: None,

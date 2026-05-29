@@ -71,14 +71,25 @@ pub fn apply_feature_hit_events(
         With<FeatureSimEntity>,
     >,
     // Hitstop / flash on a successful player attack apply to the
-    // primary player today. A future per-attacker version
-    // (OVERNIGHT-TODO #17.6) would carry the attacker entity on the
-    // damage event so this could attribute hitstop to the correct
-    // player; until then, `PrimaryPlayerOnly` documents the
-    // single-player-only assumption at the query.
+    // attacker that landed the hit. Iterates every player and uses
+    // `HitEvent::attacker` (stamped by emit sites that know which
+    // player attacked — projectile, hitbox owner). Events with
+    // `attacker = None` fall back to applying hitstop to the primary
+    // player (preserves current single-player behavior for slash /
+    // pogo, which haven't threaded the attacker yet).
     mut player_combat_q: Query<
-        &mut crate::player::PlayerCombatState,
-        crate::player::PrimaryPlayerOnly,
+        (
+            bevy::prelude::Entity,
+            &mut crate::player::PlayerCombatState,
+        ),
+        bevy::prelude::With<crate::player::PlayerEntity>,
+    >,
+    primary_q: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<crate::player::PlayerEntity>,
+            bevy::prelude::With<crate::player::PrimaryPlayer>,
+        ),
     >,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
@@ -446,9 +457,16 @@ pub fn apply_feature_hit_events(
         }
 
         if actor_hit_this_event || boss_hit_this_event {
-            if let Ok(mut combat) = player_combat_q.single_mut() {
-                combat.hitstop_timer = combat.hitstop_timer.max(0.06);
-                combat.flash_timer = combat.flash_timer.max(0.10);
+            let target_attacker = event.attacker.or_else(|| primary_q.single().ok());
+            if let Some(attacker) = target_attacker {
+                for (entity, mut combat) in &mut player_combat_q {
+                    if entity != attacker {
+                        continue;
+                    }
+                    combat.hitstop_timer = combat.hitstop_timer.max(0.06);
+                    combat.flash_timer = combat.flash_timer.max(0.10);
+                    break;
+                }
             }
             sfx.write(SfxMessage::Hit {
                 pos: event.volume.center(),

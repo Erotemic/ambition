@@ -1666,6 +1666,7 @@ impl EnemyRuntime {
             volume: body_damage,
             damage: self.archetype.damage_amount(),
             source: HitSource::EnemyBody,
+            attacker: None,
             // Body contact targets primary today; producer doesn't
             // know which player ran in. Reader falls back to primary.
             target: HitTarget::Volume,

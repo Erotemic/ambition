@@ -101,6 +101,7 @@ pub(super) fn player_control_phase(
             volume: orb_aabb,
             damage: 1,
             source: features::HitSource::PogoBounce,
+            attacker: None,
             target: features::HitTarget::OrbMatch,
             mode: features::HitMode::Knockback,
             knockback: None,

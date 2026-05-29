@@ -8,7 +8,7 @@
 //!
 //! This module wires those primitives into the Bevy sandbox: input
 //! sampling, collision against the active world, and trace events.
-//! Damage is routed through `DamageEvent` messages — the same path
+//! Damage is routed through `HitEvent` messages — the same path
 //! slashes, pogo-bounces, and any future tool / hazard / spell that
 //! produces a damage volume go through.
 //!

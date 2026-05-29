@@ -896,8 +896,7 @@ pub(super) fn advance_attack(
     feel: SandboxFeelTuning,
     frame_dt: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
-    damage_events: &mut MessageWriter<features::DamageEvent>,
-    pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
+    hit_events: &mut MessageWriter<features::HitEvent>,
 ) {
     let Some(mut attack_state) = attack.take() else {
         return;
@@ -956,7 +955,12 @@ pub(super) fn advance_attack(
                 attack_state.pogo_applied = true;
                 pogo_landed = true;
                 sfx.write(SfxMessage::Pogo { pos: player_pos });
-                pogo_bounces.write(features::PogoBounceEvent::new(orb_aabb, 1));
+                hit_events.write(features::HitEvent {
+                    volume: orb_aabb,
+                    damage: 1,
+                    source: features::HitSource::PogoBounce,
+                    ignored_targets: Vec::new(),
+                });
             }
         }
         let slash_damage = clusters.offense.damage_multiplier.max(1);
@@ -966,10 +970,10 @@ pub(super) fn advance_attack(
             clusters.kinematics.facing * 300.0
         };
         if first_active_frame {
-            damage_events.write(features::DamageEvent {
+            hit_events.write(features::HitEvent {
                 volume: attack,
                 damage: slash_damage,
-                source: features::DamageSource::PlayerSlash { knock_x },
+                source: features::HitSource::PlayerSlash { knock_x },
                 ignored_targets: attack_state.hit_targets.clone(),
             });
         }

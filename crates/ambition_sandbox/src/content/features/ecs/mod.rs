@@ -93,8 +93,8 @@ pub use brain_effects::{
 pub use breakables::update_ecs_breakables;
 pub use chests::open_ecs_chests;
 pub use damage::{
-    apply_feature_damage_events, ecs_damage_event_hits_actor, ecs_damage_event_hits_boss,
-    ecs_damage_event_hits_breakable,
+    apply_feature_hit_events, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
+    ecs_hit_event_hits_breakable,
 };
 pub use encounter_rewards::{
     clear_encounter_reward_ecs, sync_boss_reward_chests_ecs, sync_encounter_reward_chests_ecs,

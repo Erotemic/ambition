@@ -157,22 +157,6 @@ impl GameplayEffect {
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ResetRoomFeaturesEvent;
 
-/// Pogo hit against an ECS-owned breakable/rebound target.
-///
-/// The engine reports the orb AABB immediately during player motion; the ECS
-/// breakable damage system resolves the actual target after the main sim tick.
-#[derive(Message, Clone, Copy, Debug, PartialEq)]
-pub struct PogoBounceEvent {
-    pub orb_aabb: ae::Aabb,
-    pub damage: i32,
-}
-
-impl PogoBounceEvent {
-    pub fn new(orb_aabb: ae::Aabb, damage: i32) -> Self {
-        Self { orb_aabb, damage }
-    }
-}
-
 /// Runtime HUD banner state owned directly by Bevy ECS.
 ///
 /// Gameplay systems either mutate this resource directly or emit
@@ -230,16 +214,19 @@ pub struct NpcDialogueRequest {
     pub dialogue_id: String,
 }
 
-/// Source of a damage event. Lets per-target damage logic branch on
-/// the originator (slash applies upward + horizontal knockback;
-/// projectile doesn't push the target around) and lets the trace /
-/// HUD label hits.
+/// Source of a hit event. Lets per-target damage logic branch on the
+/// originator (slash applies upward + horizontal knockback; projectile
+/// doesn't push the target around; pogo bounces target an exact orb
+/// AABB rather than a broadcast volume) and lets the trace / HUD label
+/// hits.
 ///
-/// New damage sources should add a variant here rather than building a
-/// parallel `apply_*_attack` path. The unified path is `DamageEvent` consumed
-/// by ECS feature-damage systems.
+/// New attack sources should add a variant here rather than building a
+/// parallel `apply_*_attack` path. The canonical path is `HitEvent`
+/// consumed by ECS feature-damage systems. `PlayerDamageEvent` still
+/// covers the *->player direction; folding that into `HitEvent` is the
+/// next planned consolidation.
 #[derive(Clone, Debug, PartialEq)]
-pub enum DamageSource {
+pub enum HitSource {
     /// Player melee slash. `knock_x` is the horizontal impulse to
     /// add to a hit enemy's velocity (sign tied to player facing).
     /// Slashes also nudge enemies upward.
@@ -247,22 +234,31 @@ pub enum DamageSource {
     /// Player projectile (Fireball / Hadouken). No knockback today;
     /// the projectile's own velocity carries the visual feedback.
     PlayerProjectile { kind: crate::projectile::ProjectileKind },
-    /// Pogo bounce on a breakable orb. Kept here so future damage-source
-    /// consumers see the full set in one place; pogo-orb resolution itself
-    /// uses [`PogoBounceEvent`].
+    /// Pogo bounce on a breakable orb. The carrying `HitEvent`'s
+    /// `volume` field is the orb's authoritative AABB; the consumer
+    /// matches it against `pogo_refresh` breakables via
+    /// `approximately_same_aabb` rather than the broadcast
+    /// `strict_intersects` used by every other source. Actor / boss
+    /// targets are skipped under this source.
     PogoBounce,
 }
 
-/// One damage event in world space: an AABB volume to test against every
-/// damageable feature, the amount to apply, and the source. Producers emit
-/// these as Bevy messages; ECS feature-damage systems resolve them against
-/// actor, boss, and breakable components.
+/// One hit event in world space: an AABB volume, the amount of damage
+/// to apply, and the source. Producers emit these as Bevy messages; ECS
+/// feature-damage systems resolve them against actor, boss, and
+/// breakable components.
+///
+/// Source-specific resolution:
+/// - `PlayerSlash` / `PlayerProjectile`: broadcast match — every
+///   feature whose AABB strict-intersects `volume` takes a hit.
+/// - `PogoBounce`: orb-exact match — only the breakable whose AABB
+///   approximately equals `volume` is hit; actors / bosses are skipped.
 #[derive(Message, Clone, Debug)]
-pub struct DamageEvent {
+pub struct HitEvent {
     pub volume: ae::Aabb,
     pub damage: i32,
-    pub source: DamageSource,
+    pub source: HitSource,
     /// Target keys that have already been hit by this one-hit-per-target
-    /// source. Empty for ordinary one-frame projectiles / hazards.
+    /// source. Empty for ordinary one-frame projectiles / hazards / pogos.
     pub ignored_targets: Vec<String>,
 }

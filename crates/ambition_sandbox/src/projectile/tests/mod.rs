@@ -17,7 +17,7 @@ use super::state::PlayerProjectileState;
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
 use crate::features::{
-    ActorHealth, ActorIdentity, DamageEvent, GameplayBanner, GameplayEffect, PogoBounceEvent,
+    ActorHealth, ActorIdentity, GameplayBanner, GameplayEffect, HitEvent,
 };
 use crate::input::ControlFrame;
 use crate::presentation::fx::VfxMessage;
@@ -70,14 +70,13 @@ fn min_app() -> App {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_message::<DamageEvent>();
-    app.add_message::<PogoBounceEvent>();
+    app.add_message::<HitEvent>();
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
             update_projectiles,
-            crate::features::apply_feature_damage_events,
+            crate::features::apply_feature_hit_events,
         )
             .chain(),
     );

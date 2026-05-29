@@ -104,7 +104,7 @@ impl Hitbox {
 ///
 /// Enemy / Boss hitboxes hit the player and emit `PlayerDamageEvent`.
 /// Player / Npc / Neutral hitboxes are routed through other paths
-/// (player slash still flows via `DamageEvent`; this system is the
+/// (player slash still flows via `HitEvent`; this system is the
 /// catch-all for hostile melee).
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
@@ -200,7 +200,7 @@ pub fn apply_hitbox_damage(
                 hits.hit.insert(player_entity);
             }
             // Player / Npc / Neutral hitboxes: player slash damage
-            // still flows through the legacy DamageEvent path
+            // still flows through the legacy HitEvent path
             // (see `attack_advance_system`); peaceful NPC / neutral
             // factions don't spawn hitboxes today. This branch is a
             // no-op so future migrations can add cases without a

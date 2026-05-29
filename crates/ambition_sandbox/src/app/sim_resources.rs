@@ -41,8 +41,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_message::<PlayerDiedMessage>()
             .add_message::<crate::features::GameplayEffect>()
             .add_message::<crate::features::PlayerDamageEvent>()
-            .add_message::<crate::features::DamageEvent>()
-            .add_message::<crate::features::PogoBounceEvent>()
+            .add_message::<crate::features::HitEvent>()
             .add_message::<crate::features::ResetRoomFeaturesEvent>()
             .add_message::<crate::features::GameplayBannerRequested>()
             .add_message::<crate::player::PlayerHealRequested>()
@@ -144,7 +143,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(crate::presentation::cutscene::CutsceneAdvanceRequest::default())
             .insert_resource(crate::presentation::cutscene::RoomCutsceneBindings::defaults())
             // Combat-banter registry — story-content lines for the
-            // `apply_feature_damage_events` hit handler. Boss barks are
+            // `apply_feature_hit_events` hit handler. Boss barks are
             // installed inline; IntroPlugin adds the intro raiders' lines
             // via a startup system.
             .insert_resource({

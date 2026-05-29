@@ -9,8 +9,8 @@ use super::diagnostics::log_press_diagnostics;
 use super::state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent};
 use crate::audio::SfxMessage;
 use crate::features::{
-    ActorCombatState, ActorDisposition, BossFeature, BreakableFeature, DamageEvent, DamageSource,
-    FeatureAabb, FeatureId, FeatureSimEntity,
+    ActorCombatState, ActorDisposition, BossFeature, BreakableFeature, FeatureAabb, FeatureId,
+    FeatureSimEntity, HitEvent, HitSource,
 };
 use crate::presentation::fx::VfxMessage;
 use crate::trace::GameplayTraceBuffer;
@@ -46,7 +46,7 @@ pub fn update_projectiles(
     user_settings: Res<crate::persistence::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
-    mut feature_damage: MessageWriter<DamageEvent>,
+    mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
     ecs_actors: Query<
         (
@@ -112,19 +112,18 @@ pub fn update_projectiles(
         // future AABB happens to brush in a later frame. The projectile
         // also expires on the first hit (no piercing today), so one
         // shot = one damage event = one damage application.
-        let damage_event = DamageEvent {
+        let hit_event = HitEvent {
             volume: p.body.aabb(),
             damage: p.body.damage,
-            source: DamageSource::PlayerProjectile { kind: p.body.kind },
+            source: HitSource::PlayerProjectile { kind: p.body.kind },
             ignored_targets: Vec::new(),
         };
         let ecs_breakable_hit =
-            crate::features::ecs_damage_event_hits_breakable(&damage_event, &ecs_breakables);
-        let ecs_actor_hit =
-            crate::features::ecs_damage_event_hits_actor(&damage_event, &ecs_actors);
-        let ecs_boss_hit = crate::features::ecs_damage_event_hits_boss(&damage_event, &ecs_bosses);
+            crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables);
+        let ecs_actor_hit = crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors);
+        let ecs_boss_hit = crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
         if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
-            feature_damage.write(damage_event);
+            feature_damage.write(hit_event);
             sfx.write(SfxMessage::Hit { pos: p.body.pos });
             events.push(ProjectileTraceEvent::Hit {
                 kind: p.body.kind,

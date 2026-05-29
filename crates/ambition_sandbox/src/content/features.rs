@@ -90,12 +90,12 @@ pub use components::{
     RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::{
-    apply_feature_damage_events, apply_gameplay_banner_requests, apply_hitbox_damage,
+    apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
     clear_encounter_reward_ecs, collect_ecs_pickups, derive_boss_sprite_metrics,
     despawn_encounter_mobs, ecs_boss_anim_state, ecs_boss_name, ecs_breakable_state,
-    ecs_chest_opened, ecs_damage_event_hits_actor, ecs_damage_event_hits_boss,
-    ecs_damage_event_hits_breakable, ecs_enemy_anim_state, ecs_enemy_name,
-    ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name, interact_ecs_actors_and_switches,
+    ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override,
+    ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
+    ecs_npc_anim_state, ecs_npc_name, interact_ecs_actors_and_switches,
     open_ecs_chests, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
     spawn_enemy_projectiles_from_brain_actions, spawn_gnu_apple_rain_from_special_messages,
@@ -113,9 +113,9 @@ pub use ecs::{
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{
-    DamageEvent, DamageSource, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,
-    GameplayBannerRequested, GameplayEffect, NpcDialogueRequest, PlayerDamageEvent,
-    PlayerDamageMode, PlayerDamageSource, PogoBounceEvent, ResetRoomFeaturesEvent,
+    FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner, GameplayBannerRequested,
+    GameplayEffect, HitEvent, HitSource, NpcDialogueRequest, PlayerDamageEvent, PlayerDamageMode,
+    PlayerDamageSource, ResetRoomFeaturesEvent,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::{NpcRuntime, NPC_PATROL_SPEED};

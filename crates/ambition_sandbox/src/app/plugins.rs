@@ -285,7 +285,7 @@ fn register_combat_systems(app: &mut App) {
             // advances lifetimes and cleans expired entities.
             crate::features::apply_hitbox_damage.run_if(gameplay_allowed),
             crate::features::tick_and_despawn_hitboxes,
-            crate::features::apply_feature_damage_events,
+            crate::features::apply_feature_hit_events,
         )
             .chain()
             .in_set(SandboxSet::Combat),

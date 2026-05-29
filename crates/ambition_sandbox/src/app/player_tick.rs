@@ -134,7 +134,7 @@ pub fn player_control_system(
         frame_dt,
         &queues.feature_ecs_overlay,
         &mut queues.reset_room_features,
-        &mut queues.pogo_bounces,
+        &mut queues.hit_events,
         &mut anim,
         &mut combat,
         &mut interaction,

@@ -12,8 +12,7 @@ use bevy::prelude::*;
 use crate::audio::SfxMessage;
 use crate::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use crate::features::{
-    self, DamageEvent as FeatureDamageEvent, FeatureEcsWorldOverlay, GameplayBanner,
-    PlayerDamageEvent, PogoBounceEvent,
+    self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent, PlayerDamageEvent,
 };
 use crate::input::ControlFrame;
 use crate::presentation::fx::VfxMessage;
@@ -370,8 +369,7 @@ pub fn attack_advance_system(
         With<crate::player::PlayerEntity>,
     >,
     mut brain_actions: MessageReader<crate::brain::ActorActionMessage>,
-    mut damage_events: MessageWriter<FeatureDamageEvent>,
-    mut pogo_bounces: MessageWriter<PogoBounceEvent>,
+    mut hit_events: MessageWriter<FeatureHitEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
 ) {
@@ -423,8 +421,7 @@ pub fn attack_advance_system(
         feel,
         frame_dt,
         &feature_ecs_overlay,
-        &mut damage_events,
-        &mut pogo_bounces,
+        &mut hit_events,
     );
 }
 

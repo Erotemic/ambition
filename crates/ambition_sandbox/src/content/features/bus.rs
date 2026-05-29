@@ -56,7 +56,7 @@ pub fn apply_switch_effects(
 /// Boss damage events — drain the message queue.
 ///
 /// After OVERNIGHT-TODO #8, the actual damage application happens
-/// inline inside [`apply_feature_damage_events`] (see
+/// inline inside [`apply_feature_hit_events`] (see
 /// `content/features/ecs/damage.rs`), which calls `record_boss_damage`
 /// directly so the engine `BossEncounterState` is the source of truth
 /// for HP. This reader stays as a typed seam: future tracing /

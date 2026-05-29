@@ -1,11 +1,14 @@
-//! Damage event application for ECS-owned feature entities.
+//! Hit event application for ECS-owned feature entities.
 //!
-//! Drains [`DamageEvent`] and [`PogoBounceEvent`] messages and applies them to
-//! actors (peaceful + hostile), bosses, and breakables — including the side
-//! effects (banners, VFX, SFX, debris, gameplay effects, hit-stop) those hits
-//! produce. Read-only `ecs_damage_event_hits_*` predicates live here too so the
-//! attack/projectile systems can pre-check whether a queued damage event will
-//! actually land before kicking off cues.
+//! Drains [`HitEvent`] messages and applies them to actors (peaceful +
+//! hostile), bosses, and breakables — including the side effects
+//! (banners, VFX, SFX, debris, gameplay effects, hit-stop) those hits
+//! produce. Pogo-orb resolution lives in this same drain loop and
+//! branches on `HitSource::PogoBounce` to do orb-AABB matching rather
+//! than broadcast volume overlap. Read-only `ecs_hit_event_hits_*`
+//! predicates live here too so the attack / projectile systems can
+//! pre-check whether a queued hit will actually land before kicking off
+//! cues.
 
 use crate::engine_core::AabbExt;
 use bevy::prelude::{Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With};
@@ -17,8 +20,8 @@ use super::super::{
 use super::{
     ae, sync_actor_components_from_runtime, ActorCombatState, ActorCooldowns, ActorDisposition,
     ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BossFeature, BreakableFeature,
-    DamageEvent, DamageSource, EnemyArchetype, FeatureAabb, FeatureId, FeatureName,
-    FeatureSimEntity, GameplayBanner, GameplayEffect, PogoBounceEvent, RespawnTimer,
+    EnemyArchetype, FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
+    GameplayEffect, HitEvent, HitSource, RespawnTimer,
 };
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
@@ -27,11 +30,10 @@ use crate::presentation::cutscene::CutsceneTriggerQueue;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
-/// Apply typed slash/projectile/pogo damage messages to ECS feature targets.
-pub fn apply_feature_damage_events(
+/// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
+pub fn apply_feature_hit_events(
     mut commands: Commands,
-    mut damage_events: MessageReader<DamageEvent>,
-    mut pogo_bounces: MessageReader<PogoBounceEvent>,
+    mut hit_events: MessageReader<HitEvent>,
     mut banner: ResMut<GameplayBanner>,
     combat_banter: Option<Res<crate::content::banter::CombatBanterRegistry>>,
     mut breakables: Query<
@@ -100,7 +102,29 @@ pub fn apply_feature_damage_events(
     mut music_request: Option<ResMut<BossEncounterMusicRequest>>,
     mut cutscene_queue: Option<ResMut<CutsceneTriggerQueue>>,
 ) {
-    for event in damage_events.read().cloned() {
+    for event in hit_events.read().cloned() {
+        // PogoBounce hits target only the breakable whose AABB
+        // approximately matches the orb volume the engine reported.
+        // Skip the actor / boss / broadcast-breakable scans entirely;
+        // jump straight to the orb-match loop at the bottom.
+        if matches!(event.source, HitSource::PogoBounce) {
+            for (entity, _id, name, aabb, mut feature) in &mut breakables {
+                if feature.broken() || !feature.breakable.pogo_refresh {
+                    continue;
+                }
+                if !approximately_same_aabb(aabb.aabb(), event.volume) {
+                    continue;
+                }
+                let broke = feature.breakable.apply_damage(event.damage.max(1));
+                vfx.write(VfxMessage::Impact { pos: aabb.center });
+                if broke {
+                    begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
+                    banner.show(format!("shattered {}", name.0.as_str()), 2.6);
+                    emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
+                }
+            }
+            continue;
+        }
         let mut actor_hit_this_event = false;
         for (
             actor_entity,
@@ -200,7 +224,7 @@ pub fn apply_feature_damage_events(
                             }
                         }
                     }
-                    if let DamageSource::PlayerSlash { knock_x } = &event.source {
+                    if let HitSource::PlayerSlash { knock_x } = &event.source {
                         enemy.vel.x += *knock_x;
                         enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
                     }
@@ -456,33 +480,13 @@ pub fn apply_feature_damage_events(
             }
         }
     }
-
-    for event in pogo_bounces.read() {
-        let orb_aabb = event.orb_aabb;
-        let damage = event.damage;
-        for (entity, _id, name, aabb, mut feature) in &mut breakables {
-            if feature.broken() || !feature.breakable.pogo_refresh {
-                continue;
-            }
-            if !approximately_same_aabb(aabb.aabb(), orb_aabb) {
-                continue;
-            }
-            let broke = feature.breakable.apply_damage(damage.max(1));
-            vfx.write(VfxMessage::Impact { pos: aabb.center });
-            if broke {
-                begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
-                banner.show(format!("shattered {}", name.0.as_str()), 2.6);
-                emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
-            }
-        }
-    }
 }
 
 /// Read-only hit test used by systems that need immediate projectile / attack
 /// feedback while damage application is still drained through
 /// typed Bevy messages.
-pub fn ecs_damage_event_hits_breakable(
-    event: &DamageEvent,
+pub fn ecs_hit_event_hits_breakable(
+    event: &HitEvent,
     breakables: &Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
 ) -> bool {
     breakables.iter().any(|(id, aabb, feature)| {
@@ -495,8 +499,8 @@ pub fn ecs_damage_event_hits_breakable(
     })
 }
 
-pub fn ecs_damage_event_hits_actor(
-    event: &DamageEvent,
+pub fn ecs_hit_event_hits_actor(
+    event: &HitEvent,
     actors: &Query<
         (
             &FeatureId,
@@ -518,8 +522,8 @@ pub fn ecs_damage_event_hits_actor(
     })
 }
 
-pub fn ecs_damage_event_hits_boss(
-    event: &DamageEvent,
+pub fn ecs_hit_event_hits_boss(
+    event: &HitEvent,
     bosses: &Query<
         (
             &FeatureId,
@@ -531,7 +535,7 @@ pub fn ecs_damage_event_hits_boss(
     >,
 ) -> bool {
     // Check against `damageable_volumes` so the hit-check matches
-    // what `apply_feature_damage_events` will actually apply damage
+    // what `apply_feature_hit_events` will actually apply damage
     // to. Multi-part bosses (e.g. GNU-ton) have a gross
     // `FeatureAabb` covering the whole creature but only the head
     // is actually damageable — checking against the gross AABB
@@ -557,7 +561,7 @@ pub fn ecs_damage_event_hits_boss(
 
 /// Schedule a broken breakable for respawn if its policy allows.
 ///
-/// Called from both `apply_feature_damage_events` (typed damage path) and
+/// Called from both `apply_feature_hit_events` (typed damage path) and
 /// `update_ecs_breakables` (stand-to-break path), so it lives here as a
 /// `pub(super)` helper rather than duplicating the policy check.
 pub(super) fn begin_ecs_breakable_respawn(

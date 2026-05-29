@@ -13,7 +13,7 @@
 //! - reload-friendly: a future hot-reload story-content loader can
 //!   replace the resource at runtime,
 //! - testable: insert a synthetic registry in unit tests of
-//!   `apply_feature_damage_events` instead of relying on whatever
+//!   `apply_feature_hit_events` instead of relying on whatever
 //!   the default plugin registered.
 //!
 //! Pattern: when a named enemy is hit, the combat system calls

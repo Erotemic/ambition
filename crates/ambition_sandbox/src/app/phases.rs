@@ -46,7 +46,7 @@ pub(super) fn player_control_phase(
     frame_dt: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
-    pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
+    hit_events: &mut MessageWriter<features::HitEvent>,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
@@ -97,7 +97,12 @@ pub(super) fn player_control_phase(
     // breakables flagged `pogo_refresh` and routes hit/break events
     // through the standard feature pipeline.
     for &orb_aabb in &control_events.pogo_hits {
-        pogo_bounces.write(features::PogoBounceEvent::new(orb_aabb, 1));
+        hit_events.write(features::HitEvent {
+            volume: orb_aabb,
+            damage: 1,
+            source: features::HitSource::PogoBounce,
+            ignored_targets: Vec::new(),
+        });
     }
     handle_player_events(
         sfx_writer,

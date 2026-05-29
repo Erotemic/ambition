@@ -81,7 +81,10 @@ impl<'w> CombatRoomReset<'w> {
 #[derive(SystemParam)]
 pub struct SandboxQueues<'w> {
     pub gameplay_effects: MessageWriter<'w, crate::features::GameplayEffect>,
-    pub pogo_bounces: MessageWriter<'w, crate::features::PogoBounceEvent>,
+    /// Single canonical channel for attacker-direction hits (player
+    /// slash, player projectile, pogo bounce). Replaced the prior
+    /// split `DamageEvent` + `PogoBounceEvent` writers.
+    pub hit_events: MessageWriter<'w, crate::features::HitEvent>,
     pub reset_room_features: MessageWriter<'w, crate::features::ResetRoomFeaturesEvent>,
     pub feature_ecs_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
     pub dialogue: ResMut<'w, crate::dialog::DialogState>,

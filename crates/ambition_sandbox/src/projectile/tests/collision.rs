@@ -12,9 +12,9 @@ use crate::projectile::spec::ProjectileKind;
 use super::super::state::{PlayerProjectile, PlayerProjectileState};
 use super::super::systems::update_projectiles;
 use super::{
-    advance_time, min_app, spawn_player, ActorHealth, ActorIdentity, ControlFrame, DamageEvent,
-    DebrisBurstMessage, GameWorld, GameplayBanner, GameplayEffect, GameplayTraceBuffer,
-    PogoBounceEvent, SfxMessage, VfxMessage,
+    advance_time, min_app, spawn_player, ActorHealth, ActorIdentity, ControlFrame,
+    DebrisBurstMessage, GameWorld, GameplayBanner, GameplayEffect, GameplayTraceBuffer, HitEvent,
+    SfxMessage, VfxMessage,
 };
 
 /// Pre-spawn a fireball directly into the body list and place it
@@ -109,14 +109,13 @@ fn fireball_bounces_off_floor_in_system() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_message::<DamageEvent>();
-    app.add_message::<PogoBounceEvent>();
+    app.add_message::<HitEvent>();
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
             update_projectiles,
-            crate::features::apply_feature_damage_events,
+            crate::features::apply_feature_hit_events,
         )
             .chain(),
     );
@@ -186,14 +185,13 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_message::<DamageEvent>();
-    app.add_message::<PogoBounceEvent>();
+    app.add_message::<HitEvent>();
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
             update_projectiles,
-            crate::features::apply_feature_damage_events,
+            crate::features::apply_feature_hit_events,
         )
             .chain(),
     );
@@ -264,14 +262,13 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_message::<DamageEvent>();
-    app.add_message::<PogoBounceEvent>();
+    app.add_message::<HitEvent>();
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
             update_projectiles,
-            crate::features::apply_feature_damage_events,
+            crate::features::apply_feature_hit_events,
         )
             .chain(),
     );
@@ -339,14 +336,13 @@ fn hadouken_expires_on_solid_in_system() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_message::<DamageEvent>();
-    app.add_message::<PogoBounceEvent>();
+    app.add_message::<HitEvent>();
     app.add_systems(
         Update,
         (
             crate::player::sync_local_player_input_frame,
             update_projectiles,
-            crate::features::apply_feature_damage_events,
+            crate::features::apply_feature_hit_events,
         )
             .chain(),
     );

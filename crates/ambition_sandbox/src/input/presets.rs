@@ -1,5 +1,16 @@
 use super::*;
 
+/// Minimum magnitude on a stick axis before a
+/// `GamepadControlDirection` binding registers as "pressed." Suppresses
+/// spring-return overshoot — releasing the left stick from a deep
+/// downward push bounces briefly positive on the Y axis; without this
+/// threshold leafwing fires a `MoveUp` press the same frame and any
+/// downstream double-tap-down → MorphBall flow exits the moment it
+/// entered. 0.5 is comfortably past the typical overshoot (~0.1) while
+/// still triggering on a deliberate stick push at half-deflection.
+#[cfg(feature = "input")]
+const STICK_DIRECTION_THRESHOLD: f32 = 0.5;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PresetId {
     ArrowsZxc,
@@ -205,14 +216,35 @@ impl KeyboardPreset {
             // the DPad and a stick-direction cross past the deadzone
             // generate the same press edge, so DPad → MorphBall feels
             // the same as Down-Arrow → MorphBall.
+            //
+            // `STICK_DIRECTION_THRESHOLD` keeps spring-return overshoot
+            // from registering as a press in the *opposite* direction.
+            // After pushing the left stick down and releasing, real
+            // hardware briefly snaps positive on the Y axis; without a
+            // threshold leafwing's `LEFT_UP` direction (which defaults
+            // to `threshold = 0.0`) fires a `MoveUp` press edge, and
+            // that edge exits MorphBall the same frame the player
+            // entered it.
             .with(SandboxAction::MoveLeft, GamepadButton::DPadLeft)
-            .with(SandboxAction::MoveLeft, GamepadControlDirection::LEFT_LEFT)
+            .with(
+                SandboxAction::MoveLeft,
+                GamepadControlDirection::LEFT_LEFT.threshold(STICK_DIRECTION_THRESHOLD),
+            )
             .with(SandboxAction::MoveRight, GamepadButton::DPadRight)
-            .with(SandboxAction::MoveRight, GamepadControlDirection::LEFT_RIGHT)
+            .with(
+                SandboxAction::MoveRight,
+                GamepadControlDirection::LEFT_RIGHT.threshold(STICK_DIRECTION_THRESHOLD),
+            )
             .with(SandboxAction::MoveUp, GamepadButton::DPadUp)
-            .with(SandboxAction::MoveUp, GamepadControlDirection::LEFT_UP)
+            .with(
+                SandboxAction::MoveUp,
+                GamepadControlDirection::LEFT_UP.threshold(STICK_DIRECTION_THRESHOLD),
+            )
             .with(SandboxAction::MoveDown, GamepadButton::DPadDown)
-            .with(SandboxAction::MoveDown, GamepadControlDirection::LEFT_DOWN)
+            .with(
+                SandboxAction::MoveDown,
+                GamepadControlDirection::LEFT_DOWN.threshold(STICK_DIRECTION_THRESHOLD),
+            )
             .with(SandboxAction::Jump, self.actions.jump)
             .with(SandboxAction::Jump, GamepadButton::South)
             .with(SandboxAction::Attack, self.actions.attack)

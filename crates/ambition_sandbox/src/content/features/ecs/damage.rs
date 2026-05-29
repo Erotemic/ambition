@@ -241,63 +241,19 @@ pub fn apply_feature_hit_events(
                         enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
                     }
                     let damage_amount = event.damage.max(1);
-                    // Fused pirate-on-shark routes through apply_damage_at
-                    // so hits on the top half damage the rider and hits
-                    // on the bottom half damage the shark. A rider /
-                    // shark death triggers the dismount morph (actor
-                    // stays alive in its new form — no death banner).
-                    let (killed, archetype_changed) = if matches!(
-                        enemy.archetype,
-                        EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
-                    ) {
-                        match enemy.apply_damage_at(event.volume, damage_amount) {
-                            super::super::enemies::EnemyDamageOutcome::Damaged {
-                                killed,
-                                archetype_changed,
-                            } => (killed, archetype_changed),
-                            super::super::enemies::EnemyDamageOutcome::NoOp => (false, false),
-                        }
-                    } else if enemy.archetype == EnemyArchetype::InfiniteSandbag {
-                        (false, false)
+                    // Composite "X on Shark" enemies are no longer a
+                    // single fused archetype — spawn fans them into
+                    // a mount + rider pair (see
+                    // `super::mount`). Each entity routes damage on
+                    // its own AABB; no special routing here.
+                    let killed = if enemy.archetype == EnemyArchetype::InfiniteSandbag {
+                        false
                     } else {
-                        (enemy.health.damage(damage_amount), false)
+                        enemy.health.damage(damage_amount)
                     };
                     let impact = midpoint(event.volume.center(), enemy.pos);
                     vfx.write(VfxMessage::Impact { pos: impact });
                     actor_hit_this_event = true;
-                    if archetype_changed {
-                        // Dismount cue — small banner so the player
-                        // sees the morph happened. Avoid death banner.
-                        banner.show(format!("{} dismounted", enemy.name), 1.8);
-                        // Clear the visual binding so the
-                        // sprite-resolver picks up the new
-                        // archetype's sheet on the next
-                        // `upgrade_enemy_sprites` pass. Without
-                        // this, the sprite stays whatever it was
-                        // bound to at spawn (e.g. a Burning Flying
-                        // Shark after the shark died into a pirate)
-                        // and you get a small pirate hitbox under a
-                        // big shark sprite.
-                        // Rebuild Brain + ActionSet for the new
-                        // archetype. At spawn the actor was wired up
-                        // as a PirateOnShark (Skirmisher brain, Bolt
-                        // ranged action); the dismount changes
-                        // `enemy.archetype` to BurningFlyingShark
-                        // (MeleeBrute / Bite) on rider death or to a
-                        // grounded pirate archetype on shark death.
-                        // Without re-deriving these the actor keeps
-                        // orbit-and-fire behavior with a weapon it no
-                        // longer has — a riderless shark would still
-                        // try to shoot bolts forever. Mirrors the
-                        // peaceful→hostile flip at lines 199-205
-                        // above.
-                        let new_brain = super::spawn::enemy_default_brain(enemy);
-                        let new_action_set = super::spawn::enemy_default_action_set(enemy);
-                        commands
-                            .entity(actor_entity)
-                            .remove::<crate::presentation::rendering::BoundFeatureKind>()
-                            .insert((new_brain, new_action_set));
-                    }
                     if killed {
                         enemy.alive = false;
                         if enemy.archetype == EnemyArchetype::FiniteSandbag {

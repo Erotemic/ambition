@@ -223,3 +223,227 @@ pub fn is_composite_spawn(archetype: EnemyArchetype) -> bool {
         EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::FeatureAabb;
+    use super::*;
+    use crate::content::features::enemies::EnemyRuntime;
+    use bevy::prelude::*;
+
+    fn hostile(id: &str, archetype_brain: &str, pos: ae::Vec2, size: ae::Vec2) -> ActorRuntime {
+        let aabb = ae::Aabb::new(pos, size * 0.5);
+        let mut enemy = EnemyRuntime::new(
+            id,
+            id,
+            aabb,
+            crate::actor::EnemyBrain::Custom(archetype_brain.into()),
+            &[],
+        );
+        enemy.size = size;
+        enemy.pos = pos;
+        enemy.alive = true;
+        ActorRuntime::Hostile(enemy)
+    }
+
+    fn build_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app
+    }
+
+    /// Sync pose snaps rider.pos to mount.pos + Mountable.rider_offset
+    /// and zeroes the rider's velocity each tick.
+    #[test]
+    fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
+        let mut app = build_app();
+        app.add_systems(Update, sync_riders_to_mounts);
+
+        let mount_pos = ae::Vec2::new(100.0, 50.0);
+        let mount_size = ae::Vec2::new(126.0, 52.0);
+        let mount = app
+            .world_mut()
+            .spawn((
+                hostile("mount", "burning_flying_shark", mount_pos, mount_size),
+                FeatureAabb::from_center_size(mount_pos, mount_size),
+                Mountable {
+                    rider_offset: ae::Vec2::new(0.0, -40.0),
+                },
+                MountSlot { rider: None },
+            ))
+            .id();
+
+        // Rider's authored position is something arbitrary; the sync
+        // system should snap it to the mount's pos + offset on the
+        // first tick.
+        let rider_start = ae::Vec2::new(999.0, 999.0);
+        let rider_size = ae::Vec2::new(44.0, 78.0);
+        let rider = app
+            .world_mut()
+            .spawn((
+                hostile("rider", "pirate_raider", rider_start, rider_size),
+                FeatureAabb::from_center_size(rider_start, rider_size),
+                RidingOn { mount },
+            ))
+            .id();
+        // Pre-poison rider velocity so the assertion that the sync
+        // zeroes it isn't a no-op against the default.
+        if let Some(mut actor) = app.world_mut().entity_mut(rider).get_mut::<ActorRuntime>() {
+            if let ActorRuntime::Hostile(r) = &mut *actor {
+                r.vel = ae::Vec2::new(500.0, -200.0);
+                r.gravity_scale = 1.0;
+            }
+        }
+
+        app.update();
+
+        let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
+        let ActorRuntime::Hostile(r) = actor else {
+            panic!("rider should be Hostile")
+        };
+        assert_eq!(
+            r.pos,
+            ae::Vec2::new(100.0, 10.0),
+            "rider should snap to mount.pos + offset",
+        );
+        assert_eq!(r.vel, ae::Vec2::ZERO, "rider vel zeroed by sync");
+        assert_eq!(r.gravity_scale, 0.0, "rider gravity zeroed by sync");
+
+        let aabb = app.world().entity(rider).get::<FeatureAabb>().unwrap();
+        assert_eq!(aabb.center, r.pos, "FeatureAabb mirror updated to synced pos");
+    }
+
+    /// Mount's death releases the rider — RidingOn is removed,
+    /// gravity flips on, and the rider's brain is re-derived for its
+    /// solo archetype (which for a PirateRaider is the Smash brain).
+    #[test]
+    fn dead_mount_releases_rider_and_restores_solo_brain() {
+        let mut app = build_app();
+        app.add_systems(Update, enforce_mount_rider_link);
+
+        // Spawn a mount entity flagged dead.
+        let mount_pos = ae::Vec2::new(0.0, 0.0);
+        let mount_size = ae::Vec2::new(126.0, 52.0);
+        let mut mount_actor = hostile("mount", "burning_flying_shark", mount_pos, mount_size);
+        if let ActorRuntime::Hostile(m) = &mut mount_actor {
+            m.alive = false;
+        }
+        let mount = app
+            .world_mut()
+            .spawn((
+                mount_actor,
+                Mountable {
+                    rider_offset: ae::Vec2::new(0.0, -40.0),
+                },
+                MountSlot { rider: None },
+            ))
+            .id();
+
+        // Live rider linked to the dead mount.
+        let rider_pos = ae::Vec2::new(0.0, -40.0);
+        let rider_size = ae::Vec2::new(44.0, 78.0);
+        let rider = app
+            .world_mut()
+            .spawn((
+                hostile("rider", "pirate_raider", rider_pos, rider_size),
+                FeatureAabb::from_center_size(rider_pos, rider_size),
+                RidingOn { mount },
+            ))
+            .id();
+        // Point MountSlot at the rider, mirroring what the spawn
+        // helper would do — so the rider-dies path doesn't trigger
+        // here (only mount-died should).
+        app.world_mut()
+            .entity_mut(mount)
+            .insert(MountSlot {
+                rider: Some(rider),
+            });
+
+        app.update();
+
+        // RidingOn should be removed.
+        let still_riding = app.world().entity(rider).get::<RidingOn>();
+        assert!(
+            still_riding.is_none(),
+            "RidingOn should be removed when mount dies",
+        );
+        // Gravity should flip on for a non-aerial archetype.
+        let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
+        let ActorRuntime::Hostile(r) = actor else {
+            panic!()
+        };
+        assert_eq!(r.gravity_scale, 1.0, "PirateRaider rider gets gravity 1.0");
+        // Brain should be the solo PirateRaider's (Smash).
+        let brain = app.world().entity(rider).get::<crate::brain::Brain>().unwrap();
+        assert!(
+            matches!(
+                brain,
+                crate::brain::Brain::StateMachine(
+                    crate::brain::StateMachineCfg::Smash { .. }
+                ),
+            ),
+            "after dismount the rider's solo brain (Smash) should be restored",
+        );
+        // MountSlot should be cleared back-reference (the mount is
+        // dead so it'll be despawned by the normal kill path; here
+        // we just verify the back-ref unhook).
+        let slot = app.world().entity(mount).get::<MountSlot>().unwrap();
+        assert!(
+            slot.rider.is_none(),
+            "MountSlot.rider should be cleared when mount dies",
+        );
+    }
+
+    /// Rider's death clears the mount's MountSlot.rider back-
+    /// reference; the mount itself keeps running unchanged.
+    #[test]
+    fn dead_rider_clears_mount_slot() {
+        let mut app = build_app();
+        app.add_systems(Update, enforce_mount_rider_link);
+
+        let mount_pos = ae::Vec2::new(0.0, 0.0);
+        let mount_size = ae::Vec2::new(126.0, 52.0);
+        let mount = app
+            .world_mut()
+            .spawn((
+                hostile("mount", "burning_flying_shark", mount_pos, mount_size),
+                Mountable {
+                    rider_offset: ae::Vec2::new(0.0, -40.0),
+                },
+                MountSlot { rider: None },
+            ))
+            .id();
+
+        // Dead rider.
+        let mut rider_actor = hostile(
+            "rider",
+            "pirate_raider",
+            ae::Vec2::new(0.0, -40.0),
+            ae::Vec2::new(44.0, 78.0),
+        );
+        if let ActorRuntime::Hostile(r) = &mut rider_actor {
+            r.alive = false;
+        }
+        let rider = app
+            .world_mut()
+            .spawn((
+                rider_actor,
+                FeatureAabb::from_center_size(ae::Vec2::new(0.0, -40.0), ae::Vec2::new(44.0, 78.0)),
+                RidingOn { mount },
+            ))
+            .id();
+        app.world_mut()
+            .entity_mut(mount)
+            .insert(MountSlot {
+                rider: Some(rider),
+            });
+
+        app.update();
+
+        let slot = app.world().entity(mount).get::<MountSlot>().unwrap();
+        assert!(
+            slot.rider.is_none(),
+            "dead rider should clear MountSlot.rider",
+        );
+    }
+}

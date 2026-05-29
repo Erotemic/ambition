@@ -86,10 +86,6 @@ pub struct EnemyRuntime {
     ///
     /// Dead storage today (see `choreography` above).
     pub choreography_state: crate::attack_choreography::ChoreographyState,
-    /// Optional separate "rider" health — used by the fused
-    /// `PirateOnShark` actor where the pirate on top can be killed
-    /// independently of the shark. `None` for everyone else.
-    pub rider_health: Option<crate::actor::Health>,
     /// Outward-pointing unit normal of the surface the actor is
     /// currently clinging to. Used by surface-walking archetypes
     /// (`PuppySlug`) to crawl floors, walls, and ceilings; all
@@ -576,23 +572,6 @@ impl EnemyArchetype {
 #[derive(Default)]
 pub struct EnemyTickOutputs;
 
-/// Outcome of [`EnemyRuntime::apply_damage_at`]. Callers branch on
-/// this to know whether to play a hit SFX, despawn the actor, or
-/// rebind sprite/visual state because the archetype morphed
-/// (pirate-on-shark dismounting into pirate or shark).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EnemyDamageOutcome {
-    /// Hit didn't land (dead enemy, missed hitbox).
-    NoOp,
-    Damaged {
-        killed: bool,
-        /// True when the actor's archetype changed in place (fused
-        /// dismount). Sprite/anim systems should refresh their
-        /// per-archetype state.
-        archetype_changed: bool,
-    },
-}
-
 impl EnemyRuntime {
     pub(super) fn new(
         id: impl Into<String>,
@@ -640,26 +619,10 @@ impl EnemyRuntime {
             hit_flash: 0.0,
             ai_mode: crate::character_ai::CharacterAiMode::Idle,
             on_ground: false,
-            // Shark-rider archetypes carry an authored spawn name
-            // (e.g. "Iron Mary on Shark", "Burning Flying Shark")
-            // that the rider-visual layer parses to pick the heavy
-            // sheet on top. The BASE sprite, though, is always the
-            // shark — override the npc-name lookup so the
-            // upgrade_enemy_sprites pass resolves to the
-            // BURNING_FLYING_SHARK_SHEET even when the authored
-            // name doesn't match the shark catalog key directly.
-            // Without this, "Iron Mary on Shark" falls through the
-            // npc-name → enemy-asset chain and renders as a goblin.
-            sprite_override_npc_name: match archetype {
-                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark => {
-                    Some("Burning Flying Shark".to_string())
-                }
-                _ => None,
-            },
+            sprite_override_npc_name: None,
             gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
             choreography: archetype.choreography(),
             choreography_state: crate::attack_choreography::ChoreographyState::default(),
-            rider_health: archetype.rider_max_health().map(crate::actor::Health::new),
             surface_normal: ae::Vec2::new(0.0, -1.0),
             pending_attack_axis: ae::Vec2::new(-1.0, 0.0),
             air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
@@ -683,7 +646,6 @@ impl EnemyRuntime {
         self.vel = ae::Vec2::ZERO;
         self.alive = true;
         self.health = crate::actor::Health::new(archetype.max_health());
-        self.rider_health = archetype.rider_max_health().map(crate::actor::Health::new);
         self.gravity_scale = if archetype.is_aerial() { 0.0 } else { 1.0 };
         self.choreography = archetype.choreography();
         self.choreography_state = crate::attack_choreography::ChoreographyState::default();
@@ -703,156 +665,6 @@ impl EnemyRuntime {
         self.surface_normal = ae::Vec2::new(0.0, -1.0);
         self.pending_attack_axis = ae::Vec2::new(-1.0, 0.0);
         self.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
-    }
-
-    /// True when this actor still has a rider (live pirate on top).
-    /// Used by the renderer to decide whether to composite a pirate
-    /// sprite over the shark.
-    pub fn has_live_rider(&self) -> bool {
-        self.rider_health.map(|h| h.alive()).unwrap_or(false)
-    }
-
-    /// AABB covering the rider on a fused pirate-on-shark. Player
-    /// hits that overlap this region damage the rider's HP pool, not
-    /// the shark's.
-    ///
-    /// Geometry derives from `self.size.y` (the shark body height)
-    /// using the same ratios `pirate_rider.rs` uses for the visual:
-    ///   center.y = shark_center.y - 0.35 * shark.y  (visual offset)
-    ///   half_h   = 0.5 * 0.75 * shark.y             (visual height)
-    /// Width is bounded to roughly the visible pirate silhouette
-    /// (~half the shark's height; the pirate raider sprite's body
-    /// pixel bbox is 59 wide of a 128-tall frame rendered square).
-    /// Pre-fix the formula used `self.size.x * 0.4` for half-w and
-    /// a hardcoded 52 px rider_height, which after the shark-size
-    /// retune put the AABB well above the visible pirate and made
-    /// it wider than the shark.
-    pub fn rider_aabb(&self) -> Option<ae::Aabb> {
-        self.rider_health?;
-        let shark_h = self.size.y;
-        let center = ae::Vec2::new(self.pos.x, self.pos.y - 0.35 * shark_h);
-        let half_h = 0.375 * shark_h;
-        let half_w = 0.25 * shark_h;
-        Some(ae::Aabb::new(center, ae::Vec2::new(half_w, half_h)))
-    }
-
-    /// Route an incoming player attack hit to either the rider or
-    /// the body (shark) on a fused pirate-on-shark. Returns the
-    /// archetype the actor *now* is — different from the pre-hit
-    /// archetype if a death triggered a dismount morph. Used by the
-    /// caller to decide whether to swap sprite / brain bindings.
-    pub fn apply_damage_at(&mut self, hit_volume: ae::Aabb, damage: i32) -> EnemyDamageOutcome {
-        if !self.alive {
-            return EnemyDamageOutcome::NoOp;
-        }
-        // Fused pirate-on-shark: route by overlap with the rider hitbox.
-        if matches!(
-            self.archetype,
-            EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
-        ) {
-            if let (Some(rider_aabb), Some(rider)) = (self.rider_aabb(), self.rider_health.as_mut())
-            {
-                if rider_aabb.strict_intersects(hit_volume) && rider.alive() {
-                    let killed = rider.damage(damage);
-                    self.hit_flash = 0.18;
-                    if killed {
-                        return self.dismount_rider();
-                    }
-                    return EnemyDamageOutcome::Damaged {
-                        killed: false,
-                        archetype_changed: false,
-                    };
-                }
-            }
-        }
-        // Default path: damage the body health pool.
-        let killed = self.health.damage(damage);
-        self.hit_flash = 0.18;
-        if killed {
-            // If this was a fused pirate-on-shark variant, the shark
-            // died — dismount the rider into a grounded pirate (heavy
-            // bruiser if the rider was a heavy, raider otherwise).
-            if matches!(
-                self.archetype,
-                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
-            ) {
-                return self.dismount_shark();
-            }
-            self.alive = false;
-            self.respawn_timer = 0.0;
-            return EnemyDamageOutcome::Damaged {
-                killed: true,
-                archetype_changed: false,
-            };
-        }
-        EnemyDamageOutcome::Damaged {
-            killed: false,
-            archetype_changed: false,
-        }
-    }
-
-    /// Rider died: actor becomes a riderless burning shark. Shark hp
-    /// pool is preserved; choreography swaps to dive-strike.
-    fn dismount_rider(&mut self) -> EnemyDamageOutcome {
-        self.archetype = EnemyArchetype::BurningFlyingShark;
-        self.choreography = self.archetype.choreography();
-        self.choreography_state = crate::attack_choreography::ChoreographyState::default();
-        self.rider_health = None;
-        EnemyDamageOutcome::Damaged {
-            killed: false,
-            archetype_changed: true,
-        }
-    }
-
-    /// Shark died: actor becomes a grounded pirate. The grounded
-    /// form depends on which fused variant the actor was —
-    /// `PirateOnShark` → `PirateRaider`, `PirateHeavyOnShark` →
-    /// `PirateHeavy`. The rider keeps its (potentially partial) HP
-    /// pool, capped by the new archetype's max.
-    ///
-    /// Renaming the runtime is what makes the sprite layer pick up
-    /// the right sheet on the next `upgrade_enemy_sprites` pass.
-    /// Without this, the actor walks around as a pirate-sized
-    /// hitbox but still rendered as a shark. For `PirateHeavy` the
-    /// rider name was already a heavy variant (e.g. "Broadside Bess
-    /// on Shark"); we strip the " on Shark" suffix so the sprite
-    /// resolver finds the same heavy sheet on the ground.
-    fn dismount_shark(&mut self) -> EnemyDamageOutcome {
-        let dismount_target = match self.archetype {
-            EnemyArchetype::PirateHeavyOnShark => EnemyArchetype::PirateHeavy,
-            _ => EnemyArchetype::PirateRaider,
-        };
-        let inherited_hp = self
-            .rider_health
-            .filter(|h| h.alive())
-            .map(|h| h.current)
-            .unwrap_or_else(|| dismount_target.max_health());
-        self.archetype = dismount_target;
-        self.choreography = self.archetype.choreography();
-        self.choreography_state = crate::attack_choreography::ChoreographyState::default();
-        self.health = crate::actor::Health::new(dismount_target.max_health());
-        self.health.current = inherited_hp.min(self.health.max);
-        self.rider_health = None;
-        self.gravity_scale = 1.0;
-        if let Some(default_size) = dismount_target.default_size() {
-            self.size = default_size;
-        }
-        self.name = match dismount_target {
-            EnemyArchetype::PirateHeavy => {
-                // Strip the " on Shark" suffix authored on the
-                // EnemySpawn so the heavy's ground sheet (Broadside
-                // Bess / Iron Mary / Salt Annet) resolves cleanly.
-                self.name
-                    .strip_suffix(" on Shark")
-                    .map(str::to_owned)
-                    .unwrap_or_else(|| String::from("Broadside Bess"))
-            }
-            _ => String::from("Pirate Raider"),
-        };
-        EnemyDamageOutcome::Damaged {
-            killed: false,
-            archetype_changed: true,
-        }
     }
 
     /// World-space anchor for a combat-banter speech bubble. Sits

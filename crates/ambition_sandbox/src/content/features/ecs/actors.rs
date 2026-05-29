@@ -470,34 +470,34 @@ pub fn update_ecs_actors(
                 let was_winding_up = enemy.attack_windup_timer > 0.0;
                 let was_active = enemy.attack_timer > 0.0;
 
-                // Smash-brain actors: run the brain FIRST to build
-                // an authoritative frame, then call `enemy.update`
-                // with that frame as the override. The override
-                // drives the integration step (so movement follows
-                // the brain — Approach, Retreat, Reposition all
-                // actually move the actor) AND lands in
+                // Every brain-attached enemy ticks its brain FIRST to
+                // build an authoritative frame, then calls
+                // `enemy.update` with that frame as the override.
+                // The override drives the integration step (so
+                // movement follows the brain — Patrol/Chase/Approach
+                // etc actually move the actor) AND lands in
                 // `ActorControl` for the EFFECTS consumers (so
-                // attacks fire). Non-Smash actors keep the legacy
-                // flow: `enemy.update` builds + integrates its own
-                // frame.
+                // attacks fire). Smash + Patrol + MeleeBrute +
+                // Skirmisher + Sniper + Wanderer all flow through
+                // this same brain-authoritative path; the legacy
+                // choreography in `enemy.update` still runs (it
+                // drives `ai_mode` for HUD / animation cues and the
+                // attack windup → active state machine) but the
+                // brain's intent supersedes it for integration.
+                //
+                // Actors without a brain (dynamically-spawned debug
+                // entities) fall through to the legacy path:
+                // `override_frame = None` → `enemy.update` uses its
+                // own choreography-derived frame.
                 let brain_override = if let Some(brain_ref) = brain.as_deref_mut() {
-                    if matches!(
-                        brain_ref,
-                        crate::brain::Brain::StateMachine(
-                            crate::brain::StateMachineCfg::Smash { .. }
-                        )
-                    ) {
-                        let crowding = crowding_by_id.get(&enemy.id).copied();
-                        let snapshot =
-                            build_smash_snapshot(enemy, target_pos, crowding, dt);
-                        let mut brain_frame = crate::actor_control::ActorControlFrame::neutral();
-                        let peaceful = crate::brain::ActionSet::peaceful();
-                        let actions = action_set.unwrap_or(&peaceful);
-                        brain_ref.tick_with_actions(actions, &snapshot, &mut brain_frame);
-                        Some(brain_frame)
-                    } else {
-                        None
-                    }
+                    let crowding = crowding_by_id.get(&enemy.id).copied();
+                    let snapshot =
+                        build_enemy_brain_snapshot(enemy, target_pos, crowding, dt);
+                    let mut brain_frame = crate::actor_control::ActorControlFrame::neutral();
+                    let peaceful = crate::brain::ActionSet::peaceful();
+                    let actions = action_set.unwrap_or(&peaceful);
+                    brain_ref.tick_with_actions(actions, &snapshot, &mut brain_frame);
+                    Some(brain_frame)
                 } else {
                     None
                 };
@@ -613,7 +613,12 @@ pub fn update_ecs_actors(
 /// `dt` is the gameplay clock so the Smash brain's mode dwell
 /// accumulator runs on the same time domain as the rest of the
 /// simulation.
-fn build_smash_snapshot(
+/// Build a `BrainSnapshot` for an enemy actor's per-tick brain call.
+/// Carries the per-frame body / target / cooldown view every brain
+/// backend reads from; `crowding` is only consulted by the Smash
+/// brain, but always populating it keeps the snapshot uniform across
+/// state-machine variants.
+fn build_enemy_brain_snapshot(
     enemy: &crate::content::features::EnemyRuntime,
     target_pos: ae::Vec2,
     crowding: Option<crate::brain::CrowdingSignal>,

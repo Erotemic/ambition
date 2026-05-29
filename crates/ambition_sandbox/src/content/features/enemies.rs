@@ -839,13 +839,15 @@ impl EnemyRuntime {
     /// for HUD / animation), and integrate one kinematic step.
     ///
     /// When `override_frame` is `Some`, the integration uses THAT
-    /// frame's `desired_vel` / `drop_through` / facing instead of the
-    /// legacy-AI's. This is the seam the Smash brain uses to take
-    /// movement authority: actors.rs runs the brain to build a
-    /// frame, then calls `update` with that frame as the override.
-    /// The legacy choreography still ticks (so animation state
+    /// frame's `desired_vel` / `drop_through` / facing instead of
+    /// the legacy-AI's. Every brain-attached actor (Smash + every
+    /// other state-machine variant) takes this path: actors.rs runs
+    /// the brain to build a frame, then calls `update` with that
+    /// frame as the override. The legacy choreography still ticks
+    /// (so animation state + the windup → active attack timing
     /// stays sensible) but its movement intent is shelved. `None` =
-    /// pre-brain behavior (legacy AI drives integration).
+    /// pre-brain behavior, used today only by debug-spawned actors
+    /// without a Brain component.
     pub(super) fn update(
         &mut self,
         world: &ae::World,

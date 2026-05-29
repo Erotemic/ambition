@@ -198,6 +198,21 @@ impl KeyboardPreset {
             .with(SandboxAction::MoveRight, self.movement.right)
             .with(SandboxAction::MoveUp, self.movement.up)
             .with(SandboxAction::MoveDown, self.movement.down)
+            // Gamepad bindings for the discrete `MoveX` actions. Without
+            // these, `actions.just_pressed(&SandboxAction::MoveDown)`
+            // never fires on a controller — the double-tap-down gesture
+            // that enters MorphBall was keyboard-only as a result. Both
+            // the DPad and a stick-direction cross past the deadzone
+            // generate the same press edge, so DPad → MorphBall feels
+            // the same as Down-Arrow → MorphBall.
+            .with(SandboxAction::MoveLeft, GamepadButton::DPadLeft)
+            .with(SandboxAction::MoveLeft, GamepadControlDirection::LEFT_LEFT)
+            .with(SandboxAction::MoveRight, GamepadButton::DPadRight)
+            .with(SandboxAction::MoveRight, GamepadControlDirection::LEFT_RIGHT)
+            .with(SandboxAction::MoveUp, GamepadButton::DPadUp)
+            .with(SandboxAction::MoveUp, GamepadControlDirection::LEFT_UP)
+            .with(SandboxAction::MoveDown, GamepadButton::DPadDown)
+            .with(SandboxAction::MoveDown, GamepadControlDirection::LEFT_DOWN)
             .with(SandboxAction::Jump, self.actions.jump)
             .with(SandboxAction::Jump, GamepadButton::South)
             .with(SandboxAction::Attack, self.actions.attack)

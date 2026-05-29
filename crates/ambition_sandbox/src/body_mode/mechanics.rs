@@ -188,3 +188,136 @@ pub fn update_body_mode(
         solid,
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine_core::world::World;
+    use crate::engine_core::Vec2;
+    use crate::input::ControlFrame;
+    use crate::player::{
+        PlayerBlinkState, PlayerBodyModeState, PlayerDashState, PlayerEntity,
+        PlayerEnvironmentContact, PlayerGroundState, PlayerInputFrame, PlayerInteractionState,
+        PlayerKinematics, PlayerLedgeState, PlayerWallState, PrimaryPlayer,
+    };
+    use bevy::prelude::{App, Entity, Update};
+
+    /// Minimal world with enough headroom that both Standing (~48 px
+    /// tall) and MorphBall (14 px) shapes fit at the spawn position. No
+    /// ceiling-clearance gotchas — the driver's `fits_at` predicate
+    /// should pass both directions.
+    fn open_world() -> ae::World {
+        let w = 1600.0;
+        let h = 900.0;
+        World {
+            name: "morph_ball test world".to_string(),
+            size: Vec2::new(w, h),
+            spawn: Vec2::new(210.0, h - 80.0),
+            blocks: vec![ae::Block::solid(
+                "floor",
+                Vec2::new(0.0, h - 16.0),
+                Vec2::new(w, 16.0),
+            )],
+            water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
+        }
+    }
+
+    fn build_body_mode_test_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.insert_resource(crate::GameWorld(open_world()));
+        let world_spawn = app.world().resource::<crate::GameWorld>().0.spawn;
+        app.add_systems(Update, super::update_body_mode);
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                PlayerKinematics {
+                    pos: world_spawn,
+                    size: Vec2::new(30.0, 48.0),
+                    base_size: Vec2::new(30.0, 48.0),
+                    facing: 1.0,
+                    ..Default::default()
+                },
+                PlayerGroundState {
+                    on_ground: true,
+                    ..Default::default()
+                },
+                PlayerWallState::default(),
+                PlayerDashState::default(),
+                PlayerBlinkState::default(),
+                PlayerLedgeState::default(),
+                PlayerEnvironmentContact::default(),
+                PlayerInteractionState::default(),
+                PlayerInputFrame::default(),
+                PlayerBodyModeState::default(),
+            ))
+            .id();
+        (app, player)
+    }
+
+    /// The headline morph-ball entry path. With the player standing on
+    /// the ground and `double_tap_down_pending = true`, one `update`
+    /// call should flip `body_mode` to `MorphBall`. Pins the gesture
+    /// → body-mode transition that the rest of the morph-ball visual
+    /// chain depends on.
+    #[test]
+    fn double_tap_down_on_ground_transitions_to_morph_ball() {
+        let (mut app, player) = build_body_mode_test_app();
+        // Pre-poison so a missing transition trips loudly.
+        let mut interaction = app
+            .world_mut()
+            .get_mut::<PlayerInteractionState>(player)
+            .unwrap();
+        interaction.double_tap_down_pending = true;
+        app.update();
+        let mode = app
+            .world()
+            .get::<PlayerBodyModeState>(player)
+            .unwrap()
+            .body_mode;
+        assert_eq!(
+            mode,
+            ae::BodyMode::MorphBall,
+            "double-tap-down on the ground must transition Standing → MorphBall",
+        );
+    }
+
+    /// The exit path: from MorphBall, pressing Jump (or Up) flips back
+    /// to Standing when there's headroom. Pins the
+    /// `controls.jump_pressed || controls.up_pressed` exit branch.
+    #[test]
+    fn jump_press_from_morph_ball_transitions_to_standing() {
+        let (mut app, player) = build_body_mode_test_app();
+        {
+            let mut body_mode = app
+                .world_mut()
+                .get_mut::<PlayerBodyModeState>(player)
+                .unwrap();
+            body_mode.body_mode = ae::BodyMode::MorphBall;
+        }
+        {
+            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            kin.size = Vec2::new(14.0, 14.0);
+        }
+        {
+            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+            input.frame = ControlFrame {
+                jump_pressed: true,
+                ..Default::default()
+            };
+        }
+        app.update();
+        let mode = app
+            .world()
+            .get::<PlayerBodyModeState>(player)
+            .unwrap()
+            .body_mode;
+        assert_eq!(
+            mode,
+            ae::BodyMode::Standing,
+            "Jump pressed in MorphBall must transition to Standing when headroom allows",
+        );
+    }
+}

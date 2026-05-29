@@ -32,7 +32,6 @@ mod features;
 mod health;
 mod hit_flash;
 mod parallax;
-mod pirate_rider;
 mod pirate_weapon;
 mod primitives;
 mod world;
@@ -171,18 +170,15 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // Mirror parent atlas index + tint onto the hands overlay
                 // after `animate_bosses` has updated the parent's frame.
                 actors::sync_gnu_ton_hands,
-                // Pirate rider composite — reads ECS actor state and
-                // spawns/despawns presentation entities each frame, so
-                // it belongs in `PresentationVisualSync` (after
-                // `FeatureViewSync`) alongside `sync_visuals` rather
-                // than the projectile/VFX batch. Placing it here means
-                // a room reset's actor despawn is observed the same
-                // frame the rider visual disappears — no stale
-                // rider-on-no-shark across resets/transitions.
-                pirate_rider::sync_pirate_rider_visuals,
-                // Gun-sword visual on the rider — runs after the
-                // rider visual so the weapon mounts on top of the
-                // pirate sprite in the same frame.
+                // Gun-sword visual on the rider — composite pirate-
+                // on-shark spawns are two linked entities (mount +
+                // rider) and the rider entity draws via the standard
+                // upgrade_enemy_sprites path. The gun-sword sprite is
+                // the only piece NOT covered by the standard sheet
+                // (it's an over-hand prop tied to aim direction), so
+                // this system queries the rider entity directly via
+                // its [`RidingOn`] component and layers the weapon on
+                // top.
                 pirate_weapon::sync_pirate_weapon_visuals,
             )
                 .chain()

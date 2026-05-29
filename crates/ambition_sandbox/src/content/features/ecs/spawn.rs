@@ -314,23 +314,33 @@ fn spawn_enemy(
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
     paths: &[(String, crate::actor::KinematicPath)],
 ) {
-    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
-    let enemy = EnemyRuntime::new(
+    // Build a probe runtime to inspect the resolved archetype. The
+    // composite "X on Shark" archetypes fan out into a mount entity +
+    // a rider entity linked via [`super::Mountable`] /
+    // [`super::RidingOn`]; everything else goes through the standard
+    // single-entity spawn.
+    let probe = EnemyRuntime::new(
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
         authored.payload.clone(),
         paths,
     );
-    // Attach Brain + ActionSet + ActorControl to the enemy entity.
-    // `update_ecs_actors` runs the runtime's per-tick frame and
-    // writes it into `ActorControl` — `EnemyRuntime` is the single
-    // intent producer for hostile actors today. The resolver
-    // translates the frame into `ActorActionMessage`s consumed by
-    // EFFECTS systems (see `spawn_enemy_projectiles_from_brain_actions`
-    // for the ranged case, `start_enemy_melee_from_brain_actions`
-    // for melee). The Brain component stays attached as a future
-    // migration handle for when the legacy AI lifts into the brain.
+    if super::mount::is_composite_spawn(probe.archetype) {
+        spawn_composite_mount_rider(commands, authored, paths, probe.archetype);
+        return;
+    }
+    spawn_solo_enemy(commands, probe, authored);
+}
+
+/// Single-entity hostile spawn — the common path. Mirrors the
+/// legacy `spawn_enemy` body.
+fn spawn_solo_enemy(
+    commands: &mut Commands,
+    enemy: EnemyRuntime,
+    authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
+) {
+    let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let brain = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
     let actor = ActorRuntime::Hostile(enemy);
@@ -366,6 +376,216 @@ fn spawn_enemy(
             0.0,
         ),
     ));
+}
+
+/// Fan a composite "X on Shark" spawn into a mount entity + a rider
+/// entity. Both are spawned at the authored position; the per-tick
+/// [`super::sync_riders_to_mounts`] system snaps the rider to the
+/// mount's offset from frame one.
+///
+/// Mount: `BurningFlyingShark` archetype with its STANDALONE brain
+/// (MeleeBrute Bite + DiveStrike — what the shark would do on its
+/// own). Health comes from the composite spec (PirateOnShark =
+/// 6, PirateHeavyOnShark = 7) so the body HP pool stays as authored.
+///
+/// Rider: `PirateRaider` for the light composite, `PirateHeavy` for
+/// the heavy composite. Brain is explicitly built as Skirmisher with
+/// the composite's `Bolt` ranged spec — the rider's STANDALONE brain
+/// (Smash for raider, MeleeBrute for heavy) is what gets restored
+/// after the mount dies; the bolt-firing behavior lives only while
+/// mounted. Aggressiveness is forced ON regardless of the rider
+/// archetype's `attacks_player()` default so a dismounted PirateHeavy
+/// (which is normally peaceful Cove crew) keeps fighting after the
+/// shark is killed under her.
+fn spawn_composite_mount_rider(
+    commands: &mut Commands,
+    authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
+    paths: &[(String, crate::actor::KinematicPath)],
+    composite_archetype: EnemyArchetype,
+) {
+    use crate::brain::{
+        ActionSet, Brain, RangedActionSpec, SkirmisherCfg, SkirmisherState, StateMachineCfg,
+    };
+
+    // Spawn both at the authored center. The mount's standalone
+    // size is its `default_size`; the rider rides at
+    // `pirate_on_shark_rider_offset(mount.size, rider.size)`.
+    let center = authored.aabb.center();
+    let mount_archetype = EnemyArchetype::BurningFlyingShark;
+    let mount_size = mount_archetype
+        .default_size()
+        .expect("BurningFlyingShark has a default_size in archetype_specs");
+    let mount_aabb = ae::Aabb::new(center, mount_size * 0.5);
+
+    // Mount HP: take the composite spec's body HP rather than the
+    // standalone BurningFlyingShark's default, so tuning the
+    // composite's HP in the RON works as expected.
+    let composite_hp = composite_archetype.max_health();
+    let mount_id = format!("{}:mount", authored.id);
+    let mount_name = "Burning Flying Shark".to_string();
+    let mut mount_enemy = EnemyRuntime::new(
+        mount_id.clone(),
+        mount_name.clone(),
+        mount_aabb,
+        crate::actor::EnemyBrain::Custom("burning_flying_shark".into()),
+        paths,
+    );
+    mount_enemy.health = crate::actor::Health::new(composite_hp);
+
+    // Rider archetype + variant name. The light composite is always
+    // a Pirate Raider; the heavy composite parses the authored name
+    // (e.g. "Iron Mary on Shark") to pick the variant for the sprite
+    // layer.
+    let (rider_archetype, rider_variant_name) = match composite_archetype {
+        EnemyArchetype::PirateHeavyOnShark => {
+            let base = authored
+                .name
+                .strip_suffix(" on Shark")
+                .unwrap_or("Broadside Bess")
+                .to_string();
+            (EnemyArchetype::PirateHeavy, base)
+        }
+        _ => (EnemyArchetype::PirateRaider, "Pirate Raider".to_string()),
+    };
+    let rider_size = rider_archetype
+        .default_size()
+        .expect("rider archetype has a default_size");
+    let rider_offset = super::mount::pirate_on_shark_rider_offset(mount_size, rider_size);
+    let rider_pos = center + rider_offset;
+    let rider_aabb = ae::Aabb::new(rider_pos, rider_size * 0.5);
+    let rider_id = format!("{}:rider", authored.id);
+    let rider_brain_payload = match rider_archetype {
+        EnemyArchetype::PirateHeavy => crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
+        _ => crate::actor::EnemyBrain::Custom("pirate_raider".into()),
+    };
+    let mut rider_enemy = EnemyRuntime::new(
+        rider_id.clone(),
+        rider_variant_name.clone(),
+        rider_aabb,
+        rider_brain_payload,
+        paths,
+    );
+    // Rider HP from the composite spec's `rider_max_health`.
+    if let Some(rider_hp) = composite_archetype.rider_max_health() {
+        rider_enemy.health = crate::actor::Health::new(rider_hp);
+    }
+    rider_enemy.gravity_scale = 0.0;
+
+    // Build the rider's MOUNTED brain: Skirmisher with the
+    // composite's Bolt ranged spec. Aggressiveness forced to 1.0 so
+    // a PirateHeavy variant (peaceful standalone) still engages
+    // while riding.
+    let ranged = composite_archetype.ranged_spec();
+    let bolt = match ranged {
+        Some(RangedActionSpec::Bolt { speed, damage }) => Some((speed, damage)),
+        _ => None,
+    };
+    let mounted_skirmisher_cfg = SkirmisherCfg {
+        aggressiveness: 1.0,
+        // Composite's spec carries the orbit-and-fire tuning:
+        // standoff_px is a fraction of attack_range, capped at a
+        // sensible floor; the firing cadence is the same 1.5 s base
+        // the legacy fused archetype used.
+        aggro_radius: composite_archetype.aggro_radius(),
+        standoff_px: (composite_archetype.attack_range() * 0.35).max(120.0),
+        strafe_speed: composite_archetype.chase_speed(),
+        fire_cooldown_s: 1.5,
+        // Orbital drift / phase don't actually steer the rider
+        // (the sync system snaps it to the mount each frame), but
+        // they're part of the cfg shape. Use sensible defaults so
+        // the brain's fire intent uses a stable target dir.
+        orbit_drift_rad_s: 0.6,
+    };
+    let rider_brain = Brain::StateMachine(StateMachineCfg::Skirmisher {
+        cfg: mounted_skirmisher_cfg,
+        state: SkirmisherState::default(),
+    });
+    let rider_action_set = ActionSet {
+        melee: None,
+        ranged: bolt.map(|(speed, damage)| RangedActionSpec::Bolt { speed, damage }),
+        move_style: rider_archetype.move_style(),
+        ..Default::default()
+    };
+
+    // Build mount-side bundles and reserve the entity. We need both
+    // entity IDs to link MountSlot ↔ RidingOn, so we spawn each and
+    // then attach the link components.
+    let mount_brain = enemy_default_brain(&mount_enemy);
+    let mount_action_set = enemy_default_action_set(&mount_enemy);
+    let mount_actor = ActorRuntime::Hostile(mount_enemy);
+    let (m_identity, m_disposition, m_health, m_combat, m_intent, m_cooldowns) =
+        actor_component_snapshot(&mount_actor);
+    let mount_feature_aabb = FeatureAabb::from_aabb(mount_aabb);
+    let mount_entity = commands
+        .spawn((
+            Name::new(format!("Feature actor mount: {mount_name}")),
+            EnemyActorBundle {
+                base: FeatureBaseBundle::new(&mount_id, &mount_name, mount_feature_aabb),
+                identity: m_identity,
+                disposition: m_disposition,
+                faction: super::ActorFaction::Enemy,
+                target: super::ActorTarget::default(),
+                health: m_health,
+                combat: m_combat,
+                intent: m_intent,
+                cooldowns: m_cooldowns,
+            },
+            mount_actor,
+            mount_brain,
+            mount_action_set,
+            crate::brain::ActorControl::default(),
+            bevy::transform::components::Transform::from_xyz(
+                mount_feature_aabb.center.x,
+                mount_feature_aabb.center.y,
+                0.0,
+            ),
+            super::Mountable {
+                rider_offset,
+            },
+            super::MountSlot::default(),
+        ))
+        .id();
+
+    // Rider-side bundles, with the RidingOn link pointing at the
+    // mount we just spawned.
+    let rider_actor = ActorRuntime::Hostile(rider_enemy);
+    let (r_identity, r_disposition, r_health, r_combat, r_intent, r_cooldowns) =
+        actor_component_snapshot(&rider_actor);
+    let rider_feature_aabb = FeatureAabb::from_aabb(rider_aabb);
+    let rider_entity = commands
+        .spawn((
+            Name::new(format!("Feature actor rider: {rider_variant_name}")),
+            EnemyActorBundle {
+                base: FeatureBaseBundle::new(&rider_id, &rider_variant_name, rider_feature_aabb),
+                identity: r_identity,
+                disposition: r_disposition,
+                faction: super::ActorFaction::Enemy,
+                target: super::ActorTarget::default(),
+                health: r_health,
+                combat: r_combat,
+                intent: r_intent,
+                cooldowns: r_cooldowns,
+            },
+            rider_actor,
+            rider_brain,
+            rider_action_set,
+            crate::brain::ActorControl::default(),
+            bevy::transform::components::Transform::from_xyz(
+                rider_feature_aabb.center.x,
+                rider_feature_aabb.center.y,
+                0.0,
+            ),
+            super::RidingOn {
+                mount: mount_entity,
+            },
+        ))
+        .id();
+
+    // Wire MountSlot.rider on the mount so death-side dissolution
+    // can reach back from mount → rider.
+    commands.entity(mount_entity).insert(super::MountSlot {
+        rider: Some(rider_entity),
+    });
 }
 
 /// Map an `EnemyRuntime` to a Brain template. Reads the archetype's

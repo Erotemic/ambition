@@ -95,8 +95,9 @@ pub use ecs::{
     despawn_encounter_mobs, ecs_boss_anim_state, ecs_boss_name, ecs_breakable_state,
     ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
-    ecs_npc_anim_state, ecs_npc_name, interact_ecs_actors_and_switches,
-    open_ecs_chests, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
+    ecs_npc_anim_state, ecs_npc_name, enforce_mount_rider_link,
+    interact_ecs_actors_and_switches, is_composite_spawn, open_ecs_chests,
+    pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
     spawn_enemy_projectiles_from_brain_actions, spawn_gnu_apple_rain_from_special_messages,
     spawn_gradient_cascade_minions_from_special_messages, spawn_melee_hitbox,
@@ -104,12 +105,12 @@ pub use ecs::{
     spawn_room_feature_entities, spawn_saddle_point_from_special_messages,
     start_enemy_melee_from_brain_actions, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
-    sync_encounter_reward_chests_ecs, tick_and_despawn_hitboxes, tick_boss_brains_system,
-    tick_gameplay_banner, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorRuntime, AppleRainSpawnState, BossFeature,
-    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, GradientCascadeState,
-    HazardFeature, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MinimaTrapState,
-    OverfitVolleyState, SaddlePointState,
+    sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_and_despawn_hitboxes,
+    tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
+    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorRuntime,
+    AppleRainSpawnState, BossFeature, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex,
+    GradientCascadeState, HazardFeature, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
+    MinimaTrapState, MountSlot, Mountable, OverfitVolleyState, RidingOn, SaddlePointState,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{
@@ -152,6 +153,16 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // consult `ActorTarget` (OVERNIGHT-TODO #17.8).
                 select_actor_targets,
                 update_ecs_actors,
+                // Rider/mount pose sync. Runs immediately after the
+                // per-actor brain tick so the rider's brain has had
+                // a chance to emit fire intent for the target from
+                // a position close to where it'll actually be after
+                // the snap. update_ecs_actors integrates each
+                // actor's velocity; this system zeros it again and
+                // snaps the rider back to the mount-relative
+                // position so the rider doesn't drift away on the
+                // next frame.
+                sync_riders_to_mounts,
                 // Boss tick chain (post "move boss policy out of
                 // BossRuntime"): the brain decides intent first, then
                 // the integration system consumes its `desired_vel`.

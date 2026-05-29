@@ -294,6 +294,12 @@ fn register_combat_systems(app: &mut App) {
             crate::features::apply_hitbox_damage.run_if(gameplay_allowed),
             crate::features::tick_and_despawn_hitboxes,
             crate::features::apply_feature_hit_events,
+            // Mount/rider link bookkeeping. Runs after damage so
+            // it observes the alive flag transition for either
+            // side; a dead mount releases its rider (gravity on,
+            // solo brain restored) and a dead rider clears the
+            // mount's MountSlot back-reference.
+            crate::features::enforce_mount_rider_link,
         )
             .chain()
             .in_set(SandboxSet::Combat),

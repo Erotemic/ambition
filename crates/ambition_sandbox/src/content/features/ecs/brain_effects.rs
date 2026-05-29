@@ -36,6 +36,7 @@ use crate::content::features::ecs::actors::ActorRuntime;
 use crate::content::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 use crate::content::features::ecs::BossFeature;
 use crate::content::features::ecs::FeatureSimEntity;
+#[cfg(test)]
 use crate::content::features::enemies::EnemyArchetype;
 use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
 use crate::time::feel::SandboxFeelTuning;
@@ -64,6 +65,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
     mut sfx: MessageWriter<SfxMessage>,
     mut actors: Query<&mut ActorRuntime>,
+    riders: Query<&super::RidingOn>,
 ) {
     for msg in messages.read() {
         let ActionRequest::Ranged {
@@ -88,16 +90,14 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         if !enemy.alive {
             continue;
         }
-        let is_pirate_shark = matches!(
-            enemy.archetype,
-            EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
-        );
-        let (spawn_origin, owner_id) = if is_pirate_shark {
-            // PirateOnShark fires from the rider's hand so the
-            // projectile looks like it's leaving the gun-sword muzzle.
-            // The `lasersword:` prefix on `owner_id` routes the
-            // projectile to the lasersword visual in
-            // `enemy_projectile/visuals.rs`.
+        // Mounted-rider muzzle: rider entities have a RidingOn
+        // component pointing at their mount. The bolt leaves the
+        // gun-sword that the rider holds, so the projectile origin
+        // is the rider's hand world position. The `lasersword:`
+        // prefix on `owner_id` routes the projectile to the
+        // lasersword visual in `enemy_projectile/visuals.rs`.
+        let is_mounted_rider = riders.get(msg.actor).is_ok();
+        let (spawn_origin, owner_id) = if is_mounted_rider {
             let hand = crate::presentation::rendering::rider_hand_world_pos(
                 enemy.pos,
                 enemy.facing,
@@ -127,7 +127,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         enemy_projectiles.spawn(spawn);
         // Recoil: push the firing actor backward along the negative
         // fire direction.
-        let recoil_strength = if is_pirate_shark {
+        let recoil_strength = if is_mounted_rider {
             RANGED_RECOIL_PIRATE
         } else {
             RANGED_RECOIL_DEFAULT
@@ -951,16 +951,20 @@ mod tests {
     use crate::brain::{ActionSet, RangedActionSpec};
     use crate::content::features::enemies::EnemyRuntime;
 
-    fn pirate_on_shark_actor(pos: ae::Vec2) -> ActorRuntime {
+    /// Build a rider-shaped hostile actor: standalone PirateRaider
+    /// archetype on the runtime side, but the caller is expected to
+    /// attach a [`crate::features::RidingOn`] component to the
+    /// spawned entity so the ranged-projectile handler routes the
+    /// fire through the lasersword path.
+    fn pirate_rider_actor(pos: ae::Vec2) -> ActorRuntime {
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
-        let mut enemy = EnemyRuntime::new(
-            "shark_a",
-            "Burning Flying Shark",
+        let enemy = EnemyRuntime::new(
+            "rider_a",
+            "Pirate Raider",
             aabb,
-            crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            crate::actor::EnemyBrain::Custom("pirate_raider".into()),
             &[],
         );
-        enemy.archetype = EnemyArchetype::PirateOnShark;
         ActorRuntime::Hostile(enemy)
     }
 
@@ -978,9 +982,17 @@ mod tests {
     fn ranged_message_spawns_projectile_and_applies_recoil() {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
+        // Stand-in mount entity. RidingOn just needs SOME entity to
+        // point at; the projectile resolver only checks for the
+        // presence of RidingOn on the firing actor, not the mount's
+        // health / archetype.
+        let mount = app.world_mut().spawn(()).id();
         let actor = app
             .world_mut()
-            .spawn((pirate_on_shark_actor(actor_pos),))
+            .spawn((
+                pirate_rider_actor(actor_pos),
+                crate::features::RidingOn { mount },
+            ))
             .id();
         let vel_before = match app.world().entity(actor).get::<ActorRuntime>().unwrap() {
             ActorRuntime::Hostile(e) => e.vel,
@@ -1008,11 +1020,12 @@ mod tests {
             1,
             "exactly one projectile should have spawned"
         );
-        // Owner id must reflect lasersword routing for PirateOnShark.
+        // Owner id must reflect lasersword routing for a mounted
+        // rider.
         let owner = &projectiles.bodies[0].owner_id;
         assert!(
             owner.starts_with("lasersword:"),
-            "PirateOnShark owner_id should carry the lasersword: prefix; got {owner:?}",
+            "mounted-rider owner_id should carry the lasersword: prefix; got {owner:?}",
         );
         // Recoil: vel.x reduced by ~RANGED_RECOIL_PIRATE.
         let vel_after = match app.world().entity(actor).get::<ActorRuntime>().unwrap() {
@@ -1070,7 +1083,7 @@ mod tests {
     fn ranged_message_for_dead_actor_is_dropped() {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
-        let mut actor_runtime = pirate_on_shark_actor(actor_pos);
+        let mut actor_runtime = pirate_rider_actor(actor_pos);
         if let ActorRuntime::Hostile(ref mut e) = actor_runtime {
             e.alive = false;
         }

@@ -286,6 +286,95 @@ fn pogo_does_not_trigger_on_plain_floor_or_door_solids() {
     );
     assert!(events.pogo_hits.is_empty());
 
+    let mut one_way_world = test_world();
+    one_way_world
+        .blocks
+        .push(crate::engine_core::world::Block::one_way(
+            "one-way",
+            Vec2::new(620.0, floor_y - 72.0),
+            Vec2::new(64.0, 72.0),
+        ));
+    let mut one_way_scratch = scratch_with(AbilitySet::sandbox_all(), one_way_world.spawn);
+    one_way_scratch.kinematics.pos = Vec2::new(640.0, floor_y - 76.0);
+    one_way_scratch.kinematics.vel = Vec2::ZERO;
+    one_way_scratch.ground.on_ground = false;
+    let one_way_events = update_player_control_with_tuning_scratch(
+        &one_way_world,
+        &mut one_way_scratch,
+        InputState {
+            pogo_pressed: true,
+            control_dt: 1.0 / 60.0,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        DEFAULT_TUNING,
+    );
+    assert!(
+        !one_way_events.operations.contains(&MovementOp::Pogo),
+        "one-way platforms should not count as pogo targets by default"
+    );
+    assert!(one_way_events.pogo_hits.is_empty());
+
+    let mut blink_world = test_world();
+    blink_world
+        .blocks
+        .push(crate::engine_core::world::Block::blink_wall(
+            "blink-wall",
+            Vec2::new(620.0, floor_y - 72.0),
+            Vec2::new(64.0, 72.0),
+            crate::engine_core::world::BlinkWallTier::Soft,
+        ));
+    let mut blink_scratch = scratch_with(AbilitySet::sandbox_all(), blink_world.spawn);
+    blink_scratch.kinematics.pos = Vec2::new(640.0, floor_y - 76.0);
+    blink_scratch.kinematics.vel = Vec2::ZERO;
+    blink_scratch.ground.on_ground = false;
+    let blink_events = update_player_control_with_tuning_scratch(
+        &blink_world,
+        &mut blink_scratch,
+        InputState {
+            pogo_pressed: true,
+            control_dt: 1.0 / 60.0,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        DEFAULT_TUNING,
+    );
+    assert!(
+        !blink_events.operations.contains(&MovementOp::Pogo),
+        "blink walls should not be pogo targets"
+    );
+    assert!(blink_events.pogo_hits.is_empty());
+
+    let mut rebound_world = test_world();
+    rebound_world
+        .blocks
+        .push(crate::engine_core::world::Block::rebound(
+            "rebound",
+            Vec2::new(622.0, floor_y - 72.0),
+            Vec2::new(36.0, 72.0),
+            Vec2::new(0.0, 180.0),
+        ));
+    let mut rebound_scratch = scratch_with(AbilitySet::sandbox_all(), rebound_world.spawn);
+    rebound_scratch.kinematics.pos = Vec2::new(640.0, floor_y - 76.0);
+    rebound_scratch.kinematics.vel = Vec2::ZERO;
+    rebound_scratch.ground.on_ground = false;
+    let rebound_events = update_player_control_with_tuning_scratch(
+        &rebound_world,
+        &mut rebound_scratch,
+        InputState {
+            pogo_pressed: true,
+            control_dt: 1.0 / 60.0,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        DEFAULT_TUNING,
+    );
+    assert!(
+        rebound_events.operations.contains(&MovementOp::Pogo),
+        "rebound pads should still be pogoable"
+    );
+    assert_eq!(rebound_events.pogo_hits.len(), 1);
+
     let mut orb_world = test_world();
     let orb_center = Vec2::new(640.0, floor_y - 8.0);
     orb_world

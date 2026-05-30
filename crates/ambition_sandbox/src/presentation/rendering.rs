@@ -54,7 +54,7 @@ pub use health::sync_health_overlays;
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
 pub use pirate_weapon::rider_hand_world_pos;
 pub use primitives::{
-    HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, QuestPanelText,
+    HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,
 };
 pub use world::{spawn_room_visuals, sync_lock_wall_visuals};

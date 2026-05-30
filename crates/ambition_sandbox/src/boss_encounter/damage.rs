@@ -68,6 +68,35 @@ pub fn record_boss_damage(
     })
 }
 
+/// Force a registered boss encounter to die from an environmental rule.
+///
+/// This bypasses player-damage invulnerability phases while still routing
+/// the resulting `Defeated` / phase-change events through the normal boss
+/// event publisher.
+pub fn force_boss_death(
+    registry: &mut BossEncounterRegistry,
+    music_request: &mut crate::encounter::BossEncounterMusicRequest,
+    cutscene_queue: &mut CutsceneTriggerQueue,
+    banner: &mut crate::features::GameplayBanner,
+    boss_runtime_id: &str,
+) -> Option<BossDamageOutcome> {
+    let (id, _) = registry
+        .runtime_ids
+        .iter()
+        .find(|(_id, runtime_id)| runtime_id.as_str() == boss_runtime_id)
+        .map(|(id, runtime_id)| (id.clone(), runtime_id.clone()))?;
+    let state = registry.encounters.get_mut(&id)?;
+    let prev_hp = state.hp;
+    let evs = state.force_death();
+    publish_events(&id, &evs, music_request, cutscene_queue, banner);
+    Some(BossDamageOutcome {
+        hp_remaining: 0,
+        killed: prev_hp > 0,
+        applied: true,
+    })
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;

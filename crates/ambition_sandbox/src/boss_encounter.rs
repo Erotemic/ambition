@@ -17,6 +17,7 @@
 //! component, the audio request, and the save resource.
 
 pub(crate) mod banter;
+mod cut_rope;
 mod damage;
 mod events;
 mod gnu_ton;
@@ -33,7 +34,8 @@ mod spec_types;
 mod tests;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
-pub use damage::record_boss_damage;
+pub use cut_rope::{is_cut_rope_boss, tick_cut_rope_boss_arena};
+pub use damage::{force_boss_death, record_boss_damage};
 #[allow(unused_imports)] // Future callers of `record_boss_damage` will name the outcome type.
 pub use damage::BossDamageOutcome;
 pub use gnu_ton::gate_gnu_ton_arena_ladder;

@@ -13,23 +13,128 @@
   "ambient_profile": "hum",
   "visual_theme": "default",
   "entities": [
-    {"type": "Solid", "px": [0, 736], "size": [1280, 32], "fields": {"name": "floor"}},
-    {"type": "Solid", "px": [0, 0], "size": [16, 736], "fields": {"name": "left_wall"}},
-    {"type": "Solid", "px": [1264, 0], "size": [16, 736], "fields": {"name": "right_wall"}},
-    {"type": "Solid", "px": [16, 0], "size": [1248, 16], "fields": {"name": "ceiling"}},
-    {"type": "OneWayPlatform", "px": [144, 592], "size": [240, 16], "fields": {"name": "left_cutting_perch"}},
-    {"type": "OneWayPlatform", "px": [448, 448], "size": [208, 16], "fields": {"name": "center_cutting_perch"}},
-    {"type": "OneWayPlatform", "px": [816, 592], "size": [240, 16], "fields": {"name": "right_cutting_perch"}},
+    {
+      "type": "Solid",
+      "px": [
+        0,
+        736
+      ],
+      "size": [
+        1280,
+        32
+      ],
+      "fields": {
+        "name": "floor"
+      }
+    },
+    {
+      "type": "Solid",
+      "px": [
+        0,
+        0
+      ],
+      "size": [
+        16,
+        736
+      ],
+      "fields": {
+        "name": "left_wall"
+      }
+    },
+    {
+      "type": "Solid",
+      "px": [
+        1264,
+        0
+      ],
+      "size": [
+        16,
+        736
+      ],
+      "fields": {
+        "name": "right_wall"
+      }
+    },
+    {
+      "type": "Solid",
+      "px": [
+        16,
+        0
+      ],
+      "size": [
+        1248,
+        16
+      ],
+      "fields": {
+        "name": "ceiling"
+      }
+    },
+    {
+      "type": "OneWayPlatform",
+      "px": [
+        144,
+        592
+      ],
+      "size": [
+        240,
+        16
+      ],
+      "fields": {
+        "name": "left_cutting_perch"
+      }
+    },
+    {
+      "type": "OneWayPlatform",
+      "px": [
+        448,
+        448
+      ],
+      "size": [
+        208,
+        16
+      ],
+      "fields": {
+        "name": "center_cutting_perch"
+      }
+    },
+    {
+      "type": "OneWayPlatform",
+      "px": [
+        816,
+        592
+      ],
+      "size": [
+        240,
+        16
+      ],
+      "fields": {
+        "name": "right_cutting_perch"
+      }
+    },
     {
       "type": "PlayerStart",
-      "px": [96, 688],
-      "size": [28, 46],
-      "fields": {"name": "cut_rope_player_start"}
+      "px": [
+        96,
+        688
+      ],
+      "size": [
+        28,
+        46
+      ],
+      "fields": {
+        "name": "cut_rope_player_start"
+      }
     },
     {
       "type": "LoadingZone",
-      "px": [48, 640],
-      "size": [48, 96],
+      "px": [
+        48,
+        640
+      ],
+      "size": [
+        48,
+        96
+      ],
       "fields": {
         "id": "cut_rope_arena_entry",
         "name": "cut_rope_arena_entry",
@@ -41,8 +146,14 @@
     },
     {
       "type": "BossSpawn",
-      "px": [792, 448],
-      "size": [240, 288],
+      "px": [
+        792,
+        448
+      ],
+      "size": [
+        240,
+        288
+      ],
       "fields": {
         "name": "Smirking Behemoth",
         "brain": "PhaseScript:smirking_behemoth_boss"
@@ -50,20 +161,44 @@
     },
     {
       "type": "Prop",
-      "px": [900, 112],
-      "size": [16, 352],
-      "fields": {"name": "cut_rope_rope", "kind": "cut_rope_rope"}
+      "px": [
+        900,
+        112
+      ],
+      "size": [
+        16,
+        352
+      ],
+      "fields": {
+        "name": "cut_rope_rope",
+        "kind": "cut_rope_rope"
+      }
     },
     {
       "type": "Prop",
-      "px": [848, 176],
-      "size": [120, 80],
-      "fields": {"name": "cut_rope_anvil", "kind": "cut_rope_anvil"}
+      "px": [
+        848,
+        176
+      ],
+      "size": [
+        120,
+        80
+      ],
+      "fields": {
+        "name": "cut_rope_anvil",
+        "kind": "cut_rope_anvil"
+      }
     },
     {
       "type": "CameraZone",
-      "px": [0, 0],
-      "size": [1280, 768],
+      "px": [
+        0,
+        0
+      ],
+      "size": [
+        1280,
+        768
+      ],
       "fields": {
         "id": "cut_rope_full_room_camera",
         "name": "cut_rope_full_room_camera",
@@ -79,8 +214,14 @@
     },
     {
       "type": "DebugLabel",
-      "px": [96, 96],
-      "size": [620, 24],
+      "px": [
+        96,
+        96
+      ],
+      "size": [
+        620,
+        24
+      ],
       "fields": {
         "name": "cut_rope_title_label",
         "text": "You Have To Cut The Rope",
@@ -89,11 +230,17 @@
     },
     {
       "type": "DebugLabel",
-      "px": [96, 128],
-      "size": [620, 24],
+      "px": [
+        96,
+        128
+      ],
+      "size": [
+        620,
+        24
+      ],
       "fields": {
         "name": "cut_rope_hint_label",
-        "text": "Boss scaffold: rope/anvil kill logic is data-runtime follow-up.",
+        "text": "Cut the rope above the boss to drop the anvil.",
         "category": "Boss"
       }
     }

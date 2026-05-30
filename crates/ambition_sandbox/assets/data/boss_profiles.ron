@@ -354,4 +354,72 @@
             ]),
         ),
     ),
+    // ============================================================
+    // Smirking Behemoth — "You Have To Cut The Rope" parody boss.
+    //
+    // The player cannot attrition this boss down. Player damage is
+    // ignored in the cut-rope arena; the intended clear condition is
+    // cutting the LDtk-authored rope above the boss so the anvil prop
+    // drops onto its head.
+    // ============================================================
+    "smirking_behemoth_boss": (
+        id: "smirking_behemoth_boss",
+        combat_size: Some((164.0, 224.0)),
+        movement: StationaryGiant(
+            sway_amplitude: 2.0,
+            sway_frequency: 0.18,
+            speed: 0.0,
+        ),
+        movement_phase2: None,
+        movement_enrage: None,
+        strike_speed_scale: 1.0,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            FloorSlam,
+            FullBodyPulse,
+            GradientLane,
+        ],
+        attack_cooldown: 0.0,
+        attack_windup: 0.0,
+        attack_active: 0.0,
+        attack_damage: 1,
+        body_damage: 0,
+        attack_pattern: Scripted(
+            intro: (steps: [Rest(duration: 1.0)]),
+            phase1: (steps: [
+                Telegraph(profile: FloorSlam, duration: 0.6),
+                Strike(profile: FloorSlam, duration: 0.35),
+                Rest(duration: 1.0),
+                Telegraph(profile: FullBodyPulse, duration: 0.7),
+                Strike(profile: FullBodyPulse, duration: 0.45),
+                Rest(duration: 1.2),
+            ]),
+            transition: (steps: [Rest(duration: 1.0)]),
+            phase2: (steps: [
+                Telegraph(profile: FloorSlam, duration: 0.55),
+                Strike(profile: FloorSlam, duration: 0.35),
+                Rest(duration: 0.9),
+                Telegraph(profile: FullBodyPulse, duration: 0.65),
+                Strike(profile: FullBodyPulse, duration: 0.45),
+                Rest(duration: 1.0),
+            ]),
+            enrage: (steps: [
+                Telegraph(profile: FloorSlam, duration: 0.45),
+                Strike(profile: FloorSlam, duration: 0.30),
+                Telegraph(profile: FullBodyPulse, duration: 0.55),
+                Strike(profile: FullBodyPulse, duration: 0.35),
+                Rest(duration: 0.8),
+            ]),
+        ),
+    ),
 }

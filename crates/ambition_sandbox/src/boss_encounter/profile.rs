@@ -73,6 +73,17 @@ impl BossProfile {
         }
     }
 
+    pub fn smirking_behemoth_boss() -> Self {
+        let encounter = crate::boss_encounter::BossEncounterSpec::smirking_behemoth_boss();
+        Self {
+            id: encounter.id.clone(),
+            display_name: encounter.name.clone(),
+            encounter,
+            behavior: crate::features::BossBehaviorProfile::smirking_behemoth_boss(),
+            reward: BossRewardProfile::None,
+        }
+    }
+
     pub fn generic(id: impl Into<String>, display_name: impl Into<String>, max_hp: i32) -> Self {
         let id = id.into();
         let display_name = display_name.into();
@@ -113,6 +124,7 @@ const AUTHORED_BOSS_PROFILES: &[(&str, fn() -> BossProfile)] = &[
     ("clockwork_warden", BossProfile::clockwork_warden),
     ("mockingbird", BossProfile::mockingbird),
     ("gnu_ton", BossProfile::gnu_ton),
+    ("smirking_behemoth_boss", BossProfile::smirking_behemoth_boss),
 ];
 
 pub fn default_boss_profiles() -> Vec<BossProfile> {
@@ -197,6 +209,14 @@ mod tests {
         assert_profile_matches(
             "mockingbird",
             crate::boss_encounter::BossEncounterSpec::mockingbird(),
+        );
+    }
+
+    #[test]
+    fn smirking_behemoth_boss_profile_encounter_matches_hardcoded_constructor() {
+        assert_profile_matches(
+            "smirking_behemoth_boss",
+            crate::boss_encounter::BossEncounterSpec::smirking_behemoth_boss(),
         );
     }
 

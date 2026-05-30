@@ -330,6 +330,19 @@ pub fn apply_feature_hit_events(
             if !boss.alive {
                 continue;
             }
+            if crate::boss_encounter::is_cut_rope_boss(&boss.behavior.id)
+                && matches!(
+                    event.source,
+                    HitSource::PlayerSlash { .. } | HitSource::PlayerProjectile { .. }
+                )
+            {
+                // Smirking Behemoth is an environmental puzzle boss:
+                // ordinary player hits can still flash/bark through the
+                // cut-rope rule layer, but they must not reduce HP. The
+                // LDtk-authored rope/anvil system owns the kill condition.
+                boss.hit_flash = boss.hit_flash.max(0.12);
+                continue;
+            }
             // Damageable volumes read from BossAttackState (the
             // brain's source of truth for which strike profile is
             // live) so GNU-ton's head-descent vulnerability window

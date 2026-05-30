@@ -619,7 +619,15 @@ pub fn upgrade_boss_sprites(
         // If no asset is available we skip — the colored rectangle
         // fallback in `sync_visuals` continues to render.
         let boss_name = crate::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
-        let is_gnu_ton = boss_name.eq_ignore_ascii_case("gnu_ton")
+        let boss_behavior_id = ecs_bosses
+            .iter()
+            .find_map(|(feature_id, boss, _)| {
+                (feature_id.as_str() == visual.id.as_str()).then_some(boss.boss.behavior.id.as_str())
+            })
+            .unwrap_or(boss_name);
+        let boss_key = boss_behavior_id.to_ascii_lowercase().replace('-', "_");
+        let is_gnu_ton = boss_key == "gnu_ton"
+            || boss_name.eq_ignore_ascii_case("gnu_ton")
             || boss_name.eq_ignore_ascii_case("gnu-ton")
             || boss_name.to_lowercase().starts_with("gnu_ton")
             || boss_name.to_lowercase().starts_with("gnu-ton");
@@ -647,6 +655,15 @@ pub fn upgrade_boss_sprites(
             asset
         } else if is_gnu_ton {
             let Some(asset) = assets.gnu_ton.as_ref().or(assets.boss.as_ref()) else {
+                continue;
+            };
+            asset
+        } else if boss_key == "smirking_behemoth_boss" {
+            let Some(asset) = assets
+                .smirking_behemoth_boss
+                .as_ref()
+                .or(assets.boss.as_ref())
+            else {
                 continue;
             };
             asset

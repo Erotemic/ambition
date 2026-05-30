@@ -249,6 +249,12 @@ impl BossBehaviorProfile {
         Self::from_data("gnu_ton")
     }
 
+    /// Smirking Behemoth — cut-rope environmental boss.
+    /// Authored in `boss_profiles.ron`.
+    pub fn smirking_behemoth_boss() -> Self {
+        Self::from_data("smirking_behemoth_boss")
+    }
+
     /// Fallback profile for authored bosses whose canonical id isn't
     /// in `boss_profiles.ron`. Clones the Clockwork Warden's tuning
     /// and overrides the id so the encounter pipeline doesn't fault
@@ -378,7 +384,7 @@ mod boss_profile_data_tests {
     /// missing boss.
     #[test]
     fn ron_carries_every_known_boss() {
-        for id in ["clockwork_warden", "mockingbird", "gnu_ton"] {
+        for id in ["clockwork_warden", "mockingbird", "gnu_ton", "smirking_behemoth_boss"] {
             assert!(
                 BOSS_PROFILE_REGISTRY.contains_key(id),
                 "boss_profiles.ron missing row for '{id}'",
@@ -701,10 +707,10 @@ pub fn boss_animation_keys_for_profile(
 ) -> &'static [&'static str] {
     use crate::brain::BossAttackProfile;
     match profile {
-        BossAttackProfile::FloorSlam => &["floor_slam"],
+        BossAttackProfile::FloorSlam => &["floor_slam", "mouth_open"],
         BossAttackProfile::SideSweep => &["side_sweep"],
-        BossAttackProfile::FullBodyPulse => &["spike_halo"],
-        BossAttackProfile::GradientLane => &["dash_echo"],
+        BossAttackProfile::FullBodyPulse => &["spike_halo", "eye_beam"],
+        BossAttackProfile::GradientLane => &["dash_echo", "eye_beam"],
         // Gradient Sentinel specials don't have a dedicated row
         // in the AI-Slop-Zeta sheet; route them to `spike_halo`
         // (closest visual: a ring of damage around the boss) so

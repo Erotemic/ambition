@@ -643,6 +643,9 @@ pub struct GameAssets {
     /// rest / hand_slam / hand_sweep / head_down / hit / death.
     /// Installed by `ambition_sprite2d_renderer render-publish gnu_ton_boss`.
     pub gnu_ton: Option<BossSpriteAsset>,
+    /// Smirking Behemoth boss spritesheet for the cut-rope arena.
+    /// Installed by `ambition_sprite2d_renderer publish smirking_behemoth_boss`.
+    pub smirking_behemoth_boss: Option<BossSpriteAsset>,
     /// Body-only GNU-ton sheet (no hands, no attack VFX). Rendered
     /// behind platforms so the player can read jump targets through
     /// the giant silhouette.
@@ -681,6 +684,8 @@ pub fn load_game_assets(
     let boss = sprites::load_boss_sprite_in(catalog, asset_server, layouts);
     let mockingbird = sprites::load_mockingbird_sprite_in(catalog, asset_server, layouts);
     let gnu_ton = sprites::load_gnu_ton_sprite_in(catalog, asset_server, layouts);
+    let smirking_behemoth_boss =
+        sprites::load_smirking_behemoth_sprite_in(catalog, asset_server, layouts);
     let gnu_ton_body = sprites::load_gnu_ton_body_sprite_in(catalog, asset_server, layouts);
     let gnu_ton_hands = sprites::load_gnu_ton_hands_sprite_in(catalog, asset_server, layouts);
     let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
@@ -701,6 +706,7 @@ pub fn load_game_assets(
         boss,
         mockingbird,
         gnu_ton,
+        smirking_behemoth_boss,
         gnu_ton_body,
         gnu_ton_hands,
         parallax_layers,

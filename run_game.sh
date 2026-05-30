@@ -39,6 +39,10 @@ Common commands:
   ./run_game.sh hot release -- --start-room goblin_encounter
       Combine hot reload + release and pass arguments to the game binary.
 
+  ./run_game.sh cut-rope
+  ./run_game.sh smirking-behemoth
+      Run directly in the You Have To Cut The Rope boss arena.
+
   ./run_game.sh validate
   ./run_game.sh ldtk
       Validate the sandbox LDtk world and exit.
@@ -83,12 +87,16 @@ print_cmd() {
 run_ldtk_validation() {
     local sandbox_world="$repo_root/crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"
     local intro_world="$repo_root/crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk"
+    local cut_rope_world="$repo_root/crates/ambition_sandbox/assets/ambition/worlds/you_have_to_cut_the_rope.ldtk"
 
     local cmd=(
         "$python_bin" -m ambition_ldtk_tools validate
         "$sandbox_world"
         --secondary-world "$intro_world"
     )
+    if [[ -f "$cut_rope_world" ]]; then
+        cmd+=(--secondary-world "$cut_rope_world")
+    fi
 
     echo "Validating LDtk worlds..."
     print_cmd env "PYTHONPATH=$repo_root/tools/ambition_ldtk_tools" "${cmd[@]}"
@@ -119,6 +127,9 @@ while [[ $# -gt 0 ]]; do
         validate|ldtk|ldtk-validate|validate-only|--validate-only)
             validate_before_run=1
             validate_only=1
+            ;;
+        cut-rope|cut-rope-boss|smirking-behemoth|you-have-to-cut-the-rope)
+            game_args+=(--start-room you_have_to_cut_the_rope)
             ;;
         --features)
             shift

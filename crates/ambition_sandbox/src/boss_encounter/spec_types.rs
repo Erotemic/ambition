@@ -175,6 +175,32 @@ impl BossEncounterSpec {
         }
     }
 
+    /// Smirking Behemoth — "You Have To Cut The Rope" parody boss.
+    ///
+    /// HP is intentionally enormous because ordinary attacks are ignored;
+    /// the LDtk-authored rope/anvil mechanic triggers an environmental
+    /// forced death instead.
+    pub fn smirking_behemoth_boss() -> Self {
+        Self {
+            id: "smirking_behemoth_boss".into(),
+            name: "Smirking Behemoth".into(),
+            max_hp: 9999,
+            phase1_to_transition_hp: 0.66,
+            transition_to_phase2_hp: 0.66,
+            phase2_to_enrage_hp: 0.22,
+            intro_seconds: 1.0,
+            transition_seconds: 1.0,
+            stagger_seconds: 0.4,
+            death_seconds: 2.0,
+            stagger_threshold: 999_999,
+            stagger_window_seconds: 0.1,
+            music_intro: "standing_on_shoulders".into(),
+            music_phase1: "standing_on_shoulders".into(),
+            music_phase2: "standing_on_shoulders".into(),
+            music_enrage: "standing_on_shoulders".into(),
+        }
+    }
+
     /// GNU-ton — the giant GNU with a scholar perched on its shoulders.
     ///
     /// Multi-part fight: the player must dodge hands (Phase 1) until the
@@ -348,6 +374,20 @@ impl BossEncounterState {
     pub fn death_complete(&self) -> bool {
         matches!(self.phase, BossEncounterPhase::Death)
             && self.phase_elapsed >= self.spec.death_seconds
+    }
+
+    /// Force the encounter directly into Death.
+    ///
+    /// Environmental win conditions use this instead of
+    /// `apply_player_damage`: the boss may be immune to ordinary player
+    /// hits, but room-authored mechanics (e.g. a falling anvil) still need
+    /// to drive the same death events, music clearing, and save resolution
+    /// as normal lethal damage.
+    pub fn force_death(&mut self) -> Vec<BossEncounterEvent> {
+        self.hp = 0;
+        self.stagger_pressure = 0;
+        self.stagger_window = 0.0;
+        self.set_phase(BossEncounterPhase::Death)
     }
 
     /// Reset the encounter so a fresh attempt becomes available.

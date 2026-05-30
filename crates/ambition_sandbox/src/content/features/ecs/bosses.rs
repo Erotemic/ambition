@@ -81,6 +81,7 @@ pub fn sprite_render_size_for(target: &str, boss_size: ae::Vec2) -> ae::Vec2 {
     let spec = match target {
         "boss" => Some(sprites::BOSS_SHEET),
         "mockingbird" => Some(sprites::MOCKINGBIRD_SHEET),
+        "smirking_behemoth_boss" => Some(sprites::SMIRKING_BEHEMOTH_SHEET),
         // `gnu_ton_boss` is the actual sheet target ID emitted by the
         // gnu_ton spritesheet RON. `gnu_ton_body` / `gnu_ton_hands` /
         // `gnu_ton` (legacy aliases) stay mapped for compatibility.

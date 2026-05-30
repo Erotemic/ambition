@@ -1,6 +1,7 @@
 #[cfg(feature = "input")]
 use super::input::close_inventory;
 use super::*;
+use crate::ui_nav::{resolve_selectable_row_interaction, RowPointerOutcome};
 
 /// Mouse / touch input for the adventure-menu panel.
 ///
@@ -32,6 +33,9 @@ pub fn inventory_pointer_input(
     for (interaction, tab_button) in &tabs {
         if matches!(interaction, Interaction::Pressed) {
             state.set_tab(tab_button.tab);
+            let selected = state.selected;
+            let focus = &mut state.focus;
+            focus.mark_pointer(selected);
             return;
         }
     }
@@ -48,14 +52,27 @@ pub fn inventory_pointer_input(
         };
         match interaction {
             Interaction::Hovered => {
-                if state.selected != index {
-                    state.selected = index;
+                let update = resolve_selectable_row_interaction(
+                    interaction,
+                    index,
+                    state.selected,
+                    tap_mode,
+                    false,
+                    state.pointer_armed,
+                    state.focus,
+                );
+                state.selected = update.selected;
+                state.pointer_armed = update.pointer_armed;
+                state.focus = update.focus;
+                if matches!(update.outcome, RowPointerOutcome::Confirmed) {
+                    state.pointer_confirm = true;
                 }
             }
             Interaction::Pressed => {
                 let press =
                     tap_mode.resolve_press(index, state.selected, false, &mut state.pointer_armed);
                 state.selected = index;
+                state.focus.mark_pointer(index);
                 if matches!(
                     press,
                     crate::persistence::settings::MenuPointerPress::Confirm

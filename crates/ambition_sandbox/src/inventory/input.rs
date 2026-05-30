@@ -40,9 +40,11 @@ pub fn inventory_input(
 
     if menu.left {
         state.previous_tab();
+        state.focus.mark_keyboard();
     }
     if menu.right {
         state.next_tab();
+        state.focus.mark_keyboard();
     }
 
     match state.tab {
@@ -79,6 +81,7 @@ fn handle_item_tab_input(
     // Keyboard / gamepad / gesture navigation clears any tap-armed row so the
     // next pointer press starts fresh.
     if moved_by_buttons || moved_by_scroll || menu.scroll_y.abs() >= 0.5 {
+        state.focus.mark_keyboard();
         state.pointer_armed = None;
     }
 

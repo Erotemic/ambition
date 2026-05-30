@@ -15,6 +15,7 @@ fn enter_page_pushes_onto_stack() {
         stack: Vec::new(),
         pointer_armed: None,
         pointer_confirm: false,
+        focus: crate::ui_nav::MenuFocusState::default(),
     };
     s.enter_page(PauseMenuPage::Settings(SettingsPage::Top));
     assert!(matches!(s.page, PauseMenuPage::Settings(SettingsPage::Top)));

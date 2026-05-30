@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui_nav::MenuFocusState;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ItemKind {
@@ -142,6 +143,9 @@ pub struct InventoryUiState {
     /// Tracks the row "armed" by a prior tap under tap-then-confirm modes.
     /// Cleared once the user taps it again or moves away.
     pub pointer_armed: Option<usize>,
+    /// Which input source currently owns selection focus, plus the
+    /// last row the pointer actually hovered.
+    pub focus: MenuFocusState,
 }
 
 impl InventoryUiState {
@@ -153,12 +157,14 @@ impl InventoryUiState {
         self.opened_from_pause = opened_from_pause;
         self.pointer_confirm = false;
         self.pointer_armed = None;
+        self.focus = MenuFocusState::default();
     }
 
     pub(super) fn close(&mut self) {
         self.visible = false;
         self.pointer_confirm = false;
         self.pointer_armed = None;
+        self.focus = MenuFocusState::default();
     }
 
     pub(super) fn set_tab(&mut self, tab: InventoryTab) {
@@ -168,6 +174,7 @@ impl InventoryUiState {
             self.content_scroll = 0;
             self.pointer_confirm = false;
             self.pointer_armed = None;
+            self.focus = MenuFocusState::default();
         }
     }
 

@@ -40,9 +40,11 @@ pub fn pause_menu_pointer_input(
                     tap_mode,
                     item.is_destructive(),
                     state.pointer_armed,
+                    state.focus,
                 );
                 state.selected = update.selected;
                 state.pointer_armed = update.pointer_armed;
+                state.focus = update.focus;
                 if matches!(update.outcome, RowPointerOutcome::Confirmed) {
                     state.pointer_confirm = true;
                 }
@@ -92,9 +94,11 @@ fn handle_row_pointer_interaction(
         tap_mode,
         false,
         state.pointer_armed,
+        state.focus,
     );
     state.selected = update.selected;
     state.pointer_armed = update.pointer_armed;
+    state.focus = update.focus;
     if matches!(update.outcome, RowPointerOutcome::Confirmed) {
         state.pointer_confirm = true;
     }

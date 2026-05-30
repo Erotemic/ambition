@@ -106,6 +106,7 @@ fn inventory_state_tab_change_resets_local_selection() {
         opened_from_pause: true,
         pointer_confirm: true,
         pointer_armed: Some(1),
+        focus: crate::ui_nav::MenuFocusState::default(),
     };
     state.set_tab(InventoryTab::Quests);
     assert_eq!(state.tab, InventoryTab::Quests);

@@ -1,5 +1,6 @@
 use super::*;
 use crate::engine_core as ae;
+use crate::ui_nav::MenuFocusState;
 
 /// Mutable bundle of the resources the Developer settings page toggles.
 /// Packed into a single `SystemParam` so `pause_menu_navigate` stays
@@ -10,12 +11,7 @@ pub struct DevToggleParams<'w, 's> {
     pub developer: ResMut<'w, DeveloperTools>,
     pub editable_tuning: ResMut<'w, crate::dev::dev_tools::EditableMovementTuning>,
     pub ldtk_reload: ResMut<'w, LdtkHotReloadState>,
-    pub player_q: Query<
-        'w,
-        's,
-        ae::PlayerClusterQueryData,
-        crate::player::PrimaryPlayerOnly,
-    >,
+    pub player_q: Query<'w, 's, ae::PlayerClusterQueryData, crate::player::PrimaryPlayerOnly>,
 }
 
 /// Read-only counterpart used by `sync_pause_menu` to sample the
@@ -182,6 +178,9 @@ pub struct PauseMenuState {
     /// currently selected row. Consumed by the navigate system on the
     /// same frame and folded into `MenuInputFrame.select`.
     pub pointer_confirm: bool,
+    /// Which input source currently owns selection focus, plus the
+    /// last row the pointer actually hovered.
+    pub focus: MenuFocusState,
 }
 
 impl PauseMenuState {
@@ -190,6 +189,7 @@ impl PauseMenuState {
             self.stack.push(self.page);
             self.page = page;
             self.selected = 0;
+            self.focus = MenuFocusState::default();
         }
     }
 
@@ -197,10 +197,12 @@ impl PauseMenuState {
         if let Some(prev) = self.stack.pop() {
             self.page = prev;
             self.selected = 0;
+            self.focus = MenuFocusState::default();
         } else {
             // Already at root — close the menu (caller decides).
             self.page = PauseMenuPage::Top;
             self.selected = 0;
+            self.focus = MenuFocusState::default();
         }
     }
 }

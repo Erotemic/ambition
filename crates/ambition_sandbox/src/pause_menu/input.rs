@@ -86,8 +86,12 @@ pub fn pause_menu_navigate(
         frame.select = true;
         state.pointer_confirm = false;
     }
-    if frame.any_directional() || frame.back || menu.scroll_y.abs() >= 0.5 {
+    if frame.any_directional() || menu.scroll_y.abs() >= 0.5 {
+        state.focus.mark_keyboard();
         state.pointer_armed = None;
+    }
+    if frame.back {
+        state.focus.mark_keyboard();
     }
 
     let preset_count = KeyboardPreset::presets().len();

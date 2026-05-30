@@ -24,8 +24,6 @@ This causes the user to hear a clear audio cut,  and from their point of view th
 
 * Same clarify thing with image asset generation. We need to do a lot of code consolidation and improvement.
 
-- [ ] I want the "bubble shield" to have a dodge and roll mechanic. Bubble + Down is a dodge and bubble + direction is a roll.
-
 * I want the on-screen buttons to be context sensitive. I.e. interact should
   show what the interaction is. The projectile button should probably become a
   "special" move, but neutral special will be the fireball or haudoken if we
@@ -53,9 +51,6 @@ This causes the user to hear a clear audio cut,  and from their point of view th
 * Can we make the headless version of the game able to render screenshots so we can attempt to visually verify properties of the game in tests?
 
 * The touch screen controls allows you to move the character in a cut scene and dialog. This indicates there is a break in contract of the controller abstraction that should shuttle any type of input device into something standard the game sees as player controls.
-
-
-* the gnuton boss needs to have an attack where apples drop from the ceiling and damage you.
 
 * We need to add an Alice NPC corresponding to the Bob NPC. Bob is the architect, and Alice is the cryptographer. We also need an Eve NPC who tries to listen to their conversations. Mallory is the malicious attacker. Trudy is the intruder. Craig is the cracker, and Sybil is a pseudonymous attacker who creates a massive number of fake identities. Trent: trusted arbitrator. Victor & Peggy: The verifier and prover. Walter is the warden. Olivia: The oracle. Judy the judge. 
 

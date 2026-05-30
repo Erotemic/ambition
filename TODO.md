@@ -27,7 +27,13 @@ Useful companion docs:
 
 When you wake up here, pick the next task from this list and work on it without asking permission. Honor the long-running discipline (`[[never-stop-during-long-run]]` in memory): never stop until the time limit, even if the headline task feels finished — there's always more on this file. When you do close a task, leave this instruction in place so the next agent finds it.
 
-- [ ] The roll ledge recovery does a mostly diagnoal move in its current state and we don't want this, the roll needs to use a curved trajectory to get onto the platform and then perform the roll smoothly. 
+- [ ] Gnutons hitbox around his head does not follow the animation, so either the sprite generator is not emitting the ron data properly, or we don't have it hooked up right. 
+
+- [x] The dialog boxes when talking to NPCs have the same mouse hover bug as the menu did. Need to fix that. 
+
+- [ ] The player running into an enemy hurts the enemy. (probably due to the unification). The fix should be that a character should have a flag that enables their body hitbox. Generally when a human is controlling a character this should be turned off - maybe in some cases it is turned on if gameplay does make your body hazardous to your foes. But otherwise we just want the classic behavior where running into an enemy hurts you (or at least the option of it, with that as the default). 
+
+- [ ] Improve shark without a rider attack patterns so it feels maybe more wild than the pirate who was controlling it. Maybe it charges and if it hits a wall because it charges too far it explodes. 
 
 - [ ] Develop a Boss to flex / force the player / boss unification code (do a new boss with a more humanoid or maybe bipedal character like the trex).
 
@@ -49,11 +55,9 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Silksong levels of input buffering.
 
+- [ ] Ledge grabbing on a moving platform leaves you stationary in air, but it should have you move with the platform or be knocked off if it would push you through a wall through something with heavy collision. 
+
 - [ ] Increase the resolution of gnuton so the sprite is not drawn pixelated. 
-
-- [ ] The pirate heavy is riding a goblin instead of a burning flying shark in the pirate sky. 
-
-- [ ] For mounted pirates, we aren't keeping a separate healthpool for the pirates and the sharks. We need to do that. In general the mount and rider always need separate health pools. Also when you kill one, it looks like the pirate should fall to the ground, but its the shark that falls to the ground and I think gets a pirate brain. Really what should happen is if the shark is killed the pirate falls, and if the pirate is killed the shark continues to fly and attack, but with its own patterns (so it feels maybe more wild than the pirate who was controlling it). Maybe it charges and if it hits a wall because it charges too far it explodes. 
 
 - [ ] **Drop-shadow CI assertion follow-up** — generator-side rule [[feedback-no-drop-shadows-on-sprites]] is in memory, but it would help to add a renderer-time assertion that fails if there are opaque pixels below the foot-anchor row on a generated sprite (so a baked shadow trips CI instead of silently shipping).
 
@@ -97,7 +101,7 @@ When you wake up here, pick the next task from this list and work on it without 
   - Diagnose first: compare generated and installed OGGs, run `audit_cue_balance.py`, inspect logs for `gain_start=target`, then decide whether the fix is score arrangement, mastering, stem balance, or runtime fade policy.
   - Related follow-ups live under the audio section below: level report, live gain HUD, equal-power crossfade, and per-stem mastering.
 
-- [ ] **Cutscene/dialogue input and presentation polish** `[V4/D3]` - `issues.md` reports cutscenes that only show text in debug view and say the wrong continue prompt. Route acknowledgement through the same canonical input seam used by keyboard/gamepad/touch, and make the displayed prompt match the active control method.
+- [x] **Cutscene/dialogue input and presentation polish** `[V4/D3]` - `issues.md` reports cutscenes that only show text in debug view and say the wrong continue prompt. Route acknowledgement through the same canonical input seam used by keyboard/gamepad/touch, and make the displayed prompt match the active control method.
   - Good session shape: find the current cutscene UI path, make one visible prompt accurate, then add or update a scripted-gameplay test for dialogue acknowledgement.
 
 - [ ] **Menu mouse-hover vs keyboard navigation conflict** `[V3/D2]` - If the mouse is hovering an option while the user navigates by arrow keys / controller, the hover state can fight selection movement. Make menu focus policy explicit: pointer motion may set focus, but stale pointer position should not override a newer keyboard/controller navigation edge.
@@ -141,7 +145,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] **Tutorial refresher / quest reminder rule** `[V3/D3]` - Design rule: the game should never permanently strand a player without a way to review tutorial controls, current quests, or what they were doing. Add a durable UI/UX plan and a small sandbox proof.
 
-- [ ] **Alice/Bob/Eve/Mallory/etc. NPC cast** `[V2/D3]` - Potential cryptography-themed NPC set: Bob the architect, Alice the cryptographer, Eve listener, Mallory malicious attacker, Trudy intruder, Craig cracker, Sybil identity attacker, Trent arbitrator, Victor/Peggy verifier/prover, Walter warden, Olivia oracle, Judy judge. Add these NPCs to various rooms in the sandbox.
+- [x] **Alice/Bob/Eve/Mallory/etc. NPC cast** `[V2/D3]` - Potential cryptography-themed NPC set: Bob the architect, Alice the cryptographer, Eve listener, Mallory malicious attacker, Trudy intruder, Craig cracker, Sybil identity attacker, Trent arbitrator, Victor/Peggy verifier/prover, Walter warden, Olivia oracle, Judy judge. Add these NPCs to various rooms in the sandbox.
 
 ## B - Audio, generated assets, and authoring tools
 

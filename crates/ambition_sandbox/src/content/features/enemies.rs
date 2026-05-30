@@ -315,6 +315,11 @@ pub(super) enum EnemyBrainTemplate {
     /// Hold position + long-range fire. Like `Skirmisher` but does
     /// not strafe — used by stationary turret-like enemies.
     Sniper,
+    /// Dedicated shark motion policy. Drives the riderless burning
+    /// shark's charge-and-crash behavior without changing the
+    /// mounted shark+pirate composite, which keeps its own mount
+    /// brain.
+    Shark,
     /// Smash-brawl pipeline: observe → mode → action → difficulty
     /// → emit. See `crate::brain::smash`. Use for humanoid melee
     /// archetypes that should approach, swing, and step back with
@@ -719,6 +724,7 @@ impl EnemyRuntime {
         tuning: FeatureCombatTuning,
         nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
+        _is_mounted: bool,
         frame: crate::actor_control::ActorControlFrame,
     ) -> crate::actor_control::ActorControlFrame {
         // `EnemyTickOutputs` is gone — projectile spawns flow through

@@ -192,7 +192,10 @@ fn spawn_boss(commands: &mut Commands, authored: &crate::rooms::Authored<crate::
     ));
 }
 
-fn spawn_pickup(commands: &mut Commands, authored: &crate::rooms::Authored<crate::interaction::Pickup>) {
+fn spawn_pickup(
+    commands: &mut Commands,
+    authored: &crate::rooms::Authored<crate::interaction::Pickup>,
+) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     commands.spawn((
         Name::new(format!("Feature pickup: {}", authored.name)),
@@ -205,7 +208,10 @@ fn spawn_pickup(commands: &mut Commands, authored: &crate::rooms::Authored<crate
     ));
 }
 
-fn spawn_chest(commands: &mut Commands, authored: &crate::rooms::Authored<crate::interaction::Chest>) {
+fn spawn_chest(
+    commands: &mut Commands,
+    authored: &crate::rooms::Authored<crate::interaction::Chest>,
+) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     commands.spawn((
         Name::new(format!("Feature chest: {}", authored.name)),
@@ -218,7 +224,10 @@ fn spawn_chest(commands: &mut Commands, authored: &crate::rooms::Authored<crate:
     ));
 }
 
-fn spawn_breakable(commands: &mut Commands, authored: &crate::rooms::Authored<crate::interaction::Breakable>) {
+fn spawn_breakable(
+    commands: &mut Commands,
+    authored: &crate::rooms::Authored<crate::interaction::Breakable>,
+) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let breakable = &authored.payload;
     let mut entity = commands.spawn((
@@ -383,10 +392,12 @@ fn spawn_solo_enemy(
 /// [`super::sync_riders_to_mounts`] system snaps the rider to the
 /// mount's offset from frame one.
 ///
-/// Mount: `BurningFlyingShark` archetype with its STANDALONE brain
-/// (MeleeBrute Bite + DiveStrike — what the shark would do on its
-/// own). Health comes from the composite spec (PirateOnShark =
-/// 6, PirateHeavyOnShark = 7) so the body HP pool stays as authored.
+/// Mount: `BurningFlyingShark` archetype with an explicit MeleeBrute
+/// mount brain so the fused shark+pirate encounter keeps its current
+/// mounted behavior. Health comes from the composite spec
+/// (PirateOnShark = 6, PirateHeavyOnShark = 7) so the body HP pool
+/// stays as authored. The riderless shark now has its own dedicated
+/// Shark brain via `enemy_default_brain`.
 ///
 /// Rider: `PirateRaider` for the light composite, `PirateHeavy` for
 /// the heavy composite. Brain is explicitly built as Skirmisher with
@@ -542,7 +553,20 @@ fn spawn_composite_mount_rider(
     // Build mount-side bundles and reserve the entity. We need both
     // entity IDs to link MountSlot ↔ RidingOn, so we spawn each and
     // then attach the link components.
-    let mount_brain = enemy_default_brain(&mount_enemy);
+    let mount_seed = crate::attack_choreography::seed_from_id(&mount_id);
+    let mount_jitters = five_f32s_from_seed(mount_seed);
+    let mount_aggro_radius = mount_archetype.aggro_radius() * (0.8 + 0.4 * mount_jitters.0);
+    let mount_chase_speed = mount_archetype.chase_speed() * (0.85 + 0.3 * mount_jitters.1);
+    let mount_attack_range = mount_archetype.attack_range() * (0.9 + 0.2 * mount_jitters.2);
+    let mount_brain = Brain::StateMachine(StateMachineCfg::MeleeBrute {
+        cfg: crate::brain::MeleeBruteCfg {
+            aggressiveness: 1.0,
+            aggro_radius: mount_aggro_radius,
+            attack_range: mount_attack_range,
+            chase_speed: mount_chase_speed,
+        },
+        state: crate::brain::MeleeBruteState::default(),
+    });
     let mount_action_set = enemy_default_action_set(&mount_enemy);
     let mount_actor = ActorRuntime::Hostile(mount_enemy);
     let (m_identity, m_disposition, m_health, m_combat, m_intent, m_cooldowns) =
@@ -571,9 +595,7 @@ fn spawn_composite_mount_rider(
                 mount_feature_aabb.center.y,
                 0.0,
             ),
-            super::Mountable {
-                rider_offset,
-            },
+            super::Mountable { rider_offset },
             super::MountSlot::default(),
         ))
         .id();
@@ -631,11 +653,61 @@ fn spawn_composite_mount_rider(
     });
 }
 
+fn melee_brute_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
+    use crate::brain::{Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg};
+
+    let archetype = enemy.archetype;
+    let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+    let jitters = five_f32s_from_seed(seed);
+    let aggro_radius = archetype.aggro_radius() * (0.8 + 0.4 * jitters.0);
+    let chase_speed = archetype.chase_speed() * (0.85 + 0.3 * jitters.1);
+    let attack_range = archetype.attack_range() * (0.9 + 0.2 * jitters.2);
+    Brain::StateMachine(StateMachineCfg::MeleeBrute {
+        cfg: MeleeBruteCfg {
+            aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+            aggro_radius,
+            attack_range,
+            chase_speed,
+        },
+        state: MeleeBruteState::default(),
+    })
+}
+
+fn shark_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
+    use crate::brain::{Brain, SharkCfg, SharkState, StateMachineCfg};
+
+    let archetype = enemy.archetype;
+    let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+    let jitters = five_f32s_from_seed(seed);
+    let aggro_radius = archetype.aggro_radius() * (0.85 + 0.3 * jitters.0);
+    let cruise_speed = archetype.chase_speed() * (0.85 + 0.25 * jitters.1);
+    let charge_speed = (cruise_speed * (2.0 + 0.4 * jitters.2)).max(360.0);
+    let bite_range = archetype.attack_range() * (0.85 + 0.15 * jitters.3);
+    let charge_duration_s = 0.38 + 0.18 * jitters.4;
+    let charge_cooldown_s = 0.75 + 0.55 * jitters.1;
+    Brain::StateMachine(StateMachineCfg::Shark {
+        cfg: SharkCfg {
+            aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+            aggro_radius,
+            cruise_speed,
+            charge_speed,
+            bite_range,
+            charge_duration_s,
+            charge_cooldown_s,
+        },
+        state: SharkState {
+            charge_cooldown_remaining: charge_cooldown_s * (0.25 + 0.75 * jitters.0),
+            ..Default::default()
+        },
+    })
+}
+
 /// Map an `EnemyRuntime` to a Brain template. Reads the archetype's
 /// actual tunings (chase_speed / aggro_radius / attack_range) so
 /// the brain's MeleeBrute cfg matches what the existing AI loop
 /// uses. PuppySlug gets a Wanderer; sandbags get StandStill;
-/// everyone else gets a MeleeBrute keyed to their archetype.
+/// sharks get a dedicated charge brain; everyone else gets a
+/// MeleeBrute keyed to their archetype.
 ///
 /// Today the hostile-actor pipeline writes the LEGACY AI's frame
 /// into `ActorControl` (the brain's shadow output is overwritten);
@@ -688,8 +760,8 @@ pub(in crate::content::features) fn enemy_default_brain(
 ) -> crate::brain::Brain {
     use super::super::enemies::EnemyBrainTemplate;
     use crate::brain::{
-        Brain, MeleeBruteCfg, MeleeBruteState, SkirmisherCfg, SkirmisherState, SmashState,
-        SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
+        Brain, SkirmisherCfg, SkirmisherState, SmashState, SniperCfg, SniperState, StateMachineCfg,
+        WandererCfg, WandererState,
     };
     let archetype = enemy.archetype;
     match archetype.brain_template() {
@@ -698,29 +770,8 @@ pub(in crate::content::features) fn enemy_default_brain(
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
             state: WandererState::default(),
         }),
-        EnemyBrainTemplate::MeleeBrute => {
-            // Per-actor jitter on aggro / chase / range so a cluster
-            // of MeleeBrute enemies doesn't pick the same chase
-            // vector and step together. See `docs/adr/0012-cluster-
-            // variation.md` for the policy + intent. ±20% aggro,
-            // ±15% chase, ±10% range — enough to noticeably
-            // de-sync a pair without breaking the encounter's
-            // authored tuning intent.
-            let seed = crate::attack_choreography::seed_from_id(&enemy.id);
-            let jitters = five_f32s_from_seed(seed);
-            let aggro_radius = archetype.aggro_radius() * (0.8 + 0.4 * jitters.0);
-            let chase_speed = archetype.chase_speed() * (0.85 + 0.3 * jitters.1);
-            let attack_range = archetype.attack_range() * (0.9 + 0.2 * jitters.2);
-            Brain::StateMachine(StateMachineCfg::MeleeBrute {
-                cfg: MeleeBruteCfg {
-                    aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
-                    aggro_radius,
-                    attack_range,
-                    chase_speed,
-                },
-                state: MeleeBruteState::default(),
-            })
-        }
+        EnemyBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy),
+        EnemyBrainTemplate::Shark => shark_brain_for_enemy(enemy),
         EnemyBrainTemplate::Skirmisher => {
             // Per-actor jitter from the actor's stable id-derived
             // seed. Independent f32s in [0, 1) drive cadence, initial
@@ -851,7 +902,10 @@ fn spawn_interactable(
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let interactable = &authored.payload;
-    if matches!(interactable.kind, crate::interaction::InteractionKind::Npc { .. }) {
+    if matches!(
+        interactable.kind,
+        crate::interaction::InteractionKind::Npc { .. }
+    ) {
         let npc = NpcRuntime::new_with_paths(
             authored.id.clone(),
             authored.name.clone(),
@@ -1138,6 +1192,12 @@ mod tests {
             Brain::StateMachine(StateMachineCfg::StandStill)
         ));
 
+        let shark = make_enemy(EnemyArchetype::BurningFlyingShark);
+        assert!(matches!(
+            enemy_default_brain(&shark),
+            Brain::StateMachine(StateMachineCfg::Shark { .. })
+        ));
+
         // `MediumStriker` was migrated to the Smash brain template in
         // `enemy_archetypes.ron` — assert against the live data path
         // rather than reverting to MeleeBrute. The chase_speed pin
@@ -1173,6 +1233,39 @@ mod tests {
                 archetype,
             );
         }
+    }
+
+    /// Regression net: the riderless shark gets the new Shark brain
+    /// while the mounted shark composite keeps the old MeleeBrute
+    /// mount brain on purpose.
+    #[test]
+    fn shark_composite_mount_brain_stays_melee_brute() {
+        use crate::brain::{Brain, StateMachineCfg};
+        let mut app = App::new();
+        app.add_systems(Update, |mut commands: Commands| {
+            let authored = crate::rooms::Authored {
+                id: "test_shark_on_shark".to_string(),
+                name: "Test Shark on Shark".to_string(),
+                aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
+                payload: crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            };
+            spawn_composite_mount_rider(
+                &mut commands,
+                &authored,
+                &[],
+                EnemyArchetype::PirateOnShark,
+            );
+        });
+        app.update();
+        let mut q = app.world_mut().query::<(&Brain, &super::MountSlot)>();
+        let (brain, _) = q
+            .iter(app.world())
+            .next()
+            .expect("composite mount should exist");
+        assert!(matches!(
+            brain,
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { .. })
+        ));
     }
 
     /// Coverage lint: every EnemyArchetype gets a non-None

@@ -168,7 +168,8 @@ mod conversion_tests {
         );
         assert!(matches!(
             npc.ai_mode,
-            crate::character_ai::CharacterAiMode::Idle | crate::character_ai::CharacterAiMode::Chase
+            crate::character_ai::CharacterAiMode::Idle
+                | crate::character_ai::CharacterAiMode::Chase
         ));
     }
 
@@ -453,6 +454,7 @@ mod conversion_tests {
                 FeatureCombatTuning::default(),
                 None,
                 1.0 / 60.0,
+                false,
                 frame,
             );
         }
@@ -521,6 +523,7 @@ mod conversion_tests {
                 FeatureCombatTuning::default(),
                 None,
                 1.0 / 60.0,
+                false,
                 frame,
             );
         }

@@ -8,6 +8,20 @@
 
 use super::*;
 
+fn shark_charge_crashed(
+    enemy: &EnemyRuntime,
+    is_mounted: bool,
+    charge_vec: ae::Vec2,
+    previous_pos: ae::Vec2,
+) -> bool {
+    !is_mounted
+        && enemy.archetype == EnemyArchetype::BurningFlyingShark
+        && charge_vec.x.abs() > enemy.archetype.chase_speed() * 1.5
+        && (enemy.pos.x - previous_pos.x).abs() < 0.01
+        && enemy.vel.x.abs() < 0.01
+        && enemy.alive
+}
+
 /// Unified ECS runtime for authored NPCs and enemies.
 ///
 /// The only meaningful gameplay distinction is disposition: peaceful actors
@@ -247,6 +261,7 @@ pub fn update_ecs_actors(
             // attacks (melee / ranged) the actor can commit. `Option`
             // so dynamically-spawned actors without a set still tick.
             Option<&crate::brain::ActionSet>,
+            Option<&super::Mounted>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -273,7 +288,7 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, crate::combat_slots::SlotKind)> = Vec::new();
-    for (_, _, actor, _, _, _, _, _, _, _, _, _, _) in &actors {
+    for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _) in &actors {
         if let ActorRuntime::Hostile(enemy) = actor {
             if enemy.alive {
                 requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
@@ -419,6 +434,7 @@ pub fn update_ecs_actors(
         mut brain,
         mut control,
         action_set,
+        mounted,
     ) in &mut actors
     {
         // `target.pos` is populated by `select_actor_targets`
@@ -489,6 +505,8 @@ pub fn update_ecs_actors(
                 // production spawn paths always attach a brain, so
                 // this is the safe no-op fallback.
                 let _ = slot_pos;
+                let is_mounted = mounted.is_some();
+                let previous_pos = enemy.pos;
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&enemy.id).copied();
                     let snapshot = build_enemy_brain_snapshot(enemy, target_pos, crowding, dt);
@@ -505,6 +523,7 @@ pub fn update_ecs_actors(
                         && enemy.archetype.body_contact_damage_enabled();
                 let mut brain_frame = brain_frame;
                 brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
+                let shark_charge_vec = brain_frame.desired_vel;
 
                 let frame = enemy.update(
                     &feature_world,
@@ -512,8 +531,25 @@ pub fn update_ecs_actors(
                     combat_tuning,
                     nearest_neighbor,
                     dt,
+                    is_mounted,
                     brain_frame,
                 );
+                let shark_crashed =
+                    shark_charge_crashed(enemy, is_mounted, shark_charge_vec, previous_pos);
+                let mut frame = frame;
+                if shark_crashed {
+                    hit_events.write(HitEvent {
+                        volume: enemy.aabb(),
+                        damage: enemy.health.current.max(1),
+                        source: HitSource::EnemyChargeCrash,
+                        attacker: None,
+                        target: HitTarget::Volume,
+                        mode: HitMode::Knockback,
+                        knockback: None,
+                        ignored_targets: Vec::new(),
+                    });
+                    frame = crate::actor_control::ActorControlFrame::neutral();
+                }
                 aabb.center = enemy.pos;
                 aabb.half_size = enemy.size * 0.5;
 
@@ -655,5 +691,59 @@ fn build_enemy_brain_snapshot(
         crowding,
         terrain: None,
         air_jumps_remaining: enemy.air_jumps_remaining,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn burning_shark_enemy() -> EnemyRuntime {
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(126.0, 52.0));
+        EnemyRuntime::new(
+            "burning_shark".to_string(),
+            "Burning Shark".to_string(),
+            aabb,
+            crate::actor::EnemyBrain::Custom("burning_flying_shark".into()),
+            &[],
+        )
+    }
+
+    #[test]
+    fn shark_charge_crash_detects_solo_charge_wall_hit() {
+        let mut enemy = burning_shark_enemy();
+        let previous_pos = ae::Vec2::new(120.0, 80.0);
+        enemy.pos = previous_pos;
+        enemy.vel = ae::Vec2::ZERO;
+        enemy.alive = true;
+        let charge_vec = ae::Vec2::new(enemy.archetype.chase_speed() * 2.0, 0.0);
+        assert!(shark_charge_crashed(
+            &enemy,
+            false,
+            charge_vec,
+            previous_pos
+        ));
+    }
+
+    #[test]
+    fn shark_charge_crash_ignores_mounted_or_noncharge_cases() {
+        let mut enemy = burning_shark_enemy();
+        let previous_pos = ae::Vec2::new(120.0, 80.0);
+        enemy.pos = previous_pos;
+        enemy.vel = ae::Vec2::ZERO;
+        enemy.alive = true;
+        let charge_vec = ae::Vec2::new(enemy.archetype.chase_speed() * 2.0, 0.0);
+        assert!(!shark_charge_crashed(
+            &enemy,
+            true,
+            charge_vec,
+            previous_pos
+        ));
+        assert!(!shark_charge_crashed(
+            &enemy,
+            false,
+            ae::Vec2::new(enemy.archetype.chase_speed(), 0.0),
+            previous_pos
+        ));
     }
 }

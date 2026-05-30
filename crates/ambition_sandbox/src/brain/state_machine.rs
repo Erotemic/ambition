@@ -47,6 +47,9 @@ pub enum StateMachineCfg {
     },
     /// Hold position + long-range fire.
     Sniper { cfg: SniperCfg, state: SniperState },
+    /// Dedicated shark charge brain. Riderless sharks use this to
+    /// stalk, lunge, and then cool down after a crash or bite.
+    Shark { cfg: SharkCfg, state: SharkState },
     /// Scripted multi-phase boss policy. The cfg + state live in
     /// `brain/boss_pattern.rs`; this variant carries them but the
     /// real tick driver is `tick_boss_brains_system` in
@@ -76,6 +79,7 @@ impl StateMachineCfg {
             Self::MeleeBrute { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::Skirmisher { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::Sniper { cfg, .. } => cfg.aggressiveness > 0.0,
+            Self::Shark { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::BossPattern { cfg, .. } => cfg.aggressiveness > 0.0,
             // Smash brain is always hostile by construction — peaceful
             // archetypes don't use it (they get Patrol / Wanderer
@@ -125,12 +129,11 @@ pub fn tick_state_machine_with_actions(
         StateMachineCfg::MeleeBrute { cfg, state } => tick_melee_brute(cfg, state, snapshot, out),
         StateMachineCfg::Skirmisher { cfg, state } => tick_skirmisher(cfg, state, snapshot, out),
         StateMachineCfg::Sniper { cfg, state } => tick_sniper(cfg, state, snapshot, out),
+        StateMachineCfg::Shark { cfg, state } => tick_shark(cfg, state, snapshot, out),
         StateMachineCfg::BossPattern { cfg, state } => {
             tick_boss_pattern_via_state_machine(cfg, state, snapshot, out)
         }
-        StateMachineCfg::Smash { cfg, state } => {
-            tick_smash(cfg, state, actions, snapshot, out)
-        }
+        StateMachineCfg::Smash { cfg, state } => tick_smash(cfg, state, actions, snapshot, out),
     }
 }
 
@@ -611,6 +614,92 @@ fn tick_sniper(
         out.fire = Some(crate::actor_control::ActorFireRequest { dir, speed: 0.0 });
         state.cooldown_remaining = cfg.fire_cooldown_s;
     }
+}
+
+// ===== Shark =====
+
+/// Dedicated shark charge policy. The riderless burning shark uses
+/// this to lunge forward in bursts rather than simply marching like
+/// a melee brute.
+#[derive(Clone, Copy, Debug)]
+pub struct SharkCfg {
+    pub aggressiveness: f32,
+    pub aggro_radius: f32,
+    pub cruise_speed: f32,
+    pub charge_speed: f32,
+    pub bite_range: f32,
+    pub charge_duration_s: f32,
+    pub charge_cooldown_s: f32,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SharkState {
+    pub mode: crate::character_ai::CharacterAiMode,
+    pub charge_remaining: f32,
+    pub charge_cooldown_remaining: f32,
+}
+
+fn tick_shark(
+    cfg: &SharkCfg,
+    state: &mut SharkState,
+    snapshot: &BrainSnapshot,
+    out: &mut crate::actor_control::ActorControlFrame,
+) {
+    *out = crate::actor_control::ActorControlFrame::neutral();
+    state.charge_cooldown_remaining = (state.charge_cooldown_remaining - snapshot.dt).max(0.0);
+    state.charge_remaining = (state.charge_remaining - snapshot.dt).max(0.0);
+
+    if !snapshot.target_alive {
+        state.mode = crate::character_ai::CharacterAiMode::Idle;
+        return;
+    }
+
+    let to_target = snapshot.target_pos - snapshot.actor_pos;
+    let dist = to_target.length();
+    if dist > cfg.aggro_radius {
+        state.mode = crate::character_ai::CharacterAiMode::Idle;
+        return;
+    }
+
+    let aim_dir = if to_target.length_squared() > 0.0 {
+        to_target.normalize_or_zero()
+    } else {
+        ae::Vec2::new(snapshot.actor_facing, 0.0)
+    };
+    let facing = aim_dir.x.signum_or(snapshot.actor_facing);
+    out.facing = facing;
+
+    if state.charge_remaining > 0.0 {
+        state.mode = crate::character_ai::CharacterAiMode::Attack;
+        out.desired_vel = ae::Vec2::new(
+            facing * cfg.charge_speed,
+            aim_dir.y * cfg.charge_speed * 0.20,
+        );
+        return;
+    }
+
+    if dist <= cfg.bite_range && snapshot.attack_cooldown_remaining <= 0.0 {
+        state.mode = crate::character_ai::CharacterAiMode::Attack;
+        out.melee_pressed = true;
+        return;
+    }
+
+    if state.charge_cooldown_remaining <= 0.0 {
+        state.mode = crate::character_ai::CharacterAiMode::Telegraph;
+        state.charge_remaining = cfg.charge_duration_s.max(snapshot.dt);
+        state.charge_cooldown_remaining = cfg.charge_cooldown_s;
+        out.desired_vel = ae::Vec2::new(
+            facing * cfg.charge_speed,
+            aim_dir.y * cfg.charge_speed * 0.12,
+        );
+        return;
+    }
+
+    state.mode = crate::character_ai::CharacterAiMode::Chase;
+    out.desired_vel = ae::Vec2::new(
+        facing * cfg.cruise_speed,
+        aim_dir.y * cfg.cruise_speed * 0.20,
+    );
 }
 
 // ===== BossPattern =====
@@ -1391,6 +1480,18 @@ mod tests {
                 cfg: SniperCfg::DEFAULT,
                 state: SniperState::default(),
             },
+            StateMachineCfg::Shark {
+                cfg: SharkCfg {
+                    aggressiveness: 1.0,
+                    aggro_radius: 360.0,
+                    cruise_speed: 120.0,
+                    charge_speed: 420.0,
+                    bite_range: 34.0,
+                    charge_duration_s: 0.45,
+                    charge_cooldown_s: 0.8,
+                },
+                state: SharkState::default(),
+            },
         ];
         for mut brain in templates {
             let mut snap = crate::brain::snapshot::BrainSnapshot::idle();
@@ -1449,6 +1550,19 @@ mod tests {
         assert!(StateMachineCfg::Sniper {
             cfg: SniperCfg::DEFAULT,
             state: SniperState::default(),
+        }
+        .is_hostile());
+        assert!(StateMachineCfg::Shark {
+            cfg: SharkCfg {
+                aggressiveness: 1.0,
+                aggro_radius: 360.0,
+                cruise_speed: 120.0,
+                charge_speed: 420.0,
+                bite_range: 34.0,
+                charge_duration_s: 0.45,
+                charge_cooldown_s: 0.8,
+            },
+            state: SharkState::default(),
         }
         .is_hostile());
     }

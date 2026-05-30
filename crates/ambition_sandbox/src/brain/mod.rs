@@ -101,15 +101,16 @@ pub use boss_pattern::{
 pub use player::{tick_player_brain, tick_player_brain_from_input};
 #[allow(unused_imports)]
 pub use smash::{
-    DifficultyProfile, SmashCfg, SmashState, BroadMode, SpecificAction,
-    CrowdingSignal, ObservationFrame, TerrainAwareness,
+    BroadMode, CrowdingSignal, DifficultyProfile, ObservationFrame, SmashCfg, SmashState,
+    SpecificAction, TerrainAwareness,
 };
 #[allow(unused_imports)]
 pub use snapshot::{BrainSnapshot, WallContact};
 #[allow(unused_imports)]
 pub use state_machine::{
-    tick_state_machine, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg,
-    SkirmisherState, SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
+    tick_state_machine, MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SharkCfg,
+    SharkState, SkirmisherCfg, SkirmisherState, SniperCfg, SniperState, StateMachineCfg,
+    WandererCfg, WandererState,
 };
 
 use crate::engine_core as ae;
@@ -160,7 +161,11 @@ impl Brain {
     /// default. Use [`Brain::tick_with_actions`] when the caller knows
     /// the actor's capabilities and wants the Smash brain to commit
     /// actual attacks.
-    pub fn tick(&mut self, snapshot: &BrainSnapshot, out: &mut crate::actor_control::ActorControlFrame) {
+    pub fn tick(
+        &mut self,
+        snapshot: &BrainSnapshot,
+        out: &mut crate::actor_control::ActorControlFrame,
+    ) {
         match self {
             Brain::Player(slot) => player::tick_player_brain(*slot, snapshot, out),
             Brain::StateMachine(cfg) => tick_state_machine(cfg, snapshot, out),
@@ -236,6 +241,7 @@ impl Brain {
                 StateMachineCfg::MeleeBrute { .. } => "melee_brute",
                 StateMachineCfg::Skirmisher { .. } => "skirmisher",
                 StateMachineCfg::Sniper { .. } => "sniper",
+                StateMachineCfg::Shark { .. } => "shark",
                 StateMachineCfg::BossPattern { .. } => "boss_pattern",
                 StateMachineCfg::Smash { .. } => "smash",
             },

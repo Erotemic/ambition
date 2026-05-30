@@ -667,4 +667,51 @@ mod tests {
             "enemy body contact should not damage the enemy that emitted it"
         );
     }
+
+    #[test]
+    fn enemy_charge_crash_is_processed_as_enemy_damage() {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<HitEvent>();
+        app.add_message::<GameplayEffect>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_systems(Update, apply_feature_hit_events);
+
+        let actor_entity = spawn_hostile_actor(&mut app);
+        let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        app.world_mut().write_message(HitEvent {
+            volume: event_volume,
+            damage: 10,
+            source: HitSource::EnemyChargeCrash,
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+
+        app.update();
+
+        let health = app
+            .world()
+            .get::<ActorHealth>(actor_entity)
+            .expect("hostile actor exists");
+        assert_eq!(
+            health.health.current, 0,
+            "enemy charge crash should damage and kill the crashing enemy"
+        );
+        let runtime = app
+            .world()
+            .get::<ActorRuntime>(actor_entity)
+            .expect("hostile actor runtime exists");
+        match runtime {
+            ActorRuntime::Hostile(enemy) => assert!(
+                !enemy.alive,
+                "charge crash should mark the enemy dead through the normal kill path"
+            ),
+            other => panic!("expected hostile runtime, got {other:?}"),
+        }
+    }
 }

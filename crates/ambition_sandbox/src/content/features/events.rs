@@ -206,8 +206,9 @@ pub struct NpcDialogueRequest {
 ///
 /// `HitSource` partitions naturally into two directions:
 /// - **Attacker-side** (`PlayerSlash`, `PlayerProjectile`,
-///   `PogoBounce`) — consumed by the feature-damage system to apply
-///   damage to enemies / bosses / breakables.
+///   `PogoBounce`, self-destruct style enemy crashes) — consumed by
+///   the feature-damage system to apply damage to enemies / bosses /
+///   breakables.
 /// - **Victim-side** (`Hazard`, `EnemyBody`, `EnemyAttack`,
 ///   `EnemyProjectile`, `BossBody`, `BossAttack`) — consumed by the
 ///   player-damage system to apply damage to players.
@@ -223,7 +224,9 @@ pub enum HitSource {
     PlayerSlash { knock_x: f32 },
     /// Player projectile (Fireball / Hadouken). No knockback today;
     /// the projectile's own velocity carries the visual feedback.
-    PlayerProjectile { kind: crate::projectile::ProjectileKind },
+    PlayerProjectile {
+        kind: crate::projectile::ProjectileKind,
+    },
     /// Pogo bounce on a breakable orb. The carrying `HitEvent`'s
     /// `volume` field is the orb's authoritative AABB; the consumer
     /// matches it against `pogo_refresh` breakables via
@@ -245,6 +248,9 @@ pub enum HitSource {
     /// Distinct from `EnemyAttack` so the HUD / trace can tell the
     /// player whether they took a contact swing or a ranged shot.
     EnemyProjectile,
+    /// Enemy self-crash / self-destruct hit. Used by special charge
+    /// behaviors that intentionally ram a wall and explode.
+    EnemyChargeCrash,
     /// Contact with a boss body (touched the boss itself).
     BossBody,
     /// Hit by a boss melee swing.
@@ -252,15 +258,17 @@ pub enum HitSource {
 }
 
 impl HitSource {
-    /// True iff the source is attacker-side (player → feature). The
-    /// feature-damage consumer filters by this; the player-damage
-    /// consumer filters by the complement.
+    /// True iff the source is attacker-side (player → feature, or a
+    /// feature self-destructing into the world). The feature-damage
+    /// consumer filters by this; the player-damage consumer filters
+    /// by the complement.
     pub fn is_attacker_side(&self) -> bool {
         matches!(
             self,
             HitSource::PlayerSlash { .. }
                 | HitSource::PlayerProjectile { .. }
                 | HitSource::PogoBounce
+                | HitSource::EnemyChargeCrash
         )
     }
 }

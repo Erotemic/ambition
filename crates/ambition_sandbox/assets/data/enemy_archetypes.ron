@@ -275,7 +275,7 @@
         // off the shark's render height in pirate_rider.rs so the
         // composite stays proportional.
         default_size: Some((126.0, 52.0)),
-        brain_template: MeleeBrute,
+        brain_template: Shark,
         melee: Some(Bite((
             windup_s: 0.18,
             active_s: 0.10,

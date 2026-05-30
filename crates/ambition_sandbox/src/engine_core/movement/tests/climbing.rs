@@ -331,3 +331,50 @@ fn climbing_mode_strafe_factor_caps_horizontal_input() {
         DEFAULT_TUNING.max_run_speed * 0.5
     );
 }
+
+#[test]
+fn ladder_contact_allows_a_real_jump_impulse() {
+    // A ladder jump should be a real jump, not just a mode swap.
+    // If the player is overlapping a climbable region and presses
+    // Jump, the movement step must produce an upward impulse even
+    // though the body is no longer grounded.
+    let mut world = test_world();
+    world.climbable_regions.push(ClimbableRegion::new(
+        Aabb::new(Vec2::new(400.0, 600.0), Vec2::new(20.0, 200.0)),
+        ClimbableKind::Ladder,
+        ClimbableSpec::default(),
+    ));
+    let mut scratch = scratch_at(Vec2::new(400.0, 620.0));
+    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Standing;
+    scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
+    scratch.kinematics.vel = Vec2::ZERO;
+
+    let _ = update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            jump_pressed: true,
+            jump_held: true,
+            control_dt: 1.0 / 60.0,
+            ..InputState::default()
+        },
+        1.0 / 60.0,
+        DEFAULT_TUNING,
+    );
+
+    assert!(
+        scratch.kinematics.vel.y < 0.0,
+        "jumping while on a ladder should launch upward; got vel.y={}",
+        scratch.kinematics.vel.y
+    );
+    assert!(
+        scratch.kinematics.vel.y <= -DEFAULT_TUNING.jump_speed * 0.90,
+        "ladder jump should use the normal jump impulse; got vel.y={} vs jump_speed={} (gravity will nibble the frame)",
+        scratch.kinematics.vel.y,
+        DEFAULT_TUNING.jump_speed
+    );
+    assert!(
+        !scratch.ground.on_ground,
+        "ladder jump should leave the player airborne"
+    );
+}

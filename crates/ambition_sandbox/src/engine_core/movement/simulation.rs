@@ -39,9 +39,14 @@ pub fn handle_jump_buffer_clusters(
         }
     }
 
+    let can_ladder_jump = env_contact.climbable.is_some() && !ground.on_ground;
+
     if input.drop_through_pressed
         && ground.on_ground
-        && crate::engine_core::movement::collision::standing_on_one_way_aabb(world, kinematics.aabb())
+        && crate::engine_core::movement::collision::standing_on_one_way_aabb(
+            world,
+            kinematics.aabb(),
+        )
     {
         action_buffer.jump = 0.0;
         ground.on_ground = false;
@@ -59,7 +64,9 @@ pub fn handle_jump_buffer_clusters(
         action_buffer.jump = 0.0;
         ground.coyote_timer = 0.0;
         events.op_clusters(combo_trace, MovementOp::WallJump);
-    } else if abilities.abilities.jump && (ground.on_ground || ground.coyote_timer > 0.0) {
+    } else if abilities.abilities.jump
+        && (ground.on_ground || ground.coyote_timer > 0.0 || can_ladder_jump)
+    {
         kinematics.vel.y = -tuning.jump_speed;
         ground.on_ground = false;
         action_buffer.jump = 0.0;
@@ -77,4 +84,3 @@ pub fn handle_jump_buffer_clusters(
         events.op_clusters(combo_trace, MovementOp::DoubleJump);
     }
 }
-

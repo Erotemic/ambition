@@ -14,7 +14,7 @@ Abilities are reusable gameplay verbs. Keep ability implementation split between
 | Wall cling / wall jump / wall climb | Available, high-risk | Collision correction bugs belong in trace-backed tests. Dedicated wall-coyote polish is still a candidate improvement. |
 | Ledge grab / mantle | Partial but implemented | Engine and sandbox ledge behavior exist; animation/polish and ledge-action buffering remain incomplete. |
 | Body modes | Available vocabulary | See body-mode doc for compact shapes and traversal constraints. |
-| Combat verbs | Available, fragmented buffering | Directional slash, pogo, shield/parry, bubble shield, and projectiles exist. Attack/pogo/projectile inputs do not yet share a general buffered-action system. |
+| Combat verbs | Available, fragmented buffering | Directional slash, pogo, shield/parry, bubble shield, and projectiles exist. Pogo defaults to authored pogo surfaces, not plain floor/door solids. Attack/pogo/projectile inputs do not yet share a general buffered-action system. |
 | Projectiles / motion inputs | Available | Fireball charge and Hadouken/HadoukenSuper recognition are implemented in the player projectile backend. |
 | Sprint jump / long jump | Not yet reusable | Horizontal-momentum-aware jump variants are not formalized as a reusable ability family. |
 | Grapple / tether / harpoon dash | Not yet reusable | Needs backend constraints, targeting semantics, and authoring vocabulary. |

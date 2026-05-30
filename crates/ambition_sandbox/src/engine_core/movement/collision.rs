@@ -327,10 +327,7 @@ pub fn try_pogo_clusters(
     let hit = world.blocks.iter().find(|block| {
         let valid_target = matches!(
             block.kind,
-            BlockKind::PogoOrb
-                | BlockKind::Solid
-                | BlockKind::BlinkWall { .. }
-                | BlockKind::Rebound { .. }
+            BlockKind::PogoOrb | BlockKind::BlinkWall { .. } | BlockKind::Rebound { .. }
         );
         valid_target && hitbox.strict_intersects(block.aabb)
     });

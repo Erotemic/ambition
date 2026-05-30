@@ -132,9 +132,7 @@ fn glide_sustains_across_many_frames() {
             assert!(
                 scratch.flight.gliding,
                 "frame {frame}: gliding flipped off (vel=({},{}) on_ground={})",
-                scratch.kinematics.vel.x,
-                scratch.kinematics.vel.y,
-                scratch.ground.on_ground,
+                scratch.kinematics.vel.x, scratch.kinematics.vel.y, scratch.ground.on_ground,
             );
             assert!(
                 scratch.kinematics.vel.y <= DEFAULT_TUNING.glide_fall_speed + 5.0,
@@ -218,7 +216,9 @@ fn pogo_bounce_records_orb_aabb_on_frame_events() {
     let orb_center = Vec2::new(700.0, 600.0);
     world
         .blocks
-        .push(crate::engine_core::world::Block::pogo_orb("orb", orb_center, 18.0));
+        .push(crate::engine_core::world::Block::pogo_orb(
+            "orb", orb_center, 18.0,
+        ));
 
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     // Place the player just above the orb so a downward pogo press hits it.
@@ -252,4 +252,63 @@ fn pogo_bounce_records_orb_aabb_on_frame_events() {
         hit.center(),
         orb_center
     );
+}
+
+#[test]
+fn pogo_does_not_trigger_on_plain_floor_or_door_solids() {
+    let mut world = test_world();
+    let floor_y = world.size.y - 48.0;
+    world.blocks.push(crate::engine_core::world::Block::solid(
+        "door",
+        Vec2::new(620.0, floor_y - 72.0),
+        Vec2::new(64.0, 72.0),
+    ));
+
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.kinematics.pos = Vec2::new(640.0, floor_y - 76.0);
+    scratch.kinematics.vel = Vec2::ZERO;
+    scratch.ground.on_ground = false;
+
+    let events = update_player_control_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            pogo_pressed: true,
+            control_dt: 1.0 / 60.0,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        DEFAULT_TUNING,
+    );
+    assert!(
+        !events.operations.contains(&MovementOp::Pogo),
+        "plain floor and solid door blocks should not count as pogo targets"
+    );
+    assert!(events.pogo_hits.is_empty());
+
+    let mut orb_world = test_world();
+    let orb_center = Vec2::new(640.0, floor_y - 8.0);
+    orb_world
+        .blocks
+        .push(crate::engine_core::world::Block::pogo_orb(
+            "orb", orb_center, 18.0,
+        ));
+    let mut orb_scratch = scratch_with(AbilitySet::sandbox_all(), orb_world.spawn);
+    orb_scratch.kinematics.pos = Vec2::new(orb_center.x, orb_center.y - 24.0);
+    orb_scratch.kinematics.vel = Vec2::ZERO;
+    orb_scratch.ground.on_ground = false;
+
+    let orb_events = update_player_control_with_tuning_scratch(
+        &orb_world,
+        &mut orb_scratch,
+        InputState {
+            pogo_pressed: true,
+            control_dt: 1.0 / 60.0,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        DEFAULT_TUNING,
+    );
+    assert!(orb_events.operations.contains(&MovementOp::Pogo));
+    assert_eq!(orb_events.pogo_hits.len(), 1);
 }

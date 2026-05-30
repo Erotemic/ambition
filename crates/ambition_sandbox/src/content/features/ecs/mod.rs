@@ -6,9 +6,9 @@
 //!
 //! ## Submodule layout (post-2026-05-19 split)
 //!
-//! - [`spawn`] — `spawn_room_feature_entities` /
-//!   `spawn_room_feature_entity` per-`RoomObjectKind` factory plus
-//!   `spawn_encounter_mob` / `despawn_encounter_mobs`.
+//! - [`spawn`] — public spawn facade for room features and encounter mobs.
+//! - [`spawn_static`], [`spawn_actors`], [`spawn_mounts`] — concrete
+//!   family-specific spawn helpers.
 //! - [`actors`] — `ActorRuntime` enum + `update_ecs_actors` (slot
 //!   board, holding-position fallback, attack publication).
 //! - Per-family update systems: [`pickups`], [`chests`],
@@ -65,6 +65,9 @@ mod pickups;
 mod reset;
 mod save_sync;
 mod spawn;
+mod spawn_actors;
+mod spawn_mounts;
+mod spawn_static;
 mod targeting;
 mod variation;
 mod view_index;

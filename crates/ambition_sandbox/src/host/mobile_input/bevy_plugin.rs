@@ -210,10 +210,9 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
     // in `menu_bridge::touch_control_area_contains` (uses the same
     // base+margin geometry to skip the stick when matching menu
     // drag-scroll gestures).
-    use super::layout::TOUCH_SCALE;
+    use super::layout::{JOYSTICK_MARGIN, TOUCH_SCALE};
     let stick_base = 120.0 * TOUCH_SCALE;
     let stick_knob = 56.0 * TOUCH_SCALE;
-    let stick_margin = 24.0 * TOUCH_SCALE;
     create_joystick(
         &mut cmd,
         MobileStick::Move,
@@ -231,8 +230,8 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
             width: Val::Px(stick_base),
             height: Val::Px(stick_base),
             position_type: PositionType::Absolute,
-            left: Val::Px(stick_margin),
-            bottom: Val::Px(stick_margin),
+            left: Val::Px(JOYSTICK_MARGIN),
+            bottom: Val::Px(JOYSTICK_MARGIN),
             ..default()
         },
         // JoystickFixed: knob returns to base center on release

@@ -42,6 +42,10 @@ pub(super) const ACTION_CLUSTER_W: f32 = 310.0 * TOUCH_SCALE;
 pub(super) const ACTION_CLUSTER_H: f32 = 312.0 * TOUCH_SCALE;
 pub(super) const ACTION_BEZEL_W: f32 = ACTION_CLUSTER_W + ACTION_BEZEL_PAD * 2.0;
 pub(super) const ACTION_BEZEL_H: f32 = ACTION_CLUSTER_H + ACTION_BEZEL_PAD * 2.0;
+/// Inset for the movement stick from the lower-left corner.
+/// A slightly larger gap keeps the thumb control away from the
+/// screen edge and leaves a cleaner buffer for gesture navigation.
+pub(super) const JOYSTICK_MARGIN: f32 = 32.0 * TOUCH_SCALE;
 pub(super) const MENU_ROW_MARGIN: f32 = 12.0;
 pub(super) const MENU_ROW_W: f32 = 198.0 * TOUCH_SCALE;
 pub(super) const MENU_W: f32 = 88.0 * TOUCH_SCALE;

@@ -122,6 +122,9 @@ pub fn tick_player_brain_from_control(
     // `drop_through` at its default; the engine's gesture-detection
     // logic owns the final flag.
     out.drop_through = false;
+    // Human-controlled bodies do not become passive contact hazards
+    // unless a specific mode opts in.
+    out.body_contact_damage_enabled = false;
 
     // Dash, interact, shield, special.
     out.dash_pressed = c.dash_pressed;
@@ -240,6 +243,20 @@ mod tests {
         assert!(out.jump_pressed);
         assert!(out.jump_held);
         assert!(!out.jump_released);
+    }
+
+    #[test]
+    fn player_brain_keeps_body_contact_damage_disabled() {
+        let input = input_with(|c| {
+            c.axis_x = 1.0;
+            c.jump_pressed = true;
+            c.attack_pressed = true;
+        });
+        let s = BrainSnapshot::idle();
+        let mut out = crate::actor_control::ActorControlFrame::default();
+        out.body_contact_damage_enabled = true; // pre-poisoned
+        tick_player_brain_from_input(&input, &s, &mut out);
+        assert!(!out.body_contact_damage_enabled);
     }
 
     #[test]

@@ -300,8 +300,10 @@ pub fn update_ecs_actors(
     // picked `slots.iter().find()`'s FIRST matching slot's
     // `holding_pos` — i.e. they shared a single fallback point and
     // visually clumped.
-    let mut unassigned_by_kind: std::collections::HashMap<crate::combat_slots::SlotKind, Vec<&str>> =
-        std::collections::HashMap::new();
+    let mut unassigned_by_kind: std::collections::HashMap<
+        crate::combat_slots::SlotKind,
+        Vec<&str>,
+    > = std::collections::HashMap::new();
     for (id, _pos, kind) in &requests {
         if slot_board.0.slot_for(id).is_none() {
             unassigned_by_kind
@@ -489,8 +491,7 @@ pub fn update_ecs_actors(
                 let _ = slot_pos;
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&enemy.id).copied();
-                    let snapshot =
-                        build_enemy_brain_snapshot(enemy, target_pos, crowding, dt);
+                    let snapshot = build_enemy_brain_snapshot(enemy, target_pos, crowding, dt);
                     let mut bf = crate::actor_control::ActorControlFrame::neutral();
                     let peaceful = crate::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
@@ -499,6 +500,11 @@ pub fn update_ecs_actors(
                 } else {
                     crate::actor_control::ActorControlFrame::neutral()
                 };
+                let body_contact_damage_enabled =
+                    !brain.as_deref().is_some_and(crate::brain::Brain::is_player)
+                        && enemy.archetype.body_contact_damage_enabled();
+                let mut brain_frame = brain_frame;
+                brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
 
                 let frame = enemy.update(
                     &feature_world,
@@ -562,7 +568,9 @@ pub fn update_ecs_actors(
                 let Some(target_entity) = target.entity else {
                     continue;
                 };
-                let Ok((_, target_kin, target_offense, target_dodge, target_shield, target_combat)) = player_query.get(target_entity) else {
+                let Ok((_, target_kin, target_offense, target_dodge, target_shield, target_combat)) =
+                    player_query.get(target_entity)
+                else {
                     continue;
                 };
                 let target_body = target_kin.aabb();
@@ -571,7 +579,7 @@ pub fn update_ecs_actors(
                     && !target_dodge_rolling
                     && !target_shield.parrying()
                     && target_combat.vulnerable();
-                if target_vulnerable && enemy.alive {
+                if target_vulnerable && enemy.alive && body_contact_damage_enabled {
                     if let Some(damage) = enemy.body_contact_damage(target_entity, target_body) {
                         let pos = damage
                             .knockback

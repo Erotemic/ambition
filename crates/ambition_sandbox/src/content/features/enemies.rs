@@ -371,8 +371,7 @@ fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
 static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
     std::collections::HashMap<String, EnemyArchetypeSpec>,
 > = std::sync::LazyLock::new(|| {
-    const ENEMY_ARCHETYPES_RON: &str =
-        include_str!("../../../assets/data/enemy_archetypes.ron");
+    const ENEMY_ARCHETYPES_RON: &str = include_str!("../../../assets/data/enemy_archetypes.ron");
     ron::from_str(ENEMY_ARCHETYPES_RON).unwrap_or_else(|err| {
         panic!(
             "assets/data/enemy_archetypes.ron failed to deserialize as HashMap<String, \
@@ -380,7 +379,6 @@ static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
         )
     })
 });
-
 
 impl EnemyArchetype {
     /// All combat-capable archetypes in a stable order. Useful for
@@ -475,12 +473,14 @@ impl EnemyArchetype {
                     projectile_speed: 360.0,
                 }
             }
-            Self::BurningFlyingShark => crate::attack_choreography::AttackChoreography::DiveStrike {
-                hover_altitude: 140.0,
-                hover_rest: 0.55,
-                dive_speed: 360.0,
-                recover_height: 100.0,
-            },
+            Self::BurningFlyingShark => {
+                crate::attack_choreography::AttackChoreography::DiveStrike {
+                    hover_altitude: 140.0,
+                    hover_rest: 0.55,
+                    dive_speed: 360.0,
+                    recover_height: 100.0,
+                }
+            }
             // Default: legacy melee-contact behavior.
             _ => crate::attack_choreography::AttackChoreography::MeleeContact,
         }
@@ -541,6 +541,18 @@ impl EnemyArchetype {
     pub fn attacks_player(self) -> bool {
         use EnemyArchetype::*;
         !matches!(self, PuppySlug | PirateHeavy)
+    }
+
+    /// True when the archetype should publish a body-contact hazard
+    /// on touch. Sandbags and composite shark riders opt out; the
+    /// peaceful cove crew do not emit touch damage unless a future
+    /// mode explicitly opts them back in.
+    pub fn body_contact_damage_enabled(self) -> bool {
+        use EnemyArchetype::*;
+        !matches!(
+            self,
+            InfiniteSandbag | FiniteSandbag | PirateOnShark | PirateHeavyOnShark
+        ) && (self.attacks_player() || self == PuppySlug)
     }
 
     /// Default respawn cadence for this archetype. Grunts refresh
@@ -755,19 +767,21 @@ impl EnemyRuntime {
             crate::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
             _ => self.archetype.aggro_radius(),
         };
-        let ai = crate::character_ai::evaluate_character_ai_output(crate::character_ai::CharacterAiSnapshot {
-            actor_pos: self.pos,
-            player_pos: target_pos,
-            aggro_radius: effective_aggro_radius,
-            attack_range: self.archetype.attack_range(),
-            attack_windup_remaining: self.attack_windup_timer,
-            attack_active_remaining: self.attack_timer,
-            attack_recover_remaining: recover_remaining,
-            stun_remaining: 0.0,
-            alive: self.alive,
-            patrol_enabled: !self.archetype.is_sandbag()
-                && !matches!(self.brain, crate::actor::EnemyBrain::Passive),
-        });
+        let ai = crate::character_ai::evaluate_character_ai_output(
+            crate::character_ai::CharacterAiSnapshot {
+                actor_pos: self.pos,
+                player_pos: target_pos,
+                aggro_radius: effective_aggro_radius,
+                attack_range: self.archetype.attack_range(),
+                attack_windup_remaining: self.attack_windup_timer,
+                attack_active_remaining: self.attack_timer,
+                attack_recover_remaining: recover_remaining,
+                stun_remaining: 0.0,
+                alive: self.alive,
+                patrol_enabled: !self.archetype.is_sandbag()
+                    && !matches!(self.brain, crate::actor::EnemyBrain::Passive),
+            },
+        );
         self.ai_mode = ai.mode;
 
         let is_aerial = self.gravity_scale <= 0.001;
@@ -1247,8 +1261,7 @@ impl EnemyRuntime {
             } else {
                 self.facing
             };
-            let center =
-                self.pos + ae::Vec2::new(side * (self.size.x * 0.55 + 24.0), -4.0);
+            let center = self.pos + ae::Vec2::new(side * (self.size.x * 0.55 + 24.0), -4.0);
             return ae::Aabb::new(center, ae::Vec2::new(34.0, 28.0));
         }
         // Vertical attack — engine y grows downward, so `axis.y < 0`
@@ -1259,8 +1272,7 @@ impl EnemyRuntime {
             // up to ~94 px above the head — long enough to catch a
             // player jumping straight up or hanging in a hop's apex.
             let half = ae::Vec2::new(16.0, 36.0);
-            let center =
-                self.pos + ae::Vec2::new(0.0, -(self.size.y * 0.5 + half.y + 4.0));
+            let center = self.pos + ae::Vec2::new(0.0, -(self.size.y * 0.5 + half.y + 4.0));
             return ae::Aabb::new(center, half);
         }
         // Down-air: wide stomp below the feet.
@@ -1331,17 +1343,7 @@ impl EnemyRuntime {
         // exception to that rule — its whole gimmick is "you take
         // damage only on physical contact," so we re-enable its
         // body hitbox below.
-        if self.archetype.is_sandbag()
-            || matches!(
-                self.archetype,
-                EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
-            )
-        {
-            return None;
-        }
-        // PuppySlug: contact damage stays on (its only damage
-        // source). PirateHeavy: contact damage off (cove crew).
-        if !self.archetype.attacks_player() && self.archetype != EnemyArchetype::PuppySlug {
+        if !self.archetype.body_contact_damage_enabled() {
             return None;
         }
         Some(self.aabb())
@@ -1447,5 +1449,14 @@ mod enemy_archetype_data_tests {
         assert_eq!(slug.brain_template, EnemyBrainTemplate::Wanderer);
         assert!(slug.melee.is_none());
         assert!(slug.ranged.is_none());
+    }
+
+    #[test]
+    fn body_contact_damage_is_explicitly_opted_in() {
+        assert!(EnemyArchetype::Combatant.body_contact_damage_enabled());
+        assert!(EnemyArchetype::PuppySlug.body_contact_damage_enabled());
+        assert!(!EnemyArchetype::PirateHeavy.body_contact_damage_enabled());
+        assert!(!EnemyArchetype::PirateOnShark.body_contact_damage_enabled());
+        assert!(!EnemyArchetype::FiniteSandbag.body_contact_damage_enabled());
     }
 }

@@ -114,6 +114,12 @@ pub struct ActorControlFrame {
     /// (doors, NPCs, switches). E / F / RB on player binding; AI
     /// brains may toggle this for scripted door-opens or NPC chats.
     pub interact_pressed: bool,
+    /// True when this actor's body should act as a contact hazard
+    /// this tick. Default false so human-controlled bodies do not
+    /// accidentally damage nearby enemies just by moving through
+    /// them. Hostile AI can opt in explicitly when the body itself
+    /// is supposed to be dangerous.
+    pub body_contact_damage_enabled: bool,
     /// Sustain: shield / parry button is held. Brains that want a
     /// bubble shield up keep this true; release triggers shield-
     /// down behavior in the integration.
@@ -219,6 +225,7 @@ mod tests {
         assert!(!frame.jump_released);
         assert!(!frame.dash_pressed);
         assert!(!frame.interact_pressed);
+        assert!(!frame.body_contact_damage_enabled);
         assert!(!frame.shield_held);
         assert!(!frame.special_pressed);
     }
@@ -340,6 +347,7 @@ mod tests {
             jump_released: frame.jump_released,
             dash_pressed: frame.dash_pressed,
             interact_pressed: frame.interact_pressed,
+            body_contact_damage_enabled: frame.body_contact_damage_enabled,
             shield_held: frame.shield_held,
             special_pressed: frame.special_pressed,
             ..Default::default()

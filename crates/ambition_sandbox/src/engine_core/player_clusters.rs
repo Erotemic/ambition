@@ -176,6 +176,7 @@ pub struct PlayerJumpState {
     pub air_jumps_available: u8,
     pub ladder_jump_boost: f32,
     pub ladder_drop_through_timer: f32,
+    pub ladder_drop_through_hold_lock: bool,
 }
 
 /// Dash-cluster state. The dash buffer lives on [`PlayerActionBuffer`];
@@ -276,6 +277,7 @@ pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) 
         air_jumps_available: air_jumps,
         ladder_jump_boost: 0.0,
         ladder_drop_through_timer: 0.0,
+        ladder_drop_through_hold_lock: false,
     };
     *clusters.dash = PlayerDashState {
         charges_available: dash_charges,
@@ -496,6 +498,7 @@ impl PlayerClusterScratch {
                 air_jumps_available: air_jumps,
                 ladder_jump_boost: 0.0,
                 ladder_drop_through_timer: 0.0,
+                ladder_drop_through_hold_lock: false,
             },
             dash: PlayerDashState {
                 charges_available: dash_charges,

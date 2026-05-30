@@ -47,6 +47,7 @@ pub fn handle_jump_buffer_clusters(
 
     if input.drop_through_pressed && on_ladder {
         jump_state.ladder_drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
+        jump_state.ladder_drop_through_hold_lock = true;
         jump_state.ladder_jump_boost = 0.0;
         kinematics.vel.y = kinematics.vel.y.max(0.0);
         action_buffer.jump = 0.0;

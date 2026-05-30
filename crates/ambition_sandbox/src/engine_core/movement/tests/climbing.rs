@@ -419,6 +419,10 @@ fn down_jump_on_ladder_falls_off_without_regrabbing() {
         "down+jump on a ladder should start a re-grab grace window"
     );
     assert!(
+        scratch.jump.ladder_drop_through_hold_lock,
+        "down+jump on a ladder should hold the re-grab lock until down is released"
+    );
+    assert!(
         scratch.kinematics.vel.y >= 0.0,
         "down+jump on a ladder should not launch upward; got vel.y={}",
         scratch.kinematics.vel.y

@@ -100,6 +100,10 @@ pub fn update_body_mode(
     // don't latch a stale signal across frames or gameplay states.
     let double_tap_down = std::mem::take(&mut interaction.double_tap_down_pending);
 
+    if !down_held {
+        jump_state.ladder_drop_through_hold_lock = false;
+    }
+
     // Climbing exits: plain jump / dash pushes off, losing contact
     // drops the mode. Jump+Up is handled by movement as a climb-speed
     // boost while keeping the ladder state.
@@ -146,6 +150,7 @@ pub fn update_body_mode(
     if climbable_contact_present
         && climb_initiator
         && jump_state.ladder_drop_through_timer <= 0.0
+        && !jump_state.ladder_drop_through_hold_lock
         && mode != ae::BodyMode::MorphBall
     {
         let _ = ae::try_change_body_mode_clusters(
@@ -518,6 +523,105 @@ mod tests {
         assert!(
             jump_state.ladder_drop_through_timer > 0.0,
             "ladder fall-off should create a grace window that blocks immediate re-grab"
+        );
+    }
+
+    /// The ladder drop lock should only clear on a down release,
+    /// and only then should down be able to re-grab the ladder.
+    #[test]
+    fn down_release_rearms_ladder_regrab() {
+        let (mut app, player) = build_body_mode_test_app();
+        {
+            let mut world = app.world_mut().resource_mut::<crate::GameWorld>();
+            world.0.climbable_regions.push(ClimbableRegion::new(
+                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
+                ClimbableKind::Ladder,
+                ClimbableSpec::default(),
+            ));
+        }
+        {
+            let mut body_mode = app
+                .world_mut()
+                .get_mut::<PlayerBodyModeState>(player)
+                .unwrap();
+            body_mode.body_mode = ae::BodyMode::Standing;
+        }
+        {
+            let mut ground = app
+                .world_mut()
+                .get_mut::<PlayerGroundState>(player)
+                .unwrap();
+            ground.on_ground = false;
+        }
+        {
+            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            kin.pos = Vec2::new(210.0, 820.0);
+        }
+        {
+            let contact = app
+                .world()
+                .resource::<crate::GameWorld>()
+                .0
+                .climbable_at(app.world().get::<PlayerKinematics>(player).unwrap().aabb());
+            let mut env = app
+                .world_mut()
+                .get_mut::<PlayerEnvironmentContact>(player)
+                .unwrap();
+            env.climbable = contact;
+        }
+        {
+            let mut jump_state = app.world_mut().get_mut::<PlayerJumpState>(player).unwrap();
+            jump_state.ladder_drop_through_timer = 0.0;
+            jump_state.ladder_drop_through_hold_lock = true;
+        }
+        {
+            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+            input.frame = ControlFrame {
+                axis_y: 1.0,
+                ..Default::default()
+            };
+        }
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<PlayerBodyModeState>(player)
+                .unwrap()
+                .body_mode,
+            ae::BodyMode::Standing,
+            "holding down should not re-grab the ladder while the release lock is active",
+        );
+
+        {
+            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+            input.frame = ControlFrame {
+                axis_y: 0.0,
+                ..Default::default()
+            };
+        }
+        app.update();
+        assert!(
+            !app.world()
+                .get::<PlayerJumpState>(player)
+                .unwrap()
+                .ladder_drop_through_hold_lock,
+            "releasing down should clear the ladder drop lock"
+        );
+
+        {
+            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+            input.frame = ControlFrame {
+                axis_y: 1.0,
+                ..Default::default()
+            };
+        }
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<PlayerBodyModeState>(player)
+                .unwrap()
+                .body_mode,
+            ae::BodyMode::Climbing,
+            "once the player has released down, pressing it again should re-grab the ladder",
         );
     }
 }

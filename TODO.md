@@ -31,7 +31,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [x] The dialog boxes when talking to NPCs have the same mouse hover bug as the menu did. Need to fix that. 
 
-- [ ] The player running into an enemy hurts the enemy. (probably due to the unification). The fix should be that a character should have a flag that enables their body hitbox. Generally when a human is controlling a character this should be turned off - maybe in some cases it is turned on if gameplay does make your body hazardous to your foes. But otherwise we just want the classic behavior where running into an enemy hurts you (or at least the option of it, with that as the default). 
+- [x] The player running into an enemy hurts the enemy. (probably due to the unification). The fix should be that a character should have a flag that enables their body hitbox. Generally when a human is controlling a character this should be turned off - maybe in some cases it is turned on if gameplay does make your body hazardous to your foes. But otherwise we just want the classic behavior where running into an enemy hurts you (or at least the option of it, with that as the default). 
 
 - [ ] Improve shark without a rider attack patterns so it feels maybe more wild than the pirate who was controlling it. Maybe it charges and if it hits a wall because it charges too far it explodes. 
 

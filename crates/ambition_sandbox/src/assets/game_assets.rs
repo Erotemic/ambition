@@ -585,6 +585,31 @@ impl ParallaxLayerSet {
         self.handles.get(&(theme, layer))
     }
 
+    /// Ensure the generated parallax stack for `theme` has been requested from
+    /// Bevy's [`AssetServer`]. Repeated calls are cheap: already-present layer
+    /// handles are left alone, and missing optional assets continue to fall back
+    /// to the room renderer's clear color / grid visuals.
+    pub fn ensure_theme_loaded(
+        &mut self,
+        catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
+        asset_server: &AssetServer,
+        theme: ParallaxTheme,
+    ) -> usize {
+        let mut added = 0usize;
+        for &layer in ParallaxLayerAsset::ALL {
+            if self.handles.contains_key(&(theme, layer)) {
+                continue;
+            }
+            let id = parallax_layer_asset_id(theme, layer);
+            let Some(path) = catalog.try_path_for_load(&id) else {
+                continue;
+            };
+            self.handles.insert((theme, layer), asset_server.load(path));
+            added += 1;
+        }
+        added
+    }
+
     pub fn len(&self) -> usize {
         self.handles.len()
     }
@@ -644,6 +669,7 @@ pub fn load_game_assets(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
+    active_room_metadata: &RoomMetadata,
 ) -> GameAssets {
     if config.no_assets {
         eprintln!("[game_assets] --no-assets in effect: rendering with colored-rectangle placeholders only");
@@ -657,7 +683,8 @@ pub fn load_game_assets(
     let gnu_ton = sprites::load_gnu_ton_sprite_in(catalog, asset_server, layouts);
     let gnu_ton_body = sprites::load_gnu_ton_body_sprite_in(catalog, asset_server, layouts);
     let gnu_ton_hands = sprites::load_gnu_ton_hands_sprite_in(catalog, asset_server, layouts);
-    let parallax_layers = load_parallax_layers(catalog, asset_server);
+    let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
+    let parallax_layers = load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme);
 
     let missing = EntitySprite::ALL.len() - entities.len();
     if missing > 0 {
@@ -695,28 +722,45 @@ fn load_entity_sprites(
     EntitySpriteSet { handles }
 }
 
-fn load_parallax_layers(
+fn load_parallax_layers_for_theme(
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
+    theme: ParallaxTheme,
 ) -> ParallaxLayerSet {
-    let mut handles = HashMap::new();
-    for &theme in ParallaxTheme::ALL {
-        for &layer in ParallaxLayerAsset::ALL {
-            let id = parallax_layer_asset_id(theme, layer);
-            let Some(path) = catalog.try_path_for_load(&id) else {
-                continue;
-            };
-            handles.insert((theme, layer), asset_server.load(path));
-        }
-    }
-    if !handles.is_empty() {
+    let mut set = ParallaxLayerSet::default();
+    let added = set.ensure_theme_loaded(catalog, asset_server, theme);
+    if added > 0 {
         eprintln!(
-            "[game_assets] loaded {}/{} generated background/parallax layers under assets/backgrounds/parallax_layers/",
-            handles.len(),
-            ParallaxTheme::ALL.len() * ParallaxLayerAsset::ALL.len(),
+            "[game_assets] loaded {added}/{} generated background/parallax layers for '{}' under assets/backgrounds/parallax_layers/ (other themes lazy-load on room transition)",
+            ParallaxLayerAsset::ALL.len(),
+            theme.key(),
         );
     }
-    ParallaxLayerSet { handles }
+    set
+}
+
+/// Load the generated parallax stack for the room that is about to become
+/// active. Visual room transitions call this before spawning parallax sprites so
+/// startup only pays for the first room's zone art, while later rooms still get
+/// their authored background the first time the player visits them.
+pub fn ensure_parallax_layers_for_room(
+    assets: &mut GameAssets,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
+    asset_server: &AssetServer,
+    metadata: &RoomMetadata,
+) {
+    let theme = ParallaxTheme::from_room_metadata(metadata);
+    let added = assets
+        .parallax_layers
+        .ensure_theme_loaded(catalog, asset_server, theme);
+    if added > 0 {
+        bevy::log::debug!(
+            target: "ambition::assets",
+            "lazy-loaded {added}/{} parallax layers for '{}'",
+            ParallaxLayerAsset::ALL.len(),
+            theme.key(),
+        );
+    }
 }
 
 // HISTORICAL: `should_attempt_optional_image_load` and

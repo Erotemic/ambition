@@ -95,6 +95,7 @@ pub(crate) fn setup_presentation_system(
         &sandbox_catalog,
         &asset_server,
         &mut atlas_layouts,
+        &room_set.active_spec().metadata,
     );
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -171,6 +172,7 @@ pub(crate) fn setup_presentation_system(
         &sandbox_catalog,
         &asset_server,
         &mut atlas_layouts,
+        &room_set.active_spec().metadata,
     );
     setup::presentation_world(
         &mut commands,

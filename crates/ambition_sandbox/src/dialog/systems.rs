@@ -6,7 +6,7 @@ use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use crate::input::MenuControlFrame;
 #[cfg(feature = "input")]
-use crate::ui_nav::apply_vertical_scroll;
+use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction};
 
 #[cfg(feature = "input")]
 pub fn dialog_pointer_input(
@@ -36,10 +36,16 @@ pub fn dialog_pointer_input(
         match interaction {
             Interaction::Hovered => {
                 let index = slot.index.min(option_count.saturating_sub(1));
-                if dialogue.selected_option != index {
-                    dialogue.pointer_armed = None;
-                }
-                dialogue.selected_option = index;
+                let update = handle_dialog_choice_hover(
+                    index,
+                    dialogue.selected_option,
+                    dialogue.pointer_armed,
+                    dialogue.focus,
+                );
+                dialogue.selected_option = update.selected;
+                dialogue.pointer_armed = update.pointer_armed;
+                dialogue.focus = update.focus;
+                continue;
             }
             Interaction::Pressed => {
                 let index = slot.index.min(option_count.saturating_sub(1));
@@ -49,6 +55,7 @@ pub fn dialog_pointer_input(
                     let confirm =
                         dialogue.selected_option == index && dialogue.pointer_armed == Some(index);
                     dialogue.selected_option = index;
+                    dialogue.focus.mark_pointer(index);
                     if confirm {
                         dialogue.pointer_armed = None;
                         // Confirm advances via the Yarn dispatch
@@ -64,6 +71,7 @@ pub fn dialog_pointer_input(
                 #[cfg(not(target_os = "android"))]
                 {
                     dialogue.selected_option = index;
+                    dialogue.focus.mark_pointer(index);
                     dialogue.confirm_or_advance();
                 }
                 return;
@@ -130,3 +138,44 @@ pub fn dialog_input(
 
 #[cfg(not(feature = "input"))]
 pub fn dialog_input() {}
+
+#[cfg(feature = "input")]
+fn handle_dialog_choice_hover(
+    index: usize,
+    selected: usize,
+    pointer_armed: Option<usize>,
+    focus: crate::ui_nav::MenuFocusState,
+) -> crate::ui_nav::RowPointerUpdate {
+    resolve_selectable_row_interaction(
+        &Interaction::Hovered,
+        index,
+        selected,
+        crate::persistence::settings::MenuTapMode::TapToSelectThenConfirm,
+        false,
+        pointer_armed,
+        focus,
+    )
+}
+
+#[cfg(all(test, feature = "input"))]
+mod tests {
+    use super::*;
+    use crate::ui_nav::MenuFocusOwner;
+
+    #[test]
+    fn keyboard_focus_blocks_stale_hover_on_same_row() {
+        let update = handle_dialog_choice_hover(
+            2,
+            1,
+            Some(1),
+            crate::ui_nav::MenuFocusState {
+                owner: MenuFocusOwner::Keyboard,
+                last_hovered_row: Some(2),
+            },
+        );
+
+        assert_eq!(update.selected, 1);
+        assert_eq!(update.pointer_armed, Some(1));
+        assert_eq!(update.focus.owner, MenuFocusOwner::Keyboard);
+    }
+}

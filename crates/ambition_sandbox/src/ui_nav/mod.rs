@@ -15,4 +15,7 @@ pub use list::{
     apply_vertical_scroll, decorate_windowed_label, visible_row_index, visible_window_start,
     ListCursor, ScrollWindow,
 };
-pub use pointer::{resolve_selectable_row_interaction, RowPointerOutcome};
+pub use pointer::{
+    resolve_selectable_row_interaction, MenuFocusOwner, MenuFocusState, RowPointerOutcome,
+    RowPointerUpdate,
+};

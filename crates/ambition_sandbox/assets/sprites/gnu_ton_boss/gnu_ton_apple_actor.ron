@@ -1,0 +1,127 @@
+// Auto-emitted optional actor contract. Current sandbox builds ignore
+// this file; it is the renderer -> engine sidecar for future actor
+// spec ingestion. Keep fields sparse: capabilities create requirements,
+// and missing data should be explicit rather than guessed silently.
+(
+    schema_version: 1,
+    character_id: "npc_gnu_ton_apple",
+    actor_id: None,
+    display_name: Some("Gnu Ton Apple"),
+    provenance: Some((
+        surface: "tackon",
+        renderer_target: "gnu_ton_apple",
+        output_stem: "gnu_ton_apple",
+        seed: None,
+        archetype: None,
+        variant: None,
+        held_item: None,
+        source_config: None,
+    )),
+    visual: Some((
+        sheet_id: "gnu_ton_apple",
+        spritesheet: "gnu_ton_apple_spritesheet.png",
+        sheet_manifest: "gnu_ton_apple_spritesheet.ron",
+        default_pose: Some("idle"),
+        facing_policy: None,
+        scale: None,
+    )),
+    body: Some((
+        body_kind: None,
+        body_plan: None,
+        collision: Some((
+            w_px: 226.0,
+            h_px: 229.0,
+            source: "sheet.body_metrics.body_pixel_bbox",
+            confidence: "derived",
+        )),
+        hurtbox: Some((
+            w_px: 226.0,
+            h_px: 229.0,
+            source: "sheet.body_metrics.body_pixel_bbox",
+            confidence: "derived",
+        )),
+        mass_class: None,
+        locomotion_hint: None,
+        body_metrics_source: Some("sheet.body_metrics"),
+        traits: [],
+    )),
+    capabilities: Some((
+        traversal: Some((
+            walk: None,
+            jump: None,
+            climb: None,
+            fly: None,
+            swim: None,
+            crawl: None,
+            use_lifts: None,
+            door_access: [],
+        )),
+        interactions: Some((
+            talk: None,
+            trade: None,
+            carry: None,
+            open_doors: [],
+        )),
+    )),
+    brain: Some((
+        default_preset: Some("patrol_peaceful"),
+    )),
+    actions: Some((
+        default_preset: Some("peaceful"),
+    )),
+    animation_bindings: {
+        "default": (
+            animation: "idle",
+            events: [],
+        ),
+    },
+    sockets: {
+        "center": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 119.0,
+                y: 120.5,
+            ),
+        ),
+        "chest": (
+            source: "heuristic.body_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 119.0,
+                y: 93.02,
+            ),
+        ),
+        "feet": (
+            source: "body_metrics.feet_pixel",
+            animation: None,
+            frame: None,
+            point: (
+                x: 119.0,
+                y: 235.0,
+            ),
+        ),
+        "head": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 119.0,
+                y: 6.0,
+            ),
+        ),
+        "root": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 119.0,
+                y: 235.0,
+            ),
+        ),
+    },
+    tags: [],
+    missing_information: [],
+)

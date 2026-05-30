@@ -48,7 +48,6 @@ pub struct PlayerClustersMut<'a> {
     pub combo_trace: &'a mut PlayerComboTrace,
 }
 
-
 /// Bevy query data that matches [`PlayerClustersMut`]. Use in a system
 /// signature as `Query<PlayerClusterQueryData, ...>` and call
 /// [`PlayerClusterQueryDataItem::as_clusters_mut`] to borrow the view.
@@ -169,11 +168,12 @@ pub struct PlayerWallState {
 }
 
 /// Jump-cluster state. The jump buffer itself lives on
-/// [`PlayerActionBuffer`]; this component owns only the air-jump
-/// charge count today.
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// [`PlayerActionBuffer`]; this component owns the air-jump charge
+/// count plus the transient ladder-jump boost timer today.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PlayerJumpState {
     pub air_jumps_available: u8,
+    pub ladder_jump_boost: f32,
 }
 
 /// Dash-cluster state. The dash buffer lives on [`PlayerActionBuffer`];
@@ -251,7 +251,9 @@ impl PlayerShieldState {
 /// `PlayerAbilities` and incrementing the lifetime reset counter. The
 /// combo trace is wiped and a fresh `MovementOp::Reset` mark is pushed.
 pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) {
-    use crate::engine_core::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
+    use crate::engine_core::movement::{
+        default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING,
+    };
 
     let new_resets = clusters.lifetime.resets + 1;
     let abilities = clusters.abilities.abilities;
@@ -270,6 +272,7 @@ pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) 
     *clusters.wall = PlayerWallState::default();
     *clusters.jump = PlayerJumpState {
         air_jumps_available: air_jumps,
+        ladder_jump_boost: 0.0,
     };
     *clusters.dash = PlayerDashState {
         charges_available: dash_charges,
@@ -469,7 +472,9 @@ impl PlayerClusterScratch {
         spawn: Vec2,
         abilities: crate::engine_core::abilities::AbilitySet,
     ) -> Self {
-        use crate::engine_core::movement::{default_player_body_size, BLINK_DISTANCE, DEFAULT_TUNING};
+        use crate::engine_core::movement::{
+            default_player_body_size, BLINK_DISTANCE, DEFAULT_TUNING,
+        };
         let body = default_player_body_size();
         let dash_charges = abilities.dash_charge_count();
         let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
@@ -486,6 +491,7 @@ impl PlayerClusterScratch {
             wall: PlayerWallState::default(),
             jump: PlayerJumpState {
                 air_jumps_available: air_jumps,
+                ladder_jump_boost: 0.0,
             },
             dash: PlayerDashState {
                 charges_available: dash_charges,

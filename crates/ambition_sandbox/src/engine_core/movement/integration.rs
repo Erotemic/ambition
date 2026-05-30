@@ -33,18 +33,24 @@ pub(super) fn integrate_velocity_clusters(
 ) {
     use crate::engine_core::player_state::BodyMode;
 
+    let climbing = clusters.body_mode.body_mode == BodyMode::Climbing
+        && clusters.env_contact.climbable.is_some();
+    if !climbing {
+        clusters.jump.ladder_jump_boost = 0.0;
+    }
+
     if clusters.dash.timer > 0.0 {
         clusters.dash.timer = dec(clusters.dash.timer, dt);
-    } else if clusters.body_mode.body_mode == BodyMode::Climbing
-        && clusters.env_contact.climbable.is_some()
-    {
+    } else if climbing {
         integrate_climb_clusters(
             clusters.kinematics,
             clusters.env_contact,
             clusters.flight,
             clusters.wall,
+            clusters.jump,
             input,
             dt,
+            tuning,
         );
     } else if clusters.flight.fly_enabled && clusters.abilities.abilities.fly {
         integrate_flight_clusters(
@@ -95,16 +101,14 @@ pub(super) fn integrate_velocity_clusters(
                 tuning.air_accel
             };
             let target_vx = input.axis_x * tuning.max_run_speed;
-            clusters.kinematics.vel.x =
-                approach(clusters.kinematics.vel.x, target_vx, accel * dt);
+            clusters.kinematics.vel.x = approach(clusters.kinematics.vel.x, target_vx, accel * dt);
             let friction = if clusters.ground.on_ground {
                 tuning.ground_friction
             } else {
                 tuning.air_friction
             };
             if input.axis_x.abs() <= 0.1 {
-                clusters.kinematics.vel.x =
-                    approach(clusters.kinematics.vel.x, 0.0, friction * dt);
+                clusters.kinematics.vel.x = approach(clusters.kinematics.vel.x, 0.0, friction * dt);
             }
         }
 
@@ -112,8 +116,7 @@ pub(super) fn integrate_velocity_clusters(
             let drag = contact.spec.drag.clamp(0.0, 1.0);
             clusters.kinematics.vel.x *= 1.0 - drag;
             clusters.kinematics.vel.y *= 1.0 - drag;
-            clusters.kinematics.vel.y =
-                clusters.kinematics.vel.y.min(contact.spec.max_fall_speed);
+            clusters.kinematics.vel.y = clusters.kinematics.vel.y.min(contact.spec.max_fall_speed);
         } else {
             let fall_cap = if clusters.flight.fast_falling {
                 tuning.fast_fall_speed
@@ -189,10 +192,9 @@ pub(super) fn integrate_velocity_clusters(
     }
 
     if clusters.abilities.abilities.rebound && clusters.ground.rebound_cooldown <= 0.0 {
-        if let Some(impulse) = super::collision::touching_rebound_aabb(
-            world,
-            clusters.kinematics.aabb(),
-        ) {
+        if let Some(impulse) =
+            super::collision::touching_rebound_aabb(world, clusters.kinematics.aabb())
+        {
             clusters.kinematics.vel = impulse;
             crate::engine_core::player_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
@@ -223,15 +225,22 @@ pub(super) fn integrate_climb_clusters(
     env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
     flight: &mut crate::engine_core::player_clusters::PlayerFlightState,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
+    jump: &mut crate::engine_core::player_clusters::PlayerJumpState,
     input: InputState,
     dt: f32,
+    tuning: MovementTuning,
 ) {
     let Some(contact) = env_contact.climbable else {
         kinematics.vel = Vec2::ZERO;
+        jump.ladder_jump_boost = 0.0;
         return;
     };
     let spec = contact.spec;
-    let target_vy = input.axis_y * spec.climb_speed;
+    let target_vy = if jump.ladder_jump_boost > 0.0 && input.axis_y < -0.1 {
+        -tuning.jump_speed
+    } else {
+        input.axis_y * spec.climb_speed
+    };
     kinematics.vel.y = target_vy;
     let target_vx = input.axis_x * spec.climb_speed * spec.strafe_factor;
     kinematics.vel.x = target_vx;

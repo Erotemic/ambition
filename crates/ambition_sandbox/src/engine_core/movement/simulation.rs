@@ -4,6 +4,9 @@ use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::{MovementTuning, ONE_WAY_DROP_THROUGH_GRACE};
+use crate::engine_core::player_state::BodyMode;
+
+const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 
 /// Consume the buffered jump (if any) and emit the right verb:
 /// swim stroke while submerged + swim ability, drop-through gate
@@ -15,6 +18,7 @@ pub fn handle_jump_buffer_clusters(
     action_buffer: &mut crate::engine_core::player_clusters::PlayerActionBuffer,
     env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
     abilities: &crate::engine_core::player_clusters::PlayerAbilities,
+    body_mode: BodyMode,
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
     ground: &mut crate::engine_core::player_clusters::PlayerGroundState,
     wall: &mut crate::engine_core::player_clusters::PlayerWallState,
@@ -39,7 +43,19 @@ pub fn handle_jump_buffer_clusters(
         }
     }
 
-    let can_ladder_jump = env_contact.climbable.is_some() && !ground.on_ground;
+    let on_ladder = env_contact.climbable.is_some();
+
+    if body_mode == BodyMode::Climbing && on_ladder {
+        if abilities.abilities.jump && input.axis_y < -0.1 {
+            jump_state.ladder_jump_boost = LADDER_JUMP_BOOST_TIME;
+            events.op_clusters(combo_trace, MovementOp::Jump);
+        }
+        action_buffer.jump = 0.0;
+        ground.coyote_timer = 0.0;
+        return;
+    }
+
+    let can_ladder_jump = on_ladder && !ground.on_ground;
 
     if input.drop_through_pressed
         && ground.on_ground

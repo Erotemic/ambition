@@ -38,9 +38,7 @@ pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters}
 pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;
 pub use ops::{ComboMark, MovementOp};
-pub use player::{
-    default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH,
-};
+pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{
     LedgeMomentumTuning, MovementTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN,
     BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME,
@@ -241,15 +239,17 @@ pub fn update_player_simulation_with_clusters(
         for mark in clusters.combo_trace.combo.iter_mut() {
             mark.age += dt;
         }
-        clusters.combo_trace.combo.retain(|m| {
-            m.age < 4.0 || m.op == ops::MovementOp::Reset
-        });
+        clusters
+            .combo_trace
+            .combo
+            .retain(|m| m.age < 4.0 || m.op == ops::MovementOp::Reset);
 
         let dec = |v: f32| (v - dt).max(0.0);
         clusters.action_buffer.jump = dec(clusters.action_buffer.jump);
         clusters.action_buffer.dash = dec(clusters.action_buffer.dash);
         clusters.ground.coyote_timer = dec(clusters.ground.coyote_timer);
         clusters.ground.drop_through_timer = dec(clusters.ground.drop_through_timer);
+        clusters.jump.ladder_jump_boost = dec(clusters.jump.ladder_jump_boost);
         clusters.dash.cooldown = dec(clusters.dash.cooldown);
         clusters.blink.cooldown = dec(clusters.blink.cooldown);
         clusters.blink.grace_timer = dec(clusters.blink.grace_timer);
@@ -291,6 +291,7 @@ pub fn update_player_simulation_with_clusters(
         clusters.action_buffer,
         clusters.env_contact,
         clusters.abilities,
+        clusters.body_mode.body_mode,
         clusters.kinematics,
         clusters.ground,
         clusters.wall,
@@ -345,7 +346,8 @@ pub fn update_player_with_tuning_clusters(
     } else {
         raw_dt
     };
-    let mut events = update_player_control_with_clusters(world, clusters, input, control_dt, tuning);
+    let mut events =
+        update_player_control_with_clusters(world, clusters, input, control_dt, tuning);
     let sim_events = update_player_simulation_with_clusters(world, clusters, input, raw_dt, tuning);
     events.extend(sim_events);
     events

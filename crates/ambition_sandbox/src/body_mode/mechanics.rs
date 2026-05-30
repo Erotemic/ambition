@@ -23,7 +23,8 @@
 //!   ceiling blocks the standing body, the morph ball stays curled.
 //! - Crouching + Down released → Standing (gated).
 //! - Standing/Crouching + Up/Down inside `climbable_contact` → Climbing.
-//! - Climbing + Jump or Dash → push off, exit to Standing.
+//! - Climbing + Up + Jump → ladder jump boost, stay Climbing.
+//! - Climbing + Jump without Up or Dash → push off, exit to Standing.
 //!   Climbing + losing contact → exit to Standing automatically.
 //! - Mid-action mechanics (dash, blink-aim, wall-cling/climb, ledge grab,
 //!   swim) own the player shape; the driver no-ops while any of them are
@@ -97,16 +98,18 @@ pub fn update_body_mode(
     // don't latch a stale signal across frames or gameplay states.
     let double_tap_down = std::mem::take(&mut interaction.double_tap_down_pending);
 
-    // Climbing exits: jump / dash pushes off, losing contact drops
-    // the mode.
+    // Climbing exits: plain jump / dash pushes off, losing contact
+    // drops the mode. Jump+Up is handled by movement as a climb-speed
+    // boost while keeping the ladder state.
     // Engine's `integrate_climb` defensive-zeros velocity if contact
     // is None mid-climb, so the visible result of a contact loss is a
     // one-frame velocity stall before this driver flips back to
     // Standing — acceptable for the first slice.
     if mode == ae::BodyMode::Climbing {
-        let exit_via_jump = controls.jump_pressed || controls.dash_pressed;
+        let exit_via_jump = controls.jump_pressed && !up_held;
+        let exit_via_dash = controls.dash_pressed;
         let exit_via_lost_contact = !climbable_contact_present;
-        if exit_via_jump || exit_via_lost_contact {
+        if exit_via_jump || exit_via_dash || exit_via_lost_contact {
             let _ = ae::try_change_body_mode_clusters(
                 &mut kinematics,
                 &mut body_mode_state,
@@ -377,6 +380,63 @@ mod tests {
             mode,
             ae::BodyMode::Standing,
             "Dash pressed while climbing must transition to Standing on the same frame",
+        );
+    }
+
+    /// Jump should not eject the player from climbing any more; the
+    /// movement tick turns it into a ladder-speed boost instead.
+    #[test]
+    fn jump_press_from_climbing_keeps_climbing_mode() {
+        let (mut app, player) = build_body_mode_test_app();
+        {
+            let mut world = app.world_mut().resource_mut::<crate::GameWorld>();
+            world.0.climbable_regions.push(ClimbableRegion::new(
+                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
+                ClimbableKind::Ladder,
+                ClimbableSpec::default(),
+            ));
+        }
+        {
+            let mut body_mode = app
+                .world_mut()
+                .get_mut::<PlayerBodyModeState>(player)
+                .unwrap();
+            body_mode.body_mode = ae::BodyMode::Climbing;
+        }
+        {
+            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            kin.pos = Vec2::new(210.0, 820.0);
+        }
+        {
+            let contact = app
+                .world()
+                .resource::<crate::GameWorld>()
+                .0
+                .climbable_at(app.world().get::<PlayerKinematics>(player).unwrap().aabb());
+            let mut env = app
+                .world_mut()
+                .get_mut::<PlayerEnvironmentContact>(player)
+                .unwrap();
+            env.climbable = contact;
+        }
+        {
+            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+            input.frame = ControlFrame {
+                jump_pressed: true,
+                axis_y: -1.0,
+                ..Default::default()
+            };
+        }
+        app.update();
+        let mode = app
+            .world()
+            .get::<PlayerBodyModeState>(player)
+            .unwrap()
+            .body_mode;
+        assert_eq!(
+            mode,
+            ae::BodyMode::Climbing,
+            "Jump pressed while climbing should keep the player in Climbing so movement can boost the ladder climb",
         );
     }
 }

@@ -373,23 +373,31 @@ pub fn update_ecs_actors(
         }
     }
 
-    // Per-actor crowding signal for Smash-brain enemies. Every entry
-    // in `requests` is a same-faction (Enemy) actor since `requests`
-    // is built from hostile actors only, so the count here IS the
-    // same-faction count for Smash. Other-faction crowding (player,
-    // peaceful NPCs) is left as 0 for now — the user's design weights
-    // same-faction as the dominant signal anyway.
+    // Per-actor crowding signal for brains that need personal space.
+    // Aerial actors use a wider radius and only react to other aerial
+    // actors, which keeps sharks from stacking while preserving the
+    // tighter ground crowding Smash expects.
     const CROWDING_RADIUS_PX: f32 = 80.0;
+    const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
     let mut crowding_by_id: std::collections::HashMap<String, crate::brain::CrowdingSignal> =
         std::collections::HashMap::new();
-    for (id_a, pos_a, _) in &requests {
+    for (id_a, pos_a, kind_a) in &requests {
         let mut count: u8 = 0;
         let mut centroid = ae::Vec2::ZERO;
-        for (id_b, pos_b, _) in &requests {
+        let aerial = *kind_a == crate::combat_slots::SlotKind::Aerial;
+        let radius = if aerial {
+            AERIAL_CROWDING_RADIUS_PX
+        } else {
+            CROWDING_RADIUS_PX
+        };
+        for (id_b, pos_b, kind_b) in &requests {
             if id_a == id_b {
                 continue;
             }
-            if pos_a.distance_squared(*pos_b) <= CROWDING_RADIUS_PX * CROWDING_RADIUS_PX {
+            if aerial && *kind_b != crate::combat_slots::SlotKind::Aerial {
+                continue;
+            }
+            if pos_a.distance_squared(*pos_b) <= radius * radius {
                 count = count.saturating_add(1);
                 centroid += *pos_b;
             }

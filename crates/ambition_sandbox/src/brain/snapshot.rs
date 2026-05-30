@@ -87,9 +87,9 @@ pub struct BrainSnapshot {
 
     /// Per-tick crowding signal — same-faction + non-faction
     /// nearby-actor counts, the averaged "away" direction, and
-    /// aggregate pressure. `None` for brains that don't consult
-    /// crowding (today: only the Smash brain). The driver system
-    /// only computes this for actors whose brain requests it.
+    /// aggregate pressure. Smash uses this for brawler spacing;
+    /// flying state-machine brains use it to avoid stacking in
+    /// the air.
     pub crowding: Option<crate::brain::smash::CrowdingSignal>,
     /// Mid-air jumps the actor has remaining until next landing.
     /// `0` = no double-jump available (must land first). The

@@ -549,6 +549,7 @@ fn tick_skirmisher(
     // position so the actor doesn't oscillate around it.
     let speed_scale = (approach_dist / 24.0).min(1.0);
     out.desired_vel = approach_dir * cfg.strafe_speed * speed_scale;
+    out.desired_vel = apply_flying_separation(out.desired_vel, cfg.strafe_speed, snapshot);
     // Fire at the actual target when the cooldown timer is clear.
     // ActionSet supplies the concrete projectile (speed, damage);
     // brain just emits dir.
@@ -688,7 +689,8 @@ fn tick_shark(
 
     if state.charge_remaining > 0.0 {
         state.mode = crate::character_ai::CharacterAiMode::Attack;
-        out.desired_vel = orbit_dir * cfg.charge_speed;
+        out.desired_vel =
+            apply_flying_separation(orbit_dir * cfg.charge_speed, cfg.charge_speed, snapshot);
         return;
     }
 
@@ -702,12 +704,37 @@ fn tick_shark(
         state.mode = crate::character_ai::CharacterAiMode::Telegraph;
         state.charge_remaining = cfg.charge_duration_s.max(snapshot.dt);
         state.charge_cooldown_remaining = cfg.charge_cooldown_s;
-        out.desired_vel = orbit_dir * cfg.charge_speed;
+        out.desired_vel =
+            apply_flying_separation(orbit_dir * cfg.charge_speed, cfg.charge_speed, snapshot);
         return;
     }
 
     state.mode = crate::character_ai::CharacterAiMode::Chase;
-    out.desired_vel = orbit_dir * cfg.cruise_speed;
+    out.desired_vel =
+        apply_flying_separation(orbit_dir * cfg.cruise_speed, cfg.cruise_speed, snapshot);
+}
+
+fn apply_flying_separation(
+    desired_vel: ae::Vec2,
+    base_speed: f32,
+    snapshot: &BrainSnapshot,
+) -> ae::Vec2 {
+    let Some(crowding) = snapshot.crowding else {
+        return desired_vel;
+    };
+    if crowding.same_faction_count == 0 || crowding.away_dir.length_squared() <= f32::EPSILON {
+        return desired_vel;
+    }
+    let pressure = crowding.pressure.clamp(0.0, 1.0);
+    let separation = crowding.away_dir.normalize_or_zero() * base_speed * (1.25 + pressure);
+    let blended = desired_vel + separation;
+    let max_speed = base_speed * (1.45 + pressure * 0.35);
+    let speed = blended.length();
+    if speed > max_speed && speed > 0.0 {
+        blended / speed * max_speed
+    } else {
+        blended
+    }
 }
 
 // ===== BossPattern =====
@@ -781,6 +808,15 @@ mod tests {
         s.actor_pos = ae::Vec2::new(pos_x, 0.0);
         s.target_pos = ae::Vec2::new(target_x, 0.0);
         s
+    }
+
+    fn same_faction_crowding(away_dir: ae::Vec2) -> crate::brain::smash::CrowdingSignal {
+        crate::brain::smash::CrowdingSignal {
+            same_faction_count: 1,
+            other_faction_count: 0,
+            away_dir,
+            pressure: 1.0,
+        }
     }
 
     #[test]
@@ -1309,6 +1345,31 @@ mod tests {
     }
 
     #[test]
+    fn skirmisher_steers_away_from_aerial_crowding() {
+        let cfg = SkirmisherCfg::RANGER_DEFAULT;
+        let state = SkirmisherState {
+            cooldown_remaining: cfg.fire_cooldown_s,
+            ..Default::default()
+        };
+        let mut clear = snap_at(0.0, 200.0);
+        clear.dt = 0.0;
+        let mut clear_brain = StateMachineCfg::Skirmisher { cfg, state };
+        let mut clear_out = crate::actor_control::ActorControlFrame::neutral();
+        tick_state_machine(&mut clear_brain, &clear, &mut clear_out);
+
+        let mut crowded = clear;
+        crowded.crowding = Some(same_faction_crowding(ae::Vec2::new(-1.0, 0.0)));
+        let mut crowded_brain = StateMachineCfg::Skirmisher { cfg, state };
+        let mut crowded_out = crate::actor_control::ActorControlFrame::neutral();
+        tick_state_machine(&mut crowded_brain, &crowded, &mut crowded_out);
+
+        assert!(
+            crowded_out.desired_vel.x < clear_out.desired_vel.x,
+            "same-faction crowding should pull the skirmisher away from neighbors",
+        );
+    }
+
+    #[test]
     fn sniper_holds_and_fires_within_aggro() {
         let mut sm = StateMachineCfg::Sniper {
             cfg: SniperCfg::DEFAULT,
@@ -1387,6 +1448,42 @@ mod tests {
         assert!(!frame.melee_pressed);
         assert!(frame.fire.is_none());
         assert!(!frame.jump_pressed);
+    }
+
+    #[test]
+    fn shark_steers_away_from_aerial_crowding() {
+        let cfg = SharkCfg {
+            aggressiveness: 1.0,
+            aggro_radius: 360.0,
+            cruise_speed: 120.0,
+            charge_speed: 420.0,
+            bite_range: 34.0,
+            charge_duration_s: 0.45,
+            charge_cooldown_s: 0.8,
+            standoff_px: 140.0,
+            vertical_wobble_px: 24.0,
+            orbit_drift_rad_s: 0.8,
+        };
+        let state = SharkState {
+            charge_cooldown_remaining: cfg.charge_cooldown_s,
+            ..Default::default()
+        };
+        let mut clear = snap_at(0.0, 200.0);
+        clear.dt = 0.0;
+        let mut clear_brain = StateMachineCfg::Shark { cfg, state };
+        let mut clear_out = crate::actor_control::ActorControlFrame::neutral();
+        tick_state_machine(&mut clear_brain, &clear, &mut clear_out);
+
+        let mut crowded = clear;
+        crowded.crowding = Some(same_faction_crowding(ae::Vec2::new(-1.0, 0.0)));
+        let mut crowded_brain = StateMachineCfg::Shark { cfg, state };
+        let mut crowded_out = crate::actor_control::ActorControlFrame::neutral();
+        tick_state_machine(&mut crowded_brain, &crowded, &mut crowded_out);
+
+        assert!(
+            crowded_out.desired_vel.x < clear_out.desired_vel.x,
+            "same-faction crowding should pull the shark away from nearby flyers",
+        );
     }
 
     #[test]

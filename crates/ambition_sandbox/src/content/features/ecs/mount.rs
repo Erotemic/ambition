@@ -15,11 +15,11 @@
 //!
 //! Dissolution: [`enforce_mount_rider_link`] runs after the damage
 //! pass. When the mount dies the rider's gravity flips back on and
-//! its brain + action set are re-derived from its STANDALONE
-//! archetype (so a pirate falling off a dead shark walks toward the
-//! player and swings melee, rather than orbit-and-firing a gun-sword
-//! it no longer has the platform to wield). When the rider dies the
-//! mount keeps running with its own (already-standalone) brain.
+//! its brain + action set are swapped through the shared dismounted
+//! rider builder (so a pirate falling off a dead shark walks toward
+//! the player and swings melee, rather than orbit-and-firing a
+//! gun-sword it no longer has the platform to wield). When the rider
+//! dies the mount keeps running with its own brain.
 //!
 //! Any character can be a mount if it carries [`Mountable`] data and
 //! any character can be a rider if it has a target to ride. The
@@ -31,7 +31,7 @@ use bevy::prelude::{Commands, Component, Entity, Query, With, Without};
 
 use super::super::EnemyArchetype;
 use super::{ActorRuntime, FeatureAabb};
-use super::variation::seed_from_id;
+use super::brain_builders::dismounted_rider_brain_and_action_set;
 use crate::engine_core as ae;
 
 /// Attached to a mount entity. Specifies where the rider rides
@@ -174,8 +174,8 @@ pub fn sync_riders_to_mounts(
 /// the damage pass.
 ///
 /// - Mount dies: rider's gravity flips on (so they fall), and their
-///   brain + action set are re-derived for the rider's STANDALONE
-///   archetype so a pirate raider falling off a dead shark walks
+///   brain + action set are swapped through the shared dismounted
+///   rider builder so a pirate raider falling off a dead shark walks
 ///   at the player swinging melee instead of orbit-and-firing a
 ///   gun-sword that no longer has a platform. The [`RidingOn`]
 ///   component itself STAYS attached — `sync_riders_to_mounts`
@@ -246,68 +246,18 @@ pub fn enforce_mount_rider_link(
             }
             // Mount dead, rider currently mounted → dissolve. Flip
             // gravity on, restore rider to its full standalone
-            // size, install an explicitly-hostile MeleeBrute brain
-            // + melee ActionSet so a PirateRaider / PirateHeavy
-            // variant falls and walks at the player swinging melee.
-            //
-            // We build the brain inline rather than calling
-            // `enemy_default_brain` because (a) PirateRaider's
-            // archetype default is Smash which has tighter ground
-            // / observation requirements than MeleeBrute and was
-            // observed to stand inert when the rider landed
-            // mid-arena, and (b) PirateHeavy's archetype default is
-            // a *peaceful* MeleeBrute (aggressiveness 0). Inline is
-            // explicit about the dismount intent: be aggressively
-            // hostile.
-            //
-            // Per-actor jitter on the dismount brain prevents a pair
-            // of riders dying together from then ticking in unison.
+            // size, and install the shared explicitly-hostile
+            // dismounted rider brain/action-set policy so a
+            // PirateRaider / PirateHeavy variant falls and walks at
+            // the player swinging melee.
             (false, true) => {
-                use crate::brain::{
-                    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg,
-                };
                 rider.gravity_scale = if rider.archetype.is_aerial() {
                     0.0
                 } else {
                     1.0
                 };
                 rider.size = rider.spawn_size;
-                let seed =
-                    seed_from_id(&rider.id).wrapping_add(0xDEAD);
-                let jitter = ((seed % 1024) as f32) / 1024.0;
-                // Aggro: dismounted rider engages from a generous
-                // radius (so they don't have to walk into the
-                // player just to start chasing) plus a small
-                // per-actor jitter so two riders dying at the same
-                // moment don't share a tick-for-tick chase.
-                let aggro_radius = 540.0 + 60.0 * jitter;
-                let chase_speed = rider.archetype.chase_speed().max(140.0)
-                    * (0.9 + 0.2 * jitter);
-                let attack_range = rider.archetype.attack_range().max(56.0);
-                let new_brain = Brain::StateMachine(StateMachineCfg::MeleeBrute {
-                    cfg: MeleeBruteCfg {
-                        aggressiveness: 1.0,
-                        aggro_radius,
-                        attack_range,
-                        chase_speed,
-                    },
-                    state: MeleeBruteState::default(),
-                });
-                // Ensure the rider has a melee action; PirateRaider
-                // / PirateHeavy archetypes already carry melee in
-                // their spec, but a future "lifted" archetype with
-                // no melee would otherwise leave the dismounted
-                // pirate with no way to attack.
-                let melee = rider
-                    .archetype
-                    .melee_spec()
-                    .or_else(|| crate::content::features::EnemyArchetype::PirateRaider.melee_spec());
-                let new_action_set = ActionSet {
-                    melee,
-                    ranged: None,
-                    move_style: rider.archetype.move_style(),
-                    ..Default::default()
-                };
+                let (new_brain, new_action_set) = dismounted_rider_brain_and_action_set(rider);
                 commands
                     .entity(rider_entity)
                     .insert((new_brain, new_action_set))
@@ -347,11 +297,6 @@ pub fn is_composite_spawn(archetype: EnemyArchetype) -> bool {
         EnemyArchetype::PirateOnShark | EnemyArchetype::PirateHeavyOnShark
     )
 }
-
-// `force_hostile` was used by the prior enemy_default_brain-based
-// dissolve path; the inline MeleeBrute build replaces it. Kept the
-// trace as a comment because future dissolve modes (Skirmisher
-// dismount, Sniper dismount) will likely want this same flip.
 
 #[cfg(test)]
 mod tests {

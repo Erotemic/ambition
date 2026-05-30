@@ -49,6 +49,7 @@ mod actors;
 mod anim_helpers;
 mod banner;
 mod bosses;
+mod brain_builders;
 mod brain_effects;
 mod breakables;
 mod chests;

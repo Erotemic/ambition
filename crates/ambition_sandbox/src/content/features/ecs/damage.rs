@@ -202,8 +202,9 @@ pub fn apply_feature_hit_events(
                         // (`MediumStriker` today) is the single source
                         // of truth for tuning — no hardcoded
                         // STRIKER_DEFAULT here.
-                        let new_brain = super::spawn::enemy_default_brain(&hostile);
-                        let new_action_set = super::spawn::enemy_default_action_set(&hostile);
+                        let new_brain = super::brain_builders::enemy_default_brain(&hostile);
+                        let new_action_set =
+                            super::brain_builders::enemy_default_action_set(&hostile);
                         *actor = ActorRuntime::Hostile(hostile);
                         commands
                             .entity(actor_entity)

@@ -954,12 +954,19 @@ mod scripted_pattern_tests {
         use std::collections::HashMap;
         let head_rest = NamedPixelRect {
             name: "head".to_string(),
-            x: 292,
-            y: 139,
-            w: 184,
-            h: 148,
+            x: 301,
+            y: 146,
+            w: 166,
+            h: 133,
         };
-        let head_descent = NamedPixelRect {
+        let head_descent_hurt = NamedPixelRect {
+            name: "head".to_string(),
+            x: 301,
+            y: 252,
+            w: 166,
+            h: 133,
+        };
+        let head_descent_hit = NamedPixelRect {
             name: "head".to_string(),
             x: 292,
             y: 244,
@@ -970,18 +977,23 @@ mod scripted_pattern_tests {
             hurtbox: Some(AnimationBox {
                 parts: vec![head_rest.clone()],
                 bbox: None,
+                frames: Vec::new(),
             }),
             hitbox: None,
+            frame_duration_secs: None,
         };
         let descent_entry = AnimationMetrics {
             hurtbox: Some(AnimationBox {
-                parts: vec![head_descent.clone()],
+                parts: vec![head_descent_hurt],
                 bbox: None,
+                frames: Vec::new(),
             }),
             hitbox: Some(AnimationBox {
-                parts: vec![head_descent],
+                parts: vec![head_descent_hit],
                 bbox: None,
+                frames: Vec::new(),
             }),
+            frame_duration_secs: None,
         };
         let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
         animations.insert("rest".to_string(), rest_entry);

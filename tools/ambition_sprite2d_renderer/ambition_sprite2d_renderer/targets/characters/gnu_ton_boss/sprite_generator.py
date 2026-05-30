@@ -26,7 +26,6 @@ Dependencies: python -m pip install pillow
 """
 from __future__ import annotations
 
-import json
 import math
 import shutil
 from pathlib import Path
@@ -64,20 +63,35 @@ ANIMATIONS: List[Tuple[str, int, int]] = [
     ("death",      10, 105),
 ]
 
-# Output files: the runtime now consumes a split body/hands pair so we can
-# z-layer body behind platforms and hands in front. `_full_spritesheet.png`
-# is kept for visual debugging. `_parts.json` exposes design-space anchors
-# per anim/frame so gameplay hitboxes line up with what's actually drawn.
+# Output files: the runtime consumes the split body/hands pair plus the
+# canonical SheetRecord RON. Runtime collision/hurtbox metadata is stored in
+# the RON's `body_metrics` block, so the old JSON manifest/parts sidecars are
+# no longer emitted for GNU-ton.
 OUTPUT_FILES = [
     f"{TARGET_NAME}_spritesheet.png",        # alias for _full (back-compat)
     f"{TARGET_NAME}_full_spritesheet.png",
     f"{TARGET_NAME}_body_spritesheet.png",
     f"{TARGET_NAME}_hands_spritesheet.png",
-    f"{TARGET_NAME}_spritesheet_manifest.json",
-    f"{TARGET_NAME}_parts.json",
+    f"{TARGET_NAME}_spritesheet.ron",
+    f"{TARGET_NAME}_actor.ron",
     f"{TARGET_NAME}_canonical.png",
     f"{TARGET_NAME}_preview_labeled.png",
 ]
+
+# Review-only output generated next to the sheets. It is intentionally not in
+# OUTPUT_FILES, so `publish` does not install it into the runtime asset tree.
+HITBOX_DEBUG_FILE = f"{TARGET_NAME}_hitboxes_debug.png"
+
+ACTOR_METADATA = {
+    "actor": {"character_id": f"npc_{TARGET_NAME}"},
+    "body": {"body_plan": "BossMultipart", "body_kind": "Wide", "traits": ["boss", "multipart"]},
+    "brain": {"default_preset": "stand_still"},
+    "actions": {"default_preset": "peaceful"},
+    "tags": ["boss", "multipart"],
+    "missing_information": [
+        "boss schedule/action specials: not authored in the sprite actor contract yet",
+    ],
+}
 
 # ── Palette ──────────────────────────────────────────────────────────────────
 C_OUTLINE      = (20,  14,   8, 255)
@@ -1056,21 +1070,236 @@ def _draw_death(c: Canvas, phase: float, frame_idx: int,
                   extra={"settle": round(settle, 3)})
 
 
+
+# ── Runtime RON manifest ────────────────────────────────────────────────────
+
+_HEAD_BOX_W = 184
+_HEAD_BOX_H = 148
+_HAND_BOX_W = 156
+_HAND_BOX_H = 120
+# GNU-ton's damageable head hurtbox is intentionally a little tighter
+# than the dangerous head hitbox. Keeping both boxes centered on the
+# same anchor makes the debug preview readable (cyan inside red) and
+# gives gameplay a small forgiving margin near the visual edge.
+_HEAD_HURTBOX_SCALE = 0.90
+
+
+def _pixel_rect_from_center(cx: float, cy: float, w: int, h: int) -> dict:
+    return {
+        "x": int(round(OX + cx - w * 0.5)),
+        "y": int(round(OY + cy - h * 0.5)),
+        "w": int(w),
+        "h": int(h),
+    }
+
+
+def _part_rect(name: str, rect: dict) -> dict:
+    out = {"name": name}
+    out.update(rect)
+    return out
+
+
+def _head_rect(head_anchor) -> dict:
+    _x, y = head_anchor
+    return _part_rect("head", _pixel_rect_from_center(0.0, float(y), _HEAD_BOX_W, _HEAD_BOX_H))
+
+
+def _scale_part_rect_centered(part: dict, scale: float) -> dict:
+    """Scale a generated pixel rect around its current center."""
+    out = dict(part)
+    scale = clamp(float(scale), 0.0, 1.0)
+    cx = float(part["x"]) + float(part["w"]) * 0.5
+    cy = float(part["y"]) + float(part["h"]) * 0.5
+    w = max(1, int(round(float(part["w"]) * scale)))
+    h = max(1, int(round(float(part["h"]) * scale)))
+    out["x"] = int(round(cx - w * 0.5))
+    out["y"] = int(round(cy - h * 0.5))
+    out["w"] = w
+    out["h"] = h
+    return out
+
+
+def _head_hurt_rect(head_anchor) -> dict:
+    return _scale_part_rect_centered(_head_rect(head_anchor), _HEAD_HURTBOX_SCALE)
+
+
+def _ron_part(part: dict) -> str:
+    return (
+        f'(name: "{part["name"]}", x: {part["x"]}, y: {part["y"]}, '
+        f'w: {part["w"]}, h: {part["h"]})'
+    )
+
+
+def _ron_part_list(parts: list[dict]) -> str:
+    if not parts:
+        return "[]"
+    return "[" + ", ".join(_ron_part(p) for p in parts) + "]"
+
+
+def _ron_box(box: dict) -> str:
+    fields = [f"parts: {_ron_part_list(box.get('parts', []))}"]
+    frames = box.get("frames")
+    if frames:
+        frame_items = [
+            f"(parts: {_ron_part_list(frame_box.get('parts', []))})"
+            for frame_box in frames
+        ]
+        fields.append("frames: [" + ", ".join(frame_items) + "]")
+    return "(" + ", ".join(fields) + ")"
+
+
+def _ron_anim_entry(entry: dict) -> str:
+    fields = []
+    frame_duration_secs = entry.get("frame_duration_secs")
+    if frame_duration_secs is not None:
+        fields.append(f"frame_duration_secs: Some({float(frame_duration_secs):.6g})")
+    hurtbox = entry.get("hurtbox")
+    hitbox = entry.get("hitbox")
+    if hurtbox is not None:
+        fields.append(f"hurtbox: Some({_ron_box(hurtbox)})")
+    if hitbox is not None:
+        fields.append(f"hitbox: Some({_ron_box(hitbox)})")
+    return "(" + ", ".join(fields) + ")"
+
+
+def _box(parts: list[dict], frames: list[dict] | None = None) -> dict:
+    out = {"parts": parts}
+    if frames:
+        out["frames"] = frames
+    return out
+
+
+def _gnu_ton_body_metrics(parts_doc: dict) -> dict:
+    """Return the exact per-animation metrics emitted into the runtime RON.
+
+    The hitbox debug preview also consumes this data, keeping the visual
+    review path tied to the same rectangles the Rust runtime loads.
+    """
+    rest_head_hurt = _head_hurt_rect((0.0, REST_HEAD_Y))
+    head_down_hit_frames = [
+        {"parts": [_head_rect(frame["head"])]}
+        for frame in parts_doc["anchors"]["head_down"]
+    ]
+    head_down_hurt_frames = [
+        {"parts": [_head_hurt_rect(frame["head"])]}
+        for frame in parts_doc["anchors"]["head_down"]
+    ]
+    head_down_hit_parts = max(
+        (frame_box["parts"][0] for frame_box in head_down_hit_frames),
+        key=lambda rect: rect["y"],
+    )
+    head_down_hurt_parts = max(
+        (frame_box["parts"][0] for frame_box in head_down_hurt_frames),
+        key=lambda rect: rect["y"],
+    )
+    left_hand = _part_rect(
+        "left_hand",
+        _pixel_rect_from_center(-REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H),
+    )
+    right_hand = _part_rect(
+        "right_hand",
+        _pixel_rect_from_center(REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H),
+    )
+    shockwave = _part_rect("shockwave", {"x": 84, "y": 465, "w": 600, "h": 36})
+    left_arc = _part_rect("left_arc", {"x": 59, "y": 248, "w": 280, "h": 120})
+    right_arc = _part_rect("right_arc", {"x": 429, "y": 248, "w": 280, "h": 120})
+
+    return {
+        "rest": {"hurtbox": _box([rest_head_hurt])},
+        "hit": {"hurtbox": _box([rest_head_hurt])},
+        "gnu_hand_slam": {
+            "hurtbox": _box([rest_head_hurt]),
+            "hitbox": _box([left_hand, right_hand]),
+        },
+        "gnu_shockwave": {
+            "hurtbox": _box([rest_head_hurt]),
+            "hitbox": _box([shockwave]),
+        },
+        "gnu_hand_sweep": {
+            "hurtbox": _box([rest_head_hurt]),
+            "hitbox": _box([left_arc, right_arc]),
+        },
+        "gnu_head_descent": {
+            "frame_duration_secs": 0.09,
+            "hurtbox": _box([head_down_hurt_parts], head_down_hurt_frames),
+            "hitbox": _box([head_down_hit_parts], head_down_hit_frames),
+        },
+    }
+
+
+def _gnu_ton_body_metrics_ron(parts_doc: dict) -> str:
+    animations = _gnu_ton_body_metrics(parts_doc)
+    lines = ["        body_metrics: Some((", "            animations: {"]
+    for name, body in animations.items():
+        lines.append(f'                "{name}": {_ron_anim_entry(body)},')
+    lines.extend(["            },", "        )),"])
+    return "\n".join(lines)
+
+
+def _row_ron(anim_name: str, row_index: int, frame_count: int, duration_ms: int) -> str:
+    rects = []
+    for frame_index in range(frame_count):
+        rects.append(
+            "                    ("
+            f"x: {frame_index * FRAME_W}, y: {row_index * FRAME_H}, "
+            f"w: {FRAME_W}, h: {FRAME_H}, anchors: {{}}"
+            "),"
+        )
+    rect_body = "\n".join(rects)
+    duration_secs = duration_ms / 1000.0
+    return (
+        "            (\n"
+        f"                animation: \"{anim_name}\",\n"
+        f"                row_index: {row_index},\n"
+        f"                frame_count: {frame_count},\n"
+        f"                duration_ms: {duration_ms},\n"
+        f"                duration_secs: {duration_secs:.6g},\n"
+        "                rects: [\n"
+        f"{rect_body}\n"
+        "                ],\n"
+        "            ),"
+    )
+
+
+def _runtime_spritesheet_ron(manifest: dict, parts_doc: dict) -> str:
+    metrics = _gnu_ton_body_metrics_ron(parts_doc)
+    row_blocks = []
+    for row in manifest["rows"]:
+        row_blocks.append(_row_ron(row["name"], row["row"], row["frames"], row["duration_ms"]))
+    rows = "\n".join(row_blocks)
+    return (
+        "[\n"
+        "    (\n"
+        f"        target: \"{TARGET_NAME}\",\n"
+        f"        image: \"{TARGET_NAME}_spritesheet.png\",\n"
+        "        label_width: 0,\n"
+        f"        frame_width: {FRAME_W},\n"
+        f"        frame_height: {FRAME_H},\n"
+        f"{metrics}\n"
+        "        rows: [\n"
+        f"{rows}\n"
+        "        ],\n"
+        "        tuning: None,\n"
+        "    ),\n"
+        "]\n"
+    )
+
 # ── Sheet assembly ───────────────────────────────────────────────────────────
 
 _LAYERS = ("full", "body", "hands")
 
 
 def build_spritesheet(outdir: Path) -> List[Path]:
-    """Render all animation frames and emit three sheets + manifest + parts.
+    """Render all animation frames and emit runtime sheets + RON metadata.
 
     Emits:
       - `<target>_full_spritesheet.png`   (every layer composited)
       - `<target>_body_spritesheet.png`   (everything except hands / VFX)
       - `<target>_hands_spritesheet.png`  (hands + attack VFX only)
       - `<target>_spritesheet.png`        (back-compat alias of the full sheet)
-      - `<target>_spritesheet_manifest.json`
-      - `<target>_parts.json`             (per-frame design-space anchors)
+      - `<target>_spritesheet.ron`        (runtime frame + body_metrics data)
+      - `<target>_actor.ron`              (actor catalog sidecar)
+      - `<target>_hitboxes_debug.png`     (review-only overlay, generated only)
     """
     max_frames = max(frames for _, frames, _ in ANIMATIONS)
     rows = len(ANIMATIONS)
@@ -1119,11 +1348,6 @@ def build_spritesheet(outdir: Path) -> List[Path]:
     sheets["full"].save(str(alias_path), "PNG")
     outputs.append(alias_path)
 
-    manifest_path = outdir / f"{TARGET_NAME}_spritesheet_manifest.json"
-    with open(manifest_path, "w") as fp:
-        json.dump(manifest, fp, indent=2)
-    outputs.append(manifest_path)
-
     parts_doc = {
         "target": TARGET_NAME,
         "frame_size": [FRAME_W, FRAME_H],
@@ -1134,12 +1358,117 @@ def build_spritesheet(outdir: Path) -> List[Path]:
         ),
         "anchors": parts,
     }
-    parts_path = outdir / f"{TARGET_NAME}_parts.json"
-    with open(parts_path, "w") as fp:
-        json.dump(parts_doc, fp, indent=2)
-    outputs.append(parts_path)
+
+    ron_path = outdir / f"{TARGET_NAME}_spritesheet.ron"
+    ron_path.write_text(_runtime_spritesheet_ron(manifest, parts_doc), encoding="utf8")
+    outputs.append(ron_path)
+
+    actor_path = _write_actor_contract(outdir, manifest, ron_path)
+    outputs.append(actor_path)
+
+    debug_path = build_hitbox_debug(outdir, sheets["full"], manifest, parts_doc)
+    outputs.append(debug_path)
 
     return outputs
+
+
+HURTBOX_OUTLINE = (0, 230, 255, 235)
+HURTBOX_FILL = (0, 230, 255, 42)
+HITBOX_OUTLINE = (255, 60, 60, 245)
+HITBOX_FILL = (255, 60, 60, 62)
+LABEL_FILL = (255, 255, 255, 230)
+
+_ROW_METRIC_KEYS = {
+    "rest": ("rest",),
+    "hand_slam": ("gnu_hand_slam", "gnu_shockwave"),
+    "hand_sweep": ("gnu_hand_sweep",),
+    "head_down": ("gnu_head_descent",),
+    "hit": ("hit",),
+}
+
+
+def _box_parts_for_frame(box: dict, frame_index: int) -> list[dict]:
+    frames = box.get("frames")
+    if frames:
+        frame_box = frames[min(frame_index, len(frames) - 1)]
+        return list(frame_box.get("parts", []))
+    return list(box.get("parts", []))
+
+
+def _draw_metric_parts(draw: ImageDraw.ImageDraw, frame_x: int, frame_y: int,
+                       parts: list[dict], *, is_hitbox: bool) -> None:
+    outline = HITBOX_OUTLINE if is_hitbox else HURTBOX_OUTLINE
+    fill = HITBOX_FILL if is_hitbox else HURTBOX_FILL
+    prefix = "X" if is_hitbox else "H"
+    for part in parts:
+        x = int(part["x"])
+        y = int(part["y"])
+        w = int(part["w"])
+        h = int(part["h"])
+        if w <= 0 or h <= 0:
+            continue
+        rect = (frame_x + x, frame_y + y, frame_x + x + w - 1, frame_y + y + h - 1)
+        draw.rectangle(rect, fill=fill, outline=outline, width=2)
+        name = str(part.get("name", ""))
+        if name:
+            draw.text((frame_x + x + 3, frame_y + y + 2), f"{prefix} {name}", fill=LABEL_FILL)
+
+
+def build_hitbox_debug(outdir: Path, full_sheet: Image.Image, manifest: dict, parts_doc: dict) -> Path:
+    """Write a per-frame visual review of the exact RON hit/hurt boxes."""
+    metrics = _gnu_ton_body_metrics(parts_doc)
+    overlay = Image.new("RGBA", full_sheet.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, "RGBA")
+    for row in manifest["rows"]:
+        anim = row["name"]
+        row_index = int(row["row"])
+        frame_count = int(row["frames"])
+        metric_keys = _ROW_METRIC_KEYS.get(anim, ())
+        if not metric_keys:
+            continue
+        for frame_index in range(frame_count):
+            frame_x = frame_index * FRAME_W
+            frame_y = row_index * FRAME_H
+            for metric_key in metric_keys:
+                metric = metrics.get(metric_key, {})
+                hurtbox = metric.get("hurtbox")
+                hitbox = metric.get("hitbox")
+                # Draw the dangerous hitbox first, then the smaller damageable
+                # hurtbox on top. This keeps the review image readable when
+                # both boxes track the same moving GNU-ton head.
+                if hitbox:
+                    _draw_metric_parts(
+                        draw,
+                        frame_x,
+                        frame_y,
+                        _box_parts_for_frame(hitbox, frame_index),
+                        is_hitbox=True,
+                    )
+                if hurtbox:
+                    _draw_metric_parts(
+                        draw,
+                        frame_x,
+                        frame_y,
+                        _box_parts_for_frame(hurtbox, frame_index),
+                        is_hitbox=False,
+                    )
+            draw.text((frame_x + 6, frame_y + 6), f"{anim} #{frame_index}", fill=LABEL_FILL)
+    debug = Image.alpha_composite(full_sheet.convert("RGBA"), overlay)
+    path = outdir / HITBOX_DEBUG_FILE
+    debug.save(path, "PNG")
+    return path
+
+
+def _write_actor_contract(outdir: Path, manifest: dict, ron_path: Path) -> Path:
+    from ambition_sprite2d_renderer.actor_contract import write_actor_contract_for_tackon
+
+    return write_actor_contract_for_tackon(
+        target=TARGET_NAME,
+        image_out=outdir / f"{TARGET_NAME}_spritesheet.png",
+        sheet_ron_out=ron_path,
+        manifest=manifest,
+        actor_metadata=ACTOR_METADATA,
+    )
 
 
 def build_canonical(outdir: Path) -> Path:
@@ -1203,7 +1532,11 @@ def install_outputs(render_dir: Path, install_dir: Path) -> List[Path]:
         dst = install_dir / fname
         shutil.copy2(src, dst)
         copied.append(dst)
-        print(f"  installed: {dst.relative_to(install_dir.parents[3])}")
+        try:
+            display = dst.relative_to(TOOL_ROOT)
+        except ValueError:
+            display = dst
+        print(f"  installed: {display}")
     return copied
 
 

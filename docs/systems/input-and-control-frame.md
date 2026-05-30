@@ -28,7 +28,7 @@ Important paths:
 Today's readers of player input come in two flavors:
 
 - **In-phase `Res<ControlFrame>` readers** — `apply_player_reset_input_system`, `input_timer_system`, and `interaction_input_system` run inside the `PlayerInput` schedule set and mutate or consume the resource mid-phase. They stay on the resource because the sync system runs at the tail of the same set; reading from the component there would observe the previous frame's snapshot. These also include the writers (`apply_player_reset_input_system` clears `reset_pressed` so the engine path doesn't re-trigger).
-- **Out-of-phase `&PlayerInputFrame` readers** — `update_projectiles` (Combat), `sandbox_update` (PlayerSimulation), `attack_advance_system` (Combat), `record_frame_system` (Trace). These run after the sync system has mirrored the resource onto the component, so they see the current tick's input. New gameplay systems should follow this pattern.
+- **Out-of-phase `&PlayerInputFrame` readers** — player brain ticking, player simulation, attack lifecycle, and trace systems still read the per-player snapshot after sync. `update_projectiles` no longer reads the frame directly; it consumes `ActionRequest::PlayerProjectileTick` emitted from the player brain/action seam. New gameplay systems should prefer the brain/action seam when the input represents an actor verb, and use `PlayerInputFrame` directly only when the system explicitly owns player-local policy.
 
 ## Rules
 

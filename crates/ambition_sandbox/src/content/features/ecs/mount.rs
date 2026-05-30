@@ -31,6 +31,7 @@ use bevy::prelude::{Commands, Component, Entity, Query, With, Without};
 
 use super::super::EnemyArchetype;
 use super::{ActorRuntime, FeatureAabb};
+use super::variation::seed_from_id;
 use crate::engine_core as ae;
 
 /// Attached to a mount entity. Specifies where the rider rides
@@ -272,7 +273,7 @@ pub fn enforce_mount_rider_link(
                 };
                 rider.size = rider.spawn_size;
                 let seed =
-                    crate::attack_choreography::seed_from_id(&rider.id).wrapping_add(0xDEAD);
+                    seed_from_id(&rider.id).wrapping_add(0xDEAD);
                 let jitter = ((seed % 1024) as f32) / 1024.0;
                 // Aggro: dismounted rider engages from a generous
                 // radius (so they don't have to walk into the

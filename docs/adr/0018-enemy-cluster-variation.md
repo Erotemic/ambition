@@ -53,14 +53,14 @@ must derive a stable per-actor seed and apply at minimum:
   radius): per-actor offset around the authored target geometry.
   ±20% on radii, full `[0, τ)` on orbital phase.
 
-The seed is `crate::attack_choreography::seed_from_id(&enemy.id)`,
+The seed is `content/features/ecs/variation::seed_from_id(&enemy.id)`,
 which is stable across runs (deterministic) but distinct per
 authored `EnemyRuntime.id`. Composite spawn paths use the rider /
 mount sub-id (e.g. `"<authored>:rider"`) so a fan-out doesn't
 collapse two children to the same seed.
 
 The canonical helper is `five_f32s_from_seed(seed) -> (f32, f32,
-f32, f32, f32)` in `content/features/ecs/spawn.rs`: an xorshift32
+f32, f32, f32)` in `content/features/ecs/variation.rs`: an xorshift32
 sequence producing five independent uniforms in `[0, 1)`. Per-brain
 config decides which jitter dimensions consume which slot.
 
@@ -135,7 +135,7 @@ heuristics that the rest of the system can't observe.
 - Tests for "deterministic brain tick given fixed snapshot" still
   hold — the jitter is per-actor, not per-tick, and the seed is
   stable across runs.
-- The `five_f32s_from_seed` helper is the single jitter source. New
+- The `content/features/ecs/variation.rs` helpers are the single jitter source. New
   brains that need more than five slots either (a) reduce, (b)
   reuse with a second offset seed, or (c) extend the helper. Do not
   introduce a parallel jitter source.
@@ -143,6 +143,16 @@ heuristics that the rest of the system can't observe.
   fan-out) is a permanent footgun. Future refactors should DRY it
   by passing a `BrainModeContext` through a single builder; until
   then the comment marker is the gate.
+
+## Current implications for agents
+
+When constructing hostile actor brains, do not hand-roll a parallel source of
+per-actor randomness. Use the shared variation helpers in
+`crates/ambition_sandbox/src/content/features/ecs/variation.rs`, and keep
+mount/rider fan-out, dismount, encounter-spawn, and default enemy-brain paths
+on the same seeding policy. A new brain construction path should make its
+variation choice explicit in the same place it builds the `Brain` and
+`ActionSet`.
 
 ## Cross-references
 
@@ -152,7 +162,7 @@ heuristics that the rest of the system can't observe.
   wide generic ones; add knobs when use cases land". This ADR is
   the canonical jitter knob; future variation adds more knobs
   rather than baking variation into archetypes.
-- `crates/ambition_sandbox/src/content/features/ecs/spawn.rs::five_f32s_from_seed`
-  — the canonical helper.
+- `crates/ambition_sandbox/src/content/features/ecs/variation.rs`
+  — the canonical seed + jitter helpers.
 - `crates/ambition_sandbox/src/content/features/ecs/mount.rs::enforce_mount_rider_link`
   — dissolve path that applies the rule for dismounted riders.

@@ -1,12 +1,12 @@
 # Architecture
 
-Ambition is a Rust/Bevy workspace with reusable mechanics crates, a playable sandbox crate, and author-time tools. The current architecture is Bevy-native and ECS-first; old backend-neutral constraints are superseded by ADR 0002.
+Ambition is a Rust/Bevy workspace with reusable support crates, a playable sandbox crate, and author-time tools. The current architecture is Bevy-native and ECS-first; old backend-neutral constraints are superseded by ADR 0002.
 
 ## Crate responsibilities
 
 | Crate | Responsibility |
 |---|---|
-| `ambition_engine` | Reusable mechanics vocabulary: movement, collision, combat intents, actors, projectiles, geometry, state machines, save-friendly primitives, and tests. Bevy-friendly types are allowed when useful. |
+| `crates/ambition_sandbox/src/engine_core/` | Reusable mechanics vocabulary inside the sandbox crate: movement, collision, body modes, geometry, block/world policy, player clusters, and tests. Bevy-friendly types are allowed when useful. |
 | `ambition_asset_manager` | Asset identity, platform profile resolution, embedded/served/loose asset roots, and Bevy integration. |
 | `ambition_sfx` | Stable generated SFX identifiers and sound vocabulary. |
 | `ambition_sfx_bank` | Runtime SFX-bank parsing and lookup. |
@@ -33,11 +33,11 @@ crates/ambition_sandbox/src/host/         desktop/web/mobile/platform glue
 
 ## Boundary rules
 
-- Put reusable mechanics/data vocabulary in `ambition_engine`.
+- Put reusable mechanics/data vocabulary in `engine_core` or another focused sandbox module when the mechanic is still sandbox-owned.
 - Put Bevy app composition, presentation, platform packaging, and LDtk runtime adaptation in `ambition_sandbox`.
 - Use components/resources/messages at runtime integration seams.
 - Do not add abstraction layers only to avoid Bevy.
-- Keep colors, sprites, audio playback, HUD layout, inspector UI, and packaging policy out of `ambition_engine`.
+- Keep colors, sprites, audio playback, HUD layout, inspector UI, and packaging policy out of `engine_core`.
 
 ## Refactor rules for agents
 
@@ -51,7 +51,7 @@ crates/ambition_sandbox/src/host/         desktop/web/mobile/platform glue
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_engine
+cargo test -p ambition_sandbox --lib engine_core
 cargo test -p ambition_sandbox --lib
 python scripts/generate_agent_index.py
 python scripts/check_agent_kb.py

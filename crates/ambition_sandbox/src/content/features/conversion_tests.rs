@@ -387,7 +387,7 @@ mod conversion_tests {
 
     // `enemy_ai_output_drives_chase_motion` was deleted with the
     // brain-authority GC pass that dropped the legacy
-    // `build_control_frame` choreography path. Chase motion now
+    // `build_control_frame` path. Chase motion now
     // comes from the brain's tick output, not from
     // `evaluate_character_ai_output`; brain-side tick equivalence
     // lives in `crate::brain::state_machine` tests.
@@ -407,7 +407,7 @@ mod conversion_tests {
     // `crate::content::features::ecs::mount::tests`.
 
     /// Aerial enemies (flying shark + rider) used to write `self.pos`
-    /// directly from the choreography's steering target, which let
+    /// directly from a steering target, which let
     /// them clip straight through solid walls. With the brain→sim
     /// seam (`ActorControlFrame` + uniform `step_kinematic`) the
     /// wall blocks them, so the position must stay on the safe side
@@ -444,7 +444,7 @@ mod conversion_tests {
         // Drive the enemy directly with a brain-shaped frame
         // requesting rightward motion at chase speed — the test
         // verifies the integration step blocks the body against
-        // the wall, not the choreography that picks the velocity.
+        // the wall, not just the steering code that picks velocity.
         let mut frame = crate::actor_control::ActorControlFrame::neutral();
         frame.desired_vel = ae::Vec2::new(enemy.archetype.chase_speed(), 0.0);
         for _ in 0..120 {
@@ -540,7 +540,7 @@ mod conversion_tests {
     // `pirate_on_shark_fire_intent_lands_on_actor_control_frame`
     // was deleted with the brain-authority GC pass. Fire intent now
     // comes from the brain's tick output, not the legacy orbit-and-
-    // fire choreography that lived inside `build_control_frame`.
+    // fire branch that lived inside `build_control_frame`.
     // The EFFECTS-consumer test
     // `spawn_enemy_projectiles_from_brain_actions::tests::*` still
     // covers the projectile spawn shape; brain-side fire-intent

@@ -2,7 +2,7 @@
 
 A practical recipe for current work on the universal-brain interface. See `docs/systems/brain-driver.md` for the overview.
 
-**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+**Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 
 ## Current status to remember
 
@@ -11,14 +11,14 @@ The brain/action pipeline is live. Do not follow old instructions that say the m
 Live consumers today include:
 
 - player melee-start gating from this player's `ActorActionMessage::Melee`;
+- player projectile press/hold/release ticks from `ActionRequest::PlayerProjectileTick`;
 - hostile enemy ranged projectiles from `ActorActionMessage::Ranged`;
 - hostile enemy melee windup starts from `ActorActionMessage::Melee`;
 - GNU-ton apple rain and Gradient Sentinel specials from `ActorActionMessage::Special`.
 
 Still-direct paths include:
 
-- player projectile charge/motion-input handling in `update_projectiles` reading `PlayerInputFrame`;
-- player-specific pogo input inside the attack lifecycle;
+- player-specific pogo start inside the attack lifecycle (target-surface policy is shared through `BlockKind::is_pogo_target()`);
 - runtime-owned windup/active/recover timers for enemy hitbox spawning;
 - parts of boss/body runtime state.
 
@@ -129,7 +129,7 @@ Some behavior is really hit/damage metadata, not a new message stream. If the fe
 - **Early-return tick branches must write neutral.** Pre-poison tests should set an output frame to an action and verify dead/idle paths clear it.
 - **The resolver returns multiple requests.** A frame can emit melee and ranged/special in one tick; consumers must filter, not assume exclusivity.
 - **Runtime state is not always policy.** It is acceptable for a runtime component to own windup/active timers or spawn accumulators when those are integration state. The policy decision should still come from the brain/action path.
-- **Player-specific exceptions should be named.** Projectile charging and pogo are still direct; do not accidentally duplicate them with a second brain consumer without disabling or reconciling the legacy path.
+- **Player-specific exceptions should be named.** Pogo start is still player-specific; do not duplicate target-surface policy or add a second action consumer without reconciling the existing path.
 - **Use overlap-then-delete.** When replacing an old producer, add the new consumer with tests, verify parity, then remove the old producer for that variant.
 
 ## Validation gates

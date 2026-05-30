@@ -4,7 +4,7 @@ Projectiles and command-input abilities are reusable combat/movement primitives.
 
 ## Current status
 
-- `ambition_engine::projectile` owns the reusable projectile vocabulary: `ProjectileKind`, `ProjectileSpec`, `ProjectileBody`, `ProjectileSpawner`, `FireballChargeTuning`, and `MotionInputBuffer`.
+- `crates/ambition_sandbox/src/projectile/` owns the projectile vocabulary: `ProjectileKind`, `ProjectileSpec`, `ProjectileBody`, `ProjectileSpawner`, `FireballChargeTuning`, and `MotionInputBuffer`.
 - The sandbox wires player Fireball / Hadouken / HadoukenSuper examples through `crates/ambition_sandbox/src/projectile/`.
 - Projectile state is stored in `PlayerProjectileState` rather than spawning a Bevy entity per projectile. That keeps headless tests and trace output simple; presentation/VFX can still observe the resource.
 - Projectile trace events map to `GameplayTraceEvent::Projectile { tick, kind, event, damage }` for `fired`, `blocked_by_resource`, `hit`, and `expired`.
@@ -54,7 +54,7 @@ Keep `TODO.md`'s projectile one-way item open until this behavior is covered by 
 `update_projectiles` does the following:
 
 1. Tick spawner cooldown/resource regeneration.
-2. Sample motion direction from `ControlFrame` and update the motion buffer.
+2. Consume this player's `ActionRequest::PlayerProjectileTick` from the brain/action stream, then sample its axis into the motion buffer.
 3. Tick existing projectile bodies and resolve lifetime/surface hits.
 4. On Projectile press: try motion-input upgrades first, otherwise start Fireball charging.
 5. While held: accumulate Fireball charge time.
@@ -67,13 +67,13 @@ Keep `TODO.md`'s projectile one-way item open until this behavior is covered by 
 - Keep projectile simulation deterministic enough for tests.
 - Presentation owns sprites, SFX, particles, and camera feedback.
 - Authored unlocks and content-specific restrictions belong in sandbox content/progression code.
-- Do not parse raw device input in projectile logic; consume the canonical `ControlFrame` and `MotionInputBuffer` abstractions.
+- Do not parse raw device input in projectile logic; consume `ActionRequest::PlayerProjectileTick` and the `MotionInputBuffer` abstraction.
 
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine projectile
-cargo test -p ambition_engine combat
+cargo test -p ambition_sandbox --lib projectile
+cargo test -p ambition_sandbox --lib combat
 cargo test -p ambition_sandbox projectile
 ```
 

@@ -7,6 +7,7 @@
 //! here" rather than "edit a match arm somewhere."
 
 use super::*;
+use super::variation::{five_f32s_from_seed, seed_from_id};
 use crate::content::features::util::room_spec_paths;
 use bevy::prelude::Name;
 
@@ -519,7 +520,7 @@ fn spawn_composite_mount_rider(
     // path uses (see `enemy_default_brain`). Without this, every
     // rider seeded with `cooldown_remaining = 0.0` ticks the same
     // dt and fires on the same beat ("all riders shoot at once").
-    let seed = crate::attack_choreography::seed_from_id(&rider_id);
+    let seed = seed_from_id(&rider_id);
     let jitters = five_f32s_from_seed(seed);
     let base_cooldown_s = 1.5;
     let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
@@ -647,7 +648,7 @@ fn melee_brute_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
     use crate::brain::{Brain, MeleeBruteCfg, MeleeBruteState, StateMachineCfg};
 
     let archetype = enemy.archetype;
-    let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+    let seed = seed_from_id(&enemy.id);
     let jitters = five_f32s_from_seed(seed);
     let aggro_radius = archetype.aggro_radius() * (0.8 + 0.4 * jitters.0);
     let chase_speed = archetype.chase_speed() * (0.85 + 0.3 * jitters.1);
@@ -667,7 +668,7 @@ fn skirmisher_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
     use crate::brain::{Brain, SkirmisherCfg, SkirmisherState, StateMachineCfg};
 
     let archetype = enemy.archetype;
-    let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+    let seed = seed_from_id(&enemy.id);
     let jitters = five_f32s_from_seed(seed);
     let base_cooldown_s = 1.5;
     let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
@@ -697,7 +698,7 @@ fn shark_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
     use crate::brain::{Brain, SharkCfg, SharkState, StateMachineCfg};
 
     let archetype = enemy.archetype;
-    let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+    let seed = seed_from_id(&enemy.id);
     let jitters = five_f32s_from_seed(seed);
     let aggro_radius = archetype.aggro_radius() * (0.85 + 0.3 * jitters.0);
     let cruise_speed = archetype.chase_speed() * (0.85 + 0.25 * jitters.1);
@@ -799,7 +800,7 @@ pub(in crate::content::features) fn enemy_default_brain(
         EnemyBrainTemplate::Shark => shark_brain_for_enemy(enemy),
         EnemyBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
         EnemyBrainTemplate::Sniper => {
-            let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+            let seed = seed_from_id(&enemy.id);
             let jitters = five_f32s_from_seed(seed);
             let base_cooldown_s = 1.5;
             let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
@@ -818,7 +819,7 @@ pub(in crate::content::features) fn enemy_default_brain(
         EnemyBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
             cfg: smash_cfg_for_archetype(archetype),
             state: SmashState {
-                rng_seed: crate::attack_choreography::seed_from_id(&enemy.id) as u64,
+                rng_seed: seed_from_id(&enemy.id) as u64,
                 ..Default::default()
             },
         }),
@@ -980,28 +981,6 @@ pub fn spawn_encounter_mob(
         // are silently skipped by `emit_brain_action_messages`.
         bevy::transform::components::Transform::from_xyz(pos.x, pos.y, 0.0),
     ));
-}
-
-/// Derive five deterministic f32s in `[0, 1)` from a u32 seed.
-/// Used to give each per-actor brain a stable but distinct random
-/// signature without dragging a real PRNG into the spawn path. The
-/// values are statistically independent enough for "jitter the
-/// cooldown / stagger / standoff / orbit-phase / orbit-drift per
-/// actor". The seed comes from `attack_choreography::seed_from_id`
-/// so the same authored actor id always picks the same variation
-/// across runs.
-fn five_f32s_from_seed(seed: u32) -> (f32, f32, f32, f32, f32) {
-    // Mix the seed via xorshift to get a sequence of uncorrelated
-    // draws. The shift amounts are arbitrary constants from a
-    // standard xorshift32 implementation.
-    let mut x = seed.wrapping_mul(0x9E3779B1).wrapping_add(0xDEADBEEF);
-    let mut take = || {
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 5;
-        (x as f32) / (u32::MAX as f32)
-    };
-    (take(), take(), take(), take(), take())
 }
 
 /// Despawn all ECS mobs owned by an encounter attempt.

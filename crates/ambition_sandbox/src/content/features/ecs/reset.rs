@@ -94,8 +94,8 @@ pub fn reset_ecs_room_features(
                 // Restore authored spawn state so morphed actors
                 // (PirateOnShark → PirateRaider / BurningFlyingShark)
                 // return as their original fused archetype with
-                // matching size, gravity, choreography, and rider
-                // health. Non-morphing enemies are reset to a clean
+                // matching size, gravity, mount/rider links, and
+                // rider health. Non-morphing enemies are reset to a clean
                 // baseline by the same call.
                 enemy.reset_to_spawn();
                 aabb.center = enemy.pos;

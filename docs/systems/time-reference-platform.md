@@ -32,6 +32,6 @@ when the world is nearly stopped.
 
 The moving platform is now inserted into a temporary collision-world clone each
 frame so the player can collide with it and ride it. The platform is still a
-sandbox experiment rather than a permanent `ambition_engine` moving-solid
+sandbox experiment rather than a permanent `engine_core` moving-solid
 primitive. The next engine-level step is to add tests for carrying, pushing,
 crushing, one-way moving platforms, and blink interaction.

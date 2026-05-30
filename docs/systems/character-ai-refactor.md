@@ -1,6 +1,6 @@
 # Character AI refactor
 
-**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+**Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 
 This is the companion doc referenced from `crates/ambition_sandbox/src/character_ai.rs`. It captures the current state of the shared character-AI vocabulary and the path forward for making actor policy, movement, and effects reusable across NPCs, enemies, bosses, and future player-controlled bodies.
 
@@ -12,12 +12,12 @@ The old “brain seam pending” language is stale. The current code has a live 
 - player input is translated through `Brain::Player` into `ActorControlFrame`;
 - player control/simulation phases consume `ActorControl`;
 - `emit_brain_action_messages` writes concrete `ActorActionMessage`s from each actor's `ActionSet`;
-- live consumers exist for enemy ranged projectiles, enemy melee windup starts, player melee starts, GNU-ton apple rain, and Gradient Sentinel boss specials.
+- live consumers exist for player projectile ticks, enemy ranged projectiles, enemy melee windup starts, player melee starts, GNU-ton apple rain, and Gradient Sentinel boss specials.
 
 The migration is still not “done forever.” Remaining direct paths are now narrow and should be treated as explicit exceptions rather than the main architecture:
 
-- player projectile charge/motion-input logic still reads `PlayerInputFrame` directly;
-- pogo is still a player-specific raw input path in the attack lifecycle;
+- player projectile charge/motion-input logic now consumes `ActionRequest::PlayerProjectileTick`;
+- pogo start is still a player-specific input path in the attack lifecycle, with target-surface policy centralized in `BlockKind::is_pogo_target()`;
 - some boss and enemy runtime components still own timing/state that would be awkward to move without a focused reason;
 - (Was: `ae::Player` aggregate inside `PlayerMovementAuthority`. As of 2026-05-28 the player ECS migration is complete — the player entity carries 18 cluster components, no monolithic aggregate.)
 
@@ -36,7 +36,7 @@ This lets two actors share one brain template but look different because their `
 
 ## Engine AI vocabulary
 
-`ambition_engine::character_ai` remains the pure-data evaluator vocabulary:
+`crates/ambition_sandbox/src/character_ai.rs` remains the pure-data evaluator vocabulary:
 
 - `CharacterAiSnapshot` — read-only view of actor/target state.
 - `CharacterAiMode` — canonical coarse mode (`Idle`, `Patrol`, `Chase`, `Telegraph`, `Attack`, `Recover`, `Stunned`, `Dead`).
@@ -66,7 +66,7 @@ Per-entity variety should still come from `ActionSet` and authored profiles, not
 
 - **Data-table cleanup.** Archetype-specific speeds, aggro ranges, attack ranges, cooldown multipliers, and damage still live in sandbox mappings. Push durable tuning into tables/content where it is stable enough.
 - **Runtime timer ownership.** Enemy melee active windows and several boss pattern states still live in feature runtime components. That is acceptable when the runtime owns integration state, but avoid adding new policy decisions there.
-- **Projectile/pogo exceptions.** Decide whether player projectile charge and pogo remain intentionally player-specific or become ActionSet/HitResult concepts.
+- **Pogo action ownership.** Decide whether pogo remains an intentionally player-specific attack lifecycle edge or becomes an ActionSet/HitResult concept; do not duplicate target-surface policy.
 - **Hit pipeline.** A canonical `HitSpec` / `HitInstance` / `HitResult` system would make attack effects less branchy than the current `DamageEvent` / `Hitbox` / `PlayerDamageEvent` split.
 - **Possession/multiplayer.** The brain/action decomposition makes this cheap in principle, but production routing and UI are still future work.
 
@@ -83,8 +83,8 @@ When adding a new enemy, boss behavior, or actor-controlled mechanic:
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine character_ai
-cargo test -p ambition_engine actor_control
+cargo test -p ambition_sandbox --lib character_ai
+cargo test -p ambition_sandbox --lib actor_control
 cargo test -p ambition_sandbox --lib brain::
 cargo test -p ambition_sandbox --lib content::features::ecs::brain_effects
 cargo run -p ambition_sandbox --bin headless -- --ticks 30

@@ -29,7 +29,7 @@ Important paths:
 - UI screens should consume menu actions rather than raw device input.
 - Settings changes should mutate `SettingsState` and persist through the settings persistence layer.
 - Pointer/touch support should route through each menu's pointer module instead of special-casing the visual tree.
-- Do not put UI layout policy in `ambition_engine`.
+- Do not put UI layout policy in `engine_core` or reusable mechanics modules.
 
 ## Validation anchors
 

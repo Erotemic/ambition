@@ -19,7 +19,7 @@ Blink is the short-range teleport / phase movement family. It is powerful enough
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine movement
+cargo test -p ambition_sandbox --lib engine_core::movement
 cargo test -p ambition_sandbox blink
 cargo test -p ambition_sandbox scripted_gameplay
 ```

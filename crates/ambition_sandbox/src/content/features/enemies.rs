@@ -72,20 +72,6 @@ pub struct EnemyRuntime {
     /// 0.0 = ignores gravity (flying); 1.0 = full gravity. Set by the
     /// archetype (`BurningFlyingShark` / `PirateOnShark` are 0.0).
     pub gravity_scale: f32,
-    /// Authored attack choreography. `MeleeContact` for legacy
-    /// enemies; the pirate-sky archetypes use volley/orbit/dive.
-    ///
-    /// Dead storage today — the legacy `build_control_frame`
-    /// choreography path inside `update` was deleted in the brain-
-    /// authority GC pass. The field is preserved so spawn paths
-    /// still compile; a future cleanup pass can drop it once we're
-    /// confident no consumer needs the archetype's choreography
-    /// hint for animation routing.
-    pub choreography: crate::attack_choreography::AttackChoreography,
-    /// Persistent per-tick state for the choreography evaluator.
-    ///
-    /// Dead storage today (see `choreography` above).
-    pub choreography_state: crate::attack_choreography::ChoreographyState,
     /// Outward-pointing unit normal of the surface the actor is
     /// currently clinging to. Used by surface-walking archetypes
     /// (`PuppySlug`) to crawl floors, walls, and ceilings; all
@@ -163,10 +149,10 @@ pub enum EnemyArchetype {
     PirateRaider,
     /// Riderless burning flying shark. Aerial dive-strike pattern.
     BurningFlyingShark,
-    /// Fused pirate-on-shark actor. Two health pools, aerial
-    /// orbit-and-fire choreography. Dismounts into `PirateRaider`
-    /// when the shark dies and into `BurningFlyingShark` when the
-    /// rider dies.
+    /// Authored pirate-on-shark composite. The ECS spawn path fans
+    /// this out into separate mount and rider actor entities. The
+    /// rider dismounts into `PirateRaider` when the shark dies, and
+    /// the mount continues as `BurningFlyingShark` when the rider dies.
     PirateOnShark,
     /// Deep-dream "puppy slug" — small ground-walker (Crawlid
     /// analogue from Hollow Knight). Always patrols, no chase, no
@@ -182,10 +168,9 @@ pub enum EnemyArchetype {
     /// EnemySpawn display name, not by tuning.
     PirateHeavy,
     /// Pirate heavy riding a burning flying shark. Mechanically a
-    /// `PirateOnShark` clone (two health pools, aerial orbit-and-
-    /// fire choreography) but the rider sprite resolves to one of
-    /// the heavy-variant sheets instead of `Pirate Raider`. On
-    /// shark-death dismount, the rider drops to a ground
+    /// `PirateOnShark` composite, but the rider sprite resolves to
+    /// one of the heavy-variant sheets instead of `Pirate Raider`.
+    /// On shark-death dismount, the rider drops to a ground
     /// `PirateHeavy` (heavier and slower than a `PirateRaider`).
     PirateHeavyOnShark,
 }
@@ -462,35 +447,6 @@ impl EnemyArchetype {
         }
     }
 
-    /// Authored attack choreography for this archetype. Kept as a
-    /// dedicated method (not table data) because each ranged
-    /// variant carries its own non-Copy parameter bag — putting them
-    /// in the spec table would force every row to spell out a
-    /// `MeleeContact` literal.
-    pub(super) fn choreography(self) -> crate::attack_choreography::AttackChoreography {
-        match self {
-            Self::PirateOnShark | Self::PirateHeavyOnShark => {
-                crate::attack_choreography::AttackChoreography::AerialOrbitAndFire {
-                    altitude: 150.0,
-                    radius: 220.0,
-                    orbit_speed: 0.85,
-                    fire_interval: 1.5,
-                    projectile_speed: 360.0,
-                }
-            }
-            Self::BurningFlyingShark => {
-                crate::attack_choreography::AttackChoreography::DiveStrike {
-                    hover_altitude: 140.0,
-                    hover_rest: 0.55,
-                    dive_speed: 360.0,
-                    recover_height: 100.0,
-                }
-            }
-            // Default: legacy melee-contact behavior.
-            _ => crate::attack_choreography::AttackChoreography::MeleeContact,
-        }
-    }
-
     pub(crate) fn is_sandbag(self) -> bool {
         self.spec().is_sandbag
     }
@@ -580,14 +536,6 @@ impl EnemyArchetype {
     }
 }
 
-/// Per-tick outputs the caller (`update_ecs_actors`) flushes into
-/// world resources. Empty today — projectile spawns moved to the
-/// EFFECTS-stage consumer `spawn_enemy_projectiles_from_brain_actions`
-/// per the actor/brain migration. Kept as a placeholder so future
-/// runtime-internal side effects (telegraph SFX requests, area-of-
-/// effect hazards) can land without churning the `update` signature.
-#[derive(Default)]
-pub struct EnemyTickOutputs;
 
 impl EnemyRuntime {
     pub(super) fn new(
@@ -638,8 +586,6 @@ impl EnemyRuntime {
             on_ground: false,
             sprite_override_npc_name: None,
             gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
-            choreography: archetype.choreography(),
-            choreography_state: crate::attack_choreography::ChoreographyState::default(),
             surface_normal: ae::Vec2::new(0.0, -1.0),
             pending_attack_axis: ae::Vec2::new(-1.0, 0.0),
             air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
@@ -664,8 +610,6 @@ impl EnemyRuntime {
         self.alive = true;
         self.health = crate::actor::Health::new(archetype.max_health());
         self.gravity_scale = if archetype.is_aerial() { 0.0 } else { 1.0 };
-        self.choreography = archetype.choreography();
-        self.choreography_state = crate::attack_choreography::ChoreographyState::default();
         self.attack_windup_timer = 0.0;
         self.attack_timer = 0.0;
         self.attack_cooldown = 0.2;
@@ -675,10 +619,10 @@ impl EnemyRuntime {
         self.on_ground = false;
         self.facing = -1.0;
         // Surface walkers reset to floor — even if the slug died on
-        // a wall or ceiling, respawn pins it on whatever the platform
-        // its `spawn` sits above is. Same-room reset path's
-        // collision-shape rewrite in `EnemyTickOutputs` reads the
-        // unrotated `size`, which is correct again at floor stance.
+        // a wall or ceiling, respawn pins it on whatever platform
+        // its `spawn` sits above is. The same-room reset path rewrites
+        // the ECS `FeatureAabb` from `size`, so the unrotated floor
+        // stance is correct again.
         self.surface_normal = ae::Vec2::new(0.0, -1.0);
         self.pending_attack_axis = ae::Vec2::new(-1.0, 0.0);
         self.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
@@ -709,8 +653,8 @@ impl EnemyRuntime {
     /// variant) supplies one via actors.rs's per-actor brain tick;
     /// debug actors without a Brain pass `ActorControlFrame::neutral()`
     /// and stand still. The integration stage reads only the frame —
-    /// the legacy `build_control_frame` choreography path was deleted
-    /// in the brain-authority GC pass.
+    /// the legacy `build_control_frame` path was deleted in the
+    /// brain-authority GC pass.
     ///
     /// Still owned here (not the brain): the windup → active → recover
     /// attack lifecycle timers, the per-tick `ai_mode` HUD signal
@@ -727,11 +671,6 @@ impl EnemyRuntime {
         _is_mounted: bool,
         frame: crate::actor_control::ActorControlFrame,
     ) -> crate::actor_control::ActorControlFrame {
-        // `EnemyTickOutputs` is gone — projectile spawns flow through
-        // the EFFECTS-stage consumer per the actor/brain migration.
-        // The struct is preserved for future runtime-internal side
-        // effects (telegraph SFX requests, area-of-effect hazards).
-        let _ = EnemyTickOutputs;
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         if !self.alive {
             self.respawn_timer = (self.respawn_timer - dt).max(0.0);
@@ -910,8 +849,8 @@ impl EnemyRuntime {
         }
 
         // Facing: brain-frame facing is now authoritative. The legacy
-        // ai.intent / choreography face_x fallbacks were removed in
-        // the brain-authority GC pass — every brain emits a facing
+        // ai.intent / fallback face_x paths were removed in the
+        // brain-authority GC pass — every brain emits a facing
         // intent based on its own snapshot, and that intent wins.
         // Peaceful archetypes (`attacks_player() == false`) still
         // opt out so a passive patroller's brain frame can't make
@@ -923,9 +862,8 @@ impl EnemyRuntime {
         // EFFECTS STAGE — translate the frame's attack intents into
         // wind-up timers / projectile spawns. Archetypes that don't
         // attack by default (`PuppySlug`, `PirateHeavy`) skip this
-        // entirely so the `MeleeContact` choreography's reflexive
-        // "swing when player is close" can't leak through into a
-        // real hit-volume. The aerial PirateHeavyOnShark variant
+        // entirely so passive movement/targeting can't leak through
+        // into a real hit-volume. The aerial PirateHeavyOnShark variant
         // is a separate archetype with `attacks_player() == true`,
         // so it still fires projectiles + recoil.
         // Melee windup/cooldown start moved to the EFFECTS consumer

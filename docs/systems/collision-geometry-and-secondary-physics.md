@@ -51,8 +51,8 @@ rg -n "wall_cling|ledge|sweep|pogo|moving platform|collision|Avian|Parry" crates
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine movement
-cargo test -p ambition_engine kinematic
+cargo test -p ambition_sandbox --lib engine_core::movement
+cargo test -p ambition_sandbox --lib kinematic
 cargo test -p ambition_sandbox --lib ldtk
 cargo test -p ambition_sandbox --test wall_cling_fuzz
 ```

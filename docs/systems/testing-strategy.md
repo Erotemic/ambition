@@ -4,7 +4,7 @@ Ambition should be testable at several layers.
 
 ## 1. Pure engine unit tests
 
-`ambition_engine` should contain tests for small deterministic facts:
+`crates/ambition_sandbox/src/engine_core/` should contain tests for small deterministic mechanics facts:
 
 - ability dependency warnings
 - jump/double-jump gates

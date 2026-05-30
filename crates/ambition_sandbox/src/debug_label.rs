@@ -4,8 +4,8 @@
 //! Bevy adapter, and the meaning is authored with the room data so
 //! debug overlays, inspectors, and future editor tools share the same
 //! source of truth. (Moved here from the engine when the
-//! `ambition_engine` workspace crate was collapsed into
-//! `sandbox::engine_core` on 2026-05-28.)
+//! former `ambition_engine` workspace crate was collapsed into
+//! `crate::engine_core` on 2026-05-28.)
 
 use crate::engine_core::Vec2;
 

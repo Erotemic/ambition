@@ -1,6 +1,6 @@
 # Universal brain driver
 
-**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+**Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 
 The universal-brain interface is the current controllable-actor seam. It separates:
 
@@ -56,8 +56,8 @@ This is no longer only a shadow or observation stream.
 |---|---|
 | Player input -> brain | `tick_player_brains` reads the per-player input snapshot and fills `ActorControl`. |
 | Player movement/control | `player_control_system` and `player_simulation_system` consume `ActorControl`; raw `ControlFrame` is not read inside those phases. |
-| Player melee start | `attack_advance_system` gates player melee start from this player's `ActorActionMessage::Melee`; pogo still has a raw player-specific path. |
-| Player projectiles | Projectile charging/firing still reads `PlayerInputFrame` directly in `update_projectiles`; the frame contains projectile fields, but this consumer has not flipped yet. |
+| Player melee start | `attack_advance_system` gates player melee start from this player's `ActorActionMessage::Melee`; pogo start is still player-specific, while target-surface policy is centralized through `BlockKind::is_pogo_target()`. |
+| Player projectiles | `emit_player_projectile_tick_messages` surfaces player projectile press/held/released/axis data as `ActionRequest::PlayerProjectileTick`; `update_projectiles` consumes that message stream instead of reading `PlayerInputFrame` directly. |
 | NPCs | Peaceful NPCs tick through `Brain::StateMachine(Patrol/StandStill)` and apply the resulting frame through the shared kinematic path. |
 | Enemy ranged | `spawn_enemy_projectiles_from_brain_actions` consumes `ActorActionMessage::Ranged` for hostile actors. |
 | Enemy melee | `start_enemy_melee_from_brain_actions` consumes `ActorActionMessage::Melee` and starts the enemy windup/cooldown; `update_ecs_actors` still owns the windup -> active hitbox edge because the runtime owns that state. |
@@ -81,8 +81,8 @@ The ordering is important: new consumers should run after `emit_brain_action_mes
 
 The main structural migration has landed. Remaining work is cleanup and extension:
 
-1. **Player projectile consumer flip.** `update_projectiles` still reads `PlayerInputFrame` for projectile press/hold/release and motion-input samples. Either keep that as a player-only exception intentionally, or make projectile fire/charge a first-class action consumer.
-2. **Pogo on the same action path.** Pogo is still a raw player-specific verb alongside `ActorActionMessage::Melee`. Decide whether it becomes an attack variant, a special action, or a `HitResult` reaction rule.
+1. **Pogo action ownership.** Pogo start is still a player-specific verb alongside `ActorActionMessage::Melee`. Its target policy is centralized, but the action-routing shape still needs a deliberate home: attack variant, special action, or `HitResult` reaction rule.
+2. **Brain construction policy.** Enemy brain construction now applies stable per-actor variation, but the policy is still spread across default spawn, composite fan-out, and dismount paths. A shared builder would make future actor work safer.
 3. **`ae::Player` decomposition.** ✅ Landed 2026-05-28 (commit `c02ca686`). The player entity carries 18 cluster components (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`); the monolithic `ae::Player` aggregate and the `PlayerMovementAuthority` wrapper are gone.
 4. **Canonical hit pipeline.** Brain/action messages now start attacks, but the actual hit/damage metadata is still fragmented across `DamageEvent`, hostile `Hitbox`, `PlayerDamageEvent`, and boss outcomes.
 5. **Possession / co-op.** The architecture supports swapping `Brain::Player(slot)` onto arbitrary actors, but production routing and UX are not implemented.
@@ -138,7 +138,7 @@ commands.entity(goblin).insert(Brain::Player(PlayerSlot::PRIMARY));
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine --lib actor_control
+cargo test -p ambition_sandbox --lib actor_control
 cargo test -p ambition_sandbox --lib brain::
 cargo test -p ambition_sandbox --lib player::systems
 cargo test -p ambition_sandbox --lib content::features::ecs::brain_effects

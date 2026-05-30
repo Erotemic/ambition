@@ -42,15 +42,9 @@ pub fn sync_local_player_input_frame(
 /// frame via `crate::brain::tick_player_brain_from_input`.
 ///
 /// This is the producer for the universal-brain seam on the player
-/// side. Today nothing reads `ActorControl` for the player —
-/// `update_player` still drives the body via `PlayerInputFrame`
-/// directly. The point of running it now is to:
-///
-/// - Prove the brain → ActorControl path executes every tick
-///   cleanly (no per-frame allocations or panics in the hot path).
-/// - Let presentation / debug systems observe the frame so the
-///   downstream EFFECTS-stage migration can be verified by reading
-///   the frame instead of inspecting `PlayerInputFrame` directly.
+/// side. Player control/simulation reads the resulting `ActorControl`,
+/// and the action resolver turns the same frame into melee/projectile
+/// requests for downstream combat/effects systems.
 ///
 /// Runs after `sync_local_player_input_frame` so the input frame is
 /// already current. Iterates every PlayerEntity with a Brain — the

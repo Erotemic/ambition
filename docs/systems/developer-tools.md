@@ -64,8 +64,8 @@ more intrusive and can be noisier.
 
 ## Reflected resources
 
-The inspector exposes sandbox-side mirrors instead of adding Bevy reflection as
-a dependency of `ambition_engine`.
+The inspector exposes sandbox-side mirrors instead of making reusable mechanics
+state reflection-driven.
 
 - `DeveloperTools`: HUD, inspector, debug view mode, debug art mode, and the
   advanced per-overlay toggles used by the Custom view.
@@ -79,8 +79,9 @@ a dependency of `ambition_engine`.
   cooldowns.
 
 The editable movement and ability resources are intentionally sandbox-side data
-mirrors. The actual simulation still receives plain `ambition_engine` structs so
-the reusable engine remains backend-neutral.
+mirrors. The actual simulation still receives plain mechanics data from
+`engine_core`, keeping reflection and inspector policy out of hot simulation
+code.
 
 ## Gizmo overlays
 

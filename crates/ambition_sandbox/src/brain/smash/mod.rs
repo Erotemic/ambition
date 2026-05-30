@@ -55,8 +55,8 @@ pub struct SmashCfg {
     pub engage_distance: f32,
     /// Concrete melee attack range (px). When the target is closer
     /// than this AND the actor has melee capability, `Engage` emits
-    /// a melee attempt. Authoritative — replaces the choreography's
-    /// hardcoded 56 px.
+    /// a melee attempt. Authoritative — replaces the old hardcoded
+    /// melee-engage range.
     pub attack_range: f32,
     /// Distance below which the actor retreats to avoid being
     /// pinned against a wall by the target.

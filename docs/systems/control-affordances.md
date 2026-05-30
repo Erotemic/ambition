@@ -1,10 +1,10 @@
 # Control affordances
 
-**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+**Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 
 The control-affordance system computes “what would each button do right now?” as a typed table. The HUD uses that table for context-sensitive labels, glyphs, and pressed-state display.
 
-This is a presentation/input-feedback system, not the canonical gameplay execution path. Gameplay has its own current consumers: player movement reads `ActorControl`, player melee start reads `ActorActionMessage::Melee`, projectiles read `PlayerInputFrame`, and pogo still has a player-specific raw path. Future cleanup may reuse affordance resolvers directly in gameplay, but that is not true today.
+This is a presentation/input-feedback system, not the canonical gameplay execution path. Gameplay has its own current consumers: player movement reads `ActorControl`, player melee start reads `ActorActionMessage::Melee`, projectiles consume `ActionRequest::PlayerProjectileTick`, and pogo start still has a player-specific path while target-surface policy is shared through `BlockKind::is_pogo_target()`. Future cleanup may reuse affordance resolvers directly in gameplay, but that is not true today.
 
 ## Current architecture
 

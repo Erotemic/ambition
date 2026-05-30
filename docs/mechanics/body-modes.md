@@ -4,7 +4,7 @@ Body modes describe traversal states that change collision shape, movement affor
 
 ## Current status
 
-- Reusable vocabulary lives in `ambition_engine::player_state`: `LocomotionState`, `BodyMode`, `BodyShape`, and `ResourceMeter`.
+- Reusable vocabulary lives in `crates/ambition_sandbox/src/engine_core/player_state.rs`: `LocomotionState`, `BodyMode`, `BodyShape`, and `ResourceMeter`.
 - The sandbox has body-mode modules under `crates/ambition_sandbox/src/body_mode/`.
 - Player-authoritative runtime state lives on ECS player components under `crates/ambition_sandbox/src/player/` and the engine `Player` state.
 - Authored traversal examples should be LDtk rooms/specs, not hard-coded one-off checks.
@@ -13,7 +13,7 @@ Body modes describe traversal states that change collision shape, movement affor
 
 ### `LocomotionState`
 
-`LocomotionState` is an explicit movement-mode enum for HUD, trace, AI, and future state machines. It replaces ad-hoc inference from `on_ground`, `dash_timer`, `blink_aiming`, `wall_clinging`, and similar booleans. `LocomotionState::from_player(&Player)` is the current projection from the existing player struct; future mechanics with dedicated state machines may drive the value more directly.
+`LocomotionState` is an explicit movement-mode enum for HUD, trace, AI, and future state machines. It replaces ad-hoc inference from `on_ground`, `dash_timer`, `blink_aiming`, `wall_clinging`, and similar booleans. `LocomotionState::from_clusters(...)` is the current projection from the existing player struct; future mechanics with dedicated state machines may drive the value more directly.
 
 ### `BodyMode` and `BodyShape`
 
@@ -90,8 +90,8 @@ Current examples:
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine player_state
-cargo test -p ambition_engine movement
+cargo test -p ambition_sandbox --lib engine_core::player_state
+cargo test -p ambition_sandbox --lib engine_core::movement
 cargo test -p ambition_sandbox body_mode
 cargo test -p ambition_sandbox scripted_gameplay
 ```

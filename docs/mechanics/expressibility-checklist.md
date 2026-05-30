@@ -2,7 +2,7 @@
 
 Use this as a compact current-status map. It intentionally avoids the old 900-line wishlist, but it preserves enough future backend primitives that agents can find useful multi-hour tasks without re-reading deleted docs.
 
-**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+**Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 
 Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet reusable backend.
 
@@ -44,8 +44,8 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 - [x] Player movement/control phases consume `ActorControl` instead of raw `ControlFrame`.
 - [x] `emit_brain_action_messages` resolves each actor's `ActionSet` into `ActorActionMessage`s.
 - [x] Live consumers exist for player melee start, hostile enemy ranged, hostile enemy melee windup start, GNU-ton apple rain, and Gradient Sentinel specials.
-- [~] Projectile charging still reads `PlayerInputFrame` directly.
-- [~] Pogo remains a player-specific raw path.
+- [x] Player projectile charging consumes `ActionRequest::PlayerProjectileTick` from the brain/action stream.
+- [~] Pogo start remains player-specific, with shared target-surface policy through `BlockKind::is_pogo_target()`.
 - [x] `ae::Player` ECS decomposition (2026-05-28): the player entity carries 18 cluster components (`PlayerKinematics`, `PlayerGroundState`, …, `PlayerComboTrace`); the monolithic `ae::Player` aggregate and the `PlayerMovementAuthority` wrapper are deleted.
 - [ ] Possession / multiplayer input routing using arbitrary actor bodies.
 
@@ -82,9 +82,9 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine combat
-cargo test -p ambition_engine projectile
-cargo test -p ambition_engine movement
+cargo test -p ambition_sandbox --lib combat
+cargo test -p ambition_sandbox --lib projectile
+cargo test -p ambition_sandbox --lib engine_core::movement
 cargo test -p ambition_sandbox --lib brain::
 cargo test -p ambition_sandbox projectile
 cargo test -p ambition_sandbox scripted_gameplay

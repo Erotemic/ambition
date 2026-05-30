@@ -186,7 +186,7 @@ foundation entirely.
 In the dev VM (no display, no GPU):
 
 ```bash
-cargo test -p ambition_engine             # ~196 tests pass
+cargo test -p ambition_sandbox --lib engine_core
 cargo test -p ambition_sandbox            # ~330 tests pass
 cargo run -p ambition_sandbox --bin headless 30
 ```

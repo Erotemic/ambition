@@ -1,14 +1,14 @@
 # Abilities
 
-Abilities are reusable gameplay verbs. Keep ability implementation split between reusable mechanics in `ambition_engine` and sandbox-specific input, presentation, content wiring, and authored unlocks in `ambition_sandbox`.
+Abilities are reusable gameplay verbs. Keep reusable engine semantics in `crates/ambition_sandbox/src/engine_core/` or focused sandbox modules, and keep presentation/content/progression wiring sandbox-specific.
 
-**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+**Review date:** 2026-05-30. Reviewed against source archive `ambition-source-2026-05-30T104014-5-e721ea65c578`.
 
 ## Current ability families
 
 | Family | Status | Notes |
 |---|---:|---|
-| Jump / air jump / coyote / jump buffer | Available | `ambition_engine` owns coyote and jump buffering. Variable jump height exists through early-release velocity clipping. |
+| Jump / air jump / coyote / jump buffer | Available | `engine_core::movement` owns coyote and jump buffering. Variable jump height exists through early-release velocity clipping. |
 | Dash / dash buffer / fast fall | Available | Dash buffering exists. Fast fall is player-specific movement policy. |
 | Blink | Available, partial buffering | Quick/precision blink and safe destination search exist. Holding can bridge cooldown, but there is not yet a general blink action buffer. |
 | Wall cling / wall jump / wall climb | Available, high-risk | Collision correction bugs belong in trace-backed tests. Dedicated wall-coyote polish is still a candidate improvement. |
@@ -26,7 +26,7 @@ The current source has real action buffers for jump and dash only. These are eng
 Missing or partial buffers:
 
 - **Attack:** player melee start now listens for the player brain's `ActorActionMessage::Melee`, but a press during active/recovery is still not a general queued attack.
-- **Pogo:** pogo is still a player-specific raw input path layered on top of the attack system.
+- **Pogo:** pogo start is still player-specific in the attack lifecycle, but valid pogo surfaces are centralized through `BlockKind::is_pogo_target()` so ground, one-way platforms, and blink walls do not become pogo targets by accident.
 - **Projectile/tool:** projectile press/hold/release and motion-input recognition exist, but failed cooldown/resource windows are not a general queued tool action.
 - **Blink:** held blink has cooldown bridging behavior, but there is no typed blink buffer window shared with other actions.
 - **Ledge actions:** ledge climb/jump/roll/attack behavior exists, but ledge-action inputs are not buffered as a family.
@@ -47,7 +47,7 @@ The next reusable combat primitive should be `HitSpec` -> `HitInstance` -> `HitR
 
 ## Placement rules
 
-- Put reusable ability math and state vocabulary in `ambition_engine`.
+- Put reusable ability math and state vocabulary in `engine_core` or an explicitly focused sandbox mechanics module.
 - Put player ECS state, input bridging, animation, audio, VFX, and LDtk/content-specific unlocks in `ambition_sandbox`.
 - Put authored showcase-room procedures in recipes, not in this file.
 - Keep status summaries in `docs/mechanics/expressibility-checklist.md`.
@@ -55,9 +55,9 @@ The next reusable combat primitive should be `HitSpec` -> `HitInstance` -> `HitR
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_engine movement
-cargo test -p ambition_engine combat
-cargo test -p ambition_engine projectile
+cargo test -p ambition_sandbox --lib engine_core::movement
+cargo test -p ambition_sandbox --lib combat
+cargo test -p ambition_sandbox --lib projectile
 cargo test -p ambition_sandbox --lib brain::
 cargo test -p ambition_sandbox projectile
 cargo test -p ambition_sandbox scripted_gameplay

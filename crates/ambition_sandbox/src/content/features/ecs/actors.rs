@@ -352,8 +352,8 @@ pub fn update_ecs_actors(
     }
 
     // Per-actor nearest-same-kind-neighbor index (O(N²), N ≤ a few).
-    // Used by the choreography for "personal space" steering so two
-    // aerial actors close to each other push apart even when their
+    // Used by brain snapshots as a "personal space" signal so two
+    // aerial actors close to each other can push apart even when their
     // slot anchors are far apart.
     let mut neighbor_by_id: std::collections::HashMap<String, ae::Vec2> =
         std::collections::HashMap::new();
@@ -504,8 +504,8 @@ pub fn update_ecs_actors(
                 // for the EFFECTS consumers (so melee + ranged fire).
                 // Smash + Patrol + MeleeBrute + Skirmisher + Sniper +
                 // Wanderer all flow through this single path; the
-                // legacy `build_control_frame` choreography branch
-                // inside `EnemyRuntime::update` was deleted in the
+                // legacy `build_control_frame` branch inside
+                // `EnemyRuntime::update` was deleted in the
                 // brain-authority GC pass.
                 //
                 // Actors without a brain (dynamically-spawned debug

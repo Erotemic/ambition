@@ -65,6 +65,7 @@ mod reset;
 mod save_sync;
 mod spawn;
 mod targeting;
+mod variation;
 mod view_index;
 
 pub(crate) use actors::{actor_component_snapshot, sync_actor_components_from_runtime};

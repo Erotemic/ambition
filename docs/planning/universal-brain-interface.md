@@ -83,12 +83,10 @@ responsibilities:
   target_pos, dt)`. Goes hostile via `hostile_from_npc(npc) ->
   EnemyRuntime` once strike count crosses a threshold.
 - **`EnemyRuntime`** ([`content/features/enemies.rs`](../../crates/ambition_sandbox/src/content/features/enemies.rs))
-  — `EnemyArchetype` + AI/choreography pipeline that produces an
-  `ActorControlFrame` for movement and an `EnemyTickOutputs` for
-  attacks. The AI evaluator is pure
-  ([`character_ai.rs`](../../crates/ambition_sandbox/src/character_ai.rs))
-  and shared with the choreography evaluator
-  ([`attack_choreography.rs`](../../crates/ambition_sandbox/src/attack_choreography.rs)).
+  — `EnemyArchetype` + runtime integration state. Movement intent and
+  attack requests now come from the actor/brain/action pipeline; stable
+  per-actor variation lives in
+  [`variation.rs`](../../crates/ambition_sandbox/src/content/features/ecs/variation.rs).
 - **`BossRuntime`** ([`content/features/bosses.rs`](../../crates/ambition_sandbox/src/content/features/bosses.rs))
   — boss-pattern state machine. Movement was migrated onto
   `ActorControlFrame` in `66c8b0b`; attack patterns still run as a
@@ -138,7 +136,7 @@ The good news is that the **seam already exists** for enemies and
 bosses:
 
 ```rust
-// ambition_engine::actor_control.rs
+// crates/ambition_sandbox/src/actor_control.rs
 pub struct ActorControlFrame {
     pub desired_vel: Vec2,
     pub drop_through: bool,

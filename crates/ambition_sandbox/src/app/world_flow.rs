@@ -206,6 +206,28 @@ pub(super) fn load_room(
 /// Runs immediately after the player tick in the `CoreSimulation` chain
 /// so the player position, world, and room_set are updated before any
 /// other post-sim systems run in the same frame.
+pub fn ensure_requested_room_parallax_system(
+    mut requests: MessageReader<rooms::RoomTransitionRequested>,
+    mut game_assets: Option<ResMut<crate::assets::game_assets::GameAssets>>,
+    room_set: Res<rooms::RoomSet>,
+    sandbox_catalog: Res<crate::assets::sandbox_assets::SandboxAssetCatalog>,
+    asset_server: Res<AssetServer>,
+) {
+    let Some(assets) = game_assets.as_deref_mut() else {
+        return;
+    };
+    for request in requests.read() {
+        if let Some(target_spec) = room_set.rooms.get(request.transition.target_room) {
+            crate::assets::game_assets::ensure_parallax_layers_for_room(
+                assets,
+                &sandbox_catalog,
+                &asset_server,
+                &target_spec.metadata,
+            );
+        }
+    }
+}
+
 pub fn apply_room_transition_system(
     mut commands: Commands,
     mut requests: MessageReader<rooms::RoomTransitionRequested>,

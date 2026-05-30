@@ -235,6 +235,7 @@ fn register_room_transition_systems(app: &mut App) {
         Update,
         (
             detect_room_transition_system.run_if(gameplay_allowed),
+            ensure_requested_room_parallax_system,
             apply_room_transition_system,
             crate::features::reset_ecs_room_features,
         )

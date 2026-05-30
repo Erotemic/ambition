@@ -636,12 +636,22 @@ pub struct BossAttackState {
     /// Seconds left in the current telegraph window. `0.0` when no
     /// telegraph is active.
     pub telegraph_remaining: f32,
+    /// Seconds elapsed in the current attack pose while telegraphing.
+    /// Consumers use this to sample sprite-authored per-frame
+    /// hit/hurt boxes without depending on presentation components.
+    pub telegraph_elapsed: f32,
     /// `Some(profile)` while the brain is inside a `Strike` step for
     /// `profile`; `None` outside Strike.
     pub active_profile: Option<BossAttackProfile>,
     /// Seconds left in the current strike window. `0.0` when no
     /// strike is active.
     pub active_remaining: f32,
+    /// Seconds elapsed in the current attack pose while striking. If
+    /// the immediately-preceding scripted step was a Telegraph for
+    /// the same profile, that telegraph duration is included so a
+    /// non-looping visual row and its gameplay boxes stay continuous
+    /// across Telegraph -> Strike.
+    pub active_elapsed: f32,
 }
 
 impl BossAttackState {
@@ -650,8 +660,10 @@ impl BossAttackState {
     pub fn clear(&mut self) {
         self.telegraph_profile = None;
         self.telegraph_remaining = 0.0;
+        self.telegraph_elapsed = 0.0;
         self.active_profile = None;
         self.active_remaining = 0.0;
+        self.active_elapsed = 0.0;
     }
 }
 
@@ -782,19 +794,36 @@ fn advance_scripted(
     }
 
     let current = &steps[state.step_index];
-    let remaining = (step_duration(current) - state.step_elapsed).max(0.0);
+    let current_duration = step_duration(current).max(0.01);
+    let elapsed = state.step_elapsed.clamp(0.0, current_duration);
+    let remaining = (current_duration - elapsed).max(0.0);
     match current {
         BossPatternStep::Telegraph { profile, .. } => {
             attack_state.telegraph_profile = Some(profile.clone());
             attack_state.telegraph_remaining = remaining;
+            attack_state.telegraph_elapsed = elapsed;
             attack_state.active_profile = None;
             attack_state.active_remaining = 0.0;
+            attack_state.active_elapsed = 0.0;
         }
         BossPatternStep::Strike { profile, .. } => {
+            let previous_telegraph_elapsed = if state.step_index > 0 {
+                match &steps[state.step_index - 1] {
+                    BossPatternStep::Telegraph {
+                        profile: prev_profile,
+                        duration,
+                    } if prev_profile == profile => (*duration).max(0.0),
+                    _ => 0.0,
+                }
+            } else {
+                0.0
+            };
             attack_state.telegraph_profile = None;
             attack_state.telegraph_remaining = 0.0;
+            attack_state.telegraph_elapsed = 0.0;
             attack_state.active_profile = Some(profile.clone());
             attack_state.active_remaining = remaining;
+            attack_state.active_elapsed = previous_telegraph_elapsed + elapsed;
         }
         BossPatternStep::Rest { .. } => attack_state.clear(),
     }
@@ -846,16 +875,23 @@ fn advance_cycle(
             // `attack_volumes` both routed through
             // `cycle_pattern_volumes`. Mirror that here by writing
             // the rotation's current profile into telegraph_profile.
+            let total = cfg.cycle_attack_windup.max(0.01);
             attack_state.telegraph_profile = Some(profile);
             attack_state.telegraph_remaining = state.cycle_phase_remaining;
+            attack_state.telegraph_elapsed = (total - state.cycle_phase_remaining).max(0.0);
             attack_state.active_profile = None;
             attack_state.active_remaining = 0.0;
+            attack_state.active_elapsed = 0.0;
         }
         CyclePhase::Active => {
+            let total = cfg.cycle_attack_active.max(0.01);
+            let windup_total = cfg.cycle_attack_windup.max(0.01);
             attack_state.telegraph_profile = None;
             attack_state.telegraph_remaining = 0.0;
+            attack_state.telegraph_elapsed = 0.0;
             attack_state.active_profile = Some(profile);
             attack_state.active_remaining = state.cycle_phase_remaining;
+            attack_state.active_elapsed = windup_total + (total - state.cycle_phase_remaining).max(0.0);
         }
         CyclePhase::Cooldown => attack_state.clear(),
     }

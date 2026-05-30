@@ -183,6 +183,11 @@ pub struct BodyMetrics {
 /// no attack hitbox").
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct AnimationMetrics {
+    /// Optional frame duration for sampling `AnimationBox::frames`.
+    /// Uses the same units as `SheetRow::duration_secs`. Generators
+    /// only need to fill this when they emit per-frame gameplay boxes.
+    #[serde(default)]
+    pub frame_duration_secs: Option<f32>,
     /// Hurtbox for this animation (where the *player's* attacks
     /// register hits on this actor). Multi-rect if the sprite has
     /// disjoint body parts; single-rect via `bbox` for simple
@@ -211,12 +216,37 @@ pub struct AnimationBox {
     /// most hurtboxes derived from alpha bounds are one box.
     #[serde(default)]
     pub bbox: Option<PixelRect>,
+    /// Optional per-frame boxes for animation rows whose gameplay
+    /// geometry should move with the drawn pose. When populated,
+    /// consumers sample this by the current animation elapsed time
+    /// before falling back to the coarse per-animation `parts`/`bbox`.
+    #[serde(default)]
+    pub frames: Vec<AnimationBoxFrame>,
 }
 
 impl AnimationBox {
-    /// True iff this box has at least one rectangle (either parts
-    /// or bbox populated). Used by consumers as the "should I use
-    /// this or fall back?" gate.
+    /// True iff this box has at least one rectangle (either parts,
+    /// bbox, or per-frame data populated). Used by consumers as the
+    /// "should I use this or fall back?" gate.
+    pub fn is_populated(&self) -> bool {
+        !self.parts.is_empty()
+            || self.bbox.is_some()
+            || self.frames.iter().any(AnimationBoxFrame::is_populated)
+    }
+}
+
+/// One sampled frame of an [`AnimationBox`]. Same rectangle shape as
+/// the coarse box, but indexed by animation time. This is intentionally
+/// optional so old manifests keep deserializing unchanged.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct AnimationBoxFrame {
+    #[serde(default)]
+    pub parts: Vec<NamedPixelRect>,
+    #[serde(default)]
+    pub bbox: Option<PixelRect>,
+}
+
+impl AnimationBoxFrame {
     pub fn is_populated(&self) -> bool {
         !self.parts.is_empty() || self.bbox.is_some()
     }

@@ -67,6 +67,7 @@ pub fn apply_feature_hit_events(
             &FeatureAabb,
             &mut BossFeature,
             &crate::brain::BossAttackState,
+            Option<&crate::features::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -320,7 +321,7 @@ pub fn apply_feature_hit_events(
             );
         }
         let mut boss_hit_this_event = false;
-        for (id, _aabb, mut feature, attack_state) in &mut bosses {
+        for (id, _aabb, mut feature, attack_state, animation_frame) in &mut bosses {
             let key = format!("boss:{}", id.as_str());
             if event.ignored_targets.iter().any(|ignored| ignored == &key) {
                 continue;
@@ -335,7 +336,8 @@ pub fn apply_feature_hit_events(
             // and the standard whole-body hurtbox agree on a single
             // attack-state source.
             let damageable = crate::features::damageable_volumes(
-                &crate::features::BossVolumeContext::from_runtime(boss, attack_state),
+                &crate::features::BossVolumeContext::from_runtime(boss, attack_state)
+                    .with_animation_frame(animation_frame),
             );
             let Some(hit_aabb) = damageable
                 .iter()

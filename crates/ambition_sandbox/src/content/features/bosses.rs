@@ -685,12 +685,25 @@ impl BossSpriteMetrics {
 pub fn boss_animation_for_profile(
     profile: &crate::brain::BossAttackProfile,
 ) -> Option<&'static str> {
+    boss_animation_keys_for_profile(profile).first().copied()
+}
+
+/// Ordered sprite-metadata keys that may describe a boss attack
+/// profile's gameplay geometry. The first key is the canonical
+/// runtime key; later keys are row-name aliases used by generated
+/// sheets / visual review tools. Keeping the aliases here prevents
+/// GNU-ton from silently falling back to rest/static boxes when the
+/// generator names the visual row `head_down` but gameplay asks for
+/// `GnuHeadDescent`.
+pub fn boss_animation_keys_for_profile(
+    profile: &crate::brain::BossAttackProfile,
+) -> &'static [&'static str] {
     use crate::brain::BossAttackProfile;
     match profile {
-        BossAttackProfile::FloorSlam => Some("floor_slam"),
-        BossAttackProfile::SideSweep => Some("side_sweep"),
-        BossAttackProfile::FullBodyPulse => Some("spike_halo"),
-        BossAttackProfile::GradientLane => Some("dash_echo"),
+        BossAttackProfile::FloorSlam => &["floor_slam"],
+        BossAttackProfile::SideSweep => &["side_sweep"],
+        BossAttackProfile::FullBodyPulse => &["spike_halo"],
+        BossAttackProfile::GradientLane => &["dash_echo"],
         // Gradient Sentinel specials don't have a dedicated row
         // in the AI-Slop-Zeta sheet; route them to `spike_halo`
         // (closest visual: a ring of damage around the boss) so
@@ -698,24 +711,23 @@ pub fn boss_animation_for_profile(
         BossAttackProfile::OverfitVolley
         | BossAttackProfile::MinimaTrap
         | BossAttackProfile::SaddlePoint
-        | BossAttackProfile::GradientCascade => Some("spike_halo"),
-        // GNU-ton profiles map to per-profile keys in the
-        // gnu_ton_boss spritesheet RON. Both `GnuHandSlam` and
-        // `GnuShockwave` happen during the same `hand_slam` row
-        // visually, but they have separate hitboxes (hand strikes
-        // vs ground shockwave), so the keys diverge — the spritesheet
-        // animator still requests `BossAnim::FloorSlam` for both.
-        BossAttackProfile::GnuHandSlam => Some("gnu_hand_slam"),
-        BossAttackProfile::GnuShockwave => Some("gnu_shockwave"),
-        BossAttackProfile::GnuHandSweep => Some("gnu_hand_sweep"),
-        BossAttackProfile::GnuHeadDescent => Some("gnu_head_descent"),
+        | BossAttackProfile::GradientCascade => &["spike_halo"],
+        // GNU-ton profiles use gameplay-specific canonical keys in
+        // the runtime RON so one visual row can expose multiple
+        // boxes (e.g. hand_slam vs shockwave). Accept the visual row
+        // names too, so regenerated manifests and review images can
+        // stay row-oriented without disconnecting the in-game boxes.
+        BossAttackProfile::GnuHandSlam => &["gnu_hand_slam", "hand_slam"],
+        BossAttackProfile::GnuShockwave => &["gnu_shockwave", "hand_slam"],
+        BossAttackProfile::GnuHandSweep => &["gnu_hand_sweep", "hand_sweep"],
+        BossAttackProfile::GnuHeadDescent => &["gnu_head_descent", "head_down"],
         // Apple rain damages via spawned projectile bodies, not a
         // body-mounted AABB — no hitbox lookup needed.
-        BossAttackProfile::GnuAppleRain => None,
+        BossAttackProfile::GnuAppleRain => &[],
         // Remaining profiles (WingSweep / DiveLane / Broadside)
         // belong to the legacy aerial bosses that still rely on
         // `volumes_for_profile`'s fallback math.
-        _ => None,
+        _ => &[],
     }
 }
 

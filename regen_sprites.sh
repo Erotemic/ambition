@@ -189,6 +189,8 @@ expected_files=(
     gnu_ton_boss/gnu_ton_boss_spritesheet.png
     gnu_ton_boss/gnu_ton_boss_body_spritesheet.png
     gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png
+    gnu_ton_boss/gnu_ton_boss_spritesheet.ron
+    gnu_ton_boss/gnu_ton_boss_actor.ron
     mockingbird_boss/mockingbird_boss_spritesheet.png
 )
 

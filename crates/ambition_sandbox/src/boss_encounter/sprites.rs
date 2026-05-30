@@ -541,6 +541,7 @@ fn load_named_boss_sprite_via_catalog(
 pub struct BossAnimator {
     pub spec: BossSheetSpec,
     pub current: BossAnim,
+    pub drive_phase: BossAnimDrivePhase,
     pub frame: usize,
     pub elapsed: f32,
     pub clip_held: bool,
@@ -551,6 +552,7 @@ impl BossAnimator {
         Self {
             spec,
             current: BossAnim::Rest,
+            drive_phase: BossAnimDrivePhase::Rest,
             frame: 0,
             elapsed: 0.0,
             clip_held: false,
@@ -558,10 +560,21 @@ impl BossAnimator {
     }
 
     pub fn request(&mut self, anim: BossAnim) {
-        if self.current == anim {
+        self.request_for_phase(anim, BossAnimDrivePhase::Rest);
+    }
+
+    /// Select a boss animation row and the gameplay phase that is
+    /// driving it. Some bosses intentionally use the same visual row
+    /// for windup and strike. Treating the phase as part of the
+    /// animation identity keeps the row from playing once during the
+    /// telegraph, holding its final frame through the strike, and then
+    /// snapping boxes back to rest later.
+    pub fn request_for_phase(&mut self, anim: BossAnim, drive_phase: BossAnimDrivePhase) {
+        if self.current == anim && self.drive_phase == drive_phase {
             return;
         }
         self.current = anim;
+        self.drive_phase = drive_phase;
         self.frame = 0;
         self.elapsed = 0.0;
         self.clip_held = false;
@@ -606,6 +619,22 @@ fn non_looping(anim: BossAnim) -> bool {
     )
 }
 
+/// Gameplay phase currently driving a boss animation row.
+///
+/// This is deliberately separate from [`BossAnim`]. A single authored row
+/// can be reused for both telegraph and strike; those are separate plays of
+/// the clip, not one long held animation. Keeping the phase in the animator
+/// identity makes sprite frames, authored boxes, and debug overlays advance
+/// together across phase boundaries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BossAnimDrivePhase {
+    Rest,
+    Windup,
+    Active,
+    Hit,
+    Death,
+}
+
 /// Snapshot of boss state used to drive its animation. Pulled from
 /// `BossRuntime` by the rendering layer so this module stays free of
 /// gameplay imports.
@@ -615,8 +644,33 @@ pub struct BossAnimState {
     pub attack_active: bool,
     pub attack_windup: bool,
     pub hit_flash: bool,
-    /// Boss-pattern timer used to vary which active-attack clip plays.
+    /// Profile-resolved animation to play during windup, when the
+    /// gameplay layer can map the boss's active profile onto this
+    /// sheet's row vocabulary. `None` keeps the generic fallback.
+    pub windup_anim: Option<BossAnim>,
+    /// Profile-resolved animation to play during the strike.
+    pub active_anim: Option<BossAnim>,
+    /// Boss-pattern timer used to vary which active-attack clip plays
+    /// when no profile-resolved animation is available.
     pub pattern_timer: f32,
+}
+
+impl BossAnimState {
+    pub fn drive_phase(self) -> BossAnimDrivePhase {
+        if !self.alive {
+            return BossAnimDrivePhase::Death;
+        }
+        if self.hit_flash {
+            return BossAnimDrivePhase::Hit;
+        }
+        if self.attack_windup {
+            return BossAnimDrivePhase::Windup;
+        }
+        if self.attack_active {
+            return BossAnimDrivePhase::Active;
+        }
+        BossAnimDrivePhase::Rest
+    }
 }
 
 pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
@@ -627,9 +681,12 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
         return BossAnim::Hit;
     }
     if state.attack_windup {
-        return BossAnim::SpikeHalo;
+        return state.windup_anim.unwrap_or(BossAnim::SpikeHalo);
     }
     if state.attack_active {
+        if let Some(anim) = state.active_anim {
+            return anim;
+        }
         // Rotate active-attack clips so the boss reads with variety even
         // though the gameplay AI is currently a single pattern.
         let bucket = (state.pattern_timer.abs() as i32) % 3;

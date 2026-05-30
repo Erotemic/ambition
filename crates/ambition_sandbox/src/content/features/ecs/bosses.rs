@@ -397,6 +397,7 @@ pub fn update_ecs_bosses(
             &BossAttackState,
             &Brain,
             &super::super::components::ActorTarget,
+            Option<&crate::features::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -415,6 +416,7 @@ pub fn update_ecs_bosses(
         attack_state,
         brain,
         actor_target,
+        animation_frame,
     ) in &mut bosses
     {
         // Resolve this boss's targeted player. If the target's
@@ -453,7 +455,8 @@ pub fn update_ecs_bosses(
         let player_vulnerable =
             !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable();
         if player_vulnerable && boss.alive {
-            let ctx = BossVolumeContext::from_runtime(boss, attack_state);
+            let ctx = BossVolumeContext::from_runtime(boss, attack_state)
+                .with_animation_frame(animation_frame);
             if let Some(damage) = boss_attack_damage(&ctx, target_entity, player_body) {
                 let pos = damage
                     .knockback

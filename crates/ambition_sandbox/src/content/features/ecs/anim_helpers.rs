@@ -134,6 +134,162 @@ pub fn ecs_boss_name<'a>(
     })
 }
 
+fn boss_anim_for_attack_profile(
+    profile: &crate::brain::BossAttackProfile,
+) -> Option<crate::boss_encounter::sprites::BossAnim> {
+    use crate::boss_encounter::sprites::BossAnim;
+    use crate::brain::BossAttackProfile;
+    match profile {
+        BossAttackProfile::FloorSlam | BossAttackProfile::GnuHandSlam | BossAttackProfile::GnuShockwave => {
+            Some(BossAnim::FloorSlam)
+        }
+        BossAttackProfile::SideSweep | BossAttackProfile::GnuHandSweep | BossAttackProfile::Broadside => {
+            Some(BossAnim::SideSweep)
+        }
+        BossAttackProfile::FullBodyPulse
+        | BossAttackProfile::GnuHeadDescent
+        | BossAttackProfile::GnuAppleRain
+        | BossAttackProfile::OverfitVolley
+        | BossAttackProfile::MinimaTrap
+        | BossAttackProfile::SaddlePoint
+        | BossAttackProfile::GradientCascade => Some(BossAnim::SpikeHalo),
+        BossAttackProfile::GradientLane | BossAttackProfile::DiveLane => Some(BossAnim::DashEcho),
+        BossAttackProfile::WingSweep => None,
+    }
+}
+
+
+fn boss_animation_key_for_sample(
+    profile: &crate::brain::BossAttackProfile,
+    anim: crate::boss_encounter::sprites::BossAnim,
+) -> Option<&'static str> {
+    use crate::boss_encounter::sprites::BossAnim;
+    use crate::brain::BossAttackProfile;
+    match (profile, anim) {
+        // GNU-ton has profile-specific dangerous boxes (for example
+        // `gnu_shockwave`) but the damageable head/body box should follow
+        // the rendered row. Keep the sample keyed to the visual row so
+        // authored row frames are the source of truth for hurtboxes.
+        (BossAttackProfile::GnuHandSlam | BossAttackProfile::GnuShockwave, BossAnim::FloorSlam) => {
+            Some("hand_slam")
+        }
+        (BossAttackProfile::GnuHandSweep, BossAnim::SideSweep) => Some("hand_sweep"),
+        (BossAttackProfile::GnuHeadDescent | BossAttackProfile::GnuAppleRain, BossAnim::SpikeHalo) => {
+            Some("head_down")
+        }
+        _ => super::super::bosses::boss_animation_keys_for_profile(profile)
+            .first()
+            .copied(),
+    }
+}
+
+
+fn boss_anim_state_for(
+    boss: &BossFeature,
+    attack_state: &crate::brain::BossAttackState,
+    brain: &crate::brain::Brain,
+) -> crate::boss_encounter::sprites::BossAnimState {
+    let boss = &boss.boss;
+    // attack_active / attack_windup read the brain's
+    // BossAttackState (single source of truth) instead of
+    // mirror fields on BossRuntime. pattern_timer comes from
+    // the brain's BossPatternState; non-BossPattern brains
+    // (test fixtures) fall back to 0.0.
+    let pattern_timer = brain
+        .boss_pattern_state()
+        .map(|s| s.pattern_timer)
+        .unwrap_or(0.0);
+    crate::boss_encounter::sprites::BossAnimState {
+        alive: boss.alive,
+        attack_active: attack_state.active_profile.is_some(),
+        attack_windup: attack_state.telegraph_profile.is_some(),
+        hit_flash: boss.hit_flash > 0.0,
+        windup_anim: attack_state
+            .telegraph_profile
+            .as_ref()
+            .and_then(boss_anim_for_attack_profile),
+        active_anim: attack_state
+            .active_profile
+            .as_ref()
+            .and_then(boss_anim_for_attack_profile),
+        pattern_timer,
+    }
+}
+
+pub fn ecs_boss_anim_state_and_entity(
+    id: &str,
+    bosses: &Query<(
+        bevy::prelude::Entity,
+        &FeatureId,
+        &BossFeature,
+        &crate::brain::BossAttackState,
+        &crate::brain::Brain,
+    )>,
+) -> Option<(bevy::prelude::Entity, crate::boss_encounter::sprites::BossAnimState)> {
+    bosses.iter().find_map(|(entity, feature_id, boss, attack_state, brain)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        Some((entity, boss_anim_state_for(boss, attack_state, brain)))
+    })
+}
+
+/// Return the currently rendered attack-frame sample for a boss,
+/// but only when the chosen visual row is directly driven by the
+/// boss attack profile.
+///
+/// Hit/death/rest overrides deliberately return `None`; geometry
+/// callers then fall back to elapsed-time sampling instead of using a
+/// frame from the wrong visual row.
+pub fn ecs_boss_animation_frame_sample(
+    id: &str,
+    bosses: &Query<(
+        bevy::prelude::Entity,
+        &FeatureId,
+        &BossFeature,
+        &crate::brain::BossAttackState,
+        &crate::brain::Brain,
+    )>,
+    anim: crate::boss_encounter::sprites::BossAnim,
+    frame_index: usize,
+) -> Option<(bevy::prelude::Entity, crate::features::BossAnimationFrameSample)> {
+    bosses.iter().find_map(|(entity, feature_id, boss, attack_state, _brain)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        let active_expected = attack_state
+            .active_profile
+            .as_ref()
+            .and_then(boss_anim_for_attack_profile);
+        let telegraph_expected = attack_state
+            .telegraph_profile
+            .as_ref()
+            .and_then(boss_anim_for_attack_profile);
+        let mut result = None;
+        if let Some(profile) = attack_state.active_profile.as_ref() {
+            if active_expected == Some(anim) {
+                result = Some((entity, crate::features::BossAnimationFrameSample {
+                    profile: profile.clone(),
+                    frame_index,
+                    animation_key: boss_animation_key_for_sample(profile, anim),
+                }));
+            }
+        }
+        if result.is_none() {
+            if let Some(profile) = attack_state.telegraph_profile.as_ref() {
+                if telegraph_expected == Some(anim) {
+                    result = Some((entity, crate::features::BossAnimationFrameSample {
+                        profile: profile.clone(),
+                        frame_index,
+                        animation_key: boss_animation_key_for_sample(profile, anim),
+                    }));
+                }
+            }
+        }
+        result
+    })
+}
+
 pub fn ecs_boss_anim_state(
     id: &str,
     bosses: &Query<(
@@ -149,22 +305,6 @@ pub fn ecs_boss_anim_state(
             if feature_id.as_str() != id {
                 return None;
             }
-            let boss = &boss.boss;
-            // attack_active / attack_windup read the brain's
-            // BossAttackState (single source of truth) instead of
-            // mirror fields on BossRuntime. pattern_timer comes from
-            // the brain's BossPatternState; non-BossPattern brains
-            // (test fixtures) fall back to 0.0.
-            let pattern_timer = brain
-                .boss_pattern_state()
-                .map(|s| s.pattern_timer)
-                .unwrap_or(0.0);
-            Some(crate::boss_encounter::sprites::BossAnimState {
-                alive: boss.alive,
-                attack_active: attack_state.active_profile.is_some(),
-                attack_windup: attack_state.telegraph_profile.is_some(),
-                hit_flash: boss.hit_flash > 0.0,
-                pattern_timer,
-            })
+            Some(boss_anim_state_for(boss, attack_state, brain))
         })
 }

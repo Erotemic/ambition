@@ -24,8 +24,10 @@
 
 use crate::engine_core as ae;
 
+use bevy::prelude::Component;
+
 use crate::brain::{BossAttackProfile, BossAttackState};
-use crate::presentation::character_sprites::registry::{BodyMetrics, PixelRect};
+use crate::presentation::character_sprites::registry::{AnimationBox, BodyMetrics, PixelRect};
 
 use super::bosses::{BossBehaviorProfile, BossRuntime};
 
@@ -183,6 +185,33 @@ pub struct BossVolumeContext<'a> {
     /// snapshotted it. `damageable_volumes` prefers multi-rect
     /// hurtboxes from here over the legacy single-AABB fallback.
     pub sprite_metrics: Option<&'a super::bosses::BossSpriteMetrics>,
+    /// Optional frame sample from the live boss sprite animator.
+    /// When present and its profile matches the requested attack,
+    /// sprite-authored hit/hurt boxes use this exact frame index
+    /// instead of re-deriving a frame from attack timers. That keeps
+    /// gameplay/debug boxes locked to the rendered animation frame.
+    pub animation_frame: Option<&'a BossAnimationFrameSample>,
+}
+
+/// Live sprite-animation frame for a boss attack profile.
+///
+/// The renderer writes this component onto the boss simulation
+/// entity when the currently rendered boss row is directly driven by
+/// a `BossAttackProfile`. Gameplay/debug volume helpers read it
+/// opportunistically and fall back to elapsed-time sampling in
+/// headless tests or before sprites have upgraded.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct BossAnimationFrameSample {
+    /// Gameplay profile that selected the currently-rendered boss row.
+    pub profile: BossAttackProfile,
+    /// Frame index in the currently-rendered boss row.
+    pub frame_index: usize,
+    /// Runtime sprite-metadata key that should be sampled with
+    /// `frame_index`, when the renderer can resolve it. This is
+    /// redundant with `profile` for most rows, but keeping the key on
+    /// the sample makes the bridge explicit and prevents future
+    /// profile↔row alias drift from silently selecting a fallback box.
+    pub animation_key: Option<&'static str>,
 }
 
 impl<'a> BossVolumeContext<'a> {
@@ -199,7 +228,16 @@ impl<'a> BossVolumeContext<'a> {
             behavior: &boss.behavior,
             attack_state,
             sprite_metrics: boss.sprite_metrics.as_ref(),
+            animation_frame: None,
         }
+    }
+
+    pub fn with_animation_frame(
+        mut self,
+        animation_frame: Option<&'a BossAnimationFrameSample>,
+    ) -> Self {
+        self.animation_frame = animation_frame;
+        self
     }
 }
 
@@ -219,7 +257,7 @@ pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     let Some(profile) = ctx.attack_state.active_profile.as_ref() else {
         return Vec::new();
     };
-    if let Some(volumes) = sprite_authored_volumes(ctx, profile) {
+    if let Some(volumes) = sprite_authored_volumes(ctx, profile, ctx.attack_state.active_elapsed) {
         return volumes;
     }
     volumes_for_profile(profile, ctx.pos, ctx.combat_size, ctx.behavior)
@@ -233,7 +271,7 @@ pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     let Some(profile) = ctx.attack_state.telegraph_profile.as_ref() else {
         return Vec::new();
     };
-    if let Some(volumes) = sprite_authored_volumes(ctx, profile) {
+    if let Some(volumes) = sprite_authored_volumes(ctx, profile, ctx.attack_state.telegraph_elapsed) {
         return volumes;
     }
     volumes_for_profile(profile, ctx.pos, ctx.combat_size, ctx.behavior)
@@ -248,32 +286,39 @@ pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
 fn sprite_authored_volumes(
     ctx: &BossVolumeContext,
     profile: &BossAttackProfile,
+    animation_elapsed_s: f32,
 ) -> Option<Vec<ae::Aabb>> {
     let metrics = ctx.sprite_metrics?;
-    let animation = super::bosses::boss_animation_for_profile(profile)?;
-    let hitbox = metrics.hitbox_for_animation(animation)?;
-    if !hitbox.is_populated() {
-        return None;
-    }
     // Use the SPRITE RENDER SIZE (not `ctx.size`) — that's the
     // world-space extent of the visible sprite quad. `ctx.size` is
     // the LDtk spawn AABB which is smaller than the rendered sprite
     // (collision_scale > 1.0 in every sheet spec). Using ctx.size
     // would render hitboxes at half the visible size of the attack.
     let world_size = sprite_world_size(metrics, ctx.size);
-    let aabbs = world_space_body_aabbs_from_parts(
-        &hitbox.parts,
-        hitbox.bbox,
-        metrics.frame_width,
-        metrics.frame_height,
-        ctx.pos,
-        world_size,
-    );
-    if aabbs.is_empty() {
-        None
-    } else {
-        Some(aabbs)
+    for animation in super::bosses::boss_animation_keys_for_profile(profile) {
+        let Some(entry) = metrics.animations.get(*animation) else {
+            continue;
+        };
+        let Some(hitbox) = entry.hitbox.as_ref() else {
+            continue;
+        };
+        if !hitbox.is_populated() {
+            continue;
+        }
+        let selected_frame = authored_animation_frame_index(ctx, profile, entry, animation_elapsed_s);
+        let aabbs = world_space_animation_box_aabbs(
+            hitbox,
+            selected_frame,
+            metrics.frame_width,
+            metrics.frame_height,
+            ctx.pos,
+            world_size,
+        );
+        if !aabbs.is_empty() {
+            return Some(aabbs);
+        }
     }
+    None
 }
 
 /// Choose the world-space size to scale sprite-pixel rects against.
@@ -290,12 +335,99 @@ fn sprite_world_size(metrics: &super::bosses::BossSpriteMetrics, fallback: ae::V
     }
 }
 
+
+fn animation_frame_index(
+    entry: &crate::presentation::character_sprites::registry::AnimationMetrics,
+    elapsed_s: f32,
+) -> Option<usize> {
+    let frame_duration = entry.frame_duration_secs?;
+    if frame_duration <= 0.0 {
+        return None;
+    }
+    Some((elapsed_s.max(0.0) / frame_duration).floor() as usize)
+}
+
+fn authored_animation_frame_index(
+    ctx: &BossVolumeContext,
+    profile: &BossAttackProfile,
+    entry: &crate::presentation::character_sprites::registry::AnimationMetrics,
+    elapsed_s: f32,
+) -> Option<usize> {
+    if let Some(sample) = ctx.animation_frame {
+        if sample.profile == *profile {
+            return Some(sample.frame_index);
+        }
+    }
+    animation_frame_index(entry, elapsed_s)
+}
+
+fn push_unique_animation_key<'a>(keys: &mut Vec<&'a str>, key: &'a str) {
+    if !key.is_empty() && !keys.iter().any(|existing| *existing == key) {
+        keys.push(key);
+    }
+}
+
+fn runtime_animation_keys<'a>(
+    ctx: &'a BossVolumeContext<'a>,
+    active_profile: Option<&'a BossAttackProfile>,
+    rest_keys: &'a [&'a str],
+) -> Vec<&'a str> {
+    let mut keys = Vec::new();
+    if let (Some(sample), Some(profile)) = (ctx.animation_frame, active_profile) {
+        if sample.profile == *profile {
+            if let Some(animation_key) = sample.animation_key {
+                push_unique_animation_key(&mut keys, animation_key);
+            }
+        }
+    }
+    let mapped_keys = active_profile
+        .map(super::bosses::boss_animation_keys_for_profile)
+        .unwrap_or(rest_keys);
+    for key in mapped_keys {
+        push_unique_animation_key(&mut keys, key);
+    }
+    keys
+}
+
+fn world_space_animation_box_aabbs(
+    box_: &AnimationBox,
+    frame_index: Option<usize>,
+    frame_width: u32,
+    frame_height: u32,
+    world_center: ae::Vec2,
+    world_size: ae::Vec2,
+) -> Vec<ae::Aabb> {
+    if let Some(index) = frame_index {
+        if let Some(frame) = box_.frames.get(index.min(box_.frames.len().saturating_sub(1))) {
+            if frame.is_populated() {
+                return world_space_body_aabbs_from_parts(
+                    &frame.parts,
+                    frame.bbox,
+                    frame_width,
+                    frame_height,
+                    world_center,
+                    world_size,
+                );
+            }
+        }
+    }
+    world_space_body_aabbs_from_parts(
+        &box_.parts,
+        box_.bbox,
+        frame_width,
+        frame_height,
+        world_center,
+        world_size,
+    )
+}
+
 /// Damageable hurtbox volumes — where the player's attacks register
 /// as hits. Single-piece bosses use one AABB derived from
 /// combat_size; multi-part bosses (sprite RON carrying
 /// `body_pixel_parts`) emit one AABB per piece so head/body/arms
-/// hit independently. GNU-ton's hand-tuned head/descent path
-/// stays as-is until the multi-rect metadata is authored.
+/// hit independently. Animation boxes may also carry per-frame
+/// samples so large moving parts like GNU-ton's head can track the
+/// drawn pose instead of one coarse per-animation rectangle.
 pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     // Priority (uniform across every boss now that GNU-ton's
     // hand-tuned head path was migrated into its spritesheet RON
@@ -323,31 +455,44 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
         // pose so a side-sweep's extended arms register as
         // damageable, while the rest pose's tight body bbox
         // wins when the boss is idle.
-        let active_anim = ctx
+        let active_profile = ctx
             .attack_state
             .active_profile
             .as_ref()
-            .and_then(super::bosses::boss_animation_for_profile)
-            .or_else(|| {
-                ctx.attack_state
-                    .telegraph_profile
-                    .as_ref()
-                    .and_then(super::bosses::boss_animation_for_profile)
-            })
-            .unwrap_or("rest");
-        if let Some(box_) = metrics.hurtbox_for_animation(active_anim) {
-            if box_.is_populated() {
-                let aabbs = world_space_body_aabbs_from_parts(
-                    &box_.parts,
-                    box_.bbox,
-                    metrics.frame_width,
-                    metrics.frame_height,
-                    ctx.pos,
-                    world_size,
-                );
-                if !aabbs.is_empty() {
-                    return aabbs;
-                }
+            .or(ctx.attack_state.telegraph_profile.as_ref());
+        let rest_keys: &[&str] = &["rest"];
+        let active_keys = runtime_animation_keys(ctx, active_profile, rest_keys);
+        let animation_elapsed_s = if ctx.attack_state.active_profile.is_some() {
+            ctx.attack_state.active_elapsed
+        } else if ctx.attack_state.telegraph_profile.is_some() {
+            ctx.attack_state.telegraph_elapsed
+        } else {
+            0.0
+        };
+        for active_anim in active_keys {
+            let Some(entry) = metrics.animations.get(active_anim) else {
+                continue;
+            };
+            let Some(box_) = entry.hurtbox.as_ref() else {
+                continue;
+            };
+            if !box_.is_populated() {
+                continue;
+            }
+            let frame_index = match active_profile {
+                Some(profile) => authored_animation_frame_index(ctx, profile, entry, animation_elapsed_s),
+                None => animation_frame_index(entry, animation_elapsed_s),
+            };
+            let aabbs = world_space_animation_box_aabbs(
+                box_,
+                frame_index,
+                metrics.frame_width,
+                metrics.frame_height,
+                ctx.pos,
+                world_size,
+            );
+            if !aabbs.is_empty() {
+                return aabbs;
             }
         }
         // (2) Static multi-part body.
@@ -820,8 +965,10 @@ mod sprite_metadata_derivation_tests {
                         w: 127,
                         h: 86,
                     }),
+                    frames: Vec::new(),
                 }),
                 hitbox: None,
+                frame_duration_secs: None,
             },
         );
         let metrics = BossSpriteMetrics {
@@ -863,6 +1010,7 @@ mod sprite_metadata_derivation_tests {
             behavior: &behavior,
             attack_state: &attack_state,
             sprite_metrics: Some(&metrics),
+            animation_frame: None,
         };
         let volumes = damageable_volumes(&ctx);
         assert_eq!(volumes.len(), 1);
@@ -885,6 +1033,281 @@ mod sprite_metadata_derivation_tests {
     /// the boss head, but in game it is the old boxes" — comes back
     /// because the visible sprite renders 1.6× bigger than `boss.size`
     /// but the hurtbox would scale by `boss.size` only.
+    #[test]
+    fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
+        use crate::brain::{BossAttackProfile, BossAttackState};
+        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::presentation::character_sprites::registry::{
+            AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
+        };
+        use std::collections::HashMap;
+
+        let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+        animations.insert(
+            "gnu_head_descent".to_string(),
+            AnimationMetrics {
+                frame_duration_secs: Some(0.1),
+                hurtbox: Some(AnimationBox {
+                    // Coarse fallback is deliberately different from
+                    // the sampled frame so the assertion proves that
+                    // the per-frame path was taken.
+                    parts: vec![NamedPixelRect {
+                        name: "head".to_string(),
+                        x: 45,
+                        y: 45,
+                        w: 10,
+                        h: 10,
+                    }],
+                    bbox: None,
+                    frames: vec![
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head".to_string(),
+                                x: 45,
+                                y: 10,
+                                w: 10,
+                                h: 10,
+                            }],
+                            bbox: None,
+                        },
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head".to_string(),
+                                x: 45,
+                                y: 30,
+                                w: 10,
+                                h: 10,
+                            }],
+                            bbox: None,
+                        },
+                    ],
+                }),
+                hitbox: None,
+            },
+        );
+        let metrics = BossSpriteMetrics {
+            frame_width: 100,
+            frame_height: 100,
+            body_pixel_bbox: None,
+            body_pixel_parts: Vec::new(),
+            sprite_render_size: ae::Vec2::new(100.0, 100.0),
+            combat_offset: ae::Vec2::ZERO,
+            animations,
+        };
+        let behavior = BossBehaviorProfile::gnu_ton();
+        let mut attack_state = BossAttackState::default();
+        attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
+        attack_state.active_elapsed = 0.15; // frame index 1 at 0.1s/frame.
+
+        let ctx = BossVolumeContext {
+            pos: ae::Vec2::ZERO,
+            size: ae::Vec2::new(100.0, 100.0),
+            combat_size: ae::Vec2::new(100.0, 100.0),
+            behavior: &behavior,
+            attack_state: &attack_state,
+            sprite_metrics: Some(&metrics),
+            animation_frame: None,
+        };
+
+        let volumes = damageable_volumes(&ctx);
+        assert_eq!(volumes.len(), 1);
+        assert!(
+            (volumes[0].center().y - -15.0).abs() < 1e-3,
+            "expected frame-1 head center y=-15, got {:?}",
+            volumes[0]
+        );
+    }
+
+    #[test]
+    fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
+        use crate::brain::{BossAttackProfile, BossAttackState};
+        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::presentation::character_sprites::registry::{
+            AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
+        };
+        use std::collections::HashMap;
+
+        let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+        animations.insert(
+            "gnu_head_descent".to_string(),
+            AnimationMetrics {
+                frame_duration_secs: Some(0.1),
+                hurtbox: Some(AnimationBox {
+                    parts: Vec::new(),
+                    bbox: None,
+                    frames: vec![
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head".to_string(),
+                                x: 45,
+                                y: 10,
+                                w: 10,
+                                h: 10,
+                            }],
+                            bbox: None,
+                        },
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head".to_string(),
+                                x: 45,
+                                y: 70,
+                                w: 10,
+                                h: 10,
+                            }],
+                            bbox: None,
+                        },
+                    ],
+                }),
+                hitbox: None,
+            },
+        );
+        let metrics = BossSpriteMetrics {
+            frame_width: 100,
+            frame_height: 100,
+            body_pixel_bbox: None,
+            body_pixel_parts: Vec::new(),
+            sprite_render_size: ae::Vec2::new(100.0, 100.0),
+            combat_offset: ae::Vec2::ZERO,
+            animations,
+        };
+        let behavior = BossBehaviorProfile::gnu_ton();
+        let mut attack_state = BossAttackState::default();
+        attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
+        attack_state.active_elapsed = 0.15; // elapsed alone would pick frame 1.
+        let visual_frame = BossAnimationFrameSample {
+            profile: BossAttackProfile::GnuHeadDescent,
+            frame_index: 0,
+            animation_key: Some("gnu_head_descent"),
+        };
+
+        let ctx = BossVolumeContext {
+            pos: ae::Vec2::ZERO,
+            size: ae::Vec2::new(100.0, 100.0),
+            combat_size: ae::Vec2::new(100.0, 100.0),
+            behavior: &behavior,
+            attack_state: &attack_state,
+            sprite_metrics: Some(&metrics),
+            animation_frame: Some(&visual_frame),
+        };
+
+        let volumes = damageable_volumes(&ctx);
+        assert_eq!(volumes.len(), 1);
+        assert!(
+            (volumes[0].center().y - -35.0).abs() < 1e-3,
+            "expected visual frame 0 head center y=-35, got {:?}",
+            volumes[0]
+        );
+    }
+
+    #[test]
+    fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
+        use crate::brain::{BossAttackProfile, BossAttackState};
+        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::presentation::character_sprites::registry::{
+            AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
+        };
+        use std::collections::HashMap;
+
+        let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+        animations.insert(
+            "head_down".to_string(),
+            AnimationMetrics {
+                frame_duration_secs: Some(0.1),
+                hurtbox: Some(AnimationBox {
+                    parts: Vec::new(),
+                    bbox: None,
+                    frames: vec![
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head".to_string(),
+                                x: 40,
+                                y: 10,
+                                w: 20,
+                                h: 20,
+                            }],
+                            bbox: None,
+                        },
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head".to_string(),
+                                x: 40,
+                                y: 70,
+                                w: 20,
+                                h: 20,
+                            }],
+                            bbox: None,
+                        },
+                    ],
+                }),
+                hitbox: Some(AnimationBox {
+                    parts: Vec::new(),
+                    bbox: None,
+                    frames: vec![
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head_hit".to_string(),
+                                x: 35,
+                                y: 5,
+                                w: 30,
+                                h: 30,
+                            }],
+                            bbox: None,
+                        },
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head_hit".to_string(),
+                                x: 35,
+                                y: 65,
+                                w: 30,
+                                h: 30,
+                            }],
+                            bbox: None,
+                        },
+                    ],
+                }),
+            },
+        );
+
+        let metrics = BossSpriteMetrics {
+            frame_width: 100,
+            frame_height: 100,
+            body_pixel_bbox: None,
+            body_pixel_parts: Vec::new(),
+            sprite_render_size: ae::Vec2::new(100.0, 100.0),
+            combat_offset: ae::Vec2::ZERO,
+            animations,
+        };
+        let behavior = BossBehaviorProfile::gnu_ton();
+        let mut attack_state = BossAttackState::default();
+        attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
+        attack_state.active_elapsed = 0.15;
+        let ctx = BossVolumeContext {
+            pos: ae::Vec2::ZERO,
+            size: ae::Vec2::new(100.0, 100.0),
+            combat_size: ae::Vec2::new(100.0, 100.0),
+            behavior: &behavior,
+            attack_state: &attack_state,
+            sprite_metrics: Some(&metrics),
+            animation_frame: None,
+        };
+
+        let hurt = damageable_volumes(&ctx);
+        assert_eq!(hurt.len(), 1);
+        assert!(
+            (hurt[0].center().y - 30.0).abs() < 1e-3,
+            "expected head_down alias hurtbox frame 1 at y=30, got {:?}",
+            hurt[0]
+        );
+
+        let hit = active_attack_volumes(&ctx);
+        assert_eq!(hit.len(), 1);
+        assert!(
+            (hit[0].center().y - 30.0).abs() < 1e-3,
+            "expected head_down alias hitbox frame 1 at y=30, got {:?}",
+            hit[0]
+        );
+    }
+
     #[test]
     fn damageable_volumes_scales_to_sprite_render_size() {
         use crate::brain::BossAttackState;
@@ -930,6 +1353,7 @@ mod sprite_metadata_derivation_tests {
             behavior: &behavior,
             attack_state: &attack_state,
             sprite_metrics: Some(&legacy_metrics),
+            animation_frame: None,
         };
         let render_ctx = BossVolumeContext {
             pos: ae::Vec2::ZERO,
@@ -938,6 +1362,7 @@ mod sprite_metadata_derivation_tests {
             behavior: &behavior,
             attack_state: &attack_state,
             sprite_metrics: Some(&render_metrics),
+            animation_frame: None,
         };
         let legacy = damageable_volumes(&legacy_ctx)[0];
         let render = damageable_volumes(&render_ctx)[0];

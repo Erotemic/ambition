@@ -739,8 +739,10 @@ pub fn sync_gnu_ton_hands(
 
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
+    mut commands: Commands,
     world_time: Res<crate::WorldTime>,
     ecs_bosses: Query<(
+        Entity,
         &FeatureId,
         &BossFeature,
         &crate::brain::BossAttackState,
@@ -765,14 +767,28 @@ pub fn animate_bosses(
         let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(
             scale,
         ));
-        let Some(state): Option<BossAnimState> =
-            crate::features::ecs_boss_anim_state(&visual.id, &ecs_bosses)
+        let Some((boss_entity, state)): Option<(Entity, BossAnimState)> =
+            crate::features::ecs_boss_anim_state_and_entity(&visual.id, &ecs_bosses)
         else {
             continue;
         };
         let anim = sprites::pick_boss_anim(state);
-        animator.request(anim);
+        let drive_phase = state.drive_phase();
+        animator.request_for_phase(anim, drive_phase);
         let index = animator.tick(dt);
+        let animation_sample = crate::features::ecs_boss_animation_frame_sample(
+            &visual.id,
+            &ecs_bosses,
+            anim,
+            animator.frame,
+        );
+        if let Some((sample_entity, sample)) = animation_sample {
+            commands.entity(sample_entity).insert(sample);
+        } else {
+            commands
+                .entity(boss_entity)
+                .remove::<crate::features::BossAnimationFrameSample>();
+        }
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
         }

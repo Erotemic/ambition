@@ -179,6 +179,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         (
             &'static crate::features::BossFeature,
             &'static crate::brain::BossAttackState,
+            Option<&'static crate::features::BossAnimationFrameSample>,
         ),
         With<crate::features::FeatureSimEntity>,
     >,
@@ -676,12 +677,13 @@ fn draw_feature_debug(
     // `feature_q.hitboxes` pass with faction colors.
     let hurtbox_color = cyan();
     let body_contact_color = Color::srgba(0.95, 0.30, 0.95, 0.85); // magenta
-    for (bf, attack_state) in feature_q.bosses.iter() {
+    for (bf, attack_state, animation_frame) in feature_q.bosses.iter() {
         let boss = &bf.boss;
         if !boss.alive {
             continue;
         }
-        let ctx = crate::features::BossVolumeContext::from_runtime(boss, attack_state);
+        let ctx = crate::features::BossVolumeContext::from_runtime(boss, attack_state)
+            .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
         // Body-contact damage zone — drawn ONLY when the boss
         // actually deals contact damage so a `body_damage = 0`

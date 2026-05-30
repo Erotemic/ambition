@@ -75,9 +75,9 @@ mod view_index;
 pub(crate) use actors::{actor_component_snapshot, sync_actor_components_from_runtime};
 pub use actors::{update_ecs_actors, ActorRuntime};
 pub use anim_helpers::{
-    ecs_boss_anim_state, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
-    ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state,
-    ecs_npc_name,
+    ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
+    ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name,
+    ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 #[allow(

@@ -53,12 +53,16 @@ The runtime asset layout matches:
 ```
 crates/ambition_sandbox/assets/sprites/<character_name>/
     <character_name>_spritesheet.png
-    <character_name>_spritesheet.ron       # consumed by `SheetRegistry`
-    <character_name>_spritesheet_manifest.json  # source for the .ron
+    <character_name>_spritesheet.ron       # consumed by `SheetRegistry`; canonical runtime metadata
+    <character_name>_actor.ron             # actor catalog sidecar
     <character_name>_canonical.png         # auto-crop reference
     <character_name>_canonical_transparent.png
     <character_name>_preview_labeled.png
-    <character_name>_parts_debug.png       # optional: rig diagnostics
+
+Generated-only review images may also be written under
+`tools/ambition_sprite2d_renderer/generated/<character_name>/`. For example,
+`gnu_ton_boss_hitboxes_debug.png` overlays the exact `body_metrics` hit/hurt
+boxes that GNU-ton emits into its `.ron` file.
 ```
 
 ## The tack-on API the multi-file target exposes

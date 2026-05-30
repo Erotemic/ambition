@@ -1169,63 +1169,156 @@ def _box(parts: list[dict], frames: list[dict] | None = None) -> dict:
     return out
 
 
+def _animation_duration_secs(anim: str) -> float:
+    for name, _frame_count, duration_ms in ANIMATIONS:
+        if name == anim:
+            return float(duration_ms) / 1000.0
+    raise KeyError(anim)
+
+
+def _head_hurt_frames(parts_doc: dict, anim: str) -> list[dict]:
+    return [
+        {"parts": [_head_hurt_rect(frame["head"])]}
+        for frame in parts_doc["anchors"].get(anim, [])
+    ]
+
+
+def _head_hit_frames(parts_doc: dict, anim: str) -> list[dict]:
+    return [
+        {"parts": [_head_rect(frame["head"])]}
+        for frame in parts_doc["anchors"].get(anim, [])
+    ]
+
+
+def _hand_hit_frames(parts_doc: dict, anim: str) -> list[dict]:
+    frames = []
+    for frame in parts_doc["anchors"].get(anim, []):
+        left_x, left_y = frame["hand_left"]
+        right_x, right_y = frame["hand_right"]
+        frames.append({
+            "parts": [
+                _part_rect(
+                    "left_hand",
+                    _pixel_rect_from_center(float(left_x), float(left_y), _HAND_BOX_W, _HAND_BOX_H),
+                ),
+                _part_rect(
+                    "right_hand",
+                    _pixel_rect_from_center(float(right_x), float(right_y), _HAND_BOX_W, _HAND_BOX_H),
+                ),
+            ]
+        })
+    return frames
+
+
+def _first_part(frames: list[dict], fallback: dict) -> dict:
+    for frame in frames:
+        parts = frame.get("parts", [])
+        if parts:
+            return parts[0]
+    return fallback
+
+
+def _deepest_frame_parts(frames: list[dict], fallback: list[dict]) -> list[dict]:
+    if not frames:
+        return list(fallback)
+    return list(max(
+        frames,
+        key=lambda frame: max((part["y"] for part in frame.get("parts", [])), default=-10_000),
+    ).get("parts", fallback))
+
+
+def _widest_frame_parts(frames: list[dict], fallback: list[dict]) -> list[dict]:
+    if not frames:
+        return list(fallback)
+    return list(max(
+        frames,
+        key=lambda frame: max(
+            (abs(part["x"] + part["w"] * 0.5 - OX) for part in frame.get("parts", [])),
+            default=-1.0,
+        ),
+    ).get("parts", fallback))
+
+
+def _row_hurt_entry(parts_doc: dict, anim: str) -> dict:
+    frames = _head_hurt_frames(parts_doc, anim)
+    fallback = _head_hurt_rect((0.0, REST_HEAD_Y))
+    entry = {
+        "frame_duration_secs": _animation_duration_secs(anim),
+        "hurtbox": _box([_first_part(frames, fallback)], frames),
+    }
+    return {k: v for k, v in entry.items() if v is not None}
+
+
+def _row_head_hit_entry(parts_doc: dict, anim: str) -> dict:
+    hurt_frames = _head_hurt_frames(parts_doc, anim)
+    hit_frames = _head_hit_frames(parts_doc, anim)
+    hurt_fallback = _head_hurt_rect((0.0, REST_HEAD_Y))
+    hit_fallback = _head_rect((0.0, REST_HEAD_Y))
+    hurt_parts = _deepest_frame_parts(hurt_frames, [hurt_fallback])
+    hit_parts = _deepest_frame_parts(hit_frames, [hit_fallback])
+    entry = {
+        "frame_duration_secs": _animation_duration_secs(anim),
+        "hurtbox": _box(hurt_parts, hurt_frames),
+        "hitbox": _box(hit_parts, hit_frames),
+    }
+    return {k: v for k, v in entry.items() if v is not None}
+
+
 def _gnu_ton_body_metrics(parts_doc: dict) -> dict:
     """Return the exact per-animation metrics emitted into the runtime RON.
 
     The hitbox debug preview also consumes this data, keeping the visual
-    review path tied to the same rectangles the Rust runtime loads.
+    review path tied to the same rectangles the Rust runtime loads. Every
+    moving gameplay box is derived from anchors recorded while drawing the
+    frames; no gameplay-only coordinates should be invented here.
     """
-    rest_head_hurt = _head_hurt_rect((0.0, REST_HEAD_Y))
-    head_down_hit_frames = [
-        {"parts": [_head_rect(frame["head"])]}
-        for frame in parts_doc["anchors"]["head_down"]
+    rest_hurt = _row_hurt_entry(parts_doc, "rest")
+    hit_hurt = _row_hurt_entry(parts_doc, "hit")
+    hand_slam_hurt = _row_hurt_entry(parts_doc, "hand_slam")
+    hand_sweep_hurt = _row_hurt_entry(parts_doc, "hand_sweep")
+    head_down_boxes = _row_head_hit_entry(parts_doc, "head_down")
+
+    hand_slam_frames = _hand_hit_frames(parts_doc, "hand_slam")
+    hand_sweep_frames = _hand_hit_frames(parts_doc, "hand_sweep")
+    hand_slam_fallback = [
+        _part_rect("left_hand", _pixel_rect_from_center(-REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H)),
+        _part_rect("right_hand", _pixel_rect_from_center(REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H)),
     ]
-    head_down_hurt_frames = [
-        {"parts": [_head_hurt_rect(frame["head"])]}
-        for frame in parts_doc["anchors"]["head_down"]
+    hand_sweep_fallback = [
+        _part_rect("left_hand", _pixel_rect_from_center(-REST_HAND_X, REST_HAND_Y, _HAND_BOX_W, _HAND_BOX_H)),
+        _part_rect("right_hand", _pixel_rect_from_center(REST_HAND_X, REST_HAND_Y, _HAND_BOX_W, _HAND_BOX_H)),
     ]
-    head_down_hit_parts = max(
-        (frame_box["parts"][0] for frame_box in head_down_hit_frames),
-        key=lambda rect: rect["y"],
-    )
-    head_down_hurt_parts = max(
-        (frame_box["parts"][0] for frame_box in head_down_hurt_frames),
-        key=lambda rect: rect["y"],
-    )
-    left_hand = _part_rect(
-        "left_hand",
-        _pixel_rect_from_center(-REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H),
-    )
-    right_hand = _part_rect(
-        "right_hand",
-        _pixel_rect_from_center(REST_HAND_X, SLAM_STRIKE_Y, _HAND_BOX_W, _HAND_BOX_H),
-    )
     shockwave = _part_rect("shockwave", {"x": 84, "y": 465, "w": 600, "h": 36})
-    left_arc = _part_rect("left_arc", {"x": 59, "y": 248, "w": 280, "h": 120})
-    right_arc = _part_rect("right_arc", {"x": 429, "y": 248, "w": 280, "h": 120})
+
+    gnu_hand_slam = dict(hand_slam_hurt)
+    gnu_hand_slam["hitbox"] = _box(
+        _deepest_frame_parts(hand_slam_frames, hand_slam_fallback),
+        hand_slam_frames,
+    )
+    gnu_shockwave = dict(hand_slam_hurt)
+    gnu_shockwave["hitbox"] = _box([shockwave])
+    gnu_hand_sweep = dict(hand_sweep_hurt)
+    gnu_hand_sweep["hitbox"] = _box(
+        _widest_frame_parts(hand_sweep_frames, hand_sweep_fallback),
+        hand_sweep_frames,
+    )
 
     return {
-        "rest": {"hurtbox": _box([rest_head_hurt])},
-        "hit": {"hurtbox": _box([rest_head_hurt])},
-        "gnu_hand_slam": {
-            "hurtbox": _box([rest_head_hurt]),
-            "hitbox": _box([left_hand, right_hand]),
-        },
-        "gnu_shockwave": {
-            "hurtbox": _box([rest_head_hurt]),
-            "hitbox": _box([shockwave]),
-        },
-        "gnu_hand_sweep": {
-            "hurtbox": _box([rest_head_hurt]),
-            "hitbox": _box([left_arc, right_arc]),
-        },
-        "gnu_head_descent": {
-            "frame_duration_secs": 0.09,
-            "hurtbox": _box([head_down_hurt_parts], head_down_hurt_frames),
-            "hitbox": _box([head_down_hit_parts], head_down_hit_frames),
-        },
+        # Visual-row keys. The runtime's live animation sample uses these so
+        # damageable hurtboxes follow the exact row/frame being rendered.
+        "rest": rest_hurt,
+        "hand_slam": hand_slam_hurt,
+        "hand_sweep": hand_sweep_hurt,
+        "head_down": head_down_boxes,
+        "hit": hit_hurt,
+        # Profile-specific keys. Dangerous attack hitboxes still use these so
+        # multiple gameplay profiles can share one visual row without losing
+        # their distinct damage volumes.
+        "gnu_hand_slam": gnu_hand_slam,
+        "gnu_shockwave": gnu_shockwave,
+        "gnu_hand_sweep": gnu_hand_sweep,
+        "gnu_head_descent": head_down_boxes,
     }
-
 
 def _gnu_ton_body_metrics_ron(parts_doc: dict) -> str:
     animations = _gnu_ton_body_metrics(parts_doc)
@@ -1380,9 +1473,9 @@ LABEL_FILL = (255, 255, 255, 230)
 
 _ROW_METRIC_KEYS = {
     "rest": ("rest",),
-    "hand_slam": ("gnu_hand_slam", "gnu_shockwave"),
-    "hand_sweep": ("gnu_hand_sweep",),
-    "head_down": ("gnu_head_descent",),
+    "hand_slam": ("hand_slam", "gnu_hand_slam", "gnu_shockwave"),
+    "hand_sweep": ("hand_sweep", "gnu_hand_sweep"),
+    "head_down": ("head_down", "gnu_head_descent"),
     "hit": ("hit",),
 }
 

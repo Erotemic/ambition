@@ -68,7 +68,7 @@ mod world_overlay;
 pub use boss_attack_geometry::{
     active_attack_volumes, body_damage_aabb, boss_attack_damage, bounding_aabb, damageable_volumes,
     telegraph_volumes, volumes_for_profile, world_space_body_aabbs_from_metrics,
-    world_space_body_aabbs_from_parts, BossVolumeContext,
+    world_space_body_aabbs_from_parts, BossAnimationFrameSample, BossVolumeContext,
 };
 pub use bosses::{
     boss_special_for_profile, BossAttackProfile, BossBehaviorProfile, BossMovementProfile,
@@ -92,8 +92,8 @@ pub use components::{
 pub use ecs::{
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
     clear_encounter_reward_ecs, collect_ecs_pickups, derive_boss_sprite_metrics,
-    despawn_encounter_mobs, ecs_boss_anim_state, ecs_boss_name, ecs_breakable_state,
-    ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override,
+    despawn_encounter_mobs, ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
+    ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
     ecs_npc_anim_state, ecs_npc_name, enforce_mount_rider_link, interact_ecs_actors_and_switches,
     is_composite_spawn, open_ecs_chests, pirate_on_shark_rider_offset,

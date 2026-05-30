@@ -157,7 +157,8 @@ pub enum BodyMode {
     /// converts vertical input to climb_speed motion. Set by the
     /// sandbox-side body-mode driver when `Player::climbable_contact`
     /// is `Some` and the player initiates a climb (Up/Down press).
-    /// Cleared on Jump (push off), drop-through, or losing contact.
+    /// Cleared on Jump/Dash (push off), drop-through, or losing
+    /// contact.
     Climbing,
 }
 
@@ -258,7 +259,12 @@ impl BodyShape {
     /// predicate but typically gate on `BlockKind::Solid` (cannot
     /// stand into a ceiling) and `BlockKind::OneWay` for stand-up
     /// inside a one-way ceiling.
-    pub fn fits_at<F>(self, center: Vec2, world: &crate::engine_core::world::World, predicate: F) -> bool
+    pub fn fits_at<F>(
+        self,
+        center: Vec2,
+        world: &crate::engine_core::world::World,
+        predicate: F,
+    ) -> bool
     where
         F: FnMut(&crate::engine_core::world::Block) -> bool,
     {

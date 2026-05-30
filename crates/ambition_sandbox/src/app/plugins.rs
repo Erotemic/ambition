@@ -155,6 +155,10 @@ fn register_player_input_systems(app: &mut App) {
             // PlayerInput phase so every input writer (leafwing, mobile
             // bridge, RL) has finalized the resource for this frame.
             crate::player::sync_local_player_input_frame,
+            // Ladder body-mode policy needs the freshly mirrored input
+            // frame, but it must still run before the player tick so
+            // climb/jump/dash exits land on the same frame as the edge.
+            crate::body_mode::update_body_mode,
             // Universal-brain seam: translate PlayerInputFrame into
             // the player's ActorControl frame. Runs after the input
             // sync so the brain sees this frame's inputs. The
@@ -366,7 +370,6 @@ fn register_progression_chain_systems(app: &mut App) {
             crate::content::quest::push_room_entered_quest_events,
             crate::content::quest::apply_quest_advance_events,
             crate::content::quest::grant_quest_completion_rewards,
-            crate::body_mode::update_body_mode,
             crate::rooms::sync_active_room_metadata,
             crate::rooms::sync_room_music_request,
             // Portal lifecycle: advance every registered portal's

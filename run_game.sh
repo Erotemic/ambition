@@ -1,21 +1,190 @@
 #!/usr/bin/env bash
-# Desktop-only run script. Builds for the host platform (Linux x86-64
-# in this dev VM), NOT for Android. Default features include
-# `mobile_touch` (pulls `virtual_joystick`) and `rl` (SandboxSim
-# binaries) -- both compile cleanly on desktop and are useful even
-# without a phone in the loop. To strip them for a smaller / faster
-# build, switch the cargo line to:
-#   cargo run -p ambition_sandbox --bin ambition_sandbox \
-#       --no-default-features --features visible,dev_hot_reload --release
+# Desktop-only run script. Builds/runs for the host platform (Linux x86-64
+# in this dev VM), NOT for Android. Use --help for release, hot-reload,
+# validation, and game-argument examples.
 #
-# An actual Android APK build is NOT produced by this script and
-# would require a separate `cargo apk` / `cargo ndk` toolchain plus
-# an Android NDK install. Nothing here invokes either of those.
+# An actual Android APK build is NOT produced by this script and would require
+# a separate `cargo apk` / `cargo ndk` toolchain plus an Android NDK install.
+# Nothing here invokes either of those.
 set -euo pipefail
-#PYTHONPATH="$(dirname "$0")/tools/ambition_ldtk_tools" \
-#    python -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
-#    --secondary-world crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk
-#RUST_BACKTRACE=full cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release
-#RUST_BACKTRACE=full cargo run -p ambition_sandbox --bin ambition_sandbox --release
-#RUST_BACKTRACE=full cargo run -p ambition_sandbox --bin ambition_sandbox
-cargo run -p ambition_sandbox --bin ambition_sandbox
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+python_bin="${PYTHON:-python}"
+
+release=0
+hot_reload=0
+validate_before_run=0
+validate_only=0
+no_default_features=0
+extra_features=()
+game_args=()
+
+usage() {
+    cat <<'USAGE'
+Usage:
+  ./run_game.sh [OPTIONS] [MODE ...] [-- GAME_ARGS ...]
+
+Common commands:
+  ./run_game.sh
+      Run the desktop sandbox in dev mode.
+
+  ./run_game.sh release
+  ./run_game.sh --release
+      Run the desktop sandbox with cargo --release.
+
+  ./run_game.sh hot
+  ./run_game.sh --hot-reload
+      Run with the dev_hot_reload feature enabled.
+
+  ./run_game.sh hot release -- --start-room goblin_encounter
+      Combine hot reload + release and pass arguments to the game binary.
+
+  ./run_game.sh validate
+  ./run_game.sh ldtk
+      Validate the sandbox LDtk world and exit.
+
+  ./run_game.sh --validate hot release
+      Validate LDtk first, then launch with hot reload + release.
+
+Options and mode aliases:
+  -h, --help              Show this help.
+  -r, --release, release  Use cargo --release.
+  --debug, debug, dev     Force dev/debug cargo profile.
+  --hot-reload, --hot,
+  hot, hot-reload         Enable the dev_hot_reload feature.
+  --no-hot-reload         Disable hot reload if an earlier alias enabled it.
+  -v, --validate          Validate LDtk before launching.
+  validate, ldtk,
+  ldtk-validate,
+  validate-only,
+  --validate-only         Validate LDtk and exit.
+  --features LIST         Add extra comma-separated cargo features.
+  --no-default-features   Pass --no-default-features to cargo.
+  --                      Everything after this is passed to the game binary.
+
+Environment:
+  PYTHON=/path/to/python   Python executable for ambition_ldtk_tools.
+  RUST_BACKTRACE=full      Backtrace mode for cargo run; defaults to full.
+USAGE
+}
+
+fail() {
+    echo "run_game.sh: $*" >&2
+    echo "Try './run_game.sh --help'." >&2
+    exit 2
+}
+
+print_cmd() {
+    printf '+ '
+    printf '%q ' "$@"
+    printf '\n'
+}
+
+run_ldtk_validation() {
+    local sandbox_world="$repo_root/crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"
+    local intro_world="$repo_root/crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk"
+
+    local cmd=(
+        "$python_bin" -m ambition_ldtk_tools validate
+        "$sandbox_world"
+        --secondary-world "$intro_world"
+    )
+
+    echo "Validating LDtk worlds..."
+    print_cmd env "PYTHONPATH=$repo_root/tools/ambition_ldtk_tools" "${cmd[@]}"
+    PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "${cmd[@]}"
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -r|--release|release)
+            release=1
+            ;;
+        --debug|debug|dev)
+            release=0
+            ;;
+        --hot|--hot-reload|--dev-hot-reload|hot|hot-reload|dev-hot-reload)
+            hot_reload=1
+            ;;
+        --no-hot-reload)
+            hot_reload=0
+            ;;
+        -v|--validate)
+            validate_before_run=1
+            ;;
+        validate|ldtk|ldtk-validate|validate-only|--validate-only)
+            validate_before_run=1
+            validate_only=1
+            ;;
+        --features)
+            shift
+            [[ $# -gt 0 ]] || fail "--features requires a comma-separated feature list"
+            extra_features+=("$1")
+            ;;
+        --features=*)
+            extra_features+=("${1#--features=}")
+            ;;
+        --no-default-features)
+            no_default_features=1
+            ;;
+        --)
+            shift
+            game_args+=("$@")
+            break
+            ;;
+        --*)
+            fail "unknown option '$1'"
+            ;;
+        *)
+            game_args+=("$1")
+            ;;
+    esac
+    shift
+done
+
+if [[ "$validate_before_run" -eq 1 ]]; then
+    run_ldtk_validation
+fi
+
+if [[ "$validate_only" -eq 1 ]]; then
+    exit 0
+fi
+
+cargo_args=(run -p ambition_sandbox --bin ambition_sandbox)
+
+if [[ "$no_default_features" -eq 1 ]]; then
+    cargo_args+=(--no-default-features)
+fi
+
+features=()
+if [[ "$hot_reload" -eq 1 ]]; then
+    features+=(dev_hot_reload)
+fi
+for feature_list in "${extra_features[@]}"; do
+    if [[ -n "$feature_list" ]]; then
+        features+=("$feature_list")
+    fi
+done
+
+if [[ "${#features[@]}" -gt 0 ]]; then
+    IFS=,
+    cargo_args+=(--features "${features[*]}")
+    unset IFS
+fi
+
+if [[ "$release" -eq 1 ]]; then
+    cargo_args+=(--release)
+fi
+
+if [[ "${#game_args[@]}" -gt 0 ]]; then
+    cargo_args+=(-- "${game_args[@]}")
+fi
+
+cd "$repo_root"
+export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
+print_cmd cargo "${cargo_args[@]}"
+exec cargo "${cargo_args[@]}"

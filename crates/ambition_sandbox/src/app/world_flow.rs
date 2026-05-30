@@ -31,6 +31,14 @@ pub(super) fn sandbox_dt(hitstop_timer: f32, time_scale: f32, frame_dt: f32) -> 
     }
 }
 
+fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<ae::Aabb> {
+    world
+        .blocks
+        .iter()
+        .find(|block| block.kind.is_pogo_target() && attack.strict_intersects(block.aabb))
+        .map(|block| block.aabb)
+}
+
 pub(super) fn reset_sandbox(
     world: &ae::World,
     sfx: &mut MessageWriter<SfxMessage>,
@@ -939,17 +947,7 @@ pub(super) fn advance_attack(
         {
             let attack_world =
                 features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-            if let Some(orb_aabb) = attack_world.blocks.iter().find_map(|block| {
-                let valid_target = matches!(
-                    block.kind,
-                    ae::BlockKind::PogoOrb
-                        | ae::BlockKind::Solid
-                        | ae::BlockKind::OneWay
-                        | ae::BlockKind::BlinkWall { .. }
-                        | ae::BlockKind::Rebound { .. }
-                );
-                (valid_target && attack.strict_intersects(block.aabb)).then_some(block.aabb)
-            }) {
+            if let Some(orb_aabb) = pogo_target_for_attack_hitbox(&attack_world, attack) {
                 clusters.kinematics.vel.y = -tuning.pogo_speed;
                 ae::refresh_movement_resources_clusters(
                     clusters.abilities,
@@ -1036,5 +1034,55 @@ pub(super) fn advance_attack(
         anim.slash_anim_timer = 0.0;
     } else {
         *attack = Some(attack_state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_attack_box() -> ae::Aabb {
+        ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 16.0))
+    }
+
+    #[test]
+    fn attack_phase_pogo_rejects_ground_and_one_way_targets() {
+        let attack = test_attack_box();
+        let min = attack.center() - attack.half_size();
+        let size = attack.half_size() * 2.0;
+        let world = ae::World::new(
+            "pogo attack reject test",
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::ZERO,
+            vec![
+                ae::Block::solid("floor", min, size),
+                ae::Block::one_way("one-way", min, size),
+                ae::Block::blink_wall("blink-wall", min, size, ae::BlinkWallTier::Soft),
+            ],
+        );
+
+        assert_eq!(pogo_target_for_attack_hitbox(&world, attack), None);
+    }
+
+    #[test]
+    fn attack_phase_pogo_accepts_authored_pogo_targets() {
+        let attack = test_attack_box();
+        let min = attack.center() - attack.half_size();
+        let size = attack.half_size() * 2.0;
+        let orb = ae::Block::pogo_orb("orb", attack.center(), 12.0);
+        let rebound = ae::Block::rebound(
+            "rebound",
+            min + ae::Vec2::new(60.0, 0.0),
+            size,
+            ae::Vec2::new(0.0, 180.0),
+        );
+        let world = ae::World::new(
+            "pogo attack accept test",
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::ZERO,
+            vec![ae::Block::solid("floor", min, size), orb.clone(), rebound],
+        );
+
+        assert_eq!(pogo_target_for_attack_hitbox(&world, attack), Some(orb.aabb));
     }
 }

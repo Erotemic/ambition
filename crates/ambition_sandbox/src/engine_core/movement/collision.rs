@@ -324,10 +324,10 @@ pub fn try_pogo_clusters(
         Vec2::new(feet.center().x, feet.bottom() + 18.0),
         Vec2::new(feet.half_size().x * 0.76, 22.0),
     );
-    let hit = world.blocks.iter().find(|block| {
-        let valid_target = matches!(block.kind, BlockKind::PogoOrb | BlockKind::Rebound { .. });
-        valid_target && hitbox.strict_intersects(block.aabb)
-    });
+    let hit = world
+        .blocks
+        .iter()
+        .find(|block| block.kind.is_pogo_target() && hitbox.strict_intersects(block.aabb));
     if let Some(block) = hit {
         let aabb = block.aabb;
         kinematics.vel.y = -tuning.pogo_speed;

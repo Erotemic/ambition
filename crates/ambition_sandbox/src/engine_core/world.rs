@@ -34,6 +34,17 @@ pub enum BlockKind {
     Rebound { impulse: Vec2 },
 }
 
+impl BlockKind {
+    /// True for authored surfaces that a downward pogo strike may
+    /// bounce from.
+    ///
+    /// Keep this policy centralized so the control-phase pogo helper
+    /// and the melee/attack-phase pogo helper cannot drift apart.
+    pub fn is_pogo_target(self) -> bool {
+        matches!(self, Self::PogoOrb | Self::Rebound { .. })
+    }
+}
+
 /// One piece of generated room geometry.
 #[derive(Clone, Debug)]
 pub struct Block {
@@ -621,5 +632,27 @@ mod tests {
             "default strafe_factor should be 0.25 (got {})",
             spec.strafe_factor
         );
+    }
+}
+
+#[cfg(test)]
+mod pogo_policy_tests {
+    use super::*;
+
+    #[test]
+    fn pogo_target_policy_is_authored_pogo_or_rebound_only() {
+        let rebound = BlockKind::Rebound {
+            impulse: Vec2::ZERO,
+        };
+        let blink_wall = BlockKind::BlinkWall {
+            tier: BlinkWallTier::Soft,
+        };
+
+        assert!(BlockKind::PogoOrb.is_pogo_target());
+        assert!(rebound.is_pogo_target());
+        assert!(!BlockKind::Solid.is_pogo_target());
+        assert!(!BlockKind::OneWay.is_pogo_target());
+        assert!(!blink_wall.is_pogo_target());
+        assert!(!BlockKind::Hazard.is_pogo_target());
     }
 }

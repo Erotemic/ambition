@@ -35,6 +35,8 @@
 use bevy::prelude::Resource;
 
 use super::content::DialogChoice;
+use crate::engine_core::Vec2;
+use crate::ui_nav::MenuFocusState;
 
 #[cfg(feature = "ui")]
 use bevy_yarnspinner::prelude::OptionId;
@@ -75,6 +77,13 @@ pub struct DialogState {
     /// activates. This prevents a finger press that turns into a
     /// small drag from accidentally advancing dialogue.
     pub(in crate::dialog) pointer_armed: Option<usize>,
+    /// Which input source currently owns selection focus, plus the
+    /// last row the pointer actually hovered.
+    pub(in crate::dialog) focus: MenuFocusState,
+    /// Last cursor position that successfully owned dialog hover.
+    /// Used to ignore stationary hover when the option list scrolls
+    /// underneath the mouse.
+    pub(in crate::dialog) last_pointer_position: Option<Vec2>,
 
     /// Pending request: `Some((dialogue_id, npc_name))` until a
     /// dispatch system drains it and calls `runner.start_node`.
@@ -120,6 +129,8 @@ impl DialogState {
         self.yarn_option_ids.clear();
         self.selected_option = 0;
         self.pointer_armed = None;
+        self.focus = MenuFocusState::default();
+        self.last_pointer_position = None;
         self.pending_start = Some((dialogue_id.to_string(), npc_name.to_string()));
         // Clear any stale pending close from a previous session.
         self.pending_close = false;
@@ -140,6 +151,8 @@ impl DialogState {
         #[cfg(feature = "ui")]
         self.yarn_option_ids.clear();
         self.pointer_armed = None;
+        self.focus = MenuFocusState::default();
+        self.last_pointer_position = None;
     }
 
     pub fn active(&self) -> bool {
@@ -183,6 +196,7 @@ impl DialogState {
     }
 
     pub(in crate::dialog) fn select_delta(&mut self, delta: isize) {
+        self.focus.mark_keyboard();
         let len = self.options().len();
         if len == 0 {
             self.selected_option = 0;
@@ -213,8 +227,10 @@ impl DialogState {
         } else if self.current_options.is_empty() {
             self.pending_advance = true;
         } else {
-            self.pending_select =
-                Some(self.selected_option.min(self.current_options.len().saturating_sub(1)));
+            self.pending_select = Some(
+                self.selected_option
+                    .min(self.current_options.len().saturating_sub(1)),
+            );
         }
         false
     }

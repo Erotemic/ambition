@@ -17,5 +17,4 @@ pub use list::{
 };
 pub use pointer::{
     resolve_selectable_row_interaction, MenuFocusOwner, MenuFocusState, RowPointerOutcome,
-    RowPointerUpdate,
 };

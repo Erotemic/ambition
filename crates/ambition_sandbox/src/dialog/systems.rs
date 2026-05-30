@@ -7,12 +7,15 @@ use crate::game_mode::GameMode;
 use crate::input::MenuControlFrame;
 #[cfg(feature = "input")]
 use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction};
+#[cfg(feature = "input")]
+use bevy::window::PrimaryWindow;
 
 #[cfg(feature = "input")]
 pub fn dialog_pointer_input(
     mut dialogue: ResMut<DialogState>,
     mode: Res<State<GameMode>>,
     next_mode: ResMut<NextState<GameMode>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     choices: Query<(&Interaction, &DialogChoiceSlot), Changed<Interaction>>,
 ) {
     if !dialogue.active() {
@@ -21,6 +24,7 @@ pub fn dialog_pointer_input(
     if !matches!(mode.get(), GameMode::Dialogue) {
         return;
     }
+    let cursor_position = windows.single().ok().and_then(Window::cursor_position);
 
     let option_count = dialogue.options().len();
     for (interaction, slot) in &choices {
@@ -41,10 +45,13 @@ pub fn dialog_pointer_input(
                     dialogue.selected_option,
                     dialogue.pointer_armed,
                     dialogue.focus,
+                    dialogue.last_pointer_position,
+                    cursor_position,
                 );
                 dialogue.selected_option = update.selected;
                 dialogue.pointer_armed = update.pointer_armed;
                 dialogue.focus = update.focus;
+                dialogue.last_pointer_position = update.last_pointer_position;
                 continue;
             }
             Interaction::Pressed => {
@@ -56,6 +63,7 @@ pub fn dialog_pointer_input(
                         dialogue.selected_option == index && dialogue.pointer_armed == Some(index);
                     dialogue.selected_option = index;
                     dialogue.focus.mark_pointer(index);
+                    dialogue.last_pointer_position = cursor_position;
                     if confirm {
                         dialogue.pointer_armed = None;
                         // Confirm advances via the Yarn dispatch
@@ -72,6 +80,7 @@ pub fn dialog_pointer_input(
                 {
                     dialogue.selected_option = index;
                     dialogue.focus.mark_pointer(index);
+                    dialogue.last_pointer_position = cursor_position;
                     dialogue.confirm_or_advance();
                 }
                 return;
@@ -145,8 +154,22 @@ fn handle_dialog_choice_hover(
     selected: usize,
     pointer_armed: Option<usize>,
     focus: crate::ui_nav::MenuFocusState,
-) -> crate::ui_nav::RowPointerUpdate {
-    resolve_selectable_row_interaction(
+    last_pointer_position: Option<Vec2>,
+    cursor_position: Option<Vec2>,
+) -> DialogHoverUpdate {
+    if focus.owner == crate::ui_nav::MenuFocusOwner::Keyboard
+        && last_pointer_position.is_some()
+        && (cursor_position.is_none() || last_pointer_position == cursor_position)
+    {
+        return DialogHoverUpdate {
+            selected,
+            pointer_armed,
+            focus,
+            last_pointer_position,
+        };
+    }
+
+    let update = resolve_selectable_row_interaction(
         &Interaction::Hovered,
         index,
         selected,
@@ -154,6 +177,40 @@ fn handle_dialog_choice_hover(
         false,
         pointer_armed,
         focus,
+    );
+    DialogHoverUpdate {
+        selected: update.selected,
+        pointer_armed: update.pointer_armed,
+        focus: update.focus,
+        last_pointer_position: cursor_position.or(last_pointer_position),
+    }
+}
+
+#[cfg(feature = "input")]
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct DialogHoverUpdate {
+    selected: usize,
+    pointer_armed: Option<usize>,
+    focus: crate::ui_nav::MenuFocusState,
+    last_pointer_position: Option<Vec2>,
+}
+
+#[cfg(feature = "input")]
+fn resolve_dialog_choice_hover(
+    index: usize,
+    selected: usize,
+    pointer_armed: Option<usize>,
+    focus: crate::ui_nav::MenuFocusState,
+    last_pointer_position: Option<Vec2>,
+    cursor_position: Option<Vec2>,
+) -> DialogHoverUpdate {
+    handle_dialog_choice_hover(
+        index,
+        selected,
+        pointer_armed,
+        focus,
+        last_pointer_position,
+        cursor_position,
     )
 }
 
@@ -164,7 +221,7 @@ mod tests {
 
     #[test]
     fn keyboard_focus_blocks_stale_hover_on_same_row() {
-        let update = handle_dialog_choice_hover(
+        let update = resolve_dialog_choice_hover(
             2,
             1,
             Some(1),
@@ -172,10 +229,32 @@ mod tests {
                 owner: MenuFocusOwner::Keyboard,
                 last_hovered_row: Some(2),
             },
+            Some(Vec2::new(120.0, 240.0)),
+            Some(Vec2::new(120.0, 240.0)),
         );
 
         assert_eq!(update.selected, 1);
         assert_eq!(update.pointer_armed, Some(1));
         assert_eq!(update.focus.owner, MenuFocusOwner::Keyboard);
+    }
+
+    #[test]
+    fn keyboard_focus_blocks_stationary_hover_after_scroll() {
+        let update = resolve_dialog_choice_hover(
+            5,
+            1,
+            Some(1),
+            crate::ui_nav::MenuFocusState {
+                owner: MenuFocusOwner::Keyboard,
+                last_hovered_row: Some(1),
+            },
+            Some(Vec2::new(220.0, 180.0)),
+            Some(Vec2::new(220.0, 180.0)),
+        );
+
+        assert_eq!(update.selected, 1);
+        assert_eq!(update.pointer_armed, Some(1));
+        assert_eq!(update.focus.owner, MenuFocusOwner::Keyboard);
+        assert_eq!(update.last_pointer_position, Some(Vec2::new(220.0, 180.0)));
     }
 }

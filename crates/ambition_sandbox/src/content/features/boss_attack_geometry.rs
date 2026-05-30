@@ -271,7 +271,8 @@ pub fn telegraph_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
     let Some(profile) = ctx.attack_state.telegraph_profile.as_ref() else {
         return Vec::new();
     };
-    if let Some(volumes) = sprite_authored_volumes(ctx, profile, ctx.attack_state.telegraph_elapsed) {
+    if let Some(volumes) = sprite_authored_volumes(ctx, profile, ctx.attack_state.telegraph_elapsed)
+    {
         return volumes;
     }
     volumes_for_profile(profile, ctx.pos, ctx.combat_size, ctx.behavior)
@@ -305,7 +306,8 @@ fn sprite_authored_volumes(
         if !hitbox.is_populated() {
             continue;
         }
-        let selected_frame = authored_animation_frame_index(ctx, profile, entry, animation_elapsed_s);
+        let selected_frame =
+            authored_animation_frame_index(ctx, profile, entry, animation_elapsed_s);
         let aabbs = world_space_animation_box_aabbs(
             hitbox,
             selected_frame,
@@ -334,7 +336,6 @@ fn sprite_world_size(metrics: &super::bosses::BossSpriteMetrics, fallback: ae::V
         fallback
     }
 }
-
 
 fn animation_frame_index(
     entry: &crate::presentation::character_sprites::registry::AnimationMetrics,
@@ -398,7 +399,10 @@ fn world_space_animation_box_aabbs(
     world_size: ae::Vec2,
 ) -> Vec<ae::Aabb> {
     if let Some(index) = frame_index {
-        if let Some(frame) = box_.frames.get(index.min(box_.frames.len().saturating_sub(1))) {
+        if let Some(frame) = box_
+            .frames
+            .get(index.min(box_.frames.len().saturating_sub(1)))
+        {
             if frame.is_populated() {
                 return world_space_body_aabbs_from_parts(
                     &frame.parts,
@@ -480,7 +484,9 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
                 continue;
             }
             let frame_index = match active_profile {
-                Some(profile) => authored_animation_frame_index(ctx, profile, entry, animation_elapsed_s),
+                Some(profile) => {
+                    authored_animation_frame_index(ctx, profile, entry, animation_elapsed_s)
+                }
                 None => animation_frame_index(entry, animation_elapsed_s),
             };
             let aabbs = world_space_animation_box_aabbs(
@@ -685,6 +691,7 @@ pub fn volumes_for_profile(
         // Empty volumes here prevent double-counting via
         // `boss_attack_damage`'s strike arm.
         BossAttackProfile::OverfitVolley
+        | BossAttackProfile::EyeBeam
         | BossAttackProfile::MinimaTrap
         | BossAttackProfile::SaddlePoint
         | BossAttackProfile::GradientCascade => Vec::new(),

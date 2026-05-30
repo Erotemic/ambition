@@ -143,6 +143,23 @@ impl BossMovementProfile {
             | Self::StationaryGiant { speed, .. } => speed,
         }
     }
+
+    /// True when this movement profile is explicitly ground-locked
+    /// to horizontal motion. Macro Approach / Retreat can otherwise
+    /// introduce a vertical component by steering toward the player's
+    /// center or a retreat anchor. Smirking Behemoth authors this as
+    /// `AnchorSway(y_bob: 0, y_frequency: 0)`: it should slide left /
+    /// right like the YHTBTR boss, never rise or sink toward the
+    /// player.
+    pub fn horizontal_only(&self) -> bool {
+        match *self {
+            Self::AnchorSway {
+                y_bob, y_frequency, ..
+            } => y_bob.abs() <= f32::EPSILON && y_frequency.abs() <= f32::EPSILON,
+            Self::StationaryGiant { .. } => true,
+            Self::AirSwoop { .. } => false,
+        }
+    }
 }
 
 /// One beat in a scripted boss attack timeline. Patterns built from these
@@ -260,6 +277,11 @@ pub enum BossAttackProfile {
     // Damage routes through spawned enemy projectiles (the bolt
     // barrage), so `volumes_for` returns empty for this profile.
     OverfitVolley,
+    // Smirking Behemoth special: lock an approximate player position
+    // during the telegraph, then emit a short line of fast bubble-laser
+    // boxes from the eye toward that position. Damage routes through
+    // spawned enemy projectiles, so `volumes_for` returns empty.
+    EyeBeam,
     // Gradient Sentinel special: a "local minimum" pit forms at the
     // player's position on strike start and persists as a damaging
     // World-anchored hitbox for several seconds; spawns 1 puppy_slug
@@ -287,6 +309,7 @@ impl BossAttackProfile {
             self,
             BossAttackProfile::GnuAppleRain
                 | BossAttackProfile::OverfitVolley
+                | BossAttackProfile::EyeBeam
                 | BossAttackProfile::MinimaTrap
                 | BossAttackProfile::SaddlePoint
                 | BossAttackProfile::GradientCascade
@@ -565,6 +588,12 @@ pub struct BossMacroTuning {
     /// How far (px) the boss retreats from the player along the
     /// player→boss axis. Larger = bigger retreat arc.
     pub retreat_distance: f32,
+    /// If true, the boss suppresses Telegraph/Strike actions while
+    /// Approach or Retreat is active. Useful for YHTBTR-style bosses
+    /// that only choose idle/attack once they have reached their
+    /// preferred standoff range.
+    #[serde(default)]
+    pub suppress_attacks_while_moving: bool,
 }
 
 impl BossMacroTuning {
@@ -582,6 +611,7 @@ impl BossMacroTuning {
             approach_speed_scale: 1.0,
             retreat_speed_scale: 1.0,
             retreat_distance: 0.0,
+            suppress_attacks_while_moving: false,
         }
     }
 
@@ -694,6 +724,11 @@ pub fn tick_boss_pattern(
         return;
     }
 
+    let facing_delta_x = ctx.target_pos.x - ctx.actor_pos.x;
+    if facing_delta_x.abs() > 2.0 {
+        out.facing = facing_delta_x.signum();
+    }
+
     // Tick the free-running clocks the movement profile reads.
     state.movement_timer += ctx.dt;
     state.pattern_timer += ctx.dt;
@@ -729,6 +764,22 @@ pub fn tick_boss_pattern(
         // Still emit desired_vel from the movement profile so a
         // boss in Dormant still keeps its sway phase (matches the
         // legacy behavior).
+        emit_desired_vel(cfg, state, ctx, out, attack_state);
+        return;
+    }
+
+    // Bosses with a standoff macro should not begin telegraph/strike
+    // actions while closing distance or backing away. This keeps the
+    // Smirking Behemoth from intentionally walking into the player;
+    // it moves to its preferred ring, then spends that close-range
+    // window idling or firing eye beams.
+    if cfg.macro_tuning.suppress_attacks_while_moving
+        && matches!(
+            state.macro_state,
+            BossMacroState::Approach { .. } | BossMacroState::Retreat { .. }
+        )
+    {
+        attack_state.clear();
         emit_desired_vel(cfg, state, ctx, out, attack_state);
         return;
     }
@@ -891,7 +942,8 @@ fn advance_cycle(
             attack_state.telegraph_elapsed = 0.0;
             attack_state.active_profile = Some(profile);
             attack_state.active_remaining = state.cycle_phase_remaining;
-            attack_state.active_elapsed = windup_total + (total - state.cycle_phase_remaining).max(0.0);
+            attack_state.active_elapsed =
+                windup_total + (total - state.cycle_phase_remaining).max(0.0);
         }
         CyclePhase::Cooldown => attack_state.clear(),
     }
@@ -997,7 +1049,23 @@ fn emit_desired_vel(
     // target. The speed scaling for Approach/Retreat is applied
     // farther down via `macro_speed_scale`.
     let mut target = match state.macro_state {
-        BossMacroState::Approach { .. } => ctx.target_pos,
+        BossMacroState::Approach { .. } => {
+            // Approach the player's *standoff ring* rather than the
+            // player center so a contact-damage boss stops before it
+            // deliberately walks into the player.
+            let away = ctx.actor_pos - ctx.target_pos;
+            let dir = if away.length_squared() < 1e-3 {
+                ae::Vec2::new(1.0, 0.0)
+            } else {
+                away.normalize()
+            };
+            let standoff = cfg
+                .macro_tuning
+                .engage_distance
+                .max(cfg.macro_tuning.too_close_distance + 12.0)
+                .max(48.0);
+            ctx.target_pos + dir * standoff
+        }
         BossMacroState::Retreat { retreat_pos, .. } => retreat_pos,
         BossMacroState::Engage => movement.target(cfg.spawn, state.movement_timer, ctx.target_pos),
     };
@@ -1025,10 +1093,17 @@ fn emit_desired_vel(
     let margin = 8.0;
     let max_x = (ctx.world_size.x - half.x - margin).max(half.x + margin);
     let max_y = (ctx.world_size.y - half.y - margin).max(half.y + margin);
-    let clamped_target = ae::Vec2::new(
+    let mut clamped_target = ae::Vec2::new(
         target.x.clamp(half.x + margin, max_x),
         target.y.clamp(half.y + margin, max_y),
     );
+    if movement.horizontal_only() {
+        // The profile declares no vertical travel, so do not let the
+        // macro standoff/retreat steering add one. Preserve the
+        // current integrated y so collision remains authoritative if
+        // the boss was previously nudged by the world.
+        clamped_target.y = ctx.actor_pos.y;
+    }
     target = clamped_target;
 
     let delta = target - ctx.actor_pos;
@@ -1554,6 +1629,7 @@ mod tests {
             approach_speed_scale: 1.5,
             retreat_speed_scale: 0.8,
             retreat_distance: 250.0,
+            suppress_attacks_while_moving: false,
         };
         cfg
     }

@@ -1,0 +1,167 @@
+// Auto-emitted optional actor contract. Current sandbox builds ignore
+// this file; it is the renderer -> engine sidecar for future actor
+// spec ingestion. Keep fields sparse: capabilities create requirements,
+// and missing data should be explicit rather than guessed silently.
+(
+    schema_version: 1,
+    character_id: "fx_generic_explosions",
+    actor_id: None,
+    display_name: Some("Generic Explosions"),
+    provenance: Some((
+        surface: "tackon",
+        renderer_target: "generic_explosions",
+        output_stem: "generic_explosions",
+        seed: None,
+        archetype: None,
+        variant: None,
+        held_item: None,
+        source_config: None,
+    )),
+    visual: Some((
+        sheet_id: "generic_explosions",
+        spritesheet: "generic_explosions_spritesheet.png",
+        sheet_manifest: "generic_explosions_spritesheet.ron",
+        default_pose: Some("classic_burst"),
+        facing_policy: None,
+        scale: None,
+    )),
+    body: Some((
+        body_kind: Some("Burst"),
+        body_plan: Some("Effect"),
+        collision: Some((
+            w_px: 15.0,
+            h_px: 15.0,
+            source: "sheet.body_metrics.body_pixel_bbox",
+            confidence: "derived",
+        )),
+        hurtbox: Some((
+            w_px: 15.0,
+            h_px: 15.0,
+            source: "sheet.body_metrics.body_pixel_bbox",
+            confidence: "derived",
+        )),
+        mass_class: Some("Light"),
+        locomotion_hint: Some("Stationary"),
+        body_metrics_source: Some("sheet.body_metrics"),
+        traits: [
+            "fx",
+            "explosion",
+            "overlay",
+        ],
+    )),
+    capabilities: Some((
+        traversal: Some((
+            walk: None,
+            jump: None,
+            climb: None,
+            fly: None,
+            swim: None,
+            crawl: None,
+            use_lifts: None,
+            door_access: [],
+        )),
+        interactions: Some((
+            talk: None,
+            trade: None,
+            carry: None,
+            open_doors: [],
+        )),
+    )),
+    brain: Some((
+        default_preset: Some("stand_still"),
+    )),
+    actions: Some((
+        default_preset: Some("peaceful"),
+    )),
+    animation_bindings: {
+        "action.special.round": (
+            animation: "burst_round",
+            events: [],
+        ),
+        "action.special.shockwave": (
+            animation: "shockwave",
+            events: [],
+        ),
+        "action.special.smoke": (
+            animation: "smoke_burst",
+            events: [],
+        ),
+        "action.special.starburst": (
+            animation: "starburst",
+            events: [],
+        ),
+        "default": (
+            animation: "classic_burst",
+            events: [],
+        ),
+    },
+    sockets: {
+        "center": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 59.5,
+                y: 59.5,
+            ),
+        ),
+        "chest": (
+            source: "heuristic.body_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 59.5,
+                y: 57.7,
+            ),
+        ),
+        "core": (
+            source: "frame_rect.anchors",
+            animation: "classic_burst",
+            frame: 0,
+            point: (
+                x: 59.0,
+                y: 60.0,
+            ),
+        ),
+        "feet": (
+            source: "body_metrics.feet_pixel",
+            animation: None,
+            frame: None,
+            point: (
+                x: 59.5,
+                y: 67.0,
+            ),
+        ),
+        "head": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 59.5,
+                y: 52.0,
+            ),
+        ),
+        "origin": (
+            source: "generic_explosions.geometry",
+            point: (
+                x: 72.0,
+                y: 72.0,
+            ),
+        ),
+        "root": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 59.5,
+                y: 67.0,
+            ),
+        ),
+    },
+    tags: [
+        "fx",
+        "explosion",
+        "overlay",
+    ],
+    missing_information: [],
+)

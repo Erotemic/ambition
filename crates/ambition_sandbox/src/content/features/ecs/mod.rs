@@ -90,10 +90,11 @@ pub use bosses::{
     update_ecs_bosses,
 };
 pub use brain_effects::{
-    spawn_enemy_projectiles_from_brain_actions, spawn_gnu_apple_rain_from_special_messages,
+    spawn_enemy_projectiles_from_brain_actions, spawn_eye_beam_from_special_messages,
+    spawn_gnu_apple_rain_from_special_messages,
     spawn_gradient_cascade_minions_from_special_messages, spawn_minima_trap_from_special_messages,
     spawn_overfit_volley_from_special_messages, spawn_saddle_point_from_special_messages,
-    start_enemy_melee_from_brain_actions, AppleRainSpawnState, GradientCascadeState,
+    start_enemy_melee_from_brain_actions, AppleRainSpawnState, EyeBeamState, GradientCascadeState,
     MinimaTrapState, OverfitVolleyState, SaddlePointState,
 };
 pub use breakables::update_ecs_breakables;

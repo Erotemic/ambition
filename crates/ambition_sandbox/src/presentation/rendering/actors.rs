@@ -810,6 +810,7 @@ pub fn animate_bosses(
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
         }
+        sprite.flip_x = state.facing < 0.0;
         // Same split as `animate_characters`: hit feedback rides on
         // the white-silhouette `hit_flash` overlay; the warm
         // attack tint stays on `sprite.color` so the player can

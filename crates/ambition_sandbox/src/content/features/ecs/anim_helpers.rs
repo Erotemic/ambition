@@ -140,16 +140,17 @@ fn boss_anim_for_attack_profile(
     use crate::boss_encounter::sprites::BossAnim;
     use crate::brain::BossAttackProfile;
     match profile {
-        BossAttackProfile::FloorSlam | BossAttackProfile::GnuHandSlam | BossAttackProfile::GnuShockwave => {
-            Some(BossAnim::FloorSlam)
-        }
-        BossAttackProfile::SideSweep | BossAttackProfile::GnuHandSweep | BossAttackProfile::Broadside => {
-            Some(BossAnim::SideSweep)
-        }
+        BossAttackProfile::FloorSlam
+        | BossAttackProfile::GnuHandSlam
+        | BossAttackProfile::GnuShockwave => Some(BossAnim::FloorSlam),
+        BossAttackProfile::SideSweep
+        | BossAttackProfile::GnuHandSweep
+        | BossAttackProfile::Broadside => Some(BossAnim::SideSweep),
         BossAttackProfile::FullBodyPulse
         | BossAttackProfile::GnuHeadDescent
         | BossAttackProfile::GnuAppleRain
         | BossAttackProfile::OverfitVolley
+        | BossAttackProfile::EyeBeam
         | BossAttackProfile::MinimaTrap
         | BossAttackProfile::SaddlePoint
         | BossAttackProfile::GradientCascade => Some(BossAnim::SpikeHalo),
@@ -157,7 +158,6 @@ fn boss_anim_for_attack_profile(
         BossAttackProfile::WingSweep => None,
     }
 }
-
 
 fn boss_animation_key_for_sample(
     profile: &crate::brain::BossAttackProfile,
@@ -174,15 +174,15 @@ fn boss_animation_key_for_sample(
             Some("hand_slam")
         }
         (BossAttackProfile::GnuHandSweep, BossAnim::SideSweep) => Some("hand_sweep"),
-        (BossAttackProfile::GnuHeadDescent | BossAttackProfile::GnuAppleRain, BossAnim::SpikeHalo) => {
-            Some("head_down")
-        }
+        (
+            BossAttackProfile::GnuHeadDescent | BossAttackProfile::GnuAppleRain,
+            BossAnim::SpikeHalo,
+        ) => Some("head_down"),
         _ => super::super::bosses::boss_animation_keys_for_profile(profile)
             .first()
             .copied(),
     }
 }
-
 
 fn boss_anim_state_for(
     boss: &BossFeature,
@@ -213,6 +213,7 @@ fn boss_anim_state_for(
             .as_ref()
             .and_then(boss_anim_for_attack_profile),
         pattern_timer,
+        facing: boss.facing,
     }
 }
 
@@ -225,13 +226,18 @@ pub fn ecs_boss_anim_state_and_entity(
         &crate::brain::BossAttackState,
         &crate::brain::Brain,
     )>,
-) -> Option<(bevy::prelude::Entity, crate::boss_encounter::sprites::BossAnimState)> {
-    bosses.iter().find_map(|(entity, feature_id, boss, attack_state, brain)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        Some((entity, boss_anim_state_for(boss, attack_state, brain)))
-    })
+) -> Option<(
+    bevy::prelude::Entity,
+    crate::boss_encounter::sprites::BossAnimState,
+)> {
+    bosses
+        .iter()
+        .find_map(|(entity, feature_id, boss, attack_state, brain)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            Some((entity, boss_anim_state_for(boss, attack_state, brain)))
+        })
 }
 
 /// Return the currently rendered attack-frame sample for a boss,
@@ -252,42 +258,53 @@ pub fn ecs_boss_animation_frame_sample(
     )>,
     anim: crate::boss_encounter::sprites::BossAnim,
     frame_index: usize,
-) -> Option<(bevy::prelude::Entity, crate::features::BossAnimationFrameSample)> {
-    bosses.iter().find_map(|(entity, feature_id, boss, attack_state, _brain)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        let active_expected = attack_state
-            .active_profile
-            .as_ref()
-            .and_then(boss_anim_for_attack_profile);
-        let telegraph_expected = attack_state
-            .telegraph_profile
-            .as_ref()
-            .and_then(boss_anim_for_attack_profile);
-        let mut result = None;
-        if let Some(profile) = attack_state.active_profile.as_ref() {
-            if active_expected == Some(anim) {
-                result = Some((entity, crate::features::BossAnimationFrameSample {
-                    profile: profile.clone(),
-                    frame_index,
-                    animation_key: boss_animation_key_for_sample(profile, anim),
-                }));
+) -> Option<(
+    bevy::prelude::Entity,
+    crate::features::BossAnimationFrameSample,
+)> {
+    bosses
+        .iter()
+        .find_map(|(entity, feature_id, boss, attack_state, _brain)| {
+            if feature_id.as_str() != id {
+                return None;
             }
-        }
-        if result.is_none() {
-            if let Some(profile) = attack_state.telegraph_profile.as_ref() {
-                if telegraph_expected == Some(anim) {
-                    result = Some((entity, crate::features::BossAnimationFrameSample {
-                        profile: profile.clone(),
-                        frame_index,
-                        animation_key: boss_animation_key_for_sample(profile, anim),
-                    }));
+            let active_expected = attack_state
+                .active_profile
+                .as_ref()
+                .and_then(boss_anim_for_attack_profile);
+            let telegraph_expected = attack_state
+                .telegraph_profile
+                .as_ref()
+                .and_then(boss_anim_for_attack_profile);
+            let mut result = None;
+            if let Some(profile) = attack_state.active_profile.as_ref() {
+                if active_expected == Some(anim) {
+                    result = Some((
+                        entity,
+                        crate::features::BossAnimationFrameSample {
+                            profile: profile.clone(),
+                            frame_index,
+                            animation_key: boss_animation_key_for_sample(profile, anim),
+                        },
+                    ));
                 }
             }
-        }
-        result
-    })
+            if result.is_none() {
+                if let Some(profile) = attack_state.telegraph_profile.as_ref() {
+                    if telegraph_expected == Some(anim) {
+                        result = Some((
+                            entity,
+                            crate::features::BossAnimationFrameSample {
+                                profile: profile.clone(),
+                                frame_index,
+                                animation_key: boss_animation_key_for_sample(profile, anim),
+                            },
+                        ));
+                    }
+                }
+            }
+            result
+        })
 }
 
 pub fn ecs_boss_anim_state(

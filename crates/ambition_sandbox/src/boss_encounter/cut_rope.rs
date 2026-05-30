@@ -15,8 +15,9 @@ use crate::config::world_to_bevy;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::{
     BossFeature, FeatureAabb, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource,
+    ResetRoomFeaturesEvent,
 };
-use crate::presentation::fx::{ParticleKind, VfxMessage};
+use crate::presentation::fx::{ExplosionKind, ParticleKind, VfxMessage};
 use crate::presentation::rendering::PropVisual;
 use crate::rooms::{PropSpec, RoomSet};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -40,6 +41,7 @@ pub struct CutRopeBossArenaState {
     anvil_center: Option<ae::Vec2>,
     anvil_velocity_y: f32,
     kill_sent: bool,
+    anvil_exploded: bool,
 }
 
 /// Drive the Smirking Behemoth's environmental win condition.
@@ -48,6 +50,7 @@ pub fn tick_cut_rope_boss_arena(
     room_set: Res<RoomSet>,
     mut state: Local<CutRopeBossArenaState>,
     mut hit_events: MessageReader<HitEvent>,
+    mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
     mut bosses: Query<(&FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
     mut prop_visuals: Query<(
         &FeatureName,
@@ -71,12 +74,21 @@ pub fn tick_cut_rope_boss_arena(
                 ..Default::default()
             };
         }
-        // Advance the reader so old slash messages do not get interpreted if
+        // Advance the readers so old slash/reset messages do not get interpreted if
         // the player warps into the cut-rope room on the next frame.
         for _ in hit_events.read() {}
+        for _ in reset_events.read() {}
         return;
     }
     if state.active_room != room.id {
+        *state = CutRopeBossArenaState {
+            active_room: room.id.clone(),
+            ..Default::default()
+        };
+    }
+
+    let reset_requested = reset_events.read().next().is_some();
+    if reset_requested {
         *state = CutRopeBossArenaState {
             active_room: room.id.clone(),
             ..Default::default()
@@ -150,6 +162,7 @@ pub fn tick_cut_rope_boss_arena(
             continue;
         }
         state.kill_sent = true;
+        state.anvil_exploded = true;
         boss.alive = false;
         boss.health.current = 0;
         boss.hit_flash = boss.hit_flash.max(0.35);
@@ -163,6 +176,11 @@ pub fn tick_cut_rope_boss_arena(
         }
 
         banner.show("Smirking Behemoth was flattened".to_string(), 2.8);
+        vfx.write(VfxMessage::Explosion {
+            pos: center,
+            kind: ExplosionKind::ClassicBurst,
+            scale: 1.25,
+        });
         vfx.write(VfxMessage::Burst {
             pos: boss.pos,
             count: 28,
@@ -211,6 +229,16 @@ fn sync_cut_rope_prop_visuals(
                 };
             }
         } else if key_matches(ANVIL_KIND) {
+            if let Some(mut visibility) = visibility {
+                *visibility = if state.anvil_exploded {
+                    Visibility::Hidden
+                } else {
+                    Visibility::Visible
+                };
+            }
+            if state.anvil_exploded {
+                continue;
+            }
             if let Some(center) = state.anvil_center {
                 let mut translation = world_to_bevy(world, center, transform.translation.z);
                 translation.z = transform.translation.z + ANVIL_Z_OFFSET;

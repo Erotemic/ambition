@@ -116,6 +116,7 @@ pub fn reset_ecs_room_features(
         let boss = &mut boss_feature.boss;
         boss.pos = boss.spawn;
         boss.alive = true;
+        boss.facing = 1.0;
         boss.health.reset();
         boss.hit_flash = 0.0;
         // Brain-owned state: zero the per-actor `BossPatternState`

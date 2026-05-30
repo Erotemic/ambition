@@ -133,6 +133,7 @@ pub(super) fn spawn_boss(
             // every boss so a future encounter can adopt the same
             // attacks without re-touching the spawn wiring.
             super::OverfitVolleyState::default(),
+            super::EyeBeamState::default(),
             super::MinimaTrapState::default(),
             super::SaddlePointState::default(),
             super::GradientCascadeState::default(),
@@ -225,7 +226,12 @@ pub(super) fn spawn_enemy(
         paths,
     );
     if super::mount::is_composite_spawn(probe.archetype) {
-        super::spawn_mounts::spawn_composite_mount_rider(commands, authored, paths, probe.archetype);
+        super::spawn_mounts::spawn_composite_mount_rider(
+            commands,
+            authored,
+            paths,
+            probe.archetype,
+        );
         return;
     }
     spawn_solo_enemy(commands, probe, authored);

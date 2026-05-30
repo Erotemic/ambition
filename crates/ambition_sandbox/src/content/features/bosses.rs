@@ -76,6 +76,18 @@ pub const OVERFIT_VOLLEY_SHOT_SPEED: f32 = 360.0;
 /// OverfitVolley: per-bolt damage.
 pub const OVERFIT_VOLLEY_SHOT_DAMAGE: i32 = 1;
 
+// ===== Smirking Behemoth / You Have To Cut The Rope tuning =====
+
+/// Smirking Behemoth eye-beam projectile speed. Kept high because the
+/// attack should read as a short bubble-laser line, not a slow barrage.
+pub const SMIRKING_EYE_BEAM_SHOT_SPEED: f32 = 780.0;
+pub const SMIRKING_EYE_BEAM_DAMAGE: i32 = 1;
+pub const SMIRKING_EYE_BEAM_BOX_COUNT: u8 = 5;
+pub const SMIRKING_EYE_BEAM_BOX_SPACING: f32 = 26.0;
+pub const SMIRKING_EYE_BEAM_HALF_EXTENT_X: f32 = 15.0;
+pub const SMIRKING_EYE_BEAM_HALF_EXTENT_Y: f32 = 8.0;
+pub const SMIRKING_EYE_BEAM_LIFETIME_S: f32 = 0.58;
+
 /// MinimaTrap: how long the pit hazard hitbox stays live after the
 /// strike edge spawns it. Long enough to be a real area-denial threat,
 /// short enough that the player isn't permanently locked out of half
@@ -351,6 +363,15 @@ pub fn boss_special_for_profile(
             sample_count: OVERFIT_VOLLEY_SAMPLE_COUNT,
             shot_speed: OVERFIT_VOLLEY_SHOT_SPEED,
             damage: OVERFIT_VOLLEY_SHOT_DAMAGE,
+        }),
+        BossAttackProfile::EyeBeam => Some(SpecialActionSpec::EyeBeam {
+            shot_speed: SMIRKING_EYE_BEAM_SHOT_SPEED,
+            damage: SMIRKING_EYE_BEAM_DAMAGE,
+            box_count: SMIRKING_EYE_BEAM_BOX_COUNT,
+            box_spacing: SMIRKING_EYE_BEAM_BOX_SPACING,
+            half_extent_x: SMIRKING_EYE_BEAM_HALF_EXTENT_X,
+            half_extent_y: SMIRKING_EYE_BEAM_HALF_EXTENT_Y,
+            lifetime_s: SMIRKING_EYE_BEAM_LIFETIME_S,
         }),
         BossAttackProfile::MinimaTrap => Some(SpecialActionSpec::MinimaTrap {
             hazard_duration_s: MINIMA_TRAP_HAZARD_DURATION_S,
@@ -726,6 +747,7 @@ pub fn boss_animation_keys_for_profile(
         // (closest visual: a ring of damage around the boss) so
         // the player still sees an anim cue during the strike.
         BossAttackProfile::OverfitVolley => &["spike_halo", "eye_beam"],
+        BossAttackProfile::EyeBeam => &["eye_beam", "spike_halo"],
         BossAttackProfile::MinimaTrap
         | BossAttackProfile::SaddlePoint
         | BossAttackProfile::GradientCascade => &["spike_halo"],
@@ -755,6 +777,7 @@ pub struct BossRuntime {
     pub pos: ae::Vec2,
     pub spawn: ae::Vec2,
     pub size: ae::Vec2,
+    pub facing: f32,
     pub health: crate::actor::Health,
     pub brain: crate::actor::BossBrain,
     pub behavior: BossBehaviorProfile,
@@ -793,6 +816,7 @@ impl BossRuntime {
             pos: aabb.center(),
             spawn: aabb.center(),
             size: aabb.half_size() * 2.0,
+            facing: 1.0,
             health: crate::actor::Health::new(18),
             behavior: BossBehaviorProfile::for_authored_boss(&canonical_id),
             sprite_metrics: None,
@@ -832,7 +856,7 @@ impl BossRuntime {
             vel: desired_vel,
             size: self.combat_size(),
             on_ground: false,
-            facing: 1.0,
+            facing: self.facing,
         };
         crate::kinematic::step_kinematic(
             &mut body,
@@ -847,6 +871,11 @@ impl BossRuntime {
             dt,
         );
         self.pos = body.pos;
+        self.facing = if body.facing.abs() > 0.001 {
+            body.facing.signum()
+        } else {
+            self.facing
+        };
         self.hit_flash = (self.hit_flash - dt).max(0.0);
     }
 

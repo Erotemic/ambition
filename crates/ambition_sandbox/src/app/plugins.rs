@@ -286,6 +286,7 @@ fn register_combat_systems(app: &mut App) {
             // `update_enemy_projectiles` for the bolt barrage so it
             // advances this frame.
             crate::features::spawn_overfit_volley_from_special_messages.run_if(gameplay_allowed),
+            crate::features::spawn_eye_beam_from_special_messages.run_if(gameplay_allowed),
             crate::features::spawn_minima_trap_from_special_messages.run_if(gameplay_allowed),
             crate::features::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),
             crate::features::spawn_gradient_cascade_minions_from_special_messages
@@ -667,6 +668,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
         Update,
         (
             fx::update_particles,
+            fx::update_explosions,
             fx::update_impacts,
             fx::update_slash_previews,
             fx::update_speech_bubbles,

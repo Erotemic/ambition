@@ -229,6 +229,26 @@ pub enum SpecialActionSpec {
         /// Per-bolt damage.
         damage: i32,
     },
+    /// Smirking Behemoth boss: a short bubble-laser line emitted
+    /// from the eye toward the player's approximate telegraphed
+    /// position. This is separate from OverfitVolley so the cut-rope
+    /// boss can fire a single readable beam instead of the Gradient
+    /// Sentinel's slow memorized barrage.
+    EyeBeam {
+        /// Per-box projectile speed (px/s).
+        shot_speed: f32,
+        /// Per-box damage.
+        damage: i32,
+        /// Number of boxes spawned along the initial beam line.
+        box_count: u8,
+        /// Pixel spacing between beam boxes at spawn.
+        box_spacing: f32,
+        /// Beam box half-size.
+        half_extent_x: f32,
+        half_extent_y: f32,
+        /// Lifetime for each beam box.
+        lifetime_s: f32,
+    },
     /// Gradient Sentinel boss: local-minimum pit trap. The strike
     /// edge spawns a World-anchored hazard hitbox at the player's
     /// current position; the hitbox persists for `hazard_duration_s`
@@ -488,6 +508,7 @@ impl ActionRequest {
                 SpecialActionSpec::BossSpotlight => "special_boss_spotlight",
                 SpecialActionSpec::GnuAppleRain { .. } => "special_gnu_apple_rain",
                 SpecialActionSpec::OverfitVolley { .. } => "special_overfit_volley",
+                SpecialActionSpec::EyeBeam { .. } => "special_eye_beam",
                 SpecialActionSpec::MinimaTrap { .. } => "special_minima_trap",
                 SpecialActionSpec::SaddlePoint { .. } => "special_saddle_point",
                 SpecialActionSpec::GradientCascade { .. } => "special_gradient_cascade",

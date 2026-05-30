@@ -184,13 +184,15 @@ impl CharacterAnim {
             // catalog can pull every character in. A fully typed
             // CharacterAnim::Rest can land later if a consumer
             // distinguishes them.
-            "idle" | "opening" | "rest" | "front_idle" | "side_idle" => Self::Idle,
-            "walk" | "stable" | "spin" | "side_walk" => Self::Walk,
-            "run" | "closing" => Self::Run,
+            "idle" | "opening" | "rest" | "front_idle" | "side_idle" | "classic_burst" => {
+                Self::Idle
+            }
+            "walk" | "stable" | "spin" | "side_walk" | "burst_round" => Self::Walk,
+            "run" | "closing" | "shockwave" => Self::Run,
             "jump" => Self::Jump,
             "fall" => Self::Fall,
-            "slash" => Self::Slash,
-            "hit" | "hurt" => Self::Hit,
+            "slash" | "starburst" => Self::Slash,
+            "hit" | "hurt" | "smoke_burst" => Self::Hit,
             "death" => Self::Death,
             "blink_out" => Self::BlinkOut,
             "blink_in" => Self::BlinkIn,

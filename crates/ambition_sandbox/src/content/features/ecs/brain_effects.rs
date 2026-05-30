@@ -372,6 +372,15 @@ pub struct OverfitVolleyState {
     pub had_seed_sample: bool,
 }
 
+/// Per-boss state for the Smirking Behemoth eye beam. The telegraph
+/// locks an approximate target point and the strike spawns a single
+/// line of fast projectile boxes toward it.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct EyeBeamState {
+    pub locked_target: Option<ae::Vec2>,
+    pub fired_this_strike: bool,
+}
+
 /// MinimaTrap is a one-shot per-strike action (spawn pit hitbox +
 /// minion at strike edge). State is just the "fired" gate — the pit
 /// hitbox + minion are independent entities once spawned, so no
@@ -558,6 +567,133 @@ pub fn spawn_overfit_volley_from_special_messages(
             state.fired_this_strike = false;
             state.had_seed_sample = false;
         }
+    }
+}
+
+const EYE_BEAM_OWNER_PREFIX: &str = "smirking_behemoth_eye_beam";
+
+/// EFFECTS consumer: Smirking Behemoth eye beam.
+///
+/// During the `EyeBeam` telegraph the boss locks the currently tracked
+/// player position. On the first strike tick it emits a short line of
+/// fast bubble-laser projectile boxes from the eye toward that locked
+/// point. This deliberately does **not** reuse OverfitVolley's sample
+/// barrage, because the cut-rope boss needs one readable beam rather
+/// than a cloud of slow memorized shots.
+pub fn spawn_eye_beam_from_special_messages(
+    mut enemy_projectiles: ResMut<EnemyProjectileState>,
+    mut messages: MessageReader<ActorActionMessage>,
+    player_query: Query<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>,
+    mut bosses: Query<
+        (
+            Entity,
+            &BossFeature,
+            &BossAttackState,
+            &mut EyeBeamState,
+            Option<&super::super::components::ActorTarget>,
+        ),
+        With<FeatureSimEntity>,
+    >,
+) {
+    let mut active_strike_params: std::collections::HashMap<
+        Entity,
+        (f32, i32, u8, f32, f32, f32, f32),
+    > = std::collections::HashMap::new();
+    for msg in messages.read() {
+        if let ActionRequest::Special {
+            spec:
+                SpecialActionSpec::EyeBeam {
+                    shot_speed,
+                    damage,
+                    box_count,
+                    box_spacing,
+                    half_extent_x,
+                    half_extent_y,
+                    lifetime_s,
+                },
+        } = msg.request
+        {
+            active_strike_params.insert(
+                msg.actor,
+                (
+                    shot_speed,
+                    damage,
+                    box_count,
+                    box_spacing,
+                    half_extent_x,
+                    half_extent_y,
+                    lifetime_s,
+                ),
+            );
+        }
+    }
+
+    for (entity, boss_feature, attack_state, mut state, actor_target) in &mut bosses {
+        let boss = &boss_feature.boss;
+        let player_pos = actor_target.and_then(|t| {
+            t.entity
+                .and_then(|e| player_query.get(e).ok())
+                .map(|kin| kin.aabb().center())
+                .or(Some(t.pos))
+        });
+        if !boss.alive {
+            state.locked_target = None;
+            state.fired_this_strike = false;
+            continue;
+        }
+
+        let in_telegraph = matches!(
+            attack_state.telegraph_profile,
+            Some(BossAttackProfile::EyeBeam)
+        );
+        let strike_params = active_strike_params.get(&entity).copied();
+        if in_telegraph {
+            if state.locked_target.is_none() {
+                state.locked_target = player_pos;
+            }
+            state.fired_this_strike = false;
+            continue;
+        }
+
+        let Some((shot_speed, damage, box_count, box_spacing, half_x, half_y, lifetime_s)) =
+            strike_params
+        else {
+            state.locked_target = None;
+            state.fired_this_strike = false;
+            continue;
+        };
+        if state.fired_this_strike {
+            continue;
+        }
+        let target = state.locked_target.or(player_pos).unwrap_or(boss.pos);
+        let offset = ae::Vec2::new(
+            boss.behavior.projectile_origin_offset.x * boss.facing.signum(),
+            boss.behavior.projectile_origin_offset.y,
+        );
+        let origin = boss.pos + offset;
+        let delta = target - origin;
+        let dir = if delta.length_squared() < 1e-4 {
+            ae::Vec2::new(boss.facing.signum(), 0.0)
+        } else {
+            delta.normalize()
+        };
+        let count = box_count.max(1);
+        let spacing = box_spacing.max(1.0);
+        for i in 0..count {
+            let beam_origin = origin + dir * spacing * f32::from(i);
+            enemy_projectiles.spawn(EnemyProjectileSpawn {
+                origin: beam_origin,
+                dir,
+                speed: shot_speed.max(1.0),
+                damage,
+                max_lifetime: lifetime_s.max(0.05),
+                half_extent: ae::Vec2::new(half_x.max(1.0), half_y.max(1.0)),
+                owner_id: format!("{}:{}", EYE_BEAM_OWNER_PREFIX, boss.id),
+                gravity: 0.0,
+            });
+        }
+        state.fired_this_strike = true;
+        state.locked_target = None;
     }
 }
 

@@ -540,6 +540,13 @@ const CUT_ROPE_ANVIL_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
 pub static CUT_ROPE_ANVIL_SHEET: LazyLock<CharacterSheetSpec> =
     LazyLock::new(|| load_spec("cut_rope_anvil", &CUT_ROPE_ANVIL_TUNING));
 
+/// Generic reusable explosion VFX sheet. The rows are mapped onto
+/// CharacterAnim slots by `CharacterAnim::from_name`; consumers pick
+/// a row through `ExplosionKind` instead of hard-coding atlas indices.
+const GENERIC_EXPLOSIONS_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
+pub static GENERIC_EXPLOSIONS_SHEET: LazyLock<CharacterSheetSpec> =
+    LazyLock::new(|| load_spec("generic_explosions", &GENERIC_EXPLOSIONS_TUNING));
+
 /// Creator — the researcher who wakes the player. Rendered by the
 /// dedicated `creator` tack-on target (not the toon-side adapter), so
 /// the sheet is wider (160×192) and starts after a 108px label column.

@@ -10,6 +10,9 @@ use bevy::prelude::*;
 use std::f32::consts::TAU;
 
 use crate::config::{rgba, world_to_bevy, WORLD_Z_FX};
+use crate::presentation::character_sprites::{
+    build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
+};
 
 #[derive(Component)]
 pub struct ParticleVisual {
@@ -30,6 +33,13 @@ pub struct ImpactVisual {
     age: f32,
     duration: f32,
     radius: f32,
+}
+
+#[derive(Component)]
+pub struct ExplosionVisual {
+    pos: ae::Vec2,
+    age: f32,
+    duration: f32,
 }
 
 #[derive(Component)]
@@ -82,6 +92,27 @@ pub enum ParticleKind {
     Shard,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExplosionKind {
+    ClassicBurst,
+    BurstRound,
+    Shockwave,
+    SmokeBurst,
+    Starburst,
+}
+
+impl ExplosionKind {
+    pub fn anim(self) -> CharacterAnim {
+        match self {
+            Self::ClassicBurst => CharacterAnim::Idle,
+            Self::BurstRound => CharacterAnim::Walk,
+            Self::Shockwave => CharacterAnim::Run,
+            Self::SmokeBurst => CharacterAnim::Hit,
+            Self::Starburst => CharacterAnim::Slash,
+        }
+    }
+}
+
 /// Typed sandbox-side visual-effects message (Bevy 0.18 buffered Message
 /// API; the pre-0.18 `Event`/`EventReader` names moved to observer-style
 /// one-shots). Emitted by simulation systems via the Vec collector and
@@ -107,6 +138,11 @@ pub enum VfxMessage {
     Impact {
         pos: ae::Vec2,
     },
+    Explosion {
+        pos: ae::Vec2,
+        kind: ExplosionKind,
+        scale: f32,
+    },
     BlinkEffects {
         from: ae::Vec2,
         to: ae::Vec2,
@@ -131,6 +167,7 @@ pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
     world: Res<crate::GameWorld>,
+    assets: Option<Res<crate::assets::game_assets::GameAssets>>,
     mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
     let world = &world.0;
@@ -156,6 +193,9 @@ pub fn vfx_spawn_messages(
             }
             VfxMessage::Dust { pos, facing } => spawn_dust(&mut commands, world, pos, facing),
             VfxMessage::Impact { pos } => spawn_impact(&mut commands, world, pos),
+            VfxMessage::Explosion { pos, kind, scale } => {
+                spawn_explosion(&mut commands, world, assets.as_deref(), pos, kind, scale);
+            }
             VfxMessage::BlinkEffects {
                 from,
                 to,
@@ -193,6 +233,51 @@ pub fn vfx_spawn_messages(
             bubble.target_stack_offset,
         );
     }
+}
+
+fn spawn_explosion(
+    commands: &mut Commands,
+    world: &ae::World,
+    assets: Option<&crate::assets::game_assets::GameAssets>,
+    pos: ae::Vec2,
+    kind: ExplosionKind,
+    scale: f32,
+) {
+    let Some(asset) = assets.and_then(|assets| assets.characters.props.get("generic_explosions"))
+    else {
+        // Fallback keeps the call site useful in headless/no-asset profiles.
+        spawn_burst(
+            commands,
+            world,
+            pos,
+            24,
+            260.0,
+            [0.95, 0.74, 0.28, 0.85],
+            ParticleKind::Spark,
+        );
+        spawn_impact(commands, world, pos);
+        return;
+    };
+    let scale = scale.max(0.1);
+    let render_size = BVec2::splat(132.0 * scale);
+    let mut sprite = build_character_sprite_with_render_size(asset, render_size);
+    let mut animator = CharacterAnimator::new(&asset.spec);
+    animator.request(kind.anim());
+    let index = animator.tick(0.0);
+    if let Some(atlas) = sprite.texture_atlas.as_mut() {
+        atlas.index = index;
+    }
+    commands.spawn((
+        Name::new(format!("VFX explosion: {:?}", kind)),
+        sprite,
+        Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 6.0)),
+        animator,
+        ExplosionVisual {
+            pos,
+            age: 0.0,
+            duration: 0.72,
+        },
+    ));
 }
 
 fn make_room_for_speech_bubble(
@@ -334,6 +419,36 @@ pub fn update_speech_bubbles(
             &mut transform,
             &mut color,
         );
+    }
+}
+
+pub fn update_explosions(
+    mut commands: Commands,
+    time: Res<Time>,
+    world: Res<crate::GameWorld>,
+    mut query: Query<(
+        Entity,
+        &mut ExplosionVisual,
+        &mut Transform,
+        &mut Sprite,
+        &mut CharacterAnimator,
+    )>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut fx, mut transform, mut sprite, mut animator) in &mut query {
+        fx.age += dt;
+        if fx.age >= fx.duration {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let index = animator.tick(dt);
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = index;
+        }
+        let t = (fx.age / fx.duration).clamp(0.0, 1.0);
+        let alpha = 1.0 - t;
+        transform.translation = world_to_bevy(&world.0, fx.pos, WORLD_Z_FX + 6.0);
+        sprite.color = Color::srgba(1.0, 1.0, 1.0, alpha);
     }
 }
 

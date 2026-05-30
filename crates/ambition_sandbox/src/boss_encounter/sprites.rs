@@ -273,7 +273,11 @@ pub const SMIRKING_BEHEMOTH_SHEET: BossSheetSpec = BossSheetSpec {
             },
         ),
     ],
-    collision_scale: 1.35,
+    // The visible monolith body is 224 px tall inside a 240 px frame.
+    // Use 240/224 so the rendered opaque body height matches the
+    // LDtk/authored collision body instead of growing taller and being
+    // pushed upward by collision.
+    collision_scale: 1.071_429,
     feet_anchor_y: -0.433_333,
     frame_sample_inset: 1,
     body_centered: false,
@@ -728,6 +732,8 @@ pub struct BossAnimState {
     /// Boss-pattern timer used to vary which active-attack clip plays
     /// when no profile-resolved animation is available.
     pub pattern_timer: f32,
+    /// Horizontal facing: -1.0 = left, +1.0 = right.
+    pub facing: f32,
 }
 
 impl BossAnimState {

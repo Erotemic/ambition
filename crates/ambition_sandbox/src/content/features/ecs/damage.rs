@@ -79,10 +79,7 @@ pub fn apply_feature_hit_events(
     // where a feature-target consumer ever needs to apply hitstop
     // for them.
     mut player_combat_q: Query<
-        (
-            bevy::prelude::Entity,
-            &mut crate::player::PlayerCombatState,
-        ),
+        (bevy::prelude::Entity, &mut crate::player::PlayerCombatState),
         bevy::prelude::With<crate::player::PlayerEntity>,
     >,
     primary_q: bevy::prelude::Query<
@@ -135,6 +132,15 @@ pub fn apply_feature_hit_events(
                     emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
                 }
             }
+            continue;
+        }
+        // Victim-side sources (enemy touch, enemy swings, boss body
+        // contact, hazards) are consumed by the player-damage path.
+        // The feature drain only applies attacker-side player hits
+        // here; otherwise an `EnemyBody` event would damage the same
+        // enemy that emitted it when the volume overlaps its own
+        // AABB.
+        if !event.source.is_attacker_side() {
             continue;
         }
         let mut actor_hit_this_event = false;
@@ -197,8 +203,7 @@ pub fn apply_feature_hit_events(
                         // of truth for tuning — no hardcoded
                         // STRIKER_DEFAULT here.
                         let new_brain = super::spawn::enemy_default_brain(&hostile);
-                        let new_action_set =
-                            super::spawn::enemy_default_action_set(&hostile);
+                        let new_action_set = super::spawn::enemy_default_action_set(&hostile);
                         *actor = ActorRuntime::Hostile(hostile);
                         commands
                             .entity(actor_entity)
@@ -589,4 +594,77 @@ pub(super) fn emit_breakable_destroyed(
         id: ambition_sfx::ids::WORLD_CRATE_BREAK,
         pos,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::features::ecs::actor_component_snapshot;
+    use crate::features::{HitMode, HitTarget};
+    use bevy::prelude::{App, Update};
+
+    fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        let mut enemy = crate::content::features::enemies::EnemyRuntime::new(
+            "kernel_guide".to_string(),
+            "Kernel Guide".to_string(),
+            aabb,
+            crate::actor::EnemyBrain::Custom("medium_striker".into()),
+            &[],
+        );
+        enemy.health = crate::actor::Health::new(5);
+        let actor = ActorRuntime::Hostile(enemy.clone());
+        let (identity, disposition, health, combat, intent, cooldowns) =
+            actor_component_snapshot(&actor);
+        app.world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureId::new("kernel_guide"),
+                FeatureAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+                actor,
+                identity,
+                disposition,
+                health,
+                combat,
+                intent,
+                cooldowns,
+            ))
+            .id()
+    }
+
+    #[test]
+    fn victim_side_enemy_body_hit_does_not_damage_features() {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<HitEvent>();
+        app.add_message::<GameplayEffect>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_systems(Update, apply_feature_hit_events);
+
+        let actor_entity = spawn_hostile_actor(&mut app);
+        let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        app.world_mut().write_message(HitEvent {
+            volume: event_volume,
+            damage: 1,
+            source: HitSource::EnemyBody,
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+
+        app.update();
+
+        let health = app
+            .world()
+            .get::<ActorHealth>(actor_entity)
+            .expect("hostile actor exists");
+        assert_eq!(
+            health.health.current, 5,
+            "enemy body contact should not damage the enemy that emitted it"
+        );
+    }
 }

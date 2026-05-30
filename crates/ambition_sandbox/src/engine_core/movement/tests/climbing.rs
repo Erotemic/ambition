@@ -378,3 +378,49 @@ fn ladder_jump_uses_jump_speed_without_leaving_climbing() {
         "ladder jump should leave a short-lived boost timer behind so the climb keeps the jump-speed push for a moment"
     );
 }
+
+#[test]
+fn down_jump_on_ladder_falls_off_without_regrabbing() {
+    // Down + Jump should behave like a ladder drop-through, not a
+    // ladder climb or a normal jump launch.
+    let mut world = test_world();
+    world.climbable_regions.push(ClimbableRegion::new(
+        Aabb::new(Vec2::new(400.0, 600.0), Vec2::new(20.0, 200.0)),
+        ClimbableKind::Ladder,
+        ClimbableSpec::default(),
+    ));
+    let mut scratch = scratch_at(Vec2::new(400.0, 620.0));
+    scratch.body_mode.body_mode = crate::engine_core::player_state::BodyMode::Standing;
+    scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
+    scratch.kinematics.vel = Vec2::new(0.0, -100.0);
+
+    let _ = update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            jump_pressed: true,
+            jump_held: true,
+            drop_through_pressed: true,
+            axis_y: 1.0,
+            control_dt: 1.0 / 60.0,
+            ..InputState::default()
+        },
+        1.0 / 60.0,
+        DEFAULT_TUNING,
+    );
+
+    assert_eq!(
+        scratch.body_mode.body_mode,
+        crate::engine_core::player_state::BodyMode::Standing,
+        "down+jump on a ladder should not re-enter Climbing"
+    );
+    assert!(
+        scratch.jump.ladder_drop_through_timer > 0.0,
+        "down+jump on a ladder should start a re-grab grace window"
+    );
+    assert!(
+        scratch.kinematics.vel.y >= 0.0,
+        "down+jump on a ladder should not launch upward; got vel.y={}",
+        scratch.kinematics.vel.y
+    );
+}

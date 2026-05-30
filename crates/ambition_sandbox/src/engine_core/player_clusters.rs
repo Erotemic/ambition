@@ -169,11 +169,13 @@ pub struct PlayerWallState {
 
 /// Jump-cluster state. The jump buffer itself lives on
 /// [`PlayerActionBuffer`]; this component owns the air-jump charge
-/// count plus the transient ladder-jump boost timer today.
+/// count plus the transient ladder-jump boost / ladder drop-through
+/// timers today.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PlayerJumpState {
     pub air_jumps_available: u8,
     pub ladder_jump_boost: f32,
+    pub ladder_drop_through_timer: f32,
 }
 
 /// Dash-cluster state. The dash buffer lives on [`PlayerActionBuffer`];
@@ -273,6 +275,7 @@ pub fn reset_player_clusters(clusters: &mut PlayerClustersMut<'_>, spawn: Vec2) 
     *clusters.jump = PlayerJumpState {
         air_jumps_available: air_jumps,
         ladder_jump_boost: 0.0,
+        ladder_drop_through_timer: 0.0,
     };
     *clusters.dash = PlayerDashState {
         charges_available: dash_charges,
@@ -492,6 +495,7 @@ impl PlayerClusterScratch {
             jump: PlayerJumpState {
                 air_jumps_available: air_jumps,
                 ladder_jump_boost: 0.0,
+                ladder_drop_through_timer: 0.0,
             },
             dash: PlayerDashState {
                 charges_available: dash_charges,

@@ -250,6 +250,7 @@ pub fn update_player_simulation_with_clusters(
         clusters.ground.coyote_timer = dec(clusters.ground.coyote_timer);
         clusters.ground.drop_through_timer = dec(clusters.ground.drop_through_timer);
         clusters.jump.ladder_jump_boost = dec(clusters.jump.ladder_jump_boost);
+        clusters.jump.ladder_drop_through_timer = dec(clusters.jump.ladder_drop_through_timer);
         clusters.dash.cooldown = dec(clusters.dash.cooldown);
         clusters.blink.cooldown = dec(clusters.blink.cooldown);
         clusters.blink.grace_timer = dec(clusters.blink.grace_timer);

@@ -44,6 +44,7 @@ pub fn update_body_mode(
         (
             &mut crate::player::PlayerKinematics,
             &mut crate::player::PlayerBodyModeState,
+            &mut crate::player::PlayerJumpState,
             &crate::player::PlayerGroundState,
             &crate::player::PlayerWallState,
             &crate::player::PlayerDashState,
@@ -59,6 +60,7 @@ pub fn update_body_mode(
     let Ok((
         mut kinematics,
         mut body_mode_state,
+        mut jump_state,
         ground,
         wall,
         dash,
@@ -106,6 +108,17 @@ pub fn update_body_mode(
     // one-frame velocity stall before this driver flips back to
     // Standing — acceptable for the first slice.
     if mode == ae::BodyMode::Climbing {
+        if controls.jump_pressed && down_held {
+            jump_state.ladder_drop_through_timer = ae::movement::ONE_WAY_DROP_THROUGH_GRACE;
+            let _ = ae::try_change_body_mode_clusters(
+                &mut kinematics,
+                &mut body_mode_state,
+                ae::BodyMode::Standing,
+                &world.0,
+                solid,
+            );
+            return;
+        }
         let exit_via_jump = controls.jump_pressed && !up_held;
         let exit_via_dash = controls.dash_pressed;
         let exit_via_lost_contact = !climbable_contact_present;
@@ -129,8 +142,12 @@ pub fn update_body_mode(
     // grounded (so a Down-press on a floor stays a crouch). Up, by
     // contrast, can engage from grounded as a "step onto the ladder
     // from below" gesture.
-    let climb_initiator = (up_held) || (down_held && !on_ground);
-    if climbable_contact_present && climb_initiator && mode != ae::BodyMode::MorphBall {
+    let climb_initiator = up_held || (down_held && !on_ground && !controls.jump_pressed);
+    if climbable_contact_present
+        && climb_initiator
+        && jump_state.ladder_drop_through_timer <= 0.0
+        && mode != ae::BodyMode::MorphBall
+    {
         let _ = ae::try_change_body_mode_clusters(
             &mut kinematics,
             &mut body_mode_state,
@@ -202,7 +219,7 @@ mod tests {
     use crate::player::{
         PlayerBlinkState, PlayerBodyModeState, PlayerDashState, PlayerEntity,
         PlayerEnvironmentContact, PlayerGroundState, PlayerInputFrame, PlayerInteractionState,
-        PlayerKinematics, PlayerLedgeState, PlayerWallState, PrimaryPlayer,
+        PlayerJumpState, PlayerKinematics, PlayerLedgeState, PlayerWallState, PrimaryPlayer,
     };
     use bevy::prelude::{App, Entity, Update};
 
@@ -256,6 +273,7 @@ mod tests {
                 PlayerInteractionState::default(),
                 PlayerInputFrame::default(),
                 PlayerBodyModeState::default(),
+                PlayerJumpState::default(),
             ))
             .id();
         (app, player)
@@ -437,6 +455,69 @@ mod tests {
             mode,
             ae::BodyMode::Climbing,
             "Jump pressed while climbing should keep the player in Climbing so movement can boost the ladder climb",
+        );
+    }
+
+    /// Down + Jump on a ladder should make the player fall off, with
+    /// a short grace window that prevents instantly re-grabbing.
+    #[test]
+    fn down_jump_from_climbing_falls_off_ladder() {
+        let (mut app, player) = build_body_mode_test_app();
+        {
+            let mut world = app.world_mut().resource_mut::<crate::GameWorld>();
+            world.0.climbable_regions.push(ClimbableRegion::new(
+                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
+                ClimbableKind::Ladder,
+                ClimbableSpec::default(),
+            ));
+        }
+        {
+            let mut body_mode = app
+                .world_mut()
+                .get_mut::<PlayerBodyModeState>(player)
+                .unwrap();
+            body_mode.body_mode = ae::BodyMode::Climbing;
+        }
+        {
+            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            kin.pos = Vec2::new(210.0, 820.0);
+            kin.vel = Vec2::new(0.0, -100.0);
+        }
+        {
+            let contact = app
+                .world()
+                .resource::<crate::GameWorld>()
+                .0
+                .climbable_at(app.world().get::<PlayerKinematics>(player).unwrap().aabb());
+            let mut env = app
+                .world_mut()
+                .get_mut::<PlayerEnvironmentContact>(player)
+                .unwrap();
+            env.climbable = contact;
+        }
+        {
+            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+            input.frame = ControlFrame {
+                jump_pressed: true,
+                axis_y: 1.0,
+                ..Default::default()
+            };
+        }
+        app.update();
+        let mode = app
+            .world()
+            .get::<PlayerBodyModeState>(player)
+            .unwrap()
+            .body_mode;
+        let jump_state = app.world().get::<PlayerJumpState>(player).unwrap();
+        assert_eq!(
+            mode,
+            ae::BodyMode::Standing,
+            "Down + Jump on a ladder should fall off instead of staying in Climbing",
+        );
+        assert!(
+            jump_state.ladder_drop_through_timer > 0.0,
+            "ladder fall-off should create a grace window that blocks immediate re-grab"
         );
     }
 }

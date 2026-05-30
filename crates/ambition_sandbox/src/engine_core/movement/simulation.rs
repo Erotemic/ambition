@@ -45,6 +45,15 @@ pub fn handle_jump_buffer_clusters(
 
     let on_ladder = env_contact.climbable.is_some();
 
+    if input.drop_through_pressed && on_ladder {
+        jump_state.ladder_drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
+        jump_state.ladder_jump_boost = 0.0;
+        kinematics.vel.y = kinematics.vel.y.max(0.0);
+        action_buffer.jump = 0.0;
+        ground.coyote_timer = 0.0;
+        return;
+    }
+
     if body_mode == BodyMode::Climbing && on_ladder {
         if abilities.abilities.jump && input.axis_y < -0.1 {
             jump_state.ladder_jump_boost = LADDER_JUMP_BOOST_TIME;

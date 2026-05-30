@@ -158,7 +158,8 @@ pub enum BodyMode {
     /// sandbox-side body-mode driver when `Player::climbable_contact`
     /// is `Some` and the player initiates a climb (Up/Down press).
     /// Jump while climbing and moving upward keeps this mode active
-    /// and upgrades the climb to a short jump-speed boost; Dash
+    /// and upgrades the climb to a short jump-speed boost; Down +
+    /// Jump falls off the ladder with a short re-grab grace. Dash
     /// still clears the mode, as does losing contact.
     Climbing,
 }

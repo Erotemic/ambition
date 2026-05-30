@@ -630,6 +630,9 @@ pub struct SharkCfg {
     pub bite_range: f32,
     pub charge_duration_s: f32,
     pub charge_cooldown_s: f32,
+    pub standoff_px: f32,
+    pub vertical_wobble_px: f32,
+    pub orbit_drift_rad_s: f32,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -637,6 +640,7 @@ pub struct SharkState {
     pub mode: crate::character_ai::CharacterAiMode,
     pub charge_remaining: f32,
     pub charge_cooldown_remaining: f32,
+    pub orbit_phase: f32,
 }
 
 fn tick_shark(
@@ -648,6 +652,10 @@ fn tick_shark(
     *out = crate::actor_control::ActorControlFrame::neutral();
     state.charge_cooldown_remaining = (state.charge_cooldown_remaining - snapshot.dt).max(0.0);
     state.charge_remaining = (state.charge_remaining - snapshot.dt).max(0.0);
+    state.orbit_phase += cfg.orbit_drift_rad_s * snapshot.dt;
+    if state.orbit_phase > std::f32::consts::TAU {
+        state.orbit_phase -= std::f32::consts::TAU;
+    }
 
     if !snapshot.target_alive {
         state.mode = crate::character_ai::CharacterAiMode::Idle;
@@ -669,12 +677,18 @@ fn tick_shark(
     let facing = aim_dir.x.signum_or(snapshot.actor_facing);
     out.facing = facing;
 
+    let (sin_p, cos_p) = state.orbit_phase.sin_cos();
+    let orbit_offset = ae::Vec2::new(
+        cos_p * cfg.standoff_px,
+        -0.42 * cfg.standoff_px + sin_p * cfg.vertical_wobble_px,
+    );
+    let desired_orbit_pos = snapshot.target_pos + orbit_offset;
+    let to_orbit = desired_orbit_pos - snapshot.actor_pos;
+    let orbit_dir = to_orbit.normalize_or_zero();
+
     if state.charge_remaining > 0.0 {
         state.mode = crate::character_ai::CharacterAiMode::Attack;
-        out.desired_vel = ae::Vec2::new(
-            facing * cfg.charge_speed,
-            aim_dir.y * cfg.charge_speed * 0.20,
-        );
+        out.desired_vel = orbit_dir * cfg.charge_speed;
         return;
     }
 
@@ -688,18 +702,12 @@ fn tick_shark(
         state.mode = crate::character_ai::CharacterAiMode::Telegraph;
         state.charge_remaining = cfg.charge_duration_s.max(snapshot.dt);
         state.charge_cooldown_remaining = cfg.charge_cooldown_s;
-        out.desired_vel = ae::Vec2::new(
-            facing * cfg.charge_speed,
-            aim_dir.y * cfg.charge_speed * 0.12,
-        );
+        out.desired_vel = orbit_dir * cfg.charge_speed;
         return;
     }
 
     state.mode = crate::character_ai::CharacterAiMode::Chase;
-    out.desired_vel = ae::Vec2::new(
-        facing * cfg.cruise_speed,
-        aim_dir.y * cfg.cruise_speed * 0.20,
-    );
+    out.desired_vel = orbit_dir * cfg.cruise_speed;
 }
 
 // ===== BossPattern =====
@@ -1489,6 +1497,9 @@ mod tests {
                     bite_range: 34.0,
                     charge_duration_s: 0.45,
                     charge_cooldown_s: 0.8,
+                    standoff_px: 140.0,
+                    vertical_wobble_px: 24.0,
+                    orbit_drift_rad_s: 0.8,
                 },
                 state: SharkState::default(),
             },
@@ -1561,6 +1572,9 @@ mod tests {
                 bite_range: 34.0,
                 charge_duration_s: 0.45,
                 charge_cooldown_s: 0.8,
+                standoff_px: 140.0,
+                vertical_wobble_px: 24.0,
+                orbit_drift_rad_s: 0.8,
             },
             state: SharkState::default(),
         }

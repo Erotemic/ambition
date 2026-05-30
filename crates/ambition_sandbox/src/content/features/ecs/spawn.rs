@@ -392,12 +392,13 @@ fn spawn_solo_enemy(
 /// [`super::sync_riders_to_mounts`] system snaps the rider to the
 /// mount's offset from frame one.
 ///
-/// Mount: `BurningFlyingShark` archetype with an explicit MeleeBrute
-/// mount brain so the fused shark+pirate encounter keeps its current
-/// mounted behavior. Health comes from the composite spec
-/// (PirateOnShark = 6, PirateHeavyOnShark = 7) so the body HP pool
-/// stays as authored. The riderless shark now has its own dedicated
-/// Shark brain via `enemy_default_brain`.
+/// Mount: `BurningFlyingShark` archetype with an explicit orbiting
+/// Skirmisher-style mount brain so the fused shark+pirate encounter
+/// keeps its aerial height changes and spreads out instead of
+/// clumping. Health comes from the composite spec (PirateOnShark = 6,
+/// PirateHeavyOnShark = 7) so the body HP pool stays as authored. The
+/// riderless shark now has its own dedicated Shark brain via
+/// `enemy_default_brain`.
 ///
 /// Rider: `PirateRaider` for the light composite, `PirateHeavy` for
 /// the heavy composite. Brain is explicitly built as Skirmisher with
@@ -552,21 +553,10 @@ fn spawn_composite_mount_rider(
 
     // Build mount-side bundles and reserve the entity. We need both
     // entity IDs to link MountSlot ↔ RidingOn, so we spawn each and
-    // then attach the link components.
-    let mount_seed = crate::attack_choreography::seed_from_id(&mount_id);
-    let mount_jitters = five_f32s_from_seed(mount_seed);
-    let mount_aggro_radius = mount_archetype.aggro_radius() * (0.8 + 0.4 * mount_jitters.0);
-    let mount_chase_speed = mount_archetype.chase_speed() * (0.85 + 0.3 * mount_jitters.1);
-    let mount_attack_range = mount_archetype.attack_range() * (0.9 + 0.2 * mount_jitters.2);
-    let mount_brain = Brain::StateMachine(StateMachineCfg::MeleeBrute {
-        cfg: crate::brain::MeleeBruteCfg {
-            aggressiveness: 1.0,
-            aggro_radius: mount_aggro_radius,
-            attack_range: mount_attack_range,
-            chase_speed: mount_chase_speed,
-        },
-        state: crate::brain::MeleeBruteState::default(),
-    });
+    // then attach the link components. The mount should keep the
+    // orbiting aerial brain so the shark still changes height while
+    // the rider stays visually welded to it.
+    let mount_brain = skirmisher_brain_for_enemy(&mount_enemy);
     let mount_action_set = enemy_default_action_set(&mount_enemy);
     let mount_actor = ActorRuntime::Hostile(mount_enemy);
     let (m_identity, m_disposition, m_health, m_combat, m_intent, m_cooldowns) =
@@ -673,6 +663,36 @@ fn melee_brute_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
     })
 }
 
+fn skirmisher_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
+    use crate::brain::{Brain, SkirmisherCfg, SkirmisherState, StateMachineCfg};
+
+    let archetype = enemy.archetype;
+    let seed = crate::attack_choreography::seed_from_id(&enemy.id);
+    let jitters = five_f32s_from_seed(seed);
+    let base_cooldown_s = 1.5;
+    let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
+    let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
+    let standoff_base = (archetype.attack_range() * 0.35).max(120.0);
+    let standoff_px = standoff_base * (0.8 + 0.4 * jitters.2);
+    let orbit_phase = jitters.3 * std::f32::consts::TAU;
+    let orbit_drift_rad_s = 0.4 + 0.8 * jitters.4;
+    Brain::StateMachine(StateMachineCfg::Skirmisher {
+        cfg: SkirmisherCfg {
+            aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
+            aggro_radius: archetype.aggro_radius(),
+            standoff_px,
+            strafe_speed: archetype.chase_speed(),
+            fire_cooldown_s,
+            orbit_drift_rad_s,
+        },
+        state: SkirmisherState {
+            cooldown_remaining: initial_cooldown_s,
+            orbit_phase,
+            ..Default::default()
+        },
+    })
+}
+
 fn shark_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
     use crate::brain::{Brain, SharkCfg, SharkState, StateMachineCfg};
 
@@ -685,6 +705,9 @@ fn shark_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
     let bite_range = archetype.attack_range() * (0.85 + 0.15 * jitters.3);
     let charge_duration_s = 0.38 + 0.18 * jitters.4;
     let charge_cooldown_s = 0.75 + 0.55 * jitters.1;
+    let standoff_px = (archetype.attack_range() * 0.40).max(140.0) * (0.8 + 0.4 * jitters.2);
+    let vertical_wobble_px = (archetype.attack_range() * 0.12).max(20.0) * (0.8 + 0.4 * jitters.3);
+    let orbit_drift_rad_s = 0.55 + 0.7 * jitters.4;
     Brain::StateMachine(StateMachineCfg::Shark {
         cfg: SharkCfg {
             aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
@@ -694,6 +717,9 @@ fn shark_brain_for_enemy(enemy: &EnemyRuntime) -> crate::brain::Brain {
             bite_range,
             charge_duration_s,
             charge_cooldown_s,
+            standoff_px,
+            vertical_wobble_px,
+            orbit_drift_rad_s,
         },
         state: SharkState {
             charge_cooldown_remaining: charge_cooldown_s * (0.25 + 0.75 * jitters.0),
@@ -760,8 +786,7 @@ pub(in crate::content::features) fn enemy_default_brain(
 ) -> crate::brain::Brain {
     use super::super::enemies::EnemyBrainTemplate;
     use crate::brain::{
-        Brain, SkirmisherCfg, SkirmisherState, SmashState, SniperCfg, SniperState, StateMachineCfg,
-        WandererCfg, WandererState,
+        Brain, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg, WandererState,
     };
     let archetype = enemy.archetype;
     match archetype.brain_template() {
@@ -772,56 +797,7 @@ pub(in crate::content::features) fn enemy_default_brain(
         }),
         EnemyBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy),
         EnemyBrainTemplate::Shark => shark_brain_for_enemy(enemy),
-        EnemyBrainTemplate::Skirmisher => {
-            // Per-actor jitter from the actor's stable id-derived
-            // seed. Independent f32s in [0, 1) drive cadence, initial
-            // stagger, standoff radius, orbital phase, and drift rate
-            // so a squadron of shark-riders doesn't synchronize: each
-            // shark has its own cooldown, its own first-shot offset,
-            // its own orbit distance, AND its own starting position
-            // around the player. Without this, every Skirmisher
-            // seeded with the same `cooldown_remaining` ticks by the
-            // same `dt` and fires on the same beat (the
-            // "all enemies fire at once" bug the player reported).
-            let seed = crate::attack_choreography::seed_from_id(&enemy.id);
-            let jitters = five_f32s_from_seed(seed);
-            let base_cooldown_s = 1.5;
-            // Cooldown cadence: ±25% per actor. Range ~1.13s-1.88s.
-            let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
-            // Initial stagger: random fraction of the per-actor
-            // cooldown. First shot lands between 0.3 and 1.0 of the
-            // full cooldown, so a fresh squadron's first volley is
-            // spread out instead of all firing on the same frame.
-            let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
-            // Standoff radius: ±20% per actor so orbits stack at
-            // different distances. Floor at 120 px to keep close-
-            // range archetypes engaged.
-            let standoff_base = (archetype.attack_range() * 0.35).max(120.0);
-            let standoff_px = standoff_base * (0.8 + 0.4 * jitters.2);
-            // Initial orbital phase: full circle so a squadron's
-            // starting positions spread around the player (above,
-            // below, left, right).
-            let orbit_phase = jitters.3 * std::f32::consts::TAU;
-            // Drift rate per actor: 0.4 to 1.2 rad/s. Different
-            // drift speeds mean two sharks that start on the same
-            // side of the player don't stay on the same side.
-            let orbit_drift_rad_s = 0.4 + 0.8 * jitters.4;
-            Brain::StateMachine(StateMachineCfg::Skirmisher {
-                cfg: SkirmisherCfg {
-                    aggressiveness: if archetype.attacks_player() { 1.0 } else { 0.0 },
-                    aggro_radius: archetype.aggro_radius(),
-                    standoff_px,
-                    strafe_speed: archetype.chase_speed(),
-                    fire_cooldown_s,
-                    orbit_drift_rad_s,
-                },
-                state: SkirmisherState {
-                    cooldown_remaining: initial_cooldown_s,
-                    orbit_phase,
-                    ..Default::default()
-                },
-            })
-        }
+        EnemyBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
         EnemyBrainTemplate::Sniper => {
             let seed = crate::attack_choreography::seed_from_id(&enemy.id);
             let jitters = five_f32s_from_seed(seed);
@@ -1236,10 +1212,10 @@ mod tests {
     }
 
     /// Regression net: the riderless shark gets the new Shark brain
-    /// while the mounted shark composite keeps the old MeleeBrute
-    /// mount brain on purpose.
+    /// while the mounted shark composite keeps the orbiting
+    /// Skirmisher-style mount brain on purpose.
     #[test]
-    fn shark_composite_mount_brain_stays_melee_brute() {
+    fn shark_composite_mount_brain_stays_skirmisher() {
         use crate::brain::{Brain, StateMachineCfg};
         let mut app = App::new();
         app.add_systems(Update, |mut commands: Commands| {
@@ -1264,7 +1240,7 @@ mod tests {
             .expect("composite mount should exist");
         assert!(matches!(
             brain,
-            Brain::StateMachine(StateMachineCfg::MeleeBrute { .. })
+            Brain::StateMachine(StateMachineCfg::Skirmisher { .. })
         ));
     }
 

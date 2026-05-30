@@ -17,9 +17,8 @@ fn every_intro_dialogue_id_is_registered_with_validator() {
     // references. With the Yarn migration the dialogue content
     // lives in `.yarn` files; the runtime body smoke-check moved
     // to the bridge's integration tests.
-    let known: std::collections::HashSet<&str> = crate::dialog::known_dialogue_ids()
-        .into_iter()
-        .collect();
+    let known: std::collections::HashSet<&str> =
+        crate::dialog::known_dialogue_ids().into_iter().collect();
     for id in intro_dialogue_ids() {
         assert!(
             known.contains(id),

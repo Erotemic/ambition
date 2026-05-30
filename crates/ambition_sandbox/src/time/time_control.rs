@@ -17,9 +17,7 @@
 
 use bevy::prelude::*;
 
-use crate::player::components::{
-    PlayerCombatState, PlayerSlot, PrimaryPlayer,
-};
+use crate::player::components::{PlayerCombatState, PlayerSlot, PrimaryPlayer};
 use crate::time::feel::SandboxFeelTuning;
 use crate::SandboxDevState;
 use crate::{ClockDomain, SandboxSimState};
@@ -278,10 +276,7 @@ fn write_target(target: &mut RequestedClockScale, domain: ClockDomain, scale: f3
 /// Step 3's per-entity `ProperTimeScale` component + `entity_dt`
 /// accessor are the seam where future MP / RL regimes diverge.
 pub fn emit_player_time_intent_system(
-    primary: Query<
-        (&crate::player::PlayerBlinkState, &PlayerCombatState),
-        With<PrimaryPlayer>,
-    >,
+    primary: Query<(&crate::player::PlayerBlinkState, &PlayerCombatState), With<PrimaryPlayer>>,
     dev_state: Res<SandboxDevState>,
     feel: Res<SandboxFeelTuning>,
     mut writer: MessageWriter<ClockScaleRequest>,

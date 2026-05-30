@@ -198,7 +198,10 @@ pub enum BossAttackPattern {
 }
 
 impl BossAttackPattern {
-    pub fn pattern_for(&self, phase: crate::boss_encounter::BossEncounterPhase) -> Option<&BossPattern> {
+    pub fn pattern_for(
+        &self,
+        phase: crate::boss_encounter::BossEncounterPhase,
+    ) -> Option<&BossPattern> {
         match self {
             BossAttackPattern::Cycle => None,
             BossAttackPattern::Scripted {
@@ -413,9 +416,13 @@ impl BossPatternCfg {
     /// encounter phase. Phases without a dedicated override fall
     /// back to the default `movement`. Dormant/Stagger/Death are
     /// non-attacking — the brain handles them upstream.
-    pub fn movement_for_phase(&self, phase: crate::boss_encounter::BossEncounterPhase) -> &BossMovementProfile {
+    pub fn movement_for_phase(
+        &self,
+        phase: crate::boss_encounter::BossEncounterPhase,
+    ) -> &BossMovementProfile {
         match phase {
-            crate::boss_encounter::BossEncounterPhase::Phase2 | crate::boss_encounter::BossEncounterPhase::Transition => {
+            crate::boss_encounter::BossEncounterPhase::Phase2
+            | crate::boss_encounter::BossEncounterPhase::Transition => {
                 self.movement_phase2.as_ref().unwrap_or(&self.movement)
             }
             crate::boss_encounter::BossEncounterPhase::Enrage => {
@@ -1092,7 +1099,10 @@ mod tests {
         tick_boss_pattern(
             &cfg,
             &mut state,
-            &ctx(crate::boss_encounter::BossEncounterPhase::Dormant, 1.0 / 60.0),
+            &ctx(
+                crate::boss_encounter::BossEncounterPhase::Dormant,
+                1.0 / 60.0,
+            ),
             &mut out,
             &mut attack_state,
         );
@@ -1364,7 +1374,10 @@ mod tests {
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
         let mut out = crate::actor_control::ActorControlFrame::neutral();
-        let mut ctx = ctx(crate::boss_encounter::BossEncounterPhase::Phase1, 1.0 / 60.0);
+        let mut ctx = ctx(
+            crate::boss_encounter::BossEncounterPhase::Phase1,
+            1.0 / 60.0,
+        );
         ctx.target_pos = ae::Vec2::new(500.0, 0.0); // pull toward +x
         ctx.actor_pos = ae::Vec2::ZERO;
         tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
@@ -1432,7 +1445,10 @@ mod tests {
         cfg.cycle_attack_active = 5.0;
 
         let baseline_ctx = {
-            let mut c = ctx(crate::boss_encounter::BossEncounterPhase::Phase1, 1.0 / 60.0);
+            let mut c = ctx(
+                crate::boss_encounter::BossEncounterPhase::Phase1,
+                1.0 / 60.0,
+            );
             c.target_pos = ae::Vec2::new(500.0, 0.0);
             c.actor_pos = ae::Vec2::ZERO;
             c

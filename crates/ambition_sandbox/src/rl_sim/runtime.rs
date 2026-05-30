@@ -260,7 +260,9 @@ impl SandboxSim {
             resets: lifetime.map(|l| l.resets).unwrap_or(0),
             body_mode: format!(
                 "{:?}",
-                body_mode.map(|b| b.body_mode).unwrap_or(ae::BodyMode::Standing)
+                body_mode
+                    .map(|b| b.body_mode)
+                    .unwrap_or(ae::BodyMode::Standing)
             ),
             active_room: room.id.clone(),
             world_size: (room.world.size.x, room.world.size.y),

@@ -496,11 +496,7 @@ mod tests {
             !rest_hurt.parts.is_empty(),
             "rest hurtbox must be the multi-part head + body override (parts empty implies the adapter's hurtbox_parts was lost)"
         );
-        let part_names: Vec<&str> = rest_hurt
-            .parts
-            .iter()
-            .map(|p| p.name.as_str())
-            .collect();
+        let part_names: Vec<&str> = rest_hurt.parts.iter().map(|p| p.name.as_str()).collect();
         assert!(
             part_names.contains(&"head") && part_names.contains(&"body"),
             "rest hurtbox parts must include 'head' and 'body'; got {part_names:?}"

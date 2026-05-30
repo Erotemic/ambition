@@ -6,11 +6,11 @@
 //! authored entity type is "add a new Vec on RoomSpec + a new loop
 //! here" rather than "edit a match arm somewhere."
 
-use super::*;
 use super::brain_builders::{
     enemy_default_action_set, enemy_default_brain, mounted_rider_brain_and_action_set,
     skirmisher_brain_for_enemy,
 };
+use super::*;
 use crate::content::features::util::room_spec_paths;
 use bevy::prelude::Name;
 

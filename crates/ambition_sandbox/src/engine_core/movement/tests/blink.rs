@@ -228,12 +228,14 @@ fn post_blink_grace_suspends_gravity_for_tiny_window() {
 fn blink_walls_can_be_passed_by_upgrade_without_allowing_solid_walls() {
     let mut world = test_world();
     world.blocks.clear();
-    world.blocks.push(crate::engine_core::world::Block::blink_wall(
-        "test soft blink membrane",
-        Vec2::new(220.0, 0.0),
-        Vec2::new(22.0, 300.0),
-        BlinkWallTier::Soft,
-    ));
+    world
+        .blocks
+        .push(crate::engine_core::world::Block::blink_wall(
+            "test soft blink membrane",
+            Vec2::new(220.0, 0.0),
+            Vec2::new(22.0, 300.0),
+            BlinkWallTier::Soft,
+        ));
 
     let mut blocked_abilities = AbilitySet::basic();
     blocked_abilities.blink = true;

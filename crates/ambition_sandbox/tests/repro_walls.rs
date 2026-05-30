@@ -1,9 +1,9 @@
 //! Reproduce the exact square_arena wall-cling teleport against engine
 //! collision routines.
 
+use ae::{AbilitySet, Block, InputState, PlayerClusterScratch, World, DEFAULT_TUNING};
 use ambition_sandbox as sb;
 use sb::engine_core as ae;
-use ae::{AbilitySet, Block, InputState, PlayerClusterScratch, World, DEFAULT_TUNING};
 
 fn scratch_at(spawn: ae::Vec2) -> PlayerClusterScratch {
     sb::player::primary_player_scratch(spawn, AbilitySet::sandbox_all())
@@ -60,7 +60,12 @@ fn square_arena_wall_cling_does_not_teleport() {
     );
     println!(
         "after step: pos=({},{}) vel=({},{}) on_ground={} on_wall={}",
-        player.kinematics.pos.x, player.kinematics.pos.y, player.kinematics.vel.x, player.kinematics.vel.y, player.ground.on_ground, player.wall.on_wall
+        player.kinematics.pos.x,
+        player.kinematics.pos.y,
+        player.kinematics.vel.x,
+        player.kinematics.vel.y,
+        player.ground.on_ground,
+        player.wall.on_wall
     );
     let dy_a = (player.kinematics.pos.y - initial.y).abs();
     assert!(
@@ -125,7 +130,12 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
     );
     println!(
         "after step: pos=({},{}) vel=({},{}) on_ground={} on_wall={}",
-        player.kinematics.pos.x, player.kinematics.pos.y, player.kinematics.vel.x, player.kinematics.vel.y, player.ground.on_ground, player.wall.on_wall
+        player.kinematics.pos.x,
+        player.kinematics.pos.y,
+        player.kinematics.vel.x,
+        player.kinematics.vel.y,
+        player.ground.on_ground,
+        player.wall.on_wall
     );
     let dy_b = (player.kinematics.pos.y - initial.y).abs();
     assert!(
@@ -327,7 +337,10 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
     }
     println!(
         "after 200 steps: pos=({}, {}) vel=({}, {})",
-        player.kinematics.pos.x, player.kinematics.pos.y, player.kinematics.vel.x, player.kinematics.vel.y
+        player.kinematics.pos.x,
+        player.kinematics.pos.y,
+        player.kinematics.vel.x,
+        player.kinematics.vel.y
     );
 }
 
@@ -402,7 +415,12 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
     );
     println!(
         "after step: pos=({},{}) vel=({},{}) on_ground={} on_wall={}",
-        player.kinematics.pos.x, player.kinematics.pos.y, player.kinematics.vel.x, player.kinematics.vel.y, player.ground.on_ground, player.wall.on_wall
+        player.kinematics.pos.x,
+        player.kinematics.pos.y,
+        player.kinematics.vel.x,
+        player.kinematics.vel.y,
+        player.ground.on_ground,
+        player.wall.on_wall
     );
     let dy = (player.kinematics.pos.y - initial.y).abs();
     assert!(

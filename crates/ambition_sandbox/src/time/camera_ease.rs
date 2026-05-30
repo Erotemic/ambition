@@ -230,8 +230,16 @@ mod tests {
         for s in 0..32u32 {
             shake.seed = s;
             let o = shake.offset();
-            assert!(o.x.abs() <= shake.amplitude_px + 0.001, "x={} exceeded amp", o.x);
-            assert!(o.y.abs() <= shake.amplitude_px + 0.001, "y={} exceeded amp", o.y);
+            assert!(
+                o.x.abs() <= shake.amplitude_px + 0.001,
+                "x={} exceeded amp",
+                o.x
+            );
+            assert!(
+                o.y.abs() <= shake.amplitude_px + 0.001,
+                "y={} exceeded amp",
+                o.y
+            );
             max_x = max_x.max(o.x.abs());
             max_y = max_y.max(o.y.abs());
         }
@@ -278,7 +286,10 @@ mod tests {
             "soft landing → no shake"
         );
         // Right at the floor: still no shake (clamp at zero).
-        assert_eq!(hard_fall_shake_amplitude(false, true, HARD_FALL_SHAKE_FLOOR_VY), 0.0);
+        assert_eq!(
+            hard_fall_shake_amplitude(false, true, HARD_FALL_SHAKE_FLOOR_VY),
+            0.0
+        );
     }
 
     #[test]

@@ -151,7 +151,12 @@ pub fn draw_debug_overlay(
         &developer_tools,
     );
     if developer_tools.show_health_bars {
-        draw_health_bars(&mut gizmos, world, clusters.kinematics.aabb(), player_health);
+        draw_health_bars(
+            &mut gizmos,
+            world,
+            clusters.kinematics.aabb(),
+            player_health,
+        );
     }
     if developer_tools.show_feature_hitboxes {
         draw_feature_debug(&mut gizmos, world, &feature_q, &developer_tools);
@@ -505,19 +510,9 @@ fn draw_player_debug(
         };
         let target_center = w2(world, target);
         draw_arrow(gizmos, center, target_center, magenta());
-        draw_aabb(
-            gizmos,
-            world,
-            ae::Aabb::new(target, size * 0.5),
-            magenta(),
-        );
+        draw_aabb(gizmos, world, ae::Aabb::new(target, size * 0.5), magenta());
         if (desired - target).length_squared() > 4.0 {
-            draw_aabb(
-                gizmos,
-                world,
-                ae::Aabb::new(desired, size * 0.35),
-                red(),
-            );
+            draw_aabb(gizmos, world, ae::Aabb::new(desired, size * 0.35), red());
             gizmos.line_2d(w2(world, desired), target_center, red());
         }
     }
@@ -697,7 +692,13 @@ fn draw_feature_debug(
             // `combat_offset` so the magenta box lines up with the
             // visible body (and matches the pogo zone, which uses
             // the same call).
-            draw_aabb_styled(gizmos, world, boss.aabb(), body_contact_color, developer_tools);
+            draw_aabb_styled(
+                gizmos,
+                world,
+                boss.aabb(),
+                body_contact_color,
+                developer_tools,
+            );
         }
         for hurtbox in crate::features::damageable_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, hurtbox, hurtbox_color, developer_tools);

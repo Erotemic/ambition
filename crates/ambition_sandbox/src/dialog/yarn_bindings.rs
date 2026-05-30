@@ -71,10 +71,7 @@ pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 /// into the mirror so Yarn functions read consistent values for the
 /// duration of a single tick. Runs unconditionally — cheap because
 /// the data is small (flags/bosses/quests are short Vecs).
-pub fn refresh_yarn_state_mirror(
-    save: Option<Res<SandboxSave>>,
-    mirror: Res<YarnStateMirror>,
-) {
+pub fn refresh_yarn_state_mirror(save: Option<Res<SandboxSave>>, mirror: Res<YarnStateMirror>) {
     let Some(save) = save else {
         return;
     };
@@ -165,7 +162,10 @@ pub fn cmd_set_flag(In(name): In<String>, mut effects: MessageWriter<GameplayEff
 
 /// `<<clear_flag "id">>` — flip a save flag to `false`.
 pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<GameplayEffect>) {
-    effects.write(GameplayEffect::SetFlag { id: name, on: false });
+    effects.write(GameplayEffect::SetFlag {
+        id: name,
+        on: false,
+    });
 }
 
 /// `<<give_item "kind" count>>` — grant the player an item.
@@ -195,10 +195,7 @@ pub fn cmd_spawn_chest(In(id): In<String>) {
 /// `<<play_sfx "id">>` — emit an `SfxMessage::Play`. The id is a
 /// string that `SfxId::new` hashes at the call site (matches every
 /// other dynamic-id audio path in the codebase).
-pub fn cmd_play_sfx(
-    In(id_str): In<String>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
-) {
+pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: MessageWriter<crate::audio::SfxMessage>) {
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::SfxId::new(&id_str),
         pos: ae::Vec2::ZERO,

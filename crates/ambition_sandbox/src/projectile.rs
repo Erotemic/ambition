@@ -23,11 +23,11 @@
 //! - [`diagnostics`] — internal motion-press logging helper.
 
 mod body;
+mod collision;
+mod diagnostics;
 mod motion_input;
 mod spawn;
 mod spec;
-mod collision;
-mod diagnostics;
 mod state;
 mod systems;
 mod visuals;

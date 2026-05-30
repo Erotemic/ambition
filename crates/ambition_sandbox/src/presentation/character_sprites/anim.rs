@@ -586,11 +586,22 @@ mod tests {
         c: &PickClusters,
     ) -> CharacterAnim {
         pick_player_anim(
-            anim, combat, blink_cam, attack,
-            &c.kinematics, &c.ground, &c.wall,
-            &c.blink, &c.flight, &c.dash, &c.ledge,
-            &c.body_mode, &c.env_contact, &c.abilities,
-            &c.dodge, &c.shield,
+            anim,
+            combat,
+            blink_cam,
+            attack,
+            &c.kinematics,
+            &c.ground,
+            &c.wall,
+            &c.blink,
+            &c.flight,
+            &c.dash,
+            &c.ledge,
+            &c.body_mode,
+            &c.env_contact,
+            &c.abilities,
+            &c.dodge,
+            &c.shield,
         )
     }
 

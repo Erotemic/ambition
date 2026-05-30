@@ -11,9 +11,7 @@ use bevy::prelude::*;
 
 use crate::audio::SfxMessage;
 use crate::dev::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
-use crate::features::{
-    self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent,
-};
+use crate::features::{self, FeatureEcsWorldOverlay, GameplayBanner, HitEvent as FeatureHitEvent};
 use crate::input::ControlFrame;
 use crate::presentation::fx::VfxMessage;
 use crate::rooms::{LoadingZoneActivation, PortalRegistry, RoomSet, RoomTransitionRequested};
@@ -583,8 +581,7 @@ pub fn cleanup_timers_system(
     >,
 ) {
     let frame_dt = time.delta_secs();
-    let Ok((kinematics, ground, dash, mut anim, mut combat, mut blink_cam)) =
-        player_q.single_mut()
+    let Ok((kinematics, ground, dash, mut anim, mut combat, mut blink_cam)) = player_q.single_mut()
     else {
         return;
     };

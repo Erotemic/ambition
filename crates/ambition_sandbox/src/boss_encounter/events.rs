@@ -1,4 +1,3 @@
-
 use crate::presentation::cutscene::CutsceneTriggerQueue;
 
 pub(super) fn publish_events(
@@ -15,11 +14,15 @@ pub(super) fn publish_events(
                     cutscene_queue.request(format!("boss_intro_{encounter_id}"));
                 }
                 let text = match to {
-                    crate::boss_encounter::BossEncounterPhase::Intro => format!("BOSS APPROACHES — {encounter_id}"),
+                    crate::boss_encounter::BossEncounterPhase::Intro => {
+                        format!("BOSS APPROACHES — {encounter_id}")
+                    }
                     crate::boss_encounter::BossEncounterPhase::Phase1 => "PHASE 1".to_string(),
                     crate::boss_encounter::BossEncounterPhase::Transition => "...".to_string(),
                     crate::boss_encounter::BossEncounterPhase::Phase2 => "PHASE 2".to_string(),
-                    crate::boss_encounter::BossEncounterPhase::Stagger => "STAGGERED — punish".to_string(),
+                    crate::boss_encounter::BossEncounterPhase::Stagger => {
+                        "STAGGERED — punish".to_string()
+                    }
                     crate::boss_encounter::BossEncounterPhase::Enrage => "ENRAGED".to_string(),
                     crate::boss_encounter::BossEncounterPhase::Death => "DEFEATED".to_string(),
                     crate::boss_encounter::BossEncounterPhase::Dormant => String::new(),

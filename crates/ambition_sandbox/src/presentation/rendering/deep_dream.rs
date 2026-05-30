@@ -36,7 +36,6 @@ const EFFECT_STRENGTH: f32 = 1.0;
 /// to avoid same-z ordering surprises in the transparent 2D phase.
 const LOCAL_OVERLAY_Z_BIAS: f32 = 0.9;
 
-
 /// Install the material plugin that backs the puppy-slug deep-dream overlay.
 pub fn add_puppy_slug_deep_dream_material_plugin(app: &mut App) {
     app.add_plugins(Material2dPlugin::<PuppySlugDeepDreamMaterial>::default());

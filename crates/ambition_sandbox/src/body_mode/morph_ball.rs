@@ -156,11 +156,8 @@ pub fn sync_morph_ball_visual(
     };
     let in_morph = body_mode.body_mode == ae::BodyMode::MorphBall;
     if in_morph {
-        transform.translation = crate::config::world_to_bevy(
-            &world.0,
-            kin.pos,
-            crate::config::WORLD_Z_PLAYER + 0.05,
-        );
+        transform.translation =
+            crate::config::world_to_bevy(&world.0, kin.pos, crate::config::WORLD_Z_PLAYER + 0.05);
         // Slightly larger than the AABB so the soft anti-aliased rim
         // reads as the ball's outline rather than as background.
         let render = bevy::math::Vec2::new(kin.size.x * 1.10, kin.size.y * 1.10);

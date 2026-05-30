@@ -57,10 +57,8 @@ pub fn update_ecs_hazards(
         // iterator has exactly one entity today.
         for (player_entity, kin, offense, dodge, shield, combat) in &player {
             let dodge_rolling = dodge.roll_timer > 0.0;
-            let player_vulnerable = !offense.invincible
-                && !dodge_rolling
-                && !shield.parrying()
-                && combat.vulnerable();
+            let player_vulnerable =
+                !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable();
             if !player_vulnerable || !hazard.aabb().strict_intersects(kin.aabb()) {
                 continue;
             }

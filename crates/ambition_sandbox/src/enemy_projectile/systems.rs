@@ -50,10 +50,8 @@ pub fn update_enemy_projectiles(
         let mut hit_any_player = false;
         for (player_entity, kin, offense, dodge, shield, combat) in &player_body_q {
             let dodge_rolling = dodge.roll_timer > 0.0;
-            let vulnerable = !offense.invincible
-                && !dodge_rolling
-                && !shield.parrying()
-                && combat.vulnerable();
+            let vulnerable =
+                !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable();
             if !vulnerable || !shot.body.aabb().strict_intersects(kin.aabb()) {
                 continue;
             }

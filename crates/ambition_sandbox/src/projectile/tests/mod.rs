@@ -16,9 +16,7 @@ use bevy::prelude::*;
 use super::state::PlayerProjectileState;
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
-use crate::features::{
-    ActorHealth, ActorIdentity, GameplayBanner, GameplayEffect, HitEvent,
-};
+use crate::features::{ActorHealth, ActorIdentity, GameplayBanner, GameplayEffect, HitEvent};
 use crate::input::ControlFrame;
 use crate::presentation::fx::VfxMessage;
 use crate::trace::GameplayTraceBuffer;
@@ -112,7 +110,9 @@ pub(in crate::projectile) fn projectile_state_mut(
 ) -> bevy::prelude::Mut<'_, PlayerProjectileState> {
     let world = app.world_mut();
     let entity = {
-        let mut q = world.try_query::<(bevy::prelude::Entity, &PlayerProjectileState)>().unwrap();
+        let mut q = world
+            .try_query::<(bevy::prelude::Entity, &PlayerProjectileState)>()
+            .unwrap();
         q.iter(world)
             .next()
             .expect("min_app spawned exactly one player with PlayerProjectileState")

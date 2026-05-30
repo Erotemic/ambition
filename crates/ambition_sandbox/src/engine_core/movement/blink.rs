@@ -142,7 +142,10 @@ fn blink_destination_to_point_internal(
     last_free_blink_position_abilities(world, abilities, start, sweep_target, half)
 }
 
-fn blink_path_blocker_abilities(abilities: &crate::engine_core::abilities::AbilitySet, kind: BlockKind) -> bool {
+fn blink_path_blocker_abilities(
+    abilities: &crate::engine_core::abilities::AbilitySet,
+    kind: BlockKind,
+) -> bool {
     match kind {
         BlockKind::Solid => true,
         BlockKind::BlinkWall { tier } => !abilities_can_blink_through(abilities, tier),
@@ -217,7 +220,10 @@ fn blink_collision_abilities(
     }
 }
 
-fn abilities_can_blink_through(abilities: &crate::engine_core::abilities::AbilitySet, tier: BlinkWallTier) -> bool {
+fn abilities_can_blink_through(
+    abilities: &crate::engine_core::abilities::AbilitySet,
+    tier: BlinkWallTier,
+) -> bool {
     match tier {
         BlinkWallTier::Soft => abilities.blink_through_soft_walls,
         BlinkWallTier::Hard => abilities.blink_through_hard_walls,

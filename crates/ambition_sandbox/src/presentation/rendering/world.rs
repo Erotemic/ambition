@@ -605,7 +605,10 @@ fn spawn_authored_interactable(
     assets: Option<&GameAssets>,
 ) {
     let interactable = &authored.payload;
-    let kind = if matches!(interactable.kind, crate::interaction::InteractionKind::Npc { .. }) {
+    let kind = if matches!(
+        interactable.kind,
+        crate::interaction::InteractionKind::Npc { .. }
+    ) {
         FeatureVisualKind::Npc
     } else if matches!(&interactable.kind, crate::interaction::InteractionKind::Custom(s) if s.starts_with("switch:"))
     {

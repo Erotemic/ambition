@@ -642,7 +642,10 @@ fn intro_props_do_not_grow_interactables() {
     // separation honest.
     for room in &room_set.rooms {
         for authored in &room.interactables {
-            if !matches!(authored.payload.kind, crate::interaction::InteractionKind::Npc { .. }) {
+            if !matches!(
+                authored.payload.kind,
+                crate::interaction::InteractionKind::Npc { .. }
+            ) {
                 continue;
             }
             use ae::AabbExt as _;

@@ -39,11 +39,7 @@ pub const MODE_MIN_DWELL_S: f32 = 0.18;
 /// Choose this tick's broad mode. Mutates `state` to track the
 /// hysteresis window (via `mode_dwell_s`, which the caller in
 /// `tick_smash` advances each tick by `snapshot.dt`).
-pub fn choose_mode(
-    obs: &ObservationFrame,
-    cfg: &SmashCfg,
-    state: &mut SmashState,
-) -> BroadMode {
+pub fn choose_mode(obs: &ObservationFrame, cfg: &SmashCfg, state: &mut SmashState) -> BroadMode {
     // --- Hard overrides (bypass hysteresis) ---
     if !obs.self_alive || obs.stun_remaining > 0.0 {
         return commit(state, BroadMode::Idle);
@@ -181,10 +177,7 @@ mod tests {
         let mut obs = obs_at(300.0);
         obs.crowding.pressure = 1.0; // way over 0.65 threshold
         obs.crowding.away_dir = ae::Vec2::new(-1.0, 0.0);
-        assert_eq!(
-            choose_mode(&obs, &cfg, &mut state),
-            BroadMode::Reposition,
-        );
+        assert_eq!(choose_mode(&obs, &cfg, &mut state), BroadMode::Reposition,);
     }
 
     #[test]

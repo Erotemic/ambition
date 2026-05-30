@@ -667,15 +667,7 @@ pub(super) fn handle_player_damage_events(
     match damage.mode {
         features::HitMode::SafeRespawn => {
             safe_respawn_player(
-                sfx,
-                vfx,
-                clusters,
-                sim_state,
-                safety,
-                combat,
-                tuning,
-                feel,
-                impact_pos,
+                sfx, vfx, clusters, sim_state, safety, combat, tuning, feel, impact_pos,
             );
         }
         features::HitMode::Knockback => {
@@ -864,8 +856,10 @@ pub(super) fn start_attack(
     // to the controller. Keep these impulses modest; the engine control path
     // still owns the canonical slash/pogo op + recoil bookkeeping.
     clusters.kinematics.vel += spec.self_impulse;
-    if matches!(intent, crate::combat::AttackIntent::AirUp | crate::combat::AttackIntent::Up)
-        && clusters.kinematics.vel.y > -40.0
+    if matches!(
+        intent,
+        crate::combat::AttackIntent::AirUp | crate::combat::AttackIntent::Up
+    ) && clusters.kinematics.vel.y > -40.0
     {
         clusters.kinematics.vel.y = -40.0;
     }
@@ -1083,6 +1077,9 @@ mod tests {
             vec![ae::Block::solid("floor", min, size), orb.clone(), rebound],
         );
 
-        assert_eq!(pogo_target_for_attack_hitbox(&world, attack), Some(orb.aabb));
+        assert_eq!(
+            pogo_target_for_attack_hitbox(&world, attack),
+            Some(orb.aabb)
+        );
     }
 }

@@ -282,10 +282,7 @@ fn sprite_authored_volumes(
 /// `collision_scale`). Fall back to `ctx.size` when the snapshot
 /// didn't capture one — test fixtures that build `BossSpriteMetrics`
 /// by hand can leave `sprite_render_size = Vec2::ZERO` to opt out.
-fn sprite_world_size(
-    metrics: &super::bosses::BossSpriteMetrics,
-    fallback: ae::Vec2,
-) -> ae::Vec2 {
+fn sprite_world_size(metrics: &super::bosses::BossSpriteMetrics, fallback: ae::Vec2) -> ae::Vec2 {
     if metrics.sprite_render_size.x > 0.0 && metrics.sprite_render_size.y > 0.0 {
         metrics.sprite_render_size
     } else {
@@ -417,8 +414,8 @@ pub fn boss_attack_damage(
     player_body: ae::Aabb,
 ) -> Option<crate::features::HitEvent> {
     use super::util::midpoint;
-    use crate::features::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
     use crate::engine_core::AabbExt;
+    use crate::features::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 
     let signum_or = |x: f32, fallback: f32| {
         if x.abs() < f32::EPSILON {
@@ -605,8 +602,8 @@ pub fn volumes_for_profile(
 #[cfg(test)]
 mod sprite_metadata_derivation_tests {
     use super::*;
-    use crate::presentation::character_sprites::registry::{NamedPixelRect, PixelRect};
     use crate::engine_core::AabbExt;
+    use crate::presentation::character_sprites::registry::{NamedPixelRect, PixelRect};
 
     /// Centered pixel bbox at frame center → world AABB at world_center.
     /// The 128×128 frame with a 64×64 bbox at (32, 32) should map to
@@ -892,8 +889,8 @@ mod sprite_metadata_derivation_tests {
     fn damageable_volumes_scales_to_sprite_render_size() {
         use crate::brain::BossAttackState;
         use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
-        use crate::presentation::character_sprites::registry::PixelRect;
         use crate::engine_core::AabbExt;
+        use crate::presentation::character_sprites::registry::PixelRect;
         use std::collections::HashMap;
 
         let bbox = PixelRect {

@@ -23,10 +23,10 @@
 //! `dev/journals/player-cluster-native-push-2026-05-28.md`.
 
 pub mod abilities;
-pub mod player_clusters;
 pub mod geometry;
 pub mod ledge_grab;
 pub mod movement;
+pub mod player_clusters;
 pub mod player_state;
 pub mod world;
 
@@ -46,36 +46,34 @@ pub use movement::{
     update_player_control_with_tuning_scratch, update_player_scratch,
     update_player_simulation_scratch, update_player_simulation_with_clusters,
     update_player_simulation_with_tuning_scratch, update_player_with_tuning_clusters,
-    update_player_with_tuning_scratch, BlinkEvent, ComboMark,
-    FrameEvents, InputState, LedgeMomentumTuning, MovementOp, MovementTuning, AIR_ACCEL,
-    AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME,
-    DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_PLAYER_BODY_HEIGHT,
-    DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED,
-    DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL,
-    FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GRAVITY,
-    GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED, PARRY_WINDOW_TIME,
-    POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL,
-    WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
-};
-pub use player_state::{
-    classify_safety_from_kinematics, try_change_body_mode_clusters, BodyMode,
-    BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
+    update_player_with_tuning_scratch, BlinkEvent, ComboMark, FrameEvents, InputState,
+    LedgeMomentumTuning, MovementOp, MovementTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
+    BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN,
+    DASH_SPEED, DASH_TIME, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_TUNING,
+    DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL,
+    FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED,
+    FLIGHT_TERMINAL_SPEED, GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED,
+    MAX_RUN_SPEED, PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED,
+    PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL, WALL_CLIMB_SPEED, WALL_JUMP_X,
+    WALL_SLIDE_SPEED,
 };
 pub use player_clusters::{
     refresh_movement_resources_clusters, reset_player_clusters,
     PlayerAbilities as EnginePlayerAbilities, PlayerActionBuffer as EnginePlayerActionBuffer,
-    PlayerBlinkState as EnginePlayerBlinkState,
-    PlayerBodyModeState as EnginePlayerBodyModeState, PlayerClusterQueryData,
-    PlayerClusterQueryDataItem, PlayerClusterScratch, PlayerClustersMut,
+    PlayerBlinkState as EnginePlayerBlinkState, PlayerBodyModeState as EnginePlayerBodyModeState,
+    PlayerClusterQueryData, PlayerClusterQueryDataItem, PlayerClusterScratch, PlayerClustersMut,
     PlayerComboTrace as EnginePlayerComboTrace, PlayerDashState as EnginePlayerDashState,
     PlayerDodgeState as EnginePlayerDodgeState,
     PlayerEnvironmentContact as EnginePlayerEnvironmentContact,
-    PlayerFlightState as EnginePlayerFlightState,
-    PlayerGroundState as EnginePlayerGroundState, PlayerJumpState as EnginePlayerJumpState,
-    PlayerKinematics as EnginePlayerKinematics, PlayerLedgeState as EnginePlayerLedgeState,
-    PlayerLifetime as EnginePlayerLifetime, PlayerMana as EnginePlayerMana,
-    PlayerOffense as EnginePlayerOffense, PlayerShieldState as EnginePlayerShieldState,
-    PlayerWallState as EnginePlayerWallState,
+    PlayerFlightState as EnginePlayerFlightState, PlayerGroundState as EnginePlayerGroundState,
+    PlayerJumpState as EnginePlayerJumpState, PlayerKinematics as EnginePlayerKinematics,
+    PlayerLedgeState as EnginePlayerLedgeState, PlayerLifetime as EnginePlayerLifetime,
+    PlayerMana as EnginePlayerMana, PlayerOffense as EnginePlayerOffense,
+    PlayerShieldState as EnginePlayerShieldState, PlayerWallState as EnginePlayerWallState,
+};
+pub use player_state::{
+    classify_safety_from_kinematics, try_change_body_mode_clusters, BodyMode, BodyShape,
+    LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,

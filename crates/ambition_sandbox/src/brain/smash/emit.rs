@@ -35,7 +35,11 @@ const DASH_SPEED_PX_S: f32 = 260.0;
 /// Translate the chosen action into ActorControlFrame fields.
 /// Overwrites `out` (caller must reset to neutral first if it
 /// matters; today `tick_smash` does that at the top).
-pub fn emit_inputs(action: SpecificAction, obs: &ObservationFrame, out: &mut crate::actor_control::ActorControlFrame) {
+pub fn emit_inputs(
+    action: SpecificAction,
+    obs: &ObservationFrame,
+    out: &mut crate::actor_control::ActorControlFrame,
+) {
     // Facing is set unconditionally toward the target (when one
     // exists) so even Idle mid-engagement faces the threat.
     let face_x = signum_or(obs.to_target_x, obs.self_facing);
@@ -130,12 +134,20 @@ mod tests {
     #[test]
     fn walk_emits_desired_vel_along_dir() {
         let mut frame = crate::actor_control::ActorControlFrame::neutral();
-        emit_inputs(SpecificAction::Walk { dir: 1.0 }, &obs_at(300.0), &mut frame);
+        emit_inputs(
+            SpecificAction::Walk { dir: 1.0 },
+            &obs_at(300.0),
+            &mut frame,
+        );
         assert!(frame.desired_vel.x > 0.0);
         assert_eq!(frame.desired_vel.y, 0.0);
         assert!(frame.facing > 0.0);
         let mut frame = crate::actor_control::ActorControlFrame::neutral();
-        emit_inputs(SpecificAction::Walk { dir: -1.0 }, &obs_at(300.0), &mut frame);
+        emit_inputs(
+            SpecificAction::Walk { dir: -1.0 },
+            &obs_at(300.0),
+            &mut frame,
+        );
         assert!(frame.desired_vel.x < 0.0);
         assert!(frame.facing < 0.0);
     }

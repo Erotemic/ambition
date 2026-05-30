@@ -165,7 +165,10 @@ pub fn sync_boss_reward_chests_ecs(
             FeatureId::new(chest_id.clone()),
             FeatureName::new(chest_id.clone()),
             FeatureAabb::from_center_size(chest_pos, *size),
-            ChestFeature::new(crate::interaction::Chest::new(chest_id, Some(pickup.clone()))),
+            ChestFeature::new(crate::interaction::Chest::new(
+                chest_id,
+                Some(pickup.clone()),
+            )),
             BossRewardChest::new(encounter_id.clone()),
         ));
         if looted {

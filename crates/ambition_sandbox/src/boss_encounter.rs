@@ -28,9 +28,9 @@ mod specs;
 pub(crate) mod sprites;
 mod systems;
 
+mod spec_types;
 #[cfg(test)]
 mod tests;
-mod spec_types;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use damage::record_boss_damage;
@@ -44,6 +44,8 @@ pub use ids::encounter_id_from_name;
 // rule. Internal tests reference it via `super::ids::MOCKINGBIRD_ENCOUNTER_ID`.
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
+pub use spec_types::{
+    BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
+};
 pub use specs::default_boss_specs;
 pub use systems::{populate_boss_encounter_registry, update_boss_encounters};
-pub use spec_types::{BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState};

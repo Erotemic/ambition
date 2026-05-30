@@ -536,7 +536,6 @@ impl EnemyArchetype {
     }
 }
 
-
 impl EnemyRuntime {
     pub(super) fn new(
         id: impl Into<String>,

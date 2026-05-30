@@ -39,7 +39,10 @@ fn simulation_latches_ledge_grab_on_blink_wall_surface() {
         1.0 / 60.0,
         DEFAULT_TUNING,
     );
-    assert!(scratch.ledge.grab.is_some(), "blink wall ledge should latch");
+    assert!(
+        scratch.ledge.grab.is_some(),
+        "blink wall ledge should latch"
+    );
     assert!(events.operations.contains(&MovementOp::LedgeGrab));
 }
 
@@ -113,7 +116,10 @@ fn attack_press_from_hang_starts_getup_attack_and_fires_slash() {
     );
     let new_state = scratch.ledge.grab.expect("getup-attack keeps ledge state");
     assert!(new_state.climbing, "state should be in getup transition");
-    assert_eq!(new_state.getup_kind, crate::engine_core::LedgeGetupKind::Attack);
+    assert_eq!(
+        new_state.getup_kind,
+        crate::engine_core::LedgeGetupKind::Attack
+    );
     assert!(
         scratch.dodge.roll_timer > 0.0,
         "getup attack grants invuln frames via dodge_roll_timer"

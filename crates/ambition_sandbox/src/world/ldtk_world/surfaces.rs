@@ -354,13 +354,17 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
             breakable.trigger = match breakable_kind {
                 SurfaceBreakability::BreakOnHit => crate::interaction::BreakableTrigger::OnHit,
                 SurfaceBreakability::BreakOnStand => crate::interaction::BreakableTrigger::OnStand,
-                SurfaceBreakability::BreakOnHitOrStand => crate::interaction::BreakableTrigger::Either,
+                SurfaceBreakability::BreakOnHitOrStand => {
+                    crate::interaction::BreakableTrigger::Either
+                }
                 SurfaceBreakability::Indestructible => unreachable!(),
             };
             breakable.respawn = match spec.respawn {
                 SurfaceRespawn::Never => crate::actor::RespawnPolicy::Never,
                 SurfaceRespawn::OnRoomReload => crate::actor::RespawnPolicy::OnRoomReload,
-                SurfaceRespawn::AfterSeconds(seconds) => crate::actor::RespawnPolicy::AfterSeconds(seconds),
+                SurfaceRespawn::AfterSeconds(seconds) => {
+                    crate::actor::RespawnPolicy::AfterSeconds(seconds)
+                }
             };
             breakable.pogo_refresh = pogo_orb_combo;
             breakables.push(crate::rooms::Authored::new(

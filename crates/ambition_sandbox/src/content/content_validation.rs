@@ -7,7 +7,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-
 use crate::content::data::SandboxDataSpec;
 use crate::ldtk_world::{field_string, LdtkProject};
 
@@ -332,8 +331,10 @@ fn validate_quest_conditions(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
 
-    let loaded_encounters =
-        crate::encounter::load_encounter_specs_from_ldtk(project, &crate::save::SandboxSaveData::default());
+    let loaded_encounters = crate::encounter::load_encounter_specs_from_ldtk(
+        project,
+        &crate::save::SandboxSaveData::default(),
+    );
     for (id, spec, _) in loaded_encounters {
         if !spec.music_track.trim().is_empty() && !valid_tracks.contains(spec.music_track.as_str())
         {

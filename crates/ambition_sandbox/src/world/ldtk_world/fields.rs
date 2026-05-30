@@ -96,7 +96,9 @@ pub(super) fn parse_path_mode(value: &str) -> crate::actor::KinematicPathMode {
     }
 }
 
-pub(super) fn parse_optional_path(entity: &LdtkEntityInstance) -> Option<crate::actor::KinematicPath> {
+pub(super) fn parse_optional_path(
+    entity: &LdtkEntityInstance,
+) -> Option<crate::actor::KinematicPath> {
     let points = parse_points(&field_string(entity, "path_points").unwrap_or_default());
     if points.len() < 2 {
         return None;

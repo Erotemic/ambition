@@ -484,13 +484,12 @@ pub fn spawn_overfit_volley_from_special_messages(
         // when present; tests that spawn bosses without an
         // `ActorTarget` exercise the fully-absent path with no
         // sample fallback (consumer gates on Some).
-        let player_pos = actor_target
-            .and_then(|t| {
-                t.entity
-                    .and_then(|e| player_query.get(e).ok())
-                    .map(|kin| kin.aabb().center())
-                    .or(Some(t.pos))
-            });
+        let player_pos = actor_target.and_then(|t| {
+            t.entity
+                .and_then(|e| player_query.get(e).ok())
+                .map(|kin| kin.aabb().center())
+                .or(Some(t.pos))
+        });
         if !boss.alive {
             // Dead boss: clear samples so a respawned-then-attacking
             // boss doesn't inherit stale memory.
@@ -1168,7 +1167,10 @@ mod tests {
             enemy_after.attack_cooldown,
         );
         assert!(
-            matches!(enemy_after.ai_mode, crate::character_ai::CharacterAiMode::Telegraph),
+            matches!(
+                enemy_after.ai_mode,
+                crate::character_ai::CharacterAiMode::Telegraph
+            ),
             "ai_mode should flip to Telegraph; got {:?}",
             enemy_after.ai_mode,
         );
@@ -1257,7 +1259,12 @@ mod tests {
 
     fn gnu_ton_boss_feature() -> BossFeature {
         let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(80.0, 80.0));
-        let mut boss = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, crate::actor::BossBrain::Dormant);
+        let mut boss = BossRuntime::new(
+            "boss_gnu_ton",
+            "GNU-ton",
+            aabb,
+            crate::actor::BossBrain::Dormant,
+        );
         boss.behavior = BossBehaviorProfile::gnu_ton();
         BossFeature::new(boss)
     }

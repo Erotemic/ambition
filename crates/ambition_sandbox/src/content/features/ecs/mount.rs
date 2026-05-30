@@ -30,8 +30,8 @@
 use bevy::prelude::{Commands, Component, Entity, Query, With, Without};
 
 use super::super::EnemyArchetype;
-use super::{ActorRuntime, FeatureAabb};
 use super::brain_builders::dismounted_rider_brain_and_action_set;
+use super::{ActorRuntime, FeatureAabb};
 use crate::engine_core as ae;
 
 /// Attached to a mount entity. Specifies where the rider rides
@@ -281,10 +281,7 @@ pub fn enforce_mount_rider_link(
 /// at the mount's top edge plus 8 px of overlap (matches the legacy
 /// fused `rider_aabb` placement).
 pub fn pirate_on_shark_rider_offset(mount_size: ae::Vec2, rider_size: ae::Vec2) -> ae::Vec2 {
-    ae::Vec2::new(
-        0.0,
-        -(mount_size.y * 0.5) - (rider_size.y * 0.5) + 8.0,
-    )
+    ae::Vec2::new(0.0, -(mount_size.y * 0.5) - (rider_size.y * 0.5) + 8.0)
 }
 
 /// Predicate used by composite-spawn callers to recognize the
@@ -384,7 +381,10 @@ mod tests {
         assert_eq!(r.gravity_scale, 0.0, "rider gravity zeroed by sync");
 
         let aabb = app.world().entity(rider).get::<FeatureAabb>().unwrap();
-        assert_eq!(aabb.center, r.pos, "FeatureAabb mirror updated to synced pos");
+        assert_eq!(
+            aabb.center, r.pos,
+            "FeatureAabb mirror updated to synced pos"
+        );
     }
 
     /// Helper: spawn a mount + rider pair wired the same way the
@@ -454,9 +454,7 @@ mod tests {
             .id();
         app.world_mut()
             .entity_mut(mount)
-            .insert(MountSlot {
-                rider: Some(rider),
-            });
+            .insert(MountSlot { rider: Some(rider) });
         (mount, rider)
     }
 
@@ -486,13 +484,15 @@ mod tests {
             panic!()
         };
         assert_eq!(r.gravity_scale, 1.0, "PirateRaider rider gets gravity 1.0");
-        let brain = app.world().entity(rider).get::<crate::brain::Brain>().unwrap();
+        let brain = app
+            .world()
+            .entity(rider)
+            .get::<crate::brain::Brain>()
+            .unwrap();
         assert!(
             matches!(
                 brain,
-                crate::brain::Brain::StateMachine(
-                    crate::brain::StateMachineCfg::MeleeBrute { .. }
-                ),
+                crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::MeleeBrute { .. }),
             ),
             "after dismount the rider should be MeleeBrute (explicit chase + swipe)",
         );
@@ -539,13 +539,15 @@ mod tests {
             r.gravity_scale, 0.0,
             "rider gravity should be zeroed back to mounted state",
         );
-        let brain = app.world().entity(rider).get::<crate::brain::Brain>().unwrap();
+        let brain = app
+            .world()
+            .entity(rider)
+            .get::<crate::brain::Brain>()
+            .unwrap();
         assert!(
             matches!(
                 brain,
-                crate::brain::Brain::StateMachine(
-                    crate::brain::StateMachineCfg::Skirmisher { .. }
-                ),
+                crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Skirmisher { .. }),
             ),
             "after revive the rider's mounted brain (Skirmisher) should be restored",
         );
@@ -558,8 +560,9 @@ mod tests {
     fn dead_rider_does_not_disturb_mount_records() {
         let mut app = build_app();
         app.add_systems(Update, enforce_mount_rider_link);
-        let (mount, _rider) =
-            spawn_pair(&mut app, /*mount_alive*/ true, /*rider_alive*/ false);
+        let (mount, _rider) = spawn_pair(
+            &mut app, /*mount_alive*/ true, /*rider_alive*/ false,
+        );
 
         app.update();
 

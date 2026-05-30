@@ -7,7 +7,9 @@ pub(super) fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> boo
     horizontally_overlaps && near_top
 }
 
-pub(super) fn room_spec_paths(room: &crate::rooms::RoomSpec) -> Vec<(String, crate::actor::KinematicPath)> {
+pub(super) fn room_spec_paths(
+    room: &crate::rooms::RoomSpec,
+) -> Vec<(String, crate::actor::KinematicPath)> {
     let mut paths: Vec<(String, crate::actor::KinematicPath)> = Vec::new();
     for spec in &room.kinematic_paths {
         paths.push((spec.id.clone(), spec.path.clone()));

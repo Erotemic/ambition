@@ -115,10 +115,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let mut safety_q = sim
                 .world_mut()
                 .query_filtered::<&PlayerSafetyState, With<PlayerEntity>>();
-            safety_q
-                .single(sim.world())
-                .copied()
-                .unwrap_or_default()
+            safety_q.single(sim.world()).copied().unwrap_or_default()
         };
 
         // Query the player's 18 cluster components in one shot via

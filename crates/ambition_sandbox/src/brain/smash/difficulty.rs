@@ -27,7 +27,10 @@ pub struct DifficultyProfile {
     /// Seconds of observation lag — handled by the snapshot
     /// builder, not the filter. Carried here for completeness so
     /// downstream visualization can read one struct.
-    #[allow(dead_code, reason = "reaction delay surfaces upstream of the filter today")]
+    #[allow(
+        dead_code,
+        reason = "reaction delay surfaces upstream of the filter today"
+    )]
     pub reaction_delay_s: f32,
     /// `[0.0, 1.0]` — probability of committing the chosen action
     /// this tick. Lower = drops more attempts to Idle.
@@ -38,7 +41,10 @@ pub struct DifficultyProfile {
     pub accuracy: f32,
     /// Hz — informational, for downstream cooldown / mashing
     /// systems to consult.
-    #[allow(dead_code, reason = "consumer lives in the EFFECTS-stage cooldown gate")]
+    #[allow(
+        dead_code,
+        reason = "consumer lives in the EFFECTS-stage cooldown gate"
+    )]
     pub mash_speed_hz: f32,
 }
 
@@ -120,7 +126,10 @@ fn roll_unit(state: &mut SmashState) -> f32 {
         state.rng_seed = 0xa5a5a5a5;
     }
     // Numerical Recipes LCG constants.
-    state.rng_seed = state.rng_seed.wrapping_mul(1664525).wrapping_add(1013904223);
+    state.rng_seed = state
+        .rng_seed
+        .wrapping_mul(1664525)
+        .wrapping_add(1013904223);
     let n = (state.rng_seed >> 33) as u32; // top 31 bits
     (n as f32) / (u32::MAX >> 1) as f32
 }

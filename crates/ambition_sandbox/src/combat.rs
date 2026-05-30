@@ -6,8 +6,8 @@
 //! renderer.
 
 use crate::actor::{ActorFaction, KinematicPath, RespawnPolicy};
-use crate::engine_core::{Aabb, AabbExt};
 use crate::engine_core::Vec2;
+use crate::engine_core::{Aabb, AabbExt};
 
 /// The broad gameplay category of damage. This is intentionally separate from
 /// presentation so hazards, attacks, and projectiles can share damage handling.

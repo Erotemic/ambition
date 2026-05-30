@@ -100,12 +100,8 @@ fn update_player_clusters_runs_one_frame() {
     scratch.kinematics.vel = Vec2::ZERO;
     {
         let mut clusters = scratch.as_mut();
-        let _events = update_player_clusters(
-            &world,
-            &mut clusters,
-            InputState::default(),
-            1.0 / 60.0,
-        );
+        let _events =
+            update_player_clusters(&world, &mut clusters, InputState::default(), 1.0 / 60.0);
     }
     // Idle frame should still produce gravity-driven downward velocity.
     assert!(

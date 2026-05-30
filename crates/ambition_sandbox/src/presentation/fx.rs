@@ -131,11 +131,7 @@ pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
     world: Res<crate::GameWorld>,
-    mut speech_bubbles: Query<(
-        &mut SpeechBubbleVisual,
-        &mut Transform,
-        &mut TextColor,
-    )>,
+    mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
     let world = &world.0;
     let mut pending_speech_bubbles = Vec::new();
@@ -202,11 +198,7 @@ pub fn vfx_spawn_messages(
 fn make_room_for_speech_bubble(
     pos: ae::Vec2,
     world: &ae::World,
-    speech_bubbles: &mut Query<(
-        &mut SpeechBubbleVisual,
-        &mut Transform,
-        &mut TextColor,
-    )>,
+    speech_bubbles: &mut Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
     for (mut bubble, mut transform, mut color) in speech_bubbles.iter_mut() {
         if !speech_bubbles_should_stack(bubble.pos, pos) {
@@ -233,10 +225,7 @@ fn make_room_for_speech_bubble(
     }
 }
 
-fn make_room_for_pending_speech_bubble(
-    pos: ae::Vec2,
-    speech_bubbles: &mut [PendingSpeechBubble],
-) {
+fn make_room_for_pending_speech_bubble(pos: ae::Vec2, speech_bubbles: &mut [PendingSpeechBubble]) {
     for bubble in speech_bubbles.iter_mut() {
         if !speech_bubbles_should_stack(bubble.pos, pos) {
             continue;
@@ -266,18 +255,13 @@ fn pushed_speech_bubble(
 ) -> (f32, f32, f32) {
     let next_target_stack_offset =
         (target_stack_offset + SPEECH_BUBBLE_STACK_STEP).min(SPEECH_BUBBLE_STACK_MAX);
-    let next_stack_offset = stack_offset.max(
-        next_target_stack_offset.min(stack_offset + SPEECH_BUBBLE_STACK_INITIAL_NUDGE),
-    );
+    let next_stack_offset = stack_offset
+        .max(next_target_stack_offset.min(stack_offset + SPEECH_BUBBLE_STACK_INITIAL_NUDGE));
     let next_age = age.max((duration - SPEECH_BUBBLE_PUSH_FADE_AFTER).max(0.0));
     (next_age, next_stack_offset, next_target_stack_offset)
 }
 
-fn advance_speech_bubble_stack_offset(
-    stack_offset: f32,
-    target_stack_offset: f32,
-    dt: f32,
-) -> f32 {
+fn advance_speech_bubble_stack_offset(stack_offset: f32, target_stack_offset: f32, dt: f32) -> f32 {
     let remaining = target_stack_offset - stack_offset;
     if remaining <= 0.0 {
         return stack_offset;
@@ -317,11 +301,7 @@ fn apply_speech_bubble_visual(
 ) {
     let rise = speech_bubble_rise(age, duration, stack_offset);
     let alpha = speech_bubble_alpha(age, duration);
-    transform.translation = world_to_bevy(
-        world,
-        pos + ae::Vec2::new(0.0, -rise),
-        WORLD_Z_FX + 8.0,
-    );
+    transform.translation = world_to_bevy(world, pos + ae::Vec2::new(0.0, -rise), WORLD_Z_FX + 8.0);
     *color = TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95 * alpha));
 }
 
@@ -339,11 +319,8 @@ pub fn update_speech_bubbles(
     let dt = time.delta_secs();
     for (entity, mut bubble, mut transform, mut color) in &mut query {
         bubble.age += dt;
-        bubble.stack_offset = advance_speech_bubble_stack_offset(
-            bubble.stack_offset,
-            bubble.target_stack_offset,
-            dt,
-        );
+        bubble.stack_offset =
+            advance_speech_bubble_stack_offset(bubble.stack_offset, bubble.target_stack_offset, dt);
         if bubble.age >= bubble.duration {
             commands.entity(entity).despawn();
             continue;

@@ -1,4 +1,3 @@
-
 use crate::presentation::cutscene::CutsceneTriggerQueue;
 
 use super::{events::publish_events, BossEncounterRegistry};
@@ -53,9 +52,12 @@ pub fn record_boss_damage(
     let state = registry.encounters.get_mut(&id)?;
     let prev_hp = state.hp;
     let evs = state.apply_player_damage(damage);
-    let applied = evs
-        .iter()
-        .any(|ev| matches!(ev, crate::boss_encounter::BossEncounterEvent::DamageApplied { .. }));
+    let applied = evs.iter().any(|ev| {
+        matches!(
+            ev,
+            crate::boss_encounter::BossEncounterEvent::DamageApplied { .. }
+        )
+    });
     let hp_remaining = state.hp;
     let killed = applied && hp_remaining == 0 && prev_hp > 0;
     publish_events(&id, &evs, music_request, cutscene_queue, banner);

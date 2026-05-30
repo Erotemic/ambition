@@ -33,8 +33,7 @@ pub fn handle_blink_clusters(
         return;
     }
 
-    if (input.blink_pressed || (input.blink_held && !blink.hold_active)) && blink.cooldown <= 0.0
-    {
+    if (input.blink_pressed || (input.blink_held && !blink.hold_active)) && blink.cooldown <= 0.0 {
         blink.hold_active = true;
         blink.hold_timer = 0.0;
         blink.aiming = false;
@@ -44,8 +43,7 @@ pub fn handle_blink_clusters(
     if blink.hold_active && input.blink_held {
         let control_dt = dt.min(1.0 / 20.0);
         blink.hold_timer += control_dt;
-        if abilities.abilities.precision_blink && blink.hold_timer >= tuning.blink_hold_threshold
-        {
+        if abilities.abilities.precision_blink && blink.hold_timer >= tuning.blink_hold_threshold {
             blink.aiming = true;
         }
         if blink.aiming {
@@ -147,4 +145,3 @@ pub fn handle_attacks_clusters(
         }
     }
 }
-

@@ -66,8 +66,12 @@ pub fn resolve_world_collision(
             });
             if let Some(block) = solid_hit {
                 return match body.resolve_solid_hit(block.aabb) {
-                    crate::projectile::ProjectileSolidHit::Bounced => WorldHitOutcome::Bounced { pos: body.pos },
-                    crate::projectile::ProjectileSolidHit::Expired => WorldHitOutcome::Expired { pos: body.pos },
+                    crate::projectile::ProjectileSolidHit::Bounced => {
+                        WorldHitOutcome::Bounced { pos: body.pos }
+                    }
+                    crate::projectile::ProjectileSolidHit::Expired => {
+                        WorldHitOutcome::Expired { pos: body.pos }
+                    }
                     crate::projectile::ProjectileSolidHit::Passthrough => WorldHitOutcome::Continue,
                 };
             }
@@ -118,7 +122,10 @@ mod tests {
         w
     }
 
-    fn straight_projectile(faction: crate::projectile::ProjectileFaction, pos: ae::Vec2) -> crate::projectile::ProjectileBody {
+    fn straight_projectile(
+        faction: crate::projectile::ProjectileFaction,
+        pos: ae::Vec2,
+    ) -> crate::projectile::ProjectileBody {
         let spec = crate::projectile::ProjectileSpec {
             kind: crate::projectile::ProjectileKind::Fireball,
             origin: pos,
@@ -142,8 +149,10 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(50.0, 50.0),
         );
-        let mut body =
-            straight_projectile(crate::projectile::ProjectileFaction::Enemy, ae::Vec2::new(100.0, 100.0));
+        let mut body = straight_projectile(
+            crate::projectile::ProjectileFaction::Enemy,
+            ae::Vec2::new(100.0, 100.0),
+        );
         let outcome =
             resolve_world_collision(&mut body, &world, WorldHitPolicy::EnemyExpireOnAnyContact);
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
@@ -159,8 +168,10 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(50.0, 4.0),
         );
-        let mut body =
-            straight_projectile(crate::projectile::ProjectileFaction::Enemy, ae::Vec2::new(100.0, 100.0));
+        let mut body = straight_projectile(
+            crate::projectile::ProjectileFaction::Enemy,
+            ae::Vec2::new(100.0, 100.0),
+        );
         let outcome =
             resolve_world_collision(&mut body, &world, WorldHitPolicy::EnemyExpireOnAnyContact);
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
@@ -173,8 +184,10 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(50.0, 50.0),
         );
-        let mut body =
-            straight_projectile(crate::projectile::ProjectileFaction::Player, ae::Vec2::new(100.0, 100.0));
+        let mut body = straight_projectile(
+            crate::projectile::ProjectileFaction::Player,
+            ae::Vec2::new(100.0, 100.0),
+        );
         // bounces_remaining = 0 (Hadouken)
         let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
         assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
@@ -190,8 +203,10 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(50.0, 4.0),
         );
-        let mut body =
-            straight_projectile(crate::projectile::ProjectileFaction::Player, ae::Vec2::new(100.0, 100.0));
+        let mut body = straight_projectile(
+            crate::projectile::ProjectileFaction::Player,
+            ae::Vec2::new(100.0, 100.0),
+        );
         let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
         assert!(matches!(outcome, WorldHitOutcome::Continue));
     }
@@ -203,8 +218,10 @@ mod tests {
             ae::Vec2::new(500.0, 500.0),
             ae::Vec2::new(10.0, 10.0),
         );
-        let mut body =
-            straight_projectile(crate::projectile::ProjectileFaction::Player, ae::Vec2::new(100.0, 100.0));
+        let mut body = straight_projectile(
+            crate::projectile::ProjectileFaction::Player,
+            ae::Vec2::new(100.0, 100.0),
+        );
         let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
         assert!(matches!(outcome, WorldHitOutcome::Continue));
     }

@@ -186,12 +186,18 @@ mod tests {
 
     #[test]
     fn gnu_ton_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches("gnu_ton", crate::boss_encounter::BossEncounterSpec::gnu_ton());
+        assert_profile_matches(
+            "gnu_ton",
+            crate::boss_encounter::BossEncounterSpec::gnu_ton(),
+        );
     }
 
     #[test]
     fn mockingbird_profile_encounter_matches_hardcoded_constructor() {
-        assert_profile_matches("mockingbird", crate::boss_encounter::BossEncounterSpec::mockingbird());
+        assert_profile_matches(
+            "mockingbird",
+            crate::boss_encounter::BossEncounterSpec::mockingbird(),
+        );
     }
 
     #[test]

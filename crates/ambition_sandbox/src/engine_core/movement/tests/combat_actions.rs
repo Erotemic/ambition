@@ -21,7 +21,10 @@ fn dodge_roll_triggers_on_ground_with_ability() {
     let mut scratch = scratch_at(world.spawn);
     scratch.ground.on_ground = true;
     scratch.dodge.cooldown = 0.0;
-    assert!(scratch.abilities.abilities.dodge, "sandbox_all enables dodge");
+    assert!(
+        scratch.abilities.abilities.dodge,
+        "sandbox_all enables dodge"
+    );
     let events = step_scratch(
         &world,
         &mut scratch,

@@ -118,7 +118,9 @@ pub fn sync_bubble_shield_visual(
     >,
     mut shield_q: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
 ) {
-    let Ok((kin, shield)) = player_q.single() else { return };
+    let Ok((kin, shield)) = player_q.single() else {
+        return;
+    };
     let Ok((mut transform, mut sprite, mut vis)) = shield_q.single_mut() else {
         return;
     };

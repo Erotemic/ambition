@@ -1,4 +1,3 @@
-
 use super::profile::default_boss_profiles;
 
 /// Default boss specs shipped with the sandbox. Populated lazily so
@@ -74,12 +73,18 @@ mod tests {
 
     #[test]
     fn load_boss_specs_from_disk_finds_gnu_ton() {
-        assert_spec_matches_disk("gnu_ton", crate::boss_encounter::BossEncounterSpec::gnu_ton());
+        assert_spec_matches_disk(
+            "gnu_ton",
+            crate::boss_encounter::BossEncounterSpec::gnu_ton(),
+        );
     }
 
     #[test]
     fn load_boss_specs_from_disk_finds_mockingbird() {
-        assert_spec_matches_disk("mockingbird", crate::boss_encounter::BossEncounterSpec::mockingbird());
+        assert_spec_matches_disk(
+            "mockingbird",
+            crate::boss_encounter::BossEncounterSpec::mockingbird(),
+        );
     }
 
     #[test]

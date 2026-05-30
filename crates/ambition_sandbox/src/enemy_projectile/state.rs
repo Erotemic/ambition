@@ -66,8 +66,10 @@ impl EnemyProjectileState {
             gravity: request.gravity.max(0.0),
             charge_tier: 0,
         };
-        let mut body =
-            crate::projectile::ProjectileBody::from_spec_with_faction(spec, crate::projectile::ProjectileFaction::Enemy);
+        let mut body = crate::projectile::ProjectileBody::from_spec_with_faction(
+            spec,
+            crate::projectile::ProjectileFaction::Enemy,
+        );
         // Enemy projectiles travel in a straight line (no bouncing —
         // a bouncing volley reads as a pinball and confuses the
         // player about the hostile path).
@@ -106,7 +108,10 @@ mod tests {
         let mut state = EnemyProjectileState::default();
         state.spawn(spawn_request(120.0, 1));
         assert_eq!(state.bodies.len(), 1);
-        assert_eq!(state.bodies[0].body.faction, crate::projectile::ProjectileFaction::Enemy);
+        assert_eq!(
+            state.bodies[0].body.faction,
+            crate::projectile::ProjectileFaction::Enemy
+        );
     }
 
     #[test]

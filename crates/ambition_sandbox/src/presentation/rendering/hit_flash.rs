@@ -247,9 +247,7 @@ pub fn sync_hit_flash_overlays(
         // one query without changing the overlay sync.
         let hit_flash_secs =
             hit_flash_secs_for_source(feature, player, &actors, &bosses, &player_state);
-        let intensity = hit_flash_secs
-            .map(normalize_hit_flash)
-            .unwrap_or(0.0);
+        let intensity = hit_flash_secs.map(normalize_hit_flash).unwrap_or(0.0);
 
         let Ok((mut overlay_transform, material_handle, overlay)) =
             overlays.get_mut(source.overlay)

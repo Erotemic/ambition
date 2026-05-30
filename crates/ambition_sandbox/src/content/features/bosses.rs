@@ -8,9 +8,7 @@ use super::*;
 // below still reference them by their old `content::features::bosses`
 // path — those references stay legal via the re-export while call
 // sites migrate to the brain-module path at their leisure.
-pub use crate::brain::boss_pattern::{
-    BossAttackPattern, BossAttackProfile, BossMovementProfile,
-};
+pub use crate::brain::boss_pattern::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
 // `BossPattern` and `BossPatternStep` only show up inside the
 // scripted profiles, which now live in `boss_profiles.ron`. They're
 // still publicly accessible via `crate::brain::boss_pattern`; we
@@ -298,7 +296,9 @@ impl BossBehaviorProfile {
 /// 3. `encounter_id_from_name(authored_name)` — legacy fallback.
 pub fn canonical_boss_id_from(name: &str, brain: &crate::actor::BossBrain) -> String {
     match brain {
-        crate::actor::BossBrain::PhaseScript { script_id } if !script_id.is_empty() => script_id.clone(),
+        crate::actor::BossBrain::PhaseScript { script_id } if !script_id.is_empty() => {
+            script_id.clone()
+        }
         crate::actor::BossBrain::Custom(label) if !label.is_empty() => {
             crate::boss_encounter::encounter_id_from_name(label)
         }
@@ -490,7 +490,12 @@ mod boss_special_resolver_tests {
 
     fn gnu_ton_runtime_fixture() -> BossRuntime {
         let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(110.0, 110.0));
-        let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, crate::actor::BossBrain::Dormant);
+        let mut runtime = BossRuntime::new(
+            "boss_gnu_ton",
+            "GNU-ton",
+            aabb,
+            crate::actor::BossBrain::Dormant,
+        );
         runtime.behavior = BossBehaviorProfile::gnu_ton();
         runtime
     }
@@ -917,7 +922,12 @@ mod scripted_pattern_tests {
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-        let mut runtime = BossRuntime::new("boss_gnu_ton", "GNU-ton", aabb, crate::actor::BossBrain::Dormant);
+        let mut runtime = BossRuntime::new(
+            "boss_gnu_ton",
+            "GNU-ton",
+            aabb,
+            crate::actor::BossBrain::Dormant,
+        );
         runtime.behavior = behavior;
         runtime.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
         // After the data-driven migration, the head-position invariants
@@ -1101,8 +1111,8 @@ mod scripted_pattern_tests {
         let player_body = crate::features::body_damage_aabb(boss.pos, boss.combat_size());
         // Synthetic player entity — the test only checks the
         // None branch, the entity is never read out of the event.
-        let synthetic_player = bevy::prelude::Entity::from_raw_u32(1)
-            .expect("nonzero raw entity index");
+        let synthetic_player =
+            bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw entity index");
         assert!(
             crate::features::boss_attack_damage(&ctx, synthetic_player, player_body).is_none(),
             "gnu_ton must not deal contact damage when body_damage = 0"

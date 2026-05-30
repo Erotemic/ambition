@@ -797,12 +797,19 @@ pub fn entity_sprite_for_chest(_chest: &crate::interaction::Chest) -> Option<Ent
     Some(EntitySprite::ChestClosed)
 }
 
-pub fn entity_sprite_for_breakable(_breakable: &crate::interaction::Breakable) -> Option<EntitySprite> {
+pub fn entity_sprite_for_breakable(
+    _breakable: &crate::interaction::Breakable,
+) -> Option<EntitySprite> {
     Some(EntitySprite::BreakableIntact)
 }
 
-pub fn entity_sprite_for_interactable(interactable: &crate::interaction::Interactable) -> Option<EntitySprite> {
-    if matches!(interactable.kind, crate::interaction::InteractionKind::Npc { .. }) {
+pub fn entity_sprite_for_interactable(
+    interactable: &crate::interaction::Interactable,
+) -> Option<EntitySprite> {
+    if matches!(
+        interactable.kind,
+        crate::interaction::InteractionKind::Npc { .. }
+    ) {
         Some(EntitySprite::NpcTerminal)
     } else {
         None
@@ -841,9 +848,8 @@ pub fn breakable_state_sprite(state: crate::interaction::BreakableState) -> Enti
     match state {
         crate::interaction::BreakableState::Intact => EntitySprite::BreakableIntact,
         crate::interaction::BreakableState::Cracking => EntitySprite::BreakableCracked,
-        crate::interaction::BreakableState::Broken | crate::interaction::BreakableState::Respawning => {
-            EntitySprite::BreakableBroken
-        }
+        crate::interaction::BreakableState::Broken
+        | crate::interaction::BreakableState::Respawning => EntitySprite::BreakableBroken,
     }
 }
 

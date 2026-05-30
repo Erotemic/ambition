@@ -27,7 +27,10 @@ mod yarn_bindings;
 mod yarn_bridge;
 
 pub(crate) use content::known_dialogue_ids;
-#[allow(unused_imports, reason = "DialogChoice surfaces in the UI's choice-row layout")]
+#[allow(
+    unused_imports,
+    reason = "DialogChoice surfaces in the UI's choice-row layout"
+)]
 pub use content::DialogChoice;
 pub use runtime::DialogState;
 pub use systems::{dialog_input, dialog_pointer_input};

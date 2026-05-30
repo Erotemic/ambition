@@ -22,7 +22,6 @@
 //! RL policy can replace any single stage without touching the
 //! others.
 
-
 use super::action_set::ActionSet;
 use super::snapshot::BrainSnapshot;
 #[cfg(test)]

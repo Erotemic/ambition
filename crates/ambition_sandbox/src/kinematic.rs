@@ -29,9 +29,9 @@
 //! gains a few abilities-shaped fields and we delete the duplicate
 //! sweep helpers in `movement`.
 
+use crate::engine_core::Vec2;
 use crate::engine_core::{Aabb, AabbExt};
 use crate::engine_core::{BlockKind, World};
-use crate::engine_core::Vec2;
 
 /// Per-tick configuration for [`step_kinematic`].
 #[derive(Clone, Copy, Debug)]

@@ -4,7 +4,6 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-
 /// Marker on the per-frame projectile sprite entities produced by
 /// [`sync_projectile_visuals`]. Despawned and rebuilt each tick so
 /// the entity set always matches `PlayerProjectileState::bodies`.
@@ -60,85 +59,90 @@ pub fn sync_projectile_visuals(
         })
         .cloned();
     for (body, state) in &player_q {
-    // Charge indicator: a growing tinted quad in front of the player.
-    // Size scales with the live charge tier so the player sees the
-    // "winding up" state and can time the release. Only rendered
-    // while `state.charging` is `Some` AND the press hasn't yet
-    // committed to a Hadouken motion.
-    if let Some(hold) = state.charging {
-        let tier = state.charge_tuning.tier_for_hold(hold);
-        let base = crate::projectile::ProjectileKind::Fireball.half_extent();
-        let (size_mult, alpha) = match tier {
-            0 => (0.7, 0.55),
-            1 => (1.1, 0.78),
-            _ => (1.5, 0.95),
-        };
-        let render_size = bevy::math::Vec2::new(base.x * 2.0 * size_mult, base.y * 2.0 * size_mult);
-        let facing = if body.facing.abs() < f32::EPSILON {
-            1.0
-        } else {
-            body.facing.signum()
-        };
-        let charge_pos = ae::Vec2::new(
-            body.pos.x + facing * (body.size.x * 0.5 + 6.0),
-            body.pos.y - body.size.y * 0.20,
-        );
-        commands.spawn((
-            Sprite::from_color(
-                Color::srgba(1.0, 0.74, 0.30, alpha),
-                bevy::math::Vec2::new(render_size.x, render_size.y),
-            ),
-            Transform::from_translation(crate::config::world_to_bevy(
-                &world.0,
-                charge_pos,
-                crate::config::WORLD_Z_PLAYER + 1.5,
-            )),
-            PlayerChargeVisual,
-            Name::new("Player projectile charge indicator"),
-        ));
-    }
-    for projectile in &state.bodies {
-        let body = &projectile.body;
-        let render_size = bevy::math::Vec2::new(
-            (body.half_extent.x * 2.0).max(8.0),
-            (body.half_extent.y * 2.0).max(8.0),
-        );
-        // Hadouken tint (cooler / blue-shifted) vs Fireball (warmer
-        // orange). The tint applies whether or not the textured sprite
-        // loads; a missing texture falls through to a colored quad.
-        let tint = match body.kind {
-            crate::projectile::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
-            crate::projectile::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
-            // Stronger tint for the Super so the player can see at a
-            // glance that they fired the harder gesture.
-            crate::projectile::ProjectileKind::HadoukenSuper => Color::srgba(0.30, 0.55, 1.0, 1.0),
-        };
-        let mut sprite = match handle.clone() {
-            Some(image) => Sprite {
-                image,
-                color: tint,
-                custom_size: Some(render_size),
-                ..Default::default()
-            },
-            None => Sprite::from_color(tint, render_size),
-        };
-        // Flip the sprite to face travel direction so a leftward
-        // fireball doesn't look upside-down.
-        sprite.flip_x = body.vel.x < 0.0;
-        commands.spawn((
-            sprite,
-            Transform::from_translation(crate::config::world_to_bevy(
-                &world.0,
-                body.pos,
-                crate::config::WORLD_Z_PLAYER + 2.0,
-            )),
-            PlayerProjectileVisual,
-            Name::new(match body.kind {
-                crate::projectile::ProjectileKind::Fireball => "Player projectile: fireball",
-                crate::projectile::ProjectileKind::Hadouken => "Player projectile: hadouken",
-                crate::projectile::ProjectileKind::HadoukenSuper => "Player projectile: hadouken_super",
-            }),
-        ));
-    }
+        // Charge indicator: a growing tinted quad in front of the player.
+        // Size scales with the live charge tier so the player sees the
+        // "winding up" state and can time the release. Only rendered
+        // while `state.charging` is `Some` AND the press hasn't yet
+        // committed to a Hadouken motion.
+        if let Some(hold) = state.charging {
+            let tier = state.charge_tuning.tier_for_hold(hold);
+            let base = crate::projectile::ProjectileKind::Fireball.half_extent();
+            let (size_mult, alpha) = match tier {
+                0 => (0.7, 0.55),
+                1 => (1.1, 0.78),
+                _ => (1.5, 0.95),
+            };
+            let render_size =
+                bevy::math::Vec2::new(base.x * 2.0 * size_mult, base.y * 2.0 * size_mult);
+            let facing = if body.facing.abs() < f32::EPSILON {
+                1.0
+            } else {
+                body.facing.signum()
+            };
+            let charge_pos = ae::Vec2::new(
+                body.pos.x + facing * (body.size.x * 0.5 + 6.0),
+                body.pos.y - body.size.y * 0.20,
+            );
+            commands.spawn((
+                Sprite::from_color(
+                    Color::srgba(1.0, 0.74, 0.30, alpha),
+                    bevy::math::Vec2::new(render_size.x, render_size.y),
+                ),
+                Transform::from_translation(crate::config::world_to_bevy(
+                    &world.0,
+                    charge_pos,
+                    crate::config::WORLD_Z_PLAYER + 1.5,
+                )),
+                PlayerChargeVisual,
+                Name::new("Player projectile charge indicator"),
+            ));
+        }
+        for projectile in &state.bodies {
+            let body = &projectile.body;
+            let render_size = bevy::math::Vec2::new(
+                (body.half_extent.x * 2.0).max(8.0),
+                (body.half_extent.y * 2.0).max(8.0),
+            );
+            // Hadouken tint (cooler / blue-shifted) vs Fireball (warmer
+            // orange). The tint applies whether or not the textured sprite
+            // loads; a missing texture falls through to a colored quad.
+            let tint = match body.kind {
+                crate::projectile::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
+                crate::projectile::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
+                // Stronger tint for the Super so the player can see at a
+                // glance that they fired the harder gesture.
+                crate::projectile::ProjectileKind::HadoukenSuper => {
+                    Color::srgba(0.30, 0.55, 1.0, 1.0)
+                }
+            };
+            let mut sprite = match handle.clone() {
+                Some(image) => Sprite {
+                    image,
+                    color: tint,
+                    custom_size: Some(render_size),
+                    ..Default::default()
+                },
+                None => Sprite::from_color(tint, render_size),
+            };
+            // Flip the sprite to face travel direction so a leftward
+            // fireball doesn't look upside-down.
+            sprite.flip_x = body.vel.x < 0.0;
+            commands.spawn((
+                sprite,
+                Transform::from_translation(crate::config::world_to_bevy(
+                    &world.0,
+                    body.pos,
+                    crate::config::WORLD_Z_PLAYER + 2.0,
+                )),
+                PlayerProjectileVisual,
+                Name::new(match body.kind {
+                    crate::projectile::ProjectileKind::Fireball => "Player projectile: fireball",
+                    crate::projectile::ProjectileKind::Hadouken => "Player projectile: hadouken",
+                    crate::projectile::ProjectileKind::HadoukenSuper => {
+                        "Player projectile: hadouken_super"
+                    }
+                }),
+            ));
+        }
     } // end per-player loop
 }

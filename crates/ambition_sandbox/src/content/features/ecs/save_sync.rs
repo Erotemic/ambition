@@ -107,8 +107,10 @@ pub fn sync_ecs_bosses_with_save(
         if matches!(
             data.boss(&encounter_id),
             crate::save::PersistedEncounterState::Cleared
-        ) || matches!(data.boss(&boss.id), crate::save::PersistedEncounterState::Cleared)
-        {
+        ) || matches!(
+            data.boss(&boss.id),
+            crate::save::PersistedEncounterState::Cleared
+        ) {
             boss.alive = false;
             boss.health.current = 0;
         }

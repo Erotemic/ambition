@@ -22,9 +22,9 @@
 
 use ambition_sandbox::input::ControlFrame;
 use ambition_sandbox::player::{
-    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
-    PlayerEntity, PlayerHealth, PlayerIdentityBundle, PlayerInteractionState,
-    PlayerKinematics, PlayerSlot, PrimaryPlayer,
+    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState, PlayerEntity,
+    PlayerHealth, PlayerIdentityBundle, PlayerInteractionState, PlayerKinematics, PlayerSlot,
+    PrimaryPlayer,
 };
 use ambition_sandbox::rooms::RoomSet;
 use ambition_sandbox::{GameMode, GameWorld, MovingPlatformSet, SandboxSimState};
@@ -250,9 +250,7 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_player_simulation() {
         let mut q = app
             .world_mut()
             .query_filtered::<&PlayerKinematics, With<PlayerEntity>>();
-        q.single(app.world())
-            .expect("player should exist")
-            .pos
+        q.single(app.world()).expect("player should exist").pos
     };
 
     // Switch to Paused; States needs one update for the transition to apply.
@@ -277,9 +275,7 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_player_simulation() {
         let mut q = app
             .world_mut()
             .query_filtered::<&PlayerKinematics, With<PlayerEntity>>();
-        q.single(app.world())
-            .expect("player should exist")
-            .pos
+        q.single(app.world()).expect("player should exist").pos
     };
     assert_eq!(
         baseline_pos, paused_pos,

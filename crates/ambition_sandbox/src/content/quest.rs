@@ -181,7 +181,9 @@ pub fn default_quest_specs() -> Vec<crate::quest::QuestSpec> {
                 ),
                 crate::quest::QuestStepSpec::new(
                     "Clear the first system encounter and bank route memory.",
-                    crate::quest::QuestStepCondition::FlagSet("intro_p5_route_memory_received".into()),
+                    crate::quest::QuestStepCondition::FlagSet(
+                        "intro_p5_route_memory_received".into(),
+                    ),
                 ),
             ],
         ),
@@ -415,7 +417,11 @@ mod tests {
     fn pirate_treasure_completes_when_bird_defeated_then_admiral_talked() {
         let mut state = pirate_treasure_state();
         assert!(state.is_active());
-        assert!(state.try_advance(&crate::quest::QuestAdvanceEvent::BossDefeated("mockingbird".into())));
+        assert!(
+            state.try_advance(&crate::quest::QuestAdvanceEvent::BossDefeated(
+                "mockingbird".into()
+            ))
+        );
         assert!(state.is_active());
         assert!(state.try_advance(&crate::quest::QuestAdvanceEvent::FlagSet(
             "npc_pirate_admiral_talked".into()
@@ -433,13 +439,19 @@ mod tests {
         let mut state = pirate_treasure_state();
         // Talk to admiral first — wrong condition for step 0 (which
         // wants BossDefeated). Quest must stay put.
-        assert!(!state.try_advance(&crate::quest::QuestAdvanceEvent::FlagSet(
-            "npc_pirate_admiral_talked".into()
-        )));
+        assert!(
+            !state.try_advance(&crate::quest::QuestAdvanceEvent::FlagSet(
+                "npc_pirate_admiral_talked".into()
+            ))
+        );
         assert_eq!(state.step, 0);
         assert!(state.is_active());
         // Kill the bird → step advances.
-        assert!(state.try_advance(&crate::quest::QuestAdvanceEvent::BossDefeated("mockingbird".into())));
+        assert!(
+            state.try_advance(&crate::quest::QuestAdvanceEvent::BossDefeated(
+                "mockingbird".into()
+            ))
+        );
         assert_eq!(state.step, 1);
         // Walk back and talk again → completes.
         assert!(state.try_advance(&crate::quest::QuestAdvanceEvent::FlagSet(

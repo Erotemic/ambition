@@ -222,12 +222,7 @@ pub(super) fn update_hud(
     // The engine ships a cluster-native `LocomotionState::from_clusters`
     // that classifies these states from cluster components directly.
     let locomotion = ae::LocomotionState::from_clusters(
-        hud_ground,
-        hud_wall,
-        hud_flight,
-        hud_dash,
-        hud_blink,
-        hud_ledge,
+        hud_ground, hud_wall, hud_flight, hud_dash, hud_blink, hud_ledge,
     )
     .label();
     let body_mode = hud_body_mode.body_mode.label();

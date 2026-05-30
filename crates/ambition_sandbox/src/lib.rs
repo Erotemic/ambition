@@ -20,24 +20,24 @@
 // External API surface — bins, tests, and Android/wasm entry points reach
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
-pub mod engine_core;
-pub mod app;
-pub mod audio;
-pub mod debug_label;
-pub mod headless;
-pub mod input;
-pub mod kinematic;
-pub mod cutscene;
-pub mod combat;
 pub mod actor;
 pub mod actor_control;
+pub mod app;
+pub mod audio;
 pub mod character_ai;
+pub mod combat;
+pub mod cutscene;
+pub mod debug_label;
+pub mod engine_core;
+pub mod headless;
+pub mod input;
 pub mod interaction;
-pub mod quest;
-pub mod save;
+pub mod kinematic;
 pub mod player;
+pub mod quest;
 #[cfg(feature = "rl_sim")]
 pub mod rl_sim;
+pub mod save;
 
 // Themed umbrellas. Each owns a coherent slice of the sandbox; the long-
 // term shape carves the reusable ones (`presentation`, `time`, `dev`,
@@ -443,7 +443,15 @@ mod safe_pos_tests {
         let world = dummy_world();
         let (player, mut safety) = player_at(&world, ae::Vec2::new(62.0, -23.0));
         let initial = safety.last_safe_pos;
-        remember_safe_player_position_from_kinematics(&mut safety, player.kinematics.pos, player.kinematics.vel, player.kinematics.aabb(), player.ground.on_ground, &world, SafePositionContext::ideal());
+        remember_safe_player_position_from_kinematics(
+            &mut safety,
+            player.kinematics.pos,
+            player.kinematics.vel,
+            player.kinematics.aabb(),
+            player.ground.on_ground,
+            &world,
+            SafePositionContext::ideal(),
+        );
         assert_eq!(
             safety.last_safe_pos, initial,
             "above-world position must not become last_safe_pos"
@@ -456,7 +464,15 @@ mod safe_pos_tests {
     fn accepts_legitimate_grounded_position() {
         let world = dummy_world();
         let (player, mut safety) = player_at(&world, ae::Vec2::new(200.0, 900.0));
-        remember_safe_player_position_from_kinematics(&mut safety, player.kinematics.pos, player.kinematics.vel, player.kinematics.aabb(), player.ground.on_ground, &world, SafePositionContext::ideal());
+        remember_safe_player_position_from_kinematics(
+            &mut safety,
+            player.kinematics.pos,
+            player.kinematics.vel,
+            player.kinematics.aabb(),
+            player.ground.on_ground,
+            &world,
+            SafePositionContext::ideal(),
+        );
         assert_eq!(
             safety.last_safe_pos,
             ae::Vec2::new(200.0, 900.0),
@@ -476,27 +492,67 @@ mod safe_pos_tests {
 
         let mut ctx = SafePositionContext::ideal();
         ctx.damaged_this_frame = true;
-        remember_safe_player_position_from_kinematics(&mut safety, player.kinematics.pos, player.kinematics.vel, player.kinematics.aabb(), player.ground.on_ground, &world, ctx);
+        remember_safe_player_position_from_kinematics(
+            &mut safety,
+            player.kinematics.pos,
+            player.kinematics.vel,
+            player.kinematics.aabb(),
+            player.ground.on_ground,
+            &world,
+            ctx,
+        );
         assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.feature_requested_reset = true;
-        remember_safe_player_position_from_kinematics(&mut safety, player.kinematics.pos, player.kinematics.vel, player.kinematics.aabb(), player.ground.on_ground, &world, ctx);
+        remember_safe_player_position_from_kinematics(
+            &mut safety,
+            player.kinematics.pos,
+            player.kinematics.vel,
+            player.kinematics.aabb(),
+            player.ground.on_ground,
+            &world,
+            ctx,
+        );
         assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.in_hitstun = true;
-        remember_safe_player_position_from_kinematics(&mut safety, player.kinematics.pos, player.kinematics.vel, player.kinematics.aabb(), player.ground.on_ground, &world, ctx);
+        remember_safe_player_position_from_kinematics(
+            &mut safety,
+            player.kinematics.pos,
+            player.kinematics.vel,
+            player.kinematics.aabb(),
+            player.ground.on_ground,
+            &world,
+            ctx,
+        );
         assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.blink_grace_active = true;
-        remember_safe_player_position_from_kinematics(&mut safety, player.kinematics.pos, player.kinematics.vel, player.kinematics.aabb(), player.ground.on_ground, &world, ctx);
+        remember_safe_player_position_from_kinematics(
+            &mut safety,
+            player.kinematics.pos,
+            player.kinematics.vel,
+            player.kinematics.aabb(),
+            player.ground.on_ground,
+            &world,
+            ctx,
+        );
         assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.room_transitioning = true;
-        remember_safe_player_position_from_kinematics(&mut safety, player.kinematics.pos, player.kinematics.vel, player.kinematics.aabb(), player.ground.on_ground, &world, ctx);
+        remember_safe_player_position_from_kinematics(
+            &mut safety,
+            player.kinematics.pos,
+            player.kinematics.vel,
+            player.kinematics.aabb(),
+            player.ground.on_ground,
+            &world,
+            ctx,
+        );
         assert_eq!(safety.last_safe_pos, initial);
     }
 
@@ -510,7 +566,15 @@ mod safe_pos_tests {
         // the wall.
         let (player, mut safety) = player_at(&world, ae::Vec2::new(18.0, 900.0));
         let initial = safety.last_safe_pos;
-        remember_safe_player_position_from_kinematics(&mut safety, player.kinematics.pos, player.kinematics.vel, player.kinematics.aabb(), player.ground.on_ground, &world, SafePositionContext::ideal());
+        remember_safe_player_position_from_kinematics(
+            &mut safety,
+            player.kinematics.pos,
+            player.kinematics.vel,
+            player.kinematics.aabb(),
+            player.ground.on_ground,
+            &world,
+            SafePositionContext::ideal(),
+        );
         assert_eq!(safety.last_safe_pos, initial);
     }
 

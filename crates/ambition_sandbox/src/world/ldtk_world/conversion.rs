@@ -123,13 +123,15 @@ impl LdtkProject {
         // exactly one of these (or into one of the non-authored Vecs
         // above).
         let mut hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>> = Vec::new();
-        let mut interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>> = Vec::new();
+        let mut interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>> =
+            Vec::new();
         let mut pickups: Vec<crate::rooms::Authored<crate::interaction::Pickup>> = Vec::new();
         let mut chests: Vec<crate::rooms::Authored<crate::interaction::Chest>> = Vec::new();
         let mut breakables: Vec<crate::rooms::Authored<crate::interaction::Breakable>> = Vec::new();
         let mut enemy_spawns: Vec<crate::rooms::Authored<crate::actor::EnemyBrain>> = Vec::new();
         let mut boss_spawns: Vec<crate::rooms::Authored<crate::actor::BossBrain>> = Vec::new();
-        let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> = Vec::new();
+        let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> =
+            Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when

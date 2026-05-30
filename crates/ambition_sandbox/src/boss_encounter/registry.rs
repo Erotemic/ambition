@@ -43,7 +43,10 @@ impl BossEncounterRegistry {
 
     pub fn active_phase(&self) -> Option<(&str, crate::boss_encounter::BossEncounterPhase)> {
         for (id, state) in &self.encounters {
-            if !matches!(state.phase, crate::boss_encounter::BossEncounterPhase::Dormant) {
+            if !matches!(
+                state.phase,
+                crate::boss_encounter::BossEncounterPhase::Dormant
+            ) {
                 return Some((id.as_str(), state.phase));
             }
         }

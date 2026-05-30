@@ -309,7 +309,10 @@ mod tests {
         obs.crowding.away_dir = ae::Vec2::new(-1.0, 0.0); // ally is to the right of us
         let act = choose_action(&obs, BroadMode::Reposition, &cfg, &actions);
         match act {
-            SpecificAction::Walk { dir } => assert!(dir < 0.0, "front actor should push left toward target; got {dir}"),
+            SpecificAction::Walk { dir } => assert!(
+                dir < 0.0,
+                "front actor should push left toward target; got {dir}"
+            ),
             other => panic!("expected Walk, got {other:?}"),
         }
     }
@@ -325,7 +328,11 @@ mod tests {
         let mut obs = obs_at(-300.0, false);
         obs.crowding.away_dir = ae::Vec2::new(1.0, 0.0);
         let act = choose_action(&obs, BroadMode::Reposition, &cfg, &actions);
-        assert_eq!(act, SpecificAction::Idle, "back actor should hold; got {act:?}");
+        assert_eq!(
+            act,
+            SpecificAction::Idle,
+            "back actor should hold; got {act:?}"
+        );
     }
 
     #[test]

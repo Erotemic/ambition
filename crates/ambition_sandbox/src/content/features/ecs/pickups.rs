@@ -74,7 +74,9 @@ pub fn collect_ecs_pickups(
             kind: ParticleKind::Spark,
         });
         let id = match &pickup.pickup.kind {
-            crate::interaction::PickupKind::Health { .. } => ambition_sfx::ids::WORLD_HEALTH_COLLECT,
+            crate::interaction::PickupKind::Health { .. } => {
+                ambition_sfx::ids::WORLD_HEALTH_COLLECT
+            }
             crate::interaction::PickupKind::Currency { .. } => ambition_sfx::ids::WORLD_COIN_PICKUP,
             _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
         };

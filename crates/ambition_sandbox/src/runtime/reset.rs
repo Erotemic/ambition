@@ -302,7 +302,9 @@ mod tests {
             );
             let health = crate::actor::Health::new(20);
             app.world_mut()
-                .spawn(crate::player::PlayerSimulationBundle::from_scratch(initial, health));
+                .spawn(crate::player::PlayerSimulationBundle::from_scratch(
+                    initial, health,
+                ));
             let _ = PlayerBlinkCameraState::default();
         }
         app.insert_resource(crate::world::physics::PhysicsSandboxSettings::default());
@@ -370,8 +372,10 @@ mod tests {
             save.data_mut().set_flag("npc_kira_hostile", true);
             save.data_mut()
                 .set_flag("encounter_goblin_encounter_reward_dropped", true);
-            save.data_mut()
-                .set_encounter("goblin_encounter", crate::save::PersistedEncounterState::Cleared);
+            save.data_mut().set_encounter(
+                "goblin_encounter",
+                crate::save::PersistedEncounterState::Cleared,
+            );
         }
         {
             let mut reg = app.world_mut().resource_mut::<EncounterRegistry>();
@@ -446,7 +450,8 @@ mod tests {
         let expected_spawn = world.0.spawn;
         let mut q = app
             .world_mut()
-            .query_filtered::<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>();
+            .query_filtered::<&crate::player::PlayerKinematics, With<crate::player::PlayerEntity>>(
+            );
         let player_pos = q.single(app.world()).map(|k| k.pos).unwrap();
         assert_eq!(player_pos, expected_spawn);
     }

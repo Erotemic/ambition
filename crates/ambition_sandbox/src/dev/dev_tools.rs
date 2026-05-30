@@ -835,10 +835,7 @@ impl Default for EditableMovementTuning {
 /// profile after resets / room loads rebuild the player from engine defaults.
 pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
-    mut player_q: Query<
-        &mut crate::player::PlayerKinematics,
-        crate::player::PrimaryPlayerOnly,
-    >,
+    mut player_q: Query<&mut crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
 ) {
     let desired = developer.player_body_profile.size();
     if let Ok(mut kinematics) = player_q.single_mut() {

@@ -29,11 +29,11 @@ use crate::brain::{
     BossAttackState, BossPatternContext, Brain, StateMachineCfg,
 };
 use crate::content::features::bosses::BossSpriteMetrics;
+use crate::engine_core::AabbExt;
 use crate::features::{
     boss_attack_damage, boss_special_for_profile, bounding_aabb, BossVolumeContext,
 };
 use crate::presentation::character_sprites::registry::SheetRegistry;
-use crate::engine_core::AabbExt;
 use bevy::prelude::{Commands, MessageWriter};
 
 /// Marker that a boss entity has had its sprite metrics applied
@@ -190,8 +190,7 @@ pub fn derive_boss_sprite_metrics(
             // Mirror into the brain cfg so the soft world-bounds
             // clamp uses the new value too.
             if let Some(mut brain) = brain_opt {
-                if let Brain::StateMachine(StateMachineCfg::BossPattern { cfg, .. }) = &mut *brain
-                {
+                if let Brain::StateMachine(StateMachineCfg::BossPattern { cfg, .. }) = &mut *brain {
                     cfg.combat_size = derived;
                 }
             }
@@ -451,10 +450,8 @@ pub fn update_ecs_bosses(
         };
         let player_body = kin.aabb();
         let dodge_rolling = dodge.roll_timer > 0.0;
-        let player_vulnerable = !offense.invincible
-            && !dodge_rolling
-            && !shield.parrying()
-            && combat.vulnerable();
+        let player_vulnerable =
+            !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable();
         if player_vulnerable && boss.alive {
             let ctx = BossVolumeContext::from_runtime(boss, attack_state);
             if let Some(damage) = boss_attack_damage(&ctx, target_entity, player_body) {

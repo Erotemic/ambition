@@ -139,7 +139,9 @@ mod tests {
                 id: "flag".into(),
                 on: true,
             },
-            GameplayEffect::AdvanceQuest(crate::quest::QuestAdvanceEvent::NpcTalked("guide".into())),
+            GameplayEffect::AdvanceQuest(crate::quest::QuestAdvanceEvent::NpcTalked(
+                "guide".into(),
+            )),
             GameplayEffect::ActivateSwitch {
                 activation: crate::encounter::SwitchActivation {
                     id: "goblin_encounter".into(),

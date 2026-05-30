@@ -101,8 +101,7 @@ impl Plugin for IntroPlugin {
                     super::route_state::emit_intro_flag_chains,
                     super::route_state::sync_intro_flag_gated_lock_walls,
                 ),
-            )
-            ;
+            );
         // Intro dialog redirects are handled by the unified
         // `dialog::redirect_post_quest_dialog` system. Its
         // ordering (after CoreSimulation, before sync_dialog_ui)

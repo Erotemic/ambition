@@ -67,13 +67,8 @@ pub(super) fn player_control_phase(
         engine_input_from_actor_control(actor_control, feel, combat.hitstun_timer, frame_dt);
     let control_world =
         features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-    let control_events = ae::update_player_control_with_clusters(
-        &control_world,
-        clusters,
-        input,
-        frame_dt,
-        tuning,
-    );
+    let control_events =
+        ae::update_player_control_with_clusters(&control_world, clusters, input, frame_dt, tuning);
     if control_events.reset {
         reset_sandbox(
             world,
@@ -279,4 +274,3 @@ pub(super) fn player_simulation_phase(
     );
     PhaseOutcome::Continue
 }
-

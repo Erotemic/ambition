@@ -34,7 +34,10 @@ fn one_way_platform_requires_down_plus_jump_to_drop_through() {
     for _ in 0..6 {
         step_scratch(&world, &mut scratch, InputState::default());
     }
-    assert!(scratch.ground.on_ground, "player should land on the one-way");
+    assert!(
+        scratch.ground.on_ground,
+        "player should land on the one-way"
+    );
     let resting_y = scratch.kinematics.pos.y;
 
     // Holding down alone must NOT drop through anymore.

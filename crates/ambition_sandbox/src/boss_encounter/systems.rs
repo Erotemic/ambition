@@ -136,7 +136,11 @@ pub fn update_boss_encounters(
     for (_runtime_id, boss_name, encounter_id, _pos, _spawn, _hp, _max) in &bosses_in_room {
         match registry.encounters.get_mut(encounter_id) {
             Some(state) => {
-                if matches!(state.phase, crate::boss_encounter::BossEncounterPhase::Dormant) && state.hp > 0 {
+                if matches!(
+                    state.phase,
+                    crate::boss_encounter::BossEncounterPhase::Dormant
+                ) && state.hp > 0
+                {
                     bevy::log::info!(
                         target: "ambition::boss_encounter",
                         "wakeup: encounter={encounter_id} (boss={boss_name:?}) phase=Dormant hp={} → enter_intro",
@@ -172,9 +176,13 @@ pub fn update_boss_encounters(
     // mutate the runtime with the boss reference based on each
     // encounter's HP, and the borrow checker prefers a copy-out then
     // route style.
-    let mut deferred_events: Vec<(String, Vec<crate::boss_encounter::BossEncounterEvent>)> = Vec::new();
+    let mut deferred_events: Vec<(String, Vec<crate::boss_encounter::BossEncounterEvent>)> =
+        Vec::new();
     for (id, state) in registry.encounters.iter_mut() {
-        if matches!(state.phase, crate::boss_encounter::BossEncounterPhase::Dormant) {
+        if matches!(
+            state.phase,
+            crate::boss_encounter::BossEncounterPhase::Dormant
+        ) {
             continue;
         }
         let evs = state.tick(dt);
@@ -240,7 +248,10 @@ pub fn update_boss_encounters(
             if let Some(profile) = profiles.get(id) {
                 boss.apply_behavior_profile(profile.behavior.clone());
             }
-            if matches!(save.data().boss(id), crate::save::PersistedEncounterState::Cleared) {
+            if matches!(
+                save.data().boss(id),
+                crate::save::PersistedEncounterState::Cleared
+            ) {
                 boss.alive = false;
                 boss.health.current = 0;
                 break;
@@ -263,7 +274,11 @@ pub fn update_boss_encounters(
             }
             // Death resolution: when engine state reports Death and the
             // outro is over, mark the runtime dead and update the save.
-            if matches!(state.phase, crate::boss_encounter::BossEncounterPhase::Death) && state.death_complete() {
+            if matches!(
+                state.phase,
+                crate::boss_encounter::BossEncounterPhase::Death
+            ) && state.death_complete()
+            {
                 if boss.alive {
                     boss.alive = false;
                 }

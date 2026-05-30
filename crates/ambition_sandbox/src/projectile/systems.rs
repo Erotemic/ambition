@@ -94,117 +94,119 @@ pub fn update_projectiles(
 
     let damage_mult = user_settings.gameplay.player_damage_multiplier;
     for (player_entity, kin, mut state, mut anim) in &mut player_q {
-    let tick_info = tick_infos.get(&player_entity).copied().unwrap_or_default();
-    state.clock += dt;
-    state.spawner.tick(dt);
+        let tick_info = tick_infos.get(&player_entity).copied().unwrap_or_default();
+        state.clock += dt;
+        state.spawner.tick(dt);
 
-    // Sample motion for Hadouken recognition. Both the action message
-    // axis and `MotionDirection::from_axis` use the +Y-DOWN convention
-    // (the engine matcher returns `Down` for y > 0; pinned by the
-    // `motion_direction_quantization` engine test). Pass axis through
-    // unchanged — an earlier negation here was inverting the sign
-    // and silently mapping every "press Down" sample to `Up`, which
-    // made every QCF detection fail forever.
-    let dir = crate::projectile::MotionDirection::from_axis(tick_info.axis.x, tick_info.axis.y, 0.55);
-    let now = state.clock;
-    state.motion_buffer.push(dir, now);
+        // Sample motion for Hadouken recognition. Both the action message
+        // axis and `MotionDirection::from_axis` use the +Y-DOWN convention
+        // (the engine matcher returns `Down` for y > 0; pinned by the
+        // `motion_direction_quantization` engine test). Pass axis through
+        // unchanged — an earlier negation here was inverting the sign
+        // and silently mapping every "press Down" sample to `Up`, which
+        // made every QCF detection fail forever.
+        let dir =
+            crate::projectile::MotionDirection::from_axis(tick_info.axis.x, tick_info.axis.y, 0.55);
+        let now = state.clock;
+        state.motion_buffer.push(dir, now);
 
-    let mut events: Vec<ProjectileTraceEvent> = Vec::new();
-    let mut still_alive = Vec::with_capacity(state.bodies.len());
-    let mut bodies = std::mem::take(&mut state.bodies);
-    for mut p in bodies.drain(..) {
-        let alive = p.body.tick(dt);
-        if !alive {
-            events.push(ProjectileTraceEvent::Expired { kind: p.body.kind });
-            continue;
-        }
-
-        // Step 1: damage check against actors (enemies / bosses /
-        // breakables / NPCs) via the unified pathway. The damage event
-        // is only written when a hit is actually detected — a stray
-        // projectile mid-flight must not deal damage to anything its
-        // future AABB happens to brush in a later frame. The projectile
-        // also expires on the first hit (no piercing today), so one
-        // shot = one damage event = one damage application.
-        let hit_event = HitEvent {
-            volume: p.body.aabb(),
-            damage: p.body.damage,
-            source: HitSource::PlayerProjectile { kind: p.body.kind },
-            attacker: Some(player_entity),
-            target: crate::features::HitTarget::Volume,
-            mode: crate::features::HitMode::Knockback,
-            knockback: None,
-            ignored_targets: Vec::new(),
-        };
-        let ecs_breakable_hit =
-            crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables);
-        let ecs_actor_hit = crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors);
-        let ecs_boss_hit = crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
-        if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
-            feature_damage.write(hit_event);
-            sfx.write(SfxMessage::Hit { pos: p.body.pos });
-            events.push(ProjectileTraceEvent::Hit {
-                kind: p.body.kind,
-                damage: p.body.damage,
-            });
-            continue;
-        }
-
-        // Step 2: world-collision test, dispatched through the shared
-        // `WorldHitPolicy::PlayerBouncing` helper so the "solid first,
-        // then one-way" priority + bouncing semantics live in one
-        // place (OVERNIGHT-TODO #17.7). Player Fireballs (with
-        // `bounces_remaining > 0`) bounce off floors and pass through
-        // one-way platforms unless landing-from-above; Hadouken (0
-        // bounces) expires on the first solid hit.
-        match resolve_world_collision(&mut p.body, &world.0, WorldHitPolicy::PlayerBouncing) {
-            WorldHitOutcome::Bounced { pos } => {
-                sfx.write(SfxMessage::Hit { pos });
-                still_alive.push(p);
+        let mut events: Vec<ProjectileTraceEvent> = Vec::new();
+        let mut still_alive = Vec::with_capacity(state.bodies.len());
+        let mut bodies = std::mem::take(&mut state.bodies);
+        for mut p in bodies.drain(..) {
+            let alive = p.body.tick(dt);
+            if !alive {
+                events.push(ProjectileTraceEvent::Expired { kind: p.body.kind });
                 continue;
             }
-            WorldHitOutcome::Expired { pos } => {
+
+            // Step 1: damage check against actors (enemies / bosses /
+            // breakables / NPCs) via the unified pathway. The damage event
+            // is only written when a hit is actually detected — a stray
+            // projectile mid-flight must not deal damage to anything its
+            // future AABB happens to brush in a later frame. The projectile
+            // also expires on the first hit (no piercing today), so one
+            // shot = one damage event = one damage application.
+            let hit_event = HitEvent {
+                volume: p.body.aabb(),
+                damage: p.body.damage,
+                source: HitSource::PlayerProjectile { kind: p.body.kind },
+                attacker: Some(player_entity),
+                target: crate::features::HitTarget::Volume,
+                mode: crate::features::HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+            };
+            let ecs_breakable_hit =
+                crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables);
+            let ecs_actor_hit = crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors);
+            let ecs_boss_hit = crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
+            if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
+                feature_damage.write(hit_event);
+                sfx.write(SfxMessage::Hit { pos: p.body.pos });
                 events.push(ProjectileTraceEvent::Hit {
                     kind: p.body.kind,
                     damage: p.body.damage,
                 });
-                vfx.write(VfxMessage::Impact { pos });
                 continue;
             }
-            WorldHitOutcome::Continue => {}
+
+            // Step 2: world-collision test, dispatched through the shared
+            // `WorldHitPolicy::PlayerBouncing` helper so the "solid first,
+            // then one-way" priority + bouncing semantics live in one
+            // place (OVERNIGHT-TODO #17.7). Player Fireballs (with
+            // `bounces_remaining > 0`) bounce off floors and pass through
+            // one-way platforms unless landing-from-above; Hadouken (0
+            // bounces) expires on the first solid hit.
+            match resolve_world_collision(&mut p.body, &world.0, WorldHitPolicy::PlayerBouncing) {
+                WorldHitOutcome::Bounced { pos } => {
+                    sfx.write(SfxMessage::Hit { pos });
+                    still_alive.push(p);
+                    continue;
+                }
+                WorldHitOutcome::Expired { pos } => {
+                    events.push(ProjectileTraceEvent::Hit {
+                        kind: p.body.kind,
+                        damage: p.body.damage,
+                    });
+                    vfx.write(VfxMessage::Impact { pos });
+                    continue;
+                }
+                WorldHitOutcome::Continue => {}
+            }
+
+            still_alive.push(p);
         }
+        state.bodies = still_alive;
 
-        still_alive.push(p);
-    }
-    state.bodies = still_alive;
+        let facing = if kin.facing.abs() < f32::EPSILON {
+            1.0
+        } else {
+            kin.facing.signum()
+        };
+        let origin = ae::Vec2::new(
+            kin.pos.x + facing * (kin.size.x * 0.5 + 4.0),
+            kin.pos.y - kin.size.y * 0.20,
+        );
+        let direction = ae::Vec2::new(facing, 0.0);
 
-    let facing = if kin.facing.abs() < f32::EPSILON {
-        1.0
-    } else {
-        kin.facing.signum()
-    };
-    let origin = ae::Vec2::new(
-        kin.pos.x + facing * (kin.size.x * 0.5 + 4.0),
-        kin.pos.y - kin.size.y * 0.20,
-    );
-    let direction = ae::Vec2::new(facing, 0.0);
+        // Length before the input processing block so we can detect "a
+        // projectile spawned this frame" without threading a bool through
+        // every fire branch.
+        let bodies_before = state.bodies.len();
 
-    // Length before the input processing block so we can detect "a
-    // projectile spawned this frame" without threading a bool through
-    // every fire branch.
-    let bodies_before = state.bodies.len();
+        // Press edge: try Hadouken tiers first (most-specific motion gate
+        // wins), else start charging a Fireball. Order matters — the
+        // grace shape is a SUBSEQUENCE of the full QCF, so check Super
+        // first; otherwise a 3-step input would fire a weak Hadouken.
+        if tick_info.press {
+            let super_qcf = state.motion_buffer.detect_quarter_circle();
+            let half_circle = state.motion_buffer.detect_half_circle();
+            let grace_qcf = state.motion_buffer.detect_quarter_circle_grace();
 
-    // Press edge: try Hadouken tiers first (most-specific motion gate
-    // wins), else start charging a Fireball. Order matters — the
-    // grace shape is a SUBSEQUENCE of the full QCF, so check Super
-    // first; otherwise a 3-step input would fire a weak Hadouken.
-    if tick_info.press {
-        let super_qcf = state.motion_buffer.detect_quarter_circle();
-        let half_circle = state.motion_buffer.detect_half_circle();
-        let grace_qcf = state.motion_buffer.detect_quarter_circle_grace();
-
-        let motion_kind =
-            if (super_qcf.is_some() || half_circle.is_some()) && state.unlocked.hadouken_super {
+            let motion_kind = if (super_qcf.is_some() || half_circle.is_some())
+                && state.unlocked.hadouken_super
+            {
                 Some(crate::projectile::ProjectileKind::HadoukenSuper)
             } else if grace_qcf.is_some() && state.unlocked.hadouken {
                 Some(crate::projectile::ProjectileKind::Hadouken)
@@ -212,76 +214,76 @@ pub fn update_projectiles(
                 None
             };
 
-        // Debug log on every fire-press so the player can see
-        // exactly what the motion recognizer saw and why a given
-        // press did or didn't upgrade to a Hadouken. Run with
-        // `RUST_LOG=ambition_sandbox::projectile=info` (or
-        // `RUST_LOG=info` more broadly) to surface these.
-        log_press_diagnostics(
-            &state.motion_buffer,
-            super_qcf,
-            half_circle,
-            grace_qcf,
-            motion_kind,
-        );
-
-        if let Some(kind) = motion_kind {
-            // Motion gesture committed — fire immediately, do not
-            // start a charge for this press.
-            try_fire_projectile(
-                &mut state,
-                kind,
-                origin,
-                direction,
-                damage_mult,
-                0,
-                &mut events,
+            // Debug log on every fire-press so the player can see
+            // exactly what the motion recognizer saw and why a given
+            // press did or didn't upgrade to a Hadouken. Run with
+            // `RUST_LOG=ambition_sandbox::projectile=info` (or
+            // `RUST_LOG=info` more broadly) to surface these.
+            log_press_diagnostics(
+                &state.motion_buffer,
+                super_qcf,
+                half_circle,
+                grace_qcf,
+                motion_kind,
             );
-            state.motion_buffer.clear();
-            state.charging = None;
-        } else if state.unlocked.fireball {
-            // Begin charging the Fireball. Release-edge below
-            // commits the charged shot.
-            state.charging = Some(0.0);
-        }
-    } else if tick_info.held {
-        if let Some(t) = state.charging.as_mut() {
-            *t += dt;
-        }
-    } else if tick_info.released {
-        if let Some(hold) = state.charging.take() {
-            let tier = state.charge_tuning.tier_for_hold(hold);
-            try_fire_projectile(
-                &mut state,
-                crate::projectile::ProjectileKind::Fireball,
-                origin,
-                direction,
-                damage_mult,
-                tier,
-                &mut events,
-            );
-        }
-    }
 
-    // Mirror projectile state onto the player's animation flags. `aim`
-    // tracks the held-charge pose every frame; `shoot` is a short
-    // post-fire pulse triggered only on the frame the body count grew.
-    // SHOOT_ANIM_HOLD_SECS is short enough that a rapid-fire stream
-    // visibly stutters between Shoot and Idle/Walk rather than locking
-    // out the locomotion read.
-    const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
-    let charging = state.charging.is_some();
-    if anim.aim_anim_active != charging {
-        anim.aim_anim_active = charging;
-    }
-    if state.bodies.len() > bodies_before {
-        anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
-    }
+            if let Some(kind) = motion_kind {
+                // Motion gesture committed — fire immediately, do not
+                // start a charge for this press.
+                try_fire_projectile(
+                    &mut state,
+                    kind,
+                    origin,
+                    direction,
+                    damage_mult,
+                    0,
+                    &mut events,
+                );
+                state.motion_buffer.clear();
+                state.charging = None;
+            } else if state.unlocked.fireball {
+                // Begin charging the Fireball. Release-edge below
+                // commits the charged shot.
+                state.charging = Some(0.0);
+            }
+        } else if tick_info.held {
+            if let Some(t) = state.charging.as_mut() {
+                *t += dt;
+            }
+        } else if tick_info.released {
+            if let Some(hold) = state.charging.take() {
+                let tier = state.charge_tuning.tier_for_hold(hold);
+                try_fire_projectile(
+                    &mut state,
+                    crate::projectile::ProjectileKind::Fireball,
+                    origin,
+                    direction,
+                    damage_mult,
+                    tier,
+                    &mut events,
+                );
+            }
+        }
 
-    let tick = trace.current_tick();
-    for event in events {
-        trace.push_event(event.into_trace_event(tick));
-    }
+        // Mirror projectile state onto the player's animation flags. `aim`
+        // tracks the held-charge pose every frame; `shoot` is a short
+        // post-fire pulse triggered only on the frame the body count grew.
+        // SHOOT_ANIM_HOLD_SECS is short enough that a rapid-fire stream
+        // visibly stutters between Shoot and Idle/Walk rather than locking
+        // out the locomotion read.
+        const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
+        let charging = state.charging.is_some();
+        if anim.aim_anim_active != charging {
+            anim.aim_anim_active = charging;
+        }
+        if state.bodies.len() > bodies_before {
+            anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
+        }
+
+        let tick = trace.current_tick();
+        for event in events {
+            trace.push_event(event.into_trace_event(tick));
+        }
     } // end per-player loop
 }
 

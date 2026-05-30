@@ -138,7 +138,10 @@ pub struct PersistedDialogVisit {
 
 impl PersistedDialogVisit {
     pub fn new(id: impl Into<String>, count: u32) -> Self {
-        Self { id: id.into(), count }
+        Self {
+            id: id.into(),
+            count,
+        }
     }
 }
 
@@ -318,7 +321,8 @@ impl SandboxSaveData {
         if let Some(existing) = self.dialog_visits.iter_mut().find(|v| v.id == id) {
             existing.count = existing.count.saturating_add(1);
         } else {
-            self.dialog_visits.push(PersistedDialogVisit { id, count: 1 });
+            self.dialog_visits
+                .push(PersistedDialogVisit { id, count: 1 });
         }
     }
 

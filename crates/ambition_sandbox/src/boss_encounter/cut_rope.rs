@@ -18,8 +18,8 @@ use crate::features::{
 };
 use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::presentation::rendering::PropVisual;
-use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::rooms::{PropSpec, RoomSet};
+use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
 pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";
 const CUT_ROPE_ROOM_ID: &str = "you_have_to_cut_the_rope";
@@ -49,7 +49,12 @@ pub fn tick_cut_rope_boss_arena(
     mut state: Local<CutRopeBossArenaState>,
     mut hit_events: MessageReader<HitEvent>,
     mut bosses: Query<(&FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
-    mut prop_visuals: Query<(&FeatureName, &PropVisual, &mut Transform, Option<&mut Visibility>)>,
+    mut prop_visuals: Query<(
+        &FeatureName,
+        &PropVisual,
+        &mut Transform,
+        Option<&mut Visibility>,
+    )>,
     mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
     mut music_request: Option<ResMut<crate::encounter::BossEncounterMusicRequest>>,
     mut cutscene_queue: Option<ResMut<crate::presentation::cutscene::CutsceneTriggerQueue>>,
@@ -124,7 +129,8 @@ pub fn tick_cut_rope_boss_arena(
     let Some(mut center) = state.anvil_center else {
         return;
     };
-    state.anvil_velocity_y = (state.anvil_velocity_y + ANVIL_GRAVITY * dt).min(ANVIL_TERMINAL_SPEED);
+    state.anvil_velocity_y =
+        (state.anvil_velocity_y + ANVIL_GRAVITY * dt).min(ANVIL_TERMINAL_SPEED);
     center.y += state.anvil_velocity_y * dt;
     state.anvil_center = Some(center);
 
@@ -174,7 +180,9 @@ pub fn tick_cut_rope_boss_arena(
 }
 
 fn authored_prop<'a>(props: &'a [PropSpec], kind: &str) -> Option<&'a PropSpec> {
-    props.iter().find(|prop| prop.kind == kind || prop.name == kind)
+    props
+        .iter()
+        .find(|prop| prop.kind == kind || prop.name == kind)
 }
 
 fn prop_aabb(prop: &PropSpec) -> ae::Aabb {
@@ -182,7 +190,12 @@ fn prop_aabb(prop: &PropSpec) -> ae::Aabb {
 }
 
 fn sync_cut_rope_prop_visuals(
-    prop_visuals: &mut Query<(&FeatureName, &PropVisual, &mut Transform, Option<&mut Visibility>)>,
+    prop_visuals: &mut Query<(
+        &FeatureName,
+        &PropVisual,
+        &mut Transform,
+        Option<&mut Visibility>,
+    )>,
     world: &ae::World,
     state: &CutRopeBossArenaState,
     anvil: &PropSpec,

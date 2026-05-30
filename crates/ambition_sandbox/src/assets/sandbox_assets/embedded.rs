@@ -257,7 +257,8 @@ fn register_embedded_assets(app: &mut App) {
         embedded.insert_asset(
             PathBuf::new(),
             Path::new(EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
-            include_bytes!("../../../assets/ambition/worlds/you_have_to_cut_the_rope.ldtk") as &[u8],
+            include_bytes!("../../../assets/ambition/worlds/you_have_to_cut_the_rope.ldtk")
+                as &[u8],
         );
     }
     #[cfg(feature = "static_core_assets")]

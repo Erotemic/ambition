@@ -17,9 +17,10 @@ use ambition_asset_manager::AssetId;
 
 use crate::presentation::character_sprites::{
     CharacterSheetSpec, ALICE_SHEET, ARCHITECT_SHEET, BOB_SHEET, CART_SHEET, CREATOR_SHEET,
-    ERDISH_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET,
-    LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
-    LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET, OILER_SHEET,
+    CUT_ROPE_ANVIL_SHEET, CUT_ROPE_ROPE_SHEET, ERDISH_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET,
+    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE,
+    LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE, LAB_PROP_RESONANCE_COIL, NEWS_BOARD_SHEET,
+    OILER_SHEET,
 };
 
 /// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
@@ -133,6 +134,19 @@ pub const INTRO_PROP_REGISTRY: &[(&str, &str, &'static std::sync::LazyLock<Chara
             "lab_resonance_coil",
             "creator_lab_props_spritesheet.png",
             &LAB_PROP_RESONANCE_COIL,
+        ),
+        // Cut-rope boss props. These are gameplay props in the side-world
+        // arena, but reuse the global Prop registry until a dedicated
+        // non-intro prop catalog exists.
+        (
+            "cut_rope_rope",
+            "cut_rope_rope_spritesheet.png",
+            &CUT_ROPE_ROPE_SHEET,
+        ),
+        (
+            "cut_rope_anvil",
+            "cut_rope_anvil_spritesheet.png",
+            &CUT_ROPE_ANVIL_SHEET,
         ),
         // Interdimensional gate (legally distinct stargate). Ring is the
         // always-on structural arch; portal renders the shimmering

@@ -622,7 +622,8 @@ pub fn upgrade_boss_sprites(
         let boss_behavior_id = ecs_bosses
             .iter()
             .find_map(|(feature_id, boss, _)| {
-                (feature_id.as_str() == visual.id.as_str()).then_some(boss.boss.behavior.id.as_str())
+                (feature_id.as_str() == visual.id.as_str())
+                    .then_some(boss.boss.behavior.id.as_str())
             })
             .unwrap_or(boss_name);
         let boss_key = boss_behavior_id.to_ascii_lowercase().replace('-', "_");

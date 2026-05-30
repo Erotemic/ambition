@@ -90,7 +90,6 @@ pub(in super::super) fn extend_with_world_entries(manifest: &mut AssetManifest) 
             AssetLocation::embedded(EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
         ),
     );
-
 }
 
 /// Sandbox tuning RON entry. Required — the game refuses to run

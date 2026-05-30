@@ -167,6 +167,11 @@ pub struct BossBehaviorProfile {
     /// world-space positive-down; leave at `Vec2::ZERO` for ordinary bosses.
     #[serde(default, with = "boss_vec2_required")]
     pub attack_origin_offset: ae::Vec2,
+    /// World-space anchor offset (in pixels) from the boss center for
+    /// projectile-like specials. Smirking Behemoth uses this to fire
+    /// OverfitVolley eye beams from its eye instead of its body center.
+    #[serde(default, with = "boss_vec2_required")]
+    pub projectile_origin_offset: ae::Vec2,
 }
 
 /// Vec2 (de)serialization shims for `BossBehaviorProfile`. `bevy_math::Vec2`
@@ -384,7 +389,12 @@ mod boss_profile_data_tests {
     /// missing boss.
     #[test]
     fn ron_carries_every_known_boss() {
-        for id in ["clockwork_warden", "mockingbird", "gnu_ton", "smirking_behemoth_boss"] {
+        for id in [
+            "clockwork_warden",
+            "mockingbird",
+            "gnu_ton",
+            "smirking_behemoth_boss",
+        ] {
             assert!(
                 BOSS_PROFILE_REGISTRY.contains_key(id),
                 "boss_profiles.ron missing row for '{id}'",
@@ -715,8 +725,8 @@ pub fn boss_animation_keys_for_profile(
         // in the AI-Slop-Zeta sheet; route them to `spike_halo`
         // (closest visual: a ring of damage around the boss) so
         // the player still sees an anim cue during the strike.
-        BossAttackProfile::OverfitVolley
-        | BossAttackProfile::MinimaTrap
+        BossAttackProfile::OverfitVolley => &["spike_halo", "eye_beam"],
+        BossAttackProfile::MinimaTrap
         | BossAttackProfile::SaddlePoint
         | BossAttackProfile::GradientCascade => &["spike_halo"],
         // GNU-ton profiles use gameplay-specific canonical keys in

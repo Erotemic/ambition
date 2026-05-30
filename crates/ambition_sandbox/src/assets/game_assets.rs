@@ -689,7 +689,8 @@ pub fn load_game_assets(
     let gnu_ton_body = sprites::load_gnu_ton_body_sprite_in(catalog, asset_server, layouts);
     let gnu_ton_hands = sprites::load_gnu_ton_hands_sprite_in(catalog, asset_server, layouts);
     let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
-    let parallax_layers = load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme);
+    let parallax_layers =
+        load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme);
 
     let missing = EntitySprite::ALL.len() - entities.len();
     if missing > 0 {

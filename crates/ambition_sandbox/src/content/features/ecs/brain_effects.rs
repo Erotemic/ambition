@@ -529,7 +529,7 @@ pub fn spawn_overfit_volley_from_special_messages(
             state.fired_this_strike = false;
         } else if let Some((shot_speed, damage)) = strike_params {
             if !state.fired_this_strike {
-                let origin = boss.pos;
+                let origin = boss.pos + boss.behavior.projectile_origin_offset;
                 for sample_pos in state.samples.iter() {
                     let delta = *sample_pos - origin;
                     let dir = delta.normalize_or_zero();

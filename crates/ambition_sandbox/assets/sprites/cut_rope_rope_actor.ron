@@ -1,0 +1,157 @@
+// Auto-emitted optional actor contract. Current sandbox builds ignore
+// this file; it is the renderer -> engine sidecar for future actor
+// spec ingestion. Keep fields sparse: capabilities create requirements,
+// and missing data should be explicit rather than guessed silently.
+(
+    schema_version: 1,
+    character_id: "prop_cut_rope_rope",
+    actor_id: None,
+    display_name: Some("Cut-Rope Rope"),
+    provenance: Some((
+        surface: "tackon",
+        renderer_target: "cut_rope_rope",
+        output_stem: "cut_rope_rope",
+        seed: None,
+        archetype: None,
+        variant: None,
+        held_item: None,
+        source_config: None,
+    )),
+    visual: Some((
+        sheet_id: "cut_rope_rope",
+        spritesheet: "cut_rope_rope_spritesheet.png",
+        sheet_manifest: "cut_rope_rope_spritesheet.ron",
+        default_pose: Some("idle"),
+        facing_policy: None,
+        scale: None,
+    )),
+    body: Some((
+        body_kind: Some("HangingRope"),
+        body_plan: Some("Prop"),
+        collision: Some((
+            w_px: 20.0,
+            h_px: 192.0,
+            source: "sheet.body_metrics.body_pixel_bbox",
+            confidence: "derived",
+        )),
+        hurtbox: Some((
+            w_px: 20.0,
+            h_px: 192.0,
+            source: "sheet.body_metrics.body_pixel_bbox",
+            confidence: "derived",
+        )),
+        mass_class: Some("Light"),
+        locomotion_hint: Some("Stationary"),
+        body_metrics_source: Some("sheet.body_metrics"),
+        traits: [
+            "prop",
+            "rope",
+            "cuttable",
+        ],
+    )),
+    capabilities: Some((
+        traversal: Some((
+            walk: Some(false),
+            jump: None,
+            climb: None,
+            fly: None,
+            swim: None,
+            crawl: None,
+            use_lifts: None,
+            door_access: [],
+        )),
+        interactions: Some((
+            talk: None,
+            trade: None,
+            carry: None,
+            open_doors: [],
+        )),
+    )),
+    brain: Some((
+        default_preset: Some("stand_still"),
+    )),
+    actions: Some((
+        default_preset: Some("peaceful"),
+    )),
+    animation_bindings: {
+        "default": (
+            animation: "idle",
+            events: [],
+        ),
+    },
+    sockets: {
+        "bottom": (
+            source: "cut_rope_rope.geometry",
+            point: (
+                x: 24.0,
+                y: 188.0,
+            ),
+        ),
+        "center": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 24.0,
+                y: 96.0,
+            ),
+        ),
+        "chest": (
+            source: "heuristic.body_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 24.0,
+                y: 72.96,
+            ),
+        ),
+        "cut": (
+            source: "cut_rope_rope.geometry",
+            point: (
+                x: 24.0,
+                y: 92.0,
+            ),
+        ),
+        "feet": (
+            source: "body_metrics.feet_pixel",
+            animation: None,
+            frame: None,
+            point: (
+                x: 24.0,
+                y: 192.0,
+            ),
+        ),
+        "head": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 24.0,
+                y: 0.0,
+            ),
+        ),
+        "root": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 24.0,
+                y: 192.0,
+            ),
+        ),
+        "top": (
+            source: "cut_rope_rope.geometry",
+            point: (
+                x: 24.0,
+                y: 4.0,
+            ),
+        ),
+    },
+    tags: [
+        "prop",
+        "rope",
+        "cuttable",
+        "boss-arena",
+    ],
+    missing_information: [],
+)

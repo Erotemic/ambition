@@ -527,6 +527,19 @@ const NEWS_BOARD_TUNING: SheetTuning = SheetTuning::new(1.50, 2);
 pub static NEWS_BOARD_SHEET: LazyLock<CharacterSheetSpec> =
     LazyLock::new(|| load_spec("news_board", &NEWS_BOARD_TUNING));
 
+/// Cut-rope arena rope prop. Authored as a narrow LDtk `Prop` above
+/// the anvil; the art fills the authored hitbox so the cuttable area
+/// matches the visible rope.
+const CUT_ROPE_ROPE_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
+pub static CUT_ROPE_ROPE_SHEET: LazyLock<CharacterSheetSpec> =
+    LazyLock::new(|| load_spec("cut_rope_rope", &CUT_ROPE_ROPE_TUNING));
+
+/// Cut-rope arena anvil trap. Runtime code moves the authored prop
+/// when the rope is cut; this sheet supplies the visible heavy anvil.
+const CUT_ROPE_ANVIL_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
+pub static CUT_ROPE_ANVIL_SHEET: LazyLock<CharacterSheetSpec> =
+    LazyLock::new(|| load_spec("cut_rope_anvil", &CUT_ROPE_ANVIL_TUNING));
+
 /// Creator — the researcher who wakes the player. Rendered by the
 /// dedicated `creator` tack-on target (not the toon-side adapter), so
 /// the sheet is wider (160×192) and starts after a 108px label column.

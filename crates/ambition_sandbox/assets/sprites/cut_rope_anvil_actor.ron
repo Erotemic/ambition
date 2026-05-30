@@ -1,0 +1,150 @@
+// Auto-emitted optional actor contract. Current sandbox builds ignore
+// this file; it is the renderer -> engine sidecar for future actor
+// spec ingestion. Keep fields sparse: capabilities create requirements,
+// and missing data should be explicit rather than guessed silently.
+(
+    schema_version: 1,
+    character_id: "prop_cut_rope_anvil",
+    actor_id: None,
+    display_name: Some("Cut-Rope Anvil"),
+    provenance: Some((
+        surface: "tackon",
+        renderer_target: "cut_rope_anvil",
+        output_stem: "cut_rope_anvil",
+        seed: None,
+        archetype: None,
+        variant: None,
+        held_item: None,
+        source_config: None,
+    )),
+    visual: Some((
+        sheet_id: "cut_rope_anvil",
+        spritesheet: "cut_rope_anvil_spritesheet.png",
+        sheet_manifest: "cut_rope_anvil_spritesheet.ron",
+        default_pose: Some("idle"),
+        facing_policy: None,
+        scale: None,
+    )),
+    body: Some((
+        body_kind: Some("Anvil"),
+        body_plan: Some("Prop"),
+        collision: Some((
+            w_px: 108.0,
+            h_px: 91.0,
+            source: "sheet.body_metrics.body_pixel_bbox",
+            confidence: "derived",
+        )),
+        hurtbox: Some((
+            w_px: 108.0,
+            h_px: 91.0,
+            source: "sheet.body_metrics.body_pixel_bbox",
+            confidence: "derived",
+        )),
+        mass_class: Some("Heavy"),
+        locomotion_hint: Some("FallingTrap"),
+        body_metrics_source: Some("sheet.body_metrics"),
+        traits: [
+            "prop",
+            "trap",
+            "anvil",
+        ],
+    )),
+    capabilities: Some((
+        traversal: Some((
+            walk: Some(false),
+            jump: None,
+            climb: None,
+            fly: None,
+            swim: None,
+            crawl: None,
+            use_lifts: None,
+            door_access: [],
+        )),
+        interactions: Some((
+            talk: None,
+            trade: None,
+            carry: None,
+            open_doors: [],
+        )),
+    )),
+    brain: Some((
+        default_preset: Some("stand_still"),
+    )),
+    actions: Some((
+        default_preset: Some("peaceful"),
+    )),
+    animation_bindings: {
+        "default": (
+            animation: "idle",
+            events: [],
+        ),
+    },
+    sockets: {
+        "center": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 65.0,
+                y: 46.5,
+            ),
+        ),
+        "chest": (
+            source: "heuristic.body_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 65.0,
+                y: 35.58,
+            ),
+        ),
+        "feet": (
+            source: "body_metrics.feet_pixel",
+            animation: None,
+            frame: None,
+            point: (
+                x: 65.0,
+                y: 92.0,
+            ),
+        ),
+        "hang": (
+            source: "cut_rope_anvil.geometry",
+            point: (
+                x: 64.0,
+                y: 8.0,
+            ),
+        ),
+        "head": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 65.0,
+                y: 1.0,
+            ),
+        ),
+        "impact": (
+            source: "cut_rope_anvil.geometry",
+            point: (
+                x: 64.0,
+                y: 88.0,
+            ),
+        ),
+        "root": (
+            source: "body_metrics.body_pixel_bbox",
+            animation: None,
+            frame: None,
+            point: (
+                x: 65.0,
+                y: 92.0,
+            ),
+        ),
+    },
+    tags: [
+        "prop",
+        "trap",
+        "anvil",
+        "boss-arena",
+    ],
+    missing_information: [],
+)

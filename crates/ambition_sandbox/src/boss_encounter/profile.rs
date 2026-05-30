@@ -124,7 +124,10 @@ const AUTHORED_BOSS_PROFILES: &[(&str, fn() -> BossProfile)] = &[
     ("clockwork_warden", BossProfile::clockwork_warden),
     ("mockingbird", BossProfile::mockingbird),
     ("gnu_ton", BossProfile::gnu_ton),
-    ("smirking_behemoth_boss", BossProfile::smirking_behemoth_boss),
+    (
+        "smirking_behemoth_boss",
+        BossProfile::smirking_behemoth_boss,
+    ),
 ];
 
 pub fn default_boss_profiles() -> Vec<BossProfile> {

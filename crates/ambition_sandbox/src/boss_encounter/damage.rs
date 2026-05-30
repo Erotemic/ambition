@@ -96,7 +96,6 @@ pub fn force_boss_death(
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

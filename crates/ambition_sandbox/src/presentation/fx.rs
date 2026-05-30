@@ -43,7 +43,27 @@ pub struct SpeechBubbleVisual {
     pos: ae::Vec2,
     age: f32,
     duration: f32,
+    stack_offset: f32,
+    target_stack_offset: f32,
 }
+
+struct PendingSpeechBubble {
+    pos: ae::Vec2,
+    text: String,
+    age: f32,
+    stack_offset: f32,
+    target_stack_offset: f32,
+}
+
+const SPEECH_BUBBLE_DURATION: f32 = 2.2;
+const SPEECH_BUBBLE_BASE_RISE: f32 = 14.0;
+const SPEECH_BUBBLE_STACK_STEP: f32 = 28.0;
+const SPEECH_BUBBLE_STACK_MAX: f32 = 84.0;
+const SPEECH_BUBBLE_STACK_INITIAL_NUDGE: f32 = 12.0;
+const SPEECH_BUBBLE_STACK_SPEED: f32 = 80.0;
+const SPEECH_BUBBLE_STACK_X_RANGE: f32 = 160.0;
+const SPEECH_BUBBLE_STACK_Y_RANGE: f32 = 96.0;
+const SPEECH_BUBBLE_PUSH_FADE_AFTER: f32 = 0.85;
 
 /// One ember of the live blink-destination indicator. Spawned in a small
 /// rotating ring at the predicted teleport landing while the blink button is
@@ -111,8 +131,14 @@ pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
     world: Res<crate::GameWorld>,
+    mut speech_bubbles: Query<(
+        &mut SpeechBubbleVisual,
+        &mut Transform,
+        &mut TextColor,
+    )>,
 ) {
     let world = &world.0;
+    let mut pending_speech_bubbles = Vec::new();
     for message in messages.read() {
         match message.clone() {
             VfxMessage::Burst {
@@ -148,10 +174,155 @@ pub fn vfx_spawn_messages(
                 spawn_reset_effects(&mut commands, world, from, to);
             }
             VfxMessage::SpeechBubble { pos, text } => {
-                spawn_speech_bubble(&mut commands, world, pos, &text);
+                make_room_for_speech_bubble(pos, world, &mut speech_bubbles);
+                make_room_for_pending_speech_bubble(pos, &mut pending_speech_bubbles);
+                pending_speech_bubbles.push(PendingSpeechBubble {
+                    pos,
+                    text,
+                    age: 0.0,
+                    stack_offset: 0.0,
+                    target_stack_offset: 0.0,
+                });
             }
         }
     }
+    for bubble in pending_speech_bubbles {
+        spawn_speech_bubble(
+            &mut commands,
+            world,
+            bubble.pos,
+            &bubble.text,
+            bubble.age,
+            bubble.stack_offset,
+            bubble.target_stack_offset,
+        );
+    }
+}
+
+fn make_room_for_speech_bubble(
+    pos: ae::Vec2,
+    world: &ae::World,
+    speech_bubbles: &mut Query<(
+        &mut SpeechBubbleVisual,
+        &mut Transform,
+        &mut TextColor,
+    )>,
+) {
+    for (mut bubble, mut transform, mut color) in speech_bubbles.iter_mut() {
+        if !speech_bubbles_should_stack(bubble.pos, pos) {
+            continue;
+        }
+        let (age, stack_offset, target_stack_offset) = pushed_speech_bubble(
+            bubble.age,
+            bubble.stack_offset,
+            bubble.target_stack_offset,
+            bubble.duration,
+        );
+        bubble.age = age;
+        bubble.stack_offset = stack_offset;
+        bubble.target_stack_offset = target_stack_offset;
+        apply_speech_bubble_visual(
+            world,
+            bubble.pos,
+            bubble.age,
+            bubble.duration,
+            bubble.stack_offset,
+            &mut transform,
+            &mut color,
+        );
+    }
+}
+
+fn make_room_for_pending_speech_bubble(
+    pos: ae::Vec2,
+    speech_bubbles: &mut [PendingSpeechBubble],
+) {
+    for bubble in speech_bubbles.iter_mut() {
+        if !speech_bubbles_should_stack(bubble.pos, pos) {
+            continue;
+        }
+        let (age, stack_offset, target_stack_offset) = pushed_speech_bubble(
+            bubble.age,
+            bubble.stack_offset,
+            bubble.target_stack_offset,
+            SPEECH_BUBBLE_DURATION,
+        );
+        bubble.age = age;
+        bubble.stack_offset = stack_offset;
+        bubble.target_stack_offset = target_stack_offset;
+    }
+}
+
+fn speech_bubbles_should_stack(existing: ae::Vec2, incoming: ae::Vec2) -> bool {
+    (existing.x - incoming.x).abs() <= SPEECH_BUBBLE_STACK_X_RANGE
+        && (existing.y - incoming.y).abs() <= SPEECH_BUBBLE_STACK_Y_RANGE
+}
+
+fn pushed_speech_bubble(
+    age: f32,
+    stack_offset: f32,
+    target_stack_offset: f32,
+    duration: f32,
+) -> (f32, f32, f32) {
+    let next_target_stack_offset =
+        (target_stack_offset + SPEECH_BUBBLE_STACK_STEP).min(SPEECH_BUBBLE_STACK_MAX);
+    let next_stack_offset = stack_offset.max(
+        next_target_stack_offset.min(stack_offset + SPEECH_BUBBLE_STACK_INITIAL_NUDGE),
+    );
+    let next_age = age.max((duration - SPEECH_BUBBLE_PUSH_FADE_AFTER).max(0.0));
+    (next_age, next_stack_offset, next_target_stack_offset)
+}
+
+fn advance_speech_bubble_stack_offset(
+    stack_offset: f32,
+    target_stack_offset: f32,
+    dt: f32,
+) -> f32 {
+    let remaining = target_stack_offset - stack_offset;
+    if remaining <= 0.0 {
+        return stack_offset;
+    }
+    stack_offset + remaining.min(SPEECH_BUBBLE_STACK_SPEED * dt)
+}
+
+fn speech_bubble_progress(age: f32, duration: f32) -> f32 {
+    if duration <= 0.0 {
+        return 1.0;
+    }
+    (age / duration).clamp(0.0, 1.0)
+}
+
+fn speech_bubble_rise(age: f32, duration: f32, stack_offset: f32) -> f32 {
+    SPEECH_BUBBLE_BASE_RISE * speech_bubble_progress(age, duration) + stack_offset
+}
+
+fn speech_bubble_alpha(age: f32, duration: f32) -> f32 {
+    let t = speech_bubble_progress(age, duration);
+    let alpha = if t < 0.75 {
+        1.0
+    } else {
+        1.0 - (t - 0.75) / 0.25
+    };
+    alpha.clamp(0.0, 1.0)
+}
+
+fn apply_speech_bubble_visual(
+    world: &ae::World,
+    pos: ae::Vec2,
+    age: f32,
+    duration: f32,
+    stack_offset: f32,
+    transform: &mut Transform,
+    color: &mut TextColor,
+) {
+    let rise = speech_bubble_rise(age, duration, stack_offset);
+    let alpha = speech_bubble_alpha(age, duration);
+    transform.translation = world_to_bevy(
+        world,
+        pos + ae::Vec2::new(0.0, -rise),
+        WORLD_Z_FX + 8.0,
+    );
+    *color = TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95 * alpha));
 }
 
 pub fn update_speech_bubbles(
@@ -168,23 +339,24 @@ pub fn update_speech_bubbles(
     let dt = time.delta_secs();
     for (entity, mut bubble, mut transform, mut color) in &mut query {
         bubble.age += dt;
+        bubble.stack_offset = advance_speech_bubble_stack_offset(
+            bubble.stack_offset,
+            bubble.target_stack_offset,
+            dt,
+        );
         if bubble.age >= bubble.duration {
             commands.entity(entity).despawn();
             continue;
         }
-        let t = (bubble.age / bubble.duration).clamp(0.0, 1.0);
-        let rise = 14.0 * t;
-        let alpha = if t < 0.75 {
-            1.0
-        } else {
-            1.0 - (t - 0.75) / 0.25
-        };
-        transform.translation = world_to_bevy(
+        apply_speech_bubble_visual(
             &world.0,
-            bubble.pos + ae::Vec2::new(0.0, -rise),
-            WORLD_Z_FX + 8.0,
+            bubble.pos,
+            bubble.age,
+            bubble.duration,
+            bubble.stack_offset,
+            &mut transform,
+            &mut color,
         );
-        *color = TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95 * alpha.clamp(0.0, 1.0)));
     }
 }
 
@@ -258,20 +430,42 @@ pub fn update_slash_previews(
     }
 }
 
-pub fn spawn_speech_bubble(commands: &mut Commands, world: &ae::World, pos: ae::Vec2, text: &str) {
+pub fn spawn_speech_bubble(
+    commands: &mut Commands,
+    world: &ae::World,
+    pos: ae::Vec2,
+    text: &str,
+    age: f32,
+    stack_offset: f32,
+    target_stack_offset: f32,
+) {
     let bubble_text = format!("\u{201c}{text}\u{201d}");
+    let duration = SPEECH_BUBBLE_DURATION;
+    let mut transform = Transform::default();
+    let mut color = TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95));
+    apply_speech_bubble_visual(
+        world,
+        pos,
+        age,
+        duration,
+        stack_offset,
+        &mut transform,
+        &mut color,
+    );
     commands.spawn((
         Text2d::new(bubble_text),
         TextFont {
             font_size: 18.0,
             ..default()
         },
-        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95)),
-        Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 8.0)),
+        color,
+        transform,
         SpeechBubbleVisual {
             pos,
-            age: 0.0,
-            duration: 2.2,
+            age,
+            duration,
+            stack_offset,
+            target_stack_offset,
         },
         Name::new(format!("Speech bubble: {text}")),
     ));

@@ -9,6 +9,7 @@ use ambition_asset_manager::AssetId;
 
 pub const SANDBOX_LDTK: &str = "world.sandbox_ldtk";
 pub const INTRO_LDTK: &str = "world.intro_ldtk";
+pub const CUT_ROPE_LDTK: &str = "world.cut_rope_ldtk";
 pub const SANDBOX_DATA: &str = "data.sandbox";
 pub const SFX_BANK: &str = "audio.sfx_bank";
 pub const FONT_DIALOG_REGULAR: &str = "font.dialog_regular";
@@ -20,6 +21,9 @@ pub fn sandbox_ldtk() -> AssetId {
 }
 pub fn intro_ldtk() -> AssetId {
     AssetId::new(INTRO_LDTK)
+}
+pub fn cut_rope_ldtk() -> AssetId {
+    AssetId::new(CUT_ROPE_LDTK)
 }
 pub fn sandbox_data() -> AssetId {
     AssetId::new(SANDBOX_DATA)

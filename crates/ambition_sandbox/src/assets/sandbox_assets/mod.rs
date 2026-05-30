@@ -70,7 +70,8 @@ use builders::{
 };
 pub use embedded::AmbitionAssetSourcePlugin;
 pub(crate) use embedded::{
-    embedded_core, EMBEDDED_INTRO_LDTK_ASSET_PATH, EMBEDDED_SANDBOX_LDTK_ASSET_PATH,
+    embedded_core, EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH, EMBEDDED_INTRO_LDTK_ASSET_PATH,
+    EMBEDDED_SANDBOX_LDTK_ASSET_PATH,
 };
 
 /// Wrapped [`AmbitionAssetCatalog`] + active [`AssetProfile`].

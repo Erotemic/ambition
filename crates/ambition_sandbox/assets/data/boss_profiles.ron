@@ -11,11 +11,10 @@
 // changes needed.
 //
 // To add a boss:
-//   1. Add a new key + row below.
-//   2. Add an arm to `for_authored_boss` so the spawn pipeline finds
-//      it by display name + encounter id.
-//   3. (Optional) Wire it through `boss_encounter::profile::*` if it
-//      needs an authored `BossEncounterSpec`.
+//   1. Add a new key + row below when custom behavior tuning is needed.
+//      Bosses without a row still spawn through the generic fallback.
+//   2. (Optional) Wire it through `boss_encounter::profile::*` if it
+//      needs an authored `BossEncounterSpec` or reward profile.
 //
 // Top-level shape: `{ "<id>": BossBehaviorProfile }`. Each value is
 // the full struct serialization — see

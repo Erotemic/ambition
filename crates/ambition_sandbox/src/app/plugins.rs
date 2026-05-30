@@ -470,6 +470,7 @@ pub(super) fn spawn_ldtk_world_root(
     room_set: Res<rooms::RoomSet>,
     ldtk_asset: Option<Res<ldtk_world::SandboxLdtkAsset>>,
     intro_asset: Option<Res<ldtk_world::IntroLdtkAsset>>,
+    cut_rope_asset: Option<Res<ldtk_world::CutRopeLdtkAsset>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
 ) {
     let ldtk_handle = ldtk_asset
@@ -507,11 +508,25 @@ pub(super) fn spawn_ldtk_world_root(
     commands.spawn((
         bevy_ecs_ldtk::prelude::LdtkWorldBundle {
             ldtk_handle: intro_handle.into(),
-            level_set: initial_level_set,
+            level_set: initial_level_set.clone(),
             ..default()
         },
         ldtk_world::IntroLdtkWorldRoot,
         Name::new("LDtk Runtime Spine Root (intro.ldtk)"),
+    ));
+
+    let cut_rope_handle = cut_rope_asset
+        .as_ref()
+        .map(|asset| asset.0.clone())
+        .unwrap_or_else(|| asset_server.load("ambition/worlds/you_have_to_cut_the_rope.ldtk"));
+    commands.spawn((
+        bevy_ecs_ldtk::prelude::LdtkWorldBundle {
+            ldtk_handle: cut_rope_handle.into(),
+            level_set: initial_level_set,
+            ..default()
+        },
+        ldtk_world::CutRopeLdtkWorldRoot,
+        Name::new("LDtk Runtime Spine Root (you_have_to_cut_the_rope.ldtk)"),
     ));
 }
 

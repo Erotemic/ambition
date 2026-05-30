@@ -82,6 +82,7 @@ fn embedded_core_urls_have_authored_catalog_candidates() {
     let ldtk_urls = [
         EMBEDDED_SANDBOX_LDTK_ASSET_PATH.to_string(),
         EMBEDDED_INTRO_LDTK_ASSET_PATH.to_string(),
+        EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH.to_string(),
     ];
     let core_urls_authored: HashSet<String> = authored_urls
         .into_iter()

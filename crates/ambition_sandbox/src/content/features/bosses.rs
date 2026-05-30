@@ -119,8 +119,8 @@ pub const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
 /// Every field here is authored in
 /// `assets/data/boss_profiles.ron` and parsed into the
 /// `BOSS_PROFILE_REGISTRY` `LazyLock` below. Adding a new boss is a
-/// single new key + row in that file plus a matching arm in
-/// `for_authored_boss` — no Rust constructor required.
+/// single new key + row in that file when it needs custom behavior;
+/// unknown authored bosses fall back to the generic profile.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct BossBehaviorProfile {
     pub id: String,
@@ -204,8 +204,8 @@ mod boss_vec2_required {
 /// (every spawn site + every test that clones a profile).
 ///
 /// Keyed by canonical boss id (`"clockwork_warden"`, `"mockingbird"`,
-/// `"gnu_ton"`, …). Adding a new boss is one RON row plus an arm in
-/// `for_authored_boss` — no Rust constructor needed.
+/// `"gnu_ton"`, …). Adding a new custom behavior is one RON row;
+/// unknown bosses still spawn through the generic fallback.
 static BOSS_PROFILE_REGISTRY: std::sync::LazyLock<
     std::collections::HashMap<String, BossBehaviorProfile>,
 > = std::sync::LazyLock::new(|| {
@@ -265,12 +265,13 @@ impl BossBehaviorProfile {
     /// clone if the slug isn't a registered boss.
     pub fn for_authored_boss(id_or_name: &str) -> Self {
         let key = crate::boss_encounter::encounter_id_from_name(id_or_name);
-        match key.as_str() {
-            "mockingbird" => Self::mockingbird(),
-            "clockwork_warden" | "gradient_sentinel" => Self::clockwork_warden(),
-            "gnu_ton" => Self::gnu_ton(),
-            other => Self::generic(other),
+        if key == "gradient_sentinel" {
+            return Self::clockwork_warden();
         }
+        BOSS_PROFILE_REGISTRY
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(|| Self::generic(key))
     }
 }
 

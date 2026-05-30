@@ -181,22 +181,28 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
 }
 
 #[test]
-fn intro_ldtk_is_in_the_catalog_under_world_namespace() {
+fn secondary_ldtk_worlds_are_in_the_catalog_under_world_namespace() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
     let spec = SandboxDataSpec::load_embedded();
     let catalog = build_sandbox_catalog(&config, &spec.audio);
-    let entry = catalog
-        .catalog()
-        .manifest()
-        .get(&ids::intro_ldtk())
-        .expect("world.intro_ldtk catalog entry missing");
-    assert_eq!(entry.kind, AssetKind::LdtkProject);
-    let r_desktop = catalog.resolve(&ids::intro_ldtk()).unwrap();
-    assert!(r_desktop.location.as_local_path().is_some());
 
-    config.asset_profile = AssetProfile::WebStatic;
-    let catalog = build_sandbox_catalog(&config, &spec.audio);
-    let path = catalog.try_path_for_load(&ids::intro_ldtk()).unwrap();
-    assert_eq!(path, format!("embedded://{EMBEDDED_INTRO_LDTK_ASSET_PATH}"));
+    for (id, embedded_path) in [
+        (ids::intro_ldtk(), EMBEDDED_INTRO_LDTK_ASSET_PATH),
+        (ids::cut_rope_ldtk(), EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
+    ] {
+        let entry = catalog
+            .catalog()
+            .manifest()
+            .get(&id)
+            .unwrap_or_else(|| panic!("{id} catalog entry missing"));
+        assert_eq!(entry.kind, AssetKind::LdtkProject);
+        let r_desktop = catalog.resolve(&id).unwrap();
+        assert!(r_desktop.location.as_local_path().is_some());
+
+        config.asset_profile = AssetProfile::WebStatic;
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let path = catalog.try_path_for_load(&id).unwrap();
+        assert_eq!(path, format!("embedded://{embedded_path}"));
+    }
 }

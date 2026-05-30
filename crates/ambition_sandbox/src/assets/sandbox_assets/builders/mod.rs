@@ -2,7 +2,8 @@
 //!
 //! Each submodule owns one slice of authored data:
 //!
-//! - [`world`] — LDtk world files (`sandbox.ldtk`, `intro.ldtk`) + the
+//! - [`world`] — LDtk world files (`sandbox.ldtk`, `intro.ldtk`,
+//!   `you_have_to_cut_the_rope.ldtk`) + the
 //!   sandbox tuning RON (`data.sandbox`).
 //! - [`audio`] — packed SFX bank + per-track music entries.
 //! - [`visuals`] — UI fonts + character / boss / intro spritesheets.

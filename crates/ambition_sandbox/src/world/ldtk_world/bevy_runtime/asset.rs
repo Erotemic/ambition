@@ -19,6 +19,10 @@ pub struct SandboxLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
 #[derive(Resource, Clone, Debug)]
 pub struct IntroLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
 
+/// Bevy asset handle for the cut-rope boss LDtk side world.
+#[derive(Resource, Clone, Debug)]
+pub struct CutRopeLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
+
 pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetServer>) {
     // `bevy_ecs_ldtk`'s asset loader is always rooted at the default
     // Bevy asset source — modded LDtk paths still feed Ambition's JSON
@@ -31,6 +35,9 @@ pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetSer
     // LdtkWorldBundle can render its own levels.
     commands.insert_resource(IntroLdtkAsset(
         asset_server.load("ambition/worlds/intro.ldtk"),
+    ));
+    commands.insert_resource(CutRopeLdtkAsset(
+        asset_server.load("ambition/worlds/you_have_to_cut_the_rope.ldtk"),
     ));
 }
 
@@ -46,6 +53,10 @@ pub struct SandboxLdtkWorldRoot;
 /// set is non-empty only while the active area is in `intro.ldtk`.
 #[derive(Component)]
 pub struct IntroLdtkWorldRoot;
+
+/// Marker for the cut-rope boss LDtk world root entity.
+#[derive(Component)]
+pub struct CutRopeLdtkWorldRoot;
 
 #[derive(Clone, Copy, Debug)]
 pub struct LdtkAreaBounds {
@@ -155,7 +166,11 @@ pub fn sync_ldtk_level_set(
     mut index: ResMut<LdtkRuntimeIndex>,
     mut ldtk_worlds: Query<
         &mut LevelSet,
-        bevy::prelude::Or<(With<SandboxLdtkWorldRoot>, With<IntroLdtkWorldRoot>)>,
+        bevy::prelude::Or<(
+            With<SandboxLdtkWorldRoot>,
+            With<IntroLdtkWorldRoot>,
+            With<CutRopeLdtkWorldRoot>,
+        )>,
     >,
 ) {
     let active_area = room_set.active_spec().id.clone();
@@ -205,7 +220,11 @@ pub fn sync_ldtk_world_transform(
     room_set: Res<crate::rooms::RoomSet>,
     mut ldtk_worlds: Query<
         &mut Transform,
-        bevy::prelude::Or<(With<SandboxLdtkWorldRoot>, With<IntroLdtkWorldRoot>)>,
+        bevy::prelude::Or<(
+            With<SandboxLdtkWorldRoot>,
+            With<IntroLdtkWorldRoot>,
+            With<CutRopeLdtkWorldRoot>,
+        )>,
     >,
 ) {
     let active_world = room_set.active_world();

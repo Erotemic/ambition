@@ -1,0 +1,18 @@
+{
+  "level_id": "hall_of_bosses",
+  "entities": [
+    {
+      "type": "LoadingZone",
+      "px": [1062, 384],
+      "size": [48, 96],
+      "fields": {
+        "id": "hall_to_cut_rope_portal",
+        "name": "hall_to_cut_rope_portal",
+        "activation": "Door",
+        "target_room": "you_have_to_cut_the_rope",
+        "target_zone": "cut_rope_arena_entry",
+        "bidirectional": true
+      }
+    }
+  ]
+}

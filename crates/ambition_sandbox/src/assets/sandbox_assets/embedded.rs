@@ -2,7 +2,8 @@
 //!
 //! Centralizes the embedded URL constants ([`embedded_core`] for fonts /
 //! sheets / core entity sprites, and [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`]
-//! / [`EMBEDDED_INTRO_LDTK_ASSET_PATH`] for the world JSON), the
+//! / [`EMBEDDED_INTRO_LDTK_ASSET_PATH`] / [`EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH`]
+//! for the world JSON), the
 //! `include_bytes!` registrations that back them, and the
 //! [`AmbitionAssetSourcePlugin`] that installs everything into Bevy at
 //! startup.
@@ -31,6 +32,11 @@ pub(crate) const EMBEDDED_SANDBOX_LDTK_ASSET_PATH: &str =
 /// LDtk world.
 pub(crate) const EMBEDDED_INTRO_LDTK_ASSET_PATH: &str =
     "ambition_sandbox/ambition/worlds/intro.ldtk";
+
+/// Same shape as [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] for the cut-rope
+/// boss LDtk world.
+pub(crate) const EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH: &str =
+    "ambition_sandbox/ambition/worlds/you_have_to_cut_the_rope.ldtk";
 
 /// Declarative table of embedded core assets.
 ///
@@ -164,7 +170,8 @@ embed_core_assets! {
 /// Today this is the embedded source only: behind the `static_map`
 /// feature, the plugin inserts the sandbox + intro LDtk JSON bytes into
 /// Bevy's [`bevy::asset::io::embedded::EmbeddedAssetRegistry`] under
-/// [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] / [`EMBEDDED_INTRO_LDTK_ASSET_PATH`],
+/// [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] / [`EMBEDDED_INTRO_LDTK_ASSET_PATH`] /
+/// [`EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH`],
 /// matching the explicit `EmbeddedBinary` `LocationCandidate`s authored
 /// on the corresponding catalog entries. The catalog's resolution +
 /// the plugin's registration are paired: change one, change the other.
@@ -246,6 +253,11 @@ fn register_embedded_assets(app: &mut App) {
             PathBuf::new(),
             Path::new(EMBEDDED_INTRO_LDTK_ASSET_PATH),
             include_bytes!("../../../assets/ambition/worlds/intro.ldtk") as &[u8],
+        );
+        embedded.insert_asset(
+            PathBuf::new(),
+            Path::new(EMBEDDED_CUT_ROPE_LDTK_ASSET_PATH),
+            include_bytes!("../../../assets/ambition/worlds/you_have_to_cut_the_rope.ldtk") as &[u8],
         );
     }
     #[cfg(feature = "static_core_assets")]

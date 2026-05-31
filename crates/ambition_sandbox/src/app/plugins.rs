@@ -801,7 +801,12 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     // audio playback.
     .add_systems(
         Update,
-        fx::process_explosion_requests
+        (
+            fx::process_fireworks_requests,
+            fx::tick_firework_sequences,
+            fx::process_explosion_requests,
+        )
+            .chain()
             .after(SandboxSet::CoreSimulation)
             .before(vfx_spawn_messages),
     )

@@ -27,7 +27,7 @@ use super::setup_systems::setup_simulation_system;
 use crate::audio::SfxMessage;
 use crate::content::data;
 use crate::game_mode::GameMode;
-use crate::presentation::fx::{ExplosionRequest, VfxMessage};
+use crate::presentation::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
 use crate::world::physics::DebrisBurstMessage;
 use crate::PlayerDiedMessage;
 
@@ -38,6 +38,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
         app.add_message::<SfxMessage>()
             .add_message::<VfxMessage>()
             .add_message::<ExplosionRequest>()
+            .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()
             .add_message::<PlayerDiedMessage>()
             .add_message::<crate::features::GameplayEffect>()

@@ -166,7 +166,9 @@ pub fn tick_cut_rope_boss_arena(
         state.anvil_exploded = true;
         boss.alive = false;
         boss.health.current = 0;
-        boss.hit_flash = boss.hit_flash.max(0.35);
+        // The death animation should render as-authored. A lingering
+        // hit-flash overlay reads as a white silhouette stuck over the body.
+        boss.hit_flash = 0.0;
 
         if let (Some(registry), Some(music), Some(cutscene)) = (
             boss_registry.as_deref_mut(),

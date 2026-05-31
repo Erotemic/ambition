@@ -658,6 +658,22 @@ def _draw_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     return img.resize(FRAME_SIZE, Image.Resampling.NEAREST)
 
 
+def _body_metrics_for_sheet(frame_width: int, frame_height: int) -> dict:
+    """Gameplay body metrics for the monolith body only, excluding the hat.
+
+    The alpha bbox intentionally spans the whole frame because the tiny hat
+    reaches the top edge, but gameplay hurtboxes/contact damage should be tight
+    around the black behemoth slab. Keep this in lock-step with
+    `_body_geometry`: body_x1=0, body_y1=22, body_x2=208, body_y2=288.
+    """
+    del frame_width, frame_height
+    return {
+        "body_pixel_bbox": {"x": 0, "y": 22, "w": 208, "h": 266},
+        "feet_pixel": {"x": 104.0, "y": 288.0},
+        "feet_anchor_norm": {"x": 0.0, "y": -0.5},
+    }
+
+
 def _frame_meta(anim: str, frame_idx: int, nframes: int) -> dict:
     g = _body_geometry(anim, frame_idx, nframes)
     anchors = {
@@ -688,6 +704,7 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         auto_crop=True,
         crop_margin=4,
         actor_metadata=ACTOR_METADATA,
+        body_metrics_fn=_body_metrics_for_sheet,
     )
     return [
         outputs["spritesheet"],

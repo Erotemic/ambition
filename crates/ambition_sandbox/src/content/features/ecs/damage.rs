@@ -337,10 +337,12 @@ pub fn apply_feature_hit_events(
                 )
             {
                 // Smirking Behemoth is an environmental puzzle boss:
-                // ordinary player hits can still flash/bark through the
-                // cut-rope rule layer, but they must not reduce HP. The
-                // LDtk-authored rope/anvil system owns the kill condition.
-                boss.hit_flash = boss.hit_flash.max(0.12);
+                // ordinary player hits do not damage it and should not
+                // produce hit feedback. The LDtk-authored rope/anvil system
+                // owns the only kill condition. Keeping this branch before
+                // the generic damageable-volume scan also prevents a broad
+                // slash/projectile event from making the boss flash when the
+                // player is nowhere near its body.
                 continue;
             }
             // Damageable volumes read from BossAttackState (the

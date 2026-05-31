@@ -202,6 +202,20 @@ pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: MessageWriter<crate::audio:
     });
 }
 
+/// `<<spawn_fireworks>>` — spawn a short test sequence of reusable explosion
+/// VFX/SFX near the player. Authored from the Kernel Guide dialog so designers
+/// can verify the explosion pipeline without entering a boss room.
+pub fn cmd_spawn_fireworks(
+    mut fireworks: MessageWriter<crate::presentation::fx::FireworksRequest>,
+    player_q: Query<&crate::player::PlayerKinematics, crate::player::PrimaryPlayerOnly>,
+) {
+    let origin = player_q
+        .single()
+        .map(|kin| kin.pos + ae::Vec2::new(0.0, -40.0))
+        .unwrap_or(ae::Vec2::new(480.0, 260.0));
+    fireworks.write(crate::presentation::fx::FireworksRequest::around(origin));
+}
+
 /// `<<camera_zoom factor>>` — adjust camera zoom. Logged-stub; the
 /// camera-zoom system currently reads its zoom from the active
 /// encounter spec. Wire when a dialogue-driven zoom override
@@ -263,7 +277,7 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
     lib.add_function("inventory_has", |_item: String| -> bool { false });
 }
 
-/// Register all six custom commands on the runner. Called from
+/// Register all seven custom commands on the runner. Called from
 /// `spawn_dialogue_runner`. Each command name maps to a Bevy
 /// system registered against the `World`.
 pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
@@ -272,6 +286,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let give_item_id = commands.register_system(cmd_give_item);
     let spawn_chest_id = commands.register_system(cmd_spawn_chest);
     let play_sfx_id = commands.register_system(cmd_play_sfx);
+    let spawn_fireworks_id = commands.register_system(cmd_spawn_fireworks);
     let camera_zoom_id = commands.register_system(cmd_camera_zoom);
     let cmds = runner.commands_mut();
     cmds.add_command("set_flag", set_flag_id);
@@ -279,5 +294,6 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("give_item", give_item_id);
     cmds.add_command("spawn_chest", spawn_chest_id);
     cmds.add_command("play_sfx", play_sfx_id);
+    cmds.add_command("spawn_fireworks", spawn_fireworks_id);
     cmds.add_command("camera_zoom", camera_zoom_id);
 }

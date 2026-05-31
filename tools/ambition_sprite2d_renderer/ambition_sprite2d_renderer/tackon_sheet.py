@@ -216,6 +216,7 @@ def build_sheet(
     auto_crop: bool = True,
     crop_margin: int = 2,
     actor_metadata=None,
+    body_metrics_fn=None,
 ):
     """Build a labeled spritesheet + companion YAML manifest.
 
@@ -371,6 +372,16 @@ def build_sheet(
     sheet.save(sheet_path)
     preview.save(preview_path)
 
+    body_metrics = alpha_bbox_metrics(first or can)
+    if body_metrics_fn is not None:
+        # Optional target-authored override for sheets whose visible alpha bbox
+        # deliberately includes non-body adornments (for example a hat, halo, or
+        # carried prop). The default remains alpha-bbox driven so existing
+        # generators keep their current conventions; targets that pass this hook
+        # can keep gameplay hurtboxes tight to the true character body while the
+        # rendered frame still includes decorations.
+        body_metrics = body_metrics_fn(fw, fh)
+
     manifest = {
         "target": target,
         "image": sheet_path.name,
@@ -378,7 +389,7 @@ def build_sheet(
         "frame_width": fw,
         "frame_height": fh,
         "rows": rows_meta,
-        "body_metrics": alpha_bbox_metrics(first or can),
+        "body_metrics": body_metrics,
     }
     yaml_path.write_text(yaml.safe_dump(manifest, sort_keys=False, width=120))
     # Sidecar RON manifest consumed at runtime by the sandbox's

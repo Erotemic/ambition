@@ -347,6 +347,13 @@ fn hit_flash_secs_for_source(
         if feature_id.as_str() != id {
             return None;
         }
+        if !feature.boss.alive {
+            // Boss death rows are authored sprites. Do not keep the damage
+            // feedback material over a corpse; cut-rope/anvil deaths in
+            // particular set alive=false immediately and should not look like
+            // a permanently white silhouette.
+            return Some(0.0);
+        }
         Some(feature.boss.hit_flash)
     })
 }

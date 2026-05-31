@@ -525,9 +525,9 @@ rows:
 body_metrics:
   body_pixel_bbox:
     x: 0
-    y: 0
+    y: 22
     w: 208
-    h: 288
+    h: 266
   feet_pixel:
     x: 104.0
     y: 288.0

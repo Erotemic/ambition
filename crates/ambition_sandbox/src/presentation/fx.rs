@@ -44,6 +44,22 @@ pub struct ExplosionVisual {
 }
 
 #[derive(Component)]
+pub struct FireworkSequence {
+    origin: ae::Vec2,
+    age: f32,
+    next_index: usize,
+    schedule: Vec<FireworkBurstSpec>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct FireworkBurstSpec {
+    at: f32,
+    offset: ae::Vec2,
+    kind: ExplosionKind,
+    scale: f32,
+}
+
+#[derive(Component)]
 pub struct SlashPreviewVisual {
     age: f32,
     duration: f32,
@@ -112,6 +128,16 @@ impl ExplosionKind {
             Self::Starburst => CharacterAnim::Slash,
         }
     }
+
+    pub fn sfx(self) -> ambition_sfx::SfxId {
+        match self {
+            Self::ClassicBurst => ambition_sfx::ids::VFX_EXPLOSION_CLASSIC_BURST,
+            Self::BurstRound => ambition_sfx::ids::VFX_EXPLOSION_BURST_ROUND,
+            Self::Shockwave => ambition_sfx::ids::VFX_EXPLOSION_SHOCKWAVE,
+            Self::SmokeBurst => ambition_sfx::ids::VFX_EXPLOSION_SMOKE_BURST,
+            Self::Starburst => ambition_sfx::ids::VFX_EXPLOSION_STARBURST,
+        }
+    }
 }
 
 /// Reusable gameplay request for a point explosion. Simulation code writes this
@@ -133,7 +159,7 @@ impl ExplosionRequest {
             pos,
             kind,
             scale: 1.0,
-            sfx: Some(ambition_sfx::ids::VFX_EXPLOSION_CLASSIC_BURST),
+            sfx: Some(kind.sfx()),
         }
     }
 
@@ -178,6 +204,112 @@ pub fn process_explosion_requests(
                 id,
                 pos: request.pos,
             });
+        }
+    }
+}
+
+/// Request a short, spatially distributed sequence of explosion VFX/SFX.
+///
+/// This is intentionally higher-level than writing several
+/// `ExplosionRequest`s at once: callers say "fireworks here" and the VFX
+/// system owns the temporal spread, per-burst variety, and sound pairing.
+#[derive(Message, Clone, Debug)]
+pub struct FireworksRequest {
+    pub origin: ae::Vec2,
+    pub count: u32,
+    pub spread: ae::Vec2,
+    pub duration: f32,
+}
+
+impl FireworksRequest {
+    pub fn around(origin: ae::Vec2) -> Self {
+        Self {
+            origin,
+            count: 11,
+            spread: ae::Vec2::new(360.0, 210.0),
+            duration: 2.35,
+        }
+    }
+}
+
+pub fn process_fireworks_requests(
+    mut commands: Commands,
+    mut requests: MessageReader<FireworksRequest>,
+) {
+    for request in requests.read() {
+        let count = request.count.max(5).min(24) as usize;
+        let duration = request.duration.max(0.35);
+        let mut schedule = Vec::with_capacity(count);
+        for i in 0..count {
+            let f = if count <= 1 {
+                0.0
+            } else {
+                i as f32 / (count - 1) as f32
+            };
+            let jitter_t = (((i * 17 + 11) % 9) as f32 - 4.0) * 0.018;
+            let at = (0.08 + 0.84 * f) * duration + jitter_t;
+            let x_jitter = ((i * 37 + 13) % 101) as f32 / 100.0 - 0.5;
+            let y_jitter = ((i * 53 + 29) % 101) as f32 / 100.0;
+            let wave = (f * TAU * 1.65).sin() * request.spread.x * 0.18;
+            let offset = ae::Vec2::new(
+                x_jitter * request.spread.x + wave,
+                -request.spread.y * (0.22 + 0.78 * y_jitter),
+            );
+            let kind = match i % 5 {
+                0 => ExplosionKind::Starburst,
+                1 => ExplosionKind::ClassicBurst,
+                2 => ExplosionKind::BurstRound,
+                3 => ExplosionKind::Shockwave,
+                _ => ExplosionKind::SmokeBurst,
+            };
+            let scale = 0.82 + (((i * 19 + 7) % 9) as f32) * 0.055;
+            schedule.push(FireworkBurstSpec {
+                at: at.max(0.0),
+                offset,
+                kind,
+                scale,
+            });
+        }
+        schedule.sort_by(|a, b| a.at.partial_cmp(&b.at).unwrap_or(std::cmp::Ordering::Equal));
+        commands.spawn((
+            Name::new("Firework explosion sequence"),
+            FireworkSequence {
+                origin: request.origin,
+                age: 0.0,
+                next_index: 0,
+                schedule,
+            },
+        ));
+    }
+}
+
+pub fn tick_firework_sequences(
+    mut commands: Commands,
+    world_time: Res<crate::WorldTime>,
+    mut sequences: Query<(Entity, &mut FireworkSequence)>,
+    mut explosions: MessageWriter<ExplosionRequest>,
+) {
+    let dt = world_time.wall_dt().max(0.0);
+    for (entity, mut sequence) in &mut sequences {
+        sequence.age += dt;
+        while sequence.next_index < sequence.schedule.len()
+            && sequence.schedule[sequence.next_index].at <= sequence.age
+        {
+            let burst = sequence.schedule[sequence.next_index];
+            explosions.write(
+                ExplosionRequest::new(sequence.origin + burst.offset, burst.kind)
+                    .with_scale(burst.scale),
+            );
+            sequence.next_index += 1;
+        }
+        let done = sequence.next_index >= sequence.schedule.len()
+            && sequence
+                .schedule
+                .last()
+                .map(|last| sequence.age > last.at + 0.75)
+                .unwrap_or(true);
+        if done {
+            commands.entity(entity).despawn();
         }
     }
 }

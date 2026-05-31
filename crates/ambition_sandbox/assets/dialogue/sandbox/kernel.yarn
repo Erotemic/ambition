@@ -118,6 +118,8 @@ title: hub_guide__test
     <<jump hub_guide__test_flag>>
 -> Command: play_sfx
     <<jump hub_guide__test_sfx>>
+-> Command: spawn_fireworks
+    <<jump hub_guide__test_fireworks>>
 -> Command: give_item
     <<jump hub_guide__test_item>>
 -> Command: camera_zoom
@@ -186,6 +188,15 @@ title: hub_guide__test_sfx
 Kernel Guide: Emitting an SfxMessage::Play with id 'ui.notification.discovery' through the audio bus.
 <<play_sfx "ui.notification.discovery">>
 Kernel Guide: That chime came from the sfx.bank — `ui.notification.discovery`. Yarn's play_sfx command takes any registered clip id (see assets/audio/sfx.bank.txt for the catalog of 214 entries).
+-> Back to test menu.
+    <<jump hub_guide__test>>
+===
+
+title: hub_guide__test_fireworks
+---
+Kernel Guide: Calling spawn_fireworks. This should emit a staggered spread of explosion sprites and matching generated explosion SFX.
+<<spawn_fireworks>>
+Kernel Guide: If the sequence feels silent or too synchronized, the issue is in the reusable ExplosionRequest / FireworksRequest path, not in the boss room.
 -> Back to test menu.
     <<jump hub_guide__test>>
 ===

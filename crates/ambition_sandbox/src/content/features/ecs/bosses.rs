@@ -181,20 +181,12 @@ pub fn derive_boss_sprite_metrics(
             sprite_render_size,
         );
         let derive_result = bounding_aabb(&body_aabbs);
-        let centered_body_contact = target == "smirking_behemoth_boss";
         if let Some(bound) = derive_result {
-            snapshot.combat_offset = if centered_body_contact {
-                // Smirking Behemoth is a ground-locked monolith whose
-                // LDtk spawn box is already authored as the persistent
-                // body-contact hurtbox. The generic sprite-frame-center
-                // offset would lift that hurtbox about ten pixels above
-                // the floor, leaving a safe strip under the body. Keep
-                // the full-body contact box centered on the kinematic
-                // body instead.
-                ae::Vec2::ZERO
-            } else {
-                bound.center() - boss.pos
-            };
+            // Use the sprite-authored body bbox as the single source of truth
+            // for both offset and size. Smirking Behemoth's metadata now
+            // excludes its hat while keeping the slab bottom planted, so this
+            // offset gives a tight body hurtbox without including decoration.
+            snapshot.combat_offset = bound.center() - boss.pos;
         }
         boss.sprite_metrics = Some(snapshot);
         if let Some(bound) = derive_result {

@@ -43,7 +43,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Goblins need more sprites for more animations to go with the different actions.
 
-- [ ] Grinning Colossus-like boss (Smiling Big Guy) where you have to "cut the rope". Big square, shoots circle-bubble eye beams. Exercise the pickup items systems.
+- [ ] Grinning Colossus-like boss (Smirking Behemoth) where you have to "cut the rope". Big square, shoots circle-bubble eye beams. Exercise the pickup items systems.
 
 - [ ] The player need more sprites for more animations to go with the different actions.
 

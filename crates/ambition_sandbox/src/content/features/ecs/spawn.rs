@@ -71,10 +71,10 @@ pub fn despawn_encounter_mobs(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::brain_builders::{enemy_default_action_set, enemy_default_brain};
     use super::super::spawn_actors::spawn_boss;
     use super::super::spawn_mounts::spawn_composite_mount_rider;
+    use super::*;
     use crate::brain::{
         ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
     };

@@ -264,7 +264,7 @@ pub fn ecs_boss_animation_frame_sample(
 )> {
     bosses
         .iter()
-        .find_map(|(entity, feature_id, boss, attack_state, _brain)| {
+        .find_map(|(entity, feature_id, _boss, attack_state, _brain)| {
             if feature_id.as_str() != id {
                 return None;
             }

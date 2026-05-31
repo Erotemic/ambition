@@ -1590,6 +1590,7 @@ mod scripted_pattern_tests {
                     actor_pos: boss.pos,
                     target_pos: player_pos,
                     world_size: world.size,
+                    front_wall_clearance: None,
                     dt,
                 },
                 &mut frame,

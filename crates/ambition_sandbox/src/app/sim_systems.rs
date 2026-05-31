@@ -265,6 +265,79 @@ pub fn apply_player_reset_input_system(
     reset_room_features.write(features::ResetRoomFeaturesEvent);
 }
 
+/// Replay the cut-rope boss room from a Yarn/dialogue command.
+///
+/// This intentionally mirrors `apply_player_reset_input_system` instead of
+/// driving `ControlFrame::reset_pressed`: the command can run while gameplay
+/// input is suspended by dialogue, so relying on the input frame would make the
+/// reset timing depend on UI/game-mode scheduling.
+pub fn apply_cut_rope_room_replay_request_system(
+    mut replay_requests: MessageReader<crate::boss_encounter::CutRopeRoomReplayRequested>,
+    world: Res<GameWorld>,
+    editable_tuning: Res<EditableMovementTuning>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    mut sim_state: ResMut<SandboxSimState>,
+    mut boss_registry: ResMut<crate::boss_encounter::BossEncounterRegistry>,
+    mut save: Option<ResMut<crate::persistence::save::SandboxSave>>,
+    mut boss_music: Option<ResMut<crate::encounter::BossEncounterMusicRequest>>,
+    mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
+    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut vfx_writer: MessageWriter<VfxMessage>,
+    mut player_q: Query<
+        (
+            ae::PlayerClusterQueryData,
+            &mut crate::player::PlayerAnimState,
+            &mut crate::player::PlayerCombatState,
+            &mut crate::player::PlayerInteractionState,
+            &mut crate::player::PlayerBlinkCameraState,
+            &mut crate::player::ActivePlayerAttack,
+            &mut crate::player::PlayerSafetyState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    if replay_requests.read().count() == 0 {
+        return;
+    }
+    crate::boss_encounter::reset_cut_rope_boss_attempt(
+        &mut *boss_registry,
+        save.as_deref_mut(),
+        boss_music.as_deref_mut(),
+    );
+
+    let Ok((
+        mut cluster_item,
+        mut anim,
+        mut combat,
+        mut interaction,
+        mut blink_cam,
+        mut attack,
+        mut safety,
+    )) = player_q.single_mut()
+    else {
+        reset_room_features.write(features::ResetRoomFeaturesEvent);
+        return;
+    };
+
+    let mut clusters = cluster_item.as_clusters_mut();
+    super::world_flow::reset_sandbox(
+        &world.0,
+        &mut sfx_writer,
+        &mut vfx_writer,
+        &mut clusters,
+        &mut sim_state,
+        &mut safety,
+        &mut attack.0,
+        &mut anim,
+        &mut combat,
+        &mut interaction,
+        &mut blink_cam,
+        editable_tuning.as_engine(),
+        *feel_tuning,
+    );
+    reset_room_features.write(features::ResetRoomFeaturesEvent);
+}
+
 /// Detect a loading-zone overlap and emit a [`RoomTransitionRequested`]
 /// message. The actual room load (despawn old, spawn new, reset player
 /// to spawn point) happens in `apply_room_transition_system`, which

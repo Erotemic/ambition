@@ -11,7 +11,7 @@ use crate::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
 use crate::config::world_to_bevy;
 use crate::features::{
     ActorRuntime, BossRewardChest, ChestFeature, EncounterMob, EncounterRewardChest, FeatureAabb,
-    FeatureId, FeatureVisualKind,
+    FeatureId, FeatureName, FeatureVisualKind,
 };
 
 /// Spawn `FeatureVisual` entities for dynamically introduced ECS features
@@ -28,6 +28,10 @@ pub fn spawn_dynamic_feature_visuals(
     assets: Option<Res<GameAssets>>,
     existing: Query<&FeatureVisual>,
     ecs_mobs: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<EncounterMob>>,
+    post_boss_npcs: Query<
+        (&FeatureId, &FeatureName, &FeatureAabb, &ActorRuntime),
+        With<crate::boss_encounter::SmirkingBehemothVictoryNpc>,
+    >,
     ecs_reward_chests: Query<
         (&FeatureId, &FeatureAabb, &ChestFeature),
         Or<(With<EncounterRewardChest>, With<BossRewardChest>)>,
@@ -53,6 +57,32 @@ pub fn spawn_dynamic_feature_visuals(
             sprite,
             Transform::from_translation(world_to_bevy(&world.0, aabb.center, feature_z(kind))),
             Name::new(format!("Encounter mob: {}", actor.name())),
+            FeatureVisual {
+                id: id.as_str().to_string(),
+            },
+            RoomVisual,
+        ));
+    }
+    for (id, name, aabb, actor) in &post_boss_npcs {
+        if known.contains(id.as_str()) {
+            continue;
+        }
+        let kind = FeatureVisualKind::Npc;
+        let render = BVec2::new(aabb.size().x, aabb.size().y);
+        let entity_key = match actor {
+            ActorRuntime::Peaceful(npc) => {
+                game_assets::entity_sprite_for_interactable(&npc.interactable)
+            }
+            ActorRuntime::Hostile(enemy) => game_assets::entity_sprite_for_enemy(&enemy.brain),
+        };
+        let sprite = match assets_ref {
+            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
+            None => Sprite::from_color(feature_color(kind, false), render),
+        };
+        commands.spawn((
+            sprite,
+            Transform::from_translation(world_to_bevy(&world.0, aabb.center, feature_z(kind))),
+            Name::new(format!("Post-boss NPC: {}", name.0.as_str())),
             FeatureVisual {
                 id: id.as_str().to_string(),
             },

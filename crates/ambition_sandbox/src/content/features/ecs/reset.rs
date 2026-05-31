@@ -13,6 +13,7 @@ pub fn reset_ecs_room_features(
     mut reset_requests: MessageReader<ResetRoomFeaturesEvent>,
     collected_pickups: Query<Entity, (With<FeatureSimEntity>, With<Collected>)>,
     opened_chests: Query<Entity, (With<FeatureSimEntity>, With<Opened>)>,
+    post_boss_npcs: Query<Entity, With<crate::boss_encounter::SmirkingBehemothVictoryNpc>>,
     mut breakables: Query<
         (Entity, &mut BreakableFeature, Option<&mut StandTimer>),
         With<FeatureSimEntity>,
@@ -60,6 +61,9 @@ pub fn reset_ecs_room_features(
     }
     for entity in &opened_chests {
         commands.entity(entity).remove::<Opened>();
+    }
+    for entity in &post_boss_npcs {
+        commands.entity(entity).despawn();
     }
     for (entity, mut feature, stand_timer) in &mut breakables {
         feature.breakable.state = crate::interaction::BreakableState::Intact;

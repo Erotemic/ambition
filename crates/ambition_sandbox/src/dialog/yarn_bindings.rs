@@ -227,6 +227,38 @@ pub fn cmd_camera_zoom(In(factor): In<f32>) {
     );
 }
 
+/// `<<watch_cut_rope_video>>` — authored post-boss branch placeholder.
+///
+/// TODO(web-open): desktop builds could optionally open the URL in the user's
+/// browser after a settings/privacy opt-in. For now the Yarn line presents the
+/// link and this command records the choice as a save flag for traceability.
+pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<GameplayEffect>) {
+    info!(
+        target: "ambition_sandbox::dialog::yarn",
+        "watch_cut_rope_video: TODO optional browser launch for https://www.youtube.com/watch?v=ucLGm27DDL0",
+    );
+    effects.write(GameplayEffect::SetFlag {
+        id: "smirking_behemoth_video_suggested".into(),
+        on: true,
+    });
+}
+
+/// `<<reset_cut_rope_room>>` — replay the Smirking Behemoth room from the start.
+///
+/// The command is reached by Yarn immediately after the NPC's final line is
+/// presented, before the player has dismissed that line. Latch a pending replay
+/// resource instead of resetting immediately; the simulation emits the real
+/// replay request once `DialogState` is inactive.
+pub fn cmd_reset_cut_rope_room(
+    mut pending: ResMut<crate::boss_encounter::PendingCutRopeRoomReplay>,
+) {
+    pending.requested = true;
+    info!(
+        target: "ambition_sandbox::dialog::yarn",
+        "reset_cut_rope_room: latched Smirking Behemoth room replay until dialogue closes",
+    );
+}
+
 // ===== Functions ================================================
 //
 // Pure functions registered on the runner's `library_mut()`. Each
@@ -277,7 +309,7 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
     lib.add_function("inventory_has", |_item: String| -> bool { false });
 }
 
-/// Register all seven custom commands on the runner. Called from
+/// Register all nine custom commands on the runner. Called from
 /// `spawn_dialogue_runner`. Each command name maps to a Bevy
 /// system registered against the `World`.
 pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
@@ -288,6 +320,8 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let play_sfx_id = commands.register_system(cmd_play_sfx);
     let spawn_fireworks_id = commands.register_system(cmd_spawn_fireworks);
     let camera_zoom_id = commands.register_system(cmd_camera_zoom);
+    let watch_cut_rope_video_id = commands.register_system(cmd_watch_cut_rope_video);
+    let reset_cut_rope_room_id = commands.register_system(cmd_reset_cut_rope_room);
     let cmds = runner.commands_mut();
     cmds.add_command("set_flag", set_flag_id);
     cmds.add_command("clear_flag", clear_flag_id);
@@ -296,4 +330,6 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("play_sfx", play_sfx_id);
     cmds.add_command("spawn_fireworks", spawn_fireworks_id);
     cmds.add_command("camera_zoom", camera_zoom_id);
+    cmds.add_command("watch_cut_rope_video", watch_cut_rope_video_id);
+    cmds.add_command("reset_cut_rope_room", reset_cut_rope_room_id);
 }

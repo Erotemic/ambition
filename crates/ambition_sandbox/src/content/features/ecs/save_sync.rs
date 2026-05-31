@@ -92,10 +92,17 @@ pub fn sync_ecs_actors_with_save(
 /// Mirror persisted boss-cleared state onto ECS-owned boss actors.
 pub fn sync_ecs_bosses_with_save(
     save: Res<crate::persistence::save::SandboxSave>,
-    mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
+    mut bosses: Query<
+        (
+            &mut BossFeature,
+            Option<&mut BossDeathAnimation>,
+            Option<&mut BossPhase>,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     let data = save.data();
-    for mut feature in &mut bosses {
+    for (mut feature, death_anim, phase) in &mut bosses {
         let boss = &mut feature.boss;
         // Use the canonical behavior id (resolved at spawn from the
         // brain's `PhaseScript:` payload) so an LDtk BossSpawn with
@@ -113,6 +120,12 @@ pub fn sync_ecs_bosses_with_save(
         ) {
             boss.alive = false;
             boss.health.current = 0;
+            if let Some(mut death_anim) = death_anim {
+                death_anim.clear();
+            }
+            if let Some(mut phase) = phase {
+                *phase = BossPhase::Defeated;
+            }
         }
     }
 }

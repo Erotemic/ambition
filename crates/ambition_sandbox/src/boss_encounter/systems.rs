@@ -318,32 +318,35 @@ pub fn update_boss_encounters(
     // unable to act) but excludes Dormant + Death. An empty
     // bosses_in_room (player left the room) is treated the same
     // as "no active fight" → clear.
-    let any_boss_in_active_fight = bosses_in_room
-        .iter()
-        .any(|(_, _, encounter_id, _, _, _, _)| {
-            registry
-                .encounters
-                .get(encounter_id)
-                .map(|state| {
-                    matches!(
-                        state.phase,
-                        crate::boss_encounter::BossEncounterPhase::Intro
-                            | crate::boss_encounter::BossEncounterPhase::Phase1
-                            | crate::boss_encounter::BossEncounterPhase::Transition
-                            | crate::boss_encounter::BossEncounterPhase::Phase2
-                            | crate::boss_encounter::BossEncounterPhase::Enrage
-                            | crate::boss_encounter::BossEncounterPhase::Stagger
-                    )
-                })
-                .unwrap_or(false)
-        });
-    if !any_boss_in_active_fight && music_request.desired_track.is_some() {
-        bevy::log::info!(
-            target: "ambition::boss_encounter",
-            "clearing boss music (no boss in active phase) — prior track={:?}",
-            music_request.desired_track,
-        );
-        music_request.desired_track = None;
+    let active_boss_music_track =
+        bosses_in_room
+            .iter()
+            .find_map(|(_, _, encounter_id, _, _, _, _)| {
+                registry
+                    .encounters
+                    .get(encounter_id)
+                    .and_then(active_phase_music_track)
+                    .map(str::to_owned)
+            });
+    match active_boss_music_track {
+        Some(track) => {
+            if music_request.desired_track.as_deref() != Some(track.as_str()) {
+                bevy::log::info!(
+                    target: "ambition::boss_encounter",
+                    "restoring boss music for active encounter — track={track:?}",
+                );
+                music_request.desired_track = Some(track);
+            }
+        }
+        None if music_request.desired_track.is_some() => {
+            bevy::log::info!(
+                target: "ambition::boss_encounter",
+                "clearing boss music (no boss in active phase) — prior track={:?}",
+                music_request.desired_track,
+            );
+            music_request.desired_track = None;
+        }
+        None => {}
     }
 
     let boss_anchors: Vec<(String, ae::Vec2)> = bosses_in_room
@@ -358,4 +361,18 @@ pub fn update_boss_encounters(
         &boss_anchors,
         &reward_chests,
     );
+}
+
+fn active_phase_music_track(state: &crate::boss_encounter::BossEncounterState) -> Option<&str> {
+    let track = match state.phase {
+        crate::boss_encounter::BossEncounterPhase::Intro => &state.spec.music_intro,
+        crate::boss_encounter::BossEncounterPhase::Phase1
+        | crate::boss_encounter::BossEncounterPhase::Transition => &state.spec.music_phase1,
+        crate::boss_encounter::BossEncounterPhase::Phase2
+        | crate::boss_encounter::BossEncounterPhase::Stagger => &state.spec.music_phase2,
+        crate::boss_encounter::BossEncounterPhase::Enrage => &state.spec.music_enrage,
+        crate::boss_encounter::BossEncounterPhase::Dormant
+        | crate::boss_encounter::BossEncounterPhase::Death => return None,
+    };
+    (!track.is_empty()).then_some(track.as_str())
 }

@@ -145,6 +145,8 @@ fn register_player_input_systems(app: &mut App) {
             crate::refresh_world_time,
             sync_live_player_dev_edits_system,
             apply_player_reset_input_system.run_if(gameplay_allowed),
+            crate::boss_encounter::emit_cut_rope_room_replay_after_dialogue_closes,
+            apply_cut_rope_room_replay_request_system,
             input_timer_system.run_if(gameplay_allowed),
             interaction_input_system.run_if(gameplay_allowed),
             // Per-player input migration (OVERNIGHT-TODO #17.5). Mirror
@@ -238,6 +240,7 @@ fn register_room_transition_systems(app: &mut App) {
             ensure_requested_room_parallax_system,
             apply_room_transition_system,
             crate::features::reset_ecs_room_features,
+            crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset,
         )
             .chain()
             .in_set(SandboxSet::RoomTransition),
@@ -361,6 +364,7 @@ fn register_progression_chain_systems(app: &mut App) {
         Update,
         (
             crate::boss_encounter::update_boss_encounters,
+            crate::boss_encounter::spawn_cut_rope_victory_npc,
             // Hides the gnu_ton arena's retreat ladder while the boss
             // is alive, re-adds it the frame the boss dies. Runs after
             // `update_boss_encounters` so a defeat this tick is

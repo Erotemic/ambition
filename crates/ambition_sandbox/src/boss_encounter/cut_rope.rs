@@ -16,8 +16,9 @@ use crate::brain::BossAttackState;
 use crate::config::world_to_bevy;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::{
-    BossFeature, BossRuntime, FeatureAabb, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent,
-    HitSource, ResetRoomFeaturesEvent,
+    actor_component_snapshot, ActorRuntime, BossFeature, BossRuntime, DamageableVolumes,
+    EnemyActorBundle, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity,
+    GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, ResetRoomFeaturesEvent,
 };
 use crate::presentation::fx::{
     ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
@@ -27,7 +28,12 @@ use crate::rooms::{PropSpec, RoomSet};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
 pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";
+pub const CUT_ROPE_VICTORY_NPC_ID: &str = "smirking_behemoth_victory_npc";
+pub const CUT_ROPE_VICTORY_NPC_DIALOGUE_ID: &str = "smirking_behemoth_victory_npc";
 const CUT_ROPE_ROOM_ID: &str = "you_have_to_cut_the_rope";
+const CUT_ROPE_VICTORY_NPC_NAME: &str = "The Rope Appreciator";
+const CUT_ROPE_VICTORY_NPC_W: f32 = 28.0;
+const CUT_ROPE_VICTORY_NPC_H: f32 = 48.0;
 const ROPE_KIND: &str = "cut_rope_rope";
 const ANVIL_KIND: &str = "cut_rope_anvil";
 const ANVIL_GRAVITY: f32 = 1400.0;
@@ -39,6 +45,237 @@ const ROPE_SPARK_INTERVAL: f32 = 0.22;
 
 pub fn is_cut_rope_boss(id: &str) -> bool {
     id == CUT_ROPE_BOSS_ID
+}
+
+#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CutRopeRoomReplayRequested;
+
+/// Latched by the Yarn `<<reset_cut_rope_room>>` command once the player chooses the
+/// replay option. The actual room reset intentionally waits until the dialog UI has
+/// closed, so the final NPC line remains visible until the player dismisses it.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PendingCutRopeRoomReplay {
+    pub requested: bool,
+}
+
+/// Convert a pending dialogue-authored replay into the normal replay message after
+/// the final dialog line has been dismissed.
+pub fn emit_cut_rope_room_replay_after_dialogue_closes(
+    dialogue: Res<crate::dialog::DialogState>,
+    mut pending: ResMut<PendingCutRopeRoomReplay>,
+    mut replay_requests: MessageWriter<CutRopeRoomReplayRequested>,
+) {
+    if !pending.requested || dialogue.active() {
+        return;
+    }
+    pending.requested = false;
+    replay_requests.write(CutRopeRoomReplayRequested);
+}
+
+/// Reset the Smirking Behemoth encounter state so the room can be replayed in-place.
+///
+/// This deliberately does not move the player or mutate ECS feature entities directly. Callers
+/// should also trigger the normal room reset path, which emits `ResetRoomFeaturesEvent`; this
+/// helper only clears the boss encounter/save state that would otherwise keep the boss retired.
+pub fn reset_cut_rope_boss_attempt(
+    registry: &mut BossEncounterRegistry,
+    save: Option<&mut crate::persistence::save::SandboxSave>,
+    music_request: Option<&mut crate::encounter::BossEncounterMusicRequest>,
+) {
+    let runtime_id = registry.runtime_ids.get(CUT_ROPE_BOSS_ID).cloned();
+    let intro_track = registry.encounters.get_mut(CUT_ROPE_BOSS_ID).map(|state| {
+        state.reset_for_retry();
+        state.spec.music_intro.clone()
+    });
+    if let Some(save) = save {
+        let data = save.data_mut();
+        data.set_boss(
+            CUT_ROPE_BOSS_ID,
+            crate::save::PersistedEncounterState::Untouched,
+        );
+        if let Some(runtime_id) = runtime_id.as_deref() {
+            data.set_boss(runtime_id, crate::save::PersistedEncounterState::Untouched);
+        }
+        // The NPC appears only after the victory beat. Replaying the room should
+        // make the post-boss conversation available again only after the next kill.
+        data.set_flag("smirking_behemoth_victory_npc_seen", false);
+    }
+    if let Some(music) = music_request {
+        music.desired_track = intro_track.filter(|track| !track.is_empty());
+    }
+}
+
+/// Spawn the post-Smirking-Behemoth NPC after the boss encounter has fully resolved.
+///
+/// The NPC is runtime-spawned rather than LDtk-authored so the room layout stays stable and the
+/// entity can feel like it crawled out of the dead boss body. It is still a normal peaceful NPC
+/// actor with a Yarn dialogue id, so interaction, sprite fallback, pogo/damage volumes, and reset
+/// behavior use the existing ECS actor path.
+pub fn spawn_cut_rope_victory_npc(
+    mut commands: Commands,
+    room_set: Res<RoomSet>,
+    registry: Res<BossEncounterRegistry>,
+    save: Res<crate::persistence::save::SandboxSave>,
+    existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
+    bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
+) {
+    if room_set.active_spec().id != CUT_ROPE_ROOM_ID {
+        return;
+    }
+    if existing
+        .iter()
+        .any(|id| id.as_str() == CUT_ROPE_VICTORY_NPC_ID)
+    {
+        return;
+    }
+    let Some((_boss_id, boss_aabb, boss_feature)) = bosses.iter().find(|(id, _, feature)| {
+        id.as_str() == CUT_ROPE_BOSS_ID || is_cut_rope_boss(feature.boss.behavior.id.as_str())
+    }) else {
+        return;
+    };
+    let boss = &boss_feature.boss;
+    let encounter_death_complete =
+        registry
+            .encounters
+            .get(CUT_ROPE_BOSS_ID)
+            .is_some_and(|encounter| {
+                matches!(
+                    encounter.phase,
+                    crate::boss_encounter::BossEncounterPhase::Death
+                ) && encounter.death_complete()
+            });
+    let boss_persisted_cleared = {
+        let data = save.data();
+        matches!(
+            data.boss(CUT_ROPE_BOSS_ID),
+            crate::save::PersistedEncounterState::Cleared
+        ) || matches!(
+            data.boss(&boss.behavior.id),
+            crate::save::PersistedEncounterState::Cleared
+        ) || matches!(
+            data.boss(&boss.id),
+            crate::save::PersistedEncounterState::Cleared
+        )
+    };
+    if !encounter_death_complete && !boss_persisted_cleared {
+        return;
+    }
+    let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;
+    let spawn_pos = ae::Vec2::new(boss.pos.x, boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5);
+    spawn_victory_npc_entity(&mut commands, spawn_pos);
+}
+
+fn victory_npc_size() -> ae::Vec2 {
+    ae::Vec2::new(CUT_ROPE_VICTORY_NPC_W, CUT_ROPE_VICTORY_NPC_H)
+}
+
+fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
+    let size = victory_npc_size();
+    let aabb = ae::Aabb::new(pos, size * 0.5);
+    let interactable = crate::interaction::Interactable {
+        id: CUT_ROPE_VICTORY_NPC_ID.to_string(),
+        prompt: "Talk".to_string(),
+        aabb,
+        kind: crate::interaction::InteractionKind::Npc {
+            dialogue_id: Some(CUT_ROPE_VICTORY_NPC_DIALOGUE_ID.to_string()),
+            patrol_radius: 0.0,
+            patrol_path_id: None,
+        },
+        requires_facing: false,
+        enabled: true,
+    };
+    let npc = crate::features::NpcRuntime {
+        id: CUT_ROPE_VICTORY_NPC_ID.to_string(),
+        name: CUT_ROPE_VICTORY_NPC_NAME.to_string(),
+        pos,
+        spawn: pos,
+        size,
+        vel: ae::Vec2::ZERO,
+        facing: -1.0,
+        on_ground: false,
+        interactable,
+        patrol_radius: 0.0,
+        motion: None,
+        talk_radius: 80.0,
+        ai_mode: crate::character_ai::CharacterAiMode::Idle,
+        hostile: false,
+        strikes: 0,
+        hit_flash: 0.0,
+    };
+    let brain = npc.build_brain();
+    let actor = ActorRuntime::Peaceful(npc);
+    let (identity, disposition, health, combat, intent, cooldowns) =
+        actor_component_snapshot(&actor);
+    commands
+        .spawn((
+            Name::new("Post-boss NPC: Smirking Behemoth victory"),
+            SmirkingBehemothVictoryNpc,
+            EnemyActorBundle {
+                base: FeatureBaseBundle::new(
+                    CUT_ROPE_VICTORY_NPC_ID,
+                    CUT_ROPE_VICTORY_NPC_NAME,
+                    FeatureAabb::from_aabb(aabb),
+                ),
+                identity,
+                disposition,
+                faction: crate::features::ActorFaction::Npc,
+                target: crate::features::ActorTarget::default(),
+                health,
+                combat,
+                intent,
+                cooldowns,
+                damageable_volumes: DamageableVolumes::default(),
+                pogo_policy: PogoPolicy::FromDamageable,
+                pogo_target_volumes: PogoTargetVolumes::default(),
+            },
+            actor,
+            brain,
+            crate::brain::ActionSet::peaceful(),
+            ActorControl::default(),
+        ))
+        .id()
+}
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SmirkingBehemothVictoryNpc;
+
+fn reset_cut_rope_arena_state_for_room(state: &mut CutRopeBossArenaState, room_id: &str) {
+    *state = CutRopeBossArenaState {
+        active_room: room_id.to_string(),
+        ..Default::default()
+    };
+}
+
+/// Reset cut-rope-specific prop state immediately when a same-room reset is requested.
+///
+/// The main arena tick is gameplay-gated because it advances the falling anvil. Dialogue
+/// commands can request a room replay while gameplay is suspended, so this reset bridge runs in
+/// the ungated room-reset chain and restores rope/anvil visuals on the reset frame instead of
+/// relying on the combat tick to observe a short-lived reset message later.
+pub fn reset_cut_rope_boss_arena_on_room_reset(
+    room_set: Res<RoomSet>,
+    mut state: ResMut<CutRopeBossArenaState>,
+    mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
+    mut prop_visuals: Query<(
+        &FeatureName,
+        &PropVisual,
+        &mut Transform,
+        Option<&mut Visibility>,
+    )>,
+) {
+    if reset_events.read().next().is_none() {
+        return;
+    }
+    let room = room_set.active_spec();
+    if room.id != CUT_ROPE_ROOM_ID {
+        if state.active_room != room.id {
+            reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
+        }
+        return;
+    }
+    reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
+    if let Some(anvil) = authored_prop(room_set.active_props(), ANVIL_KIND) {
+        sync_cut_rope_prop_visuals(&mut prop_visuals, room_set.active_world(), &state, anvil);
+    }
 }
 
 #[derive(Resource, Default)]
@@ -82,10 +319,7 @@ pub fn tick_cut_rope_boss_arena(
     let room = room_set.active_spec();
     if room.id != CUT_ROPE_ROOM_ID {
         if state.active_room != room.id {
-            *state = CutRopeBossArenaState {
-                active_room: room.id.clone(),
-                ..Default::default()
-            };
+            reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
         }
         // Advance the readers so old slash/reset messages do not get interpreted if
         // the player warps into the cut-rope room on the next frame.
@@ -94,18 +328,12 @@ pub fn tick_cut_rope_boss_arena(
         return;
     }
     if state.active_room != room.id {
-        *state = CutRopeBossArenaState {
-            active_room: room.id.clone(),
-            ..Default::default()
-        };
+        reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
     }
 
     let reset_requested = reset_events.read().next().is_some();
     if reset_requested {
-        *state = CutRopeBossArenaState {
-            active_room: room.id.clone(),
-            ..Default::default()
-        };
+        reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
     }
 
     let Some(rope) = authored_prop(room_set.active_props(), ROPE_KIND) else {

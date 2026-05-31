@@ -81,6 +81,8 @@ pub use bus::{
     GameplayEffectsSchedulePlugin,
 };
 pub use chests::ChestRuntime;
+pub(crate) use ecs::actor_component_snapshot;
+
 pub use components::{
     ActorCombatState, ActorCooldowns, ActorDisposition, ActorFaction, ActorHealth, ActorIdentity,
     ActorIntent, ActorTarget, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest,

@@ -66,6 +66,7 @@ pub const KNOWN_DIALOGUE_IDS: &[&str] = &[
     "architect_intro",
     "generic_npc",
     "hub_guide",
+    "smirking_behemoth_victory_npc",
     "merchant_seed",
     "vault_keeper",
     // factions.yarn

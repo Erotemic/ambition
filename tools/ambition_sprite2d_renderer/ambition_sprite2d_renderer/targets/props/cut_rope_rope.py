@@ -8,7 +8,6 @@ LDtk hitbox is likewise authored above the anvil so players cannot cut
 an invisible extension below it.
 """
 
-import math
 from pathlib import Path
 from typing import List, Tuple
 
@@ -52,7 +51,7 @@ ACTOR_METADATA = {
 }
 
 ROWS: List[Tuple[str, int, int]] = [
-    ("idle", 4, 180),
+    ("idle", 1, 1000),
 ]
 
 FRAME_SIZE = (48, 192)
@@ -74,15 +73,26 @@ def _box(x1: float, y1: float, x2: float, y2: float) -> Tuple[int, int, int, int
     return (_s(x1), _s(y1), _s(x2), _s(y2))
 
 
+def _rope_wave(y: float, strand: int) -> float:
+    # Static braided silhouette. A deterministic triangular-ish wave reads as
+    # rope twist without the DNA/dancing-flower motion the old idle row had.
+    t = ((y * 0.08 + strand * 0.33) % 1.0)
+    return (abs(t - 0.5) - 0.25) * 7.0
+
+
+def _rope_band_wave(y: float) -> float:
+    t = ((y * 0.08) % 1.0)
+    return (abs(t - 0.5) - 0.25) * 5.0
+
+
 def _draw_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
+    del frame_idx, nframes
     if anim != "idle":
         raise ValueError(f"unknown animation: {anim}")
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img, "RGBA")
 
-    phase = (frame_idx / max(1, nframes)) * math.tau
-    sway = math.sin(phase) * 1.2
-    cx = 24.0 + sway
+    cx = 24.0
 
     # Top tie/loop. No drop shadow: this is the visible rope only.
     draw.ellipse(_box(cx - 6, 2, cx + 6, 16), outline=ROPE_DARK, width=_s(3.0))
@@ -100,12 +110,12 @@ def _draw_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     ]:
         pts = []
         for y in range(20, 188, 3):
-            wave = math.sin((y * 0.16) + phase + strand * 2.1) * 2.0
+            wave = _rope_wave(y, strand)
             pts.append((_s(cx + offset + wave), _s(y)))
         draw.line(pts, fill=color, width=_s(2.2))
 
     for y in range(26, 184, 12):
-        wave = math.sin((y * 0.16) + phase) * 1.4
+        wave = _rope_band_wave(y)
         draw.arc(_box(cx - 6 + wave, y - 4, cx + 6 + wave, y + 8), 210, 330, fill=ROPE_SHADOW, width=_s(1.0))
         draw.arc(_box(cx - 6 - wave, y - 4, cx + 6 - wave, y + 8), 30, 150, fill=ROPE_LIGHT, width=_s(0.8))
 

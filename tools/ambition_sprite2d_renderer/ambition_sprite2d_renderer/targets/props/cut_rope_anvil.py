@@ -7,7 +7,6 @@ moves the LDtk prop down when the rope is cut; this sheet only supplies
 its idle art so the entity no longer renders as a generic box.
 """
 
-import math
 from pathlib import Path
 from typing import List, Tuple
 
@@ -50,7 +49,7 @@ ACTOR_METADATA = {
 }
 
 ROWS: List[Tuple[str, int, int]] = [
-    ("idle", 4, 180),
+    ("idle", 1, 1000),
 ]
 
 FRAME_SIZE = (128, 96)
@@ -83,10 +82,9 @@ def _draw_frame(anim: str, frame_idx: int, nframes: int) -> Image.Image:
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img, "RGBA")
 
-    # Tiny idle bob so it feels suspended from the rope.
-    phase = (frame_idx / max(1, nframes)) * math.tau
-    bob = math.sin(phase) * 0.8
-    y = bob
+    # Static prop: runtime movement, not sprite animation, handles falling.
+    del frame_idx, nframes
+    y = 0.0
 
     # Hanging eye/strap at the top.
     draw.rectangle(_box(58, 2 + y, 70, 16 + y), fill=STRAP, outline=OUTLINE, width=_s(1.0))

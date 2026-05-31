@@ -6,62 +6,11 @@ frame_height: 192
 rows:
 - animation: idle
   row_index: 0
-  frame_count: 4
-  duration_ms: 180
-  duration_secs: 0.18
+  frame_count: 1
+  duration_ms: 1000
+  duration_secs: 1.0
   rects:
   - x: 108
-    y: 0
-    w: 48
-    h: 192
-    anchors:
-      top:
-        x: 24.0
-        y: 4.0
-      cut:
-        x: 24.0
-        y: 92.0
-      bottom:
-        x: 24.0
-        y: 188.0
-    prop:
-      kind: cut_rope_rope
-      animation: idle
-  - x: 156
-    y: 0
-    w: 48
-    h: 192
-    anchors:
-      top:
-        x: 24.0
-        y: 4.0
-      cut:
-        x: 24.0
-        y: 92.0
-      bottom:
-        x: 24.0
-        y: 188.0
-    prop:
-      kind: cut_rope_rope
-      animation: idle
-  - x: 204
-    y: 0
-    w: 48
-    h: 192
-    anchors:
-      top:
-        x: 24.0
-        y: 4.0
-      cut:
-        x: 24.0
-        y: 92.0
-      bottom:
-        x: 24.0
-        y: 188.0
-    prop:
-      kind: cut_rope_rope
-      animation: idle
-  - x: 252
     y: 0
     w: 48
     h: 192

@@ -9,15 +9,19 @@
 
 use bevy::prelude::*;
 
+use crate::brain::ActorControl;
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{force_boss_death, BossEncounterRegistry};
+use crate::brain::BossAttackState;
 use crate::config::world_to_bevy;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::{
-    BossFeature, FeatureAabb, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource,
-    ResetRoomFeaturesEvent,
+    BossFeature, BossRuntime, FeatureAabb, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent,
+    HitSource, ResetRoomFeaturesEvent,
 };
-use crate::presentation::fx::{ExplosionRequest, ParticleKind, VfxMessage};
+use crate::presentation::fx::{
+    ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
+};
 use crate::presentation::rendering::PropVisual;
 use crate::rooms::{PropSpec, RoomSet};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -29,26 +33,33 @@ const ANVIL_KIND: &str = "cut_rope_anvil";
 const ANVIL_GRAVITY: f32 = 1400.0;
 const ANVIL_TERMINAL_SPEED: f32 = 920.0;
 const ANVIL_Z_OFFSET: f32 = 0.75;
+const ROPE_ALIGNMENT_TOLERANCE: f32 = 42.0;
+const ROPE_LURE_SPEED: f32 = 150.0;
+const ROPE_SPARK_INTERVAL: f32 = 0.22;
 
 pub fn is_cut_rope_boss(id: &str) -> bool {
     id == CUT_ROPE_BOSS_ID
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct CutRopeBossArenaState {
     active_room: String,
     rope_cut: bool,
+    awaiting_alignment: bool,
     anvil_center: Option<ae::Vec2>,
     anvil_velocity_y: f32,
     kill_sent: bool,
     anvil_exploded: bool,
+    rope_fx_timer: f32,
+    rope_fx_pulse: u32,
+    death_fireworks_sent: bool,
 }
 
 /// Drive the Smirking Behemoth's environmental win condition.
 pub fn tick_cut_rope_boss_arena(
     world_time: Res<crate::WorldTime>,
     room_set: Res<RoomSet>,
-    mut state: Local<CutRopeBossArenaState>,
+    mut state: ResMut<CutRopeBossArenaState>,
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
     mut bosses: Query<(&FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
@@ -65,6 +76,7 @@ pub fn tick_cut_rope_boss_arena(
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut explosions: MessageWriter<ExplosionRequest>,
+    mut fireworks: MessageWriter<FireworksRequest>,
     mut debris: MessageWriter<DebrisBurstMessage>,
 ) {
     let room = room_set.active_spec();
@@ -117,8 +129,11 @@ pub fn tick_cut_rope_boss_arena(
             continue;
         }
         state.rope_cut = true;
+        state.awaiting_alignment = true;
         state.anvil_center = Some(anvil.pos);
         state.anvil_velocity_y = 0.0;
+        state.rope_fx_timer = 0.0;
+        state.rope_fx_pulse = 0;
         vfx.write(VfxMessage::Impact {
             pos: event.volume.center(),
         });
@@ -142,6 +157,35 @@ pub fn tick_cut_rope_boss_arena(
     let Some(mut center) = state.anvil_center else {
         return;
     };
+
+    let mut boss_under_anvil = false;
+    let mut live_boss_pos = None;
+    for (_aabb, feature) in bosses.iter_mut() {
+        let boss = &feature.boss;
+        if !is_cut_rope_boss(&boss.behavior.id) || !boss.alive {
+            continue;
+        }
+        live_boss_pos = Some(boss.pos);
+        if boss_is_under_anvil(boss, center.x) {
+            boss_under_anvil = true;
+            break;
+        }
+    }
+
+    if !boss_under_anvil {
+        state.awaiting_alignment = true;
+        state.anvil_velocity_y = 0.0;
+        pulse_waiting_rope_explosions(
+            &mut state,
+            dt,
+            rope.pos,
+            live_boss_pos.unwrap_or(rope.pos),
+            &mut explosions,
+        );
+        return;
+    }
+
+    state.awaiting_alignment = false;
     state.anvil_velocity_y =
         (state.anvil_velocity_y + ANVIL_GRAVITY * dt).min(ANVIL_TERMINAL_SPEED);
     center.y += state.anvil_velocity_y * dt;
@@ -180,6 +224,14 @@ pub fn tick_cut_rope_boss_arena(
 
         banner.show("Smirking Behemoth was flattened".to_string(), 2.8);
         explosions.write(ExplosionRequest::classic(center).with_scale(1.25));
+        if !state.death_fireworks_sent {
+            let mut death_show = FireworksRequest::around(boss.pos);
+            death_show.count = 18;
+            death_show.spread = ae::Vec2::new(420.0, 280.0);
+            death_show.duration = 2.75;
+            fireworks.write(death_show);
+            state.death_fireworks_sent = true;
+        }
         vfx.write(VfxMessage::Burst {
             pos: boss.pos,
             count: 28,
@@ -193,6 +245,79 @@ pub fn tick_cut_rope_boss_arena(
         });
         break;
     }
+}
+
+/// After the rope is cut, override the boss brain output with a horizontal
+/// lure toward the authored anvil center until impact. The movement still goes
+/// through `BossRuntime::integrate_body`, so authored solids and future
+/// player-control constraints remain authoritative.
+pub fn steer_cut_rope_boss_under_anvil(
+    state: Res<CutRopeBossArenaState>,
+    mut bosses: Query<
+        (&BossFeature, &mut ActorControl, &mut BossAttackState),
+        With<FeatureSimEntity>,
+    >,
+) {
+    if state.active_room != CUT_ROPE_ROOM_ID || !state.rope_cut || state.kill_sent {
+        return;
+    }
+    let Some(center) = state.anvil_center else {
+        return;
+    };
+    for (feature, mut control, mut attack_state) in &mut bosses {
+        let boss = &feature.boss;
+        if !boss.alive || !is_cut_rope_boss(&boss.behavior.id) {
+            continue;
+        }
+        let dx = center.x - boss.pos.x;
+        attack_state.clear();
+        control.0.melee_pressed = false;
+        control.0.special_pressed = false;
+        control.0.facing = if dx.abs() > 2.0 { dx.signum() } else { boss.facing };
+        control.0.desired_vel = if dx.abs() <= boss_alignment_tolerance(boss) {
+            ae::Vec2::ZERO
+        } else {
+            ae::Vec2::new(dx.signum() * ROPE_LURE_SPEED, 0.0)
+        };
+    }
+}
+
+fn boss_is_under_anvil(boss: &BossRuntime, anvil_x: f32) -> bool {
+    (boss.pos.x - anvil_x).abs() <= boss_alignment_tolerance(boss)
+}
+
+fn boss_alignment_tolerance(boss: &BossRuntime) -> f32 {
+    ROPE_ALIGNMENT_TOLERANCE.max(boss.combat_size().x * 0.18)
+}
+
+fn pulse_waiting_rope_explosions(
+    state: &mut CutRopeBossArenaState,
+    dt: f32,
+    rope_pos: ae::Vec2,
+    boss_pos: ae::Vec2,
+    explosions: &mut MessageWriter<ExplosionRequest>,
+) {
+    state.rope_fx_timer -= dt;
+    if state.rope_fx_timer > 0.0 {
+        return;
+    }
+    state.rope_fx_timer = ROPE_SPARK_INTERVAL;
+    let i = state.rope_fx_pulse;
+    state.rope_fx_pulse = state.rope_fx_pulse.wrapping_add(1);
+    let horizontal_pull = (boss_pos.x - rope_pos.x).clamp(-80.0, 80.0) * 0.18;
+    let x = (((i.wrapping_mul(37).wrapping_add(11)) % 101) as f32 / 100.0 - 0.5) * 44.0;
+    let y = -16.0 - ((i.wrapping_mul(53).wrapping_add(7)) % 59) as f32;
+    let kind = match i % 5 {
+        0 => ExplosionKind::Starburst,
+        1 => ExplosionKind::ClassicBurst,
+        2 => ExplosionKind::BurstRound,
+        3 => ExplosionKind::Shockwave,
+        _ => ExplosionKind::SmokeBurst,
+    };
+    explosions.write(
+        ExplosionRequest::new(rope_pos + ae::Vec2::new(horizontal_pull + x, y), kind)
+            .with_scale(0.48),
+    );
 }
 
 fn authored_prop<'a>(props: &'a [PropSpec], kind: &str) -> Option<&'a PropSpec> {

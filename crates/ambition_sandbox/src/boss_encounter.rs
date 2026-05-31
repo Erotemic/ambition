@@ -34,7 +34,10 @@ mod spec_types;
 mod tests;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
-pub use cut_rope::{is_cut_rope_boss, tick_cut_rope_boss_arena};
+pub use cut_rope::{
+    is_cut_rope_boss, steer_cut_rope_boss_under_anvil, tick_cut_rope_boss_arena,
+    CutRopeBossArenaState,
+};
 #[allow(unused_imports)] // Future callers of `record_boss_damage` will name the outcome type.
 pub use damage::BossDamageOutcome;
 pub use damage::{force_boss_death, record_boss_damage};

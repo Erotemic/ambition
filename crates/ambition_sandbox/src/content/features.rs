@@ -179,6 +179,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `BossPatternContext` carries.
                 sync_boss_encounter_phase,
                 tick_boss_brains_system,
+                crate::boss_encounter::steer_cut_rope_boss_under_anvil,
                 update_ecs_bosses,
             )
                 .chain()

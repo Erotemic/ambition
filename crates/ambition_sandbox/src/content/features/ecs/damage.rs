@@ -337,12 +337,25 @@ pub fn apply_feature_hit_events(
                 )
             {
                 // Smirking Behemoth is an environmental puzzle boss:
-                // ordinary player hits do not damage it and should not
-                // produce hit feedback. The LDtk-authored rope/anvil system
-                // owns the only kill condition. Keeping this branch before
-                // the generic damageable-volume scan also prevents a broad
-                // slash/projectile event from making the boss flash when the
-                // player is nowhere near its body.
+                // ordinary player hits should give honest local feedback only
+                // when they overlap the body hurtbox, but they must not damage
+                // the boss. The LDtk-authored rope/anvil system owns the only
+                // kill condition. Keep this before the generic damage branch
+                // so harmless feedback cannot accidentally route through
+                // `record_boss_damage`.
+                let damageable = crate::features::damageable_volumes(
+                    &crate::features::BossVolumeContext::from_runtime(boss, attack_state)
+                        .with_animation_frame(animation_frame),
+                );
+                if let Some(hit_aabb) = damageable
+                    .iter()
+                    .find(|part| event.volume.strict_intersects(**part))
+                {
+                    boss.hit_flash = 0.18;
+                    let impact = midpoint(event.volume.center(), hit_aabb.center());
+                    vfx.write(VfxMessage::Impact { pos: impact });
+                    boss_hit_this_event = true;
+                }
                 continue;
             }
             // Damageable volumes read from BossAttackState (the

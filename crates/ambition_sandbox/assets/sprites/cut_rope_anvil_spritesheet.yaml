@@ -6,53 +6,11 @@ frame_height: 96
 rows:
 - animation: idle
   row_index: 0
-  frame_count: 4
-  duration_ms: 180
-  duration_secs: 0.18
+  frame_count: 1
+  duration_ms: 1000
+  duration_secs: 1.0
   rects:
   - x: 124
-    y: 0
-    w: 128
-    h: 96
-    anchors:
-      hang:
-        x: 64.0
-        y: 8.0
-      impact:
-        x: 64.0
-        y: 88.0
-    prop:
-      kind: cut_rope_anvil
-      animation: idle
-  - x: 252
-    y: 0
-    w: 128
-    h: 96
-    anchors:
-      hang:
-        x: 64.0
-        y: 8.0
-      impact:
-        x: 64.0
-        y: 88.0
-    prop:
-      kind: cut_rope_anvil
-      animation: idle
-  - x: 380
-    y: 0
-    w: 128
-    h: 96
-    anchors:
-      hang:
-        x: 64.0
-        y: 8.0
-      impact:
-        x: 64.0
-        y: 88.0
-    prop:
-      kind: cut_rope_anvil
-      animation: idle
-  - x: 508
     y: 0
     w: 128
     h: 96

@@ -391,15 +391,22 @@ fn horizontal_front_wall_clearance(
         (lane_top, lane_bottom)
     } else {
         let center_y = body.center().y;
-        (center_y - body.height() * 0.25, center_y + body.height() * 0.25)
+        (
+            center_y - body.height() * 0.25,
+            center_y + body.height() * 0.25,
+        )
     };
 
     let mut best: Option<f32> = None;
     for block in &world.blocks {
-        if !matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }) {
+        if !matches!(
+            block.kind,
+            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+        ) {
             continue;
         }
-        let vertical_overlap = lane_bottom.min(block.aabb.bottom()) - lane_top.max(block.aabb.top());
+        let vertical_overlap =
+            lane_bottom.min(block.aabb.bottom()) - lane_top.max(block.aabb.top());
         if vertical_overlap <= 1.0 {
             continue;
         }
@@ -581,7 +588,6 @@ pub fn update_ecs_bosses(
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -601,9 +607,11 @@ mod tests {
                 ae::Vec2::new(260.0, 24.0),
             )],
         );
-        assert_eq!(horizontal_front_wall_clearance(&world, body, 1.0, 200.0), None);
+        assert_eq!(
+            horizontal_front_wall_clearance(&world, body, 1.0, 200.0),
+            None
+        );
     }
-
 
     #[test]
     fn front_wall_clearance_ignores_small_floor_skin_overlap() {
@@ -621,7 +629,10 @@ mod tests {
                 ae::Vec2::new(260.0, 24.0),
             )],
         );
-        assert_eq!(horizontal_front_wall_clearance(&world, body, 1.0, 200.0), None);
+        assert_eq!(
+            horizontal_front_wall_clearance(&world, body, 1.0, 200.0),
+            None
+        );
     }
 
     #[test]
@@ -639,6 +650,9 @@ mod tests {
         );
         let clearance = horizontal_front_wall_clearance(&world, body, 1.0, 200.0).unwrap();
         assert!((clearance - 60.0).abs() < 0.01, "clearance = {clearance}");
-        assert_eq!(horizontal_front_wall_clearance(&world, body, -1.0, 200.0), None);
+        assert_eq!(
+            horizontal_front_wall_clearance(&world, body, -1.0, 200.0),
+            None
+        );
     }
 }

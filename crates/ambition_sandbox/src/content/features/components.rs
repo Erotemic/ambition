@@ -518,7 +518,6 @@ impl BossPhase {
     }
 }
 
-
 /// Presentation lifetime for a defeated boss. `BossRuntime::alive` must flip
 /// to false immediately so combat, rewards, and progression see the kill, but
 /// the visual entity should remain visible long enough for the non-looping

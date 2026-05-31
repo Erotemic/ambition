@@ -100,3 +100,11 @@ tools/**/*.egg-info/
 # tools/ambition_sprite2d_renderer targets/configs instead.
 crates/ambition_sandbox/assets/sprites/*.ron
 crates/ambition_sandbox/assets/sprites/**/*.ron
+
+# Sprite renderer generated package outputs
+tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/generated/
+tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/generated/
+
+# Generated sprite YAML sidecars; runtime uses *_spritesheet.ron.
+crates/ambition_sandbox/assets/sprites/*_spritesheet.yaml
+crates/ambition_sandbox/assets/sprites/**/*_spritesheet.yaml

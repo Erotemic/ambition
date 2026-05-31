@@ -1974,7 +1974,11 @@ mod tests {
             "retreat-disabled contact boss should approach, not back away: {:?}",
             state.macro_state,
         );
-        assert!(out.desired_vel.x > 0.0, "expected chase toward player; got {:?}", out.desired_vel);
+        assert!(
+            out.desired_vel.x > 0.0,
+            "expected chase toward player; got {:?}",
+            out.desired_vel
+        );
     }
 
     #[test]
@@ -1991,7 +1995,11 @@ mod tests {
         tick_boss_pattern(
             &cfg,
             &mut state,
-            &macro_ctx(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(660.0, 400.0), 0.05),
+            &macro_ctx(
+                ae::Vec2::new(640.0, 400.0),
+                ae::Vec2::new(660.0, 400.0),
+                0.05,
+            ),
             &mut out,
             &mut attack_state,
         );
@@ -2000,7 +2008,11 @@ mod tests {
             "contact chase should close any horizontal gap when unblocked: {:?}",
             state.macro_state,
         );
-        assert!(out.desired_vel.x > 0.0, "expected positive chase velocity; got {:?}", out.desired_vel);
+        assert!(
+            out.desired_vel.x > 0.0,
+            "expected positive chase velocity; got {:?}",
+            out.desired_vel
+        );
     }
 
     #[test]
@@ -2041,7 +2053,10 @@ mod tests {
         );
         ctx.front_wall_clearance = Some(60.0);
         tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
-        assert!(out.desired_vel.x > 0.0, "should still close toward the player");
+        assert!(
+            out.desired_vel.x > 0.0,
+            "should still close toward the player"
+        );
         assert!(
             out.desired_vel.x <= 120.1,
             "60px clearance with 48px standoff allows only a 12px/0.1s step; got {:?}",
@@ -2078,11 +2093,18 @@ mod tests {
         tick_boss_pattern(
             &cfg,
             &mut state,
-            &macro_ctx(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(640.0, 400.0), 0.11),
+            &macro_ctx(
+                ae::Vec2::new(640.0, 400.0),
+                ae::Vec2::new(640.0, 400.0),
+                0.11,
+            ),
             &mut out,
             &mut attack_state,
         );
-        assert!(matches!(attack_state.telegraph_profile, Some(BossAttackProfile::EyeBeam)));
+        assert!(matches!(
+            attack_state.telegraph_profile,
+            Some(BossAttackProfile::EyeBeam)
+        ));
     }
 
     /// Disabled macro tuning → boss permanently stays in Engage.

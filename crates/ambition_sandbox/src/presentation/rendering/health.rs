@@ -8,13 +8,12 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
-use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
     ActorCombatState, ActorDisposition, ActorHealth, BossFeature, BreakableFeature, FeatureAabb,
     FeatureName,
 };
-
+use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
 
 #[derive(Component)]
 pub struct BossHealthBarOverlayVisual;

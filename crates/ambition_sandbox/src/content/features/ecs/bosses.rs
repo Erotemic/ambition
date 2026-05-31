@@ -270,6 +270,8 @@ pub fn sync_boss_encounter_phase(
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
+    platform_set: Res<crate::MovingPlatformSet>,
+    overlay: Res<FeatureEcsWorldOverlay>,
     mut bosses: Query<
         (
             bevy::ecs::entity::Entity,
@@ -284,6 +286,7 @@ pub fn tick_boss_brains_system(
     mut action_messages: MessageWriter<ActorActionMessage>,
 ) {
     let dt = world_time.sim_dt();
+    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     for (entity, feature, mut brain, mut control, mut attack_state, target) in &mut bosses {
         let boss = &feature.boss;
         if !boss.alive {
@@ -303,11 +306,18 @@ pub fn tick_boss_brains_system(
             continue;
         };
 
+        let front_wall_clearance = boss_front_wall_clearance(
+            &feature_world,
+            boss,
+            target.pos,
+            cfg.macro_tuning.front_wall_standoff,
+        );
         let ctx = BossPatternContext {
             encounter_phase: boss.encounter_phase,
             actor_pos: boss.pos,
             target_pos: target.pos,
             world_size: world.0.size,
+            front_wall_clearance,
             dt,
         };
         let mut frame = crate::actor_control::ActorControlFrame::neutral();
@@ -338,6 +348,28 @@ pub fn tick_boss_brains_system(
         }
         control.0 = frame;
     }
+}
+
+fn boss_front_wall_clearance(
+    world: &ae::World,
+    boss: &crate::content::features::bosses::BossRuntime,
+    target_pos: ae::Vec2,
+    standoff: f32,
+) -> Option<f32> {
+    if standoff <= 0.0 {
+        return None;
+    }
+    let dx = target_pos.x - boss.pos.x;
+    if dx.abs() <= 1.0 {
+        return None;
+    }
+    let dir_x = dx.signum();
+    let probe_distance = dx.abs().max(standoff + 1.0).min(1_024.0);
+    let sweep = ae::Vec2::new(dir_x * probe_distance, 0.0);
+    let hit = world.first_body_sweep(boss.aabb(), sweep, |block| {
+        matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. })
+    })?;
+    Some((hit.time_of_impact * probe_distance).max(0.0))
 }
 
 /// Helper: dig out the `&mut StateMachineCfg` from a `Brain`.

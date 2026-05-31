@@ -371,46 +371,56 @@
         // any body contact, independent of attack state.
         combat_size: Some((208.0, 288.0)),
         movement: AnchorSway(
-            x_radius: 92.0,
+            // Smirking Behemoth's movement should be macro-driven:
+            // Approach closes distance to the player, Engage holds
+            // position and maybe fires the eye beam. Zeroing the sway
+            // prevents the old spawn-anchor drift from looking like a
+            // retreat after the boss has run in.
+            x_radius: 0.0,
             y_bob: 0.0,
-            x_frequency: 0.38,
+            x_frequency: 0.0,
             y_frequency: 0.0,
-            chase_scale: 0.04,
-            chase_limit: 28.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
             speed: 135.0,
         ),
         movement_phase2: Some(AnchorSway(
-            x_radius: 104.0,
+            x_radius: 0.0,
             y_bob: 0.0,
-            x_frequency: 0.46,
+            x_frequency: 0.0,
             y_frequency: 0.0,
-            chase_scale: 0.05,
-            chase_limit: 36.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
             speed: 150.0,
         )),
         movement_enrage: Some(AnchorSway(
-            x_radius: 116.0,
+            x_radius: 0.0,
             y_bob: 0.0,
-            x_frequency: 0.54,
+            x_frequency: 0.0,
             y_frequency: 0.0,
-            chase_scale: 0.06,
-            chase_limit: 44.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
             speed: 165.0,
         )),
         strike_speed_scale: 0.20,
         macro_tuning: (
-            // Horizontal standoff ring: the Behemoth should close if the
-            // player is far away, then stop well outside the player's body
-            // instead of intentionally walking into contact damage range.
-            too_close_distance: 280.0,
-            too_far_distance: 440.0,
-            engage_distance: 340.0,
-            approach_duration_s: 4.0,
-            retreat_duration_s: 1.3,
+            // Contact boss: never retreat from the player just because
+            // they are close. Approach moves toward the player until it
+            // is either in body-contact range or blocked by a front wall;
+            // Engage then holds position and probabilistically starts an
+            // eye-beam after the minimum Rest beat.
+            too_close_distance: 0.0,
+            too_far_distance: 120.0,
+            engage_distance: 72.0,
+            approach_duration_s: 8.0,
+            retreat_duration_s: 0.0,
             engage_max_duration_s: 0.0,
-            approach_speed_scale: 0.9,
-            retreat_speed_scale: 0.85,
-            retreat_distance: 380.0,
+            front_wall_standoff: 48.0,
+            idle_attack_chance_per_second: 0.55,
+            hold_position_while_engaged: true,
+            approach_speed_scale: 1.05,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
             suppress_attacks_while_moving: true,
         ),
         attacks: [
@@ -425,18 +435,18 @@
         attack_pattern: Scripted(
             intro: (steps: [Rest(duration: 1.0)]),
             phase1: (steps: [
-                Rest(duration: 3.0),
+                Rest(duration: 1.4),
                 Telegraph(profile: EyeBeam, duration: 0.75),
                 Strike(profile: EyeBeam, duration: 0.25),
             ]),
             transition: (steps: [Rest(duration: 1.0)]),
             phase2: (steps: [
-                Rest(duration: 2.6),
+                Rest(duration: 1.2),
                 Telegraph(profile: EyeBeam, duration: 0.65),
                 Strike(profile: EyeBeam, duration: 0.25),
             ]),
             enrage: (steps: [
-                Rest(duration: 2.1),
+                Rest(duration: 0.95),
                 Telegraph(profile: EyeBeam, duration: 0.55),
                 Strike(profile: EyeBeam, duration: 0.22),
             ]),

@@ -491,6 +491,9 @@ pub struct BossPatternState {
     /// when a non-Engage state is exited; drives the periodic
     /// `engage_max_duration_s` retreat trigger.
     pub engage_timer: f32,
+    /// Tiny deterministic RNG state used only by optional probabilistic
+    /// idle attack gates. Zero means "seed from cfg on first roll."
+    pub rng_seed: u64,
 }
 
 /// Three-state cycle-mode attack lifecycle.
@@ -579,6 +582,23 @@ pub struct BossMacroTuning {
     /// Retreat (the "preparing something" beat). 0 disables the
     /// periodic retreat.
     pub engage_max_duration_s: f32,
+    /// Horizontal clearance (px) the brain preserves between the boss
+    /// body and the nearest solid/blink-wall tile in the direction it
+    /// wants to move. This is a brain-level intent clamp only; the
+    /// kinematic sweep remains the hard authority downstream.
+    #[serde(default = "default_front_wall_standoff")]
+    pub front_wall_standoff: f32,
+    /// Per-second chance that an idle scripted boss advances out of a
+    /// Rest beat into its next attack once that Rest beat's minimum
+    /// duration has elapsed. 0 keeps fully deterministic scripts.
+    #[serde(default)]
+    pub idle_attack_chance_per_second: f32,
+    /// If true, Engage holds the current body position instead of
+    /// returning to the movement profile's spawn/sway target. Useful
+    /// for contact bosses whose macro layer is the only movement
+    /// policy: Approach closes distance, Engage idles/fires in place.
+    #[serde(default)]
+    pub hold_position_while_engaged: bool,
     /// Multiplier applied to movement speed during Approach. > 1.0
     /// makes the boss commit visually to the chase.
     pub approach_speed_scale: f32,
@@ -596,6 +616,10 @@ pub struct BossMacroTuning {
     pub suppress_attacks_while_moving: bool,
 }
 
+fn default_front_wall_standoff() -> f32 {
+    48.0
+}
+
 impl BossMacroTuning {
     /// Disabled tuning — the boss permanently stays in `Engage`.
     /// Returned for bosses that don't carry their own macro tuning
@@ -608,6 +632,9 @@ impl BossMacroTuning {
             approach_duration_s: 0.0,
             retreat_duration_s: 0.0,
             engage_max_duration_s: 0.0,
+            front_wall_standoff: 0.0,
+            idle_attack_chance_per_second: 0.0,
+            hold_position_while_engaged: false,
             approach_speed_scale: 1.0,
             retreat_speed_scale: 1.0,
             retreat_distance: 0.0,
@@ -643,6 +670,10 @@ pub struct BossPatternContext {
     /// brain doesn't ask the boss to walk off the map. Real collision
     /// is still enforced by `step_kinematic` downstream.
     pub world_size: ae::Vec2,
+    /// Distance from the boss body to the first blocking wall tile in
+    /// the horizontal direction of the player, if one is in probe range.
+    /// `None` means the approach lane is clear for this tick.
+    pub front_wall_clearance: Option<f32>,
     /// Scaled sim dt for this tick. The cursor + clocks all advance
     /// by this value.
     pub dt: f32,
@@ -840,6 +871,9 @@ fn advance_scripted(
         if state.step_elapsed < duration {
             break;
         }
+        if !scripted_step_ready_to_advance(cfg, state, ctx, current, duration) {
+            break;
+        }
         state.step_elapsed -= duration;
         state.step_index = (state.step_index + 1) % steps.len();
     }
@@ -877,6 +911,85 @@ fn advance_scripted(
             attack_state.active_elapsed = previous_telegraph_elapsed + elapsed;
         }
         BossPatternStep::Rest { .. } => attack_state.clear(),
+    }
+}
+
+fn scripted_step_ready_to_advance(
+    cfg: &BossPatternCfg,
+    state: &mut BossPatternState,
+    ctx: &BossPatternContext,
+    current: &BossPatternStep,
+    duration: f32,
+) -> bool {
+    let chance_per_second = cfg.macro_tuning.idle_attack_chance_per_second.max(0.0);
+    if chance_per_second <= 0.0 || !matches!(current, BossPatternStep::Rest { .. }) {
+        return true;
+    }
+
+    // The Rest duration is the minimum idle time. After that, an
+    // optional per-second chance gates whether the boss starts the next
+    // telegraph now or keeps waiting. This gives Smirking Behemoth an
+    // "idle, then maybe eye-beam" feel without making every scripted
+    // boss probabilistic.
+    let chance_this_tick = (chance_per_second * ctx.dt.max(0.0)).clamp(0.0, 1.0);
+    if chance_this_tick >= 1.0 || roll_boss_pattern_chance(cfg, state, chance_this_tick) {
+        true
+    } else {
+        // Keep retrying the gate next tick without accumulating an
+        // arbitrarily huge elapsed value.
+        state.step_elapsed = duration;
+        false
+    }
+}
+
+fn roll_boss_pattern_chance(
+    cfg: &BossPatternCfg,
+    state: &mut BossPatternState,
+    chance: f32,
+) -> bool {
+    if state.rng_seed == 0 {
+        state.rng_seed = hash_boss_pattern_seed(&cfg.encounter_id)
+            ^ 0x9E37_79B9_7F4A_7C15
+            ^ ((state.step_index as u64) << 32);
+    }
+    state.rng_seed = state
+        .rng_seed
+        .wrapping_mul(6_364_136_223_846_793_005)
+        .wrapping_add(1_442_695_040_888_963_407);
+    let n = (state.rng_seed >> 33) as u32;
+    let unit = n as f32 / (u32::MAX >> 1) as f32;
+    unit < chance.clamp(0.0, 1.0)
+}
+
+fn hash_boss_pattern_seed(id: &str) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for byte in id.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash.max(1)
+}
+
+fn clamp_horizontal_approach_to_front_wall(
+    cfg: &BossPatternCfg,
+    ctx: &BossPatternContext,
+    target: ae::Vec2,
+) -> ae::Vec2 {
+    let Some(clearance) = ctx.front_wall_clearance else {
+        return target;
+    };
+    let dx = target.x - ctx.actor_pos.x;
+    if dx.abs() <= 1e-3 {
+        return target;
+    }
+    let allowed = (clearance - cfg.macro_tuning.front_wall_standoff.max(0.0)).max(0.0);
+    if allowed <= 1.0 {
+        return ae::Vec2::new(ctx.actor_pos.x, target.y);
+    }
+    if dx.abs() <= allowed {
+        target
+    } else {
+        ae::Vec2::new(ctx.actor_pos.x + dx.signum() * allowed, target.y)
     }
 }
 
@@ -949,6 +1062,13 @@ fn advance_cycle(
     }
 }
 
+fn front_wall_standoff_reached(tuning: &BossMacroTuning, ctx: &BossPatternContext) -> bool {
+    tuning.front_wall_standoff > 0.0
+        && ctx
+            .front_wall_clearance
+            .is_some_and(|clearance| clearance <= tuning.front_wall_standoff + 1.0)
+}
+
 /// Advance the chase/engage/retreat macro state machine. Transitions:
 ///
 /// - `Engage` → `Approach` if distance > too_far_distance
@@ -977,6 +1097,7 @@ fn advance_macro_state(
         (ctx.target_pos - ctx.actor_pos).length()
     };
     let tuning = &cfg.macro_tuning;
+    let front_wall_blocked = front_wall_standoff_reached(tuning, ctx);
     match &mut state.macro_state {
         BossMacroState::Engage => {
             state.engage_timer += ctx.dt;
@@ -990,7 +1111,7 @@ fn advance_macro_state(
                     retreat_pos: compute_retreat_pos(cfg, ctx),
                 };
                 state.engage_timer = 0.0;
-            } else if too_far {
+            } else if too_far && !front_wall_blocked {
                 state.macro_state = BossMacroState::Approach {
                     remaining_s: tuning.approach_duration_s.max(0.5),
                 };
@@ -1000,7 +1121,7 @@ fn advance_macro_state(
         BossMacroState::Approach { remaining_s } => {
             *remaining_s -= ctx.dt;
             let close_enough = tuning.engage_distance > 0.0 && distance < tuning.engage_distance;
-            if close_enough || *remaining_s <= 0.0 {
+            if close_enough || front_wall_blocked || *remaining_s <= 0.0 {
                 state.macro_state = BossMacroState::Engage;
                 state.engage_timer = 0.0;
             }
@@ -1072,16 +1193,20 @@ fn emit_desired_vel(
     // farther down via `macro_speed_scale`.
     let mut target = match state.macro_state {
         BossMacroState::Approach { .. } => {
-            // Approach the player's *standoff ring* rather than the
-            // player center so a contact-damage boss stops before it
-            // deliberately walks into the player. Ground-locked bosses
-            // compute that ring horizontally so vertical player movement
-            // never causes the boss to float or close the x gap.
-            let standoff = cfg
-                .macro_tuning
-                .engage_distance
-                .max(cfg.macro_tuning.too_close_distance + 12.0)
-                .max(48.0);
+            // Bosses that author a `too_close_distance` keep the older
+            // standoff-ring behavior. Bosses with the too-close trigger
+            // disabled are allowed to close all the way to the player
+            // center (or to their small `engage_distance`) so contact
+            // damage reads as a deliberate run-in rather than a retreat
+            // dance.
+            let standoff = if cfg.macro_tuning.too_close_distance > 0.0 {
+                cfg.macro_tuning
+                    .engage_distance
+                    .max(cfg.macro_tuning.too_close_distance + 12.0)
+                    .max(48.0)
+            } else {
+                cfg.macro_tuning.engage_distance.max(0.0)
+            };
             if movement.horizontal_only() {
                 let dx = ctx.actor_pos.x - ctx.target_pos.x;
                 let dir_x = if dx.abs() < 1e-3 { 1.0 } else { dx.signum() };
@@ -1097,6 +1222,7 @@ fn emit_desired_vel(
             }
         }
         BossMacroState::Retreat { retreat_pos, .. } => retreat_pos,
+        BossMacroState::Engage if cfg.macro_tuning.hold_position_while_engaged => ctx.actor_pos,
         BossMacroState::Engage => movement.target(cfg.spawn, state.movement_timer, ctx.target_pos),
     };
 
@@ -1135,6 +1261,13 @@ fn emit_desired_vel(
         clamped_target.y = ctx.actor_pos.y;
     }
     target = clamped_target;
+
+    if matches!(state.macro_state, BossMacroState::Approach { .. })
+        && movement.horizontal_only()
+        && cfg.macro_tuning.front_wall_standoff > 0.0
+    {
+        target = clamp_horizontal_approach_to_front_wall(cfg, ctx, target);
+    }
 
     let delta = target - ctx.actor_pos;
     // Scale speed during ANY active strike so the boss doesn't
@@ -1216,6 +1349,7 @@ mod tests {
             actor_pos: ae::Vec2::ZERO,
             target_pos: ae::Vec2::new(50.0, 0.0),
             world_size: ae::Vec2::new(2_000.0, 2_000.0),
+            front_wall_clearance: None,
             dt,
         }
     }
@@ -1656,6 +1790,9 @@ mod tests {
             approach_duration_s: 3.0,
             retreat_duration_s: 2.0,
             engage_max_duration_s: 8.0,
+            front_wall_standoff: 48.0,
+            idle_attack_chance_per_second: 0.0,
+            hold_position_while_engaged: false,
             approach_speed_scale: 1.5,
             retreat_speed_scale: 0.8,
             retreat_distance: 250.0,
@@ -1670,6 +1807,7 @@ mod tests {
             actor_pos,
             target_pos,
             world_size: ae::Vec2::new(1_280.0, 768.0),
+            front_wall_clearance: None,
             dt,
         }
     }
@@ -1785,6 +1923,114 @@ mod tests {
             matches!(state.macro_state, BossMacroState::Engage),
             "Approach should drop back to Engage once within engage_distance",
         );
+    }
+
+    #[test]
+    fn macro_state_can_approach_even_when_player_is_close_if_retreat_disabled() {
+        let mut cfg = macro_cfg();
+        cfg.macro_tuning.too_close_distance = 0.0;
+        cfg.macro_tuning.too_far_distance = 20.0;
+        cfg.macro_tuning.engage_distance = 8.0;
+        cfg.macro_tuning.hold_position_while_engaged = true;
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
+        let actor_pos = ae::Vec2::new(640.0, 400.0);
+        let target_pos = ae::Vec2::new(700.0, 400.0); // close, but retreat is disabled
+        tick_boss_pattern(
+            &cfg,
+            &mut state,
+            &macro_ctx(actor_pos, target_pos, 0.05),
+            &mut out,
+            &mut attack_state,
+        );
+        assert!(
+            matches!(state.macro_state, BossMacroState::Approach { .. }),
+            "retreat-disabled contact boss should approach, not back away: {:?}",
+            state.macro_state,
+        );
+        assert!(out.desired_vel.x > 0.0, "expected chase toward player; got {:?}", out.desired_vel);
+    }
+
+    #[test]
+    fn macro_state_holds_when_front_wall_is_inside_standoff() {
+        let mut cfg = macro_cfg();
+        cfg.macro_tuning.too_close_distance = 0.0;
+        cfg.macro_tuning.too_far_distance = 120.0;
+        cfg.macro_tuning.engage_distance = 72.0;
+        cfg.macro_tuning.front_wall_standoff = 48.0;
+        cfg.macro_tuning.hold_position_while_engaged = true;
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
+        let mut ctx = macro_ctx(
+            ae::Vec2::new(640.0, 400.0),
+            ae::Vec2::new(900.0, 400.0),
+            0.05,
+        );
+        ctx.front_wall_clearance = Some(32.0);
+        tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
+        assert_eq!(state.macro_state, BossMacroState::Engage);
+        assert_eq!(out.desired_vel, ae::Vec2::ZERO);
+    }
+
+    #[test]
+    fn approach_clamps_to_front_wall_standoff_before_collision() {
+        let mut cfg = macro_cfg();
+        cfg.macro_tuning.front_wall_standoff = 48.0;
+        let mut state = BossPatternState::default();
+        state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
+        let mut attack_state = BossAttackState::default();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
+        let mut ctx = macro_ctx(
+            ae::Vec2::new(640.0, 400.0),
+            ae::Vec2::new(900.0, 400.0),
+            0.10,
+        );
+        ctx.front_wall_clearance = Some(60.0);
+        tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
+        assert!(out.desired_vel.x > 0.0, "should still close toward the player");
+        assert!(
+            out.desired_vel.x <= 120.1,
+            "60px clearance with 48px standoff allows only a 12px/0.1s step; got {:?}",
+            out.desired_vel,
+        );
+    }
+
+    #[test]
+    fn idle_attack_chance_can_gate_rest_into_eye_beam() {
+        let phase1 = BossPattern {
+            steps: vec![
+                BossPatternStep::Rest { duration: 0.1 },
+                BossPatternStep::Telegraph {
+                    profile: BossAttackProfile::EyeBeam,
+                    duration: 0.5,
+                },
+                BossPatternStep::Strike {
+                    profile: BossAttackProfile::EyeBeam,
+                    duration: 0.25,
+                },
+            ],
+        };
+        let mut cfg = cfg_with(BossAttackPattern::Scripted {
+            intro: BossPattern::default(),
+            phase1,
+            transition: BossPattern::default(),
+            phase2: BossPattern::default(),
+            enrage: BossPattern::default(),
+        });
+        cfg.macro_tuning.idle_attack_chance_per_second = 100.0;
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
+        tick_boss_pattern(
+            &cfg,
+            &mut state,
+            &macro_ctx(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(640.0, 400.0), 0.11),
+            &mut out,
+            &mut attack_state,
+        );
+        assert!(matches!(attack_state.telegraph_profile, Some(BossAttackProfile::EyeBeam)));
     }
 
     /// Disabled macro tuning → boss permanently stays in Engage.

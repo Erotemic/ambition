@@ -11,7 +11,7 @@
 	"iid": "ambition-you-have-to-cut-the-rope-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 105836,
+	"nextUid": 105812,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -645,7 +645,7 @@
 					"acceptFileTypes": null,
 					"defaultOverride": {
 						"id": "V_Bool",
-						"params": [true]
+						"params": [ true ]
 					},
 					"textLanguageMode": null,
 					"symmetricalRef": false,
@@ -1107,10 +1107,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -1645,10 +1642,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -1685,10 +1679,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [900]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [900] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -1801,10 +1792,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [1]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [1] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -1881,10 +1869,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [100]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [100] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2114,10 +2099,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [100]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [100] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2423,10 +2405,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [3]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [3] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2503,10 +2482,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2699,10 +2675,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [3]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [3] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -2779,10 +2752,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -3207,10 +3177,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Int",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Int", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -3284,10 +3251,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -3324,10 +3288,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -3403,7 +3364,7 @@
 					"acceptFileTypes": null,
 					"defaultOverride": {
 						"id": "V_Bool",
-						"params": [false]
+						"params": [ false ]
 					},
 					"textLanguageMode": null,
 					"symmetricalRef": false,
@@ -3753,10 +3714,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [1.5]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [1.5] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4261,10 +4219,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0.3]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0.3] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4301,10 +4256,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [0.08]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [0.08] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4341,10 +4293,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [220]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [220] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4381,10 +4330,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [760]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [760] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4497,10 +4443,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [240]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [240] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4537,10 +4480,7 @@
 					"max": null,
 					"regex": null,
 					"acceptFileTypes": null,
-					"defaultOverride": {
-						"id": "V_Float",
-						"params": [130]
-					},
+					"defaultOverride": { "id": "V_Float", "params": [130] },
 					"textLanguageMode": null,
 					"symmetricalRef": false,
 					"autoChainRef": true,
@@ -4705,20 +4645,7 @@
 				}
 			]
 		}
-	], "tilesets": [], "enums": [
-		{
-			"identifier": "BreakablePlatformCollision",
-			"uid": 5002,
-			"values": [
-				{ "id": "Solid", "tileRect": null, "color": 14180189 },
-				{ "id": "OneWayUp", "tileRect": null, "color": 10802479 }
-			],
-			"iconTilesetUid": null,
-			"externalRelPath": null,
-			"externalFileChecksum": null,
-			"tags": []
-		}
-	], "externalEnums": [], "levelFields": [
+	], "tilesets": [], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 		{
 			"identifier": "activeArea",
 			"doc": "Ambition active-area id. LDtk levels with the same activeArea are stitched into one runtime room.",
@@ -5092,42 +5019,73 @@
 			"allowedRefTags": [],
 			"tilesetUid": null
 		}
-	]
-	},
-	"worlds": [],
+	] },
 	"levels": [
 		{
 			"identifier": "you_have_to_cut_the_rope",
-			"iid": "you_have_to_cut_the_rope-105824",
-			"uid": 105824,
+			"iid": "you_have_to_cut_the_rope-105800",
+			"uid": 105800,
 			"worldX": 0,
 			"worldY": 0,
 			"worldDepth": 0,
 			"pxWid": 1280,
 			"pxHei": 768,
-			"__bgColor": "#120f18",
-			"bgColor": "#120f18",
+			"__bgColor": "#120F18",
+			"bgColor": "#120F18",
 			"useAutoIdentifier": false,
 			"bgRelPath": null,
 			"bgPos": null,
 			"bgPivotX": 0.5,
 			"bgPivotY": 0.5,
-			"__smartColor": "#FFFFFF",
+			"__smartColor": "#7D7B80",
 			"__bgPos": null,
 			"externalRelPath": null,
 			"fieldInstances": [
-				{ "__identifier": "activeArea", "__type": "String", "__value": "you_have_to_cut_the_rope", "__tile": null, "defUid": 4000 },
-				{ "__identifier": "biome", "__type": "String", "__value": "boss", "__tile": null, "defUid": 4172 },
-				{ "__identifier": "music_track", "__type": "String", "__value": "you_have_to_cut_the_rope", "__tile": null, "defUid": 4173 },
-				{ "__identifier": "ambient_profile", "__type": "String", "__value": "hum", "__tile": null, "defUid": 4174 },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": "default", "__tile": null, "defUid": 4175 }
+				{ "__identifier": "activeArea", "__type": "String", "__value": "you_have_to_cut_the_rope", "__tile": null, "defUid": 4000, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["you_have_to_cut_the_rope"]
+				}] },
+				{ "__identifier": "biome", "__type": "String", "__value": "boss", "__tile": null, "defUid": 4172, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["boss"]
+				}] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "standing_on_shoulders", "__tile": null, "defUid": 4173, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["standing_on_shoulders"]
+				}] },
+				{ "__identifier": "ambient_profile", "__type": "String", "__value": "hum", "__tile": null, "defUid": 4174, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["hum"]
+				}] },
+				{ "__identifier": "visual_theme", "__type": "String", "__value": "default", "__tile": null, "defUid": 4175, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["default"]
+				}] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
 					"__type": "IntGrid",
-					"iid": "Collision-105825",
+					"__cWid": 80,
+					"__cHei": 48,
+					"__gridSize": 16,
+					"__opacity": 1,
+					"__pxTotalOffsetX": 0,
+					"__pxTotalOffsetY": 0,
+					"__tilesetDefUid": null,
+					"__tilesetRelPath": null,
+					"iid": "Collision-105801",
+					"levelId": 105800,
 					"layerDefUid": 5024,
+					"pxOffsetX": 0,
+					"pxOffsetY": 0,
+					"visible": true,
+					"optionalRules": [],
 					"intGridCsv": [
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -5176,7 +5134,7 @@
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2,2,2,1,
 						1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -5191,10 +5149,10 @@
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-						1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,
-						2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -5204,27 +5162,27 @@
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+						1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+						1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,2,2,2,2,2,1,1,1,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-						1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,2,2,2,2,2,2,
-						2,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,1,
 						1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -5240,21 +5198,8 @@
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 					],
-					"__cWid": 80,
-					"__cHei": 48,
-					"__gridSize": 16,
-					"__opacity": 1,
-					"__pxTotalOffsetX": 0,
-					"__pxTotalOffsetY": 0,
-					"__tilesetDefUid": null,
-					"__tilesetRelPath": null,
-					"levelId": 105824,
-					"pxOffsetX": 0,
-					"pxOffsetY": 0,
-					"visible": true,
-					"optionalRules": [],
 					"autoLayerTiles": [],
-					"seed": 105824,
+					"seed": 105800,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
 					"entityInstances": []
@@ -5262,9 +5207,6 @@
 				{
 					"__identifier": "Ambition",
 					"__type": "Entities",
-					"iid": "Ambition-105826",
-					"layerDefUid": 1070,
-					"intGridCsv": [],
 					"__cWid": 80,
 					"__cHei": 48,
 					"__gridSize": 16,
@@ -5273,13 +5215,16 @@
 					"__pxTotalOffsetY": 0,
 					"__tilesetDefUid": null,
 					"__tilesetRelPath": null,
-					"levelId": 105824,
+					"iid": "Ambition-105802",
+					"levelId": 105800,
+					"layerDefUid": 1070,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
 					"visible": true,
 					"optionalRules": [],
+					"intGridCsv": [],
 					"autoLayerTiles": [],
-					"seed": 105824,
+					"seed": 105800,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
 					"entityInstances": [
@@ -5290,14 +5235,17 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#41D1FF",
-							"__worldX": 96,
-							"__worldY": 688,
-							"iid": "PlayerStart-105827",
+							"iid": "PlayerStart-105803",
 							"width": 28,
 							"height": 46,
 							"defUid": 2000,
 							"px": [96,688],
-							"fieldInstances": [ { "__identifier": "name", "__type": "String", "__value": "cut_rope_player_start", "__tile": null, "defUid": 3000 } ]
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "cut_rope_player_start", "__tile": null, "defUid": 3000, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["cut_rope_player_start"]
+							}] }],
+							"__worldX": 96,
+							"__worldY": 688
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -5306,40 +5254,58 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 48,
-							"__worldY": 640,
-							"iid": "LoadingZone-105828",
+							"iid": "LoadingZone-105804",
 							"width": 48,
 							"height": 96,
 							"defUid": 2002,
 							"px": [48,640],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "cut_rope_arena_entry", "__tile": null, "defUid": 3002 },
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_arena_entry", "__tile": null, "defUid": 3003 },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004 },
-								{ "__identifier": "target_room", "__type": "String", "__value": "hall_of_bosses", "__tile": null, "defUid": 3005 },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "hall_to_cut_rope_portal", "__tile": null, "defUid": 3006 },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007 }
-							]
+								{ "__identifier": "id", "__type": "String", "__value": "cut_rope_arena_entry", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_arena_entry"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_arena_entry", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_arena_entry"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "hall_of_bosses", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_of_bosses"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "hall_to_cut_rope_portal", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hall_to_cut_rope_portal"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+							],
+							"__worldX": 48,
+							"__worldY": 640
 						},
 						{
 							"__identifier": "BossSpawn",
-							"__grid": [49,28],
+							"__grid": [48,28],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#C77DFF",
-							"__worldX": 784,
-							"__worldY": 448,
-							"iid": "BossSpawn-105829",
-							"width": 208,
+							"iid": "BossSpawn-105805",
+							"width": 240,
 							"height": 288,
 							"defUid": 2013,
-							"px": [784,448],
+							"px": [768,448],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Smirking Behemoth", "__tile": null, "defUid": 3033 },
-								{ "__identifier": "brain", "__type": "String", "__value": "PhaseScript:smirking_behemoth_boss", "__tile": null, "defUid": 3034 }
-							]
+								{ "__identifier": "name", "__type": "String", "__value": "Smirking Behemoth", "__tile": null, "defUid": 3033, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Smirking Behemoth"]
+								}] },
+								{ "__identifier": "brain", "__type": "String", "__value": "PhaseScript:smirking_behemoth_boss", "__tile": null, "defUid": 3034, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["PhaseScript:smirking_behemoth_boss"]
+								}] }
+							],
+							"__worldX": 768,
+							"__worldY": 448
 						},
 						{
 							"__identifier": "Prop",
@@ -5348,17 +5314,23 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#9966CC",
-							"__worldX": 904,
-							"__worldY": 16,
-							"iid": "Prop-105830",
+							"iid": "Prop-105806",
 							"width": 8,
 							"height": 160,
 							"defUid": 4351,
 							"px": [904,16],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_rope", "__tile": null, "defUid": 4349 },
-								{ "__identifier": "kind", "__type": "String", "__value": "cut_rope_rope", "__tile": null, "defUid": 4350 }
-							]
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_rope", "__tile": null, "defUid": 4349, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_rope"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "cut_rope_rope", "__tile": null, "defUid": 4350, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_rope"]
+								}] }
+							],
+							"__worldX": 904,
+							"__worldY": 16
 						},
 						{
 							"__identifier": "Prop",
@@ -5367,92 +5339,166 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#9966CC",
-							"__worldX": 848,
-							"__worldY": 176,
-							"iid": "Prop-105831",
+							"iid": "Prop-105807",
 							"width": 120,
 							"height": 80,
 							"defUid": 4351,
 							"px": [848,176],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_anvil", "__tile": null, "defUid": 4349 },
-								{ "__identifier": "kind", "__type": "String", "__value": "cut_rope_anvil", "__tile": null, "defUid": 4350 }
-							]
-						},
-						{
-							"__identifier": "CameraZone",
-							"__grid": [0,0],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#86A8E7",
-							"__worldX": 0,
-							"__worldY": 0,
-							"iid": "CameraZone-105832",
-							"width": 1280,
-							"height": 768,
-							"defUid": 4002,
-							"px": [0,0],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "cut_rope_full_room_camera", "__tile": null, "defUid": 4003 },
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_full_room_camera", "__tile": null, "defUid": 4004 },
-								{ "__identifier": "mode", "__type": "String", "__value": "Follow", "__tile": null, "defUid": 4005 },
-								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329 },
-								{ "__identifier": "zoom", "__type": "Float", "__value": 1.0, "__tile": null, "defUid": 4330 },
-								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4331 },
-								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4332 },
-								{ "__identifier": "easing_hz", "__type": "Float", "__value": 4.0, "__tile": null, "defUid": 4333 },
-								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334 },
-								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335 }
-							]
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_anvil", "__tile": null, "defUid": 4349, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_anvil"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "cut_rope_anvil", "__tile": null, "defUid": 4350, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_anvil"]
+								}] }
+							],
+							"__worldX": 848,
+							"__worldY": 176
 						},
 						{
 							"__identifier": "DebugLabel",
-							"__grid": [6,6],
+							"__grid": [2,29],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFFFFF",
-							"__worldX": 96,
-							"__worldY": 96,
-							"iid": "DebugLabel-105833",
-							"width": 620,
+							"iid": "DebugLabel-105809",
+							"width": 208,
 							"height": 24,
 							"defUid": 2007,
-							"px": [96,96],
+							"px": [32,464],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_title_label", "__tile": null, "defUid": 3015 },
-								{ "__identifier": "text", "__type": "String", "__value": "You Have To Cut The Rope", "__tile": null, "defUid": 3016 },
-								{ "__identifier": "category", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3017 }
-							]
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_title_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_title_label"]
+								}] },
+								{ "__identifier": "text", "__type": "String", "__value": "You Have To Cut The Rope", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["You Have To Cut The Rope"]
+								}] },
+								{ "__identifier": "category", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3017, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Boss"]
+								}] }
+							],
+							"__worldX": 32,
+							"__worldY": 464
 						},
 						{
 							"__identifier": "DebugLabel",
-							"__grid": [6,8],
+							"__grid": [19,16],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFFFFF",
-							"__worldX": 96,
-							"__worldY": 128,
-							"iid": "DebugLabel-105834",
-							"width": 620,
+							"iid": "DebugLabel-105810",
+							"width": 320,
 							"height": 24,
 							"defUid": 2007,
-							"px": [96,128],
+							"px": [304,256],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_hint_label", "__tile": null, "defUid": 3015 },
-								{ "__identifier": "text", "__type": "String", "__value": "Cut the rope above the boss to drop the anvil.", "__tile": null, "defUid": 3016 },
-								{ "__identifier": "category", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3017 }
-							]
+								{ "__identifier": "name", "__type": "String", "__value": "cut_rope_hint_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cut_rope_hint_label"]
+								}] },
+								{ "__identifier": "text", "__type": "String", "__value": "Cut the rope above the boss to drop the anvil.", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Cut the rope above the boss to drop the anvil."]
+								}] },
+								{ "__identifier": "category", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3017, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Boss"]
+								}] }
+							],
+							"__worldX": 304,
+							"__worldY": 256
+						},
+						{
+							"__identifier": "PogoOrb",
+							"__grid": [67,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#00D4FF",
+							"iid": "e0d5b890-48b0-11f1-a90a-89bf8457c434",
+							"width": 36,
+							"height": 36,
+							"defUid": 2005,
+							"px": [1072,224],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] }],
+							"__worldX": 1072,
+							"__worldY": 224
+						},
+						{
+							"__identifier": "PogoOrb",
+							"__grid": [62,10],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#00D4FF",
+							"iid": "e1ba9a50-48b0-11f1-a90a-7b4161f86e80",
+							"width": 36,
+							"height": 36,
+							"defUid": 2005,
+							"px": [992,160],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] }],
+							"__worldX": 992,
+							"__worldY": 160
+						},
+						{
+							"__identifier": "PogoOrb",
+							"__grid": [40,24],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#00D4FF",
+							"iid": "e60d0480-48b0-11f1-a90a-55f6201b262b",
+							"width": 36,
+							"height": 36,
+							"defUid": 2005,
+							"px": [640,384],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] }],
+							"__worldX": 640,
+							"__worldY": 384
+						},
+						{
+							"__identifier": "PogoOrb",
+							"__grid": [16,28],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#00D4FF",
+							"iid": "202a0820-48b0-11f1-a90a-9d98a7ae5a21",
+							"width": 36,
+							"height": 36,
+							"defUid": 2005,
+							"px": [256,448],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Pogo Orb", "__tile": null, "defUid": 3011, "realEditorValues": [] }],
+							"__worldX": 256,
+							"__worldY": 448
 						}
 					]
 				},
 				{
-					"__identifier": "Climbable",
+					"__identifier": "Water",
 					"__type": "IntGrid",
-					"iid": "Climbable-105835",
-					"layerDefUid": 4201,
+					"__cWid": 80,
+					"__cHei": 48,
+					"__gridSize": 16,
+					"__opacity": 0.6,
+					"__pxTotalOffsetX": 0,
+					"__pxTotalOffsetY": 0,
+					"__tilesetDefUid": null,
+					"__tilesetRelPath": null,
+					"iid": "7501a7f0-48b0-11f1-a90a-c591bbe86a5e",
+					"levelId": 105800,
+					"layerDefUid": 4140,
+					"pxOffsetX": 0,
+					"pxOffsetY": 0,
+					"visible": true,
+					"optionalRules": [],
 					"intGridCsv": [
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -5565,6 +5611,151 @@
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 					],
+					"autoLayerTiles": [],
+					"seed": 853336,
+					"overrideTilesetUid": null,
+					"gridTiles": [],
+					"entityInstances": []
+				},
+				{
+					"__identifier": "Climbable",
+					"__type": "IntGrid",
+					"__cWid": 80,
+					"__cHei": 48,
+					"__gridSize": 16,
+					"__opacity": 0.6,
+					"__pxTotalOffsetX": 0,
+					"__pxTotalOffsetY": 0,
+					"__tilesetDefUid": null,
+					"__tilesetRelPath": null,
+					"iid": "Climbable-105811",
+					"levelId": 105800,
+					"layerDefUid": 4201,
+					"pxOffsetX": 0,
+					"pxOffsetY": 0,
+					"visible": true,
+					"optionalRules": [],
+					"intGridCsv": [
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+					],
+					"autoLayerTiles": [],
+					"seed": 105800,
+					"overrideTilesetUid": null,
+					"gridTiles": [],
+					"entityInstances": []
+				},
+				{
+					"__identifier": "AmbitionCameras",
+					"__type": "Entities",
 					"__cWid": 80,
 					"__cHei": 48,
 					"__gridSize": 16,
@@ -5573,13 +5764,16 @@
 					"__pxTotalOffsetY": 0,
 					"__tilesetDefUid": null,
 					"__tilesetRelPath": null,
-					"levelId": 105824,
+					"iid": "7501a7f1-48b0-11f1-a90a-0d786b4eb014",
+					"levelId": 105800,
+					"layerDefUid": 5743,
 					"pxOffsetX": 0,
 					"pxOffsetY": 0,
 					"visible": true,
 					"optionalRules": [],
+					"intGridCsv": [],
 					"autoLayerTiles": [],
-					"seed": 105824,
+					"seed": 3109191,
 					"overrideTilesetUid": null,
 					"gridTiles": [],
 					"entityInstances": []
@@ -5588,5 +5782,6 @@
 			"__neighbours": []
 		}
 	],
+	"worlds": [],
 	"dummyWorldIid": "ambition-sandbox-world"
 }

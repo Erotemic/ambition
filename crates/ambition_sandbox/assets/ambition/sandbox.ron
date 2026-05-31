@@ -276,14 +276,15 @@
                 arrangement: (bpm: 144.0, total_beats: 64.0),
             ),
             // Smirking Behemoth / You Have To Cut The Rope boss battle.
-            // The generated OGG is authored by the music-renderer score with
-            // the same id; runtime wiring intentionally assumes the asset is
-            // present after the local audio regen step.
+            // The source score lives at
+            // tools/ambition_music_renderer/scores/active/smirking_behemoth_boss.music.yaml.
+            // Generated OGGs are intentionally not checked in; run the music
+            // renderer to publish this path before testing audio locally.
             (
-                id: "you_have_to_cut_the_rope",
+                id: "smirking_behemoth_boss",
                 display_name: "You Have To Cut The Rope",
-                asset_path: Some("audio/music/generated/you_have_to_cut_the_rope/full.ogg"),
-                arrangement: (bpm: 132.0, total_beats: 128.0),
+                asset_path: Some("audio/music/generated/smirking_behemoth_boss/full.ogg"),
+                arrangement: (bpm: 116.0, total_beats: 128.0),
             ),
             // GNU-ton boss battle — scholar on giant wildebeest.
             // Heavy prog-rock 88 BPM E minor; two voices (scholar harpsichord/organ vs

@@ -194,10 +194,10 @@ impl BossEncounterSpec {
             death_seconds: 2.0,
             stagger_threshold: 999_999,
             stagger_window_seconds: 0.1,
-            music_intro: "standing_on_shoulders".into(),
-            music_phase1: "standing_on_shoulders".into(),
-            music_phase2: "standing_on_shoulders".into(),
-            music_enrage: "standing_on_shoulders".into(),
+            music_intro: "smirking_behemoth_boss".into(),
+            music_phase1: "smirking_behemoth_boss".into(),
+            music_phase2: "smirking_behemoth_boss".into(),
+            music_enrage: "smirking_behemoth_boss".into(),
         }
     }
 

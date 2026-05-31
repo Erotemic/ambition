@@ -133,7 +133,7 @@ impl ExplosionRequest {
             pos,
             kind,
             scale: 1.0,
-            sfx: Some(ambition_sfx::ids::WORLD_EXPLOSION),
+            sfx: Some(ambition_sfx::ids::VFX_EXPLOSION_CLASSIC_BURST),
         }
     }
 

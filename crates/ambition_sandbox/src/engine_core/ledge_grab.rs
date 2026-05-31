@@ -56,12 +56,31 @@ pub const LEDGE_GRAB_INVULN_TIME: f32 = 0.50;
 /// Cooldown blocking a fresh ledge grab right after the player
 /// voluntarily released a ledge (drop / ledge-jump / ledge-release).
 /// At typical gravity (~1500 px/s²) a player accelerating from rest
-/// clears the chin-band (≈30 px tall) in about 200 ms; pad to 250 ms
-/// so the same lip can't re-snap on the very next fall sample, and
-/// also so the player gets a clear "I'm dropping" beat before any
-/// auto-snap can re-engage. Tune up for stickier feel, down for
-/// snappier recovery.
+/// clears the chin-band in about 200 ms; pad to 250 ms so the same
+/// lip can't re-snap on the very next fall sample, and also so the
+/// player gets a clear "I'm dropping" beat before any auto-snap can
+/// re-engage. Tune up for stickier feel, down for snappier recovery.
 pub const LEDGE_REGRAB_COOLDOWN: f32 = 0.25;
+
+/// How far above the player's head a ledge top can be and still count
+/// as reachable. This is intentionally more generous than the old
+/// chin-band so a slightly low jump can still catch the lip.
+pub const LEDGE_REACH_UP: f32 = 28.0;
+
+/// How far below the player's head a ledge top can be and still count
+/// as reachable. This covers fast descents and frame-to-frame motion
+/// where the head has already dipped past the lip before the probe runs.
+pub const LEDGE_REACH_DOWN: f32 = 30.0;
+
+/// Horizontal magnet distance from the player's reaching side to the
+/// ledge face. The old 4px tolerance only worked after exact wall
+/// contact; 10px catches near-misses without pulling from across gaps.
+pub const LEDGE_HORIZONTAL_REACH: f32 = 10.0;
+
+/// Horizontal input threshold used only to request an airborne ledge
+/// probe. Hanging/getup choices keep their stronger 0.4 dead-zone below
+/// so climbing/dropping from a ledge does not become accidental.
+pub const LEDGE_GRAB_INTENT_DEADZONE: f32 = 0.25;
 
 /// What surface, and where, does the probe accept a ledge grab?
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -268,12 +287,12 @@ pub fn probe_ledge_grab(
         return None;
     }
     let half = player_size * 0.5;
-    // Window where the ledge top must sit — a band roughly between
-    // the player's chin and the top of the head. Outside this band the
-    // ledge isn't grabbable in the cling-snap idiom.
+    // Window where the ledge top must sit. Keep this intentionally
+    // forgiving: a near-miss slightly below the lip should still grab
+    // instead of requiring the player's head to be in a tight chin band.
     let head_y = player_pos.y - half.y;
-    let chin_band_min = head_y - 12.0;
-    let chin_band_max = head_y + 18.0;
+    let reach_min_y = head_y - LEDGE_REACH_UP;
+    let reach_max_y = head_y + LEDGE_REACH_DOWN;
     // The player is "facing into" the wall whose normal points away
     // from the player. wall_normal_x = +1 means the wall is on the
     // player's left (the wall normal points right toward the player),
@@ -289,7 +308,7 @@ pub fn probe_ledge_grab(
             continue;
         }
         let top = block.aabb.top();
-        if top < chin_band_min || top > chin_band_max {
+        if top < reach_min_y || top > reach_max_y {
             continue;
         }
         // Pick the wall edge of this block matching the cling side.
@@ -298,9 +317,12 @@ pub fn probe_ledge_grab(
         } else {
             block.aabb.left()
         };
-        // The player must be touching that face (within a small
-        // tolerance — the wall-cling state already implies contact).
-        if (block_wall_x - cling_x).abs() > 4.0 {
+        // The player's reaching side must be close to that face. This
+        // is deliberately a small magnet range, not exact contact: by
+        // the time the ledge probe runs, horizontal collision or one
+        // frame of falling can leave the player a few pixels off the
+        // wall even though the input/read is clearly a ledge grab.
+        if (block_wall_x - cling_x).abs() > LEDGE_HORIZONTAL_REACH {
             continue;
         }
         // The space directly above the block must be clear, otherwise
@@ -561,7 +583,7 @@ fn requested_wall_normal_clusters(
     if wall.wall_clinging && wall.wall_normal_x.abs() >= 0.5 {
         return Some(wall.wall_normal_x);
     }
-    if !ground.on_ground && input.axis_x.abs() > 0.4 {
+    if !ground.on_ground && input.axis_x.abs() > LEDGE_GRAB_INTENT_DEADZONE {
         return Some(-input.axis_x.signum());
     }
     None
@@ -668,10 +690,10 @@ pub fn ledge_getup_duration_scale(state: LedgeGrabState, tuning: &MovementTuning
     1.0 / (1.0 + weight * tuning.ledge_momentum.getup_speedup_gain)
 }
 
-/// trigger. Set just above terminal "drifting" speed so a player
-/// who is loitering near a ledge with no stick input doesn't get
-/// snagged on it by accident.
-const FALL_SNAP_MIN_VY: f32 = 80.0;
+/// trigger. Kept above gentle drift so a player who is loitering near
+/// a ledge with no stick input doesn't get snagged by accident, but
+/// low enough that normal falling recovery catches near-miss lips.
+const FALL_SNAP_MIN_VY: f32 = 45.0;
 
 /// Attempt to latch a ledge grab this frame: requires the
 /// `ledge_grab` ability, no current grab, an airborne body, no
@@ -898,6 +920,43 @@ mod tests {
         // Climb target is to the left of the anchor (toward the
         // block's interior on top).
         assert!(contact.climb_target.x < contact.anchor.x);
+    }
+
+    #[test]
+    fn finds_ledge_when_player_is_slightly_low() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let player_size = Vec2::new(28.0, 46.0);
+        // Head is at y=127, so the lip at y=100 is 27px above the
+        // head. The previous 12px upward reach rejected this common
+        // near-miss; the forgiving reach should still catch it.
+        let player_pos = Vec2::new(86.0, 150.0);
+        let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+        assert!(
+            contact.is_some(),
+            "ledge slightly above the old chin band should be reachable"
+        );
+    }
+
+    #[test]
+    fn finds_ledge_when_player_is_slightly_off_wall() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let player_size = Vec2::new(28.0, 46.0);
+        // Player's right edge is x=92, 8px short of the wall face at
+        // x=100. That used to miss because the face tolerance was 4px.
+        let player_pos = Vec2::new(78.0, 110.0);
+        let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+        assert!(
+            contact.is_some(),
+            "a small horizontal near-miss should still grab the ledge"
+        );
     }
     #[test]
     fn finds_ledge_on_blink_wall() {
@@ -1237,6 +1296,31 @@ mod tests {
         let latched =
             try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
         assert!(!latched, "slow drift must not auto-snap");
+    }
+
+    #[test]
+    fn light_horizontal_intent_can_request_a_ledge_grab() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
+        scratch.abilities.abilities.ledge_grab = true;
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab_scratch(
+            &world,
+            &mut scratch,
+            InputState {
+                axis_x: 0.30,
+                ..InputState::default()
+            },
+            &mut events,
+        );
+        assert!(
+            latched,
+            "sub-0.4 horizontal intent should still request a ledge probe"
+        );
     }
 
     /// Holding shield while hanging on a ledge triggers a Smash-Bros

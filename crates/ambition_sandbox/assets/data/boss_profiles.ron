@@ -365,11 +365,11 @@
     // ============================================================
     "smirking_behemoth_boss": (
         id: "smirking_behemoth_boss",
-        // Matches the opaque body derived from the Smirking Behemoth
-        // sheet at the sheet's 240/224 collision scale. This is the
-        // persistent contact-damage hurtbox: the player gets hurt on
-        // any body contact, independent of attack state.
-        combat_size: Some((208.0, 288.0)),
+        // Matches the generated Smirking Behemoth monolith body metrics:
+        // x=0, y=22, w=208, h=266.  The bottom sits exactly on the sprite
+        // frame floor so contact blocks morph-ball tunneling under the boss
+        // without extending below the visible body into the room floor.
+        combat_size: Some((208.0, 266.0)),
         movement: AnchorSway(
             // Smirking Behemoth's movement should be macro-driven:
             // Approach closes distance to the player, Engage holds
@@ -410,8 +410,8 @@
             // Engage then holds position and probabilistically starts an
             // eye-beam after the minimum Rest beat.
             too_close_distance: 0.0,
-            too_far_distance: 120.0,
-            engage_distance: 72.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
             approach_duration_s: 8.0,
             retreat_duration_s: 0.0,
             engage_max_duration_s: 0.0,

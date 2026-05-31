@@ -518,6 +518,42 @@ impl BossPhase {
     }
 }
 
+
+/// Presentation lifetime for a defeated boss. `BossRuntime::alive` must flip
+/// to false immediately so combat, rewards, and progression see the kill, but
+/// the visual entity should remain visible long enough for the non-looping
+/// death row to play.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct BossDeathAnimation {
+    pub remaining_s: f32,
+}
+
+impl BossDeathAnimation {
+    pub const DEFAULT_DURATION_S: f32 = 1.10;
+
+    pub fn start(&mut self) {
+        self.remaining_s = Self::DEFAULT_DURATION_S;
+    }
+
+    pub fn clear(&mut self) {
+        self.remaining_s = 0.0;
+    }
+
+    pub fn tick(&mut self, dt: f32) {
+        self.remaining_s = (self.remaining_s - dt.max(0.0)).max(0.0);
+    }
+
+    pub fn visible(self, alive: bool) -> bool {
+        alive || self.remaining_s > 0.0
+    }
+}
+
+impl Default for BossDeathAnimation {
+    fn default() -> Self {
+        Self { remaining_s: 0.0 }
+    }
+}
+
 /// Marker for hostile actors spawned dynamically by an encounter wave.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct EncounterMob {

@@ -110,6 +110,7 @@ pub(super) fn spawn_boss(
         // `update_ecs_bosses`. Initial value is 0.0 because the brain
         // state defaults to a fresh `BossPatternState`.
         BossPatternTimer(0.0),
+        BossDeathAnimation::default(),
         initial_phase,
         super::ActorFaction::Boss,
         super::ActorTarget::default(),

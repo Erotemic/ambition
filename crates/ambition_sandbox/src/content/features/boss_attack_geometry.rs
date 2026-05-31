@@ -628,7 +628,11 @@ pub fn boss_attack_damage(
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
                     dir: signum_or(player_body.center().x - ctx.pos.x, 1.0),
-                    strength: 1.0,
+                    // Body contact should be a real displacement threat.
+                    // Smirking Behemoth is designed to run the player down;
+                    // a light bump let players face-tank the body and walk
+                    // through to the far side of the arena.
+                    strength: 2.6,
                     source_pos: ctx.pos,
                     impact_pos: midpoint(player_body.center(), body.center()),
                 }),

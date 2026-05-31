@@ -649,6 +649,18 @@ impl BossMacroTuning {
         self.too_close_distance > 0.0
             || self.too_far_distance > 0.0
             || self.engage_max_duration_s > 0.0
+            || self.contact_chase_mode()
+    }
+
+    /// Contact bosses like Smirking Behemoth do not want a preferred
+    /// distance ring: if they are not blocked and the player is not
+    /// horizontally overlapping them yet, they should keep closing until
+    /// collision stops them. This mode is intentionally opt-in through the
+    /// existing macro knobs rather than a boss-id branch.
+    pub fn contact_chase_mode(&self) -> bool {
+        self.too_close_distance <= 0.0
+            && self.approach_duration_s > 0.0
+            && self.hold_position_while_engaged
     }
 }
 
@@ -1071,11 +1083,14 @@ fn front_wall_standoff_reached(tuning: &BossMacroTuning, ctx: &BossPatternContex
 
 /// Advance the chase/engage/retreat macro state machine. Transitions:
 ///
-/// - `Engage` → `Approach` if distance > too_far_distance
+/// - `Engage` → `Approach` if distance > too_far_distance, or in
+///   contact-chase mode whenever the player is not yet horizontally
+///   overlapping the boss.
 /// - `Engage` → `Retreat` if distance < too_close_distance (anti-corner)
 ///   OR engage_timer >= engage_max_duration_s (periodic "preparing"
 ///   beat).
-/// - `Approach` → `Engage` if distance < engage_distance OR timer expired
+/// - `Approach` → `Engage` if distance < engage_distance, if contact-chase
+///   mode has horizontally closed, or if the timer expired.
 /// - `Retreat` → `Engage` if timer expired
 ///
 /// Retreat picks `retreat_pos` along the player→boss axis (so the
@@ -1098,11 +1113,17 @@ fn advance_macro_state(
     };
     let tuning = &cfg.macro_tuning;
     let front_wall_blocked = front_wall_standoff_reached(tuning, ctx);
+    let contact_chase_mode = tuning.contact_chase_mode();
+    let contact_chase_closed = contact_chase_mode && distance <= tuning.engage_distance.max(4.0);
     match &mut state.macro_state {
         BossMacroState::Engage => {
             state.engage_timer += ctx.dt;
             let too_close = tuning.too_close_distance > 0.0 && distance < tuning.too_close_distance;
-            let too_far = tuning.too_far_distance > 0.0 && distance > tuning.too_far_distance;
+            let too_far = if contact_chase_mode {
+                !contact_chase_closed
+            } else {
+                tuning.too_far_distance > 0.0 && distance > tuning.too_far_distance
+            };
             let prep_due = tuning.engage_max_duration_s > 0.0
                 && state.engage_timer >= tuning.engage_max_duration_s;
             if too_close || prep_due {
@@ -1120,7 +1141,11 @@ fn advance_macro_state(
         }
         BossMacroState::Approach { remaining_s } => {
             *remaining_s -= ctx.dt;
-            let close_enough = tuning.engage_distance > 0.0 && distance < tuning.engage_distance;
+            let close_enough = if contact_chase_mode {
+                contact_chase_closed
+            } else {
+                tuning.engage_distance > 0.0 && distance < tuning.engage_distance
+            };
             if close_enough || front_wall_blocked || *remaining_s <= 0.0 {
                 state.macro_state = BossMacroState::Engage;
                 state.engage_timer = 0.0;
@@ -1194,11 +1219,10 @@ fn emit_desired_vel(
     let mut target = match state.macro_state {
         BossMacroState::Approach { .. } => {
             // Bosses that author a `too_close_distance` keep the older
-            // standoff-ring behavior. Bosses with the too-close trigger
-            // disabled are allowed to close all the way to the player
-            // center (or to their small `engage_distance`) so contact
-            // damage reads as a deliberate run-in rather than a retreat
-            // dance.
+            // standoff-ring behavior. Contact-chase bosses disable the
+            // too-close ring and author `engage_distance = 0`, which makes
+            // the target the player's current x so collision/body contact
+            // is the thing that stops the run-in.
             let standoff = if cfg.macro_tuning.too_close_distance > 0.0 {
                 cfg.macro_tuning
                     .engage_distance
@@ -1929,14 +1953,15 @@ mod tests {
     fn macro_state_can_approach_even_when_player_is_close_if_retreat_disabled() {
         let mut cfg = macro_cfg();
         cfg.macro_tuning.too_close_distance = 0.0;
-        cfg.macro_tuning.too_far_distance = 20.0;
-        cfg.macro_tuning.engage_distance = 8.0;
+        cfg.macro_tuning.too_far_distance = 0.0;
+        cfg.macro_tuning.engage_distance = 0.0;
+        cfg.macro_tuning.approach_duration_s = 8.0;
         cfg.macro_tuning.hold_position_while_engaged = true;
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
         let mut out = crate::actor_control::ActorControlFrame::neutral();
         let actor_pos = ae::Vec2::new(640.0, 400.0);
-        let target_pos = ae::Vec2::new(700.0, 400.0); // close, but retreat is disabled
+        let target_pos = ae::Vec2::new(700.0, 400.0); // close, but not yet overlapping
         tick_boss_pattern(
             &cfg,
             &mut state,
@@ -1953,11 +1978,38 @@ mod tests {
     }
 
     #[test]
+    fn contact_chase_mode_does_not_need_too_far_trigger() {
+        let mut cfg = macro_cfg();
+        cfg.macro_tuning.too_close_distance = 0.0;
+        cfg.macro_tuning.too_far_distance = 0.0;
+        cfg.macro_tuning.engage_distance = 0.0;
+        cfg.macro_tuning.approach_duration_s = 8.0;
+        cfg.macro_tuning.hold_position_while_engaged = true;
+        let mut state = BossPatternState::default();
+        let mut attack_state = BossAttackState::default();
+        let mut out = crate::actor_control::ActorControlFrame::neutral();
+        tick_boss_pattern(
+            &cfg,
+            &mut state,
+            &macro_ctx(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(660.0, 400.0), 0.05),
+            &mut out,
+            &mut attack_state,
+        );
+        assert!(
+            matches!(state.macro_state, BossMacroState::Approach { .. }),
+            "contact chase should close any horizontal gap when unblocked: {:?}",
+            state.macro_state,
+        );
+        assert!(out.desired_vel.x > 0.0, "expected positive chase velocity; got {:?}", out.desired_vel);
+    }
+
+    #[test]
     fn macro_state_holds_when_front_wall_is_inside_standoff() {
         let mut cfg = macro_cfg();
         cfg.macro_tuning.too_close_distance = 0.0;
-        cfg.macro_tuning.too_far_distance = 120.0;
-        cfg.macro_tuning.engage_distance = 72.0;
+        cfg.macro_tuning.too_far_distance = 0.0;
+        cfg.macro_tuning.engage_distance = 0.0;
+        cfg.macro_tuning.approach_duration_s = 8.0;
         cfg.macro_tuning.front_wall_standoff = 48.0;
         cfg.macro_tuning.hold_position_while_engaged = true;
         let mut state = BossPatternState::default();

@@ -87,6 +87,15 @@ ROWS: List[Tuple[str, int, int]] = [
 ]
 
 FRAME_SIZE = (208, 288)
+# The visible monolith slab intentionally starts below the hat and ends on the
+# frame floor.  Keep the gameplay body metrics tied to these constants so the
+# generated contact/hurt box touches the floor but never extends under it.
+SMIRKING_BODY_X1 = 0.0
+SMIRKING_BODY_Y1 = 22.0
+SMIRKING_BODY_X2 = float(FRAME_SIZE[0])
+SMIRKING_BODY_Y2 = float(FRAME_SIZE[1])
+SMIRKING_BODY_FEET_X = (SMIRKING_BODY_X1 + SMIRKING_BODY_X2) * 0.5
+SMIRKING_BODY_FEET_Y = SMIRKING_BODY_Y2
 SUPER = 4
 W, H = FRAME_SIZE[0] * SUPER, FRAME_SIZE[1] * SUPER
 
@@ -328,16 +337,15 @@ def _body_geometry(anim: str, frame_idx: int, nframes: int) -> Dict[str, float]:
         beam = 0.0
         settle = 0.0
 
-    body_x1 = 0.0
+    body_x1 = SMIRKING_BODY_X1
     # Leave just enough top space for the hat to sit ON the monolith's
     # head instead of being clipped into it. The hat reaches y=0, the
-    # slab reaches the bottom pixel, and the alpha bbox still spans the
-    # whole frame (0..208 × 0..288), so runtime character / hurt boxes
-    # can remain exactly the authored AABB with no invisible gutter under
-    # the boss.
-    body_y1 = 22.0
-    body_x2 = float(FRAME_SIZE[0])
-    body_y2 = float(FRAME_SIZE[1])
+    # slab reaches the bottom pixel, and the generated body metrics use
+    # the same constants so runtime contact/hurt boxes touch the floor
+    # without creating an invisible gutter below the boss.
+    body_y1 = SMIRKING_BODY_Y1
+    body_x2 = SMIRKING_BODY_X2
+    body_y2 = SMIRKING_BODY_Y2
     eye_x = body_x2 - 44.0 + math.sin(t * math.tau) * (1.0 if anim == "rest" else 0.35)
     eye_y = body_y1 + 82.0 + (settle * 1.5)
     eye_r = 14.0 + beam * 4.5
@@ -663,13 +671,20 @@ def _body_metrics_for_sheet(frame_width: int, frame_height: int) -> dict:
 
     The alpha bbox intentionally spans the whole frame because the tiny hat
     reaches the top edge, but gameplay hurtboxes/contact damage should be tight
-    around the black behemoth slab. Keep this in lock-step with
-    `_body_geometry`: body_x1=0, body_y1=22, body_x2=208, body_y2=288.
+    around the black behemoth slab. The bbox bottom is exactly the frame floor:
+    it blocks morph-ball tunneling under the boss while avoiding the old bug
+    where the contact box extended below the visible body into the floor.
     """
     del frame_width, frame_height
+    body_x = int(round(SMIRKING_BODY_X1))
+    body_y = int(round(SMIRKING_BODY_Y1))
+    body_w = int(round(SMIRKING_BODY_X2 - SMIRKING_BODY_X1))
+    body_h = int(round(SMIRKING_BODY_Y2 - SMIRKING_BODY_Y1))
+    feet_x = float(SMIRKING_BODY_FEET_X)
+    feet_y = float(SMIRKING_BODY_FEET_Y)
     return {
-        "body_pixel_bbox": {"x": 0, "y": 22, "w": 208, "h": 266},
-        "feet_pixel": {"x": 104.0, "y": 288.0},
+        "body_pixel_bbox": {"x": body_x, "y": body_y, "w": body_w, "h": body_h},
+        "feet_pixel": {"x": feet_x, "y": feet_y},
         "feet_anchor_norm": {"x": 0.0, "y": -0.5},
     }
 

@@ -365,11 +365,58 @@ fn boss_front_wall_clearance(
     }
     let dir_x = dx.signum();
     let probe_distance = dx.abs().max(standoff + 1.0).min(1_024.0);
-    let sweep = ae::Vec2::new(dir_x * probe_distance, 0.0);
-    let hit = world.first_body_sweep(boss.aabb(), sweep, |block| {
-        matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. })
-    })?;
-    Some((hit.time_of_impact * probe_distance).max(0.0))
+    let body = boss.aabb();
+    horizontal_front_wall_clearance(world, body, dir_x, probe_distance)
+}
+
+fn horizontal_front_wall_clearance(
+    world: &ae::World,
+    body: ae::Aabb,
+    dir_x: f32,
+    probe_distance: f32,
+) -> Option<f32> {
+    if dir_x.abs() <= f32::EPSILON || probe_distance <= 0.0 {
+        return None;
+    }
+    let dir_x = dir_x.signum();
+    // Probe the vertical lane the boss body would actually sweep through.
+    // Use only a small skin instead of a large percentage inset: low side
+    // walls should still stop the behemoth, but a floor tile that merely
+    // touches the boss's feet (or overlaps by a pixel due to integration
+    // tolerance) must not be misclassified as a front wall.
+    let vertical_skin = 4.0_f32.min(body.height() * 0.10);
+    let lane_top = body.top() + vertical_skin;
+    let lane_bottom = body.bottom() - vertical_skin;
+    let (lane_top, lane_bottom) = if lane_top < lane_bottom {
+        (lane_top, lane_bottom)
+    } else {
+        let center_y = body.center().y;
+        (center_y - body.height() * 0.25, center_y + body.height() * 0.25)
+    };
+
+    let mut best: Option<f32> = None;
+    for block in &world.blocks {
+        if !matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }) {
+            continue;
+        }
+        let vertical_overlap = lane_bottom.min(block.aabb.bottom()) - lane_top.max(block.aabb.top());
+        if vertical_overlap <= 1.0 {
+            continue;
+        }
+        let clearance = if dir_x > 0.0 {
+            block.aabb.left() - body.right()
+        } else {
+            body.left() - block.aabb.right()
+        };
+        if clearance < -1.0 || clearance > probe_distance {
+            continue;
+        }
+        let clearance = clearance.max(0.0);
+        if best.is_none_or(|b| clearance < b) {
+            best = Some(clearance);
+        }
+    }
+    best
 }
 
 /// Helper: dig out the `&mut StateMachineCfg` from a `Brain`.
@@ -429,6 +476,7 @@ pub fn update_ecs_bosses(
             &mut FeatureAabb,
             &mut BossFeature,
             &mut BossPatternTimer,
+            &mut BossDeathAnimation,
             &mut BossPhase,
             &ActorControl,
             &BossAttackState,
@@ -448,6 +496,7 @@ pub fn update_ecs_bosses(
         mut aabb,
         mut feature,
         mut pattern_timer,
+        mut death_anim,
         mut phase,
         control,
         attack_state,
@@ -484,6 +533,13 @@ pub fn update_ecs_bosses(
             Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) => state.pattern_timer,
             _ => 0.0,
         };
+        if boss.alive {
+            death_anim.clear();
+        } else if phase.is_active() && death_anim.remaining_s <= 0.0 {
+            death_anim.start();
+        } else {
+            death_anim.tick(dt);
+        }
         *phase = BossPhase::from_alive(boss.alive);
         let (Some(target_entity), Some((kin, offense, dodge, shield, combat))) =
             (target_entity, target_player)
@@ -522,5 +578,67 @@ pub fn update_ecs_bosses(
                 hit_events.write(damage);
             }
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn front_wall_clearance_ignores_floor_below_body_lane() {
+        let body = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(40.0, 80.0));
+        let world = ae::World::new(
+            "test",
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::ZERO,
+            vec![ae::Block::solid(
+                "floor",
+                // Floor tile whose top just touches the boss feet.  This is
+                // support geometry, not a side wall the boss would run into.
+                ae::Vec2::new(100.0, 204.0),
+                ae::Vec2::new(260.0, 24.0),
+            )],
+        );
+        assert_eq!(horizontal_front_wall_clearance(&world, body, 1.0, 200.0), None);
+    }
+
+
+    #[test]
+    fn front_wall_clearance_ignores_small_floor_skin_overlap() {
+        let body = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(40.0, 80.0));
+        let world = ae::World::new(
+            "test",
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::ZERO,
+            vec![ae::Block::solid(
+                "floor_skin",
+                // Top is 2 px above the body bottom.  Integration/contact
+                // tolerance can create this tiny overlap, but it should not
+                // block horizontal approach.
+                ae::Vec2::new(100.0, 202.0),
+                ae::Vec2::new(260.0, 24.0),
+            )],
+        );
+        assert_eq!(horizontal_front_wall_clearance(&world, body, 1.0, 200.0), None);
+    }
+
+    #[test]
+    fn front_wall_clearance_reports_side_wall_in_direction_of_player() {
+        let body = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(40.0, 80.0));
+        let world = ae::World::new(
+            "test",
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::ZERO,
+            vec![ae::Block::solid(
+                "wall",
+                ae::Vec2::new(180.0, 100.0),
+                ae::Vec2::new(20.0, 160.0),
+            )],
+        );
+        let clearance = horizontal_front_wall_clearance(&world, body, 1.0, 200.0).unwrap();
+        assert!((clearance - 60.0).abs() < 0.01, "clearance = {clearance}");
+        assert_eq!(horizontal_front_wall_clearance(&world, body, -1.0, 200.0), None);
     }
 }

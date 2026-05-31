@@ -69,7 +69,13 @@ pub fn rebuild_feature_view_index(
     switches: Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
     actors: Query<(&FeatureId, &ActorRuntime)>,
     hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
-    bosses: Query<(&FeatureId, &BossFeature, &crate::brain::BossAttackState)>,
+    bosses: Query<(
+        &FeatureId,
+        &BossFeature,
+        &crate::brain::BossAttackState,
+        Option<&BossDeathAnimation>,
+        Option<&BossPhase>,
+    )>,
 ) {
     index.clear();
     for (id, aabb, collected) in &pickups {
@@ -145,15 +151,18 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, feature, attack_state) in &bosses {
+    for (id, feature, attack_state, death_anim, phase) in &bosses {
         let boss = &feature.boss;
+        let visible = boss.alive
+            || death_anim.is_some_and(|d| d.remaining_s > 0.0)
+            || phase.is_some_and(|p| p.is_active());
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
                 pos: boss.pos,
                 size: boss.render_size(),
                 kind: FeatureVisualKind::Boss,
-                visible: boss.alive,
+                visible,
                 // `flash` reads `BossAttackState` (the brain's
                 // single source of truth) instead of the deleted
                 // `attack_timer` / `attack_windup_timer` mirror

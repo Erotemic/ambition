@@ -13,8 +13,10 @@
 #     generated/ dir then installed into crates/ambition_sandbox/assets/sprites/.
 #
 # Usage:
-#   ./regen_sprites.sh           # render + install everything (cache-skipped if fresh)
-#   ./regen_sprites.sh --force   # bypass the cache, re-render unconditionally
+#   ./regen_sprites.sh                  # render + install everything (cache-skipped if fresh)
+#   ./regen_sprites.sh --force          # bypass the cache, re-render unconditionally
+#   ./regen_sprites.sh --list           # show registered targets for focused regen
+#   ./regen_sprites.sh --target <name>  # render + install one registered target
 #
 # Caching:
 #   The renderer's Python sources + configs are fingerprinted into
@@ -55,13 +57,37 @@ print_help() {
 }
 
 force_regen=0
-for arg in "$@"; do
-    case "$arg" in
+list_targets=0
+target_name=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
         -h|--help) print_help; exit 0 ;;
-        --force|-f) force_regen=1 ;;
-        *) echo "unknown arg: $arg" >&2; exit 2 ;;
+        --force|-f) force_regen=1; shift ;;
+        --list|--list-targets) list_targets=1; shift ;;
+        --target|-t)
+            if [ "$#" -lt 2 ] || [ -z "${2:-}" ]; then
+                echo "--target requires a target name" >&2
+                exit 2
+            fi
+            target_name="$2"
+            shift 2
+            ;;
+        --target=*)
+            target_name="${1#--target=}"
+            if [ -z "$target_name" ]; then
+                echo "--target requires a target name" >&2
+                exit 2
+            fi
+            shift
+            ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
+
+if [ "$list_targets" -eq 1 ] && [ -n "$target_name" ]; then
+    echo "--list and --target are mutually exclusive" >&2
+    exit 2
+fi
 
 python_bin="$(select_python)"
 if ! command -v "$python_bin" >/dev/null 2>&1; then
@@ -74,6 +100,41 @@ if ! "$python_bin" -c 'import ambition_sprite2d_renderer' >/dev/null 2>&1; then
     echo "ambition_sprite2d_renderer is not installed in: $python_bin" >&2
     echo "run ./run_developer_setup.sh, activate the configured venv, or set PYTHON=/path/to/python" >&2
     exit 1
+fi
+
+list_sprite_targets() {
+    echo "==> registered sprite targets"
+    echo "    Use: ./regen_sprites.sh --target <target>"
+    echo
+    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer list)
+}
+
+regen_one_target() {
+    local target="$1"
+    local dest_root="$sprites_dir"
+
+    # Most targets install directly under assets/sprites/. The entity target
+    # is the historical exception: runtime entity sprites live under
+    # assets/sprites/entities/, so keep focused regen consistent with the
+    # full regen path. Custom targets such as gnu_ton_boss, gnu_ton_apple,
+    # interdimensional_gate, pirate_heavy, and mockingbird_boss own any
+    # further subdirectory behavior via their Python Target.install hooks.
+    if [ "$target" = "entities" ]; then
+        dest_root="$entities_dir"
+    fi
+
+    echo "==> sprite target: $target → $dest_root"
+    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$dest_root")
+}
+
+if [ "$list_targets" -eq 1 ]; then
+    list_sprite_targets
+    exit 0
+fi
+
+if [ -n "$target_name" ]; then
+    regen_one_target "$target_name"
+    exit 0
 fi
 
 # --- Fingerprint cache ----------------------------------------------------

@@ -95,5 +95,7 @@ tools/**/*.egg-info/
 .agent/index/
 
 
-# Generated ron files (should these be checked in?)
-crates/ambition_sandbox/assets/sprites/*.ron
+# Generated sprite metadata. Existing tracked files require `git rm --cached`
+# before this ignore rule can prevent diffs; keep source-of-truth edits in
+# tools/ambition_sprite2d_renderer targets/configs instead.
+crates/ambition_sandbox/assets/sprites/**/*.ron

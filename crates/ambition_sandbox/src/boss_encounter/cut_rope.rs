@@ -17,7 +17,7 @@ use crate::features::{
     BossFeature, FeatureAabb, FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource,
     ResetRoomFeaturesEvent,
 };
-use crate::presentation::fx::{ExplosionKind, ParticleKind, VfxMessage};
+use crate::presentation::fx::{ExplosionRequest, ParticleKind, VfxMessage};
 use crate::presentation::rendering::PropVisual;
 use crate::rooms::{PropSpec, RoomSet};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -64,6 +64,7 @@ pub fn tick_cut_rope_boss_arena(
     mut banner: ResMut<GameplayBanner>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
+    mut explosions: MessageWriter<ExplosionRequest>,
     mut debris: MessageWriter<DebrisBurstMessage>,
 ) {
     let room = room_set.active_spec();
@@ -176,11 +177,7 @@ pub fn tick_cut_rope_boss_arena(
         }
 
         banner.show("Smirking Behemoth was flattened".to_string(), 2.8);
-        vfx.write(VfxMessage::Explosion {
-            pos: center,
-            kind: ExplosionKind::ClassicBurst,
-            scale: 1.25,
-        });
+        explosions.write(ExplosionRequest::classic(center).with_scale(1.25));
         vfx.write(VfxMessage::Burst {
             pos: boss.pos,
             count: 28,
@@ -192,7 +189,6 @@ pub fn tick_cut_rope_boss_arena(
             pos: boss.pos,
             cue: PhysicsDebrisCue::BossRagdoll,
         });
-        sfx.write(SfxMessage::Death { pos: boss.pos });
         break;
     }
 }

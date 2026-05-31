@@ -242,7 +242,7 @@ pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
 pub const SMIRKING_BEHEMOTH_SHEET: BossSheetSpec = BossSheetSpec {
     label_width: 100,
     frame_width: 208,
-    frame_height: 240,
+    frame_height: 288,
     rows: &[
         (
             BossAnim::Rest,
@@ -273,12 +273,12 @@ pub const SMIRKING_BEHEMOTH_SHEET: BossSheetSpec = BossSheetSpec {
             },
         ),
     ],
-    // The visible monolith body is 224 px tall inside a 240 px frame.
-    // Use 240/224 so the rendered opaque body height matches the
-    // LDtk/authored collision body instead of growing taller and being
-    // pushed upward by collision.
-    collision_scale: 1.071_429,
-    feet_anchor_y: -0.433_333,
+    // The generator now emits a tight 208×288 monolith body with no
+    // transparent floor gutter. collision_scale=1.0 makes the rendered
+    // sprite, derived combat box, and authored LDtk BossSpawn box line
+    // up exactly.
+    collision_scale: 1.0,
+    feet_anchor_y: -0.5,
     frame_sample_inset: 1,
     body_centered: false,
 };

@@ -71,9 +71,9 @@ ACTOR_METADATA = {
         "death": {"animation": "death", "events": []},
     },
     "sockets": {
-        "eye": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 111.0, "y": 73.0}},
-        "eye_right": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 126.0, "y": 73.0}},
-        "mouth": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 99.0, "y": 120.0}},
+        "eye": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 164.0, "y": 96.0}},
+        "eye_right": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 149.0, "y": 101.0}},
+        "mouth": {"source": f"{TARGET_NAME}.geometry", "point": {"x": 176.0, "y": 164.0}},
     },
     "tags": ["boss", "behemoth", "eye_beam"],
 }
@@ -86,7 +86,7 @@ ROWS: List[Tuple[str, int, int]] = [
     ("death", 8, 108),
 ]
 
-FRAME_SIZE = (208, 240)
+FRAME_SIZE = (208, 288)
 SUPER = 4
 W, H = FRAME_SIZE[0] * SUPER, FRAME_SIZE[1] * SUPER
 
@@ -302,7 +302,12 @@ def _draw_cracks(draw: ImageDraw.ImageDraw, settle: float) -> None:
 
 def _body_geometry(anim: str, frame_idx: int, nframes: int) -> Dict[str, float]:
     t = frame_idx / max(1, nframes - 1)
-    bob = math.sin((frame_idx / max(1, nframes)) * math.tau) * 1.7
+    # Smirking Behemoth is intentionally a near-AABB monolith. Keep the
+    # rest / attack body planted and pixel-tight so the generated
+    # body_metrics bbox, LDtk character box, and runtime hurtbox can all
+    # be the same rectangle. Attack motion happens in facial features and
+    # external eye-beam projectiles, not by bobbing the slab.
+    bob = 0.0
     if anim == "mouth_open":
         mouth_open = 0.12 + 0.88 * math.sin(t * math.pi)
         beam = 0.0
@@ -311,33 +316,34 @@ def _body_geometry(anim: str, frame_idx: int, nframes: int) -> Dict[str, float]:
         mouth_open = 0.0
         beam = 0.35 + 0.65 * math.sin(t * math.pi)
         settle = 0.0
-        bob *= 0.35
     elif anim == "death":
         mouth_open = 0.45 + 0.25 * t
         beam = 0.0
         settle = _ease(t)
-        bob = _lerp(0.0, 10.0, settle)
+        # Death may crack/settle internally, but do not move the slab
+        # footprint off the floor: the anvil/explosion owns the motion.
+        bob = 0.0
     else:
         mouth_open = 0.0
         beam = 0.0
         settle = 0.0
 
-    body_x1 = 22.0 + settle * 3.0
-    body_y1 = 12.0 + bob + settle * 6.0
-    body_x2 = 184.0 - settle * 5.0
-    body_y2 = 224.0 + settle * 3.0
-    eye_x = body_x2 - 34.0 + math.sin(t * math.tau) * (1.0 if anim == "rest" else 0.35)
-    eye_y = 89.0 + bob * 0.18 + (settle * 1.5)
-    eye_r = 13.0 + beam * 4.2
-    mouth_x = body_x2 - 23.0
-    mouth_y = 142.0 + bob * 0.12 + settle * 1.5
-    mouth_w = 42.0 + mouth_open * 10.0
-    mouth_h = 5.0 + mouth_open * 28.0
-    death_eye_left_x = body_x1 + 61.0
-    death_eye_right_x = body_x1 + 111.0
-    death_eye_y = body_y1 + 73.0 + settle * 2.0
+    body_x1 = 0.0
+    body_y1 = 0.0
+    body_x2 = float(FRAME_SIZE[0])
+    body_y2 = float(FRAME_SIZE[1])
+    eye_x = body_x2 - 44.0 + math.sin(t * math.tau) * (1.0 if anim == "rest" else 0.35)
+    eye_y = 96.0 + (settle * 1.5)
+    eye_r = 14.0 + beam * 4.5
+    mouth_x = body_x2 - 24.0
+    mouth_y = 164.0 + settle * 1.5
+    mouth_w = 50.0 + mouth_open * 10.0
+    mouth_h = 5.0 + mouth_open * 30.0
+    death_eye_left_x = body_x1 + 68.0
+    death_eye_right_x = body_x1 + 132.0
+    death_eye_y = body_y1 + 92.0 + settle * 2.0
     hat_cx = (body_x1 + body_x2) * 0.5 - 4.0 + (settle * 8.0)
-    hat_y = body_y1 - 7.0 + settle * 1.6
+    hat_y = body_y1 + 4.0 + settle * 1.6
     hat_tilt = -3.0 + math.sin(t * math.tau) * 1.5 + settle * 16.0
     return {
         "t": t,

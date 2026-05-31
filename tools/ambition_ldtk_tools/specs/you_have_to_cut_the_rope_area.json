@@ -9,7 +9,7 @@
   "fill_collision": "empty",
   "bg_color": "#120f18",
   "biome": "boss",
-  "music_track": "standing_on_shoulders",
+  "music_track": "you_have_to_cut_the_rope",
   "ambient_profile": "hum",
   "visual_theme": "default",
   "entities": [
@@ -147,11 +147,11 @@
     {
       "type": "BossSpawn",
       "px": [
-        768,
+        784,
         448
       ],
       "size": [
-        240,
+        208,
         288
       ],
       "fields": {

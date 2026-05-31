@@ -275,6 +275,16 @@
                 asset_path: Some("audio/music/generated/violin_boss_relentless/full.ogg"),
                 arrangement: (bpm: 144.0, total_beats: 64.0),
             ),
+            // Smirking Behemoth / You Have To Cut The Rope boss battle.
+            // The generated OGG is authored by the music-renderer score with
+            // the same id; runtime wiring intentionally assumes the asset is
+            // present after the local audio regen step.
+            (
+                id: "you_have_to_cut_the_rope",
+                display_name: "You Have To Cut The Rope",
+                asset_path: Some("audio/music/generated/you_have_to_cut_the_rope/full.ogg"),
+                arrangement: (bpm: 132.0, total_beats: 128.0),
+            ),
             // GNU-ton boss battle — scholar on giant wildebeest.
             // Heavy prog-rock 88 BPM E minor; two voices (scholar harpsichord/organ vs
             // giant stomp drums/bass/distortion).  Rendered via

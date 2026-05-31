@@ -97,6 +97,7 @@ pub const WORLD_SWITCH_TOGGLE: SfxId = SfxId::from_static("world.switch.toggle")
 pub const WORLD_CRATE_BREAK: SfxId = SfxId::from_static("world.crate.break");
 pub const WORLD_ROCK_BREAK: SfxId = SfxId::from_static("world.rock.break");
 pub const WORLD_ROCK_HIT: SfxId = SfxId::from_static("world.rock.hit");
+pub const WORLD_EXPLOSION: SfxId = SfxId::from_static("world.explosion");
 pub const WORLD_PORTAL_ENTER: SfxId = SfxId::from_static("world.portal.enter");
 pub const WORLD_CHECKPOINT_ACTIVATE: SfxId = SfxId::from_static("world.checkpoint.activate");
 pub const WORLD_SAVE_POINT_ACTIVATE: SfxId = SfxId::from_static("world.save_point.activate");

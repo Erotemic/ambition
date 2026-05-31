@@ -966,7 +966,16 @@ fn advance_macro_state(
     state: &mut BossPatternState,
     ctx: &BossPatternContext,
 ) {
-    let distance = (ctx.target_pos - ctx.actor_pos).length();
+    let movement = cfg.movement_for_phase(ctx.encounter_phase);
+    // Ground-locked bosses reason about standoff on the horizontal axis only.
+    // Otherwise a player jumping over/under the boss would look "far away"
+    // and make the boss slide into them, even though the desired behavior is
+    // YHTBTR-style left/right spacing with collision handling the walls.
+    let distance = if movement.horizontal_only() {
+        (ctx.target_pos.x - ctx.actor_pos.x).abs()
+    } else {
+        (ctx.target_pos - ctx.actor_pos).length()
+    };
     let tuning = &cfg.macro_tuning;
     match &mut state.macro_state {
         BossMacroState::Engage => {
@@ -1011,6 +1020,19 @@ fn advance_macro_state(
 /// player are coincident). Clamped to the world bounds upstream by
 /// `emit_desired_vel`.
 fn compute_retreat_pos(cfg: &BossPatternCfg, ctx: &BossPatternContext) -> ae::Vec2 {
+    let movement = cfg.movement_for_phase(ctx.encounter_phase);
+    if movement.horizontal_only() {
+        let dx = ctx.actor_pos.x - ctx.target_pos.x;
+        let dir_x = if dx.abs() < 1e-3 { 1.0 } else { dx.signum() };
+        // For grounded/player-controllable-style bosses, retreat is a
+        // horizontal desired velocity only. `BossRuntime::integrate_body`
+        // still runs through `step_kinematic`, so solid walls and platforms
+        // are the authority that stops the body if this target lies beyond
+        // reachable floor.
+        let target_x = ctx.actor_pos.x + dir_x * cfg.macro_tuning.retreat_distance.max(60.0);
+        return ae::Vec2::new(target_x * 0.6 + cfg.spawn.x * 0.4, ctx.actor_pos.y);
+    }
+
     let away = ctx.actor_pos - ctx.target_pos;
     let dir = if away.length_squared() < 1e-3 {
         ae::Vec2::new(1.0, 0.0)
@@ -1052,19 +1074,27 @@ fn emit_desired_vel(
         BossMacroState::Approach { .. } => {
             // Approach the player's *standoff ring* rather than the
             // player center so a contact-damage boss stops before it
-            // deliberately walks into the player.
-            let away = ctx.actor_pos - ctx.target_pos;
-            let dir = if away.length_squared() < 1e-3 {
-                ae::Vec2::new(1.0, 0.0)
-            } else {
-                away.normalize()
-            };
+            // deliberately walks into the player. Ground-locked bosses
+            // compute that ring horizontally so vertical player movement
+            // never causes the boss to float or close the x gap.
             let standoff = cfg
                 .macro_tuning
                 .engage_distance
                 .max(cfg.macro_tuning.too_close_distance + 12.0)
                 .max(48.0);
-            ctx.target_pos + dir * standoff
+            if movement.horizontal_only() {
+                let dx = ctx.actor_pos.x - ctx.target_pos.x;
+                let dir_x = if dx.abs() < 1e-3 { 1.0 } else { dx.signum() };
+                ae::Vec2::new(ctx.target_pos.x + dir_x * standoff, ctx.actor_pos.y)
+            } else {
+                let away = ctx.actor_pos - ctx.target_pos;
+                let dir = if away.length_squared() < 1e-3 {
+                    ae::Vec2::new(1.0, 0.0)
+                } else {
+                    away.normalize()
+                };
+                ctx.target_pos + dir * standoff
+            }
         }
         BossMacroState::Retreat { retreat_pos, .. } => retreat_pos,
         BossMacroState::Engage => movement.target(cfg.spawn, state.movement_timer, ctx.target_pos),

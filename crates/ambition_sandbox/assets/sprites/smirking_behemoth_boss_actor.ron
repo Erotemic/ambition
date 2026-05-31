@@ -124,8 +124,8 @@
             animation: None,
             frame: None,
             point: (
-                x: 103.0,
-                y: 112.0,
+                x: 104.0,
+                y: 144.0,
             ),
         ),
         "chest": (
@@ -133,8 +133,8 @@
             animation: None,
             frame: None,
             point: (
-                x: 103.0,
-                y: 85.12,
+                x: 104.0,
+                y: 109.44,
             ),
         ),
         "core": (
@@ -142,22 +142,22 @@
             animation: "rest",
             frame: 0,
             point: (
-                x: 103.0,
-                y: 118.0,
+                x: 104.0,
+                y: 144.0,
             ),
         ),
         "eye": (
             source: "smirking_behemoth_boss.geometry",
             point: (
-                x: 111.0,
-                y: 73.0,
+                x: 164.0,
+                y: 96.0,
             ),
         ),
         "eye_right": (
             source: "smirking_behemoth_boss.geometry",
             point: (
-                x: 126.0,
-                y: 73.0,
+                x: 149.0,
+                y: 101.0,
             ),
         ),
         "feet": (
@@ -165,8 +165,8 @@
             animation: None,
             frame: None,
             point: (
-                x: 103.0,
-                y: 224.0,
+                x: 104.0,
+                y: 288.0,
             ),
         ),
         "head": (
@@ -174,15 +174,15 @@
             animation: None,
             frame: None,
             point: (
-                x: 103.0,
+                x: 104.0,
                 y: 0.0,
             ),
         ),
         "mouth": (
             source: "smirking_behemoth_boss.geometry",
             point: (
-                x: 99.0,
-                y: 120.0,
+                x: 176.0,
+                y: 164.0,
             ),
         ),
         "root": (
@@ -190,8 +190,8 @@
             animation: None,
             frame: None,
             point: (
-                x: 103.0,
-                y: 224.0,
+                x: 104.0,
+                y: 288.0,
             ),
         ),
     },

@@ -9,6 +9,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;
 
+use crate::audio::SfxMessage;
 use crate::config::{rgba, world_to_bevy, WORLD_Z_FX};
 use crate::presentation::character_sprites::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
@@ -109,6 +110,74 @@ impl ExplosionKind {
             Self::Shockwave => CharacterAnim::Run,
             Self::SmokeBurst => CharacterAnim::Hit,
             Self::Starburst => CharacterAnim::Slash,
+        }
+    }
+}
+
+/// Reusable gameplay request for a point explosion. Simulation code writes this
+/// instead of remembering to pair a visual `VfxMessage::Explosion` with the
+/// matching packed-bank SFX. The presentation/audio bridge below fans it out
+/// into the existing message types, so headless tests can still ignore the
+/// render/audio backends while gameplay stays ECS-native.
+#[derive(Message, Clone, Debug)]
+pub struct ExplosionRequest {
+    pub pos: ae::Vec2,
+    pub kind: ExplosionKind,
+    pub scale: f32,
+    pub sfx: Option<ambition_sfx::SfxId>,
+}
+
+impl ExplosionRequest {
+    pub fn new(pos: ae::Vec2, kind: ExplosionKind) -> Self {
+        Self {
+            pos,
+            kind,
+            scale: 1.0,
+            sfx: Some(ambition_sfx::ids::WORLD_EXPLOSION),
+        }
+    }
+
+    pub fn classic(pos: ae::Vec2) -> Self {
+        Self::new(pos, ExplosionKind::ClassicBurst)
+    }
+
+    pub fn with_scale(mut self, scale: f32) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn without_sfx(mut self) -> Self {
+        self.sfx = None;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn with_sfx(mut self, sfx: ambition_sfx::SfxId) -> Self {
+        self.sfx = Some(sfx);
+        self
+    }
+}
+
+/// Fan out reusable explosion requests into the existing visual and audio
+/// message channels. Systems that want an explosion should write
+/// `ExplosionRequest` unless they specifically need visual-only behavior.
+pub fn process_explosion_requests(
+    mut requests: MessageReader<ExplosionRequest>,
+    mut vfx: MessageWriter<VfxMessage>,
+    mut sfx: MessageWriter<SfxMessage>,
+) {
+    for request in requests.read() {
+        vfx.write(VfxMessage::Explosion {
+            pos: request.pos,
+            kind: request.kind,
+            scale: request.scale,
+        });
+        if let Some(id) = request.sfx {
+            sfx.write(SfxMessage::Play {
+                id,
+                pos: request.pos,
+            });
         }
     }
 }

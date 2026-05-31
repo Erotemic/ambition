@@ -798,7 +798,16 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     // chain stays behind the `audio` feature. Headless builds omit
     // these so the message queues drain without entity spawns or
     // audio playback.
-    .add_systems(Update, vfx_spawn_messages.after(SandboxSet::CoreSimulation));
+    .add_systems(
+        Update,
+        fx::process_explosion_requests
+            .after(SandboxSet::CoreSimulation)
+            .before(vfx_spawn_messages),
+    )
+    .add_systems(
+        Update,
+        vfx_spawn_messages.after(fx::process_explosion_requests),
+    );
     // Live blink-destination preview ring. Reads leafwing action state to
     // know when the blink button is held, so it lives behind the `input`
     // feature alongside the other gameplay-input-driven presentation.

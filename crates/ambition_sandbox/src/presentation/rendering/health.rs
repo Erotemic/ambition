@@ -8,11 +8,133 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
+use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
     ActorCombatState, ActorDisposition, ActorHealth, BossFeature, BreakableFeature, FeatureAabb,
     FeatureName,
 };
+
+
+#[derive(Component)]
+pub struct BossHealthBarOverlayVisual;
+
+/// Always-on top-center boss health overlay.
+///
+/// The debug `sync_health_overlays` system draws small bars above every
+/// actor only when developer health bars are enabled. This system is the
+/// player-facing boss UI: if a live boss exists in the active room, show
+/// the boss name and HP fraction in the top-center HUD overlay.
+pub fn sync_boss_health_bar_overlay(
+    mut commands: Commands,
+    overlays: Query<Entity, With<BossHealthBarOverlayVisual>>,
+    bosses: Query<&BossFeature>,
+    ui_fonts: Option<Res<UiFonts>>,
+) {
+    for entity in overlays.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    let Some(boss) = bosses.iter().find_map(|feature| {
+        let boss = &feature.boss;
+        if boss.alive && boss.health.alive() {
+            Some(boss)
+        } else {
+            None
+        }
+    }) else {
+        return;
+    };
+
+    let ratio = boss.health.ratio().clamp(0.0, 1.0);
+    let fill_percent = ratio * 100.0;
+    let hp_text = format!(
+        "{} / {}",
+        boss.health.current.max(0),
+        boss.health.max.max(1)
+    );
+    let boss_name = boss.name.as_str();
+
+    let font = |font_size: f32, weight: UiFontWeight| {
+        ui_fonts
+            .as_deref()
+            .map(|fonts| fonts.text_font(font_size, weight))
+            .unwrap_or(TextFont {
+                font_size,
+                ..default()
+            })
+    };
+
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(18.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::FlexStart,
+                ..default()
+            },
+            ZIndex(34),
+            Name::new("Boss Health Overlay Root"),
+            BossHealthBarOverlayVisual,
+        ))
+        .with_children(|root| {
+            root.spawn((
+                Node {
+                    width: Val::Px(560.0),
+                    min_height: Val::Px(58.0),
+                    padding: UiRect::axes(Val::Px(18.0), Val::Px(8.0)),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(6.0),
+                    border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::all(Val::Px(18.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.025, 0.018, 0.030, 0.82)),
+                BorderColor::all(Color::srgba(0.88, 0.64, 0.95, 0.86)),
+                Name::new(format!("Boss Health Panel: {boss_name}")),
+            ))
+            .with_children(|panel| {
+                panel.spawn((
+                    Text::new(boss_name.to_string()),
+                    font(19.0, UiFontWeight::Semibold),
+                    TextColor(Color::srgba(0.98, 0.91, 1.00, 1.0)),
+                ));
+                panel
+                    .spawn((
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Px(16.0),
+                            border: UiRect::all(Val::Px(2.0)),
+                            border_radius: BorderRadius::all(Val::Px(9.0)),
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.05, 0.03, 0.06, 0.96)),
+                        BorderColor::all(Color::srgba(0.18, 0.11, 0.20, 1.0)),
+                        Name::new(format!("Boss Health Track: {boss_name}")),
+                    ))
+                    .with_children(|track| {
+                        track.spawn((
+                            Node {
+                                width: Val::Percent(fill_percent),
+                                height: Val::Percent(100.0),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgba(0.86, 0.10, 0.24, 0.96)),
+                            Name::new(format!("Boss Health Fill: {boss_name}")),
+                        ));
+                    });
+                panel.spawn((
+                    Text::new(hp_text),
+                    font(12.0, UiFontWeight::Regular),
+                    TextColor(Color::srgba(0.90, 0.84, 0.95, 0.92)),
+                ));
+            });
+        });
+}
 
 pub fn sync_health_overlays(
     mut commands: Commands,

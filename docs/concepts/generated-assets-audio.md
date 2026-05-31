@@ -39,6 +39,33 @@ Ambition uses code-owned and data-owned generation for music, SFX, sprites, back
 - Adaptive music state must not allow simple base tracks and adaptive cue layers to play as mutually-exclusive authorities at the same time.
 - Asset behavior must be platform-aware: Android APK assets are not host filesystem paths.
 
+
+## Runtime wiring convention
+
+When adding generated audio, wire runtime catalogs to the **generator cue id**
+and the path that cue publishes to. Do not invent a temporary runtime-only id
+unless you also add a generator spec with the same id.
+
+For single-track music cues, the convention is:
+
+```text
+source: tools/ambition_music_renderer/scores/active/<cue>.music.yaml
+runtime id: <cue>
+runtime path: crates/ambition_sandbox/assets/audio/music/generated/<cue>/full.ogg
+```
+
+For SFX cues, the convention is:
+
+```text
+source: tools/ambition_sfx_renderer/sounds/active/<cue>.sfx.yaml
+runtime id: <cue>
+staged output: tools/ambition_sfx_renderer/output/<cue>/<cue>.ogg
+runtime bank: crates/ambition_sandbox/assets/audio/sfx.bank
+```
+
+Generated OGG/WAV outputs are ignored by default. Check in the source YAML,
+renderer code, runtime catalog ids, and SFX constants; then regenerate locally.
+
 ## Edit protocol
 
 1. Identify the source spec, generator, runtime manifest, and playback adapter involved.

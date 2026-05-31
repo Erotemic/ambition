@@ -46,7 +46,7 @@ pub use actors::{
 // `actors::manage_gradient_lane_visual` directly so no outside
 // callers need a re-export.
 pub use camera::{camera_follow, CameraViewState};
-pub use health::sync_health_overlays;
+pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 // Re-exported so the simulation side (e.g. `EnemyRuntime::update`
 // in `content/features/enemies.rs`) can place projectile-spawn
 // origins at the same hand position the visual lays the gun-sword

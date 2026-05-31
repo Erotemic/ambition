@@ -329,21 +329,29 @@ def _body_geometry(anim: str, frame_idx: int, nframes: int) -> Dict[str, float]:
         settle = 0.0
 
     body_x1 = 0.0
-    body_y1 = 0.0
+    # Leave just enough top space for the hat to sit ON the monolith's
+    # head instead of being clipped into it. The hat reaches y=0, the
+    # slab reaches the bottom pixel, and the alpha bbox still spans the
+    # whole frame (0..208 × 0..288), so runtime character / hurt boxes
+    # can remain exactly the authored AABB with no invisible gutter under
+    # the boss.
+    body_y1 = 22.0
     body_x2 = float(FRAME_SIZE[0])
     body_y2 = float(FRAME_SIZE[1])
     eye_x = body_x2 - 44.0 + math.sin(t * math.tau) * (1.0 if anim == "rest" else 0.35)
-    eye_y = 96.0 + (settle * 1.5)
+    eye_y = body_y1 + 82.0 + (settle * 1.5)
     eye_r = 14.0 + beam * 4.5
     mouth_x = body_x2 - 24.0
-    mouth_y = 164.0 + settle * 1.5
+    mouth_y = body_y1 + 142.0 + settle * 1.5
     mouth_w = 50.0 + mouth_open * 10.0
     mouth_h = 5.0 + mouth_open * 30.0
     death_eye_left_x = body_x1 + 68.0
     death_eye_right_x = body_x1 + 132.0
     death_eye_y = body_y1 + 92.0 + settle * 2.0
     hat_cx = (body_x1 + body_x2) * 0.5 - 4.0 + (settle * 8.0)
-    hat_y = body_y1 + 4.0 + settle * 1.6
+    # The brim underside sits exactly on the slab top. Keep the crown
+    # touching the top pixel and inside the frame and the brim visually tangent to the head.
+    hat_y = body_y1 - 14.0 + settle * 1.6
     hat_tilt = -3.0 + math.sin(t * math.tau) * 1.5 + settle * 16.0
     return {
         "t": t,
@@ -422,8 +430,8 @@ def _draw_hat(img: Image.Image, g: Dict[str, float]) -> None:
         (cx - 27.0, y + 14.0),
     ], cx, y + 10.0, tilt)
     crown = _rot_points([
-        (cx - 12.0, y - 6.0),
-        (cx + 8.0, y - 6.0),
+        (cx - 12.0, y - 8.0),
+        (cx + 8.0, y - 8.0),
         (cx + 11.0, y + 8.0),
         (cx - 15.0, y + 8.0),
     ], cx, y + 2.0, tilt)

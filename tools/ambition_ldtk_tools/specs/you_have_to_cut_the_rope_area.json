@@ -8,10 +8,10 @@
   "grid_size": 16,
   "fill_collision": "empty",
   "bg_color": "#120f18",
-  "biome": "boss",
-  "music_track": "you_have_to_cut_the_rope",
+  "biome": "cave",
+  "music_track": "",
   "ambient_profile": "hum",
-  "visual_theme": "default",
+  "visual_theme": "cave",
   "entities": [
     {
       "type": "Solid",
@@ -244,5 +244,6 @@
         "category": "Boss"
       }
     }
-  ]
+  ],
+  "parallax_theme": "cave"
 }

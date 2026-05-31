@@ -20,13 +20,13 @@ rows:
         y: 166.0
       eye:
         x: 164.0
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: rest
   - x: 308
@@ -39,13 +39,13 @@ rows:
         y: 166.0
       eye:
         x: 164.95
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: rest
   - x: 516
@@ -58,13 +58,13 @@ rows:
         y: 166.0
       eye:
         x: 164.59
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: rest
   - x: 724
@@ -77,13 +77,13 @@ rows:
         y: 166.0
       eye:
         x: 163.41
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: rest
   - x: 932
@@ -96,13 +96,13 @@ rows:
         y: 166.0
       eye:
         x: 163.05
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: rest
   - x: 1140
@@ -115,13 +115,13 @@ rows:
         y: 166.0
       eye:
         x: 164.0
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: rest
 - animation: mouth_open
@@ -140,13 +140,13 @@ rows:
         y: 167.44
       eye:
         x: 164.0
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: mouth_open
   - x: 308
@@ -159,13 +159,13 @@ rows:
         y: 173.65
       eye:
         x: 164.33
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: mouth_open
   - x: 516
@@ -178,13 +178,13 @@ rows:
         y: 177.48
       eye:
         x: 164.21
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: mouth_open
   - x: 724
@@ -197,13 +197,13 @@ rows:
         y: 177.48
       eye:
         x: 163.79
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: mouth_open
   - x: 932
@@ -216,13 +216,13 @@ rows:
         y: 173.65
       eye:
         x: 163.67
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: mouth_open
   - x: 1140
@@ -235,13 +235,13 @@ rows:
         y: 167.44
       eye:
         x: 164.0
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: mouth_open
 - animation: eye_beam
@@ -260,13 +260,13 @@ rows:
         y: 166.0
       eye:
         x: 164.0
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: eye_beam
   - x: 308
@@ -279,13 +279,13 @@ rows:
         y: 166.0
       eye:
         x: 164.33
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: eye_beam
   - x: 516
@@ -298,13 +298,13 @@ rows:
         y: 166.0
       eye:
         x: 164.21
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: eye_beam
   - x: 724
@@ -317,13 +317,13 @@ rows:
         y: 166.0
       eye:
         x: 163.79
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: eye_beam
   - x: 932
@@ -336,13 +336,13 @@ rows:
         y: 166.0
       eye:
         x: 163.67
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: eye_beam
   - x: 1140
@@ -355,13 +355,13 @@ rows:
         y: 166.0
       eye:
         x: 164.0
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: eye_beam
 - animation: death
@@ -380,13 +380,13 @@ rows:
         y: 171.4
       eye:
         x: 164.0
-        y: 96.0
+        y: 104.0
       eye_right:
         x: 132.0
-        y: 92.0
+        y: 114.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: death
   - x: 308
@@ -399,13 +399,13 @@ rows:
         y: 171.91
       eye:
         x: 164.27
-        y: 96.08
+        y: 104.08
       eye_right:
         x: 132.0
-        y: 92.11
+        y: 114.11
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: death
   - x: 516
@@ -418,13 +418,13 @@ rows:
         y: 172.55
       eye:
         x: 164.34
-        y: 96.3
+        y: 104.3
       eye_right:
         x: 132.0
-        y: 92.4
+        y: 114.4
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: death
   - x: 724
@@ -437,13 +437,13 @@ rows:
         y: 173.28
       eye:
         x: 164.15
-        y: 96.59
+        y: 104.59
       eye_right:
         x: 132.0
-        y: 92.79
+        y: 114.79
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: death
   - x: 932
@@ -456,13 +456,13 @@ rows:
         y: 174.02
       eye:
         x: 163.85
-        y: 96.91
+        y: 104.91
       eye_right:
         x: 132.0
-        y: 93.21
+        y: 115.21
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: death
   - x: 1140
@@ -475,13 +475,13 @@ rows:
         y: 174.75
       eye:
         x: 163.66
-        y: 97.2
+        y: 105.2
       eye_right:
         x: 132.0
-        y: 93.6
+        y: 115.6
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: death
   - x: 1348
@@ -494,13 +494,13 @@ rows:
         y: 175.39
       eye:
         x: 163.73
-        y: 97.42
+        y: 105.42
       eye_right:
         x: 132.0
-        y: 93.89
+        y: 115.89
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: death
   - x: 1556
@@ -513,13 +513,13 @@ rows:
         y: 175.9
       eye:
         x: 164.0
-        y: 97.5
+        y: 105.5
       eye_right:
         x: 132.0
-        y: 94.0
+        y: 116.0
       core:
         x: 104.0
-        y: 144.0
+        y: 155.0
     attack:
       kind: death
 body_metrics:

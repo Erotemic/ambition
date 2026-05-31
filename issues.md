@@ -15,3 +15,20 @@ Several issues:
 
 
 * We need to be sure the aggressiveness levels of the actors as intro enemies is already set to the point where they attack the player. Architecturally there should be no distinction between an enemy and an NPC other than that for an enemy the aggressiveness is at a level where they attack. I think this is codified as an "Actor" but maybe it needs more polish and refactoring. 
+
+
+
+
+----
+
+
+We need to fix these bugs:
+
+* The smirking behemoth gets hit if I attack anywhere in the room (or at least flashes like they got hit), wondering if the hitbox could be generated incorrectly
+
+* The hitbox should not include the hat. It should be tight around the behemoth body.
+
+* The boss body is stuck with a white overlay when they die instead of just showing the sprite.
+
+* Not sure if explosions are working right. Wire them in, so the kernel NPC has a dialog option to spawn "fireworks" which spawns
+a sequences of firework like explosions (at least 5, probably more) in a realistic spread out temporal pattern. Make sure the explosion causes the appropriate sound effect.

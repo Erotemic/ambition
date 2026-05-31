@@ -97,7 +97,16 @@ pub const WORLD_SWITCH_TOGGLE: SfxId = SfxId::from_static("world.switch.toggle")
 pub const WORLD_CRATE_BREAK: SfxId = SfxId::from_static("world.crate.break");
 pub const WORLD_ROCK_BREAK: SfxId = SfxId::from_static("world.rock.break");
 pub const WORLD_ROCK_HIT: SfxId = SfxId::from_static("world.rock.hit");
-pub const WORLD_EXPLOSION: SfxId = SfxId::from_static("world.explosion");
+// Reusable generated explosion SFX. These IDs are authored under
+// tools/ambition_sfx_renderer/sounds/active/vfx.explosion.*.sfx.yaml and
+// packed into the runtime SFX bank; there is no committed OGG/WAV asset.
+pub const VFX_EXPLOSION_CLASSIC_BURST: SfxId = SfxId::from_static("vfx.explosion.classic_burst");
+pub const VFX_EXPLOSION_BURST_ROUND: SfxId = SfxId::from_static("vfx.explosion.burst_round");
+pub const VFX_EXPLOSION_SHOCKWAVE: SfxId = SfxId::from_static("vfx.explosion.shockwave");
+pub const VFX_EXPLOSION_SMOKE_BURST: SfxId = SfxId::from_static("vfx.explosion.smoke_burst");
+pub const VFX_EXPLOSION_STARBURST: SfxId = SfxId::from_static("vfx.explosion.starburst");
+// Back-compat semantic alias for call sites that only need "an explosion".
+pub const WORLD_EXPLOSION: SfxId = VFX_EXPLOSION_CLASSIC_BURST;
 pub const WORLD_PORTAL_ENTER: SfxId = SfxId::from_static("world.portal.enter");
 pub const WORLD_CHECKPOINT_ACTIVATE: SfxId = SfxId::from_static("world.checkpoint.activate");
 pub const WORLD_SAVE_POINT_ACTIVATE: SfxId = SfxId::from_static("world.save_point.activate");

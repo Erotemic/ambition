@@ -17,8 +17,8 @@
     death_seconds: 2.0,
     stagger_threshold: 999999,
     stagger_window_seconds: 0.1,
-    music_intro: "you_have_to_cut_the_rope",
-    music_phase1: "you_have_to_cut_the_rope",
-    music_phase2: "you_have_to_cut_the_rope",
-    music_enrage: "you_have_to_cut_the_rope",
+    music_intro: "smirking_behemoth_boss",
+    music_phase1: "smirking_behemoth_boss",
+    music_phase2: "smirking_behemoth_boss",
+    music_enrage: "smirking_behemoth_boss",
 )

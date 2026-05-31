@@ -82,6 +82,20 @@ pub const LEDGE_HORIZONTAL_REACH: f32 = 10.0;
 /// so climbing/dropping from a ledge does not become accidental.
 pub const LEDGE_GRAB_INTENT_DEADZONE: f32 = 0.25;
 
+/// The original, tighter vertical reach above the player's head. A grab
+/// inside this old window is considered "precise" and keeps the
+/// momentum-carry getup reward.
+pub const LEDGE_PRECISE_REACH_UP: f32 = 12.0;
+
+/// The original, tighter vertical reach below the player's head. The
+/// outer forgiving band still catches the player, but does not earn the
+/// boost unless the lip was also inside this precise band.
+pub const LEDGE_PRECISE_REACH_DOWN: f32 = 18.0;
+
+/// The original wall-face tolerance. Grabs within this horizontal band
+/// are precise; the wider `LEDGE_HORIZONTAL_REACH` is only a safety net.
+pub const LEDGE_PRECISE_HORIZONTAL_REACH: f32 = 4.0;
+
 /// What surface, and where, does the probe accept a ledge grab?
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeContact {
@@ -120,6 +134,28 @@ pub enum LedgeGetupKind {
     Attack,
 }
 
+/// Whether a grab was earned inside the original tight ledge probe or
+/// recovered through the wider forgiveness band.
+///
+/// The catch itself is valid either way, but only [`LedgeGrabQuality::Precise`]
+/// gets momentum-carry and fast-getup rewards. This keeps accessibility from
+/// erasing the skill reward for clean, on-window grabs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LedgeGrabQuality {
+    /// The ledge face and top lip were both inside the original tight
+    /// chin/face probe window.
+    Precise,
+    /// The widened safety-net probe caught the player outside the old
+    /// precision window.
+    Forgiving,
+}
+
+impl LedgeGrabQuality {
+    pub fn is_precise(self) -> bool {
+        matches!(self, Self::Precise)
+    }
+}
+
 /// Engine-owned ledge-grab state for the player.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeGrabState {
@@ -143,6 +179,9 @@ pub struct LedgeGrabState {
     /// by [`ledge_boost`]; pure data, no behavior change unless that
     /// helper actually consumes it.
     pub momentum_at_grab: Vec2,
+    /// Whether the grab landed inside the original tight chin/face
+    /// probe or through the widened safety-net band.
+    pub grab_quality: LedgeGrabQuality,
 }
 
 impl LedgeGrabState {
@@ -154,7 +193,32 @@ impl LedgeGrabState {
             getup_kind: LedgeGetupKind::Climb,
             climb_elapsed: 0.0,
             momentum_at_grab: Vec2::ZERO,
+            // Directly constructed/test states model the old precise grab
+            // unless the real latch path overwrites this from geometry.
+            grab_quality: LedgeGrabQuality::Precise,
         }
+    }
+
+    /// Hanging state with an explicit grab-quality classification.
+    pub fn hanging_with_quality(contact: LedgeContact, grab_quality: LedgeGrabQuality) -> Self {
+        Self {
+            grab_quality,
+            ..Self::hanging(contact)
+        }
+    }
+
+    /// Compatibility helper for call sites/tests that classify the grab as a
+    /// boolean. Prefer [`LedgeGrabQuality`] in new code so the precision reward
+    /// remains visible in type signatures.
+    pub fn hanging_with_precision(contact: LedgeContact, precise_grab: bool) -> Self {
+        Self::hanging_with_quality(
+            contact,
+            if precise_grab {
+                LedgeGrabQuality::Precise
+            } else {
+                LedgeGrabQuality::Forgiving
+            },
+        )
     }
 
     /// Convenience constructor for tests: hanging-on-ledge state with
@@ -573,6 +637,46 @@ pub fn tick_active_ledge_grab_clusters(
     true
 }
 
+/// Classify whether the grab geometry also satisfies the original,
+/// tighter probe window. Widened ledge grabs are still valid catches,
+/// but they intentionally do not earn ledge-momentum boost rewards.
+pub fn classify_ledge_grab(
+    player_pos: Vec2,
+    player_size: Vec2,
+    contact: LedgeContact,
+) -> LedgeGrabQuality {
+    let half = player_size * 0.5;
+    let head_y = player_pos.y - half.y;
+    let precise_min_y = head_y - LEDGE_PRECISE_REACH_UP;
+    let precise_max_y = head_y + LEDGE_PRECISE_REACH_DOWN;
+
+    // Invert the anchor formula from `probe_ledge_grab`:
+    // anchor.x = block_wall_x + wall_normal_x * (half.x - 1.0)
+    // anchor.y = top + half.y - 4.0
+    let block_wall_x = contact.anchor.x - contact.wall_normal_x * (half.x - 1.0);
+    let top = contact.anchor.y - half.y + 4.0;
+    let cling_x = if contact.wall_normal_x > 0.0 {
+        player_pos.x - half.x
+    } else {
+        player_pos.x + half.x
+    };
+
+    if top >= precise_min_y
+        && top <= precise_max_y
+        && (block_wall_x - cling_x).abs() <= LEDGE_PRECISE_HORIZONTAL_REACH
+    {
+        LedgeGrabQuality::Precise
+    } else {
+        LedgeGrabQuality::Forgiving
+    }
+}
+
+/// Convenience predicate for call sites/tests that only care about the
+/// precision reward gate.
+pub fn is_precise_ledge_grab(player_pos: Vec2, player_size: Vec2, contact: LedgeContact) -> bool {
+    classify_ledge_grab(player_pos, player_size, contact).is_precise()
+}
+
 /// Pick a wall normal to probe for a ledge: the active wall-cling
 /// normal first, else a horizontal axis-press while airborne.
 fn requested_wall_normal_clusters(
@@ -589,19 +693,6 @@ fn requested_wall_normal_clusters(
     None
 }
 
-/// Probe for and start a new ledge grab after normal collision has established
-/// this frame's wall/airborne state. Returns true when a new grab latched.
-///
-/// Two snap paths:
-///
-/// - **Intentional snap**: the player is wall-clinging or actively
-///   moving toward a wall (input.axis_x non-zero while airborne).
-///   `requested_wall_normal` returns the side to probe.
-/// - **Falling-into-ledge snap**: the player is falling fast and a
-///   grabbable ledge sits within reach on either side. Mirrors
-///   Smash's auto-snap on a descending recovery — you don't have
-///   to hold a stick into the wall to catch the lip you're already
-///   trying to grab.
 /// Compute the momentum-carry boost vector for a getup option.
 ///
 /// Returns a velocity to ADD to the launch / post-transition velocity
@@ -659,6 +750,9 @@ pub fn ledge_boost(
 /// transitions that have already started ticking `climb_elapsed`,
 /// subtracts that from `elapsed` to recover the grab-to-action time.
 pub fn ledge_boost_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> Vec2 {
+    if !state.grab_quality.is_precise() {
+        return Vec2::ZERO;
+    }
     let elapsed_at_initiation = (state.elapsed - state.climb_elapsed).max(0.0);
     ledge_boost(
         state.momentum_at_grab,
@@ -673,6 +767,9 @@ pub fn ledge_boost_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> 
 /// so a high-momentum getup runs faster AND exits faster, rather
 /// than just teleporting fast at the end of a frozen animation.
 pub fn ledge_boost_weight_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> f32 {
+    if !state.grab_quality.is_precise() {
+        return 0.0;
+    }
     let cfg = tuning.ledge_momentum;
     if cfg.window <= 0.0 {
         return 0.0;
@@ -690,11 +787,26 @@ pub fn ledge_getup_duration_scale(state: LedgeGrabState, tuning: &MovementTuning
     1.0 / (1.0 + weight * tuning.ledge_momentum.getup_speedup_gain)
 }
 
+/// Minimum downward velocity for the no-input falling auto-snap
 /// trigger. Kept above gentle drift so a player who is loitering near
 /// a ledge with no stick input doesn't get snagged by accident, but
 /// low enough that normal falling recovery catches near-miss lips.
 const FALL_SNAP_MIN_VY: f32 = 45.0;
 
+/// Probe for and start a new ledge grab after normal collision has established
+/// this frame's wall/airborne state. Returns true when a new grab latched.
+///
+/// Two snap paths:
+///
+/// - **Intentional snap**: the player is wall-clinging or actively
+///   moving toward a wall (input.axis_x non-zero while airborne).
+///   `requested_wall_normal` returns the side to probe.
+/// - **Falling-into-ledge snap**: the player is falling fast and a
+///   grabbable ledge sits within reach on either side. Mirrors
+///   Smash's auto-snap on a descending recovery — you don't have
+///   to hold a stick into the wall to catch the lip you're already
+///   trying to grab.
+///
 /// Attempt to latch a ledge grab this frame: requires the
 /// `ledge_grab` ability, no current grab, an airborne body, no
 /// release cooldown, and either a wall-cling axis press or a fast
@@ -746,6 +858,12 @@ pub fn try_start_ledge_grab_clusters(
         return false;
     };
 
+    let grab_quality = classify_ledge_grab(
+        clusters.kinematics.pos,
+        clusters.kinematics.size,
+        contact,
+    );
+
     let pre_wall_fresh = clusters.wall.pre_wall_vel_age <= LEDGE_REGRAB_COOLDOWN;
     let momentum_at_grab = if pre_wall_fresh
         && clusters.wall.pre_wall_vel.length_squared() > clusters.kinematics.vel.length_squared()
@@ -764,7 +882,7 @@ pub fn try_start_ledge_grab_clusters(
     clusters.wall.wall_normal_x = contact.wall_normal_x;
     clusters.ledge.grab = Some(LedgeGrabState {
         momentum_at_grab,
-        ..LedgeGrabState::hanging(contact)
+        ..LedgeGrabState::hanging_with_quality(contact, grab_quality)
     });
     // Smash-Bros style ledge intangibility: a brief invuln window on
     // grab. Reuses `dodge_roll_timer` because that field already gates
@@ -958,6 +1076,164 @@ mod tests {
             "a small horizontal near-miss should still grab the ledge"
         );
     }
+
+    #[test]
+    fn forgiving_vertical_grab_is_not_precise_for_boost() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let player_size = Vec2::new(28.0, 46.0);
+        let player_pos = Vec2::new(86.0, 150.0);
+        let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world)
+            .expect("forgiving ledge probe should still catch the player");
+        assert!(
+            !is_precise_ledge_grab(player_pos, player_size, contact),
+            "outer vertical forgiveness should latch but not earn boost precision"
+        );
+    }
+
+    #[test]
+    fn forgiving_horizontal_grab_is_not_precise_for_boost() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let player_size = Vec2::new(28.0, 46.0);
+        let player_pos = Vec2::new(78.0, 110.0);
+        let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world)
+            .expect("forgiving ledge probe should still catch the player");
+        assert!(
+            !is_precise_ledge_grab(player_pos, player_size, contact),
+            "outer horizontal forgiveness should latch but not earn boost precision"
+        );
+    }
+
+    #[test]
+    fn precise_grab_keeps_momentum_boost_reward() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
+        scratch.abilities.abilities.ledge_grab = true;
+        scratch.wall.wall_clinging = true;
+        scratch.wall.wall_normal_x = -1.0;
+        scratch.kinematics.vel = Vec2::new(240.0, -120.0);
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let latched =
+            try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
+        assert!(latched, "tight-window grab should latch");
+        let state = scratch.ledge.grab.expect("grab state should be active");
+        assert!(state.grab_quality.is_precise(), "old tight window should be precise");
+        let tuning = crate::engine_core::movement::MovementTuning::default();
+        assert!(
+            ledge_boost_for_state(state, &tuning).length_squared() > 0.0,
+            "precise grab should keep the momentum-carry reward"
+        );
+        assert!(
+            ledge_boost_weight_for_state(state, &tuning) > 0.0,
+            "precise grab should keep the fast-getup reward"
+        );
+    }
+
+    #[test]
+    fn forgiving_grab_latches_but_suppresses_momentum_boost_reward() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let mut scratch = scratch_at(Vec2::new(86.0, 150.0));
+        scratch.abilities.abilities.ledge_grab = true;
+        scratch.wall.wall_clinging = true;
+        scratch.wall.wall_normal_x = -1.0;
+        scratch.kinematics.vel = Vec2::new(240.0, -120.0);
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let latched =
+            try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
+        assert!(latched, "outer-window grab should still latch");
+        let state = scratch.ledge.grab.expect("grab state should be active");
+        assert!(
+            !state.grab_quality.is_precise(),
+            "outer-window grab should be forgiving, not precise"
+        );
+        let tuning = crate::engine_core::movement::MovementTuning::default();
+        assert_eq!(
+            ledge_boost_for_state(state, &tuning),
+            Vec2::ZERO,
+            "forgiving grab should not receive the momentum boost"
+        );
+        assert_eq!(
+            ledge_boost_weight_for_state(state, &tuning),
+            0.0,
+            "forgiving grab should not receive the fast-getup reward"
+        );
+    }
+
+    #[test]
+    fn forgiving_grab_still_allows_regular_ledge_jump_without_bonus_velocity() {
+        let contact = rightward_ledge_contact();
+        let mut scratch = make_hanging_player_with_momentum(contact, Vec2::new(240.0, -120.0));
+        scratch.ledge.grab = Some(LedgeGrabState {
+            grab_quality: LedgeGrabQuality::Forgiving,
+            ..scratch.ledge.grab.expect("hanging state")
+        });
+        let mut events = crate::engine_core::movement::FrameEvents::default();
+        let tuning = crate::engine_core::movement::MovementTuning::default();
+        let input = InputState {
+            jump_pressed: true,
+            ..InputState::default()
+        };
+
+        let consumed =
+            tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
+
+        assert!(consumed);
+        assert!(scratch.ledge.grab.is_none());
+        let expected_regular_x = into_platform_axis(contact) * tuning.jump_speed * 0.35;
+        assert!(
+            (scratch.kinematics.vel.x - expected_regular_x).abs() < 0.01,
+            "forgiving ledge jump should keep only the regular inboard hop velocity; got vx={} expected {}",
+            scratch.kinematics.vel.x,
+            expected_regular_x,
+        );
+        assert!(
+            (scratch.kinematics.vel.y + tuning.jump_speed).abs() < 0.01,
+            "forgiving ledge jump should not add upward momentum boost; got vy={} expected {}",
+            scratch.kinematics.vel.y,
+            -tuning.jump_speed,
+        );
+    }
+
+    #[test]
+    fn precise_grab_quality_is_reported_as_an_explicit_state() {
+        let world = world_with(vec![Block::solid(
+            "ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+        )]);
+        let player_size = Vec2::new(28.0, 46.0);
+        let precise_pos = Vec2::new(86.0, 110.0);
+        let forgiving_pos = Vec2::new(86.0, 150.0);
+        let precise_contact = probe_ledge_grab(precise_pos, player_size, -1.0, &world)
+            .expect("precise ledge probe should catch");
+        let forgiving_contact = probe_ledge_grab(forgiving_pos, player_size, -1.0, &world)
+            .expect("forgiving ledge probe should catch");
+
+        assert_eq!(
+            classify_ledge_grab(precise_pos, player_size, precise_contact),
+            LedgeGrabQuality::Precise,
+        );
+        assert_eq!(
+            classify_ledge_grab(forgiving_pos, player_size, forgiving_contact),
+            LedgeGrabQuality::Forgiving,
+        );
+    }
+
     #[test]
     fn finds_ledge_on_blink_wall() {
         let world = world_with(vec![Block::blink_wall(
@@ -1090,6 +1366,7 @@ mod tests {
             getup_kind: LedgeGetupKind::Climb,
             climb_elapsed: 0.0,
             momentum_at_grab: momentum,
+            grab_quality: LedgeGrabQuality::Precise,
         });
         scratch.wall.wall_clinging = true;
         scratch.wall.on_wall = true;

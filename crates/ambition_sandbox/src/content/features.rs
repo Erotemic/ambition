@@ -84,23 +84,26 @@ pub use chests::ChestRuntime;
 pub use components::{
     ActorCombatState, ActorCooldowns, ActorDisposition, ActorFaction, ActorHealth, ActorIdentity,
     ActorIntent, ActorTarget, BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature,
-    ChestBundle, ChestFeature, Collected, EncounterMob, EncounterRewardChest, EnemyActorBundle,
-    FallingChest, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName,
-    FeatureRenderedBundle, Opened, PersistKey, PickupBundle, PickupFeature, PogoTargetContributor,
-    RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
+    ChestBundle, ChestFeature, Collected, DamageableVolumes, EncounterMob, EncounterRewardChest,
+    EnemyActorBundle, FallingChest, FeatureAabb, FeatureBaseBundle, FeatureId,
+    FeatureLifecycleBundle, FeatureName, FeatureRenderedBundle, Opened, PersistKey, PickupBundle,
+    PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, RespawnTimer,
+    SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::{
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
     clear_encounter_reward_ecs, collect_ecs_pickups, derive_boss_sprite_metrics,
-    despawn_encounter_mobs, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
-    ecs_boss_animation_frame_sample, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
-    ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_hit_event_hits_actor,
-    ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, ecs_npc_anim_state, ecs_npc_name,
-    enforce_mount_rider_link, interact_ecs_actors_and_switches, is_composite_spawn,
-    open_ecs_chests, pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay,
-    rebuild_feature_view_index, reset_ecs_room_features, select_actor_targets, spawn_encounter_mob,
-    spawn_enemy_projectiles_from_brain_actions, spawn_eye_beam_from_special_messages,
-    spawn_gnu_apple_rain_from_special_messages,
+    derive_pogo_target_volumes, despawn_encounter_mobs, ecs_boss_anim_state,
+    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
+    ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name,
+    ecs_enemy_sprite_override, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
+    ecs_hit_event_hits_breakable, ecs_npc_anim_state, ecs_npc_name, enforce_mount_rider_link,
+    interact_ecs_actors_and_switches, is_composite_spawn, open_ecs_chests,
+    pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
+    refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
+    refresh_breakable_damageable_volumes, reset_ecs_room_features, select_actor_targets,
+    spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
+    spawn_eye_beam_from_special_messages, spawn_gnu_apple_rain_from_special_messages,
     spawn_gradient_cascade_minions_from_special_messages, spawn_melee_hitbox,
     spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
     spawn_room_feature_entities, spawn_saddle_point_from_special_messages,
@@ -147,6 +150,15 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             Update,
             (
                 crate::ldtk_world::poll_ldtk_file_changes,
+                // Sprite-driven boss metrics must be available before
+                // boss damageable/pogo volumes are derived, otherwise
+                // composite bosses such as GNU-ton would briefly fall
+                // back to their coarse spawn envelope.
+                derive_boss_sprite_metrics,
+                refresh_actor_damageable_volumes,
+                refresh_boss_damageable_volumes,
+                refresh_breakable_damageable_volumes,
+                derive_pogo_target_volumes,
                 rebuild_feature_ecs_world_overlay,
                 update_ecs_hazards,
                 // Target selection runs before actor / boss updates so
@@ -168,12 +180,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // Boss tick chain (post "move boss policy out of
                 // BossRuntime"): the brain decides intent first, then
                 // the integration system consumes its `desired_vel`.
-                // `derive_boss_sprite_metrics` runs FIRST so the
-                // sprite-driven combat_size + hurtbox metadata is in
-                // place by the time the brain reads them. It's a
-                // once-per-boss derivation gated by the
-                // `BossSpriteMetricsApplied` marker.
-                derive_boss_sprite_metrics,
                 // `sync_boss_encounter_phase` runs before the brain
                 // tick so this frame's phase is the one
                 // `BossPatternContext` carries.

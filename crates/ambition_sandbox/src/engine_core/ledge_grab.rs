@@ -858,11 +858,8 @@ pub fn try_start_ledge_grab_clusters(
         return false;
     };
 
-    let grab_quality = classify_ledge_grab(
-        clusters.kinematics.pos,
-        clusters.kinematics.size,
-        contact,
-    );
+    let grab_quality =
+        classify_ledge_grab(clusters.kinematics.pos, clusters.kinematics.size, contact);
 
     let pre_wall_fresh = clusters.wall.pre_wall_vel_age <= LEDGE_REGRAB_COOLDOWN;
     let momentum_at_grab = if pre_wall_fresh
@@ -1128,7 +1125,10 @@ mod tests {
             try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
         assert!(latched, "tight-window grab should latch");
         let state = scratch.ledge.grab.expect("grab state should be active");
-        assert!(state.grab_quality.is_precise(), "old tight window should be precise");
+        assert!(
+            state.grab_quality.is_precise(),
+            "old tight window should be precise"
+        );
         let tuning = crate::engine_core::movement::MovementTuning::default();
         assert!(
             ledge_boost_for_state(state, &tuning).length_squared() > 0.0,

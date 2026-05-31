@@ -40,7 +40,7 @@ use crate::presentation::rendering::RoomVisual;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use bevy::prelude::{
     Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut,
-    Resource, With,
+    Resource, With, Without,
 };
 
 use crate::WorldTime;
@@ -68,6 +68,7 @@ mod spawn;
 mod spawn_actors;
 mod spawn_mounts;
 mod spawn_static;
+mod target_volumes;
 mod targeting;
 mod variation;
 mod view_index;
@@ -124,6 +125,10 @@ pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };
 pub use spawn::{despawn_encounter_mobs, spawn_encounter_mob, spawn_room_feature_entities};
+pub use target_volumes::{
+    derive_pogo_target_volumes, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
+    refresh_breakable_damageable_volumes,
+};
 pub use targeting::select_actor_targets;
 pub use view_index::{rebuild_feature_view_index, FeatureViewIndex};
 

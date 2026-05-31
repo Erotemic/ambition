@@ -1,10 +1,10 @@
 //! Sandbox collision-world overlay rebuilt from ECS feature state.
 //!
 //! The overlay is the bridge between the static ECS world (loaded
-//! from LDtk) and the dynamic feature state (broken breakables, alive
-//! enemies, boss bodies). Engine code that needs the augmented
-//! collision world calls `world_with_sandbox_solids` with this
-//! resource; rebuilding it once per frame keeps the augment cheap.
+//! from LDtk) and the dynamic feature state (broken breakables, live
+//! pogo target volumes, boss hurtboxes). Engine code that needs the augmented
+//! collision world calls `world_with_sandbox_solids` with this resource;
+//! rebuilding it once per frame keeps the augment cheap.
 
 use super::*;
 
@@ -16,27 +16,32 @@ pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
 }
 
-/// Rebuild the transient collision blocks contributed by ECS-owned breakables.
+/// Rebuild the transient collision blocks contributed by ECS-owned features.
 pub fn rebuild_feature_ecs_world_overlay(
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
     breakables: Query<
         (&FeatureId, &FeatureName, &FeatureAabb, &BreakableFeature),
         With<FeatureSimEntity>,
     >,
-    actors: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
-    bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
+    legacy_pogo_targets: Query<
+        (&FeatureId, &FeatureAabb),
+        (
+            With<FeatureSimEntity>,
+            With<PogoTargetContributor>,
+            Without<PogoTargetVolumes>,
+        ),
+    >,
+    pogo_targets: Query<(&FeatureId, &PogoTargetVolumes), With<FeatureSimEntity>>,
 ) {
     overlay.blocks.clear();
     for (id, name, aabb, feature) in &breakables {
         if feature.broken() {
             continue;
         }
+        // Pogo-refresh breakables are now contributed through
+        // PogoTargetVolumes below. Preserve the old behavior where a pogo orb is
+        // a non-solid ghost block even if its authored collision says otherwise.
         if feature.breakable.pogo_refresh {
-            overlay.blocks.push(ae::Block {
-                name: format!("ecs-breakable-pogo {}", name.0.as_str()),
-                aabb: aabb.aabb(),
-                kind: ae::BlockKind::PogoOrb,
-            });
             continue;
         }
         let kind = match feature.breakable.collision {
@@ -61,43 +66,27 @@ pub fn rebuild_feature_ecs_world_overlay(
         }
     }
 
-    // Expose alive enemy and boss bodies as PogoOrb ghost-blocks so the
-    // pogo-attack advance code can bounce off them without requiring the
-    // damage queue to resolve first. PogoOrb blocks do not block player
-    // movement or blink traversal, so this cannot cause collision regressions.
-    for (id, aabb, actor) in &actors {
-        let ActorRuntime::Hostile(enemy) = actor else {
-            continue;
-        };
-        if !enemy.alive {
-            continue;
-        }
+    // Legacy stand-to-crumble contributors that do not have the new volume
+    // components yet. Production breakables currently receive PogoTargetVolumes
+    // at spawn, but this fallback keeps minimal tests and custom spawns working.
+    for (id, aabb) in &legacy_pogo_targets {
         overlay.blocks.push(ae::Block {
-            name: format!("ecs-enemy-body {}", id.as_str()),
+            name: format!("ecs-legacy-pogo-target {}", id.as_str()),
             aabb: aabb.aabb(),
             kind: ae::BlockKind::PogoOrb,
         });
     }
-    for (id, _aabb, feature) in &bosses {
-        let boss = &feature.boss;
-        if !boss.alive {
-            continue;
+
+    // Generic ECS pogo target bridge. Actors, NPCs, bosses, and hit-reactive
+    // breakables publish PogoTargetVolumes; the overlay does not need to know
+    // which feature family produced them.
+    for (id, pogo) in &pogo_targets {
+        for (idx, aabb) in pogo.volumes.iter().copied().enumerate() {
+            overlay.blocks.push(ae::Block {
+                name: format!("ecs-pogo-target {} {}", id.as_str(), idx),
+                aabb,
+                kind: ae::BlockKind::PogoOrb,
+            });
         }
-        // Use the boss's *combat* AABB (sprite-derived
-        // `body_pixel_bbox` × spawn size) rather than the
-        // `FeatureAabb` (which is the full spawn / render
-        // envelope). The render envelope can extend well past
-        // the visible body — at 128×160 spawn the FeatureAabb
-        // includes ~22 px of empty space around the sprite
-        // body, and pogo would "land" in that empty strip with
-        // no visual feedback. The combat AABB matches the
-        // orange debug box and the body-contact damage zone
-        // exactly, so the player gets predictable pogo targets
-        // aligned with what they can see.
-        overlay.blocks.push(ae::Block {
-            name: format!("ecs-boss-body {}", id.as_str()),
-            aabb: boss.aabb(),
-            kind: ae::BlockKind::PogoOrb,
-        });
     }
 }

@@ -608,18 +608,16 @@ mod tests {
     }
 
     fn hang_state(getup: ae::LedgeGetupKind, climbing: bool) -> ae::LedgeGrabState {
-        ae::LedgeGrabState {
-            contact: ae::LedgeContact {
-                wall_normal_x: -1.0,
-                anchor: ae::Vec2::new(86.0, 110.0),
-                climb_target: ae::Vec2::new(115.0, 77.0),
-            },
-            elapsed: 0.1,
-            climbing,
-            getup_kind: getup,
-            climb_elapsed: 0.0,
-            momentum_at_grab: ae::Vec2::ZERO,
-        }
+        let contact = ae::LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: ae::Vec2::new(86.0, 110.0),
+            climb_target: ae::Vec2::new(115.0, 77.0),
+        };
+        let mut state = ae::LedgeGrabState::hanging(contact);
+        state.elapsed = 0.1;
+        state.climbing = climbing;
+        state.getup_kind = getup;
+        state
     }
 
     /// While hanging (not climbing), the picker returns the static

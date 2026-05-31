@@ -169,7 +169,61 @@ pub struct StandTimer(pub f32);
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SandboxSolidContributor;
 
-/// Marker for ECS features that can refresh pogo when struck/bounced.
+/// Volumes that can currently receive player-side attack damage.
+///
+/// This is intentionally a per-frame ECS read model rather than a type-specific
+/// helper call: actors can publish their current body AABB, bosses can publish
+/// sprite-authored hurtboxes, and breakables can publish authored trigger
+/// volumes. Systems that care about "what can the player hit?" should consume
+/// this component instead of rediscovering family-specific geometry.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct DamageableVolumes {
+    pub volumes: Vec<ae::Aabb>,
+}
+
+impl DamageableVolumes {
+    pub fn clear(&mut self) {
+        self.volumes.clear();
+    }
+
+    pub fn set_single(&mut self, aabb: ae::Aabb) {
+        self.volumes.clear();
+        self.volumes.push(aabb);
+    }
+}
+
+/// Per-feature pogo derivation policy.
+///
+/// The default game rule is that things the player can damage are also valid
+/// downslash/pogo refresh targets. `Disabled` is the escape hatch for puzzle
+/// targets or hazardous objects that should take damage without granting a
+/// bounce, while `Custom` leaves `PogoTargetVolumes` to a domain-specific
+/// system.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PogoPolicy {
+    #[default]
+    FromDamageable,
+    Custom,
+    Disabled,
+}
+
+/// Volumes that should be bridged into the engine collision world as
+/// non-solid `PogoOrb` blocks.
+///
+/// `rebuild_feature_ecs_world_overlay` consumes this generic component instead
+/// of hard-coding "enemy body" or "boss body" branches. That keeps composite
+/// bosses such as GNU-ton free to expose only their active hurtboxes as pogo
+/// targets.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct PogoTargetVolumes {
+    pub volumes: Vec<ae::Aabb>,
+}
+
+/// Legacy marker for ECS features that can refresh pogo when struck/bounced.
+///
+/// Prefer `DamageableVolumes` + `PogoPolicy` + `PogoTargetVolumes` for new
+/// gameplay. This marker remains for authored stand-to-crumble surfaces whose
+/// pogo affordance is not a player-damage target.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PogoTargetContributor;
 
@@ -629,6 +683,9 @@ pub struct EnemyActorBundle {
     pub combat: ActorCombatState,
     pub intent: ActorIntent,
     pub cooldowns: ActorCooldowns,
+    pub damageable_volumes: DamageableVolumes,
+    pub pogo_policy: PogoPolicy,
+    pub pogo_target_volumes: PogoTargetVolumes,
 }
 
 #[cfg(test)]
@@ -670,5 +727,10 @@ mod tests {
     #[test]
     fn actor_faction_default_is_player() {
         assert_eq!(ActorFaction::default(), ActorFaction::Player);
+    }
+
+    #[test]
+    fn pogo_policy_defaults_to_damageable() {
+        assert_eq!(PogoPolicy::default(), PogoPolicy::FromDamageable);
     }
 }

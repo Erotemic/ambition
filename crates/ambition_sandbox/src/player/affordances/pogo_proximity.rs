@@ -6,20 +6,17 @@
 //! aim-down Attack reads as `AttackVariant::Pogo` (instead of `DAir`)
 //! only when bouncing would actually fire.
 //!
-//! "Pogo-able" today means any feature entity carrying the
-//! [`crate::features::PogoTargetContributor`] marker — breakable
-//! pogo orbs, spike-cap enemies the engine accepts as pogo targets,
-//! etc. The detection is generous: any AABB overlap inside the
-//! downward sweep volume counts. Tightening to the actual pogo arc
-//! is the engine's job, not the HUD's; a false positive here just
-//! means the HUD label upgrades to "Pogo" one frame before the
-//! engine accepts the bounce, which is the right side of the
-//! conservative trade.
+//! Pogo-able features now publish [`crate::features::PogoTargetVolumes`].
+//! The default feature rule derives those volumes from current
+//! [`crate::features::DamageableVolumes`], so peaceful NPCs, hostile actors,
+//! and boss hurtboxes all feed the same affordance path. The legacy
+//! [`crate::features::PogoTargetContributor`] marker remains as a fallback for
+//! authored stand-to-crumble surfaces that are pogoable but not damageable.
 
 use crate::engine_core::AabbExt;
 use bevy::prelude::*;
 
-use crate::features::{FeatureAabb, FeatureSimEntity, PogoTargetContributor};
+use crate::features::{FeatureAabb, FeatureSimEntity, PogoTargetContributor, PogoTargetVolumes};
 
 /// Resource: true iff a pogo-able target is currently below the
 /// primary player within [`POGO_DETECTION_DEPTH`] of their feet.
@@ -41,8 +38,8 @@ pub const POGO_DETECTION_DEPTH: f32 = 96.0;
 pub const POGO_DETECTION_HALF_WIDTH: f32 = 24.0;
 
 /// Refresh [`PogoTargetBelow`] each frame. Cheap: a single AABB
-/// build per player + a linear scan over [`PogoTargetContributor`]
-/// features (a few dozen at most per room).
+/// build per player + a linear scan over published pogo volumes
+/// (a few dozen at most per room).
 pub fn update_pogo_target_below(
     player: Query<
         &crate::player::PlayerKinematics,
@@ -51,7 +48,8 @@ pub fn update_pogo_target_below(
             With<crate::player::PrimaryPlayer>,
         ),
     >,
-    targets: Query<&FeatureAabb, (With<FeatureSimEntity>, With<PogoTargetContributor>)>,
+    targets: Query<&PogoTargetVolumes, With<FeatureSimEntity>>,
+    legacy_targets: Query<&FeatureAabb, (With<FeatureSimEntity>, With<PogoTargetContributor>)>,
     mut out: ResMut<PogoTargetBelow>,
 ) {
     let Ok(kin) = player.single() else {
@@ -70,10 +68,20 @@ pub fn update_pogo_target_below(
     let scan = crate::engine_core::Aabb::new(center, half_size);
 
     let mut hit = false;
-    for aabb in &targets {
-        if aabb.aabb().strict_intersects(scan) {
-            hit = true;
-            break;
+    'targets: for pogo in &targets {
+        for aabb in pogo.volumes.iter().copied() {
+            if aabb.strict_intersects(scan) {
+                hit = true;
+                break 'targets;
+            }
+        }
+    }
+    if !hit {
+        for aabb in &legacy_targets {
+            if aabb.aabb().strict_intersects(scan) {
+                hit = true;
+                break;
+            }
         }
     }
     if out.0 != hit {

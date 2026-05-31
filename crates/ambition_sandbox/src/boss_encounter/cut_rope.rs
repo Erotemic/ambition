@@ -9,9 +9,9 @@
 
 use bevy::prelude::*;
 
-use crate::brain::ActorControl;
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{force_boss_death, BossEncounterRegistry};
+use crate::brain::ActorControl;
 use crate::brain::BossAttackState;
 use crate::config::world_to_bevy;
 use crate::engine_core::{self as ae, AabbExt};
@@ -273,7 +273,11 @@ pub fn steer_cut_rope_boss_under_anvil(
         attack_state.clear();
         control.0.melee_pressed = false;
         control.0.special_pressed = false;
-        control.0.facing = if dx.abs() > 2.0 { dx.signum() } else { boss.facing };
+        control.0.facing = if dx.abs() > 2.0 {
+            dx.signum()
+        } else {
+            boss.facing
+        };
         control.0.desired_vel = if dx.abs() <= boss_alignment_tolerance(boss) {
             ae::Vec2::ZERO
         } else {

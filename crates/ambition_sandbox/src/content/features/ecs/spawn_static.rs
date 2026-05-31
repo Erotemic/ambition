@@ -75,6 +75,9 @@ pub(super) fn spawn_breakable(
         FeatureName::new(authored.name.clone()),
         feature_aabb,
         BreakableFeature::new(breakable.clone()),
+        DamageableVolumes::default(),
+        PogoPolicy::FromDamageable,
+        PogoTargetVolumes::default(),
         StandTimer(0.0),
     ));
     if breakable.collision.blocks_movement() {

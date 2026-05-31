@@ -6,7 +6,7 @@
 //! file focused on systems.
 
 use super::*;
-use bevy::prelude::{App, Update, With};
+use bevy::prelude::{App, IntoScheduleConfigs, Update, With};
 
 /// Spawn the canonical player entity used by interaction system tests.
 ///
@@ -24,6 +24,103 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
         crate::player::PlayerSimulationBundle::from_scratch(scratch, crate::actor::Health::new(10));
     bundle.interaction.interact_buffer_timer = 0.15;
     app.world_mut().spawn(bundle);
+}
+
+#[test]
+fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
+    let center = ae::Vec2::new(120.0, 180.0);
+    let size = ae::Vec2::new(32.0, 48.0);
+    let aabb = ae::Aabb::new(center, size * 0.5);
+    let npc = NpcRuntime::new(
+        "guide",
+        "Guide",
+        aabb,
+        crate::interaction::Interactable::new(
+            "guide",
+            "Talk",
+            aabb,
+            crate::interaction::InteractionKind::Npc {
+                dialogue_id: Some("hub_guide".into()),
+                patrol_radius: 0.0,
+                patrol_path_id: None,
+            },
+        ),
+    );
+
+    let mut app = App::new();
+    app.insert_resource(FeatureEcsWorldOverlay::default());
+    app.world_mut().spawn((
+        FeatureSimEntity,
+        FeatureId::new("guide"),
+        FeatureName::new("Guide"),
+        FeatureAabb::from_center_size(center, size),
+        ActorRuntime::Peaceful(npc),
+        DamageableVolumes::default(),
+        PogoPolicy::FromDamageable,
+        PogoTargetVolumes::default(),
+    ));
+    app.add_systems(
+        Update,
+        (
+            refresh_actor_damageable_volumes,
+            derive_pogo_target_volumes,
+            rebuild_feature_ecs_world_overlay,
+        )
+            .chain(),
+    );
+    app.update();
+
+    let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+    assert!(
+        overlay
+            .blocks
+            .iter()
+            .any(|block| matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == aabb),
+        "peaceful NPCs are player-damageable and should therefore publish pogo blocks"
+    );
+}
+
+#[test]
+fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
+    let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
+    let pogo_hurtbox = ae::Aabb::new(ae::Vec2::new(440.0, 420.0), ae::Vec2::new(12.0, 16.0));
+    let boss = BossRuntime::new(
+        "gnu_ton",
+        "GNU-ton",
+        boss_body,
+        crate::actor::BossBrain::Dormant,
+    );
+
+    let mut app = App::new();
+    app.insert_resource(FeatureEcsWorldOverlay::default());
+    app.world_mut().spawn((
+        FeatureSimEntity,
+        FeatureId::new("gnu_ton"),
+        FeatureName::new("GNU-ton"),
+        FeatureAabb::from_aabb(boss_body),
+        BossFeature::new(boss),
+        PogoTargetVolumes {
+            volumes: vec![pogo_hurtbox],
+        },
+    ));
+    app.add_systems(Update, rebuild_feature_ecs_world_overlay);
+    app.update();
+
+    let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+    assert!(
+        overlay
+            .blocks
+            .iter()
+            .any(|block| matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == pogo_hurtbox),
+        "boss-specific hurtboxes should drive pogo blocks"
+    );
+    assert!(
+        !overlay
+            .blocks
+            .iter()
+            .any(|block| matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == boss_body),
+        "the overlay must not fall back to the coarse boss body AABB"
+    );
 }
 
 #[test]

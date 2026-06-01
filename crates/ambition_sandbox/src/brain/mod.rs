@@ -113,6 +113,7 @@ pub use state_machine::{
     WandererCfg, WandererState,
 };
 
+#[cfg(test)]
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
@@ -339,22 +340,26 @@ impl ActorActionMessage {
 }
 
 /// Bevy system: walk every actor entity that has a Brain +
-/// ActionSet + ActorControl and emit one `ActorActionMessage` per
-/// resolved action request. Runs after the brain-driver systems
-/// (tick_player_brains, update_ecs_actors's runtime tick) so the
-/// frame is current.
+/// ActionSet + ActorControl + gameplay ActorPose and emit one
+/// `ActorActionMessage` per resolved action request. Runs after the
+/// brain-driver systems (tick_player_brains, update_ecs_actors's
+/// runtime tick) so the frame is current.
+///
+/// The resolver intentionally reads `ActorPose` instead of Bevy
+/// `Transform`. Feature sim entities use `FeatureAabb` / `ActorPose` as
+/// gameplay truth; rendered child/visual entities own presentation
+/// transforms with sprite anchors, scaling, and hierarchy concerns.
 pub fn emit_brain_action_messages(
     actors: Query<(
         Entity,
         &ActorControl,
         &ActionSet,
-        &bevy::transform::components::Transform,
+        &crate::features::ActorPose,
     )>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
-    for (entity, control, action_set, transform) in &actors {
-        let origin = ae::Vec2::new(transform.translation.x, transform.translation.y);
-        for request in action_set::resolve(action_set, &control.0, origin) {
+    for (entity, control, action_set, pose) in &actors {
+        for request in action_set::resolve(action_set, &control.0, pose.origin()) {
             writer.write(ActorActionMessage {
                 actor: entity,
                 request,
@@ -479,7 +484,7 @@ mod tests {
     #[test]
     fn emit_brain_action_messages_skips_entities_missing_components() {
         // Resolver queries Brain + ActionSet + ActorControl +
-        // Transform. Entities missing any one are skipped silently
+        // ActorPose. Entities missing any one are skipped silently
         // (Bevy query filter). Pins this behavior so a future
         // refactor that loosens the filter doesn't accidentally
         // process partially-spawned entities and panic on the
@@ -494,10 +499,10 @@ mod tests {
             .spawn((
                 Brain::stand_still(),
                 ActorControl::default(),
-                bevy::transform::components::Transform::IDENTITY,
+                crate::features::ActorPose::default(),
             ))
             .id();
-        // Entity 2: missing Transform.
+        // Entity 2: missing ActorPose.
         let _e2 = app
             .world_mut()
             .spawn((
@@ -519,7 +524,7 @@ mod tests {
 
     #[test]
     fn emit_brain_action_messages_handles_many_actors() {
-        // Stress: 50 actors with Brain + ActionSet + Transform all
+        // Stress: 50 actors with Brain + ActionSet + ActorPose all
         // wanting to attack this tick. The resolver should emit
         // 50 messages in one update with no panic or quadratic
         // slowdown.
@@ -538,7 +543,11 @@ mod tests {
                 Brain::stand_still(),
                 ActorControl(frame),
                 actions.clone(),
-                bevy::transform::components::Transform::from_xyz(i as f32 * 10.0, 0.0, 0.0),
+                crate::features::ActorPose {
+                    center: ae::Vec2::new(i as f32 * 10.0, 0.0),
+                    feet: ae::Vec2::new(i as f32 * 10.0, 24.0),
+                    facing: 1.0,
+                },
             ));
         }
         app.update();
@@ -850,7 +859,7 @@ mod tests {
             }),
             ActorControl(frame),
             actions,
-            bevy::transform::components::Transform::IDENTITY,
+            crate::features::ActorPose::default(),
         ));
         app.update();
         let counter = app.world().resource::<BrainActionCounter>();
@@ -864,7 +873,7 @@ mod tests {
     }
 
     /// emit_brain_action_messages walks every Brain/ActionSet/
-    /// ActorControl entity and writes a message per resolved
+    /// ActorControl + ActorPose entity and writes a message per resolved
     /// ActionRequest. Pins that the resolver system, scheduled in
     /// PlayerInput, observes the brain output correctly.
     #[test]
@@ -889,7 +898,11 @@ mod tests {
                 }),
                 ActorControl(frame),
                 actions,
-                Transform::from_xyz(50.0, 100.0, 0.0),
+                crate::features::ActorPose {
+                    center: ae::Vec2::new(50.0, 100.0),
+                    feet: ae::Vec2::new(50.0, 124.0),
+                    facing: 1.0,
+                },
             ))
             .id();
         app.update();

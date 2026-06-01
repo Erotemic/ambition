@@ -15,7 +15,7 @@ use super::movement_components::{
     PlayerMana, PlayerOffense, PlayerShieldState, PlayerWallState,
 };
 use crate::brain::{ActionSet, ActorControl, Brain};
-use crate::features::ActorFaction;
+use crate::features::{ActorFaction, ActorPose, FeatureAabb};
 
 /// All simulation components required on the player entity.
 ///
@@ -67,6 +67,10 @@ pub struct PlayerSimulationBundle {
     pub brain: Brain,
     pub action_set: ActionSet,
     pub actor_control: ActorControl,
+    /// Gameplay-space action origin / facing read model shared with
+    /// non-player actors. Synced from `PlayerKinematics`, not from any
+    /// presentation `Transform`.
+    pub actor_pose: ActorPose,
     // The 18 player cluster components. Authoritative player state —
     // every engine entry point reads / writes them through
     // `PlayerClustersMut`. See `engine_core/player_clusters.rs` for
@@ -155,6 +159,10 @@ impl PlayerSimulationBundle {
             // default fires only for actual player entities.
             action_set,
             actor_control: ActorControl::default(),
+            actor_pose: ActorPose::from_aabb(
+                FeatureAabb::from_center_size(kinematics.pos, kinematics.size),
+                kinematics.facing,
+            ),
             abilities,
             kinematics,
             ground,

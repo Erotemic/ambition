@@ -70,6 +70,13 @@ impl ActorRuntime {
         }
     }
 
+    pub fn facing(&self) -> f32 {
+        match self {
+            Self::Peaceful(actor) => actor.facing,
+            Self::Hostile(actor) => actor.facing,
+        }
+    }
+
     pub fn disposition(&self) -> ActorDisposition {
         match self {
             Self::Peaceful(_) => ActorDisposition::Peaceful,
@@ -226,23 +233,29 @@ pub(crate) fn sync_actor_components_from_runtime(
     *cooldowns = next_cooldowns;
 }
 
-/// Keep the lightweight sim-entity `Transform` in sync with the authoritative
-/// [`FeatureAabb`] center for actor entities.
+/// Keep actor-like gameplay poses in sync with the authoritative [`FeatureAabb`].
 ///
-/// `emit_brain_action_messages` intentionally queries `Transform` as the
-/// generic action origin for every Brain + ActionSet actor. NPCs that later
-/// become hostile share the same actor entity, so they need the same transform
-/// component as enemies and mounted riders. Updating it here keeps the origin
-/// current without making presentation transforms authoritative for gameplay.
-pub fn sync_actor_action_transforms(
+/// `ActorPose` is the gameplay action-origin read model used by the universal
+/// brain/action resolver. Presentation `Transform`s are intentionally not the
+/// source of truth for sim entities; they belong to rendered visual entities and
+/// may have sprite anchors, scale, parent transforms, or cached bindings applied.
+pub fn sync_actor_poses_from_feature_aabbs(
     mut actors: Query<
-        (&FeatureAabb, &mut bevy::transform::components::Transform),
-        (With<FeatureSimEntity>, With<ActorRuntime>),
+        (
+            &FeatureAabb,
+            &mut super::super::components::ActorPose,
+            Option<&ActorRuntime>,
+            Option<&BossFeature>,
+        ),
+        With<FeatureSimEntity>,
     >,
 ) {
-    for (aabb, mut transform) in &mut actors {
-        transform.translation.x = aabb.center.x;
-        transform.translation.y = aabb.center.y;
+    for (aabb, mut pose, actor, boss) in &mut actors {
+        let facing = actor
+            .map(ActorRuntime::facing)
+            .or_else(|| boss.map(|feature| feature.boss.facing))
+            .unwrap_or(pose.facing);
+        *pose = super::super::components::ActorPose::from_aabb(*aabb, facing);
     }
 }
 
@@ -765,6 +778,40 @@ mod tests {
             crate::actor::EnemyBrain::Custom("burning_flying_shark".into()),
             &[],
         )
+    }
+
+    #[test]
+    fn sync_actor_pose_uses_feature_aabb_and_actor_facing() {
+        use bevy::prelude::{App, Update};
+
+        let mut app = App::new();
+        app.add_systems(Update, sync_actor_poses_from_feature_aabbs);
+
+        let mut enemy = burning_shark_enemy();
+        enemy.facing = -1.0;
+        let entity = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureAabb::from_center_size(ae::Vec2::new(40.0, 80.0), ae::Vec2::new(20.0, 30.0)),
+                crate::features::ActorPose::default(),
+                ActorRuntime::Hostile(enemy),
+            ))
+            .id();
+
+        app.update();
+
+        let entity_ref = app.world().entity(entity);
+        let pose = entity_ref.get::<crate::features::ActorPose>().unwrap();
+        assert_eq!(pose.center, ae::Vec2::new(40.0, 80.0));
+        assert_eq!(pose.feet, ae::Vec2::new(40.0, 95.0));
+        assert_eq!(pose.facing, -1.0);
+        assert!(
+            entity_ref
+                .get::<bevy::transform::components::Transform>()
+                .is_none(),
+            "ActorPose sync should not require a gameplay Transform shim"
+        );
     }
 
     #[test]

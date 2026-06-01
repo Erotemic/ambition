@@ -18,7 +18,7 @@ use crate::brain::BossAttackState;
 use crate::config::world_to_bevy;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::{
-    actor_component_snapshot, ActorRuntime, BossFeature, BossRuntime, DamageableVolumes,
+    actor_component_snapshot, ActorPose, ActorRuntime, BossFeature, BossRuntime, DamageableVolumes,
     EnemyActorBundle, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity,
     GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, ResetRoomFeaturesEvent,
 };
@@ -283,6 +283,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 disposition,
                 faction: crate::features::ActorFaction::Npc,
                 target: crate::features::ActorTarget::default(),
+                pose: ActorPose::from_aabb(FeatureAabb::from_aabb(aabb), actor.facing()),
                 health,
                 combat,
                 intent,

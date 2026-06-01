@@ -73,6 +73,51 @@ impl FeatureAabb {
     }
 }
 
+/// Gameplay-space pose for an actor-like feature.
+///
+/// `FeatureAabb` remains the authoritative collision body; `ActorPose` is the
+/// lightweight read model that brain/action systems use for attack origins and
+/// facing. This keeps gameplay action emission off Bevy `Transform`, which is a
+/// rendering/spatial-hierarchy concern in this codebase.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ActorPose {
+    pub center: ae::Vec2,
+    pub feet: ae::Vec2,
+    pub facing: f32,
+}
+
+impl ActorPose {
+    pub fn from_aabb(aabb: FeatureAabb, facing: f32) -> Self {
+        Self {
+            center: aabb.center,
+            feet: ae::Vec2::new(aabb.center.x, aabb.center.y + aabb.half_size.y),
+            facing: normalized_facing(facing),
+        }
+    }
+
+    pub fn origin(self) -> ae::Vec2 {
+        self.center
+    }
+}
+
+impl Default for ActorPose {
+    fn default() -> Self {
+        Self {
+            center: ae::Vec2::ZERO,
+            feet: ae::Vec2::ZERO,
+            facing: 1.0,
+        }
+    }
+}
+
+fn normalized_facing(facing: f32) -> f32 {
+    if facing < 0.0 {
+        -1.0
+    } else {
+        1.0
+    }
+}
+
 /// Explicit persistence key. Kept separate from `FeatureId` so migrated features
 /// can choose when authored identity and save identity differ.
 #[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]
@@ -714,6 +759,7 @@ pub struct EnemyActorBundle {
     /// entity (OVERNIGHT-TODO #17.8). Defaults to "no target",
     /// updated each tick.
     pub target: ActorTarget,
+    pub pose: ActorPose,
     pub health: ActorHealth,
     pub combat: ActorCombatState,
     pub intent: ActorIntent,

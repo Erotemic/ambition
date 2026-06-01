@@ -28,6 +28,7 @@ pub(super) fn spawn_boss(
         boss.combat_size(),
     );
     let initial_phase = BossPhase::from_alive(boss.alive);
+    let feature_aabb = FeatureAabb::from_center_size(boss.pos, boss.render_size());
     // BossPattern brain owns boss intent. The cfg snapshots the
     // authored behavior profile's pattern + movement at spawn
     // time, plus the per-boss spawn anchor and combat collision
@@ -104,7 +105,7 @@ pub(super) fn spawn_boss(
         RoomVisual,
         FeatureId::new(authored.id.clone()),
         FeatureName::new(authored.name.clone()),
-        FeatureAabb::from_center_size(boss.pos, boss.render_size()),
+        feature_aabb,
         // BossPatternTimer is a presentation-side mirror of the brain's
         // `BossPatternState.pattern_timer`; updated each tick by
         // `update_ecs_bosses`. Initial value is 0.0 because the brain
@@ -114,6 +115,7 @@ pub(super) fn spawn_boss(
         initial_phase,
         super::ActorFaction::Boss,
         super::ActorTarget::default(),
+        ActorPose::from_aabb(feature_aabb, boss.facing),
         (
             DamageableVolumes::default(),
             PogoPolicy::FromDamageable,
@@ -201,6 +203,7 @@ pub(crate) fn spawn_runtime_minion(
                 disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
+                pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
                 health,
                 combat,
                 intent,
@@ -274,6 +277,7 @@ pub(super) fn spawn_solo_enemy(
                 disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
+                pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
                 health,
                 combat,
                 intent,
@@ -286,18 +290,6 @@ pub(super) fn spawn_solo_enemy(
             brain,
             action_set,
             crate::brain::ActorControl::default(),
-            // `emit_brain_action_messages` requires a `Transform` on the
-            // sim entity to compute the action `origin`. Without this,
-            // the resolver silently skips enemies (the visual entity has
-            // a Transform but the sim entity does not), and every brain
-            // intent — melee, ranged, special — gets dropped. Position
-            // is kept fresh by `update_ecs_actors` via FeatureAabb; the
-            // Transform here is just the schema requirement.
-            bevy::transform::components::Transform::from_xyz(
-                feature_aabb.center.x,
-                feature_aabb.center.y,
-                0.0,
-            ),
         ))
         .id();
     if let Some(item) = held_item {
@@ -338,6 +330,7 @@ pub(super) fn spawn_interactable(
                 disposition,
                 faction: super::ActorFaction::Npc,
                 target: super::ActorTarget::default(),
+                pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
                 health,
                 combat,
                 intent,
@@ -350,17 +343,6 @@ pub(super) fn spawn_interactable(
             brain,
             crate::brain::ActionSet::peaceful(),
             crate::brain::ActorControl::default(),
-            // The sim entity owns a lightweight Transform because the
-            // universal ActionSet resolver queries Transform for the
-            // action origin. Peaceful NPCs can become hostile in-place;
-            // without this component they chase via `update_ecs_actors`
-            // but their melee/ranged intents are silently skipped by
-            // `emit_brain_action_messages`.
-            bevy::transform::components::Transform::from_xyz(
-                feature_aabb.center.x,
-                feature_aabb.center.y,
-                0.0,
-            ),
         ));
     } else if let crate::interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
@@ -405,32 +387,34 @@ pub(super) fn spawn_encounter_mob(
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
     let feature_aabb = FeatureAabb::from_center_size(pos, size);
-    commands.spawn((
-        Name::new(format!("Encounter mob: {id}")),
-        EnemyActorBundle {
-            base: FeatureBaseBundle::new(&id, &id, feature_aabb),
-            identity,
-            disposition,
-            faction: super::ActorFaction::Enemy,
-            target: super::ActorTarget::default(),
-            health,
-            combat,
-            intent,
-            cooldowns,
-            damageable_volumes: DamageableVolumes::default(),
-            pogo_policy: PogoPolicy::FromDamageable,
-            pogo_target_volumes: PogoTargetVolumes::default(),
-        },
-        actor,
-        EncounterMob::new(encounter_id),
-        brain,
-        action_set,
-        crate::brain::ActorControl::default(),
-        // Same Transform requirement as `spawn_enemy` — see that
-        // path for the rationale. Without it, encounter-spawned mobs
-        // are silently skipped by `emit_brain_action_messages`.
-        bevy::transform::components::Transform::from_xyz(pos.x, pos.y, 0.0),
-    ));
+    let entity = commands
+        .spawn((
+            Name::new(format!("Encounter mob: {id}")),
+            EnemyActorBundle {
+                base: FeatureBaseBundle::new(&id, &id, feature_aabb),
+                identity,
+                disposition,
+                faction: super::ActorFaction::Enemy,
+                target: super::ActorTarget::default(),
+                pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
+                health,
+                combat,
+                intent,
+                cooldowns,
+                damageable_volumes: DamageableVolumes::default(),
+                pogo_policy: PogoPolicy::FromDamageable,
+                pogo_target_volumes: PogoTargetVolumes::default(),
+            },
+            actor,
+            EncounterMob::new(encounter_id),
+            brain,
+            action_set,
+            crate::brain::ActorControl::default(),
+        ))
+        .id();
+    if let Some(item) = held_item {
+        commands.entity(entity).insert(super::HeldItem::new(item));
+    }
 }
 
 /// Despawn all ECS mobs owned by an encounter attempt.

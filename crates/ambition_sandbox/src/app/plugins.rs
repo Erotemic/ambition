@@ -168,6 +168,7 @@ fn register_player_input_systems(app: &mut App) {
             // `player_control_system` / `player_simulation_system`
             // (see `engine_input_from_actor_control`).
             crate::player::tick_player_brains,
+            crate::player::sync_player_actor_poses,
             // Universal-brain effects resolver: walk every actor's
             // ActionSet against the actor's ActorControl frame and
             // emit ActorActionMessage entries for each concrete

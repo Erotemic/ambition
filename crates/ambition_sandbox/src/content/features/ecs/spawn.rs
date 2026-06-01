@@ -79,7 +79,7 @@ mod tests {
         ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
     };
     use crate::content::features::{
-        EnemyArchetype, EnemyRuntime, MountSlot, MountedSize, RidingOn,
+        ActorRuntime, EnemyArchetype, EnemyRuntime, MountSlot, MountedSize, RidingOn,
     };
     use crate::engine_core as ae;
     use bevy::prelude::{App, Commands, Update, With};

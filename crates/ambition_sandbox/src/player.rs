@@ -41,8 +41,8 @@ pub use movement_components::{
 };
 pub use queries::{primary_player_entity, sort_players_by_slot, PrimaryPlayerOnly};
 pub use systems::{
-    apply_player_heal_requests, sync_local_player_input_frame, tick_player_brains,
-    write_player_ecs_components,
+    apply_player_heal_requests, sync_local_player_input_frame, sync_player_actor_poses,
+    tick_player_brains, write_player_ecs_components,
 };
 
 /// Build a `PlayerClusterScratch` for the primary player at `spawn`

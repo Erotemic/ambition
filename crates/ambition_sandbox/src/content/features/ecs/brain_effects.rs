@@ -1249,7 +1249,7 @@ mod tests {
     /// timings.
     #[test]
     fn melee_message_starts_enemy_windup_and_cooldown() {
-        use crate::brain::{MeleeActionSpec, SwipeSpec};
+        use crate::brain::{LungeSpec, MeleeActionSpec};
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
@@ -1312,7 +1312,7 @@ mod tests {
     /// `EnemyArchetype::attacks_player()`.
     #[test]
     fn melee_message_can_start_windup_for_dismounted_pirate_heavy() {
-        use crate::brain::{MeleeActionSpec, SwipeSpec};
+        use crate::brain::{LungeSpec, MeleeActionSpec};
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
@@ -1341,7 +1341,7 @@ mod tests {
             .write(ActorActionMessage {
                 actor,
                 request: ActionRequest::Melee {
-                    spec: MeleeActionSpec::Swipe(SwipeSpec::BRUTE_DEFAULT),
+                    spec: MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT),
                     origin: actor_pos,
                     facing: -1.0,
                     attack_axis: ae::Vec2::new(-1.0, 0.0),
@@ -1372,7 +1372,7 @@ mod tests {
     /// pre-migration legacy gate.
     #[test]
     fn melee_message_during_cooldown_is_dropped() {
-        use crate::brain::{MeleeActionSpec, SwipeSpec};
+        use crate::brain::{LungeSpec, MeleeActionSpec};
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();

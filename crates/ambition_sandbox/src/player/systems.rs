@@ -11,6 +11,7 @@ use super::movement_components::{PlayerGroundState, PlayerKinematics};
 use crate::brain::{ActorControl, Brain, BrainSnapshot};
 #[cfg(test)]
 use crate::engine_core as ae;
+use crate::features::{ActorPose, FeatureAabb};
 use crate::input::ControlFrame;
 
 /// Mirror the global [`ControlFrame`] resource onto the local primary
@@ -35,6 +36,19 @@ pub fn sync_local_player_input_frame(
     let snapshot = *frame;
     for mut player_input in &mut players {
         player_input.frame = snapshot;
+    }
+}
+
+/// Mirror authoritative player body state into the generic gameplay
+/// [`ActorPose`] used by the brain/action resolver.
+///
+/// The player, NPCs, enemies, and bosses should all expose action origins
+/// through gameplay pose data rather than presentation `Transform`s.
+pub fn sync_player_actor_poses(
+    mut players: Query<(&PlayerKinematics, &mut ActorPose), With<PlayerEntity>>,
+) {
+    for (kin, mut pose) in &mut players {
+        *pose = ActorPose::from_aabb(FeatureAabb::from_center_size(kin.pos, kin.size), kin.facing);
     }
 }
 

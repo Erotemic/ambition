@@ -226,6 +226,26 @@ pub(crate) fn sync_actor_components_from_runtime(
     *cooldowns = next_cooldowns;
 }
 
+/// Keep the lightweight sim-entity `Transform` in sync with the authoritative
+/// [`FeatureAabb`] center for actor entities.
+///
+/// `emit_brain_action_messages` intentionally queries `Transform` as the
+/// generic action origin for every Brain + ActionSet actor. NPCs that later
+/// become hostile share the same actor entity, so they need the same transform
+/// component as enemies and mounted riders. Updating it here keeps the origin
+/// current without making presentation transforms authoritative for gameplay.
+pub fn sync_actor_action_transforms(
+    mut actors: Query<
+        (&FeatureAabb, &mut bevy::transform::components::Transform),
+        (With<FeatureSimEntity>, With<ActorRuntime>),
+    >,
+) {
+    for (aabb, mut transform) in &mut actors {
+        transform.translation.x = aabb.center.x;
+        transform.translation.y = aabb.center.y;
+    }
+}
+
 /// Tick ECS actors. Peaceful and hostile actors share the same entity identity
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the
 /// same `ActorRuntime::Hostile` path with an `EncounterMob` marker.

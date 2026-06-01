@@ -350,6 +350,17 @@ pub(super) fn spawn_interactable(
             brain,
             crate::brain::ActionSet::peaceful(),
             crate::brain::ActorControl::default(),
+            // The sim entity owns a lightweight Transform because the
+            // universal ActionSet resolver queries Transform for the
+            // action origin. Peaceful NPCs can become hostile in-place;
+            // without this component they chase via `update_ecs_actors`
+            // but their melee/ranged intents are silently skipped by
+            // `emit_brain_action_messages`.
+            bevy::transform::components::Transform::from_xyz(
+                feature_aabb.center.x,
+                feature_aabb.center.y,
+                0.0,
+            ),
         ));
     } else if let crate::interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {

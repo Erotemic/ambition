@@ -90,14 +90,12 @@ pub struct MountedBrainCache {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct Mounted;
 
-/// Authored "while mounted" collision size for a rider. A standalone
-/// PirateRaider is 44x78 (~125 px tall rendered through the
-/// 1.6× pirate sheet collision_scale) — fine on the ground, but
-/// dwarfs a ~100 px-tall flying shark when stacked on top. Mounted
-/// riders carry a smaller `MountedSize` that the per-tick sync
-/// system snaps `EnemyRuntime.size` to; the dissolve path restores
-/// the standalone `spawn_size` so a dismounted pirate fights at
-/// full cove-pirate proportions.
+/// Authored sky-rider collision size. A standalone cove PirateRaider is
+/// 44x78 (~125 px tall rendered through the 1.6× pirate sheet
+/// collision_scale), but a shark-rider is an authored compact sky variant.
+/// Mount state should not change that scale: `sync_riders_to_mounts` snaps the
+/// rider to this size while mounted, and the composite spawn path sets
+/// `spawn_size` to the same value so the rider keeps it after dismount/reset.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct MountedSize(pub ae::Vec2);
 
@@ -141,11 +139,9 @@ pub fn sync_riders_to_mounts(
         if !rider.alive {
             continue;
         }
-        // Mounted size: snap collision footprint to the smaller
-        // "while mounted" size so the rider renders proportional to
-        // the mount instead of dwarfing it with the full standalone
-        // hitbox. Standalone size returns via `enforce_mount_rider_link`
-        // on dissolve.
+        // Sky-rider size: keep the authored rider footprint stable while the
+        // mount is alive. The same footprint remains after dismount; larger
+        // cove pirates are separate authored actor spawns.
         if let Some(size) = mounted_size {
             rider.size = size.0;
         }
@@ -201,6 +197,7 @@ pub fn enforce_mount_rider_link(
             Entity,
             &RidingOn,
             &mut ActorRuntime,
+            &mut FeatureAabb,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
             Option<&super::HeldItem>,
@@ -218,7 +215,9 @@ pub fn enforce_mount_rider_link(
         mount_alive.insert(mount_entity, alive);
     }
 
-    for (rider_entity, riding, mut rider_actor, cache, was_mounted, held_item) in &mut riders {
+    for (rider_entity, riding, mut rider_actor, mut rider_aabb, cache, was_mounted, held_item) in
+        &mut riders
+    {
         let ActorRuntime::Hostile(rider) = &mut *rider_actor else {
             continue;
         };
@@ -245,12 +244,11 @@ pub fn enforce_mount_rider_link(
                     ));
                 }
             }
-            // Mount dead, rider currently mounted → dissolve. Flip
-            // gravity on, restore rider to its full standalone
-            // size, and install the shared explicitly-hostile
-            // dismounted rider brain/action-set policy so a
-            // PirateRaider / PirateHeavy variant falls and walks at
-            // the player swinging melee.
+            // Mount dead, rider currently mounted → dissolve. Flip gravity on,
+            // keep the rider at its authored sky-rider size, and install the
+            // shared explicitly-hostile dismounted rider brain/action-set policy
+            // so a PirateRaider / PirateHeavy variant falls and fights without
+            // visually scaling up.
             (false, true) => {
                 rider.gravity_scale = if rider.archetype.is_aerial() {
                     0.0
@@ -258,6 +256,12 @@ pub fn enforce_mount_rider_link(
                     1.0
                 };
                 rider.size = rider.spawn_size;
+                // Publish immediately so same-frame presentation / combat sees
+                // the rider's grounded pose. This is usually the same size as
+                // MountedSize; keeping the write here makes intentional future
+                // size overrides explicit and safe.
+                rider_aabb.center = rider.pos;
+                rider_aabb.half_size = rider.size * 0.5;
                 let (new_brain, new_action_set) =
                     dismounted_rider_brain_and_action_set(rider, held_item.map(|item| &item.spec));
                 commands
@@ -278,8 +282,8 @@ pub fn enforce_mount_rider_link(
 /// sits directly above the mount's body with a small overlap so the
 /// pirate visually rests on the shark's saddle rather than floating.
 ///
-/// `mount_size` and `rider_size` are the standalone authored sizes;
-/// the offset uses the half-heights so the rider's bottom edge sits
+/// `mount_size` is the mount body size and `rider_size` is the authored
+/// sky-rider size; the offset uses the half-heights so the rider's bottom edge sits
 /// at the mount's top edge plus 8 px of overlap (matches the legacy
 /// fused `rider_aabb` placement).
 pub fn pirate_on_shark_rider_offset(mount_size: ae::Vec2, rider_size: ae::Vec2) -> ae::Vec2 {

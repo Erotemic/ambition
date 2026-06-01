@@ -167,8 +167,24 @@ fn state_aware_entity_sprite(
 /// `Without<CharacterAnimator>` filter hid the entity from the enemy
 /// upgrade pass and the kernel guide stayed visually a kernel guide
 /// after the third strike.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct BoundFeatureKind(pub FeatureVisualKind);
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct BoundFeatureKind {
+    pub kind: FeatureVisualKind,
+    pub collision_size: ae::Vec2,
+}
+
+impl BoundFeatureKind {
+    pub fn new(kind: FeatureVisualKind, collision: BVec2) -> Self {
+        Self {
+            kind,
+            collision_size: ae::Vec2::new(collision.x, collision.y),
+        }
+    }
+
+    fn matches(&self, kind: FeatureVisualKind, collision_size: ae::Vec2) -> bool {
+        self.kind == kind && (self.collision_size - collision_size).length_squared() <= 0.25
+    }
+}
 
 /// Bind enemy/sandbag visuals to the appropriate character sheet
 /// once the asset is available — and re-bind when an existing visual
@@ -194,8 +210,12 @@ pub fn upgrade_enemy_sprites(
         ) {
             continue;
         }
-        // Already bound to the correct kind — nothing to do this frame.
-        if matches!(bound, Some(BoundFeatureKind(k)) if *k == view.kind) {
+        let collision = BVec2::new(view.size.x, view.size.y);
+        // Already bound to the correct kind and collision footprint — nothing
+        // to do this frame. The collision-size check is still useful for rare
+        // intentional runtime size changes, but shark riders should normally
+        // keep the same visual/collision scale across mount and dismount.
+        if bound.is_some_and(|b| b.matches(view.kind, view.size)) {
             continue;
         }
         // Sprite-override path: an enemy that was spawned by migrating
@@ -237,13 +257,12 @@ pub fn upgrade_enemy_sprites(
         if images.get(&character_asset.texture).is_none() {
             continue;
         }
-        let collision = BVec2::new(view.size.x, view.size.y);
         let sprite = build_character_sprite(character_asset, collision);
         commands.entity(entity).insert((
             sprite,
             feet_anchor_for(&character_asset.spec, collision),
             CharacterAnimator::new(&character_asset.spec),
-            BoundFeatureKind(view.kind),
+            BoundFeatureKind::new(view.kind, collision),
         ));
     }
 }
@@ -276,7 +295,8 @@ pub fn upgrade_npc_sprites(
         if !matches!(view.kind, FeatureVisualKind::Npc) {
             continue;
         }
-        if matches!(bound, Some(BoundFeatureKind(k)) if *k == view.kind) {
+        let collision = BVec2::new(view.size.x, view.size.y);
+        if bound.is_some_and(|b| b.matches(view.kind, view.size)) {
             continue;
         }
         let Some(name) = crate::features::ecs_npc_name(&visual.id, &ecs_actors) else {
@@ -292,13 +312,12 @@ pub fn upgrade_npc_sprites(
         if images.get(&character_asset.texture).is_none() {
             continue;
         }
-        let collision = BVec2::new(view.size.x, view.size.y);
         let sprite = build_character_sprite(character_asset, collision);
         commands.entity(entity).insert((
             sprite,
             feet_anchor_for(&character_asset.spec, collision),
             CharacterAnimator::new(&character_asset.spec),
-            BoundFeatureKind(view.kind),
+            BoundFeatureKind::new(view.kind, collision),
         ));
     }
 }

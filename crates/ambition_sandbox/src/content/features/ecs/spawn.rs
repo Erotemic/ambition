@@ -304,6 +304,48 @@ mod tests {
         ));
     }
 
+    /// Non-heavy shark riders also keep their authored sky-rider scale after
+    /// dismount. Mount status should not make a PirateRaider visually grow into
+    /// the larger cove spawn profile.
+    #[test]
+    fn pirate_raider_shark_rider_keeps_compact_dismounted_size() {
+        let mut app = App::new();
+        app.add_systems(Update, |mut commands: Commands| {
+            let authored = crate::rooms::Authored {
+                id: "pirate_raider_sky".to_string(),
+                name: "Pirate Raider on Shark".to_string(),
+                aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
+                payload: crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
+            };
+            spawn_composite_mount_rider(
+                &mut commands,
+                &authored,
+                &[],
+                EnemyArchetype::PirateOnShark,
+            );
+        });
+        app.update();
+
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(&ActorRuntime, &MountedSize), With<RidingOn>>();
+        let (actor, mounted_size) = q
+            .iter(app.world())
+            .next()
+            .expect("light shark composite should spawn a rider");
+        let ActorRuntime::Hostile(rider) = actor else {
+            panic!("rider should be hostile")
+        };
+        assert_eq!(
+            rider.spawn_size, mounted_size.0,
+            "sky PirateRaider dismount should keep compact rider collision size",
+        );
+        assert_eq!(
+            rider.size, mounted_size.0,
+            "mounted rider starts at the same compact size it will use after dismount",
+        );
+    }
+
     /// PirateHeavy-on-shark uses the small rider sprite/scale. When the shark
     /// dies, she should not suddenly gain the full cove-heavy collision body.
     #[test]

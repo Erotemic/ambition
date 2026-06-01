@@ -85,26 +85,21 @@ pub(super) fn spawn_composite_mount_rider(
         }
         _ => (EnemyArchetype::PirateRaider, "Pirate Raider".to_string()),
     };
-    // Standalone size = full cove-pirate hitbox (44x78 for the
-    // raider; 72x110 for a heavy). Mounted size = half that, so the
-    // rider visually fits ON the shark instead of dwarfing it.
+    // Standalone size = the full cove-pirate hitbox (44x78 for the raider;
+    // 72x110 for a heavy). Shark-rider size = the authored sky-rider scale.
     //
-    // The sky-fight PirateHeavy remains visually at the compact mounted
-    // scale after her shark dies, so her dismounted collision must stay at
-    // that scale too. The full 72x110 body is reserved for the larger cove
-    // heavy variants. Keeping these sizes separate prevents the small sky
-    // sprite from carrying a huge invisible cove-heavy hurtbox.
+    // Important: mount status must not resize a character by default. A shark
+    // rider begins at the compact sky-fight scale so she fits ON the shark, and
+    // she keeps that same size after dismount. Larger cove PirateRaider /
+    // PirateHeavy actors are separate authored spawns that use their full
+    // standalone archetype sizes.
     let standalone_size = rider_archetype
         .default_size()
         .expect("rider archetype has a default_size");
     let mounted_size = standalone_size * 0.5;
-    let dismounted_size = match rider_archetype {
-        EnemyArchetype::PirateHeavy => mounted_size,
-        _ => standalone_size,
-    };
-    // Rider starts at the mounted footprint so its initial AABB
-    // matches the visual that will resolve through
-    // `upgrade_enemy_sprites` (which reads `view.size`).
+    let dismounted_size = mounted_size;
+    // Rider starts at the same footprint it will keep after dismount, so
+    // presentation / hitbox scale is invariant across mount state.
     let rider_offset = super::mount::pirate_on_shark_rider_offset(mount_size, mounted_size);
     let rider_pos = center + rider_offset;
     let rider_aabb = ae::Aabb::new(rider_pos, mounted_size * 0.5);

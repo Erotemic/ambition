@@ -184,6 +184,27 @@ mod tests {
     }
 
     #[test]
+    fn melee_smash_swings_when_target_is_point_blank() {
+        let cfg = SmashCfg::STRIKER_DEFAULT;
+        let mut state = SmashState::default();
+        let actions = ActionSet {
+            melee: Some(crate::brain::MeleeActionSpec::Swipe(
+                crate::brain::SwipeSpec::STRIKER_DEFAULT,
+            )),
+            ..ActionSet::peaceful()
+        };
+        // 20px is inside STRIKER_DEFAULT.too_close_distance, but a
+        // melee-capable Smash actor should take the point-blank swing
+        // instead of backing away forever. This pins the cove-pirate
+        // regression where provoked NPCs approached, then held range
+        // without ever swinging when the player was beside them.
+        let snap = snap_with_target_at_x(20.0);
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        assert!(frame.melee_pressed, "point-blank melee actor should swing");
+    }
+
+    #[test]
     fn dead_actor_emits_neutral_frame() {
         let cfg = SmashCfg::STRIKER_DEFAULT;
         let mut state = SmashState::default();

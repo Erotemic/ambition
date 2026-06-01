@@ -144,16 +144,27 @@ fn hostile_enemy_brain_for_npc(npc: &NpcRuntime) -> &'static str {
         crate::interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
         _ => None,
     };
-    let looks_like_pirate_heavy = npc.id.contains("pirate_heavy")
-        || npc.name.contains("Broadside Bess")
-        || npc.name.contains("Iron Mary")
-        || npc.name.contains("Salt Annet")
-        || dialogue_id.is_some_and(|id| id.contains("pirate_heavy"));
+    let id = npc.id.to_ascii_lowercase();
+    let name = npc.name.to_ascii_lowercase();
+    let dialogue = dialogue_id.unwrap_or("").to_ascii_lowercase();
+    let looks_like_pirate_heavy = id.contains("pirate_heavy")
+        || name.contains("broadside bess")
+        || name.contains("iron mary")
+        || name.contains("salt annet")
+        || dialogue.contains("pirate_heavy");
     if looks_like_pirate_heavy {
-        "pirate_heavy"
-    } else {
-        "medium_striker"
+        return "pirate_heavy";
     }
+    let looks_like_pirate = id.contains("pirate")
+        || name.contains("pirate")
+        || name.contains("quartermaster")
+        || name.contains("lookout")
+        || name.contains("navigator")
+        || dialogue.contains("pirate");
+    if looks_like_pirate {
+        return "pirate_raider";
+    }
+    "medium_striker"
 }
 
 pub(crate) fn actor_component_snapshot(

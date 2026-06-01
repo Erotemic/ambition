@@ -57,22 +57,25 @@ pub fn choose_mode(obs: &ObservationFrame, cfg: &SmashCfg, state: &mut SmashStat
     // --- Candidate mode ---
     //
     // Priority order:
-    //   1. Retreat (too close to target — would be cornered)
-    //   2. Engage (in swing range — commit the attack regardless of
-    //      crowding; clumping at the moment of impact is fine)
+    //   1. Engage (in swing range — commit the attack regardless of
+    //      crowding or body overlap; clumping at the moment of impact
+    //      is fine and melee actors should not back away from a free
+    //      point-blank swing)
+    //   2. Retreat (too close to target, but outside the actual attack
+    //      band — useful for non-melee / future defensive Smash configs)
     //   3. Reposition (crowded with a nearby ally — sidestep before
     //      converging)
     //   4. Engage hold band (in engage_distance but not attack_range)
     //   5. Approach (default — close the gap)
     //
-    // Note: Engage outranks Reposition so a goblin already in swing
-    // range doesn't abandon a free hit to fan out. Reposition fires
-    // when the actor is still APPROACHING and another ally would
-    // pile on the same vector.
-    let candidate = if obs.distance_to_target < cfg.too_close_distance {
-        BroadMode::Retreat
-    } else if obs.distance_to_target <= cfg.attack_range && !obs.self_attacking {
+    // Note: Engage outranks Retreat and Reposition so a provoked cove
+    // pirate already in swing range doesn't maintain distance instead
+    // of swinging. Ranged held-item actors should use Skirmisher /
+    // Sniper brains; Smash is the grounded melee brawler policy.
+    let candidate = if obs.distance_to_target <= cfg.attack_range && !obs.self_attacking {
         BroadMode::Engage
+    } else if obs.distance_to_target < cfg.too_close_distance {
+        BroadMode::Retreat
     } else if obs.crowding.pressure >= cfg.crowding_threshold {
         BroadMode::Reposition
     } else if obs.distance_to_target <= cfg.engage_distance {
@@ -163,10 +166,20 @@ mod tests {
     }
 
     #[test]
-    fn retreats_when_too_close() {
+    fn engages_when_point_blank_and_in_attack_range() {
         let cfg = SmashCfg::STRIKER_DEFAULT;
         let mut state = SmashState::default();
-        let obs = obs_at(20.0); // inside too_close (30)
+        let obs = obs_at(20.0); // inside both too_close (30) and attack_range (56)
+        assert_eq!(choose_mode(&obs, &cfg, &mut state), BroadMode::Engage);
+    }
+
+    #[test]
+    fn retreats_when_too_close_but_not_in_attack_range() {
+        let mut cfg = SmashCfg::STRIKER_DEFAULT;
+        cfg.attack_range = 10.0;
+        cfg.too_close_distance = 30.0;
+        let mut state = SmashState::default();
+        let obs = obs_at(20.0);
         assert_eq!(choose_mode(&obs, &cfg, &mut state), BroadMode::Retreat);
     }
 

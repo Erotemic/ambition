@@ -92,12 +92,27 @@ pub(in crate::content::features) fn enemy_default_brain(enemy: &EnemyRuntime) ->
 pub(super) fn enemy_forced_hostile_brain_and_action_set(
     enemy: &EnemyRuntime,
 ) -> (Brain, ActionSet) {
+    let action_set = enemy_default_action_set(enemy);
+
+    // Held-item capability is the high-level behavior selector for explicitly
+    // provoked peaceful actors: a ranged-only weapon wants a spacing brain, while
+    // a melee-capable actor should close and swing. If a future cove pirate is
+    // authored with a bow / bomb / pistol and no melee slot, this path becomes a
+    // Skirmisher without a Rust-side item-id branch. If it has an axe / sword /
+    // body melee slot, the grounded melee brain wins so point-blank targets are
+    // attacked instead of kited.
+    if action_set.ranged.is_some() && action_set.melee.is_none() {
+        return (
+            skirmisher_brain_from_archetype(&enemy.id, enemy.archetype, true),
+            action_set,
+        );
+    }
+
     if enemy.archetype == EnemyArchetype::PirateHeavy {
         let brain = forced_hostile_melee_brute_brain(enemy, 500.0);
-        let action_set = enemy_default_action_set(enemy);
         return (brain, action_set);
     }
-    (enemy_default_brain(enemy), enemy_default_action_set(enemy))
+    (enemy_default_brain(enemy), action_set)
 }
 
 fn forced_hostile_melee_brute_brain(enemy: &EnemyRuntime, min_aggro_radius: f32) -> Brain {

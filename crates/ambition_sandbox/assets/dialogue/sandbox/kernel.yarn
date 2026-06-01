@@ -275,8 +275,13 @@ title: hub_guide__test_inv
 title: smirking_behemoth_victory_npc
 ---
 The Rope Appreciator: Oh wow. WOW. I was stuck in that smug heap for so long I started ranking its stomach noises by tempo.
-The Rope Appreciator: And then you cut the rope. Clean angle, excellent timing, spectacularly unreasonable anvil usage. I am going to be thinking about that for weeks.
-The Rope Appreciator: Congratulations on killing the Smirking Behemoth. Truly: heroic, weird, and very educational.
+<<if cut_rope_heavy_object_is("piano")>>
+    The Rope Appreciator: And then you cut the rope. Clean angle, excellent timing, spectacularly unreasonable piano usage. I am going to be thinking about that for weeks.
+    The Rope Appreciator: Congratulations on killing the Smirking Behemoth with a piano. Truly: heroic, weird, and very musical.
+<<else>>
+    The Rope Appreciator: And then you cut the rope. Clean angle, excellent timing, spectacularly unreasonable anvil usage. I am going to be thinking about that for weeks.
+    The Rope Appreciator: Congratulations on killing the Smirking Behemoth with an anvil. Truly: heroic, weird, and very educational.
+<<endif>>
 The Rope Appreciator: How are you going to spend the rest of your day?
 -> Maybe watch a video.
     The Rope Appreciator: Strong choice. You should watch: youtube.com/watch?v=ucLGm27DDL0

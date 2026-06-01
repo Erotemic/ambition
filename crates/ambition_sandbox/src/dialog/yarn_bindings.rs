@@ -62,6 +62,8 @@ pub struct YarnStateMirrorData {
     pub quests_active: std::collections::HashSet<String>,
     /// dialogue id → visit count.
     pub visit_counts: std::collections::HashMap<String, u32>,
+    /// Yarn-facing id for the heavy object currently hanging in the cut-rope room.
+    pub cut_rope_heavy_object: String,
 }
 
 #[derive(Resource, Default, Clone)]
@@ -71,12 +73,22 @@ pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 /// into the mirror so Yarn functions read consistent values for the
 /// duration of a single tick. Runs unconditionally — cheap because
 /// the data is small (flags/bosses/quests are short Vecs).
-pub fn refresh_yarn_state_mirror(save: Option<Res<SandboxSave>>, mirror: Res<YarnStateMirror>) {
+pub fn refresh_yarn_state_mirror(
+    save: Option<Res<SandboxSave>>,
+    cut_rope_heavy_object: Option<Res<crate::boss_encounter::CutRopeHeavyObjectCycle>>,
+    mirror: Res<YarnStateMirror>,
+) {
     let Some(save) = save else {
         return;
     };
     let data = save.data();
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
+    snap.cut_rope_heavy_object.clear();
+    snap.cut_rope_heavy_object.push_str(
+        cut_rope_heavy_object
+            .map(|cycle| cycle.current_dialogue_id())
+            .unwrap_or("anvil"),
+    );
     snap.flags.clear();
     for flag in &data.flags {
         snap.flags.insert(flag.id.clone(), flag.on);
@@ -301,6 +313,14 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
     lib.add_function("quest_active", move |id: String| -> bool {
         m.read()
             .map(|snap| snap.quests_active.contains(&id))
+            .unwrap_or(false)
+    });
+    // cut_rope_heavy_object_is(id) -> bool: lets authored Yarn branch on the
+    // runtime-selected heavy object without reaching into Bevy resources.
+    let m = Arc::clone(&mirror.0);
+    lib.add_function("cut_rope_heavy_object_is", move |id: String| -> bool {
+        m.read()
+            .map(|snap| snap.cut_rope_heavy_object == id)
             .unwrap_or(false)
     });
     // inventory_has(item) -> bool: stub; the inventory system

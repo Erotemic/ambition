@@ -107,12 +107,17 @@ impl Default for CutRopeHeavyObjectCycle {
 }
 
 impl CutRopeHeavyObjectCycle {
-    fn current(self) -> CutRopeHeavyObjectKind {
+    fn current(&self) -> CutRopeHeavyObjectKind {
         CUT_ROPE_HEAVY_OBJECT_CYCLE[self.index % CUT_ROPE_HEAVY_OBJECT_CYCLE.len()]
     }
 
     fn advance(&mut self) {
         self.index = (self.index + 1) % CUT_ROPE_HEAVY_OBJECT_CYCLE.len();
+    }
+
+    /// Stable Yarn-facing id for the currently hung heavy object.
+    pub fn current_dialogue_id(&self) -> &'static str {
+        self.current().display_name()
     }
 }
 

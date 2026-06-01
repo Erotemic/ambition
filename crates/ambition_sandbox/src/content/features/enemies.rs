@@ -221,7 +221,7 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
 /// timings, damage, reach — so a designer who wants to make the
 /// Brute's lunge slower has one place to look. `damage_amount` is
 /// the BODY-CONTACT damage; attack damage lives in the spec.
-#[derive(Clone, Copy, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub(super) struct EnemyArchetypeSpec {
     pub max_health: i32,
     #[serde(default)]
@@ -252,6 +252,11 @@ pub(super) struct EnemyArchetypeSpec {
     /// `None` = no ranged capability.
     #[serde(default)]
     pub ranged: Option<crate::brain::RangedActionSpec>,
+    /// Optional authored held item. Its abilities overlay the archetype action
+    /// set at spawn / state transitions so weapons, not ad-hoc Rust branches,
+    /// own whether an actor can melee or fire.
+    #[serde(default)]
+    pub held_item: Option<crate::brain::HeldItemSpec>,
     /// Locomotion style for the actor's `ActionSet.move_style`.
     pub move_style: crate::brain::MoveStyleSpec,
 }
@@ -319,9 +324,12 @@ pub(super) enum EnemyBrainTemplate {
 /// missing variants in `match` arms across the codebase.
 fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
     let key = archetype_data_key(arch);
-    *ENEMY_ARCHETYPE_REGISTRY.get(key).unwrap_or_else(|| {
-        panic!("enemy archetype {arch:?} (RON key '{key}') missing from enemy_archetypes.ron")
-    })
+    ENEMY_ARCHETYPE_REGISTRY
+        .get(key)
+        .unwrap_or_else(|| {
+            panic!("enemy archetype {arch:?} (RON key '{key}') missing from enemy_archetypes.ron")
+        })
+        .clone()
 }
 
 /// Stable RON key for an `EnemyArchetype` variant. Matches the
@@ -430,6 +438,13 @@ impl EnemyArchetype {
     /// spawn. `None` = no ranged capability.
     pub(super) fn ranged_spec(self) -> Option<crate::brain::RangedActionSpec> {
         self.spec().ranged
+    }
+
+    /// Authored held item, if any. This is separate from the actor's default
+    /// hostility: a peaceful NPC can carry a weapon that becomes active only
+    /// if another system provokes them.
+    pub(super) fn held_item_spec(self) -> Option<crate::brain::HeldItemSpec> {
+        self.spec().held_item
     }
 
     /// Locomotion style for this archetype's `ActionSet.move_style`.

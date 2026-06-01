@@ -65,7 +65,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
     mut sfx: MessageWriter<SfxMessage>,
     mut actors: Query<&mut ActorRuntime>,
-    riders: Query<&super::RidingOn>,
+    held_items: Query<&super::HeldItem>,
 ) {
     for msg in messages.read() {
         let ActionRequest::Ranged {
@@ -90,14 +90,12 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         if !enemy.alive {
             continue;
         }
-        // Mounted-rider muzzle: rider entities have a RidingOn
-        // component pointing at their mount. The bolt leaves the
-        // gun-sword that the rider holds, so the projectile origin
-        // is the rider's hand world position. The `lasersword:`
-        // prefix on `owner_id` routes the projectile to the
-        // lasersword visual in `enemy_projectile/visuals.rs`.
-        let is_mounted_rider = riders.get(msg.actor).is_ok();
-        let (spawn_origin, owner_id) = if is_mounted_rider {
+        // Held-item muzzle: a gun-sword shot should originate at the actor's
+        // hand whether the pirate is still mounted or has fallen off the shark.
+        // Future items can extend this routing by id without changing the brain.
+        let held_item_id = held_items.get(msg.actor).ok().map(|item| item.id());
+        let uses_gun_sword = held_item_id == Some("gun_sword");
+        let (spawn_origin, owner_id) = if uses_gun_sword {
             let hand = crate::presentation::rendering::rider_hand_world_pos(
                 enemy.pos,
                 enemy.facing,
@@ -127,7 +125,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         enemy_projectiles.spawn(spawn);
         // Recoil: push the firing actor backward along the negative
         // fire direction.
-        let recoil_strength = if is_mounted_rider {
+        let recoil_strength = if uses_gun_sword {
             RANGED_RECOIL_PIRATE
         } else {
             RANGED_RECOIL_DEFAULT

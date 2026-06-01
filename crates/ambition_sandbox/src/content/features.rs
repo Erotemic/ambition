@@ -115,9 +115,9 @@ pub use ecs::{
     tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
     update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorRuntime,
     AppleRainSpawnState, BossFeature, EyeBeamState, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FeatureViewIndex, GradientCascadeState, HazardFeature, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxLifetime, MinimaTrapState, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
-    OverfitVolleyState, RidingOn, SaddlePointState,
+    FeatureViewIndex, GradientCascadeState, HazardFeature, HeldItem, Hitbox, HitboxAnchor,
+    HitboxHits, HitboxLifetime, MinimaTrapState, MountSlot, Mountable, Mounted, MountedBrainCache,
+    MountedSize, OverfitVolleyState, RidingOn, SaddlePointState,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{

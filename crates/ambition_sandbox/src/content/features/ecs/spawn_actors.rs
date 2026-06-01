@@ -191,7 +191,8 @@ pub(crate) fn spawn_runtime_minion(
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
-    commands
+    let held_item = super::brain_builders::held_item_for_archetype(archetype);
+    let entity = commands
         .spawn((
             Name::new(format!("Runtime minion: {name}")),
             EnemyActorBundle {
@@ -214,7 +215,11 @@ pub(crate) fn spawn_runtime_minion(
             action_set,
             crate::brain::ActorControl::default(),
         ))
-        .id()
+        .id();
+    if let Some(item) = held_item {
+        commands.entity(entity).insert(super::HeldItem::new(item));
+    }
+    entity
 }
 
 pub(super) fn spawn_enemy(
@@ -256,42 +261,48 @@ pub(super) fn spawn_solo_enemy(
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let brain = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
+    let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
-    commands.spawn((
-        Name::new(format!("Feature actor enemy: {}", authored.name)),
-        EnemyActorBundle {
-            base: FeatureBaseBundle::new(&authored.id, &authored.name, feature_aabb),
-            identity,
-            disposition,
-            faction: super::ActorFaction::Enemy,
-            target: super::ActorTarget::default(),
-            health,
-            combat,
-            intent,
-            cooldowns,
-            damageable_volumes: DamageableVolumes::default(),
-            pogo_policy: PogoPolicy::FromDamageable,
-            pogo_target_volumes: PogoTargetVolumes::default(),
-        },
-        actor,
-        brain,
-        action_set,
-        crate::brain::ActorControl::default(),
-        // `emit_brain_action_messages` requires a `Transform` on the
-        // sim entity to compute the action `origin`. Without this,
-        // the resolver silently skips enemies (the visual entity has
-        // a Transform but the sim entity does not), and every brain
-        // intent — melee, ranged, special — gets dropped. Position
-        // is kept fresh by `update_ecs_actors` via FeatureAabb; the
-        // Transform here is just the schema requirement.
-        bevy::transform::components::Transform::from_xyz(
-            feature_aabb.center.x,
-            feature_aabb.center.y,
-            0.0,
-        ),
-    ));
+    let entity = commands
+        .spawn((
+            Name::new(format!("Feature actor enemy: {}", authored.name)),
+            EnemyActorBundle {
+                base: FeatureBaseBundle::new(&authored.id, &authored.name, feature_aabb),
+                identity,
+                disposition,
+                faction: super::ActorFaction::Enemy,
+                target: super::ActorTarget::default(),
+                health,
+                combat,
+                intent,
+                cooldowns,
+                damageable_volumes: DamageableVolumes::default(),
+                pogo_policy: PogoPolicy::FromDamageable,
+                pogo_target_volumes: PogoTargetVolumes::default(),
+            },
+            actor,
+            brain,
+            action_set,
+            crate::brain::ActorControl::default(),
+            // `emit_brain_action_messages` requires a `Transform` on the
+            // sim entity to compute the action `origin`. Without this,
+            // the resolver silently skips enemies (the visual entity has
+            // a Transform but the sim entity does not), and every brain
+            // intent — melee, ranged, special — gets dropped. Position
+            // is kept fresh by `update_ecs_actors` via FeatureAabb; the
+            // Transform here is just the schema requirement.
+            bevy::transform::components::Transform::from_xyz(
+                feature_aabb.center.x,
+                feature_aabb.center.y,
+                0.0,
+            ),
+        ))
+        .id();
+    if let Some(item) = held_item {
+        commands.entity(entity).insert(super::HeldItem::new(item));
+    }
 }
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
@@ -378,6 +389,7 @@ pub(super) fn spawn_encounter_mob(
     enemy.respawn_timer = 999_999.0;
     let brain = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
+    let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);

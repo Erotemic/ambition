@@ -401,14 +401,15 @@ pub static PIRATE_HEAVY_IRON_MARY_SHEET: LazyLock<CharacterSheetSpec> =
 pub static PIRATE_HEAVY_SALT_ANNET_SHEET: LazyLock<CharacterSheetSpec> =
     LazyLock::new(|| load_spec("pirate_heavy_salt_annet", &PIRATE_HEAVY_TUNING));
 
-/// Pirate Admiral / Pirate Raider — both ship the same generator
-/// layout (idle / walk / slash / taunt / hurt / death; 128×128
-/// frames; feet_anchor_norm.y ≈ -0.375). They share one sheet spec
-/// because the layout is identical even though the rendered art
-/// differs. Two filenames; one indexing contract.
+/// Standard pirate sheets. They share the same high-level row layout, but
+/// each generated RON owns its own body metrics / feet anchor. Keep raider
+/// separate from the admiral so a dismounted shark raider lands with her
+/// feet on the floor instead of inheriting the admiral's anchor.
 const PIRATE_TUNING: SheetTuning = SheetTuning::new(1.6, 1);
 pub static PIRATE_SHEET: LazyLock<CharacterSheetSpec> =
     LazyLock::new(|| load_spec("pirate_admiral", &PIRATE_TUNING));
+pub static PIRATE_RAIDER_SHEET: LazyLock<CharacterSheetSpec> =
+    LazyLock::new(|| load_spec("pirate_raider", &PIRATE_TUNING));
 
 /// Architect — hub research / ADR-explainer NPC.
 const ARCHITECT_TUNING: SheetTuning = SheetTuning::new(1.10, 2);

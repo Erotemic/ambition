@@ -5,7 +5,8 @@
 //! mount and rider ECS actors.
 
 use super::brain_builders::{
-    enemy_default_action_set, mounted_rider_brain_and_action_set, skirmisher_brain_for_enemy,
+    enemy_default_action_set, held_item_for_archetype, mounted_rider_brain_and_action_set,
+    skirmisher_brain_for_enemy,
 };
 use super::*;
 use bevy::prelude::Name;
@@ -24,14 +25,14 @@ use bevy::prelude::Name;
 /// `enemy_default_brain`.
 ///
 /// Rider: `PirateRaider` for the light composite, `PirateHeavy` for
-/// the heavy composite. Brain is explicitly built as Skirmisher with
-/// the composite's `Bolt` ranged spec — the rider's STANDALONE brain
-/// (Smash for raider, MeleeBrute for heavy) is what gets restored
-/// after the mount dies; the bolt-firing behavior lives only while
-/// mounted. Aggressiveness is forced ON regardless of the rider
-/// archetype's `attacks_player()` default so a dismounted PirateHeavy
-/// (which is normally peaceful Cove crew) keeps fighting after the
-/// shark is killed under her.
+/// the heavy composite. Brain is explicitly built as Skirmisher and the
+/// composite/rider held item carries the ranged weapon capability. When the
+/// shark dies, mount dissolution keeps the held item and derives the new
+/// dismounted action set from it, so a rider that still has a gun-sword can
+/// keep firing on foot. Aggressiveness is forced ON regardless of the rider
+/// archetype's `attacks_player()` default so a dismounted PirateHeavy (which
+/// is normally peaceful Cove crew) keeps fighting after the shark is killed
+/// under her.
 pub(super) fn spawn_composite_mount_rider(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
@@ -137,6 +138,8 @@ pub(super) fn spawn_composite_mount_rider(
     // place instead of hand-rolling a parallel setup here.
     let (rider_brain, rider_action_set) =
         mounted_rider_brain_and_action_set(&rider_id, rider_archetype, composite_archetype);
+    let rider_held_item = held_item_for_archetype(composite_archetype)
+        .or_else(|| held_item_for_archetype(rider_archetype));
 
     // Build mount-side bundles and reserve the entity. We need both
     // entity IDs to link MountSlot ↔ RidingOn, so we spawn each and
@@ -228,6 +231,11 @@ pub(super) fn spawn_composite_mount_rider(
             },
         ))
         .id();
+    if let Some(item) = rider_held_item {
+        commands
+            .entity(rider_entity)
+            .insert(super::HeldItem::new(item));
+    }
 
     // Wire MountSlot.rider on the mount so death-side dissolution
     // can reach back from mount → rider.

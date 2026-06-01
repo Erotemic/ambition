@@ -1,11 +1,11 @@
 //! Gun-sword (`lasersword_with_guns`) visual layered on top of any
-//! rider entity. After the mount/rider refactor the rider is its own
-//! ECS entity carrying a [`crate::features::RidingOn`] component; we
-//! query for those entities directly and layer the weapon sprite at
-//! the rider's hand each frame.
+//! actor entity carrying a [`crate::features::HeldItem`] component.
+//! Mounted riders and dismounted pirates both keep the component while
+//! they still have the weapon, so this visual is item-driven rather
+//! than mount-state-driven.
 //!
 //! Each frame we:
-//! 1. Find every alive rider (`RidingOn` + `ActorRuntime::Hostile`).
+//! 1. Find every alive actor holding the `gun_sword` item.
 //! 2. Compute the rider's hand world position from `rider.pos` +
 //!    facing-aware hand offset (`HAND_OFFSET_NORM` scaled by the
 //!    rider's body height).
@@ -24,7 +24,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
-use crate::features::{ActorRuntime, FeatureId, RidingOn};
+use crate::features::{ActorRuntime, FeatureId, HeldItem};
 
 #[derive(Component)]
 pub struct PirateWeaponVisual;
@@ -83,7 +83,7 @@ pub fn sync_pirate_weapon_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     world: Res<crate::GameWorld>,
-    rider_actors: Query<(&FeatureId, &ActorRuntime, &RidingOn)>,
+    rider_actors: Query<(&FeatureId, &ActorRuntime, &HeldItem)>,
     player_q: Query<
         &crate::player::PlayerKinematics,
         (
@@ -101,7 +101,10 @@ pub fn sync_pirate_weapon_visuals(
     };
     let texture = asset_server.load(WEAPON_SHEET_PATH);
 
-    for (_id, actor, _riding) in &rider_actors {
+    for (_id, actor, held_item) in &rider_actors {
+        if held_item.id() != "gun_sword" {
+            continue;
+        }
         let ActorRuntime::Hostile(rider) = actor else {
             continue;
         };

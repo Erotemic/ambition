@@ -61,6 +61,41 @@ impl ActionSet {
     }
 }
 
+/// Authored item carried by an actor. Held items are gameplay capabilities,
+/// not just visuals: they can grant melee and/or ranged actions to the
+/// actor's `ActionSet`. The item id is intentionally data-authored so future
+/// item rows (axe, sword, thrown bomb, bow, etc.) can be added to RON without
+/// adding a Rust enum variant for each item.
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+pub struct HeldItemSpec {
+    /// Stable authored id used by visuals / projectile routing / future drops.
+    pub id: String,
+    /// Optional melee verb granted by the held item.
+    #[serde(default)]
+    pub melee: Option<MeleeActionSpec>,
+    /// Optional ranged verb granted by the held item.
+    #[serde(default)]
+    pub ranged: Option<RangedActionSpec>,
+}
+
+impl HeldItemSpec {
+    /// Overlay the item's abilities on top of an archetype action set. The
+    /// item wins because weapons are the thing the actor is actually holding;
+    /// archetype rows remain useful for body-contact and fallback tuning.
+    pub fn apply_to_action_set(&self, actions: &mut ActionSet) {
+        if let Some(melee) = self.melee {
+            actions.melee = Some(melee);
+        }
+        if let Some(ranged) = self.ranged {
+            actions.ranged = Some(ranged);
+        }
+    }
+
+    pub fn grants_ranged(&self) -> bool {
+        self.ranged.is_some()
+    }
+}
+
 /// Concrete melee actions an actor can perform. Each variant carries
 /// its **own** animation timing (windup → active → recover) — there
 /// is no separate `TelegraphSpec`.

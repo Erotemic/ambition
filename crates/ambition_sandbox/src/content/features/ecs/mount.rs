@@ -175,9 +175,9 @@ pub fn sync_riders_to_mounts(
 ///
 /// - Mount dies: rider's gravity flips on (so they fall), and their
 ///   brain + action set are swapped through the shared dismounted
-///   rider builder so a pirate raider falling off a dead shark walks
-///   at the player swinging melee instead of orbit-and-firing a
-///   gun-sword that no longer has a platform. The [`RidingOn`]
+///   rider builder so a pirate falling off a dead shark keeps whatever
+///   capabilities their held item grants (gun-sword shots today, axe / bow /
+///   bomb authored rows later). The [`RidingOn`]
 ///   component itself STAYS attached — `sync_riders_to_mounts`
 ///   gates on `mount.alive` and won't snap the rider while the
 ///   mount is dead. Keeping the link record lets the same-room
@@ -203,6 +203,7 @@ pub fn enforce_mount_rider_link(
             &mut ActorRuntime,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
+            Option<&super::HeldItem>,
         ),
         Without<MountSlot>,
     >,
@@ -217,7 +218,7 @@ pub fn enforce_mount_rider_link(
         mount_alive.insert(mount_entity, alive);
     }
 
-    for (rider_entity, riding, mut rider_actor, cache, was_mounted) in &mut riders {
+    for (rider_entity, riding, mut rider_actor, cache, was_mounted, held_item) in &mut riders {
         let ActorRuntime::Hostile(rider) = &mut *rider_actor else {
             continue;
         };
@@ -257,7 +258,8 @@ pub fn enforce_mount_rider_link(
                     1.0
                 };
                 rider.size = rider.spawn_size;
-                let (new_brain, new_action_set) = dismounted_rider_brain_and_action_set(rider);
+                let (new_brain, new_action_set) =
+                    dismounted_rider_brain_and_action_set(rider, held_item.map(|item| &item.spec));
                 commands
                     .entity(rider_entity)
                     .insert((new_brain, new_action_set))

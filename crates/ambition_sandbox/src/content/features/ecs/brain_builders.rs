@@ -9,9 +9,9 @@
 use super::super::enemies::{EnemyArchetype, EnemyBrainTemplate, EnemyRuntime};
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use crate::brain::{
-    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, RangedActionSpec, SharkCfg, SharkState,
-    SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
-    WandererCfg, WandererState,
+    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, SharkCfg, SharkState, SkirmisherCfg,
+    SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
+    WandererState,
 };
 
 /// Build the enemy's default `ActionSet` from its archetype spec.
@@ -29,12 +29,33 @@ pub(super) fn enemy_default_action_set(enemy: &EnemyRuntime) -> ActionSet {
     // action once another system explicitly provokes / dismounts her into a
     // hostile state. PuppySlug remains harmless here because its data row has no
     // melee or ranged action.
-    ActionSet {
+    let mut actions = ActionSet {
         melee: archetype.melee_spec(),
         ranged: archetype.ranged_spec(),
         move_style,
         ..Default::default()
+    };
+    apply_archetype_held_item(archetype, &mut actions);
+    actions
+}
+
+fn apply_archetype_held_item(archetype: EnemyArchetype, actions: &mut ActionSet) {
+    if let Some(item) = archetype.held_item_spec() {
+        item.apply_to_action_set(actions);
     }
+}
+
+pub(super) fn held_item_for_archetype(
+    archetype: EnemyArchetype,
+) -> Option<crate::brain::HeldItemSpec> {
+    archetype.held_item_spec()
+}
+
+fn held_item_grants_ranged(archetype: EnemyArchetype) -> bool {
+    archetype
+        .held_item_spec()
+        .as_ref()
+        .is_some_and(|item| item.grants_ranged())
 }
 
 /// Build the enemy's default `Brain` from its archetype spec.
@@ -179,18 +200,13 @@ pub(super) fn mounted_rider_brain_and_action_set(
     composite_archetype: EnemyArchetype,
 ) -> (Brain, ActionSet) {
     let brain = skirmisher_brain_from_archetype(rider_id, composite_archetype, true);
-    let bolt = match composite_archetype.ranged_spec() {
-        Some(RangedActionSpec::Bolt { speed, damage }) => {
-            Some(RangedActionSpec::Bolt { speed, damage })
-        }
-        _ => None,
-    };
-    let action_set = ActionSet {
+    let mut action_set = ActionSet {
         melee: None,
-        ranged: bolt,
+        ranged: composite_archetype.ranged_spec(),
         move_style: rider_archetype.move_style(),
         ..Default::default()
     };
+    apply_archetype_held_item(composite_archetype, &mut action_set);
     (brain, action_set)
 }
 
@@ -200,17 +216,29 @@ pub(super) fn mounted_rider_brain_and_action_set(
 /// Smash, which has tighter grounded observation requirements, and PirateHeavy's
 /// default is peaceful. Dismount means "fall off and fight," so the builder
 /// installs an aggressive MeleeBrute brain plus a melee-only action set.
-pub(super) fn dismounted_rider_brain_and_action_set(rider: &EnemyRuntime) -> (Brain, ActionSet) {
-    let brain = forced_hostile_melee_brute_brain(rider, 540.0);
-    // Ensure the rider has a melee action. PirateHeavy is peaceful by default
-    // but now carries a real heavy swing in data; falling off the shark is an
-    // explicit hostile override, so keep the melee capability and drop only the
-    // mounted ranged volley.
+pub(super) fn dismounted_rider_brain_and_action_set(
+    rider: &EnemyRuntime,
+    held_item: Option<&crate::brain::HeldItemSpec>,
+) -> (Brain, ActionSet) {
     let mut action_set = enemy_default_action_set(rider);
-    action_set.ranged = None;
+    if let Some(item) = held_item {
+        item.apply_to_action_set(&mut action_set);
+    }
     if action_set.melee.is_none() {
         action_set.melee = EnemyArchetype::PirateRaider.melee_spec();
     }
+
+    // If the dismounted rider still has a ranged held item, keep using a
+    // ranged-capable brain so the weapon remains live after the shark dies.
+    // This preserves the item as the authority: remove / change the held item
+    // in data and this path changes without another Rust branch.
+    let brain = if held_item.is_some_and(|item| item.grants_ranged())
+        || held_item_grants_ranged(rider.archetype)
+    {
+        skirmisher_brain_from_archetype(&rider.id, rider.archetype, true)
+    } else {
+        forced_hostile_melee_brute_brain(rider, 540.0)
+    };
     (brain, action_set)
 }
 

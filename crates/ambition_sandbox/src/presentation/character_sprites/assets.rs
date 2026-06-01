@@ -35,8 +35,9 @@ use super::sheets::{
     CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, BURNING_FLYING_SHARK_SHEET,
     GOBLIN_CANTINA_CHIEFTAIN_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET,
     NINJA_SHEET, PIRATE_HEAVY_BROADSIDE_BESS_SHEET, PIRATE_HEAVY_IRON_MARY_SHEET,
-    PIRATE_HEAVY_SALT_ANNET_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET,
-    PUPPY_SLUG_SHEET, ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
+    PIRATE_HEAVY_SALT_ANNET_SHEET, PIRATE_RAIDER_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET,
+    PULSE_VOYAGER_CAPTAIN_SHEET, PUPPY_SLUG_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
+    TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::content::character_catalog::EMBEDDED_CATALOG;
@@ -137,10 +138,10 @@ pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> 
         // every standard pirate; visual variety lives in the toon-
         // adapter palette per variant.
         "npc_pirate_admiral"
-        | "npc_pirate_raider"
         | "npc_pirate_quartermaster"
         | "npc_pirate_lookout"
         | "npc_pirate_navigator" => Some(&PIRATE_SHEET),
+        "npc_pirate_raider" => Some(&PIRATE_RAIDER_SHEET),
         // Pirate Heavy bruisers — per-variant sheets.
         "npc_pirate_heavy_broadside_bess" => Some(&PIRATE_HEAVY_BROADSIDE_BESS_SHEET),
         "npc_pirate_heavy_iron_mary" => Some(&PIRATE_HEAVY_IRON_MARY_SHEET),

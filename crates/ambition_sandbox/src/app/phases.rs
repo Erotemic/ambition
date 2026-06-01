@@ -173,10 +173,20 @@ pub(super) fn player_simulation_phase(
     let sim_dt = sandbox_dt(combat.hitstop_timer, sim_state.time_scale, frame_dt);
 
     let player_aabb_pre = clusters.kinematics.aabb();
+    let player_size_pre = clusters.kinematics.size;
     let on_ground_pre = clusters.ground.on_ground;
+    let active_ledge_platform = clusters.ledge.grab.and_then(|grab| {
+        moving_platforms
+            .iter()
+            .position(|platform| platform.matches_ledge_contact(grab.contact, player_size_pre))
+    });
+    let mut ledge_platform_delta = None;
     let mut riding_platform = None;
     for (index, platform) in moving_platforms.iter_mut().enumerate() {
         let delta = platform.update(sim_dt);
+        if Some(index) == active_ledge_platform {
+            ledge_platform_delta = Some(delta);
+        }
         if riding_platform.is_none() && platform.is_riding(player_aabb_pre, on_ground_pre) {
             riding_platform = Some((index, delta, platform.pos, platform.direction()));
         }
@@ -213,7 +223,16 @@ pub(super) fn player_simulation_phase(
         }
     }
     ride.was_riding = riding_now;
-    if let Some((_, platform_delta, _, _)) = riding_platform {
+    if let Some(platform_delta) = ledge_platform_delta {
+        // Ledge grabs can latch to the temporary moving-platform collision block.
+        // Carry both the player and the stored ledge contact so hang / climb /
+        // roll interpolation remains platform-relative after the platform moves.
+        clusters.kinematics.pos += platform_delta;
+        if let Some(grab) = clusters.ledge.grab.as_mut() {
+            grab.contact.anchor += platform_delta;
+            grab.contact.climb_target += platform_delta;
+        }
+    } else if let Some((_, platform_delta, _, _)) = riding_platform {
         clusters.kinematics.pos += platform_delta;
     }
     let collision_world =

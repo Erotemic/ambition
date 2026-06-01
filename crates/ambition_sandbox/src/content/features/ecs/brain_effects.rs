@@ -168,16 +168,11 @@ pub fn start_enemy_melee_from_brain_actions(
             // (their ActionSet is empty); skip defensively.
             continue;
         };
-        // `attacks_player()` and the cooldown gate live inside
-        // `begin_melee_attack` so a future "every actor that can
-        // attack does so via this consumer" world doesn't have to
-        // re-check policy here. The default ActionSet wiring already
-        // refuses to emit Melee for peaceful archetypes (their
-        // ActionSet.melee is None), so this gate is the safety net,
-        // not the primary filter.
-        if !enemy.archetype.attacks_player() {
-            continue;
-        }
+        // The ActionSet → ActorActionMessage seam is the attack-policy gate:
+        // if a hostile actor produced a Melee message, it owns a melee verb
+        // for this state even when its authored archetype is normally peaceful
+        // (e.g. a PirateHeavy after her shark mount dies). Keep only the
+        // runtime cooldown/alive gate inside begin_melee_attack.
         // Thread the brain's attack axis through to the runtime so
         // the windup → active edge spawns the hitbox in the same
         // direction the brain committed to (forward / up / down / back).
@@ -1309,6 +1304,68 @@ mod tests {
             ),
             "ai_mode should flip to Telegraph; got {:?}",
             enemy_after.ai_mode,
+        );
+    }
+
+    /// A mounted PirateHeavy becomes explicitly hostile after her shark dies even
+    /// though the standalone PirateHeavy archetype is authored peaceful. The
+    /// mount-dissolve path installs a melee ActionSet; once that ActionSet emits a
+    /// Melee message, the effects consumer must honor it instead of re-checking
+    /// `EnemyArchetype::attacks_player()`.
+    #[test]
+    fn melee_message_can_start_windup_for_dismounted_pirate_heavy() {
+        use crate::brain::{MeleeActionSpec, SwipeSpec};
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<SandboxFeelTuning>();
+        app.add_systems(Update, start_enemy_melee_from_brain_actions);
+
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(36.0, 55.0));
+        let mut enemy = crate::content::features::enemies::EnemyRuntime::new(
+            "iron_mary_dismounted",
+            "Iron Mary",
+            aabb,
+            crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
+            &[],
+        );
+        assert_eq!(enemy.archetype, EnemyArchetype::PirateHeavy);
+        assert!(
+            !enemy.archetype.attacks_player(),
+            "standalone PirateHeavy is normally peaceful"
+        );
+        enemy.attack_cooldown = 0.0;
+        let actor = app.world_mut().spawn((ActorRuntime::Hostile(enemy),)).id();
+
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Melee {
+                    spec: MeleeActionSpec::Swipe(SwipeSpec::BRUTE_DEFAULT),
+                    origin: actor_pos,
+                    facing: -1.0,
+                    attack_axis: ae::Vec2::new(-1.0, 0.0),
+                },
+            });
+
+        app.update();
+
+        let actor_runtime = app.world().entity(actor).get::<ActorRuntime>().unwrap();
+        let ActorRuntime::Hostile(enemy_after) = actor_runtime else {
+            panic!("expected Hostile");
+        };
+        assert!(
+            enemy_after.attack_windup_timer > 0.0,
+            "explicit melee message should start dismounted PirateHeavy windup"
+        );
+        assert!(
+            matches!(
+                enemy_after.ai_mode,
+                crate::character_ai::CharacterAiMode::Telegraph
+            ),
+            "dismounted PirateHeavy should telegraph her melee attack"
         );
     }
 

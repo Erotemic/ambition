@@ -244,6 +244,44 @@ impl MovingPlatformState {
         let feet_near_top = (player_box.bottom() - platform_box.top()).abs() <= 6.0;
         horizontally_overlapping && feet_near_top
     }
+
+    /// Detect whether an active ledge-grab contact is latched to this platform.
+    ///
+    /// Moving platforms are inserted into the collision world as ordinary solid
+    /// blocks, so the engine's ledge probe records only geometric contact data.
+    /// The sandbox uses this helper before advancing platforms; when the matched
+    /// platform moves, it translates both the player and the stored
+    /// `LedgeGrabState::contact` by the same delta so hang / climb / roll motions
+    /// stay glued to the platform instead of lagging behind it.
+    pub fn matches_ledge_contact(&self, contact: ae::LedgeContact, player_size: ae::Vec2) -> bool {
+        let half = player_size * 0.5;
+        let platform_box = self.aabb();
+        let top = platform_box.top();
+
+        // Invert the anchor/climb target formulas from
+        // engine_core::ledge_grab::probe_ledge_grab.
+        let contact_top_from_anchor = contact.anchor.y - half.y + 4.0;
+        let contact_top_from_climb = contact.climb_target.y + half.y + 1.0;
+        if (contact_top_from_anchor - top).abs() > 8.0 || (contact_top_from_climb - top).abs() > 8.0
+        {
+            return false;
+        }
+
+        let wall_x = contact.anchor.x - contact.wall_normal_x * (half.x - 1.0);
+        let expected_wall_x = if contact.wall_normal_x < 0.0 {
+            platform_box.left()
+        } else {
+            platform_box.right()
+        };
+        if (wall_x - expected_wall_x).abs() > 8.0 {
+            return false;
+        }
+
+        // The climb target should be inboard of this platform, not on an unrelated
+        // block sharing the same top/edge coordinate.
+        contact.climb_target.x >= platform_box.left() - half.x - 12.0
+            && contact.climb_target.x <= platform_box.right() + half.x + 12.0
+    }
 }
 
 fn advance_path_position(
@@ -505,6 +543,72 @@ mod tests {
         }
         // After enough time it must have flipped at least once.
         assert!(platform.direction() == 1.0 || platform.direction() == -1.0);
+    }
+
+    #[test]
+    fn moving_platform_matches_ledge_contact_on_its_edge() {
+        let platform = MovingPlatformState::from_sweep(
+            "ledge_platform",
+            "Ledge Platform",
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(80.0, 20.0),
+            120.0,
+            60.0,
+        );
+        let player_size = ae::Vec2::new(28.0, 46.0);
+        let half = player_size * 0.5;
+        let wall_normal_x = -1.0;
+        let left_edge = platform.aabb().left();
+        let top = platform.aabb().top();
+        let contact = ae::LedgeContact {
+            wall_normal_x,
+            anchor: ae::Vec2::new(
+                left_edge + wall_normal_x * (half.x - 1.0),
+                top + half.y - 4.0,
+            ),
+            climb_target: ae::Vec2::new(
+                left_edge - wall_normal_x * (half.x + 4.0),
+                top - half.y - 1.0,
+            ),
+        };
+
+        assert!(
+            platform.matches_ledge_contact(contact, player_size),
+            "ledge contacts produced from the moving-platform block should match the platform"
+        );
+    }
+
+    #[test]
+    fn moving_platform_rejects_unrelated_ledge_contact() {
+        let platform = MovingPlatformState::from_sweep(
+            "ledge_platform",
+            "Ledge Platform",
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(80.0, 20.0),
+            120.0,
+            60.0,
+        );
+        let player_size = ae::Vec2::new(28.0, 46.0);
+        let half = player_size * 0.5;
+        let wall_normal_x = -1.0;
+        let left_edge = platform.aabb().left();
+        let other_top = platform.aabb().top() - 64.0;
+        let contact = ae::LedgeContact {
+            wall_normal_x,
+            anchor: ae::Vec2::new(
+                left_edge + wall_normal_x * (half.x - 1.0),
+                other_top + half.y - 4.0,
+            ),
+            climb_target: ae::Vec2::new(
+                left_edge - wall_normal_x * (half.x + 4.0),
+                other_top - half.y - 1.0,
+            ),
+        };
+
+        assert!(
+            !platform.matches_ledge_contact(contact, player_size),
+            "ledge contacts on unrelated blocks should not inherit this platform's motion"
+        );
     }
 
     #[test]

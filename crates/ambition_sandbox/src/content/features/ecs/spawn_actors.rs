@@ -193,7 +193,7 @@ pub(crate) fn spawn_runtime_minion(
     let brain_component = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
     let combat_kit = enemy_default_combat_kit(&enemy);
-    let actor = ActorRuntime::Hostile(enemy);
+    let actor = ActorRuntime::Enemy(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
     let held_item = super::brain_builders::held_item_for_archetype(archetype);
@@ -271,7 +271,7 @@ pub(super) fn spawn_solo_enemy(
     let action_set = enemy_default_action_set(&enemy);
     let combat_kit = enemy_default_combat_kit(&enemy);
     let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
-    let actor = ActorRuntime::Hostile(enemy);
+    let actor = ActorRuntime::Enemy(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
     let entity = commands
@@ -327,9 +327,9 @@ pub(super) fn spawn_interactable(
         // or an authored motion path → Patrol brain; otherwise
         // StandStill. ActionSet stays peaceful by default.
         let brain = npc.build_brain();
-        let hostile_projection = ActorRuntime::hostile_from_npc(&npc);
-        let combat_kit = enemy_default_combat_kit(&hostile_projection);
-        let actor = ActorRuntime::Peaceful(npc);
+        let combat_projection = ActorRuntime::enemy_runtime_for_npc_combat(&npc);
+        let combat_kit = enemy_default_combat_kit(&combat_projection);
+        let actor = ActorRuntime::Npc(npc);
         let (identity, disposition, health, combat, intent, cooldowns) =
             actor_component_snapshot(&actor);
         commands.spawn((
@@ -398,7 +398,7 @@ pub(super) fn spawn_encounter_mob(
     let action_set = enemy_default_action_set(&enemy);
     let combat_kit = enemy_default_combat_kit(&enemy);
     let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
-    let actor = ActorRuntime::Hostile(enemy);
+    let actor = ActorRuntime::Enemy(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
     let feature_aabb = FeatureAabb::from_center_size(pos, size);

@@ -73,7 +73,7 @@ impl CombatBanterRegistry {
 /// (Admiral / Raider / Quartermaster / Lookout / Navigator and the
 /// heavy bruisers Broadside Bess / Iron Mary / Salt Annet). The
 /// peaceful crew use these lines when they go hostile via
-/// `hostile_from_npc`; the heavies (already `EnemyRuntime`) use
+/// `enemy_runtime_for_npc_combat`; the heavies (already `EnemyRuntime`) use
 /// them when the player strikes them. Keep flavor consistent with
 /// the matching arms in `npc_hit_barks` / `npc_hostile_bark` — the
 /// two paths fire on different actor types but should sound like

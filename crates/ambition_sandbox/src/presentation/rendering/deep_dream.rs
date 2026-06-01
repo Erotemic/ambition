@@ -291,8 +291,8 @@ fn puppy_slug_seed(id: &str, actors: &Query<(&FeatureId, &ActorRuntime)>) -> Opt
             return None;
         }
         let (name, archetype) = match actor {
-            ActorRuntime::Hostile(enemy) => (enemy.name.as_str(), Some(enemy.archetype)),
-            ActorRuntime::Peaceful(npc) => (npc.name.as_str(), None),
+            ActorRuntime::Enemy(enemy) => (enemy.name.as_str(), Some(enemy.archetype)),
+            ActorRuntime::Npc(npc) => (npc.name.as_str(), None),
         };
         let name_lc = name.to_ascii_lowercase();
         let is_slug = archetype == Some(EnemyArchetype::PuppySlug)

@@ -127,13 +127,13 @@ pub fn sync_riders_to_mounts(
         let Ok((mount_actor, mountable)) = mounts.get(riding.mount) else {
             continue;
         };
-        let ActorRuntime::Hostile(mount) = mount_actor else {
+        let ActorRuntime::Enemy(mount) = mount_actor else {
             continue;
         };
         if !mount.alive {
             continue;
         }
-        let ActorRuntime::Hostile(rider) = &mut *rider_actor else {
+        let ActorRuntime::Enemy(rider) = &mut *rider_actor else {
             continue;
         };
         if !rider.alive {
@@ -211,14 +211,14 @@ pub fn enforce_mount_rider_link(
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
     for (mount_entity, mount_actor) in &mounts {
-        let alive = matches!(mount_actor, ActorRuntime::Hostile(m) if m.alive);
+        let alive = matches!(mount_actor, ActorRuntime::Enemy(m) if m.alive);
         mount_alive.insert(mount_entity, alive);
     }
 
     for (rider_entity, riding, mut rider_actor, mut rider_aabb, cache, was_mounted, held_item) in
         &mut riders
     {
-        let ActorRuntime::Hostile(rider) = &mut *rider_actor else {
+        let ActorRuntime::Enemy(rider) = &mut *rider_actor else {
             continue;
         };
         if !rider.alive {
@@ -320,7 +320,7 @@ mod tests {
         enemy.size = size;
         enemy.pos = pos;
         enemy.alive = true;
-        ActorRuntime::Hostile(enemy)
+        ActorRuntime::Enemy(enemy)
     }
 
     fn build_app() -> App {
@@ -366,7 +366,7 @@ mod tests {
         // Pre-poison rider velocity so the assertion that the sync
         // zeroes it isn't a no-op against the default.
         if let Some(mut actor) = app.world_mut().entity_mut(rider).get_mut::<ActorRuntime>() {
-            if let ActorRuntime::Hostile(r) = &mut *actor {
+            if let ActorRuntime::Enemy(r) = &mut *actor {
                 r.vel = ae::Vec2::new(500.0, -200.0);
                 r.gravity_scale = 1.0;
             }
@@ -375,7 +375,7 @@ mod tests {
         app.update();
 
         let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Hostile(r) = actor else {
+        let ActorRuntime::Enemy(r) = actor else {
             panic!("rider should be Hostile")
         };
         assert_eq!(
@@ -422,7 +422,7 @@ mod tests {
         let mount_pos = ae::Vec2::new(0.0, 0.0);
         let mount_size = ae::Vec2::new(126.0, 52.0);
         let mut mount_actor = hostile("mount", "burning_flying_shark", mount_pos, mount_size);
-        if let ActorRuntime::Hostile(m) = &mut mount_actor {
+        if let ActorRuntime::Enemy(m) = &mut mount_actor {
             m.alive = mount_alive;
         }
         let mount = app
@@ -439,7 +439,7 @@ mod tests {
         let rider_pos = ae::Vec2::new(0.0, -40.0);
         let rider_size = ae::Vec2::new(44.0, 78.0);
         let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
-        if let ActorRuntime::Hostile(r) = &mut rider_actor {
+        if let ActorRuntime::Enemy(r) = &mut rider_actor {
             r.alive = rider_alive;
             r.gravity_scale = 0.0;
         }
@@ -486,7 +486,7 @@ mod tests {
             "Mounted marker removed on dissolve",
         );
         let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Hostile(r) = actor else {
+        let ActorRuntime::Enemy(r) = actor else {
             panic!()
         };
         assert_eq!(r.gravity_scale, 1.0, "PirateRaider rider gets gravity 1.0");
@@ -527,7 +527,7 @@ mod tests {
         // true (reset_to_spawn would do this). The enforcer should
         // re-arm the link on the next tick.
         if let Some(mut actor) = app.world_mut().entity_mut(mount).get_mut::<ActorRuntime>() {
-            if let ActorRuntime::Hostile(m) = &mut *actor {
+            if let ActorRuntime::Enemy(m) = &mut *actor {
                 m.alive = true;
             }
         }
@@ -538,7 +538,7 @@ mod tests {
             "Mounted marker should be re-added on revive",
         );
         let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Hostile(r) = actor else {
+        let ActorRuntime::Enemy(r) = actor else {
             panic!()
         };
         assert_eq!(
@@ -578,7 +578,7 @@ mod tests {
             "MountSlot.rider stays populated even with dead rider",
         );
         let mount_actor = app.world().entity(mount).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Hostile(m) = mount_actor else {
+        let ActorRuntime::Enemy(m) = mount_actor else {
             panic!()
         };
         assert!(m.alive, "mount stays alive when rider dies");

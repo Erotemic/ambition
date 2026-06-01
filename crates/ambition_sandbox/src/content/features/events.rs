@@ -127,10 +127,6 @@ pub enum GameplayEffect {
     /// Record that an NPC was struck. Today this is trace/reporting glue;
     /// hostility is flipped by an actor stimulus consumer.
     StrikeNpc { npc_id: String, pos: ae::Vec2 },
-    /// Forward an AI/relationship stimulus to actor systems. Kept inside the
-    /// gameplay-effect bus so the high-arity damage system does not need yet
-    /// another `MessageWriter` parameter.
-    ActorStimulus(ActorStimulus),
     /// SFX-only effect. Use typed presentation vectors for sounds that also
     /// imply VFX/progression, and this variant for standalone audio.
     PlaySfx {

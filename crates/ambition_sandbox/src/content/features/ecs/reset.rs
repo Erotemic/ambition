@@ -85,7 +85,7 @@ pub fn reset_ecs_room_features(
     ) in &mut actors
     {
         match &mut *actor {
-            ActorRuntime::Peaceful(npc) => {
+            ActorRuntime::Npc(npc) => {
                 npc.pos = npc.spawn;
                 aabb.center = npc.spawn;
                 npc.vel = ae::Vec2::ZERO;
@@ -94,7 +94,7 @@ pub fn reset_ecs_room_features(
                 npc.strikes = 0;
                 npc.hit_flash = 0.0;
             }
-            ActorRuntime::Hostile(enemy) => {
+            ActorRuntime::Enemy(enemy) => {
                 // Restore authored spawn state so morphed actors
                 // (PirateOnShark → PirateRaider / BurningFlyingShark)
                 // return as their original fused archetype with

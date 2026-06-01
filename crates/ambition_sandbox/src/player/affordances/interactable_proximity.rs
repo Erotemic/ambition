@@ -64,7 +64,7 @@ pub fn update_nearest_interactable(
     // so they naturally drop out of this query.
     let mut chosen = InteractVariant::None;
     for (aabb, actor) in &actors {
-        let ActorRuntime::Peaceful(_npc) = actor else {
+        let ActorRuntime::Npc(_npc) = actor else {
             continue;
         };
         if aabb.aabb().strict_intersects(player_aabb) {

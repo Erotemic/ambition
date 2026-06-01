@@ -48,9 +48,9 @@ pub fn sync_ecs_actors_with_save(
     ) in &mut actors
     {
         match &mut *actor {
-            ActorRuntime::Peaceful(npc) => {
+            ActorRuntime::Npc(npc) => {
                 if data.flag(&npc.flag_id()) {
-                    let mut hostile = ActorRuntime::hostile_from_npc(npc);
+                    let mut hostile = ActorRuntime::enemy_runtime_for_npc_combat(npc);
                     if data.flag(&format!("enemy_{}_dead", hostile.id))
                         || data.flag(&format!(
                             "enemy_{}{}",
@@ -66,11 +66,11 @@ pub fn sync_ecs_actors_with_save(
                         super::brain_builders::aggressive_brain_and_action_set_for_enemy(
                             &hostile, combat_kit, held_item,
                         );
-                    *actor = ActorRuntime::Hostile(hostile);
+                    *actor = ActorRuntime::Enemy(hostile);
                     commands.entity(entity).insert((new_brain, new_action_set));
                 }
             }
-            ActorRuntime::Hostile(enemy) => {
+            ActorRuntime::Enemy(enemy) => {
                 // Respect both `_dead` (Never policy) and
                 // `_dead_until_rest` (OnRest policy) flags so an
                 // enemy killed in a previous session/room visit

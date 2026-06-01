@@ -22,86 +22,87 @@ fn shark_charge_crashed(
         && enemy.alive
 }
 
-/// Unified ECS runtime for authored NPCs and enemies.
+/// Unified ECS runtime body for authored NPCs and enemy-shaped actors.
 ///
-/// The only meaningful gameplay distinction is disposition: peaceful actors
-/// talk / patrol, hostile actors chase / attack. A peaceful NPC can flip into
-/// the hostile branch in-place after enough strikes instead of being removed
-/// from one runtime vector and reinserted into another.
+/// The variants describe which legacy runtime body still owns the low-level
+/// movement/combat fields, not who the actor is willing to fight. Current
+/// willingness to fight lives in [`ActorAggression`] and mirrored
+/// [`ActorDisposition`]. This keeps the old NPC/enemy storage usable while
+/// moving gameplay policy out into ECS components.
 #[derive(Component, Clone, Debug)]
 pub enum ActorRuntime {
-    Peaceful(NpcRuntime),
-    Hostile(EnemyRuntime),
+    Npc(NpcRuntime),
+    Enemy(EnemyRuntime),
 }
 
 impl ActorRuntime {
     pub fn id(&self) -> &str {
         match self {
-            Self::Peaceful(actor) => actor.id.as_str(),
-            Self::Hostile(actor) => actor.id.as_str(),
+            Self::Npc(actor) => actor.id.as_str(),
+            Self::Enemy(actor) => actor.id.as_str(),
         }
     }
 
     pub fn name(&self) -> &str {
         match self {
-            Self::Peaceful(actor) => actor.name.as_str(),
-            Self::Hostile(actor) => actor.name.as_str(),
+            Self::Npc(actor) => actor.name.as_str(),
+            Self::Enemy(actor) => actor.name.as_str(),
         }
     }
 
     pub fn aabb(&self) -> ae::Aabb {
         match self {
-            Self::Peaceful(actor) => actor.aabb(),
-            Self::Hostile(actor) => actor.aabb(),
+            Self::Npc(actor) => actor.aabb(),
+            Self::Enemy(actor) => actor.aabb(),
         }
     }
 
     pub fn pos(&self) -> ae::Vec2 {
         match self {
-            Self::Peaceful(actor) => actor.pos,
-            Self::Hostile(actor) => actor.pos,
+            Self::Npc(actor) => actor.pos,
+            Self::Enemy(actor) => actor.pos,
         }
     }
 
     pub fn size(&self) -> ae::Vec2 {
         match self {
-            Self::Peaceful(actor) => actor.size,
-            Self::Hostile(actor) => actor.size,
+            Self::Npc(actor) => actor.size,
+            Self::Enemy(actor) => actor.size,
         }
     }
 
     pub fn facing(&self) -> f32 {
         match self {
-            Self::Peaceful(actor) => actor.facing,
-            Self::Hostile(actor) => actor.facing,
+            Self::Npc(actor) => actor.facing,
+            Self::Enemy(actor) => actor.facing,
         }
     }
 
     pub fn disposition(&self) -> ActorDisposition {
         match self {
-            Self::Peaceful(_) => ActorDisposition::Peaceful,
-            Self::Hostile(_) => ActorDisposition::Hostile,
+            Self::Npc(_) => ActorDisposition::Peaceful,
+            Self::Enemy(_) => ActorDisposition::Hostile,
         }
     }
 
     pub fn visual_kind(&self) -> FeatureVisualKind {
         match self {
-            Self::Peaceful(_) => FeatureVisualKind::Npc,
-            Self::Hostile(enemy) => enemy.visual_kind(),
+            Self::Npc(_) => FeatureVisualKind::Npc,
+            Self::Enemy(enemy) => enemy.visual_kind(),
         }
     }
 
     pub fn visible(&self) -> bool {
         match self {
-            Self::Peaceful(_) => true,
-            Self::Hostile(enemy) => enemy.alive,
+            Self::Npc(_) => true,
+            Self::Enemy(enemy) => enemy.alive,
         }
     }
 
     pub fn flash(&self) -> bool {
         match self {
-            Self::Peaceful(npc) => npc.hit_flash > 0.0,
-            Self::Hostile(enemy) => {
+            Self::Npc(npc) => npc.hit_flash > 0.0,
+            Self::Enemy(enemy) => {
                 enemy.hit_flash > 0.0 || enemy.attack_windup_timer > 0.0 || enemy.attack_timer > 0.0
             }
         }
@@ -109,8 +110,8 @@ impl ActorRuntime {
 
     pub fn feature_view(&self) -> FeatureView {
         let rotation_rad = match self {
-            Self::Peaceful(_) => 0.0,
-            Self::Hostile(enemy) => enemy.rotation_rad(),
+            Self::Npc(_) => 0.0,
+            Self::Enemy(enemy) => enemy.rotation_rad(),
         };
         FeatureView {
             pos: self.pos(),
@@ -123,7 +124,13 @@ impl ActorRuntime {
         }
     }
 
-    pub(crate) fn hostile_from_npc(npc: &NpcRuntime) -> EnemyRuntime {
+    /// Build the enemy-shaped combat runtime used when an authored NPC's
+    /// aggression policy decides it should fight. This is a temporary adapter
+    /// around the remaining `EnemyRuntime` holdout: the NPC's identity and ECS
+    /// components stay on the same entity, while the low-level movement/attack
+    /// timers are represented with the existing enemy body until that runtime is
+    /// split into smaller components.
+    pub(crate) fn enemy_runtime_for_npc_combat(npc: &NpcRuntime) -> EnemyRuntime {
         let brain_id = hostile_enemy_brain_for_npc(npc);
         let mut enemy = EnemyRuntime::new(
             npc.id.clone(),
@@ -185,7 +192,7 @@ pub(crate) fn actor_component_snapshot(
     ActorCooldowns,
 ) {
     match actor {
-        ActorRuntime::Peaceful(npc) => (
+        ActorRuntime::Npc(npc) => (
             ActorIdentity::new(npc.id.clone(), npc.name.clone()),
             ActorDisposition::Peaceful,
             ActorHealth::new(crate::actor::Health::new(1)),
@@ -193,7 +200,7 @@ pub(crate) fn actor_component_snapshot(
             ActorIntent::new(crate::character_ai::CharacterAiMode::Idle),
             ActorCooldowns::default(),
         ),
-        ActorRuntime::Hostile(enemy) => (
+        ActorRuntime::Enemy(enemy) => (
             ActorIdentity::new(enemy.id.clone(), enemy.name.clone())
                 .with_sprite_override(enemy.sprite_override_npc_name.clone()),
             ActorDisposition::Hostile,
@@ -261,7 +268,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
 
 /// Tick ECS actors. Peaceful and hostile actors share the same entity identity
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the
-/// same `ActorRuntime::Hostile` path with an `EncounterMob` marker.
+/// same `ActorRuntime::Enemy` path with an `EncounterMob` marker.
 pub fn update_ecs_actors(
     mut commands: Commands,
     world_time: Res<WorldTime>,
@@ -352,7 +359,7 @@ pub fn update_ecs_actors(
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, crate::combat_slots::SlotKind)> = Vec::new();
     for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _) in &actors {
-        if let ActorRuntime::Hostile(enemy) = actor {
+        if let ActorRuntime::Enemy(enemy) = actor {
             if enemy.alive {
                 requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
             }
@@ -515,7 +522,7 @@ pub fn update_ecs_actors(
         // production game.
         let target_pos = target.pos;
         match &mut *actor {
-            ActorRuntime::Peaceful(npc) => {
+            ActorRuntime::Npc(npc) => {
                 let frame = if let Some(brain) = brain.as_deref_mut() {
                     npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt)
                 } else {
@@ -535,7 +542,7 @@ pub fn update_ecs_actors(
                 aabb.center = npc.pos;
                 aabb.half_size = npc.size * 0.5;
             }
-            ActorRuntime::Hostile(enemy) => {
+            ActorRuntime::Enemy(enemy) => {
                 let slot_pos = if let Some(slot) = slot_board.0.slot_for(&enemy.id) {
                     Some(slot.world_pos(target_pos))
                 } else if enemy.alive {
@@ -795,7 +802,7 @@ mod tests {
                 FeatureSimEntity,
                 FeatureAabb::from_center_size(ae::Vec2::new(40.0, 80.0), ae::Vec2::new(20.0, 30.0)),
                 crate::features::ActorPose::default(),
-                ActorRuntime::Hostile(enemy),
+                ActorRuntime::Enemy(enemy),
             ))
             .id();
 

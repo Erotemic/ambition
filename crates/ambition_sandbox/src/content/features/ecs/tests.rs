@@ -54,7 +54,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
         FeatureId::new("guide"),
         FeatureName::new("Guide"),
         FeatureAabb::from_center_size(center, size),
-        ActorRuntime::Peaceful(npc),
+        ActorRuntime::Npc(npc),
         DamageableVolumes::default(),
         PogoPolicy::FromDamageable,
         PogoTargetVolumes::default(),
@@ -295,7 +295,7 @@ fn interact_buffered_starts_npc_dialogue() {
     app.world_mut().spawn((
         FeatureSimEntity,
         FeatureAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
-        ActorRuntime::Peaceful(npc),
+        ActorRuntime::Npc(npc),
     ));
 
     // No switches in this test — the switch query will be empty and the

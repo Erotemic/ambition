@@ -620,8 +620,8 @@ fn draw_feature_debug(
 
     for actor in feature_q.actors.iter() {
         let color = match actor {
-            crate::features::ActorRuntime::Peaceful(_) => npc_color,
-            crate::features::ActorRuntime::Hostile(_) => enemy_color,
+            crate::features::ActorRuntime::Npc(_) => npc_color,
+            crate::features::ActorRuntime::Enemy(_) => enemy_color,
         };
         draw_aabb_styled(gizmos, world, actor.aabb(), color, developer_tools);
         // Hostile actors (and turned-hostile NPCs like the Kernel Guide)
@@ -629,7 +629,7 @@ fn draw_feature_debug(
         // it whenever windup or strike timer is live so the player can
         // see exactly where the hit will land. Telegraph wins when both
         // are zero so a frame on the edge still reads as "incoming".
-        if let crate::features::ActorRuntime::Hostile(enemy) = actor {
+        if let crate::features::ActorRuntime::Enemy(enemy) = actor {
             if enemy.attack_timer > 0.0 {
                 draw_aabb_styled(
                     gizmos,

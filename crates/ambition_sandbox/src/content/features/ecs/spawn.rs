@@ -333,7 +333,7 @@ mod tests {
             .iter(app.world())
             .next()
             .expect("light shark composite should spawn a rider");
-        let ActorRuntime::Hostile(rider) = actor else {
+        let ActorRuntime::Enemy(rider) = actor else {
             panic!("rider should be hostile")
         };
         assert_eq!(
@@ -374,7 +374,7 @@ mod tests {
             .iter(app.world())
             .next()
             .expect("heavy shark composite should spawn a rider");
-        let ActorRuntime::Hostile(rider) = actor else {
+        let ActorRuntime::Enemy(rider) = actor else {
             panic!("rider should be hostile")
         };
         assert_eq!(

@@ -3,9 +3,9 @@
 //! Damage should say "this actor was hit"; the actor's aggression policy decides
 //! whether that means retaliation, fleeing, ignoring the hit, or some future
 //! faction relationship change. This module is the first slice of that ECS seam:
-//! cove NPCs still convert through the legacy `ActorRuntime::Hostile` runtime, but
-//! the decision is now driven by `ActorAggression + CombatKit + HeldItem` instead
-//! of being embedded directly in the damage application loop.
+//! cove NPCs still borrow the legacy enemy-shaped combat runtime when they
+//! retaliate, but the decision is now driven by `ActorAggression + CombatKit +
+//! HeldItem` instead of being embedded directly in the damage application loop.
 
 use bevy::prelude::*;
 
@@ -68,12 +68,11 @@ pub fn apply_actor_stimuli(
         aggression.target = source.or(aggression.target);
 
         let should_be_aggressive = match (&*runtime, aggression.mode) {
-            (
-                ActorRuntime::Peaceful(npc),
-                AggressionMode::RetaliatesWhenHit { strike_threshold },
-            ) => npc.strikes >= i32::from(strike_threshold),
+            (ActorRuntime::Npc(npc), AggressionMode::RetaliatesWhenHit { strike_threshold }) => {
+                npc.strikes >= i32::from(strike_threshold)
+            }
             (_, AggressionMode::HostileToPlayer) => true,
-            (ActorRuntime::Hostile(_), AggressionMode::RetaliatesWhenHit { .. }) => true,
+            (ActorRuntime::Enemy(_), AggressionMode::RetaliatesWhenHit { .. }) => true,
             _ => false,
         };
         if !should_be_aggressive {
@@ -81,8 +80,8 @@ pub fn apply_actor_stimuli(
         }
         aggression.mode = AggressionMode::HostileToPlayer;
 
-        if let ActorRuntime::Peaceful(npc) = &*runtime {
-            let mut hostile = ActorRuntime::hostile_from_npc(npc);
+        if let ActorRuntime::Npc(npc) = &*runtime {
+            let mut hostile = ActorRuntime::enemy_runtime_for_npc_combat(npc);
             if source.is_some() {
                 hostile.ai_mode = crate::character_ai::CharacterAiMode::Chase;
             }
@@ -90,9 +89,9 @@ pub fn apply_actor_stimuli(
                 super::brain_builders::aggressive_brain_and_action_set_for_enemy(
                     &hostile, combat_kit, held_item,
                 );
-            *runtime = ActorRuntime::Hostile(hostile);
+            *runtime = ActorRuntime::Enemy(hostile);
             commands.entity(entity).insert((brain, action_set));
-        } else if let ActorRuntime::Hostile(enemy) = &*runtime {
+        } else if let ActorRuntime::Enemy(enemy) = &*runtime {
             let (brain, action_set) =
                 super::brain_builders::aggressive_brain_and_action_set_for_enemy(
                     enemy, combat_kit, held_item,

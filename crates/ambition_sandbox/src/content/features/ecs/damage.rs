@@ -11,6 +11,7 @@
 //! cues.
 
 use crate::engine_core::AabbExt;
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With};
 
 use super::super::{
@@ -24,12 +25,22 @@ use super::{
     GameplayEffect, HitEvent, HitSource, RespawnTimer,
 };
 use crate::audio::SfxMessage;
+use crate::features::ActorStimulus;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
 use crate::encounter::BossEncounterMusicRequest;
-use crate::features::ActorStimulus;
 use crate::presentation::cutscene::CutsceneTriggerQueue;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
+
+
+#[derive(SystemParam)]
+pub struct FeatureHitWriters<'w> {
+    pub gameplay_effects: MessageWriter<'w, GameplayEffect>,
+    pub actor_stimuli: MessageWriter<'w, ActorStimulus>,
+    pub sfx: MessageWriter<'w, SfxMessage>,
+    pub vfx: MessageWriter<'w, VfxMessage>,
+    pub debris: MessageWriter<'w, DebrisBurstMessage>,
+}
 
 /// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
 pub fn apply_feature_hit_events(
@@ -91,10 +102,7 @@ pub fn apply_feature_hit_events(
             bevy::prelude::With<crate::player::PrimaryPlayer>,
         ),
     >,
-    mut gameplay_effects: MessageWriter<GameplayEffect>,
-    mut sfx: MessageWriter<SfxMessage>,
-    mut vfx: MessageWriter<VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
+    mut writers: FeatureHitWriters,
     // OVERNIGHT-TODO #8 — boss encounter authoritative state. The
     // engine `BossEncounterState` is now the source of truth for boss
     // HP; the sandbox `BossRuntime.health` is a one-way mirror updated
@@ -127,11 +135,11 @@ pub fn apply_feature_hit_events(
                     continue;
                 }
                 let broke = feature.breakable.apply_damage(event.damage.max(1));
-                vfx.write(VfxMessage::Impact { pos: aabb.center });
+                writers.vfx.write(VfxMessage::Impact { pos: aabb.center });
                 if broke {
                     begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
                     banner.show(format!("shattered {}", name.0.as_str()), 2.6);
-                    emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
+                    emit_breakable_destroyed(aabb.center, &mut writers.sfx, &mut writers.vfx, &mut writers.debris);
                 }
             }
             continue;
@@ -170,33 +178,31 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             match &mut *actor {
-                ActorRuntime::Peaceful(npc) => {
+                ActorRuntime::Npc(npc) => {
                     npc.hit_flash = 0.18;
                     npc.strikes = npc.strikes.saturating_add(1);
                     let impact = midpoint(event.volume.center(), npc.pos);
-                    vfx.write(VfxMessage::Impact { pos: impact });
-                    gameplay_effects.write(GameplayEffect::StrikeNpc {
+                    writers.vfx.write(VfxMessage::Impact { pos: impact });
+                    writers.gameplay_effects.write(GameplayEffect::StrikeNpc {
                         npc_id: npc.id.clone(),
                         pos: npc.pos,
                     });
-                    gameplay_effects.write(GameplayEffect::ActorStimulus(
-                        ActorStimulus::DamagedBy {
-                            actor: actor_entity,
-                            source: event.attacker,
-                            damage: event.damage,
-                        },
-                    ));
+                    writers.actor_stimuli.write(ActorStimulus::DamagedBy {
+                        actor: actor_entity,
+                        source: event.attacker,
+                        damage: event.damage,
+                    });
                     actor_hit_this_event = true;
                     if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
-                        gameplay_effects.write(GameplayEffect::SetFlag {
+                        writers.gameplay_effects.write(GameplayEffect::SetFlag {
                             id: npc.flag_id(),
                             on: true,
                         });
-                        vfx.write(VfxMessage::SpeechBubble {
+                        writers.vfx.write(VfxMessage::SpeechBubble {
                             pos: npc.bark_anchor(),
                             text: npc.hostile_bark().to_string(),
                         });
-                        vfx.write(VfxMessage::Burst {
+                        writers.vfx.write(VfxMessage::Burst {
                             pos: npc.pos,
                             count: 16,
                             speed: 230.0,
@@ -205,13 +211,13 @@ pub fn apply_feature_hit_events(
                         });
                         banner.show(format!("{} turns hostile", npc.name), 2.6);
                     } else {
-                        vfx.write(VfxMessage::SpeechBubble {
+                        writers.vfx.write(VfxMessage::SpeechBubble {
                             pos: npc.bark_anchor(),
                             text: npc.hit_bark().to_string(),
                         });
                     }
                 }
-                ActorRuntime::Hostile(enemy) => {
+                ActorRuntime::Enemy(enemy) => {
                     if !enemy.alive {
                         continue;
                     }
@@ -230,7 +236,7 @@ pub fn apply_feature_hit_events(
                             if let Some(line) =
                                 reg.pick_hit_bark(&enemy.name, strikes.max(0) as u32)
                             {
-                                vfx.write(VfxMessage::SpeechBubble {
+                                writers.vfx.write(VfxMessage::SpeechBubble {
                                     pos: enemy.bark_anchor(),
                                     text: line.to_string(),
                                 });
@@ -253,7 +259,7 @@ pub fn apply_feature_hit_events(
                         enemy.health.damage(damage_amount)
                     };
                     let impact = midpoint(event.volume.center(), enemy.pos);
-                    vfx.write(VfxMessage::Impact { pos: impact });
+                    writers.vfx.write(VfxMessage::Impact { pos: impact });
                     actor_hit_this_event = true;
                     if killed {
                         enemy.alive = false;
@@ -284,23 +290,23 @@ pub fn apply_feature_hit_events(
                                     P::Never => Some(format!("enemy_{}_dead", enemy.id)),
                                 };
                                 if let Some(id) = flag_id {
-                                    gameplay_effects
+                                    writers.gameplay_effects
                                         .write(GameplayEffect::SetFlag { id, on: true });
                                 }
                             }
                         }
-                        vfx.write(VfxMessage::Burst {
+                        writers.vfx.write(VfxMessage::Burst {
                             pos: enemy.pos,
                             count: 16,
                             speed: 230.0,
                             color: [0.84, 0.95, 1.0, 0.82],
                             kind: ParticleKind::Spark,
                         });
-                        debris.write(DebrisBurstMessage {
+                        writers.debris.write(DebrisBurstMessage {
                             pos: enemy.pos,
                             cue: PhysicsDebrisCue::EnemyRagdoll,
                         });
-                        sfx.write(SfxMessage::Death { pos: enemy.pos });
+                        writers.sfx.write(SfxMessage::Death { pos: enemy.pos });
                     }
                 }
             }
@@ -347,7 +353,7 @@ pub fn apply_feature_hit_events(
                 {
                     boss.hit_flash = 0.18;
                     let impact = midpoint(event.volume.center(), hit_aabb.center());
-                    vfx.write(VfxMessage::Impact { pos: impact });
+                    writers.vfx.write(VfxMessage::Impact { pos: impact });
                     boss_hit_this_event = true;
                 }
                 continue;
@@ -374,7 +380,7 @@ pub fn apply_feature_hit_events(
                 if let Some(reg) = combat_banter.as_deref() {
                     let strikes = boss.health.max - boss.health.current;
                     if let Some(line) = reg.pick_hit_bark(&boss.name, strikes.max(0) as u32) {
-                        vfx.write(VfxMessage::SpeechBubble {
+                        writers.vfx.write(VfxMessage::SpeechBubble {
                             pos: boss.bark_anchor(),
                             text: line.to_string(),
                         });
@@ -431,14 +437,14 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             let impact = midpoint(event.volume.center(), hit_aabb.center());
-            vfx.write(VfxMessage::Impact { pos: impact });
+            writers.vfx.write(VfxMessage::Impact { pos: impact });
             // `GameplayEffect::DamageBoss` is preserved for downstream
             // listeners (e.g. trace / quest hooks) that still want to
             // observe boss damage; engine state was already updated
             // via `record_boss_damage` above, so the bus reader is
             // now a no-op for the encounter machine — see
             // `apply_boss_damage_effects`.
-            gameplay_effects.write(GameplayEffect::DamageBoss {
+            writers.gameplay_effects.write(GameplayEffect::DamageBoss {
                 boss_id: boss.id.clone(),
                 amount,
             });
@@ -446,18 +452,18 @@ pub fn apply_feature_hit_events(
             if killed {
                 boss.alive = false;
                 banner.show(format!("defeated boss {}", boss.name), 2.6);
-                vfx.write(VfxMessage::Burst {
+                writers.vfx.write(VfxMessage::Burst {
                     pos: boss.pos,
                     count: 16,
                     speed: 230.0,
                     color: [0.84, 0.95, 1.0, 0.82],
                     kind: ParticleKind::Spark,
                 });
-                debris.write(DebrisBurstMessage {
+                writers.debris.write(DebrisBurstMessage {
                     pos: boss.pos,
                     cue: PhysicsDebrisCue::BossRagdoll,
                 });
-                sfx.write(SfxMessage::Death { pos: boss.pos });
+                writers.sfx.write(SfxMessage::Death { pos: boss.pos });
             }
         }
 
@@ -473,7 +479,7 @@ pub fn apply_feature_hit_events(
                     break;
                 }
             }
-            sfx.write(SfxMessage::Hit {
+            writers.sfx.write(SfxMessage::Hit {
                 pos: event.volume.center(),
             });
         }
@@ -493,13 +499,13 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             let broke = feature.breakable.apply_damage(event.damage.max(1));
-            vfx.write(VfxMessage::Impact {
+            writers.vfx.write(VfxMessage::Impact {
                 pos: midpoint(event.volume.center(), aabb.center),
             });
             if broke {
                 begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
-                emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
+                emit_breakable_destroyed(aabb.center, &mut writers.sfx, &mut writers.vfx, &mut writers.debris);
             }
         }
     }
@@ -638,7 +644,7 @@ mod tests {
             &[],
         );
         enemy.health = crate::actor::Health::new(5);
-        let actor = ActorRuntime::Hostile(enemy.clone());
+        let actor = ActorRuntime::Enemy(enemy.clone());
         let (identity, disposition, health, combat, intent, cooldowns) =
             actor_component_snapshot(&actor);
         app.world_mut()
@@ -732,7 +738,7 @@ mod tests {
             .get::<ActorRuntime>(actor_entity)
             .expect("hostile actor runtime exists");
         match runtime {
-            ActorRuntime::Hostile(enemy) => assert!(
+            ActorRuntime::Enemy(enemy) => assert!(
                 !enemy.alive,
                 "charge crash should mark the enemy dead through the normal kill path"
             ),

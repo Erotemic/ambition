@@ -23,9 +23,9 @@ pub fn refresh_actor_damageable_volumes(
 ) {
     for (aabb, actor, mut damageable) in &mut actors {
         match actor {
-            ActorRuntime::Peaceful(_) => damageable.set_single(aabb.aabb()),
-            ActorRuntime::Hostile(enemy) if enemy.alive => damageable.set_single(aabb.aabb()),
-            ActorRuntime::Hostile(_) => damageable.clear(),
+            ActorRuntime::Npc(_) => damageable.set_single(aabb.aabb()),
+            ActorRuntime::Enemy(enemy) if enemy.alive => damageable.set_single(aabb.aabb()),
+            ActorRuntime::Enemy(_) => damageable.clear(),
         }
     }
 }

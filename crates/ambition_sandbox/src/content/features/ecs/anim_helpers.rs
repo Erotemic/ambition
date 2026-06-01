@@ -15,8 +15,8 @@ pub fn ecs_npc_name<'a>(
             return None;
         }
         match actor {
-            ActorRuntime::Peaceful(npc) => Some(npc.name.as_str()),
-            ActorRuntime::Hostile(enemy) => enemy.sprite_override_npc_name.as_deref(),
+            ActorRuntime::Npc(npc) => Some(npc.name.as_str()),
+            ActorRuntime::Enemy(enemy) => enemy.sprite_override_npc_name.as_deref(),
         }
     })
 }
@@ -30,7 +30,7 @@ pub fn ecs_enemy_sprite_override<'a>(
             return None;
         }
         match actor {
-            ActorRuntime::Hostile(enemy) => enemy.sprite_override_npc_name.as_deref(),
+            ActorRuntime::Enemy(enemy) => enemy.sprite_override_npc_name.as_deref(),
             _ => None,
         }
     })
@@ -52,7 +52,7 @@ pub fn ecs_enemy_name<'a>(
             return None;
         }
         match actor {
-            ActorRuntime::Hostile(enemy) => Some(enemy.name.as_str()),
+            ActorRuntime::Enemy(enemy) => Some(enemy.name.as_str()),
             _ => None,
         }
     })
@@ -67,7 +67,7 @@ pub fn ecs_enemy_anim_state(
             return None;
         }
         match actor {
-            ActorRuntime::Hostile(enemy) => {
+            ActorRuntime::Enemy(enemy) => {
                 Some(crate::presentation::character_sprites::EnemyAnimState {
                     vel: enemy.vel,
                     facing: enemy.facing,
@@ -91,13 +91,11 @@ pub fn ecs_npc_anim_state(
             return None;
         }
         match actor {
-            ActorRuntime::Peaceful(npc) => {
-                Some(crate::presentation::character_sprites::NpcAnimState {
-                    vel: npc.vel,
-                    facing: npc.facing,
-                    hit_flash: npc.hit_flash > 0.0,
-                })
-            }
+            ActorRuntime::Npc(npc) => Some(crate::presentation::character_sprites::NpcAnimState {
+                vel: npc.vel,
+                facing: npc.facing,
+                hit_flash: npc.hit_flash > 0.0,
+            }),
             _ => None,
         }
     })

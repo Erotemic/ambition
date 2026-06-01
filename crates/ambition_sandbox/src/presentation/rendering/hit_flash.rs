@@ -308,8 +308,8 @@ pub fn cleanup_hit_flash_overlays(
 /// | type | timer storage | set by damage |
 /// |------|---------------|---------------|
 /// | player | `PlayerCombatState::flash_timer` | `world_flow` damage paths |
-/// | enemy  | `EnemyRuntime::hit_flash` (via `ActorRuntime::Hostile`) | `enemies::apply_damage_at` |
-/// | NPC    | `NpcRuntime::hit_flash` (via `ActorRuntime::Peaceful`)   | NPC damage paths |
+/// | enemy  | `EnemyRuntime::hit_flash` (via `ActorRuntime::Enemy`) | `enemies::apply_damage_at` |
+/// | NPC    | `NpcRuntime::hit_flash` (via `ActorRuntime::Npc`)   | NPC damage paths |
 /// | boss   | `BossRuntime::hit_flash` (via `BossFeature.boss`)        | boss damage paths |
 fn hit_flash_secs_for_source(
     feature: Option<&FeatureVisual>,
@@ -337,8 +337,8 @@ fn hit_flash_secs_for_source(
             return None;
         }
         match actor {
-            ActorRuntime::Hostile(enemy) => Some(enemy.hit_flash),
-            ActorRuntime::Peaceful(npc) => Some(npc.hit_flash),
+            ActorRuntime::Enemy(enemy) => Some(enemy.hit_flash),
+            ActorRuntime::Npc(npc) => Some(npc.hit_flash),
         }
     }) {
         return Some(secs);

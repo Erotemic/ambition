@@ -53,7 +53,7 @@ pub fn interact_ecs_actors_and_switches(
         let player_aabb = player_kin.aabb();
         let mut consumed = false;
         for (aabb, actor) in &actors {
-            let ActorRuntime::Peaceful(npc) = actor else {
+            let ActorRuntime::Npc(npc) = actor else {
                 continue;
             };
             if !aabb.aabb().strict_intersects(player_aabb) {

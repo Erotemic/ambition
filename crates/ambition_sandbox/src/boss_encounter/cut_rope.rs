@@ -267,7 +267,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
     };
     let brain = npc.build_brain();
     let combat_kit = crate::features::CombatKit::default();
-    let actor = ActorRuntime::Peaceful(npc);
+    let actor = ActorRuntime::Npc(npc);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
     commands

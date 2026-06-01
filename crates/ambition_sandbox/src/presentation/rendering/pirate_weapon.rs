@@ -105,7 +105,7 @@ pub fn sync_pirate_weapon_visuals(
         if held_item.id() != "gun_sword" {
             continue;
         }
-        let ActorRuntime::Hostile(rider) = actor else {
+        let ActorRuntime::Enemy(rider) = actor else {
             continue;
         };
         if !rider.alive {

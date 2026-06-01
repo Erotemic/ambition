@@ -144,7 +144,7 @@ pub(super) fn spawn_composite_mount_rider(
     let mount_brain = skirmisher_brain_for_enemy(&mount_enemy);
     let mount_action_set = enemy_default_action_set(&mount_enemy);
     let mount_combat_kit = enemy_default_combat_kit(&mount_enemy);
-    let mount_actor = ActorRuntime::Hostile(mount_enemy);
+    let mount_actor = ActorRuntime::Enemy(mount_enemy);
     let (m_identity, m_disposition, m_health, m_combat, m_intent, m_cooldowns) =
         actor_component_snapshot(&mount_actor);
     let mount_feature_aabb = FeatureAabb::from_aabb(mount_aabb);
@@ -180,7 +180,7 @@ pub(super) fn spawn_composite_mount_rider(
     // Rider-side bundles, with the RidingOn link pointing at the
     // mount we just spawned.
     let rider_combat_kit = enemy_default_combat_kit(&rider_enemy);
-    let rider_actor = ActorRuntime::Hostile(rider_enemy);
+    let rider_actor = ActorRuntime::Enemy(rider_enemy);
     let (r_identity, r_disposition, r_health, r_combat, r_intent, r_cooldowns) =
         actor_component_snapshot(&rider_actor);
     let rider_feature_aabb = FeatureAabb::from_aabb(rider_aabb);

@@ -46,8 +46,8 @@ pub fn spawn_dynamic_feature_visuals(
         let kind = actor.visual_kind();
         let render = BVec2::new(aabb.size().x, aabb.size().y);
         let entity_key = match actor {
-            ActorRuntime::Hostile(enemy) => game_assets::entity_sprite_for_enemy(&enemy.brain),
-            ActorRuntime::Peaceful(_) => continue,
+            ActorRuntime::Enemy(enemy) => game_assets::entity_sprite_for_enemy(&enemy.brain),
+            ActorRuntime::Npc(_) => continue,
         };
         let sprite = match assets_ref {
             Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
@@ -70,10 +70,10 @@ pub fn spawn_dynamic_feature_visuals(
         let kind = FeatureVisualKind::Npc;
         let render = BVec2::new(aabb.size().x, aabb.size().y);
         let entity_key = match actor {
-            ActorRuntime::Peaceful(npc) => {
+            ActorRuntime::Npc(npc) => {
                 game_assets::entity_sprite_for_interactable(&npc.interactable)
             }
-            ActorRuntime::Hostile(enemy) => game_assets::entity_sprite_for_enemy(&enemy.brain),
+            ActorRuntime::Enemy(enemy) => game_assets::entity_sprite_for_enemy(&enemy.brain),
         };
         let sprite = match assets_ref {
             Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),

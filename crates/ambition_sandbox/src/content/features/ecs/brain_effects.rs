@@ -81,7 +81,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             // (despawned this frame). Skip silently.
             continue;
         };
-        let ActorRuntime::Hostile(enemy) = &mut *actor else {
+        let ActorRuntime::Enemy(enemy) = &mut *actor else {
             // Peaceful actor emitting a Ranged action — would happen
             // only via test fixtures or a future "possessed-NPC"
             // path. Not in scope for this consumer.
@@ -161,7 +161,7 @@ pub fn start_enemy_melee_from_brain_actions(
         let Ok(mut actor) = actors.get_mut(msg.actor) else {
             continue;
         };
-        let ActorRuntime::Hostile(enemy) = &mut *actor else {
+        let ActorRuntime::Enemy(enemy) = &mut *actor else {
             // Peaceful actors never produce Melee messages today
             // (their ActionSet is empty); skip defensively.
             continue;
@@ -1093,7 +1093,7 @@ mod tests {
             crate::actor::EnemyBrain::Custom("pirate_raider".into()),
             &[],
         );
-        ActorRuntime::Hostile(enemy)
+        ActorRuntime::Enemy(enemy)
     }
 
     fn build_app() -> App {
@@ -1123,7 +1123,7 @@ mod tests {
             ))
             .id();
         let vel_before = match app.world().entity(actor).get::<ActorRuntime>().unwrap() {
-            ActorRuntime::Hostile(e) => e.vel,
+            ActorRuntime::Enemy(e) => e.vel,
             _ => panic!("expected Hostile"),
         };
         // Player to the right → +x fire dir.
@@ -1157,7 +1157,7 @@ mod tests {
         );
         // Recoil: vel.x reduced by ~RANGED_RECOIL_PIRATE.
         let vel_after = match app.world().entity(actor).get::<ActorRuntime>().unwrap() {
-            ActorRuntime::Hostile(e) => e.vel,
+            ActorRuntime::Enemy(e) => e.vel,
             _ => panic!("expected Hostile"),
         };
         let kick = vel_before.x - vel_after.x;
@@ -1183,7 +1183,7 @@ mod tests {
             &[],
         );
         enemy.archetype = EnemyArchetype::SmallSkitter;
-        let actor = app.world_mut().spawn((ActorRuntime::Hostile(enemy),)).id();
+        let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
@@ -1212,7 +1212,7 @@ mod tests {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let mut actor_runtime = pirate_rider_actor(actor_pos);
-        if let ActorRuntime::Hostile(ref mut e) = actor_runtime {
+        if let ActorRuntime::Enemy(ref mut e) = actor_runtime {
             e.alive = false;
         }
         let actor = app.world_mut().spawn((actor_runtime,)).id();
@@ -1268,7 +1268,7 @@ mod tests {
         enemy.archetype = EnemyArchetype::MediumStriker;
         enemy.attack_cooldown = 0.0;
         let pre_windup = enemy.attack_windup_timer;
-        let actor = app.world_mut().spawn((ActorRuntime::Hostile(enemy),)).id();
+        let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
@@ -1282,7 +1282,7 @@ mod tests {
             });
         app.update();
         let actor_runtime = app.world().entity(actor).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Hostile(enemy_after) = actor_runtime else {
+        let ActorRuntime::Enemy(enemy_after) = actor_runtime else {
             panic!("expected Hostile");
         };
         assert!(
@@ -1334,7 +1334,7 @@ mod tests {
             "standalone PirateHeavy is normally peaceful"
         );
         enemy.attack_cooldown = 0.0;
-        let actor = app.world_mut().spawn((ActorRuntime::Hostile(enemy),)).id();
+        let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
 
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -1351,7 +1351,7 @@ mod tests {
         app.update();
 
         let actor_runtime = app.world().entity(actor).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Hostile(enemy_after) = actor_runtime else {
+        let ActorRuntime::Enemy(enemy_after) = actor_runtime else {
             panic!("expected Hostile");
         };
         assert!(
@@ -1392,7 +1392,7 @@ mod tests {
         // Pre-set cooldown so begin_melee_attack refuses.
         enemy.attack_cooldown = 0.5;
         let pre_windup = enemy.attack_windup_timer;
-        let actor = app.world_mut().spawn((ActorRuntime::Hostile(enemy),)).id();
+        let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
@@ -1406,7 +1406,7 @@ mod tests {
             });
         app.update();
         let actor_runtime = app.world().entity(actor).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Hostile(enemy_after) = actor_runtime else {
+        let ActorRuntime::Enemy(enemy_after) = actor_runtime else {
             panic!("expected Hostile");
         };
         assert_eq!(

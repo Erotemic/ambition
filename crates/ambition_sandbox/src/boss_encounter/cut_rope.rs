@@ -8,7 +8,9 @@
 //! through the normal death pipeline.
 
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 
+use crate::assets::game_assets::GameAssets;
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{force_boss_death, BossEncounterRegistry};
 use crate::brain::ActorControl;
@@ -19,6 +21,9 @@ use crate::features::{
     actor_component_snapshot, ActorRuntime, BossFeature, BossRuntime, DamageableVolumes,
     EnemyActorBundle, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity,
     GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, ResetRoomFeaturesEvent,
+};
+use crate::presentation::character_sprites::{
+    build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
 use crate::presentation::fx::{
     ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
@@ -36,6 +41,7 @@ const CUT_ROPE_VICTORY_NPC_W: f32 = 28.0;
 const CUT_ROPE_VICTORY_NPC_H: f32 = 48.0;
 const ROPE_KIND: &str = "cut_rope_rope";
 const ANVIL_KIND: &str = "cut_rope_anvil";
+const PIANO_KIND: &str = "cut_rope_piano";
 const ANVIL_GRAVITY: f32 = 1400.0;
 const ANVIL_TERMINAL_SPEED: f32 = 920.0;
 const ANVIL_Z_OFFSET: f32 = 0.75;
@@ -56,6 +62,58 @@ pub struct CutRopeRoomReplayRequested;
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PendingCutRopeRoomReplay {
     pub requested: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CutRopeHeavyObjectKind {
+    Anvil,
+    Piano,
+}
+
+impl CutRopeHeavyObjectKind {
+    const fn prop_kind(self) -> &'static str {
+        match self {
+            Self::Anvil => ANVIL_KIND,
+            Self::Piano => PIANO_KIND,
+        }
+    }
+
+    const fn display_name(self) -> &'static str {
+        match self {
+            Self::Anvil => "anvil",
+            Self::Piano => "piano",
+        }
+    }
+}
+
+const CUT_ROPE_HEAVY_OBJECT_CYCLE: [CutRopeHeavyObjectKind; 2] =
+    [CutRopeHeavyObjectKind::Anvil, CutRopeHeavyObjectKind::Piano];
+
+/// Tracks which heavy object is currently hanging from the cut-rope trap.
+///
+/// This lives outside [`CutRopeBossArenaState`] so leaving/re-entering the room
+/// can rebuild transient fall/rope state without changing the chosen prop. The
+/// choice advances only on an actual room reset, which makes the variation
+/// deterministic and easy to test.
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CutRopeHeavyObjectCycle {
+    index: usize,
+}
+
+impl Default for CutRopeHeavyObjectCycle {
+    fn default() -> Self {
+        Self { index: 0 }
+    }
+}
+
+impl CutRopeHeavyObjectCycle {
+    fn current(self) -> CutRopeHeavyObjectKind {
+        CUT_ROPE_HEAVY_OBJECT_CYCLE[self.index % CUT_ROPE_HEAVY_OBJECT_CYCLE.len()]
+    }
+
+    fn advance(&mut self) {
+        self.index = (self.index + 1) % CUT_ROPE_HEAVY_OBJECT_CYCLE.len();
+    }
 }
 
 /// Convert a pending dialogue-authored replay into the normal replay message after
@@ -254,13 +312,18 @@ fn reset_cut_rope_arena_state_for_room(state: &mut CutRopeBossArenaState, room_i
 pub fn reset_cut_rope_boss_arena_on_room_reset(
     room_set: Res<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
+    mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
     mut prop_visuals: Query<(
         &FeatureName,
-        &PropVisual,
+        &mut PropVisual,
         &mut Transform,
+        &mut Sprite,
+        Option<&mut CharacterAnimator>,
+        Option<&mut Anchor>,
         Option<&mut Visibility>,
     )>,
+    assets: Option<Res<GameAssets>>,
 ) {
     if reset_events.read().next().is_none() {
         return;
@@ -272,9 +335,17 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
         }
         return;
     }
+    heavy_object.advance();
     reset_cut_rope_arena_state_for_room(&mut *state, &room.id);
     if let Some(anvil) = authored_prop(room_set.active_props(), ANVIL_KIND) {
-        sync_cut_rope_prop_visuals(&mut prop_visuals, room_set.active_world(), &state, anvil);
+        sync_cut_rope_prop_visuals(
+            &mut prop_visuals,
+            room_set.active_world(),
+            &state,
+            anvil,
+            heavy_object.current(),
+            assets.as_deref(),
+        );
     }
 }
 
@@ -297,15 +368,10 @@ pub fn tick_cut_rope_boss_arena(
     world_time: Res<crate::WorldTime>,
     room_set: Res<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
+    heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
     mut bosses: Query<(&FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
-    mut prop_visuals: Query<(
-        &FeatureName,
-        &PropVisual,
-        &mut Transform,
-        Option<&mut Visibility>,
-    )>,
     mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
     mut music_request: Option<ResMut<crate::encounter::BossEncounterMusicRequest>>,
     mut cutscene_queue: Option<ResMut<crate::presentation::cutscene::CutsceneTriggerQueue>>,
@@ -374,8 +440,6 @@ pub fn tick_cut_rope_boss_arena(
         });
         sfx.write(SfxMessage::Slash { pos: rope.pos });
     }
-
-    sync_cut_rope_prop_visuals(&mut prop_visuals, room_set.active_world(), &state, anvil);
 
     if state.kill_sent || !state.rope_cut {
         return;
@@ -450,7 +514,13 @@ pub fn tick_cut_rope_boss_arena(
             let _ = force_boss_death(registry, music, cutscene, &mut banner, boss.id.as_str());
         }
 
-        banner.show("Smirking Behemoth was flattened".to_string(), 2.8);
+        banner.show(
+            format!(
+                "Smirking Behemoth was flattened by a {}",
+                heavy_object.current().display_name()
+            ),
+            2.8,
+        );
         explosions.write(ExplosionRequest::classic(center).with_scale(1.25));
         if !state.death_fireworks_sent {
             let mut death_show = FireworksRequest::around(boss.pos);
@@ -473,6 +543,42 @@ pub fn tick_cut_rope_boss_arena(
         });
         break;
     }
+}
+
+/// Keep the authored rope/heavy-object prop visuals in sync with the cut-rope
+/// arena state. This is intentionally separate from `tick_cut_rope_boss_arena`:
+/// the gameplay tick already uses Bevy's maximum practical system-parameter
+/// arity after boss death/music/VFX plumbing, and adding the rendering query
+/// there makes it stop satisfying `IntoSystem`/`.run_if(...)`.
+pub fn sync_cut_rope_boss_arena_prop_visuals(
+    room_set: Res<RoomSet>,
+    state: Res<CutRopeBossArenaState>,
+    heavy_object: Res<CutRopeHeavyObjectCycle>,
+    mut prop_visuals: Query<(
+        &FeatureName,
+        &mut PropVisual,
+        &mut Transform,
+        &mut Sprite,
+        Option<&mut CharacterAnimator>,
+        Option<&mut Anchor>,
+        Option<&mut Visibility>,
+    )>,
+    assets: Option<Res<GameAssets>>,
+) {
+    if state.active_room != CUT_ROPE_ROOM_ID || room_set.active_spec().id != CUT_ROPE_ROOM_ID {
+        return;
+    }
+    let Some(anvil) = authored_prop(room_set.active_props(), ANVIL_KIND) else {
+        return;
+    };
+    sync_cut_rope_prop_visuals(
+        &mut prop_visuals,
+        room_set.active_world(),
+        &state,
+        anvil,
+        heavy_object.current(),
+        assets.as_deref(),
+    );
 }
 
 /// After the rope is cut, override the boss brain output with a horizontal
@@ -565,17 +671,24 @@ fn prop_aabb(prop: &PropSpec) -> ae::Aabb {
 fn sync_cut_rope_prop_visuals(
     prop_visuals: &mut Query<(
         &FeatureName,
-        &PropVisual,
+        &mut PropVisual,
         &mut Transform,
+        &mut Sprite,
+        Option<&mut CharacterAnimator>,
+        Option<&mut Anchor>,
         Option<&mut Visibility>,
     )>,
     world: &ae::World,
     state: &CutRopeBossArenaState,
     anvil: &PropSpec,
+    object_kind: CutRopeHeavyObjectKind,
+    assets: Option<&GameAssets>,
 ) {
-    for (name, prop, mut transform, visibility) in prop_visuals.iter_mut() {
-        let key_matches = |needle: &str| prop.kind == needle || name.0 == needle;
-        if key_matches(ROPE_KIND) {
+    for (name, mut prop, mut transform, mut sprite, animator, anchor, visibility) in
+        prop_visuals.iter_mut()
+    {
+        let key_matches = |needle: &str, prop: &PropVisual| prop.kind == needle || name.0 == needle;
+        if key_matches(ROPE_KIND, &prop) {
             if let Some(mut visibility) = visibility {
                 *visibility = if state.rope_cut {
                     Visibility::Hidden
@@ -583,7 +696,16 @@ fn sync_cut_rope_prop_visuals(
                     Visibility::Visible
                 };
             }
-        } else if key_matches(ANVIL_KIND) {
+        } else if key_matches(ANVIL_KIND, &prop) || key_matches(PIANO_KIND, &prop) {
+            apply_cut_rope_heavy_object_sprite(
+                &mut prop,
+                &mut sprite,
+                animator,
+                anchor,
+                anvil.size,
+                object_kind,
+                assets,
+            );
             if let Some(mut visibility) = visibility {
                 *visibility = if state.anvil_exploded {
                     Visibility::Hidden
@@ -604,5 +726,32 @@ fn sync_cut_rope_prop_visuals(
                 transform.translation = translation;
             }
         }
+    }
+}
+
+fn apply_cut_rope_heavy_object_sprite(
+    prop: &mut PropVisual,
+    sprite: &mut Sprite,
+    animator: Option<Mut<CharacterAnimator>>,
+    anchor: Option<Mut<Anchor>>,
+    collision: ae::Vec2,
+    object_kind: CutRopeHeavyObjectKind,
+    assets: Option<&GameAssets>,
+) {
+    let desired_kind = object_kind.prop_kind();
+    if prop.kind == desired_kind {
+        return;
+    }
+    let Some(asset) = assets.and_then(|assets| assets.characters.prop_asset_for_kind(desired_kind))
+    else {
+        return;
+    };
+    prop.kind = desired_kind.to_string();
+    *sprite = build_character_sprite(asset, Vec2::new(collision.x, collision.y));
+    if let Some(mut animator) = animator {
+        *animator = CharacterAnimator::new(&asset.spec);
+    }
+    if let Some(mut anchor) = anchor {
+        *anchor = feet_anchor_for(&asset.spec, Vec2::new(collision.x, collision.y));
     }
 }

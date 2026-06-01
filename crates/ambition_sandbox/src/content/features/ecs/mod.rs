@@ -46,6 +46,7 @@ use bevy::prelude::{
 use crate::WorldTime;
 
 mod actors;
+mod aggression;
 mod anim_helpers;
 mod banner;
 mod bosses;
@@ -74,6 +75,7 @@ mod targeting;
 mod variation;
 mod view_index;
 
+pub(crate) use aggression::apply_actor_stimuli;
 pub(crate) use actors::{actor_component_snapshot, sync_actor_components_from_runtime};
 pub use actors::{sync_actor_poses_from_feature_aabbs, update_ecs_actors, ActorRuntime};
 pub use anim_helpers::{

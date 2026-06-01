@@ -5,8 +5,8 @@
 //! mount and rider ECS actors.
 
 use super::brain_builders::{
-    enemy_default_action_set, held_item_for_archetype, mounted_rider_brain_and_action_set,
-    skirmisher_brain_for_enemy,
+    enemy_default_action_set, enemy_default_combat_kit, held_item_for_archetype,
+    mounted_rider_brain_and_action_set, skirmisher_brain_for_enemy,
 };
 use super::*;
 use bevy::prelude::Name;
@@ -143,6 +143,7 @@ pub(super) fn spawn_composite_mount_rider(
     // the rider stays visually welded to it.
     let mount_brain = skirmisher_brain_for_enemy(&mount_enemy);
     let mount_action_set = enemy_default_action_set(&mount_enemy);
+    let mount_combat_kit = enemy_default_combat_kit(&mount_enemy);
     let mount_actor = ActorRuntime::Hostile(mount_enemy);
     let (m_identity, m_disposition, m_health, m_combat, m_intent, m_cooldowns) =
         actor_component_snapshot(&mount_actor);
@@ -157,6 +158,8 @@ pub(super) fn spawn_composite_mount_rider(
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
                 pose: ActorPose::from_aabb(mount_feature_aabb, mount_actor.facing()),
+                combat_kit: mount_combat_kit,
+                aggression: super::ActorAggression::hostile_to_player(),
                 health: m_health,
                 combat: m_combat,
                 intent: m_intent,
@@ -176,6 +179,7 @@ pub(super) fn spawn_composite_mount_rider(
 
     // Rider-side bundles, with the RidingOn link pointing at the
     // mount we just spawned.
+    let rider_combat_kit = enemy_default_combat_kit(&rider_enemy);
     let rider_actor = ActorRuntime::Hostile(rider_enemy);
     let (r_identity, r_disposition, r_health, r_combat, r_intent, r_cooldowns) =
         actor_component_snapshot(&rider_actor);
@@ -198,6 +202,8 @@ pub(super) fn spawn_composite_mount_rider(
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
                 pose: ActorPose::from_aabb(rider_feature_aabb, rider_actor.facing()),
+                combat_kit: rider_combat_kit,
+                aggression: super::ActorAggression::hostile_to_player(),
                 health: r_health,
                 combat: r_combat,
                 intent: r_intent,
@@ -219,9 +225,7 @@ pub(super) fn spawn_composite_mount_rider(
         ))
         .id();
     if let Some(item) = rider_held_item {
-        commands
-            .entity(rider_entity)
-            .insert(super::HeldItem::new(item));
+        commands.entity(rider_entity).insert(super::HeldItem::new(item));
     }
 
     // Wire MountSlot.rider on the mount so death-side dissolution

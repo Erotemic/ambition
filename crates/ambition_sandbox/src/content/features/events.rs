@@ -82,6 +82,20 @@ pub struct HitKnockback {
     pub impact_pos: ae::Vec2,
 }
 
+/// Relationship/AI stimuli observed by actors.
+///
+/// Damage systems should emit facts such as "this actor was damaged by that
+/// entity". Aggression/relationship systems decide whether that means fight,
+/// flee, ignore, call for help, or future faction-specific behavior.
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActorStimulus {
+    DamagedBy {
+        actor: Entity,
+        source: Option<Entity>,
+        damage: i32,
+    },
+}
+
 /// Typed cross-system gameplay effects emitted by feature code.
 ///
 /// `GameplayEffect` is a Bevy [`Message`], not a payload hidden behind a
@@ -111,8 +125,12 @@ pub enum GameplayEffect {
     /// Route damage into the boss encounter state machine.
     DamageBoss { boss_id: String, amount: i32 },
     /// Record that an NPC was struck. Today this is trace/reporting glue;
-    /// hostility is flipped at the emit site.
+    /// hostility is flipped by an actor stimulus consumer.
     StrikeNpc { npc_id: String, pos: ae::Vec2 },
+    /// Forward an AI/relationship stimulus to actor systems. Kept inside the
+    /// gameplay-effect bus so the high-arity damage system does not need yet
+    /// another `MessageWriter` parameter.
+    ActorStimulus(ActorStimulus),
     /// SFX-only effect. Use typed presentation vectors for sounds that also
     /// imply VFX/progression, and this variant for standalone audio.
     PlaySfx {

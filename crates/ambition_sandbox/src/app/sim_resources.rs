@@ -43,6 +43,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_message::<PlayerDiedMessage>()
             .add_message::<crate::features::GameplayEffect>()
             .add_message::<crate::features::HitEvent>()
+            .add_message::<crate::features::ActorStimulus>()
             .add_message::<crate::features::ResetRoomFeaturesEvent>()
             .add_message::<crate::boss_encounter::CutRopeRoomReplayRequested>()
             .add_message::<crate::features::GameplayBannerRequested>()

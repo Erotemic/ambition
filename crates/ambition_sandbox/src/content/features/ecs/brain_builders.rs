@@ -8,11 +8,33 @@
 
 use super::super::enemies::{EnemyArchetype, EnemyBrainTemplate, EnemyRuntime};
 use super::variation::{five_f32s_from_seed, seed_from_id};
+use super::{CombatKit, HeldItem};
 use crate::brain::{
-    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, SharkCfg, SharkState, SkirmisherCfg,
-    SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
-    WandererState,
+    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, SharkCfg, SharkState,
+    SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
+    WandererCfg, WandererState,
 };
+
+/// Build the enemy's durable combat capability kit from archetype data.
+///
+/// The kit intentionally does **not** include held item overlays; a held item is
+/// a separate component and can be dropped/swapped later. `ActionSet` is derived
+/// from `CombatKit + HeldItem` for whichever aggression state is currently live.
+pub(super) fn enemy_default_combat_kit(enemy: &EnemyRuntime) -> CombatKit {
+    let archetype = enemy.archetype;
+    CombatKit {
+        innate_melee: archetype.melee_spec(),
+        innate_ranged: archetype.ranged_spec(),
+        move_style: archetype.move_style(),
+    }
+}
+
+pub(super) fn action_set_from_combat_kit(
+    kit: &CombatKit,
+    held_item: Option<&HeldItem>,
+) -> ActionSet {
+    kit.to_action_set(held_item.map(|item| &item.spec))
+}
 
 /// Build the enemy's default `ActionSet` from its archetype spec.
 ///
@@ -21,33 +43,16 @@ use crate::brain::{
 /// reach) lives in `enemy_archetypes.ron`. Adding a new archetype is a single
 /// RON row + a new `EnemyArchetype` enum variant.
 pub(super) fn enemy_default_action_set(enemy: &EnemyRuntime) -> ActionSet {
-    let archetype = enemy.archetype;
-    let move_style = archetype.move_style();
-    // Capability is separate from default hostility. A peaceful-by-default
-    // PirateHeavy keeps an inert brain (`attacks_player() == false` gives her
-    // MeleeBrute cfg aggressiveness 0), but she still needs a concrete melee
-    // action once another system explicitly provokes / dismounts her into a
-    // hostile state. PuppySlug remains harmless here because its data row has no
-    // melee or ranged action.
-    let mut actions = ActionSet {
-        melee: archetype.melee_spec(),
-        ranged: archetype.ranged_spec(),
-        move_style,
-        ..Default::default()
-    };
-    apply_archetype_held_item(archetype, &mut actions);
-    actions
+    let kit = enemy_default_combat_kit(enemy);
+    kit.to_action_set(enemy.archetype.held_item_spec().as_ref())
 }
-
 fn apply_archetype_held_item(archetype: EnemyArchetype, actions: &mut ActionSet) {
     if let Some(item) = archetype.held_item_spec() {
         item.apply_to_action_set(actions);
     }
 }
 
-pub(super) fn held_item_for_archetype(
-    archetype: EnemyArchetype,
-) -> Option<crate::brain::HeldItemSpec> {
+pub(super) fn held_item_for_archetype(archetype: EnemyArchetype) -> Option<crate::brain::HeldItemSpec> {
     archetype.held_item_spec()
 }
 
@@ -89,15 +94,17 @@ pub(in crate::content::features) fn enemy_default_brain(enemy: &EnemyRuntime) ->
 /// [`enemy_default_brain`] so cove PirateHeavy variants remain peaceful until
 /// struck; this override gives them the same concrete heavy swing/capability
 /// once the hostility flag is set.
-pub(super) fn enemy_forced_hostile_brain_and_action_set(
+pub(super) fn aggressive_brain_and_action_set_for_enemy(
     enemy: &EnemyRuntime,
+    kit: &CombatKit,
+    held_item: Option<&HeldItem>,
 ) -> (Brain, ActionSet) {
-    let action_set = enemy_default_action_set(enemy);
+    let action_set = action_set_from_combat_kit(kit, held_item);
 
     // Held-item capability is the high-level behavior selector for explicitly
-    // provoked peaceful actors: a ranged-only weapon wants a spacing brain, while
-    // a melee-capable actor should close and swing. If a future cove pirate is
-    // authored with a bow / bomb / pistol and no melee slot, this path becomes a
+    // aggressive actors: a ranged-only weapon wants a spacing brain, while a
+    // melee-capable actor should close and swing. If a future pirate is authored
+    // with a bow / bomb / pistol and no melee slot, this path becomes a
     // Skirmisher without a Rust-side item-id branch. If it has an axe / sword /
     // body melee slot, the grounded melee brain wins so point-blank targets are
     // attacked instead of kited.
@@ -247,7 +254,8 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     // ranged-capable brain so the weapon remains live after the shark dies.
     // This preserves the item as the authority: remove / change the held item
     // in data and this path changes without another Rust branch.
-    let brain = if held_item.is_some_and(|item| item.grants_ranged())
+    let brain = if held_item
+        .is_some_and(|item| item.grants_ranged())
         || held_item_grants_ranged(rider.archetype)
     {
         skirmisher_brain_from_archetype(&rider.id, rider.archetype, true)

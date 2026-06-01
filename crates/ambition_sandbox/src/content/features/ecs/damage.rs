@@ -24,6 +24,7 @@ use super::{
     GameplayEffect, HitEvent, HitSource, RespawnTimer,
 };
 use crate::audio::SfxMessage;
+use crate::features::ActorStimulus;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
 use crate::encounter::BossEncounterMusicRequest;
 use crate::presentation::cutscene::CutsceneTriggerQueue;
@@ -178,9 +179,15 @@ pub fn apply_feature_hit_events(
                         npc_id: npc.id.clone(),
                         pos: npc.pos,
                     });
+                    gameplay_effects.write(GameplayEffect::ActorStimulus(
+                        ActorStimulus::DamagedBy {
+                            actor: actor_entity,
+                            source: event.attacker,
+                            damage: event.damage,
+                        },
+                    ));
                     actor_hit_this_event = true;
                     if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
-                        let hostile = ActorRuntime::hostile_from_npc(npc);
                         gameplay_effects.write(GameplayEffect::SetFlag {
                             id: npc.flag_id(),
                             on: true,
@@ -197,20 +204,6 @@ pub fn apply_feature_hit_events(
                             kind: ParticleKind::Spark,
                         });
                         banner.show(format!("{} turns hostile", npc.name), 2.6);
-                        // Derive the brain + ActionSet from the new hostile
-                        // EnemyRuntime via the same spawn-side helpers. Some
-                        // NPCs (notably cove PirateHeavy variants) are peaceful
-                        // by default but have their own heavy melee data; the
-                        // forced-hostile helper preserves that identity while
-                        // enabling the actual swing.
-                        let (new_brain, new_action_set) =
-                            super::brain_builders::enemy_forced_hostile_brain_and_action_set(
-                                &hostile,
-                            );
-                        *actor = ActorRuntime::Hostile(hostile);
-                        commands
-                            .entity(actor_entity)
-                            .insert((new_brain, new_action_set));
                     } else {
                         vfx.write(VfxMessage::SpeechBubble {
                             pos: npc.bark_anchor(),

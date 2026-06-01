@@ -72,14 +72,32 @@ pub fn apply_boss_damage_effects(mut effects: MessageReader<GameplayEffect>) {
     }
 }
 
-/// NPC strikes are reportable for the trace; the actual hostility flip happens
-/// inside feature damage resolution. No additional action today, but retaining
-/// the typed reader keeps a single scheduled hook for future trace / hostility
-/// systems without rebuilding a god-router.
+/// NPC strikes are reportable for the trace; the actual retaliation decision
+/// flows through `GameplayEffect::ActorStimulus` → `ActorStimulus` →
+/// `apply_actor_stimuli`. This no-op trace hook remains separate so future
+/// reporting does not need to rebuild a god-router.
 pub fn apply_npc_strike_effects(mut effects: MessageReader<GameplayEffect>) {
     for effect in effects.read() {
         if let GameplayEffect::StrikeNpc { .. } = effect {
             // Intentionally no-op today.
+        }
+    }
+}
+
+
+/// Forward actor relationship/combat stimuli out of the gameplay-effect bus.
+///
+/// The high-arity feature damage system already writes `GameplayEffect`s, so it
+/// records actor stimuli there instead of adding another writer parameter. This
+/// small bridge turns those effects back into the dedicated `ActorStimulus`
+/// message that the ECS aggression system consumes immediately afterward.
+pub fn forward_actor_stimulus_effects(
+    mut effects: MessageReader<GameplayEffect>,
+    mut stimuli: MessageWriter<crate::features::ActorStimulus>,
+) {
+    for effect in effects.read() {
+        if let GameplayEffect::ActorStimulus(stimulus) = effect {
+            stimuli.write(*stimulus);
         }
     }
 }
@@ -119,6 +137,8 @@ impl Plugin for GameplayEffectsSchedulePlugin {
                 apply_switch_effects,
                 apply_boss_damage_effects,
                 apply_npc_strike_effects,
+                forward_actor_stimulus_effects,
+                super::ecs::apply_actor_stimuli,
                 apply_gameplay_sfx_effects,
             )
                 .chain()

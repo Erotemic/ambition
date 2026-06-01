@@ -4,7 +4,9 @@
 //! boss minions, and encounter mobs. Static pickups/chests/breakables live in
 //! `spawn_static.rs`; composite mount/rider fan-out lives in `spawn_mounts.rs`.
 
-use super::brain_builders::{enemy_default_action_set, enemy_default_brain};
+use super::brain_builders::{
+    enemy_default_action_set, enemy_default_brain, enemy_default_combat_kit,
+};
 use super::*;
 use bevy::prelude::Name;
 
@@ -190,6 +192,7 @@ pub(crate) fn spawn_runtime_minion(
     let feature_aabb = FeatureAabb::from_aabb(aabb);
     let brain_component = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
+    let combat_kit = enemy_default_combat_kit(&enemy);
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
@@ -204,6 +207,8 @@ pub(crate) fn spawn_runtime_minion(
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
                 pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
+                combat_kit,
+                aggression: super::ActorAggression::hostile_to_player(),
                 health,
                 combat,
                 intent,
@@ -264,6 +269,7 @@ pub(super) fn spawn_solo_enemy(
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
     let brain = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
+    let combat_kit = enemy_default_combat_kit(&enemy);
     let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
@@ -278,6 +284,8 @@ pub(super) fn spawn_solo_enemy(
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
                 pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
+                combat_kit,
+                aggression: super::ActorAggression::hostile_to_player(),
                 health,
                 combat,
                 intent,
@@ -319,6 +327,8 @@ pub(super) fn spawn_interactable(
         // or an authored motion path → Patrol brain; otherwise
         // StandStill. ActionSet stays peaceful by default.
         let brain = npc.build_brain();
+        let hostile_projection = ActorRuntime::hostile_from_npc(&npc);
+        let combat_kit = enemy_default_combat_kit(&hostile_projection);
         let actor = ActorRuntime::Peaceful(npc);
         let (identity, disposition, health, combat, intent, cooldowns) =
             actor_component_snapshot(&actor);
@@ -331,6 +341,10 @@ pub(super) fn spawn_interactable(
                 faction: super::ActorFaction::Npc,
                 target: super::ActorTarget::default(),
                 pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
+                combat_kit,
+                aggression: super::ActorAggression::retaliates_when_hit(
+                    super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+                ),
                 health,
                 combat,
                 intent,
@@ -382,6 +396,7 @@ pub(super) fn spawn_encounter_mob(
     enemy.respawn_timer = 999_999.0;
     let brain = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
+    let combat_kit = enemy_default_combat_kit(&enemy);
     let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
     let actor = ActorRuntime::Hostile(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
@@ -397,6 +412,8 @@ pub(super) fn spawn_encounter_mob(
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
                 pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
+                combat_kit,
+                aggression: super::ActorAggression::hostile_to_player(),
                 health,
                 combat,
                 intent,

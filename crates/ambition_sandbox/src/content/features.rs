@@ -84,16 +84,16 @@ pub use chests::ChestRuntime;
 pub(crate) use ecs::actor_component_snapshot;
 
 pub use components::{
-    ActorCombatState, ActorCooldowns, ActorDisposition, ActorFaction, ActorHealth, ActorIdentity,
-    ActorIntent, ActorPose, ActorTarget, BossDeathAnimation, BossPatternTimer, BossPhase,
-    BossRewardChest, BreakableFeature, ChestBundle, ChestFeature, Collected, DamageableVolumes,
-    EncounterMob, EncounterRewardChest, EnemyActorBundle, FallingChest, FeatureAabb,
-    FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName, FeatureRenderedBundle,
-    Opened, PersistKey, PickupBundle, PickupFeature, PogoPolicy, PogoTargetContributor,
-    PogoTargetVolumes, RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
+    ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorFaction, ActorHealth,
+    ActorIdentity, ActorIntent, ActorPose, ActorTarget, AggressionMode, CombatKit, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest,
+    BreakableFeature, ChestBundle, ChestFeature, Collected, DamageableVolumes, EncounterMob,
+    EncounterRewardChest, EnemyActorBundle, FallingChest, FeatureAabb, FeatureBaseBundle,
+    FeatureId, FeatureLifecycleBundle, FeatureName, FeatureRenderedBundle, Opened, PersistKey,
+    PickupBundle, PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes,
+    RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::{
-    apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
+    apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
     clear_encounter_reward_ecs, collect_ecs_pickups, derive_boss_sprite_metrics,
     derive_pogo_target_volumes, despawn_encounter_mobs, ecs_boss_anim_state,
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_boss_name,
@@ -103,28 +103,26 @@ pub use ecs::{
     interact_ecs_actors_and_switches, is_composite_spawn, open_ecs_chests,
     pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
-    refresh_breakable_damageable_volumes, reset_ecs_room_features, select_actor_targets,
-    spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
+    refresh_breakable_damageable_volumes, reset_ecs_room_features, select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
     spawn_eye_beam_from_special_messages, spawn_gnu_apple_rain_from_special_messages,
     spawn_gradient_cascade_minions_from_special_messages, spawn_melee_hitbox,
     spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
     spawn_room_feature_entities, spawn_saddle_point_from_special_messages,
-    start_enemy_melee_from_brain_actions, sync_actor_poses_from_feature_aabbs,
-    sync_boss_encounter_phase, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
-    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
-    sync_riders_to_mounts, tick_and_despawn_hitboxes, tick_boss_brains_system,
-    tick_gameplay_banner, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorRuntime, AppleRainSpawnState, BossFeature,
-    EyeBeamState, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, GradientCascadeState,
-    HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MinimaTrapState,
-    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, OverfitVolleyState, RidingOn,
-    SaddlePointState,
+    start_enemy_melee_from_brain_actions, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
+    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_actor_poses_from_feature_aabbs,
+    sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_and_despawn_hitboxes,
+    tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
+    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorRuntime,
+    AppleRainSpawnState, BossFeature, EyeBeamState, FeatureEcsWorldOverlay, FeatureSimEntity,
+    FeatureViewIndex, GradientCascadeState, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
+    HitboxLifetime, MinimaTrapState, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
+    OverfitVolleyState, RidingOn, SaddlePointState,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{
-    FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner, GameplayBannerRequested,
-    GameplayEffect, HitEvent, HitKnockback, HitMode, HitSource, HitTarget, NpcDialogueRequest,
-    ResetRoomFeaturesEvent,
+    ActorStimulus, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,
+    GameplayBannerRequested, GameplayEffect, HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
+    NpcDialogueRequest, ResetRoomFeaturesEvent,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::{NpcRuntime, NPC_PATROL_SPEED};

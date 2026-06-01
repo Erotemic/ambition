@@ -436,6 +436,109 @@ impl Default for ActorTarget {
     }
 }
 
+
+/// Data/authored combat capabilities for an actor.
+///
+/// `ActionSet` remains the hot per-frame resolver consumed by the brain/action
+/// pipeline. `CombatKit` is the durable ECS/gameplay source of capability: what
+/// the actor can do innately, before current held-item overlays are applied.
+/// That distinction lets a peaceful NPC carry a sword/bow/bomb without being
+/// aggressive yet, and lets aggression changes re-enable attacks without
+/// swapping the actor's identity or archetype.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct CombatKit {
+    pub innate_melee: Option<crate::brain::MeleeActionSpec>,
+    pub innate_ranged: Option<crate::brain::RangedActionSpec>,
+    pub move_style: crate::brain::MoveStyleSpec,
+}
+
+impl CombatKit {
+    pub fn from_action_set(actions: &crate::brain::ActionSet) -> Self {
+        Self {
+            innate_melee: actions.melee,
+            innate_ranged: actions.ranged,
+            move_style: actions.move_style,
+        }
+    }
+
+    pub fn to_action_set(
+        &self,
+        held_item: Option<&crate::brain::HeldItemSpec>,
+    ) -> crate::brain::ActionSet {
+        let mut actions = crate::brain::ActionSet {
+            melee: self.innate_melee,
+            ranged: self.innate_ranged,
+            move_style: self.move_style,
+            ..Default::default()
+        };
+        if let Some(item) = held_item {
+            item.apply_to_action_set(&mut actions);
+        }
+        actions
+    }
+
+    pub fn can_melee(&self, held_item: Option<&crate::brain::HeldItemSpec>) -> bool {
+        self.to_action_set(held_item).melee.is_some()
+    }
+
+    pub fn can_ranged(&self, held_item: Option<&crate::brain::HeldItemSpec>) -> bool {
+        self.to_action_set(held_item).ranged.is_some()
+    }
+}
+
+/// Relationship/hostility state for actor-like entities.
+///
+/// This is deliberately separate from `ActorFaction`: faction says what the
+/// actor is authored as, while aggression says who the actor is currently
+/// willing to fight. The first slice supports the current player-retaliation
+/// game; future faction/allied-NPC behavior can add more targets without
+/// rewriting the brain/action pipeline.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ActorAggression {
+    pub mode: AggressionMode,
+    pub target: Option<Entity>,
+}
+
+impl ActorAggression {
+    pub fn passive() -> Self {
+        Self {
+            mode: AggressionMode::Passive,
+            target: None,
+        }
+    }
+
+    pub fn retaliates_when_hit(strike_threshold: u8) -> Self {
+        Self {
+            mode: AggressionMode::RetaliatesWhenHit { strike_threshold },
+            target: None,
+        }
+    }
+
+    pub fn hostile_to_player() -> Self {
+        Self {
+            mode: AggressionMode::HostileToPlayer,
+            target: None,
+        }
+    }
+
+    pub fn is_aggressive(self) -> bool {
+        matches!(self.mode, AggressionMode::HostileToPlayer)
+    }
+}
+
+impl Default for ActorAggression {
+    fn default() -> Self {
+        Self::passive()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AggressionMode {
+    Passive,
+    RetaliatesWhenHit { strike_threshold: u8 },
+    HostileToPlayer,
+}
+
 /// ECS-visible actor health. The behavior runtime is still the temporary home
 /// for AI details, but shared systems should read/write this component for HP.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
@@ -760,6 +863,8 @@ pub struct EnemyActorBundle {
     /// updated each tick.
     pub target: ActorTarget,
     pub pose: ActorPose,
+    pub combat_kit: CombatKit,
+    pub aggression: ActorAggression,
     pub health: ActorHealth,
     pub combat: ActorCombatState,
     pub intent: ActorIntent,

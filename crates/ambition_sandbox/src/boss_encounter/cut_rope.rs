@@ -10,8 +10,8 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use crate::assets::game_assets::GameAssets;
 use crate::audio::SfxMessage;
+use crate::assets::game_assets::GameAssets;
 use crate::boss_encounter::{force_boss_death, BossEncounterRegistry};
 use crate::brain::ActorControl;
 use crate::brain::BossAttackState;
@@ -22,12 +22,10 @@ use crate::features::{
     EnemyActorBundle, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity,
     GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, ResetRoomFeaturesEvent,
 };
-use crate::presentation::character_sprites::{
-    build_character_sprite, feet_anchor_for, CharacterAnimator,
-};
 use crate::presentation::fx::{
     ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
 };
+use crate::presentation::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::presentation::rendering::PropVisual;
 use crate::rooms::{PropSpec, RoomSet};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -86,8 +84,10 @@ impl CutRopeHeavyObjectKind {
     }
 }
 
-const CUT_ROPE_HEAVY_OBJECT_CYCLE: [CutRopeHeavyObjectKind; 2] =
-    [CutRopeHeavyObjectKind::Anvil, CutRopeHeavyObjectKind::Piano];
+const CUT_ROPE_HEAVY_OBJECT_CYCLE: [CutRopeHeavyObjectKind; 2] = [
+    CutRopeHeavyObjectKind::Anvil,
+    CutRopeHeavyObjectKind::Piano,
+];
 
 /// Tracks which heavy object is currently hanging from the cut-rope trap.
 ///
@@ -146,16 +146,16 @@ pub fn reset_cut_rope_boss_attempt(
     music_request: Option<&mut crate::encounter::BossEncounterMusicRequest>,
 ) {
     let runtime_id = registry.runtime_ids.get(CUT_ROPE_BOSS_ID).cloned();
-    let intro_track = registry.encounters.get_mut(CUT_ROPE_BOSS_ID).map(|state| {
-        state.reset_for_retry();
-        state.spec.music_intro.clone()
-    });
+    let intro_track = registry
+        .encounters
+        .get_mut(CUT_ROPE_BOSS_ID)
+        .map(|state| {
+            state.reset_for_retry();
+            state.spec.music_intro.clone()
+        });
     if let Some(save) = save {
         let data = save.data_mut();
-        data.set_boss(
-            CUT_ROPE_BOSS_ID,
-            crate::save::PersistedEncounterState::Untouched,
-        );
+        data.set_boss(CUT_ROPE_BOSS_ID, crate::save::PersistedEncounterState::Untouched);
         if let Some(runtime_id) = runtime_id.as_deref() {
             data.set_boss(runtime_id, crate::save::PersistedEncounterState::Untouched);
         }
@@ -197,16 +197,13 @@ pub fn spawn_cut_rope_victory_npc(
         return;
     };
     let boss = &boss_feature.boss;
-    let encounter_death_complete =
-        registry
-            .encounters
-            .get(CUT_ROPE_BOSS_ID)
-            .is_some_and(|encounter| {
-                matches!(
-                    encounter.phase,
-                    crate::boss_encounter::BossEncounterPhase::Death
-                ) && encounter.death_complete()
-            });
+    let encounter_death_complete = registry
+        .encounters
+        .get(CUT_ROPE_BOSS_ID)
+        .is_some_and(|encounter| {
+            matches!(encounter.phase, crate::boss_encounter::BossEncounterPhase::Death)
+                && encounter.death_complete()
+        });
     let boss_persisted_cleared = {
         let data = save.data();
         matches!(
@@ -215,16 +212,16 @@ pub fn spawn_cut_rope_victory_npc(
         ) || matches!(
             data.boss(&boss.behavior.id),
             crate::save::PersistedEncounterState::Cleared
-        ) || matches!(
-            data.boss(&boss.id),
-            crate::save::PersistedEncounterState::Cleared
-        )
+        ) || matches!(data.boss(&boss.id), crate::save::PersistedEncounterState::Cleared)
     };
     if !encounter_death_complete && !boss_persisted_cleared {
         return;
     }
     let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;
-    let spawn_pos = ae::Vec2::new(boss.pos.x, boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5);
+    let spawn_pos = ae::Vec2::new(
+        boss.pos.x,
+        boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5,
+    );
     spawn_victory_npc_entity(&mut commands, spawn_pos);
 }
 
@@ -266,6 +263,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
         hit_flash: 0.0,
     };
     let brain = npc.build_brain();
+    let combat_kit = crate::features::CombatKit::default();
     let actor = ActorRuntime::Peaceful(npc);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
@@ -284,6 +282,8 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 faction: crate::features::ActorFaction::Npc,
                 target: crate::features::ActorTarget::default(),
                 pose: ActorPose::from_aabb(FeatureAabb::from_aabb(aabb), actor.facing()),
+                combat_kit,
+                aggression: crate::features::ActorAggression::passive(),
                 health,
                 combat,
                 intent,
@@ -520,13 +520,7 @@ pub fn tick_cut_rope_boss_arena(
             let _ = force_boss_death(registry, music, cutscene, &mut banner, boss.id.as_str());
         }
 
-        banner.show(
-            format!(
-                "Smirking Behemoth was flattened by a {}",
-                heavy_object.current().display_name()
-            ),
-            2.8,
-        );
+        banner.show(format!("Smirking Behemoth was flattened by a {}", heavy_object.current().display_name()), 2.8);
         explosions.write(ExplosionRequest::classic(center).with_scale(1.25));
         if !state.death_fireworks_sent {
             let mut death_show = FireworksRequest::around(boss.pos);
@@ -748,8 +742,7 @@ fn apply_cut_rope_heavy_object_sprite(
     if prop.kind == desired_kind {
         return;
     }
-    let Some(asset) = assets.and_then(|assets| assets.characters.prop_asset_for_kind(desired_kind))
-    else {
+    let Some(asset) = assets.and_then(|assets| assets.characters.prop_asset_for_kind(desired_kind)) else {
         return;
     };
     prop.kind = desired_kind.to_string();

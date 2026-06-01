@@ -491,14 +491,12 @@ impl EnemyArchetype {
         self.spec().default_size
     }
 
-    /// True when this archetype is hostile by default — initiates
-    /// attacks, deals contact damage, and tracks the player. False
-    /// for "peaceful patrol" archetypes (PuppySlug, PirateHeavy)
-    /// that exist as ambient threats / cove crew rather than active
-    /// combatants. The gate is applied uniformly in the EFFECTS
-    /// stage (no melee windups) and in `body_damage_aabb` (no
-    /// touch damage), so a peaceful patroller can pace around the
-    /// player without harming them.
+    /// True when this archetype is hostile by default — actively tracks
+    /// the player and publishes contact damage. False for "peaceful patrol"
+    /// archetypes (PuppySlug, PirateHeavy) that exist as ambient threats /
+    /// cove crew rather than active combatants. A peaceful-by-default row may
+    /// still carry dormant attack data so a separate explicit-hostile path can
+    /// provoke it without changing its authored identity.
     pub fn attacks_player(self) -> bool {
         use EnemyArchetype::*;
         !matches!(self, PuppySlug | PirateHeavy)
@@ -859,23 +857,14 @@ impl EnemyRuntime {
         }
 
         // EFFECTS STAGE — translate the frame's attack intents into
-        // wind-up timers / projectile spawns. Archetypes that don't
-        // attack by default (`PuppySlug`, `PirateHeavy`) skip this
-        // entirely so passive movement/targeting can't leak through
-        // into a real hit-volume. The aerial PirateHeavyOnShark variant
-        // is a separate archetype with `attacks_player() == true`,
-        // so it still fires projectiles + recoil.
-        // Melee windup/cooldown start moved to the EFFECTS consumer
-        // `start_enemy_melee_from_brain_actions`. The legacy gate
-        // (`frame.melee_pressed && !is_sandbag && attacks_player &&
-        // cooldown<=0`) is now expressed as: the resolver only emits
-        // `ActorActionMessage::Melee` when the archetype's ActionSet
-        // has a Melee spec (peaceful archetypes get no melee in
-        // their ActionSet); the consumer adds the cooldown check.
-        // Sandbags are also gated by their action_kind = PunchWeak —
-        // their attack_windup runs through the same consumer.
-        // `update` keeps `ai_mode = Attack` when `frame.fire.is_some()`
-        // since that HUD signal is integration-side state.
+        // wind-up timers / projectile spawns. Melee windup/cooldown start
+        // moved to the EFFECTS consumer `start_enemy_melee_from_brain_actions`.
+        // The old `attacks_player()` gate is intentionally not used for melee
+        // capability anymore: PirateHeavy is peaceful by default through brain
+        // aggressiveness, but an explicit-hostile path may install/provoke the
+        // same archetype with a concrete ActionSet so it can swing.
+        // `update` keeps `ai_mode = Attack` when `frame.fire.is_some()` since
+        // that HUD signal is integration-side state.
         if frame.fire.is_some() {
             self.ai_mode = crate::character_ai::CharacterAiMode::Attack;
         }

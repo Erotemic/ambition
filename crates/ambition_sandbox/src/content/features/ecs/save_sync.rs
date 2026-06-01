@@ -13,9 +13,11 @@ use super::*;
 /// deaths stay dead across room reloads. Dynamic encounter mobs are ignored
 /// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
+    mut commands: Commands,
     save: Res<crate::persistence::save::SandboxSave>,
     mut actors: Query<
         (
+            Entity,
             &mut ActorRuntime,
             &mut ActorIdentity,
             &mut ActorDisposition,
@@ -29,6 +31,7 @@ pub fn sync_ecs_actors_with_save(
 ) {
     let data = save.data();
     for (
+        entity,
         mut actor,
         mut identity,
         mut disposition,
@@ -52,7 +55,10 @@ pub fn sync_ecs_actors_with_save(
                         hostile.alive = false;
                         hostile.health.current = 0;
                     }
+                    let (new_brain, new_action_set) =
+                        super::brain_builders::enemy_forced_hostile_brain_and_action_set(&hostile);
                     *actor = ActorRuntime::Hostile(hostile);
+                    commands.entity(entity).insert((new_brain, new_action_set));
                 }
             }
             ActorRuntime::Hostile(enemy) => {

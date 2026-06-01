@@ -86,12 +86,21 @@ pub(super) fn spawn_composite_mount_rider(
     };
     // Standalone size = full cove-pirate hitbox (44x78 for the
     // raider; 72x110 for a heavy). Mounted size = half that, so the
-    // rider visually fits ON the shark instead of dwarfing it. The
-    // dissolve path restores standalone size to `EnemyRuntime.size`.
+    // rider visually fits ON the shark instead of dwarfing it.
+    //
+    // The sky-fight PirateHeavy remains visually at the compact mounted
+    // scale after her shark dies, so her dismounted collision must stay at
+    // that scale too. The full 72x110 body is reserved for the larger cove
+    // heavy variants. Keeping these sizes separate prevents the small sky
+    // sprite from carrying a huge invisible cove-heavy hurtbox.
     let standalone_size = rider_archetype
         .default_size()
         .expect("rider archetype has a default_size");
     let mounted_size = standalone_size * 0.5;
+    let dismounted_size = match rider_archetype {
+        EnemyArchetype::PirateHeavy => mounted_size,
+        _ => standalone_size,
+    };
     // Rider starts at the mounted footprint so its initial AABB
     // matches the visual that will resolve through
     // `upgrade_enemy_sprites` (which reads `view.size`).
@@ -110,13 +119,11 @@ pub(super) fn spawn_composite_mount_rider(
         rider_brain_payload,
         paths,
     );
-    // Override `spawn_size` so `reset_to_spawn` restores STANDALONE
-    // size (not the mounted-half size we just constructed with).
-    // `EnemyRuntime::new` initializes `spawn_size = size`, but the
-    // dissolve path (and reset's restore-to-standalone semantics)
-    // wants the full cove-pirate footprint when the rider hits the
-    // ground.
-    rider_enemy.spawn_size = standalone_size;
+    // Override `spawn_size` so `reset_to_spawn` / mount-dissolve restore the
+    // intended dismounted footprint rather than the temporary spawn AABB. For
+    // PirateHeavy-on-shark this is deliberately the compact mounted-size body;
+    // the cove PirateHeavy keeps the full-size body through normal spawns.
+    rider_enemy.spawn_size = dismounted_size;
     rider_enemy.size = mounted_size;
     // Rider HP from the composite spec's `rider_max_health`.
     if let Some(rider_hp) = composite_archetype.rider_max_health() {

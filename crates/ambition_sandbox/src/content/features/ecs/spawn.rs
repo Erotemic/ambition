@@ -78,9 +78,11 @@ mod tests {
     use crate::brain::{
         ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
     };
-    use crate::content::features::{EnemyArchetype, EnemyRuntime, MountSlot};
+    use crate::content::features::{
+        EnemyArchetype, EnemyRuntime, MountSlot, MountedSize, RidingOn,
+    };
     use crate::engine_core as ae;
-    use bevy::prelude::{App, Commands, Update};
+    use bevy::prelude::{App, Commands, Update, With};
 
     fn make_enemy(archetype: EnemyArchetype) -> EnemyRuntime {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
@@ -302,13 +304,52 @@ mod tests {
         ));
     }
 
-    /// Coverage lint: every EnemyArchetype gets a non-None
-    /// ActionSet that respects its peaceful/hostile flag — hostile
-    /// archetypes have a melee or ranged spec, peaceful ones don't.
-    /// `attacks_player()` returns false only for `PuppySlug` and
-    /// `PirateHeavy`; every other archetype (including sandbags,
-    /// which have a `PunchWeak` counter-attack) is hostile by this
-    /// gate.
+    /// PirateHeavy-on-shark uses the small rider sprite/scale. When the shark
+    /// dies, she should not suddenly gain the full cove-heavy collision body.
+    #[test]
+    fn pirate_heavy_shark_rider_keeps_compact_dismounted_size() {
+        let mut app = App::new();
+        app.add_systems(Update, |mut commands: Commands| {
+            let authored = crate::rooms::Authored {
+                id: "iron_mary_sky".to_string(),
+                name: "Iron Mary on Shark".to_string(),
+                aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
+                payload: crate::actor::EnemyBrain::Custom("pirate_heavy_on_shark".into()),
+            };
+            spawn_composite_mount_rider(
+                &mut commands,
+                &authored,
+                &[],
+                EnemyArchetype::PirateHeavyOnShark,
+            );
+        });
+        app.update();
+
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(&ActorRuntime, &MountedSize), With<RidingOn>>();
+        let (actor, mounted_size) = q
+            .iter(app.world())
+            .next()
+            .expect("heavy shark composite should spawn a rider");
+        let ActorRuntime::Hostile(rider) = actor else {
+            panic!("rider should be hostile")
+        };
+        assert_eq!(
+            rider.spawn_size, mounted_size.0,
+            "sky PirateHeavy dismount should keep compact rider collision size",
+        );
+        assert_eq!(
+            rider.size, mounted_size.0,
+            "mounted rider starts at the same compact size it will use after dismount",
+        );
+    }
+
+    /// Coverage lint: every hostile-by-default EnemyArchetype gets at least one
+    /// offensive ActionSet verb. Peaceful-by-default archetypes may still carry a
+    /// dormant verb when another system explicitly forces them hostile (PirateHeavy
+    /// after provocation / dismount); default hostility remains controlled by the
+    /// brain's aggressiveness, not by stripping the capability out of the ActionSet.
     #[test]
     fn enemy_default_action_set_covers_every_combat_archetype() {
         for archetype in EnemyArchetype::COMBAT_ALL {
@@ -318,14 +359,6 @@ mod tests {
                 assert!(
                     set.melee.is_some() || set.ranged.is_some(),
                     "{:?} attacks_player but ActionSet has no melee or ranged",
-                    archetype,
-                );
-            } else {
-                // Only PuppySlug + PirateHeavy reach this branch —
-                // both peaceful, both expected to have no melee.
-                assert!(
-                    set.melee.is_none(),
-                    "{:?} is peaceful but has melee",
                     archetype,
                 );
             }
@@ -342,6 +375,11 @@ mod tests {
         assert!(set.melee.is_none(), "peaceful PuppySlug has no melee");
         assert!(matches!(set.move_style, MoveStyleSpec::Slither));
 
+        let heavy = make_enemy(EnemyArchetype::PirateHeavy);
+        let set = enemy_default_action_set(&heavy);
+        assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
+        assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
+
         let brute = make_enemy(EnemyArchetype::LargeBrute);
         let set = enemy_default_action_set(&brute);
         assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
@@ -355,5 +393,53 @@ mod tests {
         let set = enemy_default_action_set(&pirate_shark);
         assert!(set.ranged.is_some(), "PirateOnShark has ranged");
         assert!(matches!(set.move_style, MoveStyleSpec::Float));
+    }
+
+    /// PirateHeavy is peaceful by default via brain aggressiveness, but once a
+    /// cove heavy is explicitly provoked the same archetype/action data must be
+    /// capable of producing a melee request. This prevents the "walks toward you
+    /// but never swings" state where only movement was made hostile.
+    #[test]
+    fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
+        let enemy = make_enemy(EnemyArchetype::PirateHeavy);
+        let mut brain = enemy_default_brain(&enemy);
+        match &mut brain {
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
+                cfg.aggressiveness = 1.0;
+                cfg.aggro_radius = 500.0;
+                cfg.attack_range = 160.0;
+            }
+            other => panic!("expected PirateHeavy to use MeleeBrute, got {other:?}"),
+        }
+        let actions = enemy_default_action_set(&enemy);
+        assert!(matches!(actions.melee, Some(MeleeActionSpec::Lunge(_))));
+
+        let snapshot = crate::brain::BrainSnapshot {
+            actor_pos: ae::Vec2::ZERO,
+            actor_vel: ae::Vec2::ZERO,
+            actor_facing: 1.0,
+            actor_on_ground: true,
+            alive: true,
+            target_pos: ae::Vec2::new(72.0, 0.0),
+            target_alive: true,
+            sim_time: 0.0,
+            dt: 1.0 / 60.0,
+            attack_cooldown_remaining: 0.0,
+            attack_windup_remaining: 0.0,
+            attack_active_remaining: 0.0,
+            attack_recover_remaining: 0.0,
+            stun_remaining: 0.0,
+            wall_contact: None,
+            player_input: None,
+            crowding: None,
+            terrain: None,
+            air_jumps_remaining: 0,
+        };
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        brain.tick_with_actions(&actions, &snapshot, &mut frame);
+        assert!(
+            frame.melee_pressed,
+            "provoked PirateHeavy should commit a melee swing when in range",
+        );
     }
 }

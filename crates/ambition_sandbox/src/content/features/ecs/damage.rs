@@ -197,15 +197,16 @@ pub fn apply_feature_hit_events(
                             kind: ParticleKind::Spark,
                         });
                         banner.show(format!("{} turns hostile", npc.name), 2.6);
-                        // Derive the brain + ActionSet from the new
-                        // hostile EnemyRuntime via the same spawn-side
-                        // helpers. The hostile archetype's data row
-                        // (`MediumStriker` today) is the single source
-                        // of truth for tuning — no hardcoded
-                        // STRIKER_DEFAULT here.
-                        let new_brain = super::brain_builders::enemy_default_brain(&hostile);
-                        let new_action_set =
-                            super::brain_builders::enemy_default_action_set(&hostile);
+                        // Derive the brain + ActionSet from the new hostile
+                        // EnemyRuntime via the same spawn-side helpers. Some
+                        // NPCs (notably cove PirateHeavy variants) are peaceful
+                        // by default but have their own heavy melee data; the
+                        // forced-hostile helper preserves that identity while
+                        // enabling the actual swing.
+                        let (new_brain, new_action_set) =
+                            super::brain_builders::enemy_forced_hostile_brain_and_action_set(
+                                &hostile,
+                            );
                         *actor = ActorRuntime::Hostile(hostile);
                         commands
                             .entity(actor_entity)

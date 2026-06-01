@@ -313,20 +313,31 @@
         ranged: Some(Bolt(speed: 500.0, damage: 2)),
         move_style: Float,
     ),
-    // Cove crew. Peaceful by default (aggro 0 + attack range 0 + no
-    // contact damage) — paces back and forth without engaging.
-    // Provoking-into-hostility is future work.
+    // Cove crew. Peaceful by default because aggro_radius stays 0 and
+    // `EnemyArchetype::attacks_player()` is false, but the archetype now
+    // still carries its own melee capability. That lets systems that
+    // explicitly force a PirateHeavy hostile (provoked cove crew or a
+    // shark rider after dismount) reuse the same body/action tuning instead
+    // of falling back to a generic striker.
     "PirateHeavy": (
         max_health: 10,
         patrol_speed: 75.0,
         chase_speed: 130.0,
         aggro_radius: 0.0,
-        attack_range: 0.0,
+        attack_range: 150.0,
         contact_strength: 0.0,
         damage_amount: 2,
         default_size: Some((72.0, 110.0)),
         brain_template: MeleeBrute,
-        move_style: Walk,
+        melee: Some(Lunge((
+            windup_s: 0.42,
+            active_s: 0.12,
+            recover_s: 0.46,
+            damage: 2,
+            reach_px: 38.0,
+            step_px: 14.0,
+        ))),
+        move_style: WalkHeavy,
     ),
     "PirateHeavyOnShark": (
         max_health: 7,

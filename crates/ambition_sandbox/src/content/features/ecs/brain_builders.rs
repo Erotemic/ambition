@@ -23,16 +23,12 @@ use crate::brain::{
 pub(super) fn enemy_default_action_set(enemy: &EnemyRuntime) -> ActionSet {
     let archetype = enemy.archetype;
     let move_style = archetype.move_style();
-    // PuppySlug / PirateHeavy stay peaceful by default (no melee / no ranged).
-    // The brain still ticks; the resolver sees an empty ActionSet and emits no
-    // messages. Provoking-into-hostility (Patrol -> MeleeBrute swap, ActionSet
-    // swap) is handled by the hostile-flip path in `damage.rs`.
-    if !archetype.attacks_player() {
-        return ActionSet {
-            move_style,
-            ..ActionSet::default()
-        };
-    }
+    // Capability is separate from default hostility. A peaceful-by-default
+    // PirateHeavy keeps an inert brain (`attacks_player() == false` gives her
+    // MeleeBrute cfg aggressiveness 0), but she still needs a concrete melee
+    // action once another system explicitly provokes / dismounts her into a
+    // hostile state. PuppySlug remains harmless here because its data row has no
+    // melee or ranged action.
     ActionSet {
         melee: archetype.melee_spec(),
         ranged: archetype.ranged_spec(),
@@ -65,6 +61,39 @@ pub(in crate::content::features) fn enemy_default_brain(enemy: &EnemyRuntime) ->
             },
         }),
     }
+}
+
+/// Build the explicitly-hostile behavior for an actor that is peaceful by
+/// default but has been provoked in play. Default spawn still uses
+/// [`enemy_default_brain`] so cove PirateHeavy variants remain peaceful until
+/// struck; this override gives them the same concrete heavy swing/capability
+/// once the hostility flag is set.
+pub(super) fn enemy_forced_hostile_brain_and_action_set(
+    enemy: &EnemyRuntime,
+) -> (Brain, ActionSet) {
+    if enemy.archetype == EnemyArchetype::PirateHeavy {
+        let brain = forced_hostile_melee_brute_brain(enemy, 500.0);
+        let action_set = enemy_default_action_set(enemy);
+        return (brain, action_set);
+    }
+    (enemy_default_brain(enemy), enemy_default_action_set(enemy))
+}
+
+fn forced_hostile_melee_brute_brain(enemy: &EnemyRuntime, min_aggro_radius: f32) -> Brain {
+    let archetype = enemy.archetype;
+    let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
+    let aggro_radius = archetype.aggro_radius().max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
+    let chase_speed = archetype.chase_speed() * (0.9 + 0.2 * jitters.1);
+    let attack_range = archetype.attack_range().max(56.0) * (0.95 + 0.1 * jitters.2);
+    Brain::StateMachine(StateMachineCfg::MeleeBrute {
+        cfg: MeleeBruteCfg {
+            aggressiveness: 1.0,
+            aggro_radius,
+            attack_range,
+            chase_speed,
+        },
+        state: MeleeBruteState::default(),
+    })
 }
 
 pub(super) fn melee_brute_brain_for_enemy(enemy: &EnemyRuntime) -> Brain {
@@ -172,38 +201,16 @@ pub(super) fn mounted_rider_brain_and_action_set(
 /// default is peaceful. Dismount means "fall off and fight," so the builder
 /// installs an aggressive MeleeBrute brain plus a melee-only action set.
 pub(super) fn dismounted_rider_brain_and_action_set(rider: &EnemyRuntime) -> (Brain, ActionSet) {
-    let seed = seed_from_id(&rider.id).wrapping_add(0xDEAD);
-    let jitter = ((seed % 1024) as f32) / 1024.0;
-    // Aggro: dismounted rider engages from a generous radius (so they don't
-    // have to walk into the player just to start chasing) plus a small per-actor
-    // jitter so two riders dying at the same moment don't share a tick-for-tick
-    // chase.
-    let aggro_radius = 540.0 + 60.0 * jitter;
-    let chase_speed = rider.archetype.chase_speed().max(140.0) * (0.9 + 0.2 * jitter);
-    let attack_range = rider.archetype.attack_range().max(56.0);
-    let brain = Brain::StateMachine(StateMachineCfg::MeleeBrute {
-        cfg: MeleeBruteCfg {
-            aggressiveness: 1.0,
-            aggro_radius,
-            attack_range,
-            chase_speed,
-        },
-        state: MeleeBruteState::default(),
-    });
-    // Ensure the rider has a melee action; PirateRaider / PirateHeavy
-    // archetypes already carry melee in their spec, but a future "lifted"
-    // archetype with no melee would otherwise leave the dismounted pirate with
-    // no way to attack.
-    let melee = rider
-        .archetype
-        .melee_spec()
-        .or_else(|| EnemyArchetype::PirateRaider.melee_spec());
-    let action_set = ActionSet {
-        melee,
-        ranged: None,
-        move_style: rider.archetype.move_style(),
-        ..Default::default()
-    };
+    let brain = forced_hostile_melee_brute_brain(rider, 540.0);
+    // Ensure the rider has a melee action. PirateHeavy is peaceful by default
+    // but now carries a real heavy swing in data; falling off the shark is an
+    // explicit hostile override, so keep the melee capability and drop only the
+    // mounted ranged volley.
+    let mut action_set = enemy_default_action_set(rider);
+    action_set.ranged = None;
+    if action_set.melee.is_none() {
+        action_set.melee = EnemyArchetype::PirateRaider.melee_spec();
+    }
     (brain, action_set)
 }
 

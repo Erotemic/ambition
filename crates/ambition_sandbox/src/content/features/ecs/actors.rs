@@ -117,16 +117,18 @@ impl ActorRuntime {
     }
 
     pub(crate) fn hostile_from_npc(npc: &NpcRuntime) -> EnemyRuntime {
+        let brain_id = hostile_enemy_brain_for_npc(npc);
         let mut enemy = EnemyRuntime::new(
             npc.id.clone(),
             npc.name.clone(),
             npc.aabb(),
-            crate::actor::EnemyBrain::Custom("medium_striker".into()),
+            crate::actor::EnemyBrain::Custom(brain_id.into()),
             &[],
         );
         enemy.pos = npc.pos;
         enemy.spawn = npc.spawn;
         enemy.size = ae::Vec2::new(npc.size.x.max(22.0), npc.size.y.max(38.0));
+        enemy.spawn_size = enemy.size;
         enemy.vel = npc.vel;
         enemy.facing = npc.facing;
         enemy.on_ground = npc.on_ground;
@@ -134,6 +136,23 @@ impl ActorRuntime {
             enemy.sprite_override_npc_name = Some(npc.name.clone());
         }
         enemy
+    }
+}
+
+fn hostile_enemy_brain_for_npc(npc: &NpcRuntime) -> &'static str {
+    let dialogue_id = match &npc.interactable.kind {
+        crate::interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+        _ => None,
+    };
+    let looks_like_pirate_heavy = npc.id.contains("pirate_heavy")
+        || npc.name.contains("Broadside Bess")
+        || npc.name.contains("Iron Mary")
+        || npc.name.contains("Salt Annet")
+        || dialogue_id.is_some_and(|id| id.contains("pirate_heavy"));
+    if looks_like_pirate_heavy {
+        "pirate_heavy"
+    } else {
+        "medium_striker"
     }
 }
 

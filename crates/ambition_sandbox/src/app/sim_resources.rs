@@ -74,6 +74,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(crate::SandboxDevState::default())
             .insert_resource(crate::features::GameplayBanner::default())
             .insert_resource(crate::boss_encounter::CutRopeBossArenaState::default())
+            .insert_resource(crate::boss_encounter::CutRopeHeavyObjectCycle::default())
             .insert_resource(crate::boss_encounter::PendingCutRopeRoomReplay::default())
             .insert_resource(crate::features::FeatureEcsWorldOverlay::default())
             .insert_resource(crate::features::FeatureViewIndex::default())

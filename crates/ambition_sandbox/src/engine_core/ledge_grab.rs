@@ -417,14 +417,28 @@ pub fn probe_ledge_grab(
         if blocked {
             continue;
         }
+        // The hanging body must also have open space on the outside of the
+        // ledge. Without this check, the climb target can be clear while the
+        // initial hang snap overlaps a neighboring wall in front of the ledge;
+        // from there the getup interpolation can tunnel the player through that
+        // wall. Exclude the grabbed block itself because the anchor intentionally
+        // overlaps it by ~1 px to keep the visual cling tight.
+        let hang_center = Vec2::new(
+            block_wall_x + wall_normal_x * (half.x - 1.0),
+            top + half.y - 4.0,
+        );
+        let hang_aabb = Aabb::new(hang_center, half - Vec2::new(2.0, 2.0));
+        let hang_blocked = world.body_overlaps_any(hang_aabb, |b| {
+            ledge_clearance_blocker_kind(b.kind) && !std::ptr::eq(b, block)
+        });
+        if hang_blocked {
+            continue;
+        }
         // Anchor: player center hugs the wall on the same side the
         // player was clinging from, with the chest at the ledge top.
         // wall_normal_x = -1 (wall on player's right) → anchor.x is
         // just left of the wall's left face.
-        let anchor = Vec2::new(
-            block_wall_x + wall_normal_x * (half.x - 1.0),
-            top + half.y - 4.0,
-        );
+        let anchor = hang_center;
         // Climb target: top of the block, just inboard of the edge.
         // (Inboard = the side away from the cling — opposite sign to
         // the anchor.)
@@ -966,6 +980,25 @@ mod tests {
         assert!(
             contact.is_none(),
             "should not return a ledge whose top has another block above"
+        );
+    }
+
+    #[test]
+    fn rejects_when_hang_space_has_wall_in_front_of_ledge() {
+        let world = world_with(vec![
+            Block::solid("ledge", Vec2::new(100.0, 100.0), Vec2::new(200.0, 200.0)),
+            // A blocking wall occupies the player's hang lane outside the ledge.
+            // The climb target on top of the ledge is clear, but snapping to the
+            // hang anchor would overlap this wall and let the getup path clip
+            // through it.
+            Block::solid("front_wall", Vec2::new(70.0, 82.0), Vec2::new(20.0, 96.0)),
+        ]);
+        let player_pos = Vec2::new(86.0, 110.0);
+        let player_size = Vec2::new(28.0, 46.0);
+        let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+        assert!(
+            contact.is_none(),
+            "ledge should be rejected when the hang space in front is blocked"
         );
     }
 

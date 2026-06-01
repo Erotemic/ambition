@@ -540,6 +540,13 @@ const CUT_ROPE_ANVIL_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
 pub static CUT_ROPE_ANVIL_SHEET: LazyLock<CharacterSheetSpec> =
     LazyLock::new(|| load_spec("cut_rope_anvil", &CUT_ROPE_ANVIL_TUNING));
 
+/// Cut-rope arena piano trap. Shares the same authored LDtk prop slot as
+/// the anvil; the cut-rope arena system swaps the prop sprite based on the
+/// replay cycle's selected heavy-object kind.
+const CUT_ROPE_PIANO_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
+pub static CUT_ROPE_PIANO_SHEET: LazyLock<CharacterSheetSpec> =
+    LazyLock::new(|| load_spec("cut_rope_piano", &CUT_ROPE_PIANO_TUNING));
+
 /// Generic reusable explosion VFX sheet. The rows are mapped onto
 /// CharacterAnim slots by `CharacterAnim::from_name`; consumers pick
 /// a row through `ExplosionKind` instead of hard-coding atlas indices.

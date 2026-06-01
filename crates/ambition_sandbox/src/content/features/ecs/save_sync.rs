@@ -64,9 +64,7 @@ pub fn sync_ecs_actors_with_save(
                     aggression.mode = AggressionMode::HostileToPlayer;
                     let (new_brain, new_action_set) =
                         super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-                            &hostile,
-                            combat_kit,
-                            held_item,
+                            &hostile, combat_kit, held_item,
                         );
                     *actor = ActorRuntime::Hostile(hostile);
                     commands.entity(entity).insert((new_brain, new_action_set));

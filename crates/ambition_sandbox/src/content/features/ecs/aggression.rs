@@ -10,9 +10,9 @@
 use bevy::prelude::*;
 
 use super::{
-    actor_component_snapshot, sync_actor_components_from_runtime, ActorAggression, ActorCombatState,
-    ActorCooldowns, ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime,
-    AggressionMode, CombatKit, FeatureSimEntity, HeldItem,
+    sync_actor_components_from_runtime, ActorAggression, ActorCombatState, ActorCooldowns,
+    ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, AggressionMode,
+    CombatKit, FeatureSimEntity, HeldItem,
 };
 use crate::features::ActorStimulus;
 
@@ -40,7 +40,11 @@ pub fn apply_actor_stimuli(
     >,
 ) {
     for stimulus in stimuli.read().copied() {
-        let ActorStimulus::DamagedBy { actor, source, damage: _ } = stimulus;
+        let ActorStimulus::DamagedBy {
+            actor,
+            source,
+            damage: _,
+        } = stimulus;
         let Ok((
             entity,
             mut runtime,
@@ -53,7 +57,8 @@ pub fn apply_actor_stimuli(
             mut combat,
             mut intent,
             mut cooldowns,
-        )) = actors.get_mut(actor) else {
+        )) = actors.get_mut(actor)
+        else {
             continue;
         };
 
@@ -63,9 +68,10 @@ pub fn apply_actor_stimuli(
         aggression.target = source.or(aggression.target);
 
         let should_be_aggressive = match (&*runtime, aggression.mode) {
-            (ActorRuntime::Peaceful(npc), AggressionMode::RetaliatesWhenHit { strike_threshold }) => {
-                npc.strikes >= i32::from(strike_threshold)
-            }
+            (
+                ActorRuntime::Peaceful(npc),
+                AggressionMode::RetaliatesWhenHit { strike_threshold },
+            ) => npc.strikes >= i32::from(strike_threshold),
             (_, AggressionMode::HostileToPlayer) => true,
             (ActorRuntime::Hostile(_), AggressionMode::RetaliatesWhenHit { .. }) => true,
             _ => false,
@@ -80,19 +86,17 @@ pub fn apply_actor_stimuli(
             if source.is_some() {
                 hostile.ai_mode = crate::character_ai::CharacterAiMode::Chase;
             }
-            let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-                &hostile,
-                combat_kit,
-                held_item,
-            );
+            let (brain, action_set) =
+                super::brain_builders::aggressive_brain_and_action_set_for_enemy(
+                    &hostile, combat_kit, held_item,
+                );
             *runtime = ActorRuntime::Hostile(hostile);
             commands.entity(entity).insert((brain, action_set));
         } else if let ActorRuntime::Hostile(enemy) = &*runtime {
-            let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-                enemy,
-                combat_kit,
-                held_item,
-            );
+            let (brain, action_set) =
+                super::brain_builders::aggressive_brain_and_action_set_for_enemy(
+                    enemy, combat_kit, held_item,
+                );
             commands.entity(entity).insert((brain, action_set));
         }
 

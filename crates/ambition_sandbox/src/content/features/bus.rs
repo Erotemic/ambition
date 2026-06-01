@@ -84,7 +84,6 @@ pub fn apply_npc_strike_effects(mut effects: MessageReader<GameplayEffect>) {
     }
 }
 
-
 /// Forward actor relationship/combat stimuli out of the gameplay-effect bus.
 ///
 /// The high-arity feature damage system already writes `GameplayEffect`s, so it

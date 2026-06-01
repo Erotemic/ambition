@@ -24,9 +24,9 @@ use super::{
     GameplayEffect, HitEvent, HitSource, RespawnTimer,
 };
 use crate::audio::SfxMessage;
-use crate::features::ActorStimulus;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
 use crate::encounter::BossEncounterMusicRequest;
+use crate::features::ActorStimulus;
 use crate::presentation::cutscene::CutsceneTriggerQueue;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};

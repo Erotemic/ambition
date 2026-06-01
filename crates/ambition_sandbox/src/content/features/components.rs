@@ -436,7 +436,6 @@ impl Default for ActorTarget {
     }
 }
 
-
 /// Data/authored combat capabilities for an actor.
 ///
 /// `ActionSet` remains the hot per-frame resolver consumed by the brain/action

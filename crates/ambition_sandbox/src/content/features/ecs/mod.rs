@@ -75,9 +75,9 @@ mod targeting;
 mod variation;
 mod view_index;
 
-pub(crate) use aggression::apply_actor_stimuli;
 pub(crate) use actors::{actor_component_snapshot, sync_actor_components_from_runtime};
 pub use actors::{sync_actor_poses_from_feature_aabbs, update_ecs_actors, ActorRuntime};
+pub use aggression::apply_actor_stimuli;
 pub use anim_helpers::{
     ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
     ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name,

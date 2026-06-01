@@ -10,9 +10,9 @@ use super::super::enemies::{EnemyArchetype, EnemyBrainTemplate, EnemyRuntime};
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
 use crate::brain::{
-    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, SharkCfg, SharkState,
-    SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
-    WandererCfg, WandererState,
+    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, SharkCfg, SharkState, SkirmisherCfg,
+    SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
+    WandererState,
 };
 
 /// Build the enemy's durable combat capability kit from archetype data.
@@ -52,7 +52,9 @@ fn apply_archetype_held_item(archetype: EnemyArchetype, actions: &mut ActionSet)
     }
 }
 
-pub(super) fn held_item_for_archetype(archetype: EnemyArchetype) -> Option<crate::brain::HeldItemSpec> {
+pub(super) fn held_item_for_archetype(
+    archetype: EnemyArchetype,
+) -> Option<crate::brain::HeldItemSpec> {
     archetype.held_item_spec()
 }
 
@@ -254,8 +256,7 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     // ranged-capable brain so the weapon remains live after the shark dies.
     // This preserves the item as the authority: remove / change the held item
     // in data and this path changes without another Rust branch.
-    let brain = if held_item
-        .is_some_and(|item| item.grants_ranged())
+    let brain = if held_item.is_some_and(|item| item.grants_ranged())
         || held_item_grants_ranged(rider.archetype)
     {
         skirmisher_brain_from_archetype(&rider.id, rider.archetype, true)

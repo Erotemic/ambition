@@ -225,7 +225,9 @@ pub(super) fn spawn_composite_mount_rider(
         ))
         .id();
     if let Some(item) = rider_held_item {
-        commands.entity(rider_entity).insert(super::HeldItem::new(item));
+        commands
+            .entity(rider_entity)
+            .insert(super::HeldItem::new(item));
     }
 
     // Wire MountSlot.rider on the mount so death-side dissolution

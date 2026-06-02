@@ -87,7 +87,7 @@ impl Pickup {
 }
 
 /// The reward/effect represented by a pickup or chest.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum PickupKind {
     Health { amount: i32 },
     Currency { amount: i32 },

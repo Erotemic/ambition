@@ -88,6 +88,19 @@ pub struct EncounterSpec {
     /// Music track id to play while the encounter is Active. Empty
     /// disables the music swap.
     pub music_track: String,
+    /// Reward dropped in the encounter's chest when it clears. Authored
+    /// per-encounter instead of the old hardcoded `Health { amount: 2 }`
+    /// at the chest spawn site, so a fight can grant currency, an
+    /// ability, a story flag, or a bigger heal. Defaults to the legacy
+    /// small heal for back-compat / specs that don't set it.
+    #[serde(default = "default_encounter_reward")]
+    pub reward: crate::interaction::PickupKind,
+}
+
+/// Legacy default encounter reward (small heal) used when a spec omits
+/// `reward`.
+pub fn default_encounter_reward() -> crate::interaction::PickupKind {
+    crate::interaction::PickupKind::Health { amount: 2 }
 }
 
 impl EncounterSpec {

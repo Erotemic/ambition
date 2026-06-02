@@ -63,6 +63,7 @@ pub fn load_encounter_specs_from_ldtk(
             } else {
                 "pulse_drift_voyage".into()
             },
+            reward: crate::encounter::spec::default_encounter_reward(),
         };
         let persisted = save.encounter(&trigger_id);
         out.push((trigger_id, spec, persisted));

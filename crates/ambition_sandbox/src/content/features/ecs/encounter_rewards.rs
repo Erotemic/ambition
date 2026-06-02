@@ -79,7 +79,7 @@ pub fn sync_encounter_reward_chests_ecs(
             FeatureAabb::from_center_size(chest_pos, chest_size),
             ChestFeature::new(crate::interaction::Chest::new(
                 chest_id,
-                Some(crate::interaction::PickupKind::Health { amount: 2 }),
+                Some(spec.reward.clone()),
             )),
             EncounterRewardChest::new(encounter_id.clone()),
         ));

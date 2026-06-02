@@ -37,7 +37,27 @@ fn lab_spec() -> EncounterSpec {
         // check the Active state right after `maybe_start`.
         intro_seconds: 0.0,
         music_track: String::new(),
+        reward: super::spec::default_encounter_reward(),
     }
+}
+
+#[test]
+fn encounter_reward_defaults_to_small_heal_and_is_authorable() {
+    use crate::interaction::PickupKind;
+    // Back-compat: the default reward stays the legacy small heal, so
+    // specs that don't set `reward` behave exactly as before.
+    assert_eq!(
+        super::spec::default_encounter_reward(),
+        PickupKind::Health { amount: 2 }
+    );
+    // Per-encounter authoring: a fight can now grant something else, and
+    // it survives a serde roundtrip (data-authorable, not hardcoded at
+    // the chest spawn site).
+    let mut spec = lab_spec();
+    spec.reward = PickupKind::Currency { amount: 25 };
+    let ron = ron::to_string(&spec).expect("EncounterSpec should serialize");
+    let back: EncounterSpec = ron::from_str(&ron).expect("EncounterSpec should deserialize");
+    assert_eq!(back.reward, PickupKind::Currency { amount: 25 });
 }
 
 #[test]

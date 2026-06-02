@@ -157,12 +157,14 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Encounter
 
-- **MED — Encounter chest reward is hard-coded to a small heal**
-  - File: `crates/ambition_sandbox/src/encounter/systems.rs:update_encounters_from_world`
-  - When an encounter clears we drop a chest with
-    `PickupKind::Health { amount: 2 }`. Real encounters want
-    per-encounter reward authoring (an `EncounterSpec::reward` field
-    pointing at a `PickupKind` or a chest spec id).
+- **RESOLVED 2026-06-02 — Encounter chest reward is hard-coded to a
+  small heal** — `EncounterSpec` now has a `reward: PickupKind` field
+  (serde default = the legacy `Health { amount: 2 }`); the reward chest
+  spawn (`content/features/ecs/encounter_rewards.rs`) reads `spec.reward`
+  instead of the hardcoded heal, so a fight can grant currency / an
+  ability / a story flag / a bigger heal. `PickupKind` gained
+  `Serialize`/`Deserialize`; a test pins the default + a serde roundtrip
+  of a custom reward.
 
 - **RESOLVED 2026-05-07 — `runtime.player_died_pending` is a
   side-channel boolean**

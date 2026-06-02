@@ -309,6 +309,21 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Content / authoring
 
+- **LOW/MED — `RAID_ENFORCER_SHEET` is built + tested but never wired
+  into a runtime sprite table** _(found 2026-06-02, autonomous)_
+  - File: `crates/ambition_sandbox/src/presentation/character_sprites/sheets.rs:574`
+  - `RAID_ENFORCER_SHEET` / `RAID_ENFORCER_TUNING` are defined, re-exported
+    (`character_sprites.rs`), and covered by `character_sprites/tests.rs`,
+    but `cargo build --lib` reports them **never used** — unlike the
+    comparable `OILER_SHEET`, which is registered in
+    `intro/sprites.rs:44`. So the `npc_raid_enforcer` catalog entry
+    (`character_catalog/mod.rs:372`) falls back to the toon adapter render
+    instead of the dedicated `raid_enforcer_spritesheet`. The sheet's own
+    doc-comment calls it a "temporary generic raid silhouette until more
+    specific art lands," so this may be intentional — but verify: if the
+    dedicated sheet is meant to show, it needs a registration entry like
+    Oiler's; if not, drop the unused static to clear the warning.
+
 - **LOW — Boss spec id derives from name; explicit LDtk field still
   open**
   - File: `crates/ambition_sandbox/src/boss_encounter/ids.rs:encounter_id_from_name`
@@ -378,6 +393,23 @@ to the bottom under "Closed" with the commit that fixed them.
   the actual top edge rather than snagging on an inner seam.
 
 ### Build / repo
+
+- **LOW — Superseded legacy enemy-update impl is dead code**
+  _(found 2026-06-02, autonomous)_
+  - File: `crates/ambition_sandbox/src/content/features/enemies.rs:708`
+  - `cargo build --lib` reports a whole impl block dead: `update`,
+    `step_surface_walker`, `wall_ahead`, `snap_pos_to_surface`,
+    `fall_until_landed`, `body_contact_damage` — "never used". The
+    `update` doc-comment notes the "legacy `build_control_frame` path was
+    deleted in the brain-authority GC pass," so this is the *next* layer
+    of that same superseded path (brain-authority now owns the per-tick
+    intent). Safe to GC, but it's a multi-method removal that wants a full
+    build + a check that no `#[cfg]`'d / trait path still reaches it — out
+    of scope for a blind autonomous pass, left as a deliberate cleanup.
+    (Other smaller dead-code warnings in the same build: `request`
+    (boss_encounter/sprites.rs), `boss_animation_for_profile`
+    (features/bosses.rs), `resolve_dialog_choice_hover` (dialog/systems.rs),
+    cluster `as_mut` helpers — each is a one-spot decision: wire or drop.)
 
 - **MED — Sandbox `headless` feature build pulls in `bevy_winit` via Cargo features**
   - File: `crates/ambition_sandbox/Cargo.toml` (root cause), plus

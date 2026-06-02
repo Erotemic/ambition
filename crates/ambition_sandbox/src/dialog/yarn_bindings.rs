@@ -64,6 +64,9 @@ pub struct YarnStateMirrorData {
     pub visit_counts: std::collections::HashMap<String, u32>,
     /// Yarn-facing id for the heavy object currently hanging in the cut-rope room.
     pub cut_rope_heavy_object: String,
+    /// Item `dialog_id()` → held count, mirrored from the live
+    /// `PlayerInventory` resource so `inventory_has(...)` can read it.
+    pub inventory_counts: std::collections::HashMap<String, u32>,
 }
 
 #[derive(Resource, Default, Clone)]
@@ -76,13 +79,24 @@ pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<SandboxSave>>,
     cut_rope_heavy_object: Option<Res<crate::boss_encounter::CutRopeHeavyObjectCycle>>,
+    inventory: Option<Res<crate::inventory::PlayerInventory>>,
     mirror: Res<YarnStateMirror>,
 ) {
+    let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
+    // Inventory is a live ECS resource, not part of `SandboxSave`;
+    // refresh it independently (and before the save early-return) so
+    // `inventory_has(...)` reflects pickups even in a save-less sandbox.
+    snap.inventory_counts.clear();
+    if let Some(inventory) = inventory {
+        for kind in crate::inventory::ItemKind::ALL {
+            snap.inventory_counts
+                .insert(kind.dialog_id().to_string(), inventory.count(kind));
+        }
+    }
     let Some(save) = save else {
         return;
     };
     let data = save.data();
-    let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
     snap.cut_rope_heavy_object.clear();
     snap.cut_rope_heavy_object.push_str(
         cut_rope_heavy_object
@@ -323,10 +337,38 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
             .map(|snap| snap.cut_rope_heavy_object == id)
             .unwrap_or(false)
     });
-    // inventory_has(item) -> bool: stub; the inventory system
-    // doesn't have a query surface yet. Always returns false so
-    // authored dialogue can reference it without parse errors.
-    lib.add_function("inventory_has", |_item: String| -> bool { false });
+    // inventory_has(item) -> bool: does the player currently hold at
+    // least one of the named item? Reads the inventory slice the
+    // refresh system mirrors from `PlayerInventory`. The item argument
+    // is normalized (lowercased, non-alphanumerics dropped) so
+    // `"HealthPotion"`, `"health_potion"`, and `"health potion"` all
+    // match the item's `dialog_id()`.
+    let m = Arc::clone(&mirror.0);
+    lib.add_function("inventory_has", move |item: String| -> bool {
+        m.read()
+            .map(|snap| mirror_inventory_has(&snap, &item))
+            .unwrap_or(false)
+    });
+}
+
+/// Pure `inventory_has` lookup over a mirror snapshot: true iff the
+/// player holds at least one of the named item. Split out from the
+/// registered closure so it is unit-testable without a live
+/// `DialogueRunner`.
+fn mirror_inventory_has(data: &YarnStateMirrorData, item: &str) -> bool {
+    let key = normalize_item_id(item);
+    data.inventory_counts.get(&key).copied().unwrap_or(0) > 0
+}
+
+/// Normalize an authored item id for `inventory_has` lookups:
+/// lowercase and strip every non-alphanumeric character. Mirrors how
+/// [`crate::inventory::ItemKind::dialog_id`] is keyed, so authored
+/// dialogue can spell the item loosely.
+fn normalize_item_id(raw: &str) -> String {
+    raw.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect()
 }
 
 /// Register all nine custom commands on the runner. Called from
@@ -352,4 +394,62 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("camera_zoom", camera_zoom_id);
     cmds.add_command("watch_cut_rope_video", watch_cut_rope_video_id);
     cmds.add_command("reset_cut_rope_room", reset_cut_rope_room_id);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inventory::{ItemKind, PlayerInventory};
+
+    #[test]
+    fn normalize_item_id_collapses_spelling_variants() {
+        assert_eq!(normalize_item_id("HealthPotion"), "healthpotion");
+        assert_eq!(normalize_item_id("health_potion"), "healthpotion");
+        assert_eq!(normalize_item_id("Health Potion"), "healthpotion");
+        assert_eq!(normalize_item_id("SPARE-BATTERY"), "sparebattery");
+        // The mirror is keyed by `dialog_id()`, which is already in
+        // normal form, so normalization is idempotent on the keys.
+        for kind in ItemKind::ALL {
+            assert_eq!(normalize_item_id(kind.dialog_id()), kind.dialog_id());
+        }
+    }
+
+    #[test]
+    fn mirror_inventory_has_reads_counts_with_loose_spelling() {
+        let mut data = YarnStateMirrorData::default();
+        data.inventory_counts.insert("healthpotion".into(), 2);
+        data.inventory_counts.insert("datachip".into(), 0);
+
+        // Present item, however the author spells it.
+        assert!(mirror_inventory_has(&data, "HealthPotion"));
+        assert!(mirror_inventory_has(&data, "health_potion"));
+        // Zero count reads as not held.
+        assert!(!mirror_inventory_has(&data, "DataChip"));
+        // Unknown item is not held.
+        assert!(!mirror_inventory_has(&data, "Grapple"));
+    }
+
+    #[test]
+    fn refresh_mirrors_player_inventory_into_the_snapshot() {
+        // Minimal app: no save / cut-rope resources (both Option<Res>
+        // resolve to None), only a live PlayerInventory + the mirror.
+        let mut app = App::new();
+        app.init_resource::<YarnStateMirror>();
+        app.insert_resource(PlayerInventory::starter()); // 2 health, 1 battery, 1 chip
+        app.add_systems(Update, refresh_yarn_state_mirror);
+        app.update();
+
+        let mirror = app.world().resource::<YarnStateMirror>();
+        let snap = mirror.0.read().expect("mirror readable");
+        assert_eq!(
+            snap.inventory_counts.get("healthpotion").copied(),
+            Some(2),
+            "starter inventory carries two health cells"
+        );
+        assert!(mirror_inventory_has(&snap, "HealthPotion"));
+        assert!(mirror_inventory_has(&snap, "SpareBattery"));
+        // Inventory must populate even though there is no SandboxSave
+        // (the save early-return runs only after the inventory slice).
+        assert!(snap.flags.is_empty());
+    }
 }

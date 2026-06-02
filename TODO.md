@@ -54,7 +54,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Boss phase transitions "screams" / "animations"
 
-- [ ] Implement the TODOS for the kernel NPC dialog tree
+- [~] Implement the TODOS for the kernel NPC dialog tree — _Progress 2026-06-02 (autonomous):_ the `inventory_has("HealthPotion")` Yarn function is no longer a `false` stub — it now reads the live `PlayerInventory` through a new `inventory_counts` slice on `YarnStateMirror` (refreshed each frame, before the save early-return so it works save-less), with loose item-id normalization and unit tests (`yarn_bindings::tests`). The `hub_guide__test_inv` kernel node now reports real held state. **Remaining kernel-dialog stubs:** (a) `give_item` Yarn command is still a logged stub (needs an inventory *writer* surface — see `cmd_give_item`); (b) `merchant_seed` shop node is a flavor stub (no real transaction: cost check + deduct + grant); both want the give/spend half of the inventory bridge to land first.
 
 - [ ] Silksong levels of input buffering.
 

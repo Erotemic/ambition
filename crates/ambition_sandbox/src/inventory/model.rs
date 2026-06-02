@@ -26,6 +26,20 @@ impl ItemKind {
     }
 
     pub const ALL: [Self; 3] = [Self::HealthPotion, Self::SpareBattery, Self::DataChip];
+
+    /// Stable lowercase id used by authored dialogue, e.g.
+    /// `inventory_has("HealthPotion")`. Keyed off the variant name
+    /// (not the display `label`, which can change for flavor). The
+    /// Yarn binding normalizes both sides by lowercasing and dropping
+    /// non-alphanumerics, so `"HealthPotion"`, `"health_potion"`, and
+    /// `"health potion"` all resolve here.
+    pub fn dialog_id(self) -> &'static str {
+        match self {
+            Self::HealthPotion => "healthpotion",
+            Self::SpareBattery => "sparebattery",
+            Self::DataChip => "datachip",
+        }
+    }
 }
 
 /// Top-level adventure-menu tab.

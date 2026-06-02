@@ -264,9 +264,9 @@ title: hub_guide__test_quest
 title: hub_guide__test_inv
 ---
 <<if inventory_has("HealthPotion")>>
-    Kernel Guide: inventory_has("HealthPotion") returned TRUE.
+    Kernel Guide: inventory_has("HealthPotion") returned TRUE — you are carrying at least one Health Cell. This reads the live PlayerInventory now.
 <<else>>
-    Kernel Guide: inventory_has("HealthPotion") returned FALSE. Note — this function is a stub returning false until the inventory query surface lands.
+    Kernel Guide: inventory_has("HealthPotion") returned FALSE — no Health Cell in your bag right now. Pick one up and ask again.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>

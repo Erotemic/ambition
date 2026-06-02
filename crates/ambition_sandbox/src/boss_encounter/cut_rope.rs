@@ -766,3 +766,25 @@ fn apply_cut_rope_heavy_object_sprite(
         *anchor = feet_anchor_for(&asset.spec, Vec2::new(collision.x, collision.y));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_cut_rope_boss_matches_only_the_cut_rope_id() {
+        assert!(is_cut_rope_boss(CUT_ROPE_BOSS_ID));
+        assert!(!is_cut_rope_boss("gnu_ton"));
+        assert!(!is_cut_rope_boss(""));
+    }
+
+    #[test]
+    fn heavy_object_cycle_alternates_anvil_and_piano_on_advance() {
+        let mut cycle = CutRopeHeavyObjectCycle::default();
+        assert_eq!(cycle.current_dialogue_id(), "anvil");
+        cycle.advance();
+        assert_eq!(cycle.current_dialogue_id(), "piano");
+        cycle.advance();
+        assert_eq!(cycle.current_dialogue_id(), "anvil", "two-step cycle wraps");
+    }
+}

@@ -11,6 +11,7 @@ Author-time tools support LDtk authoring, generated assets, reports, and experim
 | Generated audio tools | [`generated-audio-tools.md`](generated-audio-tools.md) | Renders music/SFX/banks that may be published to runtime assets. |
 | Generated visual tools | [`generated-visual-tools.md`](generated-visual-tools.md) | Renders sprites/backgrounds/parallax/promo images. |
 | Optimization/reporting | [`optimization-and-reporting.md`](optimization-and-reporting.md) | Produces diagnostics for humans/agents. |
+| ECS inventory | [`ecs-inventory-tool.md`](ecs-inventory-tool.md) | Static inventory of the sandbox Bevy ECS surface for refactor planning / review. |
 | Tool authoring policy | [`tool-authoring-policy.md`](tool-authoring-policy.md) | Rules for adding or promoting tools. |
 
 ## Quick rules

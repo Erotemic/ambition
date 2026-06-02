@@ -575,6 +575,44 @@ pub fn portal_teleport_ground_items(
 #[derive(Component)]
 pub struct PortalVisual;
 
+/// Marks the floating chip above the player showing the active portal color.
+#[derive(Component)]
+pub struct PortalModeIndicator;
+
+/// Placeholder mode indicator: a small chip above the player tinted with the
+/// color of the *next* portal the gun will fire, so toggling (Interact) gives
+/// clear visual feedback of which mode you're in. (Replaced by the real
+/// blue/orange gun sprite once that lands — see TODO section B.)
+pub fn sync_portal_mode_indicator(
+    mut commands: Commands,
+    world: Res<GameWorld>,
+    visuals: Query<Entity, With<PortalModeIndicator>>,
+    players: Query<(&PlayerKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    for entity in &visuals {
+        commands.entity(entity).despawn();
+    }
+    let Ok((kin, gun)) = players.single() else {
+        return;
+    };
+    if !gun.active {
+        return;
+    }
+    let color = match gun.next_color {
+        PortalColor::Blue => Color::srgb(0.30, 0.62, 1.0),
+        PortalColor::Orange => Color::srgb(1.0, 0.55, 0.20),
+    };
+    // Float it above the player's head (y-down world: up is -y).
+    let pos = kin.pos + Vec2::new(0.0, -(kin.size.y * 0.5 + 18.0));
+    let translation = crate::config::world_to_bevy(&world.0, pos, 11.0);
+    commands.spawn((
+        PortalModeIndicator,
+        Sprite::from_color(color, Vec2::new(14.0, 14.0)),
+        Transform::from_translation(translation),
+        Name::new("Portal mode indicator"),
+    ));
+}
+
 /// Colored quad per portal so the player can actually see them. Clear-and-
 /// rebuild each frame — there are at most two portals, so the churn is
 /// negligible and the visuals can never desync from the sim entities.

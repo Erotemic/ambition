@@ -258,6 +258,7 @@ fn register_item_pickup_systems(app: &mut App) {
             crate::portal::spawn_debug_portal_gun_pickup_once,
             crate::item_pickup::pickup_held_item_system.run_if(gameplay_allowed),
             crate::item_pickup::throw_held_item_system.run_if(gameplay_allowed),
+            crate::item_pickup::ground_item_physics.run_if(gameplay_allowed),
             // After portal_fire (registered earlier) so picking up the gun
             // doesn't also fire a portal on the same Attack press.
             crate::portal::pickup_portal_gun_system.run_if(gameplay_allowed),

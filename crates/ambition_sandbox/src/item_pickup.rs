@@ -12,9 +12,9 @@
 //! - `Attack` picks up / uses; `Shield + Attack` throws (Smash grab-throw).
 //!
 //! Handoff / not-yet-built:
-//! - thrown items drop at the player's feet+facing offset (no gravity arc yet),
-//! - `ConsumeOnUse` / `ThrowOnUse` (javelin) use-behaviors are not modeled here,
-//! - placement is a single debug-spawned axe; authored ground items come later.
+//! - thrown items arc under gravity and settle on contact (no slide/bounce),
+//! - placement is a single debug-spawned axe; authored ground items come later,
+//! - a held-in-hand sprite on the player; held-item gating of the portal gun.
 
 use bevy::prelude::*;
 
@@ -28,12 +28,55 @@ const PICKUP_HALF: f32 = 18.0;
 const THROW_AHEAD: f32 = 48.0;
 
 /// A held item resting in the world, pick-up-able with `Attack` when the
-/// player is empty-handed.
+/// player is empty-handed. Thrown items carry a `vel` and arc under gravity
+/// until they settle on a surface (`vel == ZERO` means resting).
 #[derive(Component, Clone, Debug)]
 pub struct GroundItem {
     pub spec: HeldItemSpec,
     pub pos: Vec2,
+    pub vel: Vec2,
     pub half_extent: Vec2,
+}
+
+const GROUND_ITEM_GRAVITY: f32 = 1400.0;
+const THROW_SPEED_X: f32 = 320.0;
+const THROW_SPEED_UP: f32 = 260.0;
+
+/// Integrate thrown ground items under gravity (y-down world) and settle them
+/// when they'd enter a solid / one-way surface. Resting items (`vel == ZERO`)
+/// are skipped, so pickup-able items stay put.
+pub fn ground_item_physics(
+    time: Res<crate::WorldTime>,
+    world: Res<crate::GameWorld>,
+    mut grounds: Query<&mut GroundItem>,
+) {
+    let dt = time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    for mut item in &mut grounds {
+        if item.vel == Vec2::ZERO {
+            continue;
+        }
+        item.vel.y += GROUND_ITEM_GRAVITY * dt;
+        let next = item.pos + item.vel * dt;
+        let next_aabb = ae::Aabb::new(next, item.half_extent);
+        let blocked = world.0.blocks.iter().any(|block| {
+            matches!(
+                block.kind,
+                ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
+            ) && next_aabb.strict_intersects(block.aabb)
+        });
+        let below_world = next.y > world.0.size.y + 200.0;
+        if blocked {
+            // Settle in place (simple — no slide).
+            item.vel = Vec2::ZERO;
+        } else if below_world {
+            item.vel = Vec2::ZERO;
+        } else {
+            item.pos = next;
+        }
+    }
 }
 
 /// The player's pre-pickup `ActionSet`, restored when the held item is thrown.
@@ -83,6 +126,7 @@ pub fn spawn_debug_axe_once(
         GroundItem {
             spec: axe_spec(),
             pos: kin.pos + Vec2::new(80.0, 0.0),
+            vel: Vec2::ZERO,
             half_extent: Vec2::splat(PICKUP_HALF),
         },
         Name::new("Ground item: axe"),
@@ -170,6 +214,8 @@ pub fn throw_held_item_system(
         GroundItem {
             spec,
             pos: throw_pos,
+            // Arc forward + up (y-down world, so up is -y).
+            vel: Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP),
             half_extent: Vec2::splat(PICKUP_HALF),
         },
         Name::new("Ground item: thrown"),
@@ -241,6 +287,7 @@ mod tests {
         app.world_mut().spawn(GroundItem {
             spec: axe_spec(),
             pos: Vec2::new(100.0, 100.0),
+            vel: Vec2::ZERO,
             half_extent: Vec2::splat(PICKUP_HALF),
         });
         // Player starts with no melee.
@@ -282,6 +329,46 @@ mod tests {
     }
 
     #[test]
+    fn thrown_item_arcs_and_settles_on_the_floor() {
+        let mut app = App::new();
+        let blocks = vec![ae::Block::solid(
+            "floor",
+            Vec2::new(0.0, 380.0),
+            Vec2::new(400.0, 20.0),
+        )];
+        app.insert_resource(crate::GameWorld(ae::World::new(
+            "phys",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(200.0, 360.0),
+            blocks,
+        )));
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_systems(Update, ground_item_physics);
+        let item = app
+            .world_mut()
+            .spawn(GroundItem {
+                spec: axe_spec(),
+                pos: Vec2::new(200.0, 200.0),
+                vel: Vec2::new(120.0, -200.0), // forward + up
+                half_extent: Vec2::splat(PICKUP_HALF),
+            })
+            .id();
+        for _ in 0..120 {
+            app.update();
+        }
+        let g = app.world().get::<GroundItem>(item).unwrap();
+        assert_eq!(g.vel, Vec2::ZERO, "thrown item should settle, vel={:?}", g.vel);
+        assert!(
+            g.pos.y < 380.0 && g.pos.y > 300.0 && g.pos.x > 200.0,
+            "settled near the floor and moved forward, pos={:?}",
+            g.pos
+        );
+    }
+
+    #[test]
     fn javelin_is_thrown_on_plain_attack_use() {
         let mut app = App::new();
         app.insert_resource(ControlFrame::default());
@@ -290,6 +377,7 @@ mod tests {
         app.world_mut().spawn(GroundItem {
             spec: javelin_spec(),
             pos: Vec2::new(100.0, 100.0),
+            vel: Vec2::ZERO,
             half_extent: Vec2::splat(PICKUP_HALF),
         });
 

@@ -65,6 +65,7 @@ Helpers may still push direct events when state diffs are insufficient, for exam
 |---|---|---|
 | `F8` | `Manual` | User wants a snapshot of the last few seconds. |
 | Auto OOB | `OobAuto` | The player drifts outside the world envelope, has non-finite position/velocity, has absurd velocity, or sits inside a solid. |
+| Auto teleport | `TeleportAuto` | A teleport-class `CollisionCorrection` fires (unexplained delta > velocity budget). Catches snaps that land *inside* the OOB margin — e.g. the lock-wall wall-cling snap to `y=-23` — which `OobAuto` misses. Fires the same frame, while the ring buffer still holds the pre-teleport frames (a later manual dump only catches the stuck aftermath). |
 | `request_dump(label)` | `Programmatic` | Tests or tooling request a dump from code. |
 
 The auto-dump should be armed once per unhealthy episode. After it fires, wait for the player to return to a healthy state before re-arming so one broken frame does not produce a dump every tick. Manual `F8` should always work.

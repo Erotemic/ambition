@@ -732,20 +732,20 @@ fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
 }
 
 /// Per-frame: write each button's glyph from the active input
-/// device. Reads [`ActiveInputMethod`] + a default
-/// [`KeyboardPreset`]; future hookup point for the player's chosen
-/// preset.
+/// device. Reads [`ActiveInputMethod`] + the player's selected
+/// [`KeyboardPreset`] (from settings), so HUD glyphs follow a rebind
+/// instead of always showing the out-of-the-box Z/X/C keys.
 pub fn update_button_glyph_from_active_input(
     active: Res<crate::player::affordances::ActiveInputMethod>,
+    settings: Option<Res<crate::persistence::settings::UserSettings>>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonGlyph)>,
 ) {
-    // TODO: when the sandbox exposes the player's selected
-    // KeyboardPreset (currently swapped via `sync_preset_input_map`
-    // but not surfaced as a Resource), read it here instead of
-    // hardcoding the default Arrows+ZXC preset. Until then desktop
-    // players who haven't rebound see Z/X/C glyphs, which match the
-    // out-of-the-box bindings.
-    let preset = KeyboardPreset::arrows_zxc();
+    // Resolve the player's chosen keyboard preset from settings; fall
+    // back to the default Arrows+ZXC when settings aren't present
+    // (e.g. a headless/host config that never inserts UserSettings).
+    let preset = settings
+        .map(|s| KeyboardPreset::by_index(s.controls.keyboard_preset_index))
+        .unwrap_or_else(KeyboardPreset::arrows_zxc);
     for (TouchActionLabel(touch_action), mut glyph) in &mut labels {
         let sa = touch_action_to_sandbox_action(*touch_action);
         let next = crate::player::affordances::glyph_for(sa, &preset, active.0);

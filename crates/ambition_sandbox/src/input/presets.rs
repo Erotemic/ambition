@@ -65,6 +65,15 @@ impl KeyboardPreset {
         ]
     }
 
+    /// Resolve the preset at `index` (the value stored in
+    /// `settings.controls.keyboard_preset_index`). Out-of-range
+    /// indices fall back to the first preset (`arrows_zxc`) so a stale
+    /// or corrupt setting can never panic a HUD/glyph system.
+    pub fn by_index(index: usize) -> Self {
+        let presets = Self::presets();
+        presets.get(index).copied().unwrap_or(presets[0])
+    }
+
     pub fn arrows_zxc() -> Self {
         Self {
             id: PresetId::ArrowsZxc,
@@ -418,5 +427,24 @@ fn key_name(key: KeyCode) -> &'static str {
         KeyCode::Delete => "Delete",
         KeyCode::Backspace => "Backspace",
         _ => "?",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn by_index_resolves_each_preset_and_clamps_out_of_range() {
+        // Each in-range index returns the matching preset (order must
+        // stay aligned with `settings.controls.keyboard_preset_index`).
+        assert_eq!(KeyboardPreset::by_index(0).id, PresetId::ArrowsZxc);
+        assert_eq!(KeyboardPreset::by_index(1).id, PresetId::WasdJkl);
+        assert_eq!(KeyboardPreset::by_index(2).id, PresetId::ArrowsQwer);
+        assert_eq!(KeyboardPreset::by_index(3).id, PresetId::WasdUipo);
+        // A stale / corrupt index falls back to the first preset
+        // rather than panicking a HUD glyph system.
+        assert_eq!(KeyboardPreset::by_index(4).id, PresetId::ArrowsZxc);
+        assert_eq!(KeyboardPreset::by_index(usize::MAX).id, PresetId::ArrowsZxc);
     }
 }

@@ -206,3 +206,69 @@ impl PauseMenuState {
         }
     }
 }
+
+#[cfg(test)]
+mod pause_model_tests {
+    //! Pure coverage for the pause overlay's item table + page-stack
+    //! navigation. The destructive-item set gates the single-tap confirm
+    //! guard, and enter/pop_page is the back-stack the overlay rides.
+    use super::*;
+
+    #[test]
+    fn items_have_distinct_nonempty_labels() {
+        let labels: Vec<&str> = PauseMenuItem::ALL.iter().map(|i| i.static_label()).collect();
+        assert_eq!(labels.len(), 6);
+        for l in &labels {
+            assert!(!l.is_empty());
+        }
+        for (i, a) in labels.iter().enumerate() {
+            for b in &labels[i + 1..] {
+                assert_ne!(a, b, "duplicate pause-item label {a:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn only_reset_and_quit_are_destructive() {
+        for item in PauseMenuItem::ALL {
+            let expected = matches!(item, PauseMenuItem::ResetSandbox | PauseMenuItem::Quit);
+            assert_eq!(item.is_destructive(), expected, "{item:?}");
+        }
+    }
+
+    #[test]
+    fn enter_page_pushes_current_and_resets_selection() {
+        let mut s = PauseMenuState::default();
+        s.selected = 3;
+        assert_eq!(s.page, PauseMenuPage::Top);
+        s.enter_page(PauseMenuPage::Radio);
+        assert_eq!(s.page, PauseMenuPage::Radio);
+        assert_eq!(s.selected, 0, "entering a page resets selection");
+        assert_eq!(s.stack, vec![PauseMenuPage::Top]);
+    }
+
+    #[test]
+    fn entering_the_current_page_is_a_no_op() {
+        let mut s = PauseMenuState::default();
+        s.enter_page(PauseMenuPage::Top); // already on Top
+        assert!(s.stack.is_empty(), "re-entering the current page must not push");
+    }
+
+    #[test]
+    fn pop_unwinds_the_stack_then_stays_on_top() {
+        let mut s = PauseMenuState::default();
+        s.enter_page(PauseMenuPage::Settings(SettingsPage::Audio));
+        s.enter_page(PauseMenuPage::Radio);
+        assert_eq!(s.stack.len(), 2);
+
+        s.pop_page();
+        assert_eq!(s.page, PauseMenuPage::Settings(SettingsPage::Audio));
+        s.pop_page();
+        assert_eq!(s.page, PauseMenuPage::Top);
+        assert!(s.stack.is_empty());
+
+        // Popping at the root keeps Top (the caller decides to close).
+        s.pop_page();
+        assert_eq!(s.page, PauseMenuPage::Top);
+    }
+}

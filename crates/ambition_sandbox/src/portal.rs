@@ -602,12 +602,13 @@ pub fn load_portal_gun_art(mut commands: Commands, assets: Res<AssetServer>) {
     });
 }
 
-/// Marks the gun sprite floating above the player showing the active mode.
+/// Marks the held portal-gun sprite carried in the player's hand.
 #[derive(Component)]
 pub struct PortalModeIndicator;
 
-/// Float the portal-gun sprite above the player in the color of the *next*
-/// portal it will fire, so toggling (Interact) visibly swaps blue↔orange.
+/// Draw the portal-gun sprite **in the player's hand** (in front, at hand
+/// height, flipped to face), tinted to the active mode color so toggling
+/// (Interact) visibly swaps blue↔orange.
 pub fn sync_portal_mode_indicator(
     mut commands: Commands,
     world: Res<GameWorld>,
@@ -631,18 +632,22 @@ pub fn sync_portal_mode_indicator(
         PortalColor::Blue => art.blue.clone(),
         PortalColor::Orange => art.orange.clone(),
     };
-    // Float it above the player's head (y-down world: up is -y).
-    let pos = kin.pos + Vec2::new(0.0, -(kin.size.y * 0.5 + 24.0));
-    let translation = crate::config::world_to_bevy(&world.0, pos, 11.0);
+    let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
+    // In the player's hand: just in front of the body at roughly hand height
+    // (y-down world, so a small +y is slightly below centre). z=12 keeps it
+    // in front of the player sprite.
+    let pos = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 6.0), kin.size.y * 0.06);
+    let translation = crate::config::world_to_bevy(&world.0, pos, 12.0);
     commands.spawn((
         PortalModeIndicator,
         Sprite {
             image,
-            custom_size: Some(Vec2::new(48.0, 26.0)),
+            custom_size: Some(Vec2::new(38.0, 20.0)),
+            flip_x: facing < 0.0,
             ..default()
         },
         Transform::from_translation(translation),
-        Name::new("Portal mode indicator"),
+        Name::new("Held portal gun"),
     ));
 }
 

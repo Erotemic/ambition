@@ -441,48 +441,7 @@ pub fn update_ecs_actors(
     }
 
     // Per-actor crowding signal for brains that need personal space.
-    // Aerial actors use a wider radius and only react to other aerial
-    // actors, which keeps sharks from stacking while preserving the
-    // tighter ground crowding Smash expects.
-    const CROWDING_RADIUS_PX: f32 = 80.0;
-    const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
-    let mut crowding_by_id: std::collections::HashMap<String, crate::brain::CrowdingSignal> =
-        std::collections::HashMap::new();
-    for (id_a, pos_a, kind_a) in &requests {
-        let mut count: u8 = 0;
-        let mut centroid = ae::Vec2::ZERO;
-        let aerial = *kind_a == crate::combat_slots::SlotKind::Aerial;
-        let radius = if aerial {
-            AERIAL_CROWDING_RADIUS_PX
-        } else {
-            CROWDING_RADIUS_PX
-        };
-        for (id_b, pos_b, kind_b) in &requests {
-            if id_a == id_b {
-                continue;
-            }
-            if aerial && *kind_b != crate::combat_slots::SlotKind::Aerial {
-                continue;
-            }
-            if pos_a.distance_squared(*pos_b) <= radius * radius {
-                count = count.saturating_add(1);
-                centroid += *pos_b;
-            }
-        }
-        if count > 0 {
-            centroid /= count as f32;
-            let away = (*pos_a - centroid).normalize_or_zero();
-            crowding_by_id.insert(
-                id_a.clone(),
-                crate::brain::CrowdingSignal {
-                    same_faction_count: count,
-                    other_faction_count: 0,
-                    away_dir: away,
-                    pressure: crate::brain::CrowdingSignal::compute_pressure(count, 0),
-                },
-            );
-        }
-    }
+    let crowding_by_id = compute_crowding_by_id(&requests);
 
     // Pass 2: tick each actor with its assigned slot position. Falls
     // back to the slot's holding-ring position when this actor didn't
@@ -806,6 +765,57 @@ pub fn update_ecs_npcs(
 /// `dt` is the gameplay clock so the Smash brain's mode dwell
 /// accumulator runs on the same time domain as the rest of the
 /// simulation.
+/// Per-actor crowding signal (personal-space pressure) consumed by
+/// brains like Smash so clustered actors push apart. Aerial actors use a
+/// wider radius and only count *other aerial* actors (so flyers like
+/// sharks don't stack), while ground actors use a tighter radius. Pure
+/// over the per-tick slot requests `(id, pos, kind)` so it is
+/// unit-testable in isolation from the actor tick.
+fn compute_crowding_by_id(
+    requests: &[(String, ae::Vec2, crate::combat_slots::SlotKind)],
+) -> std::collections::HashMap<String, crate::brain::CrowdingSignal> {
+    const CROWDING_RADIUS_PX: f32 = 80.0;
+    const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
+    let mut crowding_by_id: std::collections::HashMap<String, crate::brain::CrowdingSignal> =
+        std::collections::HashMap::new();
+    for (id_a, pos_a, kind_a) in requests {
+        let mut count: u8 = 0;
+        let mut centroid = ae::Vec2::ZERO;
+        let aerial = *kind_a == crate::combat_slots::SlotKind::Aerial;
+        let radius = if aerial {
+            AERIAL_CROWDING_RADIUS_PX
+        } else {
+            CROWDING_RADIUS_PX
+        };
+        for (id_b, pos_b, kind_b) in requests {
+            if id_a == id_b {
+                continue;
+            }
+            if aerial && *kind_b != crate::combat_slots::SlotKind::Aerial {
+                continue;
+            }
+            if pos_a.distance_squared(*pos_b) <= radius * radius {
+                count = count.saturating_add(1);
+                centroid += *pos_b;
+            }
+        }
+        if count > 0 {
+            centroid /= count as f32;
+            let away = (*pos_a - centroid).normalize_or_zero();
+            crowding_by_id.insert(
+                id_a.clone(),
+                crate::brain::CrowdingSignal {
+                    same_faction_count: count,
+                    other_faction_count: 0,
+                    away_dir: away,
+                    pressure: crate::brain::CrowdingSignal::compute_pressure(count, 0),
+                },
+            );
+        }
+    }
+    crowding_by_id
+}
+
 /// Build a `BrainSnapshot` for an enemy actor's per-tick brain call.
 /// Carries the per-frame body / target / cooldown view every brain
 /// backend reads from; `crowding` is only consulted by the Smash
@@ -872,6 +882,67 @@ pub(crate) fn sync_actor_components_from_enemy(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn crowding_pushes_clustered_ground_actors_apart() {
+        use crate::combat_slots::SlotKind;
+        let reqs = vec![
+            ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
+            ("b".to_string(), ae::Vec2::new(20.0, 0.0), SlotKind::Melee), // within 80px
+        ];
+        let crowding = compute_crowding_by_id(&reqs);
+        let a = crowding.get("a").expect("a is crowded by b");
+        let b = crowding.get("b").expect("b is crowded by a");
+        assert_eq!(a.same_faction_count, 1);
+        // a is left of b → a pushes left (-x), b pushes right (+x).
+        assert!(
+            a.away_dir.x < 0.0,
+            "a should be pushed leftward away from b, got {:?}",
+            a.away_dir
+        );
+        assert!(
+            b.away_dir.x > 0.0,
+            "b should be pushed rightward away from a, got {:?}",
+            b.away_dir
+        );
+    }
+
+    #[test]
+    fn crowding_ignores_actors_outside_the_radius() {
+        use crate::combat_slots::SlotKind;
+        let reqs = vec![
+            ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
+            ("b".to_string(), ae::Vec2::new(500.0, 0.0), SlotKind::Melee), // > 80px
+        ];
+        assert!(
+            compute_crowding_by_id(&reqs).is_empty(),
+            "actors farther apart than the crowding radius get no signal"
+        );
+    }
+
+    #[test]
+    fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
+        use crate::combat_slots::SlotKind;
+        // 150px apart: outside the 80px ground radius but inside the 220px
+        // aerial radius. Two flyers crowd; two ground actors at the same
+        // spacing do not.
+        let aerial = vec![
+            ("f1".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Aerial),
+            ("f2".to_string(), ae::Vec2::new(150.0, 0.0), SlotKind::Aerial),
+        ];
+        assert!(
+            !compute_crowding_by_id(&aerial).is_empty(),
+            "aerial actors crowd at 150px (aerial radius 220)"
+        );
+        let ground = vec![
+            ("g1".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
+            ("g2".to_string(), ae::Vec2::new(150.0, 0.0), SlotKind::Melee),
+        ];
+        assert!(
+            compute_crowding_by_id(&ground).is_empty(),
+            "ground actors don't crowd at 150px (>80px ground radius)"
+        );
+    }
 
     fn burning_shark_enemy() -> EnemyRuntime {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(126.0, 52.0));

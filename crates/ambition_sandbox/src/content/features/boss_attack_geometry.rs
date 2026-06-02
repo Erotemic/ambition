@@ -202,8 +202,12 @@ pub struct BossVolumeContext<'a> {
 /// headless tests or before sprites have upgraded.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BossAnimationFrameSample {
-    /// Gameplay profile that selected the currently-rendered boss row.
-    pub profile: BossAttackProfile,
+    /// Gameplay profile that selected the currently-rendered boss row,
+    /// or `None` when the rendered row is the idle/rest pose (which is
+    /// not driven by any attack profile). An idle sample still carries
+    /// the live `frame_index` so the rest-pose hurtbox bobs with the
+    /// breathing animation instead of locking to frame 0.
+    pub profile: Option<BossAttackProfile>,
     /// Frame index in the currently-rendered boss row.
     pub frame_index: usize,
     /// Runtime sprite-metadata key that should be sampled with
@@ -355,7 +359,25 @@ fn authored_animation_frame_index(
     elapsed_s: f32,
 ) -> Option<usize> {
     if let Some(sample) = ctx.animation_frame {
-        if sample.profile == *profile {
+        if sample.profile.as_ref() == Some(profile) {
+            return Some(sample.frame_index);
+        }
+    }
+    animation_frame_index(entry, elapsed_s)
+}
+
+/// Idle-pose frame index. Mirrors [`authored_animation_frame_index`]
+/// for the rest pose: prefer the live rendered frame carried by an
+/// idle (`profile: None`) sample so the rest-pose hurtbox bobs with
+/// the breathing animation, falling back to elapsed-time sampling
+/// (which, with the idle elapsed of 0, would lock to frame 0).
+fn idle_animation_frame_index(
+    ctx: &BossVolumeContext,
+    entry: &crate::presentation::character_sprites::registry::AnimationMetrics,
+    elapsed_s: f32,
+) -> Option<usize> {
+    if let Some(sample) = ctx.animation_frame {
+        if sample.profile.is_none() {
             return Some(sample.frame_index);
         }
     }
@@ -375,7 +397,7 @@ fn runtime_animation_keys<'a>(
 ) -> Vec<&'a str> {
     let mut keys = Vec::new();
     if let (Some(sample), Some(profile)) = (ctx.animation_frame, active_profile) {
-        if sample.profile == *profile {
+        if sample.profile.as_ref() == Some(profile) {
             if let Some(animation_key) = sample.animation_key {
                 push_unique_animation_key(&mut keys, animation_key);
             }
@@ -487,7 +509,7 @@ pub fn damageable_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
                 Some(profile) => {
                     authored_animation_frame_index(ctx, profile, entry, animation_elapsed_s)
                 }
-                None => animation_frame_index(entry, animation_elapsed_s),
+                None => idle_animation_frame_index(ctx, entry, animation_elapsed_s),
             };
             let aabbs = world_space_animation_box_aabbs(
                 box_,
@@ -1186,7 +1208,7 @@ mod sprite_metadata_derivation_tests {
         attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
         attack_state.active_elapsed = 0.15; // elapsed alone would pick frame 1.
         let visual_frame = BossAnimationFrameSample {
-            profile: BossAttackProfile::GnuHeadDescent,
+            profile: Some(BossAttackProfile::GnuHeadDescent),
             frame_index: 0,
             animation_key: Some("gnu_head_descent"),
         };
@@ -1207,6 +1229,105 @@ mod sprite_metadata_derivation_tests {
             (volumes[0].center().y - -35.0).abs() < 1e-3,
             "expected visual frame 0 head center y=-35, got {:?}",
             volumes[0]
+        );
+    }
+
+    #[test]
+    fn idle_rest_hurtbox_follows_the_live_animation_frame() {
+        // Regression for the "GNU-ton head hurtbox locks to frame 0
+        // while idle" bug. At rest there is no active/telegraph
+        // profile, so `damageable_volumes` used to sample the rest
+        // animation at elapsed 0 → frame 0 forever, even as the
+        // rendered breathing pose bobbed. An idle `BossAnimationFrameSample`
+        // (`profile: None`) now feeds the live frame index through.
+        use crate::brain::BossAttackState;
+        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
+        use crate::presentation::character_sprites::registry::{
+            AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
+        };
+        use std::collections::HashMap;
+
+        let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+        animations.insert(
+            "rest".to_string(),
+            AnimationMetrics {
+                frame_duration_secs: Some(0.1),
+                hurtbox: Some(AnimationBox {
+                    parts: Vec::new(),
+                    bbox: None,
+                    frames: vec![
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head".to_string(),
+                                x: 45,
+                                y: 10, // center 15 → world y -35
+                                w: 10,
+                                h: 10,
+                            }],
+                            bbox: None,
+                        },
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "head".to_string(),
+                                x: 45,
+                                y: 70, // center 75 → world y +25
+                                w: 10,
+                                h: 10,
+                            }],
+                            bbox: None,
+                        },
+                    ],
+                }),
+                hitbox: None,
+            },
+        );
+        let metrics = BossSpriteMetrics {
+            frame_width: 100,
+            frame_height: 100,
+            body_pixel_bbox: None,
+            body_pixel_parts: Vec::new(),
+            sprite_render_size: ae::Vec2::new(100.0, 100.0),
+            combat_offset: ae::Vec2::ZERO,
+            animations,
+        };
+        let behavior = BossBehaviorProfile::gnu_ton();
+        // Fully idle: no active or telegraph profile.
+        let attack_state = BossAttackState::default();
+
+        // Without a sample, elapsed 0 locks to frame 0 (y = -35).
+        let ctx0 = BossVolumeContext {
+            pos: ae::Vec2::ZERO,
+            size: ae::Vec2::new(100.0, 100.0),
+            combat_size: ae::Vec2::new(100.0, 100.0),
+            behavior: &behavior,
+            attack_state: &attack_state,
+            sprite_metrics: Some(&metrics),
+            animation_frame: None,
+        };
+        let v0 = damageable_volumes(&ctx0);
+        assert_eq!(v0.len(), 1);
+        assert!(
+            (v0[0].center().y - -35.0).abs() < 1e-3,
+            "idle without a sample should hold frame 0 (y=-35), got {:?}",
+            v0[0]
+        );
+
+        // An idle sample (profile None) at frame 1 bobs the hurtbox down.
+        let idle_frame = BossAnimationFrameSample {
+            profile: None,
+            frame_index: 1,
+            animation_key: Some("rest"),
+        };
+        let ctx1 = BossVolumeContext {
+            animation_frame: Some(&idle_frame),
+            ..ctx0
+        };
+        let v1 = damageable_volumes(&ctx1);
+        assert_eq!(v1.len(), 1);
+        assert!(
+            (v1[0].center().y - 25.0).abs() < 1e-3,
+            "idle sample frame 1 should move the head hurtbox to y=+25, got {:?}",
+            v1[0]
         );
     }
 

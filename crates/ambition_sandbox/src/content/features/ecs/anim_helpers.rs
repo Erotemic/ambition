@@ -302,7 +302,7 @@ pub fn ecs_boss_animation_frame_sample(
                     result = Some((
                         entity,
                         crate::features::BossAnimationFrameSample {
-                            profile: profile.clone(),
+                            profile: Some(profile.clone()),
                             frame_index,
                             animation_key: boss_animation_key_for_sample(profile, anim),
                         },
@@ -315,13 +315,28 @@ pub fn ecs_boss_animation_frame_sample(
                         result = Some((
                             entity,
                             crate::features::BossAnimationFrameSample {
-                                profile: profile.clone(),
+                                profile: Some(profile.clone()),
                                 frame_index,
                                 animation_key: boss_animation_key_for_sample(profile, anim),
                             },
                         ));
                     }
                 }
+            }
+            // Idle/rest: not driven by any attack profile, but still emit
+            // a sample so the rest-pose hurtbox bobs with the breathing
+            // animation instead of locking to frame 0. Hit/Death rows are
+            // deliberately left as `None` — geometry should stay on the
+            // rest-pose shape rather than chase a recoil/death frame.
+            if result.is_none() && anim == crate::boss_encounter::sprites::BossAnim::Rest {
+                result = Some((
+                    entity,
+                    crate::features::BossAnimationFrameSample {
+                        profile: None,
+                        frame_index,
+                        animation_key: Some("rest"),
+                    },
+                ));
             }
             result
         })

@@ -22,6 +22,7 @@ Recipes are current procedures: commands, workflows, or repeatable edit protocol
 | Extending brains and ActionSets | `extending-brains-and-action-sets.md` |
 | Adding a character (catalog-driven) | `adding-a-character.md` |
 | Dialogue authoring (Yarn commands & functions) | `dialogue-authoring.md` |
+| Headless room verification (render + anomaly report) | `headless-room-verification.md` |
 
 ## Planning moved out of recipes
 

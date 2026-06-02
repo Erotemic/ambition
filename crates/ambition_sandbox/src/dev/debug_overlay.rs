@@ -630,7 +630,7 @@ fn draw_feature_debug(
         // see exactly where the hit will land. Telegraph wins when both
         // are zero so a frame on the edge still reads as "incoming".
         if let crate::features::ActorRuntime::Enemy(enemy) = actor {
-            if enemy.attack_timer > 0.0 {
+            if enemy.attack.is_active() {
                 draw_aabb_styled(
                     gizmos,
                     world,
@@ -638,7 +638,7 @@ fn draw_feature_debug(
                     active_color,
                     developer_tools,
                 );
-            } else if enemy.attack_windup_timer > 0.0 {
+            } else if enemy.attack.is_winding_up() {
                 draw_aabb_styled(
                     gizmos,
                     world,

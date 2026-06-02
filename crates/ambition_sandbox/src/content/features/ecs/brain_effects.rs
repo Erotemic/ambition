@@ -1249,7 +1249,7 @@ mod tests {
     /// timings.
     #[test]
     fn melee_message_starts_enemy_windup_and_cooldown() {
-        use crate::brain::{LungeSpec, MeleeActionSpec};
+        use crate::brain::{MeleeActionSpec, SwipeSpec};
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
@@ -1266,8 +1266,8 @@ mod tests {
             &[],
         );
         enemy.archetype = EnemyArchetype::MediumStriker;
-        enemy.attack_cooldown = 0.0;
-        let pre_windup = enemy.attack_windup_timer;
+        enemy.attack.cooldown = 0.0;
+        let pre_windup = enemy.attack.windup_timer;
         let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -1286,14 +1286,14 @@ mod tests {
             panic!("expected Hostile");
         };
         assert!(
-            enemy_after.attack_windup_timer > pre_windup,
+            enemy_after.attack.windup_timer > pre_windup,
             "windup timer should start after the message: was {pre_windup}, now {}",
-            enemy_after.attack_windup_timer,
+            enemy_after.attack.windup_timer,
         );
         assert!(
-            enemy_after.attack_cooldown > 0.0,
+            enemy_after.attack.cooldown > 0.0,
             "cooldown should be primed after the message: got {}",
-            enemy_after.attack_cooldown,
+            enemy_after.attack.cooldown,
         );
         assert!(
             matches!(
@@ -1333,7 +1333,7 @@ mod tests {
             !enemy.archetype.attacks_player(),
             "standalone PirateHeavy is normally peaceful"
         );
-        enemy.attack_cooldown = 0.0;
+        enemy.attack.cooldown = 0.0;
         let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
 
         app.world_mut()
@@ -1355,7 +1355,7 @@ mod tests {
             panic!("expected Hostile");
         };
         assert!(
-            enemy_after.attack_windup_timer > 0.0,
+            enemy_after.attack.windup_timer > 0.0,
             "explicit melee message should start dismounted PirateHeavy windup"
         );
         assert!(
@@ -1372,7 +1372,7 @@ mod tests {
     /// pre-migration legacy gate.
     #[test]
     fn melee_message_during_cooldown_is_dropped() {
-        use crate::brain::{LungeSpec, MeleeActionSpec};
+        use crate::brain::{MeleeActionSpec, SwipeSpec};
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
@@ -1390,8 +1390,8 @@ mod tests {
         );
         enemy.archetype = EnemyArchetype::MediumStriker;
         // Pre-set cooldown so begin_melee_attack refuses.
-        enemy.attack_cooldown = 0.5;
-        let pre_windup = enemy.attack_windup_timer;
+        enemy.attack.cooldown = 0.5;
+        let pre_windup = enemy.attack.windup_timer;
         let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -1410,7 +1410,7 @@ mod tests {
             panic!("expected Hostile");
         };
         assert_eq!(
-            enemy_after.attack_windup_timer, pre_windup,
+            enemy_after.attack.windup_timer, pre_windup,
             "cooldown should prevent the windup from starting",
         );
     }

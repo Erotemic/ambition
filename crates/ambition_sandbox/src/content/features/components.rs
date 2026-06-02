@@ -555,6 +555,71 @@ impl ActorHealth {
     }
 }
 
+/// Melee attack timing + aim, grouped out of the flat `EnemyRuntime`
+/// field list so the four interdependent values move as one coherent
+/// unit and combat systems can read strike progress from a single
+/// place. Today it lives as the `EnemyRuntime::attack` field; it is the
+/// destined home for the ECS-component promotion tracked in
+/// `dev/reviews/ecs-cleanup-plan.md` (#1, "Extract ActorAttackState").
+///
+/// Timeline of a strike: `begin_attack` arms `windup_timer` + `cooldown`
+/// and commits `pending_axis`; `tick` counts windup down and, on the
+/// windup→active edge, arms `active_timer` (the hitbox window); the
+/// active window then counts down while `cooldown` keeps ticking so a
+/// fresh attack can't start until recovery passes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ActorAttackState {
+    /// Telegraph/windup remaining before the strike goes active.
+    pub windup_timer: f32,
+    /// Active hitbox window remaining once windup completes.
+    pub active_timer: f32,
+    /// Recovery remaining before another attack can begin.
+    pub cooldown: f32,
+    /// Direction of the in-flight melee attack — committed on
+    /// `begin_attack`, read on the windup→active edge to place the
+    /// hitbox. `(facing, 0)` forward, `(0, -1)` up, `(0, +1)` down-air,
+    /// `(-facing, 0)` back-air. Persists across the whole strike so the
+    /// swing doesn't re-aim mid-windup.
+    pub pending_axis: ae::Vec2,
+}
+
+impl Default for ActorAttackState {
+    fn default() -> Self {
+        Self {
+            windup_timer: 0.0,
+            active_timer: 0.0,
+            cooldown: 0.2,
+            pending_axis: ae::Vec2::new(-1.0, 0.0),
+        }
+    }
+}
+
+impl ActorAttackState {
+    pub fn is_winding_up(self) -> bool {
+        self.windup_timer > 0.0
+    }
+
+    pub fn is_active(self) -> bool {
+        self.active_timer > 0.0
+    }
+
+    pub fn on_cooldown(self) -> bool {
+        self.cooldown > 0.0
+    }
+
+    /// Advance all timers by `dt`. On the windup→active edge, arm the
+    /// active window to `active_seconds` (the hitbox lifetime).
+    pub fn tick(&mut self, dt: f32, active_seconds: f32) {
+        let was_winding_up = self.windup_timer > 0.0;
+        self.windup_timer = (self.windup_timer - dt).max(0.0);
+        self.active_timer = (self.active_timer - dt).max(0.0);
+        self.cooldown = (self.cooldown - dt).max(0.0);
+        if was_winding_up && self.windup_timer <= 0.0 {
+            self.active_timer = active_seconds.max(0.01);
+        }
+    }
+}
+
 /// ECS-visible combat/presentation state shared by NPCs, enemies, and bosses.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorCombatState {

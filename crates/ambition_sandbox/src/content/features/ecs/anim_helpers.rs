@@ -72,8 +72,8 @@ pub fn ecs_enemy_anim_state(
                     vel: enemy.vel,
                     facing: enemy.facing,
                     alive: enemy.alive,
-                    attack_active: enemy.attack_timer > 0.0,
-                    attack_windup: enemy.attack_windup_timer > 0.0,
+                    attack_active: enemy.attack.is_active(),
+                    attack_windup: enemy.attack.is_winding_up(),
                     hit_flash: enemy.hit_flash > 0.0,
                 })
             }

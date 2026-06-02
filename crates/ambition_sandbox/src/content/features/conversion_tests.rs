@@ -439,7 +439,7 @@ mod conversion_tests {
             crate::actor::EnemyBrain::Custom("pirate_on_shark".into()),
             &[],
         );
-        enemy.attack_cooldown = 0.0;
+        enemy.attack.cooldown = 0.0;
         let player_pos = ae::Vec2::new(500.0, 300.0);
         // Drive the enemy directly with a brain-shaped frame
         // requesting rightward motion at chase speed — the test
@@ -509,7 +509,7 @@ mod conversion_tests {
             },
             &paths,
         );
-        enemy.attack_cooldown = 0.0;
+        enemy.attack.cooldown = 0.0;
         let player_pos_far = ae::Vec2::new(2000.0, 536.0);
         // Drive directly with a brain-shaped frame requesting
         // rightward patrol motion — the test verifies the

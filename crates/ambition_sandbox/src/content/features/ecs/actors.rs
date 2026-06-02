@@ -103,7 +103,7 @@ impl ActorRuntime {
         match self {
             Self::Npc(npc) => npc.hit_flash > 0.0,
             Self::Enemy(enemy) => {
-                enemy.hit_flash > 0.0 || enemy.attack_windup_timer > 0.0 || enemy.attack_timer > 0.0
+                enemy.hit_flash > 0.0 || enemy.attack.is_winding_up() || enemy.attack.is_active()
             }
         }
     }
@@ -208,13 +208,13 @@ pub(crate) fn actor_component_snapshot(
             ActorCombatState::hostile(
                 enemy.alive,
                 enemy.hit_flash,
-                enemy.attack_windup_timer,
-                enemy.attack_timer,
+                enemy.attack.windup_timer,
+                enemy.attack.active_timer,
                 enemy.archetype.is_sandbag(),
             ),
             ActorIntent::new(enemy.ai_mode),
             ActorCooldowns {
-                attack_cooldown: enemy.attack_cooldown,
+                attack_cooldown: enemy.attack.cooldown,
                 respawn_timer: enemy.respawn_timer,
             },
         ),
@@ -563,8 +563,8 @@ pub fn update_ecs_actors(
                 // observing the edge lets us spawn the strike's
                 // `Hitbox` entity exactly once per begin-attack
                 // instead of polling overlap every tick.
-                let was_winding_up = enemy.attack_windup_timer > 0.0;
-                let was_active = enemy.attack_timer > 0.0;
+                let was_winding_up = enemy.attack.is_winding_up();
+                let was_active = enemy.attack.is_active();
 
                 // Every brain-attached enemy ticks its brain FIRST to
                 // build an authoritative frame, then calls
@@ -640,8 +640,8 @@ pub fn update_ecs_actors(
                 // check moves to `apply_hitbox_damage` instead of
                 // polling every frame from this system.
                 if was_winding_up
-                    && enemy.attack_windup_timer <= 0.0
-                    && enemy.attack_timer > 0.0
+                    && !enemy.attack.is_winding_up()
+                    && enemy.attack.is_active()
                     && !was_active
                     && enemy.alive
                 {
@@ -650,7 +650,7 @@ pub fn update_ecs_actors(
                     // axis falls back to the actor's facing; up /
                     // down attacks place the hitbox above / below
                     // the body instead of in front.
-                    let attack_box = enemy.attack_aabb_dir(enemy.pending_attack_axis);
+                    let attack_box = enemy.attack_aabb_dir(enemy.attack.pending_axis);
                     let local_offset = attack_box.center() - enemy.pos;
                     super::hitbox::spawn_melee_hitbox(
                         &mut commands,
@@ -660,7 +660,7 @@ pub fn update_ecs_actors(
                         attack_box.half_size(),
                         1,
                         1.0,
-                        enemy.attack_timer,
+                        enemy.attack.active_timer,
                     );
                 }
                 // Projectile spawns moved to the EFFECTS-stage
@@ -759,9 +759,9 @@ fn build_enemy_brain_snapshot(
         target_alive: true,
         sim_time: 0.0,
         dt,
-        attack_cooldown_remaining: enemy.attack_cooldown,
-        attack_windup_remaining: enemy.attack_windup_timer,
-        attack_active_remaining: enemy.attack_timer,
+        attack_cooldown_remaining: enemy.attack.cooldown,
+        attack_windup_remaining: enemy.attack.windup_timer,
+        attack_active_remaining: enemy.attack.active_timer,
         attack_recover_remaining: 0.0,
         stun_remaining: 0.0,
         wall_contact: None,

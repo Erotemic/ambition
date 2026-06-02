@@ -84,7 +84,8 @@ pub use chests::ChestRuntime;
 pub(crate) use ecs::actor_component_snapshot;
 
 pub use components::{
-    ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorFaction, ActorHealth,
+    ActorAggression, ActorAttackState, ActorCombatState, ActorCooldowns, ActorDisposition,
+    ActorFaction, ActorHealth,
     ActorIdentity, ActorIntent, ActorPose, ActorTarget, AggressionMode, BossDeathAnimation,
     BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature, ChestBundle, ChestFeature,
     Collected, CombatKit, DamageableVolumes, EncounterMob, EncounterRewardChest, EnemyActorBundle,

@@ -45,9 +45,9 @@ pub struct EnemyRuntime {
     pub motion: Option<PathMotion>,
     pub alive: bool,
     pub facing: f32,
-    pub attack_windup_timer: f32,
-    pub attack_timer: f32,
-    pub attack_cooldown: f32,
+    /// Melee attack timing + aim (windup / active / cooldown / axis),
+    /// grouped into one coherent unit. See [`ActorAttackState`].
+    pub attack: ActorAttackState,
     pub respawn_timer: f32,
     pub hit_flash: f32,
     /// Last-evaluated `CharacterAiMode`. Updated by `update`. Read by
@@ -79,13 +79,6 @@ pub struct EnemyRuntime {
     /// it. Engine y grows downward, so floor → (0, -1), right wall
     /// → (-1, 0), ceiling → (0, 1), left wall → (1, 0).
     pub surface_normal: ae::Vec2,
-    /// Direction of the in-flight melee attack (set on
-    /// `begin_melee_attack`, read on the windup→active edge to
-    /// place the hitbox). `(facing, 0)` for a forward swing,
-    /// `(0, -1)` for an up-attack, `(0, +1)` for a down-air,
-    /// `(-facing, 0)` for a back-air. Persists across the entire
-    /// strike — once committed, the swing doesn't re-aim mid-windup.
-    pub pending_attack_axis: ae::Vec2,
     /// Mid-air jumps the actor has left until next landing. Reset
     /// to `MAX_AIR_JUMPS` (1 today) when `on_ground` transitions
     /// from false → true in the integration step. Decremented when
@@ -589,9 +582,7 @@ impl EnemyRuntime {
             motion,
             alive: true,
             facing: -1.0,
-            attack_windup_timer: 0.0,
-            attack_timer: 0.0,
-            attack_cooldown: 0.2,
+            attack: ActorAttackState::default(),
             respawn_timer: 0.0,
             hit_flash: 0.0,
             ai_mode: crate::character_ai::CharacterAiMode::Idle,
@@ -599,7 +590,6 @@ impl EnemyRuntime {
             sprite_override_npc_name: None,
             gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
             surface_normal: ae::Vec2::new(0.0, -1.0),
-            pending_attack_axis: ae::Vec2::new(-1.0, 0.0),
             air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
         }
     }
@@ -622,9 +612,7 @@ impl EnemyRuntime {
         self.alive = true;
         self.health = crate::actor::Health::new(archetype.max_health());
         self.gravity_scale = if archetype.is_aerial() { 0.0 } else { 1.0 };
-        self.attack_windup_timer = 0.0;
-        self.attack_timer = 0.0;
-        self.attack_cooldown = 0.2;
+        self.attack = ActorAttackState::default();
         self.respawn_timer = 0.0;
         self.hit_flash = 0.0;
         self.ai_mode = crate::character_ai::CharacterAiMode::Idle;
@@ -636,7 +624,6 @@ impl EnemyRuntime {
         // the ECS `FeatureAabb` from `size`, so the unrotated floor
         // stance is correct again.
         self.surface_normal = ae::Vec2::new(0.0, -1.0);
-        self.pending_attack_axis = ae::Vec2::new(-1.0, 0.0);
         self.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
     }
 
@@ -697,13 +684,7 @@ impl EnemyRuntime {
             return crate::actor_control::ActorControlFrame::neutral();
         }
 
-        let was_winding_up = self.attack_windup_timer > 0.0;
-        self.attack_windup_timer = (self.attack_windup_timer - dt).max(0.0);
-        self.attack_timer = (self.attack_timer - dt).max(0.0);
-        self.attack_cooldown = (self.attack_cooldown - dt).max(0.0);
-        if was_winding_up && self.attack_windup_timer <= 0.0 {
-            self.attack_timer = tuning.enemy_attack_active.max(0.01);
-        }
+        self.attack.tick(dt, tuning.enemy_attack_active);
 
         // `ai_mode` is the HUD / animation signal mirrored onto
         // `ActorIntent` by actors.rs. Compute it from the same
@@ -711,11 +692,11 @@ impl EnemyRuntime {
         // so animation states (Telegraph, Recover, Patrol, etc.)
         // stay consistent; the *intent* fields from `ai` are no
         // longer consulted (the brain frame replaces them).
-        let recover_remaining = if self.attack_cooldown > 0.0
-            && self.attack_windup_timer <= 0.0
-            && self.attack_timer <= 0.0
+        let recover_remaining = if self.attack.cooldown > 0.0
+            && self.attack.windup_timer <= 0.0
+            && self.attack.active_timer <= 0.0
         {
-            self.attack_cooldown.min(0.30)
+            self.attack.cooldown.min(0.30)
         } else {
             0.0
         };
@@ -730,8 +711,8 @@ impl EnemyRuntime {
                 player_pos: target_pos,
                 aggro_radius: effective_aggro_radius,
                 attack_range: self.archetype.attack_range(),
-                attack_windup_remaining: self.attack_windup_timer,
-                attack_active_remaining: self.attack_timer,
+                attack_windup_remaining: self.attack.windup_timer,
+                attack_active_remaining: self.attack.active_timer,
                 attack_recover_remaining: recover_remaining,
                 stun_remaining: 0.0,
                 alive: self.alive,
@@ -1246,11 +1227,11 @@ impl EnemyRuntime {
         tuning: FeatureCombatTuning,
         attack_axis: ae::Vec2,
     ) -> bool {
-        if self.attack_cooldown > 0.0 || !self.alive {
+        if self.attack.cooldown > 0.0 || !self.alive {
             return false;
         }
-        self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
-        self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
+        self.attack.windup_timer = tuning.enemy_attack_windup.max(0.01);
+        self.attack.cooldown = ENEMY_ATTACK_COOLDOWN
             * if self.archetype == EnemyArchetype::SmallSkitter {
                 0.75
             } else if self.archetype == EnemyArchetype::LargeBrute {
@@ -1259,7 +1240,7 @@ impl EnemyRuntime {
                 1.0
             };
         self.ai_mode = crate::character_ai::CharacterAiMode::Telegraph;
-        self.pending_attack_axis = if attack_axis.length_squared() > 0.01 {
+        self.attack.pending_axis = if attack_axis.length_squared() > 0.01 {
             attack_axis.normalize_or_zero()
         } else {
             ae::Vec2::new(self.facing, 0.0)

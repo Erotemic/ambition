@@ -285,10 +285,9 @@ The Rope Appreciator: Oh wow. WOW. I was stuck in that smug heap for so long I s
 The Rope Appreciator: How are you going to spend the rest of your day?
 -> Maybe watch a video.
     The Rope Appreciator: Strong choice. You should watch: youtube.com/watch?v=ucLGm27DDL0
-    The Rope Appreciator: Video id, in case the dialog box eats punctuation again: ucLGm27DDL0.
     <<watch_cut_rope_video>>
 -> Press reset and start again.
-    The Rope Appreciator: Excellent. Back to the start with you.
+    The Rope Appreciator: Excellent. Back to the start with you. I'll try not to think about what happens to me after the transition.
     <<reset_cut_rope_room>>
 -> Just walk away.
     The Rope Appreciator: Also valid. I will stand here and enjoy not being inside a boss.

@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "tree-sitter>=0.25,<0.26",
+#   "tree-sitter-rust>=0.24,<0.25",
+# ]
+# ///
 """Build a static ECS inventory for the ambition_sandbox crate.
 
 The inventory is intended to be good enough for refactor planning and CI diffs,
-not a replacement for rustc. It uses syntax-aware scanning with balanced
-parentheses/braces and source locations instead of plain grep.
+not a replacement for rustc. It uses tree-sitter-rust for Rust syntax structure
+and keeps Bevy-specific classification deliberately heuristic.
 
 It reports:
   * Rust item types that derive Bevy ECS traits: Component, Bundle, Resource,
@@ -16,6 +23,10 @@ It reports:
 
 The script deliberately keeps raw evidence in JSON so inventory changes can be
 reviewed in code review rather than hidden behind a prose summary.
+
+Run directly with an inline-metadata aware launcher, for example:
+
+    uv run tools/ecs_inventory.py
 """
 
 from __future__ import annotations
@@ -29,32 +40,47 @@ import sys
 from collections import defaultdict
 from typing import Iterable, Iterator, Sequence
 
+try:
+    import tree_sitter_rust as tsrust
+    from tree_sitter import Language, Parser
+except ImportError as ex:  # pragma: no cover - exercised only without deps installed.
+    print(
+        "error: missing tree-sitter dependencies. Try: uv run tools/ecs_inventory.py",
+        file=sys.stderr,
+    )
+    raise
+
 
 ECS_DERIVES = {"Component", "Bundle", "Resource", "Message", "Event"}
 DEFAULT_EXCLUDED_DIR_NAMES = {"target", ".git"}
 DEFAULT_EXCLUDED_PATH_PARTS = {"tests"}
 
-SYSTEM_PARAM_RE = re.compile(
-    r"\b(Commands|Query<|Res<|ResMut<|EventReader<|EventWriter<|"
-    r"MessageReader<|MessageWriter<|Local<|RemovedComponents<|"
-    r"Assets<|Single<|ParamSet<|NonSend<|NonSendMut<|Deferred<|"
-    r"EventMutator<|SystemState<|In<|StaticSystemParam<)"
-)
+SYSTEM_PARAM_NAMES = {
+    "Commands",
+    "Query",
+    "Res",
+    "ResMut",
+    "EventReader",
+    "EventWriter",
+    "MessageReader",
+    "MessageWriter",
+    "Local",
+    "RemovedComponents",
+    "Assets",
+    "Single",
+    "ParamSet",
+    "NonSend",
+    "NonSendMut",
+    "Deferred",
+    "EventMutator",
+    "SystemState",
+    "In",
+    "StaticSystemParam",
+}
 
-ITEM_RE = re.compile(
-    r"(?P<vis>pub(?:\s*\([^)]*\))?\s+)?(?P<kind>struct|enum|union)\s+"
-    r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
-)
-
-FN_RE = re.compile(
-    r"(?P<vis>pub(?:\s*\([^)]*\))?\s+)?(?P<qual>unsafe\s+|async\s+|const\s+)*"
-    r"fn\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
-)
-
-PLUGIN_IMPL_RE = re.compile(
-    r"impl\s+(?:(?:[A-Za-z_][A-Za-z0-9_]*::)*Plugin)\s+for\s+"
-    r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
-)
+ITEM_NODE_TYPES = {"struct_item", "enum_item", "union_item"}
+IDENTIFIER_NODE_TYPES = {"identifier", "type_identifier", "field_identifier"}
+SCOPED_IDENTIFIER_NODE_TYPES = {"scoped_identifier", "scoped_type_identifier"}
 
 REGISTRATION_NAMES = (
     "add_systems",
@@ -79,10 +105,17 @@ STOPWORD_IDENTIFIERS = {
     "as_ref", "map", "run_if", "after", "before", "in_set", "chain", "amb",
     "system_set", "not", "or", "and", "resource_exists", "resource_changed",
     "resource_added", "in_state", "on_event", "any_with_component", "distributive_run_if",
+    *REGISTRATION_NAMES,
 }
 
 QUALIFIED_IDENT_RE = re.compile(
     r"(?:(?:crate|super|self)::)?[A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)*"
+)
+DERIVE_ATTR_RE = re.compile(r"#\s*\[\s*derive\s*\((.*?)\)\s*\]", flags=re.DOTALL)
+PLUGIN_IMPL_RE = re.compile(
+    r"\bimpl\b(?:\s*<[^{};]*>)?\s+"
+    r"(?:(?:[A-Za-z_][A-Za-z0-9_]*::)*Plugin)\s+for\s+"
+    r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
 )
 
 
@@ -131,6 +164,38 @@ class PluginRecord:
     line: int
 
 
+@dataclasses.dataclass(frozen=True)
+class ParsedRustFile:
+    path: pathlib.Path
+    text: str
+    source: bytes
+    root: object
+
+
+def rust_language() -> Language:
+    """Return the tree-sitter Rust language, tolerant of binding variations."""
+    raw_language = tsrust.language()
+    if isinstance(raw_language, Language):
+        return raw_language
+    return Language(raw_language)
+
+
+RUST_LANGUAGE = rust_language()
+
+
+def make_parser() -> Parser:
+    """Construct a parser across recent py-tree-sitter APIs."""
+    try:
+        return Parser(RUST_LANGUAGE)
+    except TypeError:
+        parser = Parser()
+        parser.set_language(RUST_LANGUAGE)
+        return parser
+
+
+PARSER = make_parser()
+
+
 def repo_rel(path: pathlib.Path, repo_root: pathlib.Path) -> str:
     try:
         return path.relative_to(repo_root).as_posix()
@@ -138,170 +203,64 @@ def repo_rel(path: pathlib.Path, repo_root: pathlib.Path) -> str:
         return path.as_posix()
 
 
-def strip_test_tail(text: str) -> str:
-    """Drop a trailing cfg(test) module without changing non-test modules."""
-    match = re.search(r"^\s*#\[cfg\(test\)\]", text, flags=re.MULTILINE)
-    return text[: match.start()] if match else text
+def parse_rust_file(path: pathlib.Path) -> ParsedRustFile:
+    source = path.read_bytes()
+    tree = PARSER.parse(source)
+    text = source.decode("utf-8")
+    return ParsedRustFile(path=path, text=text, source=source, root=tree.root_node)
 
 
-def mask_comments_and_strings(text: str) -> str:
-    """Replace comments and string/char contents with spaces, preserving offsets.
-
-    This is not a full Rust lexer, but it handles ordinary comments, block
-    comments, normal strings, byte strings, raw strings such as r###"..."###,
-    char literals, and escaped quotes well enough for source inventory.
-    """
-    out = list(text)
-    i = 0
-    n = len(text)
-    while i < n:
-        two = text[i : i + 2]
-        if two == "//":
-            j = text.find("\n", i)
-            if j == -1:
-                j = n
-            for k in range(i, j):
-                out[k] = " "
-            i = j
-            continue
-        if two == "/*":
-            j = text.find("*/", i + 2)
-            if j == -1:
-                j = n - 2
-            for k in range(i, min(j + 2, n)):
-                if out[k] != "\n":
-                    out[k] = " "
-            i = j + 2
-            continue
-        # Raw strings: r"...", r#"..."#, br#"..."#.
-        raw_start = None
-        if text.startswith("r", i) or text.startswith("br", i):
-            prefix_len = 2 if text.startswith("br", i) else 1
-            j = i + prefix_len
-            hashes = 0
-            while j < n and text[j] == "#":
-                hashes += 1
-                j += 1
-            if j < n and text[j] == '"':
-                raw_start = (j, hashes)
-        if raw_start is not None:
-            quote_index, hashes = raw_start
-            end_token = '"' + ("#" * hashes)
-            j = text.find(end_token, quote_index + 1)
-            if j == -1:
-                j = n - len(end_token)
-            end = min(j + len(end_token), n)
-            for k in range(i, end):
-                if out[k] != "\n":
-                    out[k] = " "
-            i = end
-            continue
-        if text[i] == '"' or text.startswith('b"', i):
-            start = i
-            i += 2 if text.startswith('b"', i) else 1
-            escaped = False
-            while i < n:
-                c = text[i]
-                if escaped:
-                    escaped = False
-                elif c == "\\":
-                    escaped = True
-                elif c == '"':
-                    i += 1
-                    break
-                i += 1
-            for k in range(start, min(i, n)):
-                if out[k] != "\n":
-                    out[k] = " "
-            continue
-        if text[i] == "'":
-            # Mask char literals, but leave lifetimes like 'a alone.
-            j = i + 1
-            if j < n and text[j].isalpha():
-                j += 1
-                if j >= n or text[j] != "'":
-                    i += 1
-                    continue
-            escaped = False
-            while j < n:
-                c = text[j]
-                if escaped:
-                    escaped = False
-                elif c == "\\":
-                    escaped = True
-                elif c == "'":
-                    j += 1
-                    break
-                elif c == "\n":
-                    break
-                j += 1
-            if j <= n and j > i + 1:
-                for k in range(i, min(j, n)):
-                    if out[k] != "\n":
-                        out[k] = " "
-                i = j
-                continue
-        i += 1
-    return "".join(out)
+def node_text(source: bytes, node: object) -> str:
+    return source[node.start_byte : node.end_byte].decode("utf-8")
 
 
-def balance_end(text: str, open_pos: int, open_char: str = "(", close_char: str = ")") -> int | None:
-    depth = 0
-    for i in range(open_pos, len(text)):
-        c = text[i]
-        if c == open_char:
-            depth += 1
-        elif c == close_char:
-            depth -= 1
-            if depth == 0:
-                return i
-    return None
+def node_line(node: object) -> int:
+    point = node.start_point
+    if hasattr(point, "row"):
+        return point.row + 1
+    return point[0] + 1
 
 
-def split_top_level_comma(text: str) -> tuple[str, str]:
-    depth = 0
-    for i, c in enumerate(text):
-        if c in "([{":
-            depth += 1
-        elif c in ")]}":
-            depth -= 1
-        elif c == "," and depth == 0:
-            return text[:i].strip(), text[i + 1 :].strip()
-    return text.strip(), ""
+def child_count(node: object) -> int:
+    return node.child_count
 
 
-def compact(text: str, max_len: int = 220) -> str:
-    text = re.sub(r"\s+", " ", text.strip())
-    return text if len(text) <= max_len else text[: max_len - 3] + "..."
+def named_child_count(node: object) -> int:
+    return node.named_child_count
 
 
-def find_identifiers(expression: str) -> list[str]:
-    identifiers: list[str] = []
-    seen: set[str] = set()
-    for match in QUALIFIED_IDENT_RE.finditer(expression):
-        ident = match.group(0)
-        last = ident.split("::")[-1]
-        if ident in STOPWORD_IDENTIFIERS or last in STOPWORD_IDENTIFIERS:
-            continue
-        # For system functions, snake_case names are most useful, but keep
-        # plugin/resource names for add_plugins/init_resource calls.
-        if not (re.match(r"^[a-z_][a-z0-9_]*$", last) or re.match(r"^[A-Z][A-Za-z0-9_]*$", last)):
-            continue
-        if ident not in seen:
-            identifiers.append(ident)
-            seen.add(ident)
-    return identifiers
+def children(node: object) -> list[object]:
+    return [node.child(i) for i in range(child_count(node))]
 
 
-def find_name_labels(expression: str) -> list[str]:
-    labels: list[str] = []
-    for match in re.finditer(r"Name::new\s*\(", expression):
-        close = balance_end(expression, match.end() - 1)
-        if close is None:
-            continue
-        inner = expression[match.end() : close]
-        labels.append(compact(inner, 120))
-    return labels
+def named_children(node: object) -> list[object]:
+    return [node.named_child(i) for i in range(named_child_count(node))]
+
+
+def child_by_field_name(node: object, name: str) -> object | None:
+    try:
+        return node.child_by_field_name(name)
+    except Exception:
+        return None
+
+
+def same_node(left: object, right: object) -> bool:
+    return (
+        left.type == right.type
+        and left.start_byte == right.start_byte
+        and left.end_byte == right.end_byte
+    )
+
+
+def iter_named_descendants(node: object) -> Iterator[object]:
+    yield node
+    for child in named_children(node):
+        yield from iter_named_descendants(child)
+
+
+def iter_parsed_rs_files(crate_root: pathlib.Path, include_tests: bool) -> Iterator[ParsedRustFile]:
+    for path in iter_rs_files(crate_root, include_tests):
+        yield parse_rust_file(path)
 
 
 def iter_rs_files(crate_root: pathlib.Path, include_tests: bool) -> Iterator[pathlib.Path]:
@@ -317,42 +276,58 @@ def iter_rs_files(crate_root: pathlib.Path, include_tests: bool) -> Iterator[pat
         yield path
 
 
-def extract_attrs_before(masked_text: str, item_start: int) -> list[str]:
-    """Collect contiguous outer attributes immediately above an item."""
-    prefix = masked_text[:item_start]
-    lines = prefix.splitlines()
-    attrs_reversed: list[str] = []
-    pending: list[str] = []
-    depth = 0
-    # Walk upward over blank/doc-comment/attribute lines. The text is masked, so
-    # real comments are spaces; doc comments are not attributes and are skipped.
-    for line in reversed(lines):
-        stripped = line.strip()
-        if not stripped:
-            if attrs_reversed or pending:
-                break
-            continue
-        if stripped.startswith("///") or stripped.startswith("//!"):
-            continue
-        if stripped.endswith("]") or pending:
-            pending.append(stripped)
-            depth += stripped.count("]") - stripped.count("[")
-            if depth >= 0 and any(s.startswith("#[") for s in pending):
-                attrs_reversed.append(" ".join(reversed(pending)))
-                pending = []
-                depth = 0
-            continue
-        if stripped.startswith("#["):
-            attrs_reversed.append(stripped)
-            continue
-        break
-    return list(reversed(attrs_reversed))
+def compact(text: str, max_len: int = 220) -> str:
+    text = re.sub(r"\s+", " ", text.strip())
+    return text if len(text) <= max_len else text[: max_len - 3] + "..."
+
+
+def direct_visibility(source: bytes, node: object) -> str:
+    for child in named_children(node):
+        if child.type == "visibility_modifier":
+            return node_text(source, child).strip()
+    return ""
+
+
+def attrs_immediately_before(source: bytes, node: object) -> list[str]:
+    parent = node.parent
+    if parent is None:
+        return []
+    siblings = named_children(parent)
+    node_index = None
+    for index, sibling in enumerate(siblings):
+        if same_node(sibling, node):
+            node_index = index
+            break
+    if node_index is None:
+        return []
+
+    attrs: list[str] = []
+    index = node_index - 1
+    while index >= 0 and siblings[index].type == "attribute_item":
+        attrs.append(node_text(source, siblings[index]))
+        index -= 1
+    attrs.reverse()
+    return attrs
+
+
+def attr_is_cfg_test(attr: str) -> bool:
+    dense = "".join(attr.split())
+    return "cfg(test)" in dense or "cfg(any(test" in dense
+
+
+def is_in_cfg_test_context(source: bytes, node: object) -> bool:
+    current = node
+    while current is not None:
+        if any(attr_is_cfg_test(attr) for attr in attrs_immediately_before(source, current)):
+            return True
+        current = current.parent
+    return False
 
 
 def derive_names(attrs: Sequence[str]) -> list[str]:
     names: list[str] = []
     for attr in attrs:
-        match = re.search(r"#\s*\[\s*derive\s*\((.*?)\)\s*\]", attr, flags=re.DOTALL)
+        match = DERIVE_ATTR_RE.search(attr)
         if not match:
             continue
         for part in match.group(1).split(","):
@@ -362,88 +337,255 @@ def derive_names(attrs: Sequence[str]) -> list[str]:
     return names
 
 
+def name_child_text(source: bytes, node: object) -> str:
+    name = child_by_field_name(node, "name")
+    if name is not None:
+        return node_text(source, name).strip()
+    for child in named_children(node):
+        if child.type in {"identifier", "type_identifier"}:
+            return node_text(source, child).strip()
+    return ""
+
+
+def item_kind(node_type: str) -> str:
+    return node_type.removesuffix("_item")
+
+
+def normalize_identifier_text(text: str) -> str:
+    text = text.strip()
+    text = text.removeprefix("r#")
+    if text.endswith("!"):
+        text = text[:-1]
+    return text
+
+
+def useful_identifier(ident: str) -> bool:
+    ident = normalize_identifier_text(ident)
+    if not ident:
+        return False
+    last = ident.split("::")[-1]
+    last = last.split("<", 1)[0]
+    last = last.removeprefix("r#")
+    if ident in STOPWORD_IDENTIFIERS or last in STOPWORD_IDENTIFIERS:
+        return False
+    if ident in REGISTRATION_NAMES or last in REGISTRATION_NAMES:
+        return False
+    return bool(re.match(r"^[a-z_][a-z0-9_]*$", last) or re.match(r"^[A-Z][A-Za-z0-9_]*$", last))
+
+
+def collect_identifiers(source: bytes, roots: Iterable[object]) -> list[str]:
+    identifiers: list[str] = []
+    seen: set[str] = set()
+    stack = list(roots)
+    while stack:
+        node = stack.pop()
+        if node.type in SCOPED_IDENTIFIER_NODE_TYPES:
+            ident = normalize_identifier_text(node_text(source, node))
+            if useful_identifier(ident) and ident not in seen:
+                identifiers.append(ident)
+                seen.add(ident)
+            # Do not also emit every path segment as a separate identifier.
+            continue
+        if node.type in IDENTIFIER_NODE_TYPES:
+            ident = normalize_identifier_text(node_text(source, node))
+            if useful_identifier(ident) and ident not in seen:
+                identifiers.append(ident)
+                seen.add(ident)
+        stack.extend(reversed(named_children(node)))
+    return identifiers
+
+
+def collect_type_names(source: bytes, root: object) -> set[str]:
+    names: set[str] = set()
+    for node in iter_named_descendants(root):
+        if node.type in {"type_identifier", "identifier"}:
+            names.add(normalize_identifier_text(node_text(source, node)))
+        elif node.type in SCOPED_IDENTIFIER_NODE_TYPES:
+            text = normalize_identifier_text(node_text(source, node))
+            if text:
+                names.add(text.split("::")[-1])
+    return names
+
+
+def argument_list_node(call_node: object) -> object | None:
+    args = child_by_field_name(call_node, "arguments")
+    if args is not None:
+        return args
+    for child in named_children(call_node):
+        if child.type == "arguments":
+            return child
+    return None
+
+
+def argument_nodes(args_node: object | None) -> list[object]:
+    if args_node is None:
+        return []
+    return named_children(args_node)
+
+
+def call_function_node(call_node: object) -> object | None:
+    fn = child_by_field_name(call_node, "function")
+    if fn is not None:
+        return fn
+    for child in named_children(call_node):
+        if child.type != "arguments":
+            return child
+    return None
+
+
+def field_name_from_field_expression(source: bytes, node: object) -> str:
+    field = child_by_field_name(node, "field")
+    if field is not None:
+        return normalize_identifier_text(node_text(source, field))
+    for child in reversed(named_children(node)):
+        if child.type == "field_identifier":
+            return normalize_identifier_text(node_text(source, child))
+    return ""
+
+
+def name_from_generic_function(source: bytes, node: object) -> str:
+    fn = child_by_field_name(node, "function")
+    if fn is not None:
+        return called_function_name_from_node(source, fn)
+    for child in named_children(node):
+        if child.type != "type_arguments":
+            return called_function_name_from_node(source, child)
+    return ""
+
+
+def called_function_name_from_node(source: bytes, node: object) -> str:
+    if node.type == "field_expression":
+        return field_name_from_field_expression(source, node)
+    if node.type == "generic_function":
+        return name_from_generic_function(source, node)
+    if node.type in {"identifier", "field_identifier", "type_identifier"}:
+        return normalize_identifier_text(node_text(source, node))
+    if node.type in SCOPED_IDENTIFIER_NODE_TYPES:
+        return normalize_identifier_text(node_text(source, node)).split("::")[-1]
+    for child in reversed(named_children(node)):
+        name = called_function_name_from_node(source, child)
+        if name:
+            return name
+    return ""
+
+
+def called_function_name(source: bytes, call_node: object) -> str:
+    fn = call_function_node(call_node)
+    return called_function_name_from_node(source, fn) if fn is not None else ""
+
+
+def called_function_path_from_node(source: bytes, node: object) -> str:
+    if node.type == "generic_function":
+        fn = child_by_field_name(node, "function")
+        if fn is not None:
+            return called_function_path_from_node(source, fn)
+    if node.type in SCOPED_IDENTIFIER_NODE_TYPES:
+        return normalize_identifier_text(node_text(source, node))
+    if node.type in {"identifier", "field_identifier", "type_identifier"}:
+        return normalize_identifier_text(node_text(source, node))
+    if node.type == "field_expression":
+        field = field_name_from_field_expression(source, node)
+        receiver = child_by_field_name(node, "value")
+        if receiver is None:
+            receiver = child_by_field_name(node, "argument")
+        if receiver is not None:
+            receiver_text = compact(node_text(source, receiver), 120)
+            return f"{receiver_text}.{field}" if field else receiver_text
+        return field
+    for child in reversed(named_children(node)):
+        path = called_function_path_from_node(source, child)
+        if path:
+            return path
+    return ""
+
+
+def called_function_path(source: bytes, call_node: object) -> str:
+    fn = call_function_node(call_node)
+    return called_function_path_from_node(source, fn) if fn is not None else ""
+
+
+def argument_range_text(source: bytes, args: Sequence[object]) -> str:
+    if not args:
+        return ""
+    return source[args[0].start_byte : args[-1].end_byte].decode("utf-8")
+
+
 def collect_items(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[ItemRecord]:
     records: list[ItemRecord] = []
-    for path in iter_rs_files(crate_root, include_tests):
-        text = path.read_text(encoding="utf-8")
-        if not include_tests:
-            text = strip_test_tail(text)
-        masked = mask_comments_and_strings(text)
-        for match in ITEM_RE.finditer(masked):
-            attrs = extract_attrs_before(masked, match.start())
+    for parsed in iter_parsed_rs_files(crate_root, include_tests):
+        for node in iter_named_descendants(parsed.root):
+            if node.type not in ITEM_NODE_TYPES:
+                continue
+            if not include_tests and is_in_cfg_test_context(parsed.source, node):
+                continue
+            attrs = attrs_immediately_before(parsed.source, node)
             derives = sorted(set(derive_names(attrs)).intersection(ECS_DERIVES))
             if not derives:
                 continue
             records.append(
                 ItemRecord(
-                    name=match.group("name"),
-                    kind=match.group("kind"),
+                    name=name_child_text(parsed.source, node),
+                    kind=item_kind(node.type),
                     derives=derives,
-                    file=repo_rel(path, repo_root),
-                    line=text.count("\n", 0, match.start()) + 1,
-                    visibility=(match.group("vis") or "").strip(),
+                    file=repo_rel(parsed.path, repo_root),
+                    line=node_line(node),
+                    visibility=direct_visibility(parsed.source, node),
                 )
             )
     return records
+
+
+def impl_header_text(source: bytes, node: object) -> str:
+    body = child_by_field_name(node, "body")
+    if body is not None:
+        end = body.start_byte
+    else:
+        brace = source.find(b"{", node.start_byte, node.end_byte)
+        end = brace if brace != -1 else node.end_byte
+    return source[node.start_byte : end].decode("utf-8")
 
 
 def collect_plugins(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[PluginRecord]:
     records: list[PluginRecord] = []
-    for path in iter_rs_files(crate_root, include_tests):
-        text = path.read_text(encoding="utf-8")
-        if not include_tests:
-            text = strip_test_tail(text)
-        masked = mask_comments_and_strings(text)
-        for match in PLUGIN_IMPL_RE.finditer(masked):
+    for parsed in iter_parsed_rs_files(crate_root, include_tests):
+        for node in iter_named_descendants(parsed.root):
+            if node.type != "impl_item":
+                continue
+            if not include_tests and is_in_cfg_test_context(parsed.source, node):
+                continue
+            match = PLUGIN_IMPL_RE.search(impl_header_text(parsed.source, node))
+            if match is None:
+                continue
             records.append(
                 PluginRecord(
                     name=match.group("name"),
-                    file=repo_rel(path, repo_root),
-                    line=text.count("\n", 0, match.start()) + 1,
+                    file=repo_rel(parsed.path, repo_root),
+                    line=node_line(node),
                 )
             )
     return records
 
 
-def function_signature(masked: str, start: int) -> str:
-    open_pos = masked.find("(", start)
-    if open_pos == -1:
-        return ""
-    close_pos = balance_end(masked, open_pos)
-    if close_pos is None:
-        return masked[start : start + 400]
-    # Include return type up to opening body if nearby.
-    brace_pos = masked.find("{", close_pos)
-    semi_pos = masked.find(";", close_pos)
-    end_candidates = [p for p in (brace_pos, semi_pos) if p != -1]
-    end = min(end_candidates) if end_candidates else close_pos + 1
-    return masked[start:end]
-
-
 def collect_system_like_functions(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[FunctionRecord]:
     records: list[FunctionRecord] = []
-    for path in iter_rs_files(crate_root, include_tests):
-        text = path.read_text(encoding="utf-8")
-        if not include_tests:
-            text = strip_test_tail(text)
-        masked = mask_comments_and_strings(text)
-        for match in FN_RE.finditer(masked):
-            sig = function_signature(masked, match.start())
-            if not SYSTEM_PARAM_RE.search(sig):
+    for parsed in iter_parsed_rs_files(crate_root, include_tests):
+        for node in iter_named_descendants(parsed.root):
+            if node.type != "function_item":
                 continue
-            params = ""
-            open_pos = sig.find("(")
-            if open_pos != -1:
-                close_pos = balance_end(sig, open_pos)
-                if close_pos is not None:
-                    params = compact(sig[open_pos + 1 : close_pos], 240)
+            if not include_tests and is_in_cfg_test_context(parsed.source, node):
+                continue
+            params_node = child_by_field_name(node, "parameters")
+            if params_node is None:
+                continue
+            if not (collect_type_names(parsed.source, params_node) & SYSTEM_PARAM_NAMES):
+                continue
             records.append(
                 FunctionRecord(
-                    name=match.group("name"),
-                    file=repo_rel(path, repo_root),
-                    line=text.count("\n", 0, match.start()) + 1,
-                    public=bool(match.group("vis")),
-                    params=params,
+                    name=name_child_text(parsed.source, node),
+                    file=repo_rel(parsed.path, repo_root),
+                    line=node_line(node),
+                    public=bool(direct_visibility(parsed.source, node)),
+                    params=compact(node_text(parsed.source, params_node).strip()[1:-1], 240),
                 )
             )
     return records
@@ -451,67 +593,81 @@ def collect_system_like_functions(crate_root: pathlib.Path, repo_root: pathlib.P
 
 def collect_registrations(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[RegistrationRecord]:
     records: list[RegistrationRecord] = []
-    name_alt = "|".join(REGISTRATION_NAMES)
-    call_re = re.compile(rf"(?:\.|\b)(?P<name>{name_alt})(?P<generic>\s*::\s*<[^;(){{}}]+>)?\s*\(")
-    for path in iter_rs_files(crate_root, include_tests):
-        text = path.read_text(encoding="utf-8")
-        if not include_tests:
-            text = strip_test_tail(text)
-        masked = mask_comments_and_strings(text)
-        for match in call_re.finditer(masked):
-            open_pos = masked.find("(", match.start())
-            close_pos = balance_end(masked, open_pos)
-            if open_pos == -1 or close_pos is None:
+    registration_names = set(REGISTRATION_NAMES)
+    for parsed in iter_parsed_rs_files(crate_root, include_tests):
+        for node in iter_named_descendants(parsed.root):
+            if node.type != "call_expression":
                 continue
-            body = text[open_pos + 1 : close_pos]
-            masked_body = masked[open_pos + 1 : close_pos]
-            first_arg, rest = split_top_level_comma(masked_body)
-            raw_first, raw_rest = split_top_level_comma(body)
-            generic = match.group("generic") or ""
-            if match.group("name") == "add_systems":
-                schedule_or_arg = compact(raw_first, 160)
-                expression = compact(raw_rest, 360)
-                _, masked_rest = split_top_level_comma(masked_body)
-                identifiers = find_identifiers(masked_rest)
+            if not include_tests and is_in_cfg_test_context(parsed.source, node):
+                continue
+            name = called_function_name(parsed.source, node)
+            if name not in registration_names:
+                continue
+            args_node = argument_list_node(node)
+            args = argument_nodes(args_node)
+            first_arg = node_text(parsed.source, args[0]) if args else ""
+            function_node = call_function_node(node)
+            if name == "add_systems":
+                rest_args = args[1:]
+                expression = argument_range_text(parsed.source, rest_args)
+                identifier_roots = rest_args
             else:
-                schedule_or_arg = compact(raw_first, 160)
-                expression = compact((generic + body), 360)
-                identifiers = find_identifiers(generic + masked_body)
+                expression_parts = []
+                if function_node is not None:
+                    expression_parts.append(node_text(parsed.source, function_node))
+                if args_node is not None:
+                    expression_parts.append(node_text(parsed.source, args_node))
+                expression = "".join(expression_parts)
+                identifier_roots = []
+                if function_node is not None:
+                    identifier_roots.append(function_node)
+                identifier_roots.extend(args)
             records.append(
                 RegistrationRecord(
-                    kind=match.group("name"),
-                    file=repo_rel(path, repo_root),
-                    line=text.count("\n", 0, match.start()) + 1,
-                    schedule_or_arg=schedule_or_arg,
-                    expression=expression,
-                    identifiers=identifiers,
+                    kind=name,
+                    file=repo_rel(parsed.path, repo_root),
+                    line=node_line(node),
+                    schedule_or_arg=compact(first_arg, 160),
+                    expression=compact(expression, 360),
+                    identifiers=collect_identifiers(parsed.source, identifier_roots),
                 )
             )
     return records
 
 
+def find_name_labels(source: bytes, expression_root: object) -> list[str]:
+    labels: list[str] = []
+    for node in iter_named_descendants(expression_root):
+        if node.type != "call_expression":
+            continue
+        if called_function_path(source, node) != "Name::new":
+            continue
+        args = argument_nodes(argument_list_node(node))
+        if args:
+            labels.append(compact(node_text(source, args[0]), 120))
+    return labels
+
+
 def collect_spawns(crate_root: pathlib.Path, repo_root: pathlib.Path, include_tests: bool) -> list[SpawnRecord]:
     records: list[SpawnRecord] = []
-    spawn_re = re.compile(r"(?:\.|\b)(spawn|spawn_empty)\s*\(")
-    for path in iter_rs_files(crate_root, include_tests):
-        text = path.read_text(encoding="utf-8")
-        if not include_tests:
-            text = strip_test_tail(text)
-        masked = mask_comments_and_strings(text)
-        for match in spawn_re.finditer(masked):
-            open_pos = masked.find("(", match.start())
-            close_pos = balance_end(masked, open_pos)
-            if open_pos == -1 or close_pos is None:
+    for parsed in iter_parsed_rs_files(crate_root, include_tests):
+        for node in iter_named_descendants(parsed.root):
+            if node.type != "call_expression":
                 continue
-            expr = text[open_pos + 1 : close_pos]
-            masked_expr = masked[open_pos + 1 : close_pos]
+            if not include_tests and is_in_cfg_test_context(parsed.source, node):
+                continue
+            name = called_function_name(parsed.source, node)
+            if name not in {"spawn", "spawn_empty"}:
+                continue
+            args = argument_nodes(argument_list_node(node))
+            expression = argument_range_text(parsed.source, args)
             records.append(
                 SpawnRecord(
-                    file=repo_rel(path, repo_root),
-                    line=text.count("\n", 0, match.start()) + 1,
-                    expression=compact(expr, 360),
-                    identifiers=find_identifiers(masked_expr),
-                    name_labels=find_name_labels(expr),
+                    file=repo_rel(parsed.path, repo_root),
+                    line=node_line(node),
+                    expression=compact(expression, 360),
+                    identifiers=collect_identifiers(parsed.source, args),
+                    name_labels=find_name_labels(parsed.source, node),
                 )
             )
     return records
@@ -583,7 +739,7 @@ def write_markdown(inventory: dict, path: pathlib.Path) -> None:
         out.append("- None found.")
     else:
         for row in registrations:
-            out.append(f"- `{row.file}:{row.line}` — `{row.kind}` on/with `{row.schedule_or_arg or '<none>'}`")
+            out.append(f"- `{row.file}:{row.line}` - `{row.kind}` on/with `{row.schedule_or_arg or '<none>'}`")
             if row.identifiers:
                 for ident in row.identifiers:
                     out.append(f"  - `{ident}`")

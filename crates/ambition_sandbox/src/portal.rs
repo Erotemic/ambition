@@ -217,6 +217,45 @@ pub fn spawn_debug_portal_gun_pickup_once(
     ));
 }
 
+/// `Shield + Attack` drops the held portal gun: removes the `PortalGun` (so
+/// `Attack` stops firing portals) and leaves a `PortalGunPickup` at the
+/// player's feet to grab again. Only when not also holding a throwable item
+/// (that throw takes precedence).
+pub fn drop_portal_gun_system(
+    control: Res<ControlFrame>,
+    mut commands: Commands,
+    players: Query<
+        (Entity, &PlayerKinematics),
+        (
+            With<PlayerEntity>,
+            With<PrimaryPlayer>,
+            With<PortalGun>,
+            Without<crate::features::HeldItem>,
+        ),
+    >,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+) {
+    if !(control.shield_held && control.attack_pressed) {
+        return;
+    }
+    let Ok((player, kin)) = players.single() else {
+        return;
+    };
+    commands.entity(player).remove::<PortalGun>();
+    let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
+    commands.spawn((
+        PortalGunPickup {
+            pos: kin.pos + Vec2::new(facing * 28.0, 0.0),
+            half_extent: Vec2::splat(20.0),
+        },
+        Name::new("Portal gun pickup"),
+    ));
+    sfx.write(crate::audio::SfxMessage::Play {
+        id: ambition_sfx::ids::PORTAL_FIZZLE,
+        pos: kin.pos,
+    });
+}
+
 /// `Attack` while overlapping the [`PortalGunPickup`] grants the player an
 /// (active) `PortalGun` and consumes the pickup. The gun is a **single item**:
 /// it doesn't exist until you pick it up (no separate granted-but-inactive
@@ -274,7 +313,8 @@ pub fn portal_fire_system(
     mut commands: Commands,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed {
+    // Shield+Attack is the "drop the gun" gesture — don't fire on it.
+    if !control.attack_pressed || control.shield_held {
         return;
     }
     let Ok((kin, gun)) = players.single() else {
@@ -386,6 +426,12 @@ pub fn portal_toggle_system(
     }
 }
 
+/// One-frame flag: set true the frame the player teleports through a portal,
+/// so the trace position-delta detector treats it as an *intentional* teleport
+/// and doesn't auto-dump. Read + cleared by the gameplay-trace system.
+#[derive(Resource, Default)]
+pub struct IntentionalTeleport(pub bool);
+
 /// Teleport the player between linked portals, carrying momentum. Requires
 /// both portals to exist; a short cooldown after each jump prevents ping-pong.
 pub fn portal_teleport_system(
@@ -396,7 +442,12 @@ pub fn portal_teleport_system(
     >,
     portals: Query<&Portal>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut intentional: Option<ResMut<IntentionalTeleport>>,
 ) {
+    // Default to "no teleport this frame"; set true below if one happens.
+    if let Some(flag) = intentional.as_deref_mut() {
+        flag.0 = false;
+    }
     let dt = time.sim_dt();
     let Ok((mut kin, mut gun)) = players.single_mut() else {
         return;

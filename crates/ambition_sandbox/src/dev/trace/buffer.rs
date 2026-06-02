@@ -22,6 +22,10 @@ pub struct GameplayTraceBuffer {
     pub(super) has_recorded_any: bool,
     /// Frame-to-frame diff source for synthetic events.
     pub(super) previous: Option<PreviousFrameSnapshot>,
+    /// Set for one frame when an *intentional* teleport happened (e.g. a
+    /// portal jump) so the position-delta teleport detector doesn't flag it
+    /// as an anomaly and auto-dump. Consumed by `synthesize_events_from_diff`.
+    pub(super) expected_teleport: bool,
 }
 
 impl Default for GameplayTraceBuffer {
@@ -45,6 +49,7 @@ impl GameplayTraceBuffer {
             auto_dump_armed: true,
             has_recorded_any: false,
             previous: None,
+            expected_teleport: false,
         }
     }
 

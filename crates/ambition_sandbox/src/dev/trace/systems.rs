@@ -128,7 +128,11 @@ pub fn record_frame_system(
         ),
         crate::player::PrimaryPlayerOnly,
     >,
+    intentional_teleport: Option<Res<crate::portal::IntentionalTeleport>>,
 ) {
+    // A portal jump this frame is an intentional teleport — tell the diff
+    // detector so it doesn't flag the position snap and auto-dump.
+    buffer.expected_teleport = intentional_teleport.is_some_and(|r| r.0);
     let Ok((mut cluster_item, player_health, safety, input)) = player_q.single_mut() else {
         return;
     };

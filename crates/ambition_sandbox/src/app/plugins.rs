@@ -235,9 +235,11 @@ fn register_player_simulation_systems(app: &mut App) {
 /// player simulation so it acts on this frame's integrated position; the rest
 /// run in the same `PlayerSimulation` set so a fire/toggle this frame is seen.
 fn register_portal_systems(app: &mut App) {
+    app.init_resource::<crate::portal::IntentionalTeleport>();
     app.add_systems(
         Update,
         (
+            crate::portal::drop_portal_gun_system.run_if(gameplay_allowed),
             crate::portal::portal_toggle_system.run_if(gameplay_allowed),
             crate::portal::portal_fire_system.run_if(gameplay_allowed),
             crate::portal::portal_projectile_step.run_if(gameplay_allowed),

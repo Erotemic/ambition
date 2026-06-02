@@ -295,7 +295,9 @@ pub(crate) fn synthesize_events_from_diff(
     let cur_pos = clusters.kinematics.pos;
     let cur_vel = clusters.kinematics.vel;
 
-    let mut suppressed_teleport = false;
+    // An intentional teleport this frame (e.g. a portal jump) is not an
+    // anomaly — don't let the position-delta check auto-dump for it.
+    let mut suppressed_teleport = std::mem::take(&mut buffer.expected_teleport);
 
     if prev.active_area != active_area {
         buffer.push_event(GameplayTraceEvent::RoomTransition {

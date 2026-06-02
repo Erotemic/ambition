@@ -75,10 +75,27 @@ If logs show an unintended fade from silence, inspect the runtime music director
 
 ## Staging vs production
 
-- Staging/generated files belong under the renderer output tree.
-- Runtime files belong under `crates/ambition_sandbox/assets/audio/music/generated/<cue>/` only when explicitly installed/published.
-- Specs and renderer code should be reviewed like source code.
-- Generated scratch output should stay uncommitted unless the task explicitly asks to update runtime assets.
+Three tiers, and — unlike sprites — **no audio is committed at all**:
+
+| tier | location | git |
+|------|----------|-----|
+| **Source of truth** (edit + commit these) | score specs `tools/ambition_music_renderer/scores/active/*.music.yaml`, renderer code, install scripts | committed |
+| **Staging / scratch** | `tools/ambition_music_renderer/output/`, `…/generated/`, `target/generated-audio/` | gitignored |
+| **Runtime** (what the game loads) | the entire `crates/ambition_sandbox/assets/audio/` tree — music OGGs *and* `sfx.bank` | **gitignored** (`.gitignore` line 66) |
+
+Consequences worth internalizing:
+
+- **A fresh clone has no audio.** Runtime audio is regenerated, not stored —
+  run `./regen_assets.sh` (or `./regen_music.sh` + `./regen_sfx.sh`) after
+  cloning. This is the opposite of sprites, which *are* committed under
+  `assets/sprites/` (see
+  [generated-visual-tools.md](../tools/generated-visual-tools.md)).
+- **You cannot accidentally commit generated audio** — the whole runtime tree
+  and every staging tree is ignored. So the publish/edit loop is simply: edit
+  the score spec → `./regen_music.sh` → playtest. The only thing you commit is
+  the score-spec (or renderer) change; the OGGs it produces stay local.
+- Specs and renderer code are reviewed like source code; the generated OGGs are
+  not reviewed in diffs because they are never in a diff.
 
 ## Validation
 

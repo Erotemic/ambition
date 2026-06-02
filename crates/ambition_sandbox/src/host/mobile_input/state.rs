@@ -212,3 +212,86 @@ pub(crate) fn touch_state_is_active(state: &TouchInputState) -> bool {
         || state.reset.released_this_frame;
     stick_active || any_button || any_edge || any_release
 }
+
+#[cfg(test)]
+mod touch_state_tests {
+    //! The touch input seam into the engine: radial deadzone, the
+    //! TouchInputState -> ControlFrame fold (same edge-vs-held gotcha as
+    //! the RL AgentAction converter), and the activity gate that must
+    //! include release edges so a button-up still reaches the simulator.
+    use super::*;
+
+    #[test]
+    fn deadzone_zeros_below_and_rescales_above() {
+        assert_eq!(apply_deadzone(0.05, 0.0, 0.1), (0.0, 0.0));
+        // Full deflection reaches magnitude ~1 regardless of the deadzone.
+        let (x, y) = apply_deadzone(1.0, 0.0, 0.2);
+        assert!((x - 1.0).abs() < 1e-5 && y.abs() < 1e-5, "({x},{y})");
+        // Direction preserved, magnitude between 0 and 1 in the band.
+        let (x, _) = apply_deadzone(0.6, 0.0, 0.1);
+        assert!(x > 0.0 && x < 1.0);
+        // Zero deadzone is a pass-through.
+        let (x, _) = apply_deadzone(0.5, 0.0, 0.0);
+        assert!((x - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn empty_touch_folds_to_a_neutral_frame() {
+        let cf = fold_touch_into_control_frame(TouchInputState::default(), 0.1, 0.1);
+        assert_eq!(cf.axis_x, 0.0);
+        assert_eq!(cf.axis_y, 0.0);
+        assert!(!cf.jump_pressed && !cf.down_pressed && !cf.shield_held);
+    }
+
+    #[test]
+    fn buttons_and_sticks_fold_through_with_unsourced_fields_neutral() {
+        let state = TouchInputState {
+            move_x: 1.0,
+            jump: TouchButton::pressed_now(),
+            shield: TouchButton::held_continued(),
+            ..Default::default()
+        };
+        let cf = fold_touch_into_control_frame(state, 0.0, 0.0);
+        assert_eq!(cf.axis_x, 1.0);
+        assert!(cf.jump_pressed && cf.jump_held);
+        assert!(cf.shield_held);
+        assert!(!cf.fast_fall_pressed && !cf.pogo_pressed);
+    }
+
+    #[test]
+    fn held_move_y_does_not_synthesize_a_down_edge() {
+        let held = TouchInputState {
+            move_y: 1.0,
+            ..Default::default()
+        };
+        let cf = fold_touch_into_control_frame(held, 0.0, 0.0);
+        assert_eq!(cf.axis_y, 1.0);
+        assert!(!cf.down_pressed, "held move_y must not fake a down edge");
+        let edge = TouchInputState {
+            move_y: 1.0,
+            move_y_just_crossed_down: true,
+            ..Default::default()
+        };
+        assert!(fold_touch_into_control_frame(edge, 0.0, 0.0).down_pressed);
+    }
+
+    #[test]
+    fn activity_gate_includes_release_edges() {
+        assert!(!touch_state_is_active(&TouchInputState::default()), "empty is inactive");
+        let stick = TouchInputState {
+            move_x: 0.5,
+            ..Default::default()
+        };
+        assert!(touch_state_is_active(&stick));
+        // Release-only frame must still count (the charged-fireball repro).
+        let released = TouchInputState {
+            projectile: TouchButton {
+                held: false,
+                pressed_this_frame: false,
+                released_this_frame: true,
+            },
+            ..Default::default()
+        };
+        assert!(touch_state_is_active(&released), "a release edge keeps the merge alive");
+    }
+}

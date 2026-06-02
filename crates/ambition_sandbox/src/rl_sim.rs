@@ -33,6 +33,7 @@
 mod action;
 mod observation;
 mod options;
+pub mod reward;
 mod runtime;
 
 #[cfg(test)]

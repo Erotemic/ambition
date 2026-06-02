@@ -21,6 +21,7 @@ Recipes are current procedures: commands, workflows, or repeatable edit protocol
 | Generated music | `generated-music-workflow.md` |
 | Extending brains and ActionSets | `extending-brains-and-action-sets.md` |
 | Adding a character (catalog-driven) | `adding-a-character.md` |
+| Dialogue authoring (Yarn commands & functions) | `dialogue-authoring.md` |
 
 ## Planning moved out of recipes
 

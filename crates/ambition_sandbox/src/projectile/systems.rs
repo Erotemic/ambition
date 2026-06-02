@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use super::collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 use super::diagnostics::log_press_diagnostics;
-use super::state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent};
+use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use crate::audio::SfxMessage;
 use crate::features::{
     ActorCombatState, ActorDisposition, BossFeature, BreakableFeature, FeatureAabb, FeatureId,
@@ -307,8 +307,9 @@ fn try_fire_projectile(
     {
         Ok(spec) => {
             let spec = spec.with_charge_tier(charge_tier);
-            state.bodies.push(PlayerProjectile {
+            state.bodies.push(crate::projectile::InFlightProjectile {
                 body: crate::projectile::ProjectileBody::from_spec(spec),
+                owner_id: String::new(),
             });
             events.push(ProjectileTraceEvent::Fired { kind });
         }

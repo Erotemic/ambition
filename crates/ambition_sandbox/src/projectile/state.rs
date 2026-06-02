@@ -21,7 +21,7 @@ pub struct PlayerProjectileState {
     /// Live projectiles in flight. Sandbox owns this rather than
     /// spawning Bevy entities per projectile so headless tests can
     /// observe motion / collision without rendering machinery.
-    pub bodies: Vec<PlayerProjectile>,
+    pub bodies: Vec<crate::projectile::InFlightProjectile>,
     pub unlocked: ProjectileUnlocks,
     pub charge_tuning: crate::projectile::FireballChargeTuning,
     /// Hold-time accumulator for the fireball charge mechanic.
@@ -69,11 +69,6 @@ impl Default for PlayerProjectileState {
             charging: None,
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct PlayerProjectile {
-    pub body: crate::projectile::ProjectileBody,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

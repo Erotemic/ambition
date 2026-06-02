@@ -44,7 +44,7 @@ pub use visuals::{sync_projectile_visuals, PlayerProjectileVisual};
 mod engine_tests;
 
 // Re-export the engine-side projectile primitives (moved from crate::engine_core 2026-05-28).
-pub use body::{ProjectileBody, ProjectileFaction, ProjectileSolidHit};
+pub use body::{InFlightProjectile, ProjectileBody, ProjectileFaction, ProjectileSolidHit};
 pub use motion_input::{MotionDirection, MotionInputBuffer};
 pub use spawn::{ProjectileSpawner, SpawnFailure};
 pub use spec::{FireballChargeTuning, ProjectileKind, ProjectileSpec};

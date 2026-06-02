@@ -29,18 +29,12 @@ pub struct EnemyProjectileSpawn {
     pub gravity: f32,
 }
 
-/// Wrapper around an in-flight `crate::projectile::ProjectileBody` plus enemy
-/// faction metadata.
-#[derive(Clone, Debug)]
-pub struct EnemyProjectile {
-    pub body: crate::projectile::ProjectileBody,
-    pub owner_id: String,
-}
-
-/// Bevy resource: every in-flight enemy projectile.
+/// Bevy resource: every in-flight enemy projectile. Shares the unified
+/// [`crate::projectile::InFlightProjectile`] in-flight representation with
+/// the per-player projectile state.
 #[derive(Resource, Default)]
 pub struct EnemyProjectileState {
-    pub bodies: Vec<EnemyProjectile>,
+    pub bodies: Vec<crate::projectile::InFlightProjectile>,
 }
 
 impl EnemyProjectileState {
@@ -74,7 +68,7 @@ impl EnemyProjectileState {
         // a bouncing volley reads as a pinball and confuses the
         // player about the hostile path).
         body.bounces_remaining = 0;
-        self.bodies.push(EnemyProjectile {
+        self.bodies.push(crate::projectile::InFlightProjectile {
             body,
             owner_id: request.owner_id,
         });

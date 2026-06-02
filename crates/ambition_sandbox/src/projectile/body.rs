@@ -25,6 +25,23 @@ pub enum ProjectileFaction {
     Enemy,
 }
 
+/// One live projectile: the shared kinematic [`ProjectileBody`] plus
+/// optional owner attribution. This is the single in-flight
+/// representation for both the per-player projectile state and the
+/// global enemy-projectile pool, so the body list, visuals, and
+/// collision read the same shape regardless of who fired.
+///
+/// `owner_id` carries the spawning actor's id for self-friendly-fire
+/// ignore lists and sprite routing (GNU-ton's apple rain, the lasersword
+/// rider). It is empty for player projectiles, which are attributed via
+/// `HitEvent::attacker` instead. The body's `faction` distinguishes
+/// player vs enemy routing.
+#[derive(Clone, Debug)]
+pub struct InFlightProjectile {
+    pub body: ProjectileBody,
+    pub owner_id: String,
+}
+
 /// Per-frame physics state of an in-flight projectile. Sandbox owns
 /// the world-collision check; this struct only owns position, velocity,
 /// faction, and lifetime.

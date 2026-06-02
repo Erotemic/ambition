@@ -372,51 +372,9 @@ pub fn update_ecs_actors(
         .collect();
     crate::combat_slots::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
 
-    // Per-kind holding-position fallback: when an actor doesn't win
-    // a slot, distribute the leftover actors across the holding
-    // positions of all slots of their kind. Stable, deterministic
-    // ordering by actor id so the assignment doesn't flicker
-    // between frames.
-    //
-    // Without this, multiple unassigned actors of the same kind all
-    // picked `slots.iter().find()`'s FIRST matching slot's
-    // `holding_pos` — i.e. they shared a single fallback point and
-    // visually clumped.
-    let mut unassigned_by_kind: std::collections::HashMap<
-        crate::combat_slots::SlotKind,
-        Vec<&str>,
-    > = std::collections::HashMap::new();
-    for (id, _pos, kind) in &requests {
-        if slot_board.0.slot_for(id).is_none() {
-            unassigned_by_kind
-                .entry(*kind)
-                .or_default()
-                .push(id.as_str());
-        }
-    }
-    let mut holding_pos_by_id: std::collections::HashMap<String, ae::Vec2> =
-        std::collections::HashMap::new();
-    for (kind, mut ids) in unassigned_by_kind {
-        let kind_slots: Vec<usize> = slot_board
-            .0
-            .slots
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.kind == kind)
-            .map(|(i, _)| i)
-            .collect();
-        if kind_slots.is_empty() {
-            continue;
-        }
-        ids.sort_unstable(); // stable round-robin order
-        for (rank, id) in ids.into_iter().enumerate() {
-            let slot_idx = kind_slots[rank % kind_slots.len()];
-            holding_pos_by_id.insert(
-                id.to_string(),
-                slot_board.0.slots[slot_idx].holding_pos(player_pos),
-            );
-        }
-    }
+    // Per-kind holding-position fallback for actors that didn't win a
+    // slot (see `compute_holding_positions`).
+    let holding_pos_by_id = compute_holding_positions(&slot_board.0, &requests, player_pos);
 
     // Per-actor nearest-same-kind-neighbor index (O(N²), N ≤ a few).
     // Used by brain snapshots as a "personal space" signal so two
@@ -765,6 +723,49 @@ pub fn update_ecs_npcs(
 /// `dt` is the gameplay clock so the Smash brain's mode dwell
 /// accumulator runs on the same time domain as the rest of the
 /// simulation.
+/// Per-kind holding-position fallback: actors that didn't win a combat
+/// slot are distributed round-robin across the holding positions of all
+/// slots of their kind, ordered stably by actor id so the assignment
+/// doesn't flicker frame to frame. Without this, every unassigned actor
+/// of a kind shared one slot's holding point and visually clumped. Pure
+/// over the board + per-tick requests so it is unit-testable.
+fn compute_holding_positions(
+    board: &crate::combat_slots::CombatSlotBoard,
+    requests: &[(String, ae::Vec2, crate::combat_slots::SlotKind)],
+    player_pos: ae::Vec2,
+) -> std::collections::HashMap<String, ae::Vec2> {
+    let mut unassigned_by_kind: std::collections::HashMap<crate::combat_slots::SlotKind, Vec<&str>> =
+        std::collections::HashMap::new();
+    for (id, _pos, kind) in requests {
+        if board.slot_for(id).is_none() {
+            unassigned_by_kind
+                .entry(*kind)
+                .or_default()
+                .push(id.as_str());
+        }
+    }
+    let mut holding_pos_by_id: std::collections::HashMap<String, ae::Vec2> =
+        std::collections::HashMap::new();
+    for (kind, mut ids) in unassigned_by_kind {
+        let kind_slots: Vec<usize> = board
+            .slots
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.kind == kind)
+            .map(|(i, _)| i)
+            .collect();
+        if kind_slots.is_empty() {
+            continue;
+        }
+        ids.sort_unstable(); // stable round-robin order
+        for (rank, id) in ids.into_iter().enumerate() {
+            let slot_idx = kind_slots[rank % kind_slots.len()];
+            holding_pos_by_id.insert(id.to_string(), board.slots[slot_idx].holding_pos(player_pos));
+        }
+    }
+    holding_pos_by_id
+}
+
 /// Per-actor crowding signal (personal-space pressure) consumed by
 /// brains like Smash so clustered actors push apart. Aerial actors use a
 /// wider radius and only count *other aerial* actors (so flyers like
@@ -882,6 +883,43 @@ pub(crate) fn sync_actor_components_from_enemy(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unassigned_actors_spread_across_distinct_holding_positions() {
+        use crate::combat_slots::{assign_slots, CombatSlotBoard, SlotKind, SlotRequest};
+        // 2 melee slots, 4 melee actors → 2 win slots, 2 are leftover.
+        let mut board = CombatSlotBoard::new(2, 80.0, 0, 0.0, 0.0);
+        let target = ae::Vec2::ZERO;
+        let requests: Vec<(String, ae::Vec2, SlotKind)> = (0..4)
+            .map(|i| (format!("e{i}"), ae::Vec2::new(i as f32 * 30.0, 0.0), SlotKind::Melee))
+            .collect();
+        let slot_reqs: Vec<SlotRequest> = requests
+            .iter()
+            .map(|(id, pos, kind)| SlotRequest {
+                actor_id: id,
+                actor_pos: *pos,
+                kind: *kind,
+            })
+            .collect();
+        assign_slots(&mut board, target, &slot_reqs);
+
+        let holding = compute_holding_positions(&board, &requests, target);
+        let assigned = requests
+            .iter()
+            .filter(|(id, _, _)| board.slot_for(id).is_some())
+            .count();
+        assert_eq!(assigned, 2, "two actors should win the two slots");
+        assert_eq!(holding.len(), 2, "the two leftover actors get holding positions");
+        // The leftover actors are spread round-robin across the two slots'
+        // holding points — they must not share a single clump point.
+        let positions: Vec<ae::Vec2> = holding.values().copied().collect();
+        assert_ne!(
+            positions[0], positions[1],
+            "leftover actors must occupy distinct holding positions, not clump"
+        );
+        // Deterministic: recomputing yields the same map.
+        assert_eq!(holding, compute_holding_positions(&board, &requests, target));
+    }
 
     #[test]
     fn crowding_pushes_clustered_ground_actors_apart() {

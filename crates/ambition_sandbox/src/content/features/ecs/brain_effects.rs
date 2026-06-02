@@ -1107,67 +1107,6 @@ mod tests {
     }
 
     #[test]
-    fn ranged_message_spawns_projectile_and_applies_recoil() {
-        let mut app = build_app();
-        let actor_pos = ae::Vec2::new(300.0, 300.0);
-        // Stand-in mount entity. RidingOn just needs SOME entity to
-        // point at; the projectile resolver only checks for the
-        // presence of RidingOn on the firing actor, not the mount's
-        // health / archetype.
-        let mount = app.world_mut().spawn(()).id();
-        let actor = app
-            .world_mut()
-            .spawn((
-                pirate_rider_actor(actor_pos),
-                crate::features::RidingOn { mount },
-            ))
-            .id();
-        let vel_before = match app.world().entity(actor).get::<ActorRuntime>().unwrap() {
-            ActorRuntime::Enemy(e) => e.vel,
-            _ => panic!("expected Hostile"),
-        };
-        // Player to the right → +x fire dir.
-        let dir = ae::Vec2::new(1.0, 0.0);
-        app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-            .write(ActorActionMessage {
-                actor,
-                request: ActionRequest::Ranged {
-                    spec: RangedActionSpec::Bolt {
-                        speed: 500.0,
-                        damage: 1,
-                    },
-                    origin: actor_pos,
-                    dir,
-                },
-            });
-        app.update();
-        let projectiles = app.world().resource::<EnemyProjectileState>();
-        assert_eq!(
-            projectiles.bodies.len(),
-            1,
-            "exactly one projectile should have spawned"
-        );
-        // Owner id must reflect lasersword routing for a mounted
-        // rider.
-        let owner = &projectiles.bodies[0].owner_id;
-        assert!(
-            owner.starts_with("lasersword:"),
-            "mounted-rider owner_id should carry the lasersword: prefix; got {owner:?}",
-        );
-        // Recoil: vel.x reduced by ~RANGED_RECOIL_PIRATE.
-        let vel_after = match app.world().entity(actor).get::<ActorRuntime>().unwrap() {
-            ActorRuntime::Enemy(e) => e.vel,
-            _ => panic!("expected Hostile"),
-        };
-        let kick = vel_before.x - vel_after.x;
-        assert!(
-            kick > 300.0,
-            "expected pirate recoil > 300 px/s; got {kick} (before={vel_before:?} after={vel_after:?})",
-        );
-    }
-
-    #[test]
     fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);

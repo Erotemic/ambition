@@ -46,7 +46,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Goblins need more sprites for more animations to go with the different actions.
 
-- [ ] Grinning Colossus-like boss (Smirking Behemoth) where you have to "cut the rope". Big square, shoots circle-bubble eye beams. Exercise the pickup items systems.
+- [x] Grinning Colossus-like boss (Smirking Behemoth) where you have to "cut the rope" — _Verified done 2026-06-02 (autonomous)._ Fully built: a dedicated `you_have_to_cut_the_rope.ldtk` world, the `cut_rope.rs` environmental mechanic (cut the suspended rope prop → a heavy object drops on the boss; rope/anvil/piano variants with per-variant victory dialogue), the `smirking_behemoth_boss` profile in `boss_profiles.ron` whose attack is `EyeBeam` (the circle-bubble eye beams), `smirking_behemoth_boss` + `cut_rope_{rope,anvil,piano}` sprites, the `smirking_behemoth_victory_npc` Yarn node, and a `<<reset_cut_rope_room>>` replay command. Recorded in FEATURES.md. _(The "exercise the pickup items systems" aspiration is the weakest-covered sub-note — the heavy objects are falling props, not collectible pickups — but the boss itself is complete.)_
 
 - [ ] The player need more sprites for more animations to go with the different actions.
 

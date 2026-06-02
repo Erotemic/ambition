@@ -376,27 +376,9 @@ pub fn update_ecs_actors(
     // slot (see `compute_holding_positions`).
     let holding_pos_by_id = compute_holding_positions(&slot_board.0, &requests, player_pos);
 
-    // Per-actor nearest-same-kind-neighbor index (O(N²), N ≤ a few).
-    // Used by brain snapshots as a "personal space" signal so two
-    // aerial actors close to each other can push apart even when their
-    // slot anchors are far apart.
-    let mut neighbor_by_id: std::collections::HashMap<String, ae::Vec2> =
-        std::collections::HashMap::new();
-    for (id_a, pos_a, kind_a) in &requests {
-        let mut nearest: Option<(f32, ae::Vec2)> = None;
-        for (id_b, pos_b, kind_b) in &requests {
-            if id_a == id_b || kind_a != kind_b {
-                continue;
-            }
-            let d = (*pos_a - *pos_b).length_squared();
-            if nearest.map(|(best, _)| d < best).unwrap_or(true) {
-                nearest = Some((d, *pos_b));
-            }
-        }
-        if let Some((_, pos)) = nearest {
-            neighbor_by_id.insert(id_a.clone(), pos);
-        }
-    }
+    // Per-actor nearest-same-kind-neighbor index (see
+    // `compute_nearest_neighbors`).
+    let neighbor_by_id = compute_nearest_neighbors(&requests);
 
     // Per-actor crowding signal for brains that need personal space.
     let crowding_by_id = compute_crowding_by_id(&requests);
@@ -723,6 +705,34 @@ pub fn update_ecs_npcs(
 /// `dt` is the gameplay clock so the Smash brain's mode dwell
 /// accumulator runs on the same time domain as the rest of the
 /// simulation.
+/// Per-actor nearest-same-kind-neighbor index (O(N²), N ≤ a few). Used
+/// by brain snapshots as a "personal space" signal so two aerial actors
+/// close to each other can push apart even when their slot anchors are
+/// far apart. Returns the position of each actor's nearest same-kind
+/// neighbor; actors with no same-kind peer are absent from the map.
+fn compute_nearest_neighbors(
+    requests: &[(String, ae::Vec2, crate::combat_slots::SlotKind)],
+) -> std::collections::HashMap<String, ae::Vec2> {
+    let mut neighbor_by_id: std::collections::HashMap<String, ae::Vec2> =
+        std::collections::HashMap::new();
+    for (id_a, pos_a, kind_a) in requests {
+        let mut nearest: Option<(f32, ae::Vec2)> = None;
+        for (id_b, pos_b, kind_b) in requests {
+            if id_a == id_b || kind_a != kind_b {
+                continue;
+            }
+            let d = (*pos_a - *pos_b).length_squared();
+            if nearest.map(|(best, _)| d < best).unwrap_or(true) {
+                nearest = Some((d, *pos_b));
+            }
+        }
+        if let Some((_, pos)) = nearest {
+            neighbor_by_id.insert(id_a.clone(), pos);
+        }
+    }
+    neighbor_by_id
+}
+
 /// Per-kind holding-position fallback: actors that didn't win a combat
 /// slot are distributed round-robin across the holding positions of all
 /// slots of their kind, ordered stably by actor id so the assignment
@@ -883,6 +893,23 @@ pub(crate) fn sync_actor_components_from_enemy(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nearest_neighbor_is_same_kind_and_closest() {
+        use crate::combat_slots::SlotKind;
+        let reqs = vec![
+            ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
+            ("b".to_string(), ae::Vec2::new(10.0, 0.0), SlotKind::Melee), // closest to a
+            ("c".to_string(), ae::Vec2::new(100.0, 0.0), SlotKind::Melee),
+            ("flyer".to_string(), ae::Vec2::new(1.0, 0.0), SlotKind::Aerial), // closer but wrong kind
+        ];
+        let neighbors = compute_nearest_neighbors(&reqs);
+        // a's nearest same-kind neighbor is b (10px), not the aerial flyer
+        // (1px, different kind).
+        assert_eq!(neighbors.get("a"), Some(&ae::Vec2::new(10.0, 0.0)));
+        // The lone aerial actor has no same-kind peer → absent.
+        assert!(!neighbors.contains_key("flyer"));
+    }
 
     #[test]
     fn unassigned_actors_spread_across_distinct_holding_positions() {

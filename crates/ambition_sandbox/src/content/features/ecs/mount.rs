@@ -29,6 +29,7 @@
 
 use bevy::prelude::{Commands, Component, Entity, Query, With, Without};
 
+use super::super::enemies::EnemyRuntime;
 use super::super::EnemyArchetype;
 use super::brain_builders::dismounted_rider_brain_and_action_set;
 use super::{ActorRuntime, FeatureAabb};
@@ -115,54 +116,68 @@ pub fn sync_riders_to_mounts(
     mut riders: Query<
         (
             &RidingOn,
-            &mut ActorRuntime,
+            &ActorRuntime,
             &mut FeatureAabb,
             Option<&MountedSize>,
+            Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         Without<MountSlot>,
     >,
-    mounts: Query<(&ActorRuntime, &Mountable), With<MountSlot>>,
+    mounts: Query<
+        (
+            &ActorRuntime,
+            &Mountable,
+            Option<super::enemy_clusters::EnemyClusterQueryData>,
+        ),
+        With<MountSlot>,
+    >,
 ) {
-    for (riding, mut rider_actor, mut rider_aabb, mounted_size) in &mut riders {
-        let Ok((mount_actor, mountable)) = mounts.get(riding.mount) else {
+    for (riding, rider_actor, mut rider_aabb, mounted_size, rider_clusters) in &mut riders {
+        let Ok((mount_actor, mountable, mount_clusters)) = mounts.get(riding.mount) else {
             continue;
         };
-        let ActorRuntime::Enemy(mount) = mount_actor else {
-            continue;
-        };
-        if !mount.alive {
+        if !matches!(mount_actor, ActorRuntime::Enemy) {
             continue;
         }
-        let ActorRuntime::Enemy(rider) = &mut *rider_actor else {
+        let Some(mount_c) = mount_clusters else {
             continue;
         };
-        if !rider.alive {
+        if !mount_c.status.alive {
+            continue;
+        }
+        if !matches!(rider_actor, ActorRuntime::Enemy) {
+            continue;
+        }
+        let Some(mut rider_cq) = rider_clusters else {
+            continue;
+        };
+        let mut rider = rider_cq.as_enemy_mut();
+        if !rider.status.alive {
             continue;
         }
         // Sky-rider size: keep the authored rider footprint stable while the
         // mount is alive. The same footprint remains after dismount; larger
         // cove pirates are separate authored actor spawns.
         if let Some(size) = mounted_size {
-            rider.size = size.0;
+            rider.kin.size = size.0;
         }
         // Snap pose to the mount. Vel zeroed so update_ecs_actors'
         // integrator can't drift the rider off the mount on the
         // next frame; gravity zeroed so a Bevy-side integrator that
         // applies gravity to all hostiles can't pull it down.
-        rider.pos.x = mount.pos.x + mountable.rider_offset.x;
-        rider.pos.y = mount.pos.y + mountable.rider_offset.y;
-        rider.facing = mount.facing;
-        rider.vel = ae::Vec2::ZERO;
+        rider.kin.pos.x = mount_c.kin.pos.x + mountable.rider_offset.x;
+        rider.kin.pos.y = mount_c.kin.pos.y + mountable.rider_offset.y;
+        rider.kin.facing = mount_c.kin.facing;
+        rider.kin.vel = ae::Vec2::ZERO;
         rider.surface.gravity_scale = 0.0;
         rider.surface.on_ground = false;
         // Keep the FeatureAabb mirror in sync so damage / spatial
         // queries on the same tick see the rider where it visually
-        // sits. update_ecs_actors writes this from rider.pos at the
+        // sits. update_ecs_actors writes this from rider.kin.pos at the
         // top of the next tick too, but the same-frame consumers
-        // (damage application, projectile origin lookups) need it
-        // now.
-        rider_aabb.center = rider.pos;
-        rider_aabb.half_size = rider.size * 0.5;
+        // (damage application, projectile origin lookups) need it now.
+        rider_aabb.center = rider.kin.pos;
+        rider_aabb.half_size = rider.kin.size * 0.5;
     }
 }
 
@@ -196,32 +211,53 @@ pub fn enforce_mount_rider_link(
         (
             Entity,
             &RidingOn,
-            &mut ActorRuntime,
+            &ActorRuntime,
             &mut FeatureAabb,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
             Option<&super::HeldItem>,
+            Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         Without<MountSlot>,
     >,
-    mounts: Query<(Entity, &ActorRuntime), With<MountSlot>>,
+    mounts: Query<
+        (
+            Entity,
+            &ActorRuntime,
+            Option<&super::enemy_clusters::EnemyStatus>,
+        ),
+        With<MountSlot>,
+    >,
 ) {
     // Build a lookup of mount alive-ness. With two-pirate fights
     // this is O(R+M) per frame and the hashmap stays small.
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
-    for (mount_entity, mount_actor) in &mounts {
-        let alive = matches!(mount_actor, ActorRuntime::Enemy(m) if m.alive);
+    for (mount_entity, mount_actor, mount_status) in &mounts {
+        let alive = matches!(mount_actor, ActorRuntime::Enemy)
+            && mount_status.is_some_and(|s| s.alive);
         mount_alive.insert(mount_entity, alive);
     }
 
-    for (rider_entity, riding, mut rider_actor, mut rider_aabb, cache, was_mounted, held_item) in
-        &mut riders
+    for (
+        rider_entity,
+        riding,
+        rider_actor,
+        mut rider_aabb,
+        cache,
+        was_mounted,
+        held_item,
+        rider_clusters,
+    ) in &mut riders
     {
-        let ActorRuntime::Enemy(rider) = &mut *rider_actor else {
+        if !matches!(rider_actor, ActorRuntime::Enemy) {
+            continue;
+        }
+        let Some(mut rider_cq) = rider_clusters else {
             continue;
         };
-        if !rider.alive {
+        let mut rider = rider_cq.as_enemy_mut();
+        if !rider.status.alive {
             continue;
         }
         let alive = mount_alive.get(&riding.mount).copied().unwrap_or(false);
@@ -250,20 +286,29 @@ pub fn enforce_mount_rider_link(
             // so a PirateRaider / PirateHeavy variant falls and fights without
             // visually scaling up.
             (false, true) => {
-                rider.surface.gravity_scale = if rider.archetype.is_aerial() {
+                rider.surface.gravity_scale = if rider.config.archetype.is_aerial() {
                     0.0
                 } else {
                     1.0
                 };
-                rider.size = rider.spawn.size;
+                rider.kin.size = rider.config.spawn.size;
                 // Publish immediately so same-frame presentation / combat sees
                 // the rider's grounded pose. This is usually the same size as
                 // MountedSize; keeping the write here makes intentional future
                 // size overrides explicit and safe.
-                rider_aabb.center = rider.pos;
-                rider_aabb.half_size = rider.size * 0.5;
+                rider_aabb.center = rider.kin.pos;
+                rider_aabb.half_size = rider.kin.size * 0.5;
+                // The brain builders only read id + archetype; reconstruct a
+                // throwaway EnemyRuntime from the cluster config.
+                let proxy = EnemyRuntime::new(
+                    rider.config.id.clone(),
+                    rider.config.name.clone(),
+                    rider.aabb(),
+                    rider.config.brain.clone(),
+                    &[],
+                );
                 let (new_brain, new_action_set) =
-                    dismounted_rider_brain_and_action_set(rider, held_item.map(|item| &item.spec));
+                    dismounted_rider_brain_and_action_set(&proxy, held_item.map(|item| &item.spec));
                 commands
                     .entity(rider_entity)
                     .insert((new_brain, new_action_set))

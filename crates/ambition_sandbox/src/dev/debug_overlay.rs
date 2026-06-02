@@ -186,7 +186,13 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub actors: Query<
         'w,
         's,
-        &'static crate::features::ActorRuntime,
+        (
+            &'static crate::features::ActorRuntime,
+            &'static crate::features::FeatureAabb,
+            Option<&'static crate::features::EnemyKinematics>,
+            Option<&'static crate::features::ActorAttackState>,
+            Option<&'static crate::features::ActorSurfaceState>,
+        ),
         With<crate::features::FeatureSimEntity>,
     >,
     pub breakables: Query<
@@ -618,34 +624,33 @@ fn draw_feature_debug(
     let telegraph_color = Color::srgba(1.00, 0.95, 0.20, 0.60); // yellow
     let active_color = Color::srgba(1.00, 0.12, 0.12, 0.95); // bright red
 
-    for actor in feature_q.actors.iter() {
+    for (actor, aabb, kin, attack, _surface) in feature_q.actors.iter() {
         let color = match actor {
             crate::features::ActorRuntime::Npc(_) => npc_color,
-            crate::features::ActorRuntime::Enemy(_) => enemy_color,
+            crate::features::ActorRuntime::Enemy => enemy_color,
         };
-        draw_aabb_styled(gizmos, world, actor.aabb(), color, developer_tools);
+        draw_aabb_styled(gizmos, world, aabb.aabb(), color, developer_tools);
         // Hostile actors (and turned-hostile NPCs like the Kernel Guide)
         // own an attack volume that becomes active during a swing — draw
         // it whenever windup or strike timer is live so the player can
         // see exactly where the hit will land. Telegraph wins when both
         // are zero so a frame on the edge still reads as "incoming".
-        if let crate::features::ActorRuntime::Enemy(enemy) = actor {
-            if enemy.attack.is_active() {
-                draw_aabb_styled(
-                    gizmos,
-                    world,
-                    enemy.attack_aabb(),
-                    active_color,
-                    developer_tools,
-                );
-            } else if enemy.attack.is_winding_up() {
-                draw_aabb_styled(
-                    gizmos,
-                    world,
-                    enemy.attack_telegraph_aabb(),
-                    telegraph_color,
-                    developer_tools,
-                );
+        if matches!(actor, crate::features::ActorRuntime::Enemy) {
+            if let (Some(kin), Some(attack)) = (kin, attack) {
+                // Forward-swing hitbox geometry (matches
+                // EnemyMut::attack_aabb): offset by facing.
+                let center = kin.pos
+                    + crate::engine_core::Vec2::new(
+                        kin.facing * (kin.size.x * 0.55 + 24.0),
+                        -4.0,
+                    );
+                let attack_box =
+                    crate::engine_core::Aabb::new(center, crate::engine_core::Vec2::new(34.0, 28.0));
+                if attack.is_active() {
+                    draw_aabb_styled(gizmos, world, attack_box, active_color, developer_tools);
+                } else if attack.is_winding_up() {
+                    draw_aabb_styled(gizmos, world, attack_box, telegraph_color, developer_tools);
+                }
             }
         }
     }

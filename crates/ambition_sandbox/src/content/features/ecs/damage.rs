@@ -21,7 +21,8 @@ use super::super::{
     NPC_HOSTILE_STRIKE_THRESHOLD,
 };
 use super::{
-    ae, sync_actor_components_from_runtime, ActorCombatState, ActorCooldowns, ActorDisposition,
+    ae, sync_actor_components_from_enemy, sync_actor_components_from_runtime, ActorCombatState,
+    ActorCooldowns, ActorDisposition,
     ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BossFeature, BreakableFeature,
     EnemyArchetype, FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
     GameplayEffect, HitEvent, HitSource, RespawnTimer,
@@ -71,6 +72,7 @@ pub fn apply_feature_hit_events(
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
+            Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -171,6 +173,7 @@ pub fn apply_feature_hit_events(
             mut combat,
             mut intent,
             mut cooldowns,
+            mut clusters,
         ) in &mut actors
         {
             let key = match *disposition {
@@ -183,24 +186,43 @@ pub fn apply_feature_hit_events(
             if !event.volume.strict_intersects(aabb.aabb()) {
                 continue;
             }
+            let mut em_opt = clusters.as_mut().map(|cq| cq.as_enemy_mut());
             if apply_actor_hit(
                 &event,
                 actor_entity,
                 &mut actor,
+                em_opt.as_mut(),
                 &mut banner,
                 combat_banter.as_deref(),
                 &mut writers,
             ) {
                 actor_hit_this_event = true;
-                sync_actor_components_from_runtime(
-                    &actor,
-                    &mut identity,
-                    &mut disposition,
-                    &mut health,
-                    &mut combat,
-                    &mut intent,
-                    &mut cooldowns,
-                );
+                match &*actor {
+                    ActorRuntime::Enemy => {
+                        if let Some(em) = em_opt.as_ref() {
+                            sync_actor_components_from_enemy(
+                                em,
+                                &mut identity,
+                                &mut disposition,
+                                &mut health,
+                                &mut combat,
+                                &mut intent,
+                                &mut cooldowns,
+                            );
+                        }
+                    }
+                    ActorRuntime::Npc(_) => {
+                        sync_actor_components_from_runtime(
+                            &actor,
+                            &mut identity,
+                            &mut disposition,
+                            &mut health,
+                            &mut combat,
+                            &mut intent,
+                            &mut cooldowns,
+                        );
+                    }
+                }
             }
         }
         let mut boss_hit_this_event = false;
@@ -291,6 +313,7 @@ fn apply_actor_hit(
     event: &HitEvent,
     actor_entity: Entity,
     actor: &mut ActorRuntime,
+    enemy: Option<&mut super::enemy_clusters::EnemyMut<'_>>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters,
@@ -334,74 +357,61 @@ fn apply_actor_hit(
             }
             true
         }
-        ActorRuntime::Enemy(enemy) => {
-            if !enemy.alive {
+        ActorRuntime::Enemy => {
+            let Some(em) = enemy else {
+                return false;
+            };
+            if !em.status.alive {
                 return false;
             }
             // Combat banter — fire a speech bubble only on
             // the first non-overlapping hit (hit_flash near
-            // zero before we re-set it below). The line
-            // rotates per hit so repeated strikes don't loop
-            // the same line. Skipped silently if no registry
-            // is loaded (e.g. headless / sandbox-only build)
-            // or this enemy name has no authored lines.
-            let should_bark = enemy.hit_flash < 0.05;
-            enemy.hit_flash = 0.16;
+            // zero before we re-set it below).
+            let should_bark = em.status.hit_flash < 0.05;
+            em.status.hit_flash = 0.16;
             if should_bark {
                 if let Some(reg) = combat_banter {
-                    let strikes = enemy.health.max - enemy.health.current;
-                    if let Some(line) = reg.pick_hit_bark(&enemy.name, strikes.max(0) as u32) {
+                    let strikes = em.status.health.max - em.status.health.current;
+                    if let Some(line) = reg.pick_hit_bark(&em.config.name, strikes.max(0) as u32) {
                         writers.vfx.write(VfxMessage::SpeechBubble {
-                            pos: enemy.bark_anchor(),
+                            pos: em.bark_anchor(),
                             text: line.to_string(),
                         });
                     }
                 }
             }
             if let HitSource::PlayerSlash { knock_x } = &event.source {
-                enemy.vel.x += *knock_x;
-                enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
+                em.kin.vel.x += *knock_x;
+                em.kin.vel.y = (em.kin.vel.y - 90.0).max(-280.0);
             }
             let damage_amount = event.damage.max(1);
-            // Composite "X on Shark" enemies are no longer a
-            // single fused archetype — spawn fans them into
-            // a mount + rider pair (see
-            // `super::mount`). Each entity routes damage on
-            // its own AABB; no special routing here.
-            let killed = if enemy.archetype == EnemyArchetype::InfiniteSandbag {
+            let killed = if em.config.archetype == EnemyArchetype::InfiniteSandbag {
                 false
             } else {
-                enemy.health.damage(damage_amount)
+                em.status.health.damage(damage_amount)
             };
-            let impact = midpoint(event.volume.center(), enemy.pos);
+            let impact = midpoint(event.volume.center(), em.kin.pos);
             writers.vfx.write(VfxMessage::Impact { pos: impact });
             if killed {
-                enemy.alive = false;
-                if enemy.archetype == EnemyArchetype::FiniteSandbag {
-                    enemy.respawn_timer = 0.85;
-                    banner.show(format!("{} dropped; respawning", enemy.name), 2.6);
+                em.status.alive = false;
+                if em.config.archetype == EnemyArchetype::FiniteSandbag {
+                    em.status.respawn_timer = 0.85;
+                    banner.show(format!("{} dropped; respawning", em.config.name), 2.6);
                 } else {
-                    banner.show(format!("defeated {}", enemy.name), 2.6);
-                    if !enemy.id.starts_with("encounter:")
-                        && enemy.archetype != EnemyArchetype::InfiniteSandbag
-                        && enemy.archetype != EnemyArchetype::FiniteSandbag
+                    banner.show(format!("defeated {}", em.config.name), 2.6);
+                    if !em.config.id.starts_with("encounter:")
+                        && em.config.archetype != EnemyArchetype::InfiniteSandbag
+                        && em.config.archetype != EnemyArchetype::FiniteSandbag
                     {
-                        // Choose the persistent-flag id by
-                        // respawn policy. OnRoomReenter ⇒ no
-                        // flag at all (the next room load
-                        // gives a fresh enemy). OnRest ⇒ a
-                        // distinct suffix that the rest hook
-                        // can wipe. Never ⇒ the legacy
-                        // `_dead` flag that lives forever.
                         use crate::features::EnemyRespawnPolicy as P;
-                        let flag_id = match enemy.archetype.respawn_policy() {
+                        let flag_id = match em.config.archetype.respawn_policy() {
                             P::OnRoomReenter => None,
                             P::OnRest => Some(format!(
                                 "enemy_{}{}",
-                                enemy.id,
+                                em.config.id,
                                 crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
                             )),
-                            P::Never => Some(format!("enemy_{}_dead", enemy.id)),
+                            P::Never => Some(format!("enemy_{}_dead", em.config.id)),
                         };
                         if let Some(id) = flag_id {
                             writers
@@ -411,17 +421,17 @@ fn apply_actor_hit(
                     }
                 }
                 writers.vfx.write(VfxMessage::Burst {
-                    pos: enemy.pos,
+                    pos: em.kin.pos,
                     count: 16,
                     speed: 230.0,
                     color: [0.84, 0.95, 1.0, 0.82],
                     kind: ParticleKind::Spark,
                 });
                 writers.debris.write(DebrisBurstMessage {
-                    pos: enemy.pos,
+                    pos: em.kin.pos,
                     cue: PhysicsDebrisCue::EnemyRagdoll,
                 });
-                writers.sfx.write(SfxMessage::Death { pos: enemy.pos });
+                writers.sfx.write(SfxMessage::Death { pos: em.kin.pos });
             }
             true
         }

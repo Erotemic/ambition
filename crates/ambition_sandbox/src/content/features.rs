@@ -125,7 +125,10 @@ pub use ecs::{
     HitboxHits, HitboxLifetime, MinimaTrapState, MountSlot, Mountable, Mounted, MountedBrainCache,
     MountedSize, OverfitVolleyState, RidingOn, SaddlePointState,
 };
-pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
+pub use enemies::{
+    ActorSpawnState, ActorSurfaceState, EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime,
+    ENEMY_DEAD_UNTIL_REST_SUFFIX,
+};
 pub use events::{
     ActorStimulus, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,
     GameplayBannerRequested, GameplayEffect, HitEvent, HitKnockback, HitMode, HitSource, HitTarget,

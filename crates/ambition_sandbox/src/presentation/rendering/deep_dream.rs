@@ -99,7 +99,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
-    actors: Query<(&FeatureId, &ActorRuntime)>,
+    actors: Query<crate::features::ActorSpriteData>,
     candidates: Query<
         (Entity, &FeatureVisual, &Transform, &Sprite, Option<&Anchor>),
         (
@@ -285,13 +285,16 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
     }
 }
 
-fn puppy_slug_seed(id: &str, actors: &Query<(&FeatureId, &ActorRuntime)>) -> Option<f32> {
-    actors.iter().find_map(|(feature_id, actor)| {
+fn puppy_slug_seed(id: &str, actors: &Query<crate::features::ActorSpriteData>) -> Option<f32> {
+    actors.iter().find_map(|(feature_id, actor, _kin, _status, _attack, config)| {
         if feature_id.as_str() != id {
             return None;
         }
         let (name, archetype) = match actor {
-            ActorRuntime::Enemy(enemy) => (enemy.name.as_str(), Some(enemy.archetype)),
+            ActorRuntime::Enemy => match config {
+                Some(c) => (c.name.as_str(), Some(c.archetype)),
+                None => return None,
+            },
             ActorRuntime::Npc(npc) => (npc.name.as_str(), None),
         };
         let name_lc = name.to_ascii_lowercase();

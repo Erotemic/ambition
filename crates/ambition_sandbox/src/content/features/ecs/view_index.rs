@@ -67,7 +67,15 @@ pub fn rebuild_feature_view_index(
     chests: Query<(&FeatureId, &FeatureAabb, Option<&Opened>), With<ChestFeature>>,
     breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
     switches: Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
-    actors: Query<(&FeatureId, &ActorRuntime)>,
+    actors: Query<(
+        &FeatureId,
+        &FeatureAabb,
+        &ActorRuntime,
+        Option<&super::enemy_clusters::EnemyStatus>,
+        Option<&ActorAttackState>,
+        Option<&super::enemy_clusters::EnemyConfig>,
+        Option<&ActorSurfaceState>,
+    )>,
     hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
     bosses: Query<(
         &FeatureId,
@@ -134,8 +142,43 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, actor) in &actors {
-        index.insert_if_absent(id.as_str(), actor.feature_view());
+    for (id, aabb, actor, status, attack, config, surface) in &actors {
+        let view = match actor {
+            ActorRuntime::Npc(npc) => FeatureView {
+                pos: aabb.center,
+                size: aabb.size(),
+                kind: FeatureVisualKind::Npc,
+                visible: true,
+                flash: npc.hit_flash > 0.0,
+                switch_on: false,
+                rotation_rad: 0.0,
+            },
+            ActorRuntime::Enemy => {
+                let alive = status.is_some_and(|s| s.alive);
+                let flash = status.is_some_and(|s| s.hit_flash > 0.0)
+                    || attack.is_some_and(|a| a.is_winding_up() || a.is_active());
+                let kind = if config.is_some_and(|c| c.archetype.is_sandbag()) {
+                    FeatureVisualKind::Sandbag
+                } else {
+                    FeatureVisualKind::Enemy
+                };
+                // Surface-walker (PuppySlug) sprite rotation from the
+                // clung surface normal; flat actors render upright.
+                let rotation_rad = surface
+                    .map(|s| f32::atan2(-s.surface_normal.x, -s.surface_normal.y))
+                    .unwrap_or(0.0);
+                FeatureView {
+                    pos: aabb.center,
+                    size: aabb.size(),
+                    kind,
+                    visible: alive,
+                    flash,
+                    switch_on: false,
+                    rotation_rad,
+                }
+            }
+        };
+        index.insert_if_absent(id.as_str(), view);
     }
     for (id, aabb, hazard) in &hazards {
         index.insert_if_absent(

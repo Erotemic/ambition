@@ -27,9 +27,23 @@ pub fn spawn_dynamic_feature_visuals(
     world: Res<crate::GameWorld>,
     assets: Option<Res<GameAssets>>,
     existing: Query<&FeatureVisual>,
-    ecs_mobs: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<EncounterMob>>,
+    ecs_mobs: Query<
+        (
+            &FeatureId,
+            &FeatureAabb,
+            &ActorRuntime,
+            Option<&crate::features::EnemyConfig>,
+        ),
+        With<EncounterMob>,
+    >,
     post_boss_npcs: Query<
-        (&FeatureId, &FeatureName, &FeatureAabb, &ActorRuntime),
+        (
+            &FeatureId,
+            &FeatureName,
+            &FeatureAabb,
+            &ActorRuntime,
+            Option<&crate::features::EnemyConfig>,
+        ),
         With<crate::boss_encounter::SmirkingBehemothVictoryNpc>,
     >,
     ecs_reward_chests: Query<
@@ -39,16 +53,20 @@ pub fn spawn_dynamic_feature_visuals(
 ) {
     let known: std::collections::HashSet<&str> = existing.iter().map(|v| v.id.as_str()).collect();
     let assets_ref = assets.as_deref();
-    for (id, aabb, actor) in &ecs_mobs {
+    for (id, aabb, actor, config) in &ecs_mobs {
         if known.contains(id.as_str()) {
             continue;
         }
-        let kind = actor.visual_kind();
-        let render = BVec2::new(aabb.size().x, aabb.size().y);
-        let entity_key = match actor {
-            ActorRuntime::Enemy(enemy) => game_assets::entity_sprite_for_enemy(&enemy.brain),
-            ActorRuntime::Npc(_) => continue,
+        let (ActorRuntime::Enemy, Some(config)) = (actor, config) else {
+            continue;
         };
+        let kind = if config.archetype.is_sandbag() {
+            FeatureVisualKind::Sandbag
+        } else {
+            FeatureVisualKind::Enemy
+        };
+        let render = BVec2::new(aabb.size().x, aabb.size().y);
+        let entity_key = game_assets::entity_sprite_for_enemy(&config.brain);
         let sprite = match assets_ref {
             Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
             None => Sprite::from_color(feature_color(kind, false), render),
@@ -56,14 +74,14 @@ pub fn spawn_dynamic_feature_visuals(
         commands.spawn((
             sprite,
             Transform::from_translation(world_to_bevy(&world.0, aabb.center, feature_z(kind))),
-            Name::new(format!("Encounter mob: {}", actor.name())),
+            Name::new(format!("Encounter mob: {}", config.name)),
             FeatureVisual {
                 id: id.as_str().to_string(),
             },
             RoomVisual,
         ));
     }
-    for (id, name, aabb, actor) in &post_boss_npcs {
+    for (id, name, aabb, actor, config) in &post_boss_npcs {
         if known.contains(id.as_str()) {
             continue;
         }
@@ -73,7 +91,10 @@ pub fn spawn_dynamic_feature_visuals(
             ActorRuntime::Npc(npc) => {
                 game_assets::entity_sprite_for_interactable(&npc.interactable)
             }
-            ActorRuntime::Enemy(enemy) => game_assets::entity_sprite_for_enemy(&enemy.brain),
+            ActorRuntime::Enemy => match config {
+                Some(c) => game_assets::entity_sprite_for_enemy(&c.brain),
+                None => continue,
+            },
         };
         let sprite = match assets_ref {
             Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),

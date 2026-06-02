@@ -83,7 +83,13 @@ pub fn sync_pirate_weapon_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     world: Res<crate::GameWorld>,
-    rider_actors: Query<(&FeatureId, &ActorRuntime, &HeldItem)>,
+    rider_actors: Query<(
+        &FeatureId,
+        &ActorRuntime,
+        &HeldItem,
+        Option<&crate::features::EnemyKinematics>,
+        Option<&crate::features::EnemyStatus>,
+    )>,
     player_q: Query<
         &crate::player::PlayerKinematics,
         (
@@ -101,19 +107,22 @@ pub fn sync_pirate_weapon_visuals(
     };
     let texture = asset_server.load(WEAPON_SHEET_PATH);
 
-    for (_id, actor, held_item) in &rider_actors {
+    for (_id, actor, held_item, kin, status) in &rider_actors {
         if held_item.id() != "gun_sword" {
             continue;
         }
-        let ActorRuntime::Enemy(rider) = actor else {
+        if !matches!(actor, ActorRuntime::Enemy) {
+            continue;
+        }
+        let (Some(kin), Some(status)) = (kin, status) else {
             continue;
         };
-        if !rider.alive {
+        if !status.alive {
             continue;
         }
 
-        let rider_height = rider.size.y;
-        let hand_world = rider_hand_world_pos(rider.pos, rider.facing, rider_height);
+        let rider_height = kin.size.y;
+        let hand_world = rider_hand_world_pos(kin.pos, kin.facing, rider_height);
         let aim_world = player.pos;
         let dx = aim_world.x - hand_world.x;
         let dy = aim_world.y - hand_world.y;

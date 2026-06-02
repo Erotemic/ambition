@@ -64,7 +64,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
     mut sfx: MessageWriter<SfxMessage>,
-    mut actors: Query<&mut ActorRuntime>,
+    mut actors: Query<(&ActorRuntime, Option<super::enemy_clusters::EnemyClusterQueryData>)>,
     held_items: Query<&super::HeldItem>,
 ) {
     for msg in messages.read() {
@@ -76,18 +76,22 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         else {
             continue;
         };
-        let Ok(mut actor) = actors.get_mut(msg.actor) else {
+        let Ok((actor, clusters)) = actors.get_mut(msg.actor) else {
             // Message references an actor that no longer exists
             // (despawned this frame). Skip silently.
             continue;
         };
-        let ActorRuntime::Enemy(enemy) = &mut *actor else {
+        if !matches!(actor, ActorRuntime::Enemy) {
             // Peaceful actor emitting a Ranged action — would happen
             // only via test fixtures or a future "possessed-NPC"
             // path. Not in scope for this consumer.
             continue;
+        }
+        let Some(mut cq) = clusters else {
+            continue;
         };
-        if !enemy.alive {
+        let mut enemy = cq.as_enemy_mut();
+        if !enemy.status.alive {
             continue;
         }
         // Held-item muzzle: a gun-sword shot should originate at the actor's
@@ -97,14 +101,14 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         let uses_gun_sword = held_item_id == Some("gun_sword");
         let (spawn_origin, owner_id) = if uses_gun_sword {
             let hand = crate::presentation::rendering::rider_hand_world_pos(
-                enemy.pos,
-                enemy.facing,
-                enemy.size.y,
+                enemy.kin.pos,
+                enemy.kin.facing,
+                enemy.kin.size.y,
             );
             let muzzle = hand + dir.normalize_or_zero() * 18.0;
-            (muzzle, format!("lasersword:{}", enemy.id))
+            (muzzle, format!("lasersword:{}", enemy.config.id))
         } else {
-            (enemy.pos + ae::Vec2::new(0.0, -8.0), enemy.id.clone())
+            (enemy.kin.pos + ae::Vec2::new(0.0, -8.0), enemy.config.id.clone())
         };
         let spawn = EnemyProjectileSpawn {
             origin: spawn_origin,
@@ -131,7 +135,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             RANGED_RECOIL_DEFAULT
         };
         let kick = dir.normalize_or_zero() * -recoil_strength;
-        enemy.vel += kick;
+        enemy.kin.vel += kick;
     }
 }
 
@@ -151,21 +155,25 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
 pub fn start_enemy_melee_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     feel_tuning: Res<SandboxFeelTuning>,
-    mut actors: Query<&mut ActorRuntime>,
+    mut actors: Query<(&ActorRuntime, Option<super::enemy_clusters::EnemyClusterQueryData>)>,
 ) {
     let combat_tuning = feel_tuning.feature_combat_tuning();
     for msg in messages.read() {
         let ActionRequest::Melee { attack_axis, .. } = msg.request else {
             continue;
         };
-        let Ok(mut actor) = actors.get_mut(msg.actor) else {
+        let Ok((actor, clusters)) = actors.get_mut(msg.actor) else {
             continue;
         };
-        let ActorRuntime::Enemy(enemy) = &mut *actor else {
+        if !matches!(actor, ActorRuntime::Enemy) {
             // Peaceful actors never produce Melee messages today
             // (their ActionSet is empty); skip defensively.
             continue;
+        }
+        let Some(mut cq) = clusters else {
+            continue;
         };
+        let mut enemy = cq.as_enemy_mut();
         // The ActionSet → ActorActionMessage seam is the attack-policy gate:
         // if a hostile actor produced a Melee message, it owns a melee verb
         // for this state even when its authored archetype is normally peaceful

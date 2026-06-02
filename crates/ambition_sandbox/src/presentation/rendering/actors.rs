@@ -195,14 +195,7 @@ pub fn upgrade_enemy_sprites(
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
-    ecs_actors: Query<(
-        &FeatureId,
-        &ActorRuntime,
-        Option<&crate::features::EnemyKinematics>,
-        Option<&crate::features::EnemyStatus>,
-        Option<&crate::features::ActorAttackState>,
-        Option<&crate::features::EnemyConfig>,
-    )>,
+    ecs_actors: Query<crate::features::ActorSpriteData>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -243,14 +236,14 @@ pub fn upgrade_enemy_sprites(
             match crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors) {
                 Some(name) => assets
                     .characters
-                    .npc_asset_for_name(name)
+                    .npc_asset_for_name(&name)
                     .or_else(|| {
                         crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
-                            .and_then(|n| assets.characters.npc_asset_for_name(n))
+                            .and_then(|n| assets.characters.npc_asset_for_name(&n))
                     })
                     .or_else(|| assets.characters.enemy_asset(view.kind)),
                 None => crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
-                    .and_then(|n| assets.characters.npc_asset_for_name(n))
+                    .and_then(|n| assets.characters.npc_asset_for_name(&n))
                     .or_else(|| assets.characters.enemy_asset(view.kind)),
             };
         let Some(character_asset) = character_asset else {
@@ -290,14 +283,7 @@ pub fn upgrade_npc_sprites(
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
-    ecs_actors: Query<(
-        &FeatureId,
-        &ActorRuntime,
-        Option<&crate::features::EnemyKinematics>,
-        Option<&crate::features::EnemyStatus>,
-        Option<&crate::features::ActorAttackState>,
-        Option<&crate::features::EnemyConfig>,
-    )>,
+    ecs_actors: Query<crate::features::ActorSpriteData>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -316,7 +302,7 @@ pub fn upgrade_npc_sprites(
         let Some(name) = crate::features::ecs_npc_name(&visual.id, &ecs_actors) else {
             continue;
         };
-        let Some(character_asset) = assets.characters.npc_asset_for_name(name) else {
+        let Some(character_asset) = assets.characters.npc_asset_for_name(&name) else {
             continue;
         };
         // Keep the visible terminal/rectangle fallback until the PNG has
@@ -462,14 +448,7 @@ pub fn animate_characters(
             Without<PropVisual>,
         ),
     >,
-    ecs_actors: Query<(
-        &FeatureId,
-        &ActorRuntime,
-        Option<&crate::features::EnemyKinematics>,
-        Option<&crate::features::EnemyStatus>,
-        Option<&crate::features::ActorAttackState>,
-        Option<&crate::features::EnemyConfig>,
-    )>,
+    ecs_actors: Query<crate::features::ActorSpriteData>,
 ) {
     // ADR 0011 — per-entity proper time. SP today: no entity carries
     // ProperTimeScale, so `entity_dt` collapses to `sim_dt` and

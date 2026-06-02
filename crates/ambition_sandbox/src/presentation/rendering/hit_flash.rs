@@ -204,7 +204,7 @@ pub fn sync_hit_flash_overlays(
     mut commands: Commands,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
-    actors: Query<(&FeatureId, &ActorRuntime)>,
+    actors: Query<crate::features::ActorSpriteData>,
     bosses: Query<(&FeatureId, &BossFeature)>,
     player_state: Query<&crate::player::PlayerCombatState, crate::player::PrimaryPlayerOnly>,
     sources: Query<
@@ -314,7 +314,7 @@ pub fn cleanup_hit_flash_overlays(
 fn hit_flash_secs_for_source(
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
-    actors: &Query<(&FeatureId, &ActorRuntime)>,
+    actors: &Query<crate::features::ActorSpriteData>,
     bosses: &Query<(&FeatureId, &BossFeature)>,
     player_state: &Query<&crate::player::PlayerCombatState, crate::player::PrimaryPlayerOnly>,
 ) -> Option<f32> {
@@ -332,15 +332,18 @@ fn hit_flash_secs_for_source(
     // Feature path: cross-reference the visual entity's id against
     // the sim entity's `FeatureId`. Tries the actor list first
     // (enemies + NPCs share `ActorRuntime`), then bosses.
-    if let Some(secs) = actors.iter().find_map(|(feature_id, actor)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        match actor {
-            ActorRuntime::Enemy(enemy) => Some(enemy.hit_flash),
-            ActorRuntime::Npc(npc) => Some(npc.hit_flash),
-        }
-    }) {
+    if let Some(secs) = actors
+        .iter()
+        .find_map(|(feature_id, actor, _kin, status, _attack, _config)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            match actor {
+                ActorRuntime::Enemy => status.map(|s| s.hit_flash),
+                ActorRuntime::Npc(npc) => Some(npc.hit_flash),
+            }
+        })
+    {
         return Some(secs);
     }
     bosses.iter().find_map(|(feature_id, feature)| {

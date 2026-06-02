@@ -178,9 +178,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] **Sandbox-side boss controller hook for `BossMovementKind`** `[V4/D3]` - Engine pattern data can describe traversal beats, but the sandbox boss runtime needs to interpret `step.movement` into actual world transforms so bosses dash, orbit, reposition, or retreat instead of only firing attack verbs.
 
-- [ ] **Per-boss pattern schedules in data** `[V3/D3]` - Replace hard-coded `(spec.id, phase) -> schedule` matches with an authored `BossEncounterSpec.schedules` map or equivalent data-driven structure so future bosses do not require code changes for every phase schedule.
-
-- [ ] **GNU-ton boss apple-drop attack** `[V3/D3]` - Add an attack where apples drop from the ceiling and damage the player. Keep it as a reusable boss hazard pattern if possible.
+- [x] **Per-boss pattern schedules in data** `[V3/D3]` — _Verified done 2026-06-02 (autonomous)._ Each boss's `attack_pattern: Scripted(intro/phase1/transition/phase2/enrage)` is authored as Telegraph/Strike/Rest steps in `boss_profiles.ron` (e.g. GNU-ton's phase1 lists GnuHandSlam → GnuHandSweep → GnuAppleRain → GnuHandSlam). `BossBehaviorProfile::from_data` deserializes the pattern; there is no remaining hard-coded `(spec.id, phase) -> schedule` match in Rust outside tests. Adding a new boss's schedule is a RON edit. Recorded in FEATURES.md. _The only related leftover is the **deferred follow-up below** about per-phase **brain** schedules (movement/macro beats), which is a different axis from the attack-profile schedule already in data._
 
 - [ ] **Boss intro sequence audit** `[V3/D2]` - `TODO-drafts.md` flags the boss music / intro sequence as possibly bugged. Reproduce first; do not assume the diagnosis. Check cutscene gating, encounter start, music request, and boss phase state.
 

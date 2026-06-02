@@ -39,6 +39,8 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | LDtk authoring toolkit | Available; includes IntGrid paint/erase, debug labels, spawn-overlap checks, and wall/door validation | `tools/ambition_ldtk_tools/`, `docs/systems/sprite-rendering-surface.md` |
 | Boss-encounter spec as RON content | Available; 3 authored boss specs in the reviewed archive, with Rust profiles still owning behavior wiring | `crates/ambition_sandbox/assets/data/boss_encounters/`, `crates/ambition_sandbox/src/boss_encounter/specs.rs`, `docs/systems/boss-encounter-architecture.md` |
 | Gradient Sentinel boss fight | Available in current sandbox code; multi-special boss using focused `ActorActionMessage::Special` consumers | `crates/ambition_sandbox/src/content/features/bosses.rs`, `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs` |
+| GNU-ton boss apple-rain attack | Available; gravity-driven apples drop from the ceiling on a golden-ratio x-spread during the scheduled `GnuAppleRain` strike window (phase1), self-dodging the boss body, reusable via `SpecialActionSpec::GnuAppleRain` | `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs`, `crates/ambition_sandbox/assets/data/boss_profiles.ron` |
+| Per-boss phase attack schedules in data | Available; each boss's `attack_pattern: Scripted(intro/phase1/transition/phase2/enrage)` Telegraph/Strike/Rest steps are authored in `boss_profiles.ron`, not hardcoded in Rust | `crates/ambition_sandbox/assets/data/boss_profiles.ron`, `crates/ambition_sandbox/src/brain/boss_pattern.rs` |
 | Dialogue/commerce hooks | Scaffolded | `docs/systems/progression-systems.md`, `docs/adr/0008-dialogue-and-commerce-architecture.md` |
 
 ## World authoring and runtime projection

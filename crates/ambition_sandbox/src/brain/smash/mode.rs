@@ -196,9 +196,16 @@ mod tests {
     #[test]
     fn hysteresis_prevents_approach_to_retreat_flip_within_dwell() {
         // Pin the contract: once committed to Approach, a brief dip
-        // below `too_close_distance` should not immediately flip to
-        // Retreat. Engage is the only candidate that bypasses dwell.
-        let cfg = SmashCfg::STRIKER_DEFAULT;
+        // below `too_close_distance` (into the Retreat band, NOT swing
+        // range) should not immediately flip to Retreat. Engage is the
+        // only candidate that bypasses dwell. STRIKER_DEFAULT keeps
+        // `too_close_distance` inside `attack_range` so a point-blank
+        // pirate engages instead of retreating, which leaves no Retreat
+        // band — so carve an explicit one the way
+        // `retreats_when_too_close_but_not_in_attack_range` does.
+        let mut cfg = SmashCfg::STRIKER_DEFAULT;
+        cfg.attack_range = 10.0;
+        cfg.too_close_distance = 30.0;
         let mut state = SmashState::default();
         let obs = obs_at(300.0);
         assert_eq!(choose_mode(&obs, &cfg, &mut state), BroadMode::Approach);

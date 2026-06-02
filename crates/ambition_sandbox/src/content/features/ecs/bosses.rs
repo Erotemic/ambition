@@ -738,6 +738,9 @@ mod tests {
             "test",
             ae::Vec2::new(400.0, 300.0),
             ae::Vec2::ZERO,
+            // Block::solid is (name, min, size), so this wall spans
+            // x:[180, 200]. The body right edge sits at 140, so the
+            // edge-to-edge clearance toward the player is 180 - 140 = 40.
             vec![ae::Block::solid(
                 "wall",
                 ae::Vec2::new(180.0, 100.0),
@@ -745,7 +748,7 @@ mod tests {
             )],
         );
         let clearance = horizontal_front_wall_clearance(&world, body, 1.0, 200.0).unwrap();
-        assert!((clearance - 60.0).abs() < 0.01, "clearance = {clearance}");
+        assert!((clearance - 40.0).abs() < 0.01, "clearance = {clearance}");
         assert_eq!(
             horizontal_front_wall_clearance(&world, body, -1.0, 200.0),
             None

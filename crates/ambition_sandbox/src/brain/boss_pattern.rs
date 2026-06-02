@@ -2046,13 +2046,23 @@ mod tests {
         state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
         let mut attack_state = BossAttackState::default();
         let mut out = crate::actor_control::ActorControlFrame::neutral();
+        // Keep the player past `too_far_distance` (400) so the boss
+        // stays in Approach and actually reaches the front-wall clamp.
+        // A nearer player flips the macro state to Engage (the boss
+        // holds instead of grinding into the wall), which is correct
+        // but exercises a different path than this clamp test.
         let mut ctx = macro_ctx(
             ae::Vec2::new(640.0, 400.0),
-            ae::Vec2::new(900.0, 400.0),
+            ae::Vec2::new(1_120.0, 400.0),
             0.10,
         );
         ctx.front_wall_clearance = Some(60.0);
         tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_state);
+        assert!(
+            matches!(state.macro_state, BossMacroState::Approach { .. }),
+            "player past too_far should keep the boss approaching; got {:?}",
+            state.macro_state,
+        );
         assert!(
             out.desired_vel.x > 0.0,
             "should still close toward the player"

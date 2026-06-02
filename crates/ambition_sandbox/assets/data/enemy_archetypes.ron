@@ -103,6 +103,7 @@
             damage: 1,
             reach_px: 28.0,
         ))),
+        smash_hit_band: Some(32.0),
         move_style: Walk,
     ),
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
@@ -123,6 +124,7 @@
             damage: 1,
             reach_px: 28.0,
         ))),
+        smash_hit_band: Some(32.0),
         move_style: Walk,
     ),
     "MediumStriker": (
@@ -141,6 +143,7 @@
             damage: 1,
             reach_px: 28.0,
         ))),
+        smash_hit_band: Some(32.0),
         move_style: Walk,
     ),
     "LargeBrute": (
@@ -160,6 +163,7 @@
             reach_px: 40.0,
             step_px: 18.0,
         ))),
+        smash_hit_band: Some(48.0),
         move_style: WalkHeavy,
     ),
     // Boss-room "stationary heavy" — almost stationary, narrow threat
@@ -182,6 +186,7 @@
             reach_px: 40.0,
             step_px: 18.0,
         ))),
+        smash_hit_band: Some(48.0),
         move_style: WalkHeavy,
     ),
     "AggressiveSeeker": (

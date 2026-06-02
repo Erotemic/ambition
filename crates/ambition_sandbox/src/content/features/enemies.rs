@@ -272,6 +272,14 @@ pub(super) struct EnemyArchetypeSpec {
     /// ad-hoc Rust branches, own whether an actor can melee or fire.
     #[serde(default)]
     pub held_item: Option<String>,
+    /// Smash-brain melee hit band (the `attack_range`/engage sizing the
+    /// `Smash` template uses, distinct from the CharacterAI stop-distance
+    /// `attack_range` above). `None` for non-Smash archetypes; the Smash
+    /// config builder falls back to a 36px default. Moving this out of the
+    /// `smash_cfg_for_archetype` match arms (CharacterAI migration, #194)
+    /// so a new Smash enemy is a data row, not a code edit.
+    #[serde(default)]
+    pub smash_hit_band: Option<f32>,
     /// Locomotion style for the actor's `ActionSet.move_style`.
     pub move_style: crate::brain::MoveStyleSpec,
 }
@@ -468,6 +476,12 @@ impl EnemyArchetype {
     /// Locomotion style for this archetype's `ActionSet.move_style`.
     pub(super) fn move_style(self) -> crate::brain::MoveStyleSpec {
         self.spec().move_style
+    }
+
+    /// Authored Smash-brain melee hit band, if any. `None` falls back to
+    /// the Smash config builder's default (see `smash_cfg_for_archetype`).
+    pub(super) fn smash_hit_band(self) -> Option<f32> {
+        self.spec().smash_hit_band
     }
 
     /// Slot kind this archetype requests from the combat slot board.
@@ -1869,6 +1883,25 @@ mod enemy_archetype_data_tests {
             heavy.ranged,
             Some(RangedActionSpec::Bolt { damage: 3, .. })
         ));
+    }
+
+    /// The Smash melee hit band is now authored per-archetype in the RON
+    /// (CharacterAI migration #194). Guard the values that drove the old
+    /// `smash_cfg_for_archetype` match arms so a RON re-tune can't silently
+    /// resize the goblin/brute hit bands, and confirm the 36px-default
+    /// archetypes correctly omit the field (fall through to the builder
+    /// fallback).
+    #[test]
+    fn smash_hit_band_is_data_authored() {
+        assert_eq!(EnemyArchetype::MediumStriker.smash_hit_band(), Some(32.0));
+        assert_eq!(EnemyArchetype::SmallSkitter.smash_hit_band(), Some(32.0));
+        assert_eq!(EnemyArchetype::SmallLurker.smash_hit_band(), Some(32.0));
+        assert_eq!(EnemyArchetype::LargeBrute.smash_hit_band(), Some(48.0));
+        assert_eq!(EnemyArchetype::LargeColossus.smash_hit_band(), Some(48.0));
+        // 36px-default Smash archetypes omit the field on purpose.
+        assert_eq!(EnemyArchetype::Combatant.smash_hit_band(), None);
+        assert_eq!(EnemyArchetype::AggressiveSeeker.smash_hit_band(), None);
+        assert_eq!(EnemyArchetype::PirateRaider.smash_hit_band(), None);
     }
 
     #[test]

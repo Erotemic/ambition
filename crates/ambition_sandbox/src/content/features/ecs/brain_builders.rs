@@ -317,14 +317,12 @@ fn smash_cfg_for_archetype(arch: EnemyArchetype) -> SmashCfg {
         LargeBrute | LargeColossus => SmashCfg::BRUTE_DEFAULT,
         _ => SmashCfg::STRIKER_DEFAULT,
     };
-    // Per-archetype hit-band sizing. Mirrors the legacy `MeleeBruteCfg` defaults
-    // (Striker ~32px, Brute ~48px), but uses concrete archetype buckets so
-    // Smash can keep enemy-specific speed/radius from data.
-    let hit_band = match arch {
-        LargeBrute | LargeColossus => 48.0,
-        MediumStriker | SmallSkitter | SmallLurker => 32.0,
-        _ => 36.0,
-    };
+    // Per-archetype hit-band sizing now lives in `enemy_archetypes.ron`
+    // (`smash_hit_band`), so adding a Smash enemy is a data row rather
+    // than a new match arm (CharacterAI migration, #194). The 36px
+    // fallback preserves the legacy `_` bucket for any archetype whose
+    // row omits the field.
+    let hit_band = arch.smash_hit_band().unwrap_or(36.0);
     SmashCfg {
         aggro_radius: arch.aggro_radius(),
         attack_range: hit_band,

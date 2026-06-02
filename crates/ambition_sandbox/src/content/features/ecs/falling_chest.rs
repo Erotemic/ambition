@@ -83,3 +83,55 @@ pub(super) fn settled_chest_center(world: &ae::World, start: ae::Vec2, size: ae:
     }
     center
 }
+
+#[cfg(test)]
+mod falling_chest_tests {
+    //! settled_chest_center drops a reward chest under gravity until its
+    //! body would overlap a solid, then returns the last clear position.
+    //! Used to place a chest that was looted before it finished falling.
+    use super::*;
+
+    fn world_with_floor() -> ae::World {
+        ae::World::new(
+            "t",
+            ae::Vec2::new(400.0, 400.0),
+            ae::Vec2::new(50.0, 50.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 300.0),
+                ae::Vec2::new(400.0, 100.0),
+            )],
+        )
+    }
+
+    #[test]
+    fn chest_settles_just_above_the_floor() {
+        let world = world_with_floor();
+        let half = ae::Vec2::new(12.0, 12.0);
+        let settled = settled_chest_center(&world, ae::Vec2::new(200.0, 50.0), ae::Vec2::new(24.0, 24.0));
+        assert_eq!(settled.x, 200.0, "no horizontal drift");
+        assert!(settled.y > 50.0, "the chest fell");
+        let body = ae::Aabb::new(settled, half);
+        assert!(
+            !world.body_overlaps_any(body, |b| matches!(b.kind, ae::BlockKind::Solid)),
+            "settled body must not overlap the floor (settled {settled:?})"
+        );
+        assert!(settled.y + half.y <= 300.0, "chest bottom stays above the floor top");
+        assert!(
+            300.0 - (settled.y + half.y) <= 13.0,
+            "chest comes to rest within a substep of the floor"
+        );
+    }
+
+    #[test]
+    fn chest_keeps_falling_without_a_floor() {
+        let world = ae::World::new(
+            "t",
+            ae::Vec2::new(400.0, 9999.0),
+            ae::Vec2::new(50.0, 50.0),
+            Vec::new(),
+        );
+        let settled = settled_chest_center(&world, ae::Vec2::new(200.0, 50.0), ae::Vec2::new(24.0, 24.0));
+        assert!(settled.y > 100.0, "with no floor the chest keeps falling (settled {settled:?})");
+    }
+}

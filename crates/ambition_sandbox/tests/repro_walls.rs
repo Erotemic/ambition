@@ -671,3 +671,73 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
         );
     }
 }
+
+/// Faithful control+simulation wall-jump against the real goblin_encounter
+/// world + appended lock wall. The previous repro only drove the
+/// simulation phase, so `jump_pressed` was ignored and no real wall-jump
+/// impulse fired. This one runs BOTH phases each frame (control then
+/// simulation), pressing Jump while wall-clinging on the lock wall's right
+/// edge — the exact "presses Jump while clinging" production trigger.
+/// Budget-asserts every frame so a >budget snap (the teleport) fails.
+#[test]
+fn goblin_encounter_real_walljump_repro() {
+    let project =
+        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("room_set");
+    let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
+        return;
+    };
+    let world = room.world.clone();
+    let platforms = room.moving_platforms.clone();
+    let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
+    let mut augmented = sb::features::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+    augmented.blocks.push(ae::Block::solid(
+        "lockwall:goblin_encounter",
+        ae::Vec2::new(480.0, 400.0),
+        ae::Vec2::new(224.0, 208.0),
+    ));
+
+    let mut player = scratch_at(world.spawn);
+    player.kinematics.pos = ae::Vec2::new(718.0, 434.1);
+    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
+    player.ground.on_ground = false;
+    player.wall.on_wall = true;
+    player.wall.wall_normal_x = 1.0;
+    player.wall.wall_clinging = true;
+    player.kinematics.facing = -1.0;
+
+    let dt = 1.0 / 144.0;
+    for frame in 0..40 {
+        let pre = player.kinematics.pos;
+        let pre_vel = player.kinematics.vel;
+        let input = InputState {
+            axis_x: if frame == 0 { -1.0 } else { 0.0 },
+            jump_pressed: frame == 0,
+            jump_held: frame < 8,
+            control_dt: dt,
+            ..Default::default()
+        };
+        // Control phase first (fires the wall-jump impulse), then sim.
+        let _ = ae::update_player_control_with_tuning_scratch(
+            &augmented, &mut player, input, dt, DEFAULT_TUNING,
+        );
+        let _ = ae::update_player_simulation_with_tuning_scratch(
+            &augmented, &mut player, input, dt, DEFAULT_TUNING,
+        );
+        let moved = (player.kinematics.pos - pre).length();
+        if frame < 4 || moved > 40.0 {
+            println!(
+                "f{frame:02}: pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) moved={:.2}px cling={}",
+                player.kinematics.pos.x, player.kinematics.pos.y,
+                player.kinematics.vel.x, player.kinematics.vel.y, moved, player.wall.wall_clinging
+            );
+        }
+        assert_within_displacement_budget(
+            &format!("goblin_encounter_real_walljump_f{frame}"),
+            pre,
+            player.kinematics.pos,
+            pre_vel,
+            dt,
+        );
+    }
+}

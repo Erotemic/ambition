@@ -89,10 +89,23 @@ to the bottom under "Closed" with the commit that fixed them.
     fixtures only call the simulation phase, so a `jump_pressed` is
     ignored — the wall-jump impulse never fires), the precise sub-pixel
     x / pre-existing penetration of the x=704..720 wall, or accumulated
-    multi-frame history. **Next repro step:** drive the real
-    control+simulation phases (or replay the captured trace
-    `1777995217-…`) so the genuine wall-jump impulse + facing/cling
-    state are produced, rather than hand-setting velocity.
+    multi-frame history. A second guard
+    (`goblin_encounter_real_walljump_repro`) then drove the **real
+    control+simulation phases** with a genuine `jump_pressed` while
+    clinging — the wall-jump impulse DOES fire (vel → ~(408, -577) on
+    frame 0), but the body still rises and correctly stops below the
+    top wall (no teleport). **So synthetic reproduction is exhausted:**
+    minimal fixture, full-world passive cling, full-world synthetic
+    upward velocity, AND full-world faithful wall-jump all fail to
+    reproduce. The bug is either already substantially mitigated by the
+    `body_is_side_contact` predicate, or requires the exact recorded
+    sub-pixel/penetration/velocity-history state. **Definitive next
+    step:** replay the captured trace `1777995217-972692847-000000`
+    through the trace-replay harness (`docs/systems/gameplay-trace-recorder.md`)
+    rather than any hand-built fixture — that is now the only path that
+    carries the precise production state. If the trace itself no longer
+    reproduces, downgrade this entry from HIGH (the predicate fix may
+    have already closed it).
   - Bumping `OOB_MARGIN` is NOT the fix — it would just hide the
     teleport. The right fix is rejecting `time_of_impact = 0` hits
     that snap the body MORE than the velocity budget for the

@@ -28,6 +28,10 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
     let project =
         sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("room_set should build");
+    assert!(
+        !room_set.rooms.is_empty(),
+        "no rooms loaded — the integrity scan would pass vacuously"
+    );
 
     let mut anomalies: Vec<String> = Vec::new();
     for room in &room_set.rooms {

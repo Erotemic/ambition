@@ -182,3 +182,95 @@ pub(super) fn parse_debug_label_kind(value: &str) -> crate::debug_label::DebugLa
         _ => crate::debug_label::DebugLabelKind::Custom,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::actor::{BossBrain, EnemyBrain, KinematicPathMode};
+    use crate::interaction::PickupKind;
+
+    #[test]
+    fn parse_points_reads_semicolon_pairs_and_skips_malformed() {
+        let pts = parse_points("10,20; 30,40 ;bad;50,60");
+        assert_eq!(
+            pts,
+            vec![
+                ae::Vec2::new(10.0, 20.0),
+                ae::Vec2::new(30.0, 40.0),
+                ae::Vec2::new(50.0, 60.0),
+            ]
+        );
+        assert!(parse_points("").is_empty());
+    }
+
+    #[test]
+    fn parse_path_mode_is_case_and_dash_insensitive_with_pingpong_default() {
+        assert!(matches!(parse_path_mode("Once"), KinematicPathMode::Once));
+        assert!(matches!(parse_path_mode("LOOP"), KinematicPathMode::Loop));
+        assert!(matches!(
+            parse_path_mode("ping-pong"),
+            KinematicPathMode::PingPong
+        ));
+        assert!(matches!(parse_path_mode("???"), KinematicPathMode::PingPong));
+    }
+
+    #[test]
+    fn parse_pickup_kind_dispatches_each_prefix() {
+        assert_eq!(parse_pickup_kind("health:5"), PickupKind::Health { amount: 5 });
+        assert_eq!(
+            parse_pickup_kind("currency:50"),
+            PickupKind::Currency { amount: 50 }
+        );
+        assert_eq!(
+            parse_pickup_kind("ability:dash"),
+            PickupKind::Ability {
+                ability_id: "dash".into()
+            }
+        );
+        assert_eq!(
+            parse_pickup_kind("flag:seen_alice"),
+            PickupKind::StoryFlag {
+                flag: "seen_alice".into()
+            }
+        );
+        assert_eq!(
+            parse_pickup_kind("mystery"),
+            PickupKind::Custom("mystery".into())
+        );
+        // A malformed amount falls through to Custom rather than panicking.
+        assert_eq!(
+            parse_pickup_kind("health:notanumber"),
+            PickupKind::Custom("health:notanumber".into())
+        );
+    }
+
+    #[test]
+    fn parse_enemy_brain_dispatches_prefixes_and_falls_back_to_custom() {
+        assert!(matches!(
+            parse_enemy_brain("Patrol:loop_a"),
+            EnemyBrain::Patrol { path_id: Some(p) } if p == "loop_a"
+        ));
+        assert!(matches!(
+            parse_enemy_brain("Guard:120"),
+            EnemyBrain::Guard { leash_radius } if (leash_radius - 120.0).abs() < 1e-3
+        ));
+        assert!(matches!(parse_enemy_brain("Passive"), EnemyBrain::Passive));
+        assert!(matches!(
+            parse_enemy_brain("Goblin"),
+            EnemyBrain::Custom(s) if s == "Goblin"
+        ));
+    }
+
+    #[test]
+    fn parse_boss_brain_dispatches_phasescript_and_falls_back_to_custom() {
+        assert!(matches!(
+            parse_boss_brain("PhaseScript:gnu_ton"),
+            BossBrain::PhaseScript { script_id } if script_id == "gnu_ton"
+        ));
+        assert!(matches!(parse_boss_brain("Dormant"), BossBrain::Dormant));
+        assert!(matches!(
+            parse_boss_brain("Mystery"),
+            BossBrain::Custom(s) if s == "Mystery"
+        ));
+    }
+}

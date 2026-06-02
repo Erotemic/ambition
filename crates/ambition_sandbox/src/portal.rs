@@ -296,6 +296,43 @@ pub fn portal_teleport_system(
     }
 }
 
+/// Despawn all portals when the room resets / transitions, and clear the
+/// gun's teleport cooldown — portals are per-room, so stale ones from a
+/// previous room must not linger and teleport the player unexpectedly.
+pub fn clear_portals_on_reset(
+    mut commands: Commands,
+    mut resets: MessageReader<crate::features::ResetRoomFeaturesEvent>,
+    portals: Query<Entity, With<Portal>>,
+    mut guns: Query<&mut PortalGun>,
+) {
+    if resets.read().next().is_none() {
+        return;
+    }
+    for entity in &portals {
+        commands.entity(entity).despawn();
+    }
+    for mut gun in &mut guns {
+        gun.teleport_cooldown = 0.0;
+    }
+}
+
+/// Dev off-switch: `F7` toggles the portal gun active/inactive so the
+/// always-on slice gun doesn't fire portals on every Attack while testing
+/// other sandbox mechanics. (Visible build only.) Final gating is via
+/// held-item equip; this is a developer convenience until then.
+pub fn portal_dev_toggle_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut guns: Query<&mut PortalGun>,
+) {
+    if !keys.just_pressed(KeyCode::F7) {
+        return;
+    }
+    for mut gun in &mut guns {
+        gun.active = !gun.active;
+        bevy::log::info!(target: "ambition::portal", "portal gun active = {}", gun.active);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Presentation (visible build only — registered by the presentation plugin).
 

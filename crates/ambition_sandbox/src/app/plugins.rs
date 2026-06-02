@@ -260,6 +260,7 @@ fn register_room_transition_systems(app: &mut App) {
             crate::features::reset_ecs_room_features,
             crate::features::reset_ecs_npc_actors,
             crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset,
+            crate::portal::clear_portals_on_reset,
         )
             .chain()
             .in_set(SandboxSet::RoomTransition),

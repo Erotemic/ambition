@@ -893,3 +893,30 @@ fn convert_switch(
         interactable,
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compact_path_name_slugifies_and_strips_path_noise() {
+        assert_eq!(
+            compact_path_name("Moving Platform Path").as_deref(),
+            Some("moving_platform")
+        );
+        assert_eq!(compact_path_name("gate-path-a").as_deref(), Some("gate_a"));
+        assert_eq!(compact_path_name("Patrol Path").as_deref(), Some("patrol"));
+        assert_eq!(
+            compact_path_name("Already_Slug").as_deref(),
+            Some("already_slug")
+        );
+        // Collapses runs of separators and trims trailing ones.
+        assert_eq!(
+            compact_path_name("  a -- b  ").as_deref(),
+            Some("a_b")
+        );
+        // No alphanumerics → no usable slug.
+        assert_eq!(compact_path_name("  !! "), None);
+        assert_eq!(compact_path_name(""), None);
+    }
+}

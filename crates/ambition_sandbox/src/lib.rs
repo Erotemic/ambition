@@ -63,6 +63,7 @@ pub(crate) mod map_menu;
 pub(crate) mod music;
 pub(crate) mod pause_menu;
 pub(crate) mod persistence;
+pub mod portal;
 pub(crate) mod presentation;
 pub(crate) mod projectile;
 pub(crate) mod runtime;

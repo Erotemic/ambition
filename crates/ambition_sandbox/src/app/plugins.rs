@@ -73,6 +73,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(crate::brain::BrainPlugin);
     register_player_input_systems(app);
     register_player_simulation_systems(app);
+    register_portal_systems(app);
     register_room_transition_systems(app);
     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
     register_presentation_sync_systems(app);
@@ -223,6 +224,23 @@ fn register_player_simulation_systems(app: &mut App) {
             player_control_system.run_if(gameplay_allowed),
             player_simulation_system.run_if(gameplay_allowed),
             apply_player_hit_events.run_if(gameplay_allowed),
+        )
+            .chain()
+            .in_set(SandboxSet::PlayerSimulation),
+    );
+}
+
+/// Portal gun: grant + fire + toggle, then teleport. Teleport runs after the
+/// player simulation so it acts on this frame's integrated position; the rest
+/// run in the same `PlayerSimulation` set so a fire/toggle this frame is seen.
+fn register_portal_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::portal::grant_portal_gun,
+            crate::portal::portal_toggle_system.run_if(gameplay_allowed),
+            crate::portal::portal_fire_system.run_if(gameplay_allowed),
+            crate::portal::portal_teleport_system.run_if(gameplay_allowed),
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation),

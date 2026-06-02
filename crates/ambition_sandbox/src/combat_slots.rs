@@ -253,6 +253,47 @@ mod tests {
         }
     }
 
+    /// The whole point of the slot board is *anti-clump*: each actor is
+    /// paired with the slot nearest it (greedy closest-first), so a mob
+    /// approaching from the right takes a right-side slot rather than
+    /// crossing to a far one. The "all actors get a slot" test above does
+    /// not pin which slot, so this guards the distance-based pairing.
+    #[test]
+    fn assign_slots_pairs_each_actor_with_a_slot_on_its_own_side() {
+        let mut b = board(); // 3 melee slots: slot 0 rightward (+80), 1 & 2 leftward (-40)
+        // Request order is left-then-right on purpose; the pairing must be
+        // by distance, not request order.
+        let reqs = vec![
+            SlotRequest {
+                actor_id: "left",
+                actor_pos: Vec2::new(-1000.0, 0.0),
+                kind: SlotKind::Melee,
+            },
+            SlotRequest {
+                actor_id: "right",
+                actor_pos: Vec2::new(1000.0, 0.0),
+                kind: SlotKind::Melee,
+            },
+        ];
+        assign_slots(&mut b, Vec2::ZERO, &reqs);
+        let right_slot = b.slot_for("right").expect("right actor got a slot");
+        let left_slot = b.slot_for("left").expect("left actor got a slot");
+        assert!(
+            right_slot.offset.x > 0.0,
+            "right actor should take a rightward slot, got offset {:?}",
+            right_slot.offset
+        );
+        assert!(
+            left_slot.offset.x < 0.0,
+            "left actor should take a leftward slot, got offset {:?}",
+            left_slot.offset
+        );
+        assert!(
+            right_slot.offset.x > left_slot.offset.x,
+            "the right actor's slot must be more rightward than the left actor's (no crossing)"
+        );
+    }
+
     #[test]
     fn extra_actors_do_not_get_slots() {
         let mut b = board(); // 3 melee slots

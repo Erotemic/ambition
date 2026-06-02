@@ -43,7 +43,7 @@ pub struct ActorSpawnState {
 /// of `EnemyRuntime`'s flat `on_ground` / `surface_normal` /
 /// `gravity_scale` / `air_jumps_remaining` fields. Maintained by the
 /// kinematic integration each tick.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorSurfaceState {
     /// Set by [`crate::kinematic::step_kinematic`](crate::engine_core::step_kinematic)
     /// each tick. Used by chase-drop-through (enemy must be standing on

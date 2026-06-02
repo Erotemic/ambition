@@ -55,6 +55,7 @@ mod brain_effects;
 mod breakables;
 mod chests;
 mod damage;
+pub mod enemy_clusters;
 mod encounter_rewards;
 mod falling_chest;
 mod hazards;

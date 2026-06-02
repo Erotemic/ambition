@@ -600,7 +600,7 @@ impl ActorHealth {
 /// windup→active edge, arms `active_timer` (the hitbox window); the
 /// active window then counts down while `cooldown` keeps ticking so a
 /// fresh attack can't start until recovery passes.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorAttackState {
     /// Telegraph/windup remaining before the strike goes active.
     pub windup_timer: f32,

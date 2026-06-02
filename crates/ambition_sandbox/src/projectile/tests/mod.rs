@@ -75,6 +75,7 @@ fn min_app() -> App {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,

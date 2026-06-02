@@ -109,6 +109,7 @@ fn fireball_bounces_off_floor_in_system() {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
@@ -187,6 +188,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
@@ -266,6 +268,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,
@@ -342,6 +345,7 @@ fn hadouken_expires_on_solid_in_system() {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
     app.add_message::<HitEvent>();
+    app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);
     app.add_systems(
         Update,

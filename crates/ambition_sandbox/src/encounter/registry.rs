@@ -103,3 +103,36 @@ impl SwitchActivation {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn switch_activation_round_trips_through_the_custom_payload() {
+        let s = SwitchActivation {
+            id: "gate_a".into(),
+            action: "open".into(),
+            target_encounter: "goblin_encounter".into(),
+        };
+        assert_eq!(
+            SwitchActivation::parse_custom(&s.to_custom_payload()),
+            Some(s)
+        );
+    }
+
+    #[test]
+    fn parse_custom_allows_an_empty_target() {
+        let parsed = SwitchActivation::parse_custom("switch:gate_a:open").unwrap();
+        assert_eq!(parsed.id, "gate_a");
+        assert_eq!(parsed.action, "open");
+        assert_eq!(parsed.target_encounter, "");
+    }
+
+    #[test]
+    fn parse_custom_rejects_non_switch_and_truncated_payloads() {
+        assert_eq!(SwitchActivation::parse_custom("door:gate_a:open:x"), None);
+        assert_eq!(SwitchActivation::parse_custom("switch:gate_a"), None);
+        assert_eq!(SwitchActivation::parse_custom(""), None);
+    }
+}

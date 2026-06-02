@@ -79,3 +79,93 @@ pub fn open_ecs_chests(
         }
     }
 }
+
+#[cfg(test)]
+mod chest_tests {
+    //! The player -> static-chest open path as a minimal-App harness:
+    //! a buffered interact over an overlapping, unopened chest inserts
+    //! `Opened`; an unbuffered player or a non-overlapping chest does not.
+    use super::*;
+    use crate::player::{PlayerAnimState, PlayerEntity, PlayerInteractionState, PlayerKinematics};
+    use bevy::prelude::{App, Entity, Update};
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_systems(Update, open_ecs_chests);
+        app
+    }
+
+    fn player(app: &mut App, pos: ae::Vec2, buffered: bool) -> Entity {
+        app.world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerKinematics {
+                    pos,
+                    size: ae::Vec2::new(28.0, 46.0),
+                    base_size: ae::Vec2::new(28.0, 46.0),
+                    facing: 1.0,
+                    ..Default::default()
+                },
+                PlayerInteractionState {
+                    interact_buffer_timer: if buffered { 0.5 } else { 0.0 },
+                    ..Default::default()
+                },
+                PlayerAnimState::default(),
+            ))
+            .id()
+    }
+
+    fn chest(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
+        app.world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureId::new(id),
+                FeatureName::new("Chest"),
+                FeatureAabb::from_center_size(pos, ae::Vec2::new(24.0, 24.0)),
+                ChestFeature::new(crate::interaction::Chest::new(id, None)),
+            ))
+            .id()
+    }
+
+    #[test]
+    fn buffered_interact_opens_an_overlapping_chest() {
+        let mut app = app();
+        let center = ae::Vec2::new(64.0, 64.0);
+        player(&mut app, center, true);
+        let c = chest(&mut app, "c1", center);
+        app.update();
+        assert!(
+            app.world().get::<Opened>(c).is_some(),
+            "buffered interact over the chest opens it"
+        );
+    }
+
+    #[test]
+    fn unbuffered_player_leaves_chest_closed() {
+        let mut app = app();
+        let center = ae::Vec2::new(64.0, 64.0);
+        player(&mut app, center, false);
+        let c = chest(&mut app, "c1", center);
+        app.update();
+        assert!(
+            app.world().get::<Opened>(c).is_none(),
+            "no buffered interact -> chest stays closed"
+        );
+    }
+
+    #[test]
+    fn distant_chest_is_not_opened() {
+        let mut app = app();
+        player(&mut app, ae::Vec2::new(64.0, 64.0), true);
+        let c = chest(&mut app, "c1", ae::Vec2::new(2000.0, 2000.0));
+        app.update();
+        assert!(
+            app.world().get::<Opened>(c).is_none(),
+            "a non-overlapping chest stays closed even with a buffered interact"
+        );
+    }
+}

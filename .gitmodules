@@ -1,3 +1,6 @@
 [submodule "tools/ambition_sfx_renderer"]
 	path = tools/ambition_sfx_renderer
 	url = https://github.com/Erotemic/ambition_sfx_renderer.git
+[submodule "submodules/ambition_inventory_ui"]
+	path = submodules/ambition_inventory_ui
+	url = http://github.com/Erotemic/ambition_inventory_ui.git

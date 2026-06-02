@@ -304,6 +304,15 @@ impl GameplayTraceEvent {
 pub enum DumpReason {
     Manual,
     OobAuto { reason: String },
+    /// Auto-dump triggered the frame an unexplained position correction
+    /// (teleport-class `CollisionCorrection`) fires. Unlike `OobAuto`,
+    /// this catches teleports that land *inside* the OOB margin — e.g.
+    /// the lock-wall wall-cling snap to `y = -23`, which is within
+    /// `OOB_MARGIN` and so never tripped the OOB detector. Captures the
+    /// ring buffer at the moment of the snap so the pre-teleport frames
+    /// are still present (a manual dump seconds later only catches the
+    /// stuck aftermath — see `docs/planning/tech-debt-log.md`).
+    TeleportAuto { reason: String },
     Programmatic { label: String },
 }
 
@@ -312,6 +321,7 @@ impl DumpReason {
         match self {
             DumpReason::Manual => "Manual (F8)".into(),
             DumpReason::OobAuto { reason } => format!("OOB auto: {reason}"),
+            DumpReason::TeleportAuto { reason } => format!("Teleport auto: {reason}"),
             DumpReason::Programmatic { label } => format!("Programmatic: {label}"),
         }
     }

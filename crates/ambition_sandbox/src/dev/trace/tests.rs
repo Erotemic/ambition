@@ -357,6 +357,13 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
         1,
         "expected one CollisionCorrection event for the teleport; got {teleports:?}"
     );
+    // The teleport-class correction also requests an auto-dump so the
+    // ring buffer is captured while the pre-teleport frames survive.
+    assert!(
+        matches!(buf.dump_request, Some(DumpReason::TeleportAuto { .. })),
+        "an unexplained teleport should request a TeleportAuto dump; got {:?}",
+        buf.dump_request
+    );
 }
 
 /// P2 — incrementing `player.resets` should emit a `Reset` event

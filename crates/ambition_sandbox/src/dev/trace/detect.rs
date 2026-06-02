@@ -320,17 +320,22 @@ pub(crate) fn synthesize_events_from_diff(
     if !suppressed_teleport && dlen > budget && dlen > TELEPORT_DETECTION_SLACK_PX {
         let nearby_after = nearby_collision_around(world, clusters.kinematics.aabb(), 64.0);
         let state_flips = collect_state_flips(&prev, clusters);
+        let reason = format!("unexplained delta {dlen:.1}px (vel-budget {budget:.1}px)");
         buffer.push_event(GameplayTraceEvent::CollisionCorrection {
             tick,
             before: prev.pos.into(),
             after: cur_pos.into(),
-            reason: format!(
-                "unexplained delta {:.1}px (vel-budget {:.1}px)",
-                dlen, budget
-            ),
+            reason: reason.clone(),
             nearby_after,
             state_flips,
         });
+        // Auto-dump the ring buffer NOW, while the pre-teleport frames are
+        // still in it. The OOB auto-dump misses teleports that land inside
+        // `OOB_MARGIN` (the lock-wall snap to y=-23 is only ~46px OOB), so
+        // by the time a human dumps manually the ring holds only the stuck
+        // aftermath. `request_dump` no-ops if a dump is already pending, so
+        // a ping-pong yields one dump per flush cycle, not per frame.
+        buffer.request_dump(DumpReason::TeleportAuto { reason });
     }
 
     if prev.locomotion != locomotion {

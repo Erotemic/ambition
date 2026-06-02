@@ -120,6 +120,18 @@ to the bottom under "Closed" with the commit that fixed them.
     and land the documented budget-reject fix against it. If it does
     NOT recur, downgrade from HIGH / close. The passing repro guards in
     `repro_walls.rs` stay as regression protection either way.
+  - **Capture infrastructure added 2026-06-02 (autonomous):** the
+    trace recorder now **auto-dumps on any teleport-class
+    `CollisionCorrection`** (`DumpReason::TeleportAuto`, set in
+    `dev/trace/detect.rs` right where the event is pushed). This closes
+    the exact gap that made the original trace useless: the OOB
+    auto-dump misses a snap to `y=-23` (within `OOB_MARGIN`), so the
+    only prior capture was a manual dump seconds later that held just
+    the stuck aftermath. Now the dump fires the *same frame* as the
+    snap, while the pre-teleport frames are still in the ring — so a
+    live reproduction will produce a directly-usable trace. So the
+    "play it and capture a fresh trace" step above no longer needs any
+    setup beyond triggering the bug.
   - Bumping `OOB_MARGIN` is NOT the fix — it would just hide the
     teleport. The right fix is rejecting `time_of_impact = 0` hits
     that snap the body MORE than the velocity budget for the

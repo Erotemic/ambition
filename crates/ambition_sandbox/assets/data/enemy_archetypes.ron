@@ -332,10 +332,17 @@
     // of falling back to a generic striker.
     "PirateHeavy": (
         max_health: 10,
+        // attack_range is the stop-and-swing distance. PirateHeavy's
+        // melee hitbox (attack_aabb_dir) reaches size.x*0.55+24+34 =
+        // 97.6 px from her center, so against a ~14 px-half player she
+        // can only connect at a center distance under ~112 px. The old
+        // 150 made her stop ~40 px too far and swing into empty air.
+        // 90 stops her inside her own reach (≈21 px hit margin) while
+        // keeping ~40 px body clearance.
+        attack_range: 90.0,
         patrol_speed: 75.0,
         chase_speed: 130.0,
         aggro_radius: 0.0,
-        attack_range: 150.0,
         contact_strength: 0.0,
         damage_amount: 2,
         default_size: Some((72.0, 110.0)),

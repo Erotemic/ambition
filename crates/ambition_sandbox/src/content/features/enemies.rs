@@ -1387,4 +1387,34 @@ mod enemy_archetype_data_tests {
         assert!(!EnemyArchetype::PirateOnShark.body_contact_damage_enabled());
         assert!(!EnemyArchetype::FiniteSandbag.body_contact_damage_enabled());
     }
+
+    /// Regression for the cove bug "an aggressive PirateHeavy never gets
+    /// close enough to land a hit." `attack_range` is the
+    /// stop-and-swing distance read by `evaluate_character_ai_output`;
+    /// her horizontal melee hitbox (`attack_aabb_dir`) only reaches
+    /// `size.x*0.55 + 24 + 34` px from her center. If `attack_range`
+    /// exceeds that far edge she halts out of reach and swings into
+    /// empty air. Pin that `attack_range` stays inside the swing reach
+    /// so the strike can actually overlap a player standing at the
+    /// stop distance.
+    #[test]
+    fn pirate_heavy_stops_within_her_melee_reach() {
+        let mut enemy = EnemyRuntime::new(
+            "pirate_heavy_reach_probe",
+            "Broadside Bess",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(36.0, 55.0)),
+            crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
+            &[],
+        );
+        enemy.facing = 1.0;
+        assert_eq!(enemy.archetype, EnemyArchetype::PirateHeavy);
+        let hitbox = enemy.attack_aabb_dir(ae::Vec2::new(1.0, 0.0));
+        let reach_edge = hitbox.center().x + hitbox.half_size().x - enemy.pos.x;
+        let attack_range = enemy.archetype.attack_range();
+        assert!(
+            attack_range <= reach_edge,
+            "PirateHeavy attack_range {attack_range} must stay within her swing far \
+             edge {reach_edge} so she stops inside her own reach instead of whiffing",
+        );
+    }
 }

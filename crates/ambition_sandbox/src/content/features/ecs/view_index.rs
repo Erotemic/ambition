@@ -227,3 +227,49 @@ pub fn rebuild_feature_view_index(
         );
     }
 }
+
+#[cfg(test)]
+mod view_index_tests {
+    //! The FeatureViewIndex read-model. The load-bearing invariant is
+    //! insert_if_absent's first-wins semantics: it preserves the old
+    //! linear-scan family priority (pickup -> ... -> boss) so an id that
+    //! collides across families renders as the first family, not whichever
+    //! HashMap write happened to land last.
+    use super::*;
+
+    fn view(visible: bool) -> FeatureView {
+        FeatureView {
+            pos: ae::Vec2::ZERO,
+            size: ae::Vec2::new(1.0, 1.0),
+            kind: FeatureVisualKind::Switch,
+            visible,
+            flash: false,
+            switch_on: false,
+            rotation_rad: 0.0,
+        }
+    }
+
+    #[test]
+    fn empty_index_reports_empty_and_none() {
+        let idx = FeatureViewIndex::default();
+        assert!(idx.is_empty());
+        assert_eq!(idx.len(), 0);
+        assert!(idx.get("anything").is_none());
+    }
+
+    #[test]
+    fn insert_if_absent_keeps_the_first_write_for_a_colliding_id() {
+        let mut idx = FeatureViewIndex::default();
+        idx.insert_if_absent("dup", view(true)); // first family wins
+        idx.insert_if_absent("dup", view(false)); // later family dropped
+        idx.insert_if_absent("other", view(false));
+        assert_eq!(idx.len(), 2);
+        assert!(!idx.is_empty());
+        assert!(
+            idx.get("dup").unwrap().visible,
+            "first write for an id wins on cross-family collision"
+        );
+        assert!(!idx.get("other").unwrap().visible);
+        assert!(idx.get("missing").is_none());
+    }
+}

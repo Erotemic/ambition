@@ -109,6 +109,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     crate::portal::sync_portal_visuals.after(actors::sync_visuals),
                     crate::portal::portal_dev_toggle_system,
                     crate::item_pickup::sync_ground_item_visuals.after(actors::sync_visuals),
+                    crate::item_pickup::sync_held_item_visual.after(actors::sync_visuals),
                 ),
             );
     }

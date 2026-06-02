@@ -250,6 +250,40 @@ pub fn sync_ground_item_visuals(
     }
 }
 
+/// Marks the sprite shown in the player's hand for the currently held item.
+#[derive(Component)]
+pub struct HeldItemVisual;
+
+/// Draw a small quad in the player's hand for whatever they're holding, tinted
+/// per item (axe / javelin). Clear-and-rebuild each frame.
+pub fn sync_held_item_visual(
+    mut commands: Commands,
+    world: Res<crate::GameWorld>,
+    visuals: Query<Entity, With<HeldItemVisual>>,
+    players: Query<(&PlayerKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    for entity in &visuals {
+        commands.entity(entity).despawn();
+    }
+    let Ok((kin, held)) = players.single() else {
+        return;
+    };
+    let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
+    let hand = kin.pos + Vec2::new(facing * kin.size.x * 0.6, -2.0);
+    let translation = crate::config::world_to_bevy(&world.0, hand, 10.0);
+    let color = match held.spec.id.as_str() {
+        "axe" => Color::srgb(0.72, 0.52, 0.30),
+        "javelin" => Color::srgb(0.86, 0.84, 0.62),
+        _ => Color::srgb(0.82, 0.82, 0.82),
+    };
+    commands.spawn((
+        HeldItemVisual,
+        Sprite::from_color(color, Vec2::new(14.0, 28.0)),
+        Transform::from_translation(translation),
+        Name::new("Held item visual"),
+    ));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

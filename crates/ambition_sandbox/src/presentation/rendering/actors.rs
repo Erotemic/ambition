@@ -17,8 +17,8 @@ use crate::assets::game_assets::{self, EntitySprite, GameAssets};
 use crate::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
-    ActorRuntime, BossFeature, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
-    FeatureVisualKind, Opened,
+    BossFeature, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
+    Opened,
 };
 use crate::presentation::character_sprites::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,

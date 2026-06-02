@@ -87,24 +87,10 @@ pub fn reset_ecs_room_features(
     ) in &mut actors
     {
         match &mut *actor {
-            ActorRuntime::Npc(npc) => {
-                npc.pos = npc.spawn;
-                aabb.center = npc.spawn;
-                npc.vel = ae::Vec2::ZERO;
-                npc.on_ground = false;
-                npc.hostile = false;
-                npc.strikes = 0;
-                npc.hit_flash = 0.0;
-                sync_actor_components_from_runtime(
-                    &actor,
-                    &mut identity,
-                    &mut disposition,
-                    &mut health,
-                    &mut combat,
-                    &mut intent,
-                    &mut cooldowns,
-                );
-            }
+            // NPCs reset in the sibling `reset_ecs_npc_actors` system —
+            // their cluster query borrows the shared kinematics/surface
+            // components the enemy query here also holds mutably.
+            ActorRuntime::Npc => {}
             ActorRuntime::Enemy => {
                 // Restore authored spawn state so morphed actors
                 // (PirateOnShark → PirateRaider / BurningFlyingShark)
@@ -112,7 +98,7 @@ pub fn reset_ecs_room_features(
                 // matching size, gravity, mount/rider links, and
                 // rider health. Non-morphing enemies are reset to a clean
                 // baseline by the same call.
-                let mut cq = clusters
+                let cq = clusters
                     .as_mut()
                     .expect("enemy entity carries cluster components");
                 let mut em = cq.as_enemy_mut();
@@ -168,5 +154,55 @@ pub fn reset_ecs_room_features(
     }
     for mut switch_on in &mut switches {
         switch_on.0 = false;
+    }
+}
+
+/// Reset peaceful NPC actors to their authored spawn on a same-room
+/// reset. Split from [`reset_ecs_room_features`] because the NPC cluster
+/// query borrows the shared kinematics/surface components the enemy
+/// reset query also holds mutably.
+pub fn reset_ecs_npc_actors(
+    mut reset_requests: MessageReader<ResetRoomFeaturesEvent>,
+    mut npcs: Query<
+        (
+            &mut FeatureAabb,
+            super::npc_clusters::NpcClusterQueryData,
+            &mut ActorIdentity,
+            &mut ActorDisposition,
+            &mut ActorHealth,
+            &mut ActorCombatState,
+            &mut ActorIntent,
+            &mut ActorCooldowns,
+        ),
+        With<FeatureSimEntity>,
+    >,
+) {
+    if reset_requests.read().next().is_none() {
+        return;
+    }
+    for (
+        mut aabb,
+        mut clusters,
+        mut identity,
+        mut disposition,
+        mut health,
+        mut combat,
+        mut intent,
+        mut cooldowns,
+    ) in &mut npcs
+    {
+        let mut npc = clusters.as_npc_mut();
+        npc.reset_to_spawn();
+        aabb.center = npc.kin.pos;
+        aabb.half_size = npc.kin.size * 0.5;
+        super::actors::sync_actor_components_from_npc(
+            &npc,
+            &mut identity,
+            &mut disposition,
+            &mut health,
+            &mut combat,
+            &mut intent,
+            &mut cooldowns,
+        );
     }
 }

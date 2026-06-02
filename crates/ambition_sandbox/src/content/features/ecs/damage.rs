@@ -21,7 +21,7 @@ use super::super::{
     NPC_HOSTILE_STRIKE_THRESHOLD,
 };
 use super::{
-    ae, sync_actor_components_from_enemy, sync_actor_components_from_runtime, ActorCombatState,
+    ae, sync_actor_components_from_enemy, ActorCombatState,
     ActorCooldowns, ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime,
     BossFeature, BreakableFeature, EnemyArchetype, FeatureAabb, FeatureId, FeatureName,
     FeatureSimEntity, GameplayBanner, GameplayEffect, HitEvent, HitSource, RespawnTimer,
@@ -72,6 +72,11 @@ pub fn apply_feature_hit_events(
             &mut ActorIntent,
             &mut ActorCooldowns,
             Option<super::enemy_clusters::EnemyClusterQueryData>,
+            // NPC status/config read & mutated directly; position comes
+            // from `FeatureAabb` above so we never borrow the shared
+            // kinematics the enemy cluster query already holds mutably.
+            Option<&mut super::npc_clusters::NpcStatus>,
+            Option<&super::npc_clusters::NpcConfig>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -173,6 +178,8 @@ pub fn apply_feature_hit_events(
             mut intent,
             mut cooldowns,
             mut clusters,
+            mut npc_status,
+            npc_config,
         ) in &mut actors
         {
             let key = match *disposition {
@@ -186,11 +193,20 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             let mut em_opt = clusters.as_mut().map(|cq| cq.as_enemy_mut());
+            let npc_target = match (npc_status.as_deref_mut(), npc_config) {
+                (Some(status), Some(config)) => Some(NpcHitTarget {
+                    status,
+                    config,
+                    aabb: aabb.aabb(),
+                }),
+                _ => None,
+            };
             if apply_actor_hit(
                 &event,
                 actor_entity,
                 &mut actor,
                 em_opt.as_mut(),
+                npc_target,
                 &mut banner,
                 combat_banter.as_deref(),
                 &mut writers,
@@ -210,16 +226,19 @@ pub fn apply_feature_hit_events(
                             );
                         }
                     }
-                    ActorRuntime::Npc(_) => {
-                        sync_actor_components_from_runtime(
-                            &actor,
-                            &mut identity,
-                            &mut disposition,
-                            &mut health,
-                            &mut combat,
-                            &mut intent,
-                            &mut cooldowns,
-                        );
+                    ActorRuntime::Npc => {
+                        if let (Some(status), Some(config)) =
+                            (npc_status.as_deref(), npc_config)
+                        {
+                            let (i, d, h, c, it, cd) =
+                                super::actors::npc_component_snapshot(config, status);
+                            *identity = i;
+                            *disposition = d;
+                            *health = h;
+                            *combat = c;
+                            *intent = it;
+                            *cooldowns = cd;
+                        }
                     }
                 }
             }
@@ -308,20 +327,36 @@ pub fn apply_feature_hit_events(
 /// Extracted from `apply_feature_hit_events` per ecs-cleanup-plan.md #4
 /// so the per-target families are testable helpers instead of one god
 /// loop body; the scheduled system is unchanged.
+/// NPC-side hit target: the mutated status, read-only config, and the
+/// actor AABB (position source — the shared kinematics is borrowed
+/// mutably by the enemy cluster query, so NPC positions come from
+/// `FeatureAabb` instead).
+struct NpcHitTarget<'a> {
+    status: &'a mut super::npc_clusters::NpcStatus,
+    config: &'a super::npc_clusters::NpcConfig,
+    aabb: ae::Aabb,
+}
+
 fn apply_actor_hit(
     event: &HitEvent,
     actor_entity: Entity,
     actor: &mut ActorRuntime,
     enemy: Option<&mut super::enemy_clusters::EnemyMut<'_>>,
+    npc: Option<NpcHitTarget<'_>>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters,
 ) -> bool {
     match actor {
-        ActorRuntime::Npc(npc) => {
-            npc.hit_flash = 0.18;
-            npc.strikes = npc.strikes.saturating_add(1);
-            let impact = midpoint(event.volume.center(), npc.pos);
+        ActorRuntime::Npc => {
+            let Some(npc) = npc else {
+                return false;
+            };
+            let pos = npc.aabb.center();
+            let bark_anchor = super::super::npcs::npc_bark_anchor_from_aabb(npc.aabb);
+            npc.status.hit_flash = 0.18;
+            npc.status.strikes = npc.status.strikes.saturating_add(1);
+            let impact = midpoint(event.volume.center(), pos);
             writers.vfx.write(VfxMessage::Impact { pos: impact });
             // Retaliation/hostility is driven by ActorStimulus
             // below; the old GameplayEffect::StrikeNpc trace
@@ -331,27 +366,27 @@ fn apply_actor_hit(
                 source: event.attacker,
                 damage: event.damage,
             });
-            if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
+            if npc.status.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
                 writers.gameplay_effects.write(GameplayEffect::SetFlag {
-                    id: npc.flag_id(),
+                    id: super::super::npcs::npc_flag_id(npc.config),
                     on: true,
                 });
                 writers.vfx.write(VfxMessage::SpeechBubble {
-                    pos: npc.bark_anchor(),
-                    text: npc.hostile_bark().to_string(),
+                    pos: bark_anchor,
+                    text: super::super::npcs::npc_hostile_bark_line(npc.config).to_string(),
                 });
                 writers.vfx.write(VfxMessage::Burst {
-                    pos: npc.pos,
+                    pos,
                     count: 16,
                     speed: 230.0,
                     color: [0.84, 0.95, 1.0, 0.82],
                     kind: ParticleKind::Spark,
                 });
-                banner.show(format!("{} turns hostile", npc.name), 2.6);
+                banner.show(format!("{} turns hostile", npc.config.name), 2.6);
             } else {
                 writers.vfx.write(VfxMessage::SpeechBubble {
-                    pos: npc.bark_anchor(),
-                    text: npc.hit_bark().to_string(),
+                    pos: bark_anchor,
+                    text: super::super::npcs::npc_hit_bark_line(npc.config, npc.status).to_string(),
                 });
             }
             true

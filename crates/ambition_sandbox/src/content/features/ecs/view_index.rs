@@ -75,6 +75,7 @@ pub fn rebuild_feature_view_index(
         Option<&ActorAttackState>,
         Option<&super::enemy_clusters::EnemyConfig>,
         Option<&ActorSurfaceState>,
+        Option<&super::npc_clusters::NpcStatus>,
     )>,
     hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
     bosses: Query<(
@@ -142,14 +143,14 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, aabb, actor, status, attack, config, surface) in &actors {
+    for (id, aabb, actor, status, attack, config, surface, npc_status) in &actors {
         let view = match actor {
-            ActorRuntime::Npc(npc) => FeatureView {
+            ActorRuntime::Npc => FeatureView {
                 pos: aabb.center,
                 size: aabb.size(),
                 kind: FeatureVisualKind::Npc,
                 visible: true,
-                flash: npc.hit_flash > 0.0,
+                flash: npc_status.is_some_and(|s| s.hit_flash > 0.0),
                 switch_on: false,
                 rotation_rad: 0.0,
             },

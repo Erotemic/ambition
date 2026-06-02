@@ -151,7 +151,7 @@ pub fn sync_riders_to_mounts(
         let Some(mut rider_cq) = rider_clusters else {
             continue;
         };
-        let mut rider = rider_cq.as_enemy_mut();
+        let rider = rider_cq.as_enemy_mut();
         if !rider.status.alive {
             continue;
         }
@@ -256,7 +256,7 @@ pub fn enforce_mount_rider_link(
         let Some(mut rider_cq) = rider_clusters else {
             continue;
         };
-        let mut rider = rider_cq.as_enemy_mut();
+        let rider = rider_cq.as_enemy_mut();
         if !rider.status.alive {
             continue;
         }

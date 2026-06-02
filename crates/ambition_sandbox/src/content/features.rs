@@ -80,7 +80,7 @@ pub use bus::{
     GameplayEffectsSchedulePlugin,
 };
 pub use chests::ChestRuntime;
-pub(crate) use ecs::actor_component_snapshot;
+pub(crate) use ecs::npc_component_snapshot;
 
 pub use components::{
     ActorAggression, ActorAttackState, ActorCombatState, ActorCooldowns, ActorDisposition,
@@ -95,6 +95,7 @@ pub use components::{
 pub use ecs::enemy_clusters::{
     ActorKinematics, ActorMotionPath, EnemyConfig, EnemyMut, EnemyStatus,
 };
+pub use ecs::npc_clusters::{npc_cluster_bundle, NpcConfig, NpcMut, NpcStatus};
 pub use ecs::ActorSpriteData;
 pub use ecs::{
     apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
@@ -107,7 +108,8 @@ pub use ecs::{
     interact_ecs_actors_and_switches, is_composite_spawn, open_ecs_chests,
     pirate_on_shark_rider_offset, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
     refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
-    refresh_breakable_damageable_volumes, reset_ecs_room_features, select_actor_targets,
+    refresh_breakable_damageable_volumes, reset_ecs_npc_actors, reset_ecs_room_features,
+    select_actor_targets,
     spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
     spawn_eye_beam_from_special_messages, spawn_gnu_apple_rain_from_special_messages,
     spawn_gradient_cascade_minions_from_special_messages, spawn_melee_hitbox,
@@ -115,10 +117,12 @@ pub use ecs::{
     spawn_room_feature_entities, spawn_saddle_point_from_special_messages,
     start_enemy_melee_from_brain_actions, sync_actor_poses_from_feature_aabbs,
     sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
-    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
+    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_npc_actors_with_save,
+    sync_ecs_switches_from_save,
     sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_and_despawn_hitboxes,
     tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
-    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorRuntime,
+    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, update_ecs_npcs,
+    ActorRuntime,
     AppleRainSpawnState, BossFeature, EyeBeamState, FeatureEcsWorldOverlay, FeatureSimEntity,
     FeatureViewIndex, GradientCascadeState, HazardFeature, HeldItem, Hitbox, HitboxAnchor,
     HitboxHits, HitboxLifetime, MinimaTrapState, MountSlot, Mountable, Mounted, MountedBrainCache,
@@ -177,6 +181,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // consult `ActorTarget` (OVERNIGHT-TODO #17.8).
                 select_actor_targets,
                 update_ecs_actors,
+                // NPCs tick in their own system (shared cluster
+                // components prevent a unified actor query — see
+                // `update_ecs_npcs`). Ordering relative to
+                // `update_ecs_actors` is irrelevant: NPCs and enemies
+                // touch disjoint entities.
+                update_ecs_npcs,
                 // Rider/mount pose sync. Runs immediately after the
                 // per-actor brain tick so the rider's brain has had
                 // a chance to emit fire intent for the target from

@@ -43,6 +43,7 @@ pub fn spawn_dynamic_feature_visuals(
             &FeatureAabb,
             &ActorRuntime,
             Option<&crate::features::EnemyConfig>,
+            Option<&crate::features::NpcConfig>,
         ),
         With<crate::boss_encounter::SmirkingBehemothVictoryNpc>,
     >,
@@ -81,16 +82,17 @@ pub fn spawn_dynamic_feature_visuals(
             RoomVisual,
         ));
     }
-    for (id, name, aabb, actor, config) in &post_boss_npcs {
+    for (id, name, aabb, actor, config, npc_config) in &post_boss_npcs {
         if known.contains(id.as_str()) {
             continue;
         }
         let kind = FeatureVisualKind::Npc;
         let render = BVec2::new(aabb.size().x, aabb.size().y);
         let entity_key = match actor {
-            ActorRuntime::Npc(npc) => {
-                game_assets::entity_sprite_for_interactable(&npc.interactable)
-            }
+            ActorRuntime::Npc => match npc_config {
+                Some(c) => game_assets::entity_sprite_for_interactable(&c.interactable),
+                None => continue,
+            },
             ActorRuntime::Enemy => match config {
                 Some(c) => game_assets::entity_sprite_for_enemy(&c.brain),
                 None => continue,

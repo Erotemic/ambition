@@ -16,17 +16,19 @@ pub type ActorSpriteData = (
     Option<&'static super::enemy_clusters::EnemyStatus>,
     Option<&'static ActorAttackState>,
     Option<&'static super::enemy_clusters::EnemyConfig>,
+    Option<&'static super::npc_clusters::NpcConfig>,
+    Option<&'static super::npc_clusters::NpcStatus>,
 );
 
 pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, _, _, _, config)| {
+        .find_map(|(feature_id, actor, _, _, _, config, npc_config, _)| {
             if feature_id.as_str() != id {
                 return None;
             }
             match actor {
-                ActorRuntime::Npc(npc) => Some(npc.name.clone()),
+                ActorRuntime::Npc => npc_config.map(|c| c.name.clone()),
                 ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
             }
         })
@@ -35,7 +37,7 @@ pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String>
 pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, _, _, _, config)| {
+        .find_map(|(feature_id, actor, _, _, _, config, _, _)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -56,7 +58,7 @@ pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> O
 pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, _, _, _, config)| {
+        .find_map(|(feature_id, actor, _, _, _, config, _, _)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -73,7 +75,7 @@ pub fn ecs_enemy_anim_state(
 ) -> Option<crate::presentation::character_sprites::EnemyAnimState> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, kin, status, attack, _)| {
+        .find_map(|(feature_id, actor, kin, status, attack, _, _, _)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -100,19 +102,25 @@ pub fn ecs_npc_anim_state(
     id: &str,
     actors: &Query<ActorSpriteData>,
 ) -> Option<crate::presentation::character_sprites::NpcAnimState> {
-    actors.iter().find_map(|(feature_id, actor, _, _, _, _)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        match actor {
-            ActorRuntime::Npc(npc) => Some(crate::presentation::character_sprites::NpcAnimState {
-                vel: npc.vel,
-                facing: npc.facing,
-                hit_flash: npc.hit_flash > 0.0,
-            }),
-            _ => None,
-        }
-    })
+    actors
+        .iter()
+        .find_map(|(feature_id, actor, kin, _, _, _, _, npc_status)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            match actor {
+                ActorRuntime::Npc => {
+                    let kin = kin?;
+                    let status = npc_status?;
+                    Some(crate::presentation::character_sprites::NpcAnimState {
+                        vel: kin.vel,
+                        facing: kin.facing,
+                        hit_flash: status.hit_flash > 0.0,
+                    })
+                }
+                _ => None,
+            }
+        })
 }
 
 /// ECS chest-opened lookup for sprite swapping.

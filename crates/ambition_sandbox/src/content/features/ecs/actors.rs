@@ -22,38 +22,25 @@ fn shark_charge_crashed(
         && em.status.alive
 }
 
-/// Unified ECS runtime body for authored NPCs and enemy-shaped actors.
-///
-/// The variants describe which legacy runtime body still owns the low-level
-/// movement/combat fields, not who the actor is willing to fight. Current
-/// willingness to fight lives in [`ActorAggression`] and mirrored
-/// [`ActorDisposition`]. This keeps the old NPC/enemy storage usable while
-/// moving gameplay policy out into ECS components.
-/// Authored NPC body, or a marker that the entity is an enemy actor
-/// whose state lives entirely in ECS cluster components
-/// ([`ActorKinematics`]/[`EnemyStatus`]/[`EnemyConfig`]/etc.). The
-/// `Enemy` variant carries no data — the legacy `EnemyRuntime` blob was
-/// dissolved into the clusters.
-#[derive(Component, Clone, Debug)]
+/// Marker for an actor entity. Both variants are payload-free — NPC and
+/// enemy state live entirely in ECS cluster components (`NpcConfig`/
+/// `NpcStatus` or `EnemyConfig`/`EnemyStatus` + the shared
+/// `ActorKinematics`/`ActorSurfaceState`/`ActorMotionPath`). The variant
+/// is just the disposition tag (peaceful vs hostile); the legacy
+/// `NpcRuntime`/`EnemyRuntime` blobs were dissolved into the clusters.
+/// A peaceful NPC flips to `Enemy` in place (`make_entity_enemy`) when
+/// its aggression policy provokes it.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ActorRuntime {
-    Npc(NpcRuntime),
+    Npc,
     Enemy,
 }
 
 impl ActorRuntime {
     pub fn disposition(&self) -> ActorDisposition {
         match self {
-            Self::Npc(_) => ActorDisposition::Peaceful,
+            Self::Npc => ActorDisposition::Peaceful,
             Self::Enemy => ActorDisposition::Hostile,
-        }
-    }
-
-    /// NPC facing. Enemy facing lives in `ActorKinematics`; this returns
-    /// 0.0 for the `Enemy` marker (enemy callers read the cluster).
-    pub fn facing(&self) -> f32 {
-        match self {
-            Self::Npc(npc) => npc.facing,
-            Self::Enemy => 0.0,
         }
     }
 }
@@ -61,37 +48,41 @@ impl ActorRuntime {
 /// Build the `EnemyRuntime` an NPC migrates into when its aggression
 /// policy flips it hostile. The conversion still produces an
 /// `EnemyRuntime` and then projects it onto the entity's enemy clusters
-/// (see `apply_actor_stimuli`); the NPC's identity / ECS components stay
-/// on the same entity.
-pub(crate) fn enemy_runtime_for_npc_combat(npc: &NpcRuntime) -> EnemyRuntime {
-    let brain_id = hostile_enemy_brain_for_npc(npc);
+/// (see `apply_actor_stimuli`); the NPC's other components stay on the
+/// same entity.
+pub(crate) fn enemy_runtime_for_npc_combat(
+    config: &super::npc_clusters::NpcConfig,
+    kin: &super::enemy_clusters::ActorKinematics,
+    surface: &ActorSurfaceState,
+) -> EnemyRuntime {
+    let brain_id = hostile_enemy_brain_for_npc(config);
     let mut enemy = EnemyRuntime::new(
-        npc.id.clone(),
-        npc.name.clone(),
-        npc.aabb(),
+        config.id.clone(),
+        config.name.clone(),
+        ae::Aabb::new(kin.pos, kin.size * 0.5),
         crate::actor::EnemyBrain::Custom(brain_id.into()),
         &[],
     );
-    enemy.pos = npc.pos;
-    enemy.spawn.pos = npc.spawn;
-    enemy.size = ae::Vec2::new(npc.size.x.max(22.0), npc.size.y.max(38.0));
+    enemy.pos = kin.pos;
+    enemy.spawn.pos = config.spawn;
+    enemy.size = ae::Vec2::new(kin.size.x.max(22.0), kin.size.y.max(38.0));
     enemy.spawn.size = enemy.size;
-    enemy.vel = npc.vel;
-    enemy.facing = npc.facing;
-    enemy.surface.on_ground = npc.on_ground;
-    if npc.name != "Kernel Guide NPC" {
-        enemy.sprite_override_npc_name = Some(npc.name.clone());
+    enemy.vel = kin.vel;
+    enemy.facing = kin.facing;
+    enemy.surface.on_ground = surface.on_ground;
+    if config.name != "Kernel Guide NPC" {
+        enemy.sprite_override_npc_name = Some(config.name.clone());
     }
     enemy
 }
 
-fn hostile_enemy_brain_for_npc(npc: &NpcRuntime) -> &'static str {
-    let dialogue_id = match &npc.interactable.kind {
+fn hostile_enemy_brain_for_npc(config: &super::npc_clusters::NpcConfig) -> &'static str {
+    let dialogue_id = match &config.interactable.kind {
         crate::interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
         _ => None,
     };
-    let id = npc.id.to_ascii_lowercase();
-    let name = npc.name.to_ascii_lowercase();
+    let id = config.id.to_ascii_lowercase();
+    let name = config.name.to_ascii_lowercase();
     let dialogue = dialogue_id.unwrap_or("").to_ascii_lowercase();
     let looks_like_pirate_heavy = id.contains("pirate_heavy")
         || name.contains("broadside bess")
@@ -111,29 +102,6 @@ fn hostile_enemy_brain_for_npc(npc: &NpcRuntime) -> &'static str {
         return "pirate_raider";
     }
     "medium_striker"
-}
-
-pub(crate) fn actor_component_snapshot(
-    actor: &ActorRuntime,
-) -> (
-    ActorIdentity,
-    ActorDisposition,
-    ActorHealth,
-    ActorCombatState,
-    ActorIntent,
-    ActorCooldowns,
-) {
-    match actor {
-        ActorRuntime::Npc(npc) => (
-            ActorIdentity::new(npc.id.clone(), npc.name.clone()),
-            ActorDisposition::Peaceful,
-            ActorHealth::new(crate::actor::Health::new(1)),
-            ActorCombatState::peaceful(npc.strikes, npc.hit_flash),
-            ActorIntent::new(crate::character_ai::CharacterAiMode::Idle),
-            ActorCooldowns::default(),
-        ),
-        ActorRuntime::Enemy => enemy_component_snapshot_default(),
-    }
 }
 
 /// Build the read-model mirror components for an enemy spawned from a
@@ -189,6 +157,11 @@ pub(crate) fn make_entity_enemy(
     *actor = ActorRuntime::Enemy;
     commands
         .entity(entity)
+        // Drop the NPC-only cluster components so the entity stops
+        // matching `NpcClusterQueryData` (and thus `update_ecs_npcs`);
+        // the shared kin/surface/motion components are overwritten by
+        // the enemy bundle below.
+        .remove::<(super::npc_clusters::NpcConfig, super::npc_clusters::NpcStatus)>()
         .insert(super::enemy_clusters::enemy_cluster_bundle(hostile));
     let (next_id, next_disp, next_health, next_combat, next_intent, next_cd) =
         enemy_component_snapshot(hostile);
@@ -200,26 +173,33 @@ pub(crate) fn make_entity_enemy(
     *cooldowns = next_cd;
 }
 
-fn enemy_component_snapshot_default() -> (
+type ActorSnapshot = (
     ActorIdentity,
     ActorDisposition,
     ActorHealth,
     ActorCombatState,
     ActorIntent,
     ActorCooldowns,
-) {
+);
+
+/// Build the read-model mirror components for an NPC from its clusters.
+pub(crate) fn npc_component_snapshot(
+    config: &super::npc_clusters::NpcConfig,
+    status: &super::npc_clusters::NpcStatus,
+) -> ActorSnapshot {
     (
-        ActorIdentity::new(String::new(), String::new()),
-        ActorDisposition::Hostile,
+        ActorIdentity::new(config.id.clone(), config.name.clone()),
+        ActorDisposition::Peaceful,
         ActorHealth::new(crate::actor::Health::new(1)),
-        ActorCombatState::hostile(true, 0.0, 0.0, 0.0, false),
+        ActorCombatState::peaceful(status.strikes, status.hit_flash),
         ActorIntent::new(crate::character_ai::CharacterAiMode::Idle),
         ActorCooldowns::default(),
     )
 }
 
-pub(crate) fn sync_actor_components_from_runtime(
-    actor: &ActorRuntime,
+/// Mirror an NPC's clusters onto the read-model components.
+pub(crate) fn sync_actor_components_from_npc(
+    npc: &super::npc_clusters::NpcMut<'_>,
     identity: &mut ActorIdentity,
     disposition: &mut ActorDisposition,
     health: &mut ActorHealth,
@@ -227,14 +207,13 @@ pub(crate) fn sync_actor_components_from_runtime(
     intent: &mut ActorIntent,
     cooldowns: &mut ActorCooldowns,
 ) {
-    let (next_identity, next_disposition, next_health, next_combat, next_intent, next_cooldowns) =
-        actor_component_snapshot(actor);
-    *identity = next_identity;
-    *disposition = next_disposition;
-    *health = next_health;
-    *combat = next_combat;
-    *intent = next_intent;
-    *cooldowns = next_cooldowns;
+    let (i, d, h, c, it, cd) = npc_component_snapshot(npc.config, npc.status);
+    *identity = i;
+    *disposition = d;
+    *health = h;
+    *combat = c;
+    *intent = it;
+    *cooldowns = cd;
 }
 
 /// Keep actor-like gameplay poses in sync with the authoritative [`FeatureAabb`].
@@ -259,8 +238,11 @@ pub fn sync_actor_poses_from_feature_aabbs(
         // Facing source: enemy clusters (ActorKinematics), NPC runtime,
         // or boss runtime; default to the current pose facing.
         let facing = match actor {
-            Some(ActorRuntime::Npc(npc)) => npc.facing,
-            Some(ActorRuntime::Enemy) => kin.map(|k| k.facing).unwrap_or(pose.facing),
+            // NPCs and enemies both carry the shared `ActorKinematics`
+            // component, so facing reads from `kin` for either marker.
+            Some(ActorRuntime::Npc) | Some(ActorRuntime::Enemy) => {
+                kin.map(|k| k.facing).unwrap_or(pose.facing)
+            }
             None => boss
                 .map(|feature| feature.boss.facing)
                 .unwrap_or(pose.facing),
@@ -506,13 +488,6 @@ pub fn update_ecs_actors(
     // back to the slot's holding-ring position when this actor didn't
     // win a slot so it still has a sensible steering target.
     let combat_tuning = feel_tuning.feature_combat_tuning();
-    // Brain templates with persistent timers (Wanderer's chatter
-    // window, Skirmisher's fire cooldown) need an absolute clock.
-    // No actor uses those today through this system — NPCs run
-    // Patrol / StandStill which don't read sim_time — so 0.0 is
-    // safe. The seam will accept a real clock when the first
-    // Wanderer-driven actor migrates (puppy slug, daytime).
-    let sim_time = 0.0;
     for (
         actor_entity,
         mut aabb,
@@ -538,31 +513,15 @@ pub fn update_ecs_actors(
         // production game.
         let target_pos = target.pos;
         match &mut *actor {
-            ActorRuntime::Npc(npc) => {
-                let frame = if let Some(brain) = brain.as_deref_mut() {
-                    npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt)
-                } else {
-                    // Brainless peaceful actor — should not happen
-                    // post-Chunk 3 (spawn attaches a brain), but
-                    // fall back to building one inline so the tick
-                    // is never skipped if components drift.
-                    let mut fallback = npc.build_brain();
-                    npc.tick_via_brain(&mut fallback, &feature_world, target_pos, sim_time, dt)
-                };
-                // Land the brain's frame in ActorControl so
-                // `emit_brain_action_messages` and downstream
-                // EFFECTS consumers see it.
-                if let Some(control) = control.as_deref_mut() {
-                    control.0 = frame;
-                }
-                aabb.center = npc.pos;
-                aabb.half_size = npc.size * 0.5;
-            }
+            // NPCs are ticked by the dedicated `update_ecs_npcs`
+            // system — they don't participate in the enemy slot board
+            // / crowding / body-contact passes, so they skip this loop.
+            ActorRuntime::Npc => continue,
             ActorRuntime::Enemy => {
                 // Enemy state is authoritative in the cluster
                 // components; borrow them as an EnemyMut view for the
                 // whole branch.
-                let mut cq = clusters
+                let cq = clusters
                     .as_mut()
                     .expect("enemy entity carries cluster components");
                 let mut em = cq.as_enemy_mut();
@@ -758,19 +717,87 @@ pub fn update_ecs_actors(
                 }
             }
         }
-        // NPCs mirror from their runtime; enemies already mirrored from
-        // their clusters inside the branch above.
-        if matches!(&*actor, ActorRuntime::Npc(_)) {
-            sync_actor_components_from_runtime(
-                &actor,
-                &mut identity,
-                &mut disposition,
-                &mut health,
-                &mut combat,
-                &mut intent,
-                &mut cooldowns,
-            );
+        // Enemies mirrored from their clusters inside the branch above;
+        // NPCs are handled entirely by `update_ecs_npcs`.
+    }
+}
+
+/// Tick peaceful/hostile NPC actors. Split out from
+/// [`update_ecs_actors`] because NPCs carry the actor-generic
+/// [`ActorKinematics`] / [`ActorSurfaceState`] / [`ActorMotionPath`]
+/// components that the enemy cluster query *also* borrows mutably — a
+/// single query containing both `Option<EnemyClusterQueryData>` and
+/// `Option<NpcClusterQueryData>` would panic on conflicting access to
+/// those shared components. NPCs also skip the enemy-only slot board,
+/// crowding, and body-contact machinery, so a dedicated system is both
+/// necessary and simpler.
+pub fn update_ecs_npcs(
+    world_time: Res<WorldTime>,
+    world: Res<crate::GameWorld>,
+    platform_set: Res<crate::MovingPlatformSet>,
+    overlay: Res<FeatureEcsWorldOverlay>,
+    mut npcs: Query<
+        (
+            &mut FeatureAabb,
+            super::npc_clusters::NpcClusterQueryData,
+            &super::super::components::ActorTarget,
+            Option<&mut crate::brain::Brain>,
+            Option<&mut crate::brain::ActorControl>,
+            &mut ActorIdentity,
+            &mut ActorDisposition,
+            &mut ActorHealth,
+            &mut ActorCombatState,
+            &mut ActorIntent,
+            &mut ActorCooldowns,
+        ),
+        With<FeatureSimEntity>,
+    >,
+) {
+    let dt = world_time.sim_dt();
+    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    // NPC brains run Patrol / StandStill, which don't read the absolute
+    // sim clock; 0.0 is safe (mirrors `update_ecs_actors`).
+    let sim_time = 0.0;
+    for (
+        mut aabb,
+        mut clusters,
+        target,
+        mut brain,
+        mut control,
+        mut identity,
+        mut disposition,
+        mut health,
+        mut combat,
+        mut intent,
+        mut cooldowns,
+    ) in &mut npcs
+    {
+        let target_pos = target.pos;
+        let mut npc = clusters.as_npc_mut();
+        let frame = if let Some(brain) = brain.as_deref_mut() {
+            npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt)
+        } else {
+            // Brainless peaceful actor — should not happen post-Chunk 3
+            // (spawn attaches a brain), but build one inline so the tick
+            // is never skipped if components drift.
+            let mut fallback = npc.build_brain();
+            npc.tick_via_brain(&mut fallback, &feature_world, target_pos, sim_time, dt)
+        };
+        if let Some(control) = control.as_deref_mut() {
+            control.0 = frame;
         }
+        aabb.center = npc.kin.pos;
+        aabb.half_size = npc.kin.size * 0.5;
+        // Mirror the NPC clusters onto the read-model components.
+        sync_actor_components_from_npc(
+            &npc,
+            &mut identity,
+            &mut disposition,
+            &mut health,
+            &mut combat,
+            &mut intent,
+            &mut cooldowns,
+        );
     }
 }
 

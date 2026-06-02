@@ -86,6 +86,7 @@ impl Plugin for GameplayEffectsSchedulePlugin {
                 apply_flag_effects,
                 apply_quest_effects,
                 apply_switch_effects,
+                super::ecs::apply_npc_stimuli,
                 super::ecs::apply_actor_stimuli,
                 apply_gameplay_sfx_effects,
             )

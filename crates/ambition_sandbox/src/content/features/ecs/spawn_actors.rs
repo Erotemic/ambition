@@ -341,16 +341,18 @@ pub(super) fn spawn_interactable(
             interactable.clone(),
             paths,
         );
-        // Build the brain from the authored NPC fields before
-        // wrapping into the ActorRuntime variant. Patrol-radius > 0
-        // or an authored motion path → Patrol brain; otherwise
-        // StandStill. ActionSet stays peaceful by default.
+        // Build the brain from the authored NPC fields, then project the
+        // runtime onto its ECS cluster components. Patrol-radius > 0 or
+        // an authored motion path → Patrol brain; otherwise StandStill.
+        // ActionSet stays peaceful by default.
         let brain = npc.build_brain();
-        let combat_projection = enemy_runtime_for_npc_combat(&npc);
+        let cluster_bundle = super::npc_clusters::npc_cluster_bundle(&npc);
+        let facing = cluster_bundle.0.facing;
+        let combat_projection =
+            enemy_runtime_for_npc_combat(&cluster_bundle.3, &cluster_bundle.0, &cluster_bundle.1);
         let combat_kit = enemy_default_combat_kit(&combat_projection);
-        let actor = ActorRuntime::Npc(npc);
         let (identity, disposition, health, combat, intent, cooldowns) =
-            actor_component_snapshot(&actor);
+            super::actors::npc_component_snapshot(&cluster_bundle.3, &cluster_bundle.4);
         commands.spawn((
             Name::new(format!("Feature actor npc: {}", authored.name)),
             EnemyActorBundle {
@@ -359,7 +361,7 @@ pub(super) fn spawn_interactable(
                 disposition,
                 faction: super::ActorFaction::Npc,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
+                pose: ActorPose::from_aabb(feature_aabb, facing),
                 combat_kit,
                 aggression: super::ActorAggression::retaliates_when_hit(
                     super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
@@ -372,7 +374,8 @@ pub(super) fn spawn_interactable(
                 pogo_policy: PogoPolicy::FromDamageable,
                 pogo_target_volumes: PogoTargetVolumes::default(),
             },
-            actor,
+            ActorRuntime::Npc,
+            cluster_bundle,
             brain,
             crate::brain::ActionSet::peaceful(),
             crate::brain::ActorControl::default(),

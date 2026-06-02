@@ -21,7 +21,15 @@ pub fn interact_ecs_actors_and_switches(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    actors: Query<(&FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
+    actors: Query<
+        (
+            &FeatureAabb,
+            &ActorRuntime,
+            Option<&super::npc_clusters::NpcConfig>,
+            Option<&super::npc_clusters::NpcStatus>,
+        ),
+        With<FeatureSimEntity>,
+    >,
     mut switches: Query<
         (
             &FeatureId,
@@ -52,8 +60,11 @@ pub fn interact_ecs_actors_and_switches(
         }
         let player_aabb = player_kin.aabb();
         let mut consumed = false;
-        for (aabb, actor) in &actors {
-            let ActorRuntime::Npc(npc) = actor else {
+        for (aabb, actor, npc_config, npc_status) in &actors {
+            if !matches!(actor, ActorRuntime::Npc) {
+                continue;
+            }
+            let (Some(config), Some(status)) = (npc_config, npc_status) else {
                 continue;
             };
             if !aabb.aabb().strict_intersects(player_aabb) {
@@ -61,12 +72,12 @@ pub fn interact_ecs_actors_and_switches(
             }
             interaction.clear();
             anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
-            banner.show(npc.message(), 2.6);
-            let request = npc.dialogue_request();
+            banner.show(super::super::npcs::npc_message(config, status), 2.6);
+            let request = super::super::npcs::npc_dialogue_request(config);
             dialogue.start(&request.dialogue_id, &request.npc_name);
             next_mode.set(crate::GameMode::Dialogue);
             gameplay_effects.write(GameplayEffect::AdvanceQuest(
-                crate::quest::QuestAdvanceEvent::NpcTalked(npc.id.clone()),
+                crate::quest::QuestAdvanceEvent::NpcTalked(config.id.clone()),
             ));
             gameplay_effects.write(GameplayEffect::SetFlag {
                 id: "met_any_hub_npc".into(),
@@ -77,7 +88,7 @@ pub fn interact_ecs_actors_and_switches(
                 on: true,
             });
             vfx.write(VfxMessage::Burst {
-                pos: npc.pos,
+                pos: aabb.center,
                 count: 16,
                 speed: 230.0,
                 color: [0.84, 0.95, 1.0, 0.82],

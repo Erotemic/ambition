@@ -18,7 +18,7 @@ use crate::brain::BossAttackState;
 use crate::config::world_to_bevy;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::{
-    actor_component_snapshot, ActorPose, ActorRuntime, BossFeature, BossRuntime, DamageableVolumes,
+    ActorPose, ActorRuntime, BossFeature, BossRuntime, DamageableVolumes,
     EnemyActorBundle, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity,
     GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, ResetRoomFeaturesEvent,
 };
@@ -267,9 +267,10 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
     };
     let brain = npc.build_brain();
     let combat_kit = crate::features::CombatKit::default();
-    let actor = ActorRuntime::Npc(npc);
+    let cluster_bundle = crate::features::npc_cluster_bundle(&npc);
+    let facing = cluster_bundle.0.facing;
     let (identity, disposition, health, combat, intent, cooldowns) =
-        actor_component_snapshot(&actor);
+        crate::features::npc_component_snapshot(&cluster_bundle.3, &cluster_bundle.4);
     commands
         .spawn((
             Name::new("Post-boss NPC: Smirking Behemoth victory"),
@@ -284,7 +285,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 disposition,
                 faction: crate::features::ActorFaction::Npc,
                 target: crate::features::ActorTarget::default(),
-                pose: ActorPose::from_aabb(FeatureAabb::from_aabb(aabb), actor.facing()),
+                pose: ActorPose::from_aabb(FeatureAabb::from_aabb(aabb), facing),
                 combat_kit,
                 aggression: crate::features::ActorAggression::passive(),
                 health,
@@ -295,7 +296,8 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 pogo_policy: PogoPolicy::FromDamageable,
                 pogo_target_volumes: PogoTargetVolumes::default(),
             },
-            actor,
+            ActorRuntime::Npc,
+            cluster_bundle,
             brain,
             crate::brain::ActionSet::peaceful(),
             ActorControl::default(),

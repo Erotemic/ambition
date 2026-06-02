@@ -241,6 +241,7 @@ fn register_room_transition_systems(app: &mut App) {
             ensure_requested_room_parallax_system,
             apply_room_transition_system,
             crate::features::reset_ecs_room_features,
+            crate::features::reset_ecs_npc_actors,
             crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset,
         )
             .chain()
@@ -375,6 +376,7 @@ fn register_progression_chain_systems(app: &mut App) {
             // visual sync set.
             crate::boss_encounter::gate_gnu_ton_arena_ladder,
             crate::features::sync_ecs_actors_with_save,
+            crate::features::sync_ecs_npc_actors_with_save,
             crate::features::sync_ecs_bosses_with_save,
             crate::content::quest::push_room_entered_quest_events,
             crate::content::quest::apply_quest_advance_events,

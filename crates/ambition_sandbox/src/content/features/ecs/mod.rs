@@ -63,6 +63,7 @@ mod held_items;
 mod hitbox;
 mod interact;
 mod mount;
+pub mod npc_clusters;
 mod overlay;
 mod pickups;
 mod reset;
@@ -77,11 +78,13 @@ mod variation;
 mod view_index;
 
 pub(crate) use actors::{
-    actor_component_snapshot, enemy_component_snapshot, enemy_runtime_for_npc_combat,
-    make_entity_enemy, sync_actor_components_from_enemy, sync_actor_components_from_runtime,
+    enemy_component_snapshot, enemy_runtime_for_npc_combat, make_entity_enemy,
+    npc_component_snapshot, sync_actor_components_from_enemy,
 };
-pub use actors::{sync_actor_poses_from_feature_aabbs, update_ecs_actors, ActorRuntime};
-pub use aggression::apply_actor_stimuli;
+pub use actors::{
+    sync_actor_poses_from_feature_aabbs, update_ecs_actors, update_ecs_npcs, ActorRuntime,
+};
+pub use aggression::{apply_actor_stimuli, apply_npc_stimuli};
 pub use anim_helpers::{
     ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
     ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name,
@@ -129,9 +132,10 @@ pub use mount::{
 };
 pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::collect_ecs_pickups;
-pub use reset::reset_ecs_room_features;
+pub use reset::{reset_ecs_npc_actors, reset_ecs_room_features};
 pub use save_sync::{
-    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
+    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_npc_actors_with_save,
+    sync_ecs_switches_from_save,
 };
 pub use spawn::{despawn_encounter_mobs, spawn_encounter_mob, spawn_room_feature_entities};
 pub use target_volumes::{

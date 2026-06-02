@@ -93,7 +93,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         let Some(mut cq) = clusters else {
             continue;
         };
-        let mut enemy = cq.as_enemy_mut();
+        let enemy = cq.as_enemy_mut();
         if !enemy.status.alive {
             continue;
         }

@@ -626,7 +626,7 @@ fn draw_feature_debug(
 
     for (actor, aabb, kin, attack, _surface) in feature_q.actors.iter() {
         let color = match actor {
-            crate::features::ActorRuntime::Npc(_) => npc_color,
+            crate::features::ActorRuntime::Npc => npc_color,
             crate::features::ActorRuntime::Enemy => enemy_color,
         };
         draw_aabb_styled(gizmos, world, aabb.aabb(), color, developer_tools);

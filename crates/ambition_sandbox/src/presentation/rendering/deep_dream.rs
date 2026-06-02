@@ -24,7 +24,7 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual, RoomVisual};
-use crate::features::{ActorRuntime, EnemyArchetype, FeatureId};
+use crate::features::{ActorRuntime, EnemyArchetype};
 
 const SHADER_ASSET_PATH: &str = "shaders/puppy_slug_deep_dream.wgsl";
 
@@ -288,7 +288,7 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
 fn puppy_slug_seed(id: &str, actors: &Query<crate::features::ActorSpriteData>) -> Option<f32> {
     actors
         .iter()
-        .find_map(|(feature_id, actor, _kin, _status, _attack, config)| {
+        .find_map(|(feature_id, actor, _kin, _status, _attack, config, npc_config, _)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -297,7 +297,10 @@ fn puppy_slug_seed(id: &str, actors: &Query<crate::features::ActorSpriteData>) -
                     Some(c) => (c.name.as_str(), Some(c.archetype)),
                     None => return None,
                 },
-                ActorRuntime::Npc(npc) => (npc.name.as_str(), None),
+                ActorRuntime::Npc => match npc_config {
+                    Some(c) => (c.name.as_str(), None),
+                    None => return None,
+                },
             };
             let name_lc = name.to_ascii_lowercase();
             let is_slug = archetype == Some(EnemyArchetype::PuppySlug)

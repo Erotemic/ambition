@@ -1,4 +1,5 @@
 use super::*;
+use super::ecs::npc_clusters::NpcMut;
 
 #[derive(Clone, Debug)]
 pub struct NpcRuntime {
@@ -407,6 +408,169 @@ impl NpcRuntime {
     // damage through the standard `EnemyRuntime::player_damage`.
 }
 
+/// Cluster-native NPC integration + helpers. Port of the `NpcRuntime`
+/// methods that operate on the authoritative ECS components through the
+/// [`NpcMut`] view. Field map: self.kin.* (pos/vel/size/facing),
+/// self.surface.on_ground, self.status.* (ai_mode/hit_flash/hostile/
+/// strikes), self.config.* (id/name/spawn/interactable/patrol/talk),
+/// self.motion.0.
+impl<'a> NpcMut<'a> {
+    pub fn aabb(&self) -> ae::Aabb {
+        ae::Aabb::new(self.kin.pos, self.kin.size * 0.5)
+    }
+
+    pub fn tick_via_brain(
+        &mut self,
+        brain: &mut crate::brain::Brain,
+        world: &ae::World,
+        target_pos: ae::Vec2,
+        sim_time: f32,
+        dt: f32,
+    ) -> crate::actor_control::ActorControlFrame {
+        self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
+
+        let snapshot = crate::brain::BrainSnapshot {
+            actor_pos: self.kin.pos,
+            actor_vel: self.kin.vel,
+            actor_facing: self.kin.facing,
+            actor_on_ground: self.surface.on_ground,
+            alive: true,
+            target_pos,
+            target_alive: true,
+            sim_time,
+            dt,
+            attack_cooldown_remaining: 0.0,
+            attack_windup_remaining: 0.0,
+            attack_active_remaining: 0.0,
+            attack_recover_remaining: 0.0,
+            stun_remaining: 0.0,
+            wall_contact: None,
+            player_input: None,
+            crowding: None,
+            terrain: None,
+            air_jumps_remaining: 0,
+        };
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        brain.tick(&snapshot, &mut frame);
+
+        self.status.ai_mode = match brain {
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
+                state,
+                ..
+            }) => state.mode,
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {
+                crate::character_ai::CharacterAiMode::Idle
+            }
+            _ => crate::character_ai::CharacterAiMode::Idle,
+        };
+
+        if frame.facing.abs() > 0.001 {
+            self.kin.facing = frame.facing;
+        }
+
+        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Patrol) {
+            if let Some(motion) = &mut self.motion.0 {
+                let old = self.kin.pos;
+                self.kin.pos = motion.advance(self.kin.pos, dt);
+                let delta = self.kin.pos - old;
+                self.kin.vel = if dt > 0.0 { delta / dt } else { ae::Vec2::ZERO };
+                if delta.x.abs() > 0.001 {
+                    self.kin.facing = delta.x.signum();
+                }
+                return frame;
+            }
+        }
+
+        let target_x = frame.desired_vel.x;
+        self.kin.vel.x = approach(self.kin.vel.x, target_x, 650.0 * dt);
+
+        let mut body = crate::kinematic::KinematicBody {
+            pos: self.kin.pos,
+            vel: self.kin.vel,
+            size: self.kin.size,
+            on_ground: self.surface.on_ground,
+            facing: self.kin.facing,
+        };
+        let prev_vel_x = body.vel.x;
+        crate::kinematic::step_kinematic(
+            &mut body,
+            world,
+            crate::kinematic::KinematicTuning {
+                gravity: ENEMY_GRAVITY,
+                max_fall_speed: ENEMY_MAX_FALL,
+            },
+            crate::kinematic::KinematicInputs::default(),
+            dt,
+        );
+        self.kin.pos = body.pos;
+        self.kin.vel = body.vel;
+        self.surface.on_ground = body.on_ground;
+
+        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Patrol)
+            && prev_vel_x.abs() > 1.0
+            && self.kin.vel.x.abs() < 0.01
+        {
+            self.kin.facing *= -1.0;
+        }
+
+        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Chase) {
+            let dx = target_pos.x - self.kin.pos.x;
+            if dx.abs() > 4.0 {
+                self.kin.facing = dx.signum();
+            }
+        }
+        frame
+    }
+
+    pub fn build_brain(&self) -> crate::brain::Brain {
+        if self.config.patrol_radius > 0.0 || self.motion.0.is_some() {
+            let mut cfg = crate::brain::PatrolCfg::NPC_DEFAULT;
+            cfg.spawn_x = self.config.spawn.x;
+            cfg.radius = self.config.patrol_radius;
+            cfg.aggro_radius = self.config.talk_radius;
+            crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
+                cfg,
+                state: crate::brain::PatrolState::default(),
+            })
+        } else {
+            crate::brain::Brain::stand_still()
+        }
+    }
+
+    pub fn flag_id(&self) -> String {
+        npc_flag_id(self.config)
+    }
+
+    pub fn bark_anchor(&self) -> ae::Vec2 {
+        self.kin.pos + ae::Vec2::new(0.0, -self.kin.size.y * 0.72 - 16.0)
+    }
+
+    pub fn hit_bark(&self) -> &'static str {
+        npc_hit_bark_line(self.config, self.status)
+    }
+
+    pub fn hostile_bark(&self) -> &'static str {
+        npc_hostile_bark_line(self.config)
+    }
+
+    pub fn message(&self) -> String {
+        npc_message(self.config, self.status)
+    }
+
+    pub fn dialogue_request(&self) -> NpcDialogueRequest {
+        npc_dialogue_request(self.config)
+    }
+
+    pub fn reset_to_spawn(&mut self) {
+        self.kin.pos = self.config.spawn;
+        self.kin.vel = ae::Vec2::ZERO;
+        self.surface.on_ground = false;
+        self.status.hostile = false;
+        self.status.strikes = 0;
+        self.status.hit_flash = 0.0;
+    }
+}
+
 fn npc_hit_barks(key: &str, name: &str) -> &'static [&'static str] {
     if key.contains("hub_guide") || name.contains("kernel") || name.contains("guide") {
         &[
@@ -609,5 +773,77 @@ fn npc_hostile_bark(key: &str, name: &str) -> &'static str {
         // archetype above has its own beat; everyone else gets the
         // default barbark line.
         "That's it!"
+    }
+}
+
+// --- Cluster-based free helpers ---------------------------------------
+//
+// These operate on the NPC cluster components directly (no `NpcMut`
+// view), so consumers that only hold `&NpcConfig` / `&NpcStatus` (the
+// damage system reads position from `FeatureAabb` instead of the
+// kinematics it borrows mutably for enemies) can still derive flags and
+// bark lines. The `NpcMut` methods above delegate to these.
+
+use super::ecs::npc_clusters::{NpcConfig, NpcStatus};
+
+pub(crate) fn npc_flag_id(config: &NpcConfig) -> String {
+    format!("npc_{}_hostile", config.id)
+}
+
+pub(crate) fn npc_dialogue_key(config: &NpcConfig) -> String {
+    match &config.interactable.kind {
+        crate::interaction::InteractionKind::Npc {
+            dialogue_id: Some(dialogue_id),
+            ..
+        } => dialogue_id.to_ascii_lowercase(),
+        _ => config.id.to_ascii_lowercase(),
+    }
+}
+
+pub(crate) fn npc_hit_bark_line(config: &NpcConfig, status: &NpcStatus) -> &'static str {
+    let key = npc_dialogue_key(config);
+    let name = config.name.to_ascii_lowercase();
+    let strike_index = status.strikes.saturating_sub(1).max(0) as usize;
+    let lines = npc_hit_barks(&key, &name);
+    lines[strike_index.min(lines.len().saturating_sub(1))]
+}
+
+pub(crate) fn npc_hostile_bark_line(config: &NpcConfig) -> &'static str {
+    let key = npc_dialogue_key(config);
+    let name = config.name.to_ascii_lowercase();
+    npc_hostile_bark(&key, &name)
+}
+
+/// Bark/speech-bubble anchor derived from the actor AABB (head height).
+pub(crate) fn npc_bark_anchor_from_aabb(aabb: ae::Aabb) -> ae::Vec2 {
+    let size = aabb.half_size() * 2.0;
+    aabb.center() + ae::Vec2::new(0.0, -size.y * 0.72 - 16.0)
+}
+
+pub(crate) fn npc_message(config: &NpcConfig, status: &NpcStatus) -> String {
+    if status.hostile {
+        return format!("{} attacks!", config.name);
+    }
+    match &config.interactable.kind {
+        crate::interaction::InteractionKind::Npc {
+            dialogue_id: Some(dialogue_id),
+            ..
+        } => format!("{} opens dialogue {}", config.name, dialogue_id),
+        _ => format!("{} opens fallback dialogue", config.name),
+    }
+}
+
+pub(crate) fn npc_dialogue_request(config: &NpcConfig) -> NpcDialogueRequest {
+    let dialogue_id = match &config.interactable.kind {
+        crate::interaction::InteractionKind::Npc {
+            dialogue_id: Some(dialogue_id),
+            ..
+        } => dialogue_id.clone(),
+        _ => "generic_npc".to_string(),
+    };
+    NpcDialogueRequest {
+        npc_id: config.id.clone(),
+        npc_name: config.name.clone(),
+        dialogue_id,
     }
 }

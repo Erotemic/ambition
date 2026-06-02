@@ -102,6 +102,11 @@ Consequences worth internalizing:
 ```bash
 python -m pytest tools/ambition_music_renderer/tests
 python scripts/check_agent_kb.py
+python tools/ambition_music_renderer/level_report.py --check   # fail on any clipping cue
 ```
 
-Runtime audio changes usually also need a sandbox smoke run or a manual web-audio check depending on the target.
+`level_report.py --check` exits non-zero if any cue's true peak exceeds
+-1 dBTP — a cheap regression gate after a re-render. (It does not gate on the
+loudness spread; that's a mastering call you read off the report, not a
+pass/fail.) Runtime audio changes usually also need a sandbox smoke run or a
+manual web-audio check depending on the target.

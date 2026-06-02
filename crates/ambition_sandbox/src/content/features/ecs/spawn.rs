@@ -362,7 +362,7 @@ mod tests {
             panic!("rider should be hostile")
         };
         assert_eq!(
-            rider.spawn_size, mounted_size.0,
+            rider.spawn.size, mounted_size.0,
             "sky PirateRaider dismount should keep compact rider collision size",
         );
         assert_eq!(
@@ -403,7 +403,7 @@ mod tests {
             panic!("rider should be hostile")
         };
         assert_eq!(
-            rider.spawn_size, mounted_size.0,
+            rider.spawn.size, mounted_size.0,
             "sky PirateHeavy dismount should keep compact rider collision size",
         );
         assert_eq!(

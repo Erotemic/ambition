@@ -119,13 +119,13 @@ pub(super) fn spawn_composite_mount_rider(
     // intended dismounted footprint rather than the temporary spawn AABB. For
     // PirateHeavy-on-shark this is deliberately the compact mounted-size body;
     // the cove PirateHeavy keeps the full-size body through normal spawns.
-    rider_enemy.spawn_size = dismounted_size;
+    rider_enemy.spawn.size = dismounted_size;
     rider_enemy.size = mounted_size;
     // Rider HP from the composite spec's `rider_max_health`.
     if let Some(rider_hp) = composite_archetype.rider_max_health() {
         rider_enemy.health = crate::actor::Health::new(rider_hp);
     }
-    rider_enemy.gravity_scale = 0.0;
+    rider_enemy.surface.gravity_scale = 0.0;
 
     // Build the rider's MOUNTED brain/action set through the shared
     // enemy brain-builder policy. The builder keeps composite ranged

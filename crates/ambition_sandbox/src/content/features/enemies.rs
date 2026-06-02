@@ -21,27 +21,65 @@ fn surface_wall_pred(b: &ae::Block) -> bool {
     )
 }
 
+/// The authored spawn baseline an actor reverts to on a same-room
+/// reset. Grouped out of `EnemyRuntime`'s flat `spawn` /
+/// `spawn_archetype` / `spawn_size` fields. `archetype` and `size`
+/// can mutate at runtime (PirateOnShark dismounts into PirateRaider
+/// with a different `default_size`), so this records the level
+/// author's original so [`EnemyRuntime::reset_to_spawn`] can rebuild
+/// the fused actor. Identical to the live `archetype`/`size` for every
+/// non-morphing actor.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ActorSpawnState {
+    /// World position the actor spawned at.
+    pub pos: ae::Vec2,
+    /// Authored archetype — the "what the level author wrote" record.
+    pub archetype: EnemyArchetype,
+    /// Authored body size.
+    pub size: ae::Vec2,
+}
+
+/// An actor's locomotion contact + vertical-control state, grouped out
+/// of `EnemyRuntime`'s flat `on_ground` / `surface_normal` /
+/// `gravity_scale` / `air_jumps_remaining` fields. Maintained by the
+/// kinematic integration each tick.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ActorSurfaceState {
+    /// Set by [`crate::kinematic::step_kinematic`](crate::engine_core::step_kinematic)
+    /// each tick. Used by chase-drop-through (enemy must be standing on
+    /// something before it tries to fall through it) and by jump AI.
+    pub on_ground: bool,
+    /// Outward-pointing unit normal of the surface the actor is
+    /// currently clinging to. Used by surface-walking archetypes
+    /// (`PuppySlug`) to crawl floors, walls, and ceilings; every other
+    /// archetype pins this at `(0, -1)` (floor) and ignores it. Engine
+    /// y grows downward, so floor → (0, -1), right wall → (-1, 0),
+    /// ceiling → (0, 1), left wall → (1, 0).
+    pub surface_normal: ae::Vec2,
+    /// 0.0 = ignores gravity (flying); 1.0 = full gravity. Set by the
+    /// archetype (`BurningFlyingShark` / `PirateOnShark` are 0.0).
+    pub gravity_scale: f32,
+    /// Mid-air jumps the actor has left until next landing. Reset to
+    /// `MAX_ENEMY_AIR_JUMPS` when `on_ground` transitions false → true
+    /// in the integration step. Decremented when `frame.jump_pressed`
+    /// fires while airborne AND a jump remains; the grounded-jump path
+    /// doesn't touch this counter.
+    pub air_jumps_remaining: u8,
+}
+
 #[derive(Clone, Debug)]
 pub struct EnemyRuntime {
     pub id: String,
     pub name: String,
     pub pos: ae::Vec2,
-    pub spawn: ae::Vec2,
     pub size: ae::Vec2,
     pub vel: ae::Vec2,
     pub health: crate::actor::Health,
     pub brain: crate::actor::EnemyBrain,
     pub archetype: EnemyArchetype,
-    /// Authored spawn archetype, captured at construction. `archetype`
-    /// can mutate at runtime (PirateOnShark dismounts into
-    /// PirateRaider or BurningFlyingShark on rider/shark death), so
-    /// `spawn_archetype` is the "what the level author wrote" record
-    /// that `reset_to_spawn` restores. Identical to `archetype` for
-    /// every non-morphing actor.
-    pub spawn_archetype: EnemyArchetype,
-    /// Authored spawn size (in case `archetype` mutates to one with
-    /// a different `default_size`, like PirateOnShark → PirateRaider).
-    pub spawn_size: ae::Vec2,
+    /// Authored spawn baseline (pos / archetype / size) that
+    /// `reset_to_spawn` restores. See [`ActorSpawnState`].
+    pub spawn: ActorSpawnState,
     pub motion: Option<PathMotion>,
     pub alive: bool,
     pub facing: f32,
@@ -54,11 +92,6 @@ pub struct EnemyRuntime {
     /// HUD / rendering / debug overlay so they can branch on a single
     /// vocabulary instead of inferring it from the timer fields.
     pub ai_mode: crate::character_ai::CharacterAiMode,
-    /// Set by [`crate::kinematic::step_kinematic`](crate::engine_core::step_kinematic)
-    /// each tick. Used by chase-drop-through
-    /// (enemy must be standing on something before it tries to fall
-    /// through it) and by future jump AI.
-    pub on_ground: bool,
     /// When this enemy was spawned by migrating a hostile NPC, the
     /// LDtk display name of the original NPC. The sprite resolver
     /// passes this through `npc_asset_for_name` so faction NPCs that
@@ -69,22 +102,9 @@ pub struct EnemyRuntime {
     /// attack animations. `None` means "use the default `Enemy` sprite
     /// (currently `goblin_spritesheet`)".
     pub sprite_override_npc_name: Option<String>,
-    /// 0.0 = ignores gravity (flying); 1.0 = full gravity. Set by the
-    /// archetype (`BurningFlyingShark` / `PirateOnShark` are 0.0).
-    pub gravity_scale: f32,
-    /// Outward-pointing unit normal of the surface the actor is
-    /// currently clinging to. Used by surface-walking archetypes
-    /// (`PuppySlug`) to crawl floors, walls, and ceilings; all
-    /// other archetypes pin this at `(0, -1)` (floor) and ignore
-    /// it. Engine y grows downward, so floor → (0, -1), right wall
-    /// → (-1, 0), ceiling → (0, 1), left wall → (1, 0).
-    pub surface_normal: ae::Vec2,
-    /// Mid-air jumps the actor has left until next landing. Reset
-    /// to `MAX_AIR_JUMPS` (1 today) when `on_ground` transitions
-    /// from false → true in the integration step. Decremented when
-    /// `frame.jump_pressed` fires while airborne AND a jump remains.
-    /// The grounded-jump path doesn't touch this counter.
-    pub air_jumps_remaining: u8,
+    /// Locomotion contact + vertical-control state (ground / surface
+    /// normal / gravity scale / air jumps). See [`ActorSurfaceState`].
+    pub surface: ActorSurfaceState,
 }
 
 /// Authored rule for when a defeated enemy should reappear. Picked
@@ -571,14 +591,16 @@ impl EnemyRuntime {
             id: id.into(),
             name: name.into(),
             pos,
-            spawn: pos,
             size,
             vel: ae::Vec2::ZERO,
             health: crate::actor::Health::new(archetype.max_health()),
             brain,
             archetype,
-            spawn_archetype: archetype,
-            spawn_size: size,
+            spawn: ActorSpawnState {
+                pos,
+                archetype,
+                size,
+            },
             motion,
             alive: true,
             facing: -1.0,
@@ -586,11 +608,13 @@ impl EnemyRuntime {
             respawn_timer: 0.0,
             hit_flash: 0.0,
             ai_mode: crate::character_ai::CharacterAiMode::Idle,
-            on_ground: false,
             sprite_override_npc_name: None,
-            gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
-            surface_normal: ae::Vec2::new(0.0, -1.0),
-            air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
+            surface: ActorSurfaceState {
+                on_ground: false,
+                surface_normal: ae::Vec2::new(0.0, -1.0),
+                gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
+                air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
+            },
         }
     }
 
@@ -604,27 +628,29 @@ impl EnemyRuntime {
     /// collision shape matches when the archetype changes its
     /// `default_size`.
     pub fn reset_to_spawn(&mut self) {
-        let archetype = self.spawn_archetype;
+        let archetype = self.spawn.archetype;
         self.archetype = archetype;
-        self.size = self.spawn_size;
-        self.pos = self.spawn;
+        self.size = self.spawn.size;
+        self.pos = self.spawn.pos;
         self.vel = ae::Vec2::ZERO;
         self.alive = true;
         self.health = crate::actor::Health::new(archetype.max_health());
-        self.gravity_scale = if archetype.is_aerial() { 0.0 } else { 1.0 };
         self.attack = ActorAttackState::default();
         self.respawn_timer = 0.0;
         self.hit_flash = 0.0;
         self.ai_mode = crate::character_ai::CharacterAiMode::Idle;
-        self.on_ground = false;
         self.facing = -1.0;
         // Surface walkers reset to floor — even if the slug died on
         // a wall or ceiling, respawn pins it on whatever platform
         // its `spawn` sits above is. The same-room reset path rewrites
         // the ECS `FeatureAabb` from `size`, so the unrotated floor
         // stance is correct again.
-        self.surface_normal = ae::Vec2::new(0.0, -1.0);
-        self.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
+        self.surface = ActorSurfaceState {
+            on_ground: false,
+            surface_normal: ae::Vec2::new(0.0, -1.0),
+            gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
+            air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
+        };
     }
 
     /// World-space anchor for a combat-banter speech bubble. Sits
@@ -676,7 +702,7 @@ impl EnemyRuntime {
             if self.archetype == EnemyArchetype::FiniteSandbag && self.respawn_timer <= 0.0 {
                 self.alive = true;
                 self.health.reset();
-                self.pos = self.spawn;
+                self.pos = self.spawn.pos;
                 self.vel = ae::Vec2::ZERO;
                 self.hit_flash = 0.24;
             }
@@ -722,7 +748,7 @@ impl EnemyRuntime {
         );
         self.ai_mode = ai.mode;
 
-        let is_aerial = self.gravity_scale <= 0.001;
+        let is_aerial = self.surface.gravity_scale <= 0.001;
         let is_surface_walker = self.archetype == EnemyArchetype::PuppySlug;
 
         if is_surface_walker {
@@ -749,13 +775,13 @@ impl EnemyRuntime {
             let gravity = if is_aerial {
                 0.0
             } else {
-                ENEMY_GRAVITY * self.gravity_scale
+                ENEMY_GRAVITY * self.surface.gravity_scale
             };
             let mut body = crate::kinematic::KinematicBody {
                 pos: self.pos,
                 vel: self.vel,
                 size: self.size,
-                on_ground: self.on_ground,
+                on_ground: self.surface.on_ground,
                 facing: self.facing,
             };
             let prev_vel_x = body.vel.x;
@@ -785,9 +811,9 @@ impl EnemyRuntime {
                     if body.on_ground {
                         body.vel.y = -ENEMY_JUMP_SPEED;
                         body.on_ground = false;
-                    } else if self.air_jumps_remaining > 0 {
+                    } else if self.surface.air_jumps_remaining > 0 {
                         body.vel.y = -ENEMY_DOUBLE_JUMP_SPEED;
-                        self.air_jumps_remaining -= 1;
+                        self.surface.air_jumps_remaining -= 1;
                     }
                 }
             }
@@ -805,13 +831,13 @@ impl EnemyRuntime {
             );
             self.pos = body.pos;
             self.vel = body.vel;
-            self.on_ground = if is_aerial { false } else { body.on_ground };
+            self.surface.on_ground = if is_aerial { false } else { body.on_ground };
             // Refresh the air-jump counter whenever we're standing
             // on a surface. Cheaper than landing-edge detection and
             // self-corrects if a brain happens to spam jump_pressed
             // mid-fall before the consume gate fires.
-            if self.on_ground {
-                self.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
+            if self.surface.on_ground {
+                self.surface.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
             }
 
             // KinematicPath patrols: the brain reads the path's "would
@@ -876,7 +902,7 @@ impl EnemyRuntime {
     /// authored AABB unchanged.
     pub fn aabb(&self) -> ae::Aabb {
         let size =
-            if self.archetype == EnemyArchetype::PuppySlug && self.surface_normal.x.abs() > 0.5 {
+            if self.archetype == EnemyArchetype::PuppySlug && self.surface.surface_normal.x.abs() > 0.5 {
                 ae::Vec2::new(self.size.y, self.size.x)
             } else {
                 self.size
@@ -894,7 +920,7 @@ impl EnemyRuntime {
     /// - Ceiling (n=(0,1))   → ±π
     /// - Left wall  (n=(1,0))  → -π/2
     pub fn rotation_rad(&self) -> f32 {
-        f32::atan2(-self.surface_normal.x, -self.surface_normal.y)
+        f32::atan2(-self.surface.surface_normal.x, -self.surface.surface_normal.y)
     }
 
     /// Surface-walking integration for `PuppySlug`. The slug's
@@ -943,12 +969,12 @@ impl EnemyRuntime {
         // same way any other actor does until it touches a surface;
         // `fall_until_landed` re-pins the slug to a floor on landing
         // so crawling resumes next tick.
-        if !self.on_ground {
+        if !self.surface.on_ground {
             self.fall_until_landed(world, dt);
             return;
         }
 
-        let n = self.surface_normal;
+        let n = self.surface.surface_normal;
         let speed = self.archetype.patrol_speed();
         let step_len = speed * dt;
         // tangent_base = 90° math-CCW rotation of normal; multiply by
@@ -989,13 +1015,13 @@ impl EnemyRuntime {
             // there's no surface there, and the slug oscillated
             // between vertical and horizontal stuck in the corner).
             // `-tangent` works for both facings without branching.
-            self.surface_normal = -tangent;
+            self.surface.surface_normal = -tangent;
             if self.snap_pos_to_surface(world) {
                 self.vel = ae::Vec2::ZERO;
-                self.on_ground = true;
+                self.surface.on_ground = true;
                 return;
             }
-            self.surface_normal = n;
+            self.surface.surface_normal = n;
         }
 
         // ---- 2. Step along tangent --------------------------------
@@ -1005,7 +1031,7 @@ impl EnemyRuntime {
 
         // ---- 3. Snap to current surface ---------------------------
         if self.snap_pos_to_surface(world) {
-            self.on_ground = true;
+            self.surface.on_ground = true;
             return;
         }
 
@@ -1018,10 +1044,10 @@ impl EnemyRuntime {
         let new_normal = tangent;
         let around_corner = original_pos + tangent * body_long + (-n) * body_long;
         self.pos = around_corner;
-        self.surface_normal = new_normal;
+        self.surface.surface_normal = new_normal;
         if self.snap_pos_to_surface(world) {
             self.vel = ae::Vec2::ZERO;
-            self.on_ground = true;
+            self.surface.on_ground = true;
             return;
         }
 
@@ -1031,10 +1057,10 @@ impl EnemyRuntime {
         // just outside the probe envelope. Same rotation as step 1,
         // applied from the un-stepped position.
         self.pos = original_pos;
-        self.surface_normal = -tangent;
+        self.surface.surface_normal = -tangent;
         if self.snap_pos_to_surface(world) {
             self.vel = ae::Vec2::ZERO;
-            self.on_ground = true;
+            self.surface.on_ground = true;
             return;
         }
 
@@ -1042,9 +1068,9 @@ impl EnemyRuntime {
         // No surface in any direction — drop. The air-path early
         // return at the top of this function keeps gravity
         // accumulating each tick once we land here.
-        self.surface_normal = n;
+        self.surface.surface_normal = n;
         self.pos = original_pos;
-        self.on_ground = false;
+        self.surface.on_ground = false;
         self.fall_until_landed(world, dt);
     }
 
@@ -1082,7 +1108,7 @@ impl EnemyRuntime {
     /// Returns `false` if no solid is within reach (the slug is in
     /// open space; caller should fall or try another orientation).
     fn snap_pos_to_surface(&mut self, world: &ae::World) -> bool {
-        let n = self.surface_normal;
+        let n = self.surface.surface_normal;
         let body_thick = self.size.y * 0.5;
         let body_long = self.size.x * 0.5;
         let down = -n;
@@ -1124,7 +1150,7 @@ impl EnemyRuntime {
             pos: self.pos,
             vel: self.vel,
             size: self.size,
-            on_ground: self.on_ground,
+            on_ground: self.surface.on_ground,
             facing: self.facing,
         };
         crate::kinematic::step_kinematic(
@@ -1141,11 +1167,11 @@ impl EnemyRuntime {
         );
         self.pos = body.pos;
         self.vel = body.vel;
-        self.on_ground = body.on_ground;
+        self.surface.on_ground = body.on_ground;
         if body.on_ground {
             // Re-pin to a floor surface — the slug forgets it was
             // ever on a wall once it lands.
-            self.surface_normal = ae::Vec2::new(0.0, -1.0);
+            self.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
         }
     }
 

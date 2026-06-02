@@ -153,8 +153,8 @@ pub fn sync_riders_to_mounts(
         rider.pos.y = mount.pos.y + mountable.rider_offset.y;
         rider.facing = mount.facing;
         rider.vel = ae::Vec2::ZERO;
-        rider.gravity_scale = 0.0;
-        rider.on_ground = false;
+        rider.surface.gravity_scale = 0.0;
+        rider.surface.on_ground = false;
         // Keep the FeatureAabb mirror in sync so damage / spatial
         // queries on the same tick see the rider where it visually
         // sits. update_ecs_actors writes this from rider.pos at the
@@ -236,7 +236,7 @@ pub fn enforce_mount_rider_link(
             // and zero gravity. Re-arm idempotently.
             (true, false) => {
                 if let Some(cache) = cache {
-                    rider.gravity_scale = 0.0;
+                    rider.surface.gravity_scale = 0.0;
                     commands.entity(rider_entity).insert((
                         cache.brain.clone(),
                         cache.action_set.clone(),
@@ -250,12 +250,12 @@ pub fn enforce_mount_rider_link(
             // so a PirateRaider / PirateHeavy variant falls and fights without
             // visually scaling up.
             (false, true) => {
-                rider.gravity_scale = if rider.archetype.is_aerial() {
+                rider.surface.gravity_scale = if rider.archetype.is_aerial() {
                     0.0
                 } else {
                     1.0
                 };
-                rider.size = rider.spawn_size;
+                rider.size = rider.spawn.size;
                 // Publish immediately so same-frame presentation / combat sees
                 // the rider's grounded pose. This is usually the same size as
                 // MountedSize; keeping the write here makes intentional future
@@ -368,7 +368,7 @@ mod tests {
         if let Some(mut actor) = app.world_mut().entity_mut(rider).get_mut::<ActorRuntime>() {
             if let ActorRuntime::Enemy(r) = &mut *actor {
                 r.vel = ae::Vec2::new(500.0, -200.0);
-                r.gravity_scale = 1.0;
+                r.surface.gravity_scale = 1.0;
             }
         }
 
@@ -384,7 +384,7 @@ mod tests {
             "rider should snap to mount.pos + offset",
         );
         assert_eq!(r.vel, ae::Vec2::ZERO, "rider vel zeroed by sync");
-        assert_eq!(r.gravity_scale, 0.0, "rider gravity zeroed by sync");
+        assert_eq!(r.surface.gravity_scale, 0.0, "rider gravity zeroed by sync");
 
         let aabb = app.world().entity(rider).get::<FeatureAabb>().unwrap();
         assert_eq!(
@@ -441,7 +441,7 @@ mod tests {
         let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
         if let ActorRuntime::Enemy(r) = &mut rider_actor {
             r.alive = rider_alive;
-            r.gravity_scale = 0.0;
+            r.surface.gravity_scale = 0.0;
         }
         let rider = app
             .world_mut()
@@ -489,7 +489,7 @@ mod tests {
         let ActorRuntime::Enemy(r) = actor else {
             panic!()
         };
-        assert_eq!(r.gravity_scale, 1.0, "PirateRaider rider gets gravity 1.0");
+        assert_eq!(r.surface.gravity_scale, 1.0, "PirateRaider rider gets gravity 1.0");
         let brain = app
             .world()
             .entity(rider)
@@ -542,7 +542,7 @@ mod tests {
             panic!()
         };
         assert_eq!(
-            r.gravity_scale, 0.0,
+            r.surface.gravity_scale, 0.0,
             "rider gravity should be zeroed back to mounted state",
         );
         let brain = app

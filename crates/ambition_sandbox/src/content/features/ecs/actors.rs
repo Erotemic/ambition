@@ -140,12 +140,12 @@ impl ActorRuntime {
             &[],
         );
         enemy.pos = npc.pos;
-        enemy.spawn = npc.spawn;
+        enemy.spawn.pos = npc.spawn;
         enemy.size = ae::Vec2::new(npc.size.x.max(22.0), npc.size.y.max(38.0));
-        enemy.spawn_size = enemy.size;
+        enemy.spawn.size = enemy.size;
         enemy.vel = npc.vel;
         enemy.facing = npc.facing;
-        enemy.on_ground = npc.on_ground;
+        enemy.surface.on_ground = npc.on_ground;
         if npc.name != "Kernel Guide NPC" {
             enemy.sprite_override_npc_name = Some(npc.name.clone());
         }
@@ -753,7 +753,7 @@ fn build_enemy_brain_snapshot(
         actor_pos: enemy.pos,
         actor_vel: enemy.vel,
         actor_facing: enemy.facing,
-        actor_on_ground: enemy.on_ground,
+        actor_on_ground: enemy.surface.on_ground,
         alive: enemy.alive,
         target_pos,
         target_alive: true,
@@ -768,7 +768,7 @@ fn build_enemy_brain_snapshot(
         player_input: None,
         crowding,
         terrain: None,
-        air_jumps_remaining: enemy.air_jumps_remaining,
+        air_jumps_remaining: enemy.surface.air_jumps_remaining,
     }
 }
 

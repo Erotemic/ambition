@@ -185,3 +185,86 @@ impl LdtkLevel {
         field_value(&self.field_instances, name).and_then(value_to_string)
     }
 }
+
+#[cfg(test)]
+mod project_lookup_tests {
+    //! Layer lookups + the multi-Entities-layer support. all_entity_instances
+    //! exists specifically so a level can split entities across more than one
+    //! Entities layer (e.g. a dedicated camera layer); pin that it flattens
+    //! every Entities layer in order and that the named IntGrid lookups match
+    //! by identifier.
+    use super::*;
+
+    fn ent(iid: &str) -> LdtkEntityInstance {
+        LdtkEntityInstance {
+            iid: iid.into(),
+            identifier: "Thing".into(),
+            pivot: Vec::new(),
+            px: [0, 0],
+            width: 8,
+            height: 8,
+            field_instances: Vec::new(),
+        }
+    }
+
+    fn layer(id: &str, ty: &str, ents: Vec<LdtkEntityInstance>) -> LdtkLayerInstance {
+        LdtkLayerInstance {
+            identifier: id.into(),
+            layer_type: ty.into(),
+            c_wid: 0,
+            c_hei: 0,
+            grid_size: 16,
+            entity_instances: ents,
+            int_grid_csv: Vec::new(),
+            grid_tiles: Vec::new(),
+        }
+    }
+
+    fn level(layers: Vec<LdtkLayerInstance>) -> LdtkLevel {
+        LdtkLevel {
+            identifier: "L".into(),
+            iid: "l".into(),
+            world_x: 0,
+            world_y: 0,
+            px_wid: 100,
+            px_hei: 100,
+            field_instances: Vec::new(),
+            layer_instances: layers,
+        }
+    }
+
+    #[test]
+    fn named_layers_are_found_by_identifier() {
+        let lvl = level(vec![
+            layer("Ambition", "Entities", vec![]),
+            layer("Collision", "IntGrid", vec![]),
+            layer("Water", "IntGrid", vec![]),
+        ]);
+        assert!(lvl.ambition_layer().is_some());
+        assert!(lvl.collision_layer().is_some());
+        assert!(lvl.water_layer().is_some());
+        assert!(lvl.climbable_layer().is_none(), "no Climbable layer present");
+    }
+
+    #[test]
+    fn entity_layers_collects_every_entities_layer_and_skips_intgrid() {
+        let lvl = level(vec![
+            layer("Ambition", "Entities", vec![]),
+            layer("Collision", "IntGrid", vec![]),
+            layer("AmbitionCameras", "Entities", vec![]),
+        ]);
+        let ids: Vec<&str> = lvl.entity_layers().map(|l| l.identifier.as_str()).collect();
+        assert_eq!(ids, vec!["Ambition", "AmbitionCameras"], "both Entities layers, file order");
+    }
+
+    #[test]
+    fn all_entity_instances_flattens_layer_then_entity_order() {
+        let lvl = level(vec![
+            layer("Ambition", "Entities", vec![ent("a1"), ent("a2")]),
+            layer("Collision", "IntGrid", vec![]),
+            layer("AmbitionCameras", "Entities", vec![ent("c1")]),
+        ]);
+        let iids: Vec<&str> = lvl.all_entity_instances().map(|e| e.iid.as_str()).collect();
+        assert_eq!(iids, vec!["a1", "a2", "c1"]);
+    }
+}

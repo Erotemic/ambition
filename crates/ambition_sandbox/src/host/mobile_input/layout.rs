@@ -148,3 +148,64 @@ pub fn touch_action_at_position(pos: Vec2, window_size: Vec2) -> Option<TouchAct
 
     None
 }
+
+#[cfg(test)]
+mod layout_tests {
+    //! Touch HUD hit-testing. The layout is the single source for both the
+    //! rendered overlay and the Android multitouch path, so the key
+    //! invariant is that every button's drawn center hit-tests back to
+    //! itself (no drift between visible circle and touch target).
+    use super::*;
+
+    const WINDOW: Vec2 = Vec2::new(1280.0, 720.0);
+
+    #[test]
+    fn layout_has_eight_distinct_buttons_with_positive_size() {
+        let layout = touch_action_layout();
+        assert_eq!(layout.len(), 8);
+        for spec in layout {
+            assert!(spec.size > 0.0, "{:?} has non-positive size", spec.action);
+            assert!(!spec.label.is_empty());
+        }
+        for (i, a) in layout.iter().enumerate() {
+            for b in &layout[i + 1..] {
+                assert_ne!(a.action, b.action, "duplicate touch action {:?}", a.action);
+            }
+        }
+    }
+
+    #[test]
+    fn each_button_center_hit_tests_back_to_itself() {
+        let origin = touch_action_cluster_origin(WINDOW);
+        for spec in touch_action_layout() {
+            let center = Vec2::new(
+                origin.x + spec.left + spec.size * 0.5,
+                origin.y + spec.top + spec.size * 0.5,
+            );
+            assert_eq!(
+                touch_action_at_position(center, WINDOW),
+                Some(spec.action),
+                "center of {:?} should hit itself (overlay/touch drift)",
+                spec.action,
+            );
+        }
+    }
+
+    #[test]
+    fn empty_screen_center_hits_nothing() {
+        assert_eq!(touch_action_at_position(WINDOW * 0.5, WINDOW), None);
+    }
+
+    #[test]
+    fn menu_row_start_button_is_hittable_top_right() {
+        let menu_left = WINDOW.x - MENU_ROW_MARGIN - MENU_ROW_W;
+        let start_center = Vec2::new(
+            menu_left + 4.0 + MENU_W * 0.5,
+            MENU_ROW_MARGIN + 4.0 + MENU_H * 0.5,
+        );
+        assert_eq!(
+            touch_action_at_position(start_center, WINDOW),
+            Some(TouchActionButton::Start),
+        );
+    }
+}

@@ -119,8 +119,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [~] **Ledge grab + climb-up polish / engine contract** `[V4/D3]` - `ambition_engine::ledge_grab` exists, but the mechanic still needs polish, animation coverage, and corner/one-way validation. Add diagonal-corner probe tests and confirm the sandbox driver uses the engine primitive rather than duplicating probe logic. Instead of 
 
-- [ ] **Ladders pass through solid blocks option** `[V3/D3]` - Avoid requiring authors to carve a gap in the platform whenever a ladder reaches a floor. Consider an engine-side rule: while `BodyMode::Climbing`, ignore `BlockKind::Solid` overlaps that coincide with the active climbable contact region, or expose an authored ladder-top passthrough flag.
-  - Validate against `ladder_lab` / climbable zones and one-way platforms.
+- [x] **Ladders pass through solid blocks option** `[V3/D3]` — _Verified done 2026-06-02 (autonomous)._ Implemented as the engine-side rule exactly as scoped: `block_passable_during_climb_clusters` (`engine_core/movement/collision.rs`) makes a block passable only when the player is in `BodyMode::Climbing`, has a live climbable contact, the block is **not** `Hazard`, and the block intersects the climbable `region_aabb`. Three pin tests guard it: `climbing_passes_through_solid_blocks_overlapping_ladder`, `climbing_player_still_collides_with_hazard_blocks_overlapping_ladder`, `non_climbing_player_still_collides_with_solid_blocks_overlapping_ladder` (in `movement/tests/climbing.rs`). Recorded in FEATURES.md.
 
 - [ ] **Ladder movement polish** `[V3/D2]` - Moving on a ladder should not feel sluggish, and the player should be able to jump or dash off it cleanly. Check `BodyMode::Climbing`, `ControlFrame`, gravity suspension, and transition rules.
 

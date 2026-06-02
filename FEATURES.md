@@ -17,6 +17,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Ledge grab / mantle | Partial but implemented | `docs/mechanics/abilities.md`, `docs/mechanics/expressibility-checklist.md` |
 | Body-mode traversal such as crouch, crawl, slide, compact/morph shapes | Available, needs more authored rooms | `docs/mechanics/body-modes.md` |
 | Moving platforms and path motion | Available, needs more carry/edge validation | `docs/systems/collision-geometry-and-secondary-physics.md`, `docs/planning/tech-debt-log.md` |
+| Climb-through-solid at ladder tops | Available; a climbing body passes through non-Hazard blocks intersecting the active climbable contact region, so authors needn't carve a gap where a ladder meets a floor | `crates/ambition_sandbox/src/engine_core/movement/collision.rs`, `crates/ambition_sandbox/src/engine_core/movement/tests/climbing.rs` |
 | Sprint-jump / long-jump momentum tier | Not yet reusable backend | `docs/mechanics/abilities.md` |
 | Grapple / tether / harpoon-dash constraints | Not yet reusable backend | `docs/mechanics/expressibility-checklist.md` |
 

@@ -72,3 +72,62 @@ pub fn rebuild_encounter_switch_index(
 /// The encounter system drains it and applies the matching reset.
 #[derive(Resource, Default)]
 pub struct SwitchActivationQueue(pub Vec<SwitchActivation>);
+
+#[cfg(test)]
+mod switch_index_tests {
+    //! Encounter arming from switch state. The authored semantics are
+    //! "red (off) = armed, green (on) = disabled", an unlinked encounter
+    //! is always armed, and any single off switch arms a multi-switch
+    //! encounter. This is the gate the encounter state machine reads.
+    use super::*;
+
+    fn link(switch: &str, target: &str, on: bool) -> EncounterSwitchLink {
+        EncounterSwitchLink {
+            switch_id: switch.into(),
+            target_encounter: target.into(),
+            on,
+        }
+    }
+    fn index(links: Vec<EncounterSwitchLink>) -> EncounterSwitchIndex {
+        EncounterSwitchIndex { links }
+    }
+
+    #[test]
+    fn unlinked_encounter_is_always_armed() {
+        assert!(
+            EncounterSwitchIndex::default().encounter_armed("anything"),
+            "no linked switch -> always armed"
+        );
+    }
+
+    #[test]
+    fn off_switch_arms_on_switch_disarms() {
+        assert!(index(vec![link("s", "enc", false)]).encounter_armed("enc"));
+        assert!(!index(vec![link("s", "enc", true)]).encounter_armed("enc"));
+    }
+
+    #[test]
+    fn any_off_switch_arms_a_multi_switch_encounter() {
+        assert!(
+            index(vec![link("a", "enc", true), link("b", "enc", false)]).encounter_armed("enc"),
+            "one red switch is enough to arm"
+        );
+        assert!(
+            !index(vec![link("a", "enc", true), link("b", "enc", true)]).encounter_armed("enc"),
+            "all green -> disabled"
+        );
+    }
+
+    #[test]
+    fn links_for_other_encounters_are_ignored() {
+        // An ON switch targeting a different encounter leaves "enc" unlinked -> armed.
+        assert!(index(vec![link("s", "other", true)]).encounter_armed("enc"));
+    }
+
+    #[test]
+    fn switch_id_for_encounter_finds_the_first_match() {
+        let idx = index(vec![link("a", "enc", true), link("b", "enc", false)]);
+        assert_eq!(idx.switch_id_for_encounter("enc").as_deref(), Some("a"));
+        assert_eq!(idx.switch_id_for_encounter("missing"), None);
+    }
+}

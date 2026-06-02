@@ -153,3 +153,45 @@ fn fallback_waves_from_enemy_spawns(
         }]
     }
 }
+
+#[cfg(test)]
+mod loading_tests {
+    use super::*;
+
+    #[test]
+    fn goblin_waves_escalate_and_spawn_past_the_trigger() {
+        let waves = goblin_encounter_wave_specs();
+        assert_eq!(waves.len(), 3, "three authored waves");
+
+        // Documented spatial invariant: every wave mob sits past the
+        // encounter trigger's right edge (~1160) so it is on-screen after
+        // the camera zooms out and the player has entered the arena.
+        const TRIGGER_RIGHT: f32 = 1160.0;
+        for wave in &waves {
+            assert!(!wave.mobs.is_empty(), "wave '{}' has no mobs", wave.label);
+            for mob in &wave.mobs {
+                assert!(
+                    mob.spawn[0] > TRIGGER_RIGHT,
+                    "mob {:?} at x={} should spawn past the trigger",
+                    mob.kind,
+                    mob.spawn[0],
+                );
+                assert!(mob.delay >= 0.0, "negative spawn delay for {:?}", mob.kind);
+                assert!(mob.size[0] > 0.0 && mob.size[1] > 0.0, "non-positive mob size");
+            }
+        }
+
+        // Escalation: wave 1 is light strikers, wave 3 is all heavies.
+        assert!(waves[0].mobs.iter().all(|m| m.kind == "medium_striker"));
+        assert!(waves[2].mobs.iter().all(|m| m.kind == "large_brute"));
+
+        // Wave 2 carries a timed heavy reinforcement (positive delay).
+        assert!(
+            waves[1]
+                .mobs
+                .iter()
+                .any(|m| m.kind == "large_brute" && m.delay > 0.0),
+            "wave 2 should include a delayed heavy",
+        );
+    }
+}

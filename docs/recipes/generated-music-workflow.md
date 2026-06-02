@@ -25,9 +25,18 @@ From the tool directory unless the tool README says otherwise:
 cd tools/ambition_music_renderer
 python -m ambition_music_renderer --help
 ./render_first_goblin_transition_lab.sh
-python transition_audit.py --help
-python audit_cue_balance.py --help
+python transition_audit.py --help     # two-file transition seam (RMS/peak over time, plots)
+python audit_cue_balance.py --help    # sections WITHIN one adaptive cue (intro vs wave1...)
+python level_report.py --help         # ACROSS the runtime cue catalog (inter-cue leveling)
 ```
+
+Three audio-analysis tools, three scopes:
+- `transition_audit.py` — two specific section files; visual transition-seam plots.
+- `audit_cue_balance.py` — every section/stem inside one cue's output dir.
+- `level_report.py` — every `<cue>/full.ogg` under the runtime music root; a
+  sorted, diff-friendly table (duration, RMS dBFS, true peak dBTP, crest,
+  target-RMS delta, optional LUFS) + a spread summary with CLIP/LOUD/QUIET
+  flags. Use it to catch inter-cue loudness jumps and clipping across re-renders.
 
 Prefer the tool README and CLI help over old recipe fragments when command flags drift.
 

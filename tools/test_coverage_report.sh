@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Per-module #[test] count for ambition_engine + ambition_sandbox.
+# Per-module #[test] count for the ambition_sandbox crate (the former
+# standalone ambition_engine now lives under src/engine_core/).
 #
 # Quick reconnaissance tool: when picking a module to add tests to,
 # run this from the repo root to see which Rust files have the
@@ -8,9 +9,9 @@
 # files float to the top.
 #
 # Usage:
-#   ./tools/test_coverage_report.sh           # default: both crates
-#   ./tools/test_coverage_report.sh engine    # only ambition_engine
-#   ./tools/test_coverage_report.sh sandbox   # only ambition_sandbox
+#   ./tools/test_coverage_report.sh           # default: whole sandbox crate
+#   ./tools/test_coverage_report.sh engine    # only src/engine_core/
+#   ./tools/test_coverage_report.sh sandbox   # whole sandbox crate src
 #
 # This is a triage tool, not a coverage substitute. `cargo llvm-cov`
 # is the right answer when you actually want line/branch coverage —
@@ -22,16 +23,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 case "${1:-both}" in
   engine)
-    targets=("$REPO_ROOT/crates/ambition_engine/src")
+    targets=("$REPO_ROOT/crates/ambition_sandbox/src/engine_core")
     ;;
-  sandbox)
+  sandbox|both|*)
+    # One crate now; its src already contains engine_core/.
     targets=("$REPO_ROOT/crates/ambition_sandbox/src")
-    ;;
-  both|*)
-    targets=(
-      "$REPO_ROOT/crates/ambition_engine/src"
-      "$REPO_ROOT/crates/ambition_sandbox/src"
-    )
     ;;
 esac
 

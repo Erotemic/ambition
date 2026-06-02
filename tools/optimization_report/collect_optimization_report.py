@@ -705,7 +705,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     check_results = []
     check_results.append(run("cargo_check_sfx_crates", cargo_check_cmd("-p", "ambition_sfx", "-p", "ambition_sfx_bank", long_tests=args.long_tests)))
-    check_results.append(run("cargo_check_engine", cargo_check_cmd("-p", "ambition_engine", long_tests=args.long_tests)))
+    # The former ambition_engine crate is gone; its code lives in
+    # ambition_sandbox/src/engine_core and is covered by the sandbox check below.
     check_results.append(run("cargo_check_sandbox_default", cargo_check_cmd("-p", "ambition_sandbox", long_tests=args.long_tests)))
     check_results.append(
         run(

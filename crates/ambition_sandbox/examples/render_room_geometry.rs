@@ -143,9 +143,15 @@ fn render_room(room: &sb::rooms::RoomSpec) -> RgbaImage {
         overlay_aabb(&mut img, &proj, e.aabb, Rgba([235, 70, 70, 255])); // red
     }
     for b in &room.boss_spawns {
-        // Thicker: double outline already; brighten so it reads as the
-        // room's headline threat.
-        overlay_aabb(&mut img, &proj, b.aabb, Rgba([255, 140, 30, 255])); // orange
+        // Orange: the authored spawn / collision envelope.
+        overlay_aabb(&mut img, &proj, b.aabb, Rgba([255, 140, 30, 255]));
+        // Bright cyan: the actual rest-pose damageable hurtbox(es) the
+        // player must hit — derived from the boss's sprite metrics, so a
+        // boss whose hurtbox is a small head inside a big body envelope
+        // reads correctly.
+        for hb in sb::features::boss_spawn_hurtboxes(&b.id, &b.name, b.aabb, b.payload.clone()) {
+            overlay_aabb(&mut img, &proj, hb, Rgba([60, 240, 255, 255]));
+        }
     }
     for it in &room.interactables {
         overlay_aabb(&mut img, &proj, it.aabb, Rgba([70, 230, 120, 255])); // green (NPC/switch)

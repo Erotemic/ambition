@@ -98,8 +98,8 @@ pub(crate) use bosses::boss_component_snapshot;
 )]
 pub use bosses::BossSpriteMetricsApplied;
 pub use bosses::{
-    derive_boss_sprite_metrics, sync_boss_actor_components, sync_boss_encounter_phase,
-    tick_boss_brains_system, update_ecs_bosses,
+    boss_spawn_hurtboxes, derive_boss_sprite_metrics, sync_boss_actor_components,
+    sync_boss_encounter_phase, tick_boss_brains_system, update_ecs_bosses,
 };
 pub use brain_effects::{
     spawn_enemy_projectiles_from_brain_actions, spawn_eye_beam_from_special_messages,

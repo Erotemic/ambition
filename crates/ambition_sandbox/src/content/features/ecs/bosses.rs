@@ -268,6 +268,30 @@ pub fn derive_boss_sprite_metrics(
 /// (`bound.center() - boss.pos`) captures that the body bbox isn't
 /// necessarily centered in the sprite frame, so `boss.aabb()` lines up
 /// with the visible body (GNU-ton's is ~41 px above `boss.pos`).
+/// Compute the rest-pose damageable hurtbox volumes a boss would expose
+/// when spawned from an authored `BossSpawn` at `aabb`. Resolves the
+/// boss's sprite metrics from the baked sheet registry (no Bevy `App`)
+/// and returns world-space AABBs. Exposed for the headless geometry-debug
+/// renderer so boss combat geometry can be verified in a room without
+/// launching the game; live combat uses the ECS path.
+pub fn boss_spawn_hurtboxes(
+    id: &str,
+    name: &str,
+    aabb: ae::Aabb,
+    brain: crate::actor::BossBrain,
+) -> Vec<ae::Aabb> {
+    let registry = SheetRegistry::from_baked();
+    let mut boss = crate::content::features::bosses::BossRuntime::new(id, name, aabb, brain);
+    if let Some((metrics, _)) = boss_sprite_metrics_from_registry(&boss, &registry) {
+        boss.sprite_metrics = Some(metrics);
+    }
+    let attack_state = crate::brain::BossAttackState::default();
+    crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_runtime(
+        &boss,
+        &attack_state,
+    ))
+}
+
 pub(crate) fn boss_sprite_metrics_from_registry(
     boss: &crate::content::features::bosses::BossRuntime,
     registry: &SheetRegistry,
@@ -697,6 +721,22 @@ mod tests {
     /// leaves `combat_offset` at zero, and derives no combat size. A
     /// regression that started emitting static body parts for GNU-ton
     /// (changing its combat envelope + pogo zone) would trip this.
+    #[test]
+    fn boss_spawn_hurtboxes_resolves_without_panicking() {
+        // The headless renderer helper builds a transient boss + baked
+        // registry and returns its rest-pose hurtboxes. Smoke-guard that
+        // it resolves a non-empty volume (real metrics or the combat-size
+        // fallback) and never panics.
+        let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(110.0, 110.0));
+        let hbs = boss_spawn_hurtboxes(
+            "boss_gnu_ton",
+            "GNU-ton",
+            aabb,
+            crate::actor::BossBrain::Dormant,
+        );
+        assert!(!hbs.is_empty(), "a boss should expose at least one hurtbox");
+    }
+
     #[test]
     fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
         use crate::content::features::bosses::{BossBehaviorProfile, BossRuntime};

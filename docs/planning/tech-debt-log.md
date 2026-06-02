@@ -74,6 +74,25 @@ to the bottom under "Closed" with the commit that fixed them.
     fixture omits. Keep the test as a regression guard; close this
     debt entry only after the parry contact-normal fix lands AND a
     full-trace replay reproduces+passes.
+  - **Narrowing 2026-06-02 (autonomous):** added
+    `goblin_encounter_full_world_lock_wall_cling_repro` in
+    `repro_walls.rs` — loads the REAL goblin_encounter world (all 14
+    LDtk blocks in production order) and APPENDS the lock wall last,
+    exactly as `sync_lock_walls` does, then drives the body off the
+    lock-wall edge with a post-wall-jump upward velocity through the
+    x=704..720 top-wall corner. It does **not** reproduce: the upward
+    sweep correctly stops the body just below the top wall (top≈401 vs
+    wall bottom 400, vel.y zeroed), moving ≤4px/frame. So the
+    "needs the full block set / append order" hypothesis is **ruled
+    out** — the trigger needs the exact trace state synthetic fixtures
+    don't capture: the *control-phase* wall-jump velocity (these
+    fixtures only call the simulation phase, so a `jump_pressed` is
+    ignored — the wall-jump impulse never fires), the precise sub-pixel
+    x / pre-existing penetration of the x=704..720 wall, or accumulated
+    multi-frame history. **Next repro step:** drive the real
+    control+simulation phases (or replay the captured trace
+    `1777995217-…`) so the genuine wall-jump impulse + facing/cling
+    state are produced, rather than hand-setting velocity.
   - Bumping `OOB_MARGIN` is NOT the fix — it would just hide the
     teleport. The right fix is rejecting `time_of_impact = 0` hits
     that snap the body MORE than the velocity budget for the

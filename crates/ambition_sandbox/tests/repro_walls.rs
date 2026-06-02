@@ -562,3 +562,112 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
         1.0 / 144.0,
     );
 }
+
+/// Full-world regression guard + reproduction attempt for the
+/// goblin_encounter lock-wall teleport (tech-debt-log HIGH).
+///
+/// Unlike `mob_lab_lock_wall_cling_does_not_teleport` (a 3-block subset),
+/// this loads the REAL goblin_encounter world — all its LDtk blocks in
+/// production order — and APPENDS the runtime lock wall last, exactly as
+/// `sync_lock_walls` does when the encounter goes Active. It then drives
+/// the body off the lock-wall edge with a strong upward velocity (the
+/// post-wall-jump state the trace blames) through the x=704..720 top-wall
+/// corner.
+///
+/// **Result (2026-06-02):** this does NOT reproduce the production
+/// teleport — the upward sweep correctly stops the body just below the
+/// top wall (top≈401 vs wall bottom 400, vel.y zeroed). So the full block
+/// set + append order is NOT sufficient; the production trigger needs the
+/// exact trace state that synthetic fixtures don't capture (the
+/// control-phase wall-jump velocity, sub-pixel x/penetration config, or
+/// accumulated multi-frame history). Kept as a passing regression guard:
+/// the budget assertion fires if a future change reintroduces the snap.
+#[test]
+fn goblin_encounter_full_world_lock_wall_cling_repro() {
+    let project =
+        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("room_set");
+    let Some(room) = room_set
+        .rooms
+        .iter()
+        .find(|s| s.id == "goblin_encounter")
+    else {
+        eprintln!("no goblin_encounter room; known rooms:");
+        for r in &room_set.rooms {
+            eprintln!("  {}", r.id);
+        }
+        return;
+    };
+    let world = room.world.clone();
+    let platforms = room.moving_platforms.clone();
+    let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
+    let mut augmented = sb::features::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+
+    // Append the runtime lock wall last (matches sync_lock_walls insert
+    // order). Trace coords: LDtk px (480,400) size (224,208).
+    augmented.blocks.push(ae::Block::solid(
+        "lockwall:goblin_encounter",
+        ae::Vec2::new(480.0, 400.0),
+        ae::Vec2::new(224.0, 208.0),
+    ));
+
+    println!(
+        "goblin_encounter world: size={:?} spawn={:?} blocks={}",
+        world.size,
+        world.spawn,
+        augmented.blocks.len()
+    );
+    for b in &augmented.blocks {
+        if b.aabb.min.y < 64.0 || b.name.starts_with("lockwall") {
+            println!("  block {:?} aabb min={:?} max={:?}", b.name, b.aabb.min, b.aabb.max);
+        }
+    }
+
+    let mut player = scratch_at(world.spawn);
+    // EXACT live state from the trace: wall-clinging on the lock wall's
+    // right edge (lock_wall.right=704), player just outside at x=718.
+    player.kinematics.pos = ae::Vec2::new(718.0, 434.1);
+    player.kinematics.vel = ae::Vec2::new(0.0, 31.1);
+    player.ground.on_ground = false;
+    player.wall.on_wall = true;
+    player.wall.wall_normal_x = 1.0;
+    player.wall.wall_clinging = true;
+    player.kinematics.facing = -1.0;
+
+    let dt = 1.0 / 144.0;
+    // Simulate the post-wall-jump state directly (the simulation phase
+    // doesn't process the jump press): a strong upward velocity, pushed
+    // away from the wall. The body then rises from the lock-wall edge
+    // into the x=704..720 top-wall corner — exactly the
+    // edge-touching-then-vertical-sweep configuration the trace blames.
+    player.kinematics.vel = ae::Vec2::new(180.0, -560.0);
+    player.wall.wall_clinging = false;
+    for frame in 0..40 {
+        let pre = player.kinematics.pos;
+        let pre_vel = player.kinematics.vel;
+        let input = InputState {
+            axis_x: 0.0,
+            jump_held: frame < 8,
+            control_dt: dt,
+            ..Default::default()
+        };
+        let _ = ae::update_player_simulation_with_tuning_scratch(
+            &augmented, &mut player, input, dt, DEFAULT_TUNING,
+        );
+        let moved = (player.kinematics.pos - pre).length();
+        if frame < 4 || moved > 40.0 {
+            println!(
+                "f{frame:02}: pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) moved={:.2}px",
+                player.kinematics.pos.x, player.kinematics.pos.y,
+                player.kinematics.vel.x, player.kinematics.vel.y, moved
+            );
+        }
+        assert_within_displacement_budget(
+            &format!("goblin_encounter_full_world_walljump_f{frame}"),
+            pre,
+            player.kinematics.pos,
+            pre_vel,
+            dt,
+        );
+    }
+}

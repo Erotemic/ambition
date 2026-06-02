@@ -2,9 +2,11 @@
 # Re-render every sprite asset and install into the sandbox crate.
 #
 # Covers:
-#   - Adapter targets (robot / goblin / boss): re-renders every job in
-#     tools/ambition_sprite2d_renderer/configs/ straight into
-#     crates/ambition_sandbox/assets/sprites/.
+#   - Adapter targets (robot / goblin / boss): re-renders every registered
+#     target (run `ambition_sprite2d_renderer list`) — the adapter rigs are
+#     driven by YAML in the renderer package's config dir
+#     tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/*.yaml
+#     — straight into crates/ambition_sandbox/assets/sprites/.
 #   - Entity sprites (chest, breakable, door zone, etc.): re-rendered into
 #     crates/ambition_sandbox/assets/sprites/entities/.
 #   - Standalone pirate sheets: rendered and published into

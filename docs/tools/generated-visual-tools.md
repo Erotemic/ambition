@@ -1,33 +1,93 @@
 
 # Generated visual tools
 
-## Sprite renderer
+How the runtime's generated **visual** assets (character/entity spritesheets,
+backgrounds, parallax layers) are produced and published. The short version:
+**edit a source config, run the matching `regen_*.sh`, commit the result** —
+never hand-edit a published `.png`/`.ron` and never fork a one-off render
+script (see [Avoid one-off forks](#avoid-one-off-forks)).
 
-Location: `tools/ambition_sprite2d_renderer/`
+> Audio (music/SFX) lives in the same `regen_assets.sh` pipeline but is
+> documented separately — see
+> [generated-music-workflow.md](../recipes/generated-music-workflow.md) and the
+> SFX bank notes.
 
-Purpose: generate and publish 2D character/entity spritesheets and rig assets.
+## The publish pipeline (start here)
+
+`regen_assets.sh` at the repo root is the orchestrator. It runs each category
+in order and profiles per-category timing to `target/regen_assets/latest.jsonl`
+(gitignored), aborting on the first failure:
 
 ```bash
-cd tools/ambition_sprite2d_renderer
-python -m ambition_sprite2d_renderer --help
-python -m pytest tests
+./regen_assets.sh                 # backgrounds, sprites, music, sfx
+./regen_assets.sh sprites         # just one (or several) categories, in order
+./regen_backgrounds.sh --help     # per-category options live on each script
+./regen_sprites.sh --help
 ```
 
-## Background and parallax renderers
+Each category script auto-selects a Python via `$PYTHON`, an active
+`$VIRTUAL_ENV`, the repo `.venv`, or the tool's own `.venv`, and installs the
+result straight into the sandbox crate's `assets/`. Renders are cache-skipped
+when nothing changed; `--force` bypasses the cache.
 
-Locations:
+## Sprite renderer — `tools/ambition_sprite2d_renderer/`
+
+Generates and publishes 2D character/entity spritesheets and their actor rigs.
+
+- **Source of truth = registered targets**, not the published PNGs. List them:
+  ```bash
+  cd tools/ambition_sprite2d_renderer
+  python -m ambition_sprite2d_renderer list      # every target + its animation rows
+  python -m ambition_sprite2d_renderer --help
+  python -m pytest tests
+  ```
+- **Adapter rig configs** (alice, bob, boss, goblin, ninja, robot, sandbag, …)
+  are YAML in the renderer *package* dir — note the doubled path segment:
+  `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/*.yaml`.
+  Review NPCs live under `…/configs/review/*.yaml`. Target registration is in
+  `ambition_sprite2d_renderer/target_registry.py`.
+- **Publish** one target (what `regen_sprites.sh` calls per target):
+  `python -m ambition_sprite2d_renderer publish <target> --dest-root <dest>`.
+- **`./regen_sprites.sh`** renders + installs everything: adapter targets and
+  standalone sheets into `crates/ambition_sandbox/assets/sprites/`, entity
+  sprites (chest, breakable, door zone, …) into `…/assets/sprites/entities/`.
+  `--target <name>` does just one. It fingerprints the renderer's `.py` + config
+  sources, so a source edit invalidates the cache and forces a re-render.
+- For the character-authoring angle (catalog entry → spawner → sprite), see
+  [recipes/adding-a-character.md](../recipes/adding-a-character.md); the Hall of
+  Characters is the visual review surface for the whole roster.
+
+## Background and parallax renderers
 
 - `tools/ambition_background_renderer/`
 - `tools/ambition_parallax_renderer/`
 
-Purpose: generate background images and parallax layers.
+`./regen_backgrounds.sh` regenerates procedural backgrounds / parallax layers
+into `crates/ambition_sandbox/assets/backgrounds/parallax_layers/`. These
+deliberately live under `assets/backgrounds/`, **not** `assets/sprites/` —
+`regen_sprites.sh` neither creates nor publishes them.
 
-## Promo/vanity tools
+## Promo / vanity tools
 
-Location: `tools/vanity_card_prep/` when present.
-
-Purpose: prepare promotional card material, not gameplay runtime data.
+`tools/vanity_card_prep/` (when present) prepares promotional card material —
+not gameplay runtime data, so it is outside the `regen_assets.sh` pipeline.
 
 ## Experimental visual tools
 
-`tools/experimental/` contains reference or in-progress work, including 3D sprite experiments, procedural fit experiments, and component extraction prototypes. Promote a tool out of `experimental/` and document its workflow before using it as a runtime asset source.
+`tools/experimental/` holds reference or in-progress work (3D sprite
+experiments, procedural-fit experiments, component-extraction prototypes).
+Promote a tool out of `experimental/` and document its workflow here before
+using it as a runtime asset source.
+
+## Avoid one-off forks
+
+The whole point of the registry + `regen_*.sh` scripts is that **a fresh clone
+can reproduce every committed asset**. To keep that true:
+
+- New character/entity art → add a YAML config + register a target, then
+  `regen_sprites.sh`. Don't copy a render script and tweak it inline.
+- Never hand-edit a published `*_spritesheet.png` / `.ron` / `.yaml` under
+  `assets/`; they are outputs and will be overwritten on the next regen.
+- A refactor that breaks `regen_sprites.sh` / `regen_backgrounds.sh` /
+  `regen_assets.sh` on a clean checkout is a regression, even if the committed
+  assets still look fine.

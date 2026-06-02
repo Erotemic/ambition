@@ -98,3 +98,62 @@ impl GameplayTraceBuffer {
         self.events.iter()
     }
 }
+
+#[cfg(test)]
+mod buffer_tests {
+    //! The trace ring buffer: capacity is clamped to >=1, push is a
+    //! bounded ring that evicts the oldest entry, and request_dump keeps
+    //! the first request (so a later auto-dump can't clobber a pending
+    //! reason). push_event shares the eviction logic with push_frame.
+    use super::*;
+
+    fn jump(tick: u64) -> GameplayTraceEvent {
+        GameplayTraceEvent::Jump { tick }
+    }
+
+    fn event_ticks(b: &GameplayTraceBuffer) -> Vec<u64> {
+        b.events()
+            .map(|e| match e {
+                GameplayTraceEvent::Jump { tick } => *tick,
+                _ => 0,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn with_capacity_clamps_to_at_least_one() {
+        let b = GameplayTraceBuffer::with_capacity(0, 0);
+        assert_eq!(b.capacity_frames, 1);
+        assert_eq!(b.capacity_events, 1);
+    }
+
+    #[test]
+    fn push_event_is_a_bounded_ring_dropping_oldest() {
+        let mut b = GameplayTraceBuffer::with_capacity(8, 2);
+        b.push_event(jump(1));
+        b.push_event(jump(2));
+        b.push_event(jump(3)); // evicts tick 1
+        assert_eq!(b.event_count(), 2);
+        assert_eq!(event_ticks(&b), vec![2, 3], "oldest evicted, order preserved");
+    }
+
+    #[test]
+    fn extend_events_drains_in_order_within_capacity() {
+        let mut b = GameplayTraceBuffer::with_capacity(8, 3);
+        b.extend_events([jump(1), jump(2), jump(3), jump(4)]);
+        assert_eq!(b.event_count(), 3);
+        assert_eq!(event_ticks(&b), vec![2, 3, 4]);
+    }
+
+    #[test]
+    fn request_dump_keeps_the_first_request() {
+        let mut b = GameplayTraceBuffer::with_capacity(4, 4);
+        assert!(b.dump_request.is_none());
+        b.request_dump(DumpReason::Manual);
+        b.request_dump(DumpReason::Programmatic { label: "later".into() });
+        assert!(
+            matches!(b.dump_request, Some(DumpReason::Manual)),
+            "the first dump request wins"
+        );
+    }
+}

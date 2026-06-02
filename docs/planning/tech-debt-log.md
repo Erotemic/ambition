@@ -99,13 +99,27 @@ to the bottom under "Closed" with the commit that fixed them.
     upward velocity, AND full-world faithful wall-jump all fail to
     reproduce. The bug is either already substantially mitigated by the
     `body_is_side_contact` predicate, or requires the exact recorded
-    sub-pixel/penetration/velocity-history state. **Definitive next
-    step:** replay the captured trace `1777995217-972692847-000000`
-    through the trace-replay harness (`docs/systems/gameplay-trace-recorder.md`)
-    rather than any hand-built fixture — that is now the only path that
-    carries the precise production state. If the trace itself no longer
-    reproduces, downgrade this entry from HIGH (the predicate fix may
-    have already closed it).
+    sub-pixel/penetration/velocity-history state.
+  - **Trace replay is inconclusive — the captured trace is
+    aftermath-only (2026-06-02):** ran `trace_replay` on
+    `debug_traces/ambition_trace_1777995217-972692847-000000…json`.
+    Its **first** recorded frame is already the post-teleport stuck
+    state — `t=9860 pos=(718, -23)`, grounded, vel 0, ping-ponging on
+    the ceiling. The recorder's ring buffer captured the *result*, not
+    the teleport frame, so the replay diverges from frame 0 only
+    because the live sim starts at the room spawn `(950, 851)` — there
+    is no pre-teleport approach in the trace to replay. **Bottom line:
+    there is currently NO reproduction of this teleport** — not the
+    synthetic fixtures (all pass against the current engine) and not the
+    one captured trace (aftermath only). It is plausible the
+    `body_is_side_contact` predicate (commit 4002b4d) already closed it
+    and this entry is stale. **Action for whoever owns this:** play the
+    goblin_encounter wall-cling-then-jump in a live build; if it still
+    teleports, capture a FRESH trace that includes the *pre*-teleport
+    frames (widen the ring buffer or start recording before the jump)
+    and land the documented budget-reject fix against it. If it does
+    NOT recur, downgrade from HIGH / close. The passing repro guards in
+    `repro_walls.rs` stay as regression protection either way.
   - Bumping `OOB_MARGIN` is NOT the fix — it would just hide the
     teleport. The right fix is rejecting `time_of_impact = 0` hits
     that snap the body MORE than the velocity budget for the

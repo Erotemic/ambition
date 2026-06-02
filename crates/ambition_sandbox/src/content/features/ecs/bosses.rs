@@ -232,61 +232,15 @@ pub fn derive_boss_sprite_metrics(
     }
     for (entity, mut feature, brain_opt) in &mut bosses {
         let boss = &mut feature.boss;
-        let target = sprite_target_for_boss(&boss.behavior.id);
-        let Some((metrics, frame_w, frame_h)) = registry.body_metrics(target) else {
+        let Some((snapshot, derived_combat_size)) =
+            boss_sprite_metrics_from_registry(boss, &registry)
+        else {
             // No metadata for this boss — leave defaults alone.
             commands.entity(entity).insert(BossSpriteMetricsApplied);
             continue;
         };
-
-        let sprite_render_size = sprite_render_size_for(target, boss.size);
-        let mut snapshot = BossSpriteMetrics {
-            frame_width: frame_w,
-            frame_height: frame_h,
-            body_pixel_bbox: metrics.body_pixel_bbox,
-            body_pixel_parts: metrics.body_pixel_parts.clone(),
-            sprite_render_size,
-            // Provisional — overwritten below once we know whether
-            // there's a body bbox to derive an offset from.
-            combat_offset: ae::Vec2::ZERO,
-            animations: metrics.animations.clone(),
-        };
-
-        // Derive combat_size + combat_offset from the bounding AABB
-        // of all body parts (or the single bbox). Use the SPRITE
-        // RENDER SIZE (not `boss.size`) as the world-scale base —
-        // the visible sprite is rendered at
-        // `boss_asset.spec.render_size(boss.size) = max(boss.size)
-        // * collision_scale`, which is bigger than the LDtk spawn
-        // AABB. Scaling combat_size to render size means the orange
-        // (combat) box and magenta (body-contact damage) box both
-        // cover the visible body instead of half of it.
-        //
-        // The `combat_offset` (bound.center() - boss.pos) captures
-        // the fact that the body bbox isn't necessarily centered in
-        // the sprite frame — without it, `boss.aabb()` sits at
-        // `boss.pos`, but the visible body is offset ~41 px above,
-        // so the pogo zone and orange debug box land "below" the
-        // visible sprite and pogo doesn't fire where the player aims.
-        let body_aabbs = crate::features::world_space_body_aabbs_from_parts(
-            &snapshot.body_pixel_parts,
-            snapshot.body_pixel_bbox,
-            frame_w,
-            frame_h,
-            boss.pos,
-            sprite_render_size,
-        );
-        let derive_result = bounding_aabb(&body_aabbs);
-        if let Some(bound) = derive_result {
-            // Use the sprite-authored body bbox as the single source of truth
-            // for both offset and size. Smirking Behemoth's metadata now
-            // excludes its hat while keeping the slab bottom planted, so this
-            // offset gives a tight body hurtbox without including decoration.
-            snapshot.combat_offset = bound.center() - boss.pos;
-        }
         boss.sprite_metrics = Some(snapshot);
-        if let Some(bound) = derive_result {
-            let derived = bound.half_size() * 2.0;
+        if let Some(derived) = derived_combat_size {
             boss.behavior.combat_size = Some(derived);
             // Mirror into the brain cfg so the soft world-bounds
             // clamp uses the new value too.
@@ -298,6 +252,51 @@ pub fn derive_boss_sprite_metrics(
         }
         commands.entity(entity).insert(BossSpriteMetricsApplied);
     }
+}
+
+/// Pure derivation of a boss's sprite metrics + updated combat size from
+/// the sheet registry. Extracted from [`derive_boss_sprite_metrics`] so
+/// headless tools and tests can compute boss hurtbox geometry without the
+/// ECS system (which additionally writes the derived size into the boss
+/// brain cfg). Returns `None` when the boss's sprite target has no body
+/// metrics; otherwise `(metrics, Some(derived_combat_size))` where the
+/// combat size is `None` if there were no body parts to bound.
+///
+/// Uses the SPRITE RENDER SIZE (not `boss.size`) as the world-scale base —
+/// the visible sprite renders at `max(boss.size) * collision_scale`, which
+/// is bigger than the LDtk spawn AABB. The `combat_offset`
+/// (`bound.center() - boss.pos`) captures that the body bbox isn't
+/// necessarily centered in the sprite frame, so `boss.aabb()` lines up
+/// with the visible body (GNU-ton's is ~41 px above `boss.pos`).
+pub(crate) fn boss_sprite_metrics_from_registry(
+    boss: &crate::content::features::bosses::BossRuntime,
+    registry: &SheetRegistry,
+) -> Option<(BossSpriteMetrics, Option<ae::Vec2>)> {
+    let target = sprite_target_for_boss(&boss.behavior.id);
+    let (metrics, frame_w, frame_h) = registry.body_metrics(target)?;
+    let sprite_render_size = sprite_render_size_for(target, boss.size);
+    let mut snapshot = BossSpriteMetrics {
+        frame_width: frame_w,
+        frame_height: frame_h,
+        body_pixel_bbox: metrics.body_pixel_bbox,
+        body_pixel_parts: metrics.body_pixel_parts.clone(),
+        sprite_render_size,
+        combat_offset: ae::Vec2::ZERO,
+        animations: metrics.animations.clone(),
+    };
+    let body_aabbs = crate::features::world_space_body_aabbs_from_parts(
+        &snapshot.body_pixel_parts,
+        snapshot.body_pixel_bbox,
+        frame_w,
+        frame_h,
+        boss.pos,
+        sprite_render_size,
+    );
+    let derived = bounding_aabb(&body_aabbs);
+    if let Some(bound) = derived {
+        snapshot.combat_offset = bound.center() - boss.pos;
+    }
+    Some((snapshot, derived.map(|b| b.half_size() * 2.0)))
 }
 
 /// Sync each boss's `encounter_phase` mirror from `BossEncounterRegistry`.
@@ -687,6 +686,61 @@ pub fn update_ecs_bosses(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The extracted pure metrics derivation (`boss_sprite_metrics_from_registry`)
+    /// reproduces GNU-ton's metrics without the ECS system, via
+    /// `SheetRegistry::from_baked()` (no Bevy `App`). It pins a
+    /// non-obvious structural fact discovered while extracting it:
+    /// GNU-ton's combat geometry comes entirely from its **per-animation
+    /// hurtboxes** (the `animations` map), not from static
+    /// `body_pixel_parts`/`bbox` — so the derivation finds no body bbox,
+    /// leaves `combat_offset` at zero, and derives no combat size. A
+    /// regression that started emitting static body parts for GNU-ton
+    /// (changing its combat envelope + pogo zone) would trip this.
+    #[test]
+    fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
+        use crate::content::features::bosses::{BossBehaviorProfile, BossRuntime};
+        use crate::presentation::character_sprites::registry::SheetRegistry;
+
+        let registry = SheetRegistry::from_baked();
+        let pos = ae::Vec2::new(500.0, 400.0);
+        let behavior = BossBehaviorProfile::gnu_ton();
+        let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
+        let mut boss = BossRuntime::new(
+            "boss_gnu_ton",
+            "GNU-ton",
+            ae::Aabb::new(pos, combat_size * 0.5),
+            crate::actor::BossBrain::Dormant,
+        );
+        boss.behavior = behavior;
+
+        let (metrics, derived_size) = boss_sprite_metrics_from_registry(&boss, &registry)
+            .expect("gnu_ton sprite target should have body metrics in the baked registry");
+        // The head/hand hurtboxes (what damageable_volumes consumes) live
+        // in the per-animation map.
+        assert!(
+            !metrics.animations.is_empty(),
+            "gnu_ton should carry per-animation hurtboxes"
+        );
+        assert!(
+            metrics.animations.contains_key("rest"),
+            "gnu_ton should have a 'rest' animation hurtbox"
+        );
+        // No static body bbox → no offset / derived size.
+        assert_eq!(
+            metrics.combat_offset,
+            ae::Vec2::ZERO,
+            "gnu_ton has no static body_pixel_parts, so combat_offset stays zero"
+        );
+        assert!(
+            metrics.body_pixel_parts.is_empty() && metrics.body_pixel_bbox.is_none(),
+            "gnu_ton's body geometry is per-animation, not static parts"
+        );
+        assert!(
+            derived_size.is_none(),
+            "with no static body bbox, no combat_size is derived"
+        );
+    }
 
     #[test]
     fn front_wall_clearance_ignores_floor_below_body_lane() {

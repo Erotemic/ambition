@@ -339,6 +339,47 @@ mod tests {
         assert!(!cond.matches(&QuestAdvanceEvent::NpcTalked("librarian".into())));
     }
 
+    /// Full 6×6 matrix: each condition kind matches *only* its
+    /// corresponding event kind (same id), and nothing else. Guards every
+    /// arm of `QuestStepCondition::matches` against a copy-paste that pairs
+    /// a condition with the wrong event variant — the kind of silent quest
+    /// bug that strands progression.
+    #[test]
+    fn every_step_condition_matches_only_its_own_event_kind() {
+        use QuestAdvanceEvent as E;
+        use QuestStepCondition as C;
+        let id = "target";
+        let conds = [
+            C::NpcTalked(id.into()),
+            C::ItemCollected(id.into()),
+            C::BossDefeated(id.into()),
+            C::EncounterCleared(id.into()),
+            C::FlagSet(id.into()),
+            C::RoomEntered(id.into()),
+        ];
+        let events = [
+            E::NpcTalked(id.into()),
+            E::ItemCollected(id.into()),
+            E::BossDefeated(id.into()),
+            E::EncounterCleared(id.into()),
+            E::FlagSet(id.into()),
+            E::RoomEntered(id.into()),
+        ];
+        for (i, cond) in conds.iter().enumerate() {
+            for (j, ev) in events.iter().enumerate() {
+                assert_eq!(
+                    cond.matches(ev),
+                    i == j,
+                    "condition {cond:?} vs event {ev:?}: expected match = {}",
+                    i == j
+                );
+            }
+        }
+        // Same kind, different id must never match.
+        assert!(!C::BossDefeated("a".into()).matches(&E::BossDefeated("b".into())));
+        assert!(!C::RoomEntered("a".into()).matches(&E::RoomEntered("b".into())));
+    }
+
     #[test]
     fn cannot_start_already_started_quest() {
         let mut quest = QuestState::new(first_steps_quest());

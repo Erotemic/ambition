@@ -1111,3 +1111,10 @@ Crucially, **cargo incremental builds kept working the whole time** — a `cargo
 
 ### Takeaway
 **In a long run, ENOSPC is almost always task-output-log accumulation, not the build disk.** Keep command output small, avoid backgrounding heavy builds, and verify cargo still runs before pivoting away from code work.
+
+### Follow-up: when *linking* a binary genuinely fails on a full disk
+Later in the same run `df` really was at 100% (~68K free) and `mold` failed: `failed to write to an output file. Disk full?` — incremental `cargo build` of the lib still worked, but **linking a fresh example/test binary** (hundreds of MB) had no room. The fix that worked (and that `df` *did* reflect, ~+7G): remove the rebuildable parts of the target dir, **not** a full `cargo clean`:
+```bash
+rm -rf /home/joncrall/ambition-target/debug/{examples,incremental}
+```
+`examples/` holds the large per-example binaries; `incremental/` is a pure cache. Both rebuild on demand and together freed ~7G (target 19G → 12G), enough to link again. Re-run as it refills. (The "don't free space, builds keep working" note above holds for *lib incremental* builds but **not** for linking a fresh binary — that's the one case where clearing the cache is the right move.)

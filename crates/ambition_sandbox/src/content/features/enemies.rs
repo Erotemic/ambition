@@ -1,4 +1,5 @@
 use super::*;
+use super::ecs::enemy_clusters::EnemyMut;
 
 /// Predicate matching any tile a surface-walker (PuppySlug) can
 /// CLING TO — both solid blocks and one-way platforms count, mirroring
@@ -1342,6 +1343,291 @@ impl EnemyRuntime {
             }),
             ignored_targets: Vec::new(),
         })
+    }
+}
+
+/// Cluster-native enemy integration. This is the EnemyRuntime::update
+/// physics/AI port, operating directly on the authoritative ECS
+/// components through the [`EnemyMut`] view (player cluster pattern).
+/// Field map: self.kin.* (pos/vel/size/facing), self.status.* (alive/
+/// respawn_timer/hit_flash/ai_mode/health), self.config.* (archetype/
+/// brain/spawn), self.attack.* / self.surface.* unchanged, self.motion.0.
+impl<'a> EnemyMut<'a> {
+    pub fn update(
+        &mut self,
+        world: &ae::World,
+        target_pos: ae::Vec2,
+        tuning: FeatureCombatTuning,
+        nearest_neighbor: Option<ae::Vec2>,
+        dt: f32,
+        _is_mounted: bool,
+        frame: crate::actor_control::ActorControlFrame,
+    ) -> crate::actor_control::ActorControlFrame {
+        self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
+        if !self.status.alive {
+            self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
+            if self.config.archetype == EnemyArchetype::FiniteSandbag
+                && self.status.respawn_timer <= 0.0
+            {
+                self.status.alive = true;
+                self.status.health.reset();
+                self.kin.pos = self.config.spawn.pos;
+                self.kin.vel = ae::Vec2::ZERO;
+                self.status.hit_flash = 0.24;
+            }
+            self.status.ai_mode = crate::character_ai::CharacterAiMode::Dead;
+            return crate::actor_control::ActorControlFrame::neutral();
+        }
+
+        self.attack.tick(dt, tuning.enemy_attack_active);
+
+        let recover_remaining = if self.attack.cooldown > 0.0
+            && self.attack.windup_timer <= 0.0
+            && self.attack.active_timer <= 0.0
+        {
+            self.attack.cooldown.min(0.30)
+        } else {
+            0.0
+        };
+        let effective_aggro_radius = match &self.config.brain {
+            crate::actor::EnemyBrain::Passive => 0.0,
+            crate::actor::EnemyBrain::Guard { leash_radius } => *leash_radius,
+            _ => self.config.archetype.aggro_radius(),
+        };
+        let ai = crate::character_ai::evaluate_character_ai_output(
+            crate::character_ai::CharacterAiSnapshot {
+                actor_pos: self.kin.pos,
+                player_pos: target_pos,
+                aggro_radius: effective_aggro_radius,
+                attack_range: self.config.archetype.attack_range(),
+                attack_windup_remaining: self.attack.windup_timer,
+                attack_active_remaining: self.attack.active_timer,
+                attack_recover_remaining: recover_remaining,
+                stun_remaining: 0.0,
+                alive: self.status.alive,
+                patrol_enabled: !self.config.archetype.is_sandbag()
+                    && !matches!(self.config.brain, crate::actor::EnemyBrain::Passive),
+            },
+        );
+        self.status.ai_mode = ai.mode;
+
+        let is_aerial = self.surface.gravity_scale <= 0.001;
+        let is_surface_walker = self.config.archetype == EnemyArchetype::PuppySlug;
+
+        if is_surface_walker {
+            self.step_surface_walker(world, nearest_neighbor, dt);
+        } else {
+            let max_fall = ENEMY_MAX_FALL;
+            let gravity = if is_aerial {
+                0.0
+            } else {
+                ENEMY_GRAVITY * self.surface.gravity_scale
+            };
+            let mut body = crate::kinematic::KinematicBody {
+                pos: self.kin.pos,
+                vel: self.kin.vel,
+                size: self.kin.size,
+                on_ground: self.surface.on_ground,
+                facing: self.kin.facing,
+            };
+            let prev_vel_x = body.vel.x;
+            if is_aerial {
+                let target_speed = frame.desired_vel.length();
+                let archetype_chase = self.config.archetype.chase_speed();
+                let accel = (target_speed.max(archetype_chase) * 3.0).max(900.0) * dt;
+                body.vel.x = approach(body.vel.x, frame.desired_vel.x, accel);
+                body.vel.y = approach(body.vel.y, frame.desired_vel.y, accel);
+            } else {
+                body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
+                if frame.jump_pressed {
+                    if body.on_ground {
+                        body.vel.y = -ENEMY_JUMP_SPEED;
+                        body.on_ground = false;
+                    } else if self.surface.air_jumps_remaining > 0 {
+                        body.vel.y = -ENEMY_DOUBLE_JUMP_SPEED;
+                        self.surface.air_jumps_remaining -= 1;
+                    }
+                }
+            }
+            crate::kinematic::step_kinematic(
+                &mut body,
+                world,
+                crate::kinematic::KinematicTuning {
+                    gravity,
+                    max_fall_speed: max_fall,
+                },
+                crate::kinematic::KinematicInputs {
+                    drop_through: frame.drop_through,
+                },
+                dt,
+            );
+            self.kin.pos = body.pos;
+            self.kin.vel = body.vel;
+            self.surface.on_ground = if is_aerial { false } else { body.on_ground };
+            if self.surface.on_ground {
+                self.surface.air_jumps_remaining = MAX_ENEMY_AIR_JUMPS;
+            }
+
+            if let Some(motion) = &mut self.motion.0 {
+                let _ = motion.advance(self.kin.pos, dt);
+            }
+
+            if !is_aerial
+                && matches!(ai.intent, crate::character_ai::CharacterAiIntent::Patrol)
+                && prev_vel_x.abs() > 1.0
+                && self.kin.vel.x.abs() < 0.01
+            {
+                self.kin.facing *= -1.0;
+            }
+        }
+
+        if self.config.archetype.attacks_player() && frame.facing.abs() > 0.001 {
+            self.kin.facing = frame.facing.signum();
+        }
+
+        if frame.fire.is_some() {
+            self.status.ai_mode = crate::character_ai::CharacterAiMode::Attack;
+        }
+        frame
+    }
+
+    fn step_surface_walker(
+        &mut self,
+        world: &ae::World,
+        nearest_neighbor: Option<ae::Vec2>,
+        dt: f32,
+    ) {
+        if !self.surface.on_ground {
+            self.fall_until_landed(world, dt);
+            return;
+        }
+
+        let n = self.surface.surface_normal;
+        let speed = self.config.archetype.patrol_speed();
+        let step_len = speed * dt;
+        let tangent = ae::Vec2::new(-n.y * self.kin.facing, n.x * self.kin.facing);
+        let body_long = self.kin.size.x * 0.5;
+        let body_thick = self.kin.size.y * 0.5;
+
+        if let Some(neighbor_pos) = nearest_neighbor {
+            let delta = neighbor_pos - self.kin.pos;
+            let along = delta.x * tangent.x + delta.y * tangent.y;
+            let perp = delta.x * n.x + delta.y * n.y;
+            if along > 0.0 && along < body_long + 6.0 && perp.abs() < body_thick + 4.0 {
+                self.kin.facing = -self.kin.facing;
+                self.kin.vel = ae::Vec2::ZERO;
+                return;
+            }
+        }
+
+        if self.wall_ahead(world, tangent, body_long, body_thick) {
+            self.surface.surface_normal = -tangent;
+            if self.snap_pos_to_surface(world) {
+                self.kin.vel = ae::Vec2::ZERO;
+                self.surface.on_ground = true;
+                return;
+            }
+            self.surface.surface_normal = n;
+        }
+
+        let original_pos = self.kin.pos;
+        self.kin.pos += tangent * step_len;
+        self.kin.vel = tangent * speed;
+
+        if self.snap_pos_to_surface(world) {
+            self.surface.on_ground = true;
+            return;
+        }
+
+        let new_normal = tangent;
+        let around_corner = original_pos + tangent * body_long + (-n) * body_long;
+        self.kin.pos = around_corner;
+        self.surface.surface_normal = new_normal;
+        if self.snap_pos_to_surface(world) {
+            self.kin.vel = ae::Vec2::ZERO;
+            self.surface.on_ground = true;
+            return;
+        }
+
+        self.kin.pos = original_pos;
+        self.surface.surface_normal = -tangent;
+        if self.snap_pos_to_surface(world) {
+            self.kin.vel = ae::Vec2::ZERO;
+            self.surface.on_ground = true;
+            return;
+        }
+
+        self.surface.surface_normal = n;
+        self.kin.pos = original_pos;
+        self.surface.on_ground = false;
+        self.fall_until_landed(world, dt);
+    }
+
+    fn wall_ahead(
+        &self,
+        world: &ae::World,
+        tangent: ae::Vec2,
+        body_long: f32,
+        body_thick: f32,
+    ) -> bool {
+        let probe_center = self.kin.pos + tangent * (body_long + 3.0);
+        let half = if tangent.x.abs() > 0.5 {
+            ae::Vec2::new(2.0, body_thick * 0.7)
+        } else {
+            ae::Vec2::new(body_thick * 0.7, 2.0)
+        };
+        let probe = ae::Aabb::new(probe_center, half);
+        world.body_overlaps_any(probe, surface_wall_pred)
+    }
+
+    fn snap_pos_to_surface(&mut self, world: &ae::World) -> bool {
+        let n = self.surface.surface_normal;
+        let body_thick = self.kin.size.y * 0.5;
+        let body_long = self.kin.size.x * 0.5;
+        let down = -n;
+        let max_d = (body_thick + body_long + 4.0) as i32;
+        let half = if n.x.abs() > 0.5 {
+            ae::Vec2::new(0.75, body_long * 0.35)
+        } else {
+            ae::Vec2::new(body_long * 0.35, 0.75)
+        };
+        for i in 0..=max_d {
+            let d = i as f32;
+            let probe = ae::Aabb::new(self.kin.pos + down * d, half);
+            if world.body_overlaps_any(probe, surface_solid_pred) {
+                self.kin.pos += n * (body_thick - (d - 0.5));
+                return true;
+            }
+        }
+        false
+    }
+
+    fn fall_until_landed(&mut self, world: &ae::World, dt: f32) {
+        let mut body = crate::kinematic::KinematicBody {
+            pos: self.kin.pos,
+            vel: self.kin.vel,
+            size: self.kin.size,
+            on_ground: self.surface.on_ground,
+            facing: self.kin.facing,
+        };
+        crate::kinematic::step_kinematic(
+            &mut body,
+            world,
+            crate::kinematic::KinematicTuning {
+                gravity: ENEMY_GRAVITY,
+                max_fall_speed: ENEMY_MAX_FALL,
+            },
+            crate::kinematic::KinematicInputs {
+                drop_through: false,
+            },
+            dt,
+        );
+        self.kin.pos = body.pos;
+        self.kin.vel = body.vel;
+        self.surface.on_ground = body.on_ground;
+        if body.on_ground {
+            self.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
+        }
     }
 }
 

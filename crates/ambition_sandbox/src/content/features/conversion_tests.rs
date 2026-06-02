@@ -468,6 +468,89 @@ mod conversion_tests {
         );
     }
 
+    /// The cluster-native `EnemyMut::update` must reproduce the legacy
+    /// `EnemyRuntime::update` integration bit-for-bit (same code, same
+    /// inputs) — this pins the field-rename port (kin/status/config/
+    /// surface/attack) against typos across the grounded, aerial, and
+    /// surface-walker branches. Runs both integrators in lockstep and
+    /// asserts the state stays identical every tick.
+    #[test]
+    fn cluster_update_matches_runtime_update_over_many_ticks() {
+        use super::ecs::enemy_clusters::EnemyClusterScratch;
+        let world = ae::World::new(
+            String::from("integration_parity"),
+            ae::Vec2::new(2000.0, 1200.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![
+                ae::Block::solid(
+                    String::from("floor"),
+                    ae::Vec2::new(0.0, 600.0),
+                    ae::Vec2::new(2000.0, 40.0),
+                ),
+                ae::Block::solid(
+                    String::from("wall"),
+                    ae::Vec2::new(900.0, 240.0),
+                    ae::Vec2::new(40.0, 360.0),
+                ),
+            ],
+        );
+        let player_pos = ae::Vec2::new(1500.0, 560.0);
+        // Grounded (step_kinematic + air jumps + patrol turn), aerial
+        // (gravity-free approach), surface-walker (fall → crawl).
+        for brain_id in ["medium_striker", "pirate_on_shark", "puppy_slug"] {
+            let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 300.0), ae::Vec2::new(20.0, 18.0));
+            let mut enemy = EnemyRuntime::new(
+                brain_id,
+                brain_id,
+                aabb,
+                crate::actor::EnemyBrain::Custom(brain_id.into()),
+                &[],
+            );
+            let mut scratch = EnemyClusterScratch::from_runtime(&enemy);
+            let mut frame = crate::actor_control::ActorControlFrame::neutral();
+            frame.desired_vel = ae::Vec2::new(160.0, -40.0);
+            frame.facing = 1.0;
+            for tick in 0..180 {
+                frame.jump_pressed = tick % 45 == 0;
+                let dt = 1.0 / 60.0;
+                enemy.update(
+                    &world,
+                    player_pos,
+                    FeatureCombatTuning::default(),
+                    None,
+                    dt,
+                    false,
+                    frame,
+                );
+                scratch.as_mut().update(
+                    &world,
+                    player_pos,
+                    FeatureCombatTuning::default(),
+                    None,
+                    dt,
+                    false,
+                    frame,
+                );
+                assert_eq!(scratch.kin.pos, enemy.pos, "{brain_id} pos @tick {tick}");
+                assert_eq!(scratch.kin.vel, enemy.vel, "{brain_id} vel @tick {tick}");
+                assert_eq!(
+                    scratch.kin.facing, enemy.facing,
+                    "{brain_id} facing @tick {tick}"
+                );
+                assert_eq!(
+                    scratch.surface, enemy.surface,
+                    "{brain_id} surface @tick {tick}"
+                );
+                assert_eq!(scratch.attack, enemy.attack, "{brain_id} attack @tick {tick}");
+                assert_eq!(
+                    scratch.status.ai_mode, enemy.ai_mode,
+                    "{brain_id} ai_mode @tick {tick}"
+                );
+                assert_eq!(scratch.status.alive, enemy.alive, "{brain_id} alive @tick {tick}");
+            }
+        }
+    }
+
     /// Path-patrol enemies used to write `self.pos = motion.advance(...)`
     /// directly, bypassing world collision. With the brain→sim seam
     /// the path lookahead becomes a desired velocity that `step_kinematic`

@@ -52,6 +52,9 @@ pub fn update_projectiles(
             &FeatureAabb,
             &BossFeature,
             &crate::brain::BossAttackState,
+            // Live rendered frame, so the projectile hit-check uses the
+            // same head position as the damage path + the drawn hurtbox.
+            Option<&crate::features::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,
     >,

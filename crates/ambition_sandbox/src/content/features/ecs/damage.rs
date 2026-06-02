@@ -671,6 +671,7 @@ pub fn ecs_hit_event_hits_boss(
             &FeatureAabb,
             &BossFeature,
             &crate::brain::BossAttackState,
+            Option<&crate::features::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -682,22 +683,30 @@ pub fn ecs_hit_event_hits_boss(
     // is actually damageable — checking against the gross AABB
     // would over-trigger projectile termination on the body without
     // ever applying damage. `damageable_volumes` reads the brain's
-    // `BossAttackState` to decide head-descent vs rest position.
-    bosses.iter().any(|(id, _aabb, feature, attack_state)| {
-        let key = format!("boss:{}", id.as_str());
-        if event.ignored_targets.iter().any(|ignored| ignored == &key) {
-            return false;
-        }
-        if !feature.boss.alive {
-            return false;
-        }
-        crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_runtime(
-            &feature.boss,
-            attack_state,
-        ))
+    // `BossAttackState` to decide head-descent vs rest position, and
+    // the live `BossAnimationFrameSample` (same component
+    // `apply_boss_hit` consumes) so the projectile's hit/terminate
+    // check locks to the exact rendered frame instead of an
+    // elapsed-time estimate — otherwise the projectile could
+    // register a hit a few frames off from where the head is drawn
+    // and where damage actually lands.
+    bosses
         .iter()
-        .any(|part| event.volume.strict_intersects(*part))
-    })
+        .any(|(id, _aabb, feature, attack_state, animation_frame)| {
+            let key = format!("boss:{}", id.as_str());
+            if event.ignored_targets.iter().any(|ignored| ignored == &key) {
+                return false;
+            }
+            if !feature.boss.alive {
+                return false;
+            }
+            crate::features::damageable_volumes(
+                &crate::features::BossVolumeContext::from_runtime(&feature.boss, attack_state)
+                    .with_animation_frame(animation_frame),
+            )
+            .iter()
+            .any(|part| event.volume.strict_intersects(*part))
+        })
 }
 
 /// Schedule a broken breakable for respawn if its policy allows.

@@ -214,3 +214,73 @@ impl ProjectileSpec {
         self.direction * self.speed
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn charge_tier_thresholds_are_inclusive_at_the_boundary() {
+        let t = FireballChargeTuning::DEFAULT;
+        assert_eq!(t.tier_for_hold(0.0), 0);
+        assert_eq!(t.tier_for_hold(0.349), 0);
+        assert_eq!(t.tier_for_hold(0.35), 1, "exact medium threshold charges");
+        assert_eq!(t.tier_for_hold(0.849), 1);
+        assert_eq!(t.tier_for_hold(0.85), 2, "exact heavy threshold charges");
+        assert_eq!(t.tier_for_hold(10.0), 2);
+    }
+
+    #[test]
+    fn fireball_charge_tier_ramps_damage_x4_per_tier_and_grows_hitbox() {
+        let base = ProjectileSpec::new(
+            ProjectileKind::Fireball,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let base_dmg = base.damage;
+        let base_he = base.half_extent;
+
+        let t1 = base.with_charge_tier(1);
+        assert_eq!(t1.damage, base_dmg * 4);
+        assert!((t1.half_extent.x - base_he.x * 1.4).abs() < 1e-3);
+
+        let t2 = base.with_charge_tier(2);
+        assert_eq!(t2.damage, base_dmg * 16);
+        assert!((t2.half_extent.x - base_he.x * 1.8).abs() < 1e-3);
+
+        // Out-of-range tier clamps to 2.
+        let clamped = base.with_charge_tier(7);
+        assert_eq!(clamped.charge_tier, 2);
+        assert_eq!(clamped.damage, base_dmg * 16);
+    }
+
+    #[test]
+    fn non_fireball_kinds_ignore_the_charge_tier() {
+        let h = ProjectileSpec::new(
+            ProjectileKind::Hadouken,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let charged = h.with_charge_tier(2);
+        assert_eq!(charged.damage, h.damage, "Hadouken does not charge");
+        assert_eq!(charged.charge_tier, 0);
+        assert_eq!(charged.half_extent, h.half_extent);
+    }
+
+    #[test]
+    fn new_normalizes_direction_and_initial_velocity_scales_by_speed() {
+        let s = ProjectileSpec::new(
+            ProjectileKind::Fireball,
+            Vec2::ZERO,
+            Vec2::new(3.0, 0.0), // un-normalized
+            1.0,
+        );
+        let v = s.initial_velocity();
+        // direction normalized to (1,0) → velocity is (speed, 0).
+        assert!((v.x - s.speed).abs() < 1e-3);
+        assert!(v.y.abs() < 1e-3);
+        assert!(s.damage >= 1, "damage floors at 1");
+    }
+}

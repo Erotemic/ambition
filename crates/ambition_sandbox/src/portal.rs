@@ -587,17 +587,31 @@ pub fn portal_teleport_ground_items(
 #[derive(Component)]
 pub struct PortalVisual;
 
-/// Marks the floating chip above the player showing the active portal color.
+/// Loaded portal-gun art: the blue / orange mode sprites. Visible build only.
+#[derive(Resource)]
+pub struct PortalGunArt {
+    pub blue: Handle<Image>,
+    pub orange: Handle<Image>,
+}
+
+/// Load the portal-gun mode sprites at startup.
+pub fn load_portal_gun_art(mut commands: Commands, assets: Res<AssetServer>) {
+    commands.insert_resource(PortalGunArt {
+        blue: assets.load("sprites/props/portal_gun_blue.png"),
+        orange: assets.load("sprites/props/portal_gun_orange.png"),
+    });
+}
+
+/// Marks the gun sprite floating above the player showing the active mode.
 #[derive(Component)]
 pub struct PortalModeIndicator;
 
-/// Placeholder mode indicator: a small chip above the player tinted with the
-/// color of the *next* portal the gun will fire, so toggling (Interact) gives
-/// clear visual feedback of which mode you're in. (Replaced by the real
-/// blue/orange gun sprite once that lands — see TODO section B.)
+/// Float the portal-gun sprite above the player in the color of the *next*
+/// portal it will fire, so toggling (Interact) visibly swaps blue↔orange.
 pub fn sync_portal_mode_indicator(
     mut commands: Commands,
     world: Res<GameWorld>,
+    art: Option<Res<PortalGunArt>>,
     visuals: Query<Entity, With<PortalModeIndicator>>,
     players: Query<(&PlayerKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
@@ -610,16 +624,23 @@ pub fn sync_portal_mode_indicator(
     if !gun.active {
         return;
     }
-    let color = match gun.next_color {
-        PortalColor::Blue => Color::srgb(0.30, 0.62, 1.0),
-        PortalColor::Orange => Color::srgb(1.0, 0.55, 0.20),
+    let Some(art) = art else {
+        return;
+    };
+    let image = match gun.next_color {
+        PortalColor::Blue => art.blue.clone(),
+        PortalColor::Orange => art.orange.clone(),
     };
     // Float it above the player's head (y-down world: up is -y).
-    let pos = kin.pos + Vec2::new(0.0, -(kin.size.y * 0.5 + 18.0));
+    let pos = kin.pos + Vec2::new(0.0, -(kin.size.y * 0.5 + 24.0));
     let translation = crate::config::world_to_bevy(&world.0, pos, 11.0);
     commands.spawn((
         PortalModeIndicator,
-        Sprite::from_color(color, Vec2::new(14.0, 14.0)),
+        Sprite {
+            image,
+            custom_size: Some(Vec2::new(48.0, 26.0)),
+            ..default()
+        },
         Transform::from_translation(translation),
         Name::new("Portal mode indicator"),
     ));
@@ -631,6 +652,7 @@ pub fn sync_portal_mode_indicator(
 pub fn sync_portal_visuals(
     mut commands: Commands,
     world: Res<GameWorld>,
+    art: Option<Res<PortalGunArt>>,
     visuals: Query<Entity, With<PortalVisual>>,
     portals: Query<&Portal>,
     pickups: Query<&PortalGunPickup>,
@@ -656,9 +678,19 @@ pub fn sync_portal_visuals(
     // Uncollected portal-gun pickup: a purple marker quad.
     for pickup in &pickups {
         let translation = crate::config::world_to_bevy(&world.0, pickup.pos, 9.0);
+        // The world pickup shows the actual gun sprite (blue mode by default);
+        // falls back to a marker quad before the art has loaded.
+        let sprite = match art.as_ref() {
+            Some(art) => Sprite {
+                image: art.blue.clone(),
+                custom_size: Some(Vec2::new(52.0, 28.0)),
+                ..default()
+            },
+            None => Sprite::from_color(Color::srgb(0.66, 0.36, 0.92), pickup.half_extent * 2.0),
+        };
         commands.spawn((
             PortalVisual,
-            Sprite::from_color(Color::srgb(0.66, 0.36, 0.92), pickup.half_extent * 2.0),
+            sprite,
             Transform::from_translation(translation),
             Name::new("Portal gun pickup visual"),
         ));

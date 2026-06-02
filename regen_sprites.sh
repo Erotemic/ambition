@@ -524,6 +524,8 @@ tackon_targets=(
     # anchor and rotates to the swing/aim direction at runtime.
     pirate_heavy_axe
     throwing_javelin
+    portal_gun_blue
+    portal_gun_orange
     hunting_bow
     bow_arrow
     robot_slash

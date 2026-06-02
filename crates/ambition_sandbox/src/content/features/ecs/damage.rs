@@ -183,148 +183,25 @@ pub fn apply_feature_hit_events(
             if !event.volume.strict_intersects(aabb.aabb()) {
                 continue;
             }
-            match &mut *actor {
-                ActorRuntime::Npc(npc) => {
-                    npc.hit_flash = 0.18;
-                    npc.strikes = npc.strikes.saturating_add(1);
-                    let impact = midpoint(event.volume.center(), npc.pos);
-                    writers.vfx.write(VfxMessage::Impact { pos: impact });
-                    // Retaliation/hostility is driven by ActorStimulus
-                    // below; the old GameplayEffect::StrikeNpc trace
-                    // hook was a no-op and has been removed.
-                    writers.actor_stimuli.write(ActorStimulus::DamagedBy {
-                        actor: actor_entity,
-                        source: event.attacker,
-                        damage: event.damage,
-                    });
-                    actor_hit_this_event = true;
-                    if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
-                        writers.gameplay_effects.write(GameplayEffect::SetFlag {
-                            id: npc.flag_id(),
-                            on: true,
-                        });
-                        writers.vfx.write(VfxMessage::SpeechBubble {
-                            pos: npc.bark_anchor(),
-                            text: npc.hostile_bark().to_string(),
-                        });
-                        writers.vfx.write(VfxMessage::Burst {
-                            pos: npc.pos,
-                            count: 16,
-                            speed: 230.0,
-                            color: [0.84, 0.95, 1.0, 0.82],
-                            kind: ParticleKind::Spark,
-                        });
-                        banner.show(format!("{} turns hostile", npc.name), 2.6);
-                    } else {
-                        writers.vfx.write(VfxMessage::SpeechBubble {
-                            pos: npc.bark_anchor(),
-                            text: npc.hit_bark().to_string(),
-                        });
-                    }
-                }
-                ActorRuntime::Enemy(enemy) => {
-                    if !enemy.alive {
-                        continue;
-                    }
-                    // Combat banter — fire a speech bubble only on
-                    // the first non-overlapping hit (hit_flash near
-                    // zero before we re-set it below). The line
-                    // rotates per hit so repeated strikes don't loop
-                    // the same line. Skipped silently if no registry
-                    // is loaded (e.g. headless / sandbox-only build)
-                    // or this enemy name has no authored lines.
-                    let should_bark = enemy.hit_flash < 0.05;
-                    enemy.hit_flash = 0.16;
-                    if should_bark {
-                        if let Some(reg) = combat_banter.as_deref() {
-                            let strikes = enemy.health.max - enemy.health.current;
-                            if let Some(line) =
-                                reg.pick_hit_bark(&enemy.name, strikes.max(0) as u32)
-                            {
-                                writers.vfx.write(VfxMessage::SpeechBubble {
-                                    pos: enemy.bark_anchor(),
-                                    text: line.to_string(),
-                                });
-                            }
-                        }
-                    }
-                    if let HitSource::PlayerSlash { knock_x } = &event.source {
-                        enemy.vel.x += *knock_x;
-                        enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
-                    }
-                    let damage_amount = event.damage.max(1);
-                    // Composite "X on Shark" enemies are no longer a
-                    // single fused archetype — spawn fans them into
-                    // a mount + rider pair (see
-                    // `super::mount`). Each entity routes damage on
-                    // its own AABB; no special routing here.
-                    let killed = if enemy.archetype == EnemyArchetype::InfiniteSandbag {
-                        false
-                    } else {
-                        enemy.health.damage(damage_amount)
-                    };
-                    let impact = midpoint(event.volume.center(), enemy.pos);
-                    writers.vfx.write(VfxMessage::Impact { pos: impact });
-                    actor_hit_this_event = true;
-                    if killed {
-                        enemy.alive = false;
-                        if enemy.archetype == EnemyArchetype::FiniteSandbag {
-                            enemy.respawn_timer = 0.85;
-                            banner.show(format!("{} dropped; respawning", enemy.name), 2.6);
-                        } else {
-                            banner.show(format!("defeated {}", enemy.name), 2.6);
-                            if !enemy.id.starts_with("encounter:")
-                                && enemy.archetype != EnemyArchetype::InfiniteSandbag
-                                && enemy.archetype != EnemyArchetype::FiniteSandbag
-                            {
-                                // Choose the persistent-flag id by
-                                // respawn policy. OnRoomReenter ⇒ no
-                                // flag at all (the next room load
-                                // gives a fresh enemy). OnRest ⇒ a
-                                // distinct suffix that the rest hook
-                                // can wipe. Never ⇒ the legacy
-                                // `_dead` flag that lives forever.
-                                use crate::features::EnemyRespawnPolicy as P;
-                                let flag_id = match enemy.archetype.respawn_policy() {
-                                    P::OnRoomReenter => None,
-                                    P::OnRest => Some(format!(
-                                        "enemy_{}{}",
-                                        enemy.id,
-                                        crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
-                                    )),
-                                    P::Never => Some(format!("enemy_{}_dead", enemy.id)),
-                                };
-                                if let Some(id) = flag_id {
-                                    writers
-                                        .gameplay_effects
-                                        .write(GameplayEffect::SetFlag { id, on: true });
-                                }
-                            }
-                        }
-                        writers.vfx.write(VfxMessage::Burst {
-                            pos: enemy.pos,
-                            count: 16,
-                            speed: 230.0,
-                            color: [0.84, 0.95, 1.0, 0.82],
-                            kind: ParticleKind::Spark,
-                        });
-                        writers.debris.write(DebrisBurstMessage {
-                            pos: enemy.pos,
-                            cue: PhysicsDebrisCue::EnemyRagdoll,
-                        });
-                        writers.sfx.write(SfxMessage::Death { pos: enemy.pos });
-                    }
-                }
+            if apply_actor_hit(
+                &event,
+                actor_entity,
+                &mut actor,
+                &mut banner,
+                combat_banter.as_deref(),
+                &mut writers,
+            ) {
+                actor_hit_this_event = true;
+                sync_actor_components_from_runtime(
+                    &actor,
+                    &mut identity,
+                    &mut disposition,
+                    &mut health,
+                    &mut combat,
+                    &mut intent,
+                    &mut cooldowns,
+                );
             }
-            sync_actor_components_from_runtime(
-                &actor,
-                &mut identity,
-                &mut disposition,
-                &mut health,
-                &mut combat,
-                &mut intent,
-                &mut cooldowns,
-            );
         }
         let mut boss_hit_this_event = false;
         for (id, _aabb, mut feature, attack_state, animation_frame) in &mut bosses {
@@ -332,138 +209,19 @@ pub fn apply_feature_hit_events(
             if event.ignored_targets.iter().any(|ignored| ignored == &key) {
                 continue;
             }
-            let boss = &mut feature.boss;
-            if !boss.alive {
-                continue;
-            }
-            if crate::boss_encounter::is_cut_rope_boss(&boss.behavior.id)
-                && matches!(
-                    event.source,
-                    HitSource::PlayerSlash { .. } | HitSource::PlayerProjectile { .. }
-                )
-            {
-                // Smirking Behemoth is an environmental puzzle boss:
-                // ordinary player hits should give honest local feedback only
-                // when they overlap the body hurtbox, but they must not damage
-                // the boss. The LDtk-authored rope/anvil system owns the only
-                // kill condition. Keep this before the generic damage branch
-                // so harmless feedback cannot accidentally route through
-                // `record_boss_damage`.
-                let damageable = crate::features::damageable_volumes(
-                    &crate::features::BossVolumeContext::from_runtime(boss, attack_state)
-                        .with_animation_frame(animation_frame),
-                );
-                if let Some(hit_aabb) = damageable
-                    .iter()
-                    .find(|part| event.volume.strict_intersects(**part))
-                {
-                    boss.hit_flash = 0.18;
-                    let impact = midpoint(event.volume.center(), hit_aabb.center());
-                    writers.vfx.write(VfxMessage::Impact { pos: impact });
-                    boss_hit_this_event = true;
-                }
-                continue;
-            }
-            // Damageable volumes read from BossAttackState (the
-            // brain's source of truth for which strike profile is
-            // live) so GNU-ton's head-descent vulnerability window
-            // and the standard whole-body hurtbox agree on a single
-            // attack-state source.
-            let damageable = crate::features::damageable_volumes(
-                &crate::features::BossVolumeContext::from_runtime(boss, attack_state)
-                    .with_animation_frame(animation_frame),
-            );
-            let Some(hit_aabb) = damageable
-                .iter()
-                .find(|part| event.volume.strict_intersects(**part))
-            else {
-                continue;
-            };
-            // Speech bubble bark when player lands a hit, debounced by hit_flash.
-            let should_bark = boss.hit_flash < 0.05;
-            boss.hit_flash = 0.18;
-            if should_bark {
-                if let Some(reg) = combat_banter.as_deref() {
-                    let strikes = boss.health.max - boss.health.current;
-                    if let Some(line) = reg.pick_hit_bark(&boss.name, strikes.max(0) as u32) {
-                        writers.vfx.write(VfxMessage::SpeechBubble {
-                            pos: boss.bark_anchor(),
-                            text: line.to_string(),
-                        });
-                    }
-                }
-            }
-            let amount = event.damage.max(1);
-            // Boss encounter authoritative state (OVERNIGHT-TODO #8).
-            // Apply damage to engine state via the registry; the
-            // outcome tells us whether the hit actually landed (false
-            // during invulnerable phases) and whether it killed the
-            // boss. Mirror the new HP back to the runtime so
-            // downstream readers (HUD health bar, bark count, etc.)
-            // see it on the same tick instead of one frame late.
-            //
-            // If any of the boss-encounter resources is missing (test
-            // fixtures that don't install the encounter machine) we
-            // fall back to the pre-inversion direct mutation so the
-            // runtime still takes damage and the test exercises the
-            // hit path.
-            let outcome = match (
+            if apply_boss_hit(
+                &event,
+                &mut feature,
+                attack_state,
+                animation_frame,
+                &mut banner,
+                combat_banter.as_deref(),
+                &mut writers,
                 boss_registry.as_deref_mut(),
                 music_request.as_deref_mut(),
                 cutscene_queue.as_deref_mut(),
             ) {
-                (Some(registry), Some(music), Some(cutscene)) => record_boss_damage(
-                    registry,
-                    music,
-                    cutscene,
-                    &mut banner,
-                    boss.id.as_str(),
-                    amount,
-                ),
-                _ => None,
-            };
-            let (applied, killed) = match outcome {
-                Some(outcome) => {
-                    boss.health.current = outcome.hp_remaining;
-                    (outcome.applied, outcome.killed)
-                }
-                // No engine encounter / missing test resource. Fall
-                // back to the pre-inversion direct mutation so the
-                // runtime still takes damage.
-                None => {
-                    let died = boss.health.damage(amount);
-                    (true, died)
-                }
-            };
-            if !applied {
-                // Invulnerable phase swallowed the damage. Skip the
-                // hit VFX / GameplayEffect signal so the player sees
-                // the boss as a hard wall during the beat instead of
-                // a fake impact.
-                continue;
-            }
-            let impact = midpoint(event.volume.center(), hit_aabb.center());
-            writers.vfx.write(VfxMessage::Impact { pos: impact });
-            // Boss HP is applied directly via `record_boss_damage`
-            // above, so the engine BossEncounterState is the source of
-            // truth; the old no-op GameplayEffect::DamageBoss bus hook
-            // has been removed.
-            boss_hit_this_event = true;
-            if killed {
-                boss.alive = false;
-                banner.show(format!("defeated boss {}", boss.name), 2.6);
-                writers.vfx.write(VfxMessage::Burst {
-                    pos: boss.pos,
-                    count: 16,
-                    speed: 230.0,
-                    color: [0.84, 0.95, 1.0, 0.82],
-                    kind: ParticleKind::Spark,
-                });
-                writers.debris.write(DebrisBurstMessage {
-                    pos: boss.pos,
-                    cue: PhysicsDebrisCue::BossRagdoll,
-                });
-                writers.sfx.write(SfxMessage::Death { pos: boss.pos });
+                boss_hit_this_event = true;
             }
         }
 
@@ -514,6 +272,313 @@ pub fn apply_feature_hit_events(
             }
         }
     }
+}
+
+/// Apply one landed attacker-side hit to a single actor (peaceful NPC
+/// or hostile enemy) and emit its per-actor feedback (impact VFX,
+/// retaliation stimulus, banter, kill banner / debris / death SFX,
+/// hostility flags).
+///
+/// Returns `true` when the actor took the hit, so the caller drives the
+/// shared landed-hit feedback (hitstop + Hit SFX) and re-syncs the
+/// ECS read-model components. A dead enemy returns `false` (no-op),
+/// matching the previous `continue`-before-sync behavior.
+///
+/// Extracted from `apply_feature_hit_events` per ecs-cleanup-plan.md #4
+/// so the per-target families are testable helpers instead of one god
+/// loop body; the scheduled system is unchanged.
+fn apply_actor_hit(
+    event: &HitEvent,
+    actor_entity: Entity,
+    actor: &mut ActorRuntime,
+    banner: &mut GameplayBanner,
+    combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
+    writers: &mut FeatureHitWriters,
+) -> bool {
+    match actor {
+        ActorRuntime::Npc(npc) => {
+            npc.hit_flash = 0.18;
+            npc.strikes = npc.strikes.saturating_add(1);
+            let impact = midpoint(event.volume.center(), npc.pos);
+            writers.vfx.write(VfxMessage::Impact { pos: impact });
+            // Retaliation/hostility is driven by ActorStimulus
+            // below; the old GameplayEffect::StrikeNpc trace
+            // hook was a no-op and has been removed.
+            writers.actor_stimuli.write(ActorStimulus::DamagedBy {
+                actor: actor_entity,
+                source: event.attacker,
+                damage: event.damage,
+            });
+            if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
+                writers.gameplay_effects.write(GameplayEffect::SetFlag {
+                    id: npc.flag_id(),
+                    on: true,
+                });
+                writers.vfx.write(VfxMessage::SpeechBubble {
+                    pos: npc.bark_anchor(),
+                    text: npc.hostile_bark().to_string(),
+                });
+                writers.vfx.write(VfxMessage::Burst {
+                    pos: npc.pos,
+                    count: 16,
+                    speed: 230.0,
+                    color: [0.84, 0.95, 1.0, 0.82],
+                    kind: ParticleKind::Spark,
+                });
+                banner.show(format!("{} turns hostile", npc.name), 2.6);
+            } else {
+                writers.vfx.write(VfxMessage::SpeechBubble {
+                    pos: npc.bark_anchor(),
+                    text: npc.hit_bark().to_string(),
+                });
+            }
+            true
+        }
+        ActorRuntime::Enemy(enemy) => {
+            if !enemy.alive {
+                return false;
+            }
+            // Combat banter — fire a speech bubble only on
+            // the first non-overlapping hit (hit_flash near
+            // zero before we re-set it below). The line
+            // rotates per hit so repeated strikes don't loop
+            // the same line. Skipped silently if no registry
+            // is loaded (e.g. headless / sandbox-only build)
+            // or this enemy name has no authored lines.
+            let should_bark = enemy.hit_flash < 0.05;
+            enemy.hit_flash = 0.16;
+            if should_bark {
+                if let Some(reg) = combat_banter {
+                    let strikes = enemy.health.max - enemy.health.current;
+                    if let Some(line) = reg.pick_hit_bark(&enemy.name, strikes.max(0) as u32) {
+                        writers.vfx.write(VfxMessage::SpeechBubble {
+                            pos: enemy.bark_anchor(),
+                            text: line.to_string(),
+                        });
+                    }
+                }
+            }
+            if let HitSource::PlayerSlash { knock_x } = &event.source {
+                enemy.vel.x += *knock_x;
+                enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
+            }
+            let damage_amount = event.damage.max(1);
+            // Composite "X on Shark" enemies are no longer a
+            // single fused archetype — spawn fans them into
+            // a mount + rider pair (see
+            // `super::mount`). Each entity routes damage on
+            // its own AABB; no special routing here.
+            let killed = if enemy.archetype == EnemyArchetype::InfiniteSandbag {
+                false
+            } else {
+                enemy.health.damage(damage_amount)
+            };
+            let impact = midpoint(event.volume.center(), enemy.pos);
+            writers.vfx.write(VfxMessage::Impact { pos: impact });
+            if killed {
+                enemy.alive = false;
+                if enemy.archetype == EnemyArchetype::FiniteSandbag {
+                    enemy.respawn_timer = 0.85;
+                    banner.show(format!("{} dropped; respawning", enemy.name), 2.6);
+                } else {
+                    banner.show(format!("defeated {}", enemy.name), 2.6);
+                    if !enemy.id.starts_with("encounter:")
+                        && enemy.archetype != EnemyArchetype::InfiniteSandbag
+                        && enemy.archetype != EnemyArchetype::FiniteSandbag
+                    {
+                        // Choose the persistent-flag id by
+                        // respawn policy. OnRoomReenter ⇒ no
+                        // flag at all (the next room load
+                        // gives a fresh enemy). OnRest ⇒ a
+                        // distinct suffix that the rest hook
+                        // can wipe. Never ⇒ the legacy
+                        // `_dead` flag that lives forever.
+                        use crate::features::EnemyRespawnPolicy as P;
+                        let flag_id = match enemy.archetype.respawn_policy() {
+                            P::OnRoomReenter => None,
+                            P::OnRest => Some(format!(
+                                "enemy_{}{}",
+                                enemy.id,
+                                crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
+                            )),
+                            P::Never => Some(format!("enemy_{}_dead", enemy.id)),
+                        };
+                        if let Some(id) = flag_id {
+                            writers
+                                .gameplay_effects
+                                .write(GameplayEffect::SetFlag { id, on: true });
+                        }
+                    }
+                }
+                writers.vfx.write(VfxMessage::Burst {
+                    pos: enemy.pos,
+                    count: 16,
+                    speed: 230.0,
+                    color: [0.84, 0.95, 1.0, 0.82],
+                    kind: ParticleKind::Spark,
+                });
+                writers.debris.write(DebrisBurstMessage {
+                    pos: enemy.pos,
+                    cue: PhysicsDebrisCue::EnemyRagdoll,
+                });
+                writers.sfx.write(SfxMessage::Death { pos: enemy.pos });
+            }
+            true
+        }
+    }
+}
+
+/// Apply one landed attacker-side hit to a single boss and emit its
+/// feedback. Routes damage through `record_boss_damage` (engine
+/// `BossEncounterState` is the source of truth) when the encounter
+/// resources are present, falling back to direct runtime mutation for
+/// test fixtures without the encounter machine. Cut-rope puzzle bosses
+/// give honest local impact feedback but take no HP damage from
+/// ordinary player hits.
+///
+/// Returns `true` when the boss took the hit (so the caller drives the
+/// shared landed-hit feedback). Early-returns `false` for a dead boss,
+/// a miss against the live damageable volumes, or an invulnerable-phase
+/// swallow — matching the previous `continue` behavior.
+///
+/// Extracted from `apply_feature_hit_events` per ecs-cleanup-plan.md #4.
+#[allow(clippy::too_many_arguments)]
+fn apply_boss_hit(
+    event: &HitEvent,
+    feature: &mut BossFeature,
+    attack_state: &crate::brain::BossAttackState,
+    animation_frame: Option<&crate::features::BossAnimationFrameSample>,
+    banner: &mut GameplayBanner,
+    combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
+    writers: &mut FeatureHitWriters,
+    boss_registry: Option<&mut BossEncounterRegistry>,
+    music_request: Option<&mut BossEncounterMusicRequest>,
+    cutscene_queue: Option<&mut CutsceneTriggerQueue>,
+) -> bool {
+    let boss = &mut feature.boss;
+    if !boss.alive {
+        return false;
+    }
+    if crate::boss_encounter::is_cut_rope_boss(&boss.behavior.id)
+        && matches!(
+            event.source,
+            HitSource::PlayerSlash { .. } | HitSource::PlayerProjectile { .. }
+        )
+    {
+        // Smirking Behemoth is an environmental puzzle boss:
+        // ordinary player hits should give honest local feedback only
+        // when they overlap the body hurtbox, but they must not damage
+        // the boss. The LDtk-authored rope/anvil system owns the only
+        // kill condition. Keep this before the generic damage branch
+        // so harmless feedback cannot accidentally route through
+        // `record_boss_damage`.
+        let damageable = crate::features::damageable_volumes(
+            &crate::features::BossVolumeContext::from_runtime(boss, attack_state)
+                .with_animation_frame(animation_frame),
+        );
+        if let Some(hit_aabb) = damageable
+            .iter()
+            .find(|part| event.volume.strict_intersects(**part))
+        {
+            boss.hit_flash = 0.18;
+            let impact = midpoint(event.volume.center(), hit_aabb.center());
+            writers.vfx.write(VfxMessage::Impact { pos: impact });
+            return true;
+        }
+        return false;
+    }
+    // Damageable volumes read from BossAttackState (the
+    // brain's source of truth for which strike profile is
+    // live) so GNU-ton's head-descent vulnerability window
+    // and the standard whole-body hurtbox agree on a single
+    // attack-state source.
+    let damageable = crate::features::damageable_volumes(
+        &crate::features::BossVolumeContext::from_runtime(boss, attack_state)
+            .with_animation_frame(animation_frame),
+    );
+    let Some(hit_aabb) = damageable
+        .iter()
+        .find(|part| event.volume.strict_intersects(**part))
+    else {
+        return false;
+    };
+    // Speech bubble bark when player lands a hit, debounced by hit_flash.
+    let should_bark = boss.hit_flash < 0.05;
+    boss.hit_flash = 0.18;
+    if should_bark {
+        if let Some(reg) = combat_banter {
+            let strikes = boss.health.max - boss.health.current;
+            if let Some(line) = reg.pick_hit_bark(&boss.name, strikes.max(0) as u32) {
+                writers.vfx.write(VfxMessage::SpeechBubble {
+                    pos: boss.bark_anchor(),
+                    text: line.to_string(),
+                });
+            }
+        }
+    }
+    let amount = event.damage.max(1);
+    // Boss encounter authoritative state (OVERNIGHT-TODO #8).
+    // Apply damage to engine state via the registry; the
+    // outcome tells us whether the hit actually landed (false
+    // during invulnerable phases) and whether it killed the
+    // boss. Mirror the new HP back to the runtime so
+    // downstream readers (HUD health bar, bark count, etc.)
+    // see it on the same tick instead of one frame late.
+    //
+    // If any of the boss-encounter resources is missing (test
+    // fixtures that don't install the encounter machine) we
+    // fall back to the pre-inversion direct mutation so the
+    // runtime still takes damage and the test exercises the
+    // hit path.
+    let outcome = match (boss_registry, music_request, cutscene_queue) {
+        (Some(registry), Some(music), Some(cutscene)) => {
+            record_boss_damage(registry, music, cutscene, banner, boss.id.as_str(), amount)
+        }
+        _ => None,
+    };
+    let (applied, killed) = match outcome {
+        Some(outcome) => {
+            boss.health.current = outcome.hp_remaining;
+            (outcome.applied, outcome.killed)
+        }
+        // No engine encounter / missing test resource. Fall
+        // back to the pre-inversion direct mutation so the
+        // runtime still takes damage.
+        None => {
+            let died = boss.health.damage(amount);
+            (true, died)
+        }
+    };
+    if !applied {
+        // Invulnerable phase swallowed the damage. Skip the
+        // hit VFX / GameplayEffect signal so the player sees
+        // the boss as a hard wall during the beat instead of
+        // a fake impact.
+        return false;
+    }
+    let impact = midpoint(event.volume.center(), hit_aabb.center());
+    writers.vfx.write(VfxMessage::Impact { pos: impact });
+    // Boss HP is applied directly via `record_boss_damage`
+    // above, so the engine BossEncounterState is the source of
+    // truth; the old no-op GameplayEffect::DamageBoss bus hook
+    // has been removed.
+    if killed {
+        boss.alive = false;
+        banner.show(format!("defeated boss {}", boss.name), 2.6);
+        writers.vfx.write(VfxMessage::Burst {
+            pos: boss.pos,
+            count: 16,
+            speed: 230.0,
+            color: [0.84, 0.95, 1.0, 0.82],
+            kind: ParticleKind::Spark,
+        });
+        writers.debris.write(DebrisBurstMessage {
+            pos: boss.pos,
+            cue: PhysicsDebrisCue::BossRagdoll,
+        });
+        writers.sfx.write(SfxMessage::Death { pos: boss.pos });
+    }
+    true
 }
 
 /// Read-only hit test used by systems that need immediate projectile / attack
@@ -677,6 +742,7 @@ mod tests {
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
+        app.add_message::<ActorStimulus>();
         app.add_systems(Update, apply_feature_hit_events);
 
         let actor_entity = spawn_hostile_actor(&mut app);
@@ -713,6 +779,7 @@ mod tests {
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
+        app.add_message::<ActorStimulus>();
         app.add_systems(Update, apply_feature_hit_events);
 
         let actor_entity = spawn_hostile_actor(&mut app);

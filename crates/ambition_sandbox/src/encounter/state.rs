@@ -442,3 +442,121 @@ fn countdown_bar(remaining: f32, total: f32) -> String {
     let empty = 8usize.saturating_sub(filled);
     format!("[{}{}]", "#".repeat(filled), ".".repeat(empty))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::encounter::events::EncounterEvent;
+    use crate::encounter::spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec};
+    use crate::interaction::PickupKind;
+
+    fn wave(label: &str, mob_count: usize) -> EncounterWaveSpec {
+        EncounterWaveSpec {
+            label: label.into(),
+            mobs: (0..mob_count)
+                .map(|i| EncounterMobSpec::new(format!("mob_{i}"), [0.0, 0.0]))
+                .collect(),
+        }
+    }
+
+    fn spec(waves: Vec<EncounterWaveSpec>) -> EncounterSpec {
+        EncounterSpec {
+            id: "test_enc".into(),
+            waves,
+            trigger_min: [0.0, 0.0],
+            trigger_size: [100.0, 100.0],
+            camera_zoom: 1.2,
+            lock_wall: None,
+            intro_seconds: 0.0,
+            music_track: String::new(),
+            reward: PickupKind::Health { amount: 2 },
+        }
+    }
+
+    /// Active-phase state with one live mob and no pending sub-spawns.
+    fn active_with_one_live_mob(spec: EncounterSpec) -> EncounterState {
+        EncounterState {
+            spec: Some(spec),
+            phase: EncounterPhase::Active {
+                wave_index: 0,
+                remaining_mobs: 1,
+            },
+            lock_active: true,
+            run: EncounterRun {
+                pending: Vec::new(),
+                alive_ids: vec!["mob_0".into()],
+                wave_elapsed: 0.0,
+            },
+            spawn_counter: 0,
+        }
+    }
+
+    #[test]
+    fn phase_queries_reflect_each_variant() {
+        assert!(EncounterPhase::Starting { remaining: 1.0 }.locks_exits());
+        assert!(EncounterPhase::Active {
+            wave_index: 0,
+            remaining_mobs: 2
+        }
+        .locks_exits());
+        assert!(!EncounterPhase::Inactive.locks_exits());
+        assert!(!EncounterPhase::Cleared.locks_exits());
+
+        assert_eq!(
+            EncounterPhase::Active {
+                wave_index: 3,
+                remaining_mobs: 5
+            }
+            .wave_index(),
+            Some(3)
+        );
+        assert_eq!(EncounterPhase::Inactive.wave_index(), None);
+        assert_eq!(
+            EncounterPhase::Active {
+                wave_index: 0,
+                remaining_mobs: 5
+            }
+            .remaining_mobs(),
+            Some(5)
+        );
+    }
+
+    #[test]
+    fn persisted_round_trip_collapses_active_to_untouched() {
+        let mut s = EncounterState::default();
+        s.phase = EncounterPhase::Active {
+            wave_index: 0,
+            remaining_mobs: 1,
+        };
+        assert_eq!(s.to_persisted(), PersistedEncounterState::Untouched);
+        s.apply_persisted(PersistedEncounterState::Cleared);
+        assert_eq!(s.phase, EncounterPhase::Cleared);
+        assert!(!s.lock_active, "cleared phase does not lock exits");
+        assert_eq!(s.to_persisted(), PersistedEncounterState::Cleared);
+    }
+
+    #[test]
+    fn defeating_the_last_mob_of_the_last_wave_clears_and_unlocks() {
+        let mut s = active_with_one_live_mob(spec(vec![wave("only", 1)]));
+        let events = s.on_mob_defeated();
+        assert_eq!(s.phase, EncounterPhase::Cleared);
+        assert!(!s.lock_active, "clearing releases the lock");
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, EncounterEvent::Cleared { .. })));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, EncounterEvent::LockChanged { locked: false })));
+    }
+
+    #[test]
+    fn defeating_the_last_mob_of_a_wave_advances_to_the_next() {
+        let mut s = active_with_one_live_mob(spec(vec![wave("first", 1), wave("second", 2)]));
+        let events = s.on_mob_defeated();
+        assert_eq!(s.phase.wave_index(), Some(1), "advanced to the second wave");
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, EncounterEvent::WaveStarted { wave_index: 1, .. })));
+        assert!(s.lock_active, "lock stays active between waves");
+    }
+}

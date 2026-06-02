@@ -6,31 +6,37 @@
 
 use super::*;
 
-pub fn ecs_npc_name<'a>(
-    id: &str,
-    actors: &'a Query<(&FeatureId, &ActorRuntime)>,
-) -> Option<&'a str> {
-    actors.iter().find_map(|(feature_id, actor)| {
+/// QueryData tuple for actor-sprite lookups: the runtime variant tag
+/// plus the enemy cluster components (`None` on NPCs). Systems declare
+/// `Query<ActorSpriteData>`; the helpers take `&Query<ActorSpriteData>`.
+pub type ActorSpriteData = (
+    &'static FeatureId,
+    &'static ActorRuntime,
+    Option<&'static super::enemy_clusters::EnemyKinematics>,
+    Option<&'static super::enemy_clusters::EnemyStatus>,
+    Option<&'static ActorAttackState>,
+    Option<&'static super::enemy_clusters::EnemyConfig>,
+);
+
+pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
+    actors.iter().find_map(|(feature_id, actor, _, _, _, config)| {
         if feature_id.as_str() != id {
             return None;
         }
         match actor {
-            ActorRuntime::Npc(npc) => Some(npc.name.as_str()),
-            ActorRuntime::Enemy(enemy) => enemy.sprite_override_npc_name.as_deref(),
+            ActorRuntime::Npc(npc) => Some(npc.name.clone()),
+            ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
         }
     })
 }
 
-pub fn ecs_enemy_sprite_override<'a>(
-    id: &str,
-    actors: &'a Query<(&FeatureId, &ActorRuntime)>,
-) -> Option<&'a str> {
-    actors.iter().find_map(|(feature_id, actor)| {
+pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
+    actors.iter().find_map(|(feature_id, actor, _, _, _, config)| {
         if feature_id.as_str() != id {
             return None;
         }
         match actor {
-            ActorRuntime::Enemy(enemy) => enemy.sprite_override_npc_name.as_deref(),
+            ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
             _ => None,
         }
     })
@@ -43,16 +49,13 @@ pub fn ecs_enemy_sprite_override<'a>(
 /// to `raid_enforcer_spritesheet`
 /// via the intro NPC sprite registry without authors having to
 /// double-register them as an `enemy_sprite_registry`.
-pub fn ecs_enemy_name<'a>(
-    id: &str,
-    actors: &'a Query<(&FeatureId, &ActorRuntime)>,
-) -> Option<&'a str> {
-    actors.iter().find_map(|(feature_id, actor)| {
+pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
+    actors.iter().find_map(|(feature_id, actor, _, _, _, config)| {
         if feature_id.as_str() != id {
             return None;
         }
         match actor {
-            ActorRuntime::Enemy(enemy) => Some(enemy.name.as_str()),
+            ActorRuntime::Enemy => config.map(|c| c.name.clone()),
             _ => None,
         }
     })
@@ -60,33 +63,38 @@ pub fn ecs_enemy_name<'a>(
 
 pub fn ecs_enemy_anim_state(
     id: &str,
-    actors: &Query<(&FeatureId, &ActorRuntime)>,
+    actors: &Query<ActorSpriteData>,
 ) -> Option<crate::presentation::character_sprites::EnemyAnimState> {
-    actors.iter().find_map(|(feature_id, actor)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        match actor {
-            ActorRuntime::Enemy(enemy) => {
-                Some(crate::presentation::character_sprites::EnemyAnimState {
-                    vel: enemy.vel,
-                    facing: enemy.facing,
-                    alive: enemy.alive,
-                    attack_active: enemy.attack.is_active(),
-                    attack_windup: enemy.attack.is_winding_up(),
-                    hit_flash: enemy.hit_flash > 0.0,
-                })
+    actors
+        .iter()
+        .find_map(|(feature_id, actor, kin, status, attack, _)| {
+            if feature_id.as_str() != id {
+                return None;
             }
-            _ => None,
-        }
-    })
+            match actor {
+                ActorRuntime::Enemy => {
+                    let kin = kin?;
+                    let status = status?;
+                    let attack = attack?;
+                    Some(crate::presentation::character_sprites::EnemyAnimState {
+                        vel: kin.vel,
+                        facing: kin.facing,
+                        alive: status.alive,
+                        attack_active: attack.is_active(),
+                        attack_windup: attack.is_winding_up(),
+                        hit_flash: status.hit_flash > 0.0,
+                    })
+                }
+                _ => None,
+            }
+        })
 }
 
 pub fn ecs_npc_anim_state(
     id: &str,
-    actors: &Query<(&FeatureId, &ActorRuntime)>,
+    actors: &Query<ActorSpriteData>,
 ) -> Option<crate::presentation::character_sprites::NpcAnimState> {
-    actors.iter().find_map(|(feature_id, actor)| {
+    actors.iter().find_map(|(feature_id, actor, _, _, _, _)| {
         if feature_id.as_str() != id {
             return None;
         }

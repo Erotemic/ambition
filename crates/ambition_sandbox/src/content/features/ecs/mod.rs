@@ -76,13 +76,16 @@ mod targeting;
 mod variation;
 mod view_index;
 
-pub(crate) use actors::{actor_component_snapshot, sync_actor_components_from_runtime};
+pub(crate) use actors::{
+    actor_component_snapshot, enemy_component_snapshot, enemy_runtime_for_npc_combat,
+    make_entity_enemy, sync_actor_components_from_enemy, sync_actor_components_from_runtime,
+};
 pub use actors::{sync_actor_poses_from_feature_aabbs, update_ecs_actors, ActorRuntime};
 pub use aggression::apply_actor_stimuli;
 pub use anim_helpers::{
     ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
     ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name,
-    ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name,
+    ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name, ActorSpriteData,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub(crate) use bosses::boss_component_snapshot;

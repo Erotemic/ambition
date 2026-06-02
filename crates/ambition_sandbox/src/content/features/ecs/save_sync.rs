@@ -28,6 +28,7 @@ pub fn sync_ecs_actors_with_save(
             &mut ActorAggression,
             &CombatKit,
             Option<&HeldItem>,
+            Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -45,12 +46,13 @@ pub fn sync_ecs_actors_with_save(
         mut aggression,
         combat_kit,
         held_item,
+        mut clusters,
     ) in &mut actors
     {
         match &mut *actor {
             ActorRuntime::Npc(npc) => {
                 if data.flag(&npc.flag_id()) {
-                    let mut hostile = ActorRuntime::enemy_runtime_for_npc_combat(npc);
+                    let mut hostile = enemy_runtime_for_npc_combat(npc);
                     if data.flag(&format!("enemy_{}_dead", hostile.id))
                         || data.flag(&format!(
                             "enemy_{}{}",
@@ -66,41 +68,66 @@ pub fn sync_ecs_actors_with_save(
                         super::brain_builders::aggressive_brain_and_action_set_for_enemy(
                             &hostile, combat_kit, held_item,
                         );
-                    *actor = ActorRuntime::Enemy(hostile);
+                    make_entity_enemy(
+                        &mut commands,
+                        entity,
+                        &mut actor,
+                        &hostile,
+                        &mut identity,
+                        &mut disposition,
+                        &mut health,
+                        &mut combat,
+                        &mut intent,
+                        &mut cooldowns,
+                    );
                     commands.entity(entity).insert((new_brain, new_action_set));
+                } else {
+                    sync_actor_components_from_runtime(
+                        &actor,
+                        &mut identity,
+                        &mut disposition,
+                        &mut health,
+                        &mut combat,
+                        &mut intent,
+                        &mut cooldowns,
+                    );
                 }
             }
-            ActorRuntime::Enemy(enemy) => {
+            ActorRuntime::Enemy => {
                 // Respect both `_dead` (Never policy) and
                 // `_dead_until_rest` (OnRest policy) flags so an
                 // enemy killed in a previous session/room visit
                 // doesn't spring back to life when the room loads.
                 // OnRoomReenter enemies never write a flag in the
                 // first place, so they spawn alive by default.
-                if !enemy.id.starts_with("encounter:")
-                    && enemy.archetype != EnemyArchetype::InfiniteSandbag
-                    && enemy.archetype != EnemyArchetype::FiniteSandbag
-                    && (data.flag(&format!("enemy_{}_dead", enemy.id))
+                let mut cq = clusters
+                    .as_mut()
+                    .expect("enemy entity carries cluster components");
+                let mut em = cq.as_enemy_mut();
+                if !em.config.id.starts_with("encounter:")
+                    && em.config.archetype != EnemyArchetype::InfiniteSandbag
+                    && em.config.archetype != EnemyArchetype::FiniteSandbag
+                    && (data.flag(&format!("enemy_{}_dead", em.config.id))
                         || data.flag(&format!(
                             "enemy_{}{}",
-                            enemy.id,
+                            em.config.id,
                             crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
                         )))
                 {
-                    enemy.alive = false;
-                    enemy.health.current = 0;
+                    em.status.alive = false;
+                    em.status.health.current = 0;
                 }
+                sync_actor_components_from_enemy(
+                    &em,
+                    &mut identity,
+                    &mut disposition,
+                    &mut health,
+                    &mut combat,
+                    &mut intent,
+                    &mut cooldowns,
+                );
             }
         }
-        sync_actor_components_from_runtime(
-            &actor,
-            &mut identity,
-            &mut disposition,
-            &mut health,
-            &mut combat,
-            &mut intent,
-            &mut cooldowns,
-        );
     }
 }
 

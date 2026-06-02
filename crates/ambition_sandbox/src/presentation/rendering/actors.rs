@@ -195,7 +195,14 @@ pub fn upgrade_enemy_sprites(
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
-    ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
+    ecs_actors: Query<(
+        &FeatureId,
+        &ActorRuntime,
+        Option<&crate::features::EnemyKinematics>,
+        Option<&crate::features::EnemyStatus>,
+        Option<&crate::features::ActorAttackState>,
+        Option<&crate::features::EnemyConfig>,
+    )>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -283,7 +290,14 @@ pub fn upgrade_npc_sprites(
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
-    ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
+    ecs_actors: Query<(
+        &FeatureId,
+        &ActorRuntime,
+        Option<&crate::features::EnemyKinematics>,
+        Option<&crate::features::EnemyStatus>,
+        Option<&crate::features::ActorAttackState>,
+        Option<&crate::features::EnemyConfig>,
+    )>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -448,7 +462,14 @@ pub fn animate_characters(
             Without<PropVisual>,
         ),
     >,
-    ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
+    ecs_actors: Query<(
+        &FeatureId,
+        &ActorRuntime,
+        Option<&crate::features::EnemyKinematics>,
+        Option<&crate::features::EnemyStatus>,
+        Option<&crate::features::ActorAttackState>,
+        Option<&crate::features::EnemyConfig>,
+    )>,
 ) {
     // ADR 0011 — per-entity proper time. SP today: no entity carries
     // ProperTimeScale, so `entity_dt` collapses to `sim_dt` and

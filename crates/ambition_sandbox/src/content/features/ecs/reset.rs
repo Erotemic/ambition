@@ -28,6 +28,7 @@ pub fn reset_ecs_room_features(
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
+            Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -82,6 +83,7 @@ pub fn reset_ecs_room_features(
         mut combat,
         mut intent,
         mut cooldowns,
+        mut clusters,
     ) in &mut actors
     {
         match &mut *actor {
@@ -93,28 +95,41 @@ pub fn reset_ecs_room_features(
                 npc.hostile = false;
                 npc.strikes = 0;
                 npc.hit_flash = 0.0;
+                sync_actor_components_from_runtime(
+                    &actor,
+                    &mut identity,
+                    &mut disposition,
+                    &mut health,
+                    &mut combat,
+                    &mut intent,
+                    &mut cooldowns,
+                );
             }
-            ActorRuntime::Enemy(enemy) => {
+            ActorRuntime::Enemy => {
                 // Restore authored spawn state so morphed actors
                 // (PirateOnShark → PirateRaider / BurningFlyingShark)
                 // return as their original fused archetype with
                 // matching size, gravity, mount/rider links, and
                 // rider health. Non-morphing enemies are reset to a clean
                 // baseline by the same call.
-                enemy.reset_to_spawn();
-                aabb.center = enemy.pos;
-                aabb.half_size = enemy.size * 0.5;
+                let mut cq = clusters
+                    .as_mut()
+                    .expect("enemy entity carries cluster components");
+                let mut em = cq.as_enemy_mut();
+                em.reset_to_spawn();
+                aabb.center = em.kin.pos;
+                aabb.half_size = em.kin.size * 0.5;
+                sync_actor_components_from_enemy(
+                    &em,
+                    &mut identity,
+                    &mut disposition,
+                    &mut health,
+                    &mut combat,
+                    &mut intent,
+                    &mut cooldowns,
+                );
             }
         }
-        sync_actor_components_from_runtime(
-            &actor,
-            &mut identity,
-            &mut disposition,
-            &mut health,
-            &mut combat,
-            &mut intent,
-            &mut cooldowns,
-        );
     }
     for (mut boss_feature, mut brain, mut attack_state, mut control) in &mut bosses {
         let boss = &mut boss_feature.boss;

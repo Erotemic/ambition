@@ -17,15 +17,25 @@ use super::*;
 /// actor's body.
 pub fn refresh_actor_damageable_volumes(
     mut actors: Query<
-        (&FeatureAabb, &ActorRuntime, &mut DamageableVolumes),
+        (
+            &FeatureAabb,
+            &ActorRuntime,
+            Option<&super::enemy_clusters::EnemyStatus>,
+            &mut DamageableVolumes,
+        ),
         With<FeatureSimEntity>,
     >,
 ) {
-    for (aabb, actor, mut damageable) in &mut actors {
+    for (aabb, actor, status, mut damageable) in &mut actors {
         match actor {
             ActorRuntime::Npc(_) => damageable.set_single(aabb.aabb()),
-            ActorRuntime::Enemy(enemy) if enemy.alive => damageable.set_single(aabb.aabb()),
-            ActorRuntime::Enemy(_) => damageable.clear(),
+            ActorRuntime::Enemy => {
+                if status.is_some_and(|s| s.alive) {
+                    damageable.set_single(aabb.aabb());
+                } else {
+                    damageable.clear();
+                }
+            }
         }
     }
 }

@@ -82,6 +82,10 @@ pub use bus::{
 pub use chests::ChestRuntime;
 pub(crate) use ecs::actor_component_snapshot;
 
+pub use ecs::enemy_clusters::{
+    EnemyConfig, EnemyKinematics, EnemyMotionPath, EnemyMut, EnemyStatus,
+};
+pub use ecs::ActorSpriteData;
 pub use components::{
     ActorAggression, ActorAttackState, ActorCombatState, ActorCooldowns, ActorDisposition,
     ActorFaction, ActorHealth, ActorIdentity, ActorIntent, ActorPose, ActorTarget, AggressionMode,

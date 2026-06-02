@@ -209,9 +209,9 @@ pub(crate) fn spawn_runtime_minion(
     let action_set = enemy_default_action_set(&enemy);
     let combat_kit = enemy_default_combat_kit(&enemy);
     let cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&enemy);
-    let actor = ActorRuntime::Enemy(enemy);
+    let actor = ActorRuntime::Enemy;
     let (identity, disposition, health, combat, intent, cooldowns) =
-        actor_component_snapshot(&actor);
+        enemy_component_snapshot(&enemy);
     let held_item = super::brain_builders::held_item_for_archetype(archetype);
     let entity = commands
         .spawn((
@@ -222,7 +222,7 @@ pub(crate) fn spawn_runtime_minion(
                 disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
+                pose: ActorPose::from_aabb(feature_aabb, enemy.facing),
                 combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health,
@@ -289,9 +289,9 @@ pub(super) fn spawn_solo_enemy(
     let combat_kit = enemy_default_combat_kit(&enemy);
     let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
     let cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&enemy);
-    let actor = ActorRuntime::Enemy(enemy);
+    let actor = ActorRuntime::Enemy;
     let (identity, disposition, health, combat, intent, cooldowns) =
-        actor_component_snapshot(&actor);
+        enemy_component_snapshot(&enemy);
     let entity = commands
         .spawn((
             Name::new(format!("Feature actor enemy: {}", authored.name)),
@@ -301,7 +301,7 @@ pub(super) fn spawn_solo_enemy(
                 disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
+                pose: ActorPose::from_aabb(feature_aabb, enemy.facing),
                 combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health,
@@ -346,7 +346,7 @@ pub(super) fn spawn_interactable(
         // or an authored motion path → Patrol brain; otherwise
         // StandStill. ActionSet stays peaceful by default.
         let brain = npc.build_brain();
-        let combat_projection = ActorRuntime::enemy_runtime_for_npc_combat(&npc);
+        let combat_projection = enemy_runtime_for_npc_combat(&npc);
         let combat_kit = enemy_default_combat_kit(&combat_projection);
         let actor = ActorRuntime::Npc(npc);
         let (identity, disposition, health, combat, intent, cooldowns) =
@@ -418,9 +418,9 @@ pub(super) fn spawn_encounter_mob(
     let combat_kit = enemy_default_combat_kit(&enemy);
     let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
     let cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&enemy);
-    let actor = ActorRuntime::Enemy(enemy);
+    let actor = ActorRuntime::Enemy;
     let (identity, disposition, health, combat, intent, cooldowns) =
-        actor_component_snapshot(&actor);
+        enemy_component_snapshot(&enemy);
     let feature_aabb = FeatureAabb::from_center_size(pos, size);
     let entity = commands
         .spawn((
@@ -431,7 +431,7 @@ pub(super) fn spawn_encounter_mob(
                 disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(feature_aabb, actor.facing()),
+                pose: ActorPose::from_aabb(feature_aabb, enemy.facing),
                 combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health,

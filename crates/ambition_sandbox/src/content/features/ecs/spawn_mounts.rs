@@ -145,9 +145,9 @@ pub(super) fn spawn_composite_mount_rider(
     let mount_action_set = enemy_default_action_set(&mount_enemy);
     let mount_combat_kit = enemy_default_combat_kit(&mount_enemy);
     let mount_cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&mount_enemy);
-    let mount_actor = ActorRuntime::Enemy(mount_enemy);
+    let mount_actor = ActorRuntime::Enemy;
     let (m_identity, m_disposition, m_health, m_combat, m_intent, m_cooldowns) =
-        actor_component_snapshot(&mount_actor);
+        enemy_component_snapshot(&mount_enemy);
     let mount_feature_aabb = FeatureAabb::from_aabb(mount_aabb);
     let mount_entity = commands
         .spawn((
@@ -158,7 +158,7 @@ pub(super) fn spawn_composite_mount_rider(
                 disposition: m_disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(mount_feature_aabb, mount_actor.facing()),
+                pose: ActorPose::from_aabb(mount_feature_aabb, mount_enemy.facing),
                 combat_kit: mount_combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health: m_health,
@@ -183,9 +183,9 @@ pub(super) fn spawn_composite_mount_rider(
     // mount we just spawned.
     let rider_combat_kit = enemy_default_combat_kit(&rider_enemy);
     let rider_cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&rider_enemy);
-    let rider_actor = ActorRuntime::Enemy(rider_enemy);
+    let rider_actor = ActorRuntime::Enemy;
     let (r_identity, r_disposition, r_health, r_combat, r_intent, r_cooldowns) =
-        actor_component_snapshot(&rider_actor);
+        enemy_component_snapshot(&rider_enemy);
     let rider_feature_aabb = FeatureAabb::from_aabb(rider_aabb);
     // Cache the mounted brain on the rider so the same-room reset
     // path can restore it after a mount-death-then-reset cycle
@@ -204,7 +204,7 @@ pub(super) fn spawn_composite_mount_rider(
                 disposition: r_disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(rider_feature_aabb, rider_actor.facing()),
+                pose: ActorPose::from_aabb(rider_feature_aabb, rider_enemy.facing),
                 combat_kit: rider_combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health: r_health,

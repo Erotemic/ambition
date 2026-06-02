@@ -10,10 +10,11 @@
 use bevy::prelude::*;
 
 use super::{
-    sync_actor_components_from_runtime, ActorAggression, ActorCombatState, ActorCooldowns,
-    ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, AggressionMode,
-    CombatKit, FeatureSimEntity, HeldItem,
+    enemy_runtime_for_npc_combat, make_entity_enemy, sync_actor_components_from_enemy,
+    ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth, ActorIdentity,
+    ActorIntent, ActorRuntime, AggressionMode, CombatKit, FeatureSimEntity, HeldItem,
 };
+use super::super::enemies::EnemyRuntime;
 use crate::features::ActorStimulus;
 
 /// Apply actor stimuli to aggression state and, when an actor becomes
@@ -35,6 +36,7 @@ pub fn apply_actor_stimuli(
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
+            Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -57,6 +59,7 @@ pub fn apply_actor_stimuli(
             mut combat,
             mut intent,
             mut cooldowns,
+            mut clusters,
         )) = actors.get_mut(actor)
         else {
             continue;
@@ -72,7 +75,7 @@ pub fn apply_actor_stimuli(
                 npc.strikes >= i32::from(strike_threshold)
             }
             (_, AggressionMode::HostileToPlayer) => true,
-            (ActorRuntime::Enemy(_), AggressionMode::RetaliatesWhenHit { .. }) => true,
+            (ActorRuntime::Enemy, AggressionMode::RetaliatesWhenHit { .. }) => true,
             _ => false,
         };
         if !should_be_aggressive {
@@ -81,7 +84,7 @@ pub fn apply_actor_stimuli(
         aggression.mode = AggressionMode::HostileToPlayer;
 
         if let ActorRuntime::Npc(npc) = &*runtime {
-            let mut hostile = ActorRuntime::enemy_runtime_for_npc_combat(npc);
+            let mut hostile = enemy_runtime_for_npc_combat(npc);
             if source.is_some() {
                 hostile.ai_mode = crate::character_ai::CharacterAiMode::Chase;
             }
@@ -89,24 +92,45 @@ pub fn apply_actor_stimuli(
                 super::brain_builders::aggressive_brain_and_action_set_for_enemy(
                     &hostile, combat_kit, held_item,
                 );
-            *runtime = ActorRuntime::Enemy(hostile);
+            make_entity_enemy(
+                &mut commands,
+                entity,
+                &mut runtime,
+                &hostile,
+                &mut identity,
+                &mut disposition,
+                &mut health,
+                &mut combat,
+                &mut intent,
+                &mut cooldowns,
+            );
             commands.entity(entity).insert((brain, action_set));
-        } else if let ActorRuntime::Enemy(enemy) = &*runtime {
+        } else if let Some(cq) = clusters.as_mut() {
+            // Already an enemy: re-derive the aggressive brain from the
+            // cluster config (reconstruct a throwaway EnemyRuntime — the
+            // brain builders only read id + archetype).
+            let mut em = cq.as_enemy_mut();
+            let proxy = EnemyRuntime::new(
+                em.config.id.clone(),
+                em.config.name.clone(),
+                em.aabb(),
+                em.config.brain.clone(),
+                &[],
+            );
             let (brain, action_set) =
                 super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-                    enemy, combat_kit, held_item,
+                    &proxy, combat_kit, held_item,
                 );
             commands.entity(entity).insert((brain, action_set));
+            sync_actor_components_from_enemy(
+                &em,
+                &mut identity,
+                &mut disposition,
+                &mut health,
+                &mut combat,
+                &mut intent,
+                &mut cooldowns,
+            );
         }
-
-        sync_actor_components_from_runtime(
-            &runtime,
-            &mut identity,
-            &mut disposition,
-            &mut health,
-            &mut combat,
-            &mut intent,
-            &mut cooldowns,
-        );
     }
 }

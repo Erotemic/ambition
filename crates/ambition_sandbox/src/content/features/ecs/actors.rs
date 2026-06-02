@@ -9,17 +9,17 @@
 use super::*;
 
 fn shark_charge_crashed(
-    enemy: &EnemyRuntime,
+    em: &super::enemy_clusters::EnemyMut<'_>,
     is_mounted: bool,
     charge_vec: ae::Vec2,
     previous_pos: ae::Vec2,
 ) -> bool {
     !is_mounted
-        && enemy.archetype == EnemyArchetype::BurningFlyingShark
-        && charge_vec.x.abs() > enemy.archetype.chase_speed() * 1.5
-        && (enemy.pos.x - previous_pos.x).abs() < 0.01
-        && enemy.vel.x.abs() < 0.01
-        && enemy.alive
+        && em.config.archetype == EnemyArchetype::BurningFlyingShark
+        && charge_vec.x.abs() > em.config.archetype.chase_speed() * 1.5
+        && (em.kin.pos.x - previous_pos.x).abs() < 0.01
+        && em.kin.vel.x.abs() < 0.01
+        && em.status.alive
 }
 
 /// Unified ECS runtime body for authored NPCs and enemy-shaped actors.
@@ -29,128 +29,60 @@ fn shark_charge_crashed(
 /// willingness to fight lives in [`ActorAggression`] and mirrored
 /// [`ActorDisposition`]. This keeps the old NPC/enemy storage usable while
 /// moving gameplay policy out into ECS components.
+/// Authored NPC body, or a marker that the entity is an enemy actor
+/// whose state lives entirely in ECS cluster components
+/// ([`EnemyKinematics`]/[`EnemyStatus`]/[`EnemyConfig`]/etc.). The
+/// `Enemy` variant carries no data — the legacy `EnemyRuntime` blob was
+/// dissolved into the clusters.
 #[derive(Component, Clone, Debug)]
 pub enum ActorRuntime {
     Npc(NpcRuntime),
-    Enemy(EnemyRuntime),
+    Enemy,
 }
 
 impl ActorRuntime {
-    pub fn id(&self) -> &str {
-        match self {
-            Self::Npc(actor) => actor.id.as_str(),
-            Self::Enemy(actor) => actor.id.as_str(),
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        match self {
-            Self::Npc(actor) => actor.name.as_str(),
-            Self::Enemy(actor) => actor.name.as_str(),
-        }
-    }
-
-    pub fn aabb(&self) -> ae::Aabb {
-        match self {
-            Self::Npc(actor) => actor.aabb(),
-            Self::Enemy(actor) => actor.aabb(),
-        }
-    }
-
-    pub fn pos(&self) -> ae::Vec2 {
-        match self {
-            Self::Npc(actor) => actor.pos,
-            Self::Enemy(actor) => actor.pos,
-        }
-    }
-
-    pub fn size(&self) -> ae::Vec2 {
-        match self {
-            Self::Npc(actor) => actor.size,
-            Self::Enemy(actor) => actor.size,
-        }
-    }
-
-    pub fn facing(&self) -> f32 {
-        match self {
-            Self::Npc(actor) => actor.facing,
-            Self::Enemy(actor) => actor.facing,
-        }
-    }
-
     pub fn disposition(&self) -> ActorDisposition {
         match self {
             Self::Npc(_) => ActorDisposition::Peaceful,
-            Self::Enemy(_) => ActorDisposition::Hostile,
+            Self::Enemy => ActorDisposition::Hostile,
         }
     }
 
-    pub fn visual_kind(&self) -> FeatureVisualKind {
+    /// NPC facing. Enemy facing lives in `EnemyKinematics`; this returns
+    /// 0.0 for the `Enemy` marker (enemy callers read the cluster).
+    pub fn facing(&self) -> f32 {
         match self {
-            Self::Npc(_) => FeatureVisualKind::Npc,
-            Self::Enemy(enemy) => enemy.visual_kind(),
+            Self::Npc(npc) => npc.facing,
+            Self::Enemy => 0.0,
         }
     }
+}
 
-    pub fn visible(&self) -> bool {
-        match self {
-            Self::Npc(_) => true,
-            Self::Enemy(enemy) => enemy.alive,
-        }
+/// Build the `EnemyRuntime` an NPC migrates into when its aggression
+/// policy flips it hostile. The conversion still produces an
+/// `EnemyRuntime` and then projects it onto the entity's enemy clusters
+/// (see `apply_actor_stimuli`); the NPC's identity / ECS components stay
+/// on the same entity.
+pub(crate) fn enemy_runtime_for_npc_combat(npc: &NpcRuntime) -> EnemyRuntime {
+    let brain_id = hostile_enemy_brain_for_npc(npc);
+    let mut enemy = EnemyRuntime::new(
+        npc.id.clone(),
+        npc.name.clone(),
+        npc.aabb(),
+        crate::actor::EnemyBrain::Custom(brain_id.into()),
+        &[],
+    );
+    enemy.pos = npc.pos;
+    enemy.spawn.pos = npc.spawn;
+    enemy.size = ae::Vec2::new(npc.size.x.max(22.0), npc.size.y.max(38.0));
+    enemy.spawn.size = enemy.size;
+    enemy.vel = npc.vel;
+    enemy.facing = npc.facing;
+    enemy.surface.on_ground = npc.on_ground;
+    if npc.name != "Kernel Guide NPC" {
+        enemy.sprite_override_npc_name = Some(npc.name.clone());
     }
-
-    pub fn flash(&self) -> bool {
-        match self {
-            Self::Npc(npc) => npc.hit_flash > 0.0,
-            Self::Enemy(enemy) => {
-                enemy.hit_flash > 0.0 || enemy.attack.is_winding_up() || enemy.attack.is_active()
-            }
-        }
-    }
-
-    pub fn feature_view(&self) -> FeatureView {
-        let rotation_rad = match self {
-            Self::Npc(_) => 0.0,
-            Self::Enemy(enemy) => enemy.rotation_rad(),
-        };
-        FeatureView {
-            pos: self.pos(),
-            size: self.size(),
-            kind: self.visual_kind(),
-            visible: self.visible(),
-            flash: self.flash(),
-            switch_on: false,
-            rotation_rad,
-        }
-    }
-
-    /// Build the enemy-shaped combat runtime used when an authored NPC's
-    /// aggression policy decides it should fight. This is a temporary adapter
-    /// around the remaining `EnemyRuntime` holdout: the NPC's identity and ECS
-    /// components stay on the same entity, while the low-level movement/attack
-    /// timers are represented with the existing enemy body until that runtime is
-    /// split into smaller components.
-    pub(crate) fn enemy_runtime_for_npc_combat(npc: &NpcRuntime) -> EnemyRuntime {
-        let brain_id = hostile_enemy_brain_for_npc(npc);
-        let mut enemy = EnemyRuntime::new(
-            npc.id.clone(),
-            npc.name.clone(),
-            npc.aabb(),
-            crate::actor::EnemyBrain::Custom(brain_id.into()),
-            &[],
-        );
-        enemy.pos = npc.pos;
-        enemy.spawn.pos = npc.spawn;
-        enemy.size = ae::Vec2::new(npc.size.x.max(22.0), npc.size.y.max(38.0));
-        enemy.spawn.size = enemy.size;
-        enemy.vel = npc.vel;
-        enemy.facing = npc.facing;
-        enemy.surface.on_ground = npc.on_ground;
-        if npc.name != "Kernel Guide NPC" {
-            enemy.sprite_override_npc_name = Some(npc.name.clone());
-        }
-        enemy
-    }
+    enemy
 }
 
 fn hostile_enemy_brain_for_npc(npc: &NpcRuntime) -> &'static str {
@@ -200,25 +132,90 @@ pub(crate) fn actor_component_snapshot(
             ActorIntent::new(crate::character_ai::CharacterAiMode::Idle),
             ActorCooldowns::default(),
         ),
-        ActorRuntime::Enemy(enemy) => (
-            ActorIdentity::new(enemy.id.clone(), enemy.name.clone())
-                .with_sprite_override(enemy.sprite_override_npc_name.clone()),
-            ActorDisposition::Hostile,
-            ActorHealth::new(enemy.health),
-            ActorCombatState::hostile(
-                enemy.alive,
-                enemy.hit_flash,
-                enemy.attack.windup_timer,
-                enemy.attack.active_timer,
-                enemy.archetype.is_sandbag(),
-            ),
-            ActorIntent::new(enemy.ai_mode),
-            ActorCooldowns {
-                attack_cooldown: enemy.attack.cooldown,
-                respawn_timer: enemy.respawn_timer,
-            },
-        ),
+        ActorRuntime::Enemy => enemy_component_snapshot_default(),
     }
+}
+
+/// Build the read-model mirror components for an enemy spawned from a
+/// transient `EnemyRuntime` (spawn paths still construct one to derive
+/// archetype/size/health before projecting it onto the clusters).
+pub(crate) fn enemy_component_snapshot(
+    enemy: &EnemyRuntime,
+) -> (
+    ActorIdentity,
+    ActorDisposition,
+    ActorHealth,
+    ActorCombatState,
+    ActorIntent,
+    ActorCooldowns,
+) {
+    (
+        ActorIdentity::new(enemy.id.clone(), enemy.name.clone())
+            .with_sprite_override(enemy.sprite_override_npc_name.clone()),
+        ActorDisposition::Hostile,
+        ActorHealth::new(enemy.health),
+        ActorCombatState::hostile(
+            enemy.alive,
+            enemy.hit_flash,
+            enemy.attack.windup_timer,
+            enemy.attack.active_timer,
+            enemy.archetype.is_sandbag(),
+        ),
+        ActorIntent::new(enemy.ai_mode),
+        ActorCooldowns {
+            attack_cooldown: enemy.attack.cooldown,
+            respawn_timer: enemy.respawn_timer,
+        },
+    )
+}
+
+/// Flip an entity from peaceful NPC to hostile enemy in place: attach
+/// the enemy cluster components (projected from the `hostile`
+/// `EnemyRuntime` the conversion built), set the `Enemy` marker, and
+/// mirror the read-model components. Shared by the runtime stimulus
+/// flip (`apply_actor_stimuli`) and the save-load provoke path.
+pub(crate) fn make_entity_enemy(
+    commands: &mut Commands,
+    entity: Entity,
+    actor: &mut ActorRuntime,
+    hostile: &EnemyRuntime,
+    identity: &mut ActorIdentity,
+    disposition: &mut ActorDisposition,
+    health: &mut ActorHealth,
+    combat: &mut ActorCombatState,
+    intent: &mut ActorIntent,
+    cooldowns: &mut ActorCooldowns,
+) {
+    *actor = ActorRuntime::Enemy;
+    commands
+        .entity(entity)
+        .insert(super::enemy_clusters::enemy_cluster_bundle(hostile));
+    let (next_id, next_disp, next_health, next_combat, next_intent, next_cd) =
+        enemy_component_snapshot(hostile);
+    *identity = next_id;
+    *disposition = next_disp;
+    *health = next_health;
+    *combat = next_combat;
+    *intent = next_intent;
+    *cooldowns = next_cd;
+}
+
+fn enemy_component_snapshot_default() -> (
+    ActorIdentity,
+    ActorDisposition,
+    ActorHealth,
+    ActorCombatState,
+    ActorIntent,
+    ActorCooldowns,
+) {
+    (
+        ActorIdentity::new(String::new(), String::new()),
+        ActorDisposition::Hostile,
+        ActorHealth::new(crate::actor::Health::new(1)),
+        ActorCombatState::hostile(true, 0.0, 0.0, 0.0, false),
+        ActorIntent::new(crate::character_ai::CharacterAiMode::Idle),
+        ActorCooldowns::default(),
+    )
 }
 
 pub(crate) fn sync_actor_components_from_runtime(
@@ -252,16 +249,22 @@ pub fn sync_actor_poses_from_feature_aabbs(
             &FeatureAabb,
             &mut super::super::components::ActorPose,
             Option<&ActorRuntime>,
+            Option<&super::enemy_clusters::EnemyKinematics>,
             Option<&BossFeature>,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
-    for (aabb, mut pose, actor, boss) in &mut actors {
-        let facing = actor
-            .map(ActorRuntime::facing)
-            .or_else(|| boss.map(|feature| feature.boss.facing))
-            .unwrap_or(pose.facing);
+    for (aabb, mut pose, actor, kin, boss) in &mut actors {
+        // Facing source: enemy clusters (EnemyKinematics), NPC runtime,
+        // or boss runtime; default to the current pose facing.
+        let facing = match actor {
+            Some(ActorRuntime::Npc(npc)) => npc.facing,
+            Some(ActorRuntime::Enemy) => kin.map(|k| k.facing).unwrap_or(pose.facing),
+            None => boss
+                .map(|feature| feature.boss.facing)
+                .unwrap_or(pose.facing),
+        };
         *pose = super::super::components::ActorPose::from_aabb(*aabb, facing);
     }
 }
@@ -364,10 +367,16 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, crate::combat_slots::SlotKind)> = Vec::new();
-    for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _, _) in &actors {
-        if let ActorRuntime::Enemy(enemy) = actor {
-            if enemy.alive {
-                requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
+    for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _, clusters) in &actors {
+        if matches!(actor, ActorRuntime::Enemy) {
+            if let Some(c) = clusters {
+                if c.status.alive {
+                    requests.push((
+                        c.config.id.clone(),
+                        c.kin.pos,
+                        c.config.archetype.slot_kind(),
+                    ));
+                }
             }
         }
     }
@@ -549,20 +558,27 @@ pub fn update_ecs_actors(
                 aabb.center = npc.pos;
                 aabb.half_size = npc.size * 0.5;
             }
-            ActorRuntime::Enemy(enemy) => {
-                let slot_pos = if let Some(slot) = slot_board.0.slot_for(&enemy.id) {
+            ActorRuntime::Enemy => {
+                // Enemy state is authoritative in the cluster
+                // components; borrow them as an EnemyMut view for the
+                // whole branch.
+                let mut cq = clusters
+                    .as_mut()
+                    .expect("enemy entity carries cluster components");
+                let mut em = cq.as_enemy_mut();
+                let slot_pos = if let Some(slot) = slot_board.0.slot_for(&em.config.id) {
                     Some(slot.world_pos(target_pos))
-                } else if enemy.alive {
+                } else if em.status.alive {
                     // No slot assigned — fall back to the per-actor
                     // holding-ring position computed above. Multiple
                     // unassigned actors of the same kind are spread
                     // round-robin across all holding positions of
                     // that kind rather than sharing slot 0.
-                    holding_pos_by_id.get(&enemy.id).copied()
+                    holding_pos_by_id.get(&em.config.id).copied()
                 } else {
                     None
                 };
-                let nearest_neighbor = neighbor_by_id.get(&enemy.id).copied();
+                let nearest_neighbor = neighbor_by_id.get(&em.config.id).copied();
                 // Capture pre-tick attack state so we can detect
                 // the windup → active edge below. The runtime's
                 // `update_attack_timers` is the only path that
@@ -570,8 +586,8 @@ pub fn update_ecs_actors(
                 // observing the edge lets us spawn the strike's
                 // `Hitbox` entity exactly once per begin-attack
                 // instead of polling overlap every tick.
-                let was_winding_up = enemy.attack.is_winding_up();
-                let was_active = enemy.attack.is_active();
+                let was_winding_up = em.attack.is_winding_up();
+                let was_active = em.attack.is_active();
 
                 // Every brain-attached enemy ticks its brain FIRST to
                 // build an authoritative frame, then calls
@@ -591,10 +607,10 @@ pub fn update_ecs_actors(
                 // this is the safe no-op fallback.
                 let _ = slot_pos;
                 let is_mounted = mounted.is_some();
-                let previous_pos = enemy.pos;
+                let previous_pos = em.kin.pos;
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
-                    let crowding = crowding_by_id.get(&enemy.id).copied();
-                    let snapshot = build_enemy_brain_snapshot(enemy, target_pos, crowding, dt);
+                    let crowding = crowding_by_id.get(&em.config.id).copied();
+                    let snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
                     let mut bf = crate::actor_control::ActorControlFrame::neutral();
                     let peaceful = crate::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
@@ -605,42 +621,27 @@ pub fn update_ecs_actors(
                 };
                 let body_contact_damage_enabled =
                     !brain.as_deref().is_some_and(crate::brain::Brain::is_player)
-                        && enemy.archetype.body_contact_damage_enabled();
+                        && em.config.archetype.body_contact_damage_enabled();
                 let mut brain_frame = brain_frame;
                 brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
                 let shark_charge_vec = brain_frame.desired_vel;
 
-                // Cluster-native integration: load the (possibly
-                // externally-mutated) EnemyRuntime into the cluster
-                // components, run EnemyMut::update on them, then store
-                // back so the consumers still reading `enemy` see the
-                // new state. The load/store bridge is removed once the
-                // consumers are migrated off EnemyRuntime.
-                let frame = {
-                    let mut cq = clusters
-                        .as_mut()
-                        .expect("enemy entity carries cluster components");
-                    let mut em = cq.as_enemy_mut();
-                    em.load_from_runtime(enemy);
-                    let f = em.update(
-                        &feature_world,
-                        target_pos,
-                        combat_tuning,
-                        nearest_neighbor,
-                        dt,
-                        is_mounted,
-                        brain_frame,
-                    );
-                    em.store_to_runtime(enemy);
-                    f
-                };
+                let frame = em.update(
+                    &feature_world,
+                    target_pos,
+                    combat_tuning,
+                    nearest_neighbor,
+                    dt,
+                    is_mounted,
+                    brain_frame,
+                );
                 let shark_crashed =
-                    shark_charge_crashed(enemy, is_mounted, shark_charge_vec, previous_pos);
+                    shark_charge_crashed(&em, is_mounted, shark_charge_vec, previous_pos);
                 let mut frame = frame;
                 if shark_crashed {
                     hit_events.write(HitEvent {
-                        volume: enemy.aabb(),
-                        damage: enemy.health.current.max(1),
+                        volume: em.aabb(),
+                        damage: em.status.health.current.max(1),
                         source: HitSource::EnemyChargeCrash,
                         attacker: None,
                         target: HitTarget::Volume,
@@ -650,8 +651,8 @@ pub fn update_ecs_actors(
                     });
                     frame = crate::actor_control::ActorControlFrame::neutral();
                 }
-                aabb.center = enemy.pos;
-                aabb.half_size = enemy.size * 0.5;
+                aabb.center = em.kin.pos;
+                aabb.half_size = em.kin.size * 0.5;
 
                 if let Some(control) = control.as_deref_mut() {
                     control.0 = frame;
@@ -662,18 +663,18 @@ pub fn update_ecs_actors(
                 // check moves to `apply_hitbox_damage` instead of
                 // polling every frame from this system.
                 if was_winding_up
-                    && !enemy.attack.is_winding_up()
-                    && enemy.attack.is_active()
+                    && !em.attack.is_winding_up()
+                    && em.attack.is_active()
                     && !was_active
-                    && enemy.alive
+                    && em.status.alive
                 {
                     // Directional swing: read the axis the brain
                     // committed to in `begin_melee_attack`. Forward
                     // axis falls back to the actor's facing; up /
                     // down attacks place the hitbox above / below
                     // the body instead of in front.
-                    let attack_box = enemy.attack_aabb_dir(enemy.attack.pending_axis);
-                    let local_offset = attack_box.center() - enemy.pos;
+                    let attack_box = em.attack_aabb_dir(em.attack.pending_axis);
+                    let local_offset = attack_box.center() - em.kin.pos;
                     super::hitbox::spawn_melee_hitbox(
                         &mut commands,
                         actor_entity,
@@ -682,9 +683,23 @@ pub fn update_ecs_actors(
                         attack_box.half_size(),
                         1,
                         1.0,
-                        enemy.attack.active_timer,
+                        em.attack.active_timer,
                     );
                 }
+                // Mirror the cluster state onto the ECS read-model
+                // components consumers still read (identity / disposition
+                // / health / combat / intent / cooldowns). Replaces the
+                // post-match sync_actor_components_from_runtime for the
+                // enemy path.
+                sync_actor_components_from_enemy(
+                    &em,
+                    &mut identity,
+                    &mut disposition,
+                    &mut health,
+                    &mut combat,
+                    &mut intent,
+                    &mut cooldowns,
+                );
                 // Projectile spawns moved to the EFFECTS-stage
                 // consumer `spawn_enemy_projectiles_from_brain_actions`
                 // (Combat set, runs after `emit_brain_action_messages`).
@@ -715,8 +730,8 @@ pub fn update_ecs_actors(
                     && !target_dodge_rolling
                     && !target_shield.parrying()
                     && target_combat.vulnerable();
-                if target_vulnerable && enemy.alive && body_contact_damage_enabled {
-                    if let Some(damage) = enemy.body_contact_damage(target_entity, target_body) {
+                if target_vulnerable && em.status.alive && body_contact_damage_enabled {
+                    if let Some(damage) = em.body_contact_damage(target_entity, target_body) {
                         let pos = damage
                             .knockback
                             .as_ref()
@@ -743,15 +758,19 @@ pub fn update_ecs_actors(
                 }
             }
         }
-        sync_actor_components_from_runtime(
-            &actor,
-            &mut identity,
-            &mut disposition,
-            &mut health,
-            &mut combat,
-            &mut intent,
-            &mut cooldowns,
-        );
+        // NPCs mirror from their runtime; enemies already mirrored from
+        // their clusters inside the branch above.
+        if matches!(&*actor, ActorRuntime::Npc(_)) {
+            sync_actor_components_from_runtime(
+                &actor,
+                &mut identity,
+                &mut disposition,
+                &mut health,
+                &mut combat,
+                &mut intent,
+                &mut cooldowns,
+            );
+        }
     }
 }
 
@@ -766,32 +785,61 @@ pub fn update_ecs_actors(
 /// brain, but always populating it keeps the snapshot uniform across
 /// state-machine variants.
 fn build_enemy_brain_snapshot(
-    enemy: &crate::content::features::EnemyRuntime,
+    em: &super::enemy_clusters::EnemyMut<'_>,
     target_pos: ae::Vec2,
     crowding: Option<crate::brain::CrowdingSignal>,
     dt: f32,
 ) -> crate::brain::BrainSnapshot {
     crate::brain::BrainSnapshot {
-        actor_pos: enemy.pos,
-        actor_vel: enemy.vel,
-        actor_facing: enemy.facing,
-        actor_on_ground: enemy.surface.on_ground,
-        alive: enemy.alive,
+        actor_pos: em.kin.pos,
+        actor_vel: em.kin.vel,
+        actor_facing: em.kin.facing,
+        actor_on_ground: em.surface.on_ground,
+        alive: em.status.alive,
         target_pos,
         target_alive: true,
         sim_time: 0.0,
         dt,
-        attack_cooldown_remaining: enemy.attack.cooldown,
-        attack_windup_remaining: enemy.attack.windup_timer,
-        attack_active_remaining: enemy.attack.active_timer,
+        attack_cooldown_remaining: em.attack.cooldown,
+        attack_windup_remaining: em.attack.windup_timer,
+        attack_active_remaining: em.attack.active_timer,
         attack_recover_remaining: 0.0,
         stun_remaining: 0.0,
         wall_contact: None,
         player_input: None,
         crowding,
         terrain: None,
-        air_jumps_remaining: enemy.surface.air_jumps_remaining,
+        air_jumps_remaining: em.surface.air_jumps_remaining,
     }
+}
+
+/// Mirror the authoritative enemy clusters onto the ECS read-model
+/// components consumers read.
+pub(crate) fn sync_actor_components_from_enemy(
+    em: &super::enemy_clusters::EnemyMut<'_>,
+    identity: &mut ActorIdentity,
+    disposition: &mut ActorDisposition,
+    health: &mut ActorHealth,
+    combat: &mut ActorCombatState,
+    intent: &mut ActorIntent,
+    cooldowns: &mut ActorCooldowns,
+) {
+    *identity = ActorIdentity::new(em.config.id.clone(), em.config.name.clone())
+        .with_sprite_override(em.config.sprite_override_npc_name.clone());
+    *disposition = ActorDisposition::Hostile;
+    *health = ActorHealth::new(em.status.health);
+    *combat = ActorCombatState::hostile(
+        em.status.alive,
+        em.status.hit_flash,
+        em.attack.windup_timer,
+        em.attack.active_timer,
+        em.config.archetype.is_sandbag(),
+    );
+    *intent = ActorIntent::new(em.status.ai_mode);
+    *cooldowns = ActorCooldowns {
+        attack_cooldown: em.attack.cooldown,
+        respawn_timer: em.status.respawn_timer,
+    };
 }
 
 #[cfg(test)]

@@ -83,3 +83,85 @@ pub fn collect_ecs_pickups(
         sfx.write(SfxMessage::Play { id, pos });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::player::{PlayerEntity, PlayerHealRequested, PlayerKinematics};
+    use bevy::prelude::{App, Update};
+
+    fn player_at(app: &mut App, pos: ae::Vec2) -> bevy::prelude::Entity {
+        app.world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerKinematics {
+                    pos,
+                    size: ae::Vec2::new(28.0, 46.0),
+                    base_size: ae::Vec2::new(28.0, 46.0),
+                    facing: 1.0,
+                    ..Default::default()
+                },
+            ))
+            .id()
+    }
+
+    fn health_pickup_at(app: &mut App, id: &str, pos: ae::Vec2) -> bevy::prelude::Entity {
+        app.world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureId::new(id),
+                FeatureName::new("Health"),
+                FeatureAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+                PickupFeature::new(crate::interaction::Pickup::new(
+                    id,
+                    crate::interaction::PickupKind::Health { amount: 1 },
+                )),
+            ))
+            .id()
+    }
+
+    #[test]
+    fn collect_marks_only_the_overlapping_pickup() {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<SetFlagRequested>();
+        app.add_systems(Update, collect_ecs_pickups);
+
+        let center = ae::Vec2::new(64.0, 64.0);
+        player_at(&mut app, center);
+        let overlapping = health_pickup_at(&mut app, "hp_near", center);
+        let distant = health_pickup_at(&mut app, "hp_far", ae::Vec2::new(1000.0, 1000.0));
+
+        app.update();
+
+        assert!(
+            app.world().get::<Collected>(overlapping).is_some(),
+            "a pickup the player overlaps should be Collected"
+        );
+        assert!(
+            app.world().get::<Collected>(distant).is_none(),
+            "a distant pickup should be left uncollected"
+        );
+    }
+
+    #[test]
+    fn collect_is_a_noop_with_no_player() {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<SetFlagRequested>();
+        app.add_systems(Update, collect_ecs_pickups);
+
+        let pickup = health_pickup_at(&mut app, "hp", ae::Vec2::new(64.0, 64.0));
+        app.update();
+        assert!(
+            app.world().get::<Collected>(pickup).is_none(),
+            "with no player, nothing is collected"
+        );
+    }
+}

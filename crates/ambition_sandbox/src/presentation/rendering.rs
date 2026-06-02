@@ -100,6 +100,11 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 )
                     .chain()
                     .after(actors::sync_visuals),
+            )
+            // Portal gun: colored quad per placed portal (blue / orange).
+            .add_systems(
+                Update,
+                crate::portal::sync_portal_visuals.after(actors::sync_visuals),
             );
     }
 }

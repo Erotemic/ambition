@@ -150,6 +150,18 @@ fn ray_aabb(origin: Vec2, dir: Vec2, aabb: ae::Aabb) -> Option<(f32, Vec2)> {
     Some((t_near.max(0.0), normal))
 }
 
+/// Transform a velocity through a portal pair: the rotation that maps the
+/// "into the entry portal" direction (`-n_in`) onto the "out of the exit
+/// portal" direction (`n_out`), applied to `v`. This preserves the player's
+/// sideways momentum through the pair (Portal-style) instead of always
+/// shooting straight out.
+pub fn portal_transform_velocity(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
+    let u = -n_in; // direction the player was traveling into the entry portal
+    let cos = u.dot(n_out);
+    let sin = u.x * n_out.y - u.y * n_out.x; // 2D cross (z component)
+    Vec2::new(v.x * cos - v.y * sin, v.x * sin + v.y * cos)
+}
+
 /// Aim direction for a fired portal: right-stick aim, else movement axis,
 /// else straight ahead along facing.
 fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
@@ -268,14 +280,54 @@ pub fn portal_teleport_system(
     for (enter, exit) in [(blue, orange), (orange, blue)] {
         let portal_aabb = ae::Aabb::new(enter.pos, enter.half_extent);
         if player_aabb.strict_intersects(portal_aabb) {
-            let speed = kin.vel.length().max(MIN_EXIT_SPEED);
+            // Carry momentum through the pair's rotation; floor the speed so a
+            // slow walk-in still pops out the far side instead of stalling.
+            let mut out_vel = portal_transform_velocity(kin.vel, enter.normal, exit.normal);
+            if out_vel.length() < MIN_EXIT_SPEED {
+                out_vel = exit.normal * MIN_EXIT_SPEED;
+            }
             // Pop out just clear of the exit portal so we don't re-trigger it.
             let clearance = kin.size.length() * 0.5 + exit.half_extent.length() + 4.0;
             kin.pos = exit.pos + exit.normal * clearance;
-            kin.vel = exit.normal * speed;
+            kin.vel = out_vel;
             gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
             break;
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Presentation (visible build only — registered by the presentation plugin).
+
+/// Marks a sprite entity that visualizes a [`Portal`]. Rebuilt each frame from
+/// the sim portals, so it never drifts.
+#[derive(Component)]
+pub struct PortalVisual;
+
+/// Colored quad per portal so the player can actually see them. Clear-and-
+/// rebuild each frame — there are at most two portals, so the churn is
+/// negligible and the visuals can never desync from the sim entities.
+pub fn sync_portal_visuals(
+    mut commands: Commands,
+    world: Res<GameWorld>,
+    visuals: Query<Entity, With<PortalVisual>>,
+    portals: Query<&Portal>,
+) {
+    for entity in &visuals {
+        commands.entity(entity).despawn();
+    }
+    for portal in &portals {
+        let color = match portal.color {
+            PortalColor::Blue => Color::srgb(0.30, 0.62, 1.0),
+            PortalColor::Orange => Color::srgb(1.0, 0.55, 0.20),
+        };
+        let translation = crate::config::world_to_bevy(&world.0, portal.pos, 9.0);
+        commands.spawn((
+            PortalVisual,
+            Sprite::from_color(color, portal.half_extent * 2.0),
+            Transform::from_translation(translation),
+            Name::new("Portal visual"),
+        ));
     }
 }
 
@@ -336,6 +388,23 @@ mod tests {
             .expect("ray should hit the left wall");
         assert!((hit.x - 20.0).abs() < 0.001, "hit x={}", hit.x);
         assert!(normal.x > 0.5 && normal.y.abs() < 0.001, "normal={normal:?}");
+    }
+
+    #[test]
+    fn velocity_transform_rotates_through_perpendicular_portals() {
+        // Entry: a floor portal whose normal points up (in y-down world, up = -y).
+        // Exit: a right-wall portal whose normal points left (-x).
+        // The player falls in moving down (+y) and should emerge moving left
+        // (out of the exit portal) at the same speed — a 90° turn.
+        let out = portal_transform_velocity(
+            Vec2::new(0.0, 100.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(-1.0, 0.0),
+        );
+        assert!(
+            (out.x + 100.0).abs() < 0.01 && out.y.abs() < 0.01,
+            "fall-in should exit left at the same speed, got {out:?}"
+        );
     }
 
     #[test]

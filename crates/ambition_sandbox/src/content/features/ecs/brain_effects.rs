@@ -226,6 +226,32 @@ const APPLE_RAIN_LIFETIME: f32 = 6.0;
 const APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER: f32 = 320.0;
 const PHI_FRAC: f32 = 0.618_033_99;
 
+/// Horizontal spawn lane (world x) for the `spawn_index`-th GNU-ton
+/// apple. Apples spread across the playable width by a golden-ratio
+/// sequence — even coverage without an obvious left-to-right sweep —
+/// then slide out from under the boss body so an apple never spawns
+/// already overlapping the boss head; it picks the nearer boss edge to
+/// keep the dodge small. Pure so the distribution + dodge are
+/// unit-testable independently of the message/projectile plumbing.
+fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -> f32 {
+    let margin = APPLE_RAIN_HALF_EXTENT.x + 8.0;
+    let max_x = (world_width - margin).max(margin);
+    let spawnable_width = (max_x - margin).max(0.0);
+    let frac = ((spawn_index as f32) * PHI_FRAC).fract();
+    let mut spawn_x = margin + frac * spawnable_width;
+    let self_left = boss_aabb.min.x - APPLE_RAIN_HALF_EXTENT.x;
+    let self_right = boss_aabb.max.x + APPLE_RAIN_HALF_EXTENT.x;
+    if spawn_x > self_left && spawn_x < self_right {
+        spawn_x = if spawn_x - self_left < self_right - spawn_x {
+            self_left
+        } else {
+            self_right
+        };
+        spawn_x = spawn_x.clamp(margin, max_x);
+    }
+    spawn_x
+}
+
 /// Spawn GNU-ton's apple rain in response to
 /// `ActorActionMessage::Special { spec: SpecialActionSpec::GnuAppleRain }`.
 /// The boss runtime tags `frame.special_pressed = true` every tick
@@ -284,28 +310,12 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
             continue;
         }
         state.spawn_accum += dt;
-        let margin = APPLE_RAIN_HALF_EXTENT.x + 8.0;
-        let max_x = (world.0.size.x - margin).max(margin);
-        let spawnable_width = (max_x - margin).max(0.0);
         let self_aabb = boss.aabb();
         while state.spawn_accum >= interval_s {
             state.spawn_accum -= interval_s;
-            let frac = ((state.spawn_index as f32) * PHI_FRAC).fract();
-            let mut spawn_x = margin + frac * spawnable_width;
-            // Slide x out from under the boss body so an apple
-            // doesn't immediately hit GNU-ton on the head. Pick
-            // the nearer of the boss's left/right edges so the
-            // dodge motion stays small.
-            let self_left = self_aabb.min.x - APPLE_RAIN_HALF_EXTENT.x;
-            let self_right = self_aabb.max.x + APPLE_RAIN_HALF_EXTENT.x;
-            if spawn_x > self_left && spawn_x < self_right {
-                spawn_x = if spawn_x - self_left < self_right - spawn_x {
-                    self_left
-                } else {
-                    self_right
-                };
-                spawn_x = spawn_x.clamp(margin, max_x);
-            }
+            // Golden-ratio spread across the playable width, slid out
+            // from under the boss body. See `apple_rain_spawn_x`.
+            let spawn_x = apple_rain_spawn_x(state.spawn_index, world.0.size.x, self_aabb);
             let spawn_y = (boss.pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
                 .max(APPLE_RAIN_HALF_EXTENT.y + 8.0);
             enemy_projectiles.spawn(EnemyProjectileSpawn {
@@ -1095,6 +1105,41 @@ mod tests {
     use super::*;
     use crate::brain::{ActionSet, RangedActionSpec};
     use crate::content::features::enemies::EnemyRuntime;
+
+    #[test]
+    fn apple_rain_spawn_x_stays_in_bounds_spreads_and_dodges_the_boss() {
+        let world_width = 1792.0;
+        let margin = APPLE_RAIN_HALF_EXTENT.x + 8.0;
+        let max_x = world_width - margin;
+        // Boss body envelope in the arena center.
+        let boss = ae::Aabb::new(ae::Vec2::new(896.0, 640.0), ae::Vec2::new(110.0, 110.0));
+        let self_left = boss.min.x - APPLE_RAIN_HALF_EXTENT.x;
+        let self_right = boss.max.x + APPLE_RAIN_HALF_EXTENT.x;
+
+        let mut xs = Vec::new();
+        for i in 0..64u32 {
+            let x = apple_rain_spawn_x(i, world_width, boss);
+            // (1) Always inside the playable margins.
+            assert!(
+                x >= margin - 1e-3 && x <= max_x + 1e-3,
+                "apple {i} x={x} outside [{margin}, {max_x}]"
+            );
+            // (2) Never spawns strictly inside the boss-body keep-out
+            // band (it slides to the nearer edge).
+            assert!(
+                x <= self_left + 1e-3 || x >= self_right - 1e-3,
+                "apple {i} x={x} inside boss keep-out ({self_left}..{self_right})"
+            );
+            xs.push(x);
+        }
+        // (3) The golden-ratio sequence covers both halves of the
+        // arena rather than clustering on one side.
+        let mid = world_width / 2.0;
+        assert!(
+            xs.iter().any(|&x| x < mid) && xs.iter().any(|&x| x > mid),
+            "apple spawns should spread across both halves: {xs:?}"
+        );
+    }
 
     /// Build a rider-shaped hostile actor: standalone PirateRaider
     /// archetype on the runtime side, but the caller is expected to

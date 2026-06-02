@@ -165,6 +165,7 @@ dependencies = [
  "bevy_math",
  "bevy_yarnspinner",
  "console_error_panic_hook",
+ "image",
  "insta",
  "leafwing-input-manager",
  "parry2d 0.26.0",

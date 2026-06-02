@@ -336,3 +336,7 @@ required-features = ["rl_sim"]
 [dev-dependencies]
 insta = { version = "1", features = ["ron"] }
 proptest = "1"
+# Pure-Rust PNG encode for the headless geometry-debug renderer
+# (examples/render_room_geometry.rs). Already in the lock via Bevy, so no
+# new crate build — dev-only so it never touches the shipping binary.
+image = { version = "0.25", default-features = false, features = ["png"] }

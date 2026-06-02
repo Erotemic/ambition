@@ -357,6 +357,16 @@ impl SheetRegistry {
         let metrics = record.body_metrics.as_ref()?;
         Some((metrics, record.frame_width, record.frame_height))
     }
+
+    /// Build a fully-populated registry from the compile-time baked
+    /// sheet RONs with no Bevy `App` / `Startup` schedule. Lets headless
+    /// tools and tests obtain sprite metrics (boss hurtbox math, the
+    /// geometry-debug renderer) without spinning up `SheetRegistryPlugin`.
+    pub fn from_baked() -> Self {
+        let mut registry = Self::default();
+        init_from_baked(&mut registry);
+        registry
+    }
 }
 
 /// Bevy plugin that installs the registry resource and a Startup
@@ -371,7 +381,7 @@ impl Plugin for SheetRegistryPlugin {
 }
 
 fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
-    init_from_baked(&mut registry);
+    *registry = SheetRegistry::from_baked();
 }
 
 /// Build the runtime `SheetRegistry` from the compile-time

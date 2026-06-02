@@ -242,3 +242,55 @@ pub struct InventoryStatusText;
 
 #[derive(Component)]
 pub struct InventoryTabContentText;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_dialog_id_resolves_loose_spelling_and_rejects_unknown() {
+        assert_eq!(ItemKind::from_dialog_id("HealthPotion"), Some(ItemKind::HealthPotion));
+        assert_eq!(ItemKind::from_dialog_id("health_potion"), Some(ItemKind::HealthPotion));
+        assert_eq!(ItemKind::from_dialog_id("Spare Battery"), Some(ItemKind::SpareBattery));
+        assert_eq!(ItemKind::from_dialog_id("DATACHIP"), Some(ItemKind::DataChip));
+        assert_eq!(ItemKind::from_dialog_id("grapple"), None);
+        // dialog_id round-trips through from_dialog_id for every kind.
+        for kind in ItemKind::ALL {
+            assert_eq!(ItemKind::from_dialog_id(kind.dialog_id()), Some(kind));
+        }
+    }
+
+    #[test]
+    fn inventory_tab_cycles_forward_and_backward_with_wraparound() {
+        use InventoryTab::{Items, Map, Quests};
+        assert_eq!(Items.next(), Map);
+        assert_eq!(Map.next(), Quests);
+        assert_eq!(Quests.next(), Items, "next wraps");
+        assert_eq!(Items.previous(), Quests, "previous wraps");
+        assert_eq!(Quests.previous(), Map);
+    }
+
+    #[test]
+    fn inventory_bag_adds_saturates_and_removes_floors() {
+        let mut bag = PlayerInventory::default();
+        assert_eq!(bag.count(ItemKind::HealthPotion), 0);
+
+        bag.add(ItemKind::HealthPotion, 3);
+        assert_eq!(bag.count(ItemKind::HealthPotion), 3);
+
+        // remove returns how many were actually removed.
+        assert_eq!(bag.remove(ItemKind::HealthPotion, 2), 2);
+        assert_eq!(bag.count(ItemKind::HealthPotion), 1);
+
+        // removing more than present floors at 0 and reports the real count.
+        assert_eq!(bag.remove(ItemKind::HealthPotion, 5), 1);
+        assert_eq!(bag.count(ItemKind::HealthPotion), 0);
+
+        // add saturates rather than overflowing.
+        bag.add(ItemKind::DataChip, u32::MAX);
+        bag.add(ItemKind::DataChip, 10);
+        assert_eq!(bag.count(ItemKind::DataChip), u32::MAX);
+        // items are tracked per-kind independently.
+        assert_eq!(bag.count(ItemKind::HealthPotion), 0);
+    }
+}

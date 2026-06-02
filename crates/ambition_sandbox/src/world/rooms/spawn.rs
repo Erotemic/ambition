@@ -127,3 +127,77 @@ fn player_body_clear(world: &ae::World, center: ae::Vec2, half: ae::Vec2) -> boo
         )
     })
 }
+
+#[cfg(test)]
+mod spawn_tests {
+    //! Spawn placement safety: clamping into the room and the spiral
+    //! search that nudges a player out of a solid. Embedding the player
+    //! in a solid on a room transition is a real bug class (there's even
+    //! a CI guard for authored spawns), so the repair path is pinned.
+    use super::*;
+
+    fn world_with(blocks: Vec<ae::Block>) -> ae::World {
+        ae::World::new(
+            "test",
+            ae::Vec2::new(400.0, 400.0),
+            ae::Vec2::new(50.0, 50.0),
+            blocks,
+        )
+    }
+
+    fn solid_filter(b: &ae::Block) -> bool {
+        matches!(b.kind, ae::BlockKind::Solid)
+    }
+
+    #[test]
+    fn door_arrival_sits_just_below_the_zone() {
+        let zone = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 40.0));
+        let pos = door_arrival(zone);
+        assert_eq!(pos.x, zone.center().x);
+        assert_eq!(pos.y, zone.bottom() - PLAYER_HALF_H - SPAWN_MARGIN);
+        assert!(pos.y < zone.bottom(), "arrival is above the doorway sill");
+    }
+
+    #[test]
+    fn clamp_keeps_spawn_inside_the_room_margins() {
+        let world = world_with(Vec::new());
+        let half = ae::Vec2::new(14.0, 23.0);
+        let clamped = clamp_spawn_to_room(&world, ae::Vec2::new(-100.0, 1000.0), half);
+        assert!(clamped.x >= half.x + SPAWN_MARGIN);
+        assert!(clamped.y >= half.y + SPAWN_MARGIN);
+        assert!(clamped.x <= world.size.x - half.x - SPAWN_MARGIN);
+        assert!(clamped.y <= world.size.y - half.y - SPAWN_MARGIN);
+    }
+
+    #[test]
+    fn validated_spawn_in_open_room_keeps_a_valid_point() {
+        let world = world_with(Vec::new());
+        let desired = ae::Vec2::new(200.0, 200.0);
+        let got = validated_spawn(&world, desired, ae::Vec2::new(28.0, 46.0));
+        assert_eq!(got, desired, "an already-clear in-bounds spawn is unchanged");
+    }
+
+    #[test]
+    fn validated_spawn_pushes_the_player_out_of_a_solid() {
+        // Solid covering (100,100)..(200,200); desired is dead center.
+        let block = ae::Block::solid(
+            "wall",
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(100.0, 100.0),
+        );
+        let world = world_with(vec![block]);
+        let player_size = ae::Vec2::new(28.0, 46.0);
+        let half = player_size * 0.5;
+        let got = validated_spawn(&world, ae::Vec2::new(150.0, 150.0), player_size);
+        let body = ae::Aabb::new(got, half);
+        assert!(
+            !world.body_overlaps_any(body, solid_filter),
+            "validated spawn must not embed the player in a solid (got {got:?})",
+        );
+    }
+
+    #[test]
+    fn block_kind_label_is_nonempty() {
+        assert!(!block_kind_label(ae::BlockKind::Solid).is_empty());
+    }
+}

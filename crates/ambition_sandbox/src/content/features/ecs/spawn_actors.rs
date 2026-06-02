@@ -208,6 +208,7 @@ pub(crate) fn spawn_runtime_minion(
     let brain_component = enemy_default_brain(&enemy);
     let action_set = enemy_default_action_set(&enemy);
     let combat_kit = enemy_default_combat_kit(&enemy);
+    let cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&enemy);
     let actor = ActorRuntime::Enemy(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
@@ -233,6 +234,7 @@ pub(crate) fn spawn_runtime_minion(
                 pogo_target_volumes: PogoTargetVolumes::default(),
             },
             actor,
+            cluster_bundle,
             super::EncounterMob::new(encounter_id),
             brain_component,
             action_set,
@@ -286,6 +288,7 @@ pub(super) fn spawn_solo_enemy(
     let action_set = enemy_default_action_set(&enemy);
     let combat_kit = enemy_default_combat_kit(&enemy);
     let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
+    let cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&enemy);
     let actor = ActorRuntime::Enemy(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
@@ -310,6 +313,7 @@ pub(super) fn spawn_solo_enemy(
                 pogo_target_volumes: PogoTargetVolumes::default(),
             },
             actor,
+            cluster_bundle,
             brain,
             action_set,
             crate::brain::ActorControl::default(),
@@ -413,6 +417,7 @@ pub(super) fn spawn_encounter_mob(
     let action_set = enemy_default_action_set(&enemy);
     let combat_kit = enemy_default_combat_kit(&enemy);
     let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
+    let cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&enemy);
     let actor = ActorRuntime::Enemy(enemy);
     let (identity, disposition, health, combat, intent, cooldowns) =
         actor_component_snapshot(&actor);
@@ -438,6 +443,7 @@ pub(super) fn spawn_encounter_mob(
                 pogo_target_volumes: PogoTargetVolumes::default(),
             },
             actor,
+            cluster_bundle,
             EncounterMob::new(encounter_id),
             brain,
             action_set,

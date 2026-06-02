@@ -164,4 +164,40 @@ impl EnemyClusterScratch {
             motion: &mut self.motion,
         }
     }
+
+    /// The six authoritative components as a spawnable Bundle.
+    pub fn into_components(
+        self,
+    ) -> (
+        EnemyKinematics,
+        EnemyStatus,
+        EnemyConfig,
+        EnemyMotionPath,
+        ActorSurfaceState,
+        ActorAttackState,
+    ) {
+        (
+            self.kin,
+            self.status,
+            self.config,
+            self.motion,
+            self.surface,
+            self.attack,
+        )
+    }
+}
+
+/// Spawnable enemy-cluster bundle built from a legacy `EnemyRuntime`
+/// (transition aid for the 5 spawn sites).
+pub fn enemy_cluster_bundle(
+    e: &super::super::enemies::EnemyRuntime,
+) -> (
+    EnemyKinematics,
+    EnemyStatus,
+    EnemyConfig,
+    EnemyMotionPath,
+    ActorSurfaceState,
+    ActorAttackState,
+) {
+    EnemyClusterScratch::from_runtime(e).into_components()
 }

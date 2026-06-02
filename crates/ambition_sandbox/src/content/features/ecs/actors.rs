@@ -332,6 +332,12 @@ pub fn update_ecs_actors(
             // so dynamically-spawned actors without a set still tick.
             Option<&crate::brain::ActionSet>,
             Option<&super::Mounted>,
+            // Enemy cluster components — `None` on NPC actors (which
+            // don't carry them). The enemy branch runs its integration
+            // through these via `EnemyMut`; the `EnemyRuntime` inside
+            // `ActorRuntime::Enemy` is a transition mirror kept in sync
+            // by load/store until the consumers are migrated.
+            Option<super::enemy_clusters::EnemyClusterQueryData>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -358,7 +364,7 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, crate::combat_slots::SlotKind)> = Vec::new();
-    for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _) in &actors {
+    for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _, _) in &actors {
         if let ActorRuntime::Enemy(enemy) = actor {
             if enemy.alive {
                 requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
@@ -513,6 +519,7 @@ pub fn update_ecs_actors(
         mut control,
         action_set,
         mounted,
+        mut clusters,
     ) in &mut actors
     {
         // `target.pos` is populated by `select_actor_targets`
@@ -603,15 +610,30 @@ pub fn update_ecs_actors(
                 brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;
                 let shark_charge_vec = brain_frame.desired_vel;
 
-                let frame = enemy.update(
-                    &feature_world,
-                    target_pos,
-                    combat_tuning,
-                    nearest_neighbor,
-                    dt,
-                    is_mounted,
-                    brain_frame,
-                );
+                // Cluster-native integration: load the (possibly
+                // externally-mutated) EnemyRuntime into the cluster
+                // components, run EnemyMut::update on them, then store
+                // back so the consumers still reading `enemy` see the
+                // new state. The load/store bridge is removed once the
+                // consumers are migrated off EnemyRuntime.
+                let frame = {
+                    let mut cq = clusters
+                        .as_mut()
+                        .expect("enemy entity carries cluster components");
+                    let mut em = cq.as_enemy_mut();
+                    em.load_from_runtime(enemy);
+                    let f = em.update(
+                        &feature_world,
+                        target_pos,
+                        combat_tuning,
+                        nearest_neighbor,
+                        dt,
+                        is_mounted,
+                        brain_frame,
+                    );
+                    em.store_to_runtime(enemy);
+                    f
+                };
                 let shark_crashed =
                     shark_charge_crashed(enemy, is_mounted, shark_charge_vec, previous_pos);
                 let mut frame = frame;

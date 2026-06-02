@@ -302,12 +302,13 @@ to the bottom under "Closed" with the commit that fixed them.
   enemies are marked dead from the save flag. Doesn't yet drive a
   full Bevy app; pure-data tests covered the four scenarios.)*
 
-- **MED — Boss music swap requests aren't asserted in tests**
-  - The integration test
-    `boss_encounter::tests::full_encounter_progression_intro_to_death`
-    checks that "some" music change fired but doesn't assert the
-    specific track sequence. Tighten the assertion when the real
-    boss tracks land.
+- **RESOLVED 2026-06-02 — Boss music swap requests aren't asserted in
+  tests** — `full_encounter_progression_intro_to_death` now asserts the
+  recorded `MusicRequested` sequence equals the per-phase track each
+  `PhaseChanged` requests, derived from the spec's own `music_*` fields +
+  the actual transitions. Content-agnostic (stays valid when the real
+  per-phase tracks diverge from today's shared placeholder) and catches a
+  music request silently dropping at any phase boundary.
 
 - **RESOLVED 2026-05-28 — Ledge grab probe diagonal-corner cases** —
   two regression tests added at

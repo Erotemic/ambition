@@ -642,10 +642,36 @@ mod tests {
             BossEncounterPhase::Transition,
             BossEncounterPhase::Phase2,
         ));
-        // Music swaps fired in order.
+        // Music swaps fired in order. Tightened from a bare non-empty
+        // check (tech-debt "Boss music swap requests aren't asserted"):
+        // the recorded sequence must equal the per-phase track each
+        // PhaseChanged requests, derived from the spec's own fields +
+        // the actual transitions. This is content-agnostic — it stays
+        // valid when the real per-phase tracks land and diverge from
+        // today's shared placeholder — and it catches a music request
+        // silently dropping at any phase boundary.
+        let expected_music: Vec<String> = transitions
+            .iter()
+            .filter_map(|(_, to)| match to {
+                BossEncounterPhase::Intro => Some(s.spec.music_intro.clone()),
+                BossEncounterPhase::Phase1 | BossEncounterPhase::Transition => {
+                    Some(s.spec.music_phase1.clone())
+                }
+                BossEncounterPhase::Phase2 | BossEncounterPhase::Stagger => {
+                    Some(s.spec.music_phase2.clone())
+                }
+                BossEncounterPhase::Enrage => Some(s.spec.music_enrage.clone()),
+                BossEncounterPhase::Death | BossEncounterPhase::Dormant => None,
+            })
+            .filter(|t| !t.is_empty())
+            .collect();
         assert!(
-            !music_track_changes.is_empty(),
-            "no music changes recorded — adaptive music wiring is silent"
+            !expected_music.is_empty(),
+            "test should drive at least one music-emitting phase"
+        );
+        assert_eq!(
+            music_track_changes, expected_music,
+            "boss music swap sequence drifted from the per-phase spec tracks"
         );
     }
 

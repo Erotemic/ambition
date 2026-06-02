@@ -211,6 +211,79 @@ mod tests {
         assert!(matches!(outcome, WorldHitOutcome::Continue));
     }
 
+    /// A player projectile with bounce budget that lands on the TOP of a
+    /// thin one-way platform should skip off it exactly like a solid
+    /// floor — the "fireball skips across thin platforms" behavior the
+    /// `resolve_one_way_hit` doc promises. (TODO #123 bounce case.)
+    fn falling_player_projectile(pos: ae::Vec2, bounces: u8) -> crate::projectile::ProjectileBody {
+        let mut body = straight_projectile(crate::projectile::ProjectileFaction::Player, pos);
+        body.pos = pos;
+        body.vel = ae::Vec2::new(0.0, 80.0); // downward (world y-down)
+        body.bounces_remaining = bounces;
+        body
+    }
+
+    #[test]
+    fn player_projectile_bounces_off_one_way_top_landing_with_budget() {
+        // Thin one-way platform, top at y=96.
+        let world = world_with_block(
+            ae::BlockKind::OneWay,
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(50.0, 4.0),
+        );
+        // Falling onto the platform top, overlapping it from above.
+        let mut body = falling_player_projectile(ae::Vec2::new(100.0, 94.0), 2);
+        let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
+        assert!(
+            matches!(outcome, WorldHitOutcome::Bounced { .. }),
+            "fireball should skip off a one-way top like a floor; got {outcome:?}"
+        );
+        assert_eq!(body.bounces_remaining, 1, "a bounce should be consumed");
+        assert!(body.vel.y < 0.0, "bounce should reflect velocity upward");
+    }
+
+    #[test]
+    fn player_projectile_passes_through_one_way_from_below() {
+        // Same platform, but the projectile rises into it from underneath
+        // with full bounce budget — a one-way is non-solid from below, so
+        // it must pass through rather than bounce.
+        let world = world_with_block(
+            ae::BlockKind::OneWay,
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(50.0, 4.0),
+        );
+        let mut body = straight_projectile(
+            crate::projectile::ProjectileFaction::Player,
+            ae::Vec2::new(100.0, 106.0),
+        );
+        body.vel = ae::Vec2::new(0.0, -80.0); // upward
+        body.bounces_remaining = 2;
+        let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
+        assert!(
+            matches!(outcome, WorldHitOutcome::Continue),
+            "a one-way is non-solid from below; got {outcome:?}"
+        );
+        assert_eq!(body.bounces_remaining, 2, "passthrough must not spend a bounce");
+    }
+
+    #[test]
+    fn player_projectile_bounces_off_solid_top_landing_with_budget() {
+        // Skip-across-floor on a thick solid (parity with the one-way top
+        // landing), to pin that both surfaces bounce identically.
+        let world = world_with_block(
+            ae::BlockKind::Solid,
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(50.0, 50.0),
+        );
+        let mut body = falling_player_projectile(ae::Vec2::new(100.0, 48.0), 2);
+        let outcome = resolve_world_collision(&mut body, &world, WorldHitPolicy::PlayerBouncing);
+        assert!(
+            matches!(outcome, WorldHitOutcome::Bounced { .. }),
+            "fireball with budget should skip off a solid floor; got {outcome:?}"
+        );
+        assert_eq!(body.bounces_remaining, 1);
+    }
+
     #[test]
     fn no_contact_returns_continue() {
         let world = world_with_block(

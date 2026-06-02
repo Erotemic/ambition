@@ -43,6 +43,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | GNU-ton boss apple-rain attack | Available; gravity-driven apples drop from the ceiling on a golden-ratio x-spread during the scheduled `GnuAppleRain` strike window (phase1), self-dodging the boss body, reusable via `SpecialActionSpec::GnuAppleRain` | `crates/ambition_sandbox/src/content/features/ecs/brain_effects.rs`, `crates/ambition_sandbox/assets/data/boss_profiles.ron` |
 | Per-boss phase attack schedules in data | Available; each boss's `attack_pattern: Scripted(intro/phase1/transition/phase2/enrage)` Telegraph/Strike/Rest steps are authored in `boss_profiles.ron`, not hardcoded in Rust | `crates/ambition_sandbox/assets/data/boss_profiles.ron`, `crates/ambition_sandbox/src/brain/boss_pattern.rs` |
 | Dialogue/commerce hooks | Scaffolded | `docs/systems/progression-systems.md`, `docs/adr/0008-dialogue-and-commerce-architecture.md` |
+| Dialogue ↔ inventory read+grant bridge | Available; Yarn `inventory_has(item)` reads the live `PlayerInventory` (via the per-frame `YarnStateMirror`) and `<<give_item kind count>>` adds to it. Spend/transaction (merchant) still pending an economy decision | `crates/ambition_sandbox/src/dialog/yarn_bindings.rs`, `crates/ambition_sandbox/src/inventory/model.rs` |
 
 ## World authoring and runtime projection
 

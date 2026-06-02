@@ -194,18 +194,48 @@ pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRe
     });
 }
 
-/// `<<give_item "kind" count>>` — grant the player an item.
-/// Logged-stub today; the inventory system doesn't have a "give
-/// item" Bevy channel yet. The command exists so authored dialogue
-/// can use it; when the inventory consumer lands, wire this to
-/// write the matching message.
-pub fn cmd_give_item(In((kind, count)): In<(String, f32)>) {
-    info!(
-        target: "ambition_sandbox::dialog::yarn",
-        "give_item: kind={} count={} (stub; inventory consumer pending)",
-        kind,
-        count as i32,
-    );
+/// `<<give_item "kind" count>>` — grant the player an item by adding
+/// to the live `PlayerInventory` resource. The kind string is
+/// resolved through [`crate::inventory::ItemKind::from_dialog_id`]
+/// (loose spelling); an unknown kind or non-positive count is logged
+/// and ignored.
+pub fn cmd_give_item(
+    In((kind, count)): In<(String, f32)>,
+    mut inventory: ResMut<crate::inventory::PlayerInventory>,
+) {
+    let granted = apply_give_item(&mut inventory, &kind, count);
+    if granted == 0 {
+        warn!(
+            target: "ambition_sandbox::dialog::yarn",
+            "give_item: ignored kind={kind:?} count={count} (unknown item or non-positive count)",
+        );
+    } else {
+        info!(
+            target: "ambition_sandbox::dialog::yarn",
+            "give_item: granted {granted}x {kind:?}",
+        );
+    }
+}
+
+/// Pure core of [`cmd_give_item`]: add `count` (floored to a
+/// non-negative integer) of the named item to the bag. Returns the
+/// number actually granted (0 when the kind is unknown or the count
+/// is non-positive) so the command can log and tests can assert
+/// without a live `World`.
+fn apply_give_item(
+    inventory: &mut crate::inventory::PlayerInventory,
+    kind: &str,
+    count: f32,
+) -> u32 {
+    if count <= 0.0 {
+        return 0;
+    }
+    let Some(item) = crate::inventory::ItemKind::from_dialog_id(kind) else {
+        return 0;
+    };
+    let n = count as u32;
+    inventory.add(item, n);
+    n
 }
 
 /// `<<spawn_chest "id">>` — spawn a reward chest by id. Logged-stub;
@@ -427,6 +457,26 @@ mod tests {
         assert!(!mirror_inventory_has(&data, "DataChip"));
         // Unknown item is not held.
         assert!(!mirror_inventory_has(&data, "Grapple"));
+    }
+
+    #[test]
+    fn apply_give_item_adds_known_kinds_and_ignores_bad_input() {
+        let mut bag = PlayerInventory::default();
+        assert_eq!(bag.count(ItemKind::HealthPotion), 0);
+
+        // Loose spelling resolves and grants.
+        assert_eq!(apply_give_item(&mut bag, "health_potion", 2.0), 2);
+        assert_eq!(bag.count(ItemKind::HealthPotion), 2);
+        // Granting stacks (floored count).
+        assert_eq!(apply_give_item(&mut bag, "HealthPotion", 1.9), 1);
+        assert_eq!(bag.count(ItemKind::HealthPotion), 3);
+
+        // Unknown kind grants nothing.
+        assert_eq!(apply_give_item(&mut bag, "Grapple", 5.0), 0);
+        // Non-positive count grants nothing.
+        assert_eq!(apply_give_item(&mut bag, "DataChip", 0.0), 0);
+        assert_eq!(apply_give_item(&mut bag, "DataChip", -3.0), 0);
+        assert_eq!(bag.count(ItemKind::DataChip), 0);
     }
 
     #[test]

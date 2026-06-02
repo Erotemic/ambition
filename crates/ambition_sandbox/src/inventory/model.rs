@@ -40,6 +40,20 @@ impl ItemKind {
             Self::DataChip => "datachip",
         }
     }
+
+    /// Resolve an authored dialogue item id back to a kind, matching
+    /// [`Self::dialog_id`] after the same normalization the Yarn
+    /// bindings apply (lowercase, non-alphanumerics dropped). Returns
+    /// `None` for an unknown item so callers can warn instead of
+    /// silently granting the wrong thing.
+    pub fn from_dialog_id(raw: &str) -> Option<Self> {
+        let key: String = raw
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(|c| c.to_lowercase())
+            .collect();
+        Self::ALL.into_iter().find(|k| k.dialog_id() == key)
+    }
 }
 
 /// Top-level adventure-menu tab.

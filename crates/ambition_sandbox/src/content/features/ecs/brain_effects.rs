@@ -1031,6 +1031,20 @@ const GRADIENT_CASCADE_SPAWN_Y: f32 = 80.0;
 /// Horizontal spread (px from arena center) for spawning N minions.
 const GRADIENT_CASCADE_X_SPREAD: f32 = 220.0;
 
+/// Even horizontal offset (px from the boss x) for the `i`-th of
+/// `count` gradient-cascade minions, spread across
+/// `[-X_SPREAD, +X_SPREAD]`. A lone minion drops on the boss x; N≥2
+/// place the first and last at the spread edges with even spacing
+/// between. Pure so the spacing is unit-testable.
+fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
+    let t = if count <= 1 {
+        0.5
+    } else {
+        i as f32 / (count - 1) as f32
+    };
+    (t - 0.5) * 2.0 * GRADIENT_CASCADE_X_SPREAD
+}
+
 /// EFFECTS consumer: GradientCascade — spawn N "slop" minions at the
 /// top of the arena.
 ///
@@ -1074,12 +1088,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
         // MinimaTrap consumer above for the name-vs-id rationale).
         let encounter_id = boss.behavior.id.clone();
         for i in 0..count {
-            let t = if count == 1 {
-                0.5
-            } else {
-                i as f32 / (count - 1) as f32
-            };
-            let x_off = (t - 0.5) * 2.0 * GRADIENT_CASCADE_X_SPREAD;
+            let x_off = gradient_cascade_minion_x_offset(i, count);
             let spawn_pos = ae::Vec2::new(boss.pos.x + x_off, GRADIENT_CASCADE_SPAWN_Y);
             let minion_id = format!(
                 "gradient_sentinel_cascade:{}:{}:{}",
@@ -1105,6 +1114,37 @@ mod tests {
     use super::*;
     use crate::brain::{ActionSet, RangedActionSpec};
     use crate::content::features::enemies::EnemyRuntime;
+
+    #[test]
+    fn gradient_cascade_minion_offsets_spread_symmetrically() {
+        // A lone minion drops on the boss x.
+        assert_eq!(gradient_cascade_minion_x_offset(0, 1), 0.0);
+        // Two minions land on the spread edges.
+        assert_eq!(
+            gradient_cascade_minion_x_offset(0, 2),
+            -GRADIENT_CASCADE_X_SPREAD
+        );
+        assert_eq!(
+            gradient_cascade_minion_x_offset(1, 2),
+            GRADIENT_CASCADE_X_SPREAD
+        );
+        // An odd count puts the middle minion on the boss x and the
+        // ends symmetric about it.
+        let n = 5;
+        assert_eq!(gradient_cascade_minion_x_offset(2, n), 0.0);
+        let first = gradient_cascade_minion_x_offset(0, n);
+        let last = gradient_cascade_minion_x_offset(n - 1, n);
+        assert!((first + last).abs() < 1e-3, "ends should be symmetric");
+        assert_eq!(first, -GRADIENT_CASCADE_X_SPREAD);
+        // Offsets increase monotonically and stay within the spread.
+        let mut prev = f32::NEG_INFINITY;
+        for i in 0..n {
+            let x = gradient_cascade_minion_x_offset(i, n);
+            assert!(x > prev, "offsets should be strictly increasing");
+            assert!(x.abs() <= GRADIENT_CASCADE_X_SPREAD + 1e-3);
+            prev = x;
+        }
+    }
 
     #[test]
     fn apple_rain_spawn_x_stays_in_bounds_spreads_and_dodges_the_boss() {

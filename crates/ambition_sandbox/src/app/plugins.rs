@@ -74,7 +74,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_player_input_systems(app);
     register_player_simulation_systems(app);
     register_room_transition_systems(app);
-    register_combat_systems(app);
+    app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
     register_presentation_sync_systems(app);
     app.add_plugins(crate::features::FeatureCollectionSchedulePlugin);
     app.add_plugins(crate::features::FeatureInteractionSchedulePlugin);
@@ -82,8 +82,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(crate::encounter::EncounterSimulationSchedulePlugin);
     app.add_plugins(crate::presentation::cutscene::CutsceneSchedulePlugin);
     app.add_plugins(crate::features::GameplayEffectsSchedulePlugin);
-    register_progression_chain_systems(app);
-    register_progression_populate_systems(app);
+    app.add_plugins(super::progression_schedule::ProgressionSchedulePlugin);
     app.add_plugins(crate::features::FeatureViewSyncSchedulePlugin);
     app.add_plugins(crate::runtime::reset::SandboxResetSchedulePlugin);
     app.add_plugins(crate::trace::TraceSchedulePlugin);
@@ -251,74 +250,6 @@ fn register_room_transition_systems(app: &mut App) {
 
 /// Slash/pogo attack lifecycle, projectile tick, and the feature-side
 /// damage event apply.
-fn register_combat_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            attack_advance_system.run_if(gameplay_allowed),
-            // EFFECTS-stage consumer: reads ActorActionMessage::Ranged
-            // emitted upstream by `emit_brain_action_messages`
-            // (PlayerInput set) and spawns enemy projectiles. Runs
-            // BEFORE `update_enemy_projectiles` so projectiles spawned
-            // this tick already advance one step this frame, matching
-            // the pre-migration latency.
-            crate::features::spawn_enemy_projectiles_from_brain_actions.run_if(gameplay_allowed),
-            // EFFECTS-stage consumer: reads ActorActionMessage::Melee
-            // and starts the enemy's attack windup + cooldown.
-            // Replaces the legacy `if frame.melee_pressed` gate inside
-            // `EnemyRuntime::update`. The active-edge `Hitbox` spawn
-            // happens upstream in `update_ecs_actors` (the runtime is
-            // the only place that owns the windup → active transition);
-            // `apply_hitbox_damage` below resolves the overlap.
-            crate::features::start_enemy_melee_from_brain_actions.run_if(gameplay_allowed),
-            // EFFECTS-stage consumer: reads
-            // `ActorActionMessage::Special { SpecialActionSpec::GnuAppleRain }`
-            // and accumulates per-boss apple-rain spawn cadence.
-            // Replaces `BossRuntime::tick_apple_rain` (Task B of the
-            // actor/brain follow-up plan). Runs BEFORE
-            // `update_enemy_projectiles` so apples spawned this tick
-            // advance one step this frame, matching the legacy
-            // ordering of `outputs.projectile_spawns` flush →
-            // projectile tick.
-            crate::features::spawn_gnu_apple_rain_from_special_messages.run_if(gameplay_allowed),
-            // Gradient Sentinel special consumers (one per
-            // SpecialActionSpec variant): position-sampling bolt
-            // barrage, pit + puppy_slug spawn, rotating cross hazard,
-            // and slop-minion descent. All four are written directly
-            // by `tick_boss_brains_system` via `boss_special_for_profile`
-            // and follow the apple-rain consumer pattern (per-boss
-            // state component, reset on no-message tick). Run before
-            // `update_enemy_projectiles` for the bolt barrage so it
-            // advances this frame.
-            crate::features::spawn_overfit_volley_from_special_messages.run_if(gameplay_allowed),
-            crate::features::spawn_eye_beam_from_special_messages.run_if(gameplay_allowed),
-            crate::features::spawn_minima_trap_from_special_messages.run_if(gameplay_allowed),
-            crate::features::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),
-            crate::features::spawn_gradient_cascade_minions_from_special_messages
-                .run_if(gameplay_allowed),
-            crate::projectile::update_projectiles,
-            crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
-            // Hitbox-entity lifecycle for melee strikes (Task A of the
-            // actor/brain follow-up plan). `apply_hitbox_damage`
-            // resolves overlap → damage event; `tick_and_despawn_hitboxes`
-            // advances lifetimes and cleans expired entities.
-            crate::features::apply_hitbox_damage.run_if(gameplay_allowed),
-            crate::features::tick_and_despawn_hitboxes,
-            crate::features::apply_feature_hit_events,
-            crate::boss_encounter::tick_cut_rope_boss_arena.run_if(gameplay_allowed),
-            crate::boss_encounter::sync_cut_rope_boss_arena_prop_visuals,
-            // Mount/rider link bookkeeping. Runs after damage so
-            // it observes the alive flag transition for either
-            // side; a dead mount releases its rider (gravity on,
-            // solo brain restored) and a dead rider clears the
-            // mount's MountSlot back-reference.
-            crate::features::enforce_mount_rider_link,
-        )
-            .chain()
-            .in_set(SandboxSet::Combat),
-    );
-}
-
 /// Player ECS body write-back + presentation timer decays. Runs
 /// unconditionally so paused / dialogue modes still wind down flash and
 /// landing-pose timers.
@@ -362,69 +293,8 @@ fn register_presentation_sync_systems(app: &mut App) {
 // Gameplay-effects bus schedule moved to
 // `crate::features::GameplayEffectsSchedulePlugin` (OVERNIGHT-TODO #6).
 
-fn register_progression_chain_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            crate::boss_encounter::update_boss_encounters,
-            crate::boss_encounter::spawn_cut_rope_victory_npc,
-            // Hides the gnu_ton arena's retreat ladder while the boss
-            // is alive, re-adds it the frame the boss dies. Runs after
-            // `update_boss_encounters` so a defeat this tick is
-            // observable as `boss.alive = false`, and before player
-            // movement consumes `world.climbable_regions` in the next
-            // visual sync set.
-            crate::boss_encounter::gate_gnu_ton_arena_ladder,
-            crate::features::sync_ecs_actors_with_save,
-            crate::features::sync_ecs_npc_actors_with_save,
-            crate::features::sync_ecs_bosses_with_save,
-            crate::content::quest::push_room_entered_quest_events,
-            crate::content::quest::apply_quest_advance_events,
-            crate::content::quest::grant_quest_completion_rewards,
-            crate::rooms::sync_active_room_metadata,
-            crate::rooms::sync_room_music_request,
-            // Portal lifecycle: advance every registered portal's
-            // phase from its switch state + per-phase timers.
-            // Pure state update; the visibility + ring-spin
-            // systems below consume the phase. Lives in the
-            // Progression set so the portal state is current
-            // before `detect_room_transition_system` runs (which
-            // is in CoreSimulation, ordered after Progression).
-            crate::rooms::tick_portal_phases_system,
-            crate::map_menu::track_room_visits,
-            crate::map_menu::sync_map_from_save,
-            dev_tools::sync_player_stats_with_inspector,
-        )
-            .chain()
-            .in_set(SandboxSet::Progression),
-    );
-}
-
-/// Populate the encounter / quest / boss registries from the LDtk
-/// project + save. These run on Update (not Startup) with their
-/// existing `specs_loaded` / `initialized` short-circuits so:
-///   1. The first Update tick populates them (Startup is done by
-///      the time any Update fires, so SandboxLdtkProject + save
-///      are ready).
-///   2. The "reset sandbox" flow (`process_sandbox_reset_request`)
-///      can flip those flags back to false and the next tick
-///      repopulates from the freshly-cleared save — without us
-///      having to inline the populate logic in two places.
-///
-/// The cost when already loaded is one ResMut acquisition + one
-/// bool check per registry per frame: negligible.
-fn register_progression_populate_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            crate::content::quest::populate_quest_registry,
-            crate::boss_encounter::populate_boss_encounter_registry,
-            crate::encounter::populate_encounter_registry,
-        )
-            .in_set(SandboxSet::Progression),
-    );
-}
-
+// Progression schedule moved to
+// `super::progression_schedule::ProgressionSchedulePlugin` (ecs-cleanup-plan #8).
 // Sandbox reset schedule moved to
 // `crate::runtime::reset::SandboxResetSchedulePlugin` (OVERNIGHT-TODO #6).
 // Trace recorder schedule moved to `crate::trace::TraceSchedulePlugin`

@@ -80,8 +80,8 @@ mod tests {
     };
     use crate::content::features::{
         ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
-        ActorIdentity, ActorIntent, ActorRuntime, AggressionMode, CombatKit, EnemyArchetype,
-        EnemyRuntime, MountSlot, MountedSize, RidingOn,
+        ActorIdentity, ActorIntent, AggressionMode, CombatKit, EnemyArchetype, EnemyRuntime,
+        MountSlot, MountedSize, RidingOn,
     };
     use crate::engine_core as ae;
     use bevy::prelude::{App, Commands, Update, With};

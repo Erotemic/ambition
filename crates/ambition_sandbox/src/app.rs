@@ -88,6 +88,7 @@ use crate::world::platforms;
 use crate::{GameWorld, PlayerDiedMessage, SandboxDevState};
 
 mod cli;
+mod combat_schedule;
 mod dev_runtime;
 mod feedback;
 mod hud;
@@ -95,6 +96,7 @@ mod input_systems;
 mod phases;
 mod player_tick;
 mod plugins;
+mod progression_schedule;
 mod resources;
 mod schedule;
 mod setup_systems;

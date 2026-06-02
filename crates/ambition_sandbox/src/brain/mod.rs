@@ -87,8 +87,8 @@ pub mod state_machine;
 // next focused consumer slice.
 #[allow(unused_imports)]
 pub use action_set::{
-    resolve as resolve_action_requests, ActionRequest, ActionSet, BiteSpec, HeldItemSpec,
-    LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec, RangedActionSpec, SlamSpec,
+    held_item_by_id, resolve as resolve_action_requests, ActionRequest, ActionSet, BiteSpec,
+    HeldItemSpec, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec, RangedActionSpec, SlamSpec,
     SpecialActionSpec, SwipeSpec,
 };
 #[allow(unused_imports)]

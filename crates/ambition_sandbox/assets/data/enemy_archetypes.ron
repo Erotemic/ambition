@@ -56,13 +56,11 @@
 //                          Pistol((speed, damage))
 //                          Bolt((speed, damage))
 //                      `None` = no ranged capability.
-//   held_item          Optional authored item row. Its melee/ranged specs
-//                      overlay the archetype action set, so changing a
-//                      weapon does not require Rust code. Example:
-//                      held_item: Some((
-//                          id: "gun_sword",
-//                          ranged: Some(Bolt(speed: 500.0, damage: 2)),
-//                      )),
+//   held_item          Optional held-item id, resolved against the held-item
+//                      registry in `brain::action_set` (`held_item_by_id`).
+//                      The resolved item's melee/ranged specs overlay the
+//                      archetype action set. Example:
+//                      held_item: Some("gun_sword"),
 //   move_style         Locomotion animation: Walk / WalkHeavy / Hop /
 //                      Strafe / Slither / Float.
 //
@@ -318,10 +316,9 @@
         // Bolt speed / damage from the `ranged` row below.
         brain_template: Skirmisher,
         ranged: Some(Bolt(speed: 500.0, damage: 2)),
-        held_item: Some((
-            id: "gun_sword",
-            ranged: Some(Bolt(speed: 500.0, damage: 2)),
-        )),
+        // Held item resolved by id against the registry in
+        // `brain::action_set` (`held_item_by_id`).
+        held_item: Some("gun_sword"),
         move_style: Float,
     ),
     // Cove crew. Peaceful by default because aggro_radius stays 0 and
@@ -379,10 +376,9 @@
         // shape; only the Bolt damage scales up.
         brain_template: Skirmisher,
         ranged: Some(Bolt(speed: 500.0, damage: 3)),
-        held_item: Some((
-            id: "gun_sword",
-            ranged: Some(Bolt(speed: 500.0, damage: 3)),
-        )),
+        // Heavier composite shares the gun-sword weapon at a higher
+        // Bolt damage; resolved by id against the registry.
+        held_item: Some("gun_sword_heavy"),
         move_style: Float,
     ),
     // Crawlid-style grunt. Body-contact damage only; never aggros.

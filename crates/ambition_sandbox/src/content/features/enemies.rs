@@ -266,11 +266,12 @@ pub(super) struct EnemyArchetypeSpec {
     /// `None` = no ranged capability.
     #[serde(default)]
     pub ranged: Option<crate::brain::RangedActionSpec>,
-    /// Optional authored held item. Its abilities overlay the archetype action
-    /// set at spawn / state transitions so weapons, not ad-hoc Rust branches,
-    /// own whether an actor can melee or fire.
+    /// Optional held-item id, resolved against the held-item registry
+    /// (`crate::brain::held_item_by_id`). The item's abilities overlay the
+    /// archetype action set at spawn / state transitions so weapons, not
+    /// ad-hoc Rust branches, own whether an actor can melee or fire.
     #[serde(default)]
-    pub held_item: Option<crate::brain::HeldItemSpec>,
+    pub held_item: Option<String>,
     /// Locomotion style for the actor's `ActionSet.move_style`.
     pub move_style: crate::brain::MoveStyleSpec,
 }
@@ -458,7 +459,10 @@ impl EnemyArchetype {
     /// hostility: a peaceful NPC can carry a weapon that becomes active only
     /// if another system provokes them.
     pub(super) fn held_item_spec(self) -> Option<crate::brain::HeldItemSpec> {
-        self.spec().held_item
+        self.spec()
+            .held_item
+            .as_deref()
+            .and_then(crate::brain::held_item_by_id)
     }
 
     /// Locomotion style for this archetype's `ActionSet.move_style`.
@@ -1839,6 +1843,32 @@ mod enemy_archetype_data_tests {
         assert_eq!(slug.brain_template, EnemyBrainTemplate::Wanderer);
         assert!(slug.melee.is_none());
         assert!(slug.ranged.is_none());
+    }
+
+    /// The two gun-sword archetypes reference their weapon by id in the
+    /// RON; guard that the id resolves against the held-item registry
+    /// (a typo would silently drop the weapon, leaving them unarmed) and
+    /// that the resolved Bolt damage matches the authored per-archetype
+    /// scaling.
+    #[test]
+    fn gun_sword_archetypes_resolve_held_item_by_id() {
+        use crate::brain::RangedActionSpec;
+        let on_shark = EnemyArchetype::PirateOnShark
+            .held_item_spec()
+            .expect("PirateOnShark should resolve a held item");
+        assert_eq!(on_shark.id, "gun_sword");
+        assert!(matches!(
+            on_shark.ranged,
+            Some(RangedActionSpec::Bolt { damage: 2, .. })
+        ));
+        let heavy = EnemyArchetype::PirateHeavyOnShark
+            .held_item_spec()
+            .expect("PirateHeavyOnShark should resolve a held item");
+        assert_eq!(heavy.id, "gun_sword_heavy");
+        assert!(matches!(
+            heavy.ranged,
+            Some(RangedActionSpec::Bolt { damage: 3, .. })
+        ));
     }
 
     #[test]

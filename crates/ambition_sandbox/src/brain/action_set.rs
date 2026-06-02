@@ -96,6 +96,48 @@ impl HeldItemSpec {
     }
 }
 
+/// Registry of authored held items, keyed by stable id.
+///
+/// Archetypes (and future drop tables / pickups) reference an item by id —
+/// `held_item: Some("gun_sword")` — instead of embedding the full spec, so a
+/// weapon is defined in exactly one place and can be shared. New weapons are
+/// added here (or, later, an item RON the loader merges in) rather than
+/// duplicated per archetype. The schema is deliberately the current
+/// id/melee/ranged shape; richer fields (muzzle offset, ammo, projectile arc)
+/// land when the item pass that needs them does.
+static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, HeldItemSpec>> =
+    std::sync::LazyLock::new(|| {
+        let mut items = std::collections::HashMap::new();
+        items.insert(
+            "gun_sword",
+            HeldItemSpec {
+                id: "gun_sword".into(),
+                melee: None,
+                ranged: Some(RangedActionSpec::Bolt {
+                    speed: 500.0,
+                    damage: 2,
+                }),
+            },
+        );
+        items.insert(
+            "gun_sword_heavy",
+            HeldItemSpec {
+                id: "gun_sword_heavy".into(),
+                melee: None,
+                ranged: Some(RangedActionSpec::Bolt {
+                    speed: 500.0,
+                    damage: 3,
+                }),
+            },
+        );
+        items
+    });
+
+/// Resolve a held-item id to its authored spec, or `None` for an unknown id.
+pub fn held_item_by_id(id: &str) -> Option<HeldItemSpec> {
+    HELD_ITEMS.get(id).cloned()
+}
+
 /// Concrete melee actions an actor can perform. Each variant carries
 /// its **own** animation timing (windup → active → recover) — there
 /// is no separate `TelegraphSpec`.

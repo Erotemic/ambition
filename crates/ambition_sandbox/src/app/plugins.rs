@@ -74,6 +74,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_player_input_systems(app);
     register_player_simulation_systems(app);
     register_portal_systems(app);
+    register_item_pickup_systems(app);
     register_room_transition_systems(app);
     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
     register_presentation_sync_systems(app);
@@ -241,6 +242,21 @@ fn register_portal_systems(app: &mut App) {
             crate::portal::portal_toggle_system.run_if(gameplay_allowed),
             crate::portal::portal_fire_system.run_if(gameplay_allowed),
             crate::portal::portal_teleport_system.run_if(gameplay_allowed),
+        )
+            .chain()
+            .in_set(SandboxSet::PlayerSimulation),
+    );
+}
+
+/// Held-item pickup/throw: spawn the debug axe, then pickup (Attack) and
+/// throw (Shield+Attack). In `PlayerSimulation` so it sees this frame's input.
+fn register_item_pickup_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::item_pickup::spawn_debug_axe_once,
+            crate::item_pickup::pickup_held_item_system.run_if(gameplay_allowed),
+            crate::item_pickup::throw_held_item_system.run_if(gameplay_allowed),
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation),

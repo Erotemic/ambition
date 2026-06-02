@@ -62,6 +62,7 @@ pub(crate) mod inventory;
 pub(crate) mod map_menu;
 pub(crate) mod music;
 pub(crate) mod pause_menu;
+pub mod item_pickup;
 pub(crate) mod persistence;
 pub mod portal;
 pub(crate) mod presentation;

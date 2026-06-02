@@ -230,9 +230,36 @@ pub fn throw_held_item_system(
 pub struct GroundItemVisual;
 
 /// Colored quad per ground item so it's visible. Clear-and-rebuild (few items).
+/// Loaded held-item art (axe / javelin sprites). Visible build only.
+#[derive(Resource)]
+pub struct ItemArt {
+    pub axe: Handle<Image>,
+    pub javelin: Handle<Image>,
+}
+
+/// Load the held-item sprites at startup.
+pub fn load_item_art(mut commands: Commands, assets: Res<AssetServer>) {
+    commands.insert_resource(ItemArt {
+        axe: assets.load("sprites/props/axe.png"),
+        javelin: assets.load("sprites/props/javelin.png"),
+    });
+}
+
+/// `(image, display size)` for a held-item spec id, if it has authored art.
+/// Display sizes keep each prop's native aspect ratio (axe 173×76, javelin
+/// 236×29).
+fn item_sprite(art: &ItemArt, spec_id: &str) -> Option<(Handle<Image>, Vec2)> {
+    match spec_id {
+        "axe" => Some((art.axe.clone(), Vec2::new(40.0, 18.0))),
+        "javelin" => Some((art.javelin.clone(), Vec2::new(58.0, 7.0))),
+        _ => None,
+    }
+}
+
 pub fn sync_ground_item_visuals(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
+    art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
     grounds: Query<&GroundItem>,
 ) {
@@ -241,9 +268,20 @@ pub fn sync_ground_item_visuals(
     }
     for ground in &grounds {
         let translation = crate::config::world_to_bevy(&world.0, ground.pos, 8.0);
+        let sprite = art
+            .as_ref()
+            .and_then(|a| item_sprite(a, ground.spec.id.as_str()))
+            .map(|(image, size)| Sprite {
+                image,
+                custom_size: Some(size),
+                ..default()
+            })
+            .unwrap_or_else(|| {
+                Sprite::from_color(Color::srgb(0.72, 0.52, 0.30), ground.half_extent * 2.0)
+            });
         commands.spawn((
             GroundItemVisual,
-            Sprite::from_color(Color::srgb(0.72, 0.52, 0.30), ground.half_extent * 2.0),
+            sprite,
             Transform::from_translation(translation),
             Name::new("Ground item visual"),
         ));
@@ -259,6 +297,7 @@ pub struct HeldItemVisual;
 pub fn sync_held_item_visual(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
+    art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<HeldItemVisual>>,
     players: Query<(&PlayerKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
@@ -269,16 +308,29 @@ pub fn sync_held_item_visual(
         return;
     };
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-    let hand = kin.pos + Vec2::new(facing * kin.size.x * 0.6, -2.0);
-    let translation = crate::config::world_to_bevy(&world.0, hand, 10.0);
-    let color = match held.spec.id.as_str() {
-        "axe" => Color::srgb(0.72, 0.52, 0.30),
-        "javelin" => Color::srgb(0.86, 0.84, 0.62),
-        _ => Color::srgb(0.82, 0.82, 0.82),
-    };
+    // In the player's hand: just in front at hand height (y-down → small +y).
+    let hand = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 4.0), kin.size.y * 0.06);
+    let translation = crate::config::world_to_bevy(&world.0, hand, 12.0);
+    let sprite = art
+        .as_ref()
+        .and_then(|a| item_sprite(a, held.spec.id.as_str()))
+        .map(|(image, size)| Sprite {
+            image,
+            custom_size: Some(size),
+            flip_x: facing < 0.0,
+            ..default()
+        })
+        .unwrap_or_else(|| {
+            let color = match held.spec.id.as_str() {
+                "axe" => Color::srgb(0.72, 0.52, 0.30),
+                "javelin" => Color::srgb(0.86, 0.84, 0.62),
+                _ => Color::srgb(0.82, 0.82, 0.82),
+            };
+            Sprite::from_color(color, Vec2::new(14.0, 28.0))
+        });
     commands.spawn((
         HeldItemVisual,
-        Sprite::from_color(color, Vec2::new(14.0, 28.0)),
+        sprite,
         Transform::from_translation(translation),
         Name::new("Held item visual"),
     ));

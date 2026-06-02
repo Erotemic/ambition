@@ -101,8 +101,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .chain()
                     .after(actors::sync_visuals),
             )
-            // Portal gun: load the blue/orange mode sprites at startup.
+            // Load held-item / portal-gun prop sprites at startup.
             .add_systems(Startup, crate::portal::load_portal_gun_art)
+            .add_systems(Startup, crate::item_pickup::load_item_art)
             // Portal gun: colored quad per placed portal (blue / orange) +
             // the F7 dev off-switch (visible build only).
             .add_systems(

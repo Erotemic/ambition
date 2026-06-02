@@ -582,6 +582,32 @@ for target in "${tackon_targets[@]}"; do
     publish_cached "$target"
 done
 
+echo "==> held-item prop canonicals (single-pose → $sprites_dir/props)"
+# A few props are shown in-game as STATIC held / ground items, which load
+# the single-pose `*_canonical_transparent.png` (not the animated sheet the
+# tack-on publish installs). Copy those canonicals flat into props/ so the
+# runtime asset paths (`sprites/props/<name>.png`) resolve on a fresh clone.
+props_dir="$sprites_dir/props"
+mkdir -p "$props_dir"
+# render-target-name -> runtime props/ basename
+held_prop_map=(
+    "pirate_heavy_axe:axe"
+    "throwing_javelin:javelin"
+    "portal_gun_blue:portal_gun_blue"
+    "portal_gun_orange:portal_gun_orange"
+)
+for pair in "${held_prop_map[@]}"; do
+    src_target="${pair%%:*}"
+    dst_name="${pair##*:}"
+    canon="$renderer_dir/generated/$src_target/${src_target}_canonical_transparent.png"
+    if [ -f "$canon" ]; then
+        cp "$canon" "$props_dir/${dst_name}.png"
+        echo "    $src_target -> props/${dst_name}.png"
+    else
+        echo "    warning: missing $canon (held-item prop not rendered)" >&2
+    fi
+done
+
 echo "==> standalone pirate sheets (publish into $sprites_dir)"
 # Pirates are registered as tack-on `[characters]` targets and publish
 # through the same machinery as the other tack-ons above. Kept as its

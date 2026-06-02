@@ -399,6 +399,40 @@ pub fn portal_dev_toggle_system(
     }
 }
 
+/// In-flight ground items (thrown axes / javelins) also travel through the
+/// portal pair, carrying momentum through the rotation — throw a javelin into
+/// the blue portal and it flies out of the orange one. Resting items are
+/// ignored (only `vel != ZERO` items teleport), and a teleported item pops out
+/// clear of the exit portal so it doesn't immediately re-enter.
+pub fn portal_teleport_ground_items(
+    portals: Query<&Portal>,
+    mut items: Query<&mut crate::item_pickup::GroundItem>,
+) {
+    let blue = portals.iter().find(|p| p.color == PortalColor::Blue).copied();
+    let orange = portals
+        .iter()
+        .find(|p| p.color == PortalColor::Orange)
+        .copied();
+    let (Some(blue), Some(orange)) = (blue, orange) else {
+        return;
+    };
+    for mut item in &mut items {
+        if item.vel == Vec2::ZERO {
+            continue;
+        }
+        let item_aabb = ae::Aabb::new(item.pos, item.half_extent);
+        for (enter, exit) in [(blue, orange), (orange, blue)] {
+            if item_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent)) {
+                // Rotation preserves speed, so momentum carries through.
+                item.vel = portal_transform_velocity(item.vel, enter.normal, exit.normal);
+                let clearance = item.half_extent.length() + exit.half_extent.length() + 4.0;
+                item.pos = exit.pos + exit.normal * clearance;
+                break;
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Presentation (visible build only — registered by the presentation plugin).
 
@@ -518,6 +552,48 @@ mod tests {
         assert!(
             (out.x + 100.0).abs() < 0.01 && out.y.abs() < 0.01,
             "fall-in should exit left at the same speed, got {out:?}"
+        );
+    }
+
+    #[test]
+    fn in_flight_ground_item_travels_through_the_portal_pair() {
+        use crate::item_pickup::GroundItem;
+        let mut app = App::new();
+        app.add_systems(Update, portal_teleport_ground_items);
+        // Blue portal facing right at x=20, orange facing left at x=380.
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Blue,
+            pos: Vec2::new(20.0, 200.0),
+            normal: Vec2::new(1.0, 0.0),
+            half_extent: Vec2::splat(PORTAL_HALF),
+        });
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Orange,
+            pos: Vec2::new(380.0, 200.0),
+            normal: Vec2::new(-1.0, 0.0),
+            half_extent: Vec2::splat(PORTAL_HALF),
+        });
+        // A thrown item flying into the blue portal.
+        let item = app
+            .world_mut()
+            .spawn(GroundItem {
+                spec: crate::item_pickup::axe_spec(),
+                pos: Vec2::new(20.0, 200.0),
+                vel: Vec2::new(-300.0, 0.0),
+                half_extent: Vec2::splat(12.0),
+            })
+            .id();
+        app.update();
+        let g = app.world().get::<GroundItem>(item).unwrap();
+        assert!(
+            g.pos.x > 250.0,
+            "item should have come out of the orange (right) portal, pos={:?}",
+            g.pos
+        );
+        assert!(
+            (g.vel.length() - 300.0).abs() < 1.0,
+            "momentum carries through the portal, vel={:?}",
+            g.vel
         );
     }
 

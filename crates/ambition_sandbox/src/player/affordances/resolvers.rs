@@ -41,6 +41,10 @@ pub struct WorldView {
     /// today it's always `false`, which means `D-Air` never upgrades
     /// to `Pogo` until that wiring lands.
     pub pogo_target_below: bool,
+    /// True when the player holds an active portal gun, which rebinds
+    /// Interact to "Mode Switch" (toggle blue/orange) when there's no
+    /// genuine interactable nearby.
+    pub portal_gun_active: bool,
 }
 
 /// What pressing Attack would do right now.
@@ -106,7 +110,16 @@ pub fn resolve_dash(body: PlayerBodyView) -> DashVariant {
 /// world view's classification; the proximity query is what does
 /// the real work of picking a variant.
 pub fn resolve_interact(world: &WorldView) -> InteractVariant {
-    world.nearest_interactable.clone()
+    // A genuine interactable always wins (Talk / Open / Activate / …).
+    if !matches!(world.nearest_interactable, InteractVariant::None) {
+        return world.nearest_interactable.clone();
+    }
+    // Otherwise an item may rebind Interact — the portal gun toggles mode.
+    if world.portal_gun_active {
+        return InteractVariant::ModeSwitch;
+    }
+    // Nothing to do: the HUD shows "Context".
+    InteractVariant::None
 }
 
 /// What pressing Special would do right now. Smash-style four-way
@@ -306,6 +319,22 @@ mod tests {
             resolve_interact(&world),
             InteractVariant::Custom(Cow::Borrowed("Read note"))
         );
+
+        // Holding the portal gun rebinds Interact to "Mode Switch"…
+        let world = WorldView {
+            portal_gun_active: true,
+            ..WorldView::default()
+        };
+        assert_eq!(resolve_interact(&world), InteractVariant::ModeSwitch);
+        // …but a genuine interactable still wins.
+        let world = WorldView {
+            nearest_interactable: InteractVariant::Talk,
+            portal_gun_active: true,
+            ..WorldView::default()
+        };
+        assert_eq!(resolve_interact(&world), InteractVariant::Talk);
+        // Nothing nearby and no gun → None (the HUD shows "Context").
+        assert_eq!(resolve_interact(&WorldView::default()), InteractVariant::None);
     }
 
     #[test]

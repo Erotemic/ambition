@@ -414,9 +414,20 @@ pub fn portal_projectile_step(
 pub fn portal_toggle_system(
     control: Res<ControlFrame>,
     mut players: Query<&mut PortalGun, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    nearest: Option<Res<crate::player::affordances::NearestInteractable>>,
 ) {
     if !control.interact_pressed {
         return;
+    }
+    // A genuine interactable (door / NPC / switch) claims the Interact press,
+    // matching the HUD label — only toggle portal mode when there's none.
+    if let Some(nearest) = nearest.as_deref() {
+        if !matches!(
+            nearest.0,
+            crate::player::affordances::InteractVariant::None
+        ) {
+            return;
+        }
     }
     let Ok(mut gun) = players.single_mut() else {
         return;
@@ -425,6 +436,7 @@ pub fn portal_toggle_system(
         gun.next_color = gun.next_color.other();
     }
 }
+
 
 /// One-frame flag: set true the frame the player teleports through a portal,
 /// so the trace position-delta detector treats it as an *intentional* teleport

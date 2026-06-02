@@ -209,6 +209,11 @@ pub enum InteractVariant {
     Use,
     /// Switch in range — flips it.
     Activate,
+    /// No interactable in range, but the player holds an item that
+    /// rebinds Interact to a context action (the portal gun: toggle
+    /// blue/orange mode). Takes precedence over `None` but yields to a
+    /// genuine interactable.
+    ModeSwitch,
     /// Authored prompt override: the interactable's own prompt
     /// string. Use sparingly — prefer the typed variants above so the
     /// HUD can swap icons / locales coherently.
@@ -218,11 +223,14 @@ pub enum InteractVariant {
 impl VariantLabel for InteractVariant {
     fn text(&self) -> &'static str {
         match self {
-            InteractVariant::None => "Interact",
+            // Nothing to interact with: label it "Context" (not the
+            // misleading "Interact") since a press would do nothing.
+            InteractVariant::None => "Context",
             InteractVariant::Talk => "Talk",
             InteractVariant::Open => "Open",
             InteractVariant::Use => "Use",
             InteractVariant::Activate => "Activate",
+            InteractVariant::ModeSwitch => "Mode Switch",
             // `&'static str` return forces typed-variant text. Custom
             // prompts are rendered via [`InteractVariant::display`] so
             // the HUD path can borrow either source uniformly.
@@ -237,6 +245,7 @@ impl VariantLabel for InteractVariant {
             InteractVariant::Open => "interact.open",
             InteractVariant::Use => "interact.use",
             InteractVariant::Activate => "interact.activate",
+            InteractVariant::ModeSwitch => "interact.mode_switch",
             InteractVariant::Custom(_) => "interact.custom",
         }
     }
@@ -344,7 +353,9 @@ mod tests {
         assert_eq!(v.display(), "Loot Cache");
         // Typed variants keep their canonical label.
         assert_eq!(InteractVariant::Talk.display(), "Talk");
-        assert_eq!(InteractVariant::None.display(), "Interact");
+        // No interactable → "Context", not "Interact".
+        assert_eq!(InteractVariant::None.display(), "Context");
+        assert_eq!(InteractVariant::ModeSwitch.display(), "Mode Switch");
     }
 
     #[test]

@@ -95,6 +95,7 @@ pub fn compute_player_affordances(
             &crate::player::PlayerLedgeState,
             &crate::player::PlayerBodyModeState,
             &crate::player::PlayerEnvironmentContact,
+            Option<&crate::portal::PortalGun>,
         ),
         (
             With<crate::player::PlayerEntity>,
@@ -103,7 +104,7 @@ pub fn compute_player_affordances(
     >,
     mut affordances: ResMut<PlayerAffordances>,
 ) {
-    let Ok((ground, ledge, body_mode, env_contact)) = player_q.single() else {
+    let Ok((ground, ledge, body_mode, env_contact, portal_gun)) = player_q.single() else {
         // No primary player yet (e.g. boot-up before
         // `setup_simulation_system` runs). Leave affordances at their
         // defaults; the HUD renders "Jump / Attack / Shield / Dash /
@@ -119,6 +120,7 @@ pub fn compute_player_affordances(
     let world = WorldView {
         nearest_interactable: proximity.0.clone(),
         pogo_target_below: pogo.0,
+        portal_gun_active: portal_gun.is_some_and(|g| g.active),
     };
 
     let next = PlayerAffordances {

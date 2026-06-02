@@ -91,6 +91,12 @@ The first half of the RL adapter has landed in
   resource and calls `app.update()` once. Returns `AgentObservation`.
 - **`sim.step_n(action, n)`** — convenience for "hold this action for
   n frames" without writing the loop.
+- **`sim.step_with_reward(action)`** — steps one frame and returns
+  `(AgentObservation, f32)` where the reward is `rl_sim::reward::default_shaped`
+  over the pre→post transition. The `rl_sim::reward` module also exposes
+  the separable terms (`survival`, `exploration`, `health_preservation`)
+  as pure functions over two observations, so a task-specific harness can
+  compose its own reward instead of using the example composite.
 - **`sim.reset_episode()`** — presses Reset for one frame, idles for
   one, returns the post-reset observation. Goes through the existing
   reset machinery rather than rebuilding the App.

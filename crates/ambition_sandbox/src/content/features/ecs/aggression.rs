@@ -186,3 +186,90 @@ pub fn apply_actor_stimuli(
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::content::features::NPC_HOSTILE_STRIKE_THRESHOLD;
+    use crate::engine_core::{self as ae, AabbExt};
+    use crate::features::{FeatureAabb, FeatureId, FeatureSimEntity};
+    use bevy::prelude::{App, Update};
+
+    fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity {
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        let interactable = crate::interaction::Interactable::new(
+            "alice",
+            "Talk",
+            aabb,
+            crate::interaction::InteractionKind::Npc {
+                dialogue_id: None,
+                patrol_radius: 0.0,
+                patrol_path_id: None,
+            },
+        );
+        let npc =
+            crate::content::features::npcs::NpcRuntime::new("alice", "Alice", aabb, interactable);
+        let mut bundle = super::super::npc_clusters::npc_cluster_bundle(&npc);
+        bundle.4.strikes = strikes; // NpcStatus.strikes
+        let (identity, disposition, health, combat, intent, cooldowns) =
+            super::super::actors::npc_component_snapshot(&bundle.3, &bundle.4);
+        app.world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureId::new("alice"),
+                FeatureAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+                ActorRuntime::Npc,
+                ActorAggression::retaliates_when_hit(
+                    crate::content::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+                ),
+                CombatKit::default(),
+                bundle,
+                identity,
+                disposition,
+                health,
+                combat,
+                intent,
+                cooldowns,
+            ))
+            .id()
+    }
+
+    fn run(app: &mut App, actor: bevy::prelude::Entity) {
+        app.world_mut().write_message(ActorStimulus::DamagedBy {
+            actor,
+            source: None,
+            damage: 1,
+        });
+        app.update();
+    }
+
+    #[test]
+    fn npc_flips_hostile_once_strikes_reach_the_threshold() {
+        let mut app = App::new();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_npc_stimuli);
+        // Already at the strike threshold (the damage system increments
+        // strikes; this stimulus is the provocation that re-evaluates).
+        let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD);
+        run(&mut app, npc);
+        assert_eq!(
+            *app.world().get::<ActorDisposition>(npc).unwrap(),
+            ActorDisposition::Hostile,
+            "an NPC at the strike threshold should flip hostile when provoked"
+        );
+    }
+
+    #[test]
+    fn npc_below_the_threshold_stays_peaceful() {
+        let mut app = App::new();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_npc_stimuli);
+        let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD - 1);
+        run(&mut app, npc);
+        assert_eq!(
+            *app.world().get::<ActorDisposition>(npc).unwrap(),
+            ActorDisposition::Peaceful,
+            "an NPC below the strike threshold should stay peaceful"
+        );
+    }
+}

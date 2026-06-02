@@ -23,6 +23,46 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
   crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
 
+### Multi-file worlds: validate with `--secondary-world`
+
+`intro.ldtk` (and any future zone file) is merged on top of `sandbox.ldtk`
+by the runtime loader (`ldtk_world/loading.rs::merge_secondary_worlds`), so
+its `LoadingZone`s legitimately target rooms that live in `sandbox.ldtk`
+(e.g. `central_hub_complex`). Validating a secondary file **in isolation**
+reports those cross-file targets as `error: ... targets unknown room`
+false positives. Always pass the other world(s) so the validator resolves
+cross-file links:
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools validate \
+  crates/ambition_sandbox/assets/ambition/worlds/intro.ldtk \
+  --secondary-world crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+```
+
+(Use `python3` if `python` is unavailable. `--secondary-world` may be
+repeated.) A clean run prints `... passes Ambition LDtk validation (N
+warnings)`. Note that `intgrid paint`/`erase` re-serialize the whole file
+to the tool's canonical JSON formatting; a first edit on a drifted file
+produces a large whitespace diff (one-time normalization), after which
+edits diff cleanly.
+
+## Visual verification (collision + entity geometry)
+
+To *see* a room's layout without launching the game (no GPU needed), render
+its collision world + every authored entity (enemy/boss spawns, NPCs,
+pickups, chests, breakables, hazards, doors, spawn) to a PNG you can open
+or inspect:
+
+```bash
+cargo run -p ambition_sandbox --example render_room_geometry            # list rooms
+cargo run -p ambition_sandbox --example render_room_geometry -- <ROOM_ID>  # -> /tmp/room_<id>.png
+```
+
+Filled boxes are collision (gray=Solid, blue=OneWay, red=Hazard,
+gold=PogoOrb); outlines are authored entities. Useful for confirming a
+room is enclosed, a door rests on a surface, or a boss/encounter is placed
+where you expect — the same checks the validator lints, but rendered.
+
 ## Standard edit loop
 
 1. Run `doctor` on the current LDtk file.

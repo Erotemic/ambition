@@ -52,6 +52,15 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools def register-entity \
   tools/ambition_ldtk_tools/specs/encounter_and_switch_entities.yaml \
   --in-place
+
+# Read-only spatial queries (answer placement questions before editing;
+# see docs/concepts/llm-spatial-authoring-discipline.md).
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools intgrid query \
+  --level goblin_encounter --px 480,400 --size 224,208   # what collision is here?
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity measure \
+  --level goblin_encounter --identifier Switch            # size + center + nearest solids
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools gates audit \
+  --level goblin_encounter                                # switches / lock walls / triggers / breakables
 ```
 
 ## Specs

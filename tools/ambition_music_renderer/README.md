@@ -19,8 +19,9 @@ From the tool directory:
 cd tools/ambition_music_renderer
 python -m ambition_music_renderer --help
 ./render_first_goblin_transition_lab.sh
-python transition_audit.py --help
-python audit_cue_balance.py --help
+python transition_audit.py --help     # two-file transition seam
+python audit_cue_balance.py --help    # sections within one cue
+python level_report.py --help         # inter-cue catalog levels; --check fails on clipping
 ```
 
 Use the package CLI and scripts in this directory for current music-renderer work. Older docs may mention retired paths under `tools/audio/`; those paths are stale and should not be copied into new instructions.
@@ -34,7 +35,7 @@ Use the package CLI and scripts in this directory for current music-renderer wor
 - `scores/archive/` - historical cues kept for reference.
 - `render_first_goblin_transition_lab.sh` - local transition-lab helper.
 - `install_first_goblin_tune_v2.py` - installer for the first-goblin tune asset path.
-- `audit_cue_balance.py`, `transition_audit.py`, `spectral_compare.py`, `spectral_localize.py` - analysis helpers.
+- `audit_cue_balance.py`, `transition_audit.py`, `level_report.py`, `spectral_compare.py`, `spectral_localize.py` - analysis helpers (`level_report.py` is the diff-friendly cross-catalog loudness/clipping report; `--check` gates clipping).
 - `goals.md` - design/planning notes for renderer direction.
 
 ## Dependencies and backends

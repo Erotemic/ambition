@@ -133,3 +133,60 @@ pub fn interact_ecs_actors_and_switches(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine_core::{self as ae, AabbExt};
+    use crate::features::{FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, SwitchFeature, SwitchOn};
+    use bevy::prelude::{App, NextState, Update};
+
+    fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) {
+        let mut scratch = crate::player::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
+        scratch.ground.on_ground = true;
+        let mut bundle = crate::player::PlayerSimulationBundle::from_scratch(
+            scratch,
+            crate::actor::Health::new(10),
+        );
+        bundle.interaction.interact_buffer_timer = 0.15;
+        app.world_mut().spawn(bundle);
+    }
+
+    #[test]
+    fn buffered_interact_toggles_an_adjacent_switch() {
+        let center = ae::Vec2::new(100.0, 100.0);
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(crate::dialog::DialogState::default());
+        app.insert_resource(NextState::<crate::GameMode>::default());
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<QuestAdvanceRequested>();
+        app.add_message::<SwitchActivated>();
+        app.add_message::<VfxMessage>();
+        spawn_interaction_player(&mut app, center);
+
+        let switch = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureId::new("gate_switch"),
+                FeatureName::new("Gate Switch"),
+                FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+                SwitchFeature::new(crate::encounter::SwitchActivation {
+                    id: "gate_switch".into(),
+                    action: "open".into(),
+                    target_encounter: String::new(),
+                }),
+                SwitchOn(false),
+            ))
+            .id();
+
+        app.add_systems(Update, interact_ecs_actors_and_switches);
+        app.update();
+
+        assert!(
+            app.world().get::<SwitchOn>(switch).unwrap().0,
+            "a buffered interact on an adjacent switch should toggle it on"
+        );
+    }
+}

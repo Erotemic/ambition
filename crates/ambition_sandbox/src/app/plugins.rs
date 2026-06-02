@@ -238,7 +238,6 @@ fn register_portal_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            crate::portal::grant_portal_gun,
             crate::portal::portal_toggle_system.run_if(gameplay_allowed),
             crate::portal::portal_fire_system.run_if(gameplay_allowed),
         )

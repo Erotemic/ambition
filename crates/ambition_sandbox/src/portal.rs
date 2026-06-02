@@ -182,22 +182,6 @@ fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
 // ---------------------------------------------------------------------------
 // Systems.
 
-/// Attach an always-active `PortalGun` to any player that lacks one. Stand-in
-/// for held-item equip until that lands.
-pub fn grant_portal_gun(
-    mut commands: Commands,
-    players: Query<Entity, (With<PlayerEntity>, Without<PortalGun>)>,
-) {
-    for entity in &players {
-        // Granted INACTIVE so it doesn't fire portals on every Attack during
-        // normal play — F7 toggles it on (and a held-item pickup will later).
-        commands.entity(entity).insert(PortalGun {
-            active: false,
-            ..PortalGun::default()
-        });
-    }
-}
-
 /// A portal gun resting in the world. Walking onto it and pressing `Attack`
 /// activates the player's (inactive) portal gun — "pick up the portal gun in
 /// a room". Kept distinct from `item_pickup::GroundItem` because the portal
@@ -231,28 +215,31 @@ pub fn spawn_debug_portal_gun_pickup_once(
     ));
 }
 
-/// `Attack` while overlapping a [`PortalGunPickup`] activates the player's
-/// portal gun and consumes the pickup.
+/// `Attack` while overlapping the [`PortalGunPickup`] grants the player an
+/// (active) `PortalGun` and consumes the pickup. The gun is a **single item**:
+/// it doesn't exist until you pick it up (no separate granted-but-inactive
+/// component) — picking up the one world item *is* getting the portal gun.
 pub fn pickup_portal_gun_system(
     control: Res<ControlFrame>,
     mut commands: Commands,
-    mut players: Query<(&PlayerKinematics, &mut PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: Query<(Entity, &PlayerKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    already_have: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>, With<PortalGun>)>,
     pickups: Query<(Entity, &PortalGunPickup)>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed {
+    if !control.attack_pressed || !already_have.is_empty() {
         return;
     }
-    let Ok((kin, mut gun)) = players.single_mut() else {
+    let Ok((player, kin)) = players.single() else {
         return;
     };
-    if gun.active {
-        return;
-    }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
     for (entity, pickup) in &pickups {
         if player_aabb.strict_intersects(ae::Aabb::new(pickup.pos, pickup.half_extent)) {
-            gun.active = true;
+            commands.entity(player).insert(PortalGun {
+                active: true,
+                ..PortalGun::default()
+            });
             commands.entity(entity).despawn();
             // Rising sci-fi charge-up as the device wakes.
             sfx.write(crate::audio::SfxMessage::Play {
@@ -527,7 +514,6 @@ pub fn sync_portal_visuals(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::prelude::*;
 
     fn world_with_two_walls() -> GameWorld {
         // Left wall x[0,20], right wall x[380,400], both y[0,400].
@@ -660,25 +646,24 @@ mod tests {
                     base_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
-                PortalGun {
-                    active: false,
-                    ..PortalGun::default()
-                },
+                // No PortalGun yet — the single pickup item grants it.
             ))
             .id();
         app.world_mut().spawn(PortalGunPickup {
             pos: Vec2::new(50.0, 50.0),
             half_extent: Vec2::splat(20.0),
         });
-        assert!(!app.world().get::<PortalGun>(player).unwrap().active);
+        assert!(app.world().get::<PortalGun>(player).is_none());
 
         app.world_mut()
             .resource_mut::<ControlFrame>()
             .attack_pressed = true;
         app.update();
         assert!(
-            app.world().get::<PortalGun>(player).unwrap().active,
-            "walking onto the pickup and pressing Attack activates the gun"
+            app.world()
+                .get::<PortalGun>(player)
+                .is_some_and(|g| g.active),
+            "walking onto the pickup and pressing Attack grants the active gun"
         );
         let remaining = {
             let mut q = app.world_mut().query::<&PortalGunPickup>();
@@ -696,13 +681,7 @@ mod tests {
         app.insert_resource(crate::WorldTime::default());
         app.add_systems(
             Update,
-            (
-                grant_portal_gun,
-                portal_toggle_system,
-                portal_fire_system,
-                portal_teleport_system,
-            )
-                .chain(),
+            (portal_toggle_system, portal_fire_system, portal_teleport_system).chain(),
         );
         let player = spawn_player(&mut app, Vec2::new(200.0, 200.0), -1.0);
 

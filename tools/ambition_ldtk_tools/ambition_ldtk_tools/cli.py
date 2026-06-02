@@ -155,6 +155,8 @@ def cmd_entity(args, rest):
         return _delegate("ambition_ldtk_tools.edit.delete", rest)
     if args.entity_action == "query":
         return _delegate("ambition_ldtk_tools.edit.query", rest)
+    if args.entity_action == "measure":
+        return _delegate("ambition_ldtk_tools.edit.measure", rest)
     if args.entity_action == "check":
         return _delegate("ambition_ldtk_tools.edit.check", rest)
     if args.entity_action == "even-space":
@@ -330,6 +332,14 @@ def build_parser() -> argparse.ArgumentParser:
             "Read-only listing of entities by level/type/field. "
             "Use --level, --identifier, --field NAME=VALUE, --iid. "
             "Default output is a table; --format json for structured."
+        ),
+    )
+    entity_sub.add_parser(
+        "measure",
+        help=(
+            "Read-only: an entity's size + center + nearest Solid in each "
+            "direction (placement context). Use --level, --identifier / --iid, "
+            "optionally --layer."
         ),
     )
     entity_sub.add_parser(

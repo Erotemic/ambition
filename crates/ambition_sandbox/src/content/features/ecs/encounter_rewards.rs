@@ -178,3 +178,79 @@ pub fn sync_boss_reward_chests_ecs(
         }
     }
 }
+
+#[cfg(test)]
+mod reward_sync_tests {
+    //! sync_encounter_reward_chests_ecs drops one reward chest per Cleared
+    //! encounter and is idempotent (no duplicate on re-tick). Wrapped in a
+    //! thin system so the minimal App can drive the &Commands/&save/&registry
+    //! /&Query helper.
+    use super::*;
+    use crate::encounter::{EncounterPhase, EncounterRegistry, EncounterSpec, EncounterState};
+    use crate::interaction::PickupKind;
+    use crate::persistence::save::SandboxSave;
+    use bevy::prelude::{App, Update};
+
+    fn cleared_registry() -> EncounterRegistry {
+        let spec = EncounterSpec {
+            id: "test_enc".into(),
+            waves: Vec::new(),
+            trigger_min: [100.0, 100.0],
+            trigger_size: [200.0, 80.0],
+            camera_zoom: 1.0,
+            lock_wall: None,
+            intro_seconds: 0.0,
+            music_track: String::new(),
+            reward: PickupKind::Health { amount: 2 },
+        };
+        let state = EncounterState {
+            spec: Some(spec),
+            phase: EncounterPhase::Cleared,
+            ..Default::default()
+        };
+        let mut reg = EncounterRegistry::default();
+        reg.encounters.insert("test_enc".into(), state);
+        reg
+    }
+
+    fn run_sync(
+        mut commands: Commands,
+        save: Res<SandboxSave>,
+        registry: Res<EncounterRegistry>,
+        chests: Query<
+            (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
+            With<ChestFeature>,
+        >,
+    ) {
+        sync_encounter_reward_chests_ecs(&mut commands, save.data(), &registry, &chests);
+    }
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.insert_resource(SandboxSave::default());
+        app.insert_resource(cleared_registry());
+        app.add_systems(Update, run_sync);
+        app
+    }
+
+    #[test]
+    fn cleared_encounter_spawns_its_reward_chest() {
+        let mut app = app();
+        app.update();
+        let mut q = app.world_mut().query::<&EncounterRewardChest>();
+        let ids: Vec<String> = q
+            .iter(app.world())
+            .map(|r| r.encounter_id.clone())
+            .collect();
+        assert_eq!(ids, vec!["test_enc".to_string()], "one reward chest for the cleared encounter");
+    }
+
+    #[test]
+    fn reward_sync_is_idempotent() {
+        let mut app = app();
+        app.update();
+        app.update(); // second tick must not spawn a duplicate chest
+        let mut q = app.world_mut().query::<&EncounterRewardChest>();
+        assert_eq!(q.iter(app.world()).count(), 1, "no duplicate chest on re-tick");
+    }
+}

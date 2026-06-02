@@ -69,10 +69,12 @@ impl<'w> CombatRoomReset<'w> {
 /// Mutable producer streams the player tick writes into during the gameplay
 /// tick.
 ///
-/// Phase-1 strangler rule: typed gameplay effects now travel through Bevy
-/// `Message<GameplayEffect>` rather than a custom `FeatureEventBus` resource.
-/// Bundling the writer here keeps the player tick under Bevy's
-/// 16-`SystemParam` budget while making the new cross-system transport
+/// Phase-1 strangler rule: typed gameplay effects now travel through focused
+/// Bevy messages (`SetFlagRequested` / `QuestAdvanceRequested` /
+/// `SwitchActivated` / `GameplaySfxRequested`) rather than a custom
+/// `FeatureEventBus` resource or a single mixed-purpose `GameplayEffect` enum.
+/// Bundling the remaining sim→sim writers here keeps the player tick under
+/// Bevy's 16-`SystemParam` budget while making the cross-system transport
 /// explicit.
 ///
 /// Add new sim → sim streams (NOT sim → presentation, which is

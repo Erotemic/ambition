@@ -234,12 +234,13 @@ to the bottom under "Closed" with the commit that fixed them.
   the main set order. Individual `add_systems` tuples stay under the
   20-system arity cap.
 
-- **MED — `FeatureEventBus` is a workaround for the param-count cap**
-  - File: `crates/ambition_sandbox/src/content/features/`
-  - We fan events out through a resource because `sandbox_update`
-    can't accept more `ResMut`s. Once the crate split lands and
-    sandbox_update is replaced by per-entity systems, the bus may
-    not be necessary at all.
+- **RESOLVED — `FeatureEventBus` is a workaround for the param-count
+  cap** — the resource bus is gone; gameplay effects now travel through
+  focused Bevy messages (`SetFlagRequested` / `QuestAdvanceRequested` /
+  `SwitchActivated` / `GameplaySfxRequested`, ecs-cleanup-plan #5) with
+  per-effect consumer systems, and the player tick bundles its remaining
+  sim→sim writers in `SandboxQueues`. Only a (now-corrected) doc comment
+  referenced the old bus.
 
 - **LOW — `ProgressionResources` and `SandboxQueues` SystemParam
   bundles are ad-hoc**

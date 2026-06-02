@@ -276,18 +276,32 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
             }
         }
 
-        // (2) spawn embedded in a Solid block.
-        for block in &world.blocks {
-            let bb = block.aabb;
-            let inside = world.spawn.x >= bb.min.x
-                && world.spawn.x <= bb.max.x
-                && world.spawn.y >= bb.min.y
-                && world.spawn.y <= bb.max.y;
-            if matches!(block.kind, ae::BlockKind::Solid) && inside {
+        // (2) spawn + small open-space entities embedded in a Solid block.
+        let point_in_solid = |p: ae::Vec2| {
+            world.blocks.iter().any(|block| {
+                matches!(block.kind, ae::BlockKind::Solid)
+                    && p.x >= block.aabb.min.x
+                    && p.x <= block.aabb.max.x
+                    && p.y >= block.aabb.min.y
+                    && p.y <= block.aabb.max.y
+            })
+        };
+        if point_in_solid(world.spawn) {
+            issues.push(format!(
+                "spawn {:?} is inside a Solid block",
+                (world.spawn.x, world.spawn.y)
+            ));
+        }
+        let mut embeddable: Vec<(&str, ae::Aabb)> = Vec::new();
+        embeddable.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
+        embeddable.extend(room.pickups.iter().map(|p| ("pickup", p.aabb)));
+        embeddable.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
+        embeddable.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
+        for (label, aabb) in embeddable {
+            if point_in_solid(aabb.center()) {
                 issues.push(format!(
-                    "spawn {:?} is inside Solid block {:?}",
-                    (world.spawn.x, world.spawn.y),
-                    (block.aabb.min, block.aabb.max)
+                    "{label} center {:?} is inside a Solid block",
+                    (aabb.center().x, aabb.center().y)
                 ));
             }
         }

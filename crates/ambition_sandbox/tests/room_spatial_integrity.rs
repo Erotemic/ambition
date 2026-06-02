@@ -45,16 +45,40 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
                 ));
             }
         }
-        for block in &world.blocks {
-            let bb = block.aabb;
-            let inside = world.spawn.x >= bb.min.x
-                && world.spawn.x <= bb.max.x
-                && world.spawn.y >= bb.min.y
-                && world.spawn.y <= bb.max.y;
-            if matches!(block.kind, ae::BlockKind::Solid) && inside {
+        let point_in_solid = |p: ae::Vec2| {
+            world.blocks.iter().any(|block| {
+                matches!(block.kind, ae::BlockKind::Solid)
+                    && p.x >= block.aabb.min.x
+                    && p.x <= block.aabb.max.x
+                    && p.y >= block.aabb.min.y
+                    && p.y <= block.aabb.max.y
+            })
+        };
+
+        // Spawn embedded in a Solid block → player loads stuck.
+        if point_in_solid(world.spawn) {
+            anomalies.push(format!(
+                "{}: spawn ({:.1},{:.1}) embedded in a Solid block",
+                room.id, world.spawn.x, world.spawn.y
+            ));
+        }
+
+        // Small open-space entities embedded in a Solid block →
+        // unreachable / stuck. Bosses (large, specially placed) and
+        // interactables / loading zones (legitimately mounted on walls)
+        // are excluded to avoid false positives.
+        let mut embeddable: Vec<(&'static str, ae::Aabb)> = Vec::new();
+        embeddable.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
+        embeddable.extend(room.pickups.iter().map(|p| ("pickup", p.aabb)));
+        embeddable.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
+        embeddable.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
+        for (label, aabb) in embeddable {
+            if point_in_solid(aabb.center()) {
                 anomalies.push(format!(
-                    "{}: spawn ({:.1},{:.1}) embedded in a Solid block",
-                    room.id, world.spawn.x, world.spawn.y
+                    "{}: {label} center ({:.1},{:.1}) embedded in a Solid block",
+                    room.id,
+                    aabb.center().x,
+                    aabb.center().y
                 ));
             }
         }

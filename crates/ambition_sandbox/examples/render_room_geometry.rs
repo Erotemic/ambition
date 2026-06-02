@@ -21,7 +21,7 @@
 
 use ambition_sandbox as sb;
 use image::{Rgba, RgbaImage};
-use sb::engine_core as ae;
+use sb::engine_core::{self as ae, AabbExt};
 
 /// Longest edge of the output image, in pixels. Worlds scale down to fit.
 const MAX_CANVAS_PX: u32 = 1000;
@@ -244,6 +244,72 @@ fn render_room(room: &sb::rooms::RoomSpec) -> RgbaImage {
     img
 }
 
+/// Scan every room's lowered `RoomSpec` for spatial anomalies that
+/// would be runtime bugs: an authored entity whose center sits outside
+/// the room bounds (it would fall/float forever), or a player spawn
+/// embedded inside a Solid collision block (the player loads stuck).
+/// These are projection-level checks the LDtk validator does not run.
+fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
+    let mut total = 0usize;
+    for room in &room_set.rooms {
+        let world = &room.world;
+        let mut issues: Vec<String> = Vec::new();
+
+        // (1) authored entity centers outside the room.
+        let mut families: Vec<(&str, ae::Aabb)> = Vec::new();
+        families.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
+        families.extend(room.boss_spawns.iter().map(|b| ("boss", b.aabb)));
+        families.extend(room.interactables.iter().map(|i| ("interactable", i.aabb)));
+        families.extend(room.pickups.iter().map(|p| ("pickup", p.aabb)));
+        families.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
+        families.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
+        families.extend(room.hazards.iter().map(|h| ("hazard", h.aabb)));
+        families.extend(room.loading_zones.iter().map(|z| ("loading_zone", z.aabb)));
+        for (label, aabb) in families {
+            let c = aabb.center();
+            if c.x < 0.0 || c.y < 0.0 || c.x > world.size.x || c.y > world.size.y {
+                issues.push(format!(
+                    "{label} center {:?} outside room bounds {:?}",
+                    (c.x, c.y),
+                    (world.size.x, world.size.y)
+                ));
+            }
+        }
+
+        // (2) spawn embedded in a Solid block.
+        for block in &world.blocks {
+            let bb = block.aabb;
+            let inside = world.spawn.x >= bb.min.x
+                && world.spawn.x <= bb.max.x
+                && world.spawn.y >= bb.min.y
+                && world.spawn.y <= bb.max.y;
+            if matches!(block.kind, ae::BlockKind::Solid) && inside {
+                issues.push(format!(
+                    "spawn {:?} is inside Solid block {:?}",
+                    (world.spawn.x, world.spawn.y),
+                    (block.aabb.min, block.aabb.max)
+                ));
+            }
+        }
+
+        if !issues.is_empty() {
+            println!("ANOMALY {}:", room.id);
+            for issue in &issues {
+                println!("  - {issue}");
+            }
+            total += issues.len();
+        }
+    }
+    if total == 0 {
+        println!(
+            "no spatial anomalies across {} rooms (entity-out-of-bounds + spawn-in-solid)",
+            room_set.rooms.len()
+        );
+    } else {
+        println!("\n{total} anomalies across {} rooms", room_set.rooms.len());
+    }
+}
+
 fn main() {
     let mut args = std::env::args().skip(1);
     let room_id = args.next();
@@ -256,6 +322,14 @@ fn main() {
         eprintln!("warning: LDtk validation reported issues; rendering anyway");
     }
     let room_set = project.to_room_set().expect("room_set should build");
+
+    // `report` mode: scan every room's RUNTIME projection for spatial
+    // anomalies the LDtk validator can't see (it validates LDtk-level
+    // data, not the lowered `RoomSpec`). Pure text, no PNGs.
+    if room_id.as_deref() == Some("report") {
+        run_anomaly_report(&room_set);
+        return;
+    }
 
     // `all` mode: render every room into a directory so an agent can
     // review the whole map at once.

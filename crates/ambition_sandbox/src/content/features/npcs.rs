@@ -340,72 +340,11 @@ impl NpcRuntime {
         }
     }
 
-    pub fn flag_id(&self) -> String {
-        format!("npc_{}_hostile", self.id)
-    }
-
-    pub(super) fn bark_anchor(&self) -> ae::Vec2 {
-        self.pos + ae::Vec2::new(0.0, -self.size.y * 0.72 - 16.0)
-    }
-
-    fn dialogue_key(&self) -> String {
-        match &self.interactable.kind {
-            crate::interaction::InteractionKind::Npc {
-                dialogue_id: Some(dialogue_id),
-                ..
-            } => dialogue_id.to_ascii_lowercase(),
-            _ => self.id.to_ascii_lowercase(),
-        }
-    }
-
-    pub(super) fn hit_bark(&self) -> &'static str {
-        let key = self.dialogue_key();
-        let name = self.name.to_ascii_lowercase();
-        let strike_index = self.strikes.saturating_sub(1).max(0) as usize;
-        let lines = npc_hit_barks(&key, &name);
-        lines[strike_index.min(lines.len().saturating_sub(1))]
-    }
-
-    pub(super) fn hostile_bark(&self) -> &'static str {
-        let key = self.dialogue_key();
-        let name = self.name.to_ascii_lowercase();
-        npc_hostile_bark(&key, &name)
-    }
-
-    pub(super) fn message(&self) -> String {
-        if self.hostile {
-            return format!("{} attacks!", self.name);
-        }
-        match &self.interactable.kind {
-            crate::interaction::InteractionKind::Npc {
-                dialogue_id: Some(dialogue_id),
-                ..
-            } => {
-                format!("{} opens dialogue {}", self.name, dialogue_id)
-            }
-            _ => format!("{} opens fallback dialogue", self.name),
-        }
-    }
-
-    pub(super) fn dialogue_request(&self) -> NpcDialogueRequest {
-        let dialogue_id = match &self.interactable.kind {
-            crate::interaction::InteractionKind::Npc {
-                dialogue_id: Some(dialogue_id),
-                ..
-            } => dialogue_id.clone(),
-            _ => "generic_npc".to_string(),
-        };
-        NpcDialogueRequest {
-            npc_id: self.id.clone(),
-            npc_name: self.name.clone(),
-            dialogue_id,
-        }
-    }
-
-    // Hostile NPCs are converted to `EnemyRuntime` instances in
-    // `apply_save`. The legacy `hostile_damage` body-volume method
-    // was removed because the spawned enemy now handles contact
-    // damage through the standard `EnemyRuntime::player_damage`.
+    // Bark / dialogue / flag derivation now lives in the cluster-based
+    // free fns at the bottom of this module (`npc_flag_id`,
+    // `npc_hit_bark_line`, …) which the live `NpcMut` view and the
+    // damage path both call. The legacy `NpcRuntime` accessors were
+    // dropped when `NpcRuntime` became a spawn-only construction type.
 }
 
 /// Cluster-native NPC integration + helpers. Port of the `NpcRuntime`

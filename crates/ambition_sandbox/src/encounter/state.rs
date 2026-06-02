@@ -559,4 +559,43 @@ mod tests {
             .any(|e| matches!(e, EncounterEvent::WaveStarted { wave_index: 1, .. })));
         assert!(s.lock_active, "lock stays active between waves");
     }
+
+    #[test]
+    fn player_death_during_an_active_encounter_fails_and_unlocks() {
+        let mut s = active_with_one_live_mob(spec(vec![wave("only", 1)]));
+        let events = s.on_player_death();
+        assert_eq!(s.phase, EncounterPhase::Failed);
+        assert!(!s.lock_active, "failing releases the lock");
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, EncounterEvent::Failed { .. })));
+    }
+
+    #[test]
+    fn player_death_outside_an_active_encounter_is_a_noop() {
+        let mut s = EncounterState::default(); // Inactive
+        assert!(s.on_player_death().is_empty());
+        assert_eq!(s.phase, EncounterPhase::Inactive);
+    }
+
+    #[test]
+    fn reset_for_retry_returns_a_failed_encounter_to_inactive() {
+        let mut s = EncounterState::default();
+        s.phase = EncounterPhase::Failed;
+        s.lock_active = false;
+        s.reset_for_retry();
+        assert_eq!(s.phase, EncounterPhase::Inactive);
+
+        // Reset is a no-op while still Active (only terminal phases reset).
+        let mut active = active_with_one_live_mob(spec(vec![wave("only", 1)]));
+        active.reset_for_retry();
+        assert!(matches!(active.phase, EncounterPhase::Active { .. }));
+    }
+
+    #[test]
+    fn defeating_a_mob_while_inactive_is_a_noop() {
+        let mut s = EncounterState::default();
+        assert!(s.on_mob_defeated().is_empty());
+        assert_eq!(s.phase, EncounterPhase::Inactive);
+    }
 }

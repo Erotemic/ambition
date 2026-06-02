@@ -865,4 +865,74 @@ mod tests {
             "charge crash should mark the enemy dead through the normal kill path"
         );
     }
+
+    #[test]
+    fn player_slash_damages_and_can_kill_a_hostile_actor() {
+        // The core attack loop through the unified HitEvent path: a
+        // player slash (attacker-side source) reduces a hostile
+        // actor's HP, and enough damage routes through the normal kill
+        // path. Complements the enemy-side tests above.
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<HitEvent>();
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_feature_hit_events);
+
+        let actor_entity = spawn_hostile_actor(&mut app); // HP 5
+        let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+
+        // First slash: 2 damage → 3 HP, still alive.
+        app.world_mut().write_message(HitEvent {
+            volume: event_volume,
+            damage: 2,
+            source: HitSource::PlayerSlash { knock_x: 120.0 },
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+        assert_eq!(
+            app.world().get::<ActorHealth>(actor_entity).unwrap().health.current,
+            3,
+            "a 2-damage player slash should bring the 5-HP enemy to 3"
+        );
+        assert!(
+            app.world()
+                .get::<super::super::enemy_clusters::EnemyStatus>(actor_entity)
+                .unwrap()
+                .alive,
+            "the enemy should still be alive after one slash"
+        );
+
+        // Lethal slash: 5 damage → dead through the normal kill path.
+        app.world_mut().write_message(HitEvent {
+            volume: event_volume,
+            damage: 5,
+            source: HitSource::PlayerSlash { knock_x: 120.0 },
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+        assert_eq!(
+            app.world().get::<ActorHealth>(actor_entity).unwrap().health.current,
+            0,
+            "a lethal slash should bring the enemy to 0 HP"
+        );
+        assert!(
+            !app.world()
+                .get::<super::super::enemy_clusters::EnemyStatus>(actor_entity)
+                .unwrap()
+                .alive,
+            "the killed enemy should be marked dead"
+        );
+    }
 }

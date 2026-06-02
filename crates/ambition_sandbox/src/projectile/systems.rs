@@ -44,7 +44,7 @@ pub fn update_projectiles(
             &ActorDisposition,
             &ActorCombatState,
         ),
-        With<FeatureSimEntity>,
+        (With<FeatureSimEntity>, Without<BossFeature>),
     >,
     ecs_bosses: Query<
         (

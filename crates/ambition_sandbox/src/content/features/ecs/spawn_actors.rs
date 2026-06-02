@@ -101,7 +101,10 @@ pub(super) fn spawn_boss(
         move_style: crate::brain::MoveStyleSpec::Walk,
         ..Default::default()
     };
-    commands.spawn((
+    let boss_combat_kit = CombatKit::from_action_set(&boss_action_set);
+    let (boss_identity, boss_disposition, boss_health, boss_combat, boss_intent, boss_cooldowns) =
+        boss_component_snapshot(&boss, &crate::brain::BossAttackState::default());
+    let mut entity = commands.spawn((
         Name::new(format!("Feature boss: {}", authored.name)),
         FeatureSimEntity,
         RoomVisual,
@@ -124,30 +127,42 @@ pub(super) fn spawn_boss(
             PogoTargetVolumes::default(),
             BossFeature::new(boss),
         ),
-        (
-            // Sub-tuple keeps the outer bundle under Bevy's
-            // 15-tuple Bundle arity limit. The brain bundle stays
-            // grouped because each piece is required for the boss
-            // tick chain. Per-special state components live in a
-            // second sub-tuple alongside `AppleRainSpawnState` — see
-            // `content/features/ecs/brain_effects.rs` for the
-            // consumers that drive each one.
-            brain,
-            boss_action_set,
-            crate::brain::ActorControl::default(),
-            crate::brain::BossAttackState::default(),
-            super::AppleRainSpawnState::default(),
-        ),
-        (
-            // Gradient Sentinel special state. Defaulted-attached to
-            // every boss so a future encounter can adopt the same
-            // attacks without re-touching the spawn wiring.
-            super::OverfitVolleyState::default(),
-            super::EyeBeamState::default(),
-            super::MinimaTrapState::default(),
-            super::SaddlePointState::default(),
-            super::GradientCascadeState::default(),
-        ),
+    ));
+    entity.insert((
+        // Shared actor combat read models. Boss-specific encounter
+        // phase / music / rewards stay on BossFeature + boss
+        // encounter systems, but generic combat/targeting code can
+        // now reason about bosses through the same pieces as other
+        // actors.
+        boss_identity,
+        boss_disposition,
+        boss_health,
+        boss_combat,
+        boss_intent,
+        boss_cooldowns,
+        boss_combat_kit,
+        ActorAggression::hostile_to_player(),
+    ));
+    entity.insert((
+        // The brain bundle stays grouped because each piece is required
+        // for the boss tick chain. Per-special state components live in
+        // a second insert below; see `content/features/ecs/brain_effects.rs`
+        // for the consumers that drive each one.
+        brain,
+        boss_action_set,
+        crate::brain::ActorControl::default(),
+        crate::brain::BossAttackState::default(),
+        super::AppleRainSpawnState::default(),
+    ));
+    entity.insert((
+        // Gradient Sentinel special state. Defaulted-attached to every
+        // boss so a future encounter can adopt the same attacks without
+        // re-touching the spawn wiring.
+        super::OverfitVolleyState::default(),
+        super::EyeBeamState::default(),
+        super::MinimaTrapState::default(),
+        super::SaddlePointState::default(),
+        super::GradientCascadeState::default(),
     ));
 }
 /// Runtime minion spawner — used by boss EFFECTS consumers (e.g.

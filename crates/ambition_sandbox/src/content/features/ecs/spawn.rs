@@ -79,7 +79,9 @@ mod tests {
         ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
     };
     use crate::content::features::{
-        ActorRuntime, EnemyArchetype, EnemyRuntime, MountSlot, MountedSize, RidingOn,
+        ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
+        ActorIdentity, ActorIntent, ActorRuntime, AggressionMode, CombatKit, EnemyArchetype,
+        EnemyRuntime, MountSlot, MountedSize, RidingOn,
     };
     use crate::engine_core as ae;
     use bevy::prelude::{App, Commands, Update, With};
@@ -180,6 +182,29 @@ mod tests {
              route through tick_boss_brains_system's direct-write path; got {:?}",
             action_set.special,
         );
+
+        let mut shared_q = app.world_mut().query::<(
+            &ActorIdentity,
+            &ActorDisposition,
+            &ActorHealth,
+            &ActorCombatState,
+            &ActorIntent,
+            &ActorCooldowns,
+            &CombatKit,
+            &ActorAggression,
+        )>();
+        let (identity, disposition, health, combat, intent, cooldowns, kit, aggression) = shared_q
+            .iter(app.world())
+            .next()
+            .expect("boss shared components");
+        assert_eq!(identity.id(), "test_boss");
+        assert_eq!(*disposition, ActorDisposition::Hostile);
+        assert!(health.alive());
+        assert!(combat.alive);
+        assert_eq!(intent.mode(), crate::character_ai::CharacterAiMode::Chase);
+        assert_eq!(cooldowns.attack_cooldown, 0.0);
+        assert!(kit.can_ranged(None));
+        assert_eq!(aggression.mode, AggressionMode::HostileToPlayer);
     }
 
     /// Regression net: every encounter-spawned hostile actor lands

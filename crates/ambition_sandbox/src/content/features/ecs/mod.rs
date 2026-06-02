@@ -84,14 +84,15 @@ pub use anim_helpers::{
     ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
+pub(crate) use bosses::boss_component_snapshot;
 #[allow(
     unused_imports,
     reason = "marker re-exported for tests / external visualizers"
 )]
 pub use bosses::BossSpriteMetricsApplied;
 pub use bosses::{
-    derive_boss_sprite_metrics, sync_boss_encounter_phase, tick_boss_brains_system,
-    update_ecs_bosses,
+    derive_boss_sprite_metrics, sync_boss_actor_components, sync_boss_encounter_phase,
+    tick_boss_brains_system, update_ecs_bosses,
 };
 pub use brain_effects::{
     spawn_enemy_projectiles_from_brain_actions, spawn_eye_beam_from_special_messages,

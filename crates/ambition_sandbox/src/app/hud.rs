@@ -55,6 +55,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static crate::features::ActorHealth,
             &'static crate::features::ActorCombatState,
         ),
+        bevy::prelude::Without<crate::features::BossFeature>,
     >,
 }
 

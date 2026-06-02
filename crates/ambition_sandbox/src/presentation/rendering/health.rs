@@ -149,13 +149,16 @@ pub fn sync_health_overlays(
         crate::player::PrimaryPlayerOnly,
     >,
     ecs_breakables: Query<(&FeatureName, &FeatureAabb, &BreakableFeature)>,
-    ecs_actors: Query<(
-        &FeatureName,
-        &FeatureAabb,
-        &ActorDisposition,
-        &ActorHealth,
-        &ActorCombatState,
-    )>,
+    ecs_actors: Query<
+        (
+            &FeatureName,
+            &FeatureAabb,
+            &ActorDisposition,
+            &ActorHealth,
+            &ActorCombatState,
+        ),
+        Without<BossFeature>,
+    >,
     ecs_bosses: Query<(&FeatureName, &BossFeature)>,
 ) {
     for entity in overlays.iter() {

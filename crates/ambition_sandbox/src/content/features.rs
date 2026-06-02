@@ -111,15 +111,15 @@ pub use ecs::{
     spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
     spawn_room_feature_entities, spawn_saddle_point_from_special_messages,
     start_enemy_melee_from_brain_actions, sync_actor_poses_from_feature_aabbs,
-    sync_boss_encounter_phase, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
-    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
-    sync_riders_to_mounts, tick_and_despawn_hitboxes, tick_boss_brains_system,
-    tick_gameplay_banner, update_ecs_actors, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorRuntime, AppleRainSpawnState, BossFeature,
-    EyeBeamState, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, GradientCascadeState,
-    HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MinimaTrapState,
-    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, OverfitVolleyState, RidingOn,
-    SaddlePointState,
+    sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
+    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
+    sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_and_despawn_hitboxes,
+    tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
+    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorRuntime,
+    AppleRainSpawnState, BossFeature, EyeBeamState, FeatureEcsWorldOverlay, FeatureSimEntity,
+    FeatureViewIndex, GradientCascadeState, HazardFeature, HeldItem, Hitbox, HitboxAnchor,
+    HitboxHits, HitboxLifetime, MinimaTrapState, MountSlot, Mountable, Mounted, MountedBrainCache,
+    MountedSize, OverfitVolleyState, RidingOn, SaddlePointState,
 };
 pub use enemies::{EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{
@@ -191,6 +191,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 tick_boss_brains_system,
                 crate::boss_encounter::steer_cut_rope_boss_under_anvil,
                 update_ecs_bosses,
+                sync_boss_actor_components,
                 sync_actor_poses_from_feature_aabbs,
             )
                 .chain()

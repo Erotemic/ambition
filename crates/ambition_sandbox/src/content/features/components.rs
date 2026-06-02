@@ -555,7 +555,7 @@ impl ActorHealth {
     }
 }
 
-/// ECS-visible combat/presentation state shared by NPCs and enemies.
+/// ECS-visible combat/presentation state shared by NPCs, enemies, and bosses.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorCombatState {
     pub alive: bool,
@@ -615,8 +615,8 @@ impl ActorIntent {
 }
 
 /// ECS-visible actor cooldown timers. Exposes timing state that rendering and
-/// encounter systems need without reaching into `ActorRuntime`.
-/// Synced from the runtime each frame by `update_ecs_actors`.
+/// encounter systems need without reaching into family-specific runtimes.
+/// Synced from actor/boss runtime state each frame by feature systems.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ActorCooldowns {
     pub attack_cooldown: f32,

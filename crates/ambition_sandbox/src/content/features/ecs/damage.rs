@@ -12,7 +12,9 @@
 
 use crate::engine_core::AabbExt;
 use bevy::ecs::system::SystemParam;
-use bevy::prelude::{Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With};
+use bevy::prelude::{
+    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With, Without,
+};
 
 use super::super::{
     util::{approximately_same_aabb, midpoint},
@@ -25,13 +27,12 @@ use super::{
     GameplayEffect, HitEvent, HitSource, RespawnTimer,
 };
 use crate::audio::SfxMessage;
-use crate::features::ActorStimulus;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
 use crate::encounter::BossEncounterMusicRequest;
+use crate::features::ActorStimulus;
 use crate::presentation::cutscene::CutsceneTriggerQueue;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
-
 
 #[derive(SystemParam)]
 pub struct FeatureHitWriters<'w> {
@@ -139,7 +140,12 @@ pub fn apply_feature_hit_events(
                 if broke {
                     begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
                     banner.show(format!("shattered {}", name.0.as_str()), 2.6);
-                    emit_breakable_destroyed(aabb.center, &mut writers.sfx, &mut writers.vfx, &mut writers.debris);
+                    emit_breakable_destroyed(
+                        aabb.center,
+                        &mut writers.sfx,
+                        &mut writers.vfx,
+                        &mut writers.debris,
+                    );
                 }
             }
             continue;
@@ -290,7 +296,8 @@ pub fn apply_feature_hit_events(
                                     P::Never => Some(format!("enemy_{}_dead", enemy.id)),
                                 };
                                 if let Some(id) = flag_id {
-                                    writers.gameplay_effects
+                                    writers
+                                        .gameplay_effects
                                         .write(GameplayEffect::SetFlag { id, on: true });
                                 }
                             }
@@ -505,7 +512,12 @@ pub fn apply_feature_hit_events(
             if broke {
                 begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
-                emit_breakable_destroyed(aabb.center, &mut writers.sfx, &mut writers.vfx, &mut writers.debris);
+                emit_breakable_destroyed(
+                    aabb.center,
+                    &mut writers.sfx,
+                    &mut writers.vfx,
+                    &mut writers.debris,
+                );
             }
         }
     }
@@ -537,7 +549,7 @@ pub fn ecs_hit_event_hits_actor(
             &ActorDisposition,
             &ActorCombatState,
         ),
-        With<FeatureSimEntity>,
+        (With<FeatureSimEntity>, Without<BossFeature>),
     >,
 ) -> bool {
     actors.iter().any(|(id, aabb, disposition, combat)| {

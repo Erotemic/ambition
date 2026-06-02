@@ -42,6 +42,102 @@ use bevy::prelude::{Commands, MessageWriter};
 #[derive(Component, Clone, Copy, Debug)]
 pub struct BossSpriteMetricsApplied;
 
+/// Build the shared actor combat read-model snapshot for a boss.
+///
+/// Bosses still own encounter-specific state through [`BossFeature`] and the
+/// boss encounter registry, but their generic combat shape is now exposed
+/// through the same `ActorIdentity` / `ActorHealth` / `ActorCombatState` /
+/// `ActorIntent` components used by NPCs and enemies. This keeps future
+/// faction, targeting, HUD, and held-item work from needing to pattern-match
+/// directly on `BossFeature` for ordinary combat facts.
+pub(crate) fn boss_component_snapshot(
+    boss: &crate::content::features::bosses::BossRuntime,
+    attack_state: &BossAttackState,
+) -> (
+    ActorIdentity,
+    ActorDisposition,
+    ActorHealth,
+    ActorCombatState,
+    ActorIntent,
+    ActorCooldowns,
+) {
+    let mode = if !boss.alive {
+        crate::character_ai::CharacterAiMode::Dead
+    } else if attack_state.active_profile.is_some() {
+        crate::character_ai::CharacterAiMode::Attack
+    } else if attack_state.telegraph_profile.is_some() {
+        crate::character_ai::CharacterAiMode::Telegraph
+    } else {
+        crate::character_ai::CharacterAiMode::Chase
+    };
+    (
+        ActorIdentity::new(boss.id.clone(), boss.name.clone()),
+        ActorDisposition::Hostile,
+        ActorHealth::new(boss.health),
+        ActorCombatState::hostile(
+            boss.alive,
+            boss.hit_flash,
+            attack_state.telegraph_remaining,
+            attack_state.active_remaining,
+            false,
+        ),
+        ActorIntent::new(mode),
+        ActorCooldowns::default(),
+    )
+}
+
+/// Keep boss shared-actor read models synced from the boss runtime and brain
+/// attack state. Boss integration remains in [`update_ecs_bosses`]; this system
+/// only mirrors generic combat facts into components shared with NPC/enemy
+/// actors.
+pub fn sync_boss_actor_components(
+    mut bosses: Query<
+        (
+            &BossFeature,
+            &BossAttackState,
+            &crate::brain::ActionSet,
+            &mut CombatKit,
+            &mut ActorIdentity,
+            &mut ActorDisposition,
+            &mut ActorHealth,
+            &mut ActorCombatState,
+            &mut ActorIntent,
+            &mut ActorCooldowns,
+        ),
+        With<FeatureSimEntity>,
+    >,
+) {
+    for (
+        feature,
+        attack_state,
+        action_set,
+        mut combat_kit,
+        mut identity,
+        mut disposition,
+        mut health,
+        mut combat,
+        mut intent,
+        mut cooldowns,
+    ) in &mut bosses
+    {
+        let (
+            next_identity,
+            next_disposition,
+            next_health,
+            next_combat,
+            next_intent,
+            next_cooldowns,
+        ) = boss_component_snapshot(&feature.boss, attack_state);
+        *combat_kit = CombatKit::from_action_set(action_set);
+        *identity = next_identity;
+        *disposition = next_disposition;
+        *health = next_health;
+        *combat = next_combat;
+        *intent = next_intent;
+        *cooldowns = next_cooldowns;
+    }
+}
+
 /// Map a boss `BossBehaviorProfile::id` to its sprite-registry
 /// target id. The sprite generator's `target` field doesn't always
 /// match the boss internal id — clockwork_warden / gradient_sentinel

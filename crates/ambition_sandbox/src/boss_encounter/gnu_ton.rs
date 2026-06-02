@@ -196,6 +196,58 @@ mod tests {
         runtime
     }
 
+    /// Regression guard for the GNU-ton head-hurtbox alignment concern
+    /// (TODO #30): after the sprite-metrics derivation, the
+    /// `damageable_volumes` head hurtbox must actually overlap the boss
+    /// body envelope (`boss.aabb()`, which the debug overlay documents as
+    /// lining up with the visible body) rather than floating off to the
+    /// side / below it. This pins that the hurtbox tracks the body even
+    /// though it is computed in frame space (frame-center → `boss.pos`)
+    /// while the body envelope carries `combat_offset`.
+    #[test]
+    fn gnu_ton_head_hurtbox_overlaps_the_body_envelope() {
+        use crate::engine_core::AabbExt;
+
+        let mut app = App::new();
+        app.add_plugins(crate::presentation::character_sprites::SheetRegistryPlugin);
+        let entity = app
+            .world_mut()
+            .spawn((
+                crate::features::FeatureSimEntity,
+                BossFeature::new(spawn_gnu_ton_runtime()),
+                crate::brain::BossAttackState::default(),
+            ))
+            .id();
+        app.add_systems(Update, crate::features::derive_boss_sprite_metrics);
+        // First update runs Startup (loads the baked sprite registry)
+        // then Update (derives the boss's sprite metrics from it).
+        app.update();
+
+        let feature = app.world().get::<BossFeature>(entity).unwrap();
+        assert!(
+            feature.boss.sprite_metrics.is_some(),
+            "gnu_ton sprite metrics should derive from the baked sheet registry"
+        );
+        let attack = app
+            .world()
+            .get::<crate::brain::BossAttackState>(entity)
+            .unwrap();
+        let ctx = crate::features::BossVolumeContext::from_runtime(&feature.boss, attack);
+        let hurtboxes = crate::features::damageable_volumes(&ctx);
+        assert!(
+            !hurtboxes.is_empty(),
+            "gnu_ton should expose at least one damageable hurtbox at rest"
+        );
+        let body = feature.boss.aabb();
+        for hb in &hurtboxes {
+            assert!(
+                body.strict_intersects(*hb),
+                "hurtbox {hb:?} does not overlap the boss body envelope {body:?} \
+                 — the head hurtbox has drifted off the visible body (TODO #30)"
+            );
+        }
+    }
+
     fn make_app(world: crate::GameWorld) -> App {
         let mut app = App::new();
         app.insert_resource(world);

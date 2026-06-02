@@ -31,7 +31,7 @@ fn shark_charge_crashed(
 /// moving gameplay policy out into ECS components.
 /// Authored NPC body, or a marker that the entity is an enemy actor
 /// whose state lives entirely in ECS cluster components
-/// ([`EnemyKinematics`]/[`EnemyStatus`]/[`EnemyConfig`]/etc.). The
+/// ([`ActorKinematics`]/[`EnemyStatus`]/[`EnemyConfig`]/etc.). The
 /// `Enemy` variant carries no data — the legacy `EnemyRuntime` blob was
 /// dissolved into the clusters.
 #[derive(Component, Clone, Debug)]
@@ -48,7 +48,7 @@ impl ActorRuntime {
         }
     }
 
-    /// NPC facing. Enemy facing lives in `EnemyKinematics`; this returns
+    /// NPC facing. Enemy facing lives in `ActorKinematics`; this returns
     /// 0.0 for the `Enemy` marker (enemy callers read the cluster).
     pub fn facing(&self) -> f32 {
         match self {
@@ -249,14 +249,14 @@ pub fn sync_actor_poses_from_feature_aabbs(
             &FeatureAabb,
             &mut super::super::components::ActorPose,
             Option<&ActorRuntime>,
-            Option<&super::enemy_clusters::EnemyKinematics>,
+            Option<&super::enemy_clusters::ActorKinematics>,
             Option<&BossFeature>,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
     for (aabb, mut pose, actor, kin, boss) in &mut actors {
-        // Facing source: enemy clusters (EnemyKinematics), NPC runtime,
+        // Facing source: enemy clusters (ActorKinematics), NPC runtime,
         // or boss runtime; default to the current pose facing.
         let facing = match actor {
             Some(ActorRuntime::Npc(npc)) => npc.facing,

@@ -22,10 +22,9 @@ use super::super::{
 };
 use super::{
     ae, sync_actor_components_from_enemy, sync_actor_components_from_runtime, ActorCombatState,
-    ActorCooldowns, ActorDisposition,
-    ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BossFeature, BreakableFeature,
-    EnemyArchetype, FeatureAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
-    GameplayEffect, HitEvent, HitSource, RespawnTimer,
+    ActorCooldowns, ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime,
+    BossFeature, BreakableFeature, EnemyArchetype, FeatureAabb, FeatureId, FeatureName,
+    FeatureSimEntity, GameplayBanner, GameplayEffect, HitEvent, HitSource, RespawnTimer,
 };
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};

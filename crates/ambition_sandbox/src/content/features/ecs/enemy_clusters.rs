@@ -9,12 +9,12 @@
 //! view struct rather than reconstructing a runtime scratchpad.
 //!
 //! Field → component map (see `dev/reviews/enemyruntime-ecs-inventory.md`):
-//! - pos/vel/size/facing      → [`EnemyKinematics`]
+//! - pos/vel/size/facing      → [`ActorKinematics`]
 //! - on_ground/normal/gravity/air_jumps → [`ActorSurfaceState`] (component)
 //! - attack windup/active/cooldown/axis → [`ActorAttackState`] (component)
 //! - alive/respawn/hit_flash/ai_mode/health → [`EnemyStatus`]
 //! - archetype/brain/spawn baseline/sprite override/id/name → [`EnemyConfig`]
-//! - patrol path             → [`EnemyMotionPath`]
+//! - patrol path             → [`ActorMotionPath`]
 
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
@@ -27,7 +27,7 @@ use crate::engine_core as ae;
 /// Authoritative kinematic state (position / velocity / body size /
 /// facing). Mirrors the player's `PlayerKinematics`.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct EnemyKinematics {
+pub struct ActorKinematics {
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub size: ae::Vec2,
@@ -63,7 +63,7 @@ pub struct EnemyConfig {
 
 /// Optional patrol path the kinematic step advances each tick.
 #[derive(Component, Clone, Debug, Default)]
-pub struct EnemyMotionPath(pub Option<PathMotion>);
+pub struct ActorMotionPath(pub Option<PathMotion>);
 
 /// Mutable borrow of every component the enemy integration touches,
 /// assembled from a Bevy query via [`EnemyClusterQueryData`]. Field
@@ -71,23 +71,23 @@ pub struct EnemyMotionPath(pub Option<PathMotion>);
 /// reads naturally (`self.kin.pos`, `self.surface.on_ground`,
 /// `self.attack.cooldown`, `self.status.alive`, `self.config.archetype`).
 pub struct EnemyMut<'a> {
-    pub kin: &'a mut EnemyKinematics,
+    pub kin: &'a mut ActorKinematics,
     pub status: &'a mut EnemyStatus,
     pub surface: &'a mut ActorSurfaceState,
     pub attack: &'a mut ActorAttackState,
     pub config: &'a mut EnemyConfig,
-    pub motion: &'a mut EnemyMotionPath,
+    pub motion: &'a mut ActorMotionPath,
 }
 
 #[derive(QueryData)]
 #[query_data(mutable)]
 pub struct EnemyClusterQueryData {
-    pub kin: &'static mut EnemyKinematics,
+    pub kin: &'static mut ActorKinematics,
     pub status: &'static mut EnemyStatus,
     pub surface: &'static mut ActorSurfaceState,
     pub attack: &'static mut ActorAttackState,
     pub config: &'static mut EnemyConfig,
-    pub motion: &'static mut EnemyMotionPath,
+    pub motion: &'static mut ActorMotionPath,
 }
 
 impl<'w, 's> EnemyClusterQueryDataItem<'w, 's> {
@@ -113,12 +113,12 @@ impl<'w, 's> EnemyClusterQueryDataItem<'w, 's> {
 /// the player's `PlayerClusterScratch`.
 #[derive(Clone, Debug)]
 pub struct EnemyClusterScratch {
-    pub kin: EnemyKinematics,
+    pub kin: ActorKinematics,
     pub status: EnemyStatus,
     pub surface: ActorSurfaceState,
     pub attack: ActorAttackState,
     pub config: EnemyConfig,
-    pub motion: EnemyMotionPath,
+    pub motion: ActorMotionPath,
 }
 
 impl EnemyClusterScratch {
@@ -127,7 +127,7 @@ impl EnemyClusterScratch {
     /// first); also used by the integration parity test.
     pub fn from_runtime(e: &super::super::enemies::EnemyRuntime) -> Self {
         Self {
-            kin: EnemyKinematics {
+            kin: ActorKinematics {
                 pos: e.pos,
                 vel: e.vel,
                 size: e.size,
@@ -150,7 +150,7 @@ impl EnemyClusterScratch {
                 spawn: e.spawn,
                 sprite_override_npc_name: e.sprite_override_npc_name.clone(),
             },
-            motion: EnemyMotionPath(e.motion.clone()),
+            motion: ActorMotionPath(e.motion.clone()),
         }
     }
 
@@ -169,10 +169,10 @@ impl EnemyClusterScratch {
     pub fn into_components(
         self,
     ) -> (
-        EnemyKinematics,
+        ActorKinematics,
         EnemyStatus,
         EnemyConfig,
-        EnemyMotionPath,
+        ActorMotionPath,
         ActorSurfaceState,
         ActorAttackState,
     ) {
@@ -192,10 +192,10 @@ impl EnemyClusterScratch {
 pub fn enemy_cluster_bundle(
     e: &super::super::enemies::EnemyRuntime,
 ) -> (
-    EnemyKinematics,
+    ActorKinematics,
     EnemyStatus,
     EnemyConfig,
-    EnemyMotionPath,
+    ActorMotionPath,
     ActorSurfaceState,
     ActorAttackState,
 ) {

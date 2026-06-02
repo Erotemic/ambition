@@ -234,8 +234,8 @@ pub fn enforce_mount_rider_link(
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
     for (mount_entity, mount_actor, mount_status) in &mounts {
-        let alive = matches!(mount_actor, ActorRuntime::Enemy)
-            && mount_status.is_some_and(|s| s.alive);
+        let alive =
+            matches!(mount_actor, ActorRuntime::Enemy) && mount_status.is_some_and(|s| s.alive);
         mount_alive.insert(mount_entity, alive);
     }
 
@@ -354,10 +354,10 @@ mod tests {
     use bevy::prelude::*;
 
     type EnemyClusterBundle = (
-        super::super::enemy_clusters::EnemyKinematics,
+        super::super::enemy_clusters::ActorKinematics,
         super::super::enemy_clusters::EnemyStatus,
         super::super::enemy_clusters::EnemyConfig,
-        super::super::enemy_clusters::EnemyMotionPath,
+        super::super::enemy_clusters::ActorMotionPath,
         crate::features::ActorSurfaceState,
         crate::features::ActorAttackState,
     );
@@ -390,11 +390,11 @@ mod tests {
     fn rider_kin(
         world: &bevy::prelude::World,
         e: bevy::prelude::Entity,
-    ) -> super::super::enemy_clusters::EnemyKinematics {
+    ) -> super::super::enemy_clusters::ActorKinematics {
         *world
             .entity(e)
-            .get::<super::super::enemy_clusters::EnemyKinematics>()
-            .expect("enemy entity has EnemyKinematics")
+            .get::<super::super::enemy_clusters::ActorKinematics>()
+            .expect("enemy entity has ActorKinematics")
     }
 
     fn rider_surface(
@@ -450,7 +450,7 @@ mod tests {
         // Pre-poison rider velocity so the assertion that the sync
         // zeroes it isn't a no-op against the default.
         app.world_mut()
-            .get_mut::<crate::features::EnemyKinematics>(rider)
+            .get_mut::<crate::features::ActorKinematics>(rider)
             .unwrap()
             .vel = ae::Vec2::new(500.0, -200.0);
         app.world_mut()
@@ -471,7 +471,10 @@ mod tests {
         assert_eq!(s.gravity_scale, 0.0, "rider gravity zeroed by sync");
 
         let aabb = app.world().entity(rider).get::<FeatureAabb>().unwrap();
-        assert_eq!(aabb.center, k.pos, "FeatureAabb mirror updated to synced pos");
+        assert_eq!(
+            aabb.center, k.pos,
+            "FeatureAabb mirror updated to synced pos"
+        );
     }
 
     /// Helper: spawn a mount + rider pair wired the same way the

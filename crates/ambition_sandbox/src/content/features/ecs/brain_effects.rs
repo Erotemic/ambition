@@ -64,7 +64,10 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
     mut sfx: MessageWriter<SfxMessage>,
-    mut actors: Query<(&ActorRuntime, Option<super::enemy_clusters::EnemyClusterQueryData>)>,
+    mut actors: Query<(
+        &ActorRuntime,
+        Option<super::enemy_clusters::EnemyClusterQueryData>,
+    )>,
     held_items: Query<&super::HeldItem>,
 ) {
     for msg in messages.read() {
@@ -108,7 +111,10 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             let muzzle = hand + dir.normalize_or_zero() * 18.0;
             (muzzle, format!("lasersword:{}", enemy.config.id))
         } else {
-            (enemy.kin.pos + ae::Vec2::new(0.0, -8.0), enemy.config.id.clone())
+            (
+                enemy.kin.pos + ae::Vec2::new(0.0, -8.0),
+                enemy.config.id.clone(),
+            )
         };
         let spawn = EnemyProjectileSpawn {
             origin: spawn_origin,
@@ -155,7 +161,10 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
 pub fn start_enemy_melee_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     feel_tuning: Res<SandboxFeelTuning>,
-    mut actors: Query<(&ActorRuntime, Option<super::enemy_clusters::EnemyClusterQueryData>)>,
+    mut actors: Query<(
+        &ActorRuntime,
+        Option<super::enemy_clusters::EnemyClusterQueryData>,
+    )>,
 ) {
     let combat_tuning = feel_tuning.feature_combat_tuning();
     for msg in messages.read() {
@@ -1093,10 +1102,10 @@ mod tests {
     /// spawned entity so the ranged-projectile handler routes the
     /// fire through the lasersword path.
     type EnemyClusterBundle = (
-        super::super::enemy_clusters::EnemyKinematics,
+        super::super::enemy_clusters::ActorKinematics,
         super::super::enemy_clusters::EnemyStatus,
         super::super::enemy_clusters::EnemyConfig,
-        super::super::enemy_clusters::EnemyMotionPath,
+        super::super::enemy_clusters::ActorMotionPath,
         crate::features::ActorSurfaceState,
         crate::features::ActorAttackState,
     );

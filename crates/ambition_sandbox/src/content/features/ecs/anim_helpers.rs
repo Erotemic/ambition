@@ -12,34 +12,38 @@ use super::*;
 pub type ActorSpriteData = (
     &'static FeatureId,
     &'static ActorRuntime,
-    Option<&'static super::enemy_clusters::EnemyKinematics>,
+    Option<&'static super::enemy_clusters::ActorKinematics>,
     Option<&'static super::enemy_clusters::EnemyStatus>,
     Option<&'static ActorAttackState>,
     Option<&'static super::enemy_clusters::EnemyConfig>,
 );
 
 pub fn ecs_npc_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors.iter().find_map(|(feature_id, actor, _, _, _, config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        match actor {
-            ActorRuntime::Npc(npc) => Some(npc.name.clone()),
-            ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
-        }
-    })
+    actors
+        .iter()
+        .find_map(|(feature_id, actor, _, _, _, config)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            match actor {
+                ActorRuntime::Npc(npc) => Some(npc.name.clone()),
+                ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
+            }
+        })
 }
 
 pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors.iter().find_map(|(feature_id, actor, _, _, _, config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        match actor {
-            ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
-            _ => None,
-        }
-    })
+    actors
+        .iter()
+        .find_map(|(feature_id, actor, _, _, _, config)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            match actor {
+                ActorRuntime::Enemy => config.and_then(|c| c.sprite_override_npc_name.clone()),
+                _ => None,
+            }
+        })
 }
 
 /// Per-enemy display name, used by `upgrade_enemy_sprites` as a
@@ -50,15 +54,17 @@ pub fn ecs_enemy_sprite_override(id: &str, actors: &Query<ActorSpriteData>) -> O
 /// via the intro NPC sprite registry without authors having to
 /// double-register them as an `enemy_sprite_registry`.
 pub fn ecs_enemy_name(id: &str, actors: &Query<ActorSpriteData>) -> Option<String> {
-    actors.iter().find_map(|(feature_id, actor, _, _, _, config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        match actor {
-            ActorRuntime::Enemy => config.map(|c| c.name.clone()),
-            _ => None,
-        }
-    })
+    actors
+        .iter()
+        .find_map(|(feature_id, actor, _, _, _, config)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            match actor {
+                ActorRuntime::Enemy => config.map(|c| c.name.clone()),
+                _ => None,
+            }
+        })
 }
 
 pub fn ecs_enemy_anim_state(

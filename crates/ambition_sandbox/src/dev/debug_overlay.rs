@@ -189,7 +189,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         (
             &'static crate::features::ActorRuntime,
             &'static crate::features::FeatureAabb,
-            Option<&'static crate::features::EnemyKinematics>,
+            Option<&'static crate::features::ActorKinematics>,
             Option<&'static crate::features::ActorAttackState>,
             Option<&'static crate::features::ActorSurfaceState>,
         ),
@@ -640,12 +640,11 @@ fn draw_feature_debug(
                 // Forward-swing hitbox geometry (matches
                 // EnemyMut::attack_aabb): offset by facing.
                 let center = kin.pos
-                    + crate::engine_core::Vec2::new(
-                        kin.facing * (kin.size.x * 0.55 + 24.0),
-                        -4.0,
-                    );
-                let attack_box =
-                    crate::engine_core::Aabb::new(center, crate::engine_core::Vec2::new(34.0, 28.0));
+                    + crate::engine_core::Vec2::new(kin.facing * (kin.size.x * 0.55 + 24.0), -4.0);
+                let attack_box = crate::engine_core::Aabb::new(
+                    center,
+                    crate::engine_core::Vec2::new(34.0, 28.0),
+                );
                 if attack.is_active() {
                     draw_aabb_styled(gizmos, world, attack_box, active_color, developer_tools);
                 } else if attack.is_winding_up() {

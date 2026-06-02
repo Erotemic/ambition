@@ -286,27 +286,29 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
 }
 
 fn puppy_slug_seed(id: &str, actors: &Query<crate::features::ActorSpriteData>) -> Option<f32> {
-    actors.iter().find_map(|(feature_id, actor, _kin, _status, _attack, config)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        let (name, archetype) = match actor {
-            ActorRuntime::Enemy => match config {
-                Some(c) => (c.name.as_str(), Some(c.archetype)),
-                None => return None,
-            },
-            ActorRuntime::Npc(npc) => (npc.name.as_str(), None),
-        };
-        let name_lc = name.to_ascii_lowercase();
-        let is_slug = archetype == Some(EnemyArchetype::PuppySlug)
-            || name_lc.contains("puppy")
-            || name_lc.contains("slug");
-        if is_slug {
-            Some(seed_from_id(name) * 0.63 + archetype_seed(archetype))
-        } else {
-            None
-        }
-    })
+    actors
+        .iter()
+        .find_map(|(feature_id, actor, _kin, _status, _attack, config)| {
+            if feature_id.as_str() != id {
+                return None;
+            }
+            let (name, archetype) = match actor {
+                ActorRuntime::Enemy => match config {
+                    Some(c) => (c.name.as_str(), Some(c.archetype)),
+                    None => return None,
+                },
+                ActorRuntime::Npc(npc) => (npc.name.as_str(), None),
+            };
+            let name_lc = name.to_ascii_lowercase();
+            let is_slug = archetype == Some(EnemyArchetype::PuppySlug)
+                || name_lc.contains("puppy")
+                || name_lc.contains("slug");
+            if is_slug {
+                Some(seed_from_id(name) * 0.63 + archetype_seed(archetype))
+            } else {
+                None
+            }
+        })
 }
 
 fn archetype_seed(archetype: Option<EnemyArchetype>) -> f32 {

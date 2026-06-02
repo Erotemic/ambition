@@ -541,12 +541,18 @@ mod conversion_tests {
                     scratch.surface, enemy.surface,
                     "{brain_id} surface @tick {tick}"
                 );
-                assert_eq!(scratch.attack, enemy.attack, "{brain_id} attack @tick {tick}");
+                assert_eq!(
+                    scratch.attack, enemy.attack,
+                    "{brain_id} attack @tick {tick}"
+                );
                 assert_eq!(
                     scratch.status.ai_mode, enemy.ai_mode,
                     "{brain_id} ai_mode @tick {tick}"
                 );
-                assert_eq!(scratch.status.alive, enemy.alive, "{brain_id} alive @tick {tick}");
+                assert_eq!(
+                    scratch.status.alive, enemy.alive,
+                    "{brain_id} alive @tick {tick}"
+                );
             }
         }
     }

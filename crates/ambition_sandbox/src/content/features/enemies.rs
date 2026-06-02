@@ -1,5 +1,5 @@
-use super::*;
 use super::ecs::enemy_clusters::EnemyMut;
+use super::*;
 
 /// Predicate matching any tile a surface-walker (PuppySlug) can
 /// CLING TO — both solid blocks and one-way platforms count, mirroring
@@ -902,12 +902,13 @@ impl EnemyRuntime {
     /// rendered, rotated sprite. All other archetypes report the
     /// authored AABB unchanged.
     pub fn aabb(&self) -> ae::Aabb {
-        let size =
-            if self.archetype == EnemyArchetype::PuppySlug && self.surface.surface_normal.x.abs() > 0.5 {
-                ae::Vec2::new(self.size.y, self.size.x)
-            } else {
-                self.size
-            };
+        let size = if self.archetype == EnemyArchetype::PuppySlug
+            && self.surface.surface_normal.x.abs() > 0.5
+        {
+            ae::Vec2::new(self.size.y, self.size.x)
+        } else {
+            self.size
+        };
         ae::Aabb::new(self.pos, size * 0.5)
     }
 
@@ -921,7 +922,10 @@ impl EnemyRuntime {
     /// - Ceiling (n=(0,1))   → ±π
     /// - Left wall  (n=(1,0))  → -π/2
     pub fn rotation_rad(&self) -> f32 {
-        f32::atan2(-self.surface.surface_normal.x, -self.surface.surface_normal.y)
+        f32::atan2(
+            -self.surface.surface_normal.x,
+            -self.surface.surface_normal.y,
+        )
     }
 
     /// Surface-walking integration for `PuppySlug`. The slug's
@@ -1645,7 +1649,10 @@ impl<'a> EnemyMut<'a> {
     }
 
     pub fn rotation_rad(&self) -> f32 {
-        f32::atan2(-self.surface.surface_normal.x, -self.surface.surface_normal.y)
+        f32::atan2(
+            -self.surface.surface_normal.x,
+            -self.surface.surface_normal.y,
+        )
     }
 
     pub fn visual_kind(&self) -> FeatureVisualKind {
@@ -1679,8 +1686,7 @@ impl<'a> EnemyMut<'a> {
             } else {
                 self.kin.facing
             };
-            let center =
-                self.kin.pos + ae::Vec2::new(side * (self.kin.size.x * 0.55 + 24.0), -4.0);
+            let center = self.kin.pos + ae::Vec2::new(side * (self.kin.size.x * 0.55 + 24.0), -4.0);
             return ae::Aabb::new(center, ae::Vec2::new(34.0, 28.0));
         }
         if axis.y < 0.0 {
@@ -1693,7 +1699,11 @@ impl<'a> EnemyMut<'a> {
         ae::Aabb::new(center, half)
     }
 
-    pub fn begin_melee_attack(&mut self, tuning: FeatureCombatTuning, attack_axis: ae::Vec2) -> bool {
+    pub fn begin_melee_attack(
+        &mut self,
+        tuning: FeatureCombatTuning,
+        attack_axis: ae::Vec2,
+    ) -> bool {
         if self.attack.cooldown > 0.0 || !self.status.alive {
             return false;
         }
@@ -1769,7 +1779,6 @@ impl<'a> EnemyMut<'a> {
             air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
         };
     }
-
 }
 
 #[cfg(test)]

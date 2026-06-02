@@ -197,7 +197,10 @@ mod tests {
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                FeatureAabb::from_center_size(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+                FeatureAabb::from_center_size(
+                    ae::Vec2::new(100.0, 100.0),
+                    ae::Vec2::new(20.0, 20.0),
+                ),
                 ActorTarget::default(),
                 ActorAggression::retaliates_when_hit(3),
             ))

@@ -9,12 +9,13 @@
 
 use bevy::prelude::*;
 
+use super::super::enemies::EnemyRuntime;
 use super::{
     enemy_runtime_for_npc_combat, make_entity_enemy, sync_actor_components_from_enemy,
-    ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth, ActorIdentity,
-    ActorIntent, ActorRuntime, AggressionMode, CombatKit, FeatureSimEntity, HeldItem,
+    ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
+    ActorIdentity, ActorIntent, ActorRuntime, AggressionMode, CombatKit, FeatureSimEntity,
+    HeldItem,
 };
-use super::super::enemies::EnemyRuntime;
 use crate::features::ActorStimulus;
 
 /// Apply actor stimuli to aggression state and, when an actor becomes

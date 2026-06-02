@@ -87,7 +87,7 @@ pub fn sync_pirate_weapon_visuals(
         &FeatureId,
         &ActorRuntime,
         &HeldItem,
-        Option<&crate::features::EnemyKinematics>,
+        Option<&crate::features::ActorKinematics>,
         Option<&crate::features::EnemyStatus>,
     )>,
     player_q: Query<

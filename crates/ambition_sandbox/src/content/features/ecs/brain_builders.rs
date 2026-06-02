@@ -338,3 +338,42 @@ fn smash_cfg_for_archetype(arch: EnemyArchetype) -> SmashCfg {
         ..base
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine_core as ae;
+
+    fn enemy(brain_key: &str) -> EnemyRuntime {
+        EnemyRuntime::new(
+            "e",
+            "E",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
+            crate::actor::EnemyBrain::Custom(brain_key.into()),
+            &[],
+        )
+    }
+
+    #[test]
+    fn medium_striker_archetype_gets_a_smash_brain() {
+        // The common striker (goblins) runs the Smash state machine; this
+        // guards the archetype-template -> concrete-Brain dispatch.
+        let e = enemy("medium_striker");
+        assert!(
+            matches!(
+                enemy_default_brain(&e),
+                Brain::StateMachine(StateMachineCfg::Smash { .. })
+            ),
+            "medium_striker should default to a Smash brain"
+        );
+    }
+
+    #[test]
+    fn default_action_set_is_derived_without_panicking_for_a_striker() {
+        // The combat-kit -> action-set projection should yield a usable set
+        // (the striker has a melee verb).
+        let e = enemy("medium_striker");
+        let set = enemy_default_action_set(&e);
+        assert!(set.melee.is_some(), "a striker should expose a melee verb");
+    }
+}

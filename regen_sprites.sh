@@ -291,6 +291,126 @@ all_outputs_present() {
     return 0
 }
 
+# --- Per-sheet cache ------------------------------------------------------
+# The global fingerprint above is all-or-nothing: it only stores on a
+# fully-successful run, so an interrupted (partial) run re-renders every
+# sheet next time. The per-sheet cache below lets the per-target publish
+# loops skip individual sheets that are already current, so a resumed
+# partial run only renders what's actually left.
+#
+# Each cache unit (one publishable target) is keyed on:
+#   CORE_SHARED  — a hash of the *shared* renderer infra that any target
+#                  can depend on (top-level package modules, every
+#                  `_*.py` family helper, every `__init__.py`, and this
+#                  orchestrator script). Editing shared infra changes
+#                  CORE_SHARED, which invalidates ALL per-sheet units —
+#                  the conservative, never-stale choice.
+#   leaf hash    — a hash of the target's OWN module file (or package
+#                  dir). Editing one leaf generator changes only that
+#                  unit's key, so only that sheet re-renders.
+#
+# This relies on the codebase convention that shared drawing logic lives
+# in a top-level module or a `_`-prefixed helper (e.g. tackon_sheet.py,
+# lasersword_common.py, _pirate_common.py, _held_prop_common.py) — a
+# target must never import a sibling non-`_` leaf module, or a change to
+# that sibling would not invalidate this unit. The renderer already
+# follows this convention.
+sheets_cache_dir="$cache_dir/sheets"
+
+compute_core_shared() {
+    # NOTE: each `find` gets its OWN `| sort -z | xargs -0 sha256sum`
+    # pipeline. Piping several `find … -print0` from one `{ … }` block
+    # into a single `xargs` silently drops all but the first find's
+    # output, so keep them separate (same structure as
+    # `compute_fingerprint`).
+    (
+        cd "$renderer_dir" || exit 1
+        # Top-level shared package modules (tackon_sheet, sheet,
+        # adapters, actor_contract, lasersword_common, …).
+        find ambition_sprite2d_renderer -maxdepth 1 -type f -name '*.py' -print0 \
+            | sort -z | xargs -0 sha256sum
+        # Family helpers + package markers under targets/.
+        find ambition_sprite2d_renderer/targets -type f \( -name '_*.py' -o -name '__init__.py' \) -print0 \
+            | sort -z | xargs -0 sha256sum
+        # Renderer-dir top-level scripts (e.g. the mockingbird generator).
+        find . -maxdepth 1 -type f \( -name '*.py' -o -name '*.sh' \) -print0 \
+            | sort -z | xargs -0 sha256sum
+        # NB: this orchestrator (`regen_sprites.sh`) is deliberately NOT
+        # hashed into CORE_SHARED. It only chooses *which* targets to
+        # publish and *how* to loop — it never affects a sheet's pixels.
+        # Folding it in here meant that wiring a new sprite (adding its
+        # name to `tackon_targets`) changed CORE_SHARED and invalidated
+        # EVERY per-sheet key, forcing a full regen just to render the
+        # one new sheet. The global fingerprint above (`compute_fingerprint`)
+        # still includes this script, so the all-or-nothing fast-path
+        # correctly re-checks when the script changes.
+    ) | sha256sum | awk '{print $1}'
+}
+
+# Hash a target's own source (single-file module or package dir).
+# Empty (constant) when no leaf file is found — such units fall back to
+# CORE_SHARED-only keying, which is still correct (they re-render on any
+# shared change and are gated by their output existence).
+leaf_hash() {
+    local name="$1"
+    (
+        cd "$renderer_dir" || exit 1
+        local f d
+        for f in ambition_sprite2d_renderer/targets/*/"$name".py; do
+            if [ -f "$f" ]; then sha256sum "$f"; return 0; fi
+        done
+        for d in ambition_sprite2d_renderer/targets/*/"$name"; do
+            if [ -d "$d" ]; then
+                find "$d" -type f -name '*.py' -print0 | sort -z | xargs -0 sha256sum
+                return 0
+            fi
+        done
+    ) | sha256sum | awk '{print $1}'
+}
+
+unit_key() {
+    printf '%s:%s' "$core_shared_fingerprint" "$(leaf_hash "$1")" \
+        | sha256sum | awk '{print $1}'
+}
+
+# Fresh iff the stored key matches AND at least one output matching the
+# glob already exists on disk (a hand-deletion re-renders that sheet).
+sheet_cache_fresh() {
+    local unit="$1" key="$2" glob="$3" stored
+    [ "$force_regen" -ne 1 ] || return 1
+    [ -f "$sheets_cache_dir/$unit" ] || return 1
+    stored="$(cat "$sheets_cache_dir/$unit")"
+    [ "$stored" = "$key" ] || return 1
+    compgen -G "$glob" >/dev/null 2>&1 || return 1
+    return 0
+}
+
+sheet_cache_store() {
+    mkdir -p "$sheets_cache_dir"
+    printf '%s\n' "$2" > "$sheets_cache_dir/$1"
+}
+
+# Publish one registered target with per-sheet caching. Skips when the
+# sheet is already current; stores the key only on a successful publish
+# so a failure retries next run.
+publish_cached() {
+    local target="$1"
+    local key glob
+    key="$(unit_key "$target")"
+    glob="$sprites_dir/${target}"*"_spritesheet.png"
+    if sheet_cache_fresh "$target" "$key" "$glob"; then
+        echo "  [cache] $target up to date — skipped"
+        return 0
+    fi
+    if (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir"); then
+        sheet_cache_store "$target" "$key"
+    else
+        echo "  [skip] tack-on target '$target' publish failed (publisher not implemented?)"
+    fi
+}
+
+core_shared_fingerprint="$(compute_core_shared)"
+
 cached_fingerprint=""
 if [ -f "$fingerprint_file" ]; then
     cached_fingerprint="$(cat "$fingerprint_file")"
@@ -397,6 +517,14 @@ tackon_targets=(
     intro_lab_tileset
     lasersword
     lasersword_with_guns
+    # Hand-held weapon props + attack-effect overlays. Authored
+    # pointing right (+X); the game pins them at the `grip`/`origin`
+    # anchor and rotates to the swing/aim direction at runtime.
+    pirate_heavy_axe
+    throwing_javelin
+    hunting_bow
+    bow_arrow
+    robot_slash
     news_board
     town_tileset
     # Phase 6 + bonus follow-up: every tack-on character listed by
@@ -445,8 +573,9 @@ for target in "${tackon_targets[@]}"; do
     # robot_heavy / viking_warrior variants) don't have a publish
     # path implemented yet and exit non-zero. The postcondition
     # check below catches anything that actually needs to ship.
-    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir") \
-        || echo "  [skip] tack-on target '$target' publish failed (publisher not implemented?)"
+    # `publish_cached` skips targets already current (per-sheet cache)
+    # and only stores the cache key on a successful publish.
+    publish_cached "$target"
 done
 
 echo "==> standalone pirate sheets (publish into $sprites_dir)"
@@ -465,15 +594,25 @@ pirate_targets=(
     pirate_heavy
 )
 for target in "${pirate_targets[@]}"; do
-    (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish "$target" --dest-root "$sprites_dir")
+    publish_cached "$target"
 done
 
 echo "==> small enemy sprites (puppy_slug → $sprites_dir)"
-(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer publish puppy_slug --dest-root "$sprites_dir")
+publish_cached puppy_slug
 
 echo "==> tack-on: mockingbird boss (render-publish into $sprites_dir/mockingbird_boss)"
-"$python_bin" "$renderer_dir/mockingbird_boss_sprite_generator.py" render-publish \
-    --install-dir "$sprites_dir/mockingbird_boss"
+# Custom generator script + subdir output, so it gets a bespoke
+# per-sheet check rather than `publish_cached`. Its source is the
+# top-level generator script, which is folded into CORE_SHARED.
+mockingbird_key="$(unit_key mockingbird_boss)"
+if sheet_cache_fresh mockingbird_boss "$mockingbird_key" \
+    "$sprites_dir/mockingbird_boss/mockingbird_boss"*"_spritesheet.png"; then
+    echo "  [cache] mockingbird_boss up to date — skipped"
+else
+    "$python_bin" "$renderer_dir/mockingbird_boss_sprite_generator.py" render-publish \
+        --install-dir "$sprites_dir/mockingbird_boss"
+    sheet_cache_store mockingbird_boss "$mockingbird_key"
+fi
 
 echo "==> postcondition: every runtime-required sprite file present"
 # Walk the list of files the sandbox crate actually loads at runtime

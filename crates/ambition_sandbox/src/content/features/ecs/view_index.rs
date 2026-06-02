@@ -82,6 +82,11 @@ pub fn rebuild_feature_view_index(
         &FeatureId,
         &BossFeature,
         &crate::brain::BossAttackState,
+        // Shared combat read-model, synced from the boss runtime by
+        // `sync_boss_actor_components` (WorldPrep, before this rebuild).
+        // Presentation reads alive / hit-flash from here instead of the
+        // BossRuntime fields, the same component enemies/NPCs expose.
+        &super::super::components::ActorCombatState,
         Option<&BossDeathAnimation>,
         Option<&BossPhase>,
     )>,
@@ -195,9 +200,12 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, feature, attack_state, death_anim, phase) in &bosses {
+    for (id, feature, attack_state, combat, death_anim, phase) in &bosses {
         let boss = &feature.boss;
-        let visible = boss.alive
+        // `alive` reads the shared `ActorCombatState` mirror; pos / size
+        // still come from `BossRuntime` until the boss body migrates to
+        // `FeatureAabb` (ecs-cleanup-plan #9).
+        let visible = combat.alive
             || death_anim.is_some_and(|d| d.remaining_s > 0.0)
             || phase.is_some_and(|p| p.is_active());
         index.insert_if_absent(
@@ -207,11 +215,10 @@ pub fn rebuild_feature_view_index(
                 size: boss.render_size(),
                 kind: FeatureVisualKind::Boss,
                 visible,
-                // `flash` reads `BossAttackState` (the brain's
-                // single source of truth) instead of the deleted
-                // `attack_timer` / `attack_windup_timer` mirror
-                // fields on `BossRuntime`.
-                flash: boss.hit_flash > 0.0
+                // Hit-flash reads the shared combat mirror; telegraph /
+                // active windows read `BossAttackState` (the brain's
+                // source of truth, already a component).
+                flash: combat.hit_flash > 0.0
                     || attack_state.telegraph_profile.is_some()
                     || attack_state.active_profile.is_some(),
                 switch_on: false,

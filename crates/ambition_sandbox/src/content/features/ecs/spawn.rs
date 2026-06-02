@@ -351,22 +351,21 @@ mod tests {
         });
         app.update();
 
-        let mut q = app
-            .world_mut()
-            .query_filtered::<(&ActorRuntime, &MountedSize), With<RidingOn>>();
-        let (actor, mounted_size) = q
+        let mut q = app.world_mut().query_filtered::<(
+            &crate::features::EnemyKinematics,
+            &crate::features::EnemyConfig,
+            &MountedSize,
+        ), With<RidingOn>>();
+        let (kin, config, mounted_size) = q
             .iter(app.world())
             .next()
             .expect("light shark composite should spawn a rider");
-        let ActorRuntime::Enemy(rider) = actor else {
-            panic!("rider should be hostile")
-        };
         assert_eq!(
-            rider.spawn.size, mounted_size.0,
+            config.spawn.size, mounted_size.0,
             "sky PirateRaider dismount should keep compact rider collision size",
         );
         assert_eq!(
-            rider.size, mounted_size.0,
+            kin.size, mounted_size.0,
             "mounted rider starts at the same compact size it will use after dismount",
         );
     }
@@ -392,22 +391,21 @@ mod tests {
         });
         app.update();
 
-        let mut q = app
-            .world_mut()
-            .query_filtered::<(&ActorRuntime, &MountedSize), With<RidingOn>>();
-        let (actor, mounted_size) = q
+        let mut q = app.world_mut().query_filtered::<(
+            &crate::features::EnemyKinematics,
+            &crate::features::EnemyConfig,
+            &MountedSize,
+        ), With<RidingOn>>();
+        let (kin, config, mounted_size) = q
             .iter(app.world())
             .next()
             .expect("heavy shark composite should spawn a rider");
-        let ActorRuntime::Enemy(rider) = actor else {
-            panic!("rider should be hostile")
-        };
         assert_eq!(
-            rider.spawn.size, mounted_size.0,
+            config.spawn.size, mounted_size.0,
             "sky PirateHeavy dismount should keep compact rider collision size",
         );
         assert_eq!(
-            rider.size, mounted_size.0,
+            kin.size, mounted_size.0,
             "mounted rider starts at the same compact size it will use after dismount",
         );
     }

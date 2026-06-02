@@ -353,7 +353,21 @@ mod tests {
     use crate::content::features::enemies::EnemyRuntime;
     use bevy::prelude::*;
 
-    fn hostile(id: &str, archetype_brain: &str, pos: ae::Vec2, size: ae::Vec2) -> ActorRuntime {
+    type EnemyClusterBundle = (
+        super::super::enemy_clusters::EnemyKinematics,
+        super::super::enemy_clusters::EnemyStatus,
+        super::super::enemy_clusters::EnemyConfig,
+        super::super::enemy_clusters::EnemyMotionPath,
+        crate::features::ActorSurfaceState,
+        crate::features::ActorAttackState,
+    );
+
+    fn hostile(
+        id: &str,
+        archetype_brain: &str,
+        pos: ae::Vec2,
+        size: ae::Vec2,
+    ) -> (ActorRuntime, EnemyClusterBundle) {
         let aabb = ae::Aabb::new(pos, size * 0.5);
         let mut enemy = EnemyRuntime::new(
             id,
@@ -365,7 +379,32 @@ mod tests {
         enemy.size = size;
         enemy.pos = pos;
         enemy.alive = true;
-        ActorRuntime::Enemy(enemy)
+        (
+            ActorRuntime::Enemy,
+            super::super::enemy_clusters::enemy_cluster_bundle(&enemy),
+        )
+    }
+
+    /// Read an entity's enemy kinematics/status/surface from its
+    /// cluster components for test assertions.
+    fn rider_kin(
+        world: &bevy::prelude::World,
+        e: bevy::prelude::Entity,
+    ) -> super::super::enemy_clusters::EnemyKinematics {
+        *world
+            .entity(e)
+            .get::<super::super::enemy_clusters::EnemyKinematics>()
+            .expect("enemy entity has EnemyKinematics")
+    }
+
+    fn rider_surface(
+        world: &bevy::prelude::World,
+        e: bevy::prelude::Entity,
+    ) -> crate::features::ActorSurfaceState {
+        *world
+            .entity(e)
+            .get::<crate::features::ActorSurfaceState>()
+            .expect("enemy entity has ActorSurfaceState")
     }
 
     fn build_app() -> App {
@@ -410,32 +449,29 @@ mod tests {
             .id();
         // Pre-poison rider velocity so the assertion that the sync
         // zeroes it isn't a no-op against the default.
-        if let Some(mut actor) = app.world_mut().entity_mut(rider).get_mut::<ActorRuntime>() {
-            if let ActorRuntime::Enemy(r) = &mut *actor {
-                r.vel = ae::Vec2::new(500.0, -200.0);
-                r.surface.gravity_scale = 1.0;
-            }
-        }
+        app.world_mut()
+            .get_mut::<crate::features::EnemyKinematics>(rider)
+            .unwrap()
+            .vel = ae::Vec2::new(500.0, -200.0);
+        app.world_mut()
+            .get_mut::<crate::features::ActorSurfaceState>(rider)
+            .unwrap()
+            .gravity_scale = 1.0;
 
         app.update();
 
-        let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Enemy(r) = actor else {
-            panic!("rider should be Hostile")
-        };
+        let k = rider_kin(app.world(), rider);
+        let s = rider_surface(app.world(), rider);
         assert_eq!(
-            r.pos,
+            k.pos,
             ae::Vec2::new(100.0, 10.0),
             "rider should snap to mount.pos + offset",
         );
-        assert_eq!(r.vel, ae::Vec2::ZERO, "rider vel zeroed by sync");
-        assert_eq!(r.surface.gravity_scale, 0.0, "rider gravity zeroed by sync");
+        assert_eq!(k.vel, ae::Vec2::ZERO, "rider vel zeroed by sync");
+        assert_eq!(s.gravity_scale, 0.0, "rider gravity zeroed by sync");
 
         let aabb = app.world().entity(rider).get::<FeatureAabb>().unwrap();
-        assert_eq!(
-            aabb.center, r.pos,
-            "FeatureAabb mirror updated to synced pos"
-        );
+        assert_eq!(aabb.center, k.pos, "FeatureAabb mirror updated to synced pos");
     }
 
     /// Helper: spawn a mount + rider pair wired the same way the
@@ -467,9 +503,8 @@ mod tests {
         let mount_pos = ae::Vec2::new(0.0, 0.0);
         let mount_size = ae::Vec2::new(126.0, 52.0);
         let mut mount_actor = hostile("mount", "burning_flying_shark", mount_pos, mount_size);
-        if let ActorRuntime::Enemy(m) = &mut mount_actor {
-            m.alive = mount_alive;
-        }
+        // .1 = EnemyClusterBundle, .1.1 = EnemyStatus.
+        mount_actor.1 .1.alive = mount_alive;
         let mount = app
             .world_mut()
             .spawn((
@@ -484,10 +519,9 @@ mod tests {
         let rider_pos = ae::Vec2::new(0.0, -40.0);
         let rider_size = ae::Vec2::new(44.0, 78.0);
         let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
-        if let ActorRuntime::Enemy(r) = &mut rider_actor {
-            r.alive = rider_alive;
-            r.surface.gravity_scale = 0.0;
-        }
+        // .1.1 = EnemyStatus, .1.4 = ActorSurfaceState.
+        rider_actor.1 .1.alive = rider_alive;
+        rider_actor.1 .4.gravity_scale = 0.0;
         let rider = app
             .world_mut()
             .spawn((
@@ -530,11 +564,11 @@ mod tests {
             app.world().entity(rider).get::<Mounted>().is_none(),
             "Mounted marker removed on dissolve",
         );
-        let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Enemy(r) = actor else {
-            panic!()
-        };
-        assert_eq!(r.surface.gravity_scale, 1.0, "PirateRaider rider gets gravity 1.0");
+        assert_eq!(
+            rider_surface(app.world(), rider).gravity_scale,
+            1.0,
+            "PirateRaider rider gets gravity 1.0"
+        );
         let brain = app
             .world()
             .entity(rider)
@@ -571,23 +605,19 @@ mod tests {
         // Simulate the same-room reset: flip mount.alive back to
         // true (reset_to_spawn would do this). The enforcer should
         // re-arm the link on the next tick.
-        if let Some(mut actor) = app.world_mut().entity_mut(mount).get_mut::<ActorRuntime>() {
-            if let ActorRuntime::Enemy(m) = &mut *actor {
-                m.alive = true;
-            }
-        }
+        app.world_mut()
+            .get_mut::<crate::features::EnemyStatus>(mount)
+            .unwrap()
+            .alive = true;
         app.update();
 
         assert!(
             app.world().entity(rider).get::<Mounted>().is_some(),
             "Mounted marker should be re-added on revive",
         );
-        let actor = app.world().entity(rider).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Enemy(r) = actor else {
-            panic!()
-        };
         assert_eq!(
-            r.surface.gravity_scale, 0.0,
+            rider_surface(app.world(), rider).gravity_scale,
+            0.0,
             "rider gravity should be zeroed back to mounted state",
         );
         let brain = app
@@ -622,10 +652,13 @@ mod tests {
             slot.rider.is_some(),
             "MountSlot.rider stays populated even with dead rider",
         );
-        let mount_actor = app.world().entity(mount).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Enemy(m) = mount_actor else {
-            panic!()
-        };
-        assert!(m.alive, "mount stays alive when rider dies");
+        assert!(
+            app.world()
+                .entity(mount)
+                .get::<crate::features::EnemyStatus>()
+                .unwrap()
+                .alive,
+            "mount stays alive when rider dies"
+        );
     }
 }

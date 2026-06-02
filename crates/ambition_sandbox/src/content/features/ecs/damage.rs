@@ -710,7 +710,7 @@ pub(super) fn emit_breakable_destroyed(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::ecs::actor_component_snapshot;
+    use crate::features::ecs::enemy_component_snapshot;
     use crate::features::{HitMode, HitTarget};
     use bevy::prelude::{App, Update};
 
@@ -724,15 +724,15 @@ mod tests {
             &[],
         );
         enemy.health = crate::actor::Health::new(5);
-        let actor = ActorRuntime::Enemy(enemy.clone());
         let (identity, disposition, health, combat, intent, cooldowns) =
-            actor_component_snapshot(&actor);
+            enemy_component_snapshot(&enemy);
         app.world_mut()
             .spawn((
                 FeatureSimEntity,
                 FeatureId::new("kernel_guide"),
                 FeatureAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
-                actor,
+                ActorRuntime::Enemy,
+                super::super::enemy_clusters::enemy_cluster_bundle(&enemy),
                 identity,
                 disposition,
                 health,
@@ -815,16 +815,13 @@ mod tests {
             health.health.current, 0,
             "enemy charge crash should damage and kill the crashing enemy"
         );
-        let runtime = app
+        let status = app
             .world()
-            .get::<ActorRuntime>(actor_entity)
-            .expect("hostile actor runtime exists");
-        match runtime {
-            ActorRuntime::Enemy(enemy) => assert!(
-                !enemy.alive,
-                "charge crash should mark the enemy dead through the normal kill path"
-            ),
-            other => panic!("expected hostile runtime, got {other:?}"),
-        }
+            .get::<super::super::enemy_clusters::EnemyStatus>(actor_entity)
+            .expect("hostile actor cluster status exists");
+        assert!(
+            !status.alive,
+            "charge crash should mark the enemy dead through the normal kill path"
+        );
     }
 }

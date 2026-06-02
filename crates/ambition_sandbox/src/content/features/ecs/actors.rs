@@ -872,7 +872,8 @@ mod tests {
                 FeatureSimEntity,
                 FeatureAabb::from_center_size(ae::Vec2::new(40.0, 80.0), ae::Vec2::new(20.0, 30.0)),
                 crate::features::ActorPose::default(),
-                ActorRuntime::Enemy(enemy),
+                ActorRuntime::Enemy,
+                super::enemy_clusters::enemy_cluster_bundle(&enemy),
             ))
             .id();
 
@@ -899,12 +900,9 @@ mod tests {
         enemy.vel = ae::Vec2::ZERO;
         enemy.alive = true;
         let charge_vec = ae::Vec2::new(enemy.archetype.chase_speed() * 2.0, 0.0);
-        assert!(shark_charge_crashed(
-            &enemy,
-            false,
-            charge_vec,
-            previous_pos
-        ));
+        let mut scratch = super::enemy_clusters::EnemyClusterScratch::from_runtime(&enemy);
+        let em = scratch.as_mut();
+        assert!(shark_charge_crashed(&em, false, charge_vec, previous_pos));
     }
 
     #[test]
@@ -915,14 +913,11 @@ mod tests {
         enemy.vel = ae::Vec2::ZERO;
         enemy.alive = true;
         let charge_vec = ae::Vec2::new(enemy.archetype.chase_speed() * 2.0, 0.0);
+        let mut scratch = super::enemy_clusters::EnemyClusterScratch::from_runtime(&enemy);
+        let em = scratch.as_mut();
+        assert!(!shark_charge_crashed(&em, true, charge_vec, previous_pos));
         assert!(!shark_charge_crashed(
-            &enemy,
-            true,
-            charge_vec,
-            previous_pos
-        ));
-        assert!(!shark_charge_crashed(
-            &enemy,
+            &em,
             false,
             ae::Vec2::new(enemy.archetype.chase_speed(), 0.0),
             previous_pos

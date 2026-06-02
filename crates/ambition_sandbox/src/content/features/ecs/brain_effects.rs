@@ -1092,7 +1092,24 @@ mod tests {
     /// attach a [`crate::features::RidingOn`] component to the
     /// spawned entity so the ranged-projectile handler routes the
     /// fire through the lasersword path.
-    fn pirate_rider_actor(pos: ae::Vec2) -> ActorRuntime {
+    type EnemyClusterBundle = (
+        super::super::enemy_clusters::EnemyKinematics,
+        super::super::enemy_clusters::EnemyStatus,
+        super::super::enemy_clusters::EnemyConfig,
+        super::super::enemy_clusters::EnemyMotionPath,
+        crate::features::ActorSurfaceState,
+        crate::features::ActorAttackState,
+    );
+
+    /// Spawnable (marker + clusters) bundle for an enemy test fixture.
+    fn enemy_actor(enemy: &EnemyRuntime) -> (ActorRuntime, EnemyClusterBundle) {
+        (
+            ActorRuntime::Enemy,
+            super::super::enemy_clusters::enemy_cluster_bundle(enemy),
+        )
+    }
+
+    fn pirate_rider_actor(pos: ae::Vec2) -> (ActorRuntime, EnemyClusterBundle) {
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
         let enemy = EnemyRuntime::new(
             "rider_a",
@@ -1101,7 +1118,7 @@ mod tests {
             crate::actor::EnemyBrain::Custom("pirate_raider".into()),
             &[],
         );
-        ActorRuntime::Enemy(enemy)
+        enemy_actor(&enemy)
     }
 
     fn build_app() -> App {
@@ -1130,7 +1147,7 @@ mod tests {
             &[],
         );
         enemy.archetype = EnemyArchetype::SmallSkitter;
-        let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
+        let actor = app.world_mut().spawn(enemy_actor(&enemy)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
@@ -1159,10 +1176,9 @@ mod tests {
         let mut app = build_app();
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let mut actor_runtime = pirate_rider_actor(actor_pos);
-        if let ActorRuntime::Enemy(ref mut e) = actor_runtime {
-            e.alive = false;
-        }
-        let actor = app.world_mut().spawn((actor_runtime,)).id();
+        // .1 = cluster bundle, .1.1 = EnemyStatus.
+        actor_runtime.1 .1.alive = false;
+        let actor = app.world_mut().spawn(actor_runtime).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
@@ -1215,7 +1231,7 @@ mod tests {
         enemy.archetype = EnemyArchetype::MediumStriker;
         enemy.attack.cooldown = 0.0;
         let pre_windup = enemy.attack.windup_timer;
-        let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
+        let actor = app.world_mut().spawn(enemy_actor(&enemy)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
@@ -1228,27 +1244,31 @@ mod tests {
                 },
             });
         app.update();
-        let actor_runtime = app.world().entity(actor).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Enemy(enemy_after) = actor_runtime else {
-            panic!("expected Hostile");
-        };
+        let attack = *app
+            .world()
+            .get::<crate::features::ActorAttackState>(actor)
+            .unwrap();
+        let status = *app
+            .world()
+            .get::<crate::features::EnemyStatus>(actor)
+            .unwrap();
         assert!(
-            enemy_after.attack.windup_timer > pre_windup,
+            attack.windup_timer > pre_windup,
             "windup timer should start after the message: was {pre_windup}, now {}",
-            enemy_after.attack.windup_timer,
+            attack.windup_timer,
         );
         assert!(
-            enemy_after.attack.cooldown > 0.0,
+            attack.cooldown > 0.0,
             "cooldown should be primed after the message: got {}",
-            enemy_after.attack.cooldown,
+            attack.cooldown,
         );
         assert!(
             matches!(
-                enemy_after.ai_mode,
+                status.ai_mode,
                 crate::character_ai::CharacterAiMode::Telegraph
             ),
             "ai_mode should flip to Telegraph; got {:?}",
-            enemy_after.ai_mode,
+            status.ai_mode,
         );
     }
 
@@ -1281,7 +1301,7 @@ mod tests {
             "standalone PirateHeavy is normally peaceful"
         );
         enemy.attack.cooldown = 0.0;
-        let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
+        let actor = app.world_mut().spawn(enemy_actor(&enemy)).id();
 
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -1297,17 +1317,21 @@ mod tests {
 
         app.update();
 
-        let actor_runtime = app.world().entity(actor).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Enemy(enemy_after) = actor_runtime else {
-            panic!("expected Hostile");
-        };
+        let attack = *app
+            .world()
+            .get::<crate::features::ActorAttackState>(actor)
+            .unwrap();
+        let status = *app
+            .world()
+            .get::<crate::features::EnemyStatus>(actor)
+            .unwrap();
         assert!(
-            enemy_after.attack.windup_timer > 0.0,
+            attack.windup_timer > 0.0,
             "explicit melee message should start dismounted PirateHeavy windup"
         );
         assert!(
             matches!(
-                enemy_after.ai_mode,
+                status.ai_mode,
                 crate::character_ai::CharacterAiMode::Telegraph
             ),
             "dismounted PirateHeavy should telegraph her melee attack"
@@ -1339,7 +1363,7 @@ mod tests {
         // Pre-set cooldown so begin_melee_attack refuses.
         enemy.attack.cooldown = 0.5;
         let pre_windup = enemy.attack.windup_timer;
-        let actor = app.world_mut().spawn((ActorRuntime::Enemy(enemy),)).id();
+        let actor = app.world_mut().spawn(enemy_actor(&enemy)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
@@ -1352,12 +1376,12 @@ mod tests {
                 },
             });
         app.update();
-        let actor_runtime = app.world().entity(actor).get::<ActorRuntime>().unwrap();
-        let ActorRuntime::Enemy(enemy_after) = actor_runtime else {
-            panic!("expected Hostile");
-        };
+        let attack = *app
+            .world()
+            .get::<crate::features::ActorAttackState>(actor)
+            .unwrap();
         assert_eq!(
-            enemy_after.attack.windup_timer, pre_windup,
+            attack.windup_timer, pre_windup,
             "cooldown should prevent the windup from starting",
         );
     }

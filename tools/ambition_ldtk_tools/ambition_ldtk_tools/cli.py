@@ -37,6 +37,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     link check       [TODO]
 
     intgrid summarize <level>     Print per-value cell counts + bboxes for a layer.
+    intgrid query     <rect>      Read-only: what IntGrid values are at a px/size rect.
     intgrid erase     <rect>      Zero out cells overlapping a px/size rect.
     intgrid paint    <rect>       Set cells overlapping the rect to --value (1=Solid).
 
@@ -210,7 +211,7 @@ def cmd_link(args, rest):
 
 
 def cmd_intgrid(args, rest):
-    if args.intgrid_action in {"summarize", "erase", "paint"}:
+    if args.intgrid_action in {"summarize", "query", "erase", "paint"}:
         # Forward the action + leftover argv (the --layer / --level /
         # --px / --size / --value flags) to the dedicated module so its
         # own argparse owns the surface.
@@ -425,6 +426,11 @@ def build_parser() -> argparse.ArgumentParser:
     intgrid_sub.add_parser(
         "summarize",
         help="Print per-value cell counts + bboxes for an IntGrid layer",
+    )
+    intgrid_sub.add_parser(
+        "query",
+        help="Read-only: list the IntGrid values present in a px/size rect "
+        "(what collision/hazard/etc. is at a location)",
     )
     intgrid_sub.add_parser(
         "erase",

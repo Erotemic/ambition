@@ -136,6 +136,49 @@ def _cmd_summarize(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_query(args: argparse.Namespace) -> int:
+    """Read-only: report the IntGrid values present in a px/size rect.
+
+    The read-only complement of `paint`/`erase` — answers "what's at this
+    location?" (Solid / Hazard / ladder / water) without opening the LDtk
+    editor or grepping `intGridCsv`. Mirrors the erase/paint --px/--size
+    surface so an author can probe the exact rect they're about to edit.
+    Never modifies the file.
+    """
+    px = _parse_pair(args.px, "px")
+    size = _parse_pair(args.size, "size")
+    project = load_project(args.ldtk)
+    level = find_level(project, args.level)
+    layer = find_intgrid_layer(level, args.layer)
+    grid = int(layer["__gridSize"])
+    c_wid = int(layer["__cWid"])
+    csv = layer.get("intGridCsv") or []
+    names = LAYER_VALUE_NAMES.get(args.layer, {})
+    by_value: dict[int, list[tuple[int, int]]] = {}
+    for cx, cy in _iter_overlap_cells(layer, px[0], px[1], size[0], size[1]):
+        v = csv[cy * c_wid + cx]
+        by_value.setdefault(v, []).append((cx, cy))
+    total = sum(len(cells) for cells in by_value.values())
+    print(
+        f"# {args.layer} query in '{args.level}': "
+        f"px=({px[0]},{px[1]}) size=({size[0]},{size[1]}), "
+        f"gridSize={grid} — {total} cell(s) overlap"
+    )
+    if total == 0:
+        print("  (rect is outside the layer's cell grid)")
+        return 0
+    for v in sorted(by_value):
+        cells = by_value[v]
+        name = "empty" if v == 0 else names.get(v, f"value{v}")
+        if args.verbose:
+            listing = ", ".join(f"({cx},{cy})" for cx, cy in cells)
+        else:
+            sample = ", ".join(f"({cx},{cy})" for cx, cy in cells[:6])
+            listing = sample + ("" if len(cells) <= 6 else f", +{len(cells) - 6} more")
+        print(f"  value={v} ({name}): {len(cells):>4} cell(s)  cells={listing}")
+    return 0
+
+
 def _cmd_paint(args: argparse.Namespace) -> int:
     """Set every IntGrid cell overlapping a px/size rect to a target value.
 
@@ -308,6 +351,22 @@ def main(argv=None) -> int:
     _add_shared_args(sp_sum)
     sp_sum.add_argument("--level", required=True)
     sp_sum.set_defaults(func=_cmd_summarize)
+
+    sp_query = sub.add_parser(
+        "query",
+        help="Read-only: list the IntGrid values present in a px/size rect "
+        "(what collision/hazard/etc. is here)",
+    )
+    _add_shared_args(sp_query)
+    sp_query.add_argument("--level", required=True)
+    sp_query.add_argument("--px", required=True, help="top-left X,Y of the rect")
+    sp_query.add_argument("--size", required=True, help="W,H of the rect")
+    sp_query.add_argument(
+        "--verbose",
+        action="store_true",
+        help="list every cell (otherwise only a per-value sample)",
+    )
+    sp_query.set_defaults(func=_cmd_query)
 
     sp_erase = sub.add_parser(
         "erase",

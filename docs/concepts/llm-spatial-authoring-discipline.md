@@ -9,6 +9,8 @@ aliases:
 implemented_by:
   - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/intgrid.py
   - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/entities.py
+  - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/measure.py
+  - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/gates.py
   - crates/ambition_sandbox/src/boss_encounter/gnu_ton.rs
 related_docs:
   - docs/concepts/ldtk-world-composition.md
@@ -98,8 +100,10 @@ some lifecycle state (encounter active, boss alive, switch off).
   IntGrid.
 
 Run `intgrid summarize` and look at the bbox of the relevant
-IntGrid value, or query the entity widths via `entity query`, before
-picking a size out of thin air.
+IntGrid value, or `entity measure --identifier foo` to get the
+entity's exact size / center / surrounding gaps, before picking a
+size out of thin air. Use `intgrid query --px X,Y --size W,H` to
+confirm what collision already occupies the slot you're about to fill.
 
 ### 4. Prefer named entities for runtime-mutable terrain
 
@@ -135,20 +139,30 @@ This list is the running TODO; add to it as you find friction.
 - `intgrid summarize` — exists. Per-value cell counts + bboxes.
 - `intgrid erase --px X,Y --size W,H` — exists. Cell-aligned erase.
 - `entity query --level X` — exists. Lists entity instances.
+- `intgrid query --px X,Y --size W,H` — exists (2026-06-02). What
+  IntGrid values (Solid / OneWay / Hazard / …) are present in this
+  rect? Read-only mirror of `intgrid erase` — ask "what collision is
+  here?" before painting or placing. (`edit/intgrid.py::_cmd_query`)
+- `entity measure --level X --identifier foo` — exists (2026-06-02).
+  The entity's size + center + nearest Solid distance (px) in each of
+  the four directions. Saves you from doing pixel arithmetic in your
+  head, and shows how much open space surrounds the spawn.
+  (`edit/measure.py`)
+- `gates audit --level X` — exists (2026-06-02). Lists a level's
+  gating / destructible elements in one view: switches (with action /
+  target / prompt), runtime lock walls, encounter triggers, and
+  breakable platforms / pogo orbs. A switch that drives terrain by id
+  rather than gating an encounter (e.g. the falling_sand spouts)
+  shows `(none — consumed by id)` so you don't mistake it for an
+  orphan. (`edit/gates.py`)
 - **Wanted:** `paths describe --level X` — for each LoadingZone /
   EdgeExit / ladder, print "from spawn, you can reach exit Y by
   doing Z (walk / fall / climb / jump)." Lets an LLM pick the
-  closeable seam without guessing.
-- **Wanted:** `intgrid query --px X,Y --size W,H` — what IntGrid
-  cells overlap this rect, and what is their value? Mirror of
-  `entity check` for collision authoring.
-- **Wanted:** `room measure --level X --entity foo` — width / height
-  / center of an entity by name, plus the nearest solid below / left
-  / right. Saves the LLM from doing pixel arithmetic in its head.
-- **Wanted:** `gates audit --level X` — list every named Solid /
-  BlinkWall / BreakablePlatform along with which encounter/boss/
-  switch (if any) gates it. Cross-check the gating systems for
-  orphans.
+  closeable seam without guessing. Deferred: reachability over a
+  platformer collision grid (jump arcs, one-way platforms) is a
+  non-trivial graph problem; a rough heuristic could mislead, so for
+  now read the geometry directly and reason about the graph by hand
+  (rule 1 below).
 
 When you witness friction here, add the missing subcommand or, if
 that's out of scope, add a bullet to this list.

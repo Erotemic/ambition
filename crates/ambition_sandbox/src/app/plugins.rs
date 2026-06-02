@@ -240,6 +240,7 @@ fn register_portal_systems(app: &mut App) {
         (
             crate::portal::portal_toggle_system.run_if(gameplay_allowed),
             crate::portal::portal_fire_system.run_if(gameplay_allowed),
+            crate::portal::portal_projectile_step.run_if(gameplay_allowed),
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation),

@@ -83,6 +83,8 @@ const PORTAL_HALF: f32 = 28.0;
 /// vertically when approaching at a different height than you fired them.
 const PORTAL_HALF_H: f32 = 46.0;
 const PORTAL_MAX_RANGE: f32 = 6000.0;
+/// Portal shot travel speed (px/s) — fast, but slow enough to see the streak.
+const PORTAL_SHOT_SPEED: f32 = 1900.0;
 const TELEPORT_COOLDOWN_S: f32 = 0.25;
 /// Floor on exit speed so a slow walk into a portal still pops you out the
 /// far side instead of stalling inside the exit portal.
@@ -252,13 +254,23 @@ pub fn pickup_portal_gun_system(
     }
 }
 
-/// `Attack` fires a portal of the gun's current color onto the nearest solid
-/// surface along the aim direction, replacing the existing portal of that color.
+/// An in-flight portal shot streaking toward a surface. On contact with a
+/// solid it opens a portal of `color`; if it travels too far / leaves the
+/// world it fizzles.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalProjectile {
+    pub color: PortalColor,
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub traveled: f32,
+}
+
+/// `Attack` fires a portal *shot* of the gun's current color along the aim
+/// direction. The shot travels (see `portal_projectile_step`) so the player
+/// sees its path before it lands and opens a portal.
 pub fn portal_fire_system(
     control: Res<ControlFrame>,
-    world: Res<GameWorld>,
     players: Query<(&PlayerKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    portals: Query<(Entity, &Portal)>,
     mut commands: Commands,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
@@ -271,52 +283,91 @@ pub fn portal_fire_system(
     if !gun.active {
         return;
     }
-    let aim = pick_aim(&control, kin.facing);
-    let Some((hit, normal)) = raycast_solids(&world.0, kin.pos, aim, PORTAL_MAX_RANGE) else {
-        // Aimed at open space / no surface: the "nope" rejection buzz.
-        sfx.write(crate::audio::SfxMessage::Play {
-            id: ambition_sfx::ids::PORTAL_INVALID,
-            pos: kin.pos,
-        });
+    let aim = pick_aim(&control, kin.facing).normalize_or_zero();
+    if aim == Vec2::ZERO {
         return;
-    };
-    let color = gun.next_color;
-    let mut replaced = false;
-    for (entity, portal) in &portals {
-        if portal.color == color {
-            commands.entity(entity).despawn();
-            replaced = true;
-        }
     }
-    if replaced {
-        sfx.write(crate::audio::SfxMessage::Play {
-            id: ambition_sfx::ids::PORTAL_CLOSE,
-            pos: hit,
-        });
-    }
-    // Punchy fire blast at the gun, bright warping whoosh where it attaches.
+    // Punchy fire blast + the airy travel whizz.
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_FIRE,
         pos: kin.pos,
     });
     sfx.write(crate::audio::SfxMessage::Play {
-        id: ambition_sfx::ids::PORTAL_ATTACH,
-        pos: hit,
+        id: ambition_sfx::ids::PORTAL_TRAVEL,
+        pos: kin.pos,
     });
     commands.spawn((
-        Portal {
-            color,
-            // Seat the portal a touch off the wall so the overlap region sits
-            // in the room rather than buried in the solid.
-            pos: hit + normal * 2.0,
-            normal,
-            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+        PortalProjectile {
+            color: gun.next_color,
+            pos: kin.pos,
+            vel: aim * PORTAL_SHOT_SPEED,
+            traveled: 0.0,
         },
-        Name::new(match color {
-            PortalColor::Blue => "Portal: blue",
-            PortalColor::Orange => "Portal: orange",
-        }),
+        Name::new("Portal shot"),
     ));
+}
+
+/// Advance portal shots; open a portal on solid contact (the bright warping
+/// whoosh) or fizzle past max range / out of bounds (the rejection buzz).
+pub fn portal_projectile_step(
+    time: Res<crate::WorldTime>,
+    world: Res<GameWorld>,
+    mut commands: Commands,
+    mut projectiles: Query<(Entity, &mut PortalProjectile)>,
+    portals: Query<(Entity, &Portal)>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+) {
+    let dt = time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    for (proj_entity, mut proj) in &mut projectiles {
+        let step = (proj.vel * dt).length().max(1.0);
+        if let Some((hit, normal)) = raycast_solids(&world.0, proj.pos, proj.vel, step) {
+            // Hit a wall — open (or replace) the portal of this color.
+            for (entity, portal) in &portals {
+                if portal.color == proj.color {
+                    commands.entity(entity).despawn();
+                    sfx.write(crate::audio::SfxMessage::Play {
+                        id: ambition_sfx::ids::PORTAL_CLOSE,
+                        pos: hit,
+                    });
+                }
+            }
+            commands.spawn((
+                Portal {
+                    color: proj.color,
+                    pos: hit + normal * 2.0,
+                    normal,
+                    half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+                },
+                Name::new(match proj.color {
+                    PortalColor::Blue => "Portal: blue",
+                    PortalColor::Orange => "Portal: orange",
+                }),
+            ));
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_ATTACH,
+                pos: hit,
+            });
+            commands.entity(proj_entity).despawn();
+            continue;
+        }
+        let delta = proj.vel * dt;
+        proj.pos += delta;
+        proj.traveled += step;
+        let oob = proj.pos.x < -64.0
+            || proj.pos.y < -64.0
+            || proj.pos.x > world.0.size.x + 64.0
+            || proj.pos.y > world.0.size.y + 64.0;
+        if proj.traveled > PORTAL_MAX_RANGE || oob {
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_INVALID,
+                pos: proj.pos,
+            });
+            commands.entity(proj_entity).despawn();
+        }
+    }
 }
 
 /// `Interact` toggles which color the next `Attack` will place.
@@ -482,9 +533,24 @@ pub fn sync_portal_visuals(
     visuals: Query<Entity, With<PortalVisual>>,
     portals: Query<&Portal>,
     pickups: Query<&PortalGunPickup>,
+    projectiles: Query<&PortalProjectile>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
+    }
+    // In-flight portal shots: a small bright streak in the shot's color.
+    for proj in &projectiles {
+        let color = match proj.color {
+            PortalColor::Blue => Color::srgb(0.55, 0.85, 1.0),
+            PortalColor::Orange => Color::srgb(1.0, 0.72, 0.35),
+        };
+        let translation = crate::config::world_to_bevy(&world.0, proj.pos, 9.5);
+        commands.spawn((
+            PortalVisual,
+            Sprite::from_color(color, Vec2::new(16.0, 8.0)),
+            Transform::from_translation(translation),
+            Name::new("Portal shot visual"),
+        ));
     }
     // Uncollected portal-gun pickup: a purple marker quad.
     for pickup in &pickups {
@@ -676,42 +742,26 @@ mod tests {
     fn portal_pair_teleports_player_carrying_momentum() {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
-        app.insert_resource(world_with_two_walls());
-        app.insert_resource(ControlFrame::default());
         app.insert_resource(crate::WorldTime::default());
-        app.add_systems(
-            Update,
-            (portal_toggle_system, portal_fire_system, portal_teleport_system).chain(),
-        );
-        let player = spawn_player(&mut app, Vec2::new(200.0, 200.0), -1.0);
-
-        // Fire BLUE at the left wall (facing left, no aim input → uses facing).
-        set_control(&mut app, true, false);
-        app.update();
-        let blue = find_portal(&mut app, PortalColor::Blue).expect("blue portal placed");
-        assert!(blue.pos.x < 60.0, "blue should sit on the left wall, got {:?}", blue.pos);
-        assert!(blue.normal.x > 0.5, "left-wall portal faces right, got {:?}", blue.normal);
-
-        // Toggle to ORANGE (Interact) and fire at the right wall (facing right) —
-        // both happen in one tick because toggle runs before fire in the chain.
+        app.add_systems(Update, portal_teleport_system);
+        // Blue on the left (facing right), orange on the right (facing left).
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Blue,
+            pos: Vec2::new(22.0, 200.0),
+            normal: Vec2::new(1.0, 0.0),
+            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+        });
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Orange,
+            pos: Vec2::new(378.0, 200.0),
+            normal: Vec2::new(-1.0, 0.0),
+            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+        });
+        let player = spawn_player(&mut app, Vec2::new(22.0, 200.0), 1.0);
         app.world_mut()
             .get_mut::<PlayerKinematics>(player)
             .unwrap()
-            .facing = 1.0;
-        set_control(&mut app, true, true);
-        app.update();
-        let orange = find_portal(&mut app, PortalColor::Orange).expect("orange portal placed");
-        assert!(orange.pos.x > 340.0, "orange should sit on the right wall, got {:?}", orange.pos);
-        // Blue must still exist (different color isn't despawned).
-        assert!(find_portal(&mut app, PortalColor::Blue).is_some(), "blue persists");
-
-        // Walk the player into the blue portal; expect a teleport to the orange side.
-        {
-            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
-            kin.pos = blue.pos;
-            kin.vel = Vec2::new(-100.0, 0.0);
-        }
-        set_control(&mut app, false, false);
+            .vel = Vec2::new(-100.0, 0.0);
         app.update();
         let kin = *app.world().get::<PlayerKinematics>(player).unwrap();
         assert!(
@@ -723,6 +773,54 @@ mod tests {
             kin.vel.length() >= MIN_EXIT_SPEED - 1.0,
             "exit should carry momentum (>= min exit speed), got {:?}",
             kin.vel
+        );
+    }
+
+    #[test]
+    fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.insert_resource(world_with_two_walls());
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, (portal_fire_system, portal_projectile_step).chain());
+        // Player mid-room facing left.
+        spawn_player(&mut app, Vec2::new(200.0, 200.0), -1.0);
+
+        // One Attack pulse fires a single shot.
+        set_control(&mut app, true, false);
+        app.update();
+        assert_eq!(
+            {
+                let mut q = app.world_mut().query::<&PortalProjectile>();
+                q.iter(app.world()).count()
+            },
+            1,
+            "firing spawns a traveling portal shot"
+        );
+        // No portal yet — it has to travel there.
+        assert!(find_portal(&mut app, PortalColor::Blue).is_none());
+
+        // Let the shot fly into the left wall.
+        set_control(&mut app, false, false);
+        for _ in 0..40 {
+            app.update();
+        }
+        let blue = find_portal(&mut app, PortalColor::Blue);
+        assert!(
+            blue.is_some_and(|p| p.pos.x < 60.0 && p.normal.x > 0.5),
+            "the shot should open a blue portal on the left wall, got {blue:?}"
+        );
+        assert_eq!(
+            {
+                let mut q = app.world_mut().query::<&PortalProjectile>();
+                q.iter(app.world()).count()
+            },
+            0,
+            "the shot is consumed when it lands"
         );
     }
 }

@@ -111,6 +111,50 @@ fn marker(img: &mut RgbaImage, center: (i64, i64), half: i64, color: Rgba<u8>) {
     );
 }
 
+/// Draw a 1px line between two image-space points (Bresenham). Used
+/// for kinematic-path routes so an author can see where a platform or
+/// patrol travels, not just where it starts.
+fn draw_line(img: &mut RgbaImage, a: (i64, i64), b: (i64, i64), color: Rgba<u8>) {
+    let (w, h) = (img.width() as i64, img.height() as i64);
+    let (mut x0, mut y0) = a;
+    let (x1, y1) = b;
+    let dx = (x1 - x0).abs();
+    let dy = -(y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx + dy;
+    loop {
+        if (0..w).contains(&x0) && (0..h).contains(&y0) {
+            img.put_pixel(x0 as u32, y0 as u32, color);
+        }
+        if x0 == x1 && y0 == y1 {
+            break;
+        }
+        let e2 = 2 * err;
+        if e2 >= dy {
+            err += dy;
+            x0 += sx;
+        }
+        if e2 <= dx {
+            err += dx;
+            y0 += sy;
+        }
+    }
+}
+
+/// Draw a kinematic path: connect its waypoints with line segments and
+/// drop a small filled dot on each, so platform/patrol routes read at a
+/// glance.
+fn overlay_path(img: &mut RgbaImage, proj: &Projection, points: &[ae::Vec2], color: Rgba<u8>) {
+    for pair in points.windows(2) {
+        draw_line(img, proj.px(pair[0]), proj.px(pair[1]), color);
+    }
+    for &p in points {
+        let (x, y) = proj.px(p);
+        fill_rect(img, (x - 2, y - 2), (x + 2, y + 2), color);
+    }
+}
+
 /// Outline an authored entity's AABB on top of the collision fill, with
 /// a small filled corner tick so single-cell entities stay visible.
 fn overlay_aabb(img: &mut RgbaImage, proj: &Projection, aabb: ae::Aabb, color: Rgba<u8>) {
@@ -135,6 +179,28 @@ fn render_room(room: &sb::rooms::RoomSpec) -> RgbaImage {
         let max = proj.px(block.aabb.max);
         fill_rect(&mut img, min, max, color_for(&block.kind));
         stroke_rect(&mut img, min, max, Rgba([10, 10, 12, 255]));
+    }
+
+    // Camera zones (thin dim-violet outline) — drawn first as
+    // background context so gameplay overlays sit on top.
+    for cz in &room.camera_zones {
+        overlay_aabb(&mut img, &proj, cz.aabb, Rgba([120, 90, 160, 180]));
+    }
+
+    // Kinematic paths (platform/patrol/camera-rail routes): bright
+    // green polyline + waypoint dots, plus the authored path AABB.
+    for kp in &room.kinematic_paths {
+        overlay_path(&mut img, &proj, &kp.path.points, Rgba([90, 230, 120, 255]));
+        overlay_aabb(&mut img, &proj, kp.aabb, Rgba([90, 230, 120, 160]));
+    }
+
+    // Moving platforms: filled tan (they're solid riding surfaces) at
+    // their authored start AABB, with a dark edge.
+    for mp in &room.moving_platforms {
+        let aabb = mp.aabb();
+        let (min, max) = (proj.px(aabb.min), proj.px(aabb.max));
+        fill_rect(&mut img, min, max, Rgba([200, 170, 110, 255]));
+        stroke_rect(&mut img, min, max, Rgba([40, 30, 15, 255]));
     }
 
     // Authored entity families (outlined, drawn over the collision so
@@ -241,7 +307,7 @@ fn main() {
         img.height(),
     );
     println!(
-        "  collision: {} blocks | enemies: {} | bosses: {} | interactables: {} | pickups: {} | chests: {} | breakables: {} | hazards: {} | doors: {}",
+        "  collision: {} blocks | enemies: {} | bosses: {} | interactables: {} | pickups: {} | chests: {} | breakables: {} | hazards: {} | doors: {} | platforms: {} | paths: {} | camera-zones: {}",
         room.world.blocks.len(),
         room.enemy_spawns.len(),
         room.boss_spawns.len(),
@@ -251,8 +317,11 @@ fn main() {
         room.breakables.len(),
         room.hazards.len(),
         room.loading_zones.len(),
+        room.moving_platforms.len(),
+        room.kinematic_paths.len(),
+        room.camera_zones.len(),
     );
     println!(
-        "legend: FILLED collision (gray=Solid blue=OneWay red=Hazard gold=PogoOrb) | OUTLINES red=enemy orange=boss green=NPC/switch cyan=pickup gold=chest lightblue=breakable magenta=hazard-vol white=door | green-cross=spawn"
+        "legend: FILLED collision (gray=Solid blue=OneWay red=Hazard gold=PogoOrb) tan=moving-platform | OUTLINES red=enemy orange=boss green=NPC/switch cyan=pickup gold=chest lightblue=breakable magenta=hazard-vol white=door violet=camera-zone | green-line=kinematic-path | green-cross=spawn"
     );
 }

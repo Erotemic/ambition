@@ -85,8 +85,8 @@ pub(crate) use ecs::actor_component_snapshot;
 
 pub use components::{
     ActorAggression, ActorAttackState, ActorCombatState, ActorCooldowns, ActorDisposition,
-    ActorFaction, ActorHealth,
-    ActorIdentity, ActorIntent, ActorPose, ActorTarget, AggressionMode, BossDeathAnimation,
+    ActorFaction, ActorHealth, ActorIdentity, ActorIntent, ActorPose, ActorTarget, AggressionMode,
+    AggressionTarget, BossDeathAnimation,
     BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature, ChestBundle, ChestFeature,
     Collected, CombatKit, DamageableVolumes, EncounterMob, EncounterRewardChest, EnemyActorBundle,
     FallingChest, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureLifecycleBundle, FeatureName,

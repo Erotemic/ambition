@@ -11,47 +11,61 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use super::super::components::{ActorFaction, ActorTarget, FeatureAabb};
+use super::super::components::{ActorAggression, ActorTarget, AggressionTarget, FeatureAabb};
 use super::FeatureSimEntity;
 use crate::player::{PlayerEntity, PlayerKinematics};
 
 /// Pick each non-player actor's `ActorTarget` for this frame.
 ///
-/// Selection policy: nearest alive `ActorFaction::Player` entity by
-/// straight-line distance. When no player entities exist (pre-spawn,
-/// post-death-of-all-players, headless probe with no player) the
-/// existing `ActorTarget` is left untouched — every actor's
-/// downstream tick sees the previous frame's target position rather
-/// than zeroing out and snapping toward the world origin.
+/// Selection is driven by each actor's [`ActorAggression`], not by its
+/// [`ActorFaction`]: `ActorAggression::target_policy` says whether the
+/// actor wants a target and which one. A non-passive actor
+/// (`HostileToPlayer` / `RetaliatesWhenHit`) tracks the nearest alive
+/// player-faction entity by straight-line distance — the same set of
+/// actors the old `faction.needs_target()` shortcut targeted. A passive
+/// actor takes no combat target and is pointed at itself so its facing
+/// math keeps the current facing instead of snapping toward the origin.
+///
+/// When no player entities exist (pre-spawn, post-death-of-all-players,
+/// headless probe with no player) every actor's `ActorTarget` is left
+/// untouched so downstream ticks see the previous frame's target rather
+/// than zeroing out.
 ///
 /// Today's production game has exactly one player so this loop is
 /// O(n) over actors. A many-player build can swap in a spatial
 /// index here without changing the consumer side.
 pub fn select_actor_targets(
     players: Query<(Entity, &PlayerKinematics), With<PlayerEntity>>,
-    mut actors: Query<(&FeatureAabb, &mut ActorTarget, &ActorFaction), With<FeatureSimEntity>>,
+    mut actors: Query<(&FeatureAabb, &mut ActorTarget, &ActorAggression), With<FeatureSimEntity>>,
 ) {
     let player_snapshots: Vec<(Entity, ae::Vec2)> =
         players.iter().map(|(e, kin)| (e, kin.pos)).collect();
     if player_snapshots.is_empty() {
         return;
     }
-    for (aabb, mut target, faction) in actors.iter_mut() {
-        if !faction.needs_target() {
-            continue;
-        }
+    for (aabb, mut target, aggression) in actors.iter_mut() {
         let actor_pos = aabb.center;
-        let (best_entity, best_pos) = player_snapshots
-            .iter()
-            .copied()
-            .min_by(|(_, a), (_, b)| {
-                let da = distance_squared(*a, actor_pos);
-                let db = distance_squared(*b, actor_pos);
-                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .expect("player_snapshots non-empty above");
-        target.pos = best_pos;
-        target.entity = Some(best_entity);
+        match aggression.target_policy() {
+            AggressionTarget::None => {
+                // Passive: no combat target. Point at self so a
+                // zero direction keeps the actor's current facing.
+                target.pos = actor_pos;
+                target.entity = None;
+            }
+            AggressionTarget::NearestPlayer => {
+                let (best_entity, best_pos) = player_snapshots
+                    .iter()
+                    .copied()
+                    .min_by(|(_, a), (_, b)| {
+                        let da = distance_squared(*a, actor_pos);
+                        let db = distance_squared(*b, actor_pos);
+                        da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .expect("player_snapshots non-empty above");
+                target.pos = best_pos;
+                target.entity = Some(best_entity);
+            }
+        }
     }
 }
 
@@ -64,7 +78,7 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::content::features::components::{ActorFaction, ActorTarget, FeatureAabb};
+    use crate::content::features::components::{ActorAggression, ActorTarget, FeatureAabb};
     use crate::player::{PlayerEntity, PlayerKinematics, PlayerSlot, PrimaryPlayer};
 
     fn dummy_player_body(pos: ae::Vec2) -> PlayerKinematics {
@@ -83,7 +97,7 @@ mod tests {
                 FeatureSimEntity,
                 FeatureAabb::from_center_size(pos, ae::Vec2::new(20.0, 20.0)),
                 ActorTarget::default(),
-                ActorFaction::Enemy,
+                ActorAggression::hostile_to_player(),
             ))
             .id()
     }
@@ -136,7 +150,7 @@ mod tests {
     }
 
     #[test]
-    fn neutral_faction_skips_target_selection() {
+    fn passive_aggression_targets_self_not_player() {
         let mut app = App::new();
         app.world_mut().spawn((
             PlayerEntity,
@@ -144,22 +158,55 @@ mod tests {
             PrimaryPlayer,
             dummy_player_body(ae::Vec2::new(999.0, 999.0)),
         ));
-        let neutral = app
+        let actor_pos = ae::Vec2::new(40.0, 60.0);
+        let passive = app
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                FeatureAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(20.0, 20.0)),
+                FeatureAabb::from_center_size(actor_pos, ae::Vec2::new(20.0, 20.0)),
                 ActorTarget::default(),
-                ActorFaction::Neutral,
+                ActorAggression::passive(),
             ))
             .id();
         app.add_systems(Update, select_actor_targets);
         app.update();
-        let target = app.world().entity(neutral).get::<ActorTarget>().unwrap();
-        // Default ActorTarget.pos is (0, 0); selector must NOT have
-        // moved it to the player's position because Neutral skips.
-        assert_eq!(target.pos, ae::Vec2::ZERO);
+        let target = app.world().entity(passive).get::<ActorTarget>().unwrap();
+        // Passive actors take no combat target: the selector points
+        // them at themselves (zero facing direction) instead of the
+        // far-away player at (999, 999).
+        assert_eq!(target.pos, actor_pos);
         assert_eq!(target.entity, None);
+    }
+
+    #[test]
+    fn retaliating_actor_tracks_nearest_player() {
+        let mut app = App::new();
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(0),
+                PrimaryPlayer,
+                dummy_player_body(ae::Vec2::new(200.0, 100.0)),
+            ))
+            .id();
+        // A RetaliatesWhenHit NPC still tracks the player (for facing /
+        // approach) even before it has been provoked — this reproduces
+        // the old `faction.needs_target()` behavior for peaceful NPCs.
+        let npc = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureAabb::from_center_size(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+                ActorTarget::default(),
+                ActorAggression::retaliates_when_hit(3),
+            ))
+            .id();
+        app.add_systems(Update, select_actor_targets);
+        app.update();
+        let target = app.world().entity(npc).get::<ActorTarget>().unwrap();
+        assert_eq!(target.pos, ae::Vec2::new(200.0, 100.0));
+        assert_eq!(target.entity, Some(player));
     }
 
     #[test]

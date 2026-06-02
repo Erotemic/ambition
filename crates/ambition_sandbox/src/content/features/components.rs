@@ -395,12 +395,6 @@ impl ActorFaction {
     pub fn is_hostile_side(self) -> bool {
         matches!(self, Self::Enemy | Self::Boss)
     }
-
-    /// True iff `self` needs an `ActorTarget` (hostile-side combat
-    /// actors and NPCs that face the player while idle).
-    pub fn needs_target(self) -> bool {
-        matches!(self, Self::Enemy | Self::Boss | Self::Npc)
-    }
 }
 
 /// Per-actor "who am I looking at this frame" pointer. Populated by
@@ -523,6 +517,28 @@ impl ActorAggression {
     pub fn is_aggressive(self) -> bool {
         matches!(self.mode, AggressionMode::HostileToPlayer)
     }
+
+    /// Who this actor wants to look at / chase this frame, derived from
+    /// its aggression mode rather than its [`ActorFaction`]. This is the
+    /// seam [`select_actor_targets`](crate::features::ecs::select_actor_targets)
+    /// reads: faction no longer decides targeting.
+    ///
+    /// Intentionally minimal today — every non-passive actor tracks the
+    /// nearest player, which reproduces the previous
+    /// `faction.needs_target()` behavior for all hostile / retaliating
+    /// actors. The richer relationship policies sketched in
+    /// `dev/reviews/ecs-cleanup-plan.md` #3 (HostileToFaction, ally-of-
+    /// player, lock onto the specific `target` entity) slot in here as
+    /// new [`AggressionTarget`] variants without touching the brains or
+    /// combat systems.
+    pub fn target_policy(self) -> AggressionTarget {
+        match self.mode {
+            AggressionMode::Passive => AggressionTarget::None,
+            AggressionMode::RetaliatesWhenHit { .. } | AggressionMode::HostileToPlayer => {
+                AggressionTarget::NearestPlayer
+            }
+        }
+    }
 }
 
 impl Default for ActorAggression {
@@ -536,6 +552,23 @@ pub enum AggressionMode {
     Passive,
     RetaliatesWhenHit { strike_threshold: u8 },
     HostileToPlayer,
+}
+
+/// Resolved targeting policy for one frame, produced by
+/// [`ActorAggression::target_policy`] and consumed by
+/// [`select_actor_targets`](crate::features::ecs::select_actor_targets).
+/// Keeps target selection aggression-driven instead of branching on
+/// [`ActorFaction`]. New relationship policies (target a specific
+/// entity, nearest hostile faction member, ...) extend this enum.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AggressionTarget {
+    /// No combat target this frame — passive actor. The selector points
+    /// the actor at itself so downstream facing math reads a zero
+    /// direction (keep current facing) instead of snapping toward the
+    /// world origin.
+    None,
+    /// Track the nearest alive player-faction entity.
+    NearestPlayer,
 }
 
 /// ECS-visible actor health. The behavior runtime is still the temporary home

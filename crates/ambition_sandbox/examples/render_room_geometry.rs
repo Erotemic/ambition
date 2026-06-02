@@ -185,6 +185,23 @@ fn main() {
     }
     let room_set = project.to_room_set().expect("room_set should build");
 
+    // `all` mode: render every room into a directory so an agent can
+    // review the whole map at once.
+    if room_id.as_deref() == Some("all") {
+        let dir = out_path.unwrap_or_else(|| "/tmp/rooms".to_string());
+        std::fs::create_dir_all(&dir).expect("create output dir");
+        for room in &room_set.rooms {
+            let img = render_room(room);
+            let out = format!("{dir}/room_{}.png", room.id);
+            img.save(&out).expect("PNG save should succeed");
+        }
+        println!(
+            "rendered {} rooms -> {dir}/room_<id>.png",
+            room_set.rooms.len()
+        );
+        return;
+    }
+
     let Some(room_id) = room_id else {
         println!("Available rooms ({}):", room_set.rooms.len());
         for r in &room_set.rooms {
@@ -195,7 +212,7 @@ fn main() {
                 r.world.blocks.len()
             );
         }
-        println!("\nUsage: render_room_geometry <ROOM_ID> [OUT.png]");
+        println!("\nUsage: render_room_geometry <ROOM_ID | all> [OUT.png | OUT_DIR]");
         return;
     };
 

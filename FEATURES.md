@@ -71,6 +71,8 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 |---|---:|---|
 | Engine + sandbox unified into a single crate | Available (landed 2026-05-28) | `crates/ambition_sandbox/src/engine_core/` (formerly the `ambition_engine` crate); `docs/adr/0002-engine-must-be-bevy-native.md` |
 | Headless simulation entry point | Available | `docs/systems/headless-simulation.md` |
+| RL reward-shaping examples (survival / exploration / health terms + `SandboxSim::step_with_reward`) | Available | `crates/ambition_sandbox/src/rl_sim/reward.rs`, `docs/systems/headless-simulation.md` |
+| Headless geometry-debug PNG renderer (room collision + authored entities, no GPU) | Available | `cargo run -p ambition_sandbox --example render_room_geometry -- <ROOM_ID>`; `docs/recipes/ldtk-authoring.md` |
 | Trace recording / replay for movement bugs | Available | `docs/systems/gameplay-trace-recorder.md` |
 | Agent-readable indexes | Available, generated | `.agent/manifest.yaml`, `.agent/index/` |
 | Documentation health checks | Available | `scripts/check_agent_kb.py`, `scripts/check_doc_links.py` |

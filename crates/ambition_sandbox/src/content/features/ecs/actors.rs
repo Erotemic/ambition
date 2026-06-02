@@ -54,24 +54,24 @@ pub(crate) fn enemy_runtime_for_npc_combat(
     config: &super::npc_clusters::NpcConfig,
     kin: &super::enemy_clusters::ActorKinematics,
     surface: &ActorSurfaceState,
-) -> EnemyRuntime {
+) -> super::enemy_clusters::EnemyClusterScratch {
     let brain_id = hostile_enemy_brain_for_npc(config);
-    let mut enemy = EnemyRuntime::new(
+    let mut enemy = super::enemy_clusters::EnemyClusterScratch::new(
         config.id.clone(),
         config.name.clone(),
         ae::Aabb::new(kin.pos, kin.size * 0.5),
         crate::actor::EnemyBrain::Custom(brain_id.into()),
         &[],
     );
-    enemy.pos = kin.pos;
-    enemy.spawn.pos = config.spawn;
-    enemy.size = ae::Vec2::new(kin.size.x.max(22.0), kin.size.y.max(38.0));
-    enemy.spawn.size = enemy.size;
-    enemy.vel = kin.vel;
-    enemy.facing = kin.facing;
+    enemy.kin.pos = kin.pos;
+    enemy.config.spawn.pos = config.spawn;
+    enemy.kin.size = ae::Vec2::new(kin.size.x.max(22.0), kin.size.y.max(38.0));
+    enemy.config.spawn.size = enemy.kin.size;
+    enemy.kin.vel = kin.vel;
+    enemy.kin.facing = kin.facing;
     enemy.surface.on_ground = surface.on_ground;
     if config.name != "Kernel Guide NPC" {
-        enemy.sprite_override_npc_name = Some(config.name.clone());
+        enemy.config.sprite_override_npc_name = Some(config.name.clone());
     }
     enemy
 }
@@ -108,7 +108,7 @@ fn hostile_enemy_brain_for_npc(config: &super::npc_clusters::NpcConfig) -> &'sta
 /// transient `EnemyRuntime` (spawn paths still construct one to derive
 /// archetype/size/health before projecting it onto the clusters).
 pub(crate) fn enemy_component_snapshot(
-    enemy: &EnemyRuntime,
+    enemy: &super::enemy_clusters::EnemyClusterScratch,
 ) -> (
     ActorIdentity,
     ActorDisposition,
@@ -118,21 +118,21 @@ pub(crate) fn enemy_component_snapshot(
     ActorCooldowns,
 ) {
     (
-        ActorIdentity::new(enemy.id.clone(), enemy.name.clone())
-            .with_sprite_override(enemy.sprite_override_npc_name.clone()),
+        ActorIdentity::new(enemy.config.id.clone(), enemy.config.name.clone())
+            .with_sprite_override(enemy.config.sprite_override_npc_name.clone()),
         ActorDisposition::Hostile,
-        ActorHealth::new(enemy.health),
+        ActorHealth::new(enemy.status.health),
         ActorCombatState::hostile(
-            enemy.alive,
-            enemy.hit_flash,
+            enemy.status.alive,
+            enemy.status.hit_flash,
             enemy.attack.windup_timer,
             enemy.attack.active_timer,
-            enemy.archetype.is_sandbag(),
+            enemy.config.archetype.is_sandbag(),
         ),
-        ActorIntent::new(enemy.ai_mode),
+        ActorIntent::new(enemy.status.ai_mode),
         ActorCooldowns {
             attack_cooldown: enemy.attack.cooldown,
-            respawn_timer: enemy.respawn_timer,
+            respawn_timer: enemy.status.respawn_timer,
         },
     )
 }
@@ -146,7 +146,7 @@ pub(crate) fn make_entity_enemy(
     commands: &mut Commands,
     entity: Entity,
     actor: &mut ActorRuntime,
-    hostile: &EnemyRuntime,
+    hostile: &super::enemy_clusters::EnemyClusterScratch,
     identity: &mut ActorIdentity,
     disposition: &mut ActorDisposition,
     health: &mut ActorHealth,
@@ -162,7 +162,7 @@ pub(crate) fn make_entity_enemy(
         // the shared kin/surface/motion components are overwritten by
         // the enemy bundle below.
         .remove::<(super::npc_clusters::NpcConfig, super::npc_clusters::NpcStatus)>()
-        .insert(super::enemy_clusters::enemy_cluster_bundle(hostile));
+        .insert(hostile.clone().into_components());
     let (next_id, next_disp, next_health, next_combat, next_intent, next_cd) =
         enemy_component_snapshot(hostile);
     *identity = next_id;

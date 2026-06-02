@@ -198,20 +198,22 @@ pub(crate) fn spawn_runtime_minion(
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = crate::actor::EnemyBrain::Custom(archetype_id.into());
     let archetype = EnemyArchetype::from_brain(&brain);
-    let mut enemy = EnemyRuntime::new(id.clone(), name.clone(), aabb, brain, &[]);
-    enemy.archetype = archetype;
-    enemy.health = crate::actor::Health::new(archetype.max_health());
+    let mut enemy =
+        super::enemy_clusters::EnemyClusterScratch::new(id.clone(), name.clone(), aabb, brain, &[]);
+    enemy.config.archetype = archetype;
+    enemy.status.health = crate::actor::Health::new(archetype.max_health());
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
-    enemy.respawn_timer = 999_999.0;
+    enemy.status.respawn_timer = 999_999.0;
     let feature_aabb = FeatureAabb::from_aabb(aabb);
-    let brain_component = enemy_default_brain(&enemy);
-    let action_set = enemy_default_action_set(&enemy);
-    let combat_kit = enemy_default_combat_kit(&enemy);
-    let cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&enemy);
+    let facing = enemy.kin.facing;
+    let brain_component = enemy_default_brain(&enemy.config);
+    let action_set = enemy_default_action_set(&enemy.config);
+    let combat_kit = enemy_default_combat_kit(&enemy.config);
     let actor = ActorRuntime::Enemy;
     let (identity, disposition, health, combat, intent, cooldowns) =
         enemy_component_snapshot(&enemy);
+    let cluster_bundle = enemy.into_components();
     let held_item = super::brain_builders::held_item_for_archetype(archetype);
     let entity = commands
         .spawn((
@@ -222,7 +224,7 @@ pub(crate) fn spawn_runtime_minion(
                 disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(feature_aabb, enemy.facing),
+                pose: ActorPose::from_aabb(feature_aabb, facing),
                 combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health,
@@ -257,19 +259,19 @@ pub(super) fn spawn_enemy(
     // a rider entity linked via [`super::Mountable`] /
     // [`super::RidingOn`]; everything else goes through the standard
     // single-entity spawn.
-    let probe = EnemyRuntime::new(
+    let probe = super::enemy_clusters::EnemyClusterScratch::new(
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
         authored.payload.clone(),
         paths,
     );
-    if super::mount::is_composite_spawn(probe.archetype) {
+    if super::mount::is_composite_spawn(probe.config.archetype) {
         super::spawn_mounts::spawn_composite_mount_rider(
             commands,
             authored,
             paths,
-            probe.archetype,
+            probe.config.archetype,
         );
         return;
     }
@@ -280,18 +282,19 @@ pub(super) fn spawn_enemy(
 /// legacy `spawn_enemy` body.
 pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
-    enemy: EnemyRuntime,
+    enemy: super::enemy_clusters::EnemyClusterScratch,
     authored: &crate::rooms::Authored<crate::actor::EnemyBrain>,
 ) {
     let feature_aabb = FeatureAabb::from_aabb(authored.aabb);
-    let brain = enemy_default_brain(&enemy);
-    let action_set = enemy_default_action_set(&enemy);
-    let combat_kit = enemy_default_combat_kit(&enemy);
-    let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
-    let cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&enemy);
+    let facing = enemy.kin.facing;
+    let brain = enemy_default_brain(&enemy.config);
+    let action_set = enemy_default_action_set(&enemy.config);
+    let combat_kit = enemy_default_combat_kit(&enemy.config);
+    let held_item = super::brain_builders::held_item_for_archetype(enemy.config.archetype);
     let actor = ActorRuntime::Enemy;
     let (identity, disposition, health, combat, intent, cooldowns) =
         enemy_component_snapshot(&enemy);
+    let cluster_bundle = enemy.into_components();
     let entity = commands
         .spawn((
             Name::new(format!("Feature actor enemy: {}", authored.name)),
@@ -301,7 +304,7 @@ pub(super) fn spawn_solo_enemy(
                 disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(feature_aabb, enemy.facing),
+                pose: ActorPose::from_aabb(feature_aabb, facing),
                 combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health,
@@ -350,7 +353,7 @@ pub(super) fn spawn_interactable(
         let facing = cluster_bundle.0.facing;
         let combat_projection =
             enemy_runtime_for_npc_combat(&cluster_bundle.3, &cluster_bundle.0, &cluster_bundle.1);
-        let combat_kit = enemy_default_combat_kit(&combat_projection);
+        let combat_kit = enemy_default_combat_kit(&combat_projection.config);
         let (identity, disposition, health, combat, intent, cooldowns) =
             super::actors::npc_component_snapshot(&cluster_bundle.3, &cluster_bundle.4);
         commands.spawn((
@@ -411,19 +414,21 @@ pub(super) fn spawn_encounter_mob(
     let encounter_id = encounter_id.into();
     let archetype = EnemyArchetype::from_brain(&brain);
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    let mut enemy = EnemyRuntime::new(id.clone(), id.clone(), aabb, brain, &[]);
-    enemy.archetype = archetype;
-    enemy.health = crate::actor::Health::new(archetype.max_health());
+    let mut enemy =
+        super::enemy_clusters::EnemyClusterScratch::new(id.clone(), id.clone(), aabb, brain, &[]);
+    enemy.config.archetype = archetype;
+    enemy.status.health = crate::actor::Health::new(archetype.max_health());
     // Encounter mobs should not auto-respawn like training sandbags.
-    enemy.respawn_timer = 999_999.0;
-    let brain = enemy_default_brain(&enemy);
-    let action_set = enemy_default_action_set(&enemy);
-    let combat_kit = enemy_default_combat_kit(&enemy);
-    let held_item = super::brain_builders::held_item_for_archetype(enemy.archetype);
-    let cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&enemy);
+    enemy.status.respawn_timer = 999_999.0;
+    let facing = enemy.kin.facing;
+    let brain = enemy_default_brain(&enemy.config);
+    let action_set = enemy_default_action_set(&enemy.config);
+    let combat_kit = enemy_default_combat_kit(&enemy.config);
+    let held_item = super::brain_builders::held_item_for_archetype(enemy.config.archetype);
     let actor = ActorRuntime::Enemy;
     let (identity, disposition, health, combat, intent, cooldowns) =
         enemy_component_snapshot(&enemy);
+    let cluster_bundle = enemy.into_components();
     let feature_aabb = FeatureAabb::from_center_size(pos, size);
     let entity = commands
         .spawn((
@@ -434,7 +439,7 @@ pub(super) fn spawn_encounter_mob(
                 disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(feature_aabb, enemy.facing),
+                pose: ActorPose::from_aabb(feature_aabb, facing),
                 combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health,

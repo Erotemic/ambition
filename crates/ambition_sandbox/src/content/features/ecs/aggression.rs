@@ -87,10 +87,10 @@ pub fn apply_npc_stimuli(
 
         let mut hostile = enemy_runtime_for_npc_combat(&npc.config, &npc.kin, &npc.surface);
         if source.is_some() {
-            hostile.ai_mode = crate::character_ai::CharacterAiMode::Chase;
+            hostile.status.ai_mode = crate::character_ai::CharacterAiMode::Chase;
         }
         let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-            &hostile, combat_kit, held_item,
+            &hostile.config, combat_kit, held_item,
         );
         make_entity_enemy(
             &mut commands,
@@ -164,13 +164,14 @@ pub fn apply_actor_stimuli(
         // (reconstruct a throwaway EnemyRuntime — the brain builders
         // only read id + archetype).
         let em = cq.as_enemy_mut();
-        let proxy = EnemyRuntime::new(
+        let proxy = super::enemy_clusters::EnemyClusterScratch::new(
             em.config.id.clone(),
             em.config.name.clone(),
             em.aabb(),
             em.config.brain.clone(),
             &[],
-        );
+        )
+        .config;
         let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
             &proxy, combat_kit, held_item,
         );

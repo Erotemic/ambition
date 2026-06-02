@@ -61,14 +61,14 @@ pub(super) fn spawn_composite_mount_rider(
     // `presentation::rendering::world`.
     let mount_id = authored.id.clone();
     let mount_name = "Burning Flying Shark".to_string();
-    let mut mount_enemy = EnemyRuntime::new(
+    let mut mount_enemy = super::enemy_clusters::EnemyClusterScratch::new(
         mount_id.clone(),
         mount_name.clone(),
         mount_aabb,
         crate::actor::EnemyBrain::Custom("burning_flying_shark".into()),
         paths,
     );
-    mount_enemy.health = crate::actor::Health::new(composite_hp);
+    mount_enemy.status.health = crate::actor::Health::new(composite_hp);
 
     // Rider archetype + variant name. The light composite is always
     // a Pirate Raider; the heavy composite parses the authored name
@@ -108,7 +108,7 @@ pub(super) fn spawn_composite_mount_rider(
         EnemyArchetype::PirateHeavy => crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
         _ => crate::actor::EnemyBrain::Custom("pirate_raider".into()),
     };
-    let mut rider_enemy = EnemyRuntime::new(
+    let mut rider_enemy = super::enemy_clusters::EnemyClusterScratch::new(
         rider_id.clone(),
         rider_variant_name.clone(),
         rider_aabb,
@@ -119,11 +119,11 @@ pub(super) fn spawn_composite_mount_rider(
     // intended dismounted footprint rather than the temporary spawn AABB. For
     // PirateHeavy-on-shark this is deliberately the compact mounted-size body;
     // the cove PirateHeavy keeps the full-size body through normal spawns.
-    rider_enemy.spawn.size = dismounted_size;
-    rider_enemy.size = mounted_size;
+    rider_enemy.config.spawn.size = dismounted_size;
+    rider_enemy.kin.size = mounted_size;
     // Rider HP from the composite spec's `rider_max_health`.
     if let Some(rider_hp) = composite_archetype.rider_max_health() {
-        rider_enemy.health = crate::actor::Health::new(rider_hp);
+        rider_enemy.status.health = crate::actor::Health::new(rider_hp);
     }
     rider_enemy.surface.gravity_scale = 0.0;
 
@@ -141,13 +141,14 @@ pub(super) fn spawn_composite_mount_rider(
     // then attach the link components. The mount should keep the
     // orbiting aerial brain so the shark still changes height while
     // the rider stays visually welded to it.
-    let mount_brain = skirmisher_brain_for_enemy(&mount_enemy);
-    let mount_action_set = enemy_default_action_set(&mount_enemy);
-    let mount_combat_kit = enemy_default_combat_kit(&mount_enemy);
-    let mount_cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&mount_enemy);
+    let mount_facing = mount_enemy.kin.facing;
+    let mount_brain = skirmisher_brain_for_enemy(&mount_enemy.config);
+    let mount_action_set = enemy_default_action_set(&mount_enemy.config);
+    let mount_combat_kit = enemy_default_combat_kit(&mount_enemy.config);
     let mount_actor = ActorRuntime::Enemy;
     let (m_identity, m_disposition, m_health, m_combat, m_intent, m_cooldowns) =
         enemy_component_snapshot(&mount_enemy);
+    let mount_cluster_bundle = mount_enemy.into_components();
     let mount_feature_aabb = FeatureAabb::from_aabb(mount_aabb);
     let mount_entity = commands
         .spawn((
@@ -158,7 +159,7 @@ pub(super) fn spawn_composite_mount_rider(
                 disposition: m_disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(mount_feature_aabb, mount_enemy.facing),
+                pose: ActorPose::from_aabb(mount_feature_aabb, mount_facing),
                 combat_kit: mount_combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health: m_health,
@@ -181,11 +182,12 @@ pub(super) fn spawn_composite_mount_rider(
 
     // Rider-side bundles, with the RidingOn link pointing at the
     // mount we just spawned.
-    let rider_combat_kit = enemy_default_combat_kit(&rider_enemy);
-    let rider_cluster_bundle = super::enemy_clusters::enemy_cluster_bundle(&rider_enemy);
+    let rider_facing = rider_enemy.kin.facing;
+    let rider_combat_kit = enemy_default_combat_kit(&rider_enemy.config);
     let rider_actor = ActorRuntime::Enemy;
     let (r_identity, r_disposition, r_health, r_combat, r_intent, r_cooldowns) =
         enemy_component_snapshot(&rider_enemy);
+    let rider_cluster_bundle = rider_enemy.into_components();
     let rider_feature_aabb = FeatureAabb::from_aabb(rider_aabb);
     // Cache the mounted brain on the rider so the same-room reset
     // path can restore it after a mount-death-then-reset cycle
@@ -204,7 +206,7 @@ pub(super) fn spawn_composite_mount_rider(
                 disposition: r_disposition,
                 faction: super::ActorFaction::Enemy,
                 target: super::ActorTarget::default(),
-                pose: ActorPose::from_aabb(rider_feature_aabb, rider_enemy.facing),
+                pose: ActorPose::from_aabb(rider_feature_aabb, rider_facing),
                 combat_kit: rider_combat_kit,
                 aggression: super::ActorAggression::hostile_to_player(),
                 health: r_health,

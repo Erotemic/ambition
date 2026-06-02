@@ -298,15 +298,16 @@ pub fn enforce_mount_rider_link(
                 // size overrides explicit and safe.
                 rider_aabb.center = rider.kin.pos;
                 rider_aabb.half_size = rider.kin.size * 0.5;
-                // The brain builders only read id + archetype; reconstruct a
-                // throwaway EnemyRuntime from the cluster config.
-                let proxy = EnemyRuntime::new(
+                // The brain builders only read id + archetype; take the
+                // rider's `EnemyConfig` cluster directly.
+                let proxy = super::enemy_clusters::EnemyClusterScratch::new(
                     rider.config.id.clone(),
                     rider.config.name.clone(),
                     rider.aabb(),
                     rider.config.brain.clone(),
                     &[],
-                );
+                )
+                .config;
                 let (new_brain, new_action_set) =
                     dismounted_rider_brain_and_action_set(&proxy, held_item.map(|item| &item.spec));
                 commands

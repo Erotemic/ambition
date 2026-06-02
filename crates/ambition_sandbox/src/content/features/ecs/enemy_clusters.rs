@@ -22,7 +22,9 @@ use bevy::prelude::Component;
 use super::super::components::ActorAttackState;
 use super::super::enemies::{ActorSpawnState, ActorSurfaceState, EnemyArchetype};
 use super::super::path_motion::PathMotion;
+use super::super::MAX_ENEMY_AIR_JUMPS;
 use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 
 /// Authoritative kinematic state (position / velocity / body size /
 /// facing). Mirrors the player's `PlayerKinematics`.
@@ -122,6 +124,71 @@ pub struct EnemyClusterScratch {
 }
 
 impl EnemyClusterScratch {
+    /// Build the enemy clusters directly from spawn inputs — the
+    /// cluster-native replacement for `EnemyRuntime::new`. Every spawn
+    /// site and the NPC→enemy flip construct one of these instead of a
+    /// legacy blob.
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        brain: crate::actor::EnemyBrain,
+        paths: &[(String, crate::actor::KinematicPath)],
+    ) -> Self {
+        let archetype = EnemyArchetype::from_brain(&brain);
+        let motion = match &brain {
+            crate::actor::EnemyBrain::Patrol {
+                path_id: Some(path_id),
+            } if !archetype.is_sandbag() => paths
+                .iter()
+                .find(|(p_id, _)| p_id == path_id)
+                .map(|(_, path)| PathMotion::new(path.clone())),
+            _ => None,
+        };
+        let pos = motion
+            .as_ref()
+            .and_then(PathMotion::start_pos)
+            .unwrap_or_else(|| aabb.center());
+        let size = archetype
+            .default_size()
+            .unwrap_or_else(|| aabb.half_size() * 2.0);
+        Self {
+            kin: ActorKinematics {
+                pos,
+                vel: ae::Vec2::ZERO,
+                size,
+                facing: -1.0,
+            },
+            status: EnemyStatus {
+                alive: true,
+                respawn_timer: 0.0,
+                hit_flash: 0.0,
+                ai_mode: crate::character_ai::CharacterAiMode::Idle,
+                health: crate::actor::Health::new(archetype.max_health()),
+            },
+            surface: ActorSurfaceState {
+                on_ground: false,
+                surface_normal: ae::Vec2::new(0.0, -1.0),
+                gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
+                air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
+            },
+            attack: ActorAttackState::default(),
+            config: EnemyConfig {
+                id: id.into(),
+                name: name.into(),
+                archetype,
+                brain,
+                spawn: ActorSpawnState {
+                    pos,
+                    archetype,
+                    size,
+                },
+                sprite_override_npc_name: None,
+            },
+            motion: ActorMotionPath(motion),
+        }
+    }
+
     /// Build the clusters from a legacy `EnemyRuntime`. Transition aid
     /// (spawn + NPC→enemy conversion still produce an `EnemyRuntime`
     /// first); also used by the integration parity test.

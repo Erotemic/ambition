@@ -121,20 +121,20 @@ pub fn sync_ecs_npc_actors_with_save(
             continue;
         }
         let mut hostile = enemy_runtime_for_npc_combat(&npc.config, &npc.kin, &npc.surface);
-        if data.flag(&format!("enemy_{}_dead", hostile.id))
+        if data.flag(&format!("enemy_{}_dead", hostile.config.id))
             || data.flag(&format!(
                 "enemy_{}{}",
-                hostile.id,
+                hostile.config.id,
                 crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
             ))
         {
-            hostile.alive = false;
-            hostile.health.current = 0;
+            hostile.status.alive = false;
+            hostile.status.health.current = 0;
         }
         aggression.mode = AggressionMode::HostileToPlayer;
         let (new_brain, new_action_set) =
             super::brain_builders::aggressive_brain_and_action_set_for_enemy(
-                &hostile, combat_kit, held_item,
+                &hostile.config, combat_kit, held_item,
             );
         make_entity_enemy(
             &mut commands,

@@ -6,7 +6,8 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use super::super::enemies::{EnemyArchetype, EnemyBrainTemplate, EnemyRuntime};
+use super::super::enemies::{EnemyArchetype, EnemyBrainTemplate};
+use super::enemy_clusters::EnemyConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
 use crate::brain::{
@@ -20,7 +21,7 @@ use crate::brain::{
 /// The kit intentionally does **not** include held item overlays; a held item is
 /// a separate component and can be dropped/swapped later. `ActionSet` is derived
 /// from `CombatKit + HeldItem` for whichever aggression state is currently live.
-pub(super) fn enemy_default_combat_kit(enemy: &EnemyRuntime) -> CombatKit {
+pub(super) fn enemy_default_combat_kit(enemy: &EnemyConfig) -> CombatKit {
     let archetype = enemy.archetype;
     CombatKit {
         innate_melee: archetype.melee_spec(),
@@ -42,7 +43,7 @@ pub(super) fn action_set_from_combat_kit(
 /// data-driven `EnemyArchetypeSpec` — every spec value (timings, damage,
 /// reach) lives in `enemy_archetypes.ron`. Adding a new archetype is a single
 /// RON row + a new `EnemyArchetype` enum variant.
-pub(super) fn enemy_default_action_set(enemy: &EnemyRuntime) -> ActionSet {
+pub(super) fn enemy_default_action_set(enemy: &EnemyConfig) -> ActionSet {
     let kit = enemy_default_combat_kit(enemy);
     kit.to_action_set(enemy.archetype.held_item_spec().as_ref())
 }
@@ -69,7 +70,7 @@ fn held_item_grants_ranged(archetype: EnemyArchetype) -> bool {
 ///
 /// Reads `brain_template()` off the consolidated `EnemyArchetypeSpec` so adding
 /// a new archetype is a single row, not a parallel match.
-pub(in crate::content::features) fn enemy_default_brain(enemy: &EnemyRuntime) -> Brain {
+pub(in crate::content::features) fn enemy_default_brain(enemy: &EnemyConfig) -> Brain {
     let archetype = enemy.archetype;
     match archetype.brain_template() {
         EnemyBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
@@ -97,7 +98,7 @@ pub(in crate::content::features) fn enemy_default_brain(enemy: &EnemyRuntime) ->
 /// struck; this override gives them the same concrete heavy swing/capability
 /// once the hostility flag is set.
 pub(super) fn aggressive_brain_and_action_set_for_enemy(
-    enemy: &EnemyRuntime,
+    enemy: &EnemyConfig,
     kit: &CombatKit,
     held_item: Option<&HeldItem>,
 ) -> (Brain, ActionSet) {
@@ -124,7 +125,7 @@ pub(super) fn aggressive_brain_and_action_set_for_enemy(
     (enemy_default_brain(enemy), action_set)
 }
 
-fn forced_hostile_melee_brute_brain(enemy: &EnemyRuntime, min_aggro_radius: f32) -> Brain {
+fn forced_hostile_melee_brute_brain(enemy: &EnemyConfig, min_aggro_radius: f32) -> Brain {
     let archetype = enemy.archetype;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let aggro_radius = archetype.aggro_radius().max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
@@ -141,7 +142,7 @@ fn forced_hostile_melee_brute_brain(enemy: &EnemyRuntime, min_aggro_radius: f32)
     })
 }
 
-pub(super) fn melee_brute_brain_for_enemy(enemy: &EnemyRuntime) -> Brain {
+pub(super) fn melee_brute_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
     let archetype = enemy.archetype;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let aggro_radius = archetype.aggro_radius() * (0.8 + 0.4 * jitters.0);
@@ -158,12 +159,12 @@ pub(super) fn melee_brute_brain_for_enemy(enemy: &EnemyRuntime) -> Brain {
     })
 }
 
-pub(super) fn skirmisher_brain_for_enemy(enemy: &EnemyRuntime) -> Brain {
+pub(super) fn skirmisher_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
     let archetype = enemy.archetype;
     skirmisher_brain_from_archetype(&enemy.id, archetype, archetype.attacks_player())
 }
 
-fn sniper_brain_for_enemy(enemy: &EnemyRuntime) -> Brain {
+fn sniper_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
     let archetype = enemy.archetype;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let base_cooldown_s = 1.5;
@@ -181,7 +182,7 @@ fn sniper_brain_for_enemy(enemy: &EnemyRuntime) -> Brain {
     })
 }
 
-fn shark_brain_for_enemy(enemy: &EnemyRuntime) -> Brain {
+fn shark_brain_for_enemy(enemy: &EnemyConfig) -> Brain {
     let archetype = enemy.archetype;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
     let aggro_radius = archetype.aggro_radius() * (0.85 + 0.3 * jitters.0);
@@ -241,7 +242,7 @@ pub(super) fn mounted_rider_brain_and_action_set(
 /// default is peaceful. Dismount means "fall off and fight," so the builder
 /// installs an aggressive MeleeBrute brain plus a melee-only action set.
 pub(super) fn dismounted_rider_brain_and_action_set(
-    rider: &EnemyRuntime,
+    rider: &EnemyConfig,
     held_item: Option<&crate::brain::HeldItemSpec>,
 ) -> (Brain, ActionSet) {
     let mut action_set = enemy_default_action_set(rider);
@@ -344,14 +345,15 @@ mod tests {
     use super::*;
     use crate::engine_core as ae;
 
-    fn enemy(brain_key: &str) -> EnemyRuntime {
-        EnemyRuntime::new(
+    fn enemy(brain_key: &str) -> EnemyConfig {
+        super::super::enemy_clusters::EnemyClusterScratch::new(
             "e",
             "E",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
             crate::actor::EnemyBrain::Custom(brain_key.into()),
             &[],
         )
+        .config
     }
 
     #[test]

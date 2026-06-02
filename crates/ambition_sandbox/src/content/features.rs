@@ -51,9 +51,7 @@ const CHEST_FALL_MAX_SPEED: f32 = 900.0;
 
 mod boss_attack_geometry;
 mod bosses;
-mod breakables;
 mod bus;
-mod chests;
 pub mod components;
 mod ecs;
 mod enemies;
@@ -61,7 +59,6 @@ mod events;
 mod hazards;
 mod npcs;
 mod path_motion;
-mod pickups;
 mod util;
 mod world_overlay;
 
@@ -74,12 +71,10 @@ pub use bosses::{
     boss_special_for_profile, BossAttackProfile, BossBehaviorProfile, BossMovementProfile,
     BossRuntime, BossSpriteMetrics, GNU_TON_APPLE_OWNER_PREFIX, GRADIENT_SENTINEL_ENCOUNTER_ID,
 };
-pub use breakables::BreakableRuntime;
 pub use bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
     GameplayEffectsSchedulePlugin,
 };
-pub use chests::ChestRuntime;
 pub(crate) use ecs::npc_component_snapshot;
 
 pub use components::{
@@ -141,7 +136,6 @@ pub use events::{
 pub use hazards::HazardRuntime;
 pub use npcs::{NPC_PATROL_SPEED};
 pub use path_motion::PathMotion;
-pub use pickups::PickupRuntime;
 pub use world_overlay::world_with_sandbox_solids;
 
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;

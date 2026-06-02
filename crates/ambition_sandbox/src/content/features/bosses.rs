@@ -713,19 +713,6 @@ impl BossSpriteMetrics {
     }
 }
 
-/// Map a [`crate::brain::BossAttackProfile`] to the boss sprite's
-/// animation name. Used by `volumes_for_profile` /
-/// `damageable_volumes` to look up per-animation hit + hurt box
-/// data in [`BossSpriteMetrics::animations`]. Returns `None` for
-/// profiles whose sheet isn't the AI-Slop-Zeta clockwork
-/// (mockingbird / gnu_ton); the consumer falls back to its
-/// hardcoded math in that case.
-pub fn boss_animation_for_profile(
-    profile: &crate::brain::BossAttackProfile,
-) -> Option<&'static str> {
-    boss_animation_keys_for_profile(profile).first().copied()
-}
-
 /// Ordered sprite-metadata keys that may describe a boss attack
 /// profile's gameplay geometry. The first key is the canonical
 /// runtime key; later keys are row-name aliases used by generated

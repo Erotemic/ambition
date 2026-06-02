@@ -111,7 +111,7 @@ When you wake up here, pick the next task from this list and work on it without 
 - [x] **Cutscene/dialogue input and presentation polish** `[V4/D3]` - `issues.md` reports cutscenes that only show text in debug view and say the wrong continue prompt. Route acknowledgement through the same canonical input seam used by keyboard/gamepad/touch, and make the displayed prompt match the active control method.
   - Good session shape: find the current cutscene UI path, make one visible prompt accurate, then add or update a scripted-gameplay test for dialogue acknowledgement.
 
-- [ ] **Menu mouse-hover vs keyboard navigation conflict** `[V3/D2]` - If the mouse is hovering an option while the user navigates by arrow keys / controller, the hover state can fight selection movement. Make menu focus policy explicit: pointer motion may set focus, but stale pointer position should not override a newer keyboard/controller navigation edge.
+- [x] **Menu mouse-hover vs keyboard navigation conflict** `[V3/D2]` — _Verified done 2026-06-02 (autonomous)._ `ui_nav::pointer` makes focus ownership explicit via `MenuFocusState { owner: MenuFocusOwner::{Keyboard,Pointer}, last_hovered_row }`. `handle_selectable_row_interaction` ignores a `Hovered` event (returns `RowPointerOutcome::None`) when keyboard owns focus AND the hovered row equals `last_hovered_row` — i.e. a stationary/stale hover can't reassert over newer directional nav, while a genuine pointer move to a new row still claims focus. `mark_keyboard` preserves `last_hovered_row` so the guard survives a keyboard edge. Pinned by `keyboard_focus_blocks_stale_hover_on_same_row` (+ 10 other `ui_nav` tests).
 
 ## A - Sandbox expressiveness and mechanics
 

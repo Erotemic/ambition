@@ -214,3 +214,78 @@ pub enum ProjectileSolidHit {
     /// weren't there.
     Passthrough,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fireball(pos: Vec2, vel: Vec2, bounces: u8) -> ProjectileBody {
+        ProjectileBody {
+            kind: ProjectileKind::Fireball,
+            faction: ProjectileFaction::Player,
+            pos,
+            vel,
+            age: 0.0,
+            max_lifetime: 1.0,
+            gravity: 0.0,
+            half_extent: Vec2::new(4.0, 4.0),
+            damage: 2,
+            bounces_remaining: bounces,
+        }
+    }
+
+    #[test]
+    fn tick_advances_position_and_applies_gravity() {
+        let mut p = fireball(Vec2::new(0.0, 0.0), Vec2::new(100.0, 0.0), 0);
+        p.gravity = 200.0;
+        let alive = p.tick(0.1);
+        assert!(alive, "still alive well within lifetime");
+        // vy gains gravity*dt first, then pos integrates the new velocity.
+        assert!((p.vel.y - 20.0).abs() < 1e-3);
+        assert!((p.pos.x - 10.0).abs() < 1e-3 && (p.pos.y - 2.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn tick_returns_false_and_holds_position_when_expired() {
+        let mut p = fireball(Vec2::new(5.0, 5.0), Vec2::new(100.0, 0.0), 0);
+        p.max_lifetime = 0.1;
+        let alive = p.tick(0.2);
+        assert!(!alive, "a tick past the lifetime reports dead");
+        assert!(p.is_expired());
+        assert_eq!(p.pos, Vec2::new(5.0, 5.0), "expiring tick does not move the body");
+    }
+
+    #[test]
+    fn aabb_is_centered_on_position() {
+        let p = fireball(Vec2::new(50.0, 60.0), Vec2::ZERO, 0);
+        let bb = p.aabb();
+        assert_eq!(bb.min, Vec2::new(46.0, 56.0));
+        assert_eq!(bb.max, Vec2::new(54.0, 64.0));
+    }
+
+    #[test]
+    fn fireball_bounces_off_a_floor_top_then_expires_when_budget_runs_out() {
+        // Body just above a block, moving down, one bounce left.
+        let mut p = fireball(Vec2::new(50.0, 50.0), Vec2::new(0.0, 100.0), 1);
+        let block = aabb_from_min_size(Vec2::new(40.0, 54.0), Vec2::new(20.0, 20.0));
+
+        let first = p.resolve_solid_hit(block);
+        assert_eq!(first, ProjectileSolidHit::Bounced);
+        assert!(p.vel.y < 0.0, "bounce reverses vertical velocity");
+        assert_eq!(p.bounces_remaining, 0, "bounce spends the budget");
+
+        // Re-aim downward into the same floor with no budget left → expires.
+        p.vel.y = 100.0;
+        let second = p.resolve_solid_hit(block);
+        assert_eq!(second, ProjectileSolidHit::Expired);
+    }
+
+    #[test]
+    fn side_contact_expires_instead_of_bouncing() {
+        // Body fully inside the block's y-range = a side hit, never a bounce.
+        let mut p = fireball(Vec2::new(50.0, 60.0), Vec2::new(100.0, 0.0), 2);
+        let block = aabb_from_min_size(Vec2::new(40.0, 40.0), Vec2::new(20.0, 60.0));
+        assert_eq!(p.resolve_solid_hit(block), ProjectileSolidHit::Expired);
+        assert_eq!(p.bounces_remaining, 2, "a side hit does not spend a bounce");
+    }
+}

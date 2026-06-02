@@ -211,3 +211,90 @@ pub fn analog_to_dir(x: f32, y: f32, threshold: f32) -> Option<MenuDir> {
         Some(MenuDir::Down)
     }
 }
+
+#[cfg(test)]
+mod menu_input_tests {
+    //! Pure menu-input logic: the analog stick -> direction mapping, the
+    //! scroll-to-rows quantizer, and the analog auto-repeat state machine
+    //! (cardinal edges always fire; a held stick waits an initial delay
+    //! then repeats; release resets).
+    use super::*;
+
+    fn step(s: &mut MenuInputState, dir: Option<MenuDir>) -> MenuInputFrame {
+        s.step(false, false, false, false, dir, false, false, false, 0.1, 0.3, 0.1)
+    }
+
+    #[test]
+    fn analog_to_dir_picks_dominant_axis_past_threshold() {
+        assert_eq!(analog_to_dir(0.0, 0.0, 0.5), None);
+        assert_eq!(analog_to_dir(1.0, 0.0, 0.5), Some(MenuDir::Right));
+        assert_eq!(analog_to_dir(-1.0, 0.0, 0.5), Some(MenuDir::Left));
+        assert_eq!(analog_to_dir(0.0, 1.0, 0.5), Some(MenuDir::Up));
+        assert_eq!(analog_to_dir(0.0, -1.0, 0.5), Some(MenuDir::Down));
+        // x dominates a shallow diagonal.
+        assert_eq!(analog_to_dir(1.0, 0.4, 0.5), Some(MenuDir::Right));
+    }
+
+    #[test]
+    fn vertical_scroll_steps_rounds_and_clamps() {
+        let frame = |s: f32| MenuControlFrame {
+            scroll_y: s,
+            ..Default::default()
+        };
+        assert_eq!(frame(2.4).vertical_scroll_steps(), 2);
+        assert_eq!(frame(0.4).vertical_scroll_steps(), 0);
+        assert_eq!(frame(10.0).vertical_scroll_steps(), 6);
+        assert_eq!(frame(-10.0).vertical_scroll_steps(), -6);
+    }
+
+    #[test]
+    fn from_menu_input_mirrors_fields_and_navigation_predicates() {
+        let cf = MenuControlFrame::from_menu_input(MenuInputFrame {
+            down: true,
+            ..Default::default()
+        });
+        assert!(cf.down && cf.any_directional() && cf.any_navigation());
+        let scroll = MenuControlFrame {
+            scroll_y: 1.0,
+            ..Default::default()
+        };
+        assert!(!scroll.any_directional());
+        assert!(scroll.any_navigation(), "a scroll past 0.5 counts as navigation");
+    }
+
+    #[test]
+    fn step_emits_new_direction_then_waits_under_the_initial_delay() {
+        let mut s = MenuInputState::default();
+        assert!(step(&mut s, Some(MenuDir::Down)).down, "new direction emits at once");
+        assert_eq!(s.held_dir, Some(MenuDir::Down));
+        assert!(
+            !step(&mut s, Some(MenuDir::Down)).down,
+            "still under the initial delay -> no repeat yet"
+        );
+    }
+
+    #[test]
+    fn step_repeats_after_the_initial_delay() {
+        let mut s = MenuInputState::default();
+        step(&mut s, Some(MenuDir::Up)); // initial emit
+        let repeats = (0..20).filter(|_| step(&mut s, Some(MenuDir::Up)).up).count();
+        assert!(repeats > 0, "a held direction eventually repeats");
+    }
+
+    #[test]
+    fn step_release_resets_held_dir() {
+        let mut s = MenuInputState::default();
+        step(&mut s, Some(MenuDir::Left));
+        assert_eq!(s.held_dir, Some(MenuDir::Left));
+        step(&mut s, None);
+        assert_eq!(s.held_dir, None, "releasing the stick clears held_dir");
+    }
+
+    #[test]
+    fn step_cardinal_edges_always_emit() {
+        let mut s = MenuInputState::default();
+        let f = s.step(true, false, false, false, None, false, false, false, 0.1, 0.3, 0.1);
+        assert!(f.up, "a cardinal edge emits regardless of the analog repeat state");
+        assert_eq!(s.held_dir, None);
+    }
+}

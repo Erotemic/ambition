@@ -32,8 +32,8 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 - [x] Enemy ranged projectiles, enemy melee windup starts, and current authored boss specials have `ActorActionMessage` consumers.
 - [~] Dialogue/commerce hooks: architectural seed exists, content pipeline is not final.
 - [~] Boss profiles and phase machines: playable, with RON numeric specs; not fully data-authored behavior.
-- [~] Combat-hit metadata: damage works, but `DamageEvent`, hostile `Hitbox`, `PlayerDamageEvent`, and boss outcomes are not unified into a canonical per-hit object.
-- [ ] Canonical `HitSpec` / `HitInstance` / `HitResult` pipeline with raw damage, final damage, stagger/poise, elements/status, knockback, hitstop, VFX/SFX, and rejection reasons.
+- [x] Combat-hit metadata unified into one canonical per-hit object: `DamageEvent` / `PlayerDamageEvent` deleted; player slash/pogo/projectile, hostile `Hitbox`, hazards, enemy, and boss hits all flow through `HitEvent { volume, damage, source, attacker, target, mode, knockback }` consumed by `apply_feature_hit_events`.
+- [ ] Advanced `HitResult` fields on top of `HitEvent`: stagger/poise, elements/status, hitstop, and explicit rejection reasons — land alongside the mechanics that need them, not speculatively.
 - [ ] Bubble shield dodge/roll policy.
 - [~] Falling-sand / fluid toy-room simulation: prototype landed (`falling_sand.rs`, `falling_sand` feature) — spouts + wall mirroring + collidable piles; pile-up polish remains.
 

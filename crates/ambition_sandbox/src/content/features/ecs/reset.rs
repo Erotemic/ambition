@@ -206,3 +206,62 @@ pub fn reset_ecs_npc_actors(
         );
     }
 }
+
+#[cfg(test)]
+mod reset_tests {
+    //! Same-room sandbox reset. A ResetRoomFeaturesEvent clears the
+    //! transient feature markers so a room can be retried: collected
+    //! pickups un-collect, opened chests un-open, broken breakables
+    //! return to Intact. No event -> no change.
+    use super::*;
+    use crate::combat_slots::CombatSlotsRes;
+    use crate::enemy_projectile::EnemyProjectileState;
+    use crate::interaction::Breakable;
+    use bevy::prelude::{App, Entity, Update};
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.insert_resource(EnemyProjectileState::default());
+        app.insert_resource(CombatSlotsRes::default());
+        app.add_message::<ResetRoomFeaturesEvent>();
+        app.add_systems(Update, reset_ecs_room_features);
+        app
+    }
+
+    fn broken_breakable(app: &mut App) -> Entity {
+        let mut b = Breakable::new("brk", 1);
+        b.apply_damage(5); // health 1 -> Broken
+        app.world_mut()
+            .spawn((FeatureSimEntity, BreakableFeature::new(b)))
+            .id()
+    }
+
+    #[test]
+    fn reset_clears_room_feature_markers() {
+        let mut app = app();
+        let chest = app.world_mut().spawn((FeatureSimEntity, Opened)).id();
+        let pickup = app.world_mut().spawn((FeatureSimEntity, Collected)).id();
+        let brk = broken_breakable(&mut app);
+
+        app.world_mut().write_message(ResetRoomFeaturesEvent);
+        app.update();
+
+        assert!(app.world().get::<Opened>(chest).is_none(), "reset un-opens chests");
+        assert!(app.world().get::<Collected>(pickup).is_none(), "reset un-collects pickups");
+        assert!(
+            !app.world().get::<BreakableFeature>(brk).unwrap().broken(),
+            "reset restores a broken breakable to Intact"
+        );
+    }
+
+    #[test]
+    fn no_event_leaves_state_untouched() {
+        let mut app = app();
+        let chest = app.world_mut().spawn((FeatureSimEntity, Opened)).id();
+        app.update(); // no ResetRoomFeaturesEvent written
+        assert!(
+            app.world().get::<Opened>(chest).is_some(),
+            "without the reset event the markers stay"
+        );
+    }
+}

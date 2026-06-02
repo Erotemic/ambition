@@ -1,21 +1,21 @@
 # Gameplay effects, damage messages, and ECS messages
 
-The sandbox routes cross-system gameplay side effects through typed Bevy messages. The main progression/save/audio effect stream is `features::GameplayEffect`, consumed by focused systems in `features::bus`. Feature-local interactions use additional typed messages such as `DamageEvent`, `PogoBounceEvent`, `PlayerDamageEvent`, `ResetRoomFeaturesEvent`, and `GameplayBannerRequested`.
+The sandbox routes cross-system gameplay side effects through typed Bevy messages. The progression/save/audio effect streams are **four focused messages** consumed by per-effect systems in `features::bus`. Feature-local interactions use additional typed messages such as `DamageEvent`, `PogoBounceEvent`, `PlayerDamageEvent`, `ResetRoomFeaturesEvent`, and `GameplayBannerRequested`.
 
-**Review date:** 2026-05-27. Reviewed against source archive `ambition-source-2026-05-26T222032-5-3e93516618a5`.
+**Review date:** 2026-06-02. The single mixed-purpose `GameplayEffect` enum was split into the four typed messages below (ecs-cleanup-plan #5); the earlier no-op `DamageBoss` / `StrikeNpc` variants were already deleted (boss damage applies inline; NPC strikes route through `ActorStimulus`).
 
 The old `FeatureEventBus`, `FeatureEvents`, and `FeatureEcsQueues` bridge layers have been removed. New producers should write typed messages directly instead of adding ad-hoc vectors or custom resource queues.
 
 ## Current boundary
 
-Use `GameplayEffect` for effects that cross into progression, save, encounter, boss, quest, or standalone audio routing:
+Use the focused progression/save/audio messages for effects that cross into save, quest, encounter, or standalone audio routing. Each has a single consumer system in `features::bus`:
 
-- `SetFlag { id, on }`
-- `AdvanceQuest(QuestAdvanceEvent)`
-- `ActivateSwitch { payload, pos }`
-- `DamageBoss { boss_id, amount }`
-- `StrikeNpc { npc_id, pos }`
-- `PlaySfx { id, pos }` for standalone audio-only effects
+- `SetFlagRequested { id, on }` — save flag + same-frame `QuestAdvanceEvent::FlagSet` mirror (`apply_flag_effects`).
+- `QuestAdvanceRequested(QuestAdvanceEvent)` — structured quest events (`apply_quest_effects`).
+- `SwitchActivated { activation, pos }` — switch activation → encounter queue + click SFX (`apply_switch_effects`).
+- `GameplaySfxRequested { id, pos }` — standalone audio-only effects (`apply_gameplay_sfx_effects`).
+
+(Boss damage is applied inline in the hit path; NPC strike/aggression flows through `ActorStimulus` → `apply_npc_stimuli` / `apply_actor_stimuli`.)
 
 Use domain-specific messages when the consumer is known and the payload is more specific:
 
@@ -39,7 +39,6 @@ Combat works, but there is no single canonical per-hit object yet.
 | Hostile `Hitbox` entities | Enemy/boss melee active windows | Good explicit lifecycle, but payload is still small and target-specific resolution happens downstream. |
 | `PlayerDamageEvent` | Hazards, hostile hitboxes, enemy projectiles, boss attacks damaging the player | Incoming-only shape; separate from outgoing damage. |
 | `BossDamageOutcome` | Boss HP/invulnerability/kill result | Useful outcome object, but only boss-specific. |
-| `GameplayEffect::DamageBoss` | Cross-domain boss damage observation seam | The active damage path applies boss damage inline before this bus seam. |
 
 The next durable cleanup is a `HitSpec` -> `HitInstance` -> `HitResult` pipeline:
 
@@ -60,7 +59,7 @@ Producers write messages during the simulation phase. Focused readers then consu
 1. Simulation systems emit typed messages.
 2. Brain/action consumers resolve `ActorActionMessage` into concrete hitboxes, projectiles, boss specials, and related effects.
 3. Feature-damage systems resolve `DamageEvent` / `PogoBounceEvent` / hostile `Hitbox` overlaps against ECS feature components.
-4. Gameplay-effect readers apply save, quest, switch, boss, NPC-strike, and SFX side effects.
+4. The focused effect readers apply save (`SetFlagRequested`), quest (`QuestAdvanceRequested`), switch (`SwitchActivated`), and SFX (`GameplaySfxRequested`) side effects; NPC strike/aggression is handled by the `ActorStimulus` readers.
 5. Progression systems observe the updated state in the same `Update` frame.
 
 Do not make each producer manually reach into save, quest, boss, switch, or audio resources unless the behavior is truly local to that producer.
@@ -72,8 +71,7 @@ The immediate goal is not to remove every string id. Authored content still uses
 When adding new gameplay behavior, prefer one of these options in order:
 
 1. Reuse an existing domain-specific message.
-2. Add a new domain-specific message and focused consumer.
-3. Add a new `GameplayEffect` variant for cross-domain progression/save/audio routing.
-4. For combat-hit behavior, prefer extending the future `HitSpec`/`HitInstance` shape over adding a new parallel damage event.
+2. Add a new focused typed message + its own consumer system (the `SetFlagRequested` / `SwitchActivated` / … pattern) for cross-domain progression/save/audio routing.
+3. For combat-hit behavior, prefer extending the future `HitSpec`/`HitInstance` shape over adding a new parallel damage event.
 
 Do not add another custom bridge resource or parallel side-effect vector.

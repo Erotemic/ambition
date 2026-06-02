@@ -1,6 +1,6 @@
 # Gameplay effects, damage messages, and ECS messages
 
-The sandbox routes cross-system gameplay side effects through typed Bevy messages. The progression/save/audio effect streams are **four focused messages** consumed by per-effect systems in `features::bus`. Feature-local interactions use additional typed messages such as `DamageEvent`, `PogoBounceEvent`, `PlayerDamageEvent`, `ResetRoomFeaturesEvent`, and `GameplayBannerRequested`.
+The sandbox routes cross-system gameplay side effects through typed Bevy messages. The progression/save/audio effect streams are **four focused messages** consumed by per-effect systems in `features::bus`. Feature-local interactions use additional typed messages such as the unified combat `HitEvent`, `ResetRoomFeaturesEvent`, and `GameplayBannerRequested`.
 
 **Review date:** 2026-06-02. The single mixed-purpose `GameplayEffect` enum was split into the four typed messages below (ecs-cleanup-plan #5); the earlier no-op `DamageBoss` / `StrikeNpc` variants were already deleted (boss damage applies inline; NPC strikes route through `ActorStimulus`).
 
@@ -19,9 +19,7 @@ Use the focused progression/save/audio messages for effects that cross into save
 
 Use domain-specific messages when the consumer is known and the payload is more specific:
 
-- `DamageEvent` for slash/projectile damage against ECS feature targets.
-- `PogoBounceEvent` for pogo-refresh breakables.
-- `PlayerDamageEvent` for hazards, enemy attacks, and boss attacks damaging the player.
+- `HitEvent` (carrying a `HitSource` + `HitTarget`) for **all** combat damage — player slash/projectile against feature targets, pogo-bounce orbs, and hazard/enemy/boss damage against the player. This replaced the old separate `DamageEvent` / `PogoBounceEvent` / `PlayerDamageEvent`.
 - `ActorActionMessage` for resolved brain/action requests that spawn or start concrete effects.
 - `GameplayBannerRequested` for HUD banner text from systems whose parameter list is already large.
 - `ResetRoomFeaturesEvent` for same-room feature reset.
@@ -30,17 +28,24 @@ Presentation facts that already have a concrete presentation type should use the
 
 ## Damage and hit state today
 
-Combat works, but there is no single canonical per-hit object yet.
+The separate `DamageEvent` / `PogoBounceEvent` / `PlayerDamageEvent` shapes
+have been **unified into one `HitEvent`** carrying a `HitSource` (who/what
+caused it — `PlayerSlash` / `PlayerProjectile` / `PogoBounce` /
+`EnemyBody` / `EnemyProjectile` / `BossBody` / `BossAttack` / hazard / …),
+a `HitTarget` (broadcast `Volume` vs a specific player/actor entity), plus
+`volume`, `damage`, `HitMode`, and optional `HitKnockback`. Both outgoing
+(player → feature) and incoming (hazard/enemy/boss → player) damage flow
+through it. What's still missing is a full per-hit *lifecycle* object —
+`HitEvent` is the canonical transport, but reaction/poise/stagger/armor/
+scaling metadata isn't modeled yet.
 
-| Current shape | Producer / consumer role | Limitation |
+| Current shape | Role | Remaining limitation |
 |---|---|---|
-| `DamageEvent` | Player slash and player projectile hits against feature targets | Outgoing-only shape; does not carry full per-target reaction metadata. |
-| `PogoBounceEvent` | Pogo-refresh breakables | Specialized refresh/damage event, not a generic hit result. |
-| Hostile `Hitbox` entities | Enemy/boss melee active windows | Good explicit lifecycle, but payload is still small and target-specific resolution happens downstream. |
-| `PlayerDamageEvent` | Hazards, hostile hitboxes, enemy projectiles, boss attacks damaging the player | Incoming-only shape; separate from outgoing damage. |
-| `BossDamageOutcome` | Boss HP/invulnerability/kill result | Useful outcome object, but only boss-specific. |
+| `HitEvent { source, target, volume, damage, mode, knockback }` | The single attacker-side + victim-side hit message (`apply_feature_hit_events` applies it to actors/bosses/breakables; the player-damage reader applies victim-side sources to players) | Transports the contact but carries no defense/armor/stagger/reaction state — those are resolved ad hoc downstream. |
+| Hostile `Hitbox` entities | Enemy/boss melee active windows that emit `HitEvent`s on overlap | Good explicit lifecycle; the emitted event is still the small `HitEvent` shape. |
+| `BossDamageOutcome` | Boss HP/invulnerability/kill result returned by `record_boss_damage` | Useful outcome object, but only boss-specific. |
 
-The next durable cleanup is a `HitSpec` -> `HitInstance` -> `HitResult` pipeline:
+The next durable cleanup is a `HitSpec` -> `HitInstance` -> `HitResult` pipeline that adds the missing lifecycle metadata on top of the existing `HitEvent` transport:
 
 ```text
 HitSpec      authored/produced by attack, projectile, hazard, or tool
@@ -58,7 +63,7 @@ Producers write messages during the simulation phase. Focused readers then consu
 
 1. Simulation systems emit typed messages.
 2. Brain/action consumers resolve `ActorActionMessage` into concrete hitboxes, projectiles, boss specials, and related effects.
-3. Feature-damage systems resolve `DamageEvent` / `PogoBounceEvent` / hostile `Hitbox` overlaps against ECS feature components.
+3. Feature-damage systems resolve `HitEvent`s (by `HitSource`) and hostile `Hitbox` overlaps against ECS feature components.
 4. The focused effect readers apply save (`SetFlagRequested`), quest (`QuestAdvanceRequested`), switch (`SwitchActivated`), and SFX (`GameplaySfxRequested`) side effects; NPC strike/aggression is handled by the `ActorStimulus` readers.
 5. Progression systems observe the updated state in the same `Update` frame.
 

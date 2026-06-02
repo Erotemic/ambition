@@ -34,9 +34,9 @@ gameplay code SHOULD NOT mutate `boss.health` directly. The damage
 path is:
 
 ```text
-DamageEvent (player hits boss)
+HitEvent { source: PlayerSlash | PlayerProjectile, target, volume } (player hits boss)
   ↓
-apply_feature_damage_events (content/features/ecs/damage.rs)
+apply_feature_hit_events (content/features/ecs/damage.rs)
   ↓
 record_boss_damage (boss_encounter/damage.rs)
   ↓ apply_player_damage on the engine state
@@ -49,12 +49,15 @@ BossDamageOutcome { hp_remaining, killed, applied }
     (invulnerable phase swallowed the damage)
 ```
 
-`apply_boss_damage_effects` (in `content/features/bus.rs`) used to be
-the indirection layer that fed engine state via
-`GameplayEffect::DamageBoss`. The damage application happens inline
-in `apply_feature_damage_events` now; the bus reader stays as a typed
-seam for future tracing / quest / replay hooks that want to observe
-boss damage without re-routing through the registry.
+Boss damage used to route through a `GameplayEffect::DamageBoss` bus
+variant + an `apply_boss_damage_effects` reader. That variant was a no-op
+observation seam and both it and the reader have been **deleted** (the
+`GameplayEffect` enum itself was later split into focused messages —
+`SetFlagRequested` / `QuestAdvanceRequested` / `SwitchActivated` /
+`GameplaySfxRequested`; none of those carry boss damage). Boss damage is
+now applied **inline** in the hit path (`apply_boss_hit` →
+`record_boss_damage`); a future tracing / quest / replay observer should
+add its own focused message rather than reviving the old bus seam.
 
 `record_boss_damage` returns `Option<BossDamageOutcome>` (`None` when
 the runtime id has no registered encounter — gracefully degrades

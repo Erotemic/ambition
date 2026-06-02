@@ -55,6 +55,16 @@ pub fn axe_spec() -> HeldItemSpec {
     }
 }
 
+/// Authored javelin held item: a *pure throwable* (no melee/ranged verb), so
+/// using it (`Attack` while holding) throws it — the `ThrowOnUse` behavior.
+pub fn javelin_spec() -> HeldItemSpec {
+    HeldItemSpec {
+        id: "javelin".into(),
+        melee: None,
+        ranged: None,
+    }
+}
+
 /// Spawn one axe ground item near the player on the first frame a player
 /// exists (debug convenience until authored placement lands).
 pub fn spawn_debug_axe_once(
@@ -113,8 +123,17 @@ pub fn pickup_held_item_system(
     }
 }
 
-/// `Shield + Attack` throws the held item: restore the stashed action set,
-/// detach `HeldItem`, and drop a `GroundItem` ahead of the player.
+/// A "pure throwable" held item has no melee/ranged verb of its own, so its
+/// *use* is to be thrown (the javelin's `ThrowOnUse` behavior): a plain
+/// `Attack` while holding it throws it. Items with a verb (the axe) keep
+/// their swing on `Attack` and only throw on the explicit `Shield + Attack`.
+fn is_pure_throwable(spec: &HeldItemSpec) -> bool {
+    spec.melee.is_none() && spec.ranged.is_none()
+}
+
+/// Throw the held item: restore the stashed action set, detach `HeldItem`,
+/// and drop a `GroundItem` ahead of the player. Fires on `Shield + Attack`
+/// for any item, or on a plain `Attack` for a pure throwable (throw-on-use).
 pub fn throw_held_item_system(
     control: Res<ControlFrame>,
     mut commands: Commands,
@@ -129,12 +148,16 @@ pub fn throw_held_item_system(
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
 ) {
-    if !(control.shield_held && control.attack_pressed) {
+    if !control.attack_pressed {
         return;
     }
     let Ok((player, kin, mut action_set, held, stashed)) = players.single_mut() else {
         return;
     };
+    // Shield+Attack throws anything; a plain Attack only throws a pure throwable.
+    if !(control.shield_held || is_pure_throwable(&held.spec)) {
+        return;
+    }
     if let Some(stash) = stashed {
         *action_set = stash.0.clone();
     }
@@ -256,5 +279,41 @@ mod tests {
             q.iter(app.world()).count()
         };
         assert_eq!(thrown, 1, "the thrown axe should be back on the ground");
+    }
+
+    #[test]
+    fn javelin_is_thrown_on_plain_attack_use() {
+        let mut app = App::new();
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, (pickup_held_item_system, throw_held_item_system));
+        let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+        app.world_mut().spawn(GroundItem {
+            spec: javelin_spec(),
+            pos: Vec2::new(100.0, 100.0),
+            half_extent: Vec2::splat(PICKUP_HALF),
+        });
+
+        // First Attack picks up the javelin (commands flush after the tick, so
+        // the throw system can't also fire this frame).
+        set_control(&mut app, true, false);
+        app.update();
+        assert!(
+            app.world().get::<HeldItem>(player).is_some(),
+            "javelin should be picked up first"
+        );
+
+        // A second plain Attack (no shield) *uses* the javelin — which throws
+        // it, since it has no melee/ranged verb of its own.
+        set_control(&mut app, true, false);
+        app.update();
+        assert!(
+            app.world().get::<HeldItem>(player).is_none(),
+            "using the javelin should throw it and empty the hands"
+        );
+        let on_ground = {
+            let mut q = app.world_mut().query::<&GroundItem>();
+            q.iter(app.world()).count()
+        };
+        assert_eq!(on_ground, 1, "the thrown javelin should be on the ground");
     }
 }

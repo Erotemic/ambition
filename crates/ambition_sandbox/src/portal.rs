@@ -186,7 +186,12 @@ pub fn grant_portal_gun(
     players: Query<Entity, (With<PlayerEntity>, Without<PortalGun>)>,
 ) {
     for entity in &players {
-        commands.entity(entity).insert(PortalGun::default());
+        // Granted INACTIVE so it doesn't fire portals on every Attack during
+        // normal play — F7 toggles it on (and a held-item pickup will later).
+        commands.entity(entity).insert(PortalGun {
+            active: false,
+            ..PortalGun::default()
+        });
     }
 }
 

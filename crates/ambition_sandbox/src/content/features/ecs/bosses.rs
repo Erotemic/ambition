@@ -51,7 +51,7 @@ pub struct BossSpriteMetricsApplied;
 /// faction, targeting, HUD, and held-item work from needing to pattern-match
 /// directly on `BossFeature` for ordinary combat facts.
 pub(crate) fn boss_component_snapshot(
-    boss: &crate::content::features::bosses::BossRuntime,
+    boss: super::boss_clusters::BossRef<'_>,
     attack_state: &BossAttackState,
 ) -> (
     ActorIdentity,
@@ -61,7 +61,7 @@ pub(crate) fn boss_component_snapshot(
     ActorIntent,
     ActorCooldowns,
 ) {
-    let mode = if !boss.alive {
+    let mode = if !boss.status.alive {
         crate::character_ai::CharacterAiMode::Dead
     } else if attack_state.active_profile.is_some() {
         crate::character_ai::CharacterAiMode::Attack
@@ -71,12 +71,12 @@ pub(crate) fn boss_component_snapshot(
         crate::character_ai::CharacterAiMode::Chase
     };
     (
-        ActorIdentity::new(boss.id.clone(), boss.name.clone()),
+        ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
         ActorDisposition::Hostile,
-        ActorHealth::new(boss.health),
+        ActorHealth::new(boss.status.health),
         ActorCombatState::hostile(
-            boss.alive,
-            boss.hit_flash,
+            boss.status.alive,
+            boss.status.hit_flash,
             attack_state.telegraph_remaining,
             attack_state.active_remaining,
             false,
@@ -93,7 +93,7 @@ pub(crate) fn boss_component_snapshot(
 pub fn sync_boss_actor_components(
     mut bosses: Query<
         (
-            &BossFeature,
+            super::boss_clusters::BossClusterRef,
             &BossAttackState,
             &crate::brain::ActionSet,
             &mut CombatKit,
@@ -127,7 +127,7 @@ pub fn sync_boss_actor_components(
             next_combat,
             next_intent,
             next_cooldowns,
-        ) = boss_component_snapshot(&feature.boss, attack_state);
+        ) = boss_component_snapshot(feature.as_boss_ref(), attack_state);
         *combat_kit = CombatKit::from_action_set(action_set);
         *identity = next_identity;
         *disposition = next_disposition;
@@ -215,7 +215,11 @@ pub fn derive_boss_sprite_metrics(
     mut commands: Commands,
     registry: Option<Res<SheetRegistry>>,
     mut bosses: Query<
-        (Entity, &mut BossFeature, Option<&mut Brain>),
+        (
+            Entity,
+            super::boss_clusters::BossClusterQueryData,
+            Option<&mut Brain>,
+        ),
         (With<FeatureSimEntity>, Without<BossSpriteMetricsApplied>),
     >,
 ) {
@@ -231,17 +235,16 @@ pub fn derive_boss_sprite_metrics(
         return;
     }
     for (entity, mut feature, brain_opt) in &mut bosses {
-        let boss = &mut feature.boss;
         let Some((snapshot, derived_combat_size)) =
-            boss_sprite_metrics_from_registry(boss, &registry)
+            boss_sprite_metrics_from_registry(feature.as_boss_ref(), &registry)
         else {
             // No metadata for this boss — leave defaults alone.
             commands.entity(entity).insert(BossSpriteMetricsApplied);
             continue;
         };
-        boss.sprite_metrics = Some(snapshot);
+        feature.status.sprite_metrics = Some(snapshot);
         if let Some(derived) = derived_combat_size {
-            boss.behavior.combat_size = Some(derived);
+            feature.config.behavior.combat_size = Some(derived);
             // Mirror into the brain cfg so the soft world-bounds
             // clamp uses the new value too.
             if let Some(mut brain) = brain_opt {
@@ -281,24 +284,24 @@ pub fn boss_spawn_hurtboxes(
     brain: crate::actor::BossBrain,
 ) -> Vec<ae::Aabb> {
     let registry = SheetRegistry::from_baked();
-    let mut boss = crate::content::features::bosses::BossRuntime::new(id, name, aabb, brain);
-    if let Some((metrics, _)) = boss_sprite_metrics_from_registry(&boss, &registry) {
-        boss.sprite_metrics = Some(metrics);
+    let mut boss = super::boss_clusters::BossClusterScratch::new(id, name, aabb, brain);
+    if let Some((metrics, _)) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry) {
+        boss.status.sprite_metrics = Some(metrics);
     }
     let attack_state = crate::brain::BossAttackState::default();
-    crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_runtime(
-        &boss,
+    crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
+        boss.as_ref(),
         &attack_state,
     ))
 }
 
 pub(crate) fn boss_sprite_metrics_from_registry(
-    boss: &crate::content::features::bosses::BossRuntime,
+    boss: super::boss_clusters::BossRef<'_>,
     registry: &SheetRegistry,
 ) -> Option<(BossSpriteMetrics, Option<ae::Vec2>)> {
-    let target = sprite_target_for_boss(&boss.behavior.id);
+    let target = sprite_target_for_boss(&boss.config.behavior.id);
     let (metrics, frame_w, frame_h) = registry.body_metrics(target)?;
-    let sprite_render_size = sprite_render_size_for(target, boss.size);
+    let sprite_render_size = sprite_render_size_for(target, boss.kin.size);
     let mut snapshot = BossSpriteMetrics {
         frame_width: frame_w,
         frame_height: frame_h,
@@ -313,12 +316,12 @@ pub(crate) fn boss_sprite_metrics_from_registry(
         snapshot.body_pixel_bbox,
         frame_w,
         frame_h,
-        boss.pos,
+        boss.kin.pos,
         sprite_render_size,
     );
     let derived = bounding_aabb(&body_aabbs);
     if let Some(bound) = derived {
-        snapshot.combat_offset = bound.center() - boss.pos;
+        snapshot.combat_offset = bound.center() - boss.kin.pos;
     }
     Some((snapshot, derived.map(|b| b.half_size() * 2.0)))
 }
@@ -336,46 +339,47 @@ pub(crate) fn boss_sprite_metrics_from_registry(
 /// entry, leaving the boss permanently Dormant (no attacks).
 pub fn sync_boss_encounter_phase(
     encounter_registry: Res<crate::boss_encounter::BossEncounterRegistry>,
-    mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
+    mut bosses: Query<super::boss_clusters::BossClusterQueryData, With<FeatureSimEntity>>,
     mut last_logged: bevy::ecs::system::Local<
         std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
     >,
 ) {
     for mut feature in &mut bosses {
-        let boss = &mut feature.boss;
-        let lookup = encounter_registry.get(&boss.behavior.id);
+        let boss_id = feature.config.id.clone();
+        let behavior_id = feature.config.behavior.id.clone();
+        let lookup = encounter_registry.get(&behavior_id);
         let new_phase = lookup.map(|s| s.phase);
         // Log phase transitions per boss so we can see in the logs
         // when (or if) Dormant → Intro → Phase1 actually fires.
-        let prev = last_logged.get(&boss.behavior.id).copied();
+        let prev = last_logged.get(&behavior_id).copied();
         if new_phase != prev {
             match (lookup, new_phase) {
                 (Some(_), Some(phase)) => {
                     bevy::log::info!(
                         target: "ambition::boss_encounter",
                         "sync_phase: boss={} (behavior.id={}) phase {:?} → {:?}",
-                        boss.id,
-                        boss.behavior.id,
+                        boss_id,
+                        behavior_id,
                         prev,
                         phase,
                     );
-                    last_logged.insert(boss.behavior.id.clone(), phase);
+                    last_logged.insert(behavior_id.clone(), phase);
                 }
                 (None, _) => {
                     bevy::log::warn!(
                         target: "ambition::boss_encounter",
                         "sync_phase: boss={} behavior.id={} NOT IN encounter_registry (boss.encounter_phase stays {:?})",
-                        boss.id,
-                        boss.behavior.id,
-                        boss.encounter_phase,
+                        boss_id,
+                        behavior_id,
+                        feature.status.encounter_phase,
                     );
-                    last_logged.insert(boss.behavior.id.clone(), boss.encounter_phase);
+                    last_logged.insert(behavior_id.clone(), feature.status.encounter_phase);
                 }
                 _ => {}
             }
         }
         if let Some(phase) = new_phase {
-            boss.encounter_phase = phase;
+            feature.status.encounter_phase = phase;
         }
     }
 }
@@ -394,7 +398,7 @@ pub fn tick_boss_brains_system(
     mut bosses: Query<
         (
             bevy::ecs::entity::Entity,
-            &BossFeature,
+            super::boss_clusters::BossClusterRef,
             &mut Brain,
             &mut ActorControl,
             &mut BossAttackState,
@@ -407,8 +411,8 @@ pub fn tick_boss_brains_system(
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     for (entity, feature, mut brain, mut control, mut attack_state, target) in &mut bosses {
-        let boss = &feature.boss;
-        if !boss.alive {
+        let boss = feature.as_boss_ref();
+        if !boss.status.alive {
             // Dead boss: zero out frame + attack state so any
             // downstream consumer sees a coherent "no intent".
             control.0 = crate::actor_control::ActorControlFrame::neutral();
@@ -427,13 +431,13 @@ pub fn tick_boss_brains_system(
 
         let front_wall_clearance = boss_front_wall_clearance(
             &feature_world,
-            boss,
+            &boss,
             target.pos,
             cfg.macro_tuning.front_wall_standoff,
         );
         let ctx = BossPatternContext {
-            encounter_phase: boss.encounter_phase,
-            actor_pos: boss.pos,
+            encounter_phase: boss.status.encounter_phase,
+            actor_pos: boss.kin.pos,
             target_pos: target.pos,
             world_size: world.0.size,
             front_wall_clearance,
@@ -457,7 +461,7 @@ pub fn tick_boss_brains_system(
         // boss specials share one wiring.
         if frame.special_pressed {
             if let Some(profile) = attack_state.active_profile.as_ref() {
-                if let Some(spec) = boss_special_for_profile(profile, boss) {
+                if let Some(spec) = boss_special_for_profile(profile) {
                     action_messages.write(ActorActionMessage {
                         actor: entity,
                         request: ActionRequest::Special { spec },
@@ -471,14 +475,14 @@ pub fn tick_boss_brains_system(
 
 fn boss_front_wall_clearance(
     world: &ae::World,
-    boss: &crate::content::features::bosses::BossRuntime,
+    boss: &super::boss_clusters::BossRef<'_>,
     target_pos: ae::Vec2,
     standoff: f32,
 ) -> Option<f32> {
     if standoff <= 0.0 {
         return None;
     }
-    let dx = target_pos.x - boss.pos.x;
+    let dx = target_pos.x - boss.kin.pos.x;
     if dx.abs() <= 1.0 {
         return None;
     }
@@ -600,7 +604,7 @@ pub fn update_ecs_bosses(
     mut bosses: Query<
         (
             &mut FeatureAabb,
-            &mut BossFeature,
+            super::boss_clusters::BossClusterQueryData,
             &mut BossPatternTimer,
             &mut BossDeathAnimation,
             &mut BossPhase,
@@ -639,17 +643,18 @@ pub fn update_ecs_bosses(
         // lands boss-attack damage on this specific player.
         let target_entity = actor_target.entity;
         let target_player = target_entity.and_then(|e| player_query.get(e).ok());
-        let boss = &mut feature.boss;
         // Integration: take the brain-emitted desired_vel and let
         // `step_kinematic` translate it into a collision-resolved
         // position change. The brain decided what we want; the
         // runtime decides what's actually possible.
         if control.0.facing.abs() > 0.001 {
-            boss.facing = control.0.facing.signum();
+            feature.kin.facing = control.0.facing.signum();
         }
-        boss.integrate_body(&feature_world, control.0.desired_vel, dt);
-        aabb.center = boss.pos;
-        aabb.half_size = boss.render_size() * 0.5;
+        feature
+            .as_boss_mut()
+            .integrate_body(&feature_world, control.0.desired_vel, dt);
+        aabb.center = feature.kin.pos;
+        aabb.half_size = feature.as_boss_ref().render_size() * 0.5;
         // Mirror the brain's pattern_timer (now living in
         // `BossPatternState`) into the presentation-side
         // `BossPatternTimer` component for sprite-animation
@@ -659,14 +664,14 @@ pub fn update_ecs_bosses(
             Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) => state.pattern_timer,
             _ => 0.0,
         };
-        if boss.alive {
+        if feature.status.alive {
             death_anim.clear();
         } else if phase.is_active() && death_anim.remaining_s <= 0.0 {
             death_anim.start();
         } else {
             death_anim.tick(dt);
         }
-        *phase = BossPhase::from_alive(boss.alive);
+        *phase = BossPhase::from_alive(feature.status.alive);
         let (Some(target_entity), Some((kin, offense, dodge, shield, combat))) =
             (target_entity, target_player)
         else {
@@ -676,8 +681,8 @@ pub fn update_ecs_bosses(
         let dodge_rolling = dodge.roll_timer > 0.0;
         let player_vulnerable =
             !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable();
-        if player_vulnerable && boss.alive {
-            let ctx = BossVolumeContext::from_runtime(boss, attack_state)
+        if player_vulnerable && feature.status.alive {
+            let ctx = BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
                 .with_animation_frame(animation_frame);
             if let Some(damage) = boss_attack_damage(&ctx, target_entity, player_body) {
                 let pos = damage
@@ -739,22 +744,22 @@ mod tests {
 
     #[test]
     fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
-        use crate::content::features::bosses::{BossBehaviorProfile, BossRuntime};
+        use crate::content::features::bosses::BossBehaviorProfile;
         use crate::presentation::character_sprites::registry::SheetRegistry;
 
         let registry = SheetRegistry::from_baked();
         let pos = ae::Vec2::new(500.0, 400.0);
         let behavior = BossBehaviorProfile::gnu_ton();
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
-        let mut boss = BossRuntime::new(
+        let mut boss = super::super::boss_clusters::BossClusterScratch::new(
             "boss_gnu_ton",
             "GNU-ton",
             ae::Aabb::new(pos, combat_size * 0.5),
             crate::actor::BossBrain::Dormant,
         );
-        boss.behavior = behavior;
+        boss.config.behavior = behavior;
 
-        let (metrics, derived_size) = boss_sprite_metrics_from_registry(&boss, &registry)
+        let (metrics, derived_size) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry)
             .expect("gnu_ton sprite target should have body metrics in the baked registry");
         // The head/hand hurtboxes (what damageable_volumes consumes) live
         // in the per-animation map.

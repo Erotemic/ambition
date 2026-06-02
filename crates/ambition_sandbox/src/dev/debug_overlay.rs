@@ -177,7 +177,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            &'static crate::features::BossFeature,
+            crate::features::BossClusterRef,
             &'static crate::brain::BossAttackState,
             Option<&'static crate::features::BossAnimationFrameSample>,
         ),
@@ -576,7 +576,7 @@ fn draw_health_bars(
     draw_health_bar(gizmos, world, player_aabb, ratio, cyan());
     // Enemy / boss / breakable health bars are now drawn by
     // `sync_health_overlays` (the Bevy sprite overlay system), which reads
-    // ECS `ActorRuntime`, `BossFeature`, and `BreakableFeature` components.
+    // ECS `ActorRuntime`, boss cluster, and `BreakableFeature` components.
 }
 
 fn draw_health_bar(
@@ -682,18 +682,18 @@ fn draw_feature_debug(
     let hurtbox_color = cyan();
     let body_contact_color = Color::srgba(0.95, 0.30, 0.95, 0.85); // magenta
     for (bf, attack_state, animation_frame) in feature_q.bosses.iter() {
-        let boss = &bf.boss;
-        if !boss.alive {
+        let boss = bf.as_boss_ref();
+        if !boss.status.alive {
             continue;
         }
-        let ctx = crate::features::BossVolumeContext::from_runtime(boss, attack_state)
+        let ctx = crate::features::BossVolumeContext::from_ref(bf.as_boss_ref(), attack_state)
             .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
         // Body-contact damage zone — drawn ONLY when the boss
         // actually deals contact damage so a `body_damage = 0`
         // boss (like GNU-ton) doesn't show a misleading magenta
         // outline.
-        if boss.behavior.body_damage > 0 {
+        if boss.config.behavior.body_damage > 0 {
             // Use `boss.aabb()` directly — that already factors in
             // `combat_offset` so the magenta box lines up with the
             // visible body (and matches the pogo zone, which uses

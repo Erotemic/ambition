@@ -34,7 +34,7 @@ use crate::brain::{
 use crate::content::features::components::ActorFaction;
 use crate::content::features::ecs::actors::ActorRuntime;
 use crate::content::features::ecs::hitbox::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
-use crate::content::features::ecs::BossFeature;
+use crate::content::features::ecs::boss_clusters::BossClusterRef;
 use crate::content::features::ecs::FeatureSimEntity;
 #[cfg(test)]
 use crate::content::features::enemies::EnemyArchetype;
@@ -274,7 +274,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
     world: Res<crate::GameWorld>,
     mut messages: MessageReader<ActorActionMessage>,
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
-    mut bosses: Query<(Entity, &mut AppleRainSpawnState, &BossFeature), With<FeatureSimEntity>>,
+    mut bosses: Query<(Entity, &mut AppleRainSpawnState, BossClusterRef), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.sim_dt();
     // Bosses with a `Special::GnuAppleRain` request this tick.
@@ -305,8 +305,8 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
             state.spawn_accum = 0.0;
             continue;
         };
-        let boss = &boss_feature.boss;
-        if !boss.alive || interval_s <= 0.0 {
+        let boss = boss_feature.as_boss_ref();
+        if !boss.status.alive || interval_s <= 0.0 {
             continue;
         }
         state.spawn_accum += dt;
@@ -316,7 +316,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
             // Golden-ratio spread across the playable width, slid out
             // from under the boss body. See `apple_rain_spawn_x`.
             let spawn_x = apple_rain_spawn_x(state.spawn_index, world.0.size.x, self_aabb);
-            let spawn_y = (boss.pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
+            let spawn_y = (boss.kin.pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
                 .max(APPLE_RAIN_HALF_EXTENT.y + 8.0);
             enemy_projectiles.spawn(EnemyProjectileSpawn {
                 origin: ae::Vec2::new(spawn_x, spawn_y),
@@ -331,7 +331,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
                 owner_id: format!(
                     "{}:{}",
                     crate::content::features::bosses::GNU_TON_APPLE_OWNER_PREFIX,
-                    boss.id,
+                    boss.config.id,
                 ),
                 gravity: APPLE_RAIN_GRAVITY,
             });
@@ -478,7 +478,7 @@ pub fn spawn_overfit_volley_from_special_messages(
     mut bosses: Query<
         (
             Entity,
-            &BossFeature,
+            BossClusterRef,
             &BossAttackState,
             &mut OverfitVolleyState,
             Option<&super::super::components::ActorTarget>,
@@ -506,7 +506,7 @@ pub fn spawn_overfit_volley_from_special_messages(
     }
 
     for (entity, boss_feature, attack_state, mut state, actor_target) in &mut bosses {
-        let boss = &boss_feature.boss;
+        let boss = boss_feature.as_boss_ref();
         // Per-boss target: read kinematics for the player this boss
         // is tracking. Falls back to `actor_target.pos` (set by
         // `select_actor_targets` even when the player entity is None)
@@ -519,7 +519,7 @@ pub fn spawn_overfit_volley_from_special_messages(
                 .map(|kin| kin.aabb().center())
                 .or(Some(t.pos))
         });
-        if !boss.alive {
+        if !boss.status.alive {
             // Dead boss: clear samples so a respawned-then-attacking
             // boss doesn't inherit stale memory.
             state.samples.clear();
@@ -558,7 +558,7 @@ pub fn spawn_overfit_volley_from_special_messages(
             state.fired_this_strike = false;
         } else if let Some((shot_speed, damage)) = strike_params {
             if !state.fired_this_strike {
-                let origin = boss.pos + boss.behavior.projectile_origin_offset;
+                let origin = boss.kin.pos + boss.config.behavior.projectile_origin_offset;
                 for sample_pos in state.samples.iter() {
                     let delta = *sample_pos - origin;
                     let dir = delta.normalize_or_zero();
@@ -572,7 +572,7 @@ pub fn spawn_overfit_volley_from_special_messages(
                         damage,
                         max_lifetime: OVERFIT_VOLLEY_BOLT_LIFETIME,
                         half_extent: OVERFIT_VOLLEY_BOLT_HALF_EXTENT,
-                        owner_id: format!("{}:{}", OVERFIT_VOLLEY_OWNER_PREFIX, boss.id),
+                        owner_id: format!("{}:{}", OVERFIT_VOLLEY_OWNER_PREFIX, boss.config.id),
                         gravity: 0.0,
                     });
                 }
@@ -607,7 +607,7 @@ pub fn spawn_eye_beam_from_special_messages(
     mut bosses: Query<
         (
             Entity,
-            &BossFeature,
+            BossClusterRef,
             &BossAttackState,
             &mut EyeBeamState,
             Option<&super::super::components::ActorTarget>,
@@ -649,14 +649,14 @@ pub fn spawn_eye_beam_from_special_messages(
     }
 
     for (entity, boss_feature, attack_state, mut state, actor_target) in &mut bosses {
-        let boss = &boss_feature.boss;
+        let boss = boss_feature.as_boss_ref();
         let player_pos = actor_target.and_then(|t| {
             t.entity
                 .and_then(|e| player_query.get(e).ok())
                 .map(|kin| kin.aabb().center())
                 .or(Some(t.pos))
         });
-        if !boss.alive {
+        if !boss.status.alive {
             state.locked_target = None;
             state.fired_this_strike = false;
             continue;
@@ -685,15 +685,15 @@ pub fn spawn_eye_beam_from_special_messages(
         if state.fired_this_strike {
             continue;
         }
-        let target = state.locked_target.or(player_pos).unwrap_or(boss.pos);
+        let target = state.locked_target.or(player_pos).unwrap_or(boss.kin.pos);
         let offset = ae::Vec2::new(
-            boss.behavior.projectile_origin_offset.x * boss.facing.signum(),
-            boss.behavior.projectile_origin_offset.y,
+            boss.config.behavior.projectile_origin_offset.x * boss.kin.facing.signum(),
+            boss.config.behavior.projectile_origin_offset.y,
         );
-        let origin = boss.pos + offset;
+        let origin = boss.kin.pos + offset;
         let delta = target - origin;
         let dir = if delta.length_squared() < 1e-4 {
-            ae::Vec2::new(boss.facing.signum(), 0.0)
+            ae::Vec2::new(boss.kin.facing.signum(), 0.0)
         } else {
             delta.normalize()
         };
@@ -708,7 +708,7 @@ pub fn spawn_eye_beam_from_special_messages(
                 damage,
                 max_lifetime: lifetime_s.max(0.05),
                 half_extent: ae::Vec2::new(half_x.max(1.0), half_y.max(1.0)),
-                owner_id: format!("{}:{}", EYE_BEAM_OWNER_PREFIX, boss.id),
+                owner_id: format!("{}:{}", EYE_BEAM_OWNER_PREFIX, boss.config.id),
                 gravity: 0.0,
             });
         }
@@ -754,7 +754,7 @@ pub fn spawn_minima_trap_from_special_messages(
     mut bosses: Query<
         (
             Entity,
-            &BossFeature,
+            BossClusterRef,
             &mut MinimaTrapState,
             Option<&super::super::components::ActorTarget>,
         ),
@@ -789,7 +789,7 @@ pub fn spawn_minima_trap_from_special_messages(
     }
 
     for (entity, boss_feature, mut state, actor_target) in &mut bosses {
-        let boss = &boss_feature.boss;
+        let boss = boss_feature.as_boss_ref();
         let player_pos = actor_target.and_then(|t| {
             t.entity
                 .and_then(|e| player_query.get(e).ok())
@@ -802,14 +802,14 @@ pub fn spawn_minima_trap_from_special_messages(
             state.fired_this_strike = false;
             continue;
         };
-        if !boss.alive {
+        if !boss.status.alive {
             continue;
         }
         if state.fired_this_strike {
             continue;
         }
         let (hazard_duration_s, damage, hx, hy, spawn_minion) = params;
-        let pit_center = player_pos.unwrap_or(boss.pos);
+        let pit_center = player_pos.unwrap_or(boss.kin.pos);
 
         commands.spawn((
             Hitbox {
@@ -829,16 +829,16 @@ pub fn spawn_minima_trap_from_special_messages(
         if spawn_minion {
             let minion_id = format!(
                 "{}_minion:{}:{}",
-                MINIMA_TRAP_OWNER_PREFIX, boss.id, state.spawn_index
+                MINIMA_TRAP_OWNER_PREFIX, boss.config.id, state.spawn_index
             );
             // Encounter id = boss's canonical behavior id (resolved
             // at spawn from the brain's `PhaseScript:` payload).
-            // Using `boss.behavior.id` instead of
-            // `encounter_id_from_name(boss.name)` handles the case
-            // where an LDtk BossSpawn carries a flavor name like
+            // Using `boss.config.behavior.id` instead of
+            // `encounter_id_from_name(boss.config.name)` handles the
+            // case where an LDtk BossSpawn carries a flavor name like
             // "System Boss" — the minion's encounter scope still
             // matches the parent encounter even though name != id.
-            let encounter_id = boss.behavior.id.clone();
+            let encounter_id = boss.config.behavior.id.clone();
             // Don't spawn the slug right on top of the player —
             // the user reported the slug appearing under them with
             // no dodge window. Offset the slug horizontally toward
@@ -846,7 +846,7 @@ pub fn spawn_minima_trap_from_special_messages(
             // boss-side of the pit and has time to retreat. Half
             // the spawn offset distance is the slug's half-width
             // plus a comfortable read margin.
-            let player_to_boss = boss.pos - pit_center;
+            let player_to_boss = boss.kin.pos - pit_center;
             let toward_boss_x = if player_to_boss.x.abs() < f32::EPSILON {
                 // Player directly aligned with boss — spawn left
                 // of the pit as a deterministic fallback so the
@@ -897,7 +897,7 @@ pub fn spawn_saddle_point_from_special_messages(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, &BossFeature, &mut SaddlePointState), With<FeatureSimEntity>>,
+    mut bosses: Query<(Entity, BossClusterRef, &mut SaddlePointState), With<FeatureSimEntity>>,
 ) {
     let dt = world_time.sim_dt();
 
@@ -922,7 +922,7 @@ pub fn spawn_saddle_point_from_special_messages(
     }
 
     for (entity, boss_feature, mut state) in &mut bosses {
-        let boss = &boss_feature.boss;
+        let boss = boss_feature.as_boss_ref();
         let Some((arm_length, arm_thickness, axis_period_s, damage)) =
             active_strike_params.get(&entity).copied()
         else {
@@ -938,7 +938,7 @@ pub fn spawn_saddle_point_from_special_messages(
             state.axis_remaining_s = 0.0;
             continue;
         };
-        if !boss.alive {
+        if !boss.status.alive {
             if let Some(h) = state.horizontal_hitbox.take() {
                 commands.entity(h).despawn();
             }
@@ -964,7 +964,7 @@ pub fn spawn_saddle_point_from_special_messages(
                     Hitbox {
                         owner: entity,
                         source: ActorFaction::Boss,
-                        anchor: HitboxAnchor::World { center: boss.pos },
+                        anchor: HitboxAnchor::World { center: boss.kin.pos },
                         half_extent: ae::Vec2::new(he_x, he_y),
                         damage,
                         knockback_strength: SADDLE_POINT_KNOCKBACK,
@@ -1055,7 +1055,7 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
 pub fn spawn_gradient_cascade_minions_from_special_messages(
     mut commands: Commands,
     mut messages: MessageReader<ActorActionMessage>,
-    mut bosses: Query<(Entity, &BossFeature, &mut GradientCascadeState), With<FeatureSimEntity>>,
+    mut bosses: Query<(Entity, BossClusterRef, &mut GradientCascadeState), With<FeatureSimEntity>>,
 ) {
     let mut active_strike_params: std::collections::HashMap<Entity, u8> =
         std::collections::HashMap::new();
@@ -1069,13 +1069,13 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
     }
 
     for (entity, boss_feature, mut state) in &mut bosses {
-        let boss = &boss_feature.boss;
+        let boss = boss_feature.as_boss_ref();
         let Some(minion_count) = active_strike_params.get(&entity).copied() else {
             // Strike closed — reset gate.
             state.fired_this_strike = false;
             continue;
         };
-        if !boss.alive {
+        if !boss.status.alive {
             continue;
         }
         if state.fired_this_strike {
@@ -1086,13 +1086,13 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
         // the boss x.
         // Encounter id = boss's canonical behavior id (see the
         // MinimaTrap consumer above for the name-vs-id rationale).
-        let encounter_id = boss.behavior.id.clone();
+        let encounter_id = boss.config.behavior.id.clone();
         for i in 0..count {
             let x_off = gradient_cascade_minion_x_offset(i, count);
-            let spawn_pos = ae::Vec2::new(boss.pos.x + x_off, GRADIENT_CASCADE_SPAWN_Y);
+            let spawn_pos = ae::Vec2::new(boss.kin.pos.x + x_off, GRADIENT_CASCADE_SPAWN_Y);
             let minion_id = format!(
                 "gradient_sentinel_cascade:{}:{}:{}",
-                boss.id, state.spawn_index, i
+                boss.config.id, state.spawn_index, i
             );
             crate::content::features::ecs::spawn::spawn_runtime_minion(
                 &mut commands,
@@ -1496,10 +1496,10 @@ mod tests {
     // for the same authoritative path the live boss uses.
     // -----------------------------------------------------------
 
-    use crate::content::features::bosses::{
-        BossBehaviorProfile, BossRuntime, GNU_TON_APPLE_OWNER_PREFIX,
-    };
-    use crate::content::features::ecs::{BossFeature, FeatureSimEntity};
+    use crate::content::features::bosses::{BossBehaviorProfile, GNU_TON_APPLE_OWNER_PREFIX};
+    use crate::content::features::ecs::boss_clusters::{BossClusterScratch, BossConfig, BossStatus};
+    use crate::content::features::ecs::boss_clusters::BossKinematics;
+    use crate::content::features::ecs::FeatureSimEntity;
     use crate::GameWorld;
 
     fn gnu_apple_rain_spec() -> SpecialActionSpec {
@@ -1510,16 +1510,16 @@ mod tests {
         }
     }
 
-    fn gnu_ton_boss_feature() -> BossFeature {
+    fn gnu_ton_boss_feature() -> (BossKinematics, BossConfig, BossStatus) {
         let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(80.0, 80.0));
-        let mut boss = BossRuntime::new(
+        let mut scratch = BossClusterScratch::new(
             "boss_gnu_ton",
             "GNU-ton",
             aabb,
             crate::actor::BossBrain::Dormant,
         );
-        boss.behavior = BossBehaviorProfile::gnu_ton();
-        BossFeature::new(boss)
+        scratch.config.behavior = BossBehaviorProfile::gnu_ton();
+        scratch.into_components()
     }
 
     fn apple_rain_app(sim_dt: f32) -> App {
@@ -1650,7 +1650,12 @@ mod tests {
         let dt = interval; // one apple per tick
         let mut app = apple_rain_app(dt);
         let feature = gnu_ton_boss_feature();
-        let self_aabb = feature.boss.aabb();
+        let self_aabb = crate::features::BossRef {
+            kin: &feature.0,
+            config: &feature.1,
+            status: &feature.2,
+        }
+        .aabb();
         let actor = app
             .world_mut()
             .spawn((FeatureSimEntity, AppleRainSpawnState::default(), feature))
@@ -1683,7 +1688,7 @@ mod tests {
         let dt = interval;
         let mut app = apple_rain_app(dt);
         let feature = gnu_ton_boss_feature();
-        let boss_x = feature.boss.pos.x;
+        let boss_x = feature.0.pos.x;
         let actor = app
             .world_mut()
             .spawn((FeatureSimEntity, AppleRainSpawnState::default(), feature))
@@ -1724,16 +1729,16 @@ mod tests {
     // tests in their own modules.
     // -----------------------------------------------------------
 
-    fn gradient_sentinel_boss_feature() -> BossFeature {
+    fn gradient_sentinel_boss_feature() -> (BossKinematics, BossConfig, BossStatus) {
         let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 696.0), ae::Vec2::new(64.0, 80.0));
-        let mut boss = BossRuntime::new(
+        let mut scratch = BossClusterScratch::new(
             "boss_gradient_sentinel",
             "Gradient Sentinel",
             aabb,
             crate::actor::BossBrain::Dormant,
         );
-        boss.behavior = BossBehaviorProfile::clockwork_warden();
-        BossFeature::new(boss)
+        scratch.config.behavior = BossBehaviorProfile::clockwork_warden();
+        scratch.into_components()
     }
 
     fn overfit_volley_spec() -> SpecialActionSpec {

@@ -69,7 +69,7 @@ pub use boss_attack_geometry::{
 };
 pub use bosses::{
     boss_special_for_profile, BossAttackProfile, BossBehaviorProfile, BossMovementProfile,
-    BossRuntime, BossSpriteMetrics, GNU_TON_APPLE_OWNER_PREFIX, GRADIENT_SENTINEL_ENCOUNTER_ID,
+    BossSpriteMetrics, GNU_TON_APPLE_OWNER_PREFIX, GRADIENT_SENTINEL_ENCOUNTER_ID,
 };
 pub use bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
@@ -118,7 +118,9 @@ pub use ecs::{
     tick_boss_brains_system, tick_gameplay_banner, update_ecs_actors, update_ecs_bosses,
     update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, update_ecs_npcs,
     ActorRuntime,
-    AppleRainSpawnState, BossFeature, EyeBeamState, FeatureEcsWorldOverlay, FeatureSimEntity,
+    AppleRainSpawnState, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
+    BossKinematics, BossMut, BossRef, BossStatus, EyeBeamState, FeatureEcsWorldOverlay,
+    FeatureSimEntity,
     FeatureViewIndex, GradientCascadeState, HazardFeature, HeldItem, Hitbox, HitboxAnchor,
     HitboxHits, HitboxLifetime, MinimaTrapState, MountSlot, Mountable, Mounted, MountedBrainCache,
     MountedSize, OverfitVolleyState, RidingOn, SaddlePointState,

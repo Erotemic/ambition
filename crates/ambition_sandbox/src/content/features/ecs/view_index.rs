@@ -80,7 +80,7 @@ pub fn rebuild_feature_view_index(
     hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
     bosses: Query<(
         &FeatureId,
-        &BossFeature,
+        super::boss_clusters::BossClusterRef,
         &crate::brain::BossAttackState,
         // Shared combat read-model, synced from the boss runtime by
         // `sync_boss_actor_components` (WorldPrep, before this rebuild).
@@ -201,7 +201,7 @@ pub fn rebuild_feature_view_index(
         );
     }
     for (id, feature, attack_state, combat, death_anim, phase) in &bosses {
-        let boss = &feature.boss;
+        let boss = feature.as_boss_ref();
         // `alive` reads the shared `ActorCombatState` mirror; pos / size
         // still come from `BossRuntime` until the boss body migrates to
         // `FeatureAabb` (ecs-cleanup-plan #9).
@@ -211,7 +211,7 @@ pub fn rebuild_feature_view_index(
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
-                pos: boss.pos,
+                pos: boss.kin.pos,
                 size: boss.render_size(),
                 kind: FeatureVisualKind::Boss,
                 visible,

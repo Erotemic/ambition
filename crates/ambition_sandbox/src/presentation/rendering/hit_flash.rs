@@ -13,7 +13,7 @@
 //!
 //! - **Enemy / NPC**: [`crate::features::ActorRuntime`] inner
 //!   `hit_flash: f32` (seconds remaining).
-//! - **Boss**: [`crate::features::BossFeature::boss::hit_flash`].
+//! - **Boss**: [`crate::features::BossStatus::hit_flash`].
 //! - **Player**: [`crate::player::PlayerCombatState::flash_timer`].
 //!
 //! Replaces the pink multiplicative tint that
@@ -31,7 +31,7 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
-use crate::features::{ActorRuntime, BossFeature, FeatureId};
+use crate::features::{ActorRuntime, BossClusterRef, FeatureId};
 
 const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
 
@@ -205,7 +205,7 @@ pub fn sync_hit_flash_overlays(
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
     actors: Query<crate::features::ActorSpriteData>,
-    bosses: Query<(&FeatureId, &BossFeature)>,
+    bosses: Query<(&FeatureId, BossClusterRef)>,
     player_state: Query<&crate::player::PlayerCombatState, crate::player::PrimaryPlayerOnly>,
     sources: Query<
         (
@@ -241,7 +241,7 @@ pub fn sync_hit_flash_overlays(
         // Brain/ActorControl architecture knows about — player, NPC,
         // enemy, boss. Each routes through a different per-entity
         // storage today (PlayerCombatState vs ActorRuntime vs
-        // BossFeature) but they all converge on one shader uniform
+        // the boss cluster components) but they all converge on one shader uniform
         // through this lookup. A future refactor that unifies them
         // into a single `HitFlash` component can collapse this to
         // one query without changing the overlay sync.
@@ -310,12 +310,12 @@ pub fn cleanup_hit_flash_overlays(
 /// | player | `PlayerCombatState::flash_timer` | `world_flow` damage paths |
 /// | enemy  | `EnemyRuntime::hit_flash` (via `ActorRuntime::Enemy`) | `enemies::apply_damage_at` |
 /// | NPC    | `NpcRuntime::hit_flash` (via `ActorRuntime::Npc`)   | NPC damage paths |
-/// | boss   | `BossRuntime::hit_flash` (via `BossFeature.boss`)        | boss damage paths |
+/// | boss   | `BossStatus::hit_flash` (via the boss cluster)        | boss damage paths |
 fn hit_flash_secs_for_source(
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
     actors: &Query<crate::features::ActorSpriteData>,
-    bosses: &Query<(&FeatureId, &BossFeature)>,
+    bosses: &Query<(&FeatureId, BossClusterRef)>,
     player_state: &Query<&crate::player::PlayerCombatState, crate::player::PrimaryPlayerOnly>,
 ) -> Option<f32> {
     // Player path: the entity that carries `PlayerVisual` is the
@@ -347,18 +347,19 @@ fn hit_flash_secs_for_source(
     {
         return Some(secs);
     }
-    bosses.iter().find_map(|(feature_id, feature)| {
+    bosses.iter().find_map(|(feature_id, item)| {
         if feature_id.as_str() != id {
             return None;
         }
-        if !feature.boss.alive {
+        let boss = item.as_boss_ref();
+        if !boss.status.alive {
             // Boss death rows are authored sprites. Do not keep the damage
             // feedback material over a corpse; cut-rope/anvil deaths in
             // particular set alive=false immediately and should not look like
             // a permanently white silhouette.
             return Some(0.0);
         }
-        Some(feature.boss.hit_flash)
+        Some(boss.status.hit_flash)
     })
 }
 

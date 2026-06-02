@@ -147,10 +147,10 @@ pub fn ecs_breakable_state(
 
 pub fn ecs_boss_name<'a>(
     id: &str,
-    bosses: &'a Query<(&FeatureId, &BossFeature, &crate::brain::BossAttackState)>,
+    bosses: &'a Query<(&FeatureId, super::boss_clusters::BossClusterRef, &crate::brain::BossAttackState)>,
 ) -> Option<&'a str> {
     bosses.iter().find_map(|(feature_id, boss, _)| {
-        (feature_id.as_str() == id).then_some(boss.boss.name.as_str())
+        (feature_id.as_str() == id).then_some(boss.config.name.as_str())
     })
 }
 
@@ -205,11 +205,10 @@ fn boss_animation_key_for_sample(
 }
 
 fn boss_anim_state_for(
-    boss: &BossFeature,
+    boss: super::boss_clusters::BossRef<'_>,
     attack_state: &crate::brain::BossAttackState,
     brain: &crate::brain::Brain,
 ) -> crate::boss_encounter::sprites::BossAnimState {
-    let boss = &boss.boss;
     // attack_active / attack_windup read the brain's
     // BossAttackState (single source of truth) instead of
     // mirror fields on BossRuntime. pattern_timer comes from
@@ -220,10 +219,10 @@ fn boss_anim_state_for(
         .map(|s| s.pattern_timer)
         .unwrap_or(0.0);
     crate::boss_encounter::sprites::BossAnimState {
-        alive: boss.alive,
+        alive: boss.status.alive,
         attack_active: attack_state.active_profile.is_some(),
         attack_windup: attack_state.telegraph_profile.is_some(),
-        hit_flash: boss.hit_flash > 0.0,
+        hit_flash: boss.status.hit_flash > 0.0,
         windup_anim: attack_state
             .telegraph_profile
             .as_ref()
@@ -233,7 +232,7 @@ fn boss_anim_state_for(
             .as_ref()
             .and_then(boss_anim_for_attack_profile),
         pattern_timer,
-        facing: boss.facing,
+        facing: boss.kin.facing,
     }
 }
 
@@ -242,7 +241,7 @@ pub fn ecs_boss_anim_state_and_entity(
     bosses: &Query<(
         bevy::prelude::Entity,
         &FeatureId,
-        &BossFeature,
+        super::boss_clusters::BossClusterRef,
         &crate::brain::BossAttackState,
         &crate::brain::Brain,
     )>,
@@ -256,7 +255,7 @@ pub fn ecs_boss_anim_state_and_entity(
             if feature_id.as_str() != id {
                 return None;
             }
-            Some((entity, boss_anim_state_for(boss, attack_state, brain)))
+            Some((entity, boss_anim_state_for(boss.as_boss_ref(), attack_state, brain)))
         })
 }
 
@@ -272,7 +271,7 @@ pub fn ecs_boss_animation_frame_sample(
     bosses: &Query<(
         bevy::prelude::Entity,
         &FeatureId,
-        &BossFeature,
+        super::boss_clusters::BossClusterRef,
         &crate::brain::BossAttackState,
         &crate::brain::Brain,
     )>,
@@ -346,7 +345,7 @@ pub fn ecs_boss_anim_state(
     id: &str,
     bosses: &Query<(
         &FeatureId,
-        &BossFeature,
+        super::boss_clusters::BossClusterRef,
         &crate::brain::BossAttackState,
         &crate::brain::Brain,
     )>,
@@ -357,6 +356,6 @@ pub fn ecs_boss_anim_state(
             if feature_id.as_str() != id {
                 return None;
             }
-            Some(boss_anim_state_for(boss, attack_state, brain))
+            Some(boss_anim_state_for(boss.as_boss_ref(), attack_state, brain))
         })
 }

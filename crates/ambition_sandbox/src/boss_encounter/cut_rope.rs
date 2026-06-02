@@ -18,7 +18,7 @@ use crate::brain::BossAttackState;
 use crate::config::world_to_bevy;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::{
-    ActorPose, ActorRuntime, BossFeature, BossRuntime, DamageableVolumes,
+    ActorPose, ActorRuntime, BossClusterQueryData, BossClusterRef, BossRef, DamageableVolumes,
     EnemyActorBundle, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity,
     GameplayBanner, HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, ResetRoomFeaturesEvent,
 };
@@ -180,7 +180,7 @@ pub fn spawn_cut_rope_victory_npc(
     registry: Res<BossEncounterRegistry>,
     save: Res<crate::persistence::save::SandboxSave>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
-    bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
+    bosses: Query<(&FeatureId, &FeatureAabb, BossClusterRef), With<FeatureSimEntity>>,
 ) {
     if room_set.active_spec().id != CUT_ROPE_ROOM_ID {
         return;
@@ -192,11 +192,12 @@ pub fn spawn_cut_rope_victory_npc(
         return;
     }
     let Some((_boss_id, boss_aabb, boss_feature)) = bosses.iter().find(|(id, _, feature)| {
-        id.as_str() == CUT_ROPE_BOSS_ID || is_cut_rope_boss(feature.boss.behavior.id.as_str())
+        id.as_str() == CUT_ROPE_BOSS_ID
+            || is_cut_rope_boss(feature.as_boss_ref().config.behavior.id.as_str())
     }) else {
         return;
     };
-    let boss = &boss_feature.boss;
+    let boss = boss_feature.as_boss_ref();
     let encounter_death_complete =
         registry
             .encounters
@@ -213,10 +214,10 @@ pub fn spawn_cut_rope_victory_npc(
             data.boss(CUT_ROPE_BOSS_ID),
             crate::save::PersistedEncounterState::Cleared
         ) || matches!(
-            data.boss(&boss.behavior.id),
+            data.boss(&boss.config.behavior.id),
             crate::save::PersistedEncounterState::Cleared
         ) || matches!(
-            data.boss(&boss.id),
+            data.boss(&boss.config.id),
             crate::save::PersistedEncounterState::Cleared
         )
     };
@@ -224,7 +225,7 @@ pub fn spawn_cut_rope_victory_npc(
         return;
     }
     let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;
-    let spawn_pos = ae::Vec2::new(boss.pos.x, boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5);
+    let spawn_pos = ae::Vec2::new(boss.kin.pos.x, boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5);
     spawn_victory_npc_entity(&mut commands, spawn_pos);
 }
 
@@ -372,7 +373,7 @@ pub fn tick_cut_rope_boss_arena(
     heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
-    mut bosses: Query<(&FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
+    mut bosses: Query<(&FeatureAabb, BossClusterQueryData), With<FeatureSimEntity>>,
     mut boss_registry: Option<ResMut<BossEncounterRegistry>>,
     mut music_request: Option<ResMut<crate::encounter::BossEncounterMusicRequest>>,
     mut cutscene_queue: Option<ResMut<crate::presentation::cutscene::CutsceneTriggerQueue>>,
@@ -454,12 +455,12 @@ pub fn tick_cut_rope_boss_arena(
     let mut boss_under_anvil = false;
     let mut live_boss_pos = None;
     for (_aabb, feature) in bosses.iter_mut() {
-        let boss = &feature.boss;
-        if !is_cut_rope_boss(&boss.behavior.id) || !boss.alive {
+        let boss = feature.as_boss_ref();
+        if !is_cut_rope_boss(&boss.config.behavior.id) || !boss.status.alive {
             continue;
         }
-        live_boss_pos = Some(boss.pos);
-        if boss_is_under_anvil(boss, center.x) {
+        live_boss_pos = Some(boss.kin.pos);
+        if boss_is_under_anvil(&boss, center.x) {
             boss_under_anvil = true;
             break;
         }
@@ -492,27 +493,32 @@ pub fn tick_cut_rope_boss_arena(
     }
 
     for (_aabb, mut feature) in &mut bosses {
-        let boss = &mut feature.boss;
-        if !is_cut_rope_boss(&boss.behavior.id) || !boss.alive {
+        if !is_cut_rope_boss(&feature.config.behavior.id) || !feature.status.alive {
             continue;
         }
-        if !anvil_aabb.strict_intersects(boss.aabb()) {
+        if !anvil_aabb.strict_intersects(feature.as_boss_ref().aabb()) {
             continue;
         }
         state.kill_sent = true;
         state.anvil_exploded = true;
-        boss.alive = false;
-        boss.health.current = 0;
+        feature.status.alive = false;
+        feature.status.health.current = 0;
         // The death animation should render as-authored. A lingering
         // hit-flash overlay reads as a white silhouette stuck over the body.
-        boss.hit_flash = 0.0;
+        feature.status.hit_flash = 0.0;
 
         if let (Some(registry), Some(music), Some(cutscene)) = (
             boss_registry.as_deref_mut(),
             music_request.as_deref_mut(),
             cutscene_queue.as_deref_mut(),
         ) {
-            let _ = force_boss_death(registry, music, cutscene, &mut banner, boss.id.as_str());
+            let _ = force_boss_death(
+                registry,
+                music,
+                cutscene,
+                &mut banner,
+                feature.config.id.as_str(),
+            );
         }
 
         banner.show(
@@ -524,7 +530,7 @@ pub fn tick_cut_rope_boss_arena(
         );
         explosions.write(ExplosionRequest::classic(center).with_scale(1.25));
         if !state.death_fireworks_sent {
-            let mut death_show = FireworksRequest::around(boss.pos);
+            let mut death_show = FireworksRequest::around(feature.kin.pos);
             death_show.count = 18;
             death_show.spread = ae::Vec2::new(420.0, 280.0);
             death_show.duration = 2.75;
@@ -532,14 +538,14 @@ pub fn tick_cut_rope_boss_arena(
             state.death_fireworks_sent = true;
         }
         vfx.write(VfxMessage::Burst {
-            pos: boss.pos,
+            pos: feature.kin.pos,
             count: 28,
             speed: 260.0,
             color: [0.84, 0.95, 1.0, 0.86],
             kind: ParticleKind::Spark,
         });
         debris.write(DebrisBurstMessage {
-            pos: boss.pos,
+            pos: feature.kin.pos,
             cue: PhysicsDebrisCue::BossRagdoll,
         });
         break;
@@ -584,12 +590,12 @@ pub fn sync_cut_rope_boss_arena_prop_visuals(
 
 /// After the rope is cut, override the boss brain output with a horizontal
 /// lure toward the authored anvil center until impact. The movement still goes
-/// through `BossRuntime::integrate_body`, so authored solids and future
+/// through the boss cluster's `integrate_body`, so authored solids and future
 /// player-control constraints remain authoritative.
 pub fn steer_cut_rope_boss_under_anvil(
     state: Res<CutRopeBossArenaState>,
     mut bosses: Query<
-        (&BossFeature, &mut ActorControl, &mut BossAttackState),
+        (BossClusterRef, &mut ActorControl, &mut BossAttackState),
         With<FeatureSimEntity>,
     >,
 ) {
@@ -600,20 +606,20 @@ pub fn steer_cut_rope_boss_under_anvil(
         return;
     };
     for (feature, mut control, mut attack_state) in &mut bosses {
-        let boss = &feature.boss;
-        if !boss.alive || !is_cut_rope_boss(&boss.behavior.id) {
+        let boss = feature.as_boss_ref();
+        if !boss.status.alive || !is_cut_rope_boss(&boss.config.behavior.id) {
             continue;
         }
-        let dx = center.x - boss.pos.x;
+        let dx = center.x - boss.kin.pos.x;
         attack_state.clear();
         control.0.melee_pressed = false;
         control.0.special_pressed = false;
         control.0.facing = if dx.abs() > 2.0 {
             dx.signum()
         } else {
-            boss.facing
+            boss.kin.facing
         };
-        control.0.desired_vel = if dx.abs() <= boss_alignment_tolerance(boss) {
+        control.0.desired_vel = if dx.abs() <= boss_alignment_tolerance(&boss) {
             ae::Vec2::ZERO
         } else {
             ae::Vec2::new(dx.signum() * ROPE_LURE_SPEED, 0.0)
@@ -621,11 +627,11 @@ pub fn steer_cut_rope_boss_under_anvil(
     }
 }
 
-fn boss_is_under_anvil(boss: &BossRuntime, anvil_x: f32) -> bool {
-    (boss.pos.x - anvil_x).abs() <= boss_alignment_tolerance(boss)
+fn boss_is_under_anvil(boss: &BossRef<'_>, anvil_x: f32) -> bool {
+    (boss.kin.pos.x - anvil_x).abs() <= boss_alignment_tolerance(boss)
 }
 
-fn boss_alignment_tolerance(boss: &BossRuntime) -> f32 {
+fn boss_alignment_tolerance(boss: &BossRef<'_>) -> f32 {
     ROPE_ALIGNMENT_TOLERANCE.max(boss.combat_size().x * 0.18)
 }
 

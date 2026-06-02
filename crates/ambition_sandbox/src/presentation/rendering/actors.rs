@@ -17,7 +17,7 @@ use crate::assets::game_assets::{self, EntitySprite, GameAssets};
 use crate::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
-    BossFeature, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
+    BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex, FeatureVisualKind,
     Opened,
 };
 use crate::presentation::character_sprites::{
@@ -595,7 +595,7 @@ pub fn upgrade_boss_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
-    ecs_bosses: Query<(&FeatureId, &BossFeature, &crate::brain::BossAttackState)>,
+    ecs_bosses: Query<(&FeatureId, BossClusterRef, &crate::brain::BossAttackState)>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
         (Without<CharacterAnimator>, Without<BossAnimator>),
@@ -607,19 +607,19 @@ pub fn upgrade_boss_sprites(
     for (entity, visual) in &new_bosses {
         let Some(view) = ecs_bosses
             .iter()
-            .find_map(|(feature_id, boss, attack_state)| {
+            .find_map(|(feature_id, item, attack_state)| {
                 if feature_id.as_str() != visual.id.as_str() {
                     return None;
                 }
-                let boss = &boss.boss;
+                let boss = item.as_boss_ref();
                 // `flash` reads `BossAttackState` instead of the deleted
                 // `attack_timer` / `attack_windup_timer` mirror fields.
                 Some(crate::features::FeatureView {
-                    pos: boss.pos,
+                    pos: boss.kin.pos,
                     size: boss.render_size(),
                     kind: FeatureVisualKind::Boss,
-                    visible: boss.alive,
-                    flash: boss.hit_flash > 0.0
+                    visible: boss.status.alive,
+                    flash: boss.status.hit_flash > 0.0
                         || attack_state.telegraph_profile.is_some()
                         || attack_state.active_profile.is_some(),
                     switch_on: false,
@@ -640,9 +640,9 @@ pub fn upgrade_boss_sprites(
         let boss_name = crate::features::ecs_boss_name(&visual.id, &ecs_bosses).unwrap_or("");
         let boss_behavior_id = ecs_bosses
             .iter()
-            .find_map(|(feature_id, boss, _)| {
+            .find_map(|(feature_id, item, _)| {
                 (feature_id.as_str() == visual.id.as_str())
-                    .then_some(boss.boss.behavior.id.as_str())
+                    .then_some(item.config.behavior.id.as_str())
             })
             .unwrap_or(boss_name);
         let boss_key = boss_behavior_id.to_ascii_lowercase().replace('-', "_");
@@ -781,7 +781,7 @@ pub fn animate_bosses(
     ecs_bosses: Query<(
         Entity,
         &FeatureId,
-        &BossFeature,
+        BossClusterRef,
         &crate::brain::BossAttackState,
         &crate::brain::Brain,
     )>,
@@ -919,15 +919,15 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
-    bosses: Query<(Entity, &BossFeature, &crate::brain::BossAttackState)>,
+    bosses: Query<(Entity, BossClusterRef, &crate::brain::BossAttackState)>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
 ) {
     use crate::brain::BossAttackProfile;
     let mut active: std::collections::HashMap<Entity, (bool, ae::Vec2, BVec2)> =
         std::collections::HashMap::new();
-    for (entity, feature, attack_state) in &bosses {
-        let boss = &feature.boss;
-        if !boss.alive {
+    for (entity, item, attack_state) in &bosses {
+        let boss = item.as_boss_ref();
+        if !boss.status.alive {
             continue;
         }
         let in_telegraph = matches!(
@@ -945,9 +945,9 @@ pub fn manage_gradient_lane_visual(
         // hitbox are exactly coincident.
         let mut volumes = crate::features::volumes_for_profile(
             &BossAttackProfile::GradientLane,
-            boss.pos,
+            boss.kin.pos,
             boss.combat_size(),
-            &boss.behavior,
+            &boss.config.behavior,
         );
         let Some(volume) = volumes.pop() else {
             continue;

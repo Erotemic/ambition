@@ -49,6 +49,7 @@ mod actors;
 mod aggression;
 mod anim_helpers;
 mod banner;
+pub mod boss_clusters;
 mod bosses;
 mod brain_builders;
 mod brain_effects;
@@ -91,6 +92,10 @@ pub use anim_helpers::{
     ecs_enemy_sprite_override, ecs_npc_anim_state, ecs_npc_name, ActorSpriteData,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
+pub use boss_clusters::{
+    BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossKinematics, BossMut,
+    BossRef, BossStatus,
+};
 pub(crate) use bosses::boss_component_snapshot;
 #[allow(
     unused_imports,
@@ -164,17 +169,6 @@ impl HazardFeature {
     pub fn new(hazard: HazardRuntime) -> Self {
         let spawn = hazard.pos;
         Self { hazard, spawn }
-    }
-}
-
-#[derive(Component, Clone, Debug)]
-pub struct BossFeature {
-    pub boss: BossRuntime,
-}
-
-impl BossFeature {
-    pub fn new(boss: BossRuntime) -> Self {
-        Self { boss }
     }
 }
 

@@ -76,7 +76,7 @@ pub fn update_boss_encounters(
     mut bosses: Query<
         (
             &crate::features::FeatureId,
-            &mut crate::features::BossFeature,
+            crate::features::BossClusterQueryData,
         ),
         With<crate::features::FeatureSimEntity>,
     >,
@@ -90,7 +90,7 @@ pub fn update_boss_encounters(
 
     // Build a list of boss runtime ids alive in the current room so we
     // can wake up encounters when the player walks in. `behavior_id`
-    // is the canonical encounter id resolved by `BossRuntime::new`
+    // is the canonical encounter id resolved by `BossClusterScratch::new`
     // via the brain's `PhaseScript:` payload — preferred over the
     // raw LDtk name so e.g. a BossSpawn named "System Boss" with
     // brain `PhaseScript:clockwork_warden` correctly resolves to
@@ -99,15 +99,14 @@ pub fn update_boss_encounters(
     let bosses_in_room: Vec<(String, String, String, ae::Vec2, ae::Vec2, i32, i32)> = bosses
         .iter()
         .map(|(_feature_id, feature)| {
-            let b = &feature.boss;
             (
-                b.id.clone(),
-                b.name.clone(),
-                b.behavior.id.clone(),
-                b.pos,
-                b.spawn,
-                b.health.current,
-                b.health.max,
+                feature.config.id.clone(),
+                feature.config.name.clone(),
+                feature.config.behavior.id.clone(),
+                feature.kin.pos,
+                feature.config.spawn,
+                feature.status.health.current,
+                feature.status.health.max,
             )
         })
         .collect();
@@ -115,7 +114,7 @@ pub fn update_boss_encounters(
     // Lazy registration: use the boss runtime's `behavior.id` as
     // the canonical encounter id. The LDtk iid (`BossSpawn-0158`)
     // lives on as the runtime_id link so combat damage still
-    // reaches the right `BossRuntime`. Authored specs (registered
+    // reaches the right boss entity. Authored specs (registered
     // before this system runs) take precedence; only bosses without
     // a spec fall through to the auto-registered defaults.
     for (boss_runtime_id, boss_name, encounter_id, _pos, _spawn, _hp, max_hp) in &bosses_in_room {
@@ -244,43 +243,44 @@ pub fn update_boss_encounters(
             if feature_id.as_str() != runtime_id {
                 continue;
             }
-            let boss = &mut feature.boss;
             if let Some(profile) = profiles.get(id) {
-                boss.apply_behavior_profile(profile.behavior.clone());
+                feature
+                    .as_boss_mut()
+                    .apply_behavior_profile(profile.behavior.clone());
             }
             if matches!(
                 save.data().boss(id),
                 crate::save::PersistedEncounterState::Cleared
             ) {
-                boss.alive = false;
-                boss.health.current = 0;
+                feature.status.alive = false;
+                feature.status.health.current = 0;
                 break;
             }
-            // Sync max_hp on first link (the BossRuntime defaults to 18,
+            // Sync max_hp on first link (the clusters default to 18,
             // the engine spec might say more). The engine spec wins
             // because it carries the design intent.
-            if boss.health.max != state.spec.max_hp.max(1) {
-                boss.health = crate::actor::Health::new(state.spec.max_hp.max(1));
+            if feature.status.health.max != state.spec.max_hp.max(1) {
+                feature.status.health = crate::actor::Health::new(state.spec.max_hp.max(1));
             }
             // Mirror engine HP into the runtime so combat reads a
             // single number.
-            if boss.health.current != state.hp && state.hp > 0 {
-                boss.health.current = state.hp;
+            if feature.status.health.current != state.hp && state.hp > 0 {
+                feature.status.health.current = state.hp;
             }
             // Suppress runtime-side death animation while boss is in an
             // invulnerable phase (Intro/Transition/Stagger).
-            if state.phase.boss_invulnerable() && boss.alive {
-                boss.hit_flash = 0.0;
+            if state.phase.boss_invulnerable() && feature.status.alive {
+                feature.status.hit_flash = 0.0;
             }
             // Death resolution: when engine state reports Death and the
-            // outro is over, mark the runtime dead and update the save.
+            // outro is over, mark the boss dead and update the save.
             if matches!(
                 state.phase,
                 crate::boss_encounter::BossEncounterPhase::Death
             ) && state.death_complete()
             {
-                if boss.alive {
-                    boss.alive = false;
+                if feature.status.alive {
+                    feature.status.alive = false;
                 }
                 let prior = save.data().boss(id);
                 if !matches!(prior, crate::save::PersistedEncounterState::Cleared) {

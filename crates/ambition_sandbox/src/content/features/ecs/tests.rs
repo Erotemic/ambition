@@ -86,7 +86,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
 fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
     let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
     let pogo_hurtbox = ae::Aabb::new(ae::Vec2::new(440.0, 420.0), ae::Vec2::new(12.0, 16.0));
-    let boss = BossRuntime::new(
+    let boss = super::boss_clusters::BossClusterScratch::new(
         "gnu_ton",
         "GNU-ton",
         boss_body,
@@ -100,7 +100,7 @@ fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
         FeatureId::new("gnu_ton"),
         FeatureName::new("GNU-ton"),
         FeatureAabb::from_aabb(boss_body),
-        BossFeature::new(boss),
+        boss.into_components(),
         PogoTargetVolumes {
             volumes: vec![pogo_hurtbox],
         },

@@ -10,8 +10,8 @@ use bevy::prelude::*;
 use super::primitives::HealthOverlayVisual;
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
-    ActorCombatState, ActorDisposition, ActorHealth, BossFeature, BreakableFeature, FeatureAabb,
-    FeatureName,
+    ActorCombatState, ActorDisposition, ActorHealth, BossClusterRef, BossConfig, BreakableFeature,
+    FeatureAabb, FeatureName,
 };
 use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
 
@@ -27,17 +27,17 @@ pub struct BossHealthBarOverlayVisual;
 pub fn sync_boss_health_bar_overlay(
     mut commands: Commands,
     overlays: Query<Entity, With<BossHealthBarOverlayVisual>>,
-    bosses: Query<&BossFeature>,
+    bosses: Query<BossClusterRef>,
     ui_fonts: Option<Res<UiFonts>>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
     }
 
-    let Some(boss) = bosses.iter().find_map(|feature| {
-        let boss = &feature.boss;
-        if boss.alive && boss.health.alive() {
-            Some(boss)
+    let Some((health, boss_name)) = bosses.iter().find_map(|item| {
+        let boss = item.as_boss_ref();
+        if boss.status.alive && boss.status.health.alive() {
+            Some((boss.status.health.clone(), boss.config.name.clone()))
         } else {
             None
         }
@@ -45,14 +45,10 @@ pub fn sync_boss_health_bar_overlay(
         return;
     };
 
-    let ratio = boss.health.ratio().clamp(0.0, 1.0);
+    let ratio = health.ratio().clamp(0.0, 1.0);
     let fill_percent = ratio * 100.0;
-    let hp_text = format!(
-        "{} / {}",
-        boss.health.current.max(0),
-        boss.health.max.max(1)
-    );
-    let boss_name = boss.name.as_str();
+    let hp_text = format!("{} / {}", health.current.max(0), health.max.max(1));
+    let boss_name = boss_name.as_str();
 
     let font = |font_size: f32, weight: UiFontWeight| {
         ui_fonts
@@ -157,9 +153,9 @@ pub fn sync_health_overlays(
             &ActorHealth,
             &ActorCombatState,
         ),
-        Without<BossFeature>,
+        Without<BossConfig>,
     >,
-    ecs_bosses: Query<(&FeatureName, &BossFeature)>,
+    ecs_bosses: Query<(&FeatureName, BossClusterRef)>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
@@ -197,15 +193,15 @@ pub fn sync_health_overlays(
             );
         }
     }
-    for (name, boss) in &ecs_bosses {
-        let boss = &boss.boss;
-        if boss.alive {
+    for (name, item) in &ecs_bosses {
+        let boss = item.as_boss_ref();
+        if boss.status.alive {
             spawn_health_overlay(
                 &mut commands,
                 &world.0,
                 name.0.as_str(),
                 boss.aabb(),
-                boss.health,
+                boss.status.health,
                 Color::srgba(1.00, 0.32, 0.92, 0.96),
             );
         }

@@ -29,7 +29,7 @@ use bevy::prelude::Component;
 use crate::brain::{BossAttackProfile, BossAttackState};
 use crate::presentation::character_sprites::registry::{AnimationBox, BodyMetrics, PixelRect};
 
-use super::bosses::{BossBehaviorProfile, BossRuntime};
+use super::bosses::BossBehaviorProfile;
 
 // =================================================================
 // Sprite-metadata-driven body AABB derivation
@@ -224,14 +224,17 @@ impl<'a> BossVolumeContext<'a> {
     /// policy. `is_gnu_ton` used to be carried separately for the
     /// hand-tuned volume path; the data-driven sprite_metrics path
     /// makes that special-case unnecessary.
-    pub fn from_runtime(boss: &'a BossRuntime, attack_state: &'a BossAttackState) -> Self {
+    pub fn from_ref(
+        boss: super::ecs::boss_clusters::BossRef<'a>,
+        attack_state: &'a BossAttackState,
+    ) -> Self {
         Self {
-            pos: boss.pos,
-            size: boss.size,
+            pos: boss.kin.pos,
+            size: boss.kin.size,
             combat_size: boss.combat_size(),
-            behavior: &boss.behavior,
+            behavior: &boss.config.behavior,
             attack_state,
-            sprite_metrics: boss.sprite_metrics.as_ref(),
+            sprite_metrics: boss.status.sprite_metrics.as_ref(),
             animation_frame: None,
         }
     }
@@ -974,9 +977,7 @@ mod sprite_metadata_derivation_tests {
     #[test]
     fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
         use crate::brain::{BossAttackProfile, BossAttackState};
-        use crate::content::features::bosses::{
-            BossBehaviorProfile, BossRuntime, BossSpriteMetrics,
-        };
+        use crate::content::features::bosses::{BossBehaviorProfile, BossSpriteMetrics};
         use crate::presentation::character_sprites::registry::{
             AnimationBox, AnimationMetrics, PixelRect,
         };
@@ -1030,12 +1031,6 @@ mod sprite_metadata_derivation_tests {
         let mut attack_state = BossAttackState::default();
         attack_state.active_profile = Some(BossAttackProfile::SideSweep);
 
-        let _ = BossRuntime::new(
-            "test_boss",
-            "Test Boss",
-            ae::Aabb::new(ae::Vec2::new(640.0, 656.0), ae::Vec2::new(64.0, 80.0)),
-            crate::actor::BossBrain::Dormant,
-        );
         let ctx = BossVolumeContext {
             pos: ae::Vec2::new(640.0, 656.0),
             size: ae::Vec2::new(128.0, 160.0),

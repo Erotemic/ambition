@@ -29,7 +29,7 @@
 use crate::engine_core as ae;
 use bevy::prelude::*;
 
-use crate::features::BossFeature;
+use crate::features::BossClusterRef;
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching
@@ -68,7 +68,7 @@ pub struct GnuTonLadderGate {
 /// arena rooms after stash/reveal completes.
 pub fn gate_gnu_ton_arena_ladder(
     mut world: ResMut<crate::GameWorld>,
-    bosses: Query<&BossFeature>,
+    bosses: Query<BossClusterRef>,
     mut state: Local<GnuTonLadderGate>,
 ) {
     if world.0.name != ARENA_ROOM_NAME {
@@ -112,9 +112,10 @@ pub fn gate_gnu_ton_arena_ladder(
     // Reveal condition: any ECS boss is a defeated gnu_ton. Empty
     // query (boss not yet spawned, or already despawned) does NOT
     // count as defeat — we only reveal on observed `alive = false`.
-    let boss_defeated = bosses
-        .iter()
-        .any(|feature| feature.boss.is_gnu_ton() && !feature.boss.alive);
+    let boss_defeated = bosses.iter().any(|feature| {
+        let boss = feature.as_boss_ref();
+        boss.is_gnu_ton() && !boss.status.alive
+    });
 
     if boss_defeated {
         if let Some(stashed) = state.stashed.as_ref() {
@@ -139,7 +140,7 @@ pub fn gate_gnu_ton_arena_ladder(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::{BossBehaviorProfile, BossRuntime};
+    use crate::features::{BossBehaviorProfile, BossClusterScratch};
 
     fn make_game_world(name: &str, ladders: Vec<ae::ClimbableRegion>) -> crate::GameWorld {
         let world = ae::World::new(
@@ -181,19 +182,19 @@ mod tests {
             .count()
     }
 
-    fn spawn_gnu_ton_runtime() -> BossRuntime {
+    fn spawn_gnu_ton_runtime() -> BossClusterScratch {
         let behavior = BossBehaviorProfile::gnu_ton();
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-        let mut runtime = BossRuntime::new(
+        let mut scratch = BossClusterScratch::new(
             "boss_gnu_ton",
             "GNU-ton",
             aabb,
             crate::actor::BossBrain::Dormant,
         );
-        runtime.behavior = behavior;
-        runtime
+        scratch.config.behavior = behavior;
+        scratch
     }
 
     /// Regression guard for the GNU-ton head-hurtbox alignment concern
@@ -214,7 +215,7 @@ mod tests {
             .world_mut()
             .spawn((
                 crate::features::FeatureSimEntity,
-                BossFeature::new(spawn_gnu_ton_runtime()),
+                spawn_gnu_ton_runtime().into_components(),
                 crate::brain::BossAttackState::default(),
             ))
             .id();
@@ -223,22 +224,50 @@ mod tests {
         // then Update (derives the boss's sprite metrics from it).
         app.update();
 
-        let feature = app.world().get::<BossFeature>(entity).unwrap();
+        let status = app
+            .world()
+            .get::<crate::features::BossStatus>(entity)
+            .unwrap();
         assert!(
-            feature.boss.sprite_metrics.is_some(),
+            status.sprite_metrics.is_some(),
             "gnu_ton sprite metrics should derive from the baked sheet registry"
         );
         let attack = app
             .world()
             .get::<crate::brain::BossAttackState>(entity)
             .unwrap();
-        let ctx = crate::features::BossVolumeContext::from_runtime(&feature.boss, attack);
+        let kin = app
+            .world()
+            .get::<crate::features::BossKinematics>(entity)
+            .unwrap();
+        let config = app
+            .world()
+            .get::<crate::features::BossConfig>(entity)
+            .unwrap();
+        let status = app
+            .world()
+            .get::<crate::features::BossStatus>(entity)
+            .unwrap();
+        let boss_ref = crate::features::BossRef { kin, config, status };
+        let ctx = crate::features::BossVolumeContext::from_ref(boss_ref, attack);
         let hurtboxes = crate::features::damageable_volumes(&ctx);
         assert!(
             !hurtboxes.is_empty(),
             "gnu_ton should expose at least one damageable hurtbox at rest"
         );
-        let body = feature.boss.aabb();
+        let kin = app
+            .world()
+            .get::<crate::features::BossKinematics>(entity)
+            .unwrap();
+        let config = app
+            .world()
+            .get::<crate::features::BossConfig>(entity)
+            .unwrap();
+        let status = app
+            .world()
+            .get::<crate::features::BossStatus>(entity)
+            .unwrap();
+        let body = crate::features::BossRef { kin, config, status }.aabb();
         for hb in &hurtboxes {
             assert!(
                 body.strict_intersects(*hb),
@@ -274,7 +303,7 @@ mod tests {
         // Spawn an ECS boss in alive state, just like the real
         // populate-bosses pass would.
         app.world_mut()
-            .spawn(BossFeature::new(spawn_gnu_ton_runtime()));
+            .spawn(spawn_gnu_ton_runtime().into_components());
         app.update();
         assert_eq!(
             climbable_regions_len(&app),
@@ -289,7 +318,7 @@ mod tests {
         let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
         let boss_entity = app
             .world_mut()
-            .spawn(BossFeature::new(spawn_gnu_ton_runtime()))
+            .spawn(spawn_gnu_ton_runtime().into_components())
             .id();
 
         // First tick: boss alive → ladder hidden.
@@ -298,9 +327,8 @@ mod tests {
 
         // Kill the boss; next tick should add the ladder back.
         app.world_mut()
-            .get_mut::<BossFeature>(boss_entity)
+            .get_mut::<crate::features::BossStatus>(boss_entity)
             .unwrap()
-            .boss
             .alive = false;
         app.update();
         let regions = &app
@@ -323,7 +351,7 @@ mod tests {
             vec![ladder],
         ));
         app.world_mut()
-            .spawn(BossFeature::new(spawn_gnu_ton_runtime()));
+            .spawn(spawn_gnu_ton_runtime().into_components());
         for _ in 0..5 {
             app.update();
         }
@@ -347,14 +375,13 @@ mod tests {
         ));
         let boss_entity = app
             .world_mut()
-            .spawn(BossFeature::new(spawn_gnu_ton_runtime()))
+            .spawn(spawn_gnu_ton_runtime().into_components())
             .id();
         app.update();
         assert_eq!(floor_gate_count(&app), 1);
         app.world_mut()
-            .get_mut::<BossFeature>(boss_entity)
+            .get_mut::<crate::features::BossStatus>(boss_entity)
             .unwrap()
-            .boss
             .alive = false;
         app.update();
         assert_eq!(
@@ -401,13 +428,12 @@ mod tests {
         let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder.clone()]));
         let boss_entity = app
             .world_mut()
-            .spawn(BossFeature::new(spawn_gnu_ton_runtime()))
+            .spawn(spawn_gnu_ton_runtime().into_components())
             .id();
         app.update();
         app.world_mut()
-            .get_mut::<BossFeature>(boss_entity)
+            .get_mut::<crate::features::BossStatus>(boss_entity)
             .unwrap()
-            .boss
             .alive = false;
         app.update();
         assert_eq!(climbable_regions_len(&app), 1);
@@ -435,7 +461,7 @@ mod tests {
         // a fresh-spawn boss so the gate sees a live boss again.
         app.world_mut().despawn(boss_entity);
         app.world_mut()
-            .spawn(BossFeature::new(spawn_gnu_ton_runtime()));
+            .spawn(spawn_gnu_ton_runtime().into_components());
         app.update();
 
         assert_eq!(

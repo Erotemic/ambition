@@ -349,7 +349,6 @@ pub fn canonical_boss_id_from(name: &str, brain: &crate::actor::BossBrain) -> St
 /// lands).
 pub fn boss_special_for_profile(
     profile: &crate::brain::BossAttackProfile,
-    boss: &BossRuntime,
 ) -> Option<crate::brain::SpecialActionSpec> {
     use crate::brain::{BossAttackProfile, SpecialActionSpec};
     match profile {
@@ -393,10 +392,7 @@ pub fn boss_special_for_profile(
         // (they damage via `boss_attack_damage` reading `BossAttackState`
         // directly). The `_` arm keeps this function the single
         // source of truth for *which* special spec each profile maps to.
-        _ => {
-            let _ = boss; // future per-boss tuning may read it
-            None
-        }
+        _ => None,
     }
 }
 
@@ -503,7 +499,7 @@ mod canonical_boss_id_tests {
     #[test]
     fn boss_runtime_uses_phase_script_for_behavior_lookup() {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0));
-        let boss = BossRuntime::new(
+        let boss = super::super::ecs::boss_clusters::BossClusterScratch::new(
             "boss_under_test",
             "System Boss",
             aabb,
@@ -511,12 +507,12 @@ mod canonical_boss_id_tests {
                 script_id: "clockwork_warden".to_string(),
             },
         );
-        assert_eq!(boss.behavior.id, "clockwork_warden");
+        assert_eq!(boss.config.behavior.id, "clockwork_warden");
         // Sanity: the Gradient Sentinel macro tuning is non-trivial
         // (chase/retreat thresholds non-zero), which the generic
         // boss profile doesn't set.
         assert!(
-            boss.behavior.macro_tuning.is_enabled(),
+            boss.config.behavior.macro_tuning.is_enabled(),
             "clockwork_warden behavior should carry macro tuning",
         );
     }
@@ -526,30 +522,6 @@ mod canonical_boss_id_tests {
 mod boss_special_resolver_tests {
     use super::*;
 
-    fn gnu_ton_runtime_fixture() -> BossRuntime {
-        let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(110.0, 110.0));
-        let mut runtime = BossRuntime::new(
-            "boss_gnu_ton",
-            "GNU-ton",
-            aabb,
-            crate::actor::BossBrain::Dormant,
-        );
-        runtime.behavior = BossBehaviorProfile::gnu_ton();
-        runtime
-    }
-
-    fn gradient_sentinel_runtime_fixture() -> BossRuntime {
-        let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 696.0), ae::Vec2::new(64.0, 80.0));
-        let mut runtime = BossRuntime::new(
-            "boss_gradient_sentinel",
-            "Gradient Sentinel",
-            aabb,
-            crate::actor::BossBrain::Dormant,
-        );
-        runtime.behavior = BossBehaviorProfile::clockwork_warden();
-        runtime
-    }
-
     /// Every special-flavored profile must map to a Some(spec) — otherwise
     /// the boss tick will emit no Special message for that beat and the
     /// schedule silently degrades. Pin the mapping so future schedule
@@ -557,7 +529,6 @@ mod boss_special_resolver_tests {
     #[test]
     fn every_special_profile_resolves_to_a_spec_for_gradient_sentinel() {
         use crate::brain::BossAttackProfile;
-        let boss = gradient_sentinel_runtime_fixture();
         for profile in [
             BossAttackProfile::OverfitVolley,
             BossAttackProfile::MinimaTrap,
@@ -565,7 +536,7 @@ mod boss_special_resolver_tests {
             BossAttackProfile::GradientCascade,
         ] {
             assert!(
-                boss_special_for_profile(&profile, &boss).is_some(),
+                boss_special_for_profile(&profile).is_some(),
                 "{profile:?} must resolve to a spec for Gradient Sentinel",
             );
         }
@@ -577,8 +548,7 @@ mod boss_special_resolver_tests {
     #[test]
     fn gnu_apple_rain_profile_resolves_to_apple_rain_spec_for_gnu_ton() {
         use crate::brain::{BossAttackProfile, SpecialActionSpec};
-        let boss = gnu_ton_runtime_fixture();
-        match boss_special_for_profile(&BossAttackProfile::GnuAppleRain, &boss) {
+        match boss_special_for_profile(&BossAttackProfile::GnuAppleRain) {
             Some(SpecialActionSpec::GnuAppleRain {
                 interval_s,
                 spawn_speed,
@@ -598,7 +568,6 @@ mod boss_special_resolver_tests {
     #[test]
     fn ordinary_profiles_resolve_to_none() {
         use crate::brain::BossAttackProfile;
-        let boss = gradient_sentinel_runtime_fixture();
         for profile in [
             BossAttackProfile::FloorSlam,
             BossAttackProfile::SideSweep,
@@ -606,7 +575,7 @@ mod boss_special_resolver_tests {
             BossAttackProfile::GradientLane,
         ] {
             assert!(
-                boss_special_for_profile(&profile, &boss).is_none(),
+                boss_special_for_profile(&profile).is_none(),
                 "{profile:?} should not have a Special spec",
             );
         }
@@ -757,204 +726,6 @@ pub fn boss_animation_keys_for_profile(
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct BossRuntime {
-    pub id: String,
-    pub name: String,
-    pub pos: ae::Vec2,
-    pub spawn: ae::Vec2,
-    pub size: ae::Vec2,
-    pub facing: f32,
-    pub health: crate::actor::Health,
-    pub brain: crate::actor::BossBrain,
-    pub behavior: BossBehaviorProfile,
-    pub alive: bool,
-    pub hit_flash: f32,
-    /// Active encounter phase. Forwarded by `sync_boss_encounter_phase`
-    /// from `BossEncounterRegistry`. `Dormant` until the encounter
-    /// wakes up. The brain reads this via `BossPatternContext`;
-    /// pattern selection happens in the brain, not here.
-    pub encounter_phase: crate::boss_encounter::BossEncounterPhase,
-    /// Sprite-driven body metrics — populated by the
-    /// `derive_boss_sprite_metrics` system after the SheetRegistry
-    /// has loaded. `None` for bosses whose sprite has no
-    /// `body_metrics` entry (the derivation system leaves them
-    /// alone), and the legacy `combat_size` path applies.
-    pub sprite_metrics: Option<BossSpriteMetrics>,
-}
-
-impl BossRuntime {
-    pub(crate) fn new(
-        id: impl Into<String>,
-        name: impl Into<String>,
-        aabb: ae::Aabb,
-        brain: crate::actor::BossBrain,
-    ) -> Self {
-        let name = name.into();
-        // Behavior lookup prefers the brain's `PhaseScript:` id
-        // over the LDtk display name. A room whose BossSpawn is
-        // named "System Boss" but whose brain is
-        // `PhaseScript:clockwork_warden` should still resolve to
-        // the clockwork_warden / Gradient Sentinel profile — not
-        // a generic placeholder.
-        let canonical_id = canonical_boss_id_from(&name, &brain);
-        Self {
-            id: id.into(),
-            pos: aabb.center(),
-            spawn: aabb.center(),
-            size: aabb.half_size() * 2.0,
-            facing: 1.0,
-            health: crate::actor::Health::new(18),
-            behavior: BossBehaviorProfile::for_authored_boss(&canonical_id),
-            sprite_metrics: None,
-            name,
-            brain,
-            alive: true,
-            hit_flash: 0.0,
-            encounter_phase: crate::boss_encounter::BossEncounterPhase::Dormant,
-        }
-    }
-
-    /// `target_pos` is populated from the boss entity's `ActorTarget`
-    /// component by `select_actor_targets` (OVERNIGHT-TODO #17.8).
-    /// The boss movement profile reads it for anchor-sway / air-swoop
-    /// chase math; scripted patterns (`StationaryGiant`) ignore it.
-    /// Integrate the boss's body using the brain-emitted `desired_vel`
-    /// from `ActorControl`. **Integration only** — the brain
-    /// (`tick_boss_brains_system` → `boss_pattern::tick_boss_pattern`)
-    /// owns the policy decision and writes `ActorControl` upstream;
-    /// this method only translates that desired velocity into a
-    /// collision-resolved position change.
-    ///
-    /// `BossRuntime::update` (the old policy + integration combo)
-    /// was deleted by the "move boss policy out of BossRuntime"
-    /// migration. The runtime no longer ticks the scripted cursor
-    /// or chooses Telegraph/Strike/Rest; it just integrates the
-    /// velocity the brain produced.
-    pub fn integrate_body(&mut self, world: &ae::World, desired_vel: ae::Vec2, dt: f32) {
-        if !self.alive || dt <= 0.0 {
-            return;
-        }
-        // Bosses float (gravity = 0, max_fall_speed = 0). Multi-part
-        // bosses like GNU-ton expose a `combat_size` distinct from
-        // the sprite `size`; that's the size we collide against.
-        let mut body = crate::kinematic::KinematicBody {
-            pos: self.pos,
-            vel: desired_vel,
-            size: self.combat_size(),
-            on_ground: false,
-            facing: self.facing,
-        };
-        crate::kinematic::step_kinematic(
-            &mut body,
-            world,
-            crate::kinematic::KinematicTuning {
-                gravity: 0.0,
-                max_fall_speed: 0.0,
-            },
-            crate::kinematic::KinematicInputs {
-                drop_through: false,
-            },
-            dt,
-        );
-        self.pos = body.pos;
-        self.facing = if body.facing.abs() > 0.001 {
-            body.facing.signum()
-        } else {
-            self.facing
-        };
-        self.hit_flash = (self.hit_flash - dt).max(0.0);
-    }
-
-    // `tick_runtime_clocks`, `tick_apple_rain`, `update_scripted_attacks`,
-    // `update_cycle_attacks`, `pattern_timer`, `movement_timer`,
-    // `attack_windup_timer`, `attack_timer`, `attack_cooldown`,
-    // `active_strike_profile`, `telegraph_profile` all moved out of
-    // `BossRuntime` and into the brain layer:
-    //
-    // * Cursor / clocks / pattern-step decision live in
-    //   `crate::brain::boss_pattern::{BossPatternCfg, BossPatternState,
-    //   tick_boss_pattern}` (brain).
-    // * Live telegraph/active profile + remaining time live on the
-    //   `BossAttackState` component (still in brain).
-    // * Volume math is pure functions in
-    //   `crate::content::features::boss_attack_geometry`
-    //   (`active_attack_volumes`, `telegraph_volumes`,
-    //   `damageable_volumes`, `volumes_for_profile`, `body_damage_aabb`).
-    // * Boss → player damage is the pure `boss_attack_damage` helper
-    //   in the same module; `update_ecs_bosses` calls it from a
-    //   `BossVolumeContext` built off `BossRuntime` + `BossAttackState`.
-    //
-    // Anything that needs to look at "what attack is live right now?"
-    // queries `BossAttackState` directly, not `BossRuntime`.
-
-    pub fn is_mockingbird(&self) -> bool {
-        self.behavior.id == "mockingbird" || self.name.eq_ignore_ascii_case("mockingbird")
-    }
-
-    pub fn is_gnu_ton(&self) -> bool {
-        self.behavior.id == "gnu_ton"
-            || self.name.eq_ignore_ascii_case("gnu_ton")
-            || self.name.eq_ignore_ascii_case("gnu-ton")
-    }
-
-    pub fn render_size(&self) -> ae::Vec2 {
-        self.size
-    }
-
-    /// World-space anchor for a combat-banter speech bubble. For GNU-ton the
-    /// scholar sits on the right shoulder — offset slightly right and not as
-    /// high as the body top so the bubble appears near the character, not
-    /// floating above the beast's head.
-    pub fn bark_anchor(&self) -> ae::Vec2 {
-        if self.is_gnu_ton() {
-            let half_h = self.combat_size().y * 0.5;
-            ae::Vec2::new(self.pos.x + 38.0, self.pos.y - half_h * 0.55 - 18.0)
-        } else {
-            let half_h = self.combat_size().y * 0.5;
-            ae::Vec2::new(self.pos.x, self.pos.y - half_h - 20.0)
-        }
-    }
-
-    pub fn apply_behavior_profile(&mut self, behavior: BossBehaviorProfile) {
-        self.behavior = behavior;
-    }
-
-    pub fn combat_size(&self) -> ae::Vec2 {
-        self.behavior.combat_size.unwrap_or(self.size)
-    }
-
-    /// World offset from `boss.pos` to the body's bounding AABB
-    /// center. Non-zero for bosses whose sprite metadata indicates
-    /// the body bbox is off-center within the sprite frame
-    /// (gradient sentinel: ~(-6, -35) at 128×160 spawn). Zero for
-    /// bosses without sprite_metrics, or for bosses whose RON
-    /// deliberately leaves `body_pixel_bbox` / `body_pixel_parts`
-    /// empty so the derivation step doesn't overwrite a hand-tuned
-    /// `combat_size` (GNU-ton: keeps the authored (220, 220)
-    /// envelope; per-animation volumes still come from the RON).
-    pub fn combat_offset(&self) -> ae::Vec2 {
-        self.sprite_metrics
-            .as_ref()
-            .map(|m| m.combat_offset)
-            .unwrap_or(ae::Vec2::ZERO)
-    }
-
-    pub fn aabb(&self) -> ae::Aabb {
-        ae::Aabb::new(self.pos + self.combat_offset(), self.combat_size() * 0.5)
-    }
-
-    // All attack-volume / telegraph-volume / damageable-volume /
-    // player_damage / cycle_pattern_volumes / volumes_for /
-    // gnu_ton_part_aabb / body_damage_aabb methods moved out of
-    // `BossRuntime`. They are now pure functions in
-    // `crate::content::features::boss_attack_geometry` that take a
-    // `BossVolumeContext` (built from `&BossRuntime` + `&BossAttackState`)
-    // and read the brain's `BossAttackState` instead of mirror fields.
-    //
-    // If you need "the boss's live hitbox volumes right now" call
-    // `features::active_attack_volumes(&BossVolumeContext::from_runtime(boss, attack_state))`.
-}
 
 #[cfg(test)]
 mod scripted_pattern_tests {
@@ -962,19 +733,19 @@ mod scripted_pattern_tests {
     use crate::brain::boss_pattern::BossPatternStep;
     use crate::engine_core as ae;
 
-    fn gnu_ton_runtime() -> BossRuntime {
+    fn gnu_ton_runtime() -> super::super::ecs::boss_clusters::BossClusterScratch {
         let behavior = BossBehaviorProfile::gnu_ton();
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-        let mut runtime = BossRuntime::new(
+        let mut scratch = super::super::ecs::boss_clusters::BossClusterScratch::new(
             "boss_gnu_ton",
             "GNU-ton",
             aabb,
             crate::actor::BossBrain::Dormant,
         );
-        runtime.behavior = behavior;
-        runtime.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
+        scratch.config.behavior = behavior;
+        scratch.status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
         // After the data-driven migration, the head-position invariants
         // (rest above shoulder, descent at player level) live in the
         // sprite RON's per-animation `hurtbox.parts`. The test fixture
@@ -982,8 +753,8 @@ mod scripted_pattern_tests {
         // `damageable_volumes` flows through the same lookup path the
         // live runtime uses. Mirrors the rest/gnu_head_descent rows in
         // `gnu_ton_boss_spritesheet.ron`.
-        runtime.sprite_metrics = Some(gnu_ton_sprite_metrics_fixture());
-        runtime
+        scratch.status.sprite_metrics = Some(gnu_ton_sprite_metrics_fixture());
+        scratch
     }
 
     /// Build a minimal `BossSpriteMetrics` whose per-animation
@@ -1137,9 +908,9 @@ mod scripted_pattern_tests {
         // snapshot in the runtime fixture.
         let slam = crate::features::volumes_for_profile(
             &BossAttackProfile::GnuHandSlam,
-            boss.pos,
-            boss.combat_size(),
-            &boss.behavior,
+            boss.kin.pos,
+            boss.as_ref().combat_size(),
+            &boss.config.behavior,
         );
         assert_eq!(slam.len(), 2);
         let (left, right) = if slam[0].center().x < slam[1].center().x {
@@ -1147,10 +918,10 @@ mod scripted_pattern_tests {
         } else {
             (&slam[1], &slam[0])
         };
-        assert!(left.center().x < boss.pos.x, "{slam:?}");
-        assert!(right.center().x > boss.pos.x, "{slam:?}");
-        assert!(left.center().y > boss.pos.y, "{slam:?}");
-        assert!(right.center().y > boss.pos.y, "{slam:?}");
+        assert!(left.center().x < boss.kin.pos.x, "{slam:?}");
+        assert!(right.center().x > boss.kin.pos.x, "{slam:?}");
+        assert!(left.center().y > boss.kin.pos.y, "{slam:?}");
+        assert!(right.center().y > boss.kin.pos.y, "{slam:?}");
     }
 
     #[test]
@@ -1164,8 +935,9 @@ mod scripted_pattern_tests {
         // AABB with no active strike must produce no event.
         let boss = gnu_ton_runtime();
         let attack_state = crate::brain::BossAttackState::default();
-        let ctx = crate::features::BossVolumeContext::from_runtime(&boss, &attack_state);
-        let player_body = crate::features::body_damage_aabb(boss.pos, boss.combat_size());
+        let ctx = crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state);
+        let player_body =
+            crate::features::body_damage_aabb(boss.kin.pos, boss.as_ref().combat_size());
         // Synthetic player entity — the test only checks the
         // None branch, the entity is never read out of the event.
         let synthetic_player =
@@ -1207,9 +979,9 @@ mod scripted_pattern_tests {
         assert!(
             crate::features::volumes_for_profile(
                 &BossAttackProfile::GnuAppleRain,
-                boss.pos,
-                boss.combat_size(),
-                &boss.behavior,
+                boss.kin.pos,
+                boss.as_ref().combat_size(),
+                &boss.config.behavior,
             )
             .is_empty(),
             "apple-rain volumes must be empty — damage routes through projectiles"
@@ -1229,7 +1001,7 @@ mod scripted_pattern_tests {
         let boss = gnu_ton_runtime();
         let mut attack_state = crate::brain::BossAttackState::default();
         let rest_head = crate::features::damageable_volumes(
-            &crate::features::BossVolumeContext::from_runtime(&boss, &attack_state),
+            &crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state),
         );
         assert_eq!(
             rest_head.len(),
@@ -1239,20 +1011,20 @@ mod scripted_pattern_tests {
         let rest_y = rest_head[0].center().y;
         // Rest head sits ABOVE the shoulder anchor (player must climb).
         assert!(
-            rest_y < boss.pos.y,
+            rest_y < boss.kin.pos.y,
             "rest head should be above the shoulder anchor, got y={rest_y} vs pos.y={}",
-            boss.pos.y
+            boss.kin.pos.y
         );
 
         attack_state.active_profile = Some(BossAttackProfile::GnuHeadDescent);
         let descent_head = crate::features::damageable_volumes(
-            &crate::features::BossVolumeContext::from_runtime(&boss, &attack_state),
+            &crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state),
         );
         assert_eq!(descent_head.len(), 1);
         let descent_y = descent_head[0].center().y;
         // Descended head sits BELOW the shoulder anchor (at player level).
         assert!(
-            descent_y > boss.pos.y,
+            descent_y > boss.kin.pos.y,
             "descent head should be below the shoulder anchor"
         );
         // And materially lower than the rest position — that's the
@@ -1399,14 +1171,6 @@ mod scripted_pattern_tests {
         else {
             panic!("expected Scripted");
         };
-        let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 696.0), ae::Vec2::new(64.0, 80.0));
-        let mut boss = BossRuntime::new(
-            "boss_gradient_sentinel",
-            "Gradient Sentinel",
-            aabb,
-            crate::actor::BossBrain::Dormant,
-        );
-        boss.behavior = behavior;
         for (label, pattern) in [
             ("phase1", &phase1),
             ("phase2", &phase2),
@@ -1416,7 +1180,7 @@ mod scripted_pattern_tests {
                 if let BossPatternStep::Strike { profile, .. } = step {
                     if profile.is_special() {
                         assert!(
-                            boss_special_for_profile(profile, &boss).is_some(),
+                            boss_special_for_profile(profile).is_some(),
                             "{label} strike of {profile:?} has no registered \
                              SpecialActionSpec — boss_special_for_profile must \
                              return Some so tick_boss_brains_system can emit \
@@ -1511,14 +1275,14 @@ mod scripted_pattern_tests {
         let combat_size = ae::Vec2::new(80.0, 80.0);
         let spawn = ae::Vec2::new(200.0, 400.0);
         let aabb = ae::Aabb::new(spawn, combat_size * 0.5);
-        let mut boss = BossRuntime::new(
+        let mut boss = super::super::ecs::boss_clusters::BossClusterScratch::new(
             "test_warden",
             "Clockwork Warden",
             aabb,
             crate::actor::BossBrain::Dormant,
         );
-        boss.behavior = BossBehaviorProfile::clockwork_warden();
-        boss.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
+        boss.config.behavior = BossBehaviorProfile::clockwork_warden();
+        boss.status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
         // World: a wall at x=400 blocks any rightward chase past it.
         let world = ae::World::new(
             String::from("boss_collision_test"),
@@ -1553,17 +1317,18 @@ mod scripted_pattern_tests {
         };
         let mut cfg = BossPatternCfg::neutral_test();
         cfg.aggressiveness = 1.0;
-        cfg.pattern = boss.behavior.attack_pattern.clone();
-        cfg.movement = boss.behavior.movement.clone();
-        cfg.spawn = boss.spawn;
-        cfg.combat_size = boss.combat_size();
-        cfg.cycle_attack_windup = boss.behavior.attack_windup.max(0.01);
+        cfg.pattern = boss.config.behavior.attack_pattern.clone();
+        cfg.movement = boss.config.behavior.movement.clone();
+        cfg.spawn = boss.config.spawn;
+        cfg.combat_size = boss.as_ref().combat_size();
+        cfg.cycle_attack_windup = boss.config.behavior.attack_windup.max(0.01);
         cfg.cycle_attack_active = boss
+            .config
             .behavior
             .attack_active
             .max(FeatureCombatTuning::default().boss_attack_active)
             .max(0.01);
-        cfg.cycle_attack_cooldown = boss.behavior.attack_cooldown.max(0.05);
+        cfg.cycle_attack_cooldown = boss.config.behavior.attack_cooldown.max(0.05);
         let mut state = BossPatternState::default();
         let mut attack_state = BossAttackState::default();
         let dt = 1.0 / 60.0;
@@ -1573,8 +1338,8 @@ mod scripted_pattern_tests {
                 &cfg,
                 &mut state,
                 &BossPatternContext {
-                    encounter_phase: boss.encounter_phase,
-                    actor_pos: boss.pos,
+                    encounter_phase: boss.status.encounter_phase,
+                    actor_pos: boss.kin.pos,
                     target_pos: player_pos,
                     world_size: world.size,
                     front_wall_clearance: None,
@@ -1583,14 +1348,14 @@ mod scripted_pattern_tests {
                 &mut frame,
                 &mut attack_state,
             );
-            boss.integrate_body(&world, frame.desired_vel, dt);
+            boss.as_mut().integrate_body(&world, frame.desired_vel, dt);
         }
-        let boss_right_edge = boss.pos.x + boss.combat_size().x * 0.5;
+        let boss_right_edge = boss.kin.pos.x + boss.as_ref().combat_size().x * 0.5;
         let wall_left_edge = 400.0;
         assert!(
             boss_right_edge <= wall_left_edge + 0.5,
             "boss clipped into wall at pos {:?} (right edge {}); wall left edge {}",
-            boss.pos,
+            boss.kin.pos,
             boss_right_edge,
             wall_left_edge,
         );

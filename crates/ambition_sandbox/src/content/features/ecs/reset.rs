@@ -35,7 +35,7 @@ pub fn reset_ecs_room_features(
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
     mut bosses: Query<
         (
-            &mut BossFeature,
+            super::boss_clusters::BossClusterQueryData,
             &mut crate::brain::Brain,
             &mut crate::brain::BossAttackState,
             &mut crate::brain::ActorControl,
@@ -117,13 +117,12 @@ pub fn reset_ecs_room_features(
             }
         }
     }
-    for (mut boss_feature, mut brain, mut attack_state, mut control) in &mut bosses {
-        let boss = &mut boss_feature.boss;
-        boss.pos = boss.spawn;
-        boss.alive = true;
-        boss.facing = 1.0;
-        boss.health.reset();
-        boss.hit_flash = 0.0;
+    for (mut feature, mut brain, mut attack_state, mut control) in &mut bosses {
+        feature.kin.pos = feature.config.spawn;
+        feature.status.alive = true;
+        feature.kin.facing = 1.0;
+        feature.status.health.reset();
+        feature.status.hit_flash = 0.0;
         // Brain-owned state: zero the per-actor `BossPatternState`
         // (cursor / clocks / cycle phase / last_phase) and the
         // `BossAttackState` mirror (live telegraph + active profile

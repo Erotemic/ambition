@@ -229,7 +229,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
             &mut super::super::components::ActorPose,
             Option<&ActorRuntime>,
             Option<&super::enemy_clusters::ActorKinematics>,
-            Option<&BossFeature>,
+            Option<super::boss_clusters::BossClusterRef>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -244,7 +244,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
                 kin.map(|k| k.facing).unwrap_or(pose.facing)
             }
             None => boss
-                .map(|feature| feature.boss.facing)
+                .map(|feature| feature.kin.facing)
                 .unwrap_or(pose.facing),
         };
         *pose = super::super::components::ActorPose::from_aabb(*aabb, facing);

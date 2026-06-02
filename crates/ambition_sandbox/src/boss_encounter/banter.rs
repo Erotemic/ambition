@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::content::banter::CombatBanterRegistry;
-use crate::features::BossFeature;
+use crate::features::BossClusterRef;
 use crate::presentation::fx::VfxMessage;
 
 /// Register hit-bark + idle-bark lines for all boss encounters.
@@ -120,7 +120,7 @@ pub fn install_boss_banter(registry: &mut CombatBanterRegistry) {
 #[derive(Default)]
 pub struct BossIdleBarkState {
     /// Seconds remaining until the next idle bark fires, keyed by
-    /// `BossFeature::boss.id`. Initialized on first observation to a
+    /// `BossConfig::id`. Initialized on first observation to a
     /// small jitter so multiple bosses don't bark in unison.
     timers: HashMap<String, f32>,
     /// Rotation counter per boss so the same line doesn't loop.
@@ -135,7 +135,7 @@ const IDLE_BARK_INTERVAL_JITTER: f32 = 3.0;
 pub fn tick_boss_idle_barks(
     world_time: Res<crate::WorldTime>,
     registry: Option<Res<CombatBanterRegistry>>,
-    ecs_bosses: Query<&BossFeature>,
+    ecs_bosses: Query<BossClusterRef>,
     mut vfx: MessageWriter<VfxMessage>,
     mut state: Local<BossIdleBarkState>,
 ) {
@@ -147,12 +147,12 @@ pub fn tick_boss_idle_barks(
         return;
     }
     for feature in &ecs_bosses {
-        let boss = &feature.boss;
-        if !boss.alive {
+        let boss = feature.as_boss_ref();
+        if !boss.status.alive {
             continue;
         }
         if !matches!(
-            boss.encounter_phase,
+            boss.status.encounter_phase,
             crate::boss_encounter::BossEncounterPhase::Phase1
                 | crate::boss_encounter::BossEncounterPhase::Phase2
                 | crate::boss_encounter::BossEncounterPhase::Enrage
@@ -161,20 +161,20 @@ pub fn tick_boss_idle_barks(
         }
         // Suppress idle barks while the hit-flash bubble is still on
         // screen so we don't talk over a hit bark.
-        if boss.hit_flash > 0.0 {
+        if boss.status.hit_flash > 0.0 {
             continue;
         }
-        let key = boss.id.clone();
+        let key = boss.config.id.clone();
         let timer = state
             .timers
             .entry(key.clone())
-            .or_insert_with(|| jitter_interval(&boss.id, 0));
+            .or_insert_with(|| jitter_interval(&boss.config.id, 0));
         *timer -= dt;
         if *timer > 0.0 {
             continue;
         }
         let rotation_now = *state.rotations.entry(key.clone()).or_insert(0);
-        if let Some(line) = registry.pick_idle_bark(&boss.name, rotation_now) {
+        if let Some(line) = registry.pick_idle_bark(&boss.config.name, rotation_now) {
             vfx.write(VfxMessage::SpeechBubble {
                 pos: boss.bark_anchor(),
                 text: line.to_string(),
@@ -186,7 +186,7 @@ pub fn tick_boss_idle_barks(
         // land at exactly the same offset.
         state
             .timers
-            .insert(key, jitter_interval(&boss.id, next_rotation));
+            .insert(key, jitter_interval(&boss.config.id, next_rotation));
     }
 }
 

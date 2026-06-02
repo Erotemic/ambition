@@ -14,7 +14,7 @@ pub(super) fn spawn_boss(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::actor::BossBrain>,
 ) {
-    let boss = BossRuntime::new(
+    let boss = BossClusterScratch::new(
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
@@ -23,14 +23,14 @@ pub(super) fn spawn_boss(
     bevy::log::info!(
         target: "ambition::boss_spawn",
         "spawn_boss id={} name={:?} brain={:?} → behavior.id={} combat_size={:?}",
-        boss.id,
-        boss.name,
+        boss.config.id,
+        boss.config.name,
         authored.payload,
-        boss.behavior.id,
-        boss.combat_size(),
+        boss.config.behavior.id,
+        boss.as_ref().combat_size(),
     );
-    let initial_phase = BossPhase::from_alive(boss.alive);
-    let feature_aabb = FeatureAabb::from_center_size(boss.pos, boss.render_size());
+    let initial_phase = BossPhase::from_alive(boss.status.alive);
+    let feature_aabb = FeatureAabb::from_center_size(boss.kin.pos, boss.as_ref().render_size());
     // BossPattern brain owns boss intent. The cfg snapshots the
     // authored behavior profile's pattern + movement at spawn
     // time, plus the per-boss spawn anchor and combat collision
@@ -45,9 +45,10 @@ pub(super) fn spawn_boss(
     // LDtk BossSpawn with a flavor display name still wires the
     // apple-rain self-dodge (and any future per-encounter
     // overrides) to the right boss.
-    let encounter_id = boss.behavior.id.clone();
+    let encounter_id = boss.config.behavior.id.clone();
     let combat_tuning = crate::time::feel::SandboxFeelTuning::default().feature_combat_tuning();
     let cycle_attack_active = boss
+        .config
         .behavior
         .attack_active
         .max(combat_tuning.boss_attack_active)
@@ -63,20 +64,20 @@ pub(super) fn spawn_boss(
     let brain_cfg = crate::brain::BossPatternCfg {
         aggressiveness: 1.0,
         encounter_id: encounter_id.clone(),
-        pattern: boss.behavior.attack_pattern.clone(),
-        movement: boss.behavior.movement.clone(),
-        movement_phase2: boss.behavior.movement_phase2.clone(),
-        movement_enrage: boss.behavior.movement_enrage.clone(),
-        strike_speed_scale: boss.behavior.strike_speed_scale,
-        spawn: boss.spawn,
-        combat_size: boss.combat_size(),
-        cycle_attack_windup: boss.behavior.attack_windup.max(0.01),
+        pattern: boss.config.behavior.attack_pattern.clone(),
+        movement: boss.config.behavior.movement.clone(),
+        movement_phase2: boss.config.behavior.movement_phase2.clone(),
+        movement_enrage: boss.config.behavior.movement_enrage.clone(),
+        strike_speed_scale: boss.config.behavior.strike_speed_scale,
+        spawn: boss.config.spawn,
+        combat_size: boss.as_ref().combat_size(),
+        cycle_attack_windup: boss.config.behavior.attack_windup.max(0.01),
         cycle_attack_active,
-        cycle_attack_cooldown: boss.behavior.attack_cooldown.max(0.05),
-        cycle_attacks: boss.behavior.attacks.clone(),
+        cycle_attack_cooldown: boss.config.behavior.attack_cooldown.max(0.05),
+        cycle_attacks: boss.config.behavior.attacks.clone(),
         apple_rain_dodge_amp,
         apple_rain_dodge_freq,
-        macro_tuning: boss.behavior.macro_tuning,
+        macro_tuning: boss.config.behavior.macro_tuning,
     };
     let brain = crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::BossPattern {
         cfg: brain_cfg,
@@ -103,7 +104,9 @@ pub(super) fn spawn_boss(
     };
     let boss_combat_kit = CombatKit::from_action_set(&boss_action_set);
     let (boss_identity, boss_disposition, boss_health, boss_combat, boss_intent, boss_cooldowns) =
-        boss_component_snapshot(&boss, &crate::brain::BossAttackState::default());
+        boss_component_snapshot(boss.as_ref(), &crate::brain::BossAttackState::default());
+    let boss_facing = boss.kin.facing;
+    let boss_components = boss.into_components();
     let mut entity = commands.spawn((
         Name::new(format!("Feature boss: {}", authored.name)),
         FeatureSimEntity,
@@ -120,12 +123,12 @@ pub(super) fn spawn_boss(
         initial_phase,
         super::ActorFaction::Boss,
         super::ActorTarget::default(),
-        ActorPose::from_aabb(feature_aabb, boss.facing),
+        ActorPose::from_aabb(feature_aabb, boss_facing),
         (
             DamageableVolumes::default(),
             PogoPolicy::FromDamageable,
             PogoTargetVolumes::default(),
-            BossFeature::new(boss),
+            boss_components,
         ),
     ));
     entity.insert((

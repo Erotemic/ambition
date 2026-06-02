@@ -9,8 +9,8 @@ use super::diagnostics::log_press_diagnostics;
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use crate::audio::SfxMessage;
 use crate::features::{
-    ActorCombatState, ActorDisposition, BossFeature, BreakableFeature, FeatureAabb, FeatureId,
-    FeatureSimEntity, HitEvent, HitSource,
+    ActorCombatState, ActorDisposition, BossClusterRef, BossConfig, BreakableFeature, FeatureAabb,
+    FeatureId, FeatureSimEntity, HitEvent, HitSource,
 };
 use crate::presentation::fx::VfxMessage;
 use crate::trace::GameplayTraceBuffer;
@@ -44,13 +44,13 @@ pub fn update_projectiles(
             &ActorDisposition,
             &ActorCombatState,
         ),
-        (With<FeatureSimEntity>, Without<BossFeature>),
+        (With<FeatureSimEntity>, Without<BossConfig>),
     >,
     ecs_bosses: Query<
         (
             &FeatureId,
             &FeatureAabb,
-            &BossFeature,
+            BossClusterRef,
             &crate::brain::BossAttackState,
             // Live rendered frame, so the projectile hit-check uses the
             // same head position as the damage path + the drawn hurtbox.

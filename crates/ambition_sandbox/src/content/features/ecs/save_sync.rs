@@ -157,7 +157,7 @@ pub fn sync_ecs_bosses_with_save(
     save: Res<crate::persistence::save::SandboxSave>,
     mut bosses: Query<
         (
-            &mut BossFeature,
+            super::boss_clusters::BossClusterQueryData,
             Option<&mut BossDeathAnimation>,
             Option<&mut BossPhase>,
         ),
@@ -166,23 +166,22 @@ pub fn sync_ecs_bosses_with_save(
 ) {
     let data = save.data();
     for (mut feature, death_anim, phase) in &mut bosses {
-        let boss = &mut feature.boss;
         // Use the canonical behavior id (resolved at spawn from the
         // brain's `PhaseScript:` payload) so an LDtk BossSpawn with
         // flavor name "System Boss" + brain
         // `PhaseScript:clockwork_warden` still hits the
         // `clockwork_warden` save slot. `boss.id` (runtime entity
         // id) also wins as a legacy fallback.
-        let encounter_id = boss.behavior.id.clone();
+        let encounter_id = feature.config.behavior.id.clone();
         if matches!(
             data.boss(&encounter_id),
             crate::save::PersistedEncounterState::Cleared
         ) || matches!(
-            data.boss(&boss.id),
+            data.boss(&feature.config.id),
             crate::save::PersistedEncounterState::Cleared
         ) {
-            boss.alive = false;
-            boss.health.current = 0;
+            feature.status.alive = false;
+            feature.status.health.current = 0;
             if let Some(mut death_anim) = death_anim {
                 death_anim.clear();
             }

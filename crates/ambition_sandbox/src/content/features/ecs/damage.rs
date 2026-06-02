@@ -23,7 +23,7 @@ use super::super::{
 use super::{
     ae, sync_actor_components_from_enemy, ActorCombatState,
     ActorCooldowns, ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime,
-    BossFeature, BreakableFeature, EnemyArchetype, FeatureAabb, FeatureId, FeatureName,
+    BossConfig, BreakableFeature, EnemyArchetype, FeatureAabb, FeatureId, FeatureName,
     FeatureSimEntity, GameplayBanner, HitEvent, HitSource, RespawnTimer, SetFlagRequested,
 };
 use crate::audio::SfxMessage;
@@ -84,7 +84,7 @@ pub fn apply_feature_hit_events(
         (
             &FeatureId,
             &FeatureAabb,
-            &mut BossFeature,
+            super::boss_clusters::BossClusterQueryData,
             &crate::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
@@ -251,7 +251,7 @@ pub fn apply_feature_hit_events(
             }
             if apply_boss_hit(
                 &event,
-                &mut feature,
+                feature.as_boss_mut(),
                 attack_state,
                 animation_frame,
                 &mut banner,
@@ -487,7 +487,7 @@ fn apply_actor_hit(
 #[allow(clippy::too_many_arguments)]
 fn apply_boss_hit(
     event: &HitEvent,
-    feature: &mut BossFeature,
+    boss: super::boss_clusters::BossMut<'_>,
     attack_state: &crate::brain::BossAttackState,
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
@@ -497,11 +497,10 @@ fn apply_boss_hit(
     music_request: Option<&mut BossEncounterMusicRequest>,
     cutscene_queue: Option<&mut CutsceneTriggerQueue>,
 ) -> bool {
-    let boss = &mut feature.boss;
-    if !boss.alive {
+    if !boss.status.alive {
         return false;
     }
-    if crate::boss_encounter::is_cut_rope_boss(&boss.behavior.id)
+    if crate::boss_encounter::is_cut_rope_boss(&boss.config.behavior.id)
         && matches!(
             event.source,
             HitSource::PlayerSlash { .. } | HitSource::PlayerProjectile { .. }
@@ -515,14 +514,14 @@ fn apply_boss_hit(
         // so harmless feedback cannot accidentally route through
         // `record_boss_damage`.
         let damageable = crate::features::damageable_volumes(
-            &crate::features::BossVolumeContext::from_runtime(boss, attack_state)
+            &crate::features::BossVolumeContext::from_ref(boss.as_ref(), attack_state)
                 .with_animation_frame(animation_frame),
         );
         if let Some(hit_aabb) = damageable
             .iter()
             .find(|part| event.volume.strict_intersects(**part))
         {
-            boss.hit_flash = 0.18;
+            boss.status.hit_flash = 0.18;
             let impact = midpoint(event.volume.center(), hit_aabb.center());
             writers.vfx.write(VfxMessage::Impact { pos: impact });
             return true;
@@ -535,7 +534,7 @@ fn apply_boss_hit(
     // and the standard whole-body hurtbox agree on a single
     // attack-state source.
     let damageable = crate::features::damageable_volumes(
-        &crate::features::BossVolumeContext::from_runtime(boss, attack_state)
+        &crate::features::BossVolumeContext::from_ref(boss.as_ref(), attack_state)
             .with_animation_frame(animation_frame),
     );
     let Some(hit_aabb) = damageable
@@ -545,12 +544,12 @@ fn apply_boss_hit(
         return false;
     };
     // Speech bubble bark when player lands a hit, debounced by hit_flash.
-    let should_bark = boss.hit_flash < 0.05;
-    boss.hit_flash = 0.18;
+    let should_bark = boss.status.hit_flash < 0.05;
+    boss.status.hit_flash = 0.18;
     if should_bark {
         if let Some(reg) = combat_banter {
-            let strikes = boss.health.max - boss.health.current;
-            if let Some(line) = reg.pick_hit_bark(&boss.name, strikes.max(0) as u32) {
+            let strikes = boss.status.health.max - boss.status.health.current;
+            if let Some(line) = reg.pick_hit_bark(&boss.config.name, strikes.max(0) as u32) {
                 writers.vfx.write(VfxMessage::SpeechBubble {
                     pos: boss.bark_anchor(),
                     text: line.to_string(),
@@ -573,21 +572,26 @@ fn apply_boss_hit(
     // runtime still takes damage and the test exercises the
     // hit path.
     let outcome = match (boss_registry, music_request, cutscene_queue) {
-        (Some(registry), Some(music), Some(cutscene)) => {
-            record_boss_damage(registry, music, cutscene, banner, boss.id.as_str(), amount)
-        }
+        (Some(registry), Some(music), Some(cutscene)) => record_boss_damage(
+            registry,
+            music,
+            cutscene,
+            banner,
+            boss.config.id.as_str(),
+            amount,
+        ),
         _ => None,
     };
     let (applied, killed) = match outcome {
         Some(outcome) => {
-            boss.health.current = outcome.hp_remaining;
+            boss.status.health.current = outcome.hp_remaining;
             (outcome.applied, outcome.killed)
         }
         // No engine encounter / missing test resource. Fall
         // back to the pre-inversion direct mutation so the
         // runtime still takes damage.
         None => {
-            let died = boss.health.damage(amount);
+            let died = boss.status.health.damage(amount);
             (true, died)
         }
     };
@@ -605,20 +609,20 @@ fn apply_boss_hit(
     // truth; the old no-op GameplayEffect::DamageBoss bus hook
     // has been removed.
     if killed {
-        boss.alive = false;
-        banner.show(format!("defeated boss {}", boss.name), 2.6);
+        boss.status.alive = false;
+        banner.show(format!("defeated boss {}", boss.config.name), 2.6);
         writers.vfx.write(VfxMessage::Burst {
-            pos: boss.pos,
+            pos: boss.kin.pos,
             count: 16,
             speed: 230.0,
             color: [0.84, 0.95, 1.0, 0.82],
             kind: ParticleKind::Spark,
         });
         writers.debris.write(DebrisBurstMessage {
-            pos: boss.pos,
+            pos: boss.kin.pos,
             cue: PhysicsDebrisCue::BossRagdoll,
         });
-        writers.sfx.write(SfxMessage::Death { pos: boss.pos });
+        writers.sfx.write(SfxMessage::Death { pos: boss.kin.pos });
     }
     true
 }
@@ -649,7 +653,7 @@ pub fn ecs_hit_event_hits_actor(
             &ActorDisposition,
             &ActorCombatState,
         ),
-        (With<FeatureSimEntity>, Without<BossFeature>),
+        (With<FeatureSimEntity>, Without<BossConfig>),
     >,
 ) -> bool {
     actors.iter().any(|(id, aabb, disposition, combat)| {
@@ -669,7 +673,7 @@ pub fn ecs_hit_event_hits_boss(
         (
             &FeatureId,
             &FeatureAabb,
-            &BossFeature,
+            super::boss_clusters::BossClusterRef,
             &crate::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
         ),
@@ -697,11 +701,11 @@ pub fn ecs_hit_event_hits_boss(
             if event.ignored_targets.iter().any(|ignored| ignored == &key) {
                 return false;
             }
-            if !feature.boss.alive {
+            if !feature.status.alive {
                 return false;
             }
             crate::features::damageable_volumes(
-                &crate::features::BossVolumeContext::from_runtime(&feature.boss, attack_state)
+                &crate::features::BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
                     .with_animation_frame(animation_frame),
             )
             .iter()

@@ -51,7 +51,7 @@ pub fn refresh_actor_damageable_volumes(
 pub fn refresh_boss_damageable_volumes(
     mut bosses: Query<
         (
-            &BossFeature,
+            super::boss_clusters::BossClusterRef,
             &crate::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
             &mut DamageableVolumes,
@@ -60,12 +60,12 @@ pub fn refresh_boss_damageable_volumes(
     >,
 ) {
     for (feature, attack_state, animation_frame, mut damageable) in &mut bosses {
-        let boss = &feature.boss;
-        if !boss.alive {
+        let boss = feature.as_boss_ref();
+        if !boss.status.alive {
             damageable.clear();
             continue;
         }
-        let ctx = crate::features::BossVolumeContext::from_runtime(boss, attack_state)
+        let ctx = crate::features::BossVolumeContext::from_ref(boss, attack_state)
             .with_animation_frame(animation_frame);
         damageable.volumes = crate::features::damageable_volumes(&ctx);
     }

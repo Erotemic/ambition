@@ -1113,7 +1113,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
 mod tests {
     use super::*;
     use crate::brain::{ActionSet, RangedActionSpec};
-    use crate::content::features::enemies::EnemyRuntime;
+    use crate::content::features::ecs::enemy_clusters::EnemyClusterScratch;
 
     #[test]
     fn gradient_cascade_minion_offsets_spread_symmetrically() {
@@ -1196,23 +1196,20 @@ mod tests {
     );
 
     /// Spawnable (marker + clusters) bundle for an enemy test fixture.
-    fn enemy_actor(enemy: &EnemyRuntime) -> (ActorRuntime, EnemyClusterBundle) {
-        (
-            ActorRuntime::Enemy,
-            super::super::enemy_clusters::enemy_cluster_bundle(enemy),
-        )
+    fn enemy_actor(enemy: EnemyClusterScratch) -> (ActorRuntime, EnemyClusterBundle) {
+        (ActorRuntime::Enemy, enemy.into_components())
     }
 
     fn pirate_rider_actor(pos: ae::Vec2) -> (ActorRuntime, EnemyClusterBundle) {
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
-        let enemy = EnemyRuntime::new(
+        let enemy = EnemyClusterScratch::new(
             "rider_a",
             "Pirate Raider",
             aabb,
             crate::actor::EnemyBrain::Custom("pirate_raider".into()),
             &[],
         );
-        enemy_actor(&enemy)
+        enemy_actor(enemy)
     }
 
     fn build_app() -> App {
@@ -1233,15 +1230,15 @@ mod tests {
         // here; the consumer only branches on archetype for origin
         // and owner_id formatting.
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
-        let mut enemy = EnemyRuntime::new(
+        let mut enemy = EnemyClusterScratch::new(
             "skitter_a",
             "Skitter",
             aabb,
             crate::actor::EnemyBrain::Custom("small_skitter".into()),
             &[],
         );
-        enemy.archetype = EnemyArchetype::SmallSkitter;
-        let actor = app.world_mut().spawn(enemy_actor(&enemy)).id();
+        enemy.config.archetype = EnemyArchetype::SmallSkitter;
+        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
@@ -1315,17 +1312,17 @@ mod tests {
 
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
-        let mut enemy = crate::content::features::enemies::EnemyRuntime::new(
+        let mut enemy = EnemyClusterScratch::new(
             "striker_a",
             "Striker",
             aabb,
             crate::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
-        enemy.archetype = EnemyArchetype::MediumStriker;
+        enemy.config.archetype = EnemyArchetype::MediumStriker;
         enemy.attack.cooldown = 0.0;
         let pre_windup = enemy.attack.windup_timer;
-        let actor = app.world_mut().spawn(enemy_actor(&enemy)).id();
+        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {
@@ -1382,20 +1379,20 @@ mod tests {
 
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(36.0, 55.0));
-        let mut enemy = crate::content::features::enemies::EnemyRuntime::new(
+        let mut enemy = EnemyClusterScratch::new(
             "iron_mary_dismounted",
             "Iron Mary",
             aabb,
             crate::actor::EnemyBrain::Custom("pirate_heavy".into()),
             &[],
         );
-        assert_eq!(enemy.archetype, EnemyArchetype::PirateHeavy);
+        assert_eq!(enemy.config.archetype, EnemyArchetype::PirateHeavy);
         assert!(
-            !enemy.archetype.attacks_player(),
+            !enemy.config.archetype.attacks_player(),
             "standalone PirateHeavy is normally peaceful"
         );
         enemy.attack.cooldown = 0.0;
-        let actor = app.world_mut().spawn(enemy_actor(&enemy)).id();
+        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
 
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -1446,18 +1443,18 @@ mod tests {
 
         let actor_pos = ae::Vec2::new(300.0, 300.0);
         let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(20.0, 24.0));
-        let mut enemy = crate::content::features::enemies::EnemyRuntime::new(
+        let mut enemy = EnemyClusterScratch::new(
             "striker_a",
             "Striker",
             aabb,
             crate::actor::EnemyBrain::Custom("medium_striker".into()),
             &[],
         );
-        enemy.archetype = EnemyArchetype::MediumStriker;
+        enemy.config.archetype = EnemyArchetype::MediumStriker;
         // Pre-set cooldown so begin_melee_attack refuses.
         enemy.attack.cooldown = 0.5;
         let pre_windup = enemy.attack.windup_timer;
-        let actor = app.world_mut().spawn(enemy_actor(&enemy)).id();
+        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {

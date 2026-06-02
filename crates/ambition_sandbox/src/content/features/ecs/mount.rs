@@ -29,7 +29,6 @@
 
 use bevy::prelude::{Commands, Component, Entity, Query, With, Without};
 
-use super::super::enemies::EnemyRuntime;
 use super::super::EnemyArchetype;
 use super::brain_builders::dismounted_rider_brain_and_action_set;
 use super::{ActorRuntime, FeatureAabb};
@@ -351,7 +350,6 @@ pub fn is_composite_spawn(archetype: EnemyArchetype) -> bool {
 mod tests {
     use super::super::FeatureAabb;
     use super::*;
-    use crate::content::features::enemies::EnemyRuntime;
     use bevy::prelude::*;
 
     type EnemyClusterBundle = (
@@ -370,20 +368,17 @@ mod tests {
         size: ae::Vec2,
     ) -> (ActorRuntime, EnemyClusterBundle) {
         let aabb = ae::Aabb::new(pos, size * 0.5);
-        let mut enemy = EnemyRuntime::new(
+        let mut enemy = super::super::enemy_clusters::EnemyClusterScratch::new(
             id,
             id,
             aabb,
             crate::actor::EnemyBrain::Custom(archetype_brain.into()),
             &[],
         );
-        enemy.size = size;
-        enemy.pos = pos;
-        enemy.alive = true;
-        (
-            ActorRuntime::Enemy,
-            super::super::enemy_clusters::enemy_cluster_bundle(&enemy),
-        )
+        enemy.kin.size = size;
+        enemy.kin.pos = pos;
+        enemy.status.alive = true;
+        (ActorRuntime::Enemy, enemy.into_components())
     }
 
     /// Read an entity's enemy kinematics/status/surface from its

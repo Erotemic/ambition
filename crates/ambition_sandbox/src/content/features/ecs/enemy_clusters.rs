@@ -188,39 +188,6 @@ impl EnemyClusterScratch {
             motion: ActorMotionPath(motion),
         }
     }
-
-    /// Build the clusters from a legacy `EnemyRuntime`. Transition aid
-    /// (spawn + NPC→enemy conversion still produce an `EnemyRuntime`
-    /// first); also used by the integration parity test.
-    pub fn from_runtime(e: &super::super::enemies::EnemyRuntime) -> Self {
-        Self {
-            kin: ActorKinematics {
-                pos: e.pos,
-                vel: e.vel,
-                size: e.size,
-                facing: e.facing,
-            },
-            status: EnemyStatus {
-                alive: e.alive,
-                respawn_timer: e.respawn_timer,
-                hit_flash: e.hit_flash,
-                ai_mode: e.ai_mode,
-                health: e.health,
-            },
-            surface: e.surface,
-            attack: e.attack,
-            config: EnemyConfig {
-                id: e.id.clone(),
-                name: e.name.clone(),
-                archetype: e.archetype,
-                brain: e.brain.clone(),
-                spawn: e.spawn,
-                sprite_override_npc_name: e.sprite_override_npc_name.clone(),
-            },
-            motion: ActorMotionPath(e.motion.clone()),
-        }
-    }
-
     pub fn as_mut(&mut self) -> EnemyMut<'_> {
         EnemyMut {
             kin: &mut self.kin,
@@ -252,19 +219,4 @@ impl EnemyClusterScratch {
             self.attack,
         )
     }
-}
-
-/// Spawnable enemy-cluster bundle built from a legacy `EnemyRuntime`
-/// (transition aid for the 5 spawn sites).
-pub fn enemy_cluster_bundle(
-    e: &super::super::enemies::EnemyRuntime,
-) -> (
-    ActorKinematics,
-    EnemyStatus,
-    EnemyConfig,
-    ActorMotionPath,
-    ActorSurfaceState,
-    ActorAttackState,
-) {
-    EnemyClusterScratch::from_runtime(e).into_components()
 }

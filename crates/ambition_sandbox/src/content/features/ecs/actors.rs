@@ -1009,9 +1009,9 @@ mod tests {
         );
     }
 
-    fn burning_shark_enemy() -> EnemyRuntime {
+    fn burning_shark_enemy() -> super::enemy_clusters::EnemyClusterScratch {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(126.0, 52.0));
-        EnemyRuntime::new(
+        super::enemy_clusters::EnemyClusterScratch::new(
             "burning_shark".to_string(),
             "Burning Shark".to_string(),
             aabb,
@@ -1028,7 +1028,7 @@ mod tests {
         app.add_systems(Update, sync_actor_poses_from_feature_aabbs);
 
         let mut enemy = burning_shark_enemy();
-        enemy.facing = -1.0;
+        enemy.kin.facing = -1.0;
         let entity = app
             .world_mut()
             .spawn((
@@ -1036,7 +1036,7 @@ mod tests {
                 FeatureAabb::from_center_size(ae::Vec2::new(40.0, 80.0), ae::Vec2::new(20.0, 30.0)),
                 crate::features::ActorPose::default(),
                 ActorRuntime::Enemy,
-                super::enemy_clusters::enemy_cluster_bundle(&enemy),
+                enemy.into_components(),
             ))
             .id();
 
@@ -1059,12 +1059,11 @@ mod tests {
     fn shark_charge_crash_detects_solo_charge_wall_hit() {
         let mut enemy = burning_shark_enemy();
         let previous_pos = ae::Vec2::new(120.0, 80.0);
-        enemy.pos = previous_pos;
-        enemy.vel = ae::Vec2::ZERO;
-        enemy.alive = true;
-        let charge_vec = ae::Vec2::new(enemy.archetype.chase_speed() * 2.0, 0.0);
-        let mut scratch = super::enemy_clusters::EnemyClusterScratch::from_runtime(&enemy);
-        let em = scratch.as_mut();
+        enemy.kin.pos = previous_pos;
+        enemy.kin.vel = ae::Vec2::ZERO;
+        enemy.status.alive = true;
+        let charge_vec = ae::Vec2::new(enemy.config.archetype.chase_speed() * 2.0, 0.0);
+        let em = enemy.as_mut();
         assert!(shark_charge_crashed(&em, false, charge_vec, previous_pos));
     }
 
@@ -1072,17 +1071,17 @@ mod tests {
     fn shark_charge_crash_ignores_mounted_or_noncharge_cases() {
         let mut enemy = burning_shark_enemy();
         let previous_pos = ae::Vec2::new(120.0, 80.0);
-        enemy.pos = previous_pos;
-        enemy.vel = ae::Vec2::ZERO;
-        enemy.alive = true;
-        let charge_vec = ae::Vec2::new(enemy.archetype.chase_speed() * 2.0, 0.0);
-        let mut scratch = super::enemy_clusters::EnemyClusterScratch::from_runtime(&enemy);
-        let em = scratch.as_mut();
+        enemy.kin.pos = previous_pos;
+        enemy.kin.vel = ae::Vec2::ZERO;
+        enemy.status.alive = true;
+        let chase_speed = enemy.config.archetype.chase_speed();
+        let charge_vec = ae::Vec2::new(chase_speed * 2.0, 0.0);
+        let em = enemy.as_mut();
         assert!(!shark_charge_crashed(&em, true, charge_vec, previous_pos));
         assert!(!shark_charge_crashed(
             &em,
             false,
-            ae::Vec2::new(enemy.archetype.chase_speed(), 0.0),
+            ae::Vec2::new(chase_speed, 0.0),
             previous_pos
         ));
     }

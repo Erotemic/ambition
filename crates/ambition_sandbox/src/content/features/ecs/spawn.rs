@@ -80,23 +80,24 @@ mod tests {
     };
     use crate::content::features::{
         ActorAggression, ActorCombatState, ActorCooldowns, ActorDisposition, ActorHealth,
-        ActorIdentity, ActorIntent, AggressionMode, CombatKit, EnemyArchetype, EnemyRuntime,
+        ActorIdentity, ActorIntent, AggressionMode, CombatKit, EnemyArchetype, EnemyConfig,
         MountSlot, MountedSize, RidingOn,
     };
     use crate::engine_core as ae;
     use bevy::prelude::{App, Commands, Update, With};
 
-    fn make_enemy(archetype: EnemyArchetype) -> EnemyRuntime {
+    fn make_enemy(archetype: EnemyArchetype) -> EnemyConfig {
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
-        let mut enemy = EnemyRuntime::new(
-            "test".to_string(),
-            "test".to_string(),
-            aabb,
-            crate::actor::EnemyBrain::Custom("medium_striker".into()),
-            &[],
-        );
-        enemy.archetype = archetype;
-        enemy
+        let mut enemy =
+            crate::content::features::ecs::enemy_clusters::EnemyClusterScratch::new(
+                "test".to_string(),
+                "test".to_string(),
+                aabb,
+                crate::actor::EnemyBrain::Custom("medium_striker".into()),
+                &[],
+            );
+        enemy.config.archetype = archetype;
+        enemy.config
     }
 
     /// Regression net: spawning an encounter mob attaches a

@@ -129,7 +129,7 @@ pub use ecs::{
     MountedSize, OverfitVolleyState, RidingOn, SaddlePointState,
 };
 pub use enemies::{
-    ActorSpawnState, ActorSurfaceState, EnemyArchetype, EnemyRespawnPolicy, EnemyRuntime,
+    ActorSpawnState, ActorSurfaceState, EnemyArchetype, EnemyRespawnPolicy,
     ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
 pub use events::{

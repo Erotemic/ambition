@@ -432,7 +432,7 @@ mod conversion_tests {
             ],
         );
         let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 300.0), ae::Vec2::new(20.0, 16.0));
-        let mut enemy = EnemyRuntime::new(
+        let mut enemy = super::ecs::enemy_clusters::EnemyClusterScratch::new(
             "shark_a",
             "Burning Flying Shark",
             aabb,
@@ -446,9 +446,9 @@ mod conversion_tests {
         // verifies the integration step blocks the body against
         // the wall, not just the steering code that picks velocity.
         let mut frame = crate::actor_control::ActorControlFrame::neutral();
-        frame.desired_vel = ae::Vec2::new(enemy.archetype.chase_speed(), 0.0);
+        frame.desired_vel = ae::Vec2::new(enemy.config.archetype.chase_speed(), 0.0);
         for _ in 0..120 {
-            enemy.update(
+            enemy.as_mut().update(
                 &world,
                 player_pos,
                 FeatureCombatTuning::default(),
@@ -458,103 +458,14 @@ mod conversion_tests {
                 frame,
             );
         }
-        let half_w = enemy.size.x * 0.5;
+        let half_w = enemy.kin.size.x * 0.5;
         let wall_left_edge = 300.0;
         assert!(
-            enemy.pos.x + half_w <= wall_left_edge + 0.5,
+            enemy.kin.pos.x + half_w <= wall_left_edge + 0.5,
             "aerial enemy clipped into wall at pos {:?}; wall left edge {}",
-            enemy.pos,
+            enemy.kin.pos,
             wall_left_edge,
         );
-    }
-
-    /// The cluster-native `EnemyMut::update` must reproduce the legacy
-    /// `EnemyRuntime::update` integration bit-for-bit (same code, same
-    /// inputs) — this pins the field-rename port (kin/status/config/
-    /// surface/attack) against typos across the grounded, aerial, and
-    /// surface-walker branches. Runs both integrators in lockstep and
-    /// asserts the state stays identical every tick.
-    #[test]
-    fn cluster_update_matches_runtime_update_over_many_ticks() {
-        use super::ecs::enemy_clusters::EnemyClusterScratch;
-        let world = ae::World::new(
-            String::from("integration_parity"),
-            ae::Vec2::new(2000.0, 1200.0),
-            ae::Vec2::new(100.0, 100.0),
-            vec![
-                ae::Block::solid(
-                    String::from("floor"),
-                    ae::Vec2::new(0.0, 600.0),
-                    ae::Vec2::new(2000.0, 40.0),
-                ),
-                ae::Block::solid(
-                    String::from("wall"),
-                    ae::Vec2::new(900.0, 240.0),
-                    ae::Vec2::new(40.0, 360.0),
-                ),
-            ],
-        );
-        let player_pos = ae::Vec2::new(1500.0, 560.0);
-        // Grounded (step_kinematic + air jumps + patrol turn), aerial
-        // (gravity-free approach), surface-walker (fall → crawl).
-        for brain_id in ["medium_striker", "pirate_on_shark", "puppy_slug"] {
-            let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 300.0), ae::Vec2::new(20.0, 18.0));
-            let mut enemy = EnemyRuntime::new(
-                brain_id,
-                brain_id,
-                aabb,
-                crate::actor::EnemyBrain::Custom(brain_id.into()),
-                &[],
-            );
-            let mut scratch = EnemyClusterScratch::from_runtime(&enemy);
-            let mut frame = crate::actor_control::ActorControlFrame::neutral();
-            frame.desired_vel = ae::Vec2::new(160.0, -40.0);
-            frame.facing = 1.0;
-            for tick in 0..180 {
-                frame.jump_pressed = tick % 45 == 0;
-                let dt = 1.0 / 60.0;
-                enemy.update(
-                    &world,
-                    player_pos,
-                    FeatureCombatTuning::default(),
-                    None,
-                    dt,
-                    false,
-                    frame,
-                );
-                scratch.as_mut().update(
-                    &world,
-                    player_pos,
-                    FeatureCombatTuning::default(),
-                    None,
-                    dt,
-                    false,
-                    frame,
-                );
-                assert_eq!(scratch.kin.pos, enemy.pos, "{brain_id} pos @tick {tick}");
-                assert_eq!(scratch.kin.vel, enemy.vel, "{brain_id} vel @tick {tick}");
-                assert_eq!(
-                    scratch.kin.facing, enemy.facing,
-                    "{brain_id} facing @tick {tick}"
-                );
-                assert_eq!(
-                    scratch.surface, enemy.surface,
-                    "{brain_id} surface @tick {tick}"
-                );
-                assert_eq!(
-                    scratch.attack, enemy.attack,
-                    "{brain_id} attack @tick {tick}"
-                );
-                assert_eq!(
-                    scratch.status.ai_mode, enemy.ai_mode,
-                    "{brain_id} ai_mode @tick {tick}"
-                );
-                assert_eq!(
-                    scratch.status.alive, enemy.alive,
-                    "{brain_id} alive @tick {tick}"
-                );
-            }
-        }
     }
 
     /// Path-patrol enemies used to write `self.pos = motion.advance(...)`
@@ -589,7 +500,7 @@ mod conversion_tests {
             start_offset_seconds: 0.0,
         };
         let paths = vec![("skitter_path".to_string(), path)];
-        let mut enemy = EnemyRuntime::new(
+        let mut enemy = super::ecs::enemy_clusters::EnemyClusterScratch::new(
             "path_skitter",
             "path_skitter",
             aabb,
@@ -604,9 +515,9 @@ mod conversion_tests {
         // rightward patrol motion — the test verifies the
         // integration step blocks the body against the wall.
         let mut frame = crate::actor_control::ActorControlFrame::neutral();
-        frame.desired_vel = ae::Vec2::new(enemy.archetype.patrol_speed(), 0.0);
+        frame.desired_vel = ae::Vec2::new(enemy.config.archetype.patrol_speed(), 0.0);
         for _ in 0..120 {
-            enemy.update(
+            enemy.as_mut().update(
                 &world,
                 player_pos_far,
                 FeatureCombatTuning::default(),
@@ -616,12 +527,12 @@ mod conversion_tests {
                 frame,
             );
         }
-        let half_w = enemy.size.x * 0.5;
+        let half_w = enemy.kin.size.x * 0.5;
         let wall_left_edge = 200.0;
         assert!(
-            enemy.pos.x + half_w <= wall_left_edge + 0.5,
+            enemy.kin.pos.x + half_w <= wall_left_edge + 0.5,
             "patrol enemy clipped into wall at pos {:?}; wall left edge {}",
-            enemy.pos,
+            enemy.kin.pos,
             wall_left_edge,
         );
     }

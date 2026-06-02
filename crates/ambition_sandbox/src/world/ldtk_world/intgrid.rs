@@ -224,3 +224,107 @@ pub(super) fn emit_climbable_regions_from_intgrid(
     }
     Ok(regions)
 }
+
+#[cfg(test)]
+mod intgrid_tests {
+    //! Pure coverage for the IntGrid -> collision-rect lowering. The
+    //! two-pass `merge_intgrid_rects` is the bug-prone bit (past
+    //! floor-friction and wall-grind regressions came from it), so its
+    //! documented merge cases and the every-cell-covered-once invariant
+    //! are pinned here.
+    use super::*;
+
+    const G: f32 = 16.0;
+
+    fn layer(c_wid: i32, c_hei: i32, csv: Vec<i32>) -> LdtkLayerInstance {
+        LdtkLayerInstance {
+            identifier: "Collision".into(),
+            layer_type: "IntGrid".into(),
+            c_wid,
+            c_hei,
+            grid_size: G as i32,
+            entity_instances: Vec::new(),
+            int_grid_csv: csv,
+            grid_tiles: Vec::new(),
+        }
+    }
+
+    fn merge(c_wid: i32, c_hei: i32, csv: Vec<i32>) -> Vec<(i32, ae::Vec2, ae::Vec2)> {
+        merge_intgrid_rects(&layer(c_wid, c_hei, csv), ae::Vec2::ZERO).expect("merge ok")
+    }
+
+    #[test]
+    fn horizontal_floor_merges_to_one_block_and_applies_offset() {
+        let rects =
+            merge_intgrid_rects(&layer(4, 1, vec![1, 1, 1, 1]), ae::Vec2::new(100.0, 200.0))
+                .unwrap();
+        assert_eq!(rects.len(), 1);
+        let (value, min, size) = rects[0];
+        assert_eq!(value, INT_GRID_SOLID);
+        assert_eq!(min, ae::Vec2::new(100.0, 200.0));
+        assert_eq!(size, ae::Vec2::new(4.0 * G, G));
+    }
+
+    #[test]
+    fn vertical_wall_stacks_to_one_block() {
+        let rects = merge(1, 3, vec![1, 1, 1]);
+        assert_eq!(rects.len(), 1);
+        assert_eq!(rects[0].2, ae::Vec2::new(G, 3.0 * G));
+    }
+
+    #[test]
+    fn staircase_stays_per_row() {
+        // widths 1, 2, 3 down the rows -> no two adjacent rows share a span.
+        let rects = merge(3, 3, vec![1, 0, 0, 1, 1, 0, 1, 1, 1]);
+        assert_eq!(rects.len(), 3, "staircase must not vertically merge");
+    }
+
+    #[test]
+    fn adjacent_different_values_do_not_merge() {
+        let rects = merge(1, 2, vec![INT_GRID_SOLID, INT_GRID_ONE_WAY]);
+        assert_eq!(rects.len(), 2);
+        let values: Vec<i32> = rects.iter().map(|r| r.0).collect();
+        assert!(values.contains(&INT_GRID_SOLID) && values.contains(&INT_GRID_ONE_WAY));
+    }
+
+    #[test]
+    fn every_nonzero_cell_is_covered_exactly_once() {
+        // Mixed grid; the documented invariant is total rect area == #nonzero.
+        let csv = vec![1, 1, 0, 1, 1, 2, 0, 2, 2];
+        let nonzero = csv.iter().filter(|&&v| v != 0).count();
+        let rects = merge(3, 3, csv);
+        let covered: f32 = rects
+            .iter()
+            .map(|(_, _, size)| (size.x / G) * (size.y / G))
+            .sum();
+        assert_eq!(covered as usize, nonzero);
+    }
+
+    #[test]
+    fn length_mismatch_is_an_error() {
+        let err = merge_intgrid_rects(&layer(2, 2, vec![1, 1, 1]), ae::Vec2::ZERO);
+        assert!(err.is_err(), "csv len 3 != 2*2 must error");
+    }
+
+    #[test]
+    fn empty_grid_yields_no_rects() {
+        assert!(merge(0, 0, vec![]).is_empty());
+        assert!(merge(2, 2, vec![0, 0, 0, 0]).is_empty());
+    }
+
+    #[test]
+    fn value_to_block_maps_known_values_and_rejects_unknown() {
+        let min = ae::Vec2::ZERO;
+        let size = ae::Vec2::new(G, G);
+        for v in [
+            INT_GRID_SOLID,
+            INT_GRID_ONE_WAY,
+            INT_GRID_BLINK_SOFT,
+            INT_GRID_BLINK_HARD,
+            INT_GRID_HAZARD,
+        ] {
+            assert!(int_grid_value_to_block(v, min, size).is_ok(), "value {v} should map");
+        }
+        assert!(int_grid_value_to_block(99, min, size).is_err());
+    }
+}

@@ -101,3 +101,96 @@ pub fn update_ecs_hazards(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::player::{
+        PlayerCombatState, PlayerDodgeState, PlayerEntity, PlayerKinematics, PlayerOffense,
+        PlayerShieldState,
+    };
+    use bevy::prelude::{App, MessageReader, ResMut, Resource, Update};
+
+    #[derive(Resource, Default)]
+    struct HitLog(Vec<HitSource>);
+
+    fn record_hits(mut reader: MessageReader<HitEvent>, mut log: ResMut<HitLog>) {
+        for e in reader.read() {
+            log.0.push(e.source.clone());
+        }
+    }
+
+    fn spawn_player(app: &mut App, pos: ae::Vec2) {
+        app.world_mut().spawn((
+            PlayerEntity,
+            PlayerKinematics {
+                pos,
+                size: ae::Vec2::new(28.0, 46.0),
+                base_size: ae::Vec2::new(28.0, 46.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            PlayerOffense::default(),
+            PlayerDodgeState::default(),
+            PlayerShieldState::default(),
+            PlayerCombatState::default(),
+        ));
+    }
+
+    fn spawn_hazard(app: &mut App, id: &str, pos: ae::Vec2) {
+        let aabb = ae::Aabb::new(pos, ae::Vec2::new(16.0, 16.0));
+        let hazard = HazardRuntime::new(
+            id,
+            id,
+            aabb,
+            crate::combat::DamageVolume::new(id, aabb, 1),
+        );
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureName::new(id),
+            FeatureAabb::from_center_size(pos, ae::Vec2::new(32.0, 32.0)),
+            HazardFeature::new(hazard),
+        ));
+    }
+
+    fn app_with_hazard_system() -> App {
+        let mut app = App::new();
+        app.insert_resource(crate::WorldTime::default());
+        app.init_resource::<HitLog>();
+        app.add_message::<HitEvent>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_systems(Update, (update_ecs_hazards, record_hits).chain());
+        app
+    }
+
+    #[test]
+    fn player_touching_a_hazard_emits_a_hazard_hit() {
+        let mut app = app_with_hazard_system();
+        let pos = ae::Vec2::new(100.0, 100.0);
+        spawn_player(&mut app, pos);
+        spawn_hazard(&mut app, "spikes", pos);
+        app.update();
+        assert!(
+            app.world()
+                .resource::<HitLog>()
+                .0
+                .iter()
+                .any(|s| matches!(s, HitSource::Hazard)),
+            "overlapping a hazard should emit a HitSource::Hazard hit"
+        );
+    }
+
+    #[test]
+    fn player_clear_of_a_hazard_takes_no_hit() {
+        let mut app = app_with_hazard_system();
+        spawn_player(&mut app, ae::Vec2::new(100.0, 100.0));
+        spawn_hazard(&mut app, "spikes", ae::Vec2::new(900.0, 900.0));
+        app.update();
+        assert!(
+            app.world().resource::<HitLog>().0.is_empty(),
+            "a hazard the player is clear of should not emit a hit"
+        );
+    }
+}

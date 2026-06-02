@@ -26,7 +26,7 @@ pub fn open_ecs_chests(
         ),
         (With<FeatureSimEntity>, With<ChestFeature>),
     >,
-    mut gameplay_effects: MessageWriter<GameplayEffect>,
+    mut set_flag: MessageWriter<SetFlagRequested>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
@@ -70,7 +70,7 @@ pub fn open_ecs_chests(
                 pos,
             });
             if let Some(encounter_id) = id.as_str().strip_prefix("encounter_chest_") {
-                gameplay_effects.write(GameplayEffect::SetFlag {
+                set_flag.write(SetFlagRequested {
                     id: format!("encounter_{encounter_id}_reward_dropped"),
                     on: true,
                 });

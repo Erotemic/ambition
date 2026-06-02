@@ -16,7 +16,7 @@ use bevy::prelude::*;
 use super::state::PlayerProjectileState;
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
-use crate::features::{ActorHealth, ActorIdentity, GameplayBanner, GameplayEffect, HitEvent};
+use crate::features::{ActorHealth, ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::input::ControlFrame;
 use crate::presentation::fx::VfxMessage;
 use crate::trace::GameplayTraceBuffer;
@@ -73,7 +73,7 @@ fn min_app() -> App {
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
-    app.add_message::<GameplayEffect>();
+    app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);

@@ -24,7 +24,7 @@ use super::{
     ae, sync_actor_components_from_enemy, ActorCombatState,
     ActorCooldowns, ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime,
     BossFeature, BreakableFeature, EnemyArchetype, FeatureAabb, FeatureId, FeatureName,
-    FeatureSimEntity, GameplayBanner, GameplayEffect, HitEvent, HitSource, RespawnTimer,
+    FeatureSimEntity, GameplayBanner, HitEvent, HitSource, RespawnTimer, SetFlagRequested,
 };
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
@@ -36,7 +36,7 @@ use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
 #[derive(SystemParam)]
 pub struct FeatureHitWriters<'w> {
-    pub gameplay_effects: MessageWriter<'w, GameplayEffect>,
+    pub set_flag: MessageWriter<'w, SetFlagRequested>,
     pub actor_stimuli: MessageWriter<'w, ActorStimulus>,
     pub sfx: MessageWriter<'w, SfxMessage>,
     pub vfx: MessageWriter<'w, VfxMessage>,
@@ -367,7 +367,7 @@ fn apply_actor_hit(
                 damage: event.damage,
             });
             if npc.status.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
-                writers.gameplay_effects.write(GameplayEffect::SetFlag {
+                writers.set_flag.write(SetFlagRequested {
                     id: super::super::npcs::npc_flag_id(npc.config),
                     on: true,
                 });
@@ -448,9 +448,7 @@ fn apply_actor_hit(
                             P::Never => Some(format!("enemy_{}_dead", em.config.id)),
                         };
                         if let Some(id) = flag_id {
-                            writers
-                                .gameplay_effects
-                                .write(GameplayEffect::SetFlag { id, on: true });
+                            writers.set_flag.write(SetFlagRequested { id, on: true });
                         }
                     }
                 }
@@ -782,7 +780,7 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
         app.add_message::<HitEvent>();
-        app.add_message::<GameplayEffect>();
+        app.add_message::<SetFlagRequested>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
@@ -819,7 +817,7 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
         app.add_message::<HitEvent>();
-        app.add_message::<GameplayEffect>();
+        app.add_message::<SetFlagRequested>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();

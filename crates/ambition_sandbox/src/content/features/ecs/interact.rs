@@ -40,7 +40,9 @@ pub fn interact_ecs_actors_and_switches(
         ),
         With<FeatureSimEntity>,
     >,
-    mut gameplay_effects: MessageWriter<GameplayEffect>,
+    mut set_flag: MessageWriter<SetFlagRequested>,
+    mut quest_advance: MessageWriter<QuestAdvanceRequested>,
+    mut switch_activated: MessageWriter<SwitchActivated>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
     // Iterate every player's buffered-interact state so each player
@@ -76,14 +78,14 @@ pub fn interact_ecs_actors_and_switches(
             let request = super::super::npcs::npc_dialogue_request(config);
             dialogue.start(&request.dialogue_id, &request.npc_name);
             next_mode.set(crate::GameMode::Dialogue);
-            gameplay_effects.write(GameplayEffect::AdvanceQuest(
+            quest_advance.write(QuestAdvanceRequested(
                 crate::quest::QuestAdvanceEvent::NpcTalked(config.id.clone()),
             ));
-            gameplay_effects.write(GameplayEffect::SetFlag {
+            set_flag.write(SetFlagRequested {
                 id: "met_any_hub_npc".into(),
                 on: true,
             });
-            gameplay_effects.write(GameplayEffect::SetFlag {
+            set_flag.write(SetFlagRequested {
                 id: format!("npc_{}_talked", request.dialogue_id),
                 on: true,
             });
@@ -108,7 +110,7 @@ pub fn interact_ecs_actors_and_switches(
             anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
             banner.show(format!("activated {}", name.0.as_str()), 2.6);
             on.0 = true;
-            gameplay_effects.write(GameplayEffect::ActivateSwitch {
+            switch_activated.write(SwitchActivated {
                 activation: switch.activation.clone(),
                 pos: aabb.center,
             });

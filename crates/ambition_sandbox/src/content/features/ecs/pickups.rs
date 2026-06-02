@@ -1,7 +1,7 @@
 //! Player → pickup collection on the ECS feature path.
 
 use super::*;
-use crate::features::events::GameplayEffect;
+use crate::features::SetFlagRequested;
 
 /// Collect ECS-owned pickups after the player simulation has advanced.
 pub fn collect_ecs_pickups(
@@ -21,7 +21,7 @@ pub fn collect_ecs_pickups(
     mut heals: MessageWriter<crate::player::PlayerHealRequested>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
-    mut gameplay_effects: MessageWriter<GameplayEffect>,
+    mut set_flag: MessageWriter<SetFlagRequested>,
 ) {
     if player.is_empty() {
         return;
@@ -58,7 +58,7 @@ pub fn collect_ecs_pickups(
                 // Mirrors the LockWall/Switch flag-setting pattern so
                 // intro-v1 cartography pickups and similar narrative
                 // story-flag drops just work without per-pickup wiring.
-                gameplay_effects.write(GameplayEffect::SetFlag {
+                set_flag.write(SetFlagRequested {
                     id: flag.clone(),
                     on: true,
                 });

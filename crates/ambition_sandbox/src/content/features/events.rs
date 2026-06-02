@@ -96,54 +96,47 @@ pub enum ActorStimulus {
     },
 }
 
-/// Typed cross-system gameplay effects emitted by feature code.
-///
-/// `GameplayEffect` is a Bevy [`Message`], not a payload hidden behind a
-/// custom resource bus. Systems should write concrete effects with
-/// [`MessageWriter<GameplayEffect>`] and consume them with small
-/// domain-specific readers.
-///
-/// Do not add side-channel `Vec`s for progression/save/audio routing. Add a
-/// typed message/effect and a focused consumer system instead.
+// Typed cross-system gameplay effects emitted by feature code.
+//
+// Each is its own Bevy [`Message`] with a focused consumer in `bus.rs`.
+// This deliberately replaces the former single `GameplayEffect` enum bus:
+// unrelated domain events (save flags, quest advances, switch activations,
+// audio) no longer share one channel, so a consumer only declares a reader
+// for the message it actually handles.
+//
+// Do not reintroduce a generic effect enum or side-channel `Vec`s for
+// progression/save/audio routing. Add a typed message + a focused consumer
+// system instead.
+
+/// Set a save/quest flag. The consumer mirrors `on == true` into a
+/// `QuestAdvanceEvent::FlagSet` so flag-driven quest steps advance in the
+/// same frame as the save write.
 #[derive(Message, Clone, Debug, PartialEq)]
-pub enum GameplayEffect {
-    /// Set a save/quest flag. Consumers mirror `on == true` into a
-    /// `QuestAdvanceEvent::FlagSet` so flag-driven quest steps advance in the
-    /// same frame as the save write.
-    SetFlag { id: String, on: bool },
-    /// Feed a structured quest event into `QuestRegistry`.
-    AdvanceQuest(crate::quest::QuestAdvanceEvent),
-    /// A Switch interactable was activated. Carries the parsed
-    /// `SwitchActivation` (private to `crate::encounter`) directly — the
-    /// `switch:<id>:<action>:<target>` wire string lives only at the
-    /// engine `InteractionKind::Custom` boundary and is parsed once at
-    /// LDtk spawn time.
-    ActivateSwitch {
-        activation: crate::encounter::SwitchActivation,
-        pos: ae::Vec2,
-    },
-    /// SFX-only effect. Use typed presentation vectors for sounds that also
-    /// imply VFX/progression, and this variant for standalone audio.
-    PlaySfx {
-        id: ambition_sfx::SfxId,
-        pos: ae::Vec2,
-    },
+pub struct SetFlagRequested {
+    pub id: String,
+    pub on: bool,
 }
 
-impl GameplayEffect {
-    pub fn switch_activation(&self) -> Option<(&crate::encounter::SwitchActivation, ae::Vec2)> {
-        match self {
-            Self::ActivateSwitch { activation, pos } => Some((activation, *pos)),
-            _ => None,
-        }
-    }
+/// Feed a structured quest event into `QuestRegistry`.
+#[derive(Message, Clone, Debug, PartialEq)]
+pub struct QuestAdvanceRequested(pub crate::quest::QuestAdvanceEvent);
 
-    pub fn sfx_play(&self) -> Option<(ambition_sfx::SfxId, ae::Vec2)> {
-        match self {
-            Self::PlaySfx { id, pos } => Some((*id, *pos)),
-            _ => None,
-        }
-    }
+/// A Switch interactable was activated. Carries the parsed
+/// `SwitchActivation` (private to `crate::encounter`) directly — the
+/// `switch:<id>:<action>:<target>` wire string lives only at the engine
+/// `InteractionKind::Custom` boundary and is parsed once at LDtk spawn time.
+#[derive(Message, Clone, Debug, PartialEq)]
+pub struct SwitchActivated {
+    pub activation: crate::encounter::SwitchActivation,
+    pub pos: ae::Vec2,
+}
+
+/// Standalone audio-only gameplay effect. Use typed presentation vectors for
+/// sounds that also imply VFX/progression, and this message for bare audio.
+#[derive(Message, Clone, Debug, PartialEq)]
+pub struct GameplaySfxRequested {
+    pub id: ambition_sfx::SfxId,
+    pub pos: ae::Vec2,
 }
 
 /// Reset request for ECS-owned room features.

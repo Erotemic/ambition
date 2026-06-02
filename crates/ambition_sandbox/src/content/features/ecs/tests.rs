@@ -156,7 +156,7 @@ fn interact_buffered_opens_adjacent_chest() {
     let mut app = App::new();
 
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<GameplayEffect>();
+    app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
 
@@ -200,7 +200,7 @@ fn interact_buffered_does_not_open_distant_chest() {
     let mut app = App::new();
 
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<GameplayEffect>();
+    app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
 
@@ -233,7 +233,7 @@ fn interact_does_not_reopen_already_opened_chest() {
     let mut app = App::new();
 
     app.insert_resource(GameplayBanner::default());
-    app.add_message::<GameplayEffect>();
+    app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
 
@@ -272,7 +272,9 @@ fn interact_buffered_starts_npc_dialogue() {
 
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(crate::dialog::DialogState::default());
-    app.add_message::<GameplayEffect>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<QuestAdvanceRequested>();
+    app.add_message::<SwitchActivated>();
     app.add_message::<VfxMessage>();
 
     spawn_interaction_player(&mut app, center);

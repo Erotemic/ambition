@@ -473,16 +473,14 @@ fn capture_falling_sand_switch_interactions(
     room_set: Res<crate::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
     mut save: ResMut<crate::persistence::save::SandboxSave>,
-    mut effects: MessageReader<crate::features::GameplayEffect>,
+    mut effects: MessageReader<crate::features::SwitchActivated>,
 ) {
     if room_set.active_spec().id != ROOM_ID {
         return;
     }
 
     for effect in effects.read() {
-        let crate::features::GameplayEffect::ActivateSwitch { activation, .. } = effect else {
-            continue;
-        };
+        let crate::features::SwitchActivated { activation, .. } = effect;
         if state.spouts.toggle(activation.id.as_str()) {
             // Mirror the in-memory toggle into the save so the spout
             // state survives a reset / room re-entry. Without this

@@ -80,7 +80,6 @@ impl<'w> CombatRoomReset<'w> {
 /// thread them through the system signature directly.
 #[derive(SystemParam)]
 pub struct SandboxQueues<'w> {
-    pub gameplay_effects: MessageWriter<'w, crate::features::GameplayEffect>,
     /// Single canonical channel for attacker-direction hits (player
     /// slash, player projectile, pogo bounce). Replaced the prior
     /// split `DamageEvent` + `PogoBounceEvent` writers.

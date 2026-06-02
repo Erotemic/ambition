@@ -13,7 +13,7 @@ use super::super::state::PlayerProjectile;
 use super::super::systems::update_projectiles;
 use super::{
     advance_time, min_app, spawn_player, ActorHealth, ActorIdentity, ControlFrame,
-    DebrisBurstMessage, GameWorld, GameplayBanner, GameplayEffect, GameplayTraceBuffer, HitEvent,
+    DebrisBurstMessage, GameWorld, GameplayBanner, GameplayTraceBuffer, HitEvent, SetFlagRequested,
     SfxMessage, VfxMessage,
 };
 
@@ -107,7 +107,7 @@ fn fireball_bounces_off_floor_in_system() {
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
-    app.add_message::<GameplayEffect>();
+    app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);
@@ -186,7 +186,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
-    app.add_message::<GameplayEffect>();
+    app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);
@@ -266,7 +266,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
-    app.add_message::<GameplayEffect>();
+    app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);
@@ -343,7 +343,7 @@ fn hadouken_expires_on_solid_in_system() {
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
-    app.add_message::<GameplayEffect>();
+    app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
     app.add_plugins(crate::brain::BrainPlugin);

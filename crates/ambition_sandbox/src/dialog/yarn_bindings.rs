@@ -36,7 +36,7 @@ use crate::engine_core as ae;
 use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
 
-use crate::features::GameplayEffect;
+use crate::features::SetFlagRequested;
 use crate::persistence::save::SandboxSave;
 
 // ===== Shared state mirror =====================================
@@ -168,13 +168,13 @@ impl Plugin for YarnBindingsPlugin {
 /// `<<set_flag "id">>` — flip a save flag to `true`. Routes through
 /// `GameplayEffect::SetFlag` so existing consumers (quest advance
 /// listeners, save mirror) see the change.
-pub fn cmd_set_flag(In(name): In<String>, mut effects: MessageWriter<GameplayEffect>) {
-    effects.write(GameplayEffect::SetFlag { id: name, on: true });
+pub fn cmd_set_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRequested>) {
+    effects.write(SetFlagRequested { id: name, on: true });
 }
 
 /// `<<clear_flag "id">>` — flip a save flag to `false`.
-pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<GameplayEffect>) {
-    effects.write(GameplayEffect::SetFlag {
+pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRequested>) {
+    effects.write(SetFlagRequested {
         id: name,
         on: false,
     });
@@ -244,12 +244,12 @@ pub fn cmd_camera_zoom(In(factor): In<f32>) {
 /// TODO(web-open): desktop builds could optionally open the URL in the user's
 /// browser after a settings/privacy opt-in. For now the Yarn line presents the
 /// link and this command records the choice as a save flag for traceability.
-pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<GameplayEffect>) {
+pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<SetFlagRequested>) {
     info!(
         target: "ambition_sandbox::dialog::yarn",
         "watch_cut_rope_video: TODO optional browser launch for https://www.youtube.com/watch?v=ucLGm27DDL0",
     );
-    effects.write(GameplayEffect::SetFlag {
+    effects.write(SetFlagRequested {
         id: "smirking_behemoth_video_suggested".into(),
         on: true,
     });

@@ -134,8 +134,9 @@ pub use enemies::{
 };
 pub use events::{
     ActorStimulus, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,
-    GameplayBannerRequested, GameplayEffect, HitEvent, HitKnockback, HitMode, HitSource, HitTarget,
-    NpcDialogueRequest, ResetRoomFeaturesEvent,
+    GameplayBannerRequested, GameplaySfxRequested, HitEvent, HitKnockback, HitMode, HitSource,
+    HitTarget, NpcDialogueRequest, QuestAdvanceRequested, ResetRoomFeaturesEvent, SetFlagRequested,
+    SwitchActivated,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::{NpcRuntime, NPC_PATROL_SPEED};

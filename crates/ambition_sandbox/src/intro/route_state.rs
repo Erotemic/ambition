@@ -23,7 +23,7 @@
 
 use bevy::prelude::*;
 
-use crate::features::GameplayEffect;
+use crate::features::SetFlagRequested;
 
 /// `(trigger_flag, target_flag)` — when the trigger lands in the save
 /// layer, the system emits a SetFlag for the target. Targets are listed
@@ -62,12 +62,12 @@ pub const INTRO_FLAG_CHAINS: &[(&str, &str)] = &[
 /// expected to stay under a few dozen entries.
 pub fn emit_intro_flag_chains(
     save: Res<crate::persistence::save::SandboxSave>,
-    mut effects: MessageWriter<GameplayEffect>,
+    mut effects: MessageWriter<SetFlagRequested>,
 ) {
     let data = save.data();
     for (trigger, target) in INTRO_FLAG_CHAINS.iter().copied() {
         if data.flag(trigger) && !data.flag(target) {
-            effects.write(GameplayEffect::SetFlag {
+            effects.write(SetFlagRequested {
                 id: target.to_string(),
                 on: true,
             });
@@ -347,14 +347,14 @@ mod tests {
     fn emit_chains_promotes_bob_survey_to_private_marks() {
         use crate::content::features::apply_flag_effects;
         use crate::content::quest::QuestRegistry;
-        use crate::features::GameplayEffect;
+        use crate::features::SetFlagRequested;
         use crate::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();
         app.insert_resource(SandboxSave::default());
         app.insert_resource(QuestRegistry::default());
-        app.add_message::<GameplayEffect>();
+        app.add_message::<SetFlagRequested>();
         app.add_systems(
             Update,
             (super::emit_intro_flag_chains, apply_flag_effects).chain(),
@@ -392,7 +392,7 @@ mod tests {
         use crate::content::quest::{
             apply_quest_advance_events, default_quest_specs, QuestRegistry,
         };
-        use crate::features::GameplayEffect;
+        use crate::features::{QuestAdvanceRequested, SetFlagRequested};
         use crate::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
@@ -406,7 +406,8 @@ mod tests {
             let _ = q.start();
         }
         app.insert_resource(registry);
-        app.add_message::<GameplayEffect>();
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<QuestAdvanceRequested>();
         // Order matters: chain emits SetFlag effects, then
         // apply_flag_effects writes them to save + pushes
         // QuestAdvanceEvent::FlagSet into the registry, then
@@ -487,14 +488,14 @@ mod tests {
     fn emit_chains_promotes_p5_to_route_memory() {
         use crate::content::features::apply_flag_effects;
         use crate::content::quest::QuestRegistry;
-        use crate::features::GameplayEffect;
+        use crate::features::SetFlagRequested;
         use crate::persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();
         app.insert_resource(SandboxSave::default());
         app.insert_resource(QuestRegistry::default());
-        app.add_message::<GameplayEffect>();
+        app.add_message::<SetFlagRequested>();
         app.add_systems(
             Update,
             (super::emit_intro_flag_chains, apply_flag_effects).chain(),

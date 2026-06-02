@@ -1,4 +1,6 @@
-use crate::features::events::GameplayEffect;
+use crate::features::events::{
+    GameplaySfxRequested, QuestAdvanceRequested, SetFlagRequested, SwitchActivated,
+};
 use bevy::prelude::{
     App, IntoScheduleConfigs, MessageReader, MessageWriter, Plugin, ResMut, Update,
 };
@@ -7,29 +9,25 @@ use bevy::prelude::{
 /// frame. `on == true` also mirrors into `QuestAdvanceEvent::FlagSet`, matching
 /// the former monolithic router behavior.
 pub fn apply_flag_effects(
-    mut effects: MessageReader<GameplayEffect>,
+    mut effects: MessageReader<SetFlagRequested>,
     mut save: ResMut<crate::persistence::save::SandboxSave>,
     mut quests: ResMut<crate::content::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
-        if let GameplayEffect::SetFlag { id, on } = effect {
-            if *on {
-                quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet(id.clone()));
-            }
-            save.data_mut().set_flag(id.clone(), *on);
+        if effect.on {
+            quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet(effect.id.clone()));
         }
+        save.data_mut().set_flag(effect.id.clone(), effect.on);
     }
 }
 
 /// Structured quest events from gameplay (NPC talked, item collected, etc.).
 pub fn apply_quest_effects(
-    mut effects: MessageReader<GameplayEffect>,
+    mut effects: MessageReader<QuestAdvanceRequested>,
     mut quests: ResMut<crate::content::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
-        if let GameplayEffect::AdvanceQuest(event) = effect {
-            quests.push_event(event.clone());
-        }
+        quests.push_event(effect.0.clone());
     }
 }
 
@@ -38,18 +36,16 @@ pub fn apply_quest_effects(
 /// so this consumer just forwards it to the encounter queue and emits the
 /// click SFX.
 pub fn apply_switch_effects(
-    mut effects: MessageReader<GameplayEffect>,
+    mut effects: MessageReader<SwitchActivated>,
     mut switch_activations: ResMut<crate::encounter::SwitchActivationQueue>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     for effect in effects.read() {
-        if let GameplayEffect::ActivateSwitch { activation, pos } = effect {
-            switch_activations.0.push(activation.clone());
-            sfx.write(crate::audio::SfxMessage::Play {
-                id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
-                pos: *pos,
-            });
-        }
+        switch_activations.0.push(effect.activation.clone());
+        sfx.write(crate::audio::SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
+            pos: effect.pos,
+        });
     }
 }
 
@@ -57,13 +53,14 @@ pub fn apply_switch_effects(
 /// semantics should use their own typed messages; this reader only handles
 /// bare SFX requests.
 pub fn apply_gameplay_sfx_effects(
-    mut effects: MessageReader<GameplayEffect>,
+    mut effects: MessageReader<GameplaySfxRequested>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     for effect in effects.read() {
-        if let GameplayEffect::PlaySfx { id, pos } = effect {
-            sfx.write(crate::audio::SfxMessage::Play { id: *id, pos: *pos });
-        }
+        sfx.write(crate::audio::SfxMessage::Play {
+            id: effect.id,
+            pos: effect.pos,
+        });
     }
 }
 
@@ -102,33 +99,28 @@ mod tests {
     use crate::engine_core as ae;
 
     #[test]
-    fn gameplay_effect_variants_remain_typed_and_orderable() {
-        let effects = [
-            GameplayEffect::SetFlag {
-                id: "flag".into(),
-                on: true,
+    fn gameplay_effect_messages_remain_typed() {
+        let flag = SetFlagRequested {
+            id: "flag".into(),
+            on: true,
+        };
+        let quest = QuestAdvanceRequested(crate::quest::QuestAdvanceEvent::NpcTalked("guide".into()));
+        let switch = SwitchActivated {
+            activation: crate::encounter::SwitchActivation {
+                id: "goblin_encounter".into(),
+                action: "ResetEncounter".into(),
+                target_encounter: "goblin_encounter".into(),
             },
-            GameplayEffect::AdvanceQuest(crate::quest::QuestAdvanceEvent::NpcTalked(
-                "guide".into(),
-            )),
-            GameplayEffect::ActivateSwitch {
-                activation: crate::encounter::SwitchActivation {
-                    id: "goblin_encounter".into(),
-                    action: "ResetEncounter".into(),
-                    target_encounter: "goblin_encounter".into(),
-                },
-                pos: ae::Vec2::new(1.0, 2.0),
-            },
-            GameplayEffect::PlaySfx {
-                id: ambition_sfx::ids::PLAYER_DAMAGE,
-                pos: ae::Vec2::new(5.0, 6.0),
-            },
-        ];
+            pos: ae::Vec2::new(1.0, 2.0),
+        };
+        let sfx = GameplaySfxRequested {
+            id: ambition_sfx::ids::PLAYER_DAMAGE,
+            pos: ae::Vec2::new(5.0, 6.0),
+        };
 
-        assert!(matches!(effects[0], GameplayEffect::SetFlag { .. }));
-        assert!(matches!(effects[1], GameplayEffect::AdvanceQuest(_)));
-        assert!(matches!(effects[2], GameplayEffect::ActivateSwitch { .. }));
-        assert!(matches!(effects[3], GameplayEffect::PlaySfx { .. }));
-        assert_eq!(effects.len(), 4);
+        assert!(flag.on);
+        assert!(matches!(quest.0, crate::quest::QuestAdvanceEvent::NpcTalked(_)));
+        assert_eq!(switch.pos, ae::Vec2::new(1.0, 2.0));
+        assert_eq!(sfx.pos, ae::Vec2::new(5.0, 6.0));
     }
 }

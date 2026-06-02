@@ -42,9 +42,15 @@ def discover_files(root: Path) -> list[tuple[str, str, Path]]:
     return out
 
 
+# The renderer was moved from tools/audio/music_renderer to
+# tools/ambition_music_renderer; resolve the default relative to this script
+# so it works regardless of the caller's cwd.
+DEFAULT_ROOT = Path(__file__).resolve().parent / "output" / "first_goblin_tune_v2"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("root", nargs="?", default="tools/audio/music_renderer/output/first_goblin_tune_v2")
+    parser.add_argument("root", nargs="?", default=str(DEFAULT_ROOT))
     args = parser.parse_args()
 
     root = Path(args.root).resolve()

@@ -119,8 +119,9 @@ def main() -> int:
         default=str(default_src),
         help=(
             "Renderer output directory. Default auto-detects the "
-            "newest of target/generated-audio/<cue> and "
-            "tools/audio/music_renderer/output/<cue> by manifest mtime "
+            "newest of target/generated-audio/<cue>, "
+            "tools/ambition_music_renderer/generated/<cue>, and "
+            "tools/ambition_music_renderer/output/<cue> by manifest mtime "
             "(default for THIS run: %(default)s)."
         ),
     )

@@ -241,10 +241,25 @@ fn register_portal_systems(app: &mut App) {
             crate::portal::grant_portal_gun,
             crate::portal::portal_toggle_system.run_if(gameplay_allowed),
             crate::portal::portal_fire_system.run_if(gameplay_allowed),
-            crate::portal::portal_teleport_system.run_if(gameplay_allowed),
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation),
+    );
+    // Teleports MUST run after the player movement integration (and the ground
+    // item physics) — otherwise `player_simulation_system` re-integrates from
+    // the pre-teleport position and the jump is silently undone (that's the
+    // "I see the portals but can't walk through them" bug).
+    app.add_systems(
+        Update,
+        (
+            crate::portal::portal_teleport_system,
+            crate::portal::portal_teleport_ground_items,
+        )
+            .chain()
+            .in_set(SandboxSet::PlayerSimulation)
+            .after(player_simulation_system)
+            .after(crate::item_pickup::ground_item_physics)
+            .run_if(gameplay_allowed),
     );
 }
 
@@ -259,8 +274,6 @@ fn register_item_pickup_systems(app: &mut App) {
             crate::item_pickup::pickup_held_item_system.run_if(gameplay_allowed),
             crate::item_pickup::throw_held_item_system.run_if(gameplay_allowed),
             crate::item_pickup::ground_item_physics.run_if(gameplay_allowed),
-            // Thrown items travel through portals too (after physics moves them).
-            crate::portal::portal_teleport_ground_items.run_if(gameplay_allowed),
             // After portal_fire (registered earlier) so picking up the gun
             // doesn't also fire a portal on the same Attack press.
             crate::portal::pickup_portal_gun_system.run_if(gameplay_allowed),

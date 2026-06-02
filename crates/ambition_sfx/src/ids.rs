@@ -172,3 +172,15 @@ pub const UI_TOOLTIP_APPEAR: SfxId = SfxId::from_static("ui.tooltip.appear");
 pub const UI_NOTIFICATION_DISCOVERY: SfxId = SfxId::from_static("ui.notification.discovery");
 pub const UI_NOTIFICATION_QUEST_COMPLETE: SfxId =
     SfxId::from_static("ui.notification.quest_complete");
+
+// Portal gun
+pub const PORTAL_POWERUP: SfxId = SfxId::from_static("portal.powerup");
+pub const PORTAL_FIRE: SfxId = SfxId::from_static("portal.fire");
+pub const PORTAL_TRAVEL: SfxId = SfxId::from_static("portal.travel");
+pub const PORTAL_ATTACH: SfxId = SfxId::from_static("portal.attach");
+pub const PORTAL_INVALID: SfxId = SfxId::from_static("portal.invalid");
+pub const PORTAL_HUM: SfxId = SfxId::from_static("portal.hum");
+pub const PORTAL_ENTER: SfxId = SfxId::from_static("portal.enter");
+pub const PORTAL_EXIT: SfxId = SfxId::from_static("portal.exit");
+pub const PORTAL_CLOSE: SfxId = SfxId::from_static("portal.close");
+pub const PORTAL_FIZZLE: SfxId = SfxId::from_static("portal.fizzle");

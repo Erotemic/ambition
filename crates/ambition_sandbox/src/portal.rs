@@ -79,6 +79,9 @@ pub struct Portal {
 }
 
 const PORTAL_HALF: f32 = 28.0;
+/// Portals are tall doorways (taller than wide) so you don't miss them
+/// vertically when approaching at a different height than you fired them.
+const PORTAL_HALF_H: f32 = 46.0;
 const PORTAL_MAX_RANGE: f32 = 6000.0;
 const TELEPORT_COOLDOWN_S: f32 = 0.25;
 /// Floor on exit speed so a slow walk into a portal still pops you out the
@@ -235,6 +238,7 @@ pub fn pickup_portal_gun_system(
     mut commands: Commands,
     mut players: Query<(&PlayerKinematics, &mut PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     pickups: Query<(Entity, &PortalGunPickup)>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed {
         return;
@@ -250,6 +254,11 @@ pub fn pickup_portal_gun_system(
         if player_aabb.strict_intersects(ae::Aabb::new(pickup.pos, pickup.half_extent)) {
             gun.active = true;
             commands.entity(entity).despawn();
+            // Rising sci-fi charge-up as the device wakes.
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_POWERUP,
+                pos: kin.pos,
+            });
             bevy::log::info!(target: "ambition::portal", "picked up the portal gun");
             break;
         }
@@ -264,6 +273,7 @@ pub fn portal_fire_system(
     players: Query<(&PlayerKinematics, &PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     portals: Query<(Entity, &Portal)>,
     mut commands: Commands,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed {
         return;
@@ -276,14 +286,36 @@ pub fn portal_fire_system(
     }
     let aim = pick_aim(&control, kin.facing);
     let Some((hit, normal)) = raycast_solids(&world.0, kin.pos, aim, PORTAL_MAX_RANGE) else {
+        // Aimed at open space / no surface: the "nope" rejection buzz.
+        sfx.write(crate::audio::SfxMessage::Play {
+            id: ambition_sfx::ids::PORTAL_INVALID,
+            pos: kin.pos,
+        });
         return;
     };
     let color = gun.next_color;
+    let mut replaced = false;
     for (entity, portal) in &portals {
         if portal.color == color {
             commands.entity(entity).despawn();
+            replaced = true;
         }
     }
+    if replaced {
+        sfx.write(crate::audio::SfxMessage::Play {
+            id: ambition_sfx::ids::PORTAL_CLOSE,
+            pos: hit,
+        });
+    }
+    // Punchy fire blast at the gun, bright warping whoosh where it attaches.
+    sfx.write(crate::audio::SfxMessage::Play {
+        id: ambition_sfx::ids::PORTAL_FIRE,
+        pos: kin.pos,
+    });
+    sfx.write(crate::audio::SfxMessage::Play {
+        id: ambition_sfx::ids::PORTAL_ATTACH,
+        pos: hit,
+    });
     commands.spawn((
         Portal {
             color,
@@ -291,7 +323,7 @@ pub fn portal_fire_system(
             // in the room rather than buried in the solid.
             pos: hit + normal * 2.0,
             normal,
-            half_extent: Vec2::splat(PORTAL_HALF),
+            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
         },
         Name::new(match color {
             PortalColor::Blue => "Portal: blue",
@@ -325,6 +357,7 @@ pub fn portal_teleport_system(
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     portals: Query<&Portal>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let dt = time.sim_dt();
     let Ok((mut kin, mut gun)) = players.single_mut() else {
@@ -344,7 +377,9 @@ pub fn portal_teleport_system(
     };
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
     for (enter, exit) in [(blue, orange), (orange, blue)] {
-        let portal_aabb = ae::Aabb::new(enter.pos, enter.half_extent);
+        // A small margin makes the entry forgiving — the player only reaches
+        // the wall surface, not the portal's center.
+        let portal_aabb = ae::Aabb::new(enter.pos, enter.half_extent + Vec2::splat(6.0));
         if player_aabb.strict_intersects(portal_aabb) {
             // Carry momentum through the pair's rotation; floor the speed so a
             // slow walk-in still pops out the far side instead of stalling.
@@ -357,6 +392,16 @@ pub fn portal_teleport_system(
             kin.pos = exit.pos + exit.normal * clearance;
             kin.vel = out_vel;
             gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
+            // Suction warp going in, soft pop-out coming back into normal space.
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_ENTER,
+                pos: enter.pos,
+            });
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_EXIT,
+                pos: exit.pos,
+            });
+            bevy::log::info!(target: "ambition::portal", "teleported through the portal pair");
             break;
         }
     }
@@ -600,6 +645,7 @@ mod tests {
     #[test]
     fn picking_up_the_portal_gun_activates_it() {
         let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
         app.insert_resource(ControlFrame::default());
         app.add_systems(Update, pickup_portal_gun_system);
         let player = app
@@ -644,6 +690,7 @@ mod tests {
     #[test]
     fn portal_pair_teleports_player_carrying_momentum() {
         let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
         app.insert_resource(world_with_two_walls());
         app.insert_resource(ControlFrame::default());
         app.insert_resource(crate::WorldTime::default());

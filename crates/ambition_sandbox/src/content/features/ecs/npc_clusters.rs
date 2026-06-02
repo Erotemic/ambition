@@ -13,8 +13,10 @@ use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
 use super::super::enemies::ActorSurfaceState;
+use super::super::path_motion::PathMotion;
 use super::enemy_clusters::{ActorKinematics, ActorMotionPath};
 use crate::engine_core as ae;
+use crate::engine_core::AabbExt;
 
 /// Authored configuration + identity for an NPC actor.
 #[derive(Component, Clone, Debug)]
@@ -85,35 +87,63 @@ pub struct NpcClusterScratch {
 }
 
 impl NpcClusterScratch {
-    /// Build the clusters from a legacy `NpcRuntime` (spawn transition aid).
-    pub fn from_runtime(n: &super::super::npcs::NpcRuntime) -> Self {
+    /// Build the NPC clusters directly from spawn inputs — the
+    /// cluster-native replacement for `NpcRuntime::new_with_paths`.
+    pub fn new_with_paths(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        interactable: crate::interaction::Interactable,
+        paths: &[(String, crate::actor::KinematicPath)],
+    ) -> Self {
+        let authored_pos = aabb.center();
+        let (patrol_radius, motion) = match &interactable.kind {
+            crate::interaction::InteractionKind::Npc {
+                patrol_radius,
+                patrol_path_id,
+                ..
+            } => {
+                let motion = patrol_path_id.as_deref().and_then(|path_id| {
+                    paths
+                        .iter()
+                        .find(|(p_id, _)| p_id == path_id)
+                        .map(|(_, path)| PathMotion::new(path.clone()))
+                });
+                (patrol_radius.max(0.0), motion)
+            }
+            _ => (0.0, None),
+        };
+        let pos = motion
+            .as_ref()
+            .and_then(PathMotion::start_pos)
+            .unwrap_or(authored_pos);
         Self {
             kin: ActorKinematics {
-                pos: n.pos,
-                vel: n.vel,
-                size: n.size,
-                facing: n.facing,
+                pos,
+                vel: ae::Vec2::ZERO,
+                size: aabb.half_size() * 2.0,
+                facing: 1.0,
             },
             surface: ActorSurfaceState {
-                on_ground: n.on_ground,
+                on_ground: false,
                 surface_normal: ae::Vec2::new(0.0, -1.0),
                 gravity_scale: 1.0,
                 air_jumps_remaining: 0,
             },
-            motion: ActorMotionPath(n.motion.clone()),
+            motion: ActorMotionPath(motion),
             config: NpcConfig {
-                id: n.id.clone(),
-                name: n.name.clone(),
-                spawn: n.spawn,
-                interactable: n.interactable.clone(),
-                patrol_radius: n.patrol_radius,
-                talk_radius: n.talk_radius,
+                id: id.into(),
+                name: name.into(),
+                spawn: pos,
+                interactable,
+                patrol_radius,
+                talk_radius: super::super::npcs::NPC_TALK_RADIUS,
             },
             status: NpcStatus {
-                ai_mode: n.ai_mode,
-                hit_flash: n.hit_flash,
-                hostile: n.hostile,
-                strikes: n.strikes,
+                ai_mode: crate::character_ai::CharacterAiMode::Idle,
+                hit_flash: 0.0,
+                hostile: false,
+                strikes: 0,
             },
         }
     }
@@ -139,17 +169,4 @@ impl NpcClusterScratch {
     ) {
         (self.kin, self.surface, self.motion, self.config, self.status)
     }
-}
-
-/// Spawnable NPC-cluster bundle built from a legacy `NpcRuntime`.
-pub fn npc_cluster_bundle(
-    n: &super::super::npcs::NpcRuntime,
-) -> (
-    ActorKinematics,
-    ActorSurfaceState,
-    ActorMotionPath,
-    NpcConfig,
-    NpcStatus,
-) {
-    NpcClusterScratch::from_runtime(n).into_components()
 }

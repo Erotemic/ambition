@@ -247,27 +247,17 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
         requires_facing: false,
         enabled: true,
     };
-    let npc = crate::features::NpcRuntime {
-        id: CUT_ROPE_VICTORY_NPC_ID.to_string(),
-        name: CUT_ROPE_VICTORY_NPC_NAME.to_string(),
-        pos,
-        spawn: pos,
-        size,
-        vel: ae::Vec2::ZERO,
-        facing: -1.0,
-        on_ground: false,
+    let mut npc = crate::features::NpcClusterScratch::new_with_paths(
+        CUT_ROPE_VICTORY_NPC_ID,
+        CUT_ROPE_VICTORY_NPC_NAME,
+        ae::Aabb::new(pos, size * 0.5),
         interactable,
-        patrol_radius: 0.0,
-        motion: None,
-        talk_radius: 80.0,
-        ai_mode: crate::character_ai::CharacterAiMode::Idle,
-        hostile: false,
-        strikes: 0,
-        hit_flash: 0.0,
-    };
-    let brain = npc.build_brain();
+        &[],
+    );
+    npc.kin.facing = -1.0;
+    let brain = npc.as_mut().build_brain();
     let combat_kit = crate::features::CombatKit::default();
-    let cluster_bundle = crate::features::npc_cluster_bundle(&npc);
+    let cluster_bundle = npc.into_components();
     let facing = cluster_bundle.0.facing;
     let (identity, disposition, health, combat, intent, cooldowns) =
         crate::features::npc_component_snapshot(&cluster_bundle.3, &cluster_bundle.4);

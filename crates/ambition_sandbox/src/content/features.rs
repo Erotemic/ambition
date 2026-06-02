@@ -95,7 +95,7 @@ pub use components::{
 pub use ecs::enemy_clusters::{
     ActorKinematics, ActorMotionPath, EnemyConfig, EnemyMut, EnemyStatus,
 };
-pub use ecs::npc_clusters::{npc_cluster_bundle, NpcConfig, NpcMut, NpcStatus};
+pub use ecs::npc_clusters::{NpcClusterScratch, NpcConfig, NpcMut, NpcStatus};
 pub use ecs::ActorSpriteData;
 pub use ecs::{
     apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
@@ -139,7 +139,7 @@ pub use events::{
     SwitchActivated,
 };
 pub use hazards::HazardRuntime;
-pub use npcs::{NpcRuntime, NPC_PATROL_SPEED};
+pub use npcs::{NPC_PATROL_SPEED};
 pub use path_motion::PathMotion;
 pub use pickups::PickupRuntime;
 pub use world_overlay::world_with_sandbox_solids;

@@ -9,7 +9,11 @@ mod conversion_tests {
     /// the AI lands on `Patrol` mode each tick.
     fn world_with_patrolling_npc(
         patrol_radius: f32,
-    ) -> (ae::World, NpcRuntime, ae::PlayerClusterScratch) {
+    ) -> (
+        ae::World,
+        crate::content::features::ecs::npc_clusters::NpcClusterScratch,
+        ae::PlayerClusterScratch,
+    ) {
         let world = ae::World::new(
             String::from("patrol_test"),
             ae::Vec2::new(2000.0, 2000.0),
@@ -32,7 +36,13 @@ mod conversion_tests {
                 patrol_path_id: None,
             },
         );
-        let npc = NpcRuntime::new(id.clone(), id.clone(), aabb, interactable);
+        let npc = crate::content::features::ecs::npc_clusters::NpcClusterScratch::new_with_paths(
+            id.clone(),
+            id.clone(),
+            aabb,
+            interactable,
+            &[],
+        );
         let player = crate::player::primary_player_scratch(
             ae::Vec2::new(1500.0, 540.0),
             ae::AbilitySet::sandbox_all(),
@@ -43,8 +53,10 @@ mod conversion_tests {
     /// Build a brain matching the NPC's authored fields. Convenience
     /// for the conversion tests so each scenario doesn't repeat the
     /// `let mut brain = npc.build_brain();` setup boilerplate.
-    fn brain_for(npc: &NpcRuntime) -> crate::brain::Brain {
-        npc.build_brain()
+    fn brain_for(
+        npc: &mut crate::content::features::ecs::npc_clusters::NpcClusterScratch,
+    ) -> crate::brain::Brain {
+        npc.as_mut().build_brain()
     }
 
     /// Bug the user reported: NPCs floated wherever LDtk placed them
@@ -55,15 +67,19 @@ mod conversion_tests {
     fn npc_falls_to_floor_under_gravity() {
         let (world, mut npc, player) = world_with_patrolling_npc(0.0);
         // Lift the NPC into mid-air so gravity has work to do.
-        npc.pos.y = 200.0;
-        npc.spawn.y = 200.0;
-        let mut brain = brain_for(&npc);
+        npc.kin.pos.y = 200.0;
+        npc.config.spawn.y = 200.0;
+        let mut brain = brain_for(&mut npc);
         for _ in 0..120 {
-            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
-        assert!(npc.on_ground, "NPC must land on the floor under gravity");
+        assert!(
+            npc.surface.on_ground,
+            "NPC must land on the floor under gravity"
+        );
         // Body bottom should rest on the floor's top edge (y=600).
-        let body_bottom = npc.pos.y + npc.size.y * 0.5;
+        let body_bottom = npc.kin.pos.y + npc.kin.size.y * 0.5;
         assert!(
             (body_bottom - 600.0).abs() < 1.0,
             "expected body bottom near floor top (600); got {body_bottom}"
@@ -76,19 +92,21 @@ mod conversion_tests {
     #[test]
     fn patrolling_npc_paces_within_radius() {
         let (world, mut npc, player) = world_with_patrolling_npc(96.0);
-        let mut brain = brain_for(&npc);
+        let mut brain = brain_for(&mut npc);
         // Settle gravity first so we're testing horizontal motion,
         // not the freefall.
         for _ in 0..30 {
-            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
-        let spawn_x = npc.spawn.x;
-        let mut min_x = npc.pos.x;
-        let mut max_x = npc.pos.x;
+        let spawn_x = npc.config.spawn.x;
+        let mut min_x = npc.kin.pos.x;
+        let mut max_x = npc.kin.pos.x;
         for _ in 0..600 {
-            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
-            min_x = min_x.min(npc.pos.x);
-            max_x = max_x.max(npc.pos.x);
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+            min_x = min_x.min(npc.kin.pos.x);
+            max_x = max_x.max(npc.kin.pos.x);
         }
         // The NPC actually moved some distance — not stuck.
         assert!(
@@ -119,33 +137,39 @@ mod conversion_tests {
     #[test]
     fn patrolling_npc_stops_when_player_is_within_talk_radius() {
         let (world, mut npc, mut player) = world_with_patrolling_npc(120.0);
-        let mut brain = brain_for(&npc);
+        let mut brain = brain_for(&mut npc);
         // Settle physics.
         for _ in 0..30 {
-            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         // Park the player right next to the NPC — within talk_radius.
-        player.kinematics.pos = ae::Vec2::new(npc.pos.x + 30.0, npc.pos.y);
+        player.kinematics.pos = ae::Vec2::new(npc.kin.pos.x + 30.0, npc.kin.pos.y);
         // Run for a half-second of real time. Whatever momentum was
         // left from the patrol step must drain to ~0 inside the
         // talk radius.
         for _ in 0..30 {
-            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         assert!(
-            matches!(npc.ai_mode, crate::character_ai::CharacterAiMode::Chase),
+            matches!(npc.status.ai_mode, crate::character_ai::CharacterAiMode::Chase),
             "expected Chase mode (NPC interprets as hold-and-face), got {:?}",
-            npc.ai_mode
+            npc.status.ai_mode
         );
         assert!(
-            npc.vel.x.abs() < 5.0,
+            npc.kin.vel.x.abs() < 5.0,
             "NPC must come to rest inside talk_radius; got vel.x={}",
-            npc.vel.x
+            npc.kin.vel.x
         );
         // And the NPC faces the player so the dialog prompt sits on
         // the right side.
-        let dx = player.kinematics.pos.x - npc.pos.x;
-        assert_eq!(npc.facing.signum(), dx.signum(), "NPC must face the player");
+        let dx = player.kinematics.pos.x - npc.kin.pos.x;
+        assert_eq!(
+            npc.kin.facing.signum(),
+            dx.signum(),
+            "NPC must face the player"
+        );
     }
 
     /// patrol_radius=0 is the explicit "static NPC" knob — no
@@ -155,19 +179,20 @@ mod conversion_tests {
     #[test]
     fn npc_with_zero_patrol_radius_stays_at_spawn_x() {
         let (world, mut npc, player) = world_with_patrolling_npc(0.0);
-        let original_x = npc.pos.x;
-        let mut brain = brain_for(&npc);
+        let original_x = npc.kin.pos.x;
+        let mut brain = brain_for(&mut npc);
         for _ in 0..300 {
-            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         assert!(
-            (npc.pos.x - original_x).abs() < 1.0,
+            (npc.kin.pos.x - original_x).abs() < 1.0,
             "static NPC must not drift; was {}, now {}",
             original_x,
-            npc.pos.x
+            npc.kin.pos.x
         );
         assert!(matches!(
-            npc.ai_mode,
+            npc.status.ai_mode,
             crate::character_ai::CharacterAiMode::Idle
                 | crate::character_ai::CharacterAiMode::Chase
         ));
@@ -178,13 +203,13 @@ mod conversion_tests {
     /// system depends on.
     #[test]
     fn npc_build_brain_picks_template_from_authored_fields() {
-        let (_, npc_static, _) = world_with_patrolling_npc(0.0);
-        match npc_static.build_brain() {
+        let (_, mut npc_static, _) = world_with_patrolling_npc(0.0);
+        match npc_static.as_mut().build_brain() {
             crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::StandStill) => {}
             other => panic!("expected StandStill for zero-radius NPC, got {:?}", other),
         }
-        let (_, npc_patrol, _) = world_with_patrolling_npc(64.0);
-        match npc_patrol.build_brain() {
+        let (_, mut npc_patrol, _) = world_with_patrolling_npc(64.0);
+        match npc_patrol.as_mut().build_brain() {
             crate::brain::Brain::StateMachine(crate::brain::StateMachineCfg::Patrol {
                 cfg,
                 ..
@@ -206,8 +231,8 @@ mod conversion_tests {
     /// the brain" decision.
     #[test]
     fn peaceful_npc_brain_is_not_hostile() {
-        let (_, npc, _) = world_with_patrolling_npc(96.0);
-        let brain = npc.build_brain();
+        let (_, mut npc, _) = world_with_patrolling_npc(96.0);
+        let brain = npc.as_mut().build_brain();
         assert!(
             !brain.is_hostile(),
             "peaceful NPC brain must report !is_hostile"
@@ -222,18 +247,20 @@ mod conversion_tests {
     #[test]
     fn npc_brain_patrol_mode_tracks_bounds_across_many_ticks() {
         let (world, mut npc, player) = world_with_patrolling_npc(96.0);
-        let mut brain = brain_for(&npc);
+        let mut brain = brain_for(&mut npc);
         // Settle gravity.
         for _ in 0..30 {
-            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         // Run for a long while; track that the AI mode stays in
         // patrol and never wedges in Idle.
         let mut patrol_ticks = 0;
         let mut chase_ticks = 0;
         for _ in 0..300 {
-            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
-            match npc.ai_mode {
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+            match npc.status.ai_mode {
                 crate::character_ai::CharacterAiMode::Patrol => patrol_ticks += 1,
                 crate::character_ai::CharacterAiMode::Chase => chase_ticks += 1,
                 _ => {}
@@ -254,15 +281,16 @@ mod conversion_tests {
     #[test]
     fn static_npc_brain_emits_neutral_each_tick() {
         let (world, mut npc, player) = world_with_patrolling_npc(0.0);
-        let mut brain = brain_for(&npc);
+        let mut brain = brain_for(&mut npc);
         for _ in 0..120 {
-            npc.tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
         }
         // Vel along x should drain to zero (gravity has settled).
         assert!(
-            npc.vel.x.abs() < 0.5,
+            npc.kin.vel.x.abs() < 0.5,
             "static NPC should have ~zero horizontal velocity; got {}",
-            npc.vel.x
+            npc.kin.vel.x
         );
     }
 

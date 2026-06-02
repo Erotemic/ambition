@@ -31,7 +31,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
     let center = ae::Vec2::new(120.0, 180.0);
     let size = ae::Vec2::new(32.0, 48.0);
     let aabb = ae::Aabb::new(center, size * 0.5);
-    let npc = NpcRuntime::new(
+    let npc = super::npc_clusters::NpcClusterScratch::new_with_paths(
         "guide",
         "Guide",
         aabb,
@@ -45,6 +45,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
                 patrol_path_id: None,
             },
         ),
+        &[],
     );
 
     let mut app = App::new();
@@ -55,7 +56,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
         FeatureName::new("Guide"),
         FeatureAabb::from_center_size(center, size),
         ActorRuntime::Npc,
-        super::npc_clusters::npc_cluster_bundle(&npc),
+        npc.into_components(),
         DamageableVolumes::default(),
         PogoPolicy::FromDamageable,
         PogoTargetVolumes::default(),
@@ -280,7 +281,7 @@ fn interact_buffered_starts_npc_dialogue() {
     spawn_interaction_player(&mut app, center);
 
     let npc_aabb = ae::Aabb::new(center, ae::Vec2::new(16.0, 24.0));
-    let npc = NpcRuntime::new(
+    let npc = super::npc_clusters::NpcClusterScratch::new_with_paths(
         "guide",
         "Guide",
         npc_aabb,
@@ -294,12 +295,13 @@ fn interact_buffered_starts_npc_dialogue() {
                 patrol_path_id: None,
             },
         ),
+        &[],
     );
     app.world_mut().spawn((
         FeatureSimEntity,
         FeatureAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
         ActorRuntime::Npc,
-        super::npc_clusters::npc_cluster_bundle(&npc),
+        npc.into_components(),
     ));
 
     // No switches in this test — the switch query will be empty and the

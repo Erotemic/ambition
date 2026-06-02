@@ -337,19 +337,19 @@ pub(super) fn spawn_interactable(
         interactable.kind,
         crate::interaction::InteractionKind::Npc { .. }
     ) {
-        let npc = NpcRuntime::new_with_paths(
+        let mut npc = super::npc_clusters::NpcClusterScratch::new_with_paths(
             authored.id.clone(),
             authored.name.clone(),
             authored.aabb,
             interactable.clone(),
             paths,
         );
-        // Build the brain from the authored NPC fields, then project the
-        // runtime onto its ECS cluster components. Patrol-radius > 0 or
-        // an authored motion path → Patrol brain; otherwise StandStill.
+        // Build the brain from the authored NPC fields, then move the
+        // cluster components onto the entity. Patrol-radius > 0 or an
+        // authored motion path → Patrol brain; otherwise StandStill.
         // ActionSet stays peaceful by default.
-        let brain = npc.build_brain();
-        let cluster_bundle = super::npc_clusters::npc_cluster_bundle(&npc);
+        let brain = npc.as_mut().build_brain();
+        let cluster_bundle = npc.into_components();
         let facing = cluster_bundle.0.facing;
         let combat_projection =
             enemy_runtime_for_npc_combat(&cluster_bundle.3, &cluster_bundle.0, &cluster_bundle.1);

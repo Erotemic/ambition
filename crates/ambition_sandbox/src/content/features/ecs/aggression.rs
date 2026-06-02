@@ -207,9 +207,14 @@ mod tests {
                 patrol_path_id: None,
             },
         );
-        let npc =
-            crate::content::features::npcs::NpcRuntime::new("alice", "Alice", aabb, interactable);
-        let mut bundle = super::super::npc_clusters::npc_cluster_bundle(&npc);
+        let npc = super::super::npc_clusters::NpcClusterScratch::new_with_paths(
+            "alice",
+            "Alice",
+            aabb,
+            interactable,
+            &[],
+        );
+        let mut bundle = npc.into_components();
         bundle.4.strikes = strikes; // NpcStatus.strikes
         let (identity, disposition, health, combat, intent, cooldowns) =
             super::super::actors::npc_component_snapshot(&bundle.3, &bundle.4);

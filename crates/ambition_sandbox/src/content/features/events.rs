@@ -122,11 +122,6 @@ pub enum GameplayEffect {
         activation: crate::encounter::SwitchActivation,
         pos: ae::Vec2,
     },
-    /// Route damage into the boss encounter state machine.
-    DamageBoss { boss_id: String, amount: i32 },
-    /// Record that an NPC was struck. Today this is trace/reporting glue;
-    /// hostility is flipped by an actor stimulus consumer.
-    StrikeNpc { npc_id: String, pos: ae::Vec2 },
     /// SFX-only effect. Use typed presentation vectors for sounds that also
     /// imply VFX/progression, and this variant for standalone audio.
     PlaySfx {

@@ -189,10 +189,9 @@ pub fn apply_feature_hit_events(
                     npc.strikes = npc.strikes.saturating_add(1);
                     let impact = midpoint(event.volume.center(), npc.pos);
                     writers.vfx.write(VfxMessage::Impact { pos: impact });
-                    writers.gameplay_effects.write(GameplayEffect::StrikeNpc {
-                        npc_id: npc.id.clone(),
-                        pos: npc.pos,
-                    });
+                    // Retaliation/hostility is driven by ActorStimulus
+                    // below; the old GameplayEffect::StrikeNpc trace
+                    // hook was a no-op and has been removed.
                     writers.actor_stimuli.write(ActorStimulus::DamagedBy {
                         actor: actor_entity,
                         source: event.attacker,
@@ -445,16 +444,10 @@ pub fn apply_feature_hit_events(
             }
             let impact = midpoint(event.volume.center(), hit_aabb.center());
             writers.vfx.write(VfxMessage::Impact { pos: impact });
-            // `GameplayEffect::DamageBoss` is preserved for downstream
-            // listeners (e.g. trace / quest hooks) that still want to
-            // observe boss damage; engine state was already updated
-            // via `record_boss_damage` above, so the bus reader is
-            // now a no-op for the encounter machine — see
-            // `apply_boss_damage_effects`.
-            writers.gameplay_effects.write(GameplayEffect::DamageBoss {
-                boss_id: boss.id.clone(),
-                amount,
-            });
+            // Boss HP is applied directly via `record_boss_damage`
+            // above, so the engine BossEncounterState is the source of
+            // truth; the old no-op GameplayEffect::DamageBoss bus hook
+            // has been removed.
             boss_hit_this_event = true;
             if killed {
                 boss.alive = false;

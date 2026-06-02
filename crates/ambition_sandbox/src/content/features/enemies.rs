@@ -1770,55 +1770,6 @@ impl<'a> EnemyMut<'a> {
         };
     }
 
-    // ---- Transition bridge (deleted once EnemyRuntime is gone).
-
-    /// Copy a legacy `EnemyRuntime`'s state into the cluster components.
-    pub fn load_from_runtime(&mut self, e: &EnemyRuntime) {
-        *self.kin = super::ecs::enemy_clusters::EnemyKinematics {
-            pos: e.pos,
-            vel: e.vel,
-            size: e.size,
-            facing: e.facing,
-        };
-        *self.status = super::ecs::enemy_clusters::EnemyStatus {
-            alive: e.alive,
-            respawn_timer: e.respawn_timer,
-            hit_flash: e.hit_flash,
-            ai_mode: e.ai_mode,
-            health: e.health,
-        };
-        *self.surface = e.surface;
-        *self.attack = e.attack;
-        *self.config = super::ecs::enemy_clusters::EnemyConfig {
-            id: e.id.clone(),
-            name: e.name.clone(),
-            archetype: e.archetype,
-            brain: e.brain.clone(),
-            spawn: e.spawn,
-            sprite_override_npc_name: e.sprite_override_npc_name.clone(),
-        };
-        *self.motion = super::ecs::enemy_clusters::EnemyMotionPath(e.motion.clone());
-    }
-
-    /// Write the cluster state back into a legacy `EnemyRuntime`.
-    pub fn store_to_runtime(&self, e: &mut EnemyRuntime) {
-        e.pos = self.kin.pos;
-        e.vel = self.kin.vel;
-        e.size = self.kin.size;
-        e.facing = self.kin.facing;
-        e.alive = self.status.alive;
-        e.respawn_timer = self.status.respawn_timer;
-        e.hit_flash = self.status.hit_flash;
-        e.ai_mode = self.status.ai_mode;
-        e.health = self.status.health;
-        e.surface = *self.surface;
-        e.attack = *self.attack;
-        e.archetype = self.config.archetype;
-        e.brain = self.config.brain.clone();
-        e.spawn = self.config.spawn;
-        e.sprite_override_npc_name = self.config.sprite_override_npc_name.clone();
-        e.motion = self.motion.0.clone();
-    }
 }
 
 #[cfg(test)]

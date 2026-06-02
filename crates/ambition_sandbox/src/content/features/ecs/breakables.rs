@@ -81,3 +81,88 @@ pub fn update_ecs_breakables(
         }
     }
 }
+
+#[cfg(test)]
+mod breakable_tests {
+    //! Stand-to-break collapse as a minimal-App harness: a player standing
+    //! on a Solid/OnStand breakable accumulates its StandTimer and, once
+    //! past BREAK_ON_STAND_SECONDS, collapses it; standing elsewhere does
+    //! not. Drives sim time via a fixed WorldTime::scaled_dt.
+    use super::*;
+    use crate::interaction::{Breakable, BreakableCollision, BreakableTrigger};
+    use crate::player::{PlayerEntity, PlayerKinematics};
+    use crate::world::physics::DebrisBurstMessage;
+    use crate::WorldTime;
+    use bevy::prelude::{App, Entity, Update};
+
+    const THRESHOLD: f32 = BREAK_ON_STAND_SECONDS;
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(WorldTime {
+            raw_dt: 0.1,
+            scaled_dt: 0.1,
+        });
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_systems(Update, update_ecs_breakables);
+        app
+    }
+
+    fn stand_breakable(app: &mut App, center: ae::Vec2, stand: f32) -> Entity {
+        let mut b = Breakable::new("brk", 1);
+        b.collision = BreakableCollision::Solid;
+        b.trigger = BreakableTrigger::OnStand;
+        app.world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureName::new("Crate"),
+                FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+                BreakableFeature::new(b),
+                StandTimer(stand),
+            ))
+            .id()
+    }
+
+    fn player_at(app: &mut App, pos: ae::Vec2) -> Entity {
+        app.world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerKinematics {
+                    pos,
+                    size: ae::Vec2::new(28.0, 46.0),
+                    base_size: ae::Vec2::new(28.0, 46.0),
+                    facing: 1.0,
+                    ..Default::default()
+                },
+            ))
+            .id()
+    }
+
+    #[test]
+    fn standing_past_the_threshold_collapses_the_breakable() {
+        let mut app = app();
+        let center = ae::Vec2::new(64.0, 100.0); // top edge = 88
+        let brk = stand_breakable(&mut app, center, THRESHOLD - 0.05);
+        player_at(&mut app, ae::Vec2::new(64.0, 65.0)); // player bottom = 88 -> standing
+        app.update();
+        assert!(
+            app.world().get::<BreakableFeature>(brk).unwrap().broken(),
+            "standing past BREAK_ON_STAND_SECONDS collapses the platform"
+        );
+    }
+
+    #[test]
+    fn not_standing_does_not_collapse() {
+        let mut app = app();
+        let brk = stand_breakable(&mut app, ae::Vec2::new(64.0, 100.0), THRESHOLD - 0.05);
+        player_at(&mut app, ae::Vec2::new(2000.0, 2000.0)); // far away
+        app.update();
+        assert!(
+            !app.world().get::<BreakableFeature>(brk).unwrap().broken(),
+            "no player standing -> the stand timer decays, no collapse"
+        );
+    }
+}

@@ -1085,3 +1085,29 @@ In future specs, check `entity query --level <name>` output for the `activeArea`
 
 ### Takeaway
 **`target_room` = activeArea, not level identifier.** Whenever a spec writes `target_room:`, verify the destination level's `activeArea` field with `entity query` or by reading the `fieldInstances` in the LDtk JSON. The validator catches this as an "unknown room" error if the activeArea doesn't exist, but the inverse (a valid activeArea for the wrong level) is silent.
+
+---
+
+## ENOSPC during long autonomous runs is usually background cargo output, not a full build disk
+
+**Date:** 2026-06-02. **Context:** mid-run during an 8-hour autonomous TODO sweep.
+
+### Symptom
+The Bash tool started returning "the temp filesystem at /tmp/claude-*/.../tasks is full (0MB free)" and dropped command output. `df -h /` reported the virtiofs root `/dev/vda1` at 100% (96G/96G, tens of KB free). It looked like the build disk was exhausted and code work was blocked.
+
+### Root cause
+Two separable things were conflated:
+1. The **claude task-output files** (`/tmp/claude-*/<session>/tasks/*.output`) accumulate the *full* stdout/stderr of every command — and a backgrounded `cargo test -p ambition_sandbox --all-targets` writes a huge log. A few of those fill the small partition backing `/tmp`, after which *any* command's output capture fails with ENOSPC even though the command itself ran.
+2. `df` reporting the virtiofs root as 100% is partly host-side (guest `rm` of a 1.8G dir did not move the `df` number), so chasing guest-side frees is a dead end.
+
+Crucially, **cargo incremental builds kept working the whole time** — a `cargo build -p ambition_sandbox --lib` finished in ~5s and `cargo test --lib` ran fine. The build dir (`~/ambition-target`, 19G) writes deltas without issue.
+
+### Fix / workaround
+- Do **not** `run_in_background` heavy cargo commands; their output logs are what fill `/tmp`.
+- Keep captured output tiny: pipe through `| tail -3` / `| grep -E 'test result|^error'`.
+- Reclaim space if already wedged: `rm -f /tmp/claude-*/*/tasks/*.output` (these are your own logs).
+- Confirm cargo still works with a quick foreground `cargo build --lib` before assuming the disk blocks code work.
+- Do **not** `cargo clean` the warm build dir to "free space" — incremental builds keep working and a clean forces a ~10-min full rebuild that just refills the dir.
+
+### Takeaway
+**In a long run, ENOSPC is almost always task-output-log accumulation, not the build disk.** Keep command output small, avoid backgrounding heavy builds, and verify cargo still runs before pivoting away from code work.

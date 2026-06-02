@@ -89,6 +89,19 @@ def test_render_table_and_summary():
         assert "\t" in tsv and tsv.splitlines()[0].startswith("cue\t")
 
 
+def test_check_mode_flags_clipping_and_passes_clean():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_sine(root, "clean", amplitude=0.5)   # ~-6 dBTP, fine
+        # Clean root passes --check.
+        assert lr.main(["--root", str(root), "--glob", "*/full.wav", "--check"]) == 0
+        # Add a hot cue that clips, and --check must now fail.
+        _write_sine(root, "hot", amplitude=0.999)
+        assert lr.main(["--root", str(root), "--glob", "*/full.wav", "--check"]) == 1
+        # Without --check, the same root still reports successfully.
+        assert lr.main(["--root", str(root), "--glob", "*/full.wav"]) == 0
+
+
 def _run_all() -> int:
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns:

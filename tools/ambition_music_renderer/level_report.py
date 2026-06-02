@@ -157,6 +157,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--rms-tol", type=float, default=3.0,
                     help="dB tolerance before a cue is flagged LOUD/QUIET")
     ap.add_argument("--format", choices=["table", "tsv"], default="table")
+    ap.add_argument("--check", action="store_true",
+                    help="exit non-zero if any cue clips (true peak > -1 dBTP) — "
+                    "a CI guard for the one unambiguous defect (loudness spread "
+                    "is a mastering call and stays report-only)")
     args = ap.parse_args(argv)
 
     paths = sorted(args.root.glob(args.glob))
@@ -168,6 +172,13 @@ def main(argv: list[str] | None = None) -> int:
     print(render(rows, args.target_rms_db, args.rms_tol, args.format == "tsv"))
     if _pyln is None:
         print("\n(install pyloudnorm for an integrated-LUFS column)", file=sys.stderr)
+    if args.check:
+        clipping = [r for r in rows if r["true_peak_dbtp"] > CLIP_DBTP]
+        if clipping:
+            names = ", ".join(f"{r['cue']} ({r['true_peak_dbtp']:.1f} dBTP)" for r in clipping)
+            print(f"\nCLIP: {len(clipping)} cue(s) exceed {CLIP_DBTP:.0f} dBTP: {names}",
+                  file=sys.stderr)
+            return 1
     return 0
 
 

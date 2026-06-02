@@ -209,6 +209,26 @@ mod tests {
     }
 
     #[test]
+    fn can_damage_matrix_encodes_the_friendly_fire_rules() {
+        use ActorFaction::{Enemy, Environment, Neutral, Player};
+        // The two combat loops cross faction lines.
+        assert!(Player.can_damage(Enemy), "player hits enemies");
+        assert!(Enemy.can_damage(Player), "enemies hit the player");
+        // No same-faction friendly fire.
+        assert!(!Player.can_damage(Player));
+        assert!(!Enemy.can_damage(Enemy));
+        // Environment (hazards) hits everything except itself.
+        assert!(Environment.can_damage(Neutral));
+        // Neutral never deals damage; nothing targets it offensively except
+        // the environment.
+        assert!(!Neutral.can_damage(Player));
+        assert!(!Neutral.can_damage(Enemy));
+        assert!(!Player.can_damage(Neutral));
+        assert!(!Enemy.can_damage(Neutral));
+        assert!(!Player.can_damage(Environment));
+    }
+
+    #[test]
     fn health_invulnerable_drops_damage() {
         let mut health = Health::new(5);
         health.invulnerable = true;

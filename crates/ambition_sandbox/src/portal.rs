@@ -195,6 +195,67 @@ pub fn grant_portal_gun(
     }
 }
 
+/// A portal gun resting in the world. Walking onto it and pressing `Attack`
+/// activates the player's (inactive) portal gun — "pick up the portal gun in
+/// a room". Kept distinct from `item_pickup::GroundItem` because the portal
+/// gun's ability is the `PortalGun` component, not a `HeldItemSpec` verb.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalGunPickup {
+    pub pos: Vec2,
+    pub half_extent: Vec2,
+}
+
+/// Spawn one portal-gun pickup near the player on the first frame a player
+/// exists (debug convenience until authored placement lands).
+pub fn spawn_debug_portal_gun_pickup_once(
+    mut commands: Commands,
+    mut done: Local<bool>,
+    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    if *done {
+        return;
+    }
+    let Ok(kin) = players.single() else {
+        return;
+    };
+    *done = true;
+    commands.spawn((
+        PortalGunPickup {
+            pos: kin.pos + Vec2::new(-80.0, 0.0),
+            half_extent: Vec2::splat(20.0),
+        },
+        Name::new("Portal gun pickup"),
+    ));
+}
+
+/// `Attack` while overlapping a [`PortalGunPickup`] activates the player's
+/// portal gun and consumes the pickup.
+pub fn pickup_portal_gun_system(
+    control: Res<ControlFrame>,
+    mut commands: Commands,
+    mut players: Query<(&PlayerKinematics, &mut PortalGun), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    pickups: Query<(Entity, &PortalGunPickup)>,
+) {
+    if !control.attack_pressed {
+        return;
+    }
+    let Ok((kin, mut gun)) = players.single_mut() else {
+        return;
+    };
+    if gun.active {
+        return;
+    }
+    let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+    for (entity, pickup) in &pickups {
+        if player_aabb.strict_intersects(ae::Aabb::new(pickup.pos, pickup.half_extent)) {
+            gun.active = true;
+            commands.entity(entity).despawn();
+            bevy::log::info!(target: "ambition::portal", "picked up the portal gun");
+            break;
+        }
+    }
+}
+
 /// `Attack` fires a portal of the gun's current color onto the nearest solid
 /// surface along the aim direction, replacing the existing portal of that color.
 pub fn portal_fire_system(
@@ -354,9 +415,20 @@ pub fn sync_portal_visuals(
     world: Res<GameWorld>,
     visuals: Query<Entity, With<PortalVisual>>,
     portals: Query<&Portal>,
+    pickups: Query<&PortalGunPickup>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
+    }
+    // Uncollected portal-gun pickup: a purple marker quad.
+    for pickup in &pickups {
+        let translation = crate::config::world_to_bevy(&world.0, pickup.pos, 9.0);
+        commands.spawn((
+            PortalVisual,
+            Sprite::from_color(Color::srgb(0.66, 0.36, 0.92), pickup.half_extent * 2.0),
+            Transform::from_translation(translation),
+            Name::new("Portal gun pickup visual"),
+        ));
     }
     for portal in &portals {
         let color = match portal.color {
@@ -447,6 +519,50 @@ mod tests {
             (out.x + 100.0).abs() < 0.01 && out.y.abs() < 0.01,
             "fall-in should exit left at the same speed, got {out:?}"
         );
+    }
+
+    #[test]
+    fn picking_up_the_portal_gun_activates_it() {
+        let mut app = App::new();
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, pickup_portal_gun_system);
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                PlayerKinematics {
+                    pos: Vec2::new(50.0, 50.0),
+                    vel: Vec2::ZERO,
+                    size: Vec2::new(24.0, 40.0),
+                    base_size: Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                PortalGun {
+                    active: false,
+                    ..PortalGun::default()
+                },
+            ))
+            .id();
+        app.world_mut().spawn(PortalGunPickup {
+            pos: Vec2::new(50.0, 50.0),
+            half_extent: Vec2::splat(20.0),
+        });
+        assert!(!app.world().get::<PortalGun>(player).unwrap().active);
+
+        app.world_mut()
+            .resource_mut::<ControlFrame>()
+            .attack_pressed = true;
+        app.update();
+        assert!(
+            app.world().get::<PortalGun>(player).unwrap().active,
+            "walking onto the pickup and pressing Attack activates the gun"
+        );
+        let remaining = {
+            let mut q = app.world_mut().query::<&PortalGunPickup>();
+            q.iter(app.world()).count()
+        };
+        assert_eq!(remaining, 0, "the pickup is consumed");
     }
 
     #[test]

@@ -40,6 +40,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     intgrid query     <rect>      Read-only: what IntGrid values are at a px/size rect.
     intgrid erase     <rect>      Zero out cells overlapping a px/size rect.
     intgrid paint    <rect>       Set cells overlapping the rect to --value (1=Solid).
+    gates audit       <level>      Read-only: switches/lock walls/triggers/breakables + targets.
 
 The TODO subcommands are placeholders — the package was migrated from
 several standalone scripts and these slots are reserved so the surface
@@ -222,6 +223,12 @@ def cmd_intgrid(args, rest):
             [args.intgrid_action, *rest],
         )
     return _todo(f"intgrid {args.intgrid_action}")
+
+
+def cmd_gates(args, rest):
+    if args.gates_action == "audit":
+        return _delegate("ambition_ldtk_tools.edit.gates", rest)
+    return _todo(f"gates {args.gates_action}")
 
 
 # ---- Parser construction ------------------------------------------------------
@@ -452,6 +459,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--value (1=Solid, 2=OneWayPlatform, etc.)",
     )
     sp_intgrid.set_defaults(func=cmd_intgrid)
+
+    # gates {audit}
+    sp_gates = sub.add_parser("gates", help="Audit gating / destructible elements")
+    gates_sub = sp_gates.add_subparsers(dest="gates_action", required=True)
+    gates_sub.add_parser(
+        "audit",
+        help="Read-only: list a level's switches / lock walls / encounter "
+        "triggers / breakables and what each switch targets",
+    )
+    sp_gates.set_defaults(func=cmd_gates)
 
     return ap
 

@@ -14,7 +14,7 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 - [x] Ledge grab / mantle behavior exists in engine+sandbox code.
 - [~] Ledge grab / mantle polish: action buffering, animation coverage, and edge-case tests remain incomplete.
 - [~] Moving platforms: implemented path exists, but carry semantics need more validation.
-- [~] Climbable / ladder body mode: available, but ladder-top passthrough and jump/dash-off polish remain.
+- [~] Climbable / ladder body mode: available; ladder-top passthrough landed (see Body and traversal), jump/dash-off polish remains.
 - [~] Silksong-style jump polish: variable jump height exists; apex hang / jump sustain are not yet reusable tuning concepts.
 - [ ] General input buffer for attack, pogo, projectile/tool, blink, and ledge actions.
 - [ ] Sprint-jump / long-jump momentum rules.
@@ -35,7 +35,7 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 - [~] Combat-hit metadata: damage works, but `DamageEvent`, hostile `Hitbox`, `PlayerDamageEvent`, and boss outcomes are not unified into a canonical per-hit object.
 - [ ] Canonical `HitSpec` / `HitInstance` / `HitResult` pipeline with raw damage, final damage, stagger/poise, elements/status, knockback, hitstop, VFX/SFX, and rejection reasons.
 - [ ] Bubble shield dodge/roll policy.
-- [ ] Falling-sand / fluid toy-room simulation.
+- [~] Falling-sand / fluid toy-room simulation: prototype landed (`falling_sand.rs`, `falling_sand` feature) — spouts + wall mirroring + collidable piles; pile-up polish remains.
 
 ## Actor brain / action pipeline
 
@@ -55,7 +55,7 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 - [x] Collision-safe shape checks for compact traversal and morph-ball-style modes.
 - [~] Authored traversal rooms for body-mode mechanics need expansion.
 - [ ] Spring-ball/bomb/spider-ball-style specialized traversal.
-- [ ] Ladder-through-solid or authored ladder-top passthrough rule.
+- [x] Ladder-through-solid / ladder-top passthrough rule: `block_passable_during_climb_clusters` lets a climbing body pass non-Hazard blocks intersecting the active climbable contact region (3 pin tests in `movement/tests/climbing.rs`).
 - [ ] Swim/sink/iron-boots variants unified with body-mode and volume policy.
 
 ## World and authoring primitives
@@ -75,9 +75,9 @@ Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet re
 - [x] Headless `SandboxSim` stepping path.
 - [~] Avian2D secondary physics for debris/props; not the primary player controller.
 - [~] Time-domain vocabulary is documented; full per-entity proper-time gameplay is future work.
-- [ ] Headless screenshot / visual verification path.
+- [~] Headless screenshot / visual verification path: geometry slice landed (`render_room_geometry` example renders collision + entities + platforms/paths/camera-zones + boss hurtboxes to PNG, no GPU); actual-sprite rendering remains.
 - [ ] PyO3 or equivalent external research binding for `SandboxSim`.
-- [ ] Reward-shaping examples for AI playtesting.
+- [x] Reward-shaping examples for AI playtesting: `rl_sim::reward` provides pure `survival` / `exploration` / `health_preservation` / `default_shaped` terms over an `(prev, cur)` observation transition (with `step_with_reward`), unit-tested.
 
 ## Validation anchors
 

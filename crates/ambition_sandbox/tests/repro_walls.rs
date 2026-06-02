@@ -9,6 +9,38 @@ fn scratch_at(spawn: ae::Vec2) -> PlayerClusterScratch {
     sb::player::primary_player_scratch(spawn, AbilitySet::sandbox_all())
 }
 
+/// Depenetration allowance: a single simulation step may legitimately
+/// push the body out of an overlapping solid by at most about one
+/// thin-wall thickness (16 px) plus integration slop. Anything beyond
+/// `velocity * dt + this margin` is a position correction the integrator
+/// must never make in one frame without a Reset / RoomTransition — i.e.
+/// the wall-cling "teleport" class (TODO #96).
+const DEPEN_MARGIN_PX: f32 = 16.0;
+
+/// Principled replacement for the old `dy < 50.0` magic threshold:
+/// assert one step's position change stays within the physically
+/// justifiable budget (intended velocity displacement + bounded
+/// depenetration). A snap to a far block blows past this by hundreds of
+/// pixels. `pre_vel` is the velocity *before* the step (the intended
+/// displacement); the 16 px margin absorbs the small gravity/​collision
+/// velocity change across one frame.
+fn assert_within_displacement_budget(
+    label: &str,
+    initial: ae::Vec2,
+    after: ae::Vec2,
+    pre_vel: ae::Vec2,
+    dt: f32,
+) {
+    let budget = pre_vel.length() * dt + DEPEN_MARGIN_PX;
+    let moved = (after - initial).length();
+    assert!(
+        moved <= budget,
+        "{label}: step moved {moved:.2}px but the displacement budget is \
+         {budget:.2}px (pre_vel={pre_vel:?}, dt={dt}, initial={initial:?}, after={after:?}) \
+         — a correction this large in one frame is the wall-cling teleport class",
+    );
+}
+
 #[test]
 fn square_arena_wall_cling_does_not_teleport() {
     // Exact subset of square_arena's wall geometry.
@@ -67,17 +99,17 @@ fn square_arena_wall_cling_does_not_teleport() {
         player.ground.on_ground,
         player.wall.on_wall
     );
-    let dy_a = (player.kinematics.pos.y - initial.y).abs();
     assert!(
         player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
         "teleported out of world: pos={:?}",
         player.kinematics.pos
     );
-    assert!(
-        dy_a < 50.0,
-        "dy={dy_a} (initial y={}, after y={})",
-        initial.y,
-        player.kinematics.pos.y
+    assert_within_displacement_budget(
+        "square_arena_wall_cling",
+        initial,
+        player.kinematics.pos,
+        ae::Vec2::new(0.0, 31.1),
+        1.0 / 144.0,
     );
 }
 
@@ -137,17 +169,17 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
         player.ground.on_ground,
         player.wall.on_wall
     );
-    let dy_b = (player.kinematics.pos.y - initial.y).abs();
     assert!(
         player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
         "teleported out of world: pos={:?}",
         player.kinematics.pos
     );
-    assert!(
-        dy_b < 50.0,
-        "dy={dy_b} (initial y={}, after y={})",
-        initial.y,
-        player.kinematics.pos.y
+    assert_within_displacement_budget(
+        "square_arena_wall_cling_subpixel_penetration",
+        initial,
+        player.kinematics.pos,
+        ae::Vec2::new(0.0, 31.1),
+        1.0 / 144.0,
     );
 }
 
@@ -266,17 +298,17 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
         player.wall.on_wall,
         player.wall.wall_clinging
     );
-    let dy_c = (player.kinematics.pos.y - initial.y).abs();
     assert!(
         player.kinematics.pos.y >= 0.0 && player.kinematics.pos.y <= world.size.y,
         "teleported out of world: pos={:?}",
         player.kinematics.pos
     );
-    assert!(
-        dy_c < 50.0,
-        "dy={dy_c} (initial y={}, after y={})",
-        initial.y,
-        player.kinematics.pos.y
+    assert_within_displacement_budget(
+        "square_arena_wall_cling_full_world",
+        initial,
+        player.kinematics.pos,
+        ae::Vec2::new(0.0, 31.148),
+        0.00677,
     );
 }
 
@@ -342,6 +374,99 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
         player.kinematics.vel.x,
         player.kinematics.vel.y
     );
+}
+
+/// Class-wide sweep of the wall-cling teleport: rather than four
+/// hand-picked poses, drive a grid of cling positions along a wall span,
+/// at a range of sub-pixel penetrations and downward speeds, and assert
+/// the per-step displacement budget for every one. A teleport that only
+/// triggers at a specific y / penetration / dt the four fixtures happen
+/// to miss is caught here. Uses the minimal 3-block square-arena subset
+/// so it stays fast and LDtk-independent.
+#[test]
+fn wall_cling_displacement_budget_holds_across_pose_sweep() {
+    let world = World::new(
+        "square_arena_subset",
+        ae::Vec2::new(1800.0, 1800.0),
+        ae::Vec2::new(170.0, 1695.0),
+        vec![
+            Block::solid(
+                "ldtk solid",
+                ae::Vec2::new(0.0, 0.0),
+                ae::Vec2::new(1808.0, 32.0),
+            ),
+            // Left wall: right edge at x=48.
+            Block::solid(
+                "ldtk solid",
+                ae::Vec2::new(0.0, 32.0),
+                ae::Vec2::new(48.0, 1712.0),
+            ),
+            Block::solid(
+                "ldtk solid",
+                ae::Vec2::new(0.0, 1744.0),
+                ae::Vec2::new(1808.0, 64.0),
+            ),
+        ],
+    );
+
+    // Sweep y down the wall span, a few sub-pixel penetrations into the
+    // wall, and a few downward speeds + frame times that mirror live
+    // 144 Hz / 60 Hz play.
+    let y_samples: Vec<f32> = (0..40).map(|i| 80.0 + i as f32 * 40.0).collect();
+    let penetrations = [0.0_f32, -0.01, -0.1, -0.5];
+    let speeds = [0.0_f32, 15.0, 31.148, 90.0, 240.0];
+    let dts = [1.0 / 144.0_f32, 1.0 / 60.0_f32, 0.00677];
+
+    for &y in &y_samples {
+        for &pen in &penetrations {
+            for &vy in &speeds {
+                for &dt in &dts {
+                    let mut player = scratch_at(world.spawn);
+                    // Player half-width ~14; right edge of wall is x=48,
+                    // so clinging body sits at x≈62 (+ penetration).
+                    player.kinematics.pos = ae::Vec2::new(62.0 + pen, y);
+                    player.kinematics.vel = ae::Vec2::new(0.0, vy);
+                    player.ground.on_ground = false;
+                    player.wall.on_wall = true;
+                    player.wall.wall_normal_x = 1.0;
+                    player.wall.wall_clinging = true;
+                    player.kinematics.facing = -1.0;
+
+                    let initial = player.kinematics.pos;
+                    let pre_vel = player.kinematics.vel;
+                    let _ = ae::update_player_simulation_with_tuning_scratch(
+                        &world,
+                        &mut player,
+                        InputState {
+                            axis_x: -1.0,
+                            control_dt: dt,
+                            ..Default::default()
+                        },
+                        dt,
+                        DEFAULT_TUNING,
+                    );
+                    // Still inside the world.
+                    assert!(
+                        player.kinematics.pos.y >= 0.0
+                            && player.kinematics.pos.y <= world.size.y
+                            && player.kinematics.pos.x >= 0.0
+                            && player.kinematics.pos.x <= world.size.x,
+                        "pose sweep teleported OOB: start=({:.2},{:.2}) vy={vy} dt={dt} -> pos={:?}",
+                        initial.x,
+                        initial.y,
+                        player.kinematics.pos,
+                    );
+                    assert_within_displacement_budget(
+                        &format!("pose_sweep y={y} pen={pen} vy={vy} dt={dt}"),
+                        initial,
+                        player.kinematics.pos,
+                        pre_vel,
+                        dt,
+                    );
+                }
+            }
+        }
+    }
 }
 
 /// Regression guard for the mob_lab lock-wall teleport documented in
@@ -422,7 +547,6 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
         player.ground.on_ground,
         player.wall.on_wall
     );
-    let dy = (player.kinematics.pos.y - initial.y).abs();
     assert!(
         player.kinematics.pos.y > 32.0 && player.kinematics.pos.y < world.size.y,
         "teleport detected: pos={:?} (initial y={}, world.size={:?})",
@@ -430,11 +554,11 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
         initial.y,
         world.size
     );
-    assert!(
-        dy < 50.0,
-        "y-snap exceeded velocity budget: dy={dy} (initial y={}, after y={}, vel.y={})",
-        initial.y,
-        player.kinematics.pos.y,
-        player.kinematics.vel.y
+    assert_within_displacement_budget(
+        "mob_lab_lock_wall_cling",
+        initial,
+        player.kinematics.pos,
+        ae::Vec2::new(0.0, 31.1),
+        1.0 / 144.0,
     );
 }

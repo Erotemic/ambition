@@ -41,6 +41,10 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Boss phase transitions "screams" / "animations"
 
+- [ ] When are ledge grabbing, if you get hit you should fall off the ledge.
+
+- [ ] When you ledge grab on a moving platform if it moves into a wall, that should cause you to get hit and fall off. Currently you incorrectly just get pushed through the wall.
+
 - [~] Implement the TODOS for the kernel NPC dialog tree — _Progress 2026-06-02 (autonomous):_ the dialogue↔inventory **read+grant** bridge now works. `inventory_has("HealthPotion")` reads the live `PlayerInventory` via a new `inventory_counts` slice on `YarnStateMirror` (refreshed each frame before the save early-return, loose item-id normalization). `<<give_item "kind" count>>` is no longer a logged stub — `cmd_give_item` resolves the kind through `ItemKind::from_dialog_id` and adds to the live `PlayerInventory`. Both have unit tests (`yarn_bindings::tests`) and the `hub_guide__test_inv` kernel node reports real state. **Remaining kernel-dialog stubs:** (a) `merchant_seed` shop node needs a real transaction (affordability check + **spend** + grant/heal), which is blocked on an *economy decision* — there is no currency type today, and "health refill" heals rather than granting an item, so this wants a small design call (item-as-currency vs a credits resource, and a heal command) before implementing; (b) `spawn_chest` Yarn command is still a logged stub (chest spawns are room/encounter-spec driven, not dialogue-driven).
 
 - [ ] Silksong levels of input buffering.
@@ -174,7 +178,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] **Generated tile sprites for IntGrid layers** `[V3/D3]` - Replace colored placeholder rectangles for climbable/water/hazard/solid layers with real tileset textures while preserving canonical LDtk/bevy_ldtk usage.
 
-- [ ] **Build the portal gun sprite** `[V3/D3]` - Generate the portal gun held-item prop sprite via the sprite generator, mirroring the recently-added held-item/effect prop sprites (axe, javelin). It is the held visual for the portal-gun `HeldItem` — the equip test for "Grid inventory + equip / unequip" (section A) and the weapon wielded by the **Portal system** (section A). Scoped separately from the mechanic so the asset can land independently. Keep `regen_sprites.sh` working on a fresh clone (see `[[feedback_regen_invariant]]`).
+- [ ] **Build the portal gun sprite (blue + orange, mode-reflecting)** `[V4/D3]` - **Prioritized (Jon, while playtesting the portal slice).** Generate the portal-gun sprite via the sprite generator, mirroring the held-item/effect prop sprites (axe, javelin). Needs a **blue and an orange variant**: the gun's on-screen sprite must switch to match the active mode (`PortalGun.next_color`) so the player sees which portal they'll shoot next when they toggle (Interact). Today a placeholder chip floats above the player (`portal::sync_portal_mode_indicator`) — replace it with the real sprite swapping blue↔orange. Also: the **portals themselves and the in-flight shot** are colored placeholder quads (`portal::sync_portal_visuals`) and want real sprites/VFX (a blue and an orange portal). It's the visual for the single portal-gun pickup item (`PortalGunPickup`) and the held/active gun. Scoped separately from the mechanic. Keep `regen_sprites.sh` working on a fresh clone (`[[feedback_regen_invariant]]`).
 
 - [ ] **Puppy slug gun sprite** `[V2/D2]` - Held-item prop sprite for the **Puppy slug gun** (section A), generated like the axe/javelin/portal-gun props. Placeholder but presentable. Keep `regen_sprites.sh` green on a fresh clone (`[[feedback_regen_invariant]]`).
 

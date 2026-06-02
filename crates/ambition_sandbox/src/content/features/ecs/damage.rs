@@ -935,4 +935,49 @@ mod tests {
             "the killed enemy should be marked dead"
         );
     }
+
+    #[test]
+    fn player_slash_shatters_a_breakable() {
+        // Completes the attacker-side hit matrix: a player slash on a
+        // 1-HP breakable shatters it through apply_feature_hit_events.
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<HitEvent>();
+        app.add_message::<SetFlagRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_message::<ActorStimulus>();
+        app.add_systems(Update, apply_feature_hit_events);
+
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 20.0));
+        let breakable = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureId::new("crate"),
+                FeatureName::new("crate"),
+                FeatureAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+                BreakableFeature::new(crate::interaction::Breakable::new("crate", 1)),
+            ))
+            .id();
+        assert!(!app.world().get::<BreakableFeature>(breakable).unwrap().broken());
+
+        app.world_mut().write_message(HitEvent {
+            volume: aabb,
+            damage: 2,
+            source: HitSource::PlayerSlash { knock_x: 0.0 },
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+
+        assert!(
+            app.world().get::<BreakableFeature>(breakable).unwrap().broken(),
+            "a player slash should shatter a 1-HP breakable"
+        );
+    }
 }

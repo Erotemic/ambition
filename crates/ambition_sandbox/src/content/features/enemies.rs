@@ -1629,6 +1629,196 @@ impl<'a> EnemyMut<'a> {
             self.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
         }
     }
+
+    // ---- Consumer-facing geometry / combat helpers (ports of the
+    // matching EnemyRuntime methods, reading the cluster components).
+
+    pub fn aabb(&self) -> ae::Aabb {
+        let size = if self.config.archetype == EnemyArchetype::PuppySlug
+            && self.surface.surface_normal.x.abs() > 0.5
+        {
+            ae::Vec2::new(self.kin.size.y, self.kin.size.x)
+        } else {
+            self.kin.size
+        };
+        ae::Aabb::new(self.kin.pos, size * 0.5)
+    }
+
+    pub fn rotation_rad(&self) -> f32 {
+        f32::atan2(-self.surface.surface_normal.x, -self.surface.surface_normal.y)
+    }
+
+    pub fn visual_kind(&self) -> FeatureVisualKind {
+        if self.config.archetype.is_sandbag() {
+            FeatureVisualKind::Sandbag
+        } else {
+            FeatureVisualKind::Enemy
+        }
+    }
+
+    pub fn bark_anchor(&self) -> ae::Vec2 {
+        self.kin.pos + ae::Vec2::new(0.0, -self.kin.size.y * 0.72 - 16.0)
+    }
+
+    pub fn attack_aabb(&self) -> ae::Aabb {
+        ae::Aabb::new(
+            self.kin.pos + ae::Vec2::new(self.kin.facing * (self.kin.size.x * 0.55 + 24.0), -4.0),
+            ae::Vec2::new(34.0, 28.0),
+        )
+    }
+
+    pub fn attack_telegraph_aabb(&self) -> ae::Aabb {
+        self.attack_aabb()
+    }
+
+    pub fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
+        let horizontal = axis.x.abs() >= axis.y.abs();
+        if horizontal {
+            let side = if axis.x.abs() > 0.1 {
+                axis.x.signum()
+            } else {
+                self.kin.facing
+            };
+            let center =
+                self.kin.pos + ae::Vec2::new(side * (self.kin.size.x * 0.55 + 24.0), -4.0);
+            return ae::Aabb::new(center, ae::Vec2::new(34.0, 28.0));
+        }
+        if axis.y < 0.0 {
+            let half = ae::Vec2::new(16.0, 36.0);
+            let center = self.kin.pos + ae::Vec2::new(0.0, -(self.kin.size.y * 0.5 + half.y + 4.0));
+            return ae::Aabb::new(center, half);
+        }
+        let half = ae::Vec2::new(36.0, 20.0);
+        let center = self.kin.pos + ae::Vec2::new(0.0, self.kin.size.y * 0.5 + half.y - 2.0);
+        ae::Aabb::new(center, half)
+    }
+
+    pub fn begin_melee_attack(&mut self, tuning: FeatureCombatTuning, attack_axis: ae::Vec2) -> bool {
+        if self.attack.cooldown > 0.0 || !self.status.alive {
+            return false;
+        }
+        self.attack.windup_timer = tuning.enemy_attack_windup.max(0.01);
+        self.attack.cooldown = ENEMY_ATTACK_COOLDOWN
+            * if self.config.archetype == EnemyArchetype::SmallSkitter {
+                0.75
+            } else if self.config.archetype == EnemyArchetype::LargeBrute {
+                1.35
+            } else {
+                1.0
+            };
+        self.status.ai_mode = crate::character_ai::CharacterAiMode::Telegraph;
+        self.attack.pending_axis = if attack_axis.length_squared() > 0.01 {
+            attack_axis.normalize_or_zero()
+        } else {
+            ae::Vec2::new(self.kin.facing, 0.0)
+        };
+        true
+    }
+
+    pub fn body_damage_aabb(&self) -> Option<ae::Aabb> {
+        if !self.config.archetype.body_contact_damage_enabled() {
+            return None;
+        }
+        Some(self.aabb())
+    }
+
+    pub fn body_contact_damage(
+        &self,
+        player_entity: bevy::prelude::Entity,
+        player_body: ae::Aabb,
+    ) -> Option<HitEvent> {
+        let body_damage = self.body_damage_aabb()?;
+        if !body_damage.strict_intersects(player_body) {
+            return None;
+        }
+        let impact = midpoint(player_body.center(), body_damage.center());
+        Some(HitEvent {
+            volume: body_damage,
+            damage: self.config.archetype.damage_amount(),
+            source: HitSource::EnemyBody,
+            attacker: None,
+            target: HitTarget::Player(player_entity),
+            mode: HitMode::Knockback,
+            knockback: Some(HitKnockback {
+                dir: (player_body.center().x - self.kin.pos.x).signum_or(self.kin.facing),
+                strength: self.config.archetype.contact_strength(),
+                source_pos: self.kin.pos,
+                impact_pos: impact,
+            }),
+            ignored_targets: Vec::new(),
+        })
+    }
+
+    pub fn reset_to_spawn(&mut self) {
+        let archetype = self.config.spawn.archetype;
+        self.config.archetype = archetype;
+        self.kin.size = self.config.spawn.size;
+        self.kin.pos = self.config.spawn.pos;
+        self.kin.vel = ae::Vec2::ZERO;
+        self.status.alive = true;
+        self.status.health = crate::actor::Health::new(archetype.max_health());
+        *self.attack = ActorAttackState::default();
+        self.status.respawn_timer = 0.0;
+        self.status.hit_flash = 0.0;
+        self.status.ai_mode = crate::character_ai::CharacterAiMode::Idle;
+        self.kin.facing = -1.0;
+        *self.surface = ActorSurfaceState {
+            on_ground: false,
+            surface_normal: ae::Vec2::new(0.0, -1.0),
+            gravity_scale: if archetype.is_aerial() { 0.0 } else { 1.0 },
+            air_jumps_remaining: MAX_ENEMY_AIR_JUMPS,
+        };
+    }
+
+    // ---- Transition bridge (deleted once EnemyRuntime is gone).
+
+    /// Copy a legacy `EnemyRuntime`'s state into the cluster components.
+    pub fn load_from_runtime(&mut self, e: &EnemyRuntime) {
+        *self.kin = super::ecs::enemy_clusters::EnemyKinematics {
+            pos: e.pos,
+            vel: e.vel,
+            size: e.size,
+            facing: e.facing,
+        };
+        *self.status = super::ecs::enemy_clusters::EnemyStatus {
+            alive: e.alive,
+            respawn_timer: e.respawn_timer,
+            hit_flash: e.hit_flash,
+            ai_mode: e.ai_mode,
+            health: e.health,
+        };
+        *self.surface = e.surface;
+        *self.attack = e.attack;
+        *self.config = super::ecs::enemy_clusters::EnemyConfig {
+            id: e.id.clone(),
+            name: e.name.clone(),
+            archetype: e.archetype,
+            brain: e.brain.clone(),
+            spawn: e.spawn,
+            sprite_override_npc_name: e.sprite_override_npc_name.clone(),
+        };
+        *self.motion = super::ecs::enemy_clusters::EnemyMotionPath(e.motion.clone());
+    }
+
+    /// Write the cluster state back into a legacy `EnemyRuntime`.
+    pub fn store_to_runtime(&self, e: &mut EnemyRuntime) {
+        e.pos = self.kin.pos;
+        e.vel = self.kin.vel;
+        e.size = self.kin.size;
+        e.facing = self.kin.facing;
+        e.alive = self.status.alive;
+        e.respawn_timer = self.status.respawn_timer;
+        e.hit_flash = self.status.hit_flash;
+        e.ai_mode = self.status.ai_mode;
+        e.health = self.status.health;
+        e.surface = *self.surface;
+        e.attack = *self.attack;
+        e.archetype = self.config.archetype;
+        e.brain = self.config.brain.clone();
+        e.spawn = self.config.spawn;
+        e.sprite_override_npc_name = self.config.sprite_override_npc_name.clone();
+        e.motion = self.motion.0.clone();
+    }
 }
 
 #[cfg(test)]

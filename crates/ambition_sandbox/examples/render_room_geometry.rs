@@ -111,26 +111,63 @@ fn marker(img: &mut RgbaImage, center: (i64, i64), half: i64, color: Rgba<u8>) {
     );
 }
 
-fn render_world(world: &ae::World) -> RgbaImage {
+/// Outline an authored entity's AABB on top of the collision fill, with
+/// a small filled corner tick so single-cell entities stay visible.
+fn overlay_aabb(img: &mut RgbaImage, proj: &Projection, aabb: ae::Aabb, color: Rgba<u8>) {
+    let min = proj.px(aabb.min);
+    let max = proj.px(aabb.max);
+    stroke_rect(img, (min.0 - 1, min.1 - 1), (max.0 + 1, max.1 + 1), color);
+    stroke_rect(img, min, max, color);
+}
+
+fn render_room(room: &sb::rooms::RoomSpec) -> RgbaImage {
+    let world = &room.world;
     let (proj, w, h) = Projection::new(world.size);
     let mut img = RgbaImage::from_pixel(w, h, Rgba([24, 26, 30, 255]));
 
-    // World bounds outline (white).
+    // World bounds outline.
     let (bmin, bmax) = (proj.px(ae::Vec2::ZERO), proj.px(world.size));
     stroke_rect(&mut img, bmin, bmax, Rgba([90, 94, 100, 255]));
 
+    // Collision blocks (filled).
     for block in &world.blocks {
         let min = proj.px(block.aabb.min);
         let max = proj.px(block.aabb.max);
-        let c = color_for(&block.kind);
-        fill_rect(&mut img, min, max, c);
-        // Darker outline so adjacent same-kind blocks stay legible.
+        fill_rect(&mut img, min, max, color_for(&block.kind));
         stroke_rect(&mut img, min, max, Rgba([10, 10, 12, 255]));
     }
 
-    // Spawn point (green cross).
-    let s = proj.px(world.spawn);
-    marker(&mut img, s, 8, Rgba([60, 230, 90, 255]));
+    // Authored entity families (outlined, drawn over the collision so
+    // both stay legible). Colors echo the in-game debug overlay.
+    for e in &room.enemy_spawns {
+        overlay_aabb(&mut img, &proj, e.aabb, Rgba([235, 70, 70, 255])); // red
+    }
+    for b in &room.boss_spawns {
+        // Thicker: double outline already; brighten so it reads as the
+        // room's headline threat.
+        overlay_aabb(&mut img, &proj, b.aabb, Rgba([255, 140, 30, 255])); // orange
+    }
+    for it in &room.interactables {
+        overlay_aabb(&mut img, &proj, it.aabb, Rgba([70, 230, 120, 255])); // green (NPC/switch)
+    }
+    for p in &room.pickups {
+        overlay_aabb(&mut img, &proj, p.aabb, Rgba([90, 210, 230, 255])); // cyan
+    }
+    for c in &room.chests {
+        overlay_aabb(&mut img, &proj, c.aabb, Rgba([240, 205, 70, 255])); // gold
+    }
+    for br in &room.breakables {
+        overlay_aabb(&mut img, &proj, br.aabb, Rgba([150, 190, 240, 255])); // light blue
+    }
+    for hz in &room.hazards {
+        overlay_aabb(&mut img, &proj, hz.aabb, Rgba([235, 80, 220, 255])); // magenta
+    }
+    for lz in &room.loading_zones {
+        overlay_aabb(&mut img, &proj, lz.aabb, Rgba([230, 230, 235, 255])); // white (door/exit)
+    }
+
+    // Spawn point (green cross) on top of everything.
+    marker(&mut img, proj.px(world.spawn), 8, Rgba([60, 230, 90, 255]));
 
     img
 }
@@ -170,18 +207,29 @@ fn main() {
         std::process::exit(1);
     };
 
-    let img = render_world(&room.world);
+    let img = render_room(room);
     let out = out_path.unwrap_or_else(|| format!("/tmp/room_{room_id}.png"));
     img.save(&out).expect("PNG save should succeed");
     println!(
-        "rendered '{room_id}' ({}x{} world, {} blocks) -> {out}  [{}x{} px]",
+        "rendered '{room_id}' ({}x{} world) -> {out}  [{}x{} px]",
         room.world.size.x,
         room.world.size.y,
-        room.world.blocks.len(),
         img.width(),
         img.height(),
     );
     println!(
-        "legend: gray=Solid blue=OneWay red=Hazard gold=PogoOrb purple=BlinkWall teal=Rebound green-cross=spawn"
+        "  collision: {} blocks | enemies: {} | bosses: {} | interactables: {} | pickups: {} | chests: {} | breakables: {} | hazards: {} | doors: {}",
+        room.world.blocks.len(),
+        room.enemy_spawns.len(),
+        room.boss_spawns.len(),
+        room.interactables.len(),
+        room.pickups.len(),
+        room.chests.len(),
+        room.breakables.len(),
+        room.hazards.len(),
+        room.loading_zones.len(),
+    );
+    println!(
+        "legend: FILLED collision (gray=Solid blue=OneWay red=Hazard gold=PogoOrb) | OUTLINES red=enemy orange=boss green=NPC/switch cyan=pickup gold=chest lightblue=breakable magenta=hazard-vol white=door | green-cross=spawn"
     );
 }

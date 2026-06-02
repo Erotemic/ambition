@@ -28,6 +28,24 @@ fn step_n_holds_action_across_frames() {
 }
 
 #[test]
+fn step_with_reward_returns_finite_positive_reward_while_surviving() {
+    let mut sim = SandboxSim::new().expect("sim builds");
+    let mut total = 0.0_f32;
+    for _ in 0..30 {
+        let (obs, reward) = sim.step_with_reward(AgentAction::default());
+        assert!(reward.is_finite(), "reward must be finite, got {reward}");
+        assert!(obs.alive(), "30 idle frames don't kill the player");
+        total += reward;
+    }
+    // No deaths, so the survival + health terms keep the cumulative
+    // reward positive across a calm idle episode.
+    assert!(
+        total > 0.0,
+        "an alive idle episode should accumulate positive shaped reward, got {total}"
+    );
+}
+
+#[test]
 fn move_action_translates_to_horizontal_velocity() {
     let mut sim = SandboxSim::new().expect("sim builds");
     // 10 frames of "walk right". Velocity should pick up positive x;

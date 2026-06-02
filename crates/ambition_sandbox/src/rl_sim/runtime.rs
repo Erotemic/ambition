@@ -162,6 +162,19 @@ impl SandboxSim {
         self.observation()
     }
 
+    /// Step one frame and return the post-step observation paired with
+    /// the example shaped reward ([`super::reward::default_shaped`])
+    /// computed over the pre→post transition. Convenience for RL loops
+    /// that want the canonical example reward without threading the
+    /// previous observation themselves; a task-specific harness should
+    /// compute its own reward from the returned observations instead.
+    pub fn step_with_reward(&mut self, action: AgentAction) -> (AgentObservation, f32) {
+        let prev = self.observation();
+        let cur = self.step(action);
+        let reward = super::reward::default_shaped(&prev, &cur);
+        (cur, reward)
+    }
+
     /// Step the simulation `n` times with the same action. Convenience
     /// for "hold this action for N frames" without the caller writing
     /// the loop. Returns the final observation.

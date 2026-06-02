@@ -111,3 +111,38 @@ impl EncounterSpec {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::interaction::PickupKind;
+
+    const BASE: &str = r#"(
+        id: "t", waves: [], trigger_min: (0.0, 0.0), trigger_size: (10.0, 10.0),
+        camera_zoom: 1.2, lock_wall: None, intro_seconds: 1.0, music_track: """#;
+
+    #[test]
+    fn reward_defaults_to_small_heal_when_omitted() {
+        let ron_text = format!("{BASE})");
+        let spec: EncounterSpec = ron::from_str(&ron_text).expect("parse without reward");
+        assert_eq!(spec.reward, PickupKind::Health { amount: 2 });
+    }
+
+    #[test]
+    fn reward_round_trips_an_authored_kind() {
+        let ron_text = format!("{BASE}, reward: Currency(amount: 50))");
+        let spec: EncounterSpec = ron::from_str(&ron_text).expect("parse with reward");
+        assert_eq!(spec.reward, PickupKind::Currency { amount: 50 });
+    }
+
+    #[test]
+    fn lock_wall_aabb_is_min_plus_size() {
+        let lw = LockWallSpec {
+            min: [10.0, 20.0],
+            size: [30.0, 40.0],
+        };
+        let bb = lw.aabb();
+        assert_eq!(bb.min, ae::Vec2::new(10.0, 20.0));
+        assert_eq!(bb.max, ae::Vec2::new(40.0, 60.0));
+    }
+}

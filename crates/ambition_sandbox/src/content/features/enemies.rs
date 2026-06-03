@@ -550,6 +550,7 @@ impl EnemyArchetype {
 /// respawn_timer/hit_flash/ai_mode/health), self.config.* (archetype/
 /// brain/spawn), self.attack.* / self.surface.* unchanged, self.motion.0.
 impl<'a> EnemyMut<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,
         world: &ae::World,
@@ -559,6 +560,9 @@ impl<'a> EnemyMut<'a> {
         dt: f32,
         _is_mounted: bool,
         frame: crate::actor_control::ActorControlFrame,
+        // Sign of world gravity (+1 down / -1 up) from `GravityField`, so the
+        // enemy falls + jumps the way the player does when gravity flips.
+        gravity_sign: f32,
     ) -> crate::actor_control::ActorControlFrame {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
         if !self.status.alive {
@@ -637,11 +641,12 @@ impl<'a> EnemyMut<'a> {
             } else {
                 body.vel.x = approach(body.vel.x, frame.desired_vel.x, 650.0 * dt);
                 if frame.jump_pressed {
+                    // Jumps oppose gravity, so they flip with it.
                     if body.on_ground {
-                        body.vel.y = -ENEMY_JUMP_SPEED;
+                        body.vel.y = -ENEMY_JUMP_SPEED * gravity_sign;
                         body.on_ground = false;
                     } else if self.surface.air_jumps_remaining > 0 {
-                        body.vel.y = -ENEMY_DOUBLE_JUMP_SPEED;
+                        body.vel.y = -ENEMY_DOUBLE_JUMP_SPEED * gravity_sign;
                         self.surface.air_jumps_remaining -= 1;
                     }
                 }
@@ -652,6 +657,8 @@ impl<'a> EnemyMut<'a> {
                 crate::kinematic::KinematicTuning {
                     gravity,
                     max_fall_speed: max_fall,
+                    // Falls the same way the player does when gravity flips.
+                    gravity_sign,
                 },
                 crate::kinematic::KinematicInputs {
                     drop_through: frame.drop_through,
@@ -813,6 +820,8 @@ impl<'a> EnemyMut<'a> {
             crate::kinematic::KinematicTuning {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
+                // Spawn-time snap-to-ground assumes normal gravity.
+                gravity_sign: 1.0,
             },
             crate::kinematic::KinematicInputs {
                 drop_through: false,

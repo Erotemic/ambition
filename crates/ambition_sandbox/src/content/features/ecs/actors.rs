@@ -258,6 +258,7 @@ pub fn update_ecs_actors(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
+    gravity_field: Option<Res<crate::physics::GravityField>>,
     platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
@@ -492,6 +493,7 @@ pub fn update_ecs_actors(
                     dt,
                     is_mounted,
                     brain_frame,
+                    gravity_field.as_deref().map_or(1.0, |g| g.vertical_sign()),
                 );
                 let shark_crashed =
                     shark_charge_crashed(&em, is_mounted, shark_charge_vec, previous_pos);

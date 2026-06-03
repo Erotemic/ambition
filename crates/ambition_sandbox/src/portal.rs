@@ -25,6 +25,7 @@ use crate::brain::ActionSet;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::input::ControlFrame;
 use crate::item_pickup::StashedActionSet;
+use crate::physics::{gravity_upright_angle, GravityField};
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::GameWorld;
 
@@ -528,28 +529,6 @@ pub fn portal_toggle_system(
 #[derive(Resource, Default)]
 pub struct IntentionalTeleport(pub bool);
 
-/// The world's gravity direction (unit vector, in the y-DOWN world frame) —
-/// default straight down. This is the **gravity concept** the body orients to:
-/// a body that gets rotated (e.g. by a portal pair at any angle) rights itself
-/// to point its feet along gravity. Change `dir` and bodies will reorient to the
-/// new down — the seed of gravity effects / gravity rooms. Today only
-/// [`update_actor_roll`] consumes it (the orient-to-gravity reflex); wiring it
-/// into the movement integrator so things actually *fall* the new way is the
-/// follow-up that makes a real gravity room.
-#[derive(Resource, Clone, Copy, Debug)]
-pub struct GravityField {
-    pub dir: Vec2,
-}
-
-impl Default for GravityField {
-    fn default() -> Self {
-        // +Y is down in the world frame, so default gravity points +Y.
-        Self {
-            dir: Vec2::new(0.0, 1.0),
-        }
-    }
-}
-
 /// A sandbox gravity-flip switch: a tall pressure-plate column the player steps
 /// into to flip [`GravityField`] up↔down. Tall so it's reachable from both the
 /// floor and the ceiling (after a flip you're on the ceiling — walk back into
@@ -631,16 +610,6 @@ pub fn reset_gravity_on_room_reset(
 /// Render-space z-rotation that stands a body upright under `gravity_dir`: it
 /// points the sprite's local +Y ("up") along world-up (`-gravity`), accounting
 /// for the y-down→y-up render flip. Default gravity → angle 0.
-pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
-    let g = gravity_dir.normalize_or_zero();
-    if g == Vec2::ZERO {
-        return 0.0;
-    }
-    // World up = -g; the render frame flips y.
-    let render_up = Vec2::new(-g.x, g.y);
-    render_up.y.atan2(render_up.x) - std::f32::consts::FRAC_PI_2
-}
-
 /// Visual roll (aerial orientation) of an actor — player OR any NPC / enemy /
 /// boss — in render-space radians. Portal transit ADDS the rotation the velocity
 /// underwent (general for ANY portal-pair angle — see [`portal_transit_roll`]),

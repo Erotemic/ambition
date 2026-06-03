@@ -106,13 +106,17 @@ impl ProjectileBody {
     /// Step the projectile forward by `dt`. Returns `true` if the
     /// projectile is still alive after the tick. Collision against
     /// solids / breakables is the caller's responsibility (sandbox).
-    pub fn tick(&mut self, dt: f32) -> bool {
+    ///
+    /// `gravity_sign` is the world gravity direction along Y (`+1` down, `-1`
+    /// flipped) from `GravityField`, so a gravity flip sends gravity-bearing
+    /// projectiles (bombs, apple-rain) up too. Pass `1.0` for normal gravity.
+    pub fn tick(&mut self, dt: f32, gravity_sign: f32) -> bool {
         self.age += dt;
         if self.age >= self.max_lifetime {
             return false;
         }
-        // Apply gravity (positive = downward in sandbox conventions).
-        self.vel.y += self.gravity * dt;
+        // Apply gravity along the world's down (positive = downward by default).
+        self.vel.y += self.gravity * gravity_sign * dt;
         self.pos += self.vel * dt;
         true
     }
@@ -238,7 +242,7 @@ mod tests {
     fn tick_advances_position_and_applies_gravity() {
         let mut p = fireball(Vec2::new(0.0, 0.0), Vec2::new(100.0, 0.0), 0);
         p.gravity = 200.0;
-        let alive = p.tick(0.1);
+        let alive = p.tick(0.1, 1.0);
         assert!(alive, "still alive well within lifetime");
         // vy gains gravity*dt first, then pos integrates the new velocity.
         assert!((p.vel.y - 20.0).abs() < 1e-3);
@@ -249,7 +253,7 @@ mod tests {
     fn tick_returns_false_and_holds_position_when_expired() {
         let mut p = fireball(Vec2::new(5.0, 5.0), Vec2::new(100.0, 0.0), 0);
         p.max_lifetime = 0.1;
-        let alive = p.tick(0.2);
+        let alive = p.tick(0.2, 1.0);
         assert!(!alive, "a tick past the lifetime reports dead");
         assert!(p.is_expired());
         assert_eq!(p.pos, Vec2::new(5.0, 5.0), "expiring tick does not move the body");

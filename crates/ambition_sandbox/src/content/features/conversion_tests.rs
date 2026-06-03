@@ -484,6 +484,7 @@ mod conversion_tests {
                 1.0 / 60.0,
                 false,
                 frame,
+                1.0,
             );
         }
         let half_w = enemy.kin.size.x * 0.5;
@@ -553,6 +554,7 @@ mod conversion_tests {
                 1.0 / 60.0,
                 false,
                 frame,
+                1.0,
             );
         }
         let half_w = enemy.kin.size.x * 0.5;

@@ -39,6 +39,9 @@ pub struct KinematicTuning {
     pub gravity: f32,
     /// Maximum downward speed (pixels/sec).
     pub max_fall_speed: f32,
+    /// Sign of gravity along Y: `+1` normal (down), `-1` flipped (up). Set from
+    /// the world `GravityField` so actors fall the way the player does.
+    pub gravity_sign: f32,
 }
 
 /// Per-tick AI/control inputs to [`step_kinematic`].
@@ -95,8 +98,17 @@ pub fn step_kinematic(
     inputs: KinematicInputs,
     dt: f32,
 ) {
-    // 1. Gravity. Capped so a long fall doesn't tunnel.
-    body.vel.y = (body.vel.y + tuning.gravity * dt).min(tuning.max_fall_speed);
+    // 1. Gravity along the world's down (`gravity_sign`: +1 down, -1 flipped),
+    //    capped so a long fall doesn't tunnel. Mirrors the player's
+    //    `MovementTuning.gravity_sign` so an enemy falls the same way the player
+    //    does when gravity flips.
+    let sign = tuning.gravity_sign;
+    let new_vy = body.vel.y + tuning.gravity * sign * dt;
+    body.vel.y = if sign >= 0.0 {
+        new_vy.min(tuning.max_fall_speed)
+    } else {
+        new_vy.max(-tuning.max_fall_speed)
+    };
 
     // Capture the bottom edge BEFORE we move so the OneWay direction
     // check (was the body above the platform?) reads the previous-tick
@@ -119,7 +131,9 @@ pub fn step_kinematic(
     //    platform top last frame, AND (b) drop_through is not set.
     let old_y = body.pos.y;
     body.pos.y += body.vel.y * dt;
-    let was_falling = body.vel.y >= 0.0;
+    // "Falling" = moving along gravity, so a flipped-gravity body that rises
+    // into a ceiling still registers as landing (on_ground).
+    let was_falling = body.vel.y * sign >= 0.0;
     if body_blocked_y(
         body.aabb(),
         world,
@@ -192,7 +206,34 @@ mod tests {
         KinematicTuning {
             gravity: 1450.0,
             max_fall_speed: 760.0,
+            gravity_sign: 1.0,
         }
+    }
+
+    #[test]
+    fn flipped_gravity_makes_a_body_rise_and_land_on_a_ceiling() {
+        // A ceiling block above the body; flipped gravity pulls the body UP onto
+        // it and it registers as grounded (standing on the ceiling).
+        let world = world_with(vec![Block::solid(
+            "ceiling",
+            Vec2::new(0.0, 0.0),
+            Vec2::new(200.0, 32.0),
+        )]);
+        let mut b = body(Vec2::new(50.0, 300.0));
+        let mut tuning = tuning();
+        tuning.gravity_sign = -1.0; // up
+        for _ in 0..120 {
+            step_kinematic(&mut b, &world, tuning, KinematicInputs::default(), 1.0 / 60.0);
+        }
+        assert!(
+            b.pos.y < 300.0,
+            "flipped gravity should pull the body up, got y={}",
+            b.pos.y
+        );
+        assert!(
+            b.on_ground,
+            "the body should stand on the ceiling under flipped gravity"
+        );
     }
 
     #[test]

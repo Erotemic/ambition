@@ -114,6 +114,8 @@ impl<'a> NpcMut<'a> {
             crate::kinematic::KinematicTuning {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
+                // NPCs stay under normal gravity for now (stationary talkers).
+                gravity_sign: 1.0,
             },
             crate::kinematic::KinematicInputs::default(),
             dt,

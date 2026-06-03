@@ -131,7 +131,7 @@ fn projectile_body_expires_after_max_lifetime() {
     let mut body = ProjectileBody::from_spec(spec);
     let mut alive = true;
     for _ in 0..200 {
-        alive = body.tick(0.016);
+        alive = body.tick(0.016, 1.0);
         if !alive {
             break;
         }
@@ -150,7 +150,7 @@ fn fireball_arcs_downward() {
     );
     let mut body = ProjectileBody::from_spec(spec);
     for _ in 0..30 {
-        body.tick(0.016);
+        body.tick(0.016, 1.0);
     }
     assert!(
         body.pos.y > 0.0,
@@ -170,7 +170,7 @@ fn hadouken_travels_straight_horizontally() {
     );
     let mut body = ProjectileBody::from_spec(spec);
     for _ in 0..30 {
-        body.tick(0.016);
+        body.tick(0.016, 1.0);
     }
     assert!(body.pos.y.abs() < 1e-3);
     assert!(body.pos.x > 0.0);

@@ -14,6 +14,7 @@ use crate::GameWorld;
 pub fn update_enemy_projectiles(
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
+    gravity_field: Option<Res<crate::physics::GravityField>>,
     mut state: ResMut<EnemyProjectileState>,
     player_body_q: Query<
         (
@@ -31,11 +32,12 @@ pub fn update_enemy_projectiles(
     mut vfx: MessageWriter<VfxMessage>,
 ) {
     let dt = world_time.sim_dt();
+    let gravity_sign = gravity_field.as_deref().map_or(1.0, |g| g.vertical_sign());
     let mut keep = Vec::with_capacity(state.bodies.len());
     let bodies = std::mem::take(&mut state.bodies);
 
     for mut shot in bodies {
-        let alive = shot.body.tick(dt);
+        let alive = shot.body.tick(dt, gravity_sign);
         if !alive {
             continue;
         }

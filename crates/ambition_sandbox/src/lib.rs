@@ -64,6 +64,7 @@ pub(crate) mod music;
 pub(crate) mod pause_menu;
 pub mod hud_overlay;
 pub mod item_pickup;
+pub mod physics;
 pub(crate) mod persistence;
 pub mod portal;
 pub(crate) mod presentation;

@@ -19,6 +19,7 @@ use crate::GameWorld;
 pub fn update_projectiles(
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
+    gravity_field: Option<Res<crate::physics::GravityField>>,
     // Per-player projectile state lives on the player entity itself
     // (was a singleton `Res<PlayerProjectileState>`). Iterates every
     // player so co-op / possession builds get one independent charge
@@ -66,6 +67,7 @@ pub fn update_projectiles(
     // projectile in mid-arc should not advance while the world
     // is stopped.
     let dt = world_time.sim_dt();
+    let gravity_sign = gravity_field.as_deref().map_or(1.0, |g| g.vertical_sign());
 
     // Build a per-actor map of PlayerProjectileTick infos so the
     // per-player loop below can look up each player's tick info by
@@ -117,7 +119,7 @@ pub fn update_projectiles(
         let mut still_alive = Vec::with_capacity(state.bodies.len());
         let mut bodies = std::mem::take(&mut state.bodies);
         for mut p in bodies.drain(..) {
-            let alive = p.body.tick(dt);
+            let alive = p.body.tick(dt, gravity_sign);
             if !alive {
                 events.push(ProjectileTraceEvent::Expired { kind: p.body.kind });
                 continue;

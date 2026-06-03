@@ -163,7 +163,7 @@ pub fn player_simulation_system(
     mut event_writers: SandboxEventWriters,
     mut queues: SandboxQueues,
     mut shake: ResMut<crate::time::camera_ease::CameraShakeState>,
-    gravity_field: Option<Res<crate::portal::GravityField>>,
+    gravity_field: Option<Res<crate::physics::GravityField>>,
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,

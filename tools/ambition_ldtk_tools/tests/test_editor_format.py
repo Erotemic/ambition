@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Regression tests for the LDtk editor-shaped JSON serializer.
 
-The formatter aims to reproduce the LDtk 1.5 editor's idiosyncratic
-mixed inline/multi-line JSON layout closely enough that tool-edited
-files diff cleanly against editor-saved files. These tests pin the
-format-decision rules (inline thresholds, scalar-array chunking,
-``{ ... }``-vs-``[...]`` spacing asymmetry, first-key flow,
-closing-line key flow) so future formatter changes can be reviewed
-against concrete examples instead of staring at a 5000-line diff.
+``editor_format.dump_editor_style`` is a faithful port of Deepnight's
+``dn.data.JsonPretty.stringify`` at level ``Compact`` — the serializer LDtk
+itself uses to write ``.ldtk`` files. These tests pin the format-decision
+rules straight from that algorithm (the ``evaluateLength`` heuristic vs the
+85-char budget, the type-dependent array spacing, float ``.0`` suffix,
+float-hint strings, string flattening, the ``"name" : {}`` empty-object
+quirk, the >85 numeric grid, ``__header__`` multiline forcing) so a future
+change to the formatter is reviewed against concrete examples rather than a
+5000-line LDtk diff.
 
 Run directly:
     PYTHONPATH=tools/ambition_ldtk_tools \\
@@ -25,152 +27,127 @@ sys.path.insert(0, str(REPO_ROOT / "tools" / "ambition_ldtk_tools"))
 from ambition_ldtk_tools.editor_format import dump_editor_style  # noqa: E402
 
 
-def _check(name: str, value, expected_substring: str) -> None:
+def _eq(name: str, value, expected: str) -> None:
     text = dump_editor_style(value)
-    if expected_substring not in text:
-        print(f"FAIL {name}: expected substring not found", file=sys.stderr)
-        print(f"  expected: {expected_substring!r}", file=sys.stderr)
+    if text != expected:
+        print(f"FAIL {name}", file=sys.stderr)
+        print(f"  expected: {expected!r}", file=sys.stderr)
+        print(f"  got:      {text!r}", file=sys.stderr)
+        sys.exit(1)
+    print(f"  ok: {name}")
+
+
+def _contains(name: str, value, needle: str) -> None:
+    text = dump_editor_style(value)
+    if needle not in text:
+        print(f"FAIL {name}: substring not found", file=sys.stderr)
+        print(f"  needle: {needle!r}", file=sys.stderr)
         print(f"  got:\n{text}", file=sys.stderr)
         sys.exit(1)
     print(f"  ok: {name}")
 
 
-def _check_exact(name: str, value, expected: str) -> None:
+def _absent(name: str, value, needle: str) -> None:
     text = dump_editor_style(value)
-    if text != expected:
-        print(f"FAIL {name}", file=sys.stderr)
-        print(f"  expected:\n{expected}", file=sys.stderr)
+    if needle in text:
+        print(f"FAIL {name}: unexpected substring present", file=sys.stderr)
+        print(f"  needle: {needle!r}", file=sys.stderr)
         print(f"  got:\n{text}", file=sys.stderr)
         sys.exit(1)
     print(f"  ok: {name}")
 
 
 def main() -> int:
-    print("== inline-spacing rules ==")
-    # Numbers in arrays: NO space after comma (matches `__grid: [58,51]`).
-    _check("scalar array no inner space", [1, 2, 3], "[1,2,3]")
-    # Object keys: SPACE after `,` and inside `{ }` (matches
-    # `{ "value": 1, "identifier": "Solid" }`).
-    _check(
-        "object inline has spaces inside braces",
+    print("== no trailing newline (LDtk writes buf verbatim) ==")
+    _eq("scalar array, no trailing newline", [1, 2, 3], "[1,2,3]")
+    _eq("empty array", [], "[]")
+    _eq("empty object", {}, "{}")
+
+    print("== array spacing is value-type dependent ==")
+    # int/float arrays: NO inner space (matches `"px": [1080,874]`).
+    _eq("int array no space", [1080, 874], "[1080,874]")
+    _eq("float array no space + .0 suffix", [1.0, 2.5], "[1.0,2.5]")
+    # bool arrays inline (spaced) only at length<=5; a >5 array trips the
+    # evaluateLength `99` rule and goes multiline (so the inline ">5 -> no
+    # space" branch in addArray is faithfully ported but unreachable).
+    _eq("bool array <=5 spaced", [True, False], "[ true, false ]")
+    _contains("bool array >5 multiline", [True] * 6, "[\n\ttrue,")
+    # string/object arrays: no space at length 1, space when >1.
+    _eq("string array length 1 unspaced", ["Solid"], '["Solid"]')
+    _eq("string array length>1 spaced", ["a", "b"], '[ "a", "b" ]')
+
+    print("== inline vs multiline objects (evaluateLength vs 85) ==")
+    # Small object inlines with spaces inside the braces.
+    _eq(
+        "small object inline",
         {"value": 1, "identifier": "Solid"},
         '{ "value": 1, "identifier": "Solid" }',
     )
-    # Empty containers always inline.
-    _check("empty array", [], "[]\n")
-    _check("empty object", {}, "{}\n")
+    # `realEditorValues: [{...}]` — a length-1 object array (no bracket
+    # space) wrapping a multiline object, exactly as LDtk emits switch
+    # field instances. The string-array `params` trips the 99 heuristic so
+    # the inner object is multiline while the array stays inline.
+    rev = {"realEditorValues": [{"id": "V_String", "params": ["FlipGravity"]}]}
+    _contains("realEditorValues inline-array, multiline-object", rev,
+              '"realEditorValues": [{\n')
+    _absent("realEditorValues has no bracket space", rev, '[ {')
 
-    print("== width-driven wrap ==")
-    # Short scalar array stays inline.
-    _check_exact("short scalar array stays inline", [1, 2, 3], "[1,2,3]\n")
-    # Long scalar array wraps, packing items at ~76-char width budget.
-    long_array = [0] * 1000
-    text = dump_editor_style(long_array)
-    assert "\n" in text, "long array should wrap"
-    chunk_lines = [
-        line for line in text.split("\n") if line and not line.strip() in {"[", "]"}
-    ]
-    assert chunk_lines, "long array should produce chunk lines"
-    # Each chunk line should be reasonably packed (more than 30 chars
-    # of payload). One-int-per-line would be a regression.
-    short_chunks = [line for line in chunk_lines if len(line) < 30]
-    assert not short_chunks, (
-        f"long scalar array should chunk densely, found short lines: {short_chunks[:3]}"
+    print("== defaultOverride: numeric inline, string/bool multiline ==")
+    # Numeric defaultOverride inlines (params [0] evaluates to length 1).
+    _eq(
+        "V_Float defaultOverride inline",
+        {"id": "V_Float", "params": [0]},
+        '{ "id": "V_Float", "params": [0] }',
     )
-    print("  ok: long scalar array packs densely")
+    # String defaultOverride goes multiline (string-array params -> 99).
+    _contains(
+        "V_String defaultOverride multiline",
+        {"fieldDefs": [{"defaultOverride": {"id": "V_String", "params": ["Solid"]}}]},
+        '"defaultOverride": {\n',
+    )
 
-    print("== first-key flow ==")
-    # When a wrapping dict's first value is itself a wrapping
-    # container, the first key flows onto the dict opener line.
-    nested = {
-        "outer": {
-            "layers": [{"name": "a"}, {"name": "b"}, {"name": "c"}, {"name": "d"}],
-            "tilesets": [],
-        }
-    }
-    text = dump_editor_style(nested)
-    # Expect `"outer": { "layers": [` on the same line, NOT
-    # `"outer": {` and `"layers": [` on separate lines.
-    if '"outer": { "layers": [' not in text:
-        print(f"FAIL first-key flow: missing flow opener.\nGot:\n{text}", file=sys.stderr)
-        return 1
-    print("  ok: first-key flow on `{ \"key\": [`")
+    print("== float + float-hint formatting ==")
+    _eq("whole float gets .0", {"a": 3.0}, '{ "a": 3.0 }')
+    _eq("fractional float verbatim", {"a": 3.14}, '{ "a": 3.14 }')
+    _eq("float-hint string -> number", {"a": "0f"}, '{ "a": 0.0 }')
+    _eq("negative float-hint", {"a": "-65f"}, '{ "a": -65.0 }')
 
-    print("== closing-line key flow ==")
-    # After a multi-line child closes, the next key may flow onto
-    # the closing line if it fits.
-    flow_target = {
-        "outer": {
-            "layers": [{"name": "a"}, {"name": "b"}, {"name": "c"}],
-            "entities": [{"id": "x"}, {"id": "y"}, {"id": "z"}],
-        }
-    }
-    text = dump_editor_style(flow_target)
-    # Expect `], "entities": [` on a single line somewhere.
-    if '], "entities": [' not in text:
-        print(f"FAIL closing-line flow.\nGot:\n{text}", file=sys.stderr)
-        return 1
-    print("  ok: `], \"entities\": [` flow on closing line")
+    print("== string flattening (newline/tab -> space, escape quote) ==")
+    _eq("newline becomes space", {"d": "l1\nl2"}, '{ "d": "l1 l2" }')
+    _eq("tab becomes space", {"d": "a\tb"}, '{ "d": "a b" }')
+    _eq("carriage return removed", {"d": "a\r\nb"}, '{ "d": "a b" }')
+    _eq("quote escaped", {"d": 'say "hi"'}, '{ "d": "say \\"hi\\"" }')
 
-    print("== top-level dict ==")
-    # Top-level dict opens `{` on its own line (no flow-pack at
-    # depth 0), when its inline form would exceed the width budget.
-    # A dict whose first child is itself big enough to wrap.
-    big_first_child = {f"key_{i}": "x" * 30 for i in range(20)}
-    tl = {"first_big": big_first_child, "second": "tail"}
-    text = dump_editor_style(tl)
-    first_line = text.split("\n", 1)[0]
-    if first_line != "{":
-        print(
-            f"FAIL top-level open: expected `{{` alone, got `{first_line}`",
-            file=sys.stderr,
-        )
-        return 1
-    print("  ok: top-level `{` on its own line")
+    print("== empty named object quirk ('name' : {}) ==")
+    # JsonPretty's named-empty-object branch hardcodes spaces around the colon.
+    _eq("named empty object spaced colon", {"x": {}}, '{ "x" : {} }')
+    _eq("named empty array normal colon", {"x": []}, '{ "x": [] }')
 
+    print("== numeric grid (>85 numbers, 35 per line) ==")
+    grid = dump_editor_style([0] * 100)
+    lines = grid.split("\n")
+    assert lines[0] == "[", f"grid opens on its own line, got {lines[0]!r}"
+    # First data row: 35 values, comma-separated, no spaces.
+    first_row = lines[1].strip()
+    assert first_row == ",".join(["0"] * 35) + ",", f"expected 35/row, got {first_row!r}"
+    assert " " not in first_row, "numeric grid rows have no spaces"
+    print("  ok: 35-per-line numeric grid, no inner spaces")
 
-    print("== LDtk defaultOverride stability ==")
-    # Existing LDtk field definitions keep defaultOverride as a
-    # multiline object. The schema helpers rewrite the whole file, so
-    # compacting these values would cause large unrelated diffs such as:
-    #   "defaultOverride": { "id": "V_String", "params": ["Solid"] }
-    # instead of the editor-stable multiline form below.
-    field_def = {
-        "fieldDefs": [
-            {
-                "identifier": "kind",
-                "doc": "",
-                "defaultOverride": {"id": "V_String", "params": ["Solid"]},
-                "textLanguageMode": None,
-            }
-        ]
-    }
-    text = dump_editor_style(field_def)
-    if '"defaultOverride": { "id": "V_String"' in text:
-        print(f"FAIL defaultOverride compacted.\nGot:\n{text}", file=sys.stderr)
-        return 1
-    expected = '\t\t\t"defaultOverride": {\n\t\t\t\t"id": "V_String",\n\t\t\t\t"params": ["Solid"]\n\t\t\t}'
-    if expected not in text:
-        print(f"FAIL defaultOverride multiline.\nExpected substring:\n{expected}\nGot:\n{text}", file=sys.stderr)
-        return 1
-    print("  ok: defaultOverride stays multiline")
+    print("== __header__ forces multiline even when short ==")
+    header_doc = {"__header__": {"app": "LDtk"}, "iid": "x"}
+    _contains("header value multiline", header_doc, '"__header__": {\n')
 
-    print("== round-trip equivalence ==")
-    # Anything we serialize should round-trip back to the same Python
-    # value via json.loads.
+    print("== round-trip identity through json.loads ==")
     for sample in [
         [1, 2, 3],
         {"a": 1, "b": [True, False, None]},
         {"nested": {"deep": [{"x": 1}, {"y": 2}]}},
         {"empty_list": [], "empty_dict": {}, "string": "hello world"},
+        {"px": [1080, 874], "realEditorValues": [{"id": "V_String", "params": ["x"]}]},
     ]:
-        text = dump_editor_style(sample)
-        restored = json.loads(text)
+        restored = json.loads(dump_editor_style(sample))
         if restored != sample:
-            print(
-                f"FAIL round-trip:\n  sent: {sample}\n  got:  {restored}",
-                file=sys.stderr,
-            )
+            print(f"FAIL round-trip:\n  sent: {sample}\n  got:  {restored}", file=sys.stderr)
             return 1
     print("  ok: round-trip identity")
 

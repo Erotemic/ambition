@@ -67,7 +67,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [x] We don't need the blue / orange indicator above the players head with the new gun sprites because the gun itself is the visual mode indicator. 
 
-- [ ] Boss phase transitions "screams" / "animations", when a boss transitions between phases it should do a "scream" animation (we need to build sprites for this) and maybe an effect that can be played to visually make it "feel" loud, even though we don't want to break the player's ears with sounds that are actually loud. We need a generic "cry" sfx sound we can use as a placeholder for this until we have per-boss "screams". 
+- [~] Boss phase transitions "screams" / "animations" — _Feel layer done 2026-06-03 (`c63ccdfe`): `boss_phase_transition_feedback` kicks the camera shake + plays a placeholder soft "cry" SFX on a dramatic phase change (Transition/Phase2/Enrage/Stagger), for every boss. **Remaining:** the per-boss "scream" SPRITE animation + a bespoke quiet cry SFX (reuses shake + WORLD_ROCK_HIT for now)._ 
 
 - [x] When are ledge grabbing, if you get hit you should fall off the ledge. — _Done 2026-06-03 (`abbc204e`): `PlayerLedgeState::knock_off_on_hit` clears the grab + arms a re-grab lockout on a Knockback hit; +2 tests._
 

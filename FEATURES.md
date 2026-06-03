@@ -14,6 +14,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Jump and dash input buffers | Available | `docs/mechanics/abilities.md`, `crates/ambition_sandbox/src/engine_core/movement/tuning.rs` |
 | General action buffering for attack / pogo / projectile / tool / blink | Not yet unified | `docs/mechanics/abilities.md`, `docs/current/next.md` |
 | Blink / short-range teleport with collision safety policy | Available | `docs/mechanics/blink.md`, `docs/systems/collision-geometry-and-secondary-physics.md` |
+| Mark / Recall teleport ability (drop a mark, recall to it) | Available (landed 2026-06-03); first *wired* ability slot — a held item: `Attack` drops the mark, `Blink` recalls; equippable from the OoT menu; debug ground drop until authored placement; no beacon sprite yet | `crates/ambition_sandbox/src/mark_recall.rs` |
 | Ledge grab / mantle | Partial but implemented | `docs/mechanics/abilities.md`, `docs/mechanics/expressibility-checklist.md` |
 | Body-mode traversal such as crouch, crawl, slide, compact/morph shapes | Available, needs more authored rooms | `docs/mechanics/body-modes.md` |
 | Moving platforms and path motion | Available, needs more carry/edge validation | `docs/systems/collision-geometry-and-secondary-physics.md`, `docs/planning/tech-debt-log.md` |
@@ -47,7 +48,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Per-boss phase attack schedules in data | Available; each boss's `attack_pattern: Scripted(intro/phase1/transition/phase2/enrage)` Telegraph/Strike/Rest steps are authored in `boss_profiles.ron`, not hardcoded in Rust | `crates/ambition_sandbox/assets/data/boss_profiles.ron`, `crates/ambition_sandbox/src/brain/boss_pattern.rs` |
 | Dialogue/commerce hooks | Scaffolded | `docs/systems/progression-systems.md`, `docs/adr/0008-dialogue-and-commerce-architecture.md` |
 | Dialogue ↔ inventory read+grant bridge | Available; Yarn `inventory_has(item)` reads the live catalog (via the per-frame `YarnStateMirror`) and `<<give_item kind count>>` adds to it (24-item catalog + legacy aliases) | `crates/ambition_sandbox/src/dialog/yarn_bindings.rs`, `crates/ambition_sandbox/src/items.rs` |
-| Merchant buy/sell economy (dialogue-driven shop) | Available (landed 2026-06-03); `<<buy_item>>`/`<<sell_item>>` + `wallet_balance()`/`can_afford()` over `PlayerWallet` + `OwnedItems`; `merchant_seed` node is a working shop, NPC placed in `sandbox.ldtk`. Dedicated shop overlay UI is a follow-up | `crates/ambition_sandbox/src/shop.rs`, `crates/ambition_sandbox/assets/dialogue/sandbox/kernel.yarn` |
+| Merchant buy/sell economy (dialogue-driven shop) | Available (landed 2026-06-03); `<<buy_item>>`/`<<sell_item>>` + `wallet_balance()`/`can_afford()` over `PlayerWallet` + `OwnedItems`; `merchant_seed` node is a working shop, NPC placed in `sandbox.ldtk`; stocks axe/health/mana + the gun-sword, puppy-slug gun, and bomb (buy → equip-from-menu → use). Dedicated shop overlay UI is a follow-up | `crates/ambition_sandbox/src/shop.rs`, `crates/ambition_sandbox/assets/dialogue/sandbox/kernel.yarn` |
 
 ## World authoring and runtime projection
 

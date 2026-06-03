@@ -42,7 +42,7 @@ stage it in `cannon_expansions.md` and let Jon promote it.
   authoring + a few small systems (crowd ambience). Break into a vertical slice:
   one packed market screen first.
 
-- [ ] **Alice + Bob quest — a real journey, not adjacent** `[V4/D3]` — the
+- [~] **Alice + Bob quest — a real journey, not adjacent** `[V4/D3]` — the
   cartography route already exists (`content/quest.rs`: Alice's sealed note →
   Bob's field survey; `intro/route_state.rs` flips route/map flags on pickup),
   but Alice and Bob currently sit ~one room apart. Spread them across the intro
@@ -52,6 +52,14 @@ stage it in `cannon_expansions.md` and let Jon promote it.
   inventory↔Yarn bridge (`<<give_item>>` / `inventory_has(...)`) and
   `route_state` flags. Decide Alice/Bob room placements — coordinate with the
   "town that feels alive" and Galwah beats.
+  - _Item-driven loop landed 2026-06-03 (`cd41d19b`):_ Alice now
+    `<<give_item "sealednote">>` (you physically carry her fold), and Bob's node
+    branches on `<<if inventory_has("sealednote")>>` — if you carried it he takes
+    it (`sell_item "sealednote" 0`), hands back `fieldsurvey`, and sets
+    `bob_field_survey_received` (which cascades the map-unlock flags). They already
+    sit in **separate rooms** (`alice_relay` → `bob_relay`). **Remaining:** spread
+    them *further* across the intro so it's a real multi-room traversal, and the
+    Alice-relationship beats.
 
 - [ ] **Build out the internal inventory (the give→carry→use data layer)**
   `[V4/D3]` — `crate::inventory` already has `ItemKind` + `PlayerInventory` and a

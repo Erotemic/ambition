@@ -52,6 +52,10 @@ pub const ENEMY_BOUNTY: i32 = 5;
 /// pays best, but the environment is worth poking.
 pub const BREAKABLE_BOUNTY: i32 = 2;
 
+/// Coins a defeated boss drops, beyond its ability reward — a jackpot for the
+/// hardest fights (one boss kill ~= ten standard enemies).
+pub const BOSS_BOUNTY: i32 = 50;
+
 /// Health a dropped heart restores when the enemy drops one.
 pub const ENEMY_HEALTH_DROP: i32 = 1;
 
@@ -755,6 +759,8 @@ fn apply_boss_hit(
             cue: PhysicsDebrisCue::BossRagdoll,
         });
         writers.sfx.write(SfxMessage::Death { pos: boss.kin.pos });
+        // A jackpot of coins for the hardest fight, on top of the ability reward.
+        drop_currency_coin(commands, &boss.config.behavior.id, boss.kin.pos, BOSS_BOUNTY);
         // North star: "every boss a failed objective function, every upgrade a
         // theorem" — a defeated boss drops the ability it embodies, so combat
         // (not just the merchant) teaches the player new verbs.

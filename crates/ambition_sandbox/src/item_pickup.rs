@@ -176,35 +176,43 @@ pub fn unequip_held(
     commands.entity(player).remove::<StashedActionSet>();
 }
 
-/// Spawn one axe ground item near the player on the first frame a player
-/// exists (debug convenience until authored placement lands).
-pub fn spawn_debug_axe_once(
-    mut commands: Commands,
-    mut done: Local<bool>,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    if *done {
-        return;
-    }
-    let Ok(kin) = players.single() else {
-        return;
-    };
-    *done = true;
-    commands.spawn((
-        GroundItem {
-            spec: axe_spec(),
-            pos: kin.pos + Vec2::new(80.0, 0.0),
-            vel: Vec2::ZERO,
-            half_extent: Vec2::splat(PICKUP_HALF),
-        },
-        Name::new("Ground item: axe"),
-    ));
+/// One debug ground-item placement: which held item, where (offset from the
+/// player's spawn), its pickup half-extent, and a label.
+///
+/// Refactor 4: this table + [`spawn_debug_ground_items_once`] replace the ~8
+/// copy-pasted `spawn_debug_*_once` systems that each spawned one held item
+/// near the player on frame 1. These are debug convenience only — authored
+/// LDtk placement is the real home (Refactor 8 in TODO.md), at which point this
+/// whole table can be gated off or deleted.
+struct DebugGroundItem {
+    /// Resolve the held-item spec. Most are registry ids (`held_item_by_id`);
+    /// the axe is a hand-built spec, so this is a fn rather than a bare id.
+    spec: fn() -> Option<HeldItemSpec>,
+    /// Placement offset from the player's spawn position.
+    offset: Vec2,
+    /// Pickup half-extent (square).
+    half: f32,
+    /// Debug entity name.
+    name: &'static str,
 }
 
-/// Spawn one gun-sword ground item near the player on the first frame a player
-/// exists (debug convenience until authored placement lands). Picking it up
-/// makes `Attack` fire laser bolts.
-pub fn spawn_debug_gunsword_once(
+const DEBUG_GROUND_ITEMS: &[DebugGroundItem] = &[
+    DebugGroundItem { spec: || Some(axe_spec()), offset: Vec2::new(80.0, 0.0), half: PICKUP_HALF, name: "Ground item: axe" },
+    DebugGroundItem { spec: || Some(gunsword_spec()), offset: Vec2::new(160.0, 0.0), half: PICKUP_HALF, name: "Ground item: gun-sword" },
+    DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::puppy_slug_gun::PUPPY_SLUG_GUN_ID), offset: Vec2::new(-80.0, 0.0), half: 18.0, name: "Ground item: puppy-slug gun" },
+    DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::bomb::BOMB_ID), offset: Vec2::new(-120.0, 0.0), half: 14.0, name: "Ground item: bomb" },
+    DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::blink::BLINK_ID), offset: Vec2::new(-160.0, 0.0), half: 18.0, name: "Ground item: blink" },
+    DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::grapple::GRAPPLE_ID), offset: Vec2::new(-200.0, 0.0), half: 18.0, name: "Ground item: grapple" },
+    DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::gravity_grenade::GRAVITY_GRENADE_ID), offset: Vec2::new(-240.0, 0.0), half: 16.0, name: "Ground item: gravity grenade" },
+    // Was -120 too (overlapping the bomb); spaced out here so the debug items
+    // don't stack on one another.
+    DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::mark_recall::MARK_RECALL_ID), offset: Vec2::new(-280.0, 0.0), half: 18.0, name: "Ground item: mark-recall beacon" },
+];
+
+/// Spawn every [`DEBUG_GROUND_ITEMS`] entry near the player on the first frame a
+/// player exists (debug convenience until authored placement lands). Replaces
+/// the ~8 per-item `spawn_debug_*_once` systems (Refactor 4).
+pub fn spawn_debug_ground_items_once(
     mut commands: Commands,
     mut done: Local<bool>,
     players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -216,15 +224,22 @@ pub fn spawn_debug_gunsword_once(
         return;
     };
     *done = true;
-    commands.spawn((
-        GroundItem {
-            spec: gunsword_spec(),
-            pos: kin.pos + Vec2::new(160.0, 0.0),
-            vel: Vec2::ZERO,
-            half_extent: Vec2::splat(PICKUP_HALF),
-        },
-        Name::new("Ground item: gun-sword"),
-    ));
+    for item in DEBUG_GROUND_ITEMS {
+        let Some(spec) = (item.spec)() else {
+            // A held item whose id isn't registered (feature-gated out) just
+            // doesn't get a debug pickup — not an error.
+            continue;
+        };
+        commands.spawn((
+            GroundItem {
+                spec,
+                pos: kin.pos + item.offset,
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(item.half),
+            },
+            Name::new(item.name),
+        ));
+    }
 }
 
 /// `Attack` while empty-handed and overlapping a `GroundItem` picks it up:

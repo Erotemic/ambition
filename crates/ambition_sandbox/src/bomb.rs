@@ -14,7 +14,6 @@ use bevy::prelude::*;
 use crate::engine_core as ae;
 use crate::features::{HitEvent, HitMode, HitSource, HitTarget};
 use crate::item_pickup::GroundItem;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 
 /// Held-item id the bomb grants.
 pub const BOMB_ID: &str = "bomb";
@@ -89,34 +88,6 @@ pub fn tick_bomb_fuses(
         });
         commands.entity(entity).despawn();
     }
-}
-
-/// Spawn one resting bomb ground item near the player on the first frame a
-/// player exists (debug convenience until authored placement lands).
-pub fn spawn_debug_bomb_once(
-    mut commands: Commands,
-    mut done: Local<bool>,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    if *done {
-        return;
-    }
-    let Ok(kin) = players.single() else {
-        return;
-    };
-    let Some(spec) = crate::brain::held_item_by_id(BOMB_ID) else {
-        return;
-    };
-    *done = true;
-    commands.spawn((
-        GroundItem {
-            spec,
-            pos: kin.pos + ae::Vec2::new(-120.0, 0.0),
-            vel: ae::Vec2::ZERO,
-            half_extent: ae::Vec2::splat(14.0),
-        },
-        Name::new("Ground item: bomb"),
-    ));
 }
 
 #[cfg(test)]

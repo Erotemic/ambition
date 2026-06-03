@@ -127,35 +127,6 @@ pub fn mark_recall_system(
     }
 }
 
-/// Spawn one Mark/Recall ground item near the player on the first frame a player
-/// exists (debug convenience until authored placement lands), mirroring the
-/// puppy-slug gun's debug drop.
-pub fn spawn_debug_mark_recall_once(
-    mut commands: Commands,
-    mut done: Local<bool>,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    if *done {
-        return;
-    }
-    let Ok(kin) = players.single() else {
-        return;
-    };
-    let Some(spec) = crate::brain::held_item_by_id(MARK_RECALL_ID) else {
-        return;
-    };
-    *done = true;
-    commands.spawn((
-        crate::item_pickup::GroundItem {
-            spec,
-            pos: kin.pos + ae::Vec2::new(-120.0, 0.0),
-            vel: ae::Vec2::ZERO,
-            half_extent: ae::Vec2::splat(18.0),
-        },
-        Name::new("Ground item: mark-recall beacon"),
-    ));
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

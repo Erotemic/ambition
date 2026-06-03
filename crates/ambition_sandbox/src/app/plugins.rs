@@ -295,14 +295,15 @@ fn register_item_pickup_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            crate::item_pickup::spawn_debug_axe_once,
-            crate::item_pickup::spawn_debug_gunsword_once,
+            // Refactor 4: one table-driven spawner replaces the ~8 per-item
+            // `spawn_debug_*_once` systems (axe / gun-sword / blink / grapple /
+            // bomb / gravity-grenade / mark-recall / puppy-slug gun).
+            crate::item_pickup::spawn_debug_ground_items_once,
             crate::portal::spawn_debug_portal_gun_pickup_once,
             crate::portal::spawn_debug_gravity_switch_once,
             crate::portal::spawn_debug_gravity_zone_once,
             crate::shrine::spawn_debug_shrine_once,
             crate::shrine::heal_save_shrine_system.run_if(gameplay_allowed),
-            crate::puppy_slug_gun::spawn_debug_puppy_slug_gun_once,
             crate::portal::gravity_flip_switch_system,
             // Resolve the live GravityField from zones + ambient AFTER the switch
             // sets the ambient and BEFORE ground_item_physics (below) reads it.
@@ -330,12 +331,10 @@ fn register_item_pickup_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            crate::bomb::spawn_debug_bomb_once,
             crate::bomb::arm_thrown_bombs.run_if(gameplay_allowed),
             crate::bomb::tick_bomb_fuses.run_if(gameplay_allowed),
             // Gravity grenade: thrown -> fuse -> opens a temporary up-gravity well
             // (lifts enemies via localized gravity); tick the wells' lifetimes.
-            crate::gravity_grenade::spawn_debug_gravity_grenade_once,
             crate::gravity_grenade::arm_thrown_gravity_grenades.run_if(gameplay_allowed),
             crate::gravity_grenade::tick_gravity_grenade_fuses.run_if(gameplay_allowed),
             crate::physics::tick_temporary_zones.run_if(gameplay_allowed),
@@ -350,11 +349,8 @@ fn register_item_pickup_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            crate::mark_recall::spawn_debug_mark_recall_once,
             crate::mark_recall::mark_recall_system.run_if(gameplay_allowed),
-            crate::blink::spawn_debug_blink_once,
             crate::blink::blink_system.run_if(gameplay_allowed),
-            crate::grapple::spawn_debug_grapple_once,
             crate::grapple::grapple_system.run_if(gameplay_allowed),
             // Shared movement-ability cooldown timer (scaled_dt, so pause /
             // bullet-time slow it too).

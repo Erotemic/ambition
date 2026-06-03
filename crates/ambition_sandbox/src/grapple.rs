@@ -93,34 +93,6 @@ pub fn grapple_system(
     vfx.write(crate::presentation::fx::VfxMessage::Impact { pos: hit });
 }
 
-/// Spawn one Grapple ground item near the player on the first frame a player
-/// exists (debug convenience), mirroring the other ability debug drops.
-pub fn spawn_debug_grapple_once(
-    mut commands: Commands,
-    mut done: Local<bool>,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    if *done {
-        return;
-    }
-    let Ok(kin) = players.single() else {
-        return;
-    };
-    let Some(spec) = crate::brain::held_item_by_id(GRAPPLE_ID) else {
-        return;
-    };
-    *done = true;
-    commands.spawn((
-        crate::item_pickup::GroundItem {
-            spec,
-            pos: kin.pos + ae::Vec2::new(-200.0, 0.0),
-            vel: ae::Vec2::ZERO,
-            half_extent: ae::Vec2::splat(18.0),
-        },
-        Name::new("Ground item: grapple"),
-    ));
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

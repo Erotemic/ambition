@@ -275,6 +275,30 @@ impl BossEncounterSpec {
             music_enrage: "dinosaur_liberators".into(),
         }
     }
+
+    /// Mode Collapse — a floating summoner boss (a training failure that floods
+    /// the arena with identical lesser copies). Compile-time fallback;
+    /// `boss_encounters/mode_collapse_boss.ron` overrides these.
+    pub fn mode_collapse_boss() -> Self {
+        Self {
+            id: "mode_collapse_boss".into(),
+            name: "Mode Collapse".into(),
+            max_hp: 34,
+            phase1_to_transition_hp: 0.6,
+            transition_to_phase2_hp: 0.6,
+            phase2_to_enrage_hp: 0.25,
+            intro_seconds: 2.6,
+            transition_seconds: 2.0,
+            stagger_seconds: 1.8,
+            death_seconds: 2.6,
+            stagger_threshold: 7,
+            stagger_window_seconds: 1.6,
+            music_intro: "flying_spaghetti_monster_fight".into(),
+            music_phase1: "flying_spaghetti_monster_fight".into(),
+            music_phase2: "flying_spaghetti_monster_fight".into(),
+            music_enrage: "flying_spaghetti_monster_fight".into(),
+        }
+    }
 }
 
 /// Live encounter state.

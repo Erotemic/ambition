@@ -1,0 +1,30 @@
+// Boss encounter spec — Mode Collapse (a floating summoner boss: a training
+// failure that keeps generating the same output, flooding the arena with
+// identical lesser copies).
+//
+// Mirrors `BossEncounterSpec::mode_collapse_boss()` (the compile-time fallback
+// in `boss_encounter/spec_types.rs`); the runtime `load_boss_specs_from_disk`
+// parses this and overrides the constructor's numeric fields per ADR 0017
+// (Rust = behavior, RON = content). Behaviour (movement + attack schedule)
+// lives in `assets/data/boss_profiles.ron`.
+//
+// Music: reuses `flying_spaghetti_monster_fight` as a placeholder fight cue —
+// a bespoke "mode collapse" track (a loop that degenerates) is a handoff.
+(
+    id: "mode_collapse_boss",
+    name: "Mode Collapse",
+    max_hp: 34,
+    phase1_to_transition_hp: 0.6,
+    transition_to_phase2_hp: 0.6,
+    phase2_to_enrage_hp: 0.25,
+    intro_seconds: 2.6,
+    transition_seconds: 2.0,
+    stagger_seconds: 1.8,
+    death_seconds: 2.6,
+    stagger_threshold: 7,
+    stagger_window_seconds: 1.6,
+    music_intro: "flying_spaghetti_monster_fight",
+    music_phase1: "flying_spaghetti_monster_fight",
+    music_phase2: "flying_spaghetti_monster_fight",
+    music_enrage: "flying_spaghetti_monster_fight",
+)

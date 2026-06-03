@@ -27,6 +27,8 @@ Useful companion docs:
 
 When you wake up here, pick the next task from this list and work on it without asking permission. Honor the long-running discipline (`[[never-stop-during-long-run]]` in memory): never stop until the time limit, even if the headline task feels finished — there's always more on this file. When you do close a task, leave this instruction in place so the next agent finds it.
 
+- [ ] Integrate the OOT menu. Keep the seam easy to cut in case we don't want this. But we need a variant of it that is more touch friendly. I do want the grid of possible items you can have. In fact I want the exact same number of items that the OOT menu has slots for. That will be the finite number of pickup items for THIS game.
+
 - [x] Improve shark without a rider attack patterns so it feels maybe more wild than the pirate who was controlling it. Maybe it charges and if it hits a wall because it charges too far it explodes. 
 
 - [ ] Whatever is registered as the Mockingbird's "forward" direction is facing the wrong way. Currently it always faces away from you, which indicates that the facing direction is marked incorrectly for it. This is probably a sprite-level fix in the metadata generator.

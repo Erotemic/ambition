@@ -10,6 +10,14 @@
 //! Items are currently minimal: pressing confirm uses the selected item. The
 //! only effect today is `HealthPotion`, which heals the player by a fixed amount
 //! and decrements the stack.
+//!
+//! When the `oot_inventory` feature is on, the OoT 6×4 grid menu
+//! ([`crate::oot_menu`]) takes over the Inventory button and renders the
+//! always-on [`crate::items`] catalog instead. This legacy adventure-menu UI is
+//! then unused (kept as the fallback renderer), so its UI fns/fields are
+//! dead-code-allowed under that feature. The data model here (`ItemKind`,
+//! `PlayerInventory`) stays in use either way.
+#![cfg_attr(feature = "oot_inventory", allow(dead_code))]
 
 use bevy::prelude::*;
 

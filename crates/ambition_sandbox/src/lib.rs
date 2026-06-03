@@ -64,6 +64,9 @@ pub(crate) mod music;
 pub(crate) mod pause_menu;
 pub mod hud_overlay;
 pub mod item_pickup;
+pub mod items;
+#[cfg(feature = "oot_inventory")]
+pub mod oot_menu;
 pub mod physics;
 pub(crate) mod persistence;
 pub mod portal;

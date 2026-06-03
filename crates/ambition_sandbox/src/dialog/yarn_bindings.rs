@@ -80,6 +80,7 @@ pub fn refresh_yarn_state_mirror(
     save: Option<Res<SandboxSave>>,
     cut_rope_heavy_object: Option<Res<crate::boss_encounter::CutRopeHeavyObjectCycle>>,
     inventory: Option<Res<crate::inventory::PlayerInventory>>,
+    owned: Option<Res<crate::items::OwnedItems>>,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
@@ -87,7 +88,22 @@ pub fn refresh_yarn_state_mirror(
     // refresh it independently (and before the save early-return) so
     // `inventory_has(...)` reflects pickups even in a save-less sandbox.
     snap.inventory_counts.clear();
-    if let Some(inventory) = inventory {
+    // Primary source: the 24-item catalog (superset). Insert each item under its
+    // catalog dialog id, plus a legacy alias (e.g. "healthpotion" → HealthCell)
+    // so older scripts keep resolving.
+    if let Some(owned) = owned.as_deref() {
+        for item in crate::items::Item::ALL {
+            let count = owned.count(item);
+            snap.inventory_counts
+                .insert(item.dialog_id().to_string(), count);
+            if let Some(legacy) = item.legacy_kind() {
+                snap.inventory_counts
+                    .insert(legacy.dialog_id().to_string(), count);
+            }
+        }
+    } else if let Some(inventory) = inventory {
+        // Fallback for builds without the catalog resource (shouldn't happen in
+        // practice, but keeps dialogue working with just the legacy bag).
         for kind in crate::inventory::ItemKind::ALL {
             snap.inventory_counts
                 .insert(kind.dialog_id().to_string(), inventory.count(kind));
@@ -202,9 +218,24 @@ pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRe
 pub fn cmd_give_item(
     In((kind, count)): In<(String, f32)>,
     mut inventory: ResMut<crate::inventory::PlayerInventory>,
+    owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
-    let granted = apply_give_item(&mut inventory, &kind, count);
-    if granted == 0 {
+    let legacy_granted = apply_give_item(&mut inventory, &kind, count);
+    // Also grant into the 24-item catalog (the superset that covers items with
+    // no legacy `ItemKind` — weapons, abilities, the Alice/Bob key items, …).
+    let catalog_granted = if count > 0.0 {
+        match (owned, crate::items::Item::from_dialog_id(&kind)) {
+            (Some(mut owned), Some(item)) => {
+                let n = count as u32;
+                owned.grant(item, n);
+                n
+            }
+            _ => 0,
+        }
+    } else {
+        0
+    };
+    if legacy_granted == 0 && catalog_granted == 0 {
         warn!(
             target: "ambition_sandbox::dialog::yarn",
             "give_item: ignored kind={kind:?} count={count} (unknown item or non-positive count)",
@@ -212,7 +243,8 @@ pub fn cmd_give_item(
     } else {
         info!(
             target: "ambition_sandbox::dialog::yarn",
-            "give_item: granted {granted}x {kind:?}",
+            "give_item: granted {}x {kind:?}",
+            legacy_granted.max(catalog_granted),
         );
     }
 }

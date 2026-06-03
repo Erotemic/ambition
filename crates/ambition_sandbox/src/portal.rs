@@ -340,6 +340,7 @@ pub fn pickup_portal_gun_system(
     // a ground item (axe / gun-sword / javelin).
     holding_item: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>, With<crate::features::HeldItem>)>,
     pickups: Query<(Entity, &PortalGunPickup)>,
+    mut owned: Option<ResMut<crate::items::OwnedItems>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || !already_have.is_empty() || !holding_item.is_empty() {
@@ -366,6 +367,12 @@ pub fn pickup_portal_gun_system(
                 .entity(player)
                 .insert(StashedActionSet(action_set.clone()));
             action_set.melee = None;
+            // Reflect the portal gun into the 24-item catalog so the OoT menu
+            // shows it as owned + equipped.
+            if let Some(owned) = owned.as_deref_mut() {
+                owned.grant(crate::items::Item::PortalGun, 1);
+                owned.set_equipped(Some(crate::items::Item::PortalGun));
+            }
             commands.entity(entity).despawn();
             // Rising sci-fi charge-up as the device wakes.
             sfx.write(crate::audio::SfxMessage::Play {

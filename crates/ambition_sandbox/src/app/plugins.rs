@@ -551,10 +551,15 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     app.insert_resource(pause_menu::PauseMenuState::default())
         .insert_resource(inventory::InventoryUiState::default())
         .insert_resource(inventory::PlayerInventory::starter())
+        // The 24-item catalog ownership model is always-on core state (pickups
+        // and dialogue read/write it regardless of which menu renders it).
+        .insert_resource(crate::items::OwnedItems::starter())
         .add_systems(
             Startup,
             (
                 pause_menu::spawn_pause_menu,
+                // Legacy adventure menu only when the OoT grid isn't taking over.
+                #[cfg(not(feature = "oot_inventory"))]
                 inventory::spawn_inventory_panel,
             )
                 .after(setup_simulation_system),
@@ -564,6 +569,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
             (
                 pause_menu::sync_pause_menu,
                 pause_menu::sync_settings_panel_rows,
+                #[cfg(not(feature = "oot_inventory"))]
                 inventory::sync_inventory_panel,
                 crate::map_menu::sync_map_menu,
             )
@@ -596,6 +602,18 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 .chain()
                 .after(SandboxSet::CoreSimulation),
         );
+
+    // OoT item-grid menu (easy-to-cut seam): spawn its overlay + sync its
+    // visuals. The input systems are swapped in the input chain below. When the
+    // feature is off, the legacy adventure menu handles the Inventory button.
+    #[cfg(feature = "oot_inventory")]
+    {
+        app.add_systems(
+            Startup,
+            crate::oot_menu::spawn_oot_menu.after(setup_simulation_system),
+        );
+        crate::oot_menu::install_oot_menu_visuals(app);
+    }
 }
 
 // Visual animation chain moved to
@@ -902,11 +920,19 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 apply_menu_frame_to_cutscene_request,
                 dialog::dialog_pointer_input,
                 pause_menu::pause_menu_toggle,
+                // The Inventory button opens the OoT item grid when the
+                // `oot_inventory` feature is on, otherwise the legacy 3-tab menu.
+                #[cfg(not(feature = "oot_inventory"))]
                 inventory::inventory_input,
+                #[cfg(feature = "oot_inventory")]
+                crate::oot_menu::oot_menu_input,
                 pause_menu::pause_menu_pointer_input,
                 pause_menu::settings_slider_drag_input,
                 pause_menu::settings_scrollbar_drag_input,
+                #[cfg(not(feature = "oot_inventory"))]
                 inventory::inventory_pointer_input,
+                #[cfg(feature = "oot_inventory")]
+                crate::oot_menu::oot_menu_pointer_input,
                 pause_menu::pause_menu_navigate,
             )
                 .chain()

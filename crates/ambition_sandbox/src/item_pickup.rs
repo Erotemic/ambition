@@ -123,6 +123,57 @@ pub fn gunsword_spec() -> HeldItemSpec {
     crate::brain::held_item_by_id("gun_sword").expect("gun_sword is a built-in held item")
 }
 
+/// Resolve a catalog [`crate::items::Item`]'s held-item spec, for equipping from
+/// a non-pickup source (the inventory menu). The three wired weapons each have a
+/// spec; everything else returns `None`.
+pub fn held_spec_for_item(item: crate::items::Item) -> Option<HeldItemSpec> {
+    use crate::items::Item;
+    match item {
+        Item::Axe => Some(axe_spec()),
+        Item::Javelin => Some(javelin_spec()),
+        Item::GunSword => Some(gunsword_spec()),
+        _ => item
+            .held_item_id()
+            .and_then(crate::brain::held_item_by_id),
+    }
+}
+
+/// Equip a held-item spec onto the player from a non-pickup source (e.g. the
+/// inventory menu): stash the current action set, overlay the item's verbs, and
+/// attach [`HeldItem`]. Mirrors [`pickup_held_item_system`] minus the ground
+/// entity so the menu and the world pickup share one equip contract.
+pub fn equip_held_spec(
+    commands: &mut Commands,
+    player: Entity,
+    action_set: &mut ActionSet,
+    spec: HeldItemSpec,
+) {
+    commands
+        .entity(player)
+        .insert(StashedActionSet(action_set.clone()));
+    let held = HeldItem::new(spec.clone());
+    // The held item *replaces* the player's attack verbs (move-style/special
+    // are kept), exactly as the world pickup does.
+    action_set.melee = spec.melee;
+    action_set.ranged = spec.ranged;
+    commands.entity(player).insert(held);
+}
+
+/// Detach the currently held item and restore the stashed action set. Mirrors
+/// the throw path's restore without dropping a ground item.
+pub fn unequip_held(
+    commands: &mut Commands,
+    player: Entity,
+    action_set: &mut ActionSet,
+    stashed: Option<&StashedActionSet>,
+) {
+    if let Some(stash) = stashed {
+        *action_set = stash.0.clone();
+    }
+    commands.entity(player).remove::<HeldItem>();
+    commands.entity(player).remove::<StashedActionSet>();
+}
+
 /// Spawn one axe ground item near the player on the first frame a player
 /// exists (debug convenience until authored placement lands).
 pub fn spawn_debug_axe_once(

@@ -1,0 +1,213 @@
+//! Keyboard / gamepad + pointer/touch input for the OoT item grid.
+
+use bevy::prelude::*;
+
+use super::effects::{self, MenuAction};
+use super::ui::{OotBackButton, OotSlot};
+use super::state::OotMenuState;
+use crate::brain::ActionSet;
+use crate::game_mode::GameMode;
+use crate::input::MenuControlFrame;
+use crate::item_pickup::{equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet};
+use crate::items::{Item, OwnedItems};
+use crate::player::{PlayerEntity, PlayerHealRequested, PlayerMana, PrimaryPlayer};
+use crate::ui_nav::{resolve_selectable_row_interaction, RowPointerOutcome};
+
+/// One health cell restores this much HP; one mana cell this much mana. Sandbox
+/// values — a real balance pass is just a number change.
+const HEALTH_CELL_HEAL: i32 = 4;
+const MANA_CELL_RESTORE: f32 = 40.0;
+
+/// Toggle, navigate, and confirm the OoT item grid via the semantic menu frame.
+#[allow(clippy::too_many_arguments)]
+pub fn oot_menu_input(
+    menu: Res<MenuControlFrame>,
+    mut state: ResMut<OotMenuState>,
+    mode: Res<State<GameMode>>,
+    mut next_mode: ResMut<NextState<GameMode>>,
+    mut owned: ResMut<OwnedItems>,
+    mut commands: Commands,
+    mut players: Query<
+        (Entity, &mut ActionSet, Option<&StashedActionSet>),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
+    mut mana_q: Query<&mut PlayerMana, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut heals: MessageWriter<PlayerHealRequested>,
+) {
+    if menu.inventory {
+        if state.visible {
+            close_oot_menu(&mut state, mode.get(), &mut next_mode);
+        } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+            state.open(matches!(mode.get(), GameMode::Paused));
+            if matches!(mode.get(), GameMode::Playing) {
+                next_mode.set(GameMode::Paused);
+            }
+        }
+    }
+
+    if !state.visible {
+        state.pointer_confirm = false;
+        state.pointer_armed = None;
+        return;
+    }
+
+    if menu.back || menu.start {
+        close_oot_menu(&mut state, mode.get(), &mut next_mode);
+        return;
+    }
+
+    // Grid navigation (wraps within row/column).
+    let mut dcol: isize = 0;
+    let mut drow: isize = 0;
+    if menu.left {
+        dcol -= 1;
+    }
+    if menu.right {
+        dcol += 1;
+    }
+    if menu.up {
+        drow -= 1;
+    }
+    if menu.down {
+        drow += 1;
+    }
+    if state.move_cursor(dcol, drow) {
+        state.focus.mark_keyboard();
+        state.pointer_armed = None;
+    }
+
+    let confirm = menu.select || state.pointer_confirm;
+    state.pointer_confirm = false;
+    if confirm {
+        let item = state.selected_item();
+        let action = effects::decide(item, &owned);
+        apply_menu_action(action, &mut owned, &mut commands, &mut players, &mut mana_q, &mut heals);
+        state.status = effects::status_for(action);
+    }
+}
+
+/// Turn a decided [`MenuAction`] into its ECS side effects.
+fn apply_menu_action(
+    action: MenuAction,
+    owned: &mut OwnedItems,
+    commands: &mut Commands,
+    players: &mut Query<
+        (Entity, &mut ActionSet, Option<&StashedActionSet>),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
+    mana_q: &mut Query<&mut PlayerMana, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    heals: &mut MessageWriter<PlayerHealRequested>,
+) {
+    match action {
+        MenuAction::Equip(item) => {
+            let Some(spec) = held_spec_for_item(item) else {
+                return;
+            };
+            if let Ok((player, mut action_set, stashed)) = players.single_mut() {
+                // If another weapon is held, restore the base set first so we
+                // re-stash the true base (not the previous weapon's set).
+                if stashed.is_some() {
+                    unequip_held(commands, player, &mut action_set, stashed);
+                }
+                equip_held_spec(commands, player, &mut action_set, spec);
+                owned.set_equipped(Some(item));
+            }
+        }
+        MenuAction::Unequip(_item) => {
+            if let Ok((player, mut action_set, stashed)) = players.single_mut() {
+                unequip_held(commands, player, &mut action_set, stashed);
+            }
+            owned.set_equipped(None);
+        }
+        MenuAction::UseConsumable(Item::HealthCell) => {
+            if owned.take(Item::HealthCell, 1) > 0 {
+                heals.write(PlayerHealRequested::new(HEALTH_CELL_HEAL));
+            }
+        }
+        MenuAction::UseConsumable(Item::ManaCell) => {
+            if owned.take(Item::ManaCell, 1) > 0 {
+                if let Ok(mut mana) = mana_q.single_mut() {
+                    mana.meter.refill(MANA_CELL_RESTORE);
+                }
+            }
+        }
+        MenuAction::UseConsumable(_) | MenuAction::Inspect(_) | MenuAction::NotOwned(_) => {}
+    }
+}
+
+/// Close + restore the prior game mode (mirrors the legacy adventure menu).
+pub(super) fn close_oot_menu(
+    state: &mut OotMenuState,
+    mode: &GameMode,
+    next_mode: &mut NextState<GameMode>,
+) {
+    let opened_from_pause = state.opened_from_pause;
+    state.close();
+    if !opened_from_pause && matches!(mode, GameMode::Paused) {
+        next_mode.set(GameMode::Playing);
+    }
+}
+
+/// Mouse / touch input for the grid. Slot taps route through the same
+/// `MenuTapMode::resolve_press` policy the adventure menu uses, so touch users
+/// get select-then-tap by default while mouse/desktop can confirm immediately.
+pub fn oot_menu_pointer_input(
+    mode: Res<State<GameMode>>,
+    mut next_mode: ResMut<NextState<GameMode>>,
+    mut state: ResMut<OotMenuState>,
+    user_settings: Res<crate::persistence::settings::UserSettings>,
+    slots: Query<(&Interaction, &OotSlot), Changed<Interaction>>,
+    back_buttons: Query<&Interaction, (With<OotBackButton>, Changed<Interaction>)>,
+) {
+    if !state.visible {
+        return;
+    }
+
+    for interaction in &back_buttons {
+        if matches!(interaction, Interaction::Pressed) {
+            close_oot_menu(&mut state, mode.get(), &mut next_mode);
+            return;
+        }
+    }
+
+    let tap_mode = user_settings.controls.menu_tap_mode;
+    for (interaction, slot) in &slots {
+        let index = slot.item.index();
+        match interaction {
+            Interaction::Hovered => {
+                let update = resolve_selectable_row_interaction(
+                    interaction,
+                    index,
+                    state.cursor,
+                    tap_mode,
+                    false,
+                    state.pointer_armed,
+                    state.focus,
+                );
+                state.cursor = update.selected;
+                state.pointer_armed = update.pointer_armed;
+                state.focus = update.focus;
+                if matches!(update.outcome, RowPointerOutcome::Confirmed) {
+                    state.pointer_confirm = true;
+                }
+            }
+            Interaction::Pressed => {
+                let press = tap_mode.resolve_press(
+                    index,
+                    state.cursor,
+                    false,
+                    &mut state.pointer_armed,
+                );
+                state.cursor = index;
+                state.focus.mark_pointer(index);
+                if matches!(
+                    press,
+                    crate::persistence::settings::MenuPointerPress::Confirm
+                ) {
+                    state.pointer_confirm = true;
+                }
+            }
+            Interaction::None => {}
+        }
+    }
+}

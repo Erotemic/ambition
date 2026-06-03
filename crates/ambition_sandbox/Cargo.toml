@@ -18,7 +18,7 @@ default = ["desktop_dev"]
 
 # Full desktop sandbox. This is the regular `cargo run` experience: visible
 # gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
-desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_sim", "falling_sand"]
+desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_sim", "falling_sand", "oot_inventory"]
 
 
 # Desktop platform support mirrors Bevy's default platform collection: windowing,
@@ -244,6 +244,14 @@ mobile_touch = ["input", "dep:virtual_joystick"]
 # Desktop-only falling-sand room prototype. Kept out of Android/web composites
 # for now while the bevy_falling_sand render feature is validated there.
 falling_sand = ["dep:bevy_falling_sand"]
+
+# OoT-style 6x4 item-grid inventory menu (`crate::oot_menu`). Pure presentation
+# over the always-on `crate::items` catalog, so it is an easy-to-cut seam: drop
+# this feature and the legacy 3-tab adventure menu takes over. Needs `ui` (Bevy
+# UI nodes) + `input` (MenuControlFrame). No new dependencies — the 3D OoT cube
+# renderer (submodule `ambition_inventory_ui` + bevy_lunex) is a separate,
+# heavier follow-up.
+oot_inventory = ["ui", "input"]
 
 # Bevy/Tracy per-system profiling. Off by default because it pulls
 # `tracing-tracy` and instruments every Bevy system, increasing binary

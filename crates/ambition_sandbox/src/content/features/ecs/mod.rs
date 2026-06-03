@@ -143,6 +143,7 @@ pub use save_sync::{
     sync_ecs_switches_from_save,
 };
 pub use spawn::{despawn_encounter_mobs, spawn_encounter_mob, spawn_room_feature_entities};
+pub(crate) use spawn::spawn_runtime_minion;
 pub use target_volumes::{
     derive_pogo_target_volumes, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes,

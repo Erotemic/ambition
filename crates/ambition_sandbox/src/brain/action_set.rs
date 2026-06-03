@@ -130,6 +130,17 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 }),
             },
         );
+        // The puppy-slug gun has no melee/ranged verb of its own — `Attack` is
+        // intercepted by `puppy_slug_gun::fire_puppy_slug_gun_system`, which
+        // summons a player-allied puppy slug instead.
+        items.insert(
+            "puppy_slug_gun",
+            HeldItemSpec {
+                id: "puppy_slug_gun".into(),
+                melee: None,
+                ranged: None,
+            },
+        );
         items
     });
 

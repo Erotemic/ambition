@@ -230,9 +230,9 @@ impl Item {
             Axe => Some("axe"),
             Javelin => Some("javelin"),
             GunSword => Some("gun_sword"),
+            PuppySlugGun => Some("puppy_slug_gun"),
             // PortalGun equips via its own `PortalGun` component (handled
-            // specially by the menu), not a HeldItemSpec. PuppySlugGun isn't
-            // built yet.
+            // specially by the menu), not a HeldItemSpec.
             _ => None,
         }
     }

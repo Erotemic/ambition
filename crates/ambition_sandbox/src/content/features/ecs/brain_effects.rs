@@ -868,6 +868,8 @@ pub fn spawn_minima_trap_from_special_messages(
                 MINIMA_TRAP_MINION_HALF_SIZE,
                 MINIMA_TRAP_MINION_ARCHETYPE,
                 encounter_id,
+                crate::features::ActorFaction::Enemy,
+                crate::features::ActorAggression::hostile_to_player(),
             );
         }
 
@@ -1102,6 +1104,8 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                 GRADIENT_CASCADE_MINION_HALF_SIZE,
                 GRADIENT_CASCADE_MINION_ARCHETYPE,
                 encounter_id.clone(),
+                crate::features::ActorFaction::Enemy,
+                crate::features::ActorAggression::hostile_to_player(),
             );
         }
         state.fired_this_strike = true;

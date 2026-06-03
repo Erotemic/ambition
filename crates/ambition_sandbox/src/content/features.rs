@@ -76,6 +76,9 @@ pub use bus::{
     GameplayEffectsSchedulePlugin,
 };
 pub(crate) use ecs::npc_component_snapshot;
+// Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
+// puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
+pub(crate) use ecs::spawn_runtime_minion;
 
 pub use components::{
     ActorAggression, ActorAttackState, ActorCombatState, ActorCooldowns, ActorDisposition,

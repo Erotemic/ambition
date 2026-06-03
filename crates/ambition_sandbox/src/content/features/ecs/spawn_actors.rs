@@ -186,6 +186,7 @@ pub(super) fn spawn_boss(
 /// so per-entity systems don't collide on identity. `encounter_id`
 /// scopes the minion to a parent encounter so room reset / boss
 /// despawn cleans it up alongside the boss.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_runtime_minion(
     commands: &mut Commands,
     id: impl Into<String>,
@@ -194,6 +195,12 @@ pub(crate) fn spawn_runtime_minion(
     half_size: ae::Vec2,
     archetype_id: &str,
     encounter_id: impl Into<String>,
+    // Allegiance of the spawned minion. Boss adds pass `Enemy` +
+    // `hostile_to_player`; the puppy-slug-gun passes `Player` + `passive` so the
+    // summon damages the player's enemies (via the `can_damage` matrix) but never
+    // the player, and just wanders rather than targeting.
+    faction: super::ActorFaction,
+    aggression: super::ActorAggression,
 ) -> bevy::ecs::entity::Entity {
     let id = id.into();
     let name = name.into();
@@ -225,11 +232,11 @@ pub(crate) fn spawn_runtime_minion(
                 base: FeatureBaseBundle::new(&id, &name, feature_aabb),
                 identity,
                 disposition,
-                faction: super::ActorFaction::Enemy,
+                faction,
                 target: super::ActorTarget::default(),
                 pose: ActorPose::from_aabb(feature_aabb, facing),
                 combat_kit,
-                aggression: super::ActorAggression::hostile_to_player(),
+                aggression,
                 health,
                 combat,
                 intent,

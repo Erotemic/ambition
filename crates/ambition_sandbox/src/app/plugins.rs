@@ -296,6 +296,7 @@ fn register_item_pickup_systems(app: &mut App) {
             crate::portal::spawn_debug_gravity_zone_once,
             crate::shrine::spawn_debug_shrine_once,
             crate::shrine::heal_save_shrine_system.run_if(gameplay_allowed),
+            crate::puppy_slug_gun::spawn_debug_puppy_slug_gun_once,
             crate::portal::gravity_flip_switch_system,
             // Resolve the live GravityField from zones + ambient AFTER the switch
             // sets the ambient and BEFORE ground_item_physics (below) reads it.
@@ -306,6 +307,9 @@ fn register_item_pickup_systems(app: &mut App) {
             // doesn't also fire on the same Attack), then throw, then physics.
             crate::item_pickup::fire_held_ranged_system.run_if(gameplay_allowed),
             crate::item_pickup::held_projectile_step.run_if(gameplay_allowed),
+            // Summon player-allied puppy slugs (plain Attack while holding the
+            // puppy-slug gun) — before throw so the gun isn't thrown instead.
+            crate::puppy_slug_gun::fire_puppy_slug_gun_system.run_if(gameplay_allowed),
             crate::item_pickup::throw_held_item_system.run_if(gameplay_allowed),
             crate::item_pickup::ground_item_physics.run_if(gameplay_allowed),
             // After portal_fire (registered earlier) so picking up the gun

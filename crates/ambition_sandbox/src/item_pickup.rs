@@ -314,8 +314,11 @@ pub fn throw_held_item_system(
     let Ok((player, kin, mut action_set, held, stashed)) = players.single_mut() else {
         return;
     };
-    // Shield+Attack throws anything; a plain Attack only throws a pure throwable.
-    if !(control.shield_held || is_pure_throwable(&held.spec)) {
+    // Shield+Attack throws anything; a plain Attack only throws a pure throwable
+    // — EXCEPT a "use-on-attack" item like the puppy-slug gun, whose plain Attack
+    // is consumed by its own use system (summon), so it only throws on Shield+Attack.
+    let use_on_attack = held.spec.id == crate::puppy_slug_gun::PUPPY_SLUG_GUN_ID;
+    if !(control.shield_held || (is_pure_throwable(&held.spec) && !use_on_attack)) {
         return;
     }
     if let Some(stash) = stashed {

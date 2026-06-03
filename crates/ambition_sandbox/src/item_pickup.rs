@@ -291,12 +291,17 @@ pub struct HeldProjectile {
 const HELD_SHOT_MAX_RANGE: f32 = 1600.0;
 const HELD_SHOT_HALF: Vec2 = Vec2::new(12.0, 9.0);
 
-/// Aim a held ranged shot: right-stick aim if pushed, else straight ahead along
-/// facing (a predictable horizontal shot for a side-scroller).
+/// Aim a held ranged shot the way the pirates aim their gun-sword: right-stick
+/// aim if pushed, else the movement axis (so holding Up / Down / a diagonal
+/// aims there), else straight ahead along facing.
 fn held_shot_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     let aim = Vec2::new(control.aim_x, control.aim_y);
     if aim.length() > 0.3 {
         return aim.normalize_or_zero();
+    }
+    let mv = Vec2::new(control.axis_x, control.axis_y);
+    if mv.length() > 0.3 {
+        return mv.normalize_or_zero();
     }
     Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
 }
@@ -551,10 +556,12 @@ pub fn sync_held_item_visual(
 #[derive(Component)]
 pub struct HeldProjectileVisual;
 
-/// Draw a bright cyan streak for each in-flight laser bolt, oriented along its
-/// travel. Clear-and-rebuild each frame (few bolts).
+/// Render each in-flight gun-sword shot as the **same** spinning lasersword
+/// sprite the pirates fire (`enemy_projectile::lasersword_projectile_sprite`),
+/// rotated along its travel. Clear-and-rebuild each frame (few shots).
 pub fn sync_held_projectile_visuals(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     world: Res<crate::GameWorld>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
     projectiles: Query<&HeldProjectile>,
@@ -562,16 +569,21 @@ pub fn sync_held_projectile_visuals(
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
+    let texture = asset_server.load(crate::enemy_projectile::LASERSWORD_SHEET);
     for proj in &projectiles {
         let translation = crate::config::world_to_bevy(&world.0, proj.pos, 9.5);
-        // World is y-down, Bevy render space is y-up — flip the y component so
-        // the streak points the way the bolt visually travels.
-        let angle = (-proj.vel.y).atan2(proj.vel.x);
+        let (sprite, anchor, rotation) =
+            crate::enemy_projectile::lasersword_projectile_sprite(texture.clone(), proj.vel);
         commands.spawn((
             HeldProjectileVisual,
-            Sprite::from_color(Color::srgb(0.55, 1.0, 0.95), Vec2::new(34.0, 6.0)),
-            Transform::from_translation(translation).with_rotation(Quat::from_rotation_z(angle)),
-            Name::new("Laser bolt visual"),
+            sprite,
+            anchor,
+            Transform {
+                translation,
+                rotation,
+                scale: Vec3::ONE,
+            },
+            Name::new("Gun-sword laser shot"),
         ));
     }
 }

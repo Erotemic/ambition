@@ -47,6 +47,48 @@ const LASERSWORD_POMMEL_Y_PX: f32 = 22.0;
 
 const LASERSWORD_RENDER_WIDTH: f32 = 56.0;
 
+/// Spritesheet path for the spinning-lasersword projectile, exposed so the
+/// player's held gun-sword shot can render the SAME sword the pirates fire.
+pub const LASERSWORD_SHEET: &str = LASERSWORD_SHEET_PATH;
+
+/// Build the lasersword projectile sprite (idle frame, pommel-anchored) + its
+/// z-rotation for a shot traveling at `vel` (world space, y-down). Shared by the
+/// enemy volley visual and the player's held gun-sword shot so both render an
+/// identical spinning sword aligned to its velocity.
+pub fn lasersword_projectile_sprite(
+    texture: Handle<Image>,
+    vel: crate::engine_core::Vec2,
+) -> (Sprite, Anchor, Quat) {
+    // Bevy +Y is up; sandbox +Y is down — flip Y when computing rotation.
+    let bevy_dx = vel.x;
+    let bevy_dy = -vel.y;
+    let angle = if bevy_dx == 0.0 && bevy_dy == 0.0 {
+        0.0
+    } else {
+        bevy_dy.atan2(bevy_dx)
+    };
+    let aspect = LASERSWORD_FRAME_W / LASERSWORD_FRAME_H;
+    let render = Vec2::new(LASERSWORD_RENDER_WIDTH, LASERSWORD_RENDER_WIDTH / aspect);
+    let anchor_x_norm = (LASERSWORD_POMMEL_X_PX - LASERSWORD_FRAME_W * 0.5) / LASERSWORD_FRAME_W;
+    let anchor_y_norm = -(LASERSWORD_POMMEL_Y_PX - LASERSWORD_FRAME_H * 0.5) / LASERSWORD_FRAME_H;
+    let mut sprite = Sprite::from_image(texture);
+    sprite.custom_size = Some(render);
+    // Clip to the first idle frame (the sheet has a label column + idle +
+    // dissipate rows; without this it tiles a grid of swords).
+    sprite.rect = Some(Rect::from_corners(
+        Vec2::new(LASERSWORD_IDLE_FRAME_X, LASERSWORD_IDLE_FRAME_Y),
+        Vec2::new(
+            LASERSWORD_IDLE_FRAME_X + LASERSWORD_FRAME_W,
+            LASERSWORD_IDLE_FRAME_Y + LASERSWORD_FRAME_H,
+        ),
+    ));
+    (
+        sprite,
+        Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),
+        Quat::from_rotation_z(angle),
+    )
+}
+
 fn is_apple_owner(owner_id: &str) -> bool {
     owner_id.starts_with(APPLE_OWNER_PREFIX)
 }
@@ -109,38 +151,13 @@ fn spawn_lasersword_visual(
     translation: bevy::math::Vec3,
     vel: crate::engine_core::Vec2,
 ) {
-    // Bevy +Y is up; sandbox +Y is down — flip Y when computing the
-    // sprite rotation from the velocity vector.
-    let bevy_dx = vel.x;
-    let bevy_dy = -vel.y;
-    let angle = if bevy_dx == 0.0 && bevy_dy == 0.0 {
-        0.0
-    } else {
-        bevy_dy.atan2(bevy_dx)
-    };
-    let aspect = LASERSWORD_FRAME_W / LASERSWORD_FRAME_H;
-    let render = bevy::math::Vec2::new(LASERSWORD_RENDER_WIDTH, LASERSWORD_RENDER_WIDTH / aspect);
-    let anchor_x_norm = (LASERSWORD_POMMEL_X_PX - LASERSWORD_FRAME_W * 0.5) / LASERSWORD_FRAME_W;
-    let anchor_y_norm = -(LASERSWORD_POMMEL_Y_PX - LASERSWORD_FRAME_H * 0.5) / LASERSWORD_FRAME_H;
-    let mut sprite = Sprite::from_image(texture.clone());
-    sprite.custom_size = Some(render);
-    // Clip to the first idle frame — without this the whole
-    // multi-row spritesheet (label column + idle + dissipate)
-    // would be scaled into `custom_size`, looking like a tiled
-    // grid of swords.
-    sprite.rect = Some(Rect::from_corners(
-        Vec2::new(LASERSWORD_IDLE_FRAME_X, LASERSWORD_IDLE_FRAME_Y),
-        Vec2::new(
-            LASERSWORD_IDLE_FRAME_X + LASERSWORD_FRAME_W,
-            LASERSWORD_IDLE_FRAME_Y + LASERSWORD_FRAME_H,
-        ),
-    ));
+    let (sprite, anchor, rotation) = lasersword_projectile_sprite(texture.clone(), vel);
     commands.spawn((
         sprite,
-        Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),
+        anchor,
         Transform {
             translation,
-            rotation: Quat::from_rotation_z(angle),
+            rotation,
             scale: Vec3::ONE,
         },
         EnemyProjectileVisual,

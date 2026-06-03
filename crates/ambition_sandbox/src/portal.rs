@@ -21,8 +21,10 @@
 
 use bevy::prelude::*;
 
+use crate::brain::ActionSet;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::input::ControlFrame;
+use crate::item_pickup::StashedActionSet;
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::GameWorld;
 
@@ -271,8 +273,8 @@ pub fn arm_portal_pickups(
 pub fn drop_portal_gun_system(
     control: Res<ControlFrame>,
     mut commands: Commands,
-    players: Query<
-        (Entity, &PlayerKinematics),
+    mut players: Query<
+        (Entity, &PlayerKinematics, &mut ActionSet, Option<&StashedActionSet>),
         (
             With<PlayerEntity>,
             With<PrimaryPlayer>,
@@ -285,10 +287,15 @@ pub fn drop_portal_gun_system(
     if !(control.shield_held && control.attack_pressed) {
         return;
     }
-    let Ok((player, kin)) = players.single() else {
+    let Ok((player, kin, mut action_set, stashed)) = players.single_mut() else {
         return;
     };
     commands.entity(player).remove::<PortalGun>();
+    // Restore the swing the gun replaced (same path the held items use).
+    if let Some(stash) = stashed {
+        *action_set = stash.0.clone();
+    }
+    commands.entity(player).remove::<StashedActionSet>();
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     commands.spawn((
         PortalGunPickup {
@@ -314,7 +321,10 @@ pub fn drop_portal_gun_system(
 pub fn pickup_portal_gun_system(
     control: Res<ControlFrame>,
     mut commands: Commands,
-    players: Query<(Entity, &PlayerKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut players: Query<
+        (Entity, &PlayerKinematics, &mut ActionSet),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
     already_have: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>, With<PortalGun>)>,
     // One item at a time (Smash-style): can't grab the portal gun while holding
     // a ground item (axe / gun-sword / javelin).
@@ -325,7 +335,7 @@ pub fn pickup_portal_gun_system(
     if !control.attack_pressed || !already_have.is_empty() || !holding_item.is_empty() {
         return;
     }
-    let Ok((player, kin)) = players.single() else {
+    let Ok((player, kin, mut action_set)) = players.single_mut() else {
         return;
     };
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
@@ -338,6 +348,14 @@ pub fn pickup_portal_gun_system(
                 active: true,
                 ..PortalGun::default()
             });
+            // Equipping the portal gun REPLACES the attack: stash the player's
+            // ActionSet and clear the melee swing so Attack fires portals
+            // instead of swinging (same StashedActionSet path the held axe /
+            // gun-sword use — unified held-item attack replacement).
+            commands
+                .entity(player)
+                .insert(StashedActionSet(action_set.clone()));
+            action_set.melee = None;
             commands.entity(entity).despawn();
             // Rising sci-fi charge-up as the device wakes.
             sfx.write(crate::audio::SfxMessage::Play {
@@ -969,6 +987,7 @@ mod tests {
                     facing,
                 },
                 PortalGun::default(),
+                ActionSet::default(),
             ))
             .id()
     }
@@ -1148,6 +1167,7 @@ mod tests {
                     base_size: Vec2::new(24.0, 40.0),
                     facing: 1.0,
                 },
+                ActionSet::default(),
                 // No PortalGun yet — the single pickup item grants it.
             ))
             .id();

@@ -89,6 +89,9 @@ const TELEPORT_COOLDOWN_S: f32 = 0.25;
 /// Floor on exit speed so a slow walk into a portal still pops you out the
 /// far side instead of stalling inside the exit portal.
 const MIN_EXIT_SPEED: f32 = 220.0;
+/// On-screen thickness of the thin portal doorway (side profile in 2D). The
+/// bar's *length* comes from the portal opening; this is its narrow dimension.
+const PORTAL_VISUAL_THICKNESS: f32 = 12.0;
 
 // ---------------------------------------------------------------------------
 // Pure geometry — ray vs solid AABBs (slab method).
@@ -562,6 +565,33 @@ pub fn clear_portals_on_reset(
     }
 }
 
+/// Portals must not outlive the gun that made them: despawn all portals (and
+/// any in-flight shots) when **no** portal gun is present in the room — neither
+/// held (`PortalGun`) nor lying on the ground as a `PortalGunPickup`. This is
+/// the "gun is destroyed" case. A merely *dropped* gun still exists as a pickup
+/// in the room, so its portals persist; leaving the room is handled separately
+/// by [`clear_portals_on_reset`].
+pub fn despawn_orphaned_portals(
+    mut commands: Commands,
+    guns: Query<(), With<PortalGun>>,
+    pickups: Query<(), With<PortalGunPickup>>,
+    portals: Query<Entity, With<Portal>>,
+    shots: Query<Entity, With<PortalProjectile>>,
+) {
+    if !guns.is_empty() || !pickups.is_empty() {
+        return;
+    }
+    if portals.is_empty() && shots.is_empty() {
+        return;
+    }
+    for entity in &portals {
+        commands.entity(entity).despawn();
+    }
+    for entity in &shots {
+        commands.entity(entity).despawn();
+    }
+}
+
 /// Dev off-switch: `F7` toggles the portal gun active/inactive so the
 /// always-on slice gun doesn't fire portals on every Attack while testing
 /// other sandbox mechanics. (Visible build only.) Final gating is via
@@ -607,6 +637,121 @@ pub fn portal_teleport_ground_items(
                 item.vel = portal_transform_velocity(item.vel, enter.normal, exit.normal);
                 let clearance = item.half_extent.length() + exit.half_extent.length() + 4.0;
                 item.pos = exit.pos + exit.normal * clearance;
+                break;
+            }
+        }
+    }
+}
+
+/// Per-actor cooldown after a portal jump, so an actor that pops out of the
+/// exit doesn't immediately re-enter and ping-pong. Inserted on teleport and
+/// ticked down by [`tick_portal_cooldowns`].
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalCooldown(pub f32);
+
+/// Tick down (and clear) per-actor [`PortalCooldown`]s.
+pub fn tick_portal_cooldowns(
+    time: Res<crate::WorldTime>,
+    mut commands: Commands,
+    mut cooldowns: Query<(Entity, &mut PortalCooldown)>,
+) {
+    let dt = time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    for (entity, mut cooldown) in &mut cooldowns {
+        cooldown.0 -= dt;
+        if cooldown.0 <= 0.0 {
+            commands.entity(entity).remove::<PortalCooldown>();
+        }
+    }
+}
+
+/// Does an actor of `size` fit through `portal`? The opening the actor must
+/// pass through is the portal extent **perpendicular to its normal**: a wall
+/// portal (horizontal normal) is a vertical doorway, so the actor's *height*
+/// must fit; a floor / ceiling portal (vertical normal) gates on *width*. This
+/// keeps big bosses out of small portals while staying fully general — make a
+/// huge portal (or shrink the boss) and it passes.
+pub fn portal_fits(size: Vec2, portal: &Portal) -> bool {
+    let normal_is_horizontal = portal.normal.x.abs() >= portal.normal.y.abs();
+    let (opening, cross) = if normal_is_horizontal {
+        (portal.half_extent.y * 2.0, size.y)
+    } else {
+        (portal.half_extent.x * 2.0, size.x)
+    };
+    cross <= opening
+}
+
+/// Teleport non-player actors (enemies / NPCs / bosses) through the portal
+/// pair, **size-gated** so only actors that fit the opening pass. Enemies / NPCs
+/// (`ActorKinematics`) carry their momentum through the rotation; bosses
+/// (`BossKinematics`, no velocity field) are repositioned out the exit. A short
+/// [`PortalCooldown`] after each jump prevents ping-pong.
+pub fn portal_teleport_actors(
+    mut commands: Commands,
+    portals: Query<&Portal>,
+    mut actors: Query<
+        (Entity, &mut crate::features::ActorKinematics),
+        Without<PortalCooldown>,
+    >,
+    mut bosses: Query<(Entity, &mut crate::features::BossKinematics), Without<PortalCooldown>>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+) {
+    let blue = portals.iter().find(|p| p.color == PortalColor::Blue).copied();
+    let orange = portals
+        .iter()
+        .find(|p| p.color == PortalColor::Orange)
+        .copied();
+    let (Some(blue), Some(orange)) = (blue, orange) else {
+        return;
+    };
+    let pair = [(blue, orange), (orange, blue)];
+
+    for (entity, mut kin) in &mut actors {
+        let aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        for (enter, exit) in pair {
+            if !portal_fits(kin.size, &enter) {
+                continue;
+            }
+            if aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent + Vec2::splat(4.0)))
+            {
+                kin.vel = portal_transform_velocity(kin.vel, enter.normal, exit.normal);
+                let clearance = kin.size.length() * 0.5 + exit.half_extent.length() + 4.0;
+                kin.pos = exit.pos + exit.normal * clearance;
+                commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
+                sfx.write(crate::audio::SfxMessage::Play {
+                    id: ambition_sfx::ids::PORTAL_ENTER,
+                    pos: enter.pos,
+                });
+                sfx.write(crate::audio::SfxMessage::Play {
+                    id: ambition_sfx::ids::PORTAL_EXIT,
+                    pos: exit.pos,
+                });
+                break;
+            }
+        }
+    }
+
+    for (entity, mut kin) in &mut bosses {
+        let aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        for (enter, exit) in pair {
+            if !portal_fits(kin.size, &enter) {
+                continue;
+            }
+            if aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent + Vec2::splat(4.0)))
+            {
+                let clearance = kin.size.length() * 0.5 + exit.half_extent.length() + 4.0;
+                kin.pos = exit.pos + exit.normal * clearance;
+                commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
+                sfx.write(crate::audio::SfxMessage::Play {
+                    id: ambition_sfx::ids::PORTAL_ENTER,
+                    pos: enter.pos,
+                });
+                sfx.write(crate::audio::SfxMessage::Play {
+                    id: ambition_sfx::ids::PORTAL_EXIT,
+                    pos: exit.pos,
+                });
                 break;
             }
         }
@@ -735,16 +880,40 @@ pub fn sync_portal_visuals(
         ));
     }
     for portal in &portals {
-        let color = match portal.color {
-            PortalColor::Blue => Color::srgb(0.30, 0.62, 1.0),
-            PortalColor::Orange => Color::srgb(1.0, 0.55, 0.20),
+        let (rim, core) = match portal.color {
+            PortalColor::Blue => (Color::srgb(0.30, 0.62, 1.0), Color::srgb(0.74, 0.92, 1.0)),
+            PortalColor::Orange => (Color::srgb(1.0, 0.55, 0.20), Color::srgb(1.0, 0.86, 0.55)),
         };
-        let translation = crate::config::world_to_bevy(&world.0, portal.pos, 9.0);
+        // A portal is a thin doorway seen in side profile (2D): a bar lying
+        // ALONG the wall (perpendicular to the surface normal), thin in the
+        // normal direction. `along` rotates with the normal, so a slanted
+        // surface yields a slanted portal for free.
+        let n = portal.normal.normalize_or_zero();
+        let along = Vec2::new(-n.y, n.x);
+        // Opening half-length = the portal extent projected onto the wall
+        // direction: a wall portal (horizontal normal) shows its full height,
+        // a floor / ceiling portal shows its width.
+        let opening_half =
+            along.x.abs() * portal.half_extent.x + along.y.abs() * portal.half_extent.y;
+        let length = (opening_half * 2.0).max(PORTAL_VISUAL_THICKNESS);
+        // World is y-down, render space is y-up — flip y to get the on-screen
+        // direction of the bar's long axis, then rotate the sprite to match.
+        let angle = (-along.y).atan2(along.x);
+        let rotation = Quat::from_rotation_z(angle);
+        // Rim (outer) + brighter thin core, both oriented along the wall.
+        let rim_translation = crate::config::world_to_bevy(&world.0, portal.pos, 9.0);
+        let core_translation = crate::config::world_to_bevy(&world.0, portal.pos, 9.1);
         commands.spawn((
             PortalVisual,
-            Sprite::from_color(color, portal.half_extent * 2.0),
-            Transform::from_translation(translation),
-            Name::new("Portal visual"),
+            Sprite::from_color(rim, Vec2::new(length, PORTAL_VISUAL_THICKNESS)),
+            Transform::from_translation(rim_translation).with_rotation(rotation),
+            Name::new("Portal visual (rim)"),
+        ));
+        commands.spawn((
+            PortalVisual,
+            Sprite::from_color(core, Vec2::new(length * 0.86, PORTAL_VISUAL_THICKNESS * 0.42)),
+            Transform::from_translation(core_translation).with_rotation(rotation),
+            Name::new("Portal visual (core)"),
         ));
     }
 }
@@ -863,6 +1032,80 @@ mod tests {
             (g.vel.length() - 300.0).abs() < 1.0,
             "momentum carries through the portal, vel={:?}",
             g.vel
+        );
+    }
+
+    #[test]
+    fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
+        let wall = Portal {
+            color: PortalColor::Blue,
+            pos: Vec2::ZERO,
+            normal: Vec2::new(1.0, 0.0),
+            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+        };
+        // Wall portal opening is its HEIGHT (2*46=92): a short actor fits, a
+        // 200-tall boss does not.
+        assert!(portal_fits(Vec2::new(24.0, 40.0), &wall));
+        assert!(!portal_fits(Vec2::new(80.0, 200.0), &wall));
+        // Floor portal gates on WIDTH (2*28=56).
+        let floor = Portal {
+            color: PortalColor::Orange,
+            pos: Vec2::ZERO,
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+        };
+        assert!(portal_fits(Vec2::new(40.0, 200.0), &floor));
+        assert!(!portal_fits(Vec2::new(80.0, 20.0), &floor));
+    }
+
+    #[test]
+    fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
+        use crate::features::ActorKinematics;
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.add_systems(Update, portal_teleport_actors);
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Blue,
+            pos: Vec2::new(20.0, 200.0),
+            normal: Vec2::new(1.0, 0.0),
+            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+        });
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Orange,
+            pos: Vec2::new(380.0, 200.0),
+            normal: Vec2::new(-1.0, 0.0),
+            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+        });
+        let small = app
+            .world_mut()
+            .spawn(ActorKinematics {
+                pos: Vec2::new(20.0, 200.0),
+                vel: Vec2::new(-100.0, 0.0),
+                size: Vec2::new(24.0, 40.0),
+                facing: -1.0,
+            })
+            .id();
+        let big = app
+            .world_mut()
+            .spawn(ActorKinematics {
+                pos: Vec2::new(20.0, 200.0),
+                vel: Vec2::new(-100.0, 0.0),
+                size: Vec2::new(80.0, 200.0),
+                facing: -1.0,
+            })
+            .id();
+        app.update();
+        let s = app.world().get::<ActorKinematics>(small).unwrap();
+        assert!(
+            s.pos.x > 250.0,
+            "a fitting actor teleports out the orange portal, pos={:?}",
+            s.pos
+        );
+        let b = app.world().get::<ActorKinematics>(big).unwrap();
+        assert!(
+            b.pos.x < 100.0,
+            "an oversized actor does not fit and stays put, pos={:?}",
+            b.pos
         );
     }
 

@@ -243,6 +243,8 @@ fn register_portal_systems(app: &mut App) {
             crate::portal::portal_toggle_system.run_if(gameplay_allowed),
             crate::portal::portal_fire_system.run_if(gameplay_allowed),
             crate::portal::portal_projectile_step.run_if(gameplay_allowed),
+            // Portals must not outlive their gun (the "destroyed" case).
+            crate::portal::despawn_orphaned_portals,
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation),
@@ -254,8 +256,10 @@ fn register_portal_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
+            crate::portal::tick_portal_cooldowns,
             crate::portal::portal_teleport_system,
             crate::portal::portal_teleport_ground_items,
+            crate::portal::portal_teleport_actors,
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation)

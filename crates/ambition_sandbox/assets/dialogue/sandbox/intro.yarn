@@ -16,7 +16,7 @@ title: alice_intro_stub
 title: alice_intro_stub__1
 ---
 Alice: Carry this to Bob. Do not unfold it where the walls can read.
-<<give_item "sealednote">>
+<<give_item "sealednote" 1>>
 -> ⟨pocket the note⟩
 ===
 
@@ -32,7 +32,7 @@ title: bob_intro_stub
     Bob: That fold's Alice's. You actually carried it through the low route — most don't. Hand it here.
     -> Hand him the sealed note.
         <<sell_item "sealednote" 0>>
-        <<give_item "fieldsurvey">>
+        <<give_item "fieldsurvey" 1>>
         <<set_flag "bob_field_survey_received">>
         <<jump bob_intro_stub__1>>
     -> ⟨keep it folded⟩

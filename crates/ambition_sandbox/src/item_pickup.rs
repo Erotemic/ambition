@@ -363,10 +363,57 @@ pub struct HeldProjectile {
     pub vel: Vec2,
     pub damage: i32,
     pub traveled: f32,
+    /// Half-extent of an explosion this shot triggers when it hits something.
+    /// `0.0` for a plain bolt (the gun-sword); a Fireball sets it so the impact
+    /// deals splash damage to everything in the box, not just the first body.
+    pub explode_half: f32,
 }
 
 const HELD_SHOT_MAX_RANGE: f32 = 1600.0;
 const HELD_SHOT_HALF: Vec2 = Vec2::new(12.0, 9.0);
+
+/// Held-item id of the Fireball ability — a ranged held item whose shot
+/// explodes on contact (see [`fire_held_ranged_system`]).
+pub const FIREBALL_ID: &str = "fireball";
+
+/// Splash half-extent a Fireball shot detonates with on contact.
+const FIREBALL_EXPLODE_HALF: f32 = 56.0;
+
+/// Detonate a Fireball shot at `pos`: a boxed splash `HitEvent` (damages every
+/// body in the box, not just the first), an explosion VFX, and a boom SFX. A
+/// free fn (not a closure) so it can borrow the loop's writers at each call site
+/// without holding them across the projectile loop.
+fn emit_fireball_explosion(
+    pos: Vec2,
+    damage: i32,
+    half: f32,
+    attacker: Option<Entity>,
+    feature_damage: &mut MessageWriter<crate::features::HitEvent>,
+    sfx: &mut MessageWriter<crate::audio::SfxMessage>,
+    vfx: &mut MessageWriter<crate::presentation::fx::VfxMessage>,
+) {
+    feature_damage.write(crate::features::HitEvent {
+        volume: ae::Aabb::new(pos, Vec2::splat(half)),
+        damage,
+        source: crate::features::HitSource::PlayerProjectile {
+            kind: crate::projectile::ProjectileKind::Fireball,
+        },
+        attacker,
+        target: crate::features::HitTarget::Volume,
+        mode: crate::features::HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+    sfx.write(crate::audio::SfxMessage::Play {
+        id: ambition_sfx::ids::WORLD_ROCK_HIT,
+        pos,
+    });
+    vfx.write(crate::presentation::fx::VfxMessage::Explosion {
+        pos,
+        kind: crate::presentation::fx::ExplosionKind::ClassicBurst,
+        scale: 1.0,
+    });
+}
 
 /// Aim a held ranged shot the way the pirates aim their gun-sword: right-stick
 /// aim if pushed, else the movement axis (so holding Up / Down / a diagonal
@@ -405,12 +452,20 @@ pub fn fire_held_ranged_system(
         return;
     }
     let origin = kin.pos + dir * (kin.size.x * 0.5 + 8.0) - Vec2::new(0.0, kin.size.y * 0.12);
+    // A Fireball shot explodes on contact; every other ranged held item fires a
+    // plain single-target bolt (`explode_half` 0).
+    let explode_half = if held.spec.id == FIREBALL_ID {
+        FIREBALL_EXPLODE_HALF
+    } else {
+        0.0
+    };
     commands.spawn((
         HeldProjectile {
             pos: origin,
             vel: dir * ranged.speed(),
             damage: ranged.damage(),
             traveled: 0.0,
+            explode_half,
         },
         Name::new("Held ranged shot"),
     ));
@@ -487,15 +542,41 @@ pub fn held_projectile_step(
             || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
             || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
         if hit {
-            feature_damage.write(hit_event);
-            sfx.write(crate::audio::SfxMessage::Hit { pos: proj.pos });
+            if proj.explode_half > 0.0 {
+                // Fireball: the splash box covers the body we hit plus anything
+                // around it, so skip the single-target write and detonate.
+                emit_fireball_explosion(
+                    proj.pos,
+                    proj.damage,
+                    proj.explode_half,
+                    attacker,
+                    &mut feature_damage,
+                    &mut sfx,
+                    &mut vfx,
+                );
+            } else {
+                feature_damage.write(hit_event);
+                sfx.write(crate::audio::SfxMessage::Hit { pos: proj.pos });
+            }
             commands.entity(entity).despawn();
             continue;
         }
-        // Solid wall in this step → impact + expire.
+        // Solid wall in this step → impact + expire (Fireball detonates here too).
         let step = (proj.vel * dt).length().max(1.0);
         if let Some((hit_pos, _normal)) = crate::portal::raycast_solids(&world.0, proj.pos, proj.vel, step) {
-            vfx.write(crate::presentation::fx::VfxMessage::Impact { pos: hit_pos });
+            if proj.explode_half > 0.0 {
+                emit_fireball_explosion(
+                    hit_pos,
+                    proj.damage,
+                    proj.explode_half,
+                    attacker,
+                    &mut feature_damage,
+                    &mut sfx,
+                    &mut vfx,
+                );
+            } else {
+                vfx.write(crate::presentation::fx::VfxMessage::Impact { pos: hit_pos });
+            }
             commands.entity(entity).despawn();
             continue;
         }
@@ -805,6 +886,49 @@ mod tests {
             q.iter(app.world()).count()
         };
         assert_eq!(bolts, 1, "Attack while holding the gun-sword fires one laser bolt");
+    }
+
+    #[test]
+    fn fireball_shot_is_tagged_to_explode_unlike_a_plain_bolt() {
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, fire_held_ranged_system);
+        let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+        let spec = crate::brain::held_item_by_id(FIREBALL_ID).unwrap();
+        app.world_mut()
+            .entity_mut(player)
+            .insert(HeldItem::new(spec));
+        set_control(&mut app, true, false);
+        app.update();
+        let halves: Vec<f32> = {
+            let mut q = app.world_mut().query::<&HeldProjectile>();
+            q.iter(app.world()).map(|p| p.explode_half).collect()
+        };
+        assert_eq!(halves.len(), 1, "Attack fires one fireball");
+        assert_eq!(
+            halves[0], FIREBALL_EXPLODE_HALF,
+            "the fireball shot is tagged to explode on contact"
+        );
+    }
+
+    #[test]
+    fn a_plain_ranged_bolt_does_not_explode() {
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, fire_held_ranged_system);
+        let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+        app.world_mut()
+            .entity_mut(player)
+            .insert(HeldItem::new(gunsword_spec()));
+        set_control(&mut app, true, false);
+        app.update();
+        let half = {
+            let mut q = app.world_mut().query::<&HeldProjectile>();
+            q.iter(app.world()).next().map(|p| p.explode_half)
+        };
+        assert_eq!(half, Some(0.0), "the gun-sword bolt does not explode");
     }
 
     #[test]

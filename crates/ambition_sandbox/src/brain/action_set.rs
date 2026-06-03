@@ -163,6 +163,21 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 ranged: None,
             },
         );
+        // The Fireball ability fires a ranged bolt that *explodes on contact*
+        // (`item_pickup::fire_held_ranged_system` tags the shot by this id, and
+        // `held_projectile_step` detonates it). The Bolt damage is the splash
+        // damage; the AOE box is what makes it distinct from the gun-sword.
+        items.insert(
+            "fireball",
+            HeldItemSpec {
+                id: "fireball".into(),
+                melee: None,
+                ranged: Some(RangedActionSpec::Bolt {
+                    speed: 440.0,
+                    damage: 3,
+                }),
+            },
+        );
         items
     });
 

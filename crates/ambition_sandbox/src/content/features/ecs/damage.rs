@@ -550,6 +550,20 @@ fn apply_actor_hit(
                             ENEMY_HEALTH_DROP,
                         );
                     }
+                    // Steal the enemy's weapon: a defeated enemy that was wielding
+                    // a held item drops it as a `GroundItem` the player can grab +
+                    // wield (e.g. a pirate's gun-sword), via the existing pickup path.
+                    if let Some(spec) = em.config.archetype.held_item_spec() {
+                        commands.spawn((
+                            crate::item_pickup::GroundItem {
+                                spec,
+                                pos: em.kin.pos + ae::Vec2::new(-14.0, 0.0),
+                                vel: ae::Vec2::ZERO,
+                                half_extent: ae::Vec2::splat(16.0),
+                            },
+                            bevy::prelude::Name::new("Dropped weapon"),
+                        ));
+                    }
                     if !em.config.id.starts_with("encounter:")
                         && em.config.archetype != EnemyArchetype::InfiniteSandbag
                         && em.config.archetype != EnemyArchetype::FiniteSandbag
@@ -1205,5 +1219,14 @@ mod tests {
             matches!(kinds[0], crate::interaction::PickupKind::Health { .. }),
             "the drop is a health pickup",
         );
+    }
+
+    #[test]
+    fn an_armed_enemy_archetype_resolves_a_weapon_to_drop() {
+        // The defeat branch's weapon drop keys off `held_item_spec()`; the pirate
+        // carries a gun-sword, so a defeated pirate drops one.
+        let spec = EnemyArchetype::PirateOnShark.held_item_spec();
+        assert!(spec.is_some(), "PirateOnShark carries a weapon");
+        assert_eq!(spec.unwrap().id.as_str(), "gun_sword");
     }
 }

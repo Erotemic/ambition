@@ -230,6 +230,60 @@ pub struct PlayerLedgeState {
     pub release_cooldown: f32,
 }
 
+/// Re-grab lockout applied when a hit knocks the player off a ledge, so they
+/// fall with the knockback instead of instantly re-latching.
+pub const LEDGE_KNOCK_OFF_COOLDOWN: f32 = 0.35;
+
+impl PlayerLedgeState {
+    /// Drop any active ledge grab because the player was hit, arming a brief
+    /// re-grab lockout. Returns true if the player was actually hanging (so the
+    /// caller can react). A no-op when not grabbing.
+    pub fn knock_off_on_hit(&mut self) -> bool {
+        if self.grab.take().is_some() {
+            self.release_cooldown = self.release_cooldown.max(LEDGE_KNOCK_OFF_COOLDOWN);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[cfg(test)]
+mod ledge_knock_off_tests {
+    use super::*;
+    use crate::engine_core::ledge_grab::LedgeContact;
+
+    fn hanging() -> LedgeGrabState {
+        LedgeGrabState::hanging(LedgeContact {
+            wall_normal_x: 1.0,
+            anchor: Vec2::ZERO,
+            climb_target: Vec2::ZERO,
+        })
+    }
+
+    #[test]
+    fn getting_hit_knocks_the_player_off_a_ledge_grab() {
+        let mut ledge = PlayerLedgeState {
+            grab: Some(hanging()),
+            release_cooldown: 0.0,
+        };
+        assert!(ledge.knock_off_on_hit(), "was hanging → reports knocked off");
+        assert!(ledge.grab.is_none(), "ledge grab cleared so the player falls");
+        assert!(
+            ledge.release_cooldown >= LEDGE_KNOCK_OFF_COOLDOWN,
+            "re-grab lockout armed"
+        );
+    }
+
+    #[test]
+    fn knock_off_is_a_noop_when_not_grabbing() {
+        let mut ledge = PlayerLedgeState::default();
+        assert!(!ledge.knock_off_on_hit());
+        assert!(ledge.grab.is_none());
+        assert_eq!(ledge.release_cooldown, 0.0, "no lockout when nothing to drop");
+    }
+}
+
 /// Dodge-roll i-frame timer + cooldown.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PlayerDodgeState {

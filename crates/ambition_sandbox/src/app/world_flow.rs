@@ -693,6 +693,9 @@ pub(super) fn handle_player_damage_events(
             );
         }
         features::HitMode::Knockback => {
+            // Getting hit knocks you off a ledge grab — you fall with the
+            // knockback instead of hanging there immune.
+            clusters.ledge.knock_off_on_hit();
             apply_player_knockback(sfx, vfx, clusters, combat, tuning, feel, &damage);
         }
     }

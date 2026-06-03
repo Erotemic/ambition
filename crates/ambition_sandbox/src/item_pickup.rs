@@ -467,7 +467,8 @@ fn item_sprite(art: &ItemArt, spec_id: &str) -> Option<(Handle<Image>, Vec2)> {
     match spec_id {
         "axe" => Some((art.axe.clone(), Vec2::new(40.0, 18.0))),
         "javelin" => Some((art.javelin.clone(), Vec2::new(58.0, 7.0))),
-        "gun_sword" | "gun_sword_heavy" => Some((art.gunsword.clone(), Vec2::new(46.0, 12.0))),
+        // Same `lasersword_with_guns` proportions the pirates hold (177×46).
+        "gun_sword" | "gun_sword_heavy" => Some((art.gunsword.clone(), Vec2::new(54.0, 14.0))),
         _ => None,
     }
 }
@@ -512,6 +513,7 @@ pub struct HeldItemVisual;
 /// per item (axe / javelin). Clear-and-rebuild each frame.
 pub fn sync_held_item_visual(
     mut commands: Commands,
+    control: Res<ControlFrame>,
     world: Res<crate::GameWorld>,
     art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<HeldItemVisual>>,
@@ -527,13 +529,28 @@ pub fn sync_held_item_visual(
     // In the player's hand: just in front at hand height (y-down → small +y).
     let hand = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 4.0), kin.size.y * 0.06);
     let translation = crate::config::world_to_bevy(&world.0, hand, 12.0);
+
+    // A ranged held item (the gun-sword) points where you're AIMING — the same
+    // direction it fires — just like the pirates' wielded gun-sword. Melee /
+    // thrown items keep the simple facing flip.
+    let (rotation, flip_x, flip_y) = if held.spec.ranged.is_some() {
+        let aim = held_shot_aim(&control, kin.facing);
+        // World is y-down, render space y-up. Aiming left flips vertically so
+        // the gun stays upright instead of rotating upside-down.
+        let angle = (-aim.y).atan2(aim.x);
+        (Quat::from_rotation_z(angle), false, aim.x < 0.0)
+    } else {
+        (Quat::IDENTITY, facing < 0.0, false)
+    };
+
     let sprite = art
         .as_ref()
         .and_then(|a| item_sprite(a, held.spec.id.as_str()))
         .map(|(image, size)| Sprite {
             image,
             custom_size: Some(size),
-            flip_x: facing < 0.0,
+            flip_x,
+            flip_y,
             ..default()
         })
         .unwrap_or_else(|| {
@@ -547,7 +564,7 @@ pub fn sync_held_item_visual(
     commands.spawn((
         HeldItemVisual,
         sprite,
-        Transform::from_translation(translation),
+        Transform::from_translation(translation).with_rotation(rotation),
         Name::new("Held item visual"),
     ));
 }

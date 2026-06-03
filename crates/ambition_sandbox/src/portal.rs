@@ -832,11 +832,18 @@ pub fn load_portal_gun_art(mut commands: Commands, assets: Res<AssetServer>) {
 #[derive(Component)]
 pub struct PortalModeIndicator;
 
-/// Draw the portal-gun sprite **in the player's hand** (in front, at hand
-/// height, flipped to face), tinted to the active mode color so toggling
+/// On-screen size of the portal-gun sprite, used for BOTH the held gun and the
+/// ground pickup so it doesn't change size when you pick it up (keeps the
+/// 140×64 sprite aspect ≈ 2.19).
+const PORTAL_GUN_DISPLAY: Vec2 = Vec2::new(52.0, 24.0);
+
+/// Draw the portal-gun sprite **in the player's hand**, rotated to point where
+/// you're AIMING (the same direction `Attack` fires the portal — like the
+/// pirates' wielded weapon), tinted to the active mode color so toggling
 /// (Interact) visibly swaps blue↔orange.
 pub fn sync_portal_mode_indicator(
     mut commands: Commands,
+    control: Res<ControlFrame>,
     world: Res<GameWorld>,
     art: Option<Res<PortalGunArt>>,
     visuals: Query<Entity, With<PortalModeIndicator>>,
@@ -864,15 +871,20 @@ pub fn sync_portal_mode_indicator(
     // in front of the player sprite.
     let pos = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 6.0), kin.size.y * 0.06);
     let translation = crate::config::world_to_bevy(&world.0, pos, 12.0);
+    // Aim the barrel where the shot will go (same aim as `portal_fire_system`).
+    // World y-down → render y-up; aiming left flips vertically so the gun stays
+    // upright rather than upside-down.
+    let aim = pick_aim(&control, kin.facing).normalize_or_zero();
+    let angle = (-aim.y).atan2(aim.x);
     commands.spawn((
         PortalModeIndicator,
         Sprite {
             image,
-            custom_size: Some(Vec2::new(38.0, 20.0)),
-            flip_x: facing < 0.0,
+            custom_size: Some(PORTAL_GUN_DISPLAY),
+            flip_y: aim.x < 0.0,
             ..default()
         },
-        Transform::from_translation(translation),
+        Transform::from_translation(translation).with_rotation(Quat::from_rotation_z(angle)),
         Name::new("Held portal gun"),
     ));
 }
@@ -914,7 +926,9 @@ pub fn sync_portal_visuals(
         let sprite = match art.as_ref() {
             Some(art) => Sprite {
                 image: art.blue.clone(),
-                custom_size: Some(Vec2::new(52.0, 28.0)),
+                // Same display size as the held gun so it doesn't visibly
+                // resize when you pick it up.
+                custom_size: Some(PORTAL_GUN_DISPLAY),
                 ..default()
             },
             None => Sprite::from_color(Color::srgb(0.66, 0.36, 0.92), pickup.half_extent * 2.0),

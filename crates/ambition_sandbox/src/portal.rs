@@ -385,6 +385,35 @@ pub fn pickup_portal_gun_system(
     }
 }
 
+/// Equip the portal gun onto the player from a non-pickup source (the inventory
+/// menu): stash the action set, attach an active [`PortalGun`], and clear the
+/// melee swing so `Attack` fires portals (the same replacement the world pickup
+/// does). Mirrors [`pickup_portal_gun_system`] minus the ground entity.
+pub fn equip_portal_gun(commands: &mut Commands, player: Entity, action_set: &mut ActionSet) {
+    commands
+        .entity(player)
+        .insert(StashedActionSet(action_set.clone()));
+    commands.entity(player).insert(PortalGun {
+        active: true,
+        ..PortalGun::default()
+    });
+    action_set.melee = None;
+}
+
+/// Detach the portal gun and restore the stashed action set (inventory unequip).
+pub fn unequip_portal_gun(
+    commands: &mut Commands,
+    player: Entity,
+    action_set: &mut ActionSet,
+    stashed: Option<&StashedActionSet>,
+) {
+    if let Some(stash) = stashed {
+        *action_set = stash.0.clone();
+    }
+    commands.entity(player).remove::<PortalGun>();
+    commands.entity(player).remove::<StashedActionSet>();
+}
+
 /// An in-flight portal shot streaking toward a surface. On contact with a
 /// solid it opens a portal of `color`; if it travels too far / leaves the
 /// world it fizzles.

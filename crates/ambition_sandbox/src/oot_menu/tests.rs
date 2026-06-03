@@ -181,6 +181,35 @@ fn grid_navigation_moves_the_cursor_while_open() {
 }
 
 #[test]
+fn equipping_the_portal_gun_attaches_and_detaches_its_component() {
+    let (mut app, player) = test_app();
+    app.world_mut()
+        .resource_mut::<OwnedItems>()
+        .grant(Item::PortalGun, 1);
+    press(&mut app, |f| f.inventory = true);
+    app.update();
+
+    // PortalGun is grid slot 0; confirm it.
+    app.world_mut().resource_mut::<OotMenuState>().cursor = Item::PortalGun.index();
+    press(&mut app, |f| f.select = true);
+    app.update();
+    assert!(
+        app.world().get::<crate::portal::PortalGun>(player).is_some(),
+        "equipping the portal gun attaches the PortalGun component"
+    );
+    assert!(app.world().resource::<OwnedItems>().is_equipped(Item::PortalGun));
+
+    // Confirm again → unequip.
+    press(&mut app, |f| f.select = true);
+    app.update();
+    assert!(
+        app.world().get::<crate::portal::PortalGun>(player).is_none(),
+        "confirming the equipped portal gun stows it"
+    );
+    assert!(!app.world().resource::<OwnedItems>().is_equipped(Item::PortalGun));
+}
+
+#[test]
 fn confirming_an_unowned_slot_does_nothing() {
     let (mut app, player) = test_app();
     // Axe NOT granted.

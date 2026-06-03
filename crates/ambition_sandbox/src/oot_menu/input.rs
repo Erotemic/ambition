@@ -105,22 +105,33 @@ fn apply_menu_action(
 ) {
     match action {
         MenuAction::Equip(item) => {
-            let Some(spec) = held_spec_for_item(item) else {
+            // The portal gun equips via its own component; other weapons via a
+            // HeldItemSpec. Bail early if the item is neither.
+            let is_portal_gun = item == Item::PortalGun;
+            let held_spec = held_spec_for_item(item);
+            if !is_portal_gun && held_spec.is_none() {
                 return;
-            };
+            }
             if let Ok((player, mut action_set, stashed)) = players.single_mut() {
-                // If another weapon is held, restore the base set first so we
-                // re-stash the true base (not the previous weapon's set).
+                // Clear whatever weapon is currently held (a held item OR the
+                // portal gun) so we re-stash the true base, then equip the new one.
                 if stashed.is_some() {
                     unequip_held(commands, player, &mut action_set, stashed);
+                    commands.entity(player).remove::<crate::portal::PortalGun>();
                 }
-                equip_held_spec(commands, player, &mut action_set, spec);
+                if is_portal_gun {
+                    crate::portal::equip_portal_gun(commands, player, &mut action_set);
+                } else if let Some(spec) = held_spec {
+                    equip_held_spec(commands, player, &mut action_set, spec);
+                }
                 owned.set_equipped(Some(item));
             }
         }
         MenuAction::Unequip(_item) => {
             if let Ok((player, mut action_set, stashed)) = players.single_mut() {
+                // Detach both possible weapon front-ends (held item + portal gun).
                 unequip_held(commands, player, &mut action_set, stashed);
+                commands.entity(player).remove::<crate::portal::PortalGun>();
             }
             owned.set_equipped(None);
         }

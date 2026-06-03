@@ -593,6 +593,7 @@ mkdir -p "$props_dir"
 held_prop_map=(
     "pirate_heavy_axe:axe"
     "throwing_javelin:javelin"
+    "lasersword:gunsword"
     "portal_gun_blue:portal_gun_blue"
     "portal_gun_orange:portal_gun_orange"
 )

@@ -192,6 +192,11 @@ fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
 pub struct PortalGunPickup {
     pub pos: Vec2,
     pub half_extent: Vec2,
+    /// Seconds before this pickup can be grabbed. A *just-dropped* gun arms
+    /// after a short delay so the same `Attack` press that dropped it (and the
+    /// next overlapping frame) can't immediately re-grab it. World-placed
+    /// pickups spawn already armed (`0.0`).
+    pub arm_timer: f32,
 }
 
 /// Spawn one portal-gun pickup near the player on the first frame a player
@@ -212,9 +217,28 @@ pub fn spawn_debug_portal_gun_pickup_once(
         PortalGunPickup {
             pos: kin.pos + Vec2::new(-80.0, 0.0),
             half_extent: Vec2::splat(20.0),
+            arm_timer: 0.0,
         },
         Name::new("Portal gun pickup"),
     ));
+}
+
+/// Tick down each pickup's [`PortalGunPickup::arm_timer`] so a just-dropped gun
+/// becomes grabbable after the short delay. Always runs (cheap; at most a
+/// couple of pickups).
+pub fn arm_portal_pickups(
+    time: Res<crate::WorldTime>,
+    mut pickups: Query<&mut PortalGunPickup>,
+) {
+    let dt = time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    for mut pickup in &mut pickups {
+        if pickup.arm_timer > 0.0 {
+            pickup.arm_timer = (pickup.arm_timer - dt).max(0.0);
+        }
+    }
 }
 
 /// `Shield + Attack` drops the held portal gun: removes the `PortalGun` (so
@@ -245,8 +269,12 @@ pub fn drop_portal_gun_system(
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     commands.spawn((
         PortalGunPickup {
-            pos: kin.pos + Vec2::new(facing * 28.0, 0.0),
+            // Drop it a bit ahead and arm it after a short delay so this same
+            // Attack press (and the immediately-overlapping next frame) can't
+            // re-grab it — that was the "can't drop the portal gun" bug.
+            pos: kin.pos + Vec2::new(facing * 44.0, 0.0),
             half_extent: Vec2::splat(20.0),
+            arm_timer: 0.35,
         },
         Name::new("Portal gun pickup"),
     ));
@@ -265,10 +293,13 @@ pub fn pickup_portal_gun_system(
     mut commands: Commands,
     players: Query<(Entity, &PlayerKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>,
     already_have: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>, With<PortalGun>)>,
+    // One item at a time (Smash-style): can't grab the portal gun while holding
+    // a ground item (axe / gun-sword / javelin).
+    holding_item: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>, With<crate::features::HeldItem>)>,
     pickups: Query<(Entity, &PortalGunPickup)>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    if !control.attack_pressed || !already_have.is_empty() {
+    if !control.attack_pressed || !already_have.is_empty() || !holding_item.is_empty() {
         return;
     }
     let Ok((player, kin)) = players.single() else {
@@ -276,6 +307,9 @@ pub fn pickup_portal_gun_system(
     };
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
     for (entity, pickup) in &pickups {
+        if pickup.arm_timer > 0.0 {
+            continue;
+        }
         if player_aabb.strict_intersects(ae::Aabb::new(pickup.pos, pickup.half_extent)) {
             commands.entity(player).insert(PortalGun {
                 active: true,
@@ -856,6 +890,7 @@ mod tests {
         app.world_mut().spawn(PortalGunPickup {
             pos: Vec2::new(50.0, 50.0),
             half_extent: Vec2::splat(20.0),
+            arm_timer: 0.0,
         });
         assert!(app.world().get::<PortalGun>(player).is_none());
 
@@ -874,6 +909,81 @@ mod tests {
             q.iter(app.world()).count()
         };
         assert_eq!(remaining, 0, "the pickup is consumed");
+    }
+
+    #[test]
+    fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.insert_resource(ControlFrame::default());
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_systems(
+            Update,
+            (
+                drop_portal_gun_system,
+                arm_portal_pickups,
+                pickup_portal_gun_system,
+            )
+                .chain(),
+        );
+        let player = spawn_player(&mut app, Vec2::new(100.0, 100.0), 1.0);
+
+        // Shield + Attack drops the gun.
+        {
+            let mut cf = app.world_mut().resource_mut::<ControlFrame>();
+            cf.attack_pressed = true;
+            cf.shield_held = true;
+        }
+        app.update();
+        assert!(
+            app.world().get::<PortalGun>(player).is_none(),
+            "Shield+Attack should drop the portal gun"
+        );
+
+        // Move the player directly onto the dropped pickup so only the arm
+        // timer (not distance) guards against a re-grab.
+        let pickup_pos = {
+            let mut q = app.world_mut().query::<&PortalGunPickup>();
+            q.iter(app.world()).next().expect("a pickup was dropped").pos
+        };
+        app.world_mut()
+            .get_mut::<PlayerKinematics>(player)
+            .unwrap()
+            .pos = pickup_pos;
+
+        // Immediately press Attack again while overlapping — the freshly-dropped
+        // pickup is still arming, so it must NOT be re-grabbed (the bug).
+        {
+            let mut cf = app.world_mut().resource_mut::<ControlFrame>();
+            cf.attack_pressed = true;
+            cf.shield_held = false;
+        }
+        app.update();
+        assert!(
+            app.world().get::<PortalGun>(player).is_none(),
+            "an armed (just-dropped) pickup can't be re-grabbed on the next Attack"
+        );
+
+        // Let it disarm, then Attack picks it back up.
+        {
+            let mut cf = app.world_mut().resource_mut::<ControlFrame>();
+            cf.attack_pressed = false;
+        }
+        for _ in 0..30 {
+            app.update();
+        }
+        {
+            let mut cf = app.world_mut().resource_mut::<ControlFrame>();
+            cf.attack_pressed = true;
+        }
+        app.update();
+        assert!(
+            app.world().get::<PortalGun>(player).is_some(),
+            "once disarmed, Attack while overlapping re-grabs the gun"
+        );
     }
 
     #[test]

@@ -272,8 +272,14 @@ fn register_item_pickup_systems(app: &mut App) {
         Update,
         (
             crate::item_pickup::spawn_debug_axe_once,
+            crate::item_pickup::spawn_debug_gunsword_once,
             crate::portal::spawn_debug_portal_gun_pickup_once,
+            crate::portal::arm_portal_pickups,
             crate::item_pickup::pickup_held_item_system.run_if(gameplay_allowed),
+            // Fire the held gun-sword laser (after pickup so the grab press
+            // doesn't also fire on the same Attack), then throw, then physics.
+            crate::item_pickup::fire_held_ranged_system.run_if(gameplay_allowed),
+            crate::item_pickup::held_projectile_step.run_if(gameplay_allowed),
             crate::item_pickup::throw_held_item_system.run_if(gameplay_allowed),
             crate::item_pickup::ground_item_physics.run_if(gameplay_allowed),
             // After portal_fire (registered earlier) so picking up the gun

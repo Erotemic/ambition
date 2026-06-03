@@ -21,7 +21,7 @@ Useful companion docs:
 - Capability inventory: `FEATURES.md`
 - Mechanics status: `docs/mechanics/expressibility-checklist.md`
 
-# LOW HANGING FRUIT MAYBE
+# JONS DUMP LIST
 
 ## Persistent autonomous-loop instruction
 
@@ -29,17 +29,31 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [x] Improve shark without a rider attack patterns so it feels maybe more wild than the pirate who was controlling it. Maybe it charges and if it hits a wall because it charges too far it explodes. 
 
+- [ ] Whatever is registered as the Mockingbird's "forward" direction is facing the wrong way. Currently it always faces away from you, which indicates that the facing direction is marked incorrectly for it. This is probably a sprite-level fix in the metadata generator.
+
 - [ ] Develop a Boss to flex / force the player / boss unification code (do a new boss with a more humanoid or maybe bipedal character like the trex).
 
 - [ ] Develop an NPC to flex / force the player / boss unification code (do this with Alice).
 
 - [ ] Goblins need to have an action set as rich as the player (flexing or giving a use case to force the player / enemy unification). _Scoped 2026-06-02 (autonomous):_ goblins are the `MediumStriker` archetype (`enemy_archetypes.ron`), which today carries only `melee: Swipe` + `move_style: Walk` and runs the `Smash` brain. The `ActionSet` container can already hold `ranged` + `special`, so the real gap is the **brain's action-selection vocabulary**: `Smash` only ever commits melee, so adding ranged/dash/special to the goblin's set wouldn't be used until the brain learns to choose among verbs by range/situation the way the player can. Concrete next step: extend `Smash` (or add a richer melee+ranged brain template) that fires `ranged` at mid-range and closes for `melee`, then unit-test the range-based choice — that's the unification flex. Pairs with "Goblins need more sprites" (animations to read the new verbs) and is a balance/feel change best validated in-game, so it wants an interactive session rather than a blind autonomous one.
 
-- [ ] Goblins need more sprites for more animations to go with the different actions.
+- [ ] Goblins need more sprites for more animations to go with the different actions so they are full smash-capable characters.
 
-- [ ] The player need more sprites for more animations to go with the different actions.
+- [ ] The player need more sprites for more animations to go with the different actions. Defer this in autonomous mode.
 
-- [ ] Boss phase transitions "screams" / "animations"
+
+- [ ] The portals seem to have no effect on other actors, and they should. But maybe only if the actor is big enough to "fit" through the portal, so that would prevent weird things with bosses, but maybe we have really big portals they can fit through, or a tiny boss it works on, so make the system general. 
+
+- [ ] Portals should despawn if the portal gun that spawned them leaves the room or is destroyed.
+
+- [ ] We also need sprites for the portals themselves. These should be very thin because we are in a 2d game, so we are only seeing a side profile. The current portal boxes are too big. The portal should be vertical when shot against a vertical wall and horiztonal when against a floor or ceiling. We might do slanted portals in the future, so account for that possibility if its not too hard.
+
+
+- [ ] I'm thinking the 2d portal system probably should be its own bevy plugin. It seems like it could be fairly general. 
+
+- [x] We don't need the blue / orange indicator above the players head with the new gun sprites because the gun itself is the visual mode indicator. 
+
+- [ ] Boss phase transitions "screams" / "animations", when a boss transitions between phases it should do a "scream" animation (we need to build sprites for this) and maybe an effect that can be played to visually make it "feel" loud, even though we don't want to break the player's ears with sounds that are actually loud. We need a generic "cry" sfx sound we can use as a placeholder for this until we have per-boss "screams". 
 
 - [ ] When are ledge grabbing, if you get hit you should fall off the ledge.
 
@@ -135,6 +149,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [~] **Portal system (portal gun mechanic)** `[V5/D5]` - _Vertical slice landed 2026-06-02 (autonomous run, commits `44095de`..`82898b2`): `crates/ambition_sandbox/src/portal.rs`._ Fire/toggle/teleport works end-to-end and is headless-tested: `Attack` raycasts (`raycast_solids`, slab method) and places the active-color portal on the nearest solid face; `Interact` toggles blue↔orange; overlapping the pair teleports the player out the linked portal carrying momentum via `portal_transform_velocity` (rotates velocity through the pair rotation). Plus: colored portal visuals, clear-on-room-reset, an `F7` dev off-switch, the gun granted **inactive** and **picked up in a room** to activate (`PortalGunPickup`), and **thrown items travel through portals** too (`portal_teleport_ground_items`). 6 tests. **Remaining:** held-item-equip gating (vs the current grant+F7/pickup), *projectiles* through portals (player + thrown items only today), surface-validity placement rules, a portal-gun sprite (section B), feel tuning. Original design context below. The flagship ability: fire a portal pair and travel through it (Portal-style). Model it as a portal-gun `HeldItemSpec` that spawns/links portal entities, plus a portal-pair system that teleports the player between linked portals. **Decided (Jon, merged from the old "Portal Gun" low-hanging note):** classic **blue/orange two-color** pair; **carries momentum** through the portals; it's a **held item you pick up in a room**; **`Attack` fires/places portals** and **`Interact` toggles blue↔orange** (the context-sensitive-Interact override — Interact becomes "toggle mode" when there's no genuine interaction nearby, see the Context-sensitive Interact item above). Remaining open design calls: portal placement rules (any surface vs valid-surface-only), what *else* carries through (projectiles / thrown javelins or player-only), interaction with room/LDtk world bounds, and keeping it **deterministic for the headless sim**. Uses the portal gun sprite (section B) as its held visual and is the headline equip test for the grid inventory above. Big, multi-session feature — scope a vertical slice (one room, one portal pair, player-only teleport) before generalizing. The long-discussed flagship "build a real feature" target (see `[[feedback_long_run_build_big]]`).
 
+- [ ] **Port pirates off the dedicated "sniper" path onto held-gun-sword unification** `[V3/D3]` - **Flexed on the player first (2026-06-03):** the player can now pick up a `gun_sword` `HeldItem` and `Attack` fires its `RangedActionSpec::Bolt` laser bolt instead of swinging (`item_pickup::fire_held_ranged_system` / `held_projectile_step`); picking it up *replaces* the player's melee with the item's ranged verb. The pirate end still has bespoke routing: `PirateOnShark` carries `held_item: Some("gun_sword")` but its ranged fire is special-cased in `content/features/ecs/brain_effects.rs::spawn_enemy_projectiles_from_brain_actions` (the `uses_gun_sword` / `lasersword:` owner-prefix branch) and the brain leans on a Skirmisher/Sniper template. Generalize so the brain "just knows it's holding a gun-sword and uses it" the same way the player does: drive enemy ranged fire purely off `ActionSet.ranged` + the held item (one shared spawn path for player and pirate laser bolts), and drop any dedicated sniper-mode branch (`brain/state_machine.rs::tick_sniper` / `SniperCfg`) that exists only to make the gun-sword fire. Keep the lasersword muzzle/visual routing. The player slice is the reference implementation; this closes the unification.
 
 - [ ] **Possession (down + hold Interact to take over an actor)** `[V4/D3]` - Holding `Down + Interact` for ~2s near any actor possesses it: swap that actor's `Brain` to `Brain::Player(slot)` and route the player's control into it (revert on release/death). Deliberately **unrestricted** for now (justified as an endgame ability); the real game will gate it hard. The point is to **drive every actor's `ActionSet` through the human control path** — NPCs, enemies, bosses — so any unification oversight becomes explicit. Concretely: bosses currently `unreachable!()` on `Brain::Player` (`content/features/ecs/bosses.rs:558`), so possessing a boss immediately flushes that assumption (and any enemy/NPC verb a human never drove). **Decided (Jon): default = vacate / despawn the player body** — you fully *become* the possessed actor; the original body is gone until you un-possess. Make the body-handling a policy/knob (enum: Vacate / FreezeInPlace / GhostFollow) so other modes/games can pick a different rule later, but ship Vacate first. **Un-possess:** press `Down+Interact` again to leave (forced out on the possessed actor's death); the camera follows the possessed actor while possessing. Cheapest high-signal test of the universal-brain unification — see the "Universal brain interface" item in the drop-zone.
 

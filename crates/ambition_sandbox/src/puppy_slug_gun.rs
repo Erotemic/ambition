@@ -65,7 +65,13 @@ pub fn fire_puppy_slug_gun_system(
     let entity = crate::features::spawn_runtime_minion(
         &mut commands,
         format!("puppy_slug_ally_{}", *next_id),
-        "Puppy Slug (ally)",
+        // Must be the catalog `display_name` ("Puppy Slug"), NOT a decorated label
+        // — the character-sprite table is keyed by display_name and silently falls
+        // back to the goblin sheet on a miss, so "Puppy Slug (ally)" rendered a
+        // goblin (with the puppy-slug shader, which keys off the archetype). The
+        // ally-ness is carried by `ActorFaction::Player` + `PuppySlugAlly`, not the
+        // name. See the sprite-keying refactor in TODO.md.
+        "Puppy Slug",
         spawn_pos,
         ae::Vec2::new(14.0, 12.0),
         SLUG_ARCHETYPE,

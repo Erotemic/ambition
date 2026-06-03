@@ -199,6 +199,9 @@ pub fn upgrade_enemy_sprites(
     feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
     ecs_actors: Query<crate::features::ActorSpriteData>,
+    // Names we've already warned about resolving no sprite, so the warning fires
+    // once per offending name instead of every frame the actor is unbound.
+    mut warned_sprite_names: Local<std::collections::HashSet<String>>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -235,20 +238,44 @@ pub fn upgrade_enemy_sprites(
         // placeholder sheet this way without authors having to
         // duplicate the registry entry on an
         // enemy-side table.
-        let character_asset =
-            match crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors) {
-                Some(name) => assets
-                    .characters
-                    .npc_asset_for_name(&name)
-                    .or_else(|| {
-                        crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
-                            .and_then(|n| assets.characters.npc_asset_for_name(&n))
-                    })
-                    .or_else(|| assets.characters.enemy_asset(view.kind)),
-                None => crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
-                    .and_then(|n| assets.characters.npc_asset_for_name(&n))
-                    .or_else(|| assets.characters.enemy_asset(view.kind)),
-            };
+        let override_name = crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors);
+        let enemy_name = crate::features::ecs_enemy_name(&visual.id, &ecs_actors);
+        // Resolve a *named* sprite first (override label, then the enemy's own
+        // name), then fall back to the generic kind sheet.
+        let named = override_name
+            .as_deref()
+            .and_then(|n| assets.characters.npc_asset_for_name(n))
+            .or_else(|| {
+                enemy_name
+                    .as_deref()
+                    .and_then(|n| assets.characters.npc_asset_for_name(n))
+            });
+        let character_asset = match named {
+            Some(asset) => Some(asset),
+            None => {
+                // Falling back to the generic kind sheet is intended for nameless /
+                // truly-generic enemies, but a *named* actor that lands here almost
+                // always means its `display_name` doesn't match the character
+                // catalog — a content/code bug (e.g. a decorated variant like
+                // "Puppy Slug (ally)" instead of the catalog "Puppy Slug"), which
+                // used to render the goblin default silently. Surface it once per
+                // name (a warning, not a panic — a genuinely missing/late asset
+                // file is handled gracefully by the `images.get(..).is_none()`
+                // guard below, so the game still runs).
+                if let Some(missed) = override_name.as_deref().or(enemy_name.as_deref()) {
+                    if warned_sprite_names.insert(missed.to_string()) {
+                        bevy::log::warn!(
+                            target: "ambition::sprites",
+                            "actor '{missed}' resolved no registered sprite — using the {:?} \
+                             default sheet. If it should have its own sprite, its display_name \
+                             doesn't match the character catalog (likely a typo / decorated name).",
+                            view.kind,
+                        );
+                    }
+                }
+                assets.characters.enemy_asset(view.kind)
+            }
+        };
         let Some(character_asset) = character_asset else {
             continue;
         };

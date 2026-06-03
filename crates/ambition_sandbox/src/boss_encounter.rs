@@ -59,4 +59,6 @@ pub use spec_types::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
 };
 pub use specs::default_boss_specs;
-pub use systems::{populate_boss_encounter_registry, update_boss_encounters};
+pub use systems::{
+    boss_phase_transition_feedback, populate_boss_encounter_registry, update_boss_encounters,
+};

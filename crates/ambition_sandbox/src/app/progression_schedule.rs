@@ -22,6 +22,10 @@ impl Plugin for ProgressionSchedulePlugin {
             Update,
             (
                 crate::boss_encounter::update_boss_encounters,
+                // Feel feedback (shake + cry SFX) on dramatic boss phase changes;
+                // diffs the registry phase, so it just needs to run after the
+                // boss update advances it.
+                crate::boss_encounter::boss_phase_transition_feedback,
                 crate::boss_encounter::spawn_cut_rope_victory_npc,
                 // Hides the gnu_ton arena's retreat ladder while the boss
                 // is alive, re-adds it the frame the boss dies. Runs after

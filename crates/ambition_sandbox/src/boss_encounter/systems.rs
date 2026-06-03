@@ -376,3 +376,109 @@ fn active_phase_music_track(state: &crate::boss_encounter::BossEncounterState) -
     };
     (!track.is_empty()).then_some(track.as_str())
 }
+
+/// Camera-shake amplitude (px) on a dramatic boss phase change. Capped to 14 by
+/// [`CameraShakeState::kick`].
+const BOSS_PHASE_SHAKE_PX: f32 = 11.0;
+
+/// Boss phase-transition feedback (Jon: a boss should "scream" / "feel loud" on
+/// a phase change "without breaking the player's ears"). On a transition INTO a
+/// dramatic phase (Transition / Phase2 / Enrage / Stagger) we kick the camera
+/// shake and play a placeholder "cry" SFX — a feel layer that works for every
+/// boss, including the new FSM + T-rex. The dedicated per-boss scream SPRITE
+/// animation + a bespoke quiet "cry" SFX are follow-ups; this reuses the existing
+/// shake + a soft impact sound as placeholders.
+///
+/// Decoupled from the phase-advance / event pipeline on purpose: it diffs each
+/// boss's phase in the registry against a `Local` snapshot, so it needs no
+/// changes to `publish_events` or its four callers.
+pub fn boss_phase_transition_feedback(
+    registry: Res<BossEncounterRegistry>,
+    mut last_phase: Local<
+        std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
+    >,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    // Optional: a headless / camera-less build may not insert the shake resource.
+    mut shake: Option<ResMut<crate::time::camera_ease::CameraShakeState>>,
+) {
+    use crate::boss_encounter::BossEncounterPhase as P;
+    for (id, state) in &registry.encounters {
+        let prev = last_phase.insert(id.clone(), state.phase);
+        // React only to an actual change, and skip the first observation
+        // (`prev == None`) so a freshly-registered boss doesn't shake on spawn.
+        if prev.is_none() || prev == Some(state.phase) {
+            continue;
+        }
+        if matches!(state.phase, P::Transition | P::Phase2 | P::Enrage | P::Stagger) {
+            if let Some(shake) = shake.as_deref_mut() {
+                shake.kick(BOSS_PHASE_SHAKE_PX);
+            }
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: ae::Vec2::ZERO,
+            });
+        }
+    }
+}
+
+#[cfg(test)]
+mod phase_feedback_tests {
+    use super::*;
+    use crate::boss_encounter::{BossEncounterPhase, BossEncounterState};
+    use crate::time::camera_ease::CameraShakeState;
+
+    fn registry_with_boss(phase: BossEncounterPhase) -> BossEncounterRegistry {
+        let mut state =
+            BossEncounterState::new(crate::boss_encounter::BossEncounterSpec::trex_boss());
+        state.phase = phase;
+        let mut reg = BossEncounterRegistry::default();
+        reg.encounters.insert("trex_boss".to_string(), state);
+        reg
+    }
+
+    fn shake_px(app: &App) -> f32 {
+        app.world().resource::<CameraShakeState>().amplitude_px
+    }
+
+    #[test]
+    fn dramatic_phase_change_kicks_the_camera_shake() {
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.init_resource::<CameraShakeState>();
+        app.insert_resource(registry_with_boss(BossEncounterPhase::Phase1));
+        app.add_systems(Update, boss_phase_transition_feedback);
+
+        // First observation (Phase1) — no shake.
+        app.update();
+        assert_eq!(shake_px(&app), 0.0, "no shake on first observation");
+
+        // Phase1 → Enrage (dramatic) → shake kicks.
+        app.world_mut()
+            .resource_mut::<BossEncounterRegistry>()
+            .encounters
+            .get_mut("trex_boss")
+            .unwrap()
+            .phase = BossEncounterPhase::Enrage;
+        app.update();
+        assert!(shake_px(&app) > 0.0, "dramatic transition kicks the shake");
+    }
+
+    #[test]
+    fn non_dramatic_change_does_not_shake() {
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.init_resource::<CameraShakeState>();
+        app.insert_resource(registry_with_boss(BossEncounterPhase::Intro));
+        app.add_systems(Update, boss_phase_transition_feedback);
+        app.update(); // observe Intro
+        // Intro → Phase1 (not dramatic) → no shake.
+        app.world_mut()
+            .resource_mut::<BossEncounterRegistry>()
+            .encounters
+            .get_mut("trex_boss")
+            .unwrap()
+            .phase = BossEncounterPhase::Phase1;
+        app.update();
+        assert_eq!(shake_px(&app), 0.0, "Phase1 is not a dramatic transition");
+    }
+}

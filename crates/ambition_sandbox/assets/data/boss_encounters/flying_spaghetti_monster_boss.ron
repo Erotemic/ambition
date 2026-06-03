@@ -1,0 +1,29 @@
+// Boss encounter spec — Flying Spaghetti Monster (canon: Jon — a false-god boss).
+//
+// Mirrors `BossEncounterSpec::flying_spaghetti_monster_boss()` (the compile-time
+// fallback constructor in `boss_encounter/spec_types.rs`); the runtime
+// `load_boss_specs_from_disk` parses this and overrides the constructor's numeric
+// fields per ADR 0017 (Rust = behavior, RON = content). Behaviour (movement +
+// attack schedule) lives in `assets/data/boss_profiles.ron`.
+//
+// Music: `flying_spaghetti_monster_fight` is the generated fight cue. The
+// Will-Smith-eats-the-FSM finish + a per-phase music ramp are follow-ups.
+
+(
+    id: "flying_spaghetti_monster_boss",
+    name: "Flying Spaghetti Monster",
+    max_hp: 36,
+    phase1_to_transition_hp: 0.6,
+    transition_to_phase2_hp: 0.6,
+    phase2_to_enrage_hp: 0.25,
+    intro_seconds: 2.6,
+    transition_seconds: 2.0,
+    stagger_seconds: 1.8,
+    death_seconds: 2.6,
+    stagger_threshold: 7,
+    stagger_window_seconds: 1.6,
+    music_intro: "flying_spaghetti_monster_fight",
+    music_phase1: "flying_spaghetti_monster_fight",
+    music_phase2: "flying_spaghetti_monster_fight",
+    music_enrage: "flying_spaghetti_monster_fight",
+)

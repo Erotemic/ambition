@@ -228,6 +228,30 @@ impl BossEncounterSpec {
             music_enrage: "standing_on_shoulders".into(),
         }
     }
+
+    /// Flying Spaghetti Monster — a false-god boss (canon: Jon). Compile-time
+    /// fallback; the on-disk `boss_encounters/flying_spaghetti_monster_boss.ron`
+    /// overrides these numbers. Behaviour lives in `boss_profiles.ron`.
+    pub fn flying_spaghetti_monster_boss() -> Self {
+        Self {
+            id: "flying_spaghetti_monster_boss".into(),
+            name: "Flying Spaghetti Monster".into(),
+            max_hp: 36,
+            phase1_to_transition_hp: 0.6,
+            transition_to_phase2_hp: 0.6,
+            phase2_to_enrage_hp: 0.25,
+            intro_seconds: 2.6,
+            transition_seconds: 2.0,
+            stagger_seconds: 1.8,
+            death_seconds: 2.6,
+            stagger_threshold: 7,
+            stagger_window_seconds: 1.6,
+            music_intro: "flying_spaghetti_monster_fight".into(),
+            music_phase1: "flying_spaghetti_monster_fight".into(),
+            music_phase2: "flying_spaghetti_monster_fight".into(),
+            music_enrage: "flying_spaghetti_monster_fight".into(),
+        }
+    }
 }
 
 /// Live encounter state.

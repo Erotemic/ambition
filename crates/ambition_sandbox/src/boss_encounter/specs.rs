@@ -103,6 +103,14 @@ mod tests {
         );
     }
 
+    #[test]
+    fn load_boss_specs_from_disk_finds_flying_spaghetti_monster_boss() {
+        assert_spec_matches_disk(
+            "flying_spaghetti_monster_boss",
+            crate::boss_encounter::BossEncounterSpec::flying_spaghetti_monster_boss(),
+        );
+    }
+
     /// Every RON file under `boss_encounters/` must correspond to an
     /// authored profile in `AUTHORED_BOSS_PROFILES`. A stray RON
     /// (typo'd filename, leftover from a renamed boss) would be

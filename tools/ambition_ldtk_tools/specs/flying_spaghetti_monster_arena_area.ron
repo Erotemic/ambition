@@ -1,0 +1,146 @@
+// flying_spaghetti_monster_arena — boss arena for the Flying Spaghetti Monster
+// (canon: Jon — a false-god boss). Reached from the Hall of Bosses gallery.
+//
+// The boss behaviour + encounter are data-authored:
+//   assets/data/boss_profiles.ron  (movement + attack schedule)
+//   assets/data/boss_encounters/flying_spaghetti_monster_boss.ron (HP/phases/music)
+// Sprite fidelity (the FSM sheet has idle/drift rows, not boss-attack rows) and
+// the Will-Smith finish are follow-ups; the boss renders via the generic boss
+// fallback until its sheet is boss-wired.
+//
+// A tall, open arena (960×768) gives the floaty AirSwoop boss room to swoop.
+(
+    id: "flying_spaghetti_monster_arena",
+    level_id: "flying_spaghetti_monster_arena",
+    world_x: -12000,
+    world_y: 0,
+    px_wid: 960,
+    px_hei: 768,
+    fill_collision: "empty",
+    bg_color: "#15131F",
+    biome: "boss",
+    music_track: "flying_spaghetti_monster_fight",
+    connect_to: [
+        (
+            target_room: "hall_of_bosses",
+            px: [
+                1190,
+                240,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            id: "hall_to_fsm_portal",
+            target_zone: "fsm_arena_entry",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                736,
+            ],
+            size: [
+                960,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                736,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                944,
+                0,
+            ],
+            size: [
+                16,
+                736,
+            ],
+            fields: (
+                name: "right_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                928,
+                16,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                96,
+                672,
+            ],
+            size: [
+                24,
+                48,
+            ],
+            fields: (
+                name: "flying_spaghetti_monster_arena_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                160,
+                640,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "fsm_arena_entry",
+                name: "fsm_arena_entry",
+                activation: "Door",
+                target_room: "hall_of_bosses",
+                target_zone: "hall_to_fsm_portal",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "BossSpawn",
+            px: [
+                480,
+                240,
+            ],
+            size: [
+                168,
+                150,
+            ],
+            fields: (
+                name: "Flying Spaghetti Monster",
+                brain: "PhaseScript:flying_spaghetti_monster_boss",
+            ),
+        ),
+    ],
+)

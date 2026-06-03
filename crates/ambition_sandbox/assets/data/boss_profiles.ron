@@ -452,4 +452,111 @@
             ]),
         ),
     ),
+    // Flying Spaghetti Monster — a false-god boss (canon: Jon). A floaty,
+    // noodly-appendage monster. Composed ENTIRELY of reusable attack profiles
+    // (no new hardcoded attack types): OverfitVolley = meatball volley that
+    // tracks the player, SaddlePoint = rotating noodle cross, GradientCascade =
+    // spawns lesser appendages (minions), FullBodyPulse / SideSweep = His Noodly
+    // touch + appendage sweep. Sprite/animation fidelity + the Will-Smith finish
+    // are follow-ups; this is the playable fight.
+    "flying_spaghetti_monster_boss": (
+        id: "flying_spaghetti_monster_boss",
+        combat_size: Some((168.0, 150.0)),
+        movement: AirSwoop(
+            x_radius: 190.0,
+            y_radius: 70.0,
+            x_frequency: 0.62,
+            y_frequency: 1.15,
+            chase_scale: 0.12,
+            chase_limit: 110.0,
+            speed: 240.0,
+        ),
+        movement_phase2: Some(AirSwoop(
+            x_radius: 230.0,
+            y_radius: 90.0,
+            x_frequency: 0.9,
+            y_frequency: 1.0,
+            chase_scale: 0.26,
+            chase_limit: 170.0,
+            speed: 300.0,
+        )),
+        movement_enrage: Some(AirSwoop(
+            x_radius: 260.0,
+            y_radius: 110.0,
+            x_frequency: 1.15,
+            y_frequency: 1.1,
+            chase_scale: 0.44,
+            chase_limit: 230.0,
+            speed: 360.0,
+        )),
+        strike_speed_scale: 0.30,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            OverfitVolley,
+            SaddlePoint,
+            GradientCascade,
+            FullBodyPulse,
+            SideSweep,
+        ],
+        attack_cooldown: 1.1,
+        attack_windup: 0.5,
+        attack_active: 0.32,
+        attack_damage: 2,
+        body_damage: 1,
+        projectile_origin_offset: (0.0, -40.0),
+        attack_pattern: Scripted(
+            intro: (steps: [
+                Telegraph(profile: FullBodyPulse, duration: 1.2),
+                Strike(profile: FullBodyPulse, duration: 0.4),
+                Rest(duration: 1.0),
+            ]),
+            phase1: (steps: [
+                // Meatball volley tracks the player.
+                Telegraph(profile: OverfitVolley, duration: 1.3),
+                Strike(profile: OverfitVolley, duration: 0.32),
+                Rest(duration: 1.3),
+                // Appendage sweep.
+                Telegraph(profile: SideSweep, duration: 0.9),
+                Strike(profile: SideSweep, duration: 0.4),
+                Rest(duration: 1.1),
+                // Rotating noodle cross.
+                Telegraph(profile: SaddlePoint, duration: 1.2),
+                Strike(profile: SaddlePoint, duration: 0.8),
+                Rest(duration: 1.6),
+            ]),
+            transition: (steps: [Rest(duration: 2.4)]),
+            phase2: (steps: [
+                // Summon lesser appendages.
+                Telegraph(profile: GradientCascade, duration: 1.2),
+                Strike(profile: GradientCascade, duration: 0.5),
+                Rest(duration: 1.2),
+                Telegraph(profile: OverfitVolley, duration: 1.0),
+                Strike(profile: OverfitVolley, duration: 0.30),
+                Rest(duration: 1.0),
+                Telegraph(profile: FullBodyPulse, duration: 1.0),
+                Strike(profile: FullBodyPulse, duration: 0.45),
+                Rest(duration: 1.2),
+            ]),
+            enrage: (steps: [
+                Telegraph(profile: OverfitVolley, duration: 0.7),
+                Strike(profile: OverfitVolley, duration: 0.28),
+                Telegraph(profile: SaddlePoint, duration: 0.8),
+                Strike(profile: SaddlePoint, duration: 0.7),
+                Rest(duration: 0.6),
+                Telegraph(profile: SideSweep, duration: 0.6),
+                Strike(profile: SideSweep, duration: 0.35),
+                Rest(duration: 0.8),
+            ]),
+        ),
+    ),
 }

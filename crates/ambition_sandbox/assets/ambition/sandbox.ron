@@ -296,6 +296,15 @@
                 asset_path: Some("audio/music/generated/standing_on_shoulders/full.ogg"),
                 arrangement: (bpm: 88.0, total_beats: 176.0),
             ),
+            // Flying Spaghetti Monster boss fight. `arrangement` is a placeholder
+            // (tune to the generated track); the OGG is regenerated via the music
+            // renderer (a `flying_spaghetti_monster_*` score exists).
+            (
+                id: "flying_spaghetti_monster_fight",
+                display_name: "Flying Spaghetti Monster (Fight)",
+                asset_path: Some("audio/music/generated/flying_spaghetti_monster_fight/full.ogg"),
+                arrangement: (bpm: 132.0, total_beats: 64.0),
+            ),
         ],
     ),
 )

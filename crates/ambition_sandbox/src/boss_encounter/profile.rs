@@ -84,6 +84,23 @@ impl BossProfile {
         }
     }
 
+    /// Flying Spaghetti Monster — false-god boss (canon: Jon). Drops a noodly
+    /// relic chest on defeat.
+    pub fn flying_spaghetti_monster_boss() -> Self {
+        let encounter = crate::boss_encounter::BossEncounterSpec::flying_spaghetti_monster_boss();
+        Self {
+            id: encounter.id.clone(),
+            display_name: encounter.name.clone(),
+            encounter,
+            behavior: crate::features::BossBehaviorProfile::flying_spaghetti_monster_boss(),
+            reward: BossRewardProfile::DropChest {
+                pickup: crate::interaction::PickupKind::Custom("noodly_relic".to_string()),
+                offset: ae::Vec2::new(0.0, 24.0),
+                size: ae::Vec2::new(54.0, 54.0),
+            },
+        }
+    }
+
     pub fn generic(id: impl Into<String>, display_name: impl Into<String>, max_hp: i32) -> Self {
         let id = id.into();
         let display_name = display_name.into();
@@ -127,6 +144,10 @@ const AUTHORED_BOSS_PROFILES: &[(&str, fn() -> BossProfile)] = &[
     (
         "smirking_behemoth_boss",
         BossProfile::smirking_behemoth_boss,
+    ),
+    (
+        "flying_spaghetti_monster_boss",
+        BossProfile::flying_spaghetti_monster_boss,
     ),
 ];
 
@@ -221,6 +242,20 @@ mod tests {
             "smirking_behemoth_boss",
             crate::boss_encounter::BossEncounterSpec::smirking_behemoth_boss(),
         );
+    }
+
+    #[test]
+    fn flying_spaghetti_monster_boss_profile_encounter_matches_hardcoded_constructor() {
+        assert_profile_matches(
+            "flying_spaghetti_monster_boss",
+            crate::boss_encounter::BossEncounterSpec::flying_spaghetti_monster_boss(),
+        );
+    }
+
+    #[test]
+    fn flying_spaghetti_monster_boss_profile_declares_reward_chest() {
+        let profile = BossProfile::flying_spaghetti_monster_boss();
+        assert!(matches!(profile.reward, BossRewardProfile::DropChest { .. }));
     }
 
     #[test]

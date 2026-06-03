@@ -3,6 +3,34 @@
 use super::*;
 use crate::features::SetFlagRequested;
 
+/// Range within which dropped loot drifts toward the player — a coin/loot magnet,
+/// so the coins + hearts this run drops come to you instead of needing a pixel-
+/// perfect walk-over.
+const PICKUP_MAGNET_RANGE: f32 = 130.0;
+/// How fast magnetized pickups close on the player (px/s).
+const PICKUP_MAGNET_SPEED: f32 = 340.0;
+
+/// Pull nearby uncollected pickups toward the player. Runs before
+/// [`collect_ecs_pickups`], which still does the actual overlap grant — a pickup
+/// pulled into overlap is collected the same frame.
+pub fn magnetize_pickups(
+    time: Res<crate::WorldTime>,
+    players: Query<&crate::player::PlayerKinematics, With<crate::player::PrimaryPlayer>>,
+    mut pickups: Query<&mut FeatureAabb, (With<PickupFeature>, Without<Collected>)>,
+) {
+    let dt = time.scaled_dt;
+    let Ok(player) = players.single() else {
+        return;
+    };
+    for mut aabb in &mut pickups {
+        let to_player = player.pos - aabb.center;
+        let dist = to_player.length();
+        if dist > 1.0 && dist < PICKUP_MAGNET_RANGE {
+            aabb.center += to_player.normalize() * (PICKUP_MAGNET_SPEED * dt).min(dist);
+        }
+    }
+}
+
 /// Collect ECS-owned pickups after the player simulation has advanced.
 pub fn collect_ecs_pickups(
     mut commands: Commands,
@@ -112,6 +140,7 @@ mod tests {
         app.world_mut()
             .spawn((
                 PlayerEntity,
+                crate::player::PrimaryPlayer,
                 PlayerKinematics {
                     pos,
                     size: ae::Vec2::new(28.0, 46.0),
@@ -273,5 +302,25 @@ mod tests {
             app.world().get::<Collected>(pickup).is_none(),
             "with no player, nothing is collected"
         );
+    }
+
+    #[test]
+    fn nearby_pickups_drift_toward_the_player() {
+        let mut app = App::new();
+        app.insert_resource(crate::WorldTime {
+            scaled_dt: 0.1,
+            ..Default::default()
+        });
+        app.add_systems(Update, magnetize_pickups);
+        player_at(&mut app, ae::Vec2::new(100.0, 100.0));
+        // In range (dist 100 < 130) -> drifts toward the player (leftward).
+        let near = health_pickup_at(&mut app, "near", ae::Vec2::new(200.0, 100.0));
+        // Out of range (dist 400) -> unmoved.
+        let far = health_pickup_at(&mut app, "far", ae::Vec2::new(500.0, 100.0));
+        app.update();
+        let near_x = app.world().get::<FeatureAabb>(near).unwrap().center.x;
+        let far_x = app.world().get::<FeatureAabb>(far).unwrap().center.x;
+        assert!(near_x < 200.0, "the nearby pickup drifted toward the player (x={near_x})");
+        assert_eq!(far_x, 500.0, "the far pickup is out of magnet range");
     }
 }

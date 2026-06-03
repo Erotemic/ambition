@@ -98,7 +98,7 @@ pub use ecs::ActorSpriteData;
 pub use ecs::{
     apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests,
     apply_hitbox_damage, boss_spawn_hurtboxes, clear_encounter_reward_ecs, collect_ecs_pickups,
-    derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
+    derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs, magnetize_pickups,
     ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
     ecs_boss_name, ecs_breakable_state, ecs_chest_opened, ecs_enemy_anim_state, ecs_enemy_name,
     ecs_enemy_sprite_override, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
@@ -231,6 +231,8 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
         app.add_systems(
             Update,
             (
+                // Pull nearby loot toward the player, then collect on overlap.
+                magnetize_pickups,
                 collect_ecs_pickups,
                 crate::player::apply_player_heal_requests,
             )

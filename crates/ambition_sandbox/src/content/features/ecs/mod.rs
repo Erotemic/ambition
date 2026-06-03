@@ -136,7 +136,7 @@ pub use mount::{
     sync_riders_to_mounts, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, RidingOn,
 };
 pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
-pub use pickups::collect_ecs_pickups;
+pub use pickups::{collect_ecs_pickups, magnetize_pickups};
 pub use reset::{reset_ecs_npc_actors, reset_ecs_room_features};
 pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_npc_actors_with_save,

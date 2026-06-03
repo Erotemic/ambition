@@ -1,0 +1,6 @@
+{
+  "level_id": "gradient_summit_chamber",
+  "entities": [
+    { "type": "PickupSpawn", "px": [400, 328], "size": [24, 24], "fields": { "name": "summit_reward", "kind": "currency:25" } }
+  ]
+}

@@ -150,6 +150,23 @@
         smash_hit_band: Some(34.0),
         move_style: Walk,
     ),
+    // Ranged kiter: the Skirmisher brain holds a standoff distance (derived
+    // from attack_range -> standoff_px ~182), strafes, and fires bolts on a
+    // cadence. No melee — it keeps its distance and peppers you, so the player
+    // has to chase it down or out-range it. Grounded (move_style Walk), unlike
+    // the aerial pirate-on-shark Skirmishers.
+    "RangedSkirmisher": (
+        max_health: 3,
+        patrol_speed: 90.0,
+        chase_speed: 150.0,
+        aggro_radius: 540.0,
+        attack_range: 520.0,
+        contact_strength: 0.40,
+        damage_amount: 1,
+        brain_template: Skirmisher,
+        ranged: Some(Bolt(speed: 460.0, damage: 1)),
+        move_style: Walk,
+    ),
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
     // careless approach still punishes via the swipe.
     "SmallLurker": (

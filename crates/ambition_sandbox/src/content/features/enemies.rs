@@ -162,6 +162,13 @@ pub enum EnemyArchetype {
     /// two quick children before they swarm. Thematically an overfit
     /// model memorizing (replicating) its data points.
     DividingMite,
+    /// Ranged skirmisher — the roster's only true **kiter**. It holds at
+    /// long range and peppers you with arrows, and backs off early when
+    /// you close (a large `too_close_distance` in
+    /// `smash_cfg_for_archetype`), so the read is "chase it down or use
+    /// your own ranged/AOE" rather than the melee rushers' "block and
+    /// punish." Thematically an outlier that snipes from the margins.
+    RangedSkirmisher,
 }
 
 /// Maps `crate::actor::EnemyBrain::Custom("...")` strings to archetype variants.
@@ -184,6 +191,7 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
     ("pirate_heavy_on_shark", EnemyArchetype::PirateHeavyOnShark),
     ("exploding_mite", EnemyArchetype::ExplodingMite),
     ("dividing_mite", EnemyArchetype::DividingMite),
+    ("ranged_skirmisher", EnemyArchetype::RangedSkirmisher),
 ];
 
 /// Authored tuning row for one [`EnemyArchetype`]. Every archetype is
@@ -356,6 +364,7 @@ fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
         PuppySlug => "PuppySlug",
         ExplodingMite => "ExplodingMite",
         DividingMite => "DividingMite",
+        RangedSkirmisher => "RangedSkirmisher",
     }
 }
 
@@ -551,7 +560,9 @@ impl EnemyArchetype {
         match self {
             Combatant | SmallSkitter | SmallLurker | MediumStriker | AggressiveSeeker
             | PuppySlug | PirateRaider | BurningFlyingShark | InfiniteSandbag | FiniteSandbag
-            | ExplodingMite | DividingMite => EnemyRespawnPolicy::OnRoomReenter,
+            | ExplodingMite | DividingMite | RangedSkirmisher => {
+                EnemyRespawnPolicy::OnRoomReenter
+            }
             LargeBrute | LargeColossus | PirateHeavy | PirateOnShark | PirateHeavyOnShark => {
                 EnemyRespawnPolicy::OnRest
             }

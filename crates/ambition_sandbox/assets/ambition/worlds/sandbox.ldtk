@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 5925,
+	"nextUid": 5927,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -39862,6 +39862,44 @@
 									"realEditorValues": [ { "id": "V_String", "params": ["Volatile Cache: clear the mites at range (don't melee the bombs), then climb."] } ]
 								},
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [67,26],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 73080,
+							"__worldY": 1452,
+							"iid": "EnemySpawn-5925",
+							"width": 34,
+							"height": 52,
+							"defUid": 2008,
+							"px": [1080,428],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Skirmisher", "__tile": null, "defUid": 3018, "realEditorValues": [ { "id": "V_String", "params": ["Skirmisher"] } ] },
+								{ "__identifier": "brain", "__type": "String", "__value": "ranged_skirmisher", "__tile": null, "defUid": 3019, "realEditorValues": [ { "id": "V_String", "params": ["ranged_skirmisher"] } ] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [73,26],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 73180,
+							"__worldY": 1452,
+							"iid": "EnemySpawn-5926",
+							"width": 34,
+							"height": 52,
+							"defUid": 2008,
+							"px": [1180,428],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Skirmisher", "__tile": null, "defUid": 3018, "realEditorValues": [ { "id": "V_String", "params": ["Skirmisher"] } ] },
+								{ "__identifier": "brain", "__type": "String", "__value": "ranged_skirmisher", "__tile": null, "defUid": 3019, "realEditorValues": [ { "id": "V_String", "params": ["ranged_skirmisher"] } ] }
 							]
 						}
 					]

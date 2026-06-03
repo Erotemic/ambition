@@ -53,6 +53,7 @@ pub fn update_body_mode(
             &crate::player::PlayerEnvironmentContact,
             &mut crate::player::PlayerInteractionState,
             &crate::player::PlayerInputFrame,
+            &crate::player::PlayerFlightState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -69,6 +70,7 @@ pub fn update_body_mode(
         env_contact,
         mut interaction,
         input,
+        flight,
     )) = player_q.single_mut()
     else {
         return;
@@ -146,9 +148,13 @@ pub fn update_body_mode(
     // grounded (so a Down-press on a floor stays a crouch). Up, by
     // contrast, can engage from grounded as a "step onto the ladder
     // from below" gesture.
+    // While flying, holding Up is "fly up", not "grab the ladder" — flight
+    // suppresses ladder auto-climb so you can fly past / over a ladder without
+    // snapping onto it. (Land or disable flight to climb.)
     let climb_initiator = up_held || (down_held && !on_ground && !controls.jump_pressed);
     if climbable_contact_present
         && climb_initiator
+        && !flight.fly_enabled
         && jump_state.ladder_drop_through_timer <= 0.0
         && !jump_state.ladder_drop_through_hold_lock
         && mode != ae::BodyMode::MorphBall
@@ -279,6 +285,7 @@ mod tests {
                 PlayerInputFrame::default(),
                 PlayerBodyModeState::default(),
                 PlayerJumpState::default(),
+                crate::player::PlayerFlightState::default(),
             ))
             .id();
         (app, player)
@@ -622,6 +629,78 @@ mod tests {
                 .body_mode,
             ae::BodyMode::Climbing,
             "once the player has released down, pressing it again should re-grab the ladder",
+        );
+    }
+
+    #[test]
+    fn flying_suppresses_ladder_auto_climb() {
+        let (mut app, player) = build_body_mode_test_app();
+        // A ladder column the player is standing in.
+        {
+            let mut world = app.world_mut().resource_mut::<crate::GameWorld>();
+            world.0.climbable_regions.push(ClimbableRegion::new(
+                ae::Aabb::new(Vec2::new(210.0, 820.0), Vec2::new(20.0, 200.0)),
+                ClimbableKind::Ladder,
+                ClimbableSpec::default(),
+            ));
+        }
+        {
+            let mut kin = app.world_mut().get_mut::<PlayerKinematics>(player).unwrap();
+            kin.pos = Vec2::new(210.0, 820.0);
+        }
+        {
+            let contact = app
+                .world()
+                .resource::<crate::GameWorld>()
+                .0
+                .climbable_at(app.world().get::<PlayerKinematics>(player).unwrap().aabb());
+            let mut env = app
+                .world_mut()
+                .get_mut::<PlayerEnvironmentContact>(player)
+                .unwrap();
+            env.climbable = contact;
+        }
+        // Hold Up + enable flight.
+        {
+            let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
+            input.frame = ControlFrame {
+                axis_y: -1.0,
+                ..Default::default()
+            };
+        }
+        {
+            let mut flight = app
+                .world_mut()
+                .get_mut::<crate::player::PlayerFlightState>(player)
+                .unwrap();
+            flight.fly_enabled = true;
+        }
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<PlayerBodyModeState>(player)
+                .unwrap()
+                .body_mode,
+            ae::BodyMode::Standing,
+            "flying should suppress ladder auto-climb (Up means fly up, not grab)",
+        );
+
+        // Disable flight — the same Up press now engages the ladder.
+        {
+            let mut flight = app
+                .world_mut()
+                .get_mut::<crate::player::PlayerFlightState>(player)
+                .unwrap();
+            flight.fly_enabled = false;
+        }
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<PlayerBodyModeState>(player)
+                .unwrap()
+                .body_mode,
+            ae::BodyMode::Climbing,
+            "with flight off, Up on a ladder climbs",
         );
     }
 }

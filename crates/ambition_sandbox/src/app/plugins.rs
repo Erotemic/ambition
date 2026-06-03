@@ -218,11 +218,21 @@ fn register_player_input_systems(app: &mut App) {
 /// `PlayerInputFrame` for player-specific verbs (the polarity flip).
 fn register_player_simulation_systems(app: &mut App) {
     app.init_resource::<crate::app::SandboxResetThisFrame>();
+    app.init_resource::<crate::possession::PossessionState>();
     app.add_systems(
         Update,
         (
             clear_sandbox_reset_this_frame,
-            player_control_system.run_if(gameplay_allowed),
+            // Possession: Down+Interact takes over a nearby actor. The trigger +
+            // input sync run before the player tick so the possessed actor reads
+            // fresh input; the player's own control is gated OFF while possessing
+            // so the same input doesn't drive both bodies.
+            crate::possession::possession_trigger_system.run_if(gameplay_allowed),
+            crate::possession::release_possession_if_target_lost,
+            crate::possession::sync_possession_input,
+            player_control_system
+                .run_if(gameplay_allowed)
+                .run_if(crate::possession::not_possessing),
             player_simulation_system.run_if(gameplay_allowed),
             apply_player_hit_events.run_if(gameplay_allowed),
         )

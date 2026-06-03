@@ -76,6 +76,7 @@ pub mod mark_recall;
 #[cfg(feature = "oot_inventory")]
 pub mod oot_menu;
 pub mod physics;
+pub mod possession;
 pub mod puppy_slug_gun;
 pub(crate) mod persistence;
 pub mod portal;

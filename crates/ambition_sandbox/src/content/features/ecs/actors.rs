@@ -323,7 +323,15 @@ pub fn update_ecs_actors(
             // through these via `EnemyMut`; the `EnemyRuntime` inside
             // `ActorRuntime::Enemy` is a transition mirror kept in sync
             // by load/store until the consumers are migrated.
-            Option<super::enemy_clusters::EnemyClusterQueryData>,
+            //
+            // `Possessed` is nested with the cluster data (not a new top-level
+            // tuple field) to stay within Bevy's query-tuple arity: when set,
+            // the actor is driven from the player's input instead of its brain
+            // (`crate::possession`).
+            (
+                Option<super::enemy_clusters::EnemyClusterQueryData>,
+                Option<&crate::possession::Possessed>,
+            ),
         ),
         With<FeatureSimEntity>,
     >,
@@ -350,7 +358,7 @@ pub fn update_ecs_actors(
     // enemies are allowed to commit to an attack this tick; the
     // others hold at the outer ring. This is the anti-clump layer.
     let mut requests: Vec<(String, ae::Vec2, crate::combat_slots::SlotKind)> = Vec::new();
-    for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _, clusters) in &actors {
+    for (_, _, actor, _, _, _, _, _, _, _, _, _, _, _, (clusters, _)) in &actors {
         if matches!(actor, ActorRuntime::Enemy) {
             if let Some(c) = clusters {
                 if c.status.alive {
@@ -403,7 +411,7 @@ pub fn update_ecs_actors(
         mut control,
         action_set,
         mounted,
-        mut clusters,
+        (mut clusters, possessed),
     ) in &mut actors
     {
         // `target.pos` is populated by `select_actor_targets`
@@ -470,7 +478,18 @@ pub fn update_ecs_actors(
                 // Localized gravity: each enemy feels the gravity of the column
                 // it is standing in (its own position), not one global field.
                 let enemy_gravity_sign = gravity.sign_at(em.kin.pos);
-                let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
+                let brain_frame = if let Some(p) = possessed {
+                    // POSSESSED: drive this actor from the player's input through
+                    // its OWN ActorControlFrame — the same translation the player
+                    // brain uses — so it moves/attacks via its own update path.
+                    let crowding = crowding_by_id.get(&em.config.id).copied();
+                    let snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
+                    let mut bf = crate::actor_control::ActorControlFrame::neutral();
+                    crate::brain::player::tick_player_brain_from_control(
+                        &p.control, &snapshot, &mut bf,
+                    );
+                    bf
+                } else if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
                     let snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
                     let mut bf = crate::actor_control::ActorControlFrame::neutral();

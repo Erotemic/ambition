@@ -1015,8 +1015,16 @@ def add_reciprocal_loading_zone(
             )
         new_x, new_y = snapped_x, snapped_y
 
-    # Reject overlap with any existing entity rect in the target level.
+    # Reject overlap with any existing *physical / logical* entity rect in the
+    # target level. Pure overlays — a CameraZone's region or a DebugLabel's text
+    # box — span the room and never obstruct a door, so they don't block
+    # placement. Without this skip, a room authored with a full-room CameraZone
+    # (the usual case) could never receive a reciprocal connect_to door, which
+    # blocked room-to-room gridvania linking.
+    non_blocking_overlays = {"CameraZone", "DebugLabel"}
     for inst in ambition.get("entityInstances", []):
+        if inst["__identifier"] in non_blocking_overlays:
+            continue
         ix, iy = inst["px"]
         iw, ih = inst["width"], inst["height"]
         if (

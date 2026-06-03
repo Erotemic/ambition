@@ -60,8 +60,22 @@ Kernel Guide: Try the basement labs, then check debug mode: combo state, hitstun
 
 title: merchant_seed
 ---
-Merchant Prototype: A real shop should be a dialogue node with inventory, prices, requirements, consequences, and preview text. This stub proves choices can become transactions.
--> Buy health refill (stub).
+Merchant Prototype: Wares for sale. Coin talks — anything you can't afford stays greyed out.
+-> Buy Axe — 25g <<if can_afford(25)>>
+    <<buy_item "axe" 25>>
+    <<jump merchant_seed>>
+-> Buy Health Cell — 8g <<if can_afford(8)>>
+    <<buy_item "healthcell" 8>>
+    <<jump merchant_seed>>
+-> Buy Mana Cell — 8g <<if can_afford(8)>>
+    <<buy_item "manacell" 8>>
+    <<jump merchant_seed>>
+-> Sell Axe — 12g <<if inventory_has("axe")>>
+    <<sell_item "axe" 12>>
+    <<jump merchant_seed>>
+-> Sell Health Cell — 4g <<if inventory_has("healthcell")>>
+    <<sell_item "healthcell" 4>>
+    <<jump merchant_seed>>
 -> Ask about refunds.
     <<jump merchant_seed__1>>
 -> Leave.

@@ -73,6 +73,7 @@ pub mod portal;
 pub(crate) mod presentation;
 pub(crate) mod projectile;
 pub(crate) mod runtime;
+pub mod shop;
 pub mod shrine;
 pub(crate) mod time;
 pub(crate) mod ui_nav;

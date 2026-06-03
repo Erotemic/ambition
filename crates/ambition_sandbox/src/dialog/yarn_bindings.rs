@@ -67,6 +67,10 @@ pub struct YarnStateMirrorData {
     /// Item `dialog_id()` → held count, mirrored from the live
     /// `PlayerInventory` resource so `inventory_has(...)` can read it.
     pub inventory_counts: std::collections::HashMap<String, u32>,
+    /// Player money, mirrored from the primary player's `PlayerWallet` so a
+    /// merchant dialogue can show the balance / gate purchases (`wallet_balance`,
+    /// `can_afford`).
+    pub wallet_balance: i32,
 }
 
 #[derive(Resource, Default, Clone)]
@@ -81,9 +85,11 @@ pub fn refresh_yarn_state_mirror(
     cut_rope_heavy_object: Option<Res<crate::boss_encounter::CutRopeHeavyObjectCycle>>,
     inventory: Option<Res<crate::inventory::PlayerInventory>>,
     owned: Option<Res<crate::items::OwnedItems>>,
+    wallet: Query<&crate::player::PlayerWallet, With<crate::player::PrimaryPlayer>>,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
+    snap.wallet_balance = wallet.iter().next().map(|w| w.balance).unwrap_or(0);
     // Inventory is a live ECS resource, not part of `SandboxSave`;
     // refresh it independently (and before the save early-return) so
     // `inventory_has(...)` reflects pickups even in a save-less sandbox.
@@ -249,6 +255,49 @@ pub fn cmd_give_item(
     }
 }
 
+/// `<<buy_item "id" price>>` — spend `price` from the player's wallet and grant
+/// one of the catalog item if affordable. A merchant dialogue node calls this on
+/// a purchase choice; the affordability check lives in [`crate::shop::buy`].
+pub fn cmd_buy_item(
+    In((id, price)): In<(String, f32)>,
+    mut owned: ResMut<crate::items::OwnedItems>,
+    mut wallets: Query<&mut crate::player::PlayerWallet, With<crate::player::PrimaryPlayer>>,
+) {
+    let Some(item) = crate::items::Item::from_dialog_id(&id) else {
+        warn!(target: "ambition_sandbox::dialog::yarn", "buy_item: unknown item {id:?}");
+        return;
+    };
+    let Ok(mut wallet) = wallets.single_mut() else {
+        return;
+    };
+    let outcome = crate::shop::buy(&mut wallet, &mut owned, item, price.max(0.0) as i32);
+    info!(
+        target: "ambition_sandbox::dialog::yarn",
+        "buy_item: {id:?} @ {price} -> {outcome:?} (balance now {})", wallet.balance,
+    );
+}
+
+/// `<<sell_item "id" price>>` — remove one of the catalog item and credit the
+/// wallet if the player owns it. See [`crate::shop::sell`].
+pub fn cmd_sell_item(
+    In((id, price)): In<(String, f32)>,
+    mut owned: ResMut<crate::items::OwnedItems>,
+    mut wallets: Query<&mut crate::player::PlayerWallet, With<crate::player::PrimaryPlayer>>,
+) {
+    let Some(item) = crate::items::Item::from_dialog_id(&id) else {
+        warn!(target: "ambition_sandbox::dialog::yarn", "sell_item: unknown item {id:?}");
+        return;
+    };
+    let Ok(mut wallet) = wallets.single_mut() else {
+        return;
+    };
+    let outcome = crate::shop::sell(&mut wallet, &mut owned, item, price.max(0.0) as i32);
+    info!(
+        target: "ambition_sandbox::dialog::yarn",
+        "sell_item: {id:?} @ {price} -> {outcome:?} (balance now {})", wallet.balance,
+    );
+}
+
 /// Pure core of [`cmd_give_item`]: add `count` (floored to a
 /// non-negative integer) of the named item to the bag. Returns the
 /// number actually granted (0 when the kind is unknown or the count
@@ -411,6 +460,19 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
             .map(|snap| mirror_inventory_has(&snap, &item))
             .unwrap_or(false)
     });
+    // wallet_balance() -> number: the player's current money, so a merchant node
+    // can show it ("You have {wallet_balance()}g").
+    let m = Arc::clone(&mirror.0);
+    lib.add_function("wallet_balance", move || -> f32 {
+        m.read().map(|snap| snap.wallet_balance as f32).unwrap_or(0.0)
+    });
+    // can_afford(price) -> bool: gate a purchase choice on affordability.
+    let m = Arc::clone(&mirror.0);
+    lib.add_function("can_afford", move |price: f32| -> bool {
+        m.read()
+            .map(|snap| snap.wallet_balance >= price.max(0.0) as i32)
+            .unwrap_or(false)
+    });
 }
 
 /// Pure `inventory_has` lookup over a mirror snapshot: true iff the
@@ -433,13 +495,15 @@ fn normalize_item_id(raw: &str) -> String {
         .collect()
 }
 
-/// Register all nine custom commands on the runner. Called from
+/// Register all eleven custom commands on the runner. Called from
 /// `spawn_dialogue_runner`. Each command name maps to a Bevy
 /// system registered against the `World`.
 pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let set_flag_id = commands.register_system(cmd_set_flag);
     let clear_flag_id = commands.register_system(cmd_clear_flag);
     let give_item_id = commands.register_system(cmd_give_item);
+    let buy_item_id = commands.register_system(cmd_buy_item);
+    let sell_item_id = commands.register_system(cmd_sell_item);
     let spawn_chest_id = commands.register_system(cmd_spawn_chest);
     let play_sfx_id = commands.register_system(cmd_play_sfx);
     let spawn_fireworks_id = commands.register_system(cmd_spawn_fireworks);
@@ -450,6 +514,8 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("set_flag", set_flag_id);
     cmds.add_command("clear_flag", clear_flag_id);
     cmds.add_command("give_item", give_item_id);
+    cmds.add_command("buy_item", buy_item_id);
+    cmds.add_command("sell_item", sell_item_id);
     cmds.add_command("spawn_chest", spawn_chest_id);
     cmds.add_command("play_sfx", play_sfx_id);
     cmds.add_command("spawn_fireworks", spawn_fireworks_id);

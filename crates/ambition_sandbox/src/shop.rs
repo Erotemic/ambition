@@ -20,6 +20,9 @@ pub enum ShopTx {
     CantAfford,
     /// Nothing of that item to sell (wallet unchanged).
     NotOwned,
+    /// A unique item the player already owns — buying again would waste coins
+    /// (the grant caps at one), so the purchase is refused (wallet unchanged).
+    AlreadyOwned,
 }
 
 impl ShopTx {
@@ -33,6 +36,11 @@ impl ShopTx {
 pub fn buy(wallet: &mut PlayerWallet, owned: &mut OwnedItems, item: Item, price: i32) -> ShopTx {
     if price < 0 {
         return ShopTx::CantAfford;
+    }
+    // A unique item (weapon / ability) the player already owns can't stack — the
+    // grant caps at one — so refuse the buy instead of pocketing the coins.
+    if item.category().is_unique() && owned.has(item) {
+        return ShopTx::AlreadyOwned;
     }
     if wallet.try_spend(price) {
         owned.grant(item, 1);
@@ -112,5 +120,25 @@ mod tests {
         assert!(sell(&mut wallet, &mut owned, Item::Axe, 12).succeeded());
         assert_eq!(wallet.balance, 12);
         assert!(!owned.has(Item::Axe));
+    }
+
+    #[test]
+    fn re_buying_an_owned_unique_is_refused_without_spending() {
+        let mut wallet = PlayerWallet { balance: 100 };
+        let mut owned = OwnedItems::default();
+        owned.grant(Item::Blink, 1); // an ability — unique
+        let tx = buy(&mut wallet, &mut owned, Item::Blink, 45);
+        assert_eq!(tx, ShopTx::AlreadyOwned, "can't re-buy a unique you own");
+        assert_eq!(wallet.balance, 100, "wallet untouched");
+        assert_eq!(owned.count(Item::Blink), 1, "still just one");
+    }
+
+    #[test]
+    fn non_unique_consumables_still_stack_on_buy() {
+        let mut wallet = PlayerWallet { balance: 100 };
+        let mut owned = OwnedItems::default();
+        owned.grant(Item::HealthCell, 1); // consumable — stacks
+        assert!(buy(&mut wallet, &mut owned, Item::HealthCell, 8).succeeded());
+        assert_eq!(owned.count(Item::HealthCell), 2, "consumables stack");
     }
 }

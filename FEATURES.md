@@ -31,6 +31,7 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Enemy ranged and boss specials via `ActorActionMessage` consumers | Available for current ranged enemies and authored boss specials | `docs/systems/brain-driver.md`, `docs/systems/boss-encounter-architecture.md` |
 | Projectiles and motion-input upgrades | Available | `docs/mechanics/projectiles-and-motion-inputs.md` |
 | Shield/parry/bubble-shield vocabulary | Available | `docs/mechanics/abilities.md` |
+| Player-allied summon (puppy-slug gun) | Available (landed 2026-06-03); a held item summons capped, player-faction passive puppy slugs that harm enemies but not the player via `is_player_side`; generalized `spawn_runtime_minion(faction, aggression)` | `crates/ambition_sandbox/src/puppy_slug_gun.rs` |
 | Actor, faction, damage, interactable, pickup, breakable vocabulary | Available | `docs/systems/progression-systems.md`, `docs/systems/factions.md` |
 | Canonical `HitSpec` / `HitInstance` / `HitResult` pipeline | Missing; damage is functional but fragmented | `docs/systems/gameplay-effects.md`, `docs/current/next.md` |
 | Enemy archetypes, boss profiles, encounter lock walls/rewards | Partial but playable | `docs/systems/boss-behavior-profiles.md`, `docs/systems/boss-encounter-architecture.md`, `docs/planning/tech-debt-log.md` |

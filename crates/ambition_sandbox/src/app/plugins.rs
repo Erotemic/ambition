@@ -283,6 +283,8 @@ fn register_item_pickup_systems(app: &mut App) {
             crate::item_pickup::spawn_debug_axe_once,
             crate::item_pickup::spawn_debug_gunsword_once,
             crate::portal::spawn_debug_portal_gun_pickup_once,
+            crate::portal::spawn_debug_gravity_switch_once,
+            crate::portal::gravity_flip_switch_system,
             crate::portal::arm_portal_pickups,
             crate::item_pickup::pickup_held_item_system.run_if(gameplay_allowed),
             // Fire the held gun-sword laser (after pickup so the grab press
@@ -314,6 +316,7 @@ fn register_room_transition_systems(app: &mut App) {
             crate::features::reset_ecs_npc_actors,
             crate::boss_encounter::reset_cut_rope_boss_arena_on_room_reset,
             crate::portal::clear_portals_on_reset,
+            crate::portal::reset_gravity_on_room_reset,
         )
             .chain()
             .in_set(SandboxSet::RoomTransition),

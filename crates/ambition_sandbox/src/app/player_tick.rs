@@ -163,6 +163,7 @@ pub fn player_simulation_system(
     mut event_writers: SandboxEventWriters,
     mut queues: SandboxQueues,
     mut shake: ResMut<crate::time::camera_ease::CameraShakeState>,
+    gravity_field: Option<Res<crate::portal::GravityField>>,
     mut player_q: Query<
         (
             ae::PlayerClusterQueryData,
@@ -197,7 +198,12 @@ pub fn player_simulation_system(
     else {
         return;
     };
-    let tuning = editable_tuning.as_engine();
+    let mut tuning = editable_tuning.as_engine();
+    // Gravity direction from the world GravityField (the gravity-flip switch /
+    // gravity rooms). +1 = down, -1 = up; threaded through the integrator.
+    tuning.gravity_sign = gravity_field
+        .as_deref()
+        .map_or(1.0, |g| g.dir.y.signum());
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
     // Same polarity flip as the control phase — ActorControl is the

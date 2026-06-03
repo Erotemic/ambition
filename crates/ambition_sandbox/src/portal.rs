@@ -550,6 +550,84 @@ impl Default for GravityField {
     }
 }
 
+/// A sandbox gravity-flip switch: a tall pressure-plate column the player steps
+/// into to flip [`GravityField`] up↔down. Tall so it's reachable from both the
+/// floor and the ceiling (after a flip you're on the ceiling — walk back into
+/// the column to flip again). `armed` latches so one entry = one flip.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct GravityFlipSwitch {
+    pub pos: Vec2,
+    pub half_extent: Vec2,
+    /// True when the player is clear of the plate, so the next entry flips.
+    pub armed: bool,
+}
+
+/// Spawn one gravity-flip switch column near the player the first frame a
+/// player exists (debug convenience until authored placement lands).
+pub fn spawn_debug_gravity_switch_once(
+    mut commands: Commands,
+    mut done: Local<bool>,
+    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    if *done {
+        return;
+    }
+    let Ok(kin) = players.single() else {
+        return;
+    };
+    *done = true;
+    commands.spawn((
+        GravityFlipSwitch {
+            pos: kin.pos + Vec2::new(140.0, 0.0),
+            // Tall column so it spans floor→ceiling and is reachable either way.
+            half_extent: Vec2::new(16.0, 220.0),
+            armed: true,
+        },
+        Name::new("Gravity flip switch"),
+    ));
+}
+
+/// Flip [`GravityField`] up↔down when the player steps into a [`GravityFlipSwitch`]
+/// (rising-edge latched by `armed`).
+pub fn gravity_flip_switch_system(
+    mut gravity: ResMut<GravityField>,
+    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut switches: Query<&mut GravityFlipSwitch>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+) {
+    let Ok(kin) = players.single() else {
+        return;
+    };
+    let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+    for mut sw in &mut switches {
+        let overlapping = player_aabb.strict_intersects(ae::Aabb::new(sw.pos, sw.half_extent));
+        if overlapping && sw.armed {
+            // Flip the vertical component of gravity.
+            gravity.dir = Vec2::new(gravity.dir.x, -gravity.dir.y);
+            sw.armed = false;
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::PORTAL_POWERUP,
+                pos: kin.pos,
+            });
+            bevy::log::info!(target: "ambition::portal", "gravity flipped: dir = {:?}", gravity.dir);
+        } else if !overlapping {
+            sw.armed = true;
+        }
+    }
+}
+
+/// Reset gravity to the default (down) when the room resets, so a flipped room
+/// doesn't carry over.
+pub fn reset_gravity_on_room_reset(
+    mut resets: MessageReader<crate::features::ResetRoomFeaturesEvent>,
+    mut gravity: ResMut<GravityField>,
+) {
+    if resets.read().next().is_none() {
+        return;
+    }
+    *gravity = GravityField::default();
+}
+
 /// Render-space z-rotation that stands a body upright under `gravity_dir`: it
 /// points the sprite's local +Y ("up") along world-up (`-gravity`), accounting
 /// for the y-down→y-up render flip. Default gravity → angle 0.
@@ -1016,6 +1094,39 @@ pub fn sync_portal_mode_indicator(
     ));
 }
 
+/// Marks the visual for a [`GravityFlipSwitch`].
+#[derive(Component)]
+pub struct GravitySwitchVisual;
+
+/// Draw the gravity-flip switch column, tinted green when gravity is normal and
+/// orange when it's flipped, so the player can see the current gravity state.
+pub fn sync_gravity_switch_visual(
+    mut commands: Commands,
+    world: Res<GameWorld>,
+    gravity: Option<Res<GravityField>>,
+    visuals: Query<Entity, With<GravitySwitchVisual>>,
+    switches: Query<&GravityFlipSwitch>,
+) {
+    for entity in &visuals {
+        commands.entity(entity).despawn();
+    }
+    let flipped = gravity.as_deref().is_some_and(|g| g.dir.y < 0.0);
+    let color = if flipped {
+        Color::srgba(0.95, 0.55, 0.20, 0.65)
+    } else {
+        Color::srgba(0.40, 0.90, 0.60, 0.65)
+    };
+    for sw in &switches {
+        let translation = crate::config::world_to_bevy(&world.0, sw.pos, 8.5);
+        commands.spawn((
+            GravitySwitchVisual,
+            Sprite::from_color(color, sw.half_extent * 2.0),
+            Transform::from_translation(translation),
+            Name::new("Gravity switch visual"),
+        ));
+    }
+}
+
 /// Colored quad per portal so the player can actually see them. Clear-and-
 /// rebuild each frame — there are at most two portals, so the churn is
 /// negligible and the visuals can never desync from the sim entities.
@@ -1358,6 +1469,54 @@ mod tests {
         assert!(gravity_upright_angle(Vec2::new(0.0, 1.0)).abs() < 1e-5);
         // Gravity to the right (+X) → the body stands rotated +90° (render).
         assert!((gravity_upright_angle(Vec2::new(1.0, 0.0)) - FRAC_PI_2).abs() < 1e-5);
+    }
+
+    #[test]
+    fn gravity_switch_flips_on_entry_and_rearms_on_exit() {
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.init_resource::<GravityField>();
+        app.add_systems(Update, gravity_flip_switch_system);
+        let player = spawn_player(&mut app, Vec2::new(100.0, 100.0), 1.0);
+        app.world_mut().spawn(GravityFlipSwitch {
+            pos: Vec2::new(400.0, 100.0),
+            half_extent: Vec2::new(16.0, 220.0),
+            armed: true,
+        });
+
+        // Not overlapping → gravity stays down.
+        app.update();
+        assert!(app.world().resource::<GravityField>().dir.y > 0.0, "starts down");
+
+        // Step onto the switch → flips up.
+        app.world_mut()
+            .get_mut::<PlayerKinematics>(player)
+            .unwrap()
+            .pos = Vec2::new(400.0, 100.0);
+        app.update();
+        assert!(
+            app.world().resource::<GravityField>().dir.y < 0.0,
+            "stepping on the switch flips gravity up"
+        );
+        // Staying on it does not re-flip (latched).
+        app.update();
+        assert!(app.world().resource::<GravityField>().dir.y < 0.0, "stays flipped while on it");
+
+        // Leave, then re-enter → flips back down.
+        app.world_mut()
+            .get_mut::<PlayerKinematics>(player)
+            .unwrap()
+            .pos = Vec2::new(100.0, 100.0);
+        app.update();
+        app.world_mut()
+            .get_mut::<PlayerKinematics>(player)
+            .unwrap()
+            .pos = Vec2::new(400.0, 100.0);
+        app.update();
+        assert!(
+            app.world().resource::<GravityField>().dir.y > 0.0,
+            "re-entering flips gravity back down"
+        );
     }
 
     #[test]

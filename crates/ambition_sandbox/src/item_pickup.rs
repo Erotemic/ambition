@@ -49,17 +49,21 @@ const THROW_SPEED_UP: f32 = 260.0;
 pub fn ground_item_physics(
     time: Res<crate::WorldTime>,
     world: Res<crate::GameWorld>,
+    gravity: Option<Res<crate::portal::GravityField>>,
     mut grounds: Query<&mut GroundItem>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
     }
+    // Thrown / dropped items fall along the world gravity direction too, so a
+    // gravity-flip room sends them up.
+    let gravity_sign = gravity.as_deref().map_or(1.0, |g| g.dir.y.signum());
     for mut item in &mut grounds {
         if item.vel == Vec2::ZERO {
             continue;
         }
-        item.vel.y += GROUND_ITEM_GRAVITY * dt;
+        item.vel.y += GROUND_ITEM_GRAVITY * gravity_sign * dt;
         let next = item.pos + item.vel * dt;
         let next_aabb = ae::Aabb::new(next, item.half_extent);
         let blocked = world.0.blocks.iter().any(|block| {
@@ -68,7 +72,7 @@ pub fn ground_item_physics(
                 ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
             ) && next_aabb.strict_intersects(block.aabb)
         });
-        let below_world = next.y > world.0.size.y + 200.0;
+        let below_world = next.y > world.0.size.y + 200.0 || next.y < -200.0;
         if blocked {
             // Settle in place (simple — no slide).
             item.vel = Vec2::ZERO;

@@ -121,6 +121,7 @@ pub(super) fn sweep_player_y_clusters(
     delta_y: f32,
     prev_bottom: f32,
     drop_through: bool,
+    gravity_sign: f32,
 ) {
     let delta = Vec2::new(0.0, delta_y);
     if delta.y.abs() <= 1.0e-5 {
@@ -132,6 +133,7 @@ pub(super) fn sweep_player_y_clusters(
             env_contact,
             prev_bottom,
             drop_through,
+            gravity_sign,
         );
         return;
     }
@@ -159,11 +161,17 @@ pub(super) fn sweep_player_y_clusters(
         kinematics.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
         let body = kinematics.aabb();
         let approaching_from_above = delta.y > 0.0 && prev_bottom <= hit.block.aabb.top() + 4.0;
-        if approaching_from_above || body.center().y < hit.block.aabb.center().y {
+        let snap_to_top = approaching_from_above || body.center().y < hit.block.aabb.center().y;
+        if snap_to_top {
             kinematics.pos.y += hit.block.aabb.top() - body.bottom();
-            ground.on_ground = true;
         } else {
             kinematics.pos.y += hit.block.aabb.bottom() - body.top();
+        }
+        // Grounded when the contact is on the side gravity pulls toward: a
+        // block top under normal gravity, a block bottom (standing on a
+        // ceiling) under flipped gravity.
+        if contact_is_gravity_side(snap_to_top, gravity_sign) {
+            ground.on_ground = true;
         }
         kinematics.vel.y = 0.0;
     } else {
@@ -178,7 +186,20 @@ pub(super) fn sweep_player_y_clusters(
         env_contact,
         prev_bottom,
         drop_through,
+        gravity_sign,
     );
+}
+
+/// Is a vertical contact on the side gravity pulls toward (so it's "ground")?
+/// `snap_to_top` = the body snapped to a block's TOP (it's above the block).
+/// Under normal gravity (`+`) a top contact is ground; under flipped gravity
+/// (`-`) a bottom contact (standing on a ceiling) is ground.
+fn contact_is_gravity_side(snap_to_top: bool, gravity_sign: f32) -> bool {
+    if gravity_sign >= 0.0 {
+        snap_to_top
+    } else {
+        !snap_to_top
+    }
 }
 
 /// Penetration repair for the X axis. Push the body out of any block
@@ -242,6 +263,7 @@ fn resolve_vertical_clusters(
     _env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
     prev_bottom: f32,
     drop_through: bool,
+    gravity_sign: f32,
 ) {
     let mut aabb = kinematics.aabb();
     for block in &world.blocks {
@@ -258,13 +280,16 @@ fn resolve_vertical_clusters(
         if !matches!(block.kind, BlockKind::OneWay) && body_is_side_contact(aabb, block.aabb) {
             continue;
         }
-        if aabb.center().y < block.aabb.center().y {
+        let snap_to_top = aabb.center().y < block.aabb.center().y;
+        if snap_to_top {
             let push = block.aabb.top() - aabb.bottom();
             kinematics.pos.y += push;
-            ground.on_ground = true;
         } else {
             let push = block.aabb.bottom() - aabb.top();
             kinematics.pos.y += push;
+        }
+        if contact_is_gravity_side(snap_to_top, gravity_sign) {
+            ground.on_ground = true;
         }
         kinematics.vel.y = 0.0;
         aabb = kinematics.aabb();
@@ -330,7 +355,7 @@ pub fn try_pogo_clusters(
         .find(|block| block.kind.is_pogo_target() && hitbox.strict_intersects(block.aabb));
     if let Some(block) = hit {
         let aabb = block.aabb;
-        kinematics.vel.y = -tuning.pogo_speed;
+        kinematics.vel.y = -tuning.pogo_speed * tuning.gravity_sign;
         crate::engine_core::player_clusters::refresh_movement_resources_clusters(
             abilities, dash, jump_state, tuning,
         );

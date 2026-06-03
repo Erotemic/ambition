@@ -70,7 +70,8 @@ pub(super) fn integrate_velocity_clusters(
             .map(|c| c.spec.gravity_scale)
             .unwrap_or(1.0);
         if !blink_hang_active {
-            clusters.kinematics.vel.y += tuning.gravity * water_gravity_scale * dt;
+            clusters.kinematics.vel.y +=
+                tuning.gravity * tuning.gravity_sign * water_gravity_scale * dt;
         }
         if input.fast_fall_pressed
             && clusters.abilities.abilities.fast_fall
@@ -82,7 +83,7 @@ pub(super) fn integrate_velocity_clusters(
             && !blink_hang_active
             && clusters.env_contact.water.is_none()
         {
-            clusters.kinematics.vel.y += tuning.fast_fall_accel * dt;
+            clusters.kinematics.vel.y += tuning.fast_fall_accel * tuning.gravity_sign * dt;
         }
         clusters.flight.gliding = clusters.abilities.abilities.glide
             && !clusters.ground.on_ground
@@ -174,6 +175,7 @@ pub(super) fn integrate_velocity_clusters(
         dt_y,
         prev_bottom,
         drop_through,
+        tuning.gravity_sign,
     );
 
     if clusters.ground.on_ground {
@@ -237,7 +239,7 @@ pub(super) fn integrate_climb_clusters(
     };
     let spec = contact.spec;
     let target_vy = if jump.ladder_jump_boost > 0.0 && input.axis_y < -0.1 {
-        -tuning.jump_speed
+        -tuning.jump_speed * tuning.gravity_sign
     } else {
         input.axis_y * spec.climb_speed
     };

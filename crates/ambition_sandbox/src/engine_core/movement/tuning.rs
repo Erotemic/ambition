@@ -1,5 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+/// Default gravity sign (normal, downward). Used by `serde(default)` so tuning
+/// files baked before `gravity_sign` existed load as normal gravity.
+fn default_gravity_sign() -> f32 {
+    1.0
+}
+
 // First-pass movement constants. These remain constants for easy grep/tuning,
 // but the simulation accepts a `MovementTuning` so experiments can override
 // them without recompiling every assumption into the update function.
@@ -172,6 +178,13 @@ impl LedgeMomentumTuning {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct MovementTuning {
     pub gravity: f32,
+    /// Sign of gravity along the Y axis: `+1.0` = normal (down, +Y), `-1.0` =
+    /// flipped (up). Set per-frame from the world `GravityField`; threaded
+    /// through gravity application, jump impulses, and ground detection so a
+    /// gravity-flip room is just this sign. `serde(default)` so tuning files
+    /// baked before it existed deserialize as normal gravity.
+    #[serde(default = "default_gravity_sign")]
+    pub gravity_sign: f32,
     pub run_accel: f32,
     pub air_accel: f32,
     pub ground_friction: f32,
@@ -236,6 +249,7 @@ impl Default for MovementTuning {
 
 pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
+    gravity_sign: 1.0,
     run_accel: RUN_ACCEL,
     air_accel: AIR_ACCEL,
     ground_friction: GROUND_FRICTION,

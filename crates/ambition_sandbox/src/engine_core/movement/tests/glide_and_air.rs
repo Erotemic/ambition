@@ -12,6 +12,48 @@ fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> PlayerClusterScratch {
 }
 
 #[test]
+fn flipped_gravity_makes_the_player_fall_up_and_stand_on_the_ceiling() {
+    use crate::engine_core::world::{Block, World};
+    let w = 800.0;
+    let h = 600.0;
+    let world = World {
+        name: "gravity flip world".to_string(),
+        size: Vec2::new(w, h),
+        spawn: Vec2::new(400.0, 300.0),
+        blocks: vec![
+            Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(w, 40.0)),
+            Block::solid("floor", Vec2::new(0.0, h - 40.0), Vec2::new(w, 40.0)),
+        ],
+        climbable_regions: Vec::new(),
+        water_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 300.0));
+    scratch.ground.on_ground = false;
+    let mut tuning = DEFAULT_TUNING;
+    tuning.gravity_sign = -1.0; // up
+
+    // Let it fall UP for a while.
+    for _ in 0..240 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        scratch.kinematics.pos.y < 300.0,
+        "flipped gravity should pull the player UP, got y={}",
+        scratch.kinematics.pos.y
+    );
+    assert!(
+        scratch.ground.on_ground,
+        "the player should land on (stand under) the ceiling with flipped gravity"
+    );
+}
+
+#[test]
 fn glide_caps_fall_speed_while_jump_held() {
     let world = test_world();
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);

@@ -111,6 +111,14 @@ mod tests {
         );
     }
 
+    #[test]
+    fn load_boss_specs_from_disk_finds_trex_boss() {
+        assert_spec_matches_disk(
+            "trex_boss",
+            crate::boss_encounter::BossEncounterSpec::trex_boss(),
+        );
+    }
+
     /// Every RON file under `boss_encounters/` must correspond to an
     /// authored profile in `AUTHORED_BOSS_PROFILES`. A stray RON
     /// (typo'd filename, leftover from a renamed boss) would be

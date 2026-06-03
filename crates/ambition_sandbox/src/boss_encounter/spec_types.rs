@@ -252,6 +252,29 @@ impl BossEncounterSpec {
             music_enrage: "flying_spaghetti_monster_fight".into(),
         }
     }
+
+    /// T-rex — a grounded, melee-centric bipedal boss (canon: Jon). Compile-time
+    /// fallback; `boss_encounters/trex_boss.ron` overrides these.
+    pub fn trex_boss() -> Self {
+        Self {
+            id: "trex_boss".into(),
+            name: "T-Rex".into(),
+            max_hp: 44,
+            phase1_to_transition_hp: 0.62,
+            transition_to_phase2_hp: 0.62,
+            phase2_to_enrage_hp: 0.26,
+            intro_seconds: 2.6,
+            transition_seconds: 2.0,
+            stagger_seconds: 2.0,
+            death_seconds: 2.8,
+            stagger_threshold: 8,
+            stagger_window_seconds: 1.8,
+            music_intro: "dinosaur_liberators".into(),
+            music_phase1: "dinosaur_liberators".into(),
+            music_phase2: "dinosaur_liberators".into(),
+            music_enrage: "dinosaur_liberators".into(),
+        }
+    }
 }
 
 /// Live encounter state.

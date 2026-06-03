@@ -278,6 +278,12 @@ impl BossBehaviorProfile {
         Self::from_data("flying_spaghetti_monster_boss")
     }
 
+    /// T-rex — grounded, melee-centric bipedal boss (canon: Jon).
+    /// Authored in `boss_profiles.ron`.
+    pub fn trex_boss() -> Self {
+        Self::from_data("trex_boss")
+    }
+
     /// Fallback profile for authored bosses whose canonical id isn't
     /// in `boss_profiles.ron`. Clones the Clockwork Warden's tuning
     /// and overrides the id so the encounter pipeline doesn't fault

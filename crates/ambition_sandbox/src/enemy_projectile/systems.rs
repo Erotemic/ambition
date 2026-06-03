@@ -30,6 +30,31 @@ pub fn update_enemy_projectiles(
     mut hit_events: MessageWriter<HitEvent>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
+    // Enemy/boss targets for PLAYER-faction shots (a wielded ranged boss
+    // attack, `crate::volley`). Same shapes the held-projectile + feature-damage
+    // overlap helpers use. Enemy-faction shots ignore these and hit the player.
+    ecs_actors: Query<
+        (
+            &crate::features::FeatureId,
+            &crate::features::FeatureAabb,
+            &crate::features::ActorDisposition,
+            &crate::features::ActorCombatState,
+        ),
+        (
+            With<crate::features::FeatureSimEntity>,
+            Without<crate::features::BossConfig>,
+        ),
+    >,
+    ecs_bosses: Query<
+        (
+            &crate::features::FeatureId,
+            &crate::features::FeatureAabb,
+            crate::features::BossClusterRef,
+            &crate::brain::BossAttackState,
+            Option<&crate::features::BossAnimationFrameSample>,
+        ),
+        With<crate::features::FeatureSimEntity>,
+    >,
 ) {
     let dt = world_time.sim_dt();
     let mut keep = Vec::with_capacity(state.bodies.len());
@@ -40,6 +65,49 @@ pub fn update_enemy_projectiles(
         let gravity_sign = gravity.sign_at(shot.body.pos);
         let alive = shot.body.tick(dt, gravity_sign);
         if !alive {
+            continue;
+        }
+
+        // Faction routing: a PLAYER-faction shot (a wielded ranged boss attack)
+        // damages the enemies/bosses it overlaps and expires on contact —
+        // mirroring `item_pickup::held_projectile_step`, reusing the shared
+        // overlap helpers so the hit-check matches what `apply_feature_hit_events`
+        // applies (incl. multi-part boss hurtboxes). Enemy-faction shots fall to
+        // the existing player-damage path below, byte-identical.
+        if shot.body.faction == crate::projectile::ProjectileFaction::Player {
+            let hit_event = HitEvent {
+                volume: shot.body.aabb(),
+                damage: shot.body.damage.max(1),
+                source: HitSource::PlayerProjectile {
+                    kind: shot.body.kind,
+                },
+                attacker: None,
+                target: HitTarget::Volume,
+                mode: HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+            };
+            if crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
+                || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses)
+            {
+                hit_events.write(hit_event);
+                sfx.write(SfxMessage::Hit { pos: shot.body.pos });
+                vfx.write(VfxMessage::Impact { pos: shot.body.pos });
+                continue;
+            }
+            // No feature hit this tick — fall through to world collision (shared).
+            match resolve_world_collision(
+                &mut shot.body,
+                &world.0,
+                WorldHitPolicy::EnemyExpireOnAnyContact,
+            ) {
+                WorldHitOutcome::Expired { pos } => {
+                    vfx.write(VfxMessage::Impact { pos });
+                    continue;
+                }
+                WorldHitOutcome::Bounced { .. } | WorldHitOutcome::Continue => {}
+            }
+            keep.push(shot);
             continue;
         }
 
@@ -118,4 +186,102 @@ pub fn update_enemy_projectiles(
     }
 
     state.bodies = keep;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::enemy_projectile::EnemyProjectileSpawn;
+    use crate::projectile::ProjectileFaction;
+
+    #[derive(Resource, Default)]
+    struct CapturedHits(Vec<HitEvent>);
+
+    fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHits>) {
+        for e in reader.read() {
+            cap.0.push(e.clone());
+        }
+    }
+
+    /// The faction-aware routing keystone: a **Player**-faction shot in the
+    /// shared pool damages the enemy it overlaps (a PlayerProjectile hit, NOT an
+    /// EnemyProjectile one) and expires on contact — the substrate for the
+    /// wielded ranged boss attack (`crate::volley`). The enemy-faction path is
+    /// unchanged (covered by the existing boss-special consumer tests).
+    #[test]
+    fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
+        let mut app = App::new();
+        app.insert_resource(crate::GameWorld(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 780.0),
+                ae::Vec2::new(800.0, 20.0),
+            )],
+        )));
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_message::<HitEvent>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.init_resource::<EnemyProjectileState>();
+        app.init_resource::<CapturedHits>();
+        app.add_systems(Update, (update_enemy_projectiles, capture_hits).chain());
+
+        let enemy_pos = ae::Vec2::new(300.0, 100.0);
+        app.world_mut().spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("test_enemy"),
+            crate::features::FeatureAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::ActorDisposition::Hostile,
+            crate::features::ActorCombatState {
+                alive: true,
+                hit_flash: 0.0,
+                strike_count: 0,
+                attack_windup_timer: 0.0,
+                attack_timer: 0.0,
+                training_dummy: false,
+            },
+        ));
+        // A player-faction shot already overlapping the enemy.
+        app.world_mut()
+            .resource_mut::<EnemyProjectileState>()
+            .spawn_with_faction(
+                EnemyProjectileSpawn {
+                    origin: enemy_pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    speed: 200.0,
+                    damage: 3,
+                    max_lifetime: 2.0,
+                    half_extent: ae::Vec2::new(8.0, 8.0),
+                    owner_id: "player_volley".into(),
+                    gravity: 0.0,
+                },
+                ProjectileFaction::Player,
+            );
+
+        app.update();
+
+        let cap = app.world().resource::<CapturedHits>();
+        assert!(
+            cap.0
+                .iter()
+                .any(|e| matches!(e.source, HitSource::PlayerProjectile { .. })),
+            "the player-faction shot lands a PlayerProjectile hit on the enemy"
+        );
+        assert!(
+            !cap.0
+                .iter()
+                .any(|e| matches!(e.source, HitSource::EnemyProjectile)),
+            "it must NOT register as an enemy projectile (would hit the player)"
+        );
+        assert!(
+            app.world().resource::<EnemyProjectileState>().bodies.is_empty(),
+            "the shot expires on contact with the enemy"
+        );
+    }
 }

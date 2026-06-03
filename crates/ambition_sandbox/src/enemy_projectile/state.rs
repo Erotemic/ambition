@@ -38,9 +38,23 @@ pub struct EnemyProjectileState {
 }
 
 impl EnemyProjectileState {
-    /// Convert a spawn request into a live projectile body and push
-    /// it onto the in-flight list.
+    /// Convert a spawn request into a live **enemy-faction** projectile body
+    /// and push it onto the in-flight list. The historical entry point — every
+    /// boss/enemy volley uses this; behavior is unchanged.
     pub fn spawn(&mut self, request: EnemyProjectileSpawn) {
+        self.spawn_with_faction(request, crate::projectile::ProjectileFaction::Enemy);
+    }
+
+    /// Spawn a projectile of a chosen `faction` into the shared in-flight pool.
+    /// A `Player`-faction body is stamped so `update_enemy_projectiles` routes
+    /// its damage to enemies/bosses instead of the player — the substrate for a
+    /// player wielding a boss-style ranged attack (`crate::volley`). Enemy
+    /// faction reproduces [`Self::spawn`] exactly.
+    pub fn spawn_with_faction(
+        &mut self,
+        request: EnemyProjectileSpawn,
+        faction: crate::projectile::ProjectileFaction,
+    ) {
         let speed = request.speed.max(1.0);
         let dir = if request.dir.length() < 1.0e-4 {
             ae::Vec2::new(1.0, 0.0)
@@ -60,10 +74,7 @@ impl EnemyProjectileState {
             gravity: request.gravity.max(0.0),
             charge_tier: 0,
         };
-        let mut body = crate::projectile::ProjectileBody::from_spec_with_faction(
-            spec,
-            crate::projectile::ProjectileFaction::Enemy,
-        );
+        let mut body = crate::projectile::ProjectileBody::from_spec_with_faction(spec, faction);
         // Enemy projectiles travel in a straight line (no bouncing —
         // a bouncing volley reads as a pinball and confuses the
         // player about the hostile path).

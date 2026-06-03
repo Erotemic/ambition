@@ -84,6 +84,7 @@ pub(crate) mod projectile;
 pub(crate) mod runtime;
 pub mod shockwave;
 pub mod shop;
+pub mod volley;
 pub mod shrine;
 pub(crate) mod time;
 pub(crate) mod ui_nav;

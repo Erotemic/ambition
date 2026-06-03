@@ -355,6 +355,10 @@ fn register_item_pickup_systems(app: &mut App) {
             // Shockwave gauntlet: plain Attack emits a ShockwaveSlam Special so
             // the player wields the boss-style AOE (consumer in combat_schedule).
             crate::shockwave::fire_shockwave_system.run_if(gameplay_allowed),
+            // Volley gauntlet: plain Attack fires a fan of player-faction bolts
+            // through the faction-aware projectile pool (the ranged wielded boss
+            // attack — `update_enemy_projectiles` routes them to enemies).
+            crate::volley::fire_volley_system.run_if(gameplay_allowed),
             // Shared movement-ability cooldown timer (scaled_dt, so pause /
             // bullet-time slow it too).
             crate::ability_cooldown::tick_ability_cooldown,

@@ -153,6 +153,17 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 ranged: None,
             },
         );
+        // The volley gauntlet has no melee/ranged verb — `Attack` is intercepted
+        // by `volley::fire_volley_system`, which fires a fan of player-faction
+        // bolts through the faction-aware projectile pool.
+        items.insert(
+            "volley",
+            HeldItemSpec {
+                id: "volley".into(),
+                melee: None,
+                ranged: None,
+            },
+        );
         // The bomb is a pure throwable (no melee/ranged verb): a plain Attack
         // throws it, and `bomb::tick_bomb_fuses` detonates it on a fuse.
         items.insert(

@@ -360,6 +360,31 @@ impl OwnedItems {
     pub fn total(&self) -> u32 {
         self.counts.iter().sum()
     }
+
+    /// Serialize the owned counts to the persisted save form (every item with a
+    /// non-zero count, keyed by stable `dialog_id`). Equipped state is not
+    /// persisted yet — re-equip from the grid on load (handoff).
+    pub fn to_persisted(&self) -> Vec<crate::save::PersistedItem> {
+        Item::ALL
+            .into_iter()
+            .filter_map(|item| {
+                let c = self.count(item);
+                (c > 0).then(|| crate::save::PersistedItem::new(item.dialog_id(), c))
+            })
+            .collect()
+    }
+
+    /// Replace the owned counts from a persisted save (clears first, then grants
+    /// each — so `grant`'s unique-item clamp still applies to a hand-edited save).
+    /// Unknown ids (a catalog item removed since the save) are skipped.
+    pub fn apply_persisted(&mut self, items: &[crate::save::PersistedItem]) {
+        *self = Self::default();
+        for p in items {
+            if let Some(item) = Item::from_dialog_id(&p.id) {
+                self.grant(item, p.count);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

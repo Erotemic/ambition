@@ -624,6 +624,18 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         // The 24-item catalog ownership model is always-on core state (pickups
         // and dialogue read/write it regardless of which menu renders it).
         .insert_resource(crate::items::OwnedItems::starter())
+        .init_resource::<crate::inventory_persist::InventoryRestored>()
+        // Persist the inventory + wallet across save/load: restore the saved set
+        // once the player exists, then mirror live changes back into the save
+        // (the existing autosave writes the dirtied save to disk).
+        .add_systems(
+            Update,
+            (
+                crate::inventory_persist::restore_inventory_from_save,
+                crate::inventory_persist::persist_inventory_to_save,
+            )
+                .chain(),
+        )
         .add_systems(
             Startup,
             (

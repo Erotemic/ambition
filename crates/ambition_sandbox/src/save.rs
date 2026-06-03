@@ -145,6 +145,23 @@ impl PersistedDialogVisit {
     }
 }
 
+/// One owned catalog item, keyed by its stable lowercase `dialog_id` (not the
+/// grid index) so the save survives catalog reordering.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedItem {
+    pub id: String,
+    pub count: u32,
+}
+
+impl PersistedItem {
+    pub fn new(id: impl Into<String>, count: u32) -> Self {
+        Self {
+            id: id.into(),
+            count,
+        }
+    }
+}
+
 /// Top-level sandbox save. Versioned so a future schema change can
 /// migrate or refuse to load gracefully.
 ///
@@ -169,6 +186,17 @@ pub struct SandboxSaveData {
     /// older saves loadable: missing field → empty Vec.
     #[serde(default)]
     pub dialog_visits: Vec<PersistedDialogVisit>,
+    /// Owned catalog items (the OoT inventory), keyed by `dialog_id`.
+    #[serde(default)]
+    pub items: Vec<PersistedItem>,
+    /// Player wallet balance.
+    #[serde(default)]
+    pub wallet: i32,
+    /// Set once the inventory has been persisted at least once, so a restore can
+    /// tell a genuinely-saved-but-empty inventory (sold everything) from a fresh
+    /// save (keep the starter set).
+    #[serde(default)]
+    pub inventory_saved: bool,
 }
 
 pub const CURRENT_SAVE_VERSION: u32 = 2;
@@ -187,6 +215,9 @@ impl SandboxSaveData {
             quests: Vec::new(),
             flags: Vec::new(),
             dialog_visits: Vec::new(),
+            items: Vec::new(),
+            wallet: 0,
+            inventory_saved: false,
         }
     }
 

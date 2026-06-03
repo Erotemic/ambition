@@ -66,6 +66,7 @@ pub(crate) mod falling_sand;
 pub(crate) mod host;
 pub(crate) mod intro;
 pub(crate) mod inventory;
+pub mod inventory_persist;
 pub(crate) mod map_menu;
 pub(crate) mod music;
 pub(crate) mod pause_menu;

@@ -52,6 +52,19 @@ pub const ENEMY_BOUNTY: i32 = 5;
 /// pays best, but the environment is worth poking.
 pub const BREAKABLE_BOUNTY: i32 = 2;
 
+/// Health a dropped heart restores when the enemy drops one.
+pub const ENEMY_HEALTH_DROP: i32 = 1;
+
+/// Deterministic (FNV-1a over the id) gate so ~1 in 4 enemy *kinds* drops a heart.
+/// Deterministic, not random, so the headless sim stays reproducible — the same
+/// enemy always drops or always doesn't.
+pub fn id_drops_health(id: &str) -> bool {
+    let h = id
+        .bytes()
+        .fold(2166136261u32, |a, b| (a ^ b as u32).wrapping_mul(16777619));
+    h % 4 == 0
+}
+
 /// Spawn a collectible currency coin at `pos` — an enemy's death drop. Reuses the
 /// exact pickup entity shape that LDtk-placed coins use, so the already-registered
 /// [`super::collect_ecs_pickups`] grants it (and plays `WORLD_COIN_PICKUP`) when a
@@ -66,6 +79,22 @@ pub fn drop_currency_coin(commands: &mut Commands, id: &str, pos: ae::Vec2, amou
         PickupFeature::new(crate::interaction::Pickup::new(
             format!("coin:{id}"),
             crate::interaction::PickupKind::Currency { amount },
+        )),
+    ));
+}
+
+/// Spawn a collectible health heart at `pos` (a sometimes-drop on enemy defeat),
+/// same pickup path as the coin so `collect_ecs_pickups` heals the player on
+/// overlap via `PlayerHealRequested`.
+pub fn drop_health_pickup(commands: &mut Commands, id: &str, pos: ae::Vec2, amount: i32) {
+    commands.spawn((
+        FeatureSimEntity,
+        FeatureId::new(format!("heart:{id}")),
+        FeatureName::new("Health"),
+        FeatureAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+        PickupFeature::new(crate::interaction::Pickup::new(
+            format!("heart:{id}"),
+            crate::interaction::PickupKind::Health { amount },
         )),
     ));
 }
@@ -504,8 +533,17 @@ fn apply_actor_hit(
                 } else {
                     banner.show(format!("defeated {}", em.config.name), 2.6);
                     // Earn-side: a defeated enemy drops a collectible coin so the
-                    // player can fund the merchant / ability shop from combat.
+                    // player can fund the merchant / ability shop from combat, and
+                    // ~1 in 4 enemy kinds also drops a heart (combat sustain).
                     drop_currency_coin(commands, &em.config.id, em.kin.pos, ENEMY_BOUNTY);
+                    if id_drops_health(&em.config.id) {
+                        drop_health_pickup(
+                            commands,
+                            &em.config.id,
+                            em.kin.pos + ae::Vec2::new(18.0, 0.0),
+                            ENEMY_HEALTH_DROP,
+                        );
+                    }
                     if !em.config.id.starts_with("encounter:")
                         && em.config.archetype != EnemyArchetype::InfiniteSandbag
                         && em.config.archetype != EnemyArchetype::FiniteSandbag
@@ -1129,6 +1167,26 @@ mod tests {
             crate::interaction::PickupKind::Ability {
                 ability_id: "grapple".to_string()
             },
+        );
+    }
+
+    #[test]
+    fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
+        // The gate is a pure function of the id, so the headless sim is reproducible.
+        assert_eq!(id_drops_health("goblin_42"), id_drops_health("goblin_42"));
+        // The drop spawns one collectible Health pickup.
+        let mut app = App::new();
+        app.add_systems(Update, |mut c: Commands| {
+            drop_health_pickup(&mut c, "any", ae::Vec2::ZERO, ENEMY_HEALTH_DROP);
+        });
+        app.update();
+        let mut q = app.world_mut().query::<&PickupFeature>();
+        let kinds: Vec<crate::interaction::PickupKind> =
+            q.iter(app.world()).map(|p| p.kind().clone()).collect();
+        assert_eq!(kinds.len(), 1, "one heart dropped");
+        assert!(
+            matches!(kinds[0], crate::interaction::PickupKind::Health { .. }),
+            "the drop is a health pickup",
         );
     }
 }

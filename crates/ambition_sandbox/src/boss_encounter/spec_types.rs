@@ -299,6 +299,29 @@ impl BossEncounterSpec {
             music_enrage: "flying_spaghetti_monster_fight".into(),
         }
     }
+
+    /// Exploding Gradient — a floating ranged-pressure boss. Compile-time
+    /// fallback; `boss_encounters/exploding_gradient_boss.ron` overrides these.
+    pub fn exploding_gradient_boss() -> Self {
+        Self {
+            id: "exploding_gradient_boss".into(),
+            name: "Exploding Gradient".into(),
+            max_hp: 38,
+            phase1_to_transition_hp: 0.6,
+            transition_to_phase2_hp: 0.6,
+            phase2_to_enrage_hp: 0.25,
+            intro_seconds: 2.4,
+            transition_seconds: 1.8,
+            stagger_seconds: 1.6,
+            death_seconds: 2.6,
+            stagger_threshold: 8,
+            stagger_window_seconds: 1.6,
+            music_intro: "dinosaur_liberators".into(),
+            music_phase1: "dinosaur_liberators".into(),
+            music_phase2: "dinosaur_liberators".into(),
+            music_enrage: "dinosaur_liberators".into(),
+        }
+    }
 }
 
 /// Live encounter state.

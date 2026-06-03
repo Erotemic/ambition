@@ -1,0 +1,28 @@
+// Boss encounter spec — Exploding Gradient (a floating ranged-pressure boss:
+// a divergent training run whose barrages escalate into chaos each phase).
+//
+// Mirrors `BossEncounterSpec::exploding_gradient_boss()` (the compile-time
+// fallback in `boss_encounter/spec_types.rs`); `load_boss_specs_from_disk`
+// overrides the constructor's numeric fields per ADR 0017 (Rust = behavior,
+// RON = content). Behaviour lives in `assets/data/boss_profiles.ron`.
+//
+// Music: reuses `dinosaur_liberators` as a placeholder fight cue — a bespoke
+// escalating "exploding gradient" track is a handoff.
+(
+    id: "exploding_gradient_boss",
+    name: "Exploding Gradient",
+    max_hp: 38,
+    phase1_to_transition_hp: 0.6,
+    transition_to_phase2_hp: 0.6,
+    phase2_to_enrage_hp: 0.25,
+    intro_seconds: 2.4,
+    transition_seconds: 1.8,
+    stagger_seconds: 1.6,
+    death_seconds: 2.6,
+    stagger_threshold: 8,
+    stagger_window_seconds: 1.6,
+    music_intro: "dinosaur_liberators",
+    music_phase1: "dinosaur_liberators",
+    music_phase2: "dinosaur_liberators",
+    music_enrage: "dinosaur_liberators",
+)

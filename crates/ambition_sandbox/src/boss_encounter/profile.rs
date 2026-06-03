@@ -133,6 +133,23 @@ impl BossProfile {
         }
     }
 
+    /// Exploding Gradient — a floating ranged-pressure boss. Drops a
+    /// divergence-shard chest.
+    pub fn exploding_gradient_boss() -> Self {
+        let encounter = crate::boss_encounter::BossEncounterSpec::exploding_gradient_boss();
+        Self {
+            id: encounter.id.clone(),
+            display_name: encounter.name.clone(),
+            encounter,
+            behavior: crate::features::BossBehaviorProfile::exploding_gradient_boss(),
+            reward: BossRewardProfile::DropChest {
+                pickup: crate::interaction::PickupKind::Custom("divergence_shard".to_string()),
+                offset: ae::Vec2::new(0.0, 24.0),
+                size: ae::Vec2::new(54.0, 54.0),
+            },
+        }
+    }
+
     pub fn generic(id: impl Into<String>, display_name: impl Into<String>, max_hp: i32) -> Self {
         let id = id.into();
         let display_name = display_name.into();
@@ -183,6 +200,7 @@ const AUTHORED_BOSS_PROFILES: &[(&str, fn() -> BossProfile)] = &[
     ),
     ("trex_boss", BossProfile::trex_boss),
     ("mode_collapse_boss", BossProfile::mode_collapse_boss),
+    ("exploding_gradient_boss", BossProfile::exploding_gradient_boss),
 ];
 
 pub fn default_boss_profiles() -> Vec<BossProfile> {
@@ -313,6 +331,14 @@ mod tests {
         assert_profile_matches(
             "mode_collapse_boss",
             crate::boss_encounter::BossEncounterSpec::mode_collapse_boss(),
+        );
+    }
+
+    #[test]
+    fn exploding_gradient_boss_profile_encounter_matches_hardcoded_constructor() {
+        assert_profile_matches(
+            "exploding_gradient_boss",
+            crate::boss_encounter::BossEncounterSpec::exploding_gradient_boss(),
         );
     }
 }

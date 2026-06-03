@@ -1,0 +1,32 @@
+// Boss arena for Exploding Gradient (a floating ranged-pressure boss). Simple
+// bounded box off the hall of bosses; the fight is data-driven.
+(
+    id: "exploding_gradient_arena",
+    level_id: "exploding_gradient_arena",
+    world_x: 54000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#1C1410",
+    biome: "lab",
+    entities: [
+        ( type: "Solid", px: [0, 608], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 592], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 592], fields: ( name: "right_wall" ) ),
+        ( type: "PlayerStart", px: [120, 562], size: [28, 46], fields: ( name: "exploding_gradient_arena_spawn" ) ),
+        ( type: "BossSpawn", px: [600, 340], size: [150, 140], fields: ( name: "Exploding Gradient", brain: "PhaseScript:exploding_gradient_boss" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 512],
+            size: [48, 96],
+            fields: ( id: "exploding_gradient_arena_entry", name: "exploding_gradient_arena_entry", activation: "Door", target_room: "hall_of_bosses", target_zone: "exploding_gradient_arena_door", bidirectional: true ),
+        ),
+        ( type: "CameraZone", px: [0, 0], size: [1280, 640], fields: ( id: "exploding_gradient_arena_camera", name: "exploding_gradient_arena_camera", mode: "Encounter" ) ),
+        ( type: "DebugLabel", px: [120, 80], size: [620, 24], fields: ( name: "exploding_gradient_arena_label", text: "Exploding Gradient — its barrages escalate into chaos each phase.", category: "Custom" ) ),
+    ],
+    connect_to: [
+        ( target_room: "hall_of_bosses", px: [900, 240], size: [16, 96], id: "exploding_gradient_arena_door", target_zone: "exploding_gradient_arena_entry", activation: "Door", bidirectional: true ),
+    ],
+)

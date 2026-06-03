@@ -93,7 +93,63 @@ pub enum Item {
     ReservedSlot = 23,
 }
 
+/// Per-item metadata, one row per catalog slot (Refactor 1). Replaces the five
+/// parallel 24-arm `match self` functions (`category` / `display_name` /
+/// `description` / `held_item_id` / `dialog_id`) + the `legacy_kind` bridge, so
+/// adding or renaming an item is **one row** here, not edits scattered across
+/// several functions with nothing stopping a forgotten arm. The `[_; ITEM_COUNT]`
+/// length is compiler-enforced, so the table can't be partial; row order must
+/// match the [`Item`] discriminants (pinned by `item_meta_table_is_index_aligned`).
+struct ItemMeta {
+    display_name: &'static str,
+    description: &'static str,
+    category: ItemCategory,
+    /// `HeldItem` id granted on equip (`None` for non-equippables / unwired weapons).
+    held_item_id: Option<&'static str>,
+    /// Stable lowercase authoring id (`inventory_has("portalgun")`).
+    dialog_id: &'static str,
+    /// Bridge to the legacy 3-kind [`crate::inventory::ItemKind`] bag, if any.
+    legacy_kind: Option<crate::inventory::ItemKind>,
+}
+
+/// One row per [`Item`], in discriminant order. See [`ItemMeta`].
+const ITEM_META: [ItemMeta; ITEM_COUNT] = {
+    use crate::inventory::ItemKind;
+    use ItemCategory::*;
+    [
+        ItemMeta { display_name: "Portal Gun", description: "Fire a linked blue/orange portal pair. Carries momentum.", category: Weapon, held_item_id: None, dialog_id: "portalgun", legacy_kind: None },
+        ItemMeta { display_name: "Axe", description: "A heavy pirate axe. Replaces your attack with a cleaving swing.", category: Weapon, held_item_id: Some("axe"), dialog_id: "axe", legacy_kind: None },
+        ItemMeta { display_name: "Javelin", description: "A throwing spear. Using it throws it.", category: Weapon, held_item_id: Some("javelin"), dialog_id: "javelin", legacy_kind: None },
+        ItemMeta { display_name: "Gun-Sword", description: "A laser sword with a gun on it that shoots swords. Fires aimed bolts.", category: Weapon, held_item_id: Some("gun_sword"), dialog_id: "gunsword", legacy_kind: None },
+        ItemMeta { display_name: "Puppy-Slug Gun", description: "Fires friendly puppy slugs that harry your enemies. (planned)", category: Weapon, held_item_id: Some("puppy_slug_gun"), dialog_id: "puppysluggun", legacy_kind: None },
+        ItemMeta { display_name: "Fireball", description: "A thrown bolt of fire. Spends mana.", category: Ability, held_item_id: Some("fireball"), dialog_id: "fireball", legacy_kind: None },
+        ItemMeta { display_name: "Blink", description: "Short-range teleport. Your favorite, and high-skill.", category: Ability, held_item_id: Some("blink"), dialog_id: "blink", legacy_kind: None },
+        ItemMeta { display_name: "Flight", description: "Sustained flight while you have charge.", category: Ability, held_item_id: None, dialog_id: "fly", legacy_kind: None },
+        ItemMeta { display_name: "Grapple Hook", description: "Pull yourself toward anchor points. (planned)", category: Ability, held_item_id: Some("grapple"), dialog_id: "grapple", legacy_kind: None },
+        ItemMeta { display_name: "Morph Ball", description: "Compress into a ball to fit through gaps only an AI can take.", category: Ability, held_item_id: None, dialog_id: "morphball", legacy_kind: None },
+        ItemMeta { display_name: "Mark / Recall", description: "Drop marks and recall to them — travel and combat tool. (planned)", category: Ability, held_item_id: Some("mark_recall"), dialog_id: "markrecall", legacy_kind: None },
+        ItemMeta { display_name: "Bubble Shield", description: "Raise a shield bubble; time it to parry.", category: Ability, held_item_id: None, dialog_id: "bubbleshield", legacy_kind: None },
+        ItemMeta { display_name: "Health Cell", description: "Restores health.", category: Consumable, held_item_id: None, dialog_id: "healthcell", legacy_kind: Some(ItemKind::HealthPotion) },
+        ItemMeta { display_name: "Mana Cell", description: "Restores mana.", category: Consumable, held_item_id: None, dialog_id: "manacell", legacy_kind: None },
+        ItemMeta { display_name: "Spare Battery", description: "Reserved ability charge. Does nothing yet.", category: Consumable, held_item_id: None, dialog_id: "sparebattery", legacy_kind: Some(ItemKind::SpareBattery) },
+        ItemMeta { display_name: "Data Chip", description: "A lore fragment. Does nothing yet.", category: Consumable, held_item_id: None, dialog_id: "datachip", legacy_kind: Some(ItemKind::DataChip) },
+        ItemMeta { display_name: "Bomb", description: "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.", category: Weapon, held_item_id: Some("bomb"), dialog_id: "bomb", legacy_kind: None },
+        ItemMeta { display_name: "Gold Pouch", description: "Loose currency. Spends as money.", category: Consumable, held_item_id: None, dialog_id: "goldpouch", legacy_kind: None },
+        ItemMeta { display_name: "Map Fragment", description: "A piece of the world map, from Alice and Bob.", category: KeyItem, held_item_id: None, dialog_id: "mapfragment", legacy_kind: None },
+        ItemMeta { display_name: "Sealed Note", description: "Alice's sealed note — carry it to Bob.", category: KeyItem, held_item_id: None, dialog_id: "sealednote", legacy_kind: None },
+        ItemMeta { display_name: "Field Survey", description: "Bob's field survey of a nearby zone.", category: KeyItem, held_item_id: None, dialog_id: "fieldsurvey", legacy_kind: None },
+        ItemMeta { display_name: "Gate Key", description: "Opens a sealed dimension-gate door.", category: KeyItem, held_item_id: None, dialog_id: "gatekey", legacy_kind: None },
+        ItemMeta { display_name: "Debug Lens", description: "See the seams of the world. For an AI, debug is a sense organ.", category: KeyItem, held_item_id: None, dialog_id: "debuglens", legacy_kind: None },
+        ItemMeta { display_name: "—", description: "An empty slot, waiting for an item that does not exist yet.", category: Reserved, held_item_id: None, dialog_id: "reservedslot", legacy_kind: None },
+    ]
+};
+
 impl Item {
+    /// This item's row in [`ITEM_META`].
+    fn meta(self) -> &'static ItemMeta {
+        &ITEM_META[self.index()]
+    }
+
     /// All 24 items in grid order. The compile-time length check below pins the
     /// catalog to exactly [`ITEM_COUNT`].
     pub const ALL: [Item; ITEM_COUNT] = [
@@ -148,76 +204,15 @@ impl Item {
     }
 
     pub fn category(self) -> ItemCategory {
-        use Item::*;
-        use ItemCategory::*;
-        match self {
-            PortalGun | Axe | Javelin | GunSword | PuppySlugGun | Bomb => Weapon,
-            Fireball | Blink | Fly | Grapple | MorphBall | MarkRecall | BubbleShield => Ability,
-            HealthCell | ManaCell | GoldPouch => Consumable,
-            SpareBattery | DataChip => Consumable,
-            MapFragment | SealedNote | FieldSurvey | GateKey | DebugLens => KeyItem,
-            ReservedSlot => Reserved,
-        }
+        self.meta().category
     }
 
     pub fn display_name(self) -> &'static str {
-        use Item::*;
-        match self {
-            PortalGun => "Portal Gun",
-            Axe => "Axe",
-            Javelin => "Javelin",
-            GunSword => "Gun-Sword",
-            PuppySlugGun => "Puppy-Slug Gun",
-            Fireball => "Fireball",
-            Blink => "Blink",
-            Fly => "Flight",
-            Grapple => "Grapple Hook",
-            MorphBall => "Morph Ball",
-            MarkRecall => "Mark / Recall",
-            BubbleShield => "Bubble Shield",
-            HealthCell => "Health Cell",
-            ManaCell => "Mana Cell",
-            SpareBattery => "Spare Battery",
-            DataChip => "Data Chip",
-            Bomb => "Bomb",
-            GoldPouch => "Gold Pouch",
-            MapFragment => "Map Fragment",
-            SealedNote => "Sealed Note",
-            FieldSurvey => "Field Survey",
-            GateKey => "Gate Key",
-            DebugLens => "Debug Lens",
-            ReservedSlot => "—",
-        }
+        self.meta().display_name
     }
 
     pub fn description(self) -> &'static str {
-        use Item::*;
-        match self {
-            PortalGun => "Fire a linked blue/orange portal pair. Carries momentum.",
-            Axe => "A heavy pirate axe. Replaces your attack with a cleaving swing.",
-            Javelin => "A throwing spear. Using it throws it.",
-            GunSword => "A laser sword with a gun on it that shoots swords. Fires aimed bolts.",
-            PuppySlugGun => "Fires friendly puppy slugs that harry your enemies. (planned)",
-            Fireball => "A thrown bolt of fire. Spends mana.",
-            Blink => "Short-range teleport. Your favorite, and high-skill.",
-            Fly => "Sustained flight while you have charge.",
-            Grapple => "Pull yourself toward anchor points. (planned)",
-            MorphBall => "Compress into a ball to fit through gaps only an AI can take.",
-            MarkRecall => "Drop marks and recall to them — travel and combat tool. (planned)",
-            BubbleShield => "Raise a shield bubble; time it to parry.",
-            HealthCell => "Restores health.",
-            ManaCell => "Restores mana.",
-            SpareBattery => "Reserved ability charge. Does nothing yet.",
-            DataChip => "A lore fragment. Does nothing yet.",
-            Bomb => "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.",
-            GoldPouch => "Loose currency. Spends as money.",
-            MapFragment => "A piece of the world map, from Alice and Bob.",
-            SealedNote => "Alice's sealed note — carry it to Bob.",
-            FieldSurvey => "Bob's field survey of a nearby zone.",
-            GateKey => "Opens a sealed dimension-gate door.",
-            DebugLens => "See the seams of the world. For an AI, debug is a sense organ.",
-            ReservedSlot => "An empty slot, waiting for an item that does not exist yet.",
-        }
+        self.meta().description
     }
 
     /// For [`ItemCategory::Weapon`] items, the `HeldItem` id whose `ActionSet` the
@@ -225,21 +220,9 @@ impl Item {
     /// dedicated `*_spec` in [`crate::item_pickup`]). `None` for non-equippables
     /// and for weapons whose held-item wiring is not built yet.
     pub fn held_item_id(self) -> Option<&'static str> {
-        use Item::*;
-        match self {
-            Axe => Some("axe"),
-            Javelin => Some("javelin"),
-            GunSword => Some("gun_sword"),
-            PuppySlugGun => Some("puppy_slug_gun"),
-            Bomb => Some("bomb"),
-            MarkRecall => Some("mark_recall"),
-            Fireball => Some("fireball"),
-            Blink => Some("blink"),
-            Grapple => Some("grapple"),
-            // PortalGun equips via its own `PortalGun` component (handled
-            // specially by the menu), not a HeldItemSpec.
-            _ => None,
-        }
+        // PortalGun equips via its own `PortalGun` component (handled specially
+        // by the menu), not a HeldItemSpec — so its row's `held_item_id` is None.
+        self.meta().held_item_id
     }
 
     /// Reverse of [`Self::held_item_id`]: which catalog slot a world held-item
@@ -253,13 +236,7 @@ impl Item {
     /// dialogue ids and the old menu keep resolving. Only the three overlapping
     /// items map; everything else is new and lives only in [`OwnedItems`].
     pub fn legacy_kind(self) -> Option<crate::inventory::ItemKind> {
-        use crate::inventory::ItemKind;
-        match self {
-            Item::HealthCell => Some(ItemKind::HealthPotion),
-            Item::SpareBattery => Some(ItemKind::SpareBattery),
-            Item::DataChip => Some(ItemKind::DataChip),
-            _ => None,
-        }
+        self.meta().legacy_kind
     }
 
     pub fn from_legacy_kind(kind: crate::inventory::ItemKind) -> Item {
@@ -276,33 +253,7 @@ impl Item {
     /// non-alphanumerics), so `"PortalGun"`, `"portal_gun"`, `"portal gun"` all
     /// resolve here.
     pub fn dialog_id(self) -> &'static str {
-        use Item::*;
-        match self {
-            PortalGun => "portalgun",
-            Axe => "axe",
-            Javelin => "javelin",
-            GunSword => "gunsword",
-            PuppySlugGun => "puppysluggun",
-            Fireball => "fireball",
-            Blink => "blink",
-            Fly => "fly",
-            Grapple => "grapple",
-            MorphBall => "morphball",
-            MarkRecall => "markrecall",
-            BubbleShield => "bubbleshield",
-            HealthCell => "healthcell",
-            ManaCell => "manacell",
-            SpareBattery => "sparebattery",
-            DataChip => "datachip",
-            Bomb => "bomb",
-            GoldPouch => "goldpouch",
-            MapFragment => "mapfragment",
-            SealedNote => "sealednote",
-            FieldSurvey => "fieldsurvey",
-            GateKey => "gatekey",
-            DebugLens => "debuglens",
-            ReservedSlot => "reservedslot",
-        }
+        self.meta().dialog_id
     }
 
     /// Normalize a raw authoring string the same way the Yarn bindings do, then
@@ -434,6 +385,63 @@ mod tests {
         assert_eq!(Item::from_index(ITEM_COUNT), None);
         assert_eq!(Item::from_grid(ITEM_GRID_ROWS, 0), None);
         assert_eq!(Item::from_grid(0, ITEM_GRID_COLS), None);
+    }
+
+    #[test]
+    fn item_meta_table_is_index_aligned() {
+        // Refactor 1: ITEM_META rows must line up with the Item discriminants.
+        // A whole-row shift self-consistently passes the dialog round-trip (the
+        // moved row carries its own dialog_id), so pin the variant→name mapping
+        // by NAME here — referencing each variant directly, not by index.
+        let expected: [(Item, &str); ITEM_COUNT] = [
+            (Item::PortalGun, "Portal Gun"),
+            (Item::Axe, "Axe"),
+            (Item::Javelin, "Javelin"),
+            (Item::GunSword, "Gun-Sword"),
+            (Item::PuppySlugGun, "Puppy-Slug Gun"),
+            (Item::Fireball, "Fireball"),
+            (Item::Blink, "Blink"),
+            (Item::Fly, "Flight"),
+            (Item::Grapple, "Grapple Hook"),
+            (Item::MorphBall, "Morph Ball"),
+            (Item::MarkRecall, "Mark / Recall"),
+            (Item::BubbleShield, "Bubble Shield"),
+            (Item::HealthCell, "Health Cell"),
+            (Item::ManaCell, "Mana Cell"),
+            (Item::SpareBattery, "Spare Battery"),
+            (Item::DataChip, "Data Chip"),
+            (Item::Bomb, "Bomb"),
+            (Item::GoldPouch, "Gold Pouch"),
+            (Item::MapFragment, "Map Fragment"),
+            (Item::SealedNote, "Sealed Note"),
+            (Item::FieldSurvey, "Field Survey"),
+            (Item::GateKey, "Gate Key"),
+            (Item::DebugLens, "Debug Lens"),
+            (Item::ReservedSlot, "—"),
+        ];
+        for (item, name) in expected {
+            assert_eq!(item.display_name(), name, "row for {item:?} is misaligned");
+        }
+        // Category + held-item anchors that would also catch a shift.
+        assert_eq!(Item::Fireball.category(), ItemCategory::Ability);
+        assert_eq!(Item::Bomb.category(), ItemCategory::Weapon);
+        assert_eq!(Item::ReservedSlot.category(), ItemCategory::Reserved);
+    }
+
+    #[test]
+    fn held_item_ids_round_trip_for_every_wired_item() {
+        for item in Item::ALL {
+            if let Some(id) = item.held_item_id() {
+                assert_eq!(
+                    Item::from_held_item_id(id),
+                    Some(item),
+                    "held_item_id {id} should resolve back to {item:?}"
+                );
+            }
+        }
+        // The wired set is exactly these nine (everything else is None).
+        let wired: Vec<Item> = Item::ALL.into_iter().filter(|i| i.held_item_id().is_some()).collect();
+        assert_eq!(wired.len(), 9, "wired held-items: {wired:?}");
     }
 
     #[test]

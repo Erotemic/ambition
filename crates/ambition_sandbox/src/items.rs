@@ -236,6 +236,13 @@ impl Item {
         }
     }
 
+    /// Reverse of [`Self::held_item_id`]: which catalog slot a world held-item
+    /// (`GroundItem`/`HeldItemSpec` id) corresponds to, so picking one up grants
+    /// the right slot.
+    pub fn from_held_item_id(id: &str) -> Option<Item> {
+        Item::ALL.into_iter().find(|i| i.held_item_id() == Some(id))
+    }
+
     /// Bridge to the legacy 3-kind [`crate::inventory::ItemKind`] bag so existing
     /// dialogue ids and the old menu keep resolving. Only the three overlapping
     /// items map; everything else is new and lives only in [`OwnedItems`].
@@ -482,5 +489,21 @@ mod tests {
         assert_eq!(Item::Axe.held_item_id(), Some("axe"));
         assert_eq!(Item::GunSword.held_item_id(), Some("gun_sword"));
         assert!(crate::brain::held_item_by_id("gun_sword").is_some());
+    }
+
+    #[test]
+    fn held_item_id_round_trips_through_reverse_lookup() {
+        for item in Item::ALL {
+            if let Some(id) = item.held_item_id() {
+                assert_eq!(
+                    Item::from_held_item_id(id),
+                    Some(item),
+                    "ground-item id {id} maps back to its slot"
+                );
+            }
+        }
+        assert_eq!(Item::from_held_item_id("axe"), Some(Item::Axe));
+        assert_eq!(Item::from_held_item_id("gun_sword"), Some(Item::GunSword));
+        assert_eq!(Item::from_held_item_id("nonexistent"), None);
     }
 }

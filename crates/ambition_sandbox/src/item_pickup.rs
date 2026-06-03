@@ -242,6 +242,7 @@ pub fn pickup_held_item_system(
         ),
     >,
     grounds: Query<(Entity, &GroundItem)>,
+    mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
     if !control.attack_pressed {
         return;
@@ -265,6 +266,14 @@ pub fn pickup_held_item_system(
             commands
                 .entity(player)
                 .insert(HeldItem::new(ground.spec.clone()));
+            // Reflect into the 24-item catalog: picking a held item up grants its
+            // slot and marks it equipped, so the OoT menu shows it as held.
+            if let Some(owned) = owned.as_deref_mut() {
+                if let Some(item) = crate::items::Item::from_held_item_id(&ground.spec.id) {
+                    owned.grant(item, 1);
+                    owned.set_equipped(Some(item));
+                }
+            }
             commands.entity(ground_entity).despawn();
             break;
         }
@@ -295,6 +304,7 @@ pub fn throw_held_item_system(
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
+    mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
     if !control.attack_pressed {
         return;
@@ -308,6 +318,11 @@ pub fn throw_held_item_system(
     }
     if let Some(stash) = stashed {
         *action_set = stash.0.clone();
+    }
+    // Throwing stows the held weapon: clear the equipped slot (the player keeps
+    // catalog ownership and can re-equip from the menu).
+    if let Some(owned) = owned.as_deref_mut() {
+        owned.set_equipped(None);
     }
     let spec = held.spec.clone();
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };

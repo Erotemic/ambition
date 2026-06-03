@@ -611,22 +611,33 @@ pub fn gravity_flip_switch_system(
 pub fn spawn_debug_gravity_zone_once(
     mut commands: Commands,
     mut done: Local<bool>,
+    room_set: Res<crate::rooms::RoomSet>,
     players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     if *done {
+        return;
+    }
+    // Gravity COLUMNS live only in the dedicated `gravity_lab` room (Jon: they
+    // can't clutter the main sandbox). The global gravity-flip switch stays in
+    // the start room and flips the whole sandbox. Spawns the first frame the
+    // player is actually in gravity_lab.
+    if room_set.active_spec().id != "gravity_lab" {
         return;
     }
     let Ok(kin) = players.single() else {
         return;
     };
     *done = true;
-    let center = kin.pos + Vec2::new(380.0, 0.0);
+    // An up-gravity column, tall enough to reach the ceiling so a body inside it
+    // (the demo puppy slug authored at this spot) falls UP and crawls the
+    // ceiling — localized gravity in action.
+    let center = kin.pos + Vec2::new(374.0, -40.0);
     commands.spawn((
         GravityZone {
-            aabb: ae::Aabb::new(center, Vec2::new(140.0, 240.0)),
+            aabb: ae::Aabb::new(center, Vec2::new(150.0, 300.0)),
             dir: Vec2::new(0.0, -1.0), // up
         },
-        Name::new("Gravity zone: up"),
+        Name::new("Gravity zone: up (gravity_lab)"),
     ));
 }
 

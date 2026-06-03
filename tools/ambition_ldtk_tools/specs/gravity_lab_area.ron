@@ -1,0 +1,176 @@
+// gravity_lab — dedicated gravity test room (Jon redirect 2026-06-03).
+//
+// Jon: "We can't have the gravity columns in the main sandbox room, we have to
+// create a separate gravity room for testing." This is that room. The gravity
+// COLUMNS themselves are debug-spawned in Rust (portal::spawn_debug_gravity_zone_once)
+// gated to this room id, positioned relative to PlayerStart; the global
+// gravity-flip switch stays in the main sandbox room.
+//
+// Demo: a puppy slug stands where the up-gravity column spawns, so it falls UP
+// and crawls along the ceiling — proving gravity is local in space (an actor in
+// the column feels the column even though the global ambient is down).
+//
+// Reached from central_hub_main via the lab-door row (px [917, 880], a free slot
+// reported by `door free-spots central_hub_main`).
+//
+// Layout (1024×640):
+//
+//   +--------------------------------------------------+  ceiling
+//   |                                                  |
+//   |            [up-gravity column ~px 336..616]      |
+//   |   ____             (puppy slug falls up)         |
+//   |  start            [mid platform]                 |
+//   |  [P]    [slug]                                   |
+//   +--------------------------------------------------+  floor
+//
+(
+    id: "gravity_lab",
+    level_id: "gravity_lab",
+    world_x: 44000,
+    world_y: 0,
+    px_wid: 1024,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#161A22",
+    biome: "lab",
+    music_track: "tech_bros_disruption",
+    connect_to: [
+        (
+            target_room: "central_hub_main",
+            px: [
+                422,
+                880,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            id: "gravity_lab_door",
+            target_zone: "gravity_lab_entry",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+    entities: [
+        (
+            type: "Solid",
+            px: [
+                0,
+                608,
+            ],
+            size: [
+                1024,
+                32,
+            ],
+            fields: (
+                name: "floor",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                0,
+                0,
+            ],
+            size: [
+                16,
+                608,
+            ],
+            fields: (
+                name: "left_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                1008,
+                0,
+            ],
+            size: [
+                16,
+                608,
+            ],
+            fields: (
+                name: "right_wall",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                16,
+                0,
+            ],
+            size: [
+                992,
+                16,
+            ],
+            fields: (
+                name: "ceiling",
+            ),
+        ),
+        (
+            type: "Solid",
+            px: [
+                432,
+                360,
+            ],
+            size: [
+                160,
+                24,
+            ],
+            fields: (
+                name: "mid_platform",
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [
+                96,
+                544,
+            ],
+            size: [
+                24,
+                48,
+            ],
+            fields: (
+                name: "start",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [
+                144,
+                512,
+            ],
+            size: [
+                48,
+                96,
+            ],
+            fields: (
+                id: "gravity_lab_entry",
+                name: "gravity_lab_entry",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "gravity_lab_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                470,
+                544,
+            ],
+            size: [
+                42,
+                42,
+            ],
+            fields: (
+                prompt: "",
+                dialogue_id: "",
+                character_id: "npc_puppy_slug",
+                patrol_radius: 0,
+            ),
+        ),
+    ],
+)

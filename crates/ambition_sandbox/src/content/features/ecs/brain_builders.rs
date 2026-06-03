@@ -378,4 +378,21 @@ mod tests {
         let set = enemy_default_action_set(&e);
         assert!(set.melee.is_some(), "a striker should expose a melee verb");
     }
+
+    #[test]
+    fn medium_striker_carries_a_ranged_rock() {
+        // Goblins now poke with a thrown rock at mid-range and close for the
+        // swing — the Smash brain's verb-selection-by-range. Lock the
+        // RON(`ranged: Some(Rock)`) → CombatKit → ActionSet wiring so a future
+        // edit can't silently drop the ranged verb (which would revert goblins
+        // to melee-only without any test noticing).
+        let e = enemy("medium_striker");
+        let set = enemy_default_action_set(&e);
+        assert!(
+            matches!(set.ranged, Some(crate::brain::RangedActionSpec::Rock { .. })),
+            "medium_striker should carry a ranged Rock verb; got {:?}",
+            set.ranged
+        );
+        assert!(set.melee.is_some(), "and still keeps its melee swing");
+    }
 }

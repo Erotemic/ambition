@@ -24,7 +24,8 @@
 
 use super::action_set::ActionSet;
 use super::snapshot::BrainSnapshot;
-#[cfg(test)]
+// `ae` is used both by `maybe_substitute_ranged` (the ranged-verb emit) and the
+// tests, so the import is no longer test-gated.
 use crate::engine_core as ae;
 
 pub mod action;
@@ -113,7 +114,20 @@ pub struct SmashState {
     /// reaction delay variance). Set once at first tick from the
     /// actor id; survives reset_to_spawn via spawn-time init.
     pub rng_seed: u64,
+    /// Seconds until the actor's *ranged* verb is off cooldown. The
+    /// shared projectile pool doesn't rate-limit enemy fire, so the
+    /// ranged cadence lives here in brain state: decremented each
+    /// tick, gated against `> 0`, and reset to [`RANGED_COOLDOWN_S`]
+    /// when the brain commits a ranged shot. Melee keeps using the
+    /// integration-side attack cooldown (`attack_cooldown_remaining`).
+    pub ranged_cooldown_remaining: f32,
 }
+
+/// Ranged-verb cadence (seconds). A ranged-capable Smash actor fires
+/// at most once per this interval at mid-range, then closes for the
+/// melee finish. Module-level for now — promote to [`SmashCfg`] if
+/// archetypes ever want distinct ranged tempos.
+const RANGED_COOLDOWN_S: f32 = 1.1;
 
 /// Tick the Smash brain pipeline. Pure function modulo `state`
 /// (which the difficulty stage mutates for its RNG advance + the
@@ -132,11 +146,59 @@ pub fn tick_smash(
     }
     // Advance the dwell accumulator before any mode-flip check.
     state.mode_dwell_s += snapshot.dt;
+    // Tick the ranged cadence down (clamped at 0) before this frame's
+    // verb selection can re-arm it.
+    state.ranged_cooldown_remaining = (state.ranged_cooldown_remaining - snapshot.dt).max(0.0);
     let obs = observe(snapshot);
     let mode = choose_mode(&obs, cfg, state);
     let action = choose_action(&obs, mode, cfg, actions);
+    // Verb selection by range (the player/enemy unification flex): a
+    // ranged-capable actor closing on a mid-range target fires ranged
+    // on its own cadence before committing to the melee finish.
+    // Substituted *before* difficulty so the shot inherits the same
+    // accuracy jitter / commit roll as a melee swing.
+    let action = maybe_substitute_ranged(action, &obs, mode, cfg, actions, state);
     let action = apply_difficulty(action, &cfg.difficulty, state);
     emit_inputs(action, &obs, out);
+}
+
+/// Replace a *closing* action (`Walk`/`Idle` toward the target) with a
+/// ranged shot when the actor has a ranged verb, is at mid-range
+/// (inside aggro, outside melee reach), is approaching/holding (not
+/// retreating), isn't mid-swing, and the ranged cadence is ready.
+/// Re-arms the cadence on commit. Melee swings already in reach and
+/// retreats are never overridden — the actor still closes for the
+/// melee finish once the shot lands.
+fn maybe_substitute_ranged(
+    action: SpecificAction,
+    obs: &ObservationFrame,
+    mode: BroadMode,
+    cfg: &SmashCfg,
+    actions: &ActionSet,
+    state: &mut SmashState,
+) -> SpecificAction {
+    if actions.ranged.is_none()
+        || obs.self_attacking
+        || state.ranged_cooldown_remaining > 0.0
+    {
+        return action;
+    }
+    let closing = matches!(action, SpecificAction::Walk { .. } | SpecificAction::Idle);
+    let approaching = matches!(mode, BroadMode::Approach | BroadMode::Engage);
+    let in_band = obs.distance_to_target > cfg.attack_range
+        && obs.distance_to_target <= cfg.aggro_radius;
+    if !(closing && approaching && in_band) {
+        return action;
+    }
+    state.ranged_cooldown_remaining = RANGED_COOLDOWN_S;
+    let dir_x = if obs.to_target_x.abs() < 0.001 {
+        obs.self_facing
+    } else {
+        obs.to_target_x.signum()
+    };
+    SpecificAction::RangedAttack {
+        dir: ae::Vec2::new(dir_x, 0.0),
+    }
 }
 
 #[cfg(test)]
@@ -202,6 +264,104 @@ mod tests {
         let mut frame = crate::actor_control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
         assert!(frame.melee_pressed, "point-blank melee actor should swing");
+    }
+
+    /// Difficulty profile that always commits and never jitters, so the
+    /// ranged-cadence tests are deterministic regardless of rng seed.
+    fn crisp_striker_cfg() -> SmashCfg {
+        SmashCfg {
+            difficulty: DifficultyProfile {
+                reaction_delay_s: 0.0,
+                commit_probability: 1.0,
+                accuracy: 1.0,
+                ..DifficultyProfile::HARD
+            },
+            ..SmashCfg::STRIKER_DEFAULT
+        }
+    }
+
+    fn ranged_actions() -> ActionSet {
+        ActionSet {
+            ranged: Some(crate::brain::RangedActionSpec::Rock {
+                speed: 300.0,
+                damage: 2,
+            }),
+            ..ActionSet::peaceful()
+        }
+    }
+
+    #[test]
+    fn ranged_capable_actor_fires_at_mid_range() {
+        // A Smash actor with a ranged verb, at mid-range (inside aggro
+        // 460, outside melee reach 56), fires ranged rather than silently
+        // walking closer — the player/enemy "verb selection by range" flex.
+        let cfg = crisp_striker_cfg();
+        let mut state = SmashState::default();
+        let actions = ranged_actions();
+        let snap = snap_with_target_at_x(300.0);
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        assert!(frame.fire.is_some(), "ranged actor should fire at mid-range");
+        assert!(!frame.melee_pressed, "should not also melee at mid-range");
+        assert!(
+            state.ranged_cooldown_remaining > 0.0,
+            "ranged cadence armed after firing"
+        );
+    }
+
+    #[test]
+    fn melee_takes_precedence_over_ranged_in_reach() {
+        // With BOTH verbs, a point-blank target gets the melee swing,
+        // not a ranged shot — ranged only substitutes for *closing*
+        // actions outside melee range.
+        let cfg = crisp_striker_cfg();
+        let mut state = SmashState::default();
+        let actions = ActionSet {
+            melee: Some(crate::brain::MeleeActionSpec::Swipe(
+                crate::brain::SwipeSpec::STRIKER_DEFAULT,
+            )),
+            ..ranged_actions()
+        };
+        let snap = snap_with_target_at_x(20.0); // inside attack_range
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        assert!(frame.melee_pressed, "in-reach actor swings");
+        assert!(frame.fire.is_none(), "does not fire ranged in melee reach");
+    }
+
+    #[test]
+    fn ranged_cadence_gates_back_to_back_shots() {
+        // Immediately after a shot the cadence blocks another; the actor
+        // closes (walks) instead. Once the cooldown elapses it fires again.
+        let cfg = crisp_striker_cfg();
+        let mut state = SmashState::default();
+        let actions = ranged_actions();
+        let mut snap = snap_with_target_at_x(300.0);
+        snap.dt = 0.2;
+
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        assert!(frame.fire.is_some(), "first tick fires");
+
+        let mut frame2 = crate::actor_control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame2);
+        assert!(frame2.fire.is_none(), "still on cooldown → no second shot");
+        assert!(
+            frame2.desired_vel.x > 0.0,
+            "closes toward target while the ranged verb reloads"
+        );
+
+        // Advance past the cadence; it fires again.
+        let mut fired_again = false;
+        for _ in 0..((RANGED_COOLDOWN_S / snap.dt) as usize + 2) {
+            let mut f = crate::actor_control::ActorControlFrame::neutral();
+            tick_smash(&cfg, &mut state, &actions, &snap, &mut f);
+            if f.fire.is_some() {
+                fired_again = true;
+                break;
+            }
+        }
+        assert!(fired_again, "fires again once the cadence elapses");
     }
 
     #[test]

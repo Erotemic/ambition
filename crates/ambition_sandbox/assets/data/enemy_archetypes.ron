@@ -143,6 +143,13 @@
             damage: 1,
             reach_px: 28.0,
         ))),
+        // Goblins poke with a thrown rock at mid-range, then close for the
+        // swing — the Smash brain's verb-selection-by-range (see
+        // `brain::smash::maybe_substitute_ranged`). Modest speed so it is
+        // readable/dodgeable; damage matches the swing. The 1.1s ranged
+        // cadence keeps it from plinking. NOTE: no dedicated throw animation
+        // yet — the rock just spawns from the goblin; sprite/feel is a handoff.
+        ranged: Some(Rock(speed: 360.0, damage: 1)),
         smash_hit_band: Some(32.0),
         move_style: Walk,
     ),

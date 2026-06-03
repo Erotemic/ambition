@@ -625,8 +625,23 @@ pub(super) fn death_respawn_player(
     died.write(PlayerDiedMessage { pos: from });
 }
 
+/// Whether a held shield blocks a hit coming from `hit_x`: you can only guard the
+/// side you face (a hit from behind still lands). A facing of exactly 0 (neutral)
+/// guards either side. Pure so the directional rule is unit-tested directly.
+pub fn shield_blocks_hit(shield_held: bool, facing: f32, player_x: f32, hit_x: f32) -> bool {
+    if !shield_held {
+        return false;
+    }
+    if facing == 0.0 {
+        return true;
+    }
+    // Same sign => the hit is on the side the player is facing.
+    (hit_x - player_x).signum() == facing.signum()
+}
+
 pub(super) fn handle_player_damage_events(
     world: &ae::World,
+    shield_held: bool,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<PlayerDiedMessage>,
@@ -649,6 +664,28 @@ pub(super) fn handle_player_damage_events(
     // before any state mutates so testing systems that consume HP
     // (boss phases, encounter pacing, music) can run uninterrupted.
     if clusters.offense.invincible {
+        return;
+    }
+    // Shield block: a held shield fully negates a hit coming from the side the
+    // player faces (you can't guard your back). Costs nothing but a short guard
+    // i-frame; a defensive verb to complement the offensive/movement abilities.
+    let guard_impact = damage
+        .knockback
+        .as_ref()
+        .map(|k| k.impact_pos)
+        .unwrap_or_else(|| damage.volume.center());
+    if shield_blocks_hit(
+        shield_held,
+        clusters.kinematics.facing,
+        clusters.kinematics.pos.x,
+        guard_impact.x,
+    ) {
+        sfx.write(SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_ROCK_HIT,
+            pos: clusters.kinematics.pos,
+        });
+        combat.damage_invuln_timer = combat.damage_invuln_timer.max(0.12);
+        banner.show("blocked", 1.0);
         return;
     }
     // Difficulty / assist scaling. Easy halves incoming damage, hard
@@ -1074,6 +1111,19 @@ pub(super) fn advance_attack(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shield_blocks_only_hits_from_the_faced_side() {
+        // Player at x=100 facing right (+1).
+        assert!(shield_blocks_hit(true, 1.0, 100.0, 150.0), "guards a hit from the right");
+        assert!(!shield_blocks_hit(true, 1.0, 100.0, 50.0), "a hit from behind (left) lands");
+        // Facing left (-1) flips it.
+        assert!(shield_blocks_hit(true, -1.0, 100.0, 50.0), "guards a hit from the left");
+        assert!(!shield_blocks_hit(true, -1.0, 100.0, 150.0), "a hit from behind (right) lands");
+        // No shield held -> never blocks; neutral facing -> guards either side.
+        assert!(!shield_blocks_hit(false, 1.0, 100.0, 150.0), "no shield, no block");
+        assert!(shield_blocks_hit(true, 0.0, 100.0, 50.0), "neutral facing guards either side");
+    }
 
     fn test_attack_box() -> ae::Aabb {
         ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 16.0))

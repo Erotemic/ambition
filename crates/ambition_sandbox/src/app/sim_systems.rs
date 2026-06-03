@@ -532,6 +532,7 @@ pub fn attack_advance_system(
 /// state). Gated by `gameplay_allowed`.
 pub fn apply_player_hit_events(
     world: Res<GameWorld>,
+    control_frame: Res<ControlFrame>,
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -615,6 +616,7 @@ pub fn apply_player_hit_events(
         let mut clusters = cluster_item.as_clusters_mut();
         super::world_flow::handle_player_damage_events(
             &world.0,
+            control_frame.shield_held,
             &mut sfx_writer,
             &mut vfx_writer,
             &mut died_writer,

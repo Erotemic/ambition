@@ -502,6 +502,10 @@ pub fn update_ecs_actors(
                 };
                 let body_contact_damage_enabled =
                     !brain.as_deref().is_some_and(crate::brain::Brain::is_player)
+                        // A POSSESSED actor is on your side — its body never hurts
+                        // you on contact (its melee + ranged already redirect at
+                        // its former allies; contact just stops harming the player).
+                        && possessed.is_none()
                         && em.config.archetype.body_contact_damage_enabled();
                 let mut brain_frame = brain_frame;
                 brain_frame.body_contact_damage_enabled = body_contact_damage_enabled;

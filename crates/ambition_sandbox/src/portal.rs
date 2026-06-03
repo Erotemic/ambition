@@ -9,16 +9,15 @@
 //!
 //! Controls (per the design decision): when the portal gun is `active`,
 //! `Attack` fires/places a portal of the current color and `Interact` toggles
-//! blue↔orange. Today the player is granted an always-active portal gun by
-//! `grant_portal_gun`; once held-item equip lands (see TODO "Grid inventory")
-//! the `active` flag is driven by equipping the portal-gun item instead.
+//! blue↔orange. The gun is a single item picked up in the room
+//! (`PortalGunPickup`); equipping it stashes the player's melee so `Attack`
+//! fires portals instead of swinging (the same attack-replacement the held
+//! gun-sword / axe use), and dropping it restores the swing.
 //!
-//! Handoff / feel notes (left intentionally untuned):
-//! - exit velocity shoots straight out of the exit portal at the incoming
-//!   speed; a fuller transform (reflect the velocity through the portal pair)
-//!   would preserve diagonal entry — easy follow-up.
-//! - vertical aiming uses `aim`/`axis` as-is; confirm the y-sign feels right.
-//! - portals are a fixed 56px square; orient/size them to the hit surface later.
+//! Portals are thin oriented doorways: a fixed-length opening
+//! (`PORTAL_OPENING_HALF`) along the hit surface, thin through it
+//! (`PORTAL_THICKNESS_HALF`), so the face is the same size on a wall, floor, or
+//! ceiling and the warp happens right at the drawn face (`portal_half_extent`).
 
 use bevy::prelude::*;
 
@@ -78,10 +77,14 @@ pub struct Portal {
     pub half_extent: Vec2,
 }
 
-const PORTAL_HALF: f32 = 28.0;
-/// Portals are tall doorways (taller than wide) so you don't miss them
-/// vertically when approaching at a different height than you fired them.
-const PORTAL_HALF_H: f32 = 46.0;
+/// A portal opening is the SAME size in every orientation: a doorway
+/// `PORTAL_OPENING_HALF * 2` long along the surface, and thin perpendicular to
+/// it (we only see its side profile in 2D). Both the drawn face AND the capture
+/// box that warps the player are built from these, so the warp happens right at
+/// the visual face regardless of whether the portal is on a wall, floor, or
+/// ceiling.
+const PORTAL_OPENING_HALF: f32 = 46.0;
+const PORTAL_THICKNESS_HALF: f32 = 9.0;
 const PORTAL_MAX_RANGE: f32 = 6000.0;
 /// Portal shot travel speed (px/s) — fast, but slow enough to see the streak.
 const PORTAL_SHOT_SPEED: f32 = 1900.0;
@@ -90,8 +93,25 @@ const TELEPORT_COOLDOWN_S: f32 = 0.25;
 /// far side instead of stalling inside the exit portal.
 const MIN_EXIT_SPEED: f32 = 220.0;
 /// On-screen thickness of the thin portal doorway (side profile in 2D). The
-/// bar's *length* comes from the portal opening; this is its narrow dimension.
-const PORTAL_VISUAL_THICKNESS: f32 = 12.0;
+/// bar's *length* comes from the portal opening; this is its narrow dimension,
+/// matched to the capture box so the player warps right at the drawn face.
+const PORTAL_VISUAL_THICKNESS: f32 = PORTAL_THICKNESS_HALF * 2.0;
+
+/// Oriented half-extent for a portal on a surface with the given `normal`:
+/// `PORTAL_OPENING_HALF` along the surface (perpendicular to the normal) and
+/// `PORTAL_THICKNESS_HALF` through it. So the opening (face) is the same length
+/// in every orientation and the box is thin in the normal direction. An
+/// axis-aligned normal gives an exact thin box; a slanted normal gives the
+/// axis-aligned box that bounds the tilted face (good enough until slanted
+/// portals are real).
+pub fn portal_half_extent(normal: Vec2) -> Vec2 {
+    let n = normal.normalize_or_zero();
+    let along = Vec2::new(-n.y, n.x);
+    Vec2::new(
+        along.x.abs() * PORTAL_OPENING_HALF + n.x.abs() * PORTAL_THICKNESS_HALF,
+        along.y.abs() * PORTAL_OPENING_HALF + n.y.abs() * PORTAL_THICKNESS_HALF,
+    )
+}
 
 // ---------------------------------------------------------------------------
 // Pure geometry — ray vs solid AABBs (slab method).
@@ -416,7 +436,7 @@ pub fn portal_projectile_step(
                     color: proj.color,
                     pos: hit + normal * 2.0,
                     normal,
-                    half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+                    half_extent: portal_half_extent(normal),
                 },
                 Name::new(match proj.color {
                     PortalColor::Blue => "Portal: blue",
@@ -1003,13 +1023,13 @@ mod tests {
             color: PortalColor::Blue,
             pos: Vec2::new(20.0, 200.0),
             normal: Vec2::new(1.0, 0.0),
-            half_extent: Vec2::splat(PORTAL_HALF),
+            half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
         });
         app.world_mut().spawn(Portal {
             color: PortalColor::Orange,
             pos: Vec2::new(380.0, 200.0),
             normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::splat(PORTAL_HALF),
+            half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
         });
         // A thrown item flying into the blue portal.
         let item = app
@@ -1041,21 +1061,22 @@ mod tests {
             color: PortalColor::Blue,
             pos: Vec2::ZERO,
             normal: Vec2::new(1.0, 0.0),
-            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+            half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
         };
-        // Wall portal opening is its HEIGHT (2*46=92): a short actor fits, a
-        // 200-tall boss does not.
+        // The opening is the SAME size in every orientation (2*46=92). A wall
+        // portal gates on HEIGHT: a short actor fits, a 200-tall boss does not.
         assert!(portal_fits(Vec2::new(24.0, 40.0), &wall));
         assert!(!portal_fits(Vec2::new(80.0, 200.0), &wall));
-        // Floor portal gates on WIDTH (2*28=56).
+        // A floor portal gates on WIDTH — same 92 opening, so the threshold
+        // matches the wall's.
         let floor = Portal {
             color: PortalColor::Orange,
             pos: Vec2::ZERO,
             normal: Vec2::new(0.0, -1.0),
-            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+            half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
         };
         assert!(portal_fits(Vec2::new(40.0, 200.0), &floor));
-        assert!(!portal_fits(Vec2::new(80.0, 20.0), &floor));
+        assert!(!portal_fits(Vec2::new(100.0, 20.0), &floor));
     }
 
     #[test]
@@ -1068,13 +1089,13 @@ mod tests {
             color: PortalColor::Blue,
             pos: Vec2::new(20.0, 200.0),
             normal: Vec2::new(1.0, 0.0),
-            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+            half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
         });
         app.world_mut().spawn(Portal {
             color: PortalColor::Orange,
             pos: Vec2::new(380.0, 200.0),
             normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+            half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
         });
         let small = app
             .world_mut()
@@ -1240,13 +1261,13 @@ mod tests {
             color: PortalColor::Blue,
             pos: Vec2::new(22.0, 200.0),
             normal: Vec2::new(1.0, 0.0),
-            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+            half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
         });
         app.world_mut().spawn(Portal {
             color: PortalColor::Orange,
             pos: Vec2::new(378.0, 200.0),
             normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::new(PORTAL_HALF, PORTAL_HALF_H),
+            half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
         });
         let player = spawn_player(&mut app, Vec2::new(22.0, 200.0), 1.0);
         app.world_mut()

@@ -11,6 +11,10 @@ use crate::presentation::fx::VfxMessage;
 use crate::projectile::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
 use crate::GameWorld;
 
+/// Speed multiplier applied to a parried shot as it reverses — a timed parry
+/// sends the bolt back a little faster than it arrived (a satisfying deflect).
+const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
+
 pub fn update_enemy_projectiles(
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
@@ -119,11 +123,30 @@ pub fn update_enemy_projectiles(
         // the query today. OVERNIGHT-TODO #17.8 (B-bucket
         // iterate-all-players for projectile/hazard hits).
         let mut hit_any_player = false;
+        let mut reflected = false;
         for (player_entity, kin, offense, dodge, shield, combat) in &player_body_q {
+            if !shot.body.aabb().strict_intersects(kin.aabb()) {
+                continue;
+            }
+            // PARRY: a timed shield reflects the shot — flip it to the player's
+            // faction and reverse (+boost) its velocity, so the faction-aware
+            // routing above now sends it back into the enemies/bosses. Deflect
+            // the boss's own attack at it. Checked before the vulnerability gate
+            // because parrying is exactly the "not vulnerable, act instead" case.
+            if shield.parrying() {
+                shot.body.faction = crate::projectile::ProjectileFaction::Player;
+                shot.body.vel = -shot.body.vel * PROJECTILE_REFLECT_SPEED_SCALE;
+                sfx.write(SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: shot.body.pos,
+                });
+                vfx.write(VfxMessage::Impact { pos: shot.body.pos });
+                reflected = true;
+                break;
+            }
             let dodge_rolling = dodge.roll_timer > 0.0;
-            let vulnerable =
-                !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable();
-            if !vulnerable || !shot.body.aabb().strict_intersects(kin.aabb()) {
+            let vulnerable = !offense.invincible && !dodge_rolling && combat.vulnerable();
+            if !vulnerable {
                 continue;
             }
             let knock_dir = (kin.pos.x - shot.body.pos.x).signum();
@@ -160,6 +183,12 @@ pub fn update_enemy_projectiles(
             vfx.write(VfxMessage::Impact { pos: shot.body.pos });
             hit_any_player = true;
             break;
+        }
+        // A parried shot survives as a player-faction bolt — keep it in flight so
+        // next tick's player-faction routing lands it on the enemies.
+        if reflected {
+            keep.push(shot);
+            continue;
         }
         if hit_any_player {
             continue;
@@ -282,6 +311,86 @@ mod tests {
         assert!(
             app.world().resource::<EnemyProjectileState>().bodies.is_empty(),
             "the shot expires on contact with the enemy"
+        );
+    }
+
+    /// Parry-reflect: an enemy shot overlapping a **parrying** player flips to
+    /// the player's faction and reverses (+boosts) its velocity, so the same
+    /// faction-aware routing now sends it back at the enemies — deflect the
+    /// boss's attack at it.
+    #[test]
+    fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
+        use crate::player::{
+            PlayerCombatState, PlayerDodgeState, PlayerEntity, PlayerKinematics, PlayerOffense,
+            PlayerShieldState,
+        };
+        let mut app = App::new();
+        app.insert_resource(crate::GameWorld(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![],
+        )));
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_message::<HitEvent>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.init_resource::<EnemyProjectileState>();
+        app.add_systems(Update, update_enemy_projectiles);
+
+        let player_pos = ae::Vec2::new(200.0, 200.0);
+        app.world_mut().spawn((
+            PlayerEntity,
+            PlayerKinematics {
+                pos: player_pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                base_size: ae::Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            PlayerOffense::default(),
+            PlayerDodgeState::default(),
+            // Parry window OPEN.
+            PlayerShieldState {
+                active: true,
+                parry_window_timer: 0.2,
+            },
+            PlayerCombatState::default(),
+        ));
+        // An enemy bolt overlapping the player, travelling left (toward where it
+        // came from — at the player).
+        let incoming = ae::Vec2::new(-300.0, 0.0);
+        app.world_mut()
+            .resource_mut::<EnemyProjectileState>()
+            .spawn(EnemyProjectileSpawn {
+                origin: player_pos,
+                dir: incoming.normalize(),
+                speed: 300.0,
+                damage: 2,
+                max_lifetime: 2.0,
+                half_extent: ae::Vec2::new(8.0, 8.0),
+                owner_id: "boss_bolt".into(),
+                gravity: 0.0,
+            });
+
+        app.update();
+
+        let state = app.world().resource::<EnemyProjectileState>();
+        assert_eq!(state.bodies.len(), 1, "the parried bolt stays in flight");
+        let body = &state.bodies[0].body;
+        assert_eq!(
+            body.faction,
+            crate::projectile::ProjectileFaction::Player,
+            "parry flips the bolt to the player's faction"
+        );
+        assert!(body.vel.x > 0.0, "reversed: it now travels back toward the enemy (was -x)");
+        assert!(
+            body.vel.length() > 300.0,
+            "reflected with a speed boost, was 300 now {}",
+            body.vel.length()
         );
     }
 }

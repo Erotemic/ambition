@@ -24,7 +24,8 @@ use super::{
     ae, sync_actor_components_from_enemy, ActorCombatState,
     ActorCooldowns, ActorDisposition, ActorHealth, ActorIdentity, ActorIntent, ActorRuntime,
     BossConfig, BreakableFeature, EnemyArchetype, FeatureAabb, FeatureId, FeatureName,
-    FeatureSimEntity, GameplayBanner, HitEvent, HitSource, RespawnTimer, SetFlagRequested,
+    FeatureSimEntity, GameplayBanner, HitEvent, HitSource, PickupFeature, RespawnTimer,
+    SetFlagRequested,
 };
 use crate::audio::SfxMessage;
 use crate::boss_encounter::{record_boss_damage, BossEncounterRegistry};
@@ -41,6 +42,28 @@ pub struct FeatureHitWriters<'w> {
     pub sfx: MessageWriter<'w, SfxMessage>,
     pub vfx: MessageWriter<'w, VfxMessage>,
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
+}
+
+/// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
+/// (kill -> coin -> wallet -> merchant), not a balanced economy.
+pub const ENEMY_BOUNTY: i32 = 5;
+
+/// Spawn a collectible currency coin at `pos` — an enemy's death drop. Reuses the
+/// exact pickup entity shape that LDtk-placed coins use, so the already-registered
+/// [`super::collect_ecs_pickups`] grants it (and plays `WORLD_COIN_PICKUP`) when a
+/// player overlaps it. The coin sits where the enemy fell and never respawns
+/// (`Pickup::new` defaults to [`crate::interaction::RespawnPolicy::Never`]).
+pub fn drop_currency_coin(commands: &mut Commands, id: &str, pos: ae::Vec2, amount: i32) {
+    commands.spawn((
+        FeatureSimEntity,
+        FeatureId::new(format!("coin:{id}")),
+        FeatureName::new("Coin"),
+        FeatureAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+        PickupFeature::new(crate::interaction::Pickup::new(
+            format!("coin:{id}"),
+            crate::interaction::PickupKind::Currency { amount },
+        )),
+    ));
 }
 
 /// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
@@ -209,6 +232,7 @@ pub fn apply_feature_hit_events(
                 npc_target,
                 &mut banner,
                 combat_banter.as_deref(),
+                &mut commands,
                 &mut writers,
             ) {
                 actor_hit_this_event = true;
@@ -345,6 +369,7 @@ fn apply_actor_hit(
     npc: Option<NpcHitTarget<'_>>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
+    commands: &mut Commands,
     writers: &mut FeatureHitWriters,
 ) -> bool {
     match actor {
@@ -433,6 +458,9 @@ fn apply_actor_hit(
                     banner.show(format!("{} dropped; respawning", em.config.name), 2.6);
                 } else {
                     banner.show(format!("defeated {}", em.config.name), 2.6);
+                    // Earn-side: a defeated enemy drops a collectible coin so the
+                    // player can fund the merchant / ability shop from combat.
+                    drop_currency_coin(commands, &em.config.id, em.kin.pos, ENEMY_BOUNTY);
                     if !em.config.id.starts_with("encounter:")
                         && em.config.archetype != EnemyArchetype::InfiniteSandbag
                         && em.config.archetype != EnemyArchetype::FiniteSandbag
@@ -982,6 +1010,29 @@ mod tests {
         assert!(
             app.world().get::<BreakableFeature>(breakable).unwrap().broken(),
             "a player slash should shatter a 1-HP breakable"
+        );
+    }
+
+    #[test]
+    fn enemy_defeat_drops_a_collectible_currency_coin() {
+        let mut app = App::new();
+        app.add_systems(Update, |mut c: Commands| {
+            drop_currency_coin(&mut c, "goblin_1", ae::Vec2::new(40.0, 50.0), ENEMY_BOUNTY);
+        });
+        app.update();
+        let mut q = app.world_mut().query::<(&PickupFeature, &FeatureId)>();
+        let rows: Vec<(crate::interaction::PickupKind, String)> = q
+            .iter(app.world())
+            .map(|(p, id)| (p.kind().clone(), id.as_str().to_string()))
+            .collect();
+        assert_eq!(rows.len(), 1, "exactly one coin dropped");
+        assert_eq!(rows[0].1, "coin:goblin_1", "coin id is keyed to the enemy");
+        assert_eq!(
+            rows[0].0,
+            crate::interaction::PickupKind::Currency {
+                amount: ENEMY_BOUNTY
+            },
+            "the drop is a currency coin worth the bounty",
         );
     }
 }

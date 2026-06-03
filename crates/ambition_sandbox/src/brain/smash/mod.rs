@@ -68,6 +68,12 @@ pub struct SmashCfg {
     /// Crowding pressure (from same-faction allies) that triggers
     /// `Reposition` mode. `0.0` disables.
     pub crowding_threshold: f32,
+    /// When true, the actor bursts a [`SpecificAction::Dash`] to close
+    /// a *large* approach gap (on a cooldown) instead of only walking —
+    /// a more aggressive, dynamic chase. Off by default; enabled per
+    /// archetype (goblins) so it doesn't silently change every melee
+    /// enemy's feel.
+    pub dash_to_close: bool,
     /// Difficulty profile applied at stage 4.
     pub difficulty: DifficultyProfile,
 }
@@ -84,6 +90,7 @@ impl SmashCfg {
         chase_speed: 170.0,
         retreat_speed: 130.0,
         crowding_threshold: 0.65,
+        dash_to_close: false,
         difficulty: DifficultyProfile::MEDIUM,
     };
     /// Heavy brute tuning — slower, longer reach, less retreat.
@@ -95,6 +102,7 @@ impl SmashCfg {
         chase_speed: 118.0,
         retreat_speed: 80.0,
         crowding_threshold: 0.55,
+        dash_to_close: false,
         difficulty: DifficultyProfile::MEDIUM,
     };
 }
@@ -121,6 +129,11 @@ pub struct SmashState {
     /// when the brain commits a ranged shot. Melee keeps using the
     /// integration-side attack cooldown (`attack_cooldown_remaining`).
     pub ranged_cooldown_remaining: f32,
+    /// Seconds until the actor's *dash-to-close* burst is off cooldown
+    /// (only used when [`SmashCfg::dash_to_close`]). Same brain-side
+    /// cadence shape as the ranged cooldown: decremented each tick,
+    /// gated against `> 0`, reset to [`DASH_COOLDOWN_S`] on a dash.
+    pub dash_cooldown_remaining: f32,
 }
 
 /// Ranged-verb cadence (seconds). A ranged-capable Smash actor fires
@@ -128,6 +141,16 @@ pub struct SmashState {
 /// melee finish. Module-level for now — promote to [`SmashCfg`] if
 /// archetypes ever want distinct ranged tempos.
 const RANGED_COOLDOWN_S: f32 = 1.1;
+
+/// Dash-to-close cadence (seconds) — a dash-capable actor bursts at
+/// most once per this interval, so it punctuates the chase rather than
+/// dashing every frame.
+const DASH_COOLDOWN_S: f32 = 2.0;
+
+/// Fraction of `aggro_radius` beyond which a dash-to-close fires. Only
+/// *large* gaps are worth a burst; inside this the actor walks (and, if
+/// ranged-capable, pokes) so it doesn't overshoot its firing range.
+const DASH_CLOSE_FRACTION: f32 = 0.55;
 
 /// Tick the Smash brain pipeline. Pure function modulo `state`
 /// (which the difficulty stage mutates for its RNG advance + the
@@ -146,9 +169,10 @@ pub fn tick_smash(
     }
     // Advance the dwell accumulator before any mode-flip check.
     state.mode_dwell_s += snapshot.dt;
-    // Tick the ranged cadence down (clamped at 0) before this frame's
-    // verb selection can re-arm it.
+    // Tick the brain-side cadences down (clamped at 0) before this
+    // frame's verb selection can re-arm them.
     state.ranged_cooldown_remaining = (state.ranged_cooldown_remaining - snapshot.dt).max(0.0);
+    state.dash_cooldown_remaining = (state.dash_cooldown_remaining - snapshot.dt).max(0.0);
     let obs = observe(snapshot);
     let mode = choose_mode(&obs, cfg, state);
     let action = choose_action(&obs, mode, cfg, actions);
@@ -158,8 +182,48 @@ pub fn tick_smash(
     // Substituted *before* difficulty so the shot inherits the same
     // accuracy jitter / commit roll as a melee swing.
     let action = maybe_substitute_ranged(action, &obs, mode, cfg, actions, state);
+    // Then, if still just closing a *large* gap, burst a dash. Runs
+    // after ranged so a mid-range poke wins over a dash (the actor
+    // shoots, then dashes to close while the shot reloads).
+    let action = maybe_substitute_dash(action, &obs, mode, cfg, state);
     let action = apply_difficulty(action, &cfg.difficulty, state);
     emit_inputs(action, &obs, out);
+}
+
+/// Replace a *closing walk* over a large approach gap with a
+/// [`SpecificAction::Dash`] burst when the actor is dash-capable
+/// ([`SmashCfg::dash_to_close`]), grounded, not mid-swing, and the dash
+/// cadence is ready. Only fires beyond [`DASH_CLOSE_FRACTION`] of the
+/// aggro radius, so the actor doesn't dash *through* its ideal melee /
+/// firing distance. Re-arms the cadence on commit. A ranged poke (run
+/// earlier) or a melee swing already wins — only a plain Walk converts.
+fn maybe_substitute_dash(
+    action: SpecificAction,
+    obs: &ObservationFrame,
+    mode: BroadMode,
+    cfg: &SmashCfg,
+    state: &mut SmashState,
+) -> SpecificAction {
+    if !cfg.dash_to_close
+        || obs.self_attacking
+        || !obs.self_on_ground
+        || state.dash_cooldown_remaining > 0.0
+    {
+        return action;
+    }
+    let closing_walk = matches!(action, SpecificAction::Walk { .. });
+    let approaching = matches!(mode, BroadMode::Approach | BroadMode::Engage);
+    let big_gap = obs.distance_to_target > cfg.aggro_radius * DASH_CLOSE_FRACTION;
+    if !(closing_walk && approaching && big_gap) {
+        return action;
+    }
+    state.dash_cooldown_remaining = DASH_COOLDOWN_S;
+    let dir = if obs.to_target_x.abs() < 0.001 {
+        obs.self_facing
+    } else {
+        obs.to_target_x.signum()
+    };
+    SpecificAction::Dash { dir }
 }
 
 /// Replace a *closing* action (`Walk`/`Idle` toward the target) with a
@@ -362,6 +426,69 @@ mod tests {
             }
         }
         assert!(fired_again, "fires again once the cadence elapses");
+    }
+
+    fn dash_striker_cfg() -> SmashCfg {
+        SmashCfg {
+            dash_to_close: true,
+            ..crisp_striker_cfg()
+        }
+    }
+
+    #[test]
+    fn dash_capable_actor_bursts_to_close_a_large_gap() {
+        // A dash-capable Smash actor closing a large gap (beyond
+        // DASH_CLOSE_FRACTION * aggro ≈ 0.55 * 460 ≈ 253) bursts a Dash
+        // (260 px/s) instead of plodding at walk speed (170).
+        let cfg = dash_striker_cfg();
+        let mut state = SmashState::default();
+        let actions = ActionSet::peaceful(); // no ranged → dash, not a poke
+        let snap = snap_with_target_at_x(300.0);
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        assert!(
+            frame.desired_vel.x > 200.0,
+            "dash burst should exceed walk speed; got {}",
+            frame.desired_vel.x
+        );
+        assert!(state.dash_cooldown_remaining > 0.0, "dash cadence armed on commit");
+    }
+
+    #[test]
+    fn dash_is_only_for_large_gaps() {
+        // Inside the dash fraction (120 < 253) the actor walks, not dashes.
+        let cfg = dash_striker_cfg();
+        let mut state = SmashState::default();
+        let actions = ActionSet::peaceful();
+        let snap = snap_with_target_at_x(120.0);
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        assert!(
+            frame.desired_vel.x > 0.0 && frame.desired_vel.x < 200.0,
+            "a small gap walks, not dashes; got {}",
+            frame.desired_vel.x
+        );
+        assert_eq!(
+            state.dash_cooldown_remaining, 0.0,
+            "no dash armed for a small gap"
+        );
+    }
+
+    #[test]
+    fn non_dash_actor_walks_the_same_large_gap() {
+        // The SAME large gap, but dash_to_close OFF → a plain walk: the
+        // capability is gated on the cfg flag, not on by default.
+        let cfg = crisp_striker_cfg(); // dash_to_close = false
+        let mut state = SmashState::default();
+        let actions = ActionSet::peaceful();
+        let snap = snap_with_target_at_x(300.0);
+        let mut frame = crate::actor_control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, &mut frame);
+        assert!(
+            frame.desired_vel.x > 0.0 && frame.desired_vel.x < 200.0,
+            "no dash capability → a walk; got {}",
+            frame.desired_vel.x
+        );
     }
 
     #[test]

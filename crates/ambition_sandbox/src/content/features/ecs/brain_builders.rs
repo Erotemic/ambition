@@ -336,6 +336,10 @@ fn smash_cfg_for_archetype(arch: EnemyArchetype) -> SmashCfg {
         too_close_distance: (hit_band * 0.5).max(18.0),
         chase_speed: arch.chase_speed(),
         retreat_speed: arch.chase_speed() * 0.75,
+        // Goblins dash to close a large gap (richer action set: melee +
+        // ranged + dash + jump). Kept off for the other strikers so it
+        // doesn't blanket-change every melee enemy's feel.
+        dash_to_close: matches!(arch, MediumStriker),
         ..base
     }
 }

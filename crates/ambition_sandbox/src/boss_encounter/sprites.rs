@@ -71,6 +71,15 @@ pub struct BossSheetSpec {
     /// so it sets this `true` and the sprite quad sits centered on
     /// the AABB instead of hanging below it.
     pub body_centered: bool,
+    /// True when the generator drew this sheet's neutral pose facing
+    /// **left**, the opposite of the renderer's default assumption
+    /// (art faces +x / right). The flip is computed as
+    /// `flip_x = (facing < 0) XOR authored_faces_left`, so a
+    /// left-authored sheet renders correctly facing the player instead
+    /// of always facing away. Only the mockingbird needs this today —
+    /// its sheet was generated in a left-facing profile, which is why
+    /// it always faced away from the player.
+    pub authored_faces_left: bool,
 }
 
 // `feet_anchor_y` matches the body-metrics measurement for the current
@@ -137,6 +146,7 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     feet_anchor_y: -0.336,
     frame_sample_inset: 1,
     body_centered: false,
+    authored_faces_left: false,
 };
 
 /// The Mockingbird boss sheet from the standalone Python generator
@@ -224,6 +234,9 @@ pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
     feet_anchor_y: -0.055,
     frame_sample_inset: 1,
     body_centered: true,
+    // The mockingbird sheet is drawn in a left-facing profile, so it must
+    // invert the renderer's faces-right assumption or it always faces away.
+    authored_faces_left: true,
 };
 
 /// Smirking Behemoth / "You Have To Cut The Rope" boss sheet.
@@ -281,11 +294,21 @@ pub const SMIRKING_BEHEMOTH_SHEET: BossSheetSpec = BossSheetSpec {
     feet_anchor_y: -0.5,
     frame_sample_inset: 1,
     body_centered: false,
+    authored_faces_left: false,
 };
 
 impl BossSheetSpec {
     fn row_index(&self, anim: BossAnim) -> Option<usize> {
         self.rows.iter().position(|(row_anim, _)| *row_anim == anim)
+    }
+
+    /// Whether the sprite should be horizontally flipped to face `facing`.
+    /// Single source of truth for the renderer's `Sprite::flip_x`: the default
+    /// art faces +x (right), so a leftward `facing` flips it — unless the sheet
+    /// was authored facing left (`authored_faces_left`), which inverts the rule
+    /// (the mockingbird, otherwise always facing away from the player).
+    pub fn flip_x(&self, facing: f32) -> bool {
+        (facing < 0.0) ^ self.authored_faces_left
     }
 
     /// Resolve a requested animation against this sheet's row set.
@@ -473,6 +496,7 @@ pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
     feet_anchor_y: 2.0 / 576.0,
     frame_sample_inset: 1,
     body_centered: true,
+    authored_faces_left: false,
 };
 
 /// Sandbox-side `(label, filename)` rows for every boss spritesheet
@@ -797,6 +821,26 @@ mod tests {
         // ever drift, indexing by `anim as usize` would panic at
         // runtime.
         assert_eq!(BOSS_SHEET.rows.len(), 7);
+    }
+
+    #[test]
+    fn mockingbird_flips_to_face_the_player_unlike_right_facing_sheets() {
+        // Regression for "the mockingbird always faces away from you": its
+        // sheet is authored facing left, so the flip must be inverted vs a
+        // normal right-facing sheet. Player to the right ⇒ facing > 0.
+        assert!(MOCKINGBIRD_SHEET.authored_faces_left);
+        assert!(!BOSS_SHEET.authored_faces_left);
+        assert!(!GNU_TON_SHEET.authored_faces_left);
+        assert!(!SMIRKING_BEHEMOTH_SHEET.authored_faces_left);
+
+        // Right-facing sheet: face right (no flip) when the player is right,
+        // flip when the player is left — the unchanged default.
+        assert!(!BOSS_SHEET.flip_x(1.0));
+        assert!(BOSS_SHEET.flip_x(-1.0));
+
+        // Left-authored mockingbird: inverted, so it still faces the player.
+        assert!(MOCKINGBIRD_SHEET.flip_x(1.0), "player on the right ⇒ flip so the left-drawn bird faces right");
+        assert!(!MOCKINGBIRD_SHEET.flip_x(-1.0), "player on the left ⇒ no flip, bird faces left toward them");
     }
 
     #[test]

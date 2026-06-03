@@ -374,6 +374,24 @@ pub struct HeldProjectile {
 const HELD_SHOT_MAX_RANGE: f32 = 1600.0;
 const HELD_SHOT_HALF: Vec2 = Vec2::new(12.0, 9.0);
 
+impl HeldProjectile {
+    /// The box that actually registers a hit on a body this tick. ONE source of
+    /// truth shared by the collision system (`held_projectile_step`) and the
+    /// debug overlay so the drawn box can never drift from the box that hits —
+    /// the cause of the "fireball hits before it touches the visible box" report
+    /// was that this contact box was simply never drawn.
+    pub fn contact_aabb(&self) -> ae::Aabb {
+        ae::Aabb::new(self.pos, HELD_SHOT_HALF)
+    }
+
+    /// The splash box a Fireball detonates with on contact (`None` for a plain
+    /// bolt). Drawn faintly around an in-flight fireball so the player can see
+    /// the whole area-of-effect that will trigger, not just the thin bolt.
+    pub fn splash_aabb(&self) -> Option<ae::Aabb> {
+        (self.explode_half > 0.0).then(|| ae::Aabb::new(self.pos, Vec2::splat(self.explode_half)))
+    }
+}
+
 /// Held-item id of the Fireball ability — a ranged held item whose shot
 /// explodes on contact (see [`fire_held_ranged_system`]).
 pub const FIREBALL_ID: &str = "fireball";
@@ -529,7 +547,7 @@ pub fn held_projectile_step(
         // Damage check against actors / bosses / breakables via the shared
         // attacker-side channel. `PlayerProjectile` broadcasts to features.
         let hit_event = crate::features::HitEvent {
-            volume: ae::Aabb::new(proj.pos, HELD_SHOT_HALF),
+            volume: proj.contact_aabb(),
             damage: proj.damage,
             source: crate::features::HitSource::PlayerProjectile {
                 kind: crate::projectile::ProjectileKind::Fireball,
@@ -911,6 +929,33 @@ mod tests {
         assert_eq!(
             halves[0], FIREBALL_EXPLODE_HALF,
             "the fireball shot is tagged to explode on contact"
+        );
+    }
+
+    #[test]
+    fn shot_collision_geometry_is_a_single_source_of_truth() {
+        // The contact box (what hits) and splash box (Fireball AOE) are the
+        // exact geometry the debug overlay draws, so the drawn box can't drift
+        // from the box that registers a hit — the original "fireball hits
+        // gnuton before it touches the visible box" report.
+        let bolt = HeldProjectile {
+            pos: Vec2::new(50.0, 20.0),
+            vel: Vec2::new(300.0, 0.0),
+            damage: 3,
+            traveled: 0.0,
+            explode_half: 0.0,
+        };
+        assert_eq!(bolt.contact_aabb(), ae::Aabb::new(bolt.pos, HELD_SHOT_HALF));
+        assert!(bolt.splash_aabb().is_none(), "a plain bolt has no splash AOE to draw");
+
+        let fireball = HeldProjectile {
+            explode_half: FIREBALL_EXPLODE_HALF,
+            ..bolt
+        };
+        assert_eq!(
+            fireball.splash_aabb(),
+            Some(ae::Aabb::new(fireball.pos, Vec2::splat(FIREBALL_EXPLODE_HALF))),
+            "a fireball's splash box is centered on the shot at its explode half-extent"
         );
     }
 

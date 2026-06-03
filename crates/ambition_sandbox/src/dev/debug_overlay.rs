@@ -168,7 +168,34 @@ pub fn draw_debug_overlay(
             &enemy_projectiles,
             &developer_tools,
         );
+        draw_held_projectiles(&mut gizmos, world, feature_q.held_projectiles.iter(), &developer_tools);
         draw_portals(&mut gizmos, world, portals.iter());
+    }
+}
+
+/// Draw each in-flight held-item shot (gun-sword bolt / Fireball): its solid
+/// **contact box** (the box that registers a hit — `HeldProjectile::contact_aabb`)
+/// and, for a Fireball, the fainter **splash box** it detonates with on contact.
+///
+/// These were previously invisible: the shot rendered as a thin lasersword
+/// sprite while a wider contact box (and a much wider splash) did the hitting,
+/// so a Fireball read as "hitting gnuton before the bolt touches him". Sharing
+/// `contact_aabb` / `splash_aabb` with the collision system keeps the drawn box
+/// identical to the box that hits.
+#[cfg(feature = "input")]
+fn draw_held_projectiles<'a>(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    projectiles: impl Iterator<Item = &'a crate::item_pickup::HeldProjectile>,
+    developer_tools: &DeveloperTools,
+) {
+    let contact_color = Color::srgba(0.35, 0.85, 1.00, 0.90); // light blue (player-side)
+    let splash_color = Color::srgba(1.00, 0.55, 0.20, 0.45); // faint orange (AOE)
+    for proj in projectiles {
+        if let Some(splash) = proj.splash_aabb() {
+            draw_aabb_styled(gizmos, world, splash, splash_color, developer_tools);
+        }
+        draw_aabb_styled(gizmos, world, proj.contact_aabb(), contact_color, developer_tools);
     }
 }
 
@@ -254,6 +281,12 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// their current world-space rectangle. World-anchored
     /// hitboxes don't need this — their AABB is fixed at spawn.
     pub hitbox_owners: Query<'w, 's, &'static crate::features::FeatureAabb>,
+    /// In-flight held-item shots (gun-sword bolt / Fireball). Their
+    /// contact + splash boxes were previously undrawn, so a Fireball
+    /// read as "hitting before it touches the visible box". Lives in
+    /// this bundle (not a top-level param) to keep `draw_debug_overlay`
+    /// under Bevy's 16-system-param ceiling.
+    pub held_projectiles: Query<'w, 's, &'static crate::item_pickup::HeldProjectile>,
 }
 
 fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {

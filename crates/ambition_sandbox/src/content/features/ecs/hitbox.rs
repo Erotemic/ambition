@@ -215,13 +215,34 @@ pub fn apply_hitbox_damage(
                     hits.hit.insert(player_entity);
                 }
             }
-            // Player / Npc / Neutral hitboxes: player slash damage
-            // still flows through the legacy HitEvent path
-            // (see `attack_advance_system`); peaceful NPC / neutral
-            // factions don't spawn hitboxes today. This branch is a
-            // no-op so future migrations can add cases without a
-            // schema change.
-            ActorFaction::Player | ActorFaction::Npc | ActorFaction::Neutral => {}
+            // Player-faction hitbox (a wielded boss-style AOE — see
+            // `crate::shockwave`): damage the enemies/bosses it overlaps by
+            // emitting ONE attacker-side Volume `HitEvent` that
+            // `apply_feature_hit_events` resolves against every overlapping
+            // actor + boss. This is the player end of the same primitive a boss
+            // AOE uses through the Enemy/Boss branch above — the faction is the
+            // only difference. Fires once per strike (the owner doubles as a
+            // "already fired" sentinel in `HitboxHits`, harmless since a hitbox
+            // never targets its own owner).
+            ActorFaction::Player => {
+                if hits.hit.insert(hitbox.owner) {
+                    vfx.write(VfxMessage::Impact {
+                        pos: world_aabb.center(),
+                    });
+                    hit_events.write(HitEvent {
+                        volume: world_aabb,
+                        damage: hitbox.damage.max(1),
+                        source: HitSource::PlayerSlash { knock_x: 0.0 },
+                        attacker: Some(hitbox.owner),
+                        target: HitTarget::Volume,
+                        mode: HitMode::Knockback,
+                        knockback: None,
+                        ignored_targets: Vec::new(),
+                    });
+                }
+            }
+            // Peaceful NPC / neutral factions don't spawn damaging hitboxes.
+            ActorFaction::Npc | ActorFaction::Neutral => {}
         }
     }
 }
@@ -458,6 +479,98 @@ mod tests {
         assert!(
             entity.get::<HitboxHits>().is_some(),
             "HitboxHits hit-once tracker should be attached by default",
+        );
+    }
+
+    #[derive(Resource, Default)]
+    struct CapturedHits(Vec<HitEvent>);
+
+    fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHits>) {
+        for e in reader.read() {
+            cap.0.push(e.clone());
+        }
+    }
+
+    /// The unification keystone: a **Player-faction** hitbox (a wielded boss
+    /// AOE) emits exactly one attacker-side Volume `HitEvent` that
+    /// `apply_feature_hit_events` then resolves against enemies/bosses — the
+    /// same primitive a Boss-faction hitbox uses to hit the player.
+    #[test]
+    fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
+        let mut app = App::new();
+        app.add_message::<HitEvent>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.init_resource::<CapturedHits>();
+        app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+        let owner = app
+            .world_mut()
+            .spawn(crate::features::FeatureAabb::new(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(12.0, 16.0),
+            ))
+            .id();
+        app.world_mut().spawn((
+            Hitbox {
+                owner,
+                source: ActorFaction::Player,
+                anchor: HitboxAnchor::World {
+                    center: ae::Vec2::new(200.0, 80.0),
+                },
+                half_extent: ae::Vec2::new(60.0, 30.0),
+                damage: 5,
+                knockback_strength: 1.0,
+            },
+            HitboxLifetime { remaining_s: 0.2 },
+            HitboxHits::default(),
+        ));
+        app.update();
+        let cap = app.world().resource::<CapturedHits>();
+        assert_eq!(cap.0.len(), 1, "player AOE emits exactly one feature-damaging hit");
+        assert!(
+            matches!(cap.0[0].source, HitSource::PlayerSlash { .. }),
+            "carries an attacker-side player source so apply_feature_hit_events applies it"
+        );
+        assert!(cap.0[0].source.is_attacker_side());
+        assert!(matches!(cap.0[0].target, HitTarget::Volume), "volume hit (every overlapping actor/boss)");
+        assert_eq!(cap.0[0].damage, 5);
+    }
+
+    /// The AOE fires once, not every tick of its lifetime — the owner doubles
+    /// as a fired-sentinel in `HitboxHits`.
+    #[test]
+    fn player_faction_hitbox_only_fires_once() {
+        let mut app = App::new();
+        app.add_message::<HitEvent>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.init_resource::<CapturedHits>();
+        app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+        let owner = app
+            .world_mut()
+            .spawn(crate::features::FeatureAabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)))
+            .id();
+        app.world_mut().spawn((
+            Hitbox {
+                owner,
+                source: ActorFaction::Player,
+                anchor: HitboxAnchor::World { center: ae::Vec2::ZERO },
+                half_extent: ae::Vec2::splat(40.0),
+                damage: 3,
+                knockback_strength: 0.0,
+            },
+            HitboxLifetime { remaining_s: 1.0 },
+            HitboxHits::default(),
+        ));
+        app.update();
+        app.update();
+        app.update();
+        assert_eq!(
+            app.world().resource::<CapturedHits>().0.len(),
+            1,
+            "the AOE emits its hit once across multiple live ticks"
         );
     }
 }

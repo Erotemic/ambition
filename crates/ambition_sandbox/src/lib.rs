@@ -80,6 +80,7 @@ pub mod portal;
 pub(crate) mod presentation;
 pub(crate) mod projectile;
 pub(crate) mod runtime;
+pub mod shockwave;
 pub mod shop;
 pub mod shrine;
 pub(crate) mod time;

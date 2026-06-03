@@ -141,6 +141,18 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 ranged: None,
             },
         );
+        // The shockwave gauntlet has no melee/ranged verb — `Attack` is
+        // intercepted by `shockwave::fire_shockwave_system`, which emits a
+        // ShockwaveSlam Special so the actor-generic consumer spawns a
+        // player-faction AOE (the player wielding a boss-style attack).
+        items.insert(
+            "shockwave",
+            HeldItemSpec {
+                id: "shockwave".into(),
+                melee: None,
+                ranged: None,
+            },
+        );
         // The bomb is a pure throwable (no melee/ranged verb): a plain Attack
         // throws it, and `bomb::tick_bomb_fuses` detonates it on a fuse.
         items.insert(
@@ -450,6 +462,26 @@ pub enum SpecialActionSpec {
         /// Number of minions to spawn on the strike edge.
         minion_count: u8,
     },
+    /// Actor-generic ground-slam AOE: a World-anchored damage box at the
+    /// emitting actor's position, tagged with the **emitter's** faction. A boss
+    /// uses it to damage the player; the player wields it (via
+    /// `crate::shockwave`) to damage enemies — the same `Hitbox` primitive and
+    /// `apply_hitbox_damage` system, differing only by faction. This is the
+    /// first attack authored to be actor-generic from the start (the older
+    /// specials above are still boss-query-coupled; migrating them is the
+    /// Effect-primitive vocabulary item in TODO.md).
+    ShockwaveSlam {
+        /// Half-width of the AOE box (px).
+        half_extent_x: f32,
+        /// Half-height of the AOE box (px).
+        half_extent_y: f32,
+        /// Damage dealt to each actor/boss the box overlaps.
+        damage: i32,
+        /// Seconds the AOE stays live.
+        lifetime_s: f32,
+        /// Knockback strength imparted to victims.
+        knockback: f32,
+    },
 }
 
 // --- Concrete attack spec timings ---
@@ -669,6 +701,7 @@ impl ActionRequest {
                 SpecialActionSpec::MinimaTrap { .. } => "special_minima_trap",
                 SpecialActionSpec::SaddlePoint { .. } => "special_saddle_point",
                 SpecialActionSpec::GradientCascade { .. } => "special_gradient_cascade",
+                SpecialActionSpec::ShockwaveSlam { .. } => "special_shockwave_slam",
             },
             Self::PlayerProjectileTick { .. } => "player_projectile_tick",
         }

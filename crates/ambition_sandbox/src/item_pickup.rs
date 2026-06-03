@@ -207,6 +207,7 @@ const DEBUG_GROUND_ITEMS: &[DebugGroundItem] = &[
     // Was -120 too (overlapping the bomb); spaced out here so the debug items
     // don't stack on one another.
     DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::mark_recall::MARK_RECALL_ID), offset: Vec2::new(-280.0, 0.0), half: 18.0, name: "Ground item: mark-recall beacon" },
+    DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::shockwave::SHOCKWAVE_ID), offset: Vec2::new(-320.0, 0.0), half: 18.0, name: "Ground item: shockwave gauntlet" },
 ];
 
 /// Spawn every [`DEBUG_GROUND_ITEMS`] entry near the player on the first frame a
@@ -335,7 +336,8 @@ pub fn throw_held_item_system(
     let use_on_attack = held.spec.id == crate::puppy_slug_gun::PUPPY_SLUG_GUN_ID
         || held.spec.id == crate::mark_recall::MARK_RECALL_ID
         || held.spec.id == crate::blink::BLINK_ID
-        || held.spec.id == crate::grapple::GRAPPLE_ID;
+        || held.spec.id == crate::grapple::GRAPPLE_ID
+        || held.spec.id == crate::shockwave::SHOCKWAVE_ID;
     if !(control.shield_held || (is_pure_throwable(&held.spec) && !use_on_attack)) {
         return;
     }

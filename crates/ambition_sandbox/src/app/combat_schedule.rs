@@ -64,6 +64,12 @@ impl Plugin for CombatSchedulePlugin {
                 crate::features::spawn_saddle_point_from_special_messages.run_if(gameplay_allowed),
                 crate::features::spawn_gradient_cascade_minions_from_special_messages
                     .run_if(gameplay_allowed),
+                // Actor-generic consumer: a ShockwaveSlam Special (boss OR
+                // player-emitted) spawns a faction-tagged World-anchored AOE
+                // hitbox at the emitter, resolved by `apply_hitbox_damage`
+                // below. The player end (the shockwave gauntlet) is the first
+                // "player wields a boss attack" slice.
+                crate::shockwave::spawn_shockwave_from_special_messages.run_if(gameplay_allowed),
                 crate::projectile::update_projectiles,
                 crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
                 // Hitbox-entity lifecycle for melee strikes (Task A of the

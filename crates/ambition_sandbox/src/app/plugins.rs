@@ -352,6 +352,9 @@ fn register_item_pickup_systems(app: &mut App) {
             crate::mark_recall::mark_recall_system.run_if(gameplay_allowed),
             crate::blink::blink_system.run_if(gameplay_allowed),
             crate::grapple::grapple_system.run_if(gameplay_allowed),
+            // Shockwave gauntlet: plain Attack emits a ShockwaveSlam Special so
+            // the player wields the boss-style AOE (consumer in combat_schedule).
+            crate::shockwave::fire_shockwave_system.run_if(gameplay_allowed),
             // Shared movement-ability cooldown timer (scaled_dt, so pause /
             // bullet-time slow it too).
             crate::ability_cooldown::tick_ability_cooldown,

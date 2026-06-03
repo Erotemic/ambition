@@ -295,6 +295,11 @@ impl BossBehaviorProfile {
         Self::from_data("exploding_gradient_boss")
     }
 
+    /// Overflow — an aerial melee dive-bomber. Authored in `boss_profiles.ron`.
+    pub fn overflow_boss() -> Self {
+        Self::from_data("overflow_boss")
+    }
+
     /// Fallback profile for authored bosses whose canonical id isn't
     /// in `boss_profiles.ron`. Clones the Clockwork Warden's tuning
     /// and overrides the id so the encounter pipeline doesn't fault

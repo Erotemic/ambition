@@ -322,6 +322,29 @@ impl BossEncounterSpec {
             music_enrage: "dinosaur_liberators".into(),
         }
     }
+
+    /// Overflow — an aerial melee dive-bomber. Compile-time fallback;
+    /// `boss_encounters/overflow_boss.ron` overrides these.
+    pub fn overflow_boss() -> Self {
+        Self {
+            id: "overflow_boss".into(),
+            name: "Overflow".into(),
+            max_hp: 42,
+            phase1_to_transition_hp: 0.6,
+            transition_to_phase2_hp: 0.6,
+            phase2_to_enrage_hp: 0.25,
+            intro_seconds: 2.4,
+            transition_seconds: 1.8,
+            stagger_seconds: 1.8,
+            death_seconds: 2.6,
+            stagger_threshold: 9,
+            stagger_window_seconds: 1.6,
+            music_intro: "dinosaur_liberators".into(),
+            music_phase1: "dinosaur_liberators".into(),
+            music_phase2: "dinosaur_liberators".into(),
+            music_enrage: "dinosaur_liberators".into(),
+        }
+    }
 }
 
 /// Live encounter state.

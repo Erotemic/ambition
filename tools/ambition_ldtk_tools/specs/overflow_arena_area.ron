@@ -1,0 +1,31 @@
+// Boss arena for Overflow (an aerial melee dive-bomber). Off the hall of bosses.
+(
+    id: "overflow_arena",
+    level_id: "overflow_arena",
+    world_x: 64000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 640,
+    fill_collision: "empty",
+    bg_color: "#181018",
+    biome: "lab",
+    entities: [
+        ( type: "Solid", px: [0, 608], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 592], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 592], fields: ( name: "right_wall" ) ),
+        ( type: "PlayerStart", px: [120, 562], size: [28, 46], fields: ( name: "overflow_arena_spawn" ) ),
+        ( type: "BossSpawn", px: [640, 340], size: [150, 145], fields: ( name: "Overflow", brain: "PhaseScript:overflow_boss" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 512],
+            size: [48, 96],
+            fields: ( id: "overflow_arena_entry", name: "overflow_arena_entry", activation: "Door", target_room: "hall_of_bosses", target_zone: "overflow_arena_door", bidirectional: true ),
+        ),
+        ( type: "CameraZone", px: [0, 0], size: [1280, 640], fields: ( id: "overflow_arena_camera", name: "overflow_arena_camera", mode: "Encounter" ) ),
+        ( type: "DebugLabel", px: [120, 80], size: [640, 24], fields: ( name: "overflow_arena_label", text: "Overflow — it crashes into you. Stay mobile.", category: "Custom" ) ),
+    ],
+    connect_to: [
+        ( target_room: "hall_of_bosses", px: [1450, 384], size: [16, 96], id: "overflow_arena_door", target_zone: "overflow_arena_entry", activation: "Door", bidirectional: true ),
+    ],
+)

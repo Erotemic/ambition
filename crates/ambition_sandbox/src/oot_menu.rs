@@ -29,6 +29,9 @@ pub mod input;
 pub mod state;
 pub mod ui;
 
+#[cfg(test)]
+mod tests;
+
 pub use input::{oot_menu_input, oot_menu_pointer_input};
 pub use state::OotMenuState;
 pub use ui::{spawn_oot_menu, sync_oot_menu, OotMenuRoot, OotSlot};

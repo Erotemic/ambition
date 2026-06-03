@@ -19,10 +19,14 @@ const HEALTH_CELL_HEAL: i32 = 4;
 const MANA_CELL_RESTORE: f32 = 40.0;
 
 /// Toggle, navigate, and confirm the OoT item grid via the semantic menu frame.
+///
+/// Visibility lives in the shared `InventoryUiState.visible` flag (see
+/// [`OotMenuState`]) so the pause menu's existing suppression keeps working.
 #[allow(clippy::too_many_arguments)]
 pub fn oot_menu_input(
     menu: Res<MenuControlFrame>,
     mut state: ResMut<OotMenuState>,
+    mut overlay: ResMut<crate::inventory::InventoryUiState>,
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut owned: ResMut<OwnedItems>,
@@ -35,9 +39,10 @@ pub fn oot_menu_input(
     mut heals: MessageWriter<PlayerHealRequested>,
 ) {
     if menu.inventory {
-        if state.visible {
-            close_oot_menu(&mut state, mode.get(), &mut next_mode);
+        if overlay.visible {
+            close_oot_menu(&mut state, &mut overlay, mode.get(), &mut next_mode);
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+            overlay.visible = true;
             state.open(matches!(mode.get(), GameMode::Paused));
             if matches!(mode.get(), GameMode::Playing) {
                 next_mode.set(GameMode::Paused);
@@ -45,14 +50,14 @@ pub fn oot_menu_input(
         }
     }
 
-    if !state.visible {
+    if !overlay.visible {
         state.pointer_confirm = false;
         state.pointer_armed = None;
         return;
     }
 
     if menu.back || menu.start {
-        close_oot_menu(&mut state, mode.get(), &mut next_mode);
+        close_oot_menu(&mut state, &mut overlay, mode.get(), &mut next_mode);
         return;
     }
 
@@ -138,11 +143,13 @@ fn apply_menu_action(
 /// Close + restore the prior game mode (mirrors the legacy adventure menu).
 pub(super) fn close_oot_menu(
     state: &mut OotMenuState,
+    overlay: &mut crate::inventory::InventoryUiState,
     mode: &GameMode,
     next_mode: &mut NextState<GameMode>,
 ) {
     let opened_from_pause = state.opened_from_pause;
     state.close();
+    overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {
         next_mode.set(GameMode::Playing);
     }
@@ -155,17 +162,18 @@ pub fn oot_menu_pointer_input(
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut state: ResMut<OotMenuState>,
+    mut overlay: ResMut<crate::inventory::InventoryUiState>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     slots: Query<(&Interaction, &OotSlot), Changed<Interaction>>,
     back_buttons: Query<&Interaction, (With<OotBackButton>, Changed<Interaction>)>,
 ) {
-    if !state.visible {
+    if !overlay.visible {
         return;
     }
 
     for interaction in &back_buttons {
         if matches!(interaction, Interaction::Pressed) {
-            close_oot_menu(&mut state, mode.get(), &mut next_mode);
+            close_oot_menu(&mut state, &mut overlay, mode.get(), &mut next_mode);
             return;
         }
     }

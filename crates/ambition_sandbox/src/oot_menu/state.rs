@@ -5,14 +5,20 @@ use bevy::prelude::*;
 use crate::items::{Item, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use crate::ui_nav::MenuFocusState;
 
-/// Visibility + cursor state for the OoT item grid overlay.
+/// Cursor + interaction state for the OoT item grid overlay.
+///
+/// Visibility is deliberately NOT stored here — it lives in the shared
+/// [`crate::inventory::InventoryUiState::visible`] flag, which the pause menu
+/// already reads (in ~9 places) to suppress its own navigation while an
+/// inventory overlay is open. Reusing that flag means opening the OoT grid
+/// suppresses pause-nav and closing the pause menu (Start) also closes the grid,
+/// with zero pause-menu changes.
 ///
 /// The cursor is a flat slot index `0..24`; [`Self::grid`] decodes it to
 /// `(row, col)`. Navigation wraps within the row (left/right) and column
 /// (up/down), matching the OoT item subscreen's wrap-around feel.
 #[derive(Resource, Default)]
 pub struct OotMenuState {
-    pub visible: bool,
     /// Selected slot index, `0..ITEM_COUNT`.
     pub cursor: usize,
     /// True when opened from the pause menu (vs. directly from gameplay), so we
@@ -30,8 +36,9 @@ pub struct OotMenuState {
 }
 
 impl OotMenuState {
+    /// Reset cursor/interaction state for a fresh open. Visibility is set by the
+    /// caller on [`crate::inventory::InventoryUiState`].
     pub fn open(&mut self, opened_from_pause: bool) {
-        self.visible = true;
         self.cursor = 0;
         self.opened_from_pause = opened_from_pause;
         self.pointer_confirm = false;
@@ -41,7 +48,6 @@ impl OotMenuState {
     }
 
     pub fn close(&mut self) {
-        self.visible = false;
         self.pointer_confirm = false;
         self.pointer_armed = None;
         self.focus = MenuFocusState::default();
@@ -128,14 +134,15 @@ mod tests {
     }
 
     #[test]
-    fn open_resets_and_close_hides() {
+    fn open_resets_cursor_and_records_pause_origin() {
         let mut s = OotMenuState::default();
         s.set_cursor(10);
+        s.pointer_armed = Some(3);
         s.open(true);
-        assert!(s.visible);
-        assert_eq!(s.cursor, 0);
+        assert_eq!(s.cursor, 0, "open resets the cursor to the first slot");
         assert!(s.opened_from_pause);
+        assert_eq!(s.pointer_armed, None);
         s.close();
-        assert!(!s.visible);
+        assert_eq!(s.pointer_armed, None);
     }
 }

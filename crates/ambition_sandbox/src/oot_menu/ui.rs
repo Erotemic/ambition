@@ -229,6 +229,7 @@ pub fn spawn_oot_menu(mut commands: Commands) {
 /// Mirror state + ownership into the grid visuals every frame.
 pub fn sync_oot_menu(
     state: Res<OotMenuState>,
+    overlay: Res<crate::inventory::InventoryUiState>,
     owned: Res<OwnedItems>,
     mut roots: Query<&mut Visibility, With<OotMenuRoot>>,
     mut slots: Query<
@@ -237,14 +238,15 @@ pub fn sync_oot_menu(
     >,
     mut detail: Query<&mut Text, (With<OotDetailText>, Without<OotSlot>)>,
 ) {
+    let visible = overlay.visible;
     for mut vis in &mut roots {
-        *vis = if state.visible {
+        *vis = if visible {
             Visibility::Visible
         } else {
             Visibility::Hidden
         };
     }
-    if !state.visible {
+    if !visible {
         return;
     }
 

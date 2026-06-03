@@ -528,29 +528,61 @@ pub fn portal_toggle_system(
 #[derive(Resource, Default)]
 pub struct IntentionalTeleport(pub bool);
 
+/// The world's gravity direction (unit vector, in the y-DOWN world frame) —
+/// default straight down. This is the **gravity concept** the body orients to:
+/// a body that gets rotated (e.g. by a portal pair at any angle) rights itself
+/// to point its feet along gravity. Change `dir` and bodies will reorient to the
+/// new down — the seed of gravity effects / gravity rooms. Today only
+/// [`update_player_roll`] consumes it (the orient-to-gravity reflex); wiring it
+/// into the movement integrator so things actually *fall* the new way is the
+/// follow-up that makes a real gravity room.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct GravityField {
+    pub dir: Vec2,
+}
+
+impl Default for GravityField {
+    fn default() -> Self {
+        // +Y is down in the world frame, so default gravity points +Y.
+        Self {
+            dir: Vec2::new(0.0, 1.0),
+        }
+    }
+}
+
+/// Render-space z-rotation that stands a body upright under `gravity_dir`: it
+/// points the sprite's local +Y ("up") along world-up (`-gravity`), accounting
+/// for the y-down→y-up render flip. Default gravity → angle 0.
+pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
+    let g = gravity_dir.normalize_or_zero();
+    if g == Vec2::ZERO {
+        return 0.0;
+    }
+    // World up = -g; the render frame flips y.
+    let render_up = Vec2::new(-g.x, g.y);
+    render_up.y.atan2(render_up.x) - std::f32::consts::FRAC_PI_2
+}
+
 /// Visual roll (aerial orientation) of the player, in render-space radians.
-/// Portal transit adds the rotation the velocity underwent — a floor→floor jump
-/// flips you 180° so you somersault to reorient (enter feet-first, leave
-/// feet-first) instead of teleporting head-first — and the roll eases back to
-/// upright on landing under normal gravity.
+/// Portal transit ADDS the rotation the velocity underwent (general for ANY
+/// portal-pair angle — see [`portal_transit_roll`]), so you leave a portal
+/// rotated consistently with how you entered; then [`update_player_roll`] eases
+/// the roll back toward "feet along gravity" so the player rights themselves.
 ///
 /// UNIFICATION NOTE: this is the seed of a first-class "which way is down"
 /// orientation. Today it's player-only; non-player actors that travel through
 /// portals (`portal_teleport_actors`) should grow the same roll so a shark /
-/// goblin somersaults too, and a future **gravity room** would drive `target`
-/// directly instead of always easing to 0. Promote to a shared
-/// `ActorOrientation` when either lands.
+/// goblin somersaults too. Promote to a shared `ActorOrientation` when that
+/// lands. The [`GravityField`] it orients to is the gravity-room hook.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PlayerRoll {
     /// Current render-space z-rotation applied to the player sprite.
     pub angle: f32,
-    /// Orientation the roll eases toward (0 = upright under normal gravity).
-    pub target: f32,
 }
 
-/// Aerial spin rate easing `angle` toward `target` (rad/s). Fast enough that a
-/// 180° portal flip reads as a quick somersault (~0.25s).
-const PLAYER_ROLL_SPEED: f32 = 13.0;
+/// Reorientation rate easing `angle` toward gravity-upright (rad/s). Visible but
+/// quick — a 180° portal flip rights itself in ~0.4s as the player arcs.
+const PLAYER_ROLL_SPEED: f32 = 8.0;
 
 /// Attach a [`PlayerRoll`] to the primary player once it exists (lazy so the
 /// player bundle doesn't need to know about the portal module).
@@ -563,43 +595,57 @@ pub fn ensure_player_roll(
     }
 }
 
-/// Ease the player's roll toward its target (the aerial rotation), and under
-/// normal gravity snap the target back to upright once grounded so you land on
-/// your feet. A gravity room would instead set `target` to its down-orientation.
+/// Continuously ease the player's roll toward "feet along gravity" (the
+/// orient-to-gravity reflex). Runs whether airborne or grounded, so after a
+/// portal rotates the body it visibly rights itself toward the current
+/// [`GravityField`] — and in a gravity room it would settle to that room's down.
 pub fn update_player_roll(
     time: Res<crate::WorldTime>,
-    mut players: Query<
-        (&mut PlayerRoll, &crate::player::PlayerGroundState),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
+    gravity: Option<Res<GravityField>>,
+    mut players: Query<&mut PlayerRoll, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
     }
-    let Ok((mut roll, ground)) = players.single_mut() else {
+    let Ok(mut roll) = players.single_mut() else {
         return;
     };
-    if ground.on_ground {
-        roll.target = 0.0;
+    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
+    let target = gravity_upright_angle(gravity_dir);
+    // Shortest signed difference, wrapped to (-π, π], so righting always takes
+    // the short way around.
+    let mut diff = target - roll.angle;
+    diff = diff.rem_euclid(std::f32::consts::TAU);
+    if diff > std::f32::consts::PI {
+        diff -= std::f32::consts::TAU;
     }
     let max_step = PLAYER_ROLL_SPEED * dt;
-    let diff = roll.target - roll.angle;
     if diff.abs() <= max_step {
-        roll.angle = roll.target;
+        roll.angle = target;
     } else {
         roll.angle += max_step * diff.signum();
     }
+    // Keep the stored angle bounded so repeated portals don't grow it forever.
+    roll.angle = roll.angle.rem_euclid(std::f32::consts::TAU);
 }
 
 /// The render-space roll a body picks up traveling through a portal pair: the
-/// angle the velocity is rotated by (entry `-n_in` → exit `n_out`), negated for
-/// the y-down→y-up render flip. Floor→floor is π (a half-somersault).
+/// signed on-screen angle its motion turns through — from "into the entry"
+/// (`-n_in`) to "out of the exit" (`n_out`), measured in RENDER space (y
+/// flipped). Computing it as the render-space turn directly (rather than a
+/// world rotation we then conjugate) keeps the sign unambiguous. Fully general
+/// for ANY two portal angles: floor↔floor = ±π, floor↔wall = ±π/2, slanted
+/// pairs = whatever the normals give. A body entering feet-first leaves
+/// feet-first along its new velocity.
 pub fn portal_transit_roll(n_in: Vec2, n_out: Vec2) -> f32 {
-    let u = -n_in;
-    let cos = u.dot(n_out);
-    let sin = u.x * n_out.y - u.y * n_out.x;
-    -sin.atan2(cos)
+    // Approach direction (-n_in) and exit direction (n_out), each flipped into
+    // render space; the body turns by the signed angle between them.
+    let into_render = Vec2::new(-n_in.x, n_in.y);
+    let out_render = Vec2::new(n_out.x, -n_out.y);
+    let dot = into_render.dot(out_render);
+    let cross = into_render.x * out_render.y - into_render.y * out_render.x;
+    cross.atan2(dot)
 }
 
 /// Teleport the player between linked portals, carrying momentum. Requires
@@ -652,10 +698,11 @@ pub fn portal_teleport_system(
             kin.vel = out_vel;
             gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
             // Aerial reorientation: roll the body by the same rotation the
-            // velocity took, so a floor→floor jump somersaults the player to
-            // land feet-first instead of emerging head-first.
+            // portal pair applies to the velocity, so you leave rotated
+            // consistently with how you entered (general for any pair of portal
+            // angles). update_player_roll then rights you toward gravity.
             if let Some(roll) = roll.as_deref_mut() {
-                roll.target += portal_transit_roll(enter.normal, exit.normal);
+                roll.angle += portal_transit_roll(enter.normal, exit.normal);
             }
             // Suction warp going in, soft pop-out coming back into normal space.
             sfx.write(crate::audio::SfxMessage::Play {
@@ -1253,60 +1300,64 @@ mod tests {
     }
 
     #[test]
-    fn floor_to_floor_transit_is_a_half_somersault() {
-        let up = Vec2::new(0.0, -1.0); // both floor portals face up (y-down world)
-        let roll = portal_transit_roll(up, up);
-        assert!(
-            (roll.abs() - std::f32::consts::PI).abs() < 1e-5,
-            "floor->floor should flip 180°, got {roll}"
-        );
-        // A straight-through wall pair (enter +x-normal, exit -x-normal) keeps
-        // the body upright — no somersault.
-        let roll2 = portal_transit_roll(Vec2::new(1.0, 0.0), Vec2::new(-1.0, 0.0));
-        assert!(roll2.abs() < 1e-5, "straight wall pair keeps orientation, got {roll2}");
+    fn portal_transit_roll_is_general_and_matches_on_screen_turn() {
+        use std::f32::consts::{FRAC_PI_2, PI};
+        let up = Vec2::new(0.0, -1.0); // floor portal faces up (y-down world)
+        let down = Vec2::new(0.0, 1.0); // ceiling portal faces down
+        let left = Vec2::new(-1.0, 0.0); // right wall faces left
+        let right = Vec2::new(1.0, 0.0); // left wall faces right
+
+        // Floor↔floor flips 180° (you somersault).
+        assert!((portal_transit_roll(up, up).abs() - PI).abs() < 1e-5);
+        // A straight-through wall pair (enter into +x wall, exit -x wall) keeps
+        // orientation — no turn.
+        assert!(portal_transit_roll(right, left).abs() < 1e-5);
+        // Floor→right-wall: falling in, you exit moving LEFT, so the body turns
+        // -90° (render) — feet swing from down to left, leaving feet-first.
+        assert!((portal_transit_roll(up, left) - (-FRAC_PI_2)).abs() < 1e-5);
+        // The reverse pair turns the opposite way.
+        assert!((portal_transit_roll(left, up) - FRAC_PI_2).abs() < 1e-5);
+        // Ceiling↔ceiling also flips 180°.
+        assert!((portal_transit_roll(down, down).abs() - PI).abs() < 1e-5);
     }
 
     #[test]
-    fn roll_eases_to_target_then_uprights_on_landing() {
+    fn roll_eases_back_to_gravity_upright_in_air() {
         let mut app = App::new();
         app.insert_resource(crate::WorldTime {
             raw_dt: 1.0 / 60.0,
             scaled_dt: 1.0 / 60.0,
         });
+        app.init_resource::<GravityField>();
         app.add_systems(Update, update_player_roll);
+        // Start rolled 180° (just exited a floor↔floor portal), airborne.
         let player = app
             .world_mut()
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
                 PlayerRoll {
-                    angle: 0.0,
-                    target: std::f32::consts::PI,
-                },
-                crate::player::PlayerGroundState {
-                    on_ground: false,
-                    ..Default::default()
+                    angle: std::f32::consts::PI,
                 },
             ))
             .id();
-        // Airborne: the roll progresses toward the target.
-        for _ in 0..3 {
-            app.update();
-        }
-        let mid = app.world().get::<PlayerRoll>(player).unwrap().angle;
-        assert!(mid > 0.0, "roll should progress while airborne, got {mid}");
-
-        // Landing snaps the target upright and the roll eases back to 0.
-        app.world_mut()
-            .get_mut::<crate::player::PlayerGroundState>(player)
-            .unwrap()
-            .on_ground = true;
+        // It rights itself toward gravity-upright (0) over time WITHOUT needing
+        // to be grounded (the orient-to-gravity reflex).
         for _ in 0..120 {
             app.update();
         }
-        let landed = *app.world().get::<PlayerRoll>(player).unwrap();
-        assert_eq!(landed.target, 0.0, "grounded target uprights");
-        assert!(landed.angle.abs() < 1e-3, "lands upright, got {}", landed.angle);
+        let angle = app.world().get::<PlayerRoll>(player).unwrap().angle;
+        let from_upright = angle.min(std::f32::consts::TAU - angle); // distance to 0 mod 2π
+        assert!(from_upright < 1e-2, "should right itself to gravity-up, got {angle}");
+    }
+
+    #[test]
+    fn gravity_upright_angle_tracks_the_gravity_direction() {
+        use std::f32::consts::FRAC_PI_2;
+        // Default gravity (down, +Y world) → upright is 0.
+        assert!(gravity_upright_angle(Vec2::new(0.0, 1.0)).abs() < 1e-5);
+        // Gravity to the right (+X) → the body stands rotated +90° (render).
+        assert!((gravity_upright_angle(Vec2::new(1.0, 0.0)) - FRAC_PI_2).abs() < 1e-5);
     }
 
     #[test]

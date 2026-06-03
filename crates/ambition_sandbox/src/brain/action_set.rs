@@ -234,6 +234,17 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
+        // The sentry gauntlet has no melee/ranged verb — `Attack` is intercepted
+        // by `sentry::fire_sentry_system`, which deploys an auto-firing turret.
+        items.insert(
+            "sentry",
+            HeldItemSpec {
+                id: "sentry".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
+            },
+        );
         // The bomb is a pure throwable (no melee/ranged verb): a plain Attack
         // throws it, and `bomb::tick_bomb_fuses` detonates it on a fuse.
         items.insert(

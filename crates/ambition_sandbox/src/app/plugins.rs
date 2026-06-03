@@ -376,6 +376,10 @@ fn register_item_pickup_systems(app: &mut App) {
             // enemies (no damage — pull-then-slam), then ages out.
             crate::vortex::fire_vortex_system.run_if(gameplay_allowed),
             crate::vortex::update_vortex_wells.run_if(gameplay_allowed),
+            // Sentry gauntlet: plain Attack deploys an auto-firing turret that
+            // shoots player-faction bolts at the nearest enemy, then expires.
+            crate::sentry::fire_sentry_system.run_if(gameplay_allowed),
+            crate::sentry::update_sentries.run_if(gameplay_allowed),
             // Shared movement-ability cooldown timer (scaled_dt, so pause /
             // bullet-time slow it too).
             crate::ability_cooldown::tick_ability_cooldown,

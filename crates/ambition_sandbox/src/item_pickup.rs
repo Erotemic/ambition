@@ -215,6 +215,7 @@ const DEBUG_GROUND_ITEMS: &[DebugGroundItem] = &[
     DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::volley::VOLLEY_ID), offset: Vec2::new(-360.0, 0.0), half: 18.0, name: "Ground item: volley gauntlet" },
     DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::beam::BEAM_ID), offset: Vec2::new(-400.0, 0.0), half: 18.0, name: "Ground item: focus-beam gauntlet" },
     DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::vortex::VORTEX_ID), offset: Vec2::new(-440.0, 0.0), half: 18.0, name: "Ground item: vortex gauntlet" },
+    DebugGroundItem { spec: || crate::brain::held_item_by_id(crate::sentry::SENTRY_ID), offset: Vec2::new(-480.0, 0.0), half: 18.0, name: "Ground item: sentry gauntlet" },
 ];
 
 /// Spawn every [`DEBUG_GROUND_ITEMS`] entry near the player on the first frame a

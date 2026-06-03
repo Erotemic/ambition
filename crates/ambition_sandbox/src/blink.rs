@@ -28,6 +28,12 @@ const BLINK_DISTANCE: f32 = 150.0;
 /// Cooldown between blinks, so it reads as a deliberate reposition (not spam).
 const BLINK_COOLDOWN_S: f32 = 0.45;
 
+/// Half-extent of the arrival shockwave that lets you blink offensively into a
+/// cluster of enemies.
+const BLINK_SHOCKWAVE_HALF: f32 = 36.0;
+/// Shockwave damage — modest; Blink is mobility first, a light strike second.
+const BLINK_SHOCKWAVE_DAMAGE: i32 = 2;
+
 /// `Attack` while holding the Blink ability teleports the player up to
 /// [`BLINK_DISTANCE`] along the aim direction, stopping a body-half short of the
 /// first solid wall so the teleport never lands inside geometry.
@@ -46,6 +52,7 @@ pub fn blink_system(
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
+    mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
     // Plain Attack blinks; Shield+Attack is the generic "throw the item away".
     if !control.attack_pressed || control.shield_held {
@@ -80,6 +87,19 @@ pub fn blink_system(
         None => from + dir * BLINK_DISTANCE,
     };
     kin.pos = target;
+    // Offensive blink: a small player-side shockwave at the arrival point, so you
+    // can blink *into* enemies to strike them (and the PlayerSlash source spares
+    // the player). Composes nicely with a gravity well — blink in, sweep them up.
+    hits.write(crate::features::HitEvent {
+        volume: ae::Aabb::new(target, ae::Vec2::splat(BLINK_SHOCKWAVE_HALF)),
+        damage: BLINK_SHOCKWAVE_DAMAGE,
+        source: crate::features::HitSource::PlayerSlash { knock_x: 0.0 },
+        attacker: Some(player),
+        target: crate::features::HitTarget::Volume,
+        mode: crate::features::HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
     sfx.write(crate::audio::SfxMessage::Play {
         id: ambition_sfx::ids::PLAYER_BLINK,
         pos: target,
@@ -135,6 +155,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::presentation::fx::VfxMessage>();
+        app.add_message::<crate::features::HitEvent>();
         app.insert_resource(ControlFrame::default());
         app.add_systems(Update, blink_system);
         app
@@ -161,6 +182,39 @@ mod tests {
 
     fn player_pos(app: &App, player: Entity) -> ae::Vec2 {
         app.world().get::<PlayerKinematics>(player).unwrap().pos
+    }
+
+    #[derive(bevy::prelude::Resource, Default)]
+    struct CapturedHits(Vec<crate::features::HitEvent>);
+
+    fn capture_hits(
+        mut reader: bevy::prelude::MessageReader<crate::features::HitEvent>,
+        mut out: bevy::prelude::ResMut<CapturedHits>,
+    ) {
+        out.0.extend(reader.read().cloned());
+    }
+
+    #[test]
+    fn blink_emits_a_player_side_shockwave_at_arrival() {
+        let mut app = test_app();
+        app.init_resource::<CapturedHits>();
+        app.add_systems(bevy::prelude::Update, capture_hits.after(blink_system));
+        let player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
+        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.update();
+        let hits = &app.world().resource::<CapturedHits>().0;
+        assert_eq!(hits.len(), 1, "one shockwave on arrival");
+        // Centered at the arrival point (300 + BLINK_DISTANCE along facing).
+        let center_x = (hits[0].volume.min.x + hits[0].volume.max.x) * 0.5;
+        assert!(
+            (center_x - (300.0 + BLINK_DISTANCE)).abs() < 1.0,
+            "shockwave is at the arrival point",
+        );
+        assert_eq!(hits[0].damage, BLINK_SHOCKWAVE_DAMAGE);
+        assert!(
+            matches!(hits[0].source, crate::features::HitSource::PlayerSlash { .. }),
+            "player-side source so it spares the player",
+        );
     }
 
     #[test]

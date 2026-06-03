@@ -123,6 +123,31 @@ fn spawn_death_explosion(commands: &mut Commands, owner: Entity, pos: ae::Vec2) 
     ));
 }
 
+/// Lateral offset (px) each split offspring spawns from the parent's corpse.
+const SPLIT_OFFSET_X: f32 = 30.0;
+/// Half-size of a split offspring (a small-skitter body).
+const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
+
+/// A `DividingMite` splits into two fast `SmallSkitter` offspring on death — one
+/// to each side — through the runtime-minion spawner. The children are plain
+/// skitters (NOT dividers), so the split is exactly one level deep: no runaway
+/// recursion, just "kill the slow parent, then handle two quick children."
+fn spawn_split_offspring(commands: &mut Commands, parent_id: &str, pos: ae::Vec2) {
+    for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
+        crate::features::spawn_runtime_minion(
+            commands,
+            format!("{parent_id}:split{i}"),
+            "Divided cell",
+            pos + ae::Vec2::new(side * SPLIT_OFFSET_X, 0.0),
+            SPLIT_OFFSPRING_HALF,
+            "SmallSkitter",
+            format!("{parent_id}:split"),
+            crate::features::ActorFaction::Enemy,
+            crate::features::ActorAggression::hostile_to_player(),
+        );
+    }
+}
+
 /// Spawn a collectible health heart at `pos` (a sometimes-drop on enemy defeat),
 /// same pickup path as the coin so `collect_ecs_pickups` heals the player on
 /// overlap via `PlayerHealRequested`.
@@ -624,6 +649,10 @@ fn apply_actor_hit(
                             kind: crate::presentation::fx::ExplosionKind::ClassicBurst,
                             scale: 0.85,
                         });
+                    }
+                    // Replicating blobs divide on death into two fast offspring.
+                    if em.config.archetype == EnemyArchetype::DividingMite {
+                        spawn_split_offspring(&mut writers.commands, &em.config.id, em.kin.pos);
                     }
                     if id_drops_health(&em.config.id) {
                         drop_health_pickup(
@@ -1420,6 +1449,22 @@ mod tests {
         } else {
             panic!("the blast should be world-anchored at the death site");
         }
+    }
+
+    #[test]
+    fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
+        let mut app = App::new();
+        app.add_systems(Update, |mut c: Commands| {
+            spawn_split_offspring(&mut c, "divider_1", ae::Vec2::new(100.0, 100.0));
+        });
+        app.update();
+        let mut q = app.world_mut().query::<&crate::features::ActorFaction>();
+        let factions: Vec<crate::features::ActorFaction> = q.iter(app.world()).cloned().collect();
+        assert_eq!(factions.len(), 2, "a dividing mite splits into exactly two offspring");
+        assert!(
+            factions.iter().all(|f| *f == crate::features::ActorFaction::Enemy),
+            "the offspring are hostile (Enemy faction), not player-allies",
+        );
     }
 
     #[test]

@@ -155,6 +155,13 @@ pub enum EnemyArchetype {
     /// read is "kill it at range or sidestep the corpse." Thematically
     /// the Exploding Gradient boss's runaway spawn.
     ExplodingMite,
+    /// Replicating blob — slow and a bit tanky, and on death it **splits
+    /// into two fast `SmallSkitter` offspring** (one level deep — the
+    /// children don't re-split). The read is the inverse of the mite's:
+    /// a deliberate priority target you whittle down, then clean up the
+    /// two quick children before they swarm. Thematically an overfit
+    /// model memorizing (replicating) its data points.
+    DividingMite,
 }
 
 /// Maps `crate::actor::EnemyBrain::Custom("...")` strings to archetype variants.
@@ -176,6 +183,7 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
     ("pirate_heavy", EnemyArchetype::PirateHeavy),
     ("pirate_heavy_on_shark", EnemyArchetype::PirateHeavyOnShark),
     ("exploding_mite", EnemyArchetype::ExplodingMite),
+    ("dividing_mite", EnemyArchetype::DividingMite),
 ];
 
 /// Authored tuning row for one [`EnemyArchetype`]. Every archetype is
@@ -347,6 +355,7 @@ fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
         PirateHeavyOnShark => "PirateHeavyOnShark",
         PuppySlug => "PuppySlug",
         ExplodingMite => "ExplodingMite",
+        DividingMite => "DividingMite",
     }
 }
 
@@ -542,7 +551,7 @@ impl EnemyArchetype {
         match self {
             Combatant | SmallSkitter | SmallLurker | MediumStriker | AggressiveSeeker
             | PuppySlug | PirateRaider | BurningFlyingShark | InfiniteSandbag | FiniteSandbag
-            | ExplodingMite => EnemyRespawnPolicy::OnRoomReenter,
+            | ExplodingMite | DividingMite => EnemyRespawnPolicy::OnRoomReenter,
             LargeBrute | LargeColossus | PirateHeavy | PirateOnShark | PirateHeavyOnShark => {
                 EnemyRespawnPolicy::OnRest
             }

@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 5910,
+	"nextUid": 5912,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -39386,6 +39386,44 @@
 									"realEditorValues": [ { "id": "V_String", "params": ["Proving Grounds — vortex the horde, drop a sentry, slam them."] } ]
 								},
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [15,26],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 66240,
+							"__worldY": 1452,
+							"iid": "EnemySpawn-5910",
+							"width": 40,
+							"height": 52,
+							"defUid": 2008,
+							"px": [240,428],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Dividing Mite", "__tile": null, "defUid": 3018, "realEditorValues": [ { "id": "V_String", "params": ["Dividing Mite"] } ] },
+								{ "__identifier": "brain", "__type": "String", "__value": "dividing_mite", "__tile": null, "defUid": 3019, "realEditorValues": [ { "id": "V_String", "params": ["dividing_mite"] } ] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [26,26],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 66430,
+							"__worldY": 1452,
+							"iid": "EnemySpawn-5911",
+							"width": 40,
+							"height": 52,
+							"defUid": 2008,
+							"px": [430,428],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Dividing Mite", "__tile": null, "defUid": 3018, "realEditorValues": [ { "id": "V_String", "params": ["Dividing Mite"] } ] },
+								{ "__identifier": "brain", "__type": "String", "__value": "dividing_mite", "__tile": null, "defUid": 3019, "realEditorValues": [ { "id": "V_String", "params": ["dividing_mite"] } ] }
 							]
 						}
 					]

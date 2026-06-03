@@ -128,6 +128,28 @@
         smash_hit_band: Some(30.0),
         move_style: Walk,
     ),
+    // Replicating blob: slow + a bit tanky (4 HP), and it splits into two
+    // fast SmallSkitter offspring on death (`damage.rs::spawn_split_offspring`).
+    // A priority target — whittle it, then clean up the children.
+    "DividingMite": (
+        max_health: 4,
+        patrol_speed: 80.0,
+        chase_speed: 130.0,
+        aggro_radius: 380.0,
+        attack_range: 55.0,
+        contact_strength: 0.70,
+        damage_amount: 1,
+        brain_template: Smash,
+        melee: Some(Swipe((
+            windup_s: 0.30,
+            active_s: 0.10,
+            recover_s: 0.34,
+            damage: 1,
+            reach_px: 30.0,
+        ))),
+        smash_hit_band: Some(34.0),
+        move_style: Walk,
+    ),
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
     // careless approach still punishes via the swipe.
     "SmallLurker": (

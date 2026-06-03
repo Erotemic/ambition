@@ -141,6 +141,16 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 ranged: None,
             },
         );
+        // The bomb is a pure throwable (no melee/ranged verb): a plain Attack
+        // throws it, and `bomb::tick_bomb_fuses` detonates it on a fuse.
+        items.insert(
+            "bomb",
+            HeldItemSpec {
+                id: "bomb".into(),
+                melee: None,
+                ranged: None,
+            },
+        );
         items
     });
 

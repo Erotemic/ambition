@@ -319,6 +319,19 @@ fn register_item_pickup_systems(app: &mut App) {
             .chain()
             .in_set(SandboxSet::PlayerSimulation),
     );
+    // Bomb arming/detonation — a separate group (the chain above is at Bevy's
+    // tuple-arity limit). Runs after the held-item throw/physics above.
+    app.add_systems(
+        Update,
+        (
+            crate::bomb::spawn_debug_bomb_once,
+            crate::bomb::arm_thrown_bombs.run_if(gameplay_allowed),
+            crate::bomb::tick_bomb_fuses.run_if(gameplay_allowed),
+        )
+            .chain()
+            .in_set(SandboxSet::PlayerSimulation)
+            .after(crate::item_pickup::ground_item_physics),
+    );
 }
 
 /// Detection emits `RoomTransitionRequested`; apply consumes it and runs

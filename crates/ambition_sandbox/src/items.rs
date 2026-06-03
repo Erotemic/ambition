@@ -151,9 +151,9 @@ impl Item {
         use Item::*;
         use ItemCategory::*;
         match self {
-            PortalGun | Axe | Javelin | GunSword | PuppySlugGun => Weapon,
+            PortalGun | Axe | Javelin | GunSword | PuppySlugGun | Bomb => Weapon,
             Fireball | Blink | Fly | Grapple | MorphBall | MarkRecall | BubbleShield => Ability,
-            HealthCell | ManaCell | Bomb | GoldPouch => Consumable,
+            HealthCell | ManaCell | GoldPouch => Consumable,
             SpareBattery | DataChip => Consumable,
             MapFragment | SealedNote | FieldSurvey | GateKey | DebugLens => KeyItem,
             ReservedSlot => Reserved,
@@ -209,7 +209,7 @@ impl Item {
             ManaCell => "Restores mana.",
             SpareBattery => "Reserved ability charge. Does nothing yet.",
             DataChip => "A lore fragment. Does nothing yet.",
-            Bomb => "A thrown explosive. (planned)",
+            Bomb => "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.",
             GoldPouch => "Loose currency. Spends as money.",
             MapFragment => "A piece of the world map, from Alice and Bob.",
             SealedNote => "Alice's sealed note — carry it to Bob.",
@@ -231,6 +231,7 @@ impl Item {
             Javelin => Some("javelin"),
             GunSword => Some("gun_sword"),
             PuppySlugGun => Some("puppy_slug_gun"),
+            Bomb => Some("bomb"),
             // PortalGun equips via its own `PortalGun` component (handled
             // specially by the menu), not a HeldItemSpec.
             _ => None,

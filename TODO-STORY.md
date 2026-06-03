@@ -42,6 +42,52 @@ stage it in `cannon_expansions.md` and let Jon promote it.
   authoring + a few small systems (crowd ambience). Break into a vertical slice:
   one packed market screen first.
 
+- [ ] **Alice + Bob quest — a real journey, not adjacent** `[V4/D3]` — the
+  cartography route already exists (`content/quest.rs`: Alice's sealed note →
+  Bob's field survey; `intro/route_state.rs` flips route/map flags on pickup),
+  but Alice and Bob currently sit ~one room apart. Spread them across the intro
+  so the quest is an actual traversal: **Alice gives you an item**, you carry it
+  through several rooms to **Bob**, and YarnSpinner does interesting things based
+  on whether you have it (and on the Alice relationship). Reuse the existing
+  inventory↔Yarn bridge (`<<give_item>>` / `inventory_has(...)`) and
+  `route_state` flags. Decide Alice/Bob room placements — coordinate with the
+  "town that feels alive" and Galwah beats.
+
+- [ ] **Build out the internal inventory (the give→carry→use data layer)**
+  `[V4/D3]` — `crate::inventory` already has `ItemKind` + `PlayerInventory` and a
+  Yarn bridge (`cmd_give_item`, `inventory_has`, `inventory_counts`,
+  `ItemKind::from_dialog_id` in `dialog/yarn_bindings.rs`). Build it out enough
+  that Alice can hand over a story item and Bob's (and Alice's) Yarn branches on
+  it end-to-end in **real dialogue**, not just unit tests: add the item kind(s)
+  the quest needs, make give / has / consume work through the live flow, and a
+  minimal "you have X" read. This is the **internal** inventory — the precursor
+  the full **OoT-style inventory menu** (`submodules/ambition_inventory_ui`,
+  `DESIGN-OOT-DEMO.md`) will later present; keep the data model UI-agnostic so
+  both front-ends share it.
+
+- [ ] **Revisit existing intro dialogue/beats with YarnSpinner** `[V3/D3]` — the
+  last intro story pass predated YarnSpinner, so beats were hardcoded. Now that
+  Yarn + the inventory/state bridge are wired (`dialog/yarn_bindings.rs`,
+  `YarnStateMirror`), upgrade static intro lines / cutscenes to Yarn-driven
+  branching + state (relationships, route flags, item checks) where it adds
+  life. Audit `intro/dialog.rs` + `intro/cutscene.rs` for beats that only existed
+  because Yarn wasn't available, and improve existing areas as we pass through.
+
+- [ ] **Gridvania world map: town (left) ↔ post-intro hub ↔ dark forest (right)**
+  `[V5/D4]` — Jon: after you rise up out of the intro zone, the world opens into
+  a **gridvania** layout (grid-aligned rooms in world space). The **town is on
+  the left**; a **dark forest** is to the **right**. Placement is flexible
+  ("reposition things as needed") and the **scale of the world should be
+  interesting** — but it can be **somewhat coarse right now**. Build: lay the
+  macro map out as a coarse gridvania (rooms snapped to a world grid); add the
+  **dark forest** as its **own `.ldtk` zone** (multi-file LDtk: `world init`
+  scaffolds defs, loader merges, `validate --secondary-world` cross-resolves —
+  never hand-edit JSON, use `ambition_ldtk_tools`); wire the rise-out-of-intro
+  exit into the hub, town west, forest east. Refine scale/feel later. See
+  `docs/concepts/ldtk-world-composition.md` + `[[feedback_ldtk_multifile]]`.
+  (Layout facts staged as candidate canon in `cannon_expansions.md` — promote if
+  canonical.)
+
 ---
 
 ## A — Cutscenes & cast

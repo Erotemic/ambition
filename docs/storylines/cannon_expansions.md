@@ -44,6 +44,12 @@ here, unpromoted, until he says so:
   ever go through the 'you only have one type of portal' case." — Jon (a
   design/world stance; promote if it's canon-worthy)
 - "We just want one item being the complete portal gun." — Jon
+- **World layout** — "I want to add a dark forest to the right after you rise up
+  out of the intro zone. The town will be on the left, we can reposition things
+  as needed, but this has to be a gridvania layout, and we have to make the
+  scale of the world interesting, but it can be somewhat coarse right now." —
+  Jon, 2026-06-03 (a high-level world fact; promote to `cannon.md` if you want it
+  canonical).
 
 ---
 

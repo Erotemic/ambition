@@ -57,6 +57,8 @@ pub(crate) mod config;
 pub(crate) mod content;
 pub(crate) mod dev;
 pub(crate) mod dialog;
+// Test-only (`#![cfg(test)]`): static arity lint for the Yarn dialogue commands.
+mod dialog_lint;
 pub(crate) mod encounter;
 pub(crate) mod enemy_projectile;
 #[cfg(feature = "falling_sand")]

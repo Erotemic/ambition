@@ -89,8 +89,10 @@ pub fn spawn_player_hud(
             PlayerHudRoot,
             Node {
                 position_type: PositionType::Absolute,
+                // Top-left: the on-screen joystick lives bottom-left, so the
+                // status bars sit up top out of its way.
                 left: Val::Px(16.0),
-                bottom: Val::Px(16.0),
+                top: Val::Px(34.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(5.0),
                 ..default()

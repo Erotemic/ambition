@@ -115,6 +115,15 @@ pub fn portal_half_extent(normal: Vec2) -> Vec2 {
     )
 }
 
+/// How far out of the exit portal (along its normal) to pop a body so it clears
+/// the thin portal face without immediately re-entering: the body's half-size
+/// projected onto the normal, plus the portal's thickness and a hair of margin.
+/// Pops the body out right next to the face — NOT the old over-large
+/// `half_extent.length()` push that included the full opening length.
+fn portal_exit_clearance(half_size: Vec2, exit_normal: Vec2) -> f32 {
+    half_size.dot(exit_normal.abs()) + PORTAL_THICKNESS_HALF + 3.0
+}
+
 // ---------------------------------------------------------------------------
 // Pure geometry — ray vs solid AABBs (slab method).
 
@@ -564,7 +573,7 @@ pub fn portal_teleport_system(
                 out_vel = exit.normal * MIN_EXIT_SPEED;
             }
             // Pop out just clear of the exit portal so we don't re-trigger it.
-            let clearance = kin.size.length() * 0.5 + exit.half_extent.length() + 4.0;
+            let clearance = portal_exit_clearance(kin.size * 0.5, exit.normal);
             kin.pos = exit.pos + exit.normal * clearance;
             kin.vel = out_vel;
             gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
@@ -673,7 +682,7 @@ pub fn portal_teleport_ground_items(
             if item_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent)) {
                 // Rotation preserves speed, so momentum carries through.
                 item.vel = portal_transform_velocity(item.vel, enter.normal, exit.normal);
-                let clearance = item.half_extent.length() + exit.half_extent.length() + 4.0;
+                let clearance = portal_exit_clearance(item.half_extent, exit.normal);
                 item.pos = exit.pos + exit.normal * clearance;
                 break;
             }
@@ -755,7 +764,7 @@ pub fn portal_teleport_actors(
             if aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent + Vec2::splat(4.0)))
             {
                 kin.vel = portal_transform_velocity(kin.vel, enter.normal, exit.normal);
-                let clearance = kin.size.length() * 0.5 + exit.half_extent.length() + 4.0;
+                let clearance = portal_exit_clearance(kin.size * 0.5, exit.normal);
                 kin.pos = exit.pos + exit.normal * clearance;
                 commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
                 sfx.write(crate::audio::SfxMessage::Play {
@@ -779,7 +788,7 @@ pub fn portal_teleport_actors(
             }
             if aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent + Vec2::splat(4.0)))
             {
-                let clearance = kin.size.length() * 0.5 + exit.half_extent.length() + 4.0;
+                let clearance = portal_exit_clearance(kin.size * 0.5, exit.normal);
                 kin.pos = exit.pos + exit.normal * clearance;
                 commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
                 sfx.write(crate::audio::SfxMessage::Play {

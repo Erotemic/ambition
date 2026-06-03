@@ -89,6 +89,7 @@ pub fn draw_debug_overlay(
         crate::player::PrimaryPlayerOnly,
     >,
     feature_q: FeatureDebugQueries,
+    portals: Query<&crate::portal::Portal>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -167,6 +168,29 @@ pub fn draw_debug_overlay(
             &enemy_projectiles,
             &developer_tools,
         );
+        draw_portals(&mut gizmos, world, portals.iter());
+    }
+}
+
+/// Draw each portal's capture AABB (the box that warps the player) plus a short
+/// outward normal tick, so the portal's collision can be eyeballed in the
+/// debug overlay (it's otherwise invisible — only the thin sprite shows).
+#[cfg(feature = "input")]
+fn draw_portals<'a>(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    portals: impl Iterator<Item = &'a crate::portal::Portal>,
+) {
+    for portal in portals {
+        let color = match portal.color {
+            crate::portal::PortalColor::Blue => Color::srgba(0.30, 0.70, 1.0, 0.95),
+            crate::portal::PortalColor::Orange => Color::srgba(1.0, 0.60, 0.20, 0.95),
+        };
+        draw_aabb(gizmos, world, ae::Aabb::new(portal.pos, portal.half_extent), color);
+        // Outward normal tick from the portal face into the room.
+        let base = w2(world, portal.pos);
+        let tip = w2(world, portal.pos + portal.normal * 22.0);
+        gizmos.line_2d(base, tip, color);
     }
 }
 

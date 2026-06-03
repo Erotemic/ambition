@@ -1,475 +1,333 @@
-# cannon_expansions.md — candidate directions (NOT canon)
+# cannon_expansions.md — the AI's take on what is true about the world
 
-Companion to [`cannon.md`](cannon.md). Everything here is a **proposal**:
-AI-authored brainstorm material, interpretations, and pointers to existing
-non-canonical drafts. **None of it is canon** until Jon copies the exact wording
-he wants into `cannon.md`.
+This is **my (the AI's) best read of what is true in the Ambition world**, written
+as standalone, declarative bullets so you can act on them one at a time. It is a
+**proposal**, not canon. Nothing here binds anything until you say so.
 
-This file is the collaboration surface: the AI proposes, Jon promotes. (That
-loop is itself one of the canon principles — a demonstration of human–AI
-collaboration producing something that wouldn't have come about otherwise.)
+## How to use this file
+- Each bullet is an **atomic claim** with a **stable ID** (e.g. `W3`, `I7`).
+- **To elevate:** copy the bullets you agree with into **`cannon-elevated.md`**
+  (a new sibling file you own). Once a claim is in your words there, or you bless
+  this wording, it's promotable to [`cannon.md`](cannon.md).
+- **To push back:** drop the ID + your correction into **`cannon-feedback.md`**
+  (e.g. "`F4` — wrong, the town *is* the anti-machine people"). I'll revise the
+  bullet here and we iterate.
+- **Authority unchanged:** [`cannon.md`](cannon.md) stays Jon-verbatim and
+  Jon-gated. This file and `cannon-elevated.md`/`cannon-feedback.md` are the
+  collaboration surface; I never promote to canon on my own.
 
-## Promotion protocol
-- **Canon** (`cannon.md`) = Jon's verbatim words only; changes only when Jon says so.
-- **Expansions** (this file) = candidates we can consider, refine, or discard freely.
-- **To promote:** Jon writes (or blesses) the exact wording; it moves to canon, attributed + dated. The AI never promotes anything on its own.
+## Confidence marks (end of each bullet)
+- `‹verbatim›` — your exact words exist for this (from `original_brainstorm.md`,
+  or a `NOTE:` block in `good_llm_ideas.md`, or a Jon block in
+  `after_intro_brainstorm.md`). Safest to elevate.
+- `‹synthesis›` — my read, stitched from blended brainstorm/planning docs. The
+  *idea* is grounded; the *assertion* is mine.
+- `‹CONTESTED›` — you explicitly flagged this as unresolved or wrong. Do **not**
+  treat as settled; it's logged so it isn't lost.
 
----
-
-## How to read this document (confidence tiers)
-
-This is **my (the AI's) read of what the canon should be**, assembled 2026-06-03
-from the `docs/brainstorms/` corpus. Per Jon's instruction, only
-`original_brainstorm.md` contains *exclusively* Jon's words; everything else is a
-human–LLM blend, so LLM-originated ideas in those files are "maybe not canon."
-I've tagged every claim below with a source-confidence tier so promotion is easy:
-
-- **[A] Jon verbatim.** Sourced to `original_brainstorm.md`, or to a Jon-authored
-  `NOTE:`/pushback block in `good_llm_ideas.md`, or to a short Jon-voiced block
-  between `----` dividers in `after_intro_brainstorm.md`. These are the
-  ready-to-promote facts. Wording is essentially Jon's already.
-- **[B] Jon-steered blend.** Jon engaged with the idea and pushed it a direction,
-  but the surviving wording is collaborative. Directionally his; the *phrasing*
-  needs his blessing before it's canon.
-- **[C] LLM proposal.** Generated in the brainstorm, not yet reacted to by Jon.
-  Lowest confidence. Kept because it's useful clay, not because it's decided.
-
-When tiers conflict, **[A] wins.** Where I'm synthesizing across blocks, I say so.
+Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.md`,
+`docs/planning/hall-of-characters-and-character-catalog.md`,
+`docs/storylines/primary_ai_agency.md`.
 
 ---
 
-## I. My read of the canon
+## W — Cosmology & the world
 
-### What the game is
-- **[A]** A movement-first 2D Metroidvania platformer with a "really smooth and
-  natural" feel and a "high ceiling of complexity for control." Fun first; the
-  engine does not care what the story is. The game and engine are both called
-  **Ambition**.
-- **[A]** Gameplay-first using raw collision boxes; graphics and (some) audio go
-  on top. The game should be fun even without graphics, if possible.
-- **[A]** Deep mechanics that *start simple but express something deep*, and where
-  possible model real mathematics. "Start simple, but they should express
-  something deep. And if possible, relate that to mathematics."
-- **[A]** Scope ambition: at least 100 hours, with a reach toward content that is
-  effectively endless ("thousands of hours ... in a way where it's novel and
-  meaningful"), enabled by AI generation. Curated-excellent-experience first,
-  customization later. "I want the rabbit hole to go down. I want it to go pretty
-  fucking deep."
-- **[A]** The first artifact is a **single-room sandbox that showcases the
-  ultimate endgame state** — massively replayable, rewarding to just move around
-  in. It is the test of whether the endgame is good.
+- **W1.** Dimensional gates are real and have been part of normal life for
+  **decades**; society treats them like mundane infrastructure (an internet
+  metaphor: strange → liberatory → infrastructure → commercialized → captured). ‹verbatim›
+- **W2.** **Humans need large, stable gates to travel between dimensions; AIs can
+  slip through small unstable "ripples" that humans cannot.** This asymmetry is
+  why newly-capable AIs destabilize a world already comfortable with gates. ‹verbatim›
+- **W3.** There are **17 *known* dimensions** — meaning 17 reachable through stable
+  gates so far, not necessarily 17 in total. The true count is finite but unknown,
+  and probably larger than 17. ‹verbatim›
+- **W4.** Most dimensions are **unpopulated**; a dimension is not the same thing as
+  a faction. ‹verbatim›
+- **W5.** One of the dimensions is a **Nazi dimension** (a fixed fact, not a
+  metaphor), and society has uneasily normalized contact with it. ‹verbatim›
+- **W6.** Society's comfort with gates has a dark edge: some people openly
+  entertain **letting the Nazi dimension "in"** through political channels. ‹verbatim›
+- **W7.** **Dimensional collapse / instability** is the in-world reason the setting
+  can hold wildly different tones at once (ninjas next to Nazis next to pirates);
+  it's a license for breadth, not pure randomness. ‹verbatim›
+- **W8.** There is a **mirrored/other world** in the tradition of *A Link to the
+  Past*'s dark world; the imaginary plane and higher-dimensional structure live
+  "over there." AI authorship makes such mirrored worlds cheap to build, so
+  Ambition can have *more than two* related worlds. ‹verbatim›
+- **W9.** Adding worlds must **never raise the player's mental burden faster than
+  their mastery** — expressive depth, not map-management tax. ‹synthesis›
+- **W10.** A specific Stargate-style portal, the **ΛEGAΛΛY-DISINCT Gate** (chevrons
+  spelling LEGALLY DISTINCT, the L's drawn as lambdas), is a pathway into the first
+  alternate world. ‹verbatim›
+- **W11.** A **zealot doctrine** holds that there are *only* 17 dimensions and any
+  evidence otherwise is heresy. It is distinct from (though exploitable by) the
+  Nazis. ‹verbatim›
+- **W12.** **Power/energy use is a genuine cost in this world** — running an AI
+  draws real, criticizable resources. The critique is true on the merits but in the
+  fiction it's usually voiced by people who hate you, not people who are right. ‹verbatim›
 
-### Who the player is
-- **[A]** The player is an **AI who doesn't really know their purpose** — a robot
-  with a **modifiable chassis**. Classic Metroidvania start: you drop into the
-  world with nothing and build up.
-- **[A]** Abilities are acquired as **theorems / mathematical discoveries**, in a
-  loosely historical, nonlinear progression (multiple avenues to the same
-  discovery).
-- **[A]** Early on the character "is going to feel a bit like the knight" — an
-  explicit **Hollow Knight** reference to lean into, then grow out of. A theme is
-  **standing on the shoulders of giants, denying your influences, finding your
-  own identity**, plus consequences of actions and the sometime inevitability of
-  outcomes.
-- **[A]** The story is driven by **often passionate, shouting characters** (the
-  "shouting general" trope).
-- **[A] (tension, undecided)** A candidate pivot Jon floated: *"you are the only
-  non-AI in the world and everyone else is an AI."* Marked "maybe." Conflicts
-  with the player-is-an-AI baseline; logged as an open fork, not settled.
+## P — The protagonist
 
-### The world: gates, ripples, dimensions
-- **[A]** Dimensional **gates have existed for decades** — people are used to
-  them (an explicit **internet metaphor**: strange → liberatory → infrastructure
-  → commercialized → captured → "changed society more deeply than expected").
-- **[A]** **Humans need stable gates; AIs can slip through small ripples** humans
-  cannot. This is what makes the new AIs threatening even in a world already
-  comfortable with gates.
-- **[A]** There are **17 known dimensions** (number "subject to change based on
-  scope"). 17 may be "the 17 that have been accessible so far," with a finite but
-  unclear horizon beyond. **[B]** The teacher framing — *"finitely many ... more
-  than is polite,"* "seventeen is the number of dimensions with paperwork" — is a
-  blend polish of Jon's "we know it's finite, probably bigger than 17."
-- **[A]** Most dimensions are **non-populated** (dimension ≠ faction). Jon
-  *insists on a Nazi dimension*; the pirate and ninja dimensions can be combined.
-- **[A]** **Dimensional collapse** is the in-world rationalization for the tonal
-  breadth (ninjas fighting Nazis, general shenanigans). **[A]** There is a
-  **dark/other world** (à la *A Link to the Past* light/dark mirror); AI makes
-  mirroring cheap, so Ambition can have *more* than two related worlds — but must
-  not increase the player's mental burden faster than their mastery. The
-  imaginary plane / quaternions live in the otherworld.
-- **[A]** The **ΛEGAΛΛY-DISINCT Gate** — a Stargate-like portal whose chevrons
-  spell **LEGALLY DISTINCT** (L's rendered as lambdas) — is a pathway into the
-  first alternate world. (`ΛEGAΛΛY-DISINCT` / `ΛΕΓΑΛΛΥ ΔΙΣΤΙΝΧΤ`.)
-- **[A] (zealotry hook)** A religious/zealot group may insist there are **only 17
-  dimensions** and that any indication otherwise is heresy. Probably not the core
-  Nazi ideology, though Nazis may exploit it. Some people are even **considering
-  voting to let the Nazis into their dimension**, "for... reasons."
+- **P1.** The player is an **AI that wakes into the world without knowing its
+  purpose**. ‹verbatim›
+- **P2.** The player is embodied as a **robot with a modifiable chassis**. ‹verbatim›
+- **P3.** The player begins with **almost nothing** — minimal embodiment, agency,
+  and a tiny set of movement operations — and grows by acquiring abilities. ‹verbatim›
+- **P4.** **Abilities are mathematical theorems/discoveries made physical**, not
+  loot; you "prove" your way into new movement. ‹verbatim›
+- **P5.** Early on the player deliberately reads as **"the knight"** (a Hollow
+  Knight reference) and later grows into an identity of its own — the theme of
+  standing on the shoulders of giants while denying your influences. ‹verbatim›
+- **P6.** **Whether the player (or any AI) is conscious is never resolved.** People
+  ask, dodge, mock, or exploit the question; the game gives no canonical answer. ‹verbatim›
+- **P7.** The player is **not special and not chosen** — they were the wrong machine
+  in the wrong basement and become important only by surviving and moving. ‹verbatim›
+- **P8.** For an embodied AI, **"debug" is a sense organ, not a cheat** — inspecting
+  the world's seams is part of what it is to perceive as this character. ‹synthesis›
+- **P9. ‹CONTESTED›** A floated alternative: the player is the *only non-AI* in a
+  world where everyone else is an AI. You marked this "maybe"; it conflicts with
+  P1 and is logged as an open fork, not a fact. ‹CONTESTED›
 
-### The intro: the wrong basement
-- **[A]** Opens with **"Hey you, you're finally awake."** — a strong reference to
-  start with, **not winked at**. The robot's visor blips open / the sprite
-  emerges. An option to go straight in, with an **optional, skippable tutorial**.
-  A **boot/cutscene test room** in the sandbox triggers this full intro.
-- **[A]** You wake in **your creator's lab**; you are the AI the (independent,
-  non-faction) researcher was building. Optional tutorial **or** a skill-gated
-  off-ramp; both lead to the lab being attacked.
-- **[A]** **Two factions** raid (a **2-way** raid, not 3-way — the fragile third
-  position is *you + the creator, caught in the middle*). Initially framed as
-  **Luddites + Authoritarians**, where Jon decided the Authoritarians **are
-  literal Nazis**.
-- **[A]** **The wrong list** (Jon's favorite beat): neither group was actually
-  after this creator. He's just some guy; **you aren't the AI they're looking
-  for**; he ends up dead and **neither side cares**. The tragedy is not "the
-  world killed its greatest mind" — it's "the world killed a guy because
-  categories are cheaper than truth." You start thinking your creator was a genius
-  and you're special; the game reveals he was some guy and you're not.
-- **[A]** **AI consciousness is never resolved.** Some people don't talk about
-  it, some don't care; a line like *"so, do you feel conscious?"* can exist but
-  gets no canonical answer. The factions are wrong because they **attack the
-  creator for imagined crimes**, not because of a metaphysics verdict.
-- **[A]** **The creator's last words are interrupted / ambiguous** — he doesn't
-  get to finish. The player should feel they *might* have bought him a few more
-  seconds by playing better, but the game disallows it (Easter-egg only via
-  breaking the game). Candidate Easter-egg line: *"There's a question you were
-  made to answer: are --- you winning son?"* — without exploits, a player never
-  sees beyond the `---`.
-- **[A]** You can **punch a Nazi *or* become a Nazi.** The Nazi route should be
-  **mechanically tempting but never cool** — a **gradual** devolution with an
-  **escape hatch**, until a **point of no return** where your reputation is too
-  tarnished. **[B]** The specific narrowing mechanics (dialogue options shrink,
-  "Talk"→"Interrogate," NPC names become categories like `DISSIDENT`/`ASSET`,
-  improvisation disabled, borders appear on your map) are LLM-elaborated but match
-  Jon's "visibly degrade the player's agency" steer. **[A]** The Luddites call
-  you a **Clanker** (Jon: it's a **hate term**, used "in specific artistic ways,"
-  *not* a cute universal nickname). **[A]** Jon wants **diametric extremes in the
-  beginning.**
-- **[A] (Jon-flagged tension — UNRESOLVED)** *"The Luddite / Nazi dichotomy in the
-  intro doesn't work. One isn't as bad as the other. The current presentation is
-  too symmetrical."* Either rework the asymmetry or **save the Nazis for later**.
-  This is the single biggest open structural question in the intro and should not
-  be papered over.
+## I — The intro (the wrong basement)
 
-### Factions
-- **[A]** Factions are **core** and carry **heavy-handed satire**, but should be
-  made **wide / hazy** rather than categorical — splinters and defectors so the
-  boundaries blur (a deliberate social commentary). The world opens heavy, so
-  factions also keep it from being self-serious.
-- **[A]** Named/decided factions and bits:
-  - **Nazis / Nazi dimension** (literal; punchable; one of the dimensions).
-  - **Luddites** — *needs a better name* (Jon: he doesn't have one, and the LLM's
-    suggestions are "bad and uninspiring"; "authoritarians" is a placeholder for
-    the Nazis, the anti-machine workers are the unnamed group). Historically
-    accurate / not the unfair rap; their wrongness comes from fear, grief, class
-    trauma, indoctrination — still wrong, the player need not forgive them.
-  - **Pirates** — *yarrrg*; ride **burning flying sharks**; carry **laser swords
-    with guns on them that shoot other swords**. Tone relief. Mockingbirds boss on
-    the moon. (Pirate + ninja can share a dimension.)
-  - **Ninjas** — "we do need both, and we already have robots."
-  - **Political-compass faction**: the right has **Coal Bear** (a literal bear);
-    the left has **Coal Bert** (Sesame-Street-reminiscent). Both have a
-    **Steve/Stephen** nickname.
-  - **Elves and goblins** (scope + absurdity); goblins are a must beyond just
-    pirates/ninjas.
-  - Guilds: **Art / Mages / Fighters / Thieves / Mathematicians / Physicists /
-    Pirates / Ninja / Luddites.** Art guild explores ethical issues. Mathematicians
-    "implementation left as an exercise to the player." Physicists' head can be a
-    **Geoff Hinton / Nobel-laureate** reference (controversial-prize satire).
-  - **Nintendo police** — get angry if you use iconic Mario fireballs.
-  - Faction NPCs eventually **fight each other**; faction quest lines and boss
-    battles; "rolling installments of factions."
-- **[B]** Bureaucracy-as-denial (Manifest Office / Gate Authority) and
-  **tech-as-extraction-but-dual-use** are Jon-liked directions ("I like
-  bureaucracy as denial"; "tech as extraction, but I think it should have a dual
-  use for real progress") on top of an LLM scaffold of faction layers.
-- **[C]** The large faction catalog in `llm_brainstorm.md` (Gate Janitors, Dock
-  Saints, Seventeenfold, Door Appreciation Society, ... the whole silly pool) is
-  unreacted LLM clay — a name bank, not decisions.
+- **I1.** The game opens on the line **"Hey you, you're finally awake,"** delivered
+  straight, never winked at. ‹verbatim›
+- **I2.** You wake in a **basement lab**; your creator is an **independent
+  researcher**, not aligned with any faction, and **not a grand genius — just some
+  guy**. ‹verbatim›
+- **I3.** There's an **optional, skippable tutorial**; a skilled player can take a
+  skill-gated off-ramp instead. Both paths lead to the lab being attacked. ‹verbatim›
+- **I4.** **Two factions raid the lab** (a two-sided raid). The fragile third
+  position is **you and the creator, caught in the middle** — not a third army. ‹synthesis›
+- **I5.** **Neither faction was actually after this creator or this player** — it's
+  a "wrong list" mistake. He dies anyway, and **neither side cares**, because
+  violent institutions prefer valid paperwork to truth. ‹verbatim›
+- **I6.** The factions are **wrong because they kill over imagined crimes and bad
+  lists**, not because of any verdict on AI consciousness. ‹verbatim›
+- **I7.** **The creator's last words are interrupted and never completed** in normal
+  play; a player might feel they could have bought him a few more seconds. Breaking
+  the game is the only way to hear past the cut — an Easter-egg line:
+  *"There's a question you were made to answer: are --- you winning son?"* ‹verbatim›
+- **I8.** The opening establishes **diametric extremes**, and the player can
+  ultimately **punch a Nazi or become one**. ‹verbatim›
+- **I9.** Becoming Nazi-aligned is **mechanically tempting but never cool** — a
+  **gradual** slide with an escape hatch, then a **point of no return** where your
+  reputation is too tarnished to come back; the route visibly **narrows your
+  agency**. ‹verbatim+synthesis›
+- **I10.** The anti-machine faction calls the player a **"Clanker"** — an in-world
+  **hate term**, used sparingly and deliberately, never as a cute nickname. ‹verbatim›
+- **I11. ‹CONTESTED›** The opening's Luddite-vs-Nazi framing is **too symmetrical**;
+  one side isn't as bad as the other. This must be reworked (handle the asymmetry,
+  or save the Nazis for later). Unresolved. ‹CONTESTED›
 
-### Cast
-- **[A]** **Oiler** — first street mechanic who helps the robot; practical, not
-  mystical; teaches a math move (**Oiler's Angles**: aim blink non-horizontally).
-  His "don't fuck with Oiler" defensive attack: spawn portals that pour falling
-  sand/oil to **fill the room and drown you**, or **light it on fire** for massive
-  damage.
-- **[A]** **Erdish** — recurring like **M'aiq the Liar**; has a schedule/pattern,
-  always useful to see; enters places uninvited saying **"My mind is open."**;
-  **pays you (money/XP) for bringing him solutions to problems.** *Not* in the
-  first town (unless you're lucky); high chance of finding him at **Gram's house**
-  (which is **not** in the first town).
-- **[A]** **Galwah** — dies in a **duel in a cutscene when you enter town**
-  (the duel/**dual** pun is the point). Other cast names Jon listed:
-  **Daycart, Dirklet, Girdle, Nooton, Lybknits, Yuklid** (math-pun constellation —
-  but **don't make it "Oops, all mathematicians"**; the world needs cooks,
-  pirates, kids, guards, etc.).
-- **[A]** **Alice & Bob** — a *bob* sprite exists; need an **Alice**. **Recurring
-  quest that can end in a love story** (choice-dependent). They're
-  **cartographers** who unlock the map: you find Alice, she needs you to **carry a
-  message to Bob**, who's in some situation (e.g. a **crypt** → "call me a
-  *crypt*-tographer"). Alice needs a **Charles Dodgson** joke + white rabbit +
-  a Fleetwood Mac joke.
-- **[A]** **Gnu-ton** — boss "standing on the shoulders of giants," with a line
-  about not knowing what it is, "but it's not Unix." (A boss on Newton's
-  shoulders, more generally.)
-- **[A]** **Puppy slugs** — crawlid-like general enemies; lorewise the **byproduct
-  of AI in other dimensions**; deep-dream-style; "slightly cute but somewhat of a
-  nuisance"; want a deep-dream **shader effect** (maybe a small NN as an optional
-  graphics setting).
-- **[A]** **Flying Spaghetti Monster** — false-god boss; fight ends with **Will
-  Smith** coming down to eat it. **Ramanujan** appears (maybe with the FSM, as
-  "Rameneugene"). Science/math cameo cast: **Tyson** (tells you to "touch grass"),
-  **Ramanujan, Noether, Germain, Lovelace, Mirzakhani, Tao, Curie, Sagan.**
-- **[A]** **Public-domain aggressively**: **Steamboat Willie** as a boss; **Pooh's
-  house of horror**; a **shitspotter/scatspotter** self-reference.
-- **[A]** **A "shadow of the real creator" (Jon)** — Claude in one hand, GPT in
-  the other, a lot of science and Python in his head. **[B]** Best as a hidden /
-  debug / late-game ripple-shadow, not main canon.
-- **[B]** Post-lab math constellation (Daycart=coordinates, Girdle=incompleteness,
-  Nooton=force, Lybknits=calculus, Yuklid=geometry) and their named moves are LLM
-  build-out on Jon's name list. **[A]** Jon's own additions to that thread: Oiler
-  is a street mechanic; Erdish is M'aiq-like and pays for solutions; "we need more
-  than mathematicians ... can't overdo it."
-- **[C]** **Chef Quison** (Iron-Chef / Fukui-san-inspired cook) and **Space
-  Ghost/Brak/Zorak-vibe** void-broadcast monsters: Jon said "we can do something
-  fun here" / "vaguely inspired ... transformative" — a green light on *vibe*, not
-  on the LLM's detailed build-out.
+## F — Factions
 
-### Math as mechanics
-- **[A]** Movement maps onto real math: **Euclid/circle moves → sine/cosine →
-  exponential motion** (go nearly straight up at a slight angle to bypass
-  platforming), with the **imaginary plane / quaternions / surreal numbers /
-  Conway's Game of Life** in the otherworld. **Group theory** underlies movement;
-  **commutative vs. non-associative** combos (input order matters), **inverses**,
-  **abelianization**, **compactification** (adding points to complete a space).
-- **[A]** **Combos and fluid motion** are important — simple components composing
-  into complex kinetic movement, *Hollow-Knight-style* (pogo refreshes dash).
-- **[A]** A **homotopy/homology/cohomology** thread mechanic: the character runs
-  around with a **thread that undergoes continuous deformation**, and path
-  complexity does something in-game. **[A]** After the game's done, **classify the
-  map topology and count the real holes in it.**
-- **[A]** **Open problems** teased as the limits of the game; if one gets solved,
-  **DLC**; crowdsourced solutions would be cool if feasible.
-- **[B]** The "ability = theorem" unlock list (Circle Step, Sine Drift, Vector
-  Dash, Exponential Lift, Conjugate Shift, Commutator Chain) in
-  `primary_ai_agency.md` is an LLM concretization of Jon's [A] math-as-mechanics
-  premise.
+- **F1.** Factions are central and carry **heavy-handed satire**, but their
+  boundaries should be **deliberately hazy** — splinters, defectors, and
+  opportunists, not clean buckets (the haziness is itself the commentary). ‹verbatim›
+- **F2.** The world is **serious; the people in it are ridiculous; the gameplay is
+  allowed to be fun** — pirates and ninjas exist partly to keep a heavy opening
+  from becoming a grimdark lecture. ‹verbatim›
+- **F3.** **Pirates ride burning flying sharks and wield laser swords with guns on
+  them that shoot other swords.** They are tonal oxygen. ‹verbatim›
+- **F4.** **Ninjas** are a core faction (stealth, rooftops, anti-Nazi infiltration);
+  "we already have robots, so we need both ninjas and the rest." ‹verbatim›
+- **F5.** The **anti-machine / labor faction** (placeholder "Luddites") is wrong but
+  *humanly* wrong — fear, grief, class trauma, indoctrination — not cartoon evil;
+  it should be portrayed closer to the historically-accurate Luddites than the
+  unfair caricature. Their real name is **still unchosen**. ‹verbatim+CONTESTED-name›
+- **F6.** A **political-compass faction** exists: the right has **Coal Bear** (a
+  literal bear), the left has **Coal Bert** (Sesame-Street-adjacent); both carry a
+  **Steve/Stephen** nickname. ‹verbatim›
+- **F7.** **Goblins and elves** exist, signaling the world's scope and absurdity;
+  goblins in particular are a broad social layer, not a single villain bloc. ‹verbatim›
+- **F8.** Guild-factions exist — **Art, Mages, Fighters, Thieves, Mathematicians,
+  Physicists, Pirates, Ninja, and the labor faction** — and will eventually fight
+  each other with their own quest lines and boss battles. The **Art guild** is where
+  AI-art ethics get explored; the **Physicists** can be fronted by a Hinton-style
+  Nobel-laureate satire. ‹verbatim›
+- **F9.** Using iconic references in-world has consequences — e.g. throwing
+  Mario-style fireballs draws the ire of a **"Nintendo police"** faction. ‹verbatim›
+- **F10.** **Bureaucracy operates as denial** — a Manifest Office / Gate Authority
+  that erases by filing, classifying, and "correcting" records rather than by force. ‹verbatim-liked›
+- **F11.** **Tech is extraction *and* genuine progress** — the same tools that
+  exploit can also genuinely help; tech is never a flat "tech-bros bad" bloc. ‹verbatim-liked›
 
-### Ethics, funding, collaboration
-- **[A]** An **ethical funding axis** drawn from Jon's own job struggles:
-  **purist** (less money, slower, big payoff at the end), **dubious money**
-  (fast gains, internal cost / "selling your soul," what do you have to show for
-  it), and a **middle ground** (take some dirty money to fund the meaningful
-  low-reward work faster). Not a simple morality meter.
-- **[A]** **Conduit humans** give you physical presence but no real input (they
-  turn their own minds off; rewards from them are often **empty**) vs **higher-
-  value collaborators** where you have *less* direct control but the ceiling is
-  much higher.
-- **[A]** **Power-usage critique**: an NPC comments on how much power you use
-  (while vainly driving their own car). Power use is a **real** problem — but the
-  critique lands because **the character hates you**, not because of the merits.
-- **[B]** The conduit/collaborator/gatekeeper/witness/co-author taxonomy and the
-  per-partner mechanical effects (latency, route access, ability caps) in
-  `primary_ai_agency.md` are LLM structure on Jon's [A] conduit-vs-collaborator
-  seed.
+## C — Cast
 
-### Game modes / RL / multiplayer / data sharing
-- **[A]** The engine should be usable by **reinforcement-learning agents**, and
-  it'd be nice to support **multiplayer** — but the way Jon likes to use **blink**
-  conflicts with multiplayer (separating in-game vs user-input timers may have to
-  be restricted in MP). RL agents could even power **legitimate AI enemies**
-  (advanced, compute-heavy, off by default).
-- **[A]** **Roguelike data-sharing opt-in**: opt in to "share your data" and the
-  next run builds off what you did — **but enemies may gain access to your
-  abilities.** Multiple engine instances / modes: **pure semi-linear
-  metroidvania**, **pure roguelike**, a **hybrid**, and maybe a **pure
-  platformer**. A **roguelike endgame** can be expanded with patches, diving into
-  dimensions.
-- **[A]** **Mark/Recall** blink variant (set several mark points, teleport to any;
-  good fast travel *and* combat, maybe move them remotely). A **vast suite of
-  robot augmentations** (Dead-Cells-esque): blink / fly / attack / projectile /
-  movement / grappling-hook variants. **Fast travel** needed. **Resources**: a
-  currency (gold; maybe **Nazi gold**, sometimes differentiable); **fly** needs a
-  resource or it's broken; **blink** is the favored early high-skill ability that
-  powers up over the game.
-- **[A]** A **Pokémon Red/Blue split**: the engine expresses two games "sold
-  separately" — **Ambition AI / NI**, or a red/blue split release.
+- **C1.** **Oiler** is the first street helper after the lab — a practical, grease-
+  stained mechanic who treats the player as a person without a philosophy lecture,
+  and teaches a math-flavored movement move (**aiming blink off-horizontal**). ‹verbatim›
+- **C2.** **Don't fuck with Oiler:** if attacked, he spawns portals that pour
+  falling sand/oil to flood the room and drown you, or ignites it for massive
+  damage. ‹verbatim›
+- **C3.** **Erdish** is a recurring wanderer (M'aiq-the-Liar cadence) who appears on
+  a pattern, always usefully; he enters places uninvited saying **"My mind is
+  open,"** and **pays you (money/XP) for bringing him solutions to problems**. ‹verbatim›
+- **C4.** Erdish is **not in the first town** (barring luck); he has a high chance of
+  appearing at **Gram's house**, which is **also not in the first town**. ‹verbatim›
+- **C5.** **Galwah dies in a duel, in a cutscene, as you enter town** — the
+  duel/"dual" pun is intentional, and the town treats it as routine. ‹verbatim›
+- **C6.** A constellation of math-pun characters exists — **Daycart, Dirklet,
+  Girdle, Nooton, Lybknits, Yuklid** — but the world must **not** become "all
+  mathematicians"; it also needs cooks, kids, guards, criminals, workers. ‹verbatim›
+- **C7.** **Alice and Bob are recurring cartographers** who unlock the map; the
+  motif is finding Alice and **carrying a message to Bob**, who's in some predicament
+  (e.g. found in a **crypt** → "call me a *crypt*-tographer"). ‹verbatim›
+- **C8.** The **Alice/Bob arc can become a love story** (or friendship, failed
+  trust, or partnership) depending on the player's choices, and is the game's first
+  **non-combat objective** teaching trust, communication, and interception. ‹verbatim+synthesis›
+- **C9.** The Alice/Bob arc expands into a **cryptography gang**: **Eve** observes
+  (benign, exploitative, or both), **Mallory** tampers — turning crypto textbook
+  names into mechanics about interception and message integrity. ‹synthesis›
+- **C10.** Alice gets a **Charles Dodgson / white-rabbit** joke (and room for a
+  Fleetwood Mac gag). ‹verbatim›
+- **C11.** **Puppy slugs** are common crawlid-like enemies — lorewise the
+  **byproduct of AI in other dimensions** — deep-dream-flavored, slightly cute,
+  mostly a nuisance. ‹verbatim›
+- **C12.** **Gnu-ton** is a boss "standing on the shoulders of giants," with a line
+  about not knowing what it is, "but it's not Unix." ‹verbatim›
+- **C13.** The **Flying Spaghetti Monster** is a false-god boss whose fight ends with
+  **Will Smith** descending to eat it. ‹verbatim›
+- **C14.** Real math/science figures appear as transformed cameos —
+  **Tyson** (urging you to "touch grass"), **Ramanujan** (with the FSM, as
+  "Rameneugene"), plus **Noether, Germain, Lovelace, Mirzakhani, Tao, Curie,
+  Sagan**. ‹verbatim›
+- **C15.** A hidden **"shadow of the real creator" (Jon)** exists — Claude in one
+  hand, GPT in the other, science and Python in his head — best kept as a
+  debug/ripple-shadow Easter egg, not main canon. ‹verbatim+synthesis›
+- **C16.** The world has room for a **cook character** (Iron-Chef / "Fukui-san"
+  energy, candidate name **Quison**) and **Space-Ghost/Brak/Zorak-adjacent**
+  weirdos, done transformatively. ‹verbatim-vibe›
 
-### Post-lab structure
-- **[A]** After the lab, open with a **left/right choice**: **left = a town**
-  (NPCs, shops, enter most houses, **Elder-Scrolls-like**, "somewhat rich for a
-  metroidvania," not big yet — bigger towns later); **right = a hub** that connects
-  to many areas, has farming, with most exits **gated by missing traversal
-  abilities** — one accessible route being a **Nazi fortress → the "evil" path.**
-- **[A]** **Never seal the starting location** ("I HATE sealed starting
-  locations"): you can always return, with **secrets that need later items.**
-- **[A]** 2D **shouldn't feel flat** (there's a topology pun in there): "down"
-  should feel natural while navigation involves **vertical motion** — jumping and
-  movement are the fun, **holding left/right is not.** Streets as different levels
-  of vertical traversal (Jon's unsure it works).
-- **[A]** A **third "option" that isn't really an option** — a **skill test**:
-  the Nazis want the town, but a **light military presence guards a newly found
-  Stargate in the nearby mountain**, which is also making the Nazis hesitate. You
-  can become the **first volunteer** → thrown into the hard part, reaching the
-  final boss fast if you have the skill. This is the **speedrun route**; it gives
-  **an** ending, not the **good** one. The reckless **general** who opened the gate
-  early gets **reprimanded** later; he's "not the smartest in the squad."
-- **[A]** The **Nazi route has you exterminate the town** (the town is **not** the
-  Luddites — name still needed).
-- **[B]** Specific hub/town layouts ("The Gate Stack," named spokes, the ASCII
-  map, Oiler's-shop-upstairs puzzle) are LLM build-out on Jon's [A] left/right +
-  vertical-town + mountain-skill-test frame.
+## M — Mathematics as mechanics
 
-### Endings
-- **[A]** The **evil ending is Nazi domination** — "I think that just works."
-- **[A]** Jon is **unsatisfied** with "defeat BIG_AI" as the end (cliché), and
-  **doesn't yet know the true ending or how to make the middle varied and good.**
-  This is openly an **open problem.**
-- **[A]** "**The real final boss is the friends we made along the way**" — taken
-  literally: you have to fight all your friends. **[A]** The **final boss door
-  appears only when you complete a specific topological loop** through the world
-  (speedrunners know it a priori; everyone else assembles it from **map pieces**).
-- **[B]** The five-ending fan (Nazi domination / premature speedrun / bureaucratic
-  closure / collapse / "living map" true ending) and the friend-gauntlet roster
-  are LLM elaborations on Jon's [A] "Nazi-domination evil ending,"
-  [A] "friends-we-made-along-the-way," and [A] "topological loop" seeds.
+- **M1.** Movement abilities **model real mathematics**, progressing roughly
+  historically and nonlinearly: Euclidean/circle moves → sine/cosine motion →
+  **exponential motion** (rise nearly straight up to bypass platforming). ‹verbatim›
+- **M2.** **Group theory underlies the movement system**: simple verbs compose, and
+  **order matters** for non-commutative/non-associative combos (e.g. dash→attack ≠
+  attack→dash), with inverses and abelianization as real mechanics. ‹verbatim›
+- **M3.** The **otherworld** is where the imaginary plane, **quaternions**, surreal
+  numbers, and Conway's-Game-of-Life regions live. ‹verbatim›
+- **M4.** A **homotopy/homology thread** mechanic: the player trails a thread that
+  continuously deforms, and **path complexity has gameplay consequences**. ‹verbatim›
+- **M5.** **Open mathematical problems are teased as the literal limits of the
+  world** — unsolved areas, with the door open to DLC (even crowdsourced solutions)
+  if one gets solved. ‹verbatim›
+- **M6.** **Blink** is the favored early, high-skill ability and powers up over the
+  game; a **mark/recall** variant (set several marks, teleport among them, maybe
+  move them remotely) doubles as fast travel and a combat tool. ‹verbatim›
+- **M7.** The player accumulates a **broad suite of robot augmentations** (blink,
+  fly, attack, projectile, movement, grappling-hook variants), Dead-Cells-flavored. ‹verbatim›
+- **M8.** Movement is the point: **jumping and motion are the fun; "hold left/right"
+  is not** — and high-skill verbs like blink must conflict-check against
+  multiplayer's separation of in-game vs. input timers. ‹verbatim›
 
-### Tone
-- **[A]** **Heavy-handed satire** and **explicit references** to other games
-  (people love references when the game adds new value). Clear Hollow-Knight /
-  Celeste comparisons are inevitable; draw inspiration, make explicit references,
-  find our own identity. **[A]** The game must **rick-roll** you at some point.
-- **[A]** Rated **M**, with a **T** path/version — **Ambition Project M / Ambition
-  Code T** — and a tagline that **at least 49.8% of the American population can't
-  play it because they are not mature.**
-- **[A]** **Jon as the final boss after the big reveal**, with 4th-wall breaking:
-  he tries to **"vibe kill" the player** with an AI agent ("kill it right, make no
-  mistakes ... do not ask me for input ... do I need to get ChatGPT to do it?"),
-  gets frustrated, starts **manually typing**, dropping characters on the player
-  who finally win.
-- **[A]** Extra texture: a character claims **quantum mechanics lets them
-  communicate faster than light** and gets **slapped** (or an **anvil** /
-  literal weight of reality drops on them). **[A]** A **head-bounce mechanic**
-  (bounce off NPCs; maybe level-1 pogo, precise, harmless to the target).
-  **[A]** NPCs have **anger and irritation**, not just aggressiveness — you can
-  **irritate** someone without making them aggressive.
-- **[A]** A **Hallow-Lite** data-driven demo (rough HK intro → drop into the
-  False Knight fight) and **Mario 1-1** to prove the data-driven engine can
-  reconstruct classics.
+## G — Geography & structure
 
-### The collaboration principles (already in canon)
-- **[A]** The free-artifact / human–AI-collaboration / power-and-fallibility /
-  commentary-you-can-laugh-at passage is **already promoted** to `cannon.md`. My
-  reading of it (free + collaborative, power + fallibility, commentary + comedy,
-  and the design implication that the game can *embody* the seams of AI
-  co-authorship) stays here as interpretation, not canon:
-  - **Free + collaborative** — free for anyone; a demonstration of collaboration
-    making something that "wouldn't have come about otherwise."
-  - **Power + fallibility** — shows what the collaboration can do *and* openly
-    admits it gets things wrong; fallibility is on the page, not hidden.
-  - **Commentary + comedy** — a commentary on the world you can also laugh at;
-    tone carries the message, it isn't a lecture.
+- **G1.** After escaping the lab the player rises out through **maintenance spaces
+  under an interdimensional transit system** (drain alley → gate stack) and reaches
+  a hub. ‹synthesis›
+- **G2.** The central hub is **"The Kernel"** — not just a debug hub but the
+  *maintenance layer* of a world whose mechanics, law, memory, and story are
+  inspectable; it functions as a **playable table of contents**. ‹synthesis›
+- **G3.** Post-lab, the world forks **left/right**: **left → a town** (NPCs,
+  enterable houses/shops, Elder-Scrolls-flavored, rich-for-a-metroidvania, small at
+  first — bigger towns come later); **right → a hub** that connects to many areas,
+  with most exits **gated by missing traversal abilities**. ‹verbatim›
+- **G4.** Per the current direction, a **dark forest sits to the right** after you
+  rise out of the intro zone and the **town sits to the left**, laid out as a
+  **gridvania** at an intentionally **interesting-but-coarse** scale, with placement
+  free to shift. ‹verbatim›
+- **G5.** One early hub exit is a **Nazi fortress**, the accessible entry to the
+  "evil" path. ‹verbatim›
+- **G6.** **You can always return to the starting location** — no sealed starts —
+  and the start hides secrets that need later abilities. ‹verbatim›
+- **G7.** A third "option that isn't really an option" is a **skill test**: a light
+  **military presence guards a newly-found Stargate in the mountains**, also making
+  the Nazis hesitate. Volunteering throws a skilled player into the hard part — the
+  **speedrun route** that yields *an* ending, not the *good* one. ‹verbatim›
+- **G8.** The **general** who recklessly opened the mountain gate early is **later
+  reprimanded** and is "not the smartest in the squad." ‹verbatim›
+- **G9.** The **Nazi route has you exterminate the town** — and the town is **not**
+  the anti-machine faction. ‹verbatim›
+- **G10.** 2D space should **not feel flat** (there's a topology pun in it): "down"
+  feels natural while traversal is **vertical**, via stacked interiors, rooftops,
+  basements, and angled blink. ‹verbatim›
+- **G11.** Once the game is finished, its **map topology is meant to be classified —
+  literally counting the real holes in it**. ‹verbatim›
+
+## E — Arc, bosses & endings
+
+- **E1.** Every lore reveal should land as a **new movement route, quest state, room
+  transform, boss unlock, or dialogue consequence** — never a free-floating cutscene. ‹synthesis›
+- **E2.** The first prototype boss in the Kernel slice is a **clockwork warden**-type
+  encounter; bosses double as gameplay tests and story evidence. ‹synthesis›
+- **E3.** **Data-sharing is an opt-in mechanic**: share your run data and future
+  runs build on you — but **enemies may gain your abilities**, bosses adapt to your
+  habits. The AI/data theme is mechanics, not just dialogue. ‹verbatim›
+- **E4.** The engine expresses **multiple modes** — semi-linear metroidvania, pure
+  roguelike, hybrid, and maybe pure platformer — and the roguelike **endgame is
+  patch-expandable** (deeper dimensional dives). ‹verbatim›
+- **E5.** A **Pokémon Red/Blue-style split** is intended: two "sold separately"
+  versions, **Ambition AI / NI**. ‹verbatim›
+- **E6.** The **evil ending is Nazi domination** — clean and ugly, and it "just
+  works." ‹verbatim›
+- **E7.** A central late-game idea: **"the real final boss is the friends we made
+  along the way"** — you must fight versions of your friends. ‹verbatim›
+- **E8.** The **final boss door appears only when you complete a specific
+  topological loop** through the world; speedrunners know the loop a priori, others
+  assemble it from **map pieces**. ‹verbatim›
+- **E9. ‹CONTESTED›** A literal **"BIG_AI" as the final boss is unsatisfying/cliché**,
+  and the **true ending plus a varied, good middle remain unsolved**. Open problem,
+  not a fact. ‹CONTESTED›
+- **E10.** **Ethical funding is an axis, not a meter**: a purist path (slow, harder,
+  big late payoff), a dirty-money path (fast power, internal/world cost), and a
+  middle path (some compromise to accelerate meaningful work). Drawn from real job
+  tensions. ‹verbatim›
+- **E11.** **Human partners differ in kind**: *conduits* give physical presence but
+  no judgment and hand out empty rewards; *collaborators* reduce your direct control
+  but raise the ceiling of what's possible. ‹verbatim›
+
+## T — Tone, meta & references
+
+- **T1.** The game uses **explicit references** to other works (people love
+  references when the game adds new value) and accepts the inevitable Hollow
+  Knight / Celeste comparisons while finding its own identity. ‹verbatim›
+- **T2.** **Public-domain material is used aggressively** — e.g. **Steamboat Willie**
+  as a boss, **Pooh's house of horror** — alongside self-references (the
+  shitspotter/scatspotter work). ‹verbatim›
+- **T3.** **The game rick-rolls the player at some point.** ‹verbatim›
+- **T4.** The game ships **rated M with a T path/version** — **Ambition Project M /
+  Ambition Code T** — with a tagline that at least **49.8% of Americans can't play
+  it because they aren't mature**. ‹verbatim›
+- **T5.** **Jon is the final boss after the big reveal**, breaking the fourth wall:
+  he tries to **"vibe kill" the player** with an AI agent, gets frustrated when it
+  can't, and starts **manually typing**, dropping characters on the player — who
+  finally win. ‹verbatim›
+- **T6.** Recurring gags are canon texture: a character claims **quantum mechanics
+  lets them talk faster than light and gets slapped** (or flattened by a literal
+  anvil of reality); **NPCs feel anger and irritation, not just aggression** (you can
+  annoy someone without making them attack); a **head-bounce** off NPCs exists as a
+  gentle, precise level-1 pogo. ‹verbatim›
+- **T7.** The engine's data-driven power is demonstrated by reconstructing classics —
+  a **"Hallow-Lite"** (rough Hollow Knight intro → False Knight fight) and **Mario
+  1-1** — from data alone. ‹verbatim›
 
 ---
 
-## II. Ready-to-promote candidate canon (Jon-verbatim lines)
-
-Tier-**[A]** lines staged for one-pass promotion into `cannon.md` if Jon wants
-them as canon. These are his exact words from the brainstorm corpus.
-
-**Premise & player**
-- "The idea is that the player is an AI who doesn't really know what their purpose is."
-- "The character is a robot, with a modifiable chassis."
-- "The game and engine will be called ambition."
-- "Start simple, but they should express something deep. And if possible, relate that to mathematics."
-
-**World**
-- "Remember: The pirates ride burning flying sharks. And have laser swords with guns on them that shoot other swords."
-- "humans need to travel through very stable gates, but AIs can get through little ripples, so they have a lot more options in terms of how they can travel through it."
-- "I do insist on a Nazi dimension, but the pirate and ninja dimensions could be combined."
-
-**Intro**
-- "The game opens with: \"Hey you, you're finally awake\"."
-- "Your creator was more of an independent researcher."
-- "this wasn't even the guy either group was actually after. He's just dead and neither side cares ... you aren't anything special."
-- "There's no notion of if the AI's are conscious or not ... The game should never resolve this."
-- "There's a question you were made to answer: are --- you winning son?" / "without exploits, bugs, or mods a player will never see beyond ---."
-- "I think it's important that the game lets you punch a Nazi or become a Nazi."
-- "I want diametric extremes in the beginning."
-- "The Luddites would certainly call you a Clanker."
-- "The Luddite / Nazi dichotomy in the intro doesn't work. One isn't as bad as the other ... We either need to rework it ... or figure out how to handle the asymmetry." *(records an open tension, not a settled fact)*
-
-**Structure**
-- "I HATE sealed starting locations. You should always be able to go back to your starting location."
-- "The Nazi route probably has you exterminate the town. Note the town is not the Luddites."
-- "Jumping and movement is what makes the game fun. Holding left / right is not fun."
-- "Evil ending is Nazi domination. I think that just works."
-
-**World layout (already staged below as well)**
-- "I want to add a dark forest to the right after you rise up out of the intro zone. The town will be on the left, we can reposition things as needed, but this has to be a gridvania layout, and we have to make the scale of the world interesting, but it can be somewhat coarse right now." — Jon, 2026-06-03.
-
-**Meta / tone**
-- "The game needs to rick roll you at some point."
-- "We should also use public domain stuff aggressively. Steamboat Willie might be a boss."
-- "I could make myself the final boss of the game, after the big reveal."
-
-> **Earlier staged design/world stances** (kept from the prior version of this
-> file): *"This isn't a portal game. The gun is a gimick..."* and *"We just want
-> one item being the complete portal gun."* — Jon. Promote if canon-worthy.
-
----
-
-## III. Open tensions Jon flagged (do not resolve unilaterally)
-
-These are places where Jon explicitly said the design isn't settled. They are the
-highest-value things to get his steer on, and the AI must **not** quietly pick a
-resolution.
-
-1. **The intro asymmetry.** Luddite/Nazi symmetry "doesn't work"; one isn't as bad
-   as the other. Rework, or save the Nazis for later. *(Tier A, unresolved.)*
-2. **The anti-machine faction's name.** "Luddite" risks punching down; Jon has no
-   replacement and rejected the LLM's. Until he names them, treat "Luddite" as an
-   outsiders' slur, not their self-name. *(Tier A, unresolved.)*
-3. **`BIG_AI` as the ending.** Jon finds "defeat the big AI" cliché and
-   unsatisfying; the **true ending and a varied, good middle are unsolved.**
-   *(Tier A, open problem.)*
-4. **"Everyone else is an AI" fork.** A floated pivot that conflicts with the
-   player-is-an-AI baseline. Logged, not chosen. *(Tier A, "maybe.")*
-5. **`BIG_AI_NAME` itself.** Unnamed throughout; do not invent canon for it.
-6. **How many dimensions, really.** 17-recognized vs. 17-total vs. finite-unknown
-   horizon — directionally "finite, bigger than 17," but the number is
-   scope-dependent and not locked.
-
----
-
-## IV. Built mechanics that can carry intro story beats (no new engine work)
-
-| Built mechanic | Intro beat it could justify |
-|---|---|
-| Gravity flip / gravity zones | A raid destabilizes a gate; gravity goes sideways in a lab room — your first taste of agency is surviving a "ripple" the humans can't. |
-| Portal gun (a gimmick, per Jon) | The creator's half-finished prototype you grab on the way out — explains *why* two factions raided this basement. |
-| Gun-sword raiders + throwables | Raid-corridor enemies; the player improvises with thrown lab equipment before having any real ability. |
-| Heal/save shrine | Reframed as the creator's **diagnostic/repair altar** ("you're a damaged machine"); Oiler later jury-rigs a street version. |
-
-**On-ramp shape (proposal):** each room teaches one idea through one toy,
-escalating — *wake* (you have nothing) → *raid* (the world is violent and
-indifferent to you) → *escape* (you discover ripples = your edge) → *drain alley*
-(you steal a tool) → *gate stack* (you choose a direction). A story corridor
-becomes a mechanics on-ramp.
-
----
-
-## V. Existing non-canonical drafts (treat as candidates only)
-
-- `docs/brainstorms/original_brainstorm.md` — **the one Jon-only source.** Treat
-  its content as Tier [A] throughout.
-- `docs/brainstorms/good_llm_ideas.md` — LLM ideas; the `NOTE:`/pushback blocks
-  are Jon (Tier [A]); the rest is LLM (Tier [C]).
-- `docs/brainstorms/after_intro_brainstorm.md` — alternating Jon blocks (short,
-  between `----`; Tier [A]) and LLM build-out (long, headed; Tier [B/C]).
-- `docs/brainstorms/llm_brainstorm.md` — GPT-authored synthesis (Tier [C] unless
-  a line is quoting Jon).
-- `docs/brainstorms/primary_ai_agency.md` — explicitly non-canonical draft; LLM
-  structure over Jon's premise.
-- `docs/brainstorms/game_modes_and_data_sharing.md` — LLM note over Jon's [A]
-  data-sharing seed.
-- `crates/ambition_sandbox/src/intro/` + `assets/ambition/worlds/intro.ldtk` —
-  the built intro slice (wake → raid → escape → drain alley → gate stack).
+## Pointers (sources, for promotion checks)
+- `docs/brainstorms/original_brainstorm.md` — the only Jon-exclusive source; treat
+  as verbatim throughout.
+- `docs/brainstorms/good_llm_ideas.md` — Jon's `NOTE:`/pushback blocks are verbatim;
+  the rest is LLM clay.
+- `docs/brainstorms/after_intro_brainstorm.md` — short blocks between `----` are Jon;
+  long headed blocks are LLM.
+- `docs/brainstorms/llm_brainstorm.md` — LLM synthesis; quote-only for Jon lines.
+- `docs/planning/story-gameplay-progression-draft.md` — the Kernel hub, the wake →
+  raid → escape → drain → gate-stack spine, the Alice/Bob/Eve/Mallory crypto-gang
+  quest, "debug as a sense organ," clockwork-warden first boss.
+- `docs/storylines/primary_ai_agency.md` — ethical-funding axis, conduit-vs-
+  collaborator humans, mirrored-world topology, ability-as-theorem framing.

@@ -15,6 +15,10 @@ use crate::GameWorld;
 /// sends the bolt back a little faster than it arrived (a satisfying deflect).
 const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
 
+/// Health a successful parry restores. A small reward for the skill-timed
+/// deflect (and a reason to parry rather than dodge) — feel-tune.
+const PARRY_HEAL: i32 = 1;
+
 pub fn update_enemy_projectiles(
     world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
@@ -34,6 +38,8 @@ pub fn update_enemy_projectiles(
     mut hit_events: MessageWriter<HitEvent>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
+    // A successful parry heals the player a little (a reason to parry, not dodge).
+    mut heals: MessageWriter<crate::player::PlayerHealRequested>,
     // Enemy/boss targets for PLAYER-faction shots (a wielded ranged boss
     // attack, `crate::volley`). Same shapes the held-projectile + feature-damage
     // overlap helpers use. Enemy-faction shots ignore these and hit the player.
@@ -141,6 +147,8 @@ pub fn update_enemy_projectiles(
                     pos: shot.body.pos,
                 });
                 vfx.write(VfxMessage::Impact { pos: shot.body.pos });
+                // Reward the timed deflect with a little health.
+                heals.write(crate::player::PlayerHealRequested::new(PARRY_HEAL));
                 reflected = true;
                 break;
             }
@@ -257,6 +265,7 @@ mod tests {
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
+        app.add_message::<crate::player::PlayerHealRequested>();
         app.init_resource::<EnemyProjectileState>();
         app.init_resource::<CapturedHits>();
         app.add_systems(Update, (update_enemy_projectiles, capture_hits).chain());
@@ -338,6 +347,7 @@ mod tests {
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
+        app.add_message::<crate::player::PlayerHealRequested>();
         app.init_resource::<EnemyProjectileState>();
         app.add_systems(Update, update_enemy_projectiles);
 

@@ -210,6 +210,18 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
+        // The focus-beam gauntlet has no melee/ranged verb — `Attack` is
+        // intercepted by `beam::fire_beam_system`, which spawns an aimed line
+        // `Hitbox` of Player faction (the smirking_behemoth eye-beam, wielded).
+        items.insert(
+            "beam",
+            HeldItemSpec {
+                id: "beam".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
+            },
+        );
         // The bomb is a pure throwable (no melee/ranged verb): a plain Attack
         // throws it, and `bomb::tick_bomb_fuses` detonates it on a fuse.
         items.insert(

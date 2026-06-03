@@ -137,6 +137,9 @@ fn boss_signature_gauntlet(boss_id: &str) -> Option<&'static str> {
     match boss_id {
         "trex_boss" => Some(crate::shockwave::SHOCKWAVE_ID),
         "mockingbird" => Some(crate::volley::VOLLEY_ID),
+        // The smirking_behemoth's signature tell is a focused eye beam — drop
+        // the focus-beam gauntlet so the player wields that same line attack.
+        "smirking_behemoth" => Some(crate::beam::BEAM_ID),
         _ => None,
     }
 }
@@ -1251,8 +1254,10 @@ mod tests {
         // dropped GroundItem is actually pick-up-able.
         assert_eq!(boss_signature_gauntlet("trex_boss"), Some(crate::shockwave::SHOCKWAVE_ID));
         assert_eq!(boss_signature_gauntlet("mockingbird"), Some(crate::volley::VOLLEY_ID));
+        // The eye-beam boss drops the focus beam — wield its signature line attack.
+        assert_eq!(boss_signature_gauntlet("smirking_behemoth"), Some(crate::beam::BEAM_ID));
         assert_eq!(boss_signature_gauntlet("gnu_ton"), None);
-        for boss in ["trex_boss", "mockingbird"] {
+        for boss in ["trex_boss", "mockingbird", "smirking_behemoth"] {
             let id = boss_signature_gauntlet(boss).unwrap();
             assert!(
                 crate::brain::held_item_by_id(id).is_some(),

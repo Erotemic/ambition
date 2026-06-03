@@ -369,6 +369,9 @@ fn register_item_pickup_systems(app: &mut App) {
             // through the faction-aware projectile pool (the ranged wielded boss
             // attack — `update_enemy_projectiles` routes them to enemies).
             crate::volley::fire_volley_system.run_if(gameplay_allowed),
+            // Focus-beam gauntlet: plain Attack spawns an aimed line Hitbox of
+            // Player faction (the smirking_behemoth eye-beam, wielded).
+            crate::beam::fire_beam_system.run_if(gameplay_allowed),
             // Shared movement-ability cooldown timer (scaled_dt, so pause /
             // bullet-time slow it too).
             crate::ability_cooldown::tick_ability_cooldown,

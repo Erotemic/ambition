@@ -48,6 +48,7 @@ pub mod save;
 pub mod ability_cooldown;
 pub(crate) mod assets;
 pub(crate) mod body_mode;
+pub mod beam;
 pub mod blink;
 pub mod bomb;
 pub(crate) mod boss_encounter;

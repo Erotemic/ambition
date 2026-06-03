@@ -22,7 +22,7 @@ def render(out_dir: str | Path, **opts) -> List[Path]:
         out_dir,
         TARGET_NAME,
         glow=(255, 198, 138, 255),
-        core=(255, 244, 228, 255),
+        core=(255, 148, 22, 255),
         accent=(255, 150, 58, 255),
         actor_id="prop_portal_gun_orange",
         display="Portal Gun (Orange)",

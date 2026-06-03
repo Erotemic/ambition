@@ -1,0 +1,88 @@
+// skirmish_heights — a platforming-under-fire room. Two grounded RangedSkirmisher
+// kiters hold the floor and snipe upward; the player climbs an ascending stack of
+// platforms (which double as cover / firing-angle breaks) to a currency cache at
+// the top. A different encounter shape from the flat arenas + the Volatile Cache
+// floor brawl: here the threat is ranged + below you, so you platform while
+// dodging bolts rather than wading into melee.
+//
+// The reciprocal hub door uses snap_to_surface (the mid-air-Door lesson) and a
+// `door free-spots` clear slot (x=139).
+//
+// Layout (1280x512), floor top = 480:
+//   y=180  ....................[ apex (reward) ]...
+//   y=260  ............[ ledge_3 ]................
+//   y=340  ......[ ledge_2 ]......................
+//   y=420  ..[ ledge_1 ]........................
+//   y=480  ====================================== floor (kiters snipe up)
+(
+    id: "skirmish_heights",
+    level_id: "skirmish_heights",
+    world_x: 78000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 512,
+    fill_collision: "empty",
+    bg_color: "#141C22",
+    biome: "lab",
+    entities: [
+        // Bounding box.
+        ( type: "Solid", px: [0, 480], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 464], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 464], fields: ( name: "right_wall" ) ),
+        // Ascending platforms (route up + cover from the floor kiters).
+        ( type: "Solid", px: [150, 420], size: [150, 16], fields: ( name: "ledge_1" ) ),
+        ( type: "Solid", px: [420, 340], size: [150, 16], fields: ( name: "ledge_2" ) ),
+        ( type: "Solid", px: [700, 260], size: [150, 16], fields: ( name: "ledge_3" ) ),
+        ( type: "Solid", px: [980, 180], size: [220, 16], fields: ( name: "apex" ) ),
+        // Spawn + entry door (left).
+        ( type: "PlayerStart", px: [60, 434], size: [28, 46], fields: ( name: "skirmish_heights_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 384],
+            size: [48, 96],
+            fields: (
+                id: "skirmish_heights_entry",
+                name: "skirmish_heights_entry",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "skirmish_heights_door",
+                bidirectional: true,
+            ),
+        ),
+        // Two grounded kiters holding the floor — they snipe up at the climber.
+        ( type: "EnemySpawn", px: [520, 428], size: [34, 52], fields: ( name: "Skirmisher", brain: "ranged_skirmisher" ) ),
+        ( type: "EnemySpawn", px: [900, 428], size: [34, 52], fields: ( name: "Skirmisher", brain: "ranged_skirmisher" ) ),
+        // The cache on the apex platform — the climb's payoff.
+        ( type: "PickupSpawn", px: [1060, 140], size: [24, 24], fields: ( name: "skirmish_heights_reward", kind: "currency:150" ) ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1280, 512],
+            fields: ( id: "skirmish_heights_camera", name: "skirmish_heights_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [60, 96],
+            size: [720, 24],
+            fields: (
+                name: "skirmish_heights_intro",
+                text: "Skirmish Heights: climb under fire — break the kiters' angles behind the ledges.",
+                category: "Custom",
+            ),
+        ),
+    ],
+    connect_to: [
+        (
+            // `door free-spots central_hub_main` clear floor slot (125..202 gap).
+            target_room: "central_hub_main",
+            px: [139, 880],
+            size: [16, 96],
+            id: "skirmish_heights_door",
+            target_zone: "skirmish_heights_entry",
+            activation: "Door",
+            snap_to_surface: true,
+            bidirectional: true,
+        ),
+    ],
+)

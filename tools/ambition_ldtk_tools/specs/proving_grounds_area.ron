@@ -1,0 +1,42 @@
+// Proving Grounds — a combat arena off the hub: a mixed horde (goblins +
+// skitter + brute) to test the kit on (vortex the group, drop a sentry, slam
+// with shockwave/beam). A coin reward for clearing it. Distinct from the
+// platforming-focused Overfit Annex — pure combat.
+(
+    id: "proving_grounds",
+    level_id: "proving_grounds",
+    world_x: 66000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 512,
+    fill_collision: "empty",
+    bg_color: "#101814",
+    biome: "lab",
+    entities: [
+        ( type: "Solid", px: [0, 480], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 464], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 464], fields: ( name: "right_wall" ) ),
+        // A couple of platforms for verticality / kiting.
+        ( type: "Solid", px: [360, 360], size: [180, 16], fields: ( name: "ledge_l" ) ),
+        ( type: "Solid", px: [740, 360], size: [180, 16], fields: ( name: "ledge_r" ) ),
+        ( type: "PlayerStart", px: [70, 434], size: [28, 46], fields: ( name: "proving_grounds_spawn" ) ),
+        ( type: "EnemySpawn", px: [520, 432], size: [32, 48], fields: ( name: "pg_goblin_a", brain: "medium_striker" ) ),
+        ( type: "EnemySpawn", px: [680, 432], size: [32, 48], fields: ( name: "pg_goblin_b", brain: "medium_striker" ) ),
+        ( type: "EnemySpawn", px: [840, 432], size: [32, 48], fields: ( name: "pg_goblin_c", brain: "medium_striker" ) ),
+        ( type: "EnemySpawn", px: [1000, 436], size: [28, 44], fields: ( name: "pg_skitter", brain: "small_skitter" ) ),
+        ( type: "EnemySpawn", px: [1120, 424], size: [40, 56], fields: ( name: "pg_brute", brain: "large_brute" ) ),
+        ( type: "PickupSpawn", px: [620, 320], size: [24, 24], fields: ( name: "pg_reward", kind: "currency:75" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 384],
+            size: [48, 96],
+            fields: ( id: "proving_grounds_to_hub", name: "proving_grounds_to_hub", activation: "Door", target_room: "central_hub_complex", target_zone: "proving_grounds_hub_door", bidirectional: true ),
+        ),
+        ( type: "CameraZone", px: [0, 0], size: [1280, 512], fields: ( id: "proving_grounds_camera", name: "proving_grounds_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 70], size: [660, 24], fields: ( name: "proving_grounds_label", text: "Proving Grounds — vortex the horde, drop a sentry, slam them.", category: "Custom" ) ),
+    ],
+    connect_to: [
+        ( target_room: "central_hub_main", px: [880, 600], size: [16, 96], id: "proving_grounds_hub_door", target_zone: "proving_grounds_to_hub", activation: "Door", bidirectional: true ),
+    ],
+)

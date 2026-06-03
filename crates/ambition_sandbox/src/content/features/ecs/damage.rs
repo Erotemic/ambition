@@ -48,6 +48,10 @@ pub struct FeatureHitWriters<'w> {
 /// (kill -> coin -> wallet -> merchant), not a balanced economy.
 pub const ENEMY_BOUNTY: i32 = 5;
 
+/// Coins a smashed crate/pot drops — smaller than an enemy kill, so combat still
+/// pays best, but the environment is worth poking.
+pub const BREAKABLE_BOUNTY: i32 = 2;
+
 /// Spawn a collectible currency coin at `pos` — an enemy's death drop. Reuses the
 /// exact pickup entity shape that LDtk-placed coins use, so the already-registered
 /// [`super::collect_ecs_pickups`] grants it (and plays `WORLD_COIN_PICKUP`) when a
@@ -365,6 +369,9 @@ pub fn apply_feature_hit_events(
             if broke {
                 begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
+                // Loot: a smashed crate/pot drops a small coin (same collectible
+                // pickup path as enemy drops).
+                drop_currency_coin(&mut commands, id.as_str(), aabb.center, BREAKABLE_BOUNTY);
                 emit_breakable_destroyed(
                     aabb.center,
                     &mut writers.sfx,
@@ -1064,6 +1071,14 @@ mod tests {
             app.world().get::<BreakableFeature>(breakable).unwrap().broken(),
             "a player slash should shatter a 1-HP breakable"
         );
+
+        // Shattering a crate drops one collectible coin.
+        let mut q = app.world_mut().query::<&PickupFeature>();
+        let coins = q
+            .iter(app.world())
+            .filter(|p| matches!(p.kind(), crate::interaction::PickupKind::Currency { .. }))
+            .count();
+        assert_eq!(coins, 1, "shattering a crate drops one coin");
     }
 
     #[test]

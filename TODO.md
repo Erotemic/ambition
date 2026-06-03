@@ -69,7 +69,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Boss phase transitions "screams" / "animations", when a boss transitions between phases it should do a "scream" animation (we need to build sprites for this) and maybe an effect that can be played to visually make it "feel" loud, even though we don't want to break the player's ears with sounds that are actually loud. We need a generic "cry" sfx sound we can use as a placeholder for this until we have per-boss "screams". 
 
-- [ ] When are ledge grabbing, if you get hit you should fall off the ledge.
+- [x] When are ledge grabbing, if you get hit you should fall off the ledge. — _Done 2026-06-03 (`abbc204e`): `PlayerLedgeState::knock_off_on_hit` clears the grab + arms a re-grab lockout on a Knockback hit; +2 tests._
 
 - [ ] When you ledge grab on a moving platform if it moves into a wall, that should cause you to get hit and fall off. Currently you incorrectly just get pushed through the wall.
 

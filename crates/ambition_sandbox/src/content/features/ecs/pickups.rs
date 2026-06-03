@@ -23,6 +23,7 @@ pub fn collect_ecs_pickups(
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut set_flag: MessageWriter<SetFlagRequested>,
+    mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
     if player.is_empty() {
         return;
@@ -56,6 +57,16 @@ pub fn collect_ecs_pickups(
                 // Credit the collecting player's wallet (HUD money meter).
                 if let Ok(mut wallet) = wallets.get_mut(collector_entity) {
                     wallet.add(*amount);
+                }
+            }
+            crate::interaction::PickupKind::Ability { ability_id } => {
+                // Grant the ability into the player's catalog so it shows up in
+                // the OoT inventory and can be equipped (wired abilities) — the
+                // Metroidvania "learn a power from a boss" beat.
+                if let Some(owned) = owned.as_deref_mut() {
+                    if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
+                        owned.grant(item, 1);
+                    }
                 }
             }
             crate::interaction::PickupKind::StoryFlag { flag } => {
@@ -198,6 +209,51 @@ mod tests {
                 .balance,
             25,
             "collecting a currency pickup should credit the wallet"
+        );
+    }
+
+    #[test]
+    fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(crate::items::OwnedItems::default());
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<SetFlagRequested>();
+        app.add_systems(Update, collect_ecs_pickups);
+
+        let center = ae::Vec2::new(64.0, 64.0);
+        app.world_mut().spawn((
+            PlayerEntity,
+            crate::player::PlayerWallet::default(),
+            PlayerKinematics {
+                pos: center,
+                size: ae::Vec2::new(28.0, 46.0),
+                base_size: ae::Vec2::new(28.0, 46.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+        ));
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("ability_drop"),
+            FeatureName::new("Blink"),
+            FeatureAabb::from_center_size(center, ae::Vec2::new(16.0, 16.0)),
+            PickupFeature::new(crate::interaction::Pickup::new(
+                "ability_drop",
+                crate::interaction::PickupKind::Ability {
+                    ability_id: "blink".to_string(),
+                },
+            )),
+        ));
+
+        app.update();
+        assert!(
+            app.world()
+                .resource::<crate::items::OwnedItems>()
+                .has(crate::items::Item::Blink),
+            "collecting an ability pickup should grant it to the catalog",
         );
     }
 

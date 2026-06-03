@@ -66,6 +66,43 @@ pub fn drop_currency_coin(commands: &mut Commands, id: &str, pos: ae::Vec2, amou
     ));
 }
 
+/// The ability a defeated boss bestows, keyed by boss profile id (catalog
+/// `dialog_id`), or `None` for bosses that grant nothing (puzzle bosses, etc.).
+/// Each pairing reads as "this boss embodies that theorem".
+fn boss_reward_ability(boss_id: &str) -> Option<&'static str> {
+    match boss_id {
+        // The false-god FSM flits through the air — it drops Blink.
+        "flying_spaghetti_monster_boss" => Some("blink"),
+        // The grounded T-Rex lunges and anchors — it drops Grapple.
+        "trex_boss" => Some("grapple"),
+        _ => None,
+    }
+}
+
+/// Spawn a collectible ability pickup at `pos` — a defeated boss's reward. Reuses
+/// the standard pickup entity shape so [`super::collect_ecs_pickups`] grants the
+/// ability to the player's catalog ([`crate::items::OwnedItems`]) on overlap.
+pub fn drop_ability_pickup(
+    commands: &mut Commands,
+    boss_id: &str,
+    pos: ae::Vec2,
+    ability_id: &str,
+    ability_name: &str,
+) {
+    commands.spawn((
+        FeatureSimEntity,
+        FeatureId::new(format!("ability_drop:{boss_id}")),
+        FeatureName::new(ability_name.to_string()),
+        FeatureAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
+        PickupFeature::new(crate::interaction::Pickup::new(
+            format!("ability_drop:{boss_id}"),
+            crate::interaction::PickupKind::Ability {
+                ability_id: ability_id.to_string(),
+            },
+        )),
+    ));
+}
+
 /// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
 pub fn apply_feature_hit_events(
     mut commands: Commands,
@@ -280,6 +317,7 @@ pub fn apply_feature_hit_events(
                 animation_frame,
                 &mut banner,
                 combat_banter.as_deref(),
+                &mut commands,
                 &mut writers,
                 boss_registry.as_deref_mut(),
                 music_request.as_deref_mut(),
@@ -520,6 +558,7 @@ fn apply_boss_hit(
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
+    commands: &mut Commands,
     writers: &mut FeatureHitWriters,
     boss_registry: Option<&mut BossEncounterRegistry>,
     music_request: Option<&mut BossEncounterMusicRequest>,
@@ -651,6 +690,20 @@ fn apply_boss_hit(
             cue: PhysicsDebrisCue::BossRagdoll,
         });
         writers.sfx.write(SfxMessage::Death { pos: boss.kin.pos });
+        // North star: "every boss a failed objective function, every upgrade a
+        // theorem" — a defeated boss drops the ability it embodies, so combat
+        // (not just the merchant) teaches the player new verbs.
+        if let Some(ability_id) = boss_reward_ability(&boss.config.behavior.id) {
+            if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
+                drop_ability_pickup(
+                    commands,
+                    &boss.config.behavior.id,
+                    boss.kin.pos,
+                    ability_id,
+                    item.display_name(),
+                );
+            }
+        }
     }
     true
 }
@@ -1033,6 +1086,34 @@ mod tests {
                 amount: ENEMY_BOUNTY
             },
             "the drop is a currency coin worth the bounty",
+        );
+    }
+
+    #[test]
+    fn defeated_boss_drops_its_signature_ability() {
+        // Each boss is paired with the ability it embodies; others grant nothing.
+        assert_eq!(
+            boss_reward_ability("flying_spaghetti_monster_boss"),
+            Some("blink")
+        );
+        assert_eq!(boss_reward_ability("trex_boss"), Some("grapple"));
+        assert_eq!(boss_reward_ability("smirking_behemoth"), None);
+
+        // The drop spawns a single collectible Ability pickup.
+        let mut app = App::new();
+        app.add_systems(Update, |mut c: Commands| {
+            drop_ability_pickup(&mut c, "trex_boss", ae::Vec2::new(10.0, 20.0), "grapple", "Grapple");
+        });
+        app.update();
+        let mut q = app.world_mut().query::<&PickupFeature>();
+        let kinds: Vec<crate::interaction::PickupKind> =
+            q.iter(app.world()).map(|p| p.kind().clone()).collect();
+        assert_eq!(kinds.len(), 1, "one ability pickup dropped");
+        assert_eq!(
+            kinds[0],
+            crate::interaction::PickupKind::Ability {
+                ability_id: "grapple".to_string()
+            },
         );
     }
 }

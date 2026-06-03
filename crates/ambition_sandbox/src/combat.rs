@@ -5,7 +5,7 @@
 //! here lets tests and future headless validators reason about combat without a
 //! renderer.
 
-use crate::actor::{ActorFaction, KinematicPath, RespawnPolicy};
+use crate::actor::{DamageTeam, KinematicPath, RespawnPolicy};
 use crate::engine_core::Vec2;
 use crate::engine_core::{Aabb, AabbExt};
 
@@ -28,12 +28,12 @@ pub struct Damage {
     pub amount: i32,
     pub knockback: Vec2,
     pub kind: DamageKind,
-    pub source: ActorFaction,
+    pub source: DamageTeam,
     pub hitstop_seconds: f32,
 }
 
 impl Damage {
-    pub fn new(amount: i32, kind: DamageKind, source: ActorFaction) -> Self {
+    pub fn new(amount: i32, kind: DamageKind, source: DamageTeam) -> Self {
         Self {
             amount,
             kind,
@@ -48,7 +48,7 @@ impl Damage {
         self
     }
 
-    pub fn can_affect(self, target: ActorFaction) -> bool {
+    pub fn can_affect(self, target: DamageTeam) -> bool {
         self.source.can_damage(target)
     }
 }
@@ -80,12 +80,12 @@ impl Hitbox {
 pub struct Hurtbox {
     pub id: String,
     pub aabb: Aabb,
-    pub faction: ActorFaction,
+    pub faction: DamageTeam,
     pub enabled: bool,
 }
 
 impl Hurtbox {
-    pub fn new(id: impl Into<String>, aabb: Aabb, faction: ActorFaction) -> Self {
+    pub fn new(id: impl Into<String>, aabb: Aabb, faction: DamageTeam) -> Self {
         Self {
             id: id.into(),
             aabb,
@@ -125,7 +125,7 @@ impl DamageVolume {
         Self {
             id: id.into(),
             aabb,
-            damage: Damage::new(amount, DamageKind::Hazard, ActorFaction::Environment),
+            damage: Damage::new(amount, DamageKind::Hazard, DamageTeam::Environment),
             respawn: RespawnPolicy::Never,
             path_id: None,
             motion: None,
@@ -512,14 +512,14 @@ mod tests {
         let hurtbox = Hurtbox::new(
             "player",
             Aabb::new(Vec2::new(25.0, 20.0), Vec2::new(10.0, 10.0)),
-            ActorFaction::Player,
+            DamageTeam::Player,
         );
         assert!(hazard.overlaps_hurtbox(&hurtbox));
     }
 
     #[test]
     fn damage_with_knockback_chains_builder() {
-        let damage = Damage::new(2, DamageKind::Slash, ActorFaction::Player)
+        let damage = Damage::new(2, DamageKind::Slash, DamageTeam::Player)
             .with_knockback(Vec2::new(100.0, -50.0));
         assert_eq!(damage.amount, 2);
         assert_eq!(damage.knockback, Vec2::new(100.0, -50.0));
@@ -527,14 +527,14 @@ mod tests {
 
     #[test]
     fn damage_can_affect_respects_faction() {
-        let player_dmg = Damage::new(1, DamageKind::Slash, ActorFaction::Player);
+        let player_dmg = Damage::new(1, DamageKind::Slash, DamageTeam::Player);
         // Player damage affects enemies but not other players.
-        assert!(player_dmg.can_affect(ActorFaction::Enemy));
-        assert!(!player_dmg.can_affect(ActorFaction::Player));
+        assert!(player_dmg.can_affect(DamageTeam::Enemy));
+        assert!(!player_dmg.can_affect(DamageTeam::Player));
         // Environment damage affects player + enemy.
-        let env_dmg = Damage::new(1, DamageKind::Hazard, ActorFaction::Environment);
-        assert!(env_dmg.can_affect(ActorFaction::Player));
-        assert!(env_dmg.can_affect(ActorFaction::Enemy));
+        let env_dmg = Damage::new(1, DamageKind::Hazard, DamageTeam::Environment);
+        assert!(env_dmg.can_affect(DamageTeam::Player));
+        assert!(env_dmg.can_affect(DamageTeam::Enemy));
     }
 
     #[test]
@@ -542,13 +542,13 @@ mod tests {
         let hurtbox = Hurtbox::new(
             "player",
             Aabb::new(Vec2::ZERO, Vec2::new(10.0, 10.0)),
-            ActorFaction::Player,
+            DamageTeam::Player,
         );
         // Player hurtbox accepts enemy / environment damage.
-        let enemy_dmg = Damage::new(1, DamageKind::Slash, ActorFaction::Enemy);
+        let enemy_dmg = Damage::new(1, DamageKind::Slash, DamageTeam::Enemy);
         assert!(hurtbox.accepts(enemy_dmg));
         // Player hurtbox rejects player damage (no friendly fire).
-        let self_dmg = Damage::new(1, DamageKind::Slash, ActorFaction::Player);
+        let self_dmg = Damage::new(1, DamageKind::Slash, DamageTeam::Player);
         assert!(!hurtbox.accepts(self_dmg));
     }
 

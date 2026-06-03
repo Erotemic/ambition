@@ -21,16 +21,23 @@ pub enum ActorKind {
     Debug,
 }
 
-/// Damage/team relationship used by hitboxes and hurtboxes.
+/// Damage/team relationship used by hitboxes and hurtboxes — the `can_damage`
+/// matrix that decides whether one side's hit may affect another.
+///
+/// Deliberately distinct from [`crate::content::features::ActorFaction`], which
+/// is a `#[derive(Component)]` actor-side tag (`is_player_side`/`is_hostile_side`,
+/// with `Npc`/`Boss` variants). This one is the *damage* relationship; that one
+/// is the *ECS actor* tag. They were both named `ActorFaction` and both in
+/// scope, which is exactly the footgun this rename removes (Refactor 2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ActorFaction {
+pub enum DamageTeam {
     Player,
     Enemy,
     Neutral,
     Environment,
 }
 
-impl ActorFaction {
+impl DamageTeam {
     /// True when damage from `self` is allowed to affect `target` by default.
     pub fn can_damage(self, target: Self) -> bool {
         match (self, target) {
@@ -49,7 +56,7 @@ pub struct Actor {
     pub id: String,
     pub name: String,
     pub kind: ActorKind,
-    pub faction: ActorFaction,
+    pub faction: DamageTeam,
 }
 
 impl Actor {
@@ -57,7 +64,7 @@ impl Actor {
         id: impl Into<String>,
         name: impl Into<String>,
         kind: ActorKind,
-        faction: ActorFaction,
+        faction: DamageTeam,
     ) -> Self {
         Self {
             id: id.into(),
@@ -203,14 +210,14 @@ mod tests {
 
     #[test]
     fn environment_damage_affects_player_and_enemy() {
-        assert!(ActorFaction::Environment.can_damage(ActorFaction::Player));
-        assert!(ActorFaction::Environment.can_damage(ActorFaction::Enemy));
-        assert!(!ActorFaction::Player.can_damage(ActorFaction::Player));
+        assert!(DamageTeam::Environment.can_damage(DamageTeam::Player));
+        assert!(DamageTeam::Environment.can_damage(DamageTeam::Enemy));
+        assert!(!DamageTeam::Player.can_damage(DamageTeam::Player));
     }
 
     #[test]
     fn can_damage_matrix_encodes_the_friendly_fire_rules() {
-        use ActorFaction::{Enemy, Environment, Neutral, Player};
+        use DamageTeam::{Enemy, Environment, Neutral, Player};
         // The two combat loops cross faction lines.
         assert!(Player.can_damage(Enemy), "player hits enemies");
         assert!(Enemy.can_damage(Player), "enemies hit the player");

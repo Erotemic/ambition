@@ -20,6 +20,7 @@
 //! rigid-body physics — debris, ragdoll, stacked/complex collisions — is
 //! genuinely needed; that's the escape hatch, not this seam.
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 /// The world's gravity direction (unit vector, in the y-DOWN world frame) —
@@ -78,15 +79,113 @@ impl Default for BaseGravity {
 }
 
 /// An authored region with its own gravity direction — the building block of a
-/// "gravity room". While the player is inside the zone's `aabb`, the world
-/// [`GravityField`] points along `dir` (everything falls that way and the player
-/// reorients via the shared `ActorRoll`); on exit it reverts to [`BaseGravity`].
+/// "gravity room". Gravity is resolved **per body, by position**: any actor whose
+/// center is inside the zone's `aabb` feels gravity along `dir` (and reorients via
+/// the shared `ActorRoll`); outside every zone it falls under [`BaseGravity`]. So
+/// an NPC standing in a gravity column feels the column even when the player is
+/// elsewhere — see [`gravity_dir_at`].
 #[derive(Component, Clone, Copy, Debug)]
 pub struct GravityZone {
     /// World-space region (engine coords) the zone covers.
     pub aabb: crate::engine_core::Aabb,
     /// Gravity direction inside the zone (e.g. `(0,-1)` = up).
     pub dir: Vec2,
+}
+
+/// Per-frame snapshot of every [`GravityZone`] in the world, so the many actor
+/// integrators (enemies, NPCs, projectiles, items, the orient-to-gravity roll)
+/// can resolve their **own** local gravity by position cheaply — reading one
+/// resource instead of each taking a `Query<&GravityZone>`. Rebuilt by
+/// [`collect_gravity_zones`].
+#[derive(Resource, Default, Clone, Debug)]
+pub struct GravityZones {
+    /// `(region, gravity direction)` for each zone.
+    pub zones: Vec<(crate::engine_core::Aabb, Vec2)>,
+}
+
+/// Rebuild the [`GravityZones`] snapshot from the live zone components. Runs
+/// before the actor integrators each frame.
+pub fn collect_gravity_zones(mut snapshot: ResMut<GravityZones>, zones: Query<&GravityZone>) {
+    snapshot.zones.clear();
+    snapshot
+        .zones
+        .extend(zones.iter().map(|z| (z.aabb, z.dir)));
+}
+
+/// The **localized** gravity direction for a body whose center is at `pos`: the
+/// first [`GravityZone`] containing `pos`, else `base_dir` (the room ambient).
+///
+/// This is the heart of "gravity is local in space" — every non-player actor
+/// resolves gravity from its **own** position through this, so a body inside a
+/// gravity column feels the column independently of where the player is. (The
+/// player resolves the same way via [`resolve_active_gravity`] into its
+/// [`GravityField`].)
+pub fn gravity_dir_at(pos: Vec2, zones: &GravityZones, base_dir: Vec2) -> Vec2 {
+    for (aabb, dir) in &zones.zones {
+        if pos.x >= aabb.min.x
+            && pos.x <= aabb.max.x
+            && pos.y >= aabb.min.y
+            && pos.y <= aabb.max.y
+        {
+            return dir.normalize_or_zero();
+        }
+    }
+    base_dir.normalize_or_zero()
+}
+
+/// Sign of the localized gravity along Y at `pos` (`+1` down / `-1` up) — the
+/// per-body analogue of [`GravityField::vertical_sign`] for the axis-based
+/// collision controllers (enemies, NPCs).
+pub fn local_gravity_sign(pos: Vec2, zones: &GravityZones, base_dir: Vec2) -> f32 {
+    if gravity_dir_at(pos, zones, base_dir).y >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    }
+}
+
+/// One bundled system param for the world's gravity, so the many actor
+/// integrators read gravity through a single argument (Bevy caps systems at 16
+/// params) and resolve it **by position** — `sign_at`/`dir_at` give a body its
+/// own localized gravity. All three resources are `Option` so headless/test apps
+/// that don't insert them still get a sensible default (down).
+#[derive(SystemParam)]
+pub struct GravityCtx<'w> {
+    /// The primary player's resolved gravity (used as the fallback when there
+    /// are no zones, e.g. in tests).
+    pub field: Option<Res<'w, GravityField>>,
+    /// Snapshot of all gravity zones, for per-position resolution.
+    pub zones: Option<Res<'w, GravityZones>>,
+    /// Room ambient gravity (flipped by the global switch).
+    pub base: Option<Res<'w, BaseGravity>>,
+}
+
+impl GravityCtx<'_> {
+    fn base_dir(&self) -> Vec2 {
+        self.base.as_deref().map_or(Vec2::new(0.0, 1.0), |b| b.dir)
+    }
+
+    /// The player's gravity direction (fallback when a body has no position).
+    pub fn field_dir(&self) -> Vec2 {
+        self.field.as_deref().map_or(Vec2::new(0.0, 1.0), |g| g.dir)
+    }
+
+    /// Localized gravity direction at `pos` (zone-or-ambient); falls back to the
+    /// player's field if no zone snapshot is present.
+    pub fn dir_at(&self, pos: Vec2) -> Vec2 {
+        match self.zones.as_deref() {
+            Some(zones) => gravity_dir_at(pos, zones, self.base_dir()),
+            None => self.field_dir(),
+        }
+    }
+
+    /// Localized gravity sign at `pos` (`+1` down / `-1` up).
+    pub fn sign_at(&self, pos: Vec2) -> f32 {
+        match self.zones.as_deref() {
+            Some(zones) => local_gravity_sign(pos, zones, self.base_dir()),
+            None => self.field.as_deref().map_or(1.0, |g| g.vertical_sign()),
+        }
+    }
 }
 
 /// Resolve the live [`GravityField`] each frame: it points along the first
@@ -220,5 +319,60 @@ mod tests {
         let mut vel = Vec2::ZERO;
         apply_world_forces(&mut vel, 1200.0, &g, 0.5);
         assert_eq!(vel, Vec2::new(0.0, 600.0));
+    }
+
+    fn zones_with(up_at: Vec2, half: Vec2) -> GravityZones {
+        GravityZones {
+            zones: vec![(
+                crate::engine_core::Aabb::new(up_at, half),
+                Vec2::new(0.0, -1.0), // up
+            )],
+        }
+    }
+
+    #[test]
+    fn gravity_is_local_two_bodies_feel_different_gravity() {
+        // One up-gravity column at x=300; ambient is down.
+        let zones = zones_with(Vec2::new(300.0, 0.0), Vec2::new(60.0, 240.0));
+        let base = Vec2::new(0.0, 1.0); // down
+
+        // A body INSIDE the column feels up — independent of any other body.
+        let inside = Vec2::new(300.0, 50.0);
+        assert!(gravity_dir_at(inside, &zones, base).y < 0.0, "inside the column → up");
+        assert_eq!(local_gravity_sign(inside, &zones, base), -1.0);
+
+        // A body OUTSIDE the column (e.g. the player elsewhere) still feels the
+        // ambient down. This is the bug fix: the column body's gravity does NOT
+        // depend on where the player is.
+        let outside = Vec2::new(-200.0, 50.0);
+        assert!(gravity_dir_at(outside, &zones, base).y > 0.0, "outside → ambient down");
+        assert_eq!(local_gravity_sign(outside, &zones, base), 1.0);
+    }
+
+    #[test]
+    fn gravity_dir_at_falls_back_to_ambient_with_no_zones() {
+        let empty = GravityZones::default();
+        assert_eq!(
+            gravity_dir_at(Vec2::new(10.0, 10.0), &empty, Vec2::new(0.0, 1.0)),
+            Vec2::new(0.0, 1.0),
+        );
+        // Flipped ambient (the global switch) reaches a zone-less body.
+        assert_eq!(
+            gravity_dir_at(Vec2::new(10.0, 10.0), &empty, Vec2::new(0.0, -1.0)),
+            Vec2::new(0.0, -1.0),
+        );
+    }
+
+    #[test]
+    fn collect_gravity_zones_snapshots_the_components() {
+        let mut app = App::new();
+        app.init_resource::<GravityZones>();
+        app.add_systems(Update, collect_gravity_zones);
+        app.world_mut().spawn(GravityZone {
+            aabb: crate::engine_core::Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0)),
+            dir: Vec2::new(0.0, -1.0),
+        });
+        app.update();
+        assert_eq!(app.world().resource::<GravityZones>().zones.len(), 1);
     }
 }

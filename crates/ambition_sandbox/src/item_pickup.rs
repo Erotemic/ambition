@@ -49,22 +49,24 @@ const THROW_SPEED_UP: f32 = 260.0;
 pub fn ground_item_physics(
     time: Res<crate::WorldTime>,
     world: Res<crate::GameWorld>,
-    gravity: Option<Res<crate::physics::GravityField>>,
+    gravity: crate::physics::GravityCtx,
     mut grounds: Query<&mut GroundItem>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
     }
-    // Thrown / dropped items are free bodies, so they integrate through the
-    // shared world-forces seam — a gravity flip (or any future global force)
-    // moves them without touching this system.
-    let gravity = gravity.as_deref().copied().unwrap_or_default();
+    // Thrown / dropped items are free bodies that integrate through the shared
+    // world-forces seam. Gravity is resolved per item by position, so an item
+    // thrown into a gravity column falls the column's way (localized).
     for mut item in &mut grounds {
         if item.vel == Vec2::ZERO {
             continue;
         }
-        crate::physics::apply_world_forces(&mut item.vel, GROUND_ITEM_GRAVITY, &gravity, dt);
+        let local = crate::physics::GravityField {
+            dir: gravity.dir_at(item.pos),
+        };
+        crate::physics::apply_world_forces(&mut item.vel, GROUND_ITEM_GRAVITY, &local, dt);
         let next = item.pos + item.vel * dt;
         let next_aabb = ae::Aabb::new(next, item.half_extent);
         let blocked = world.0.blocks.iter().any(|block| {

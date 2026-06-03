@@ -727,17 +727,32 @@ pub fn ensure_actor_roll(
 /// that room's down.
 pub fn update_actor_roll(
     time: Res<crate::WorldTime>,
-    gravity: Option<Res<GravityField>>,
-    mut rolls: Query<&mut ActorRoll>,
+    gravity: crate::physics::GravityCtx,
+    mut rolls: Query<(
+        &mut ActorRoll,
+        Option<&PlayerKinematics>,
+        Option<&crate::features::ActorKinematics>,
+        Option<&crate::features::BossKinematics>,
+    )>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
     }
-    let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
-    let target = gravity_upright_angle(gravity_dir);
     let max_step = ACTOR_ROLL_SPEED * dt;
-    for mut roll in &mut rolls {
+    for (mut roll, pkin, akin, bkin) in &mut rolls {
+        // Each body rights toward the gravity of the column IT is standing in
+        // (localized): resolve from its own position, falling back to the
+        // player's field when position is unavailable.
+        let pos = pkin
+            .map(|k| k.pos)
+            .or_else(|| akin.map(|k| k.pos))
+            .or_else(|| bkin.map(|k| k.pos));
+        let gravity_dir = match pos {
+            Some(p) => gravity.dir_at(p),
+            None => gravity.field_dir(),
+        };
+        let target = gravity_upright_angle(gravity_dir);
         // Shortest signed difference, wrapped to (-π, π], so righting always
         // takes the short way around.
         let mut diff = (target - roll.angle).rem_euclid(std::f32::consts::TAU);

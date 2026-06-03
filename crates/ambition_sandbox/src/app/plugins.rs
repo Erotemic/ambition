@@ -238,6 +238,14 @@ fn register_portal_systems(app: &mut App) {
     app.init_resource::<crate::portal::IntentionalTeleport>();
     app.init_resource::<crate::physics::GravityField>();
     app.init_resource::<crate::physics::BaseGravity>();
+    app.init_resource::<crate::physics::GravityZones>();
+    // Snapshot all gravity zones once per frame BEFORE the actor integrators read
+    // them, so every body (enemies / NPCs / items / projectiles) can resolve its
+    // OWN local gravity by position (gravity is local in space, not one global).
+    app.add_systems(
+        Update,
+        crate::physics::collect_gravity_zones.before(SandboxSet::CoreSimulation),
+    );
     app.add_systems(
         Update,
         (

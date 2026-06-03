@@ -17,7 +17,7 @@
 //! then unused (kept as the fallback renderer), so its UI fns/fields are
 //! dead-code-allowed under that feature. The data model here (`ItemKind`,
 //! `PlayerInventory`) stays in use either way.
-#![cfg_attr(feature = "oot_inventory", allow(dead_code))]
+#![cfg_attr(feature = "oot_inventory", allow(dead_code, unused_imports))]
 
 use bevy::prelude::*;
 

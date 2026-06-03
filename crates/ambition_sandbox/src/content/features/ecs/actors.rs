@@ -258,7 +258,7 @@ pub fn update_ecs_actors(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
-    gravity_field: Option<Res<crate::physics::GravityField>>,
+    gravity: crate::physics::GravityCtx,
     platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
@@ -467,6 +467,9 @@ pub fn update_ecs_actors(
                 let _ = slot_pos;
                 let is_mounted = mounted.is_some();
                 let previous_pos = em.kin.pos;
+                // Localized gravity: each enemy feels the gravity of the column
+                // it is standing in (its own position), not one global field.
+                let enemy_gravity_sign = gravity.sign_at(em.kin.pos);
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
                     let snapshot = build_enemy_brain_snapshot(&em, target_pos, crowding, dt);
@@ -493,7 +496,7 @@ pub fn update_ecs_actors(
                     dt,
                     is_mounted,
                     brain_frame,
-                    gravity_field.as_deref().map_or(1.0, |g| g.vertical_sign()),
+                    enemy_gravity_sign,
                 );
                 let shark_crashed =
                     shark_charge_crashed(&em, is_mounted, shark_charge_vec, previous_pos);
@@ -635,7 +638,7 @@ pub fn update_ecs_actors(
 pub fn update_ecs_npcs(
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
-    gravity_field: Option<Res<crate::physics::GravityField>>,
+    gravity: crate::physics::GravityCtx,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut npcs: Query<
@@ -675,8 +678,10 @@ pub fn update_ecs_npcs(
     ) in &mut npcs
     {
         let target_pos = target.pos;
-        let gravity_sign = gravity_field.as_deref().map_or(1.0, |g| g.vertical_sign());
         let mut npc = clusters.as_npc_mut();
+        // Localized gravity: each NPC feels the gravity of the column it stands
+        // in (its own position), so an NPC in a gravity room reorients on its own.
+        let gravity_sign = gravity.sign_at(npc.kin.pos);
         let frame = if let Some(brain) = brain.as_deref_mut() {
             npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt, gravity_sign)
         } else {

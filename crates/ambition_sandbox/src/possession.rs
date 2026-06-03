@@ -58,6 +58,13 @@ const POSSESS_RADIUS: f32 = 150.0;
 /// the button mid-fight; releasing fully is instant (a single press).
 const POSSESS_HOLD_S: f32 = 2.0;
 
+/// Walk speed (px/s) a possessed actor moves at. `tick_player_brain_from_control`
+/// emits `desired_vel` as a *direction* (the player's input axis, in `[-1, 1]`)
+/// because the player's own integration scales it — but an enemy/NPC integration
+/// approaches `desired_vel` directly, so the possession path must scale the axis
+/// to a real speed or the body crawls. Shared by the enemy + NPC drive paths.
+pub const POSSESSED_MOVE_SPEED: f32 = 180.0;
+
 /// `Down + Interact` controls possession: **hold ~2s** (with a candidate in
 /// range) to take over the nearest non-boss actor; press it again to release.
 /// `Down` is `axis_y > 0.35` (the same threshold drop-through uses). The hold

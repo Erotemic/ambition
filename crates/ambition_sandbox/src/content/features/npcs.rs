@@ -101,9 +101,37 @@ impl<'a> NpcMut<'a> {
             }
         }
 
-        let target_x = frame.desired_vel.x;
-        self.kin.vel.x = approach(self.kin.vel.x, target_x, 650.0 * dt);
+        let prev_vel_x = self.integrate_velocity(frame.desired_vel.x, world, dt, gravity_sign);
 
+        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Patrol)
+            && prev_vel_x.abs() > 1.0
+            && self.kin.vel.x.abs() < 0.01
+        {
+            self.kin.facing *= -1.0;
+        }
+
+        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Chase) {
+            let dx = target_pos.x - self.kin.pos.x;
+            if dx.abs() > 4.0 {
+                self.kin.facing = dx.signum();
+            }
+        }
+        frame
+    }
+
+    /// Step the NPC body one tick toward `desired_vel_x` (the rest — gravity,
+    /// collision, ground contact — comes from `step_kinematic`). Shared by
+    /// `tick_via_brain` and the *possession* path, where the desired velocity
+    /// comes from the player's input instead of the NPC's brain. Returns the
+    /// pre-integration x-velocity so the caller can detect a wall stop.
+    pub fn integrate_velocity(
+        &mut self,
+        desired_vel_x: f32,
+        world: &ae::World,
+        dt: f32,
+        gravity_sign: f32,
+    ) -> f32 {
+        self.kin.vel.x = approach(self.kin.vel.x, desired_vel_x, 650.0 * dt);
         let mut body = crate::kinematic::KinematicBody {
             pos: self.kin.pos,
             vel: self.kin.vel,
@@ -126,21 +154,7 @@ impl<'a> NpcMut<'a> {
         self.kin.pos = body.pos;
         self.kin.vel = body.vel;
         self.surface.on_ground = body.on_ground;
-
-        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Patrol)
-            && prev_vel_x.abs() > 1.0
-            && self.kin.vel.x.abs() < 0.01
-        {
-            self.kin.facing *= -1.0;
-        }
-
-        if matches!(self.status.ai_mode, crate::character_ai::CharacterAiMode::Chase) {
-            let dx = target_pos.x - self.kin.pos.x;
-            if dx.abs() > 4.0 {
-                self.kin.facing = dx.signum();
-            }
-        }
-        frame
+        prev_vel_x
     }
 
     pub fn build_brain(&self) -> crate::brain::Brain {

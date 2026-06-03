@@ -86,6 +86,37 @@ mod conversion_tests {
         );
     }
 
+    /// Possession-on-NPCs (the #92 "drive any actor via the human path" flex):
+    /// `update_ecs_npcs` drives a possessed NPC through `integrate_velocity` with
+    /// the player's axis scaled by `POSSESSED_MOVE_SPEED`. Pin that this moves
+    /// the body *meaningfully* (the latent crawl bug — a `[-1,1]` direction fed
+    /// straight to the integration moved it ~1 px/s — is fixed by the scale).
+    #[test]
+    fn possessed_npc_walks_at_a_real_speed_not_a_crawl() {
+        let (world, mut npc, _player) = world_with_patrolling_npc(0.0);
+        // Settle on the floor first so x-motion is the only variable.
+        let mut brain = brain_for(&mut npc);
+        for _ in 0..120 {
+            npc.as_mut()
+                .tick_via_brain(&mut brain, &world, ae::Vec2::ZERO, 0.0, 0.016, 1.0);
+        }
+        let start_x = npc.kin.pos.x;
+        // "Possess" → drive right: axis_x = 1 scaled to a real walk speed.
+        for _ in 0..60 {
+            npc.as_mut().integrate_velocity(
+                1.0 * crate::possession::POSSESSED_MOVE_SPEED,
+                &world,
+                0.016,
+                1.0,
+            );
+        }
+        let moved = npc.kin.pos.x - start_x;
+        assert!(
+            moved > 100.0,
+            "possessed NPC should walk right meaningfully (not crawl); moved {moved}"
+        );
+    }
+
     /// A patrolling NPC paces left/right around its spawn within
     /// `patrol_radius`. Pin both the motion (NPC moves) and the
     /// bound (NPC reverses before exceeding the radius).

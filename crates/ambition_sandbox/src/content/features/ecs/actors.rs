@@ -488,6 +488,10 @@ pub fn update_ecs_actors(
                     crate::brain::player::tick_player_brain_from_control(
                         &p.control, &snapshot, &mut bf,
                     );
+                    // `desired_vel` is a direction (the player's input axis); the
+                    // enemy integration approaches it directly, so scale it to a
+                    // real speed or the possessed body crawls at ~1 px/s.
+                    bf.desired_vel *= crate::possession::POSSESSED_MOVE_SPEED;
                     bf
                 } else if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
@@ -685,6 +689,10 @@ pub fn update_ecs_npcs(
             &mut ActorCombatState,
             &mut ActorIntent,
             &mut ActorCooldowns,
+            // Possession: when present, the player drives this NPC's body
+            // through its own control frame (the unification flex on a
+            // peaceful actor) instead of its brain.
+            Option<&crate::possession::Possessed>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -706,6 +714,7 @@ pub fn update_ecs_npcs(
         mut combat,
         mut intent,
         mut cooldowns,
+        possessed,
     ) in &mut npcs
     {
         let target_pos = target.pos;
@@ -713,7 +722,29 @@ pub fn update_ecs_npcs(
         // Localized gravity: each NPC feels the gravity of the column it stands
         // in (its own position), so an NPC in a gravity room reorients on its own.
         let gravity_sign = gravity.sign_at(npc.kin.pos);
-        let frame = if let Some(brain) = brain.as_deref_mut() {
+        let frame = if let Some(p) = possessed {
+            // POSSESSED: drive the NPC body from the player's input through its
+            // OWN ActorControlFrame — the unification flex ("drive any actor's
+            // ActionSet via the human control path") on a peaceful actor.
+            // `tick_player_brain_from_control` emits `desired_vel` as a direction
+            // (`actor_facing` is the only snapshot field it reads); scale it to a
+            // real walk speed. A peaceful NPC carries no attack verbs, so Attack
+            // is a harmless no-op on it.
+            let mut snapshot = crate::brain::BrainSnapshot::idle();
+            snapshot.actor_facing = npc.kin.facing;
+            let mut bf = crate::actor_control::ActorControlFrame::neutral();
+            crate::brain::player::tick_player_brain_from_control(&p.control, &snapshot, &mut bf);
+            if bf.facing.abs() > 0.001 {
+                npc.kin.facing = bf.facing;
+            }
+            npc.integrate_velocity(
+                bf.desired_vel.x * crate::possession::POSSESSED_MOVE_SPEED,
+                &feature_world,
+                dt,
+                gravity_sign,
+            );
+            bf
+        } else if let Some(brain) = brain.as_deref_mut() {
             npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt, gravity_sign)
         } else {
             // Brainless peaceful actor — should not happen post-Chunk 3

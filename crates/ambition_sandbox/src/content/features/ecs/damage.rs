@@ -153,6 +153,11 @@ fn boss_signature_gauntlet(boss_id: &str) -> Option<&'static str> {
         // Overflow is an aerial dive-bomber that bursts its bounds and crashes
         // into you — drop the Dive, its lunging crash, to close and cut a line.
         "overflow_boss" => Some(crate::dive::DIVE_ID),
+        // GNU-ton rains apples from its descending head — drop the Meteor, an
+        // overhead area-rain, so you call the same storm down on a zone. (It
+        // also grants Fireball via `boss_reward_ability`; a major boss, like
+        // the T-Rex, drops both an ability and a wielded gauntlet.)
+        "gnu_ton" => Some(crate::meteor::METEOR_ID),
         _ => None,
     }
 }
@@ -1276,7 +1281,9 @@ mod tests {
         assert_eq!(boss_signature_gauntlet("mode_collapse_boss"), Some(crate::vortex::VORTEX_ID));
         assert_eq!(boss_signature_gauntlet("exploding_gradient_boss"), Some(crate::sentry::SENTRY_ID));
         assert_eq!(boss_signature_gauntlet("overflow_boss"), Some(crate::dive::DIVE_ID));
-        assert_eq!(boss_signature_gauntlet("gnu_ton"), None);
+        // GNU-ton's apple-rain becomes the wielded Meteor (it also grants
+        // Fireball as a catalog ability — a dual drop, like the T-Rex).
+        assert_eq!(boss_signature_gauntlet("gnu_ton"), Some(crate::meteor::METEOR_ID));
         for boss in [
             "trex_boss",
             "mockingbird",
@@ -1284,6 +1291,7 @@ mod tests {
             "mode_collapse_boss",
             "exploding_gradient_boss",
             "overflow_boss",
+            "gnu_ton",
         ] {
             let id = boss_signature_gauntlet(boss).unwrap();
             assert!(
@@ -1334,8 +1342,9 @@ mod tests {
             }
         }
         // trex + mockingbird + smirking + mode_collapse + exploding_gradient +
-        // overflow each arm a wielded gauntlet (six "learn its attack" drops).
-        assert_eq!(gauntlets, 6, "six bosses drop a signature gauntlet, keyed on real ids");
+        // overflow + gnu_ton each arm a wielded gauntlet (seven "learn its
+        // attack" drops; trex and gnu_ton also grant a catalog ability).
+        assert_eq!(gauntlets, 7, "seven bosses drop a signature gauntlet, keyed on real ids");
         // FSM(blink) + trex(grapple) + gnu(fireball) + clockwork(markrecall).
         assert_eq!(abilities, 4, "four bosses grant a catalog ability, keyed on real ids");
         // The bug this guards: the beam drop must fire on the REAL behavior id.
@@ -1344,6 +1353,7 @@ mod tests {
         assert_eq!(g(BossBehaviorProfile::mode_collapse_boss()), Some(crate::vortex::VORTEX_ID));
         assert_eq!(g(BossBehaviorProfile::exploding_gradient_boss()), Some(crate::sentry::SENTRY_ID));
         assert_eq!(g(BossBehaviorProfile::overflow_boss()), Some(crate::dive::DIVE_ID));
+        assert_eq!(g(BossBehaviorProfile::gnu_ton()), Some(crate::meteor::METEOR_ID));
     }
 
     #[test]

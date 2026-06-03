@@ -383,6 +383,9 @@ fn register_item_pickup_systems(app: &mut App) {
             // Dive gauntlet: plain Attack lunges the player along the aim and
             // cuts a one-shot damage corridor (the overflow boss's crash).
             crate::dive::fire_dive_system.run_if(gameplay_allowed),
+            // Meteor gauntlet: plain Attack rains falling player-faction
+            // projectiles onto a zone ahead (GNU-ton's apple-rain, wielded).
+            crate::meteor::fire_meteor_system.run_if(gameplay_allowed),
             // Shared movement-ability cooldown timer (scaled_dt, so pause /
             // bullet-time slow it too).
             crate::ability_cooldown::tick_ability_cooldown,

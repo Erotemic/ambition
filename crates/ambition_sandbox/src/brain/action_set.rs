@@ -257,6 +257,18 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
+        // The meteor gauntlet has no melee/ranged verb — `Attack` is intercepted
+        // by `meteor::fire_meteor_system`, which rains falling player-faction
+        // projectiles onto a zone ahead (GNU-ton's apple-rain, wielded).
+        items.insert(
+            "meteor",
+            HeldItemSpec {
+                id: "meteor".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
+            },
+        );
         // The bomb is a pure throwable (no melee/ranged verb): a plain Attack
         // throws it, and `bomb::tick_bomb_fuses` detonates it on a fuse.
         items.insert(

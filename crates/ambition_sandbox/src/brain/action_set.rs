@@ -61,6 +61,30 @@ impl ActionSet {
     }
 }
 
+/// What a plain `Attack` does to / with a held item — authored on the spec
+/// instead of a hardcoded id-chain in `item_pickup::throw_held_item_system`
+/// (Refactor 5). The narrow vocabulary the "Pick-up / throw held items" item
+/// named; **not** a generic plugin system.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+pub enum HeldUseBehavior {
+    /// Derive from the verbs: an item WITH a melee/ranged verb keeps on use
+    /// (swing/fire); a verb-LESS item throws on use (the legacy
+    /// `is_pure_throwable` rule). The default, so existing RON item rows need
+    /// no new field.
+    #[default]
+    Auto,
+    /// Keep the item; its verb fires on `Attack` (explicit; `Auto` already
+    /// covers a verb-bearing weapon).
+    KeepOnUse,
+    /// Using it (a plain `Attack`) THROWS it — the javelin's classic
+    /// thrown-item feel.
+    ThrowOnUse,
+    /// A bespoke `*_system` consumes the plain `Attack` (blink / grapple /
+    /// mark / summon / shockwave / volley); the item is KEPT and only thrown
+    /// on the explicit `Shield + Attack`.
+    UseSystem,
+}
+
 /// Authored item carried by an actor. Held items are gameplay capabilities,
 /// not just visuals: they can grant melee and/or ranged actions to the
 /// actor's `ActionSet`. The item id is intentionally data-authored so future
@@ -76,6 +100,23 @@ pub struct HeldItemSpec {
     /// Optional ranged verb granted by the held item.
     #[serde(default)]
     pub ranged: Option<RangedActionSpec>,
+    /// What a plain `Attack` does to/with this item (Refactor 5). `#[serde(default)]`
+    /// keeps older RON rows loadable: missing → `Auto`.
+    #[serde(default)]
+    pub use_behavior: HeldUseBehavior,
+}
+
+impl HeldItemSpec {
+    /// Whether a plain (non-shield) `Attack` throws this item, per its
+    /// [`HeldUseBehavior`]. The single source the throw system reads instead of
+    /// a hardcoded id-chain.
+    pub fn throws_on_plain_attack(&self) -> bool {
+        match self.use_behavior {
+            HeldUseBehavior::Auto => self.melee.is_none() && self.ranged.is_none(),
+            HeldUseBehavior::ThrowOnUse => true,
+            HeldUseBehavior::KeepOnUse | HeldUseBehavior::UseSystem => false,
+        }
+    }
 }
 
 impl HeldItemSpec {
@@ -117,6 +158,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                     speed: 500.0,
                     damage: 2,
                 }),
+                use_behavior: HeldUseBehavior::Auto,
             },
         );
         items.insert(
@@ -128,6 +170,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                     speed: 500.0,
                     damage: 3,
                 }),
+                use_behavior: HeldUseBehavior::Auto,
             },
         );
         // The puppy-slug gun has no melee/ranged verb of its own — `Attack` is
@@ -139,6 +182,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 id: "puppy_slug_gun".into(),
                 melee: None,
                 ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
             },
         );
         // The shockwave gauntlet has no melee/ranged verb — `Attack` is
@@ -151,6 +195,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 id: "shockwave".into(),
                 melee: None,
                 ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
             },
         );
         // The volley gauntlet has no melee/ranged verb — `Attack` is intercepted
@@ -162,6 +207,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 id: "volley".into(),
                 melee: None,
                 ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
             },
         );
         // The bomb is a pure throwable (no melee/ranged verb): a plain Attack
@@ -172,6 +218,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 id: "bomb".into(),
                 melee: None,
                 ranged: None,
+                use_behavior: HeldUseBehavior::Auto,
             },
         );
         // The Mark/Recall ability has no melee/ranged verb either — its plain
@@ -184,6 +231,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 id: "mark_recall".into(),
                 melee: None,
                 ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
             },
         );
         // The Fireball ability fires a ranged bolt that *explodes on contact*
@@ -199,6 +247,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                     speed: 440.0,
                     damage: 3,
                 }),
+                use_behavior: HeldUseBehavior::Auto,
             },
         );
         // Blink has no melee/ranged verb — its plain `Attack` is intercepted by
@@ -210,6 +259,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 id: "blink".into(),
                 melee: None,
                 ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
             },
         );
         // Grapple has no melee/ranged verb either — `grapple::grapple_system`
@@ -220,6 +270,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 id: "grapple".into(),
                 melee: None,
                 ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
             },
         );
         // The gravity grenade is a pure throwable like the bomb (plain Attack
@@ -231,6 +282,7 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 id: "gravity_grenade".into(),
                 melee: None,
                 ranged: None,
+                use_behavior: HeldUseBehavior::Auto,
             },
         );
         items
@@ -765,6 +817,56 @@ pub fn resolve(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn use_behavior_decides_throw_on_plain_attack() {
+        // Auto derives from the verbs: a verb-bearing weapon keeps; a verb-less
+        // item throws (the legacy is_pure_throwable rule).
+        let axe = HeldItemSpec {
+            id: "axe".into(),
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                windup_s: 0.2,
+                active_s: 0.1,
+                recover_s: 0.3,
+                damage: 3,
+                reach_px: 60.0,
+            })),
+            ranged: None,
+            use_behavior: HeldUseBehavior::Auto,
+        };
+        assert!(!axe.throws_on_plain_attack(), "a verb-bearing Auto item keeps on use");
+
+        let bare = HeldItemSpec {
+            id: "rock".into(),
+            melee: None,
+            ranged: None,
+            use_behavior: HeldUseBehavior::Auto,
+        };
+        assert!(bare.throws_on_plain_attack(), "a verb-less Auto item throws on use");
+
+        // Explicit behaviors override the Auto derivation.
+        let use_system = HeldItemSpec {
+            use_behavior: HeldUseBehavior::UseSystem,
+            ..bare.clone()
+        };
+        assert!(!use_system.throws_on_plain_attack(), "a UseSystem ability is not thrown by a plain Attack");
+        let throw = HeldItemSpec {
+            use_behavior: HeldUseBehavior::ThrowOnUse,
+            ..axe.clone()
+        };
+        assert!(throw.throws_on_plain_attack(), "ThrowOnUse throws even a verb-bearing item");
+
+        // The wired abilities are UseSystem (so a plain Attack drives them, not a throw).
+        for id in ["blink", "grapple", "mark_recall", "shockwave", "volley", "puppy_slug_gun"] {
+            assert!(
+                !held_item_by_id(id).unwrap().throws_on_plain_attack(),
+                "{id} should be use-on-attack, not throw-on-attack"
+            );
+        }
+        // The throwables / weapons are not use-system → throw vs keep per Auto.
+        assert!(held_item_by_id("bomb").unwrap().throws_on_plain_attack());
+        assert!(!held_item_by_id("gun_sword").unwrap().throws_on_plain_attack());
+    }
 
     #[test]
     fn peaceful_action_set_has_no_attacks() {

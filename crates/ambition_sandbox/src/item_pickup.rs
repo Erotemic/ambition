@@ -18,7 +18,7 @@
 
 use bevy::prelude::*;
 
-use crate::brain::{ActionSet, HeldItemSpec, MeleeActionSpec, SwipeSpec};
+use crate::brain::{ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec};
 use crate::engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
@@ -103,6 +103,8 @@ pub fn axe_spec() -> HeldItemSpec {
             reach_px: 64.0,
         })),
         ranged: None,
+        // Has a melee verb → Auto keeps it on use (swing, don't throw).
+        use_behavior: HeldUseBehavior::Auto,
     }
 }
 
@@ -113,6 +115,8 @@ pub fn javelin_spec() -> HeldItemSpec {
         id: "javelin".into(),
         melee: None,
         ranged: None,
+        // The canonical thrown item: using it (plain Attack) throws it.
+        use_behavior: HeldUseBehavior::ThrowOnUse,
     }
 }
 
@@ -299,14 +303,6 @@ pub fn pickup_held_item_system(
     }
 }
 
-/// A "pure throwable" held item has no melee/ranged verb of its own, so its
-/// *use* is to be thrown (the javelin's `ThrowOnUse` behavior): a plain
-/// `Attack` while holding it throws it. Items with a verb (the axe) keep
-/// their swing on `Attack` and only throw on the explicit `Shield + Attack`.
-fn is_pure_throwable(spec: &HeldItemSpec) -> bool {
-    spec.melee.is_none() && spec.ranged.is_none()
-}
-
 /// Throw the held item: restore the stashed action set, detach `HeldItem`,
 /// and drop a `GroundItem` ahead of the player. Fires on `Shield + Attack`
 /// for any item, or on a plain `Attack` for a pure throwable (throw-on-use).
@@ -331,16 +327,11 @@ pub fn throw_held_item_system(
     let Ok((player, kin, mut action_set, held, stashed)) = players.single_mut() else {
         return;
     };
-    // Shield+Attack throws anything; a plain Attack only throws a pure throwable
-    // — EXCEPT a "use-on-attack" item like the puppy-slug gun, whose plain Attack
-    // is consumed by its own use system (summon), so it only throws on Shield+Attack.
-    let use_on_attack = held.spec.id == crate::puppy_slug_gun::PUPPY_SLUG_GUN_ID
-        || held.spec.id == crate::mark_recall::MARK_RECALL_ID
-        || held.spec.id == crate::blink::BLINK_ID
-        || held.spec.id == crate::grapple::GRAPPLE_ID
-        || held.spec.id == crate::shockwave::SHOCKWAVE_ID
-        || held.spec.id == crate::volley::VOLLEY_ID;
-    if !(control.shield_held || (is_pure_throwable(&held.spec) && !use_on_attack)) {
+    // Shield+Attack throws anything; a plain Attack throws only items whose
+    // authored `use_behavior` says so (Refactor 5) — replacing the old hardcoded
+    // id-chain. A `UseSystem` ability (blink / shockwave / …) returns false here,
+    // so its plain Attack is left for its own use system.
+    if !(control.shield_held || held.spec.throws_on_plain_attack()) {
         return;
     }
     if let Some(stash) = stashed {

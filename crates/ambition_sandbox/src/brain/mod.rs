@@ -88,7 +88,8 @@ pub mod state_machine;
 #[allow(unused_imports)]
 pub use action_set::{
     held_item_by_id, resolve as resolve_action_requests, ActionRequest, ActionSet, BiteSpec,
-    HeldItemSpec, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec, RangedActionSpec, SlamSpec,
+    HeldItemSpec, HeldUseBehavior, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec,
+    RangedActionSpec, SlamSpec,
     SpecialActionSpec, SwipeSpec,
 };
 #[allow(unused_imports)]

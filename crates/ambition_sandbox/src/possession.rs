@@ -47,12 +47,20 @@ pub fn not_possessing(state: Res<PossessionState>) -> bool {
 /// Possession reach (px): Down+Interact possesses the nearest candidate within this.
 const POSSESS_RADIUS: f32 = 150.0;
 
-/// `Down + Interact` (rising edge) toggles possession: take over the nearest
-/// non-boss actor in range, or release the current one. `Down` is `axis_y >
-/// 0.35` (the same threshold drop-through uses).
+/// Seconds the player must **hold** Down+Interact (with a candidate in range) to
+/// commit a possession. A deliberate gesture so you don't possess by brushing
+/// the button mid-fight; releasing fully is instant (a single press).
+const POSSESS_HOLD_S: f32 = 2.0;
+
+/// `Down + Interact` controls possession: **hold ~2s** (with a candidate in
+/// range) to take over the nearest non-boss actor; press it again to release.
+/// `Down` is `axis_y > 0.35` (the same threshold drop-through uses). The hold
+/// runs on real time (`raw_dt`) so bullet-time doesn't change the feel.
 pub fn possession_trigger_system(
     control: Res<ControlFrame>,
-    mut prev_interact: Local<bool>,
+    world_time: Res<crate::WorldTime>,
+    mut hold_timer: Local<f32>,
+    mut prev_down_interact: Local<bool>,
     mut state: ResMut<PossessionState>,
     mut commands: Commands,
     players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -65,22 +73,34 @@ pub fn possession_trigger_system(
         ),
     >,
 ) {
-    let down = control.axis_y > 0.35;
-    let interact_edge = control.interact_pressed && !*prev_interact;
-    *prev_interact = control.interact_pressed;
-    if !(down && interact_edge) {
-        return;
-    }
+    let down_interact = control.axis_y > 0.35 && control.interact_pressed;
+    let release_edge = down_interact && !*prev_down_interact;
+    *prev_down_interact = down_interact;
 
-    // Already possessing → release.
-    if let Some(entity) = state.possessed.take() {
-        if let Ok(mut ec) = commands.get_entity(entity) {
-            ec.remove::<Possessed>();
+    // Already possessing → a fresh Down+Interact press releases (no hold).
+    if state.possessed.is_some() {
+        *hold_timer = 0.0;
+        if release_edge {
+            if let Some(entity) = state.possessed.take() {
+                if let Ok(mut ec) = commands.get_entity(entity) {
+                    ec.remove::<Possessed>();
+                }
+            }
         }
         return;
     }
 
-    // Otherwise possess the nearest candidate in range.
+    // Not possessing → accumulate the hold; commit at the threshold.
+    if !down_interact {
+        *hold_timer = 0.0;
+        return;
+    }
+    *hold_timer += world_time.raw_dt;
+    if *hold_timer < POSSESS_HOLD_S {
+        return;
+    }
+    *hold_timer = 0.0;
+
     let Ok(kin) = players.single() else {
         return;
     };
@@ -120,105 +140,102 @@ pub fn release_possession_if_target_lost(
 mod tests {
     use super::*;
 
-    #[test]
-    fn down_interact_possesses_then_releases_the_nearest_candidate() {
+    fn vec2(x: f32, y: f32) -> crate::engine_core::Vec2 {
+        crate::engine_core::Vec2::new(x, y)
+    }
+
+    /// App with the trigger + 1s/frame real time, so 2 held frames clear the 2s hold.
+    fn trigger_app() -> App {
         let mut app = App::new();
         app.insert_resource(ControlFrame::default());
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0,
+            scaled_dt: 1.0,
+        });
         app.init_resource::<PossessionState>();
         app.add_systems(Update, possession_trigger_system);
-        // A player at the origin and a candidate actor 80px away (in range).
+        app
+    }
+
+    fn spawn_player(app: &mut App) {
         app.world_mut().spawn((
             PlayerEntity,
             PrimaryPlayer,
             PlayerKinematics {
-                pos: crate::engine_core::Vec2::ZERO,
-                vel: crate::engine_core::Vec2::ZERO,
-                size: crate::engine_core::Vec2::new(24.0, 40.0),
-                base_size: crate::engine_core::Vec2::new(24.0, 40.0),
+                pos: vec2(0.0, 0.0),
+                vel: vec2(0.0, 0.0),
+                size: vec2(24.0, 40.0),
+                base_size: vec2(24.0, 40.0),
                 facing: 1.0,
             },
         ));
-        let actor = app
-            .world_mut()
+    }
+
+    fn spawn_candidate(app: &mut App, pos: crate::engine_core::Vec2) -> Entity {
+        app.world_mut()
             .spawn((
                 crate::features::FeatureSimEntity,
-                crate::features::FeatureAabb::new(
-                    crate::engine_core::Vec2::new(80.0, 0.0),
-                    crate::engine_core::Vec2::new(12.0, 16.0),
-                ),
+                crate::features::FeatureAabb::new(pos, vec2(12.0, 16.0)),
                 crate::brain::ActorControl::default(),
             ))
-            .id();
+            .id()
+    }
 
-        // Down + Interact (rising edge) → possess the actor.
-        {
-            let mut c = app.world_mut().resource_mut::<ControlFrame>();
-            c.axis_y = 1.0;
-            c.interact_pressed = true;
-        }
-        app.update();
-        assert_eq!(
-            app.world().resource::<PossessionState>().possessed,
-            Some(actor),
-            "Down+Interact possesses the nearest candidate"
-        );
-        assert!(
-            app.world().get::<Possessed>(actor).is_some(),
-            "the actor gets the Possessed marker"
-        );
+    fn hold_down_interact(app: &mut App, held: bool) {
+        let mut c = app.world_mut().resource_mut::<ControlFrame>();
+        c.axis_y = if held { 1.0 } else { 0.0 };
+        c.interact_pressed = held;
+    }
 
-        // Release the edge, then press again → un-possess.
-        app.world_mut().resource_mut::<ControlFrame>().interact_pressed = false;
+    fn possessed(app: &App) -> Option<Entity> {
+        app.world().resource::<PossessionState>().possessed
+    }
+
+    #[test]
+    fn holding_down_interact_possesses_then_a_press_releases() {
+        let mut app = trigger_app();
+        spawn_player(&mut app);
+        let actor = spawn_candidate(&mut app, vec2(80.0, 0.0)); // in range
+
+        // Hold Down+Interact: 1s, then 2s → crosses the 2s threshold → possess.
+        hold_down_interact(&mut app, true);
+        app.update(); // hold_timer = 1.0
+        assert_eq!(possessed(&app), None, "not possessed mid-hold");
+        app.update(); // hold_timer = 2.0 ≥ threshold → possess
+        assert_eq!(possessed(&app), Some(actor), "a full ~2s hold possesses the nearest candidate");
+        assert!(app.world().get::<Possessed>(actor).is_some());
+
+        // Release the button, then a fresh press releases possession.
+        hold_down_interact(&mut app, false);
         app.update();
-        app.world_mut().resource_mut::<ControlFrame>().interact_pressed = true;
+        hold_down_interact(&mut app, true);
         app.update();
-        assert_eq!(
-            app.world().resource::<PossessionState>().possessed,
-            None,
-            "a second Down+Interact releases possession"
-        );
-        assert!(
-            app.world().get::<Possessed>(actor).is_none(),
-            "the Possessed marker is removed on release"
-        );
+        assert_eq!(possessed(&app), None, "a fresh Down+Interact press releases");
+        assert!(app.world().get::<Possessed>(actor).is_none());
+    }
+
+    #[test]
+    fn a_brief_tap_does_not_possess() {
+        let mut app = trigger_app();
+        spawn_player(&mut app);
+        spawn_candidate(&mut app, vec2(80.0, 0.0));
+        // One frame held (1s < 2s), then released → no possession.
+        hold_down_interact(&mut app, true);
+        app.update();
+        hold_down_interact(&mut app, false);
+        app.update();
+        assert_eq!(possessed(&app), None, "a brief tap doesn't commit a possession");
     }
 
     #[test]
     fn out_of_range_actors_are_not_possessed() {
-        let mut app = App::new();
-        app.insert_resource(ControlFrame::default());
-        app.init_resource::<PossessionState>();
-        app.add_systems(Update, possession_trigger_system);
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            PlayerKinematics {
-                pos: crate::engine_core::Vec2::ZERO,
-                vel: crate::engine_core::Vec2::ZERO,
-                size: crate::engine_core::Vec2::new(24.0, 40.0),
-                base_size: crate::engine_core::Vec2::new(24.0, 40.0),
-                facing: 1.0,
-            },
-        ));
-        // Far away (out of POSSESS_RADIUS).
-        app.world_mut().spawn((
-            crate::features::FeatureSimEntity,
-            crate::features::FeatureAabb::new(
-                crate::engine_core::Vec2::new(900.0, 0.0),
-                crate::engine_core::Vec2::new(12.0, 16.0),
-            ),
-            crate::brain::ActorControl::default(),
-        ));
-        {
-            let mut c = app.world_mut().resource_mut::<ControlFrame>();
-            c.axis_y = 1.0;
-            c.interact_pressed = true;
-        }
+        let mut app = trigger_app();
+        spawn_player(&mut app);
+        spawn_candidate(&mut app, vec2(900.0, 0.0)); // far out of POSSESS_RADIUS
+        hold_down_interact(&mut app, true);
         app.update();
-        assert_eq!(
-            app.world().resource::<PossessionState>().possessed,
-            None,
-            "no candidate in range → nothing possessed"
-        );
+        app.update();
+        app.update();
+        assert_eq!(possessed(&app), None, "no candidate in range → nothing possessed");
     }
 }

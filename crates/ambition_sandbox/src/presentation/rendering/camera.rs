@@ -109,6 +109,10 @@ pub fn camera_follow(
         ),
         crate::player::PrimaryPlayerOnly,
     >,
+    // While possessing, the camera follows the possessed actor (so the player
+    // can see the body they're driving), resolved from its FeatureAabb.
+    possession: Res<crate::possession::PossessionState>,
+    feature_aabbs: Query<&crate::features::FeatureAabb>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
 ) {
@@ -117,9 +121,17 @@ pub fn camera_follow(
 
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
-    let Ok((player_body, blink_cam)) = player.single().map(|(b, bc)| (*b, *bc)) else {
+    let Ok((mut player_body, blink_cam)) = player.single().map(|(b, bc)| (*b, *bc)) else {
         return;
     };
+    // Possession override: point the camera at the possessed actor's body
+    // instead of the (vacated) player body. Only the follow position is
+    // borrowed — size/blink stay the player's, which is fine for framing.
+    if let Some(entity) = possession.possessed {
+        if let Ok(aabb) = feature_aabbs.get(entity) {
+            player_body.pos = aabb.center;
+        }
+    }
     let player_aabb = player_body.aabb();
     let active_spec = room_set.active_spec();
     let mut active_camera_zones = 0usize;

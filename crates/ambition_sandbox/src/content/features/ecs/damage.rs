@@ -126,6 +126,21 @@ fn boss_reward_ability(boss_id: &str) -> Option<&'static str> {
     }
 }
 
+/// The **signature gauntlet** a defeated boss drops as a wieldable ground item —
+/// the player picks it up and wields that boss's own attack (the "every boss a
+/// failed objective function, learn its attack" loop). Distinct from
+/// [`boss_reward_ability`], which grants catalog abilities; these are held-item
+/// gauntlets (`crate::shockwave` / `crate::volley`) the player grabs off the
+/// ground. Keyed so the attack matches the boss: the grounded T-Rex's **stomp**
+/// drops the Shockwave slam; the flitting Mockingbird's spread drops the Volley.
+fn boss_signature_gauntlet(boss_id: &str) -> Option<&'static str> {
+    match boss_id {
+        "trex_boss" => Some(crate::shockwave::SHOCKWAVE_ID),
+        "mockingbird" => Some(crate::volley::VOLLEY_ID),
+        _ => None,
+    }
+}
+
 /// Spawn a collectible ability pickup at `pos` — a defeated boss's reward. Reuses
 /// the standard pickup entity shape so [`super::collect_ecs_pickups`] grants the
 /// ability to the player's catalog ([`crate::items::OwnedItems`]) on overlap.
@@ -780,6 +795,22 @@ fn apply_boss_hit(
                 );
             }
         }
+        // …and its signature wielded attack drops as a ground-item gauntlet the
+        // player picks up + uses (the player literally wields the boss's move).
+        if let Some(gauntlet_id) = boss_signature_gauntlet(&boss.config.behavior.id) {
+            if let Some(spec) = crate::brain::held_item_by_id(gauntlet_id) {
+                writers.commands.spawn((
+                    crate::item_pickup::GroundItem {
+                        spec,
+                        // Offset from the ability pickup so the two drops don't stack.
+                        pos: boss.kin.pos + ae::Vec2::new(36.0, 0.0),
+                        vel: ae::Vec2::ZERO,
+                        half_extent: ae::Vec2::splat(18.0),
+                    },
+                    bevy::prelude::Name::new("Boss signature gauntlet"),
+                ));
+            }
+        }
     }
     true
 }
@@ -1210,6 +1241,24 @@ mod tests {
                 ability_id: "grapple".to_string()
             },
         );
+    }
+
+    #[test]
+    fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
+        // The grounded stomper drops the Shockwave slam; the flitting mimic
+        // drops the Volley spread — "every boss a failed objective function,
+        // learn its attack". Each must resolve to a real held-item spec so the
+        // dropped GroundItem is actually pick-up-able.
+        assert_eq!(boss_signature_gauntlet("trex_boss"), Some(crate::shockwave::SHOCKWAVE_ID));
+        assert_eq!(boss_signature_gauntlet("mockingbird"), Some(crate::volley::VOLLEY_ID));
+        assert_eq!(boss_signature_gauntlet("gnu_ton"), None);
+        for boss in ["trex_boss", "mockingbird"] {
+            let id = boss_signature_gauntlet(boss).unwrap();
+            assert!(
+                crate::brain::held_item_by_id(id).is_some(),
+                "boss {boss} -> gauntlet {id} must be a registered held item",
+            );
+        }
     }
 
     #[test]

@@ -222,6 +222,18 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
+        // The vortex gauntlet has no melee/ranged verb — `Attack` is intercepted
+        // by `vortex::fire_vortex_system`, which spawns a point attractor that
+        // gathers enemies (crowd-control; no damage — pull-then-slam).
+        items.insert(
+            "vortex",
+            HeldItemSpec {
+                id: "vortex".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
+            },
+        );
         // The bomb is a pure throwable (no melee/ranged verb): a plain Attack
         // throws it, and `bomb::tick_bomb_fuses` detonates it on a fuse.
         items.insert(

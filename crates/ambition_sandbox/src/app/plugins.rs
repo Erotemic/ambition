@@ -372,6 +372,10 @@ fn register_item_pickup_systems(app: &mut App) {
             // Focus-beam gauntlet: plain Attack spawns an aimed line Hitbox of
             // Player faction (the smirking_behemoth eye-beam, wielded).
             crate::beam::fire_beam_system.run_if(gameplay_allowed),
+            // Vortex gauntlet: plain Attack spawns a point attractor that gathers
+            // enemies (no damage — pull-then-slam), then ages out.
+            crate::vortex::fire_vortex_system.run_if(gameplay_allowed),
+            crate::vortex::update_vortex_wells.run_if(gameplay_allowed),
             // Shared movement-ability cooldown timer (scaled_dt, so pause /
             // bullet-time slow it too).
             crate::ability_cooldown::tick_ability_cooldown,

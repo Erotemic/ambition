@@ -333,6 +333,12 @@ fn register_item_pickup_systems(app: &mut App) {
             crate::bomb::spawn_debug_bomb_once,
             crate::bomb::arm_thrown_bombs.run_if(gameplay_allowed),
             crate::bomb::tick_bomb_fuses.run_if(gameplay_allowed),
+            // Gravity grenade: thrown -> fuse -> opens a temporary up-gravity well
+            // (lifts enemies via localized gravity); tick the wells' lifetimes.
+            crate::gravity_grenade::spawn_debug_gravity_grenade_once,
+            crate::gravity_grenade::arm_thrown_gravity_grenades.run_if(gameplay_allowed),
+            crate::gravity_grenade::tick_gravity_grenade_fuses.run_if(gameplay_allowed),
+            crate::physics::tick_temporary_zones.run_if(gameplay_allowed),
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation)

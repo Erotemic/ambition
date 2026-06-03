@@ -131,6 +131,30 @@ pub struct OscillatingZone {
     pub phase: f32,
 }
 
+/// A [`GravityZone`] with a lifetime — spawned by a gravity grenade and despawned
+/// when its timer runs out. Lets thrown grenades create short-lived gravity wells.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct TemporaryZone {
+    /// Seconds of life remaining; the zone despawns at zero.
+    pub remaining: f32,
+}
+
+/// Tick down temporary gravity zones and despawn the expired ones. Uses scaled dt
+/// so pause / bullet-time hold the well open.
+pub fn tick_temporary_zones(
+    time: Res<crate::WorldTime>,
+    mut commands: Commands,
+    mut zones: Query<(Entity, &mut TemporaryZone)>,
+) {
+    let dt = time.scaled_dt;
+    for (entity, mut zone) in &mut zones {
+        zone.remaining -= dt;
+        if zone.remaining <= 0.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
 /// Slide each oscillating gravity zone before [`collect_gravity_zones`] snapshots
 /// it, so the moved region is what the actor integrators read this frame.
 pub fn oscillate_gravity_zones(

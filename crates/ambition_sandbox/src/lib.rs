@@ -30,6 +30,7 @@ pub mod cutscene;
 pub mod debug_label;
 pub mod engine_core;
 pub mod grapple;
+pub mod gravity_grenade;
 pub mod headless;
 pub mod input;
 pub mod interaction;

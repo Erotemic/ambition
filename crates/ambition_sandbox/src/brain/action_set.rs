@@ -199,6 +199,17 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 ranged: None,
             },
         );
+        // The gravity grenade is a pure throwable like the bomb (plain Attack
+        // throws it); `gravity_grenade::tick_gravity_grenade_fuses` opens an
+        // up-gravity well on its fuse instead of exploding.
+        items.insert(
+            "gravity_grenade",
+            HeldItemSpec {
+                id: "gravity_grenade".into(),
+                melee: None,
+                ranged: None,
+            },
+        );
         items
     });
 

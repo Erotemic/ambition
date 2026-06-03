@@ -1,0 +1,93 @@
+// gradient_ascent — a small platforming climb room (story: "climb the
+// gradient to the local maximum"). A staircase of Solid platforms, each top
+// 48px above the previous and adjacent in x, so every step is one simple hop
+// — well under the player's ~88px single-jump ceiling (JUMP_SPEED 630 /
+// GRAVITY 2250). Generous on purpose: the STRUCTURE is authored here; the
+// difficulty/feel (wider gaps, hazards, a real reward) is a playtest handoff.
+//
+// Layout (1280x512), floor top = 480:
+//   y=240  ........................[ summit ]....   <- climb target
+//   y=288  ..................[ step_4 ]...........
+//   y=336  ............[ step_3 ].................
+//   y=384  ......[ step_2 ].......................
+//   y=432  [ step_1 ]...........................
+//   y=480  ====================================== floor  [PlayerStart |door|]
+(
+    id: "gradient_ascent",
+    level_id: "gradient_ascent",
+    world_x: 48000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 512,
+    fill_collision: "empty",
+    bg_color: "#161A20",
+    biome: "lab",
+    entities: [
+        // Bounding box: floor, ceiling, side walls.
+        ( type: "Solid", px: [0, 480], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 464], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 464], fields: ( name: "right_wall" ) ),
+        // Staircase — each step top 48px above the previous, adjacent in x.
+        ( type: "Solid", px: [180, 432], size: [180, 16], fields: ( name: "step_1" ) ),
+        ( type: "Solid", px: [360, 384], size: [180, 16], fields: ( name: "step_2" ) ),
+        ( type: "Solid", px: [540, 336], size: [180, 16], fields: ( name: "step_3" ) ),
+        ( type: "Solid", px: [720, 288], size: [180, 16], fields: ( name: "step_4" ) ),
+        ( type: "Solid", px: [900, 240], size: [240, 16], fields: ( name: "summit" ) ),
+        // Spawn + entry door (left), camera, and two read-out labels.
+        ( type: "PlayerStart", px: [60, 434], size: [28, 46], fields: ( name: "gradient_ascent_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 384],
+            size: [48, 96],
+            fields: (
+                id: "gradient_ascent_entry",
+                name: "gradient_ascent_entry",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "gradient_ascent_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1280, 512],
+            fields: ( id: "gradient_ascent_camera", name: "gradient_ascent_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [60, 96],
+            size: [640, 24],
+            fields: (
+                name: "gradient_ascent_intro",
+                text: "Gradient Ascent: hop the steps to the summit. Each step is one jump.",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [900, 200],
+            size: [240, 24],
+            fields: (
+                name: "gradient_ascent_summit_label",
+                text: "Summit reached — the local maximum.",
+                category: "Custom",
+            ),
+        ),
+    ],
+    // Reciprocal hub door so the room is reachable from central_hub_main
+    // without hand-editing it. The validator catches a bad target_zone /
+    // overlapping slot.
+    connect_to: [
+        (
+            target_room: "central_hub_main",
+            px: [240, 600],
+            size: [16, 96],
+            id: "gradient_ascent_door",
+            target_zone: "gradient_ascent_entry",
+            activation: "Door",
+            bidirectional: true,
+        ),
+    ],
+)

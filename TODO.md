@@ -42,11 +42,11 @@ When you wake up here, pick the next task from this list and work on it without 
 - [ ] The player need more sprites for more animations to go with the different actions. Defer this in autonomous mode.
 
 
-- [ ] The portals seem to have no effect on other actors, and they should. But maybe only if the actor is big enough to "fit" through the portal, so that would prevent weird things with bosses, but maybe we have really big portals they can fit through, or a tiny boss it works on, so make the system general. 
+- [x] Portals now teleport non-player actors, **size-gated** so only actors that fit the opening pass (`portal::portal_teleport_actors` / `portal_fits` — wall portals gate on height, floor portals on width; bosses repositioned, enemies carry momentum; `PortalCooldown` stops ping-pong). _Done 2026-06-03 (`55d3f19`)._
 
-- [ ] Portals should despawn if the portal gun that spawned them leaves the room or is destroyed.
+- [x] Portals despawn when no portal gun is present in the room (held or as a pickup) — the "gun destroyed" case (`portal::despawn_orphaned_portals`); leaving the room still clears via the room reset. _Done 2026-06-03 (`55d3f19`)._
 
-- [ ] We also need sprites for the portals themselves. These should be very thin because we are in a 2d game, so we are only seeing a side profile. The current portal boxes are too big. The portal should be vertical when shot against a vertical wall and horiztonal when against a floor or ceiling. We might do slanted portals in the future, so account for that possibility if its not too hard.
+- [x] Portal visuals are now thin oriented doorways (rim + bright core bar along the wall, thin in the normal direction; vertical on walls, horizontal on floors/ceilings, slant-ready from the normal). _Done 2026-06-03 (`55d3f19`)._ A **textured** portal sprite/VFX (vs the colored bar) remains folded into the section-B "Build the portal gun sprite" item.
 
 
 - [ ] I'm thinking the 2d portal system probably should be its own bevy plugin. It seems like it could be fairly general. 

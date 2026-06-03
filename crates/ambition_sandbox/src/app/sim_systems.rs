@@ -436,6 +436,7 @@ pub fn attack_advance_system(
             &mut crate::player::PlayerCombatState,
             &mut crate::player::ActivePlayerAttack,
             &crate::brain::ActorControl,
+            Option<&crate::features::HeldItem>,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -444,11 +445,21 @@ pub fn attack_advance_system(
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
 ) {
-    let Ok((player_entity, mut cluster_item, mut anim, mut combat, mut attack, actor_control)) =
-        player_q.single_mut()
+    let Ok((
+        player_entity,
+        mut cluster_item,
+        mut anim,
+        mut combat,
+        mut attack,
+        actor_control,
+        held_item,
+    )) = player_q.single_mut()
     else {
         return;
     };
+    // Only an actually-held weapon (axe etc.) re-tunes the swing; the default
+    // ActionSet melee keeps the directional attack_spec_from_view feel.
+    let held_melee = held_item.and_then(|item| item.spec.melee);
     // The brain-driver system populated this `ActorControl` for the
     // current player upstream (PlayerInput set). Every combat verb
     // start_attack needs (pogo, axes for attack-intent resolution)
@@ -477,6 +488,7 @@ pub fn attack_advance_system(
             &mut attack.0,
             &mut anim,
             actor_frame,
+            held_melee,
         );
     }
     super::world_flow::advance_attack(

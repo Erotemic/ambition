@@ -848,6 +848,10 @@ pub(super) fn start_attack(
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
     actor: crate::actor_control::ActorControlFrame,
+    // When the player is holding a melee weapon (axe etc.), its `ActionSet`
+    // melee spec re-tunes the swing (timing / reach / damage) so the held item
+    // *replaces* the default attack instead of merely gating it.
+    held_melee: Option<crate::brain::MeleeActionSpec>,
 ) {
     if !clusters.abilities.abilities.attack || attack.is_some() {
         return;
@@ -872,7 +876,14 @@ pub(super) fn start_attack(
         actor.desired_vel.y,
         actor.pogo_pressed,
     );
-    let spec = crate::combat::attack_spec_from_view(&view, intent);
+    let mut spec = crate::combat::attack_spec_from_view(&view, intent);
+    // A held melee weapon re-tunes the swing to its own feel (axe = slow,
+    // long-reach, heavier). Pogo (AirDown) keeps its spike timing.
+    if let Some(melee) = held_melee {
+        if !matches!(intent, crate::combat::AttackIntent::AirDown) {
+            spec = spec.with_held_melee(melee);
+        }
+    }
 
     // Directional attacks get small self-motion so the hitbox feels connected
     // to the controller. Keep these impulses modest; the engine control path
@@ -991,7 +1002,11 @@ pub(super) fn advance_attack(
                 });
             }
         }
-        let slash_damage = clusters.offense.damage_multiplier.max(1);
+        let slash_damage = attack_state
+            .spec
+            .damage_override
+            .unwrap_or_else(|| clusters.offense.damage_multiplier.max(1))
+            .max(1);
         let knock_x = if attack_state.spec.knockback.x.abs() > 0.0 {
             attack_state.spec.knockback.x
         } else {

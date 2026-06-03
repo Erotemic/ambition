@@ -207,11 +207,32 @@ pub struct AttackSpec {
     pub knockback: Vec2,
     pub damage_kind: DamageKind,
     pub can_pogo: bool,
+    /// When set (a held weapon's swing), overrides the default per-hit damage.
+    /// `None` falls back to the player's `offense.damage_multiplier`.
+    pub damage_override: Option<i32>,
 }
 
 impl AttackSpec {
     pub fn total_seconds(self) -> f32 {
         self.startup_seconds + self.active_seconds + self.recovery_seconds
+    }
+
+    /// Re-tune this swing to a held melee weapon's spec (the axe etc.): the
+    /// weapon's windup / active / recover timing and its damage. Non-`Swipe`
+    /// melee variants leave the swing unchanged. This is how a held item
+    /// *replaces* the default attack with its own feel rather than just gating
+    /// whether a swing happens. (Hitbox geometry is left to the directional
+    /// `attack_spec_from_view` default — the player's reach already exceeds the
+    /// enemy-scale `reach_px`, so importing it would *shrink* the swing.)
+    pub fn with_held_melee(mut self, melee: crate::brain::MeleeActionSpec) -> Self {
+        let crate::brain::MeleeActionSpec::Swipe(s) = melee else {
+            return self;
+        };
+        self.startup_seconds = s.windup_s.max(0.0);
+        self.active_seconds = s.active_s.max(0.02);
+        self.recovery_seconds = s.recover_s.max(0.0);
+        self.damage_override = Some(s.damage.max(1));
+        self
     }
 
     pub fn phase_at(self, elapsed: f32) -> Option<AttackPhase> {
@@ -317,6 +338,7 @@ pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackS
             self_impulse: Vec2::new(0.0, -35.0),
             knockback: Vec2::new(0.0, -300.0),
             damage_kind: DamageKind::Slash,
+            damage_override: None,
             can_pogo: false,
         },
         AttackIntent::Down => AttackSpec {
@@ -329,6 +351,7 @@ pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackS
             self_impulse: Vec2::new(0.0, 0.0),
             knockback: Vec2::new(facing * 220.0, -80.0),
             damage_kind: DamageKind::Slash,
+            damage_override: None,
             can_pogo: false,
         },
         AttackIntent::AirDown => AttackSpec {
@@ -341,6 +364,7 @@ pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackS
             self_impulse: Vec2::new(0.0, 35.0),
             knockback: Vec2::new(0.0, 260.0),
             damage_kind: DamageKind::Pogo,
+            damage_override: None,
             can_pogo: true,
         },
         AttackIntent::Back | AttackIntent::WallOut => AttackSpec {
@@ -353,6 +377,7 @@ pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackS
             self_impulse: Vec2::new(facing * 120.0, -20.0),
             knockback: Vec2::new(-facing * 280.0, -120.0),
             damage_kind: DamageKind::Slash,
+            damage_override: None,
             can_pogo: false,
         },
         AttackIntent::DashForward => AttackSpec {
@@ -365,6 +390,7 @@ pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackS
             self_impulse: Vec2::new(facing * 55.0, 0.0),
             knockback: Vec2::new(facing * 390.0, -120.0),
             damage_kind: DamageKind::Slash,
+            damage_override: None,
             can_pogo: false,
         },
         AttackIntent::AirForward => AttackSpec {
@@ -377,6 +403,7 @@ pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackS
             self_impulse: Vec2::new(-facing * 45.0, -25.0),
             knockback: Vec2::new(facing * 320.0, -120.0),
             damage_kind: DamageKind::Slash,
+            damage_override: None,
             can_pogo: false,
         },
         AttackIntent::AirBack => AttackSpec {
@@ -389,6 +416,7 @@ pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackS
             self_impulse: Vec2::new(facing * 50.0, -25.0),
             knockback: Vec2::new(-facing * 340.0, -120.0),
             damage_kind: DamageKind::Slash,
+            damage_override: None,
             can_pogo: false,
         },
         AttackIntent::Forward | AttackIntent::Neutral => AttackSpec {
@@ -405,6 +433,7 @@ pub fn attack_spec_from_view(view: &AttackView, intent: AttackIntent) -> AttackS
             },
             knockback: Vec2::new(facing * 320.0, -120.0),
             damage_kind: DamageKind::Slash,
+            damage_override: None,
             can_pogo: false,
         },
     }
@@ -440,6 +469,28 @@ mod tests {
             abilities_directional_primary: crate::engine_core::AbilitySet::sandbox_all()
                 .directional_primary,
         }
+    }
+
+    #[test]
+    fn held_axe_retunes_swing_timing_reach_and_damage() {
+        let view = view_at(Vec2::new(0.0, 0.0), 1.0);
+        let base = attack_spec_from_view(&view, AttackIntent::Forward);
+        let axe = base.with_held_melee(crate::brain::MeleeActionSpec::Swipe(
+            crate::brain::SwipeSpec {
+                windup_s: 0.22,
+                active_s: 0.12,
+                recover_s: 0.30,
+                damage: 3,
+                reach_px: 64.0,
+            },
+        ));
+        assert!((axe.startup_seconds - 0.22).abs() < 1e-6, "windup -> startup");
+        assert!((axe.recovery_seconds - 0.30).abs() < 1e-6, "recover -> recovery");
+        assert_eq!(axe.damage_override, Some(3), "axe carries its own damage");
+        assert!(
+            axe.startup_seconds > base.startup_seconds,
+            "the axe winds up slower than the default swing"
+        );
     }
 
     #[test]

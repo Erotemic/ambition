@@ -69,7 +69,7 @@ pub fn possession_trigger_system(
     mut prev_down_interact: Local<bool>,
     mut state: ResMut<PossessionState>,
     mut commands: Commands,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut players: Query<&mut PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     candidates: Query<
         (Entity, &crate::features::FeatureAabb),
         (
@@ -80,6 +80,10 @@ pub fn possession_trigger_system(
     >,
     mut factions: Query<&mut crate::features::ActorFaction>,
     possessed_q: Query<&Possessed>,
+    // Read-only AABB lookup for the *vacate exit*: on release the player steps
+    // out where the possessed actor stands, so the camera (which follows the
+    // actor while possessing) doesn't snap back to the abandoned body.
+    actor_aabb: Query<&crate::features::FeatureAabb>,
 ) {
     let down_interact = control.axis_y > 0.35 && control.interact_pressed;
     let release_edge = down_interact && !*prev_down_interact;
@@ -90,6 +94,15 @@ pub fn possession_trigger_system(
         *hold_timer = 0.0;
         if release_edge {
             if let Some(entity) = state.possessed.take() {
+                // Vacate exit: step the player's body out where the possessed
+                // actor stands. The camera was following the actor, so without
+                // this the view (and your body) would snap back to wherever you
+                // first possessed from — jarring if the actor roamed. You leave
+                // the actor where it is; it reverts to its own brain beside you.
+                if let (Ok(aabb), Ok(mut pk)) = (actor_aabb.get(entity), players.single_mut()) {
+                    pk.pos = aabb.center;
+                    pk.vel = crate::engine_core::Vec2::ZERO;
+                }
                 // Restore the actor's original faction, then drop the marker.
                 let original = possessed_q.get(entity).ok().map(|p| p.original_faction);
                 if let (Some(original), Ok(mut faction)) = (original, factions.get_mut(entity)) {
@@ -249,6 +262,20 @@ mod tests {
             faction_of(&app, actor),
             crate::features::ActorFaction::Enemy,
             "release restores the actor's original faction"
+        );
+        // Vacate exit: the player's body stepped out where the actor stood
+        // (candidate spawned at x=80), not back at its origin (x=0), so the
+        // camera that was following the actor doesn't snap back to the old body.
+        let player_pos = app
+            .world_mut()
+            .query_filtered::<&PlayerKinematics, With<PlayerEntity>>()
+            .single(app.world())
+            .unwrap()
+            .pos;
+        assert_eq!(
+            player_pos,
+            vec2(80.0, 0.0),
+            "player vacates to the possessed actor's position on release"
         );
     }
 

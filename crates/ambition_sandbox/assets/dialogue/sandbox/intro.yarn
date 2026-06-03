@@ -16,6 +16,7 @@ title: alice_intro_stub
 title: alice_intro_stub__1
 ---
 Alice: Carry this to Bob. Do not unfold it where the walls can read.
+<<give_item "sealednote">>
 -> ⟨pocket the note⟩
 ===
 
@@ -27,13 +28,16 @@ Alice: Private marks are yours now. The map is not neutral. You may notice it ag
 
 title: bob_intro_stub
 ---
-<<if flag("alice_route_note_reported")>>
-    Bob: You filed the route. The route now files itself. Map labels we can't take back.
-    -> ⟨move on⟩
-<<else>>
-    Bob: Alice sent you? Good. She maps exits. I map mistakes.
-    -> Hand him the note.
+<<if inventory_has("sealednote")>>
+    Bob: That fold's Alice's. You actually carried it through the low route — most don't. Hand it here.
+    -> Hand him the sealed note.
+        <<sell_item "sealednote" 0>>
+        <<give_item "fieldsurvey">>
+        <<set_flag "bob_field_survey_received">>
         <<jump bob_intro_stub__1>>
+    -> ⟨keep it folded⟩
+<<else>>
+    Bob: Alice sent you? Good. She maps exits. I map mistakes. Bring me what she folded.
     -> Why are you up here?
         <<jump bob_intro_stub__2>>
     -> ⟨leave him to it⟩

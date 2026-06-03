@@ -70,6 +70,18 @@ Merchant Prototype: Wares for sale. Coin talks — anything you can't afford sta
 -> Buy Mana Cell — 8g <<if can_afford(8)>>
     <<buy_item "manacell" 8>>
     <<jump merchant_seed>>
+-> Buy Gun-Sword — 35g <<if can_afford(35)>>
+    <<buy_item "gunsword" 35>>
+    <<jump merchant_seed>>
+-> Buy Puppy-Slug Gun — 30g <<if can_afford(30)>>
+    <<buy_item "puppysluggun" 30>>
+    <<jump merchant_seed>>
+-> Buy Bomb — 6g <<if can_afford(6)>>
+    <<buy_item "bomb" 6>>
+    <<jump merchant_seed>>
+-> Sell Gun-Sword — 17g <<if inventory_has("gunsword")>>
+    <<sell_item "gunsword" 17>>
+    <<jump merchant_seed>>
 -> Sell Axe — 12g <<if inventory_has("axe")>>
     <<sell_item "axe" 12>>
     <<jump merchant_seed>>

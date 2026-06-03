@@ -64,6 +64,8 @@ For implementation details, start from `docs/current/state.md`, `docs/systems/in
 | Per-player `PlayerInputFrame` mirror of the primary `ControlFrame` | Available | `docs/systems/input-and-control-frame.md` |
 | Player `Brain::Player` translating input to `ActorControlFrame` | Available | `docs/systems/brain-driver.md` |
 | Menu navigation, pause mode, inventory/map/pause UI routing | Available | `docs/systems/ui-navigation-and-pause.md` |
+| OoT-style 6×4 item-grid inventory menu | Available (landed 2026-06-03, feature `oot_inventory`); native Bevy-UI grid of all 24 catalog items (owned/dim/equipped/cursor), confirm equips a weapon (shared HeldItem seam) or uses a consumable; keyboard/gamepad/touch nav; easy-cut seam (legacy 3-tab menu when off). 3D OoT "cube" renderer + item icons are follow-ups | `crates/ambition_sandbox/src/oot_menu/`, `crates/ambition_sandbox/src/items.rs`, `submodules/ambition_inventory_ui/DESIGN-OOT-DEMO.md` |
+| Finite 24-item pickup catalog (`Item` + `OwnedItems`) | Available; 24 = OoT item-subscreen slot count, the game's complete pickup set; pickups + `<<give_item>>` + Yarn mirror read/write it; legacy 3-kind `PlayerInventory` bridged | `crates/ambition_sandbox/src/items.rs` |
 | Settings persistence across audio/video/gameplay/controls | Available | `docs/systems/settings-and-persistence.md` |
 | Mobile touch controls | Available, platform-sensitive | `docs/systems/mobile-touch-controls.md` |
 | Context-sensitive control HUD (verb + per-device glyph + pressed-state) | Available; gameplay still owns its own execution branches | `docs/systems/control-affordances.md` |

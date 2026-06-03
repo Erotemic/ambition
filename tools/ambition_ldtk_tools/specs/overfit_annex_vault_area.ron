@@ -1,0 +1,33 @@
+// Overfit Annex — room C (the vault). The climb's payoff: 50 coins + a health
+// cell. connect_to B places the B→C door on B's summit platform (top y=240).
+(
+    id: "overfit_annex_vault",
+    level_id: "overfit_annex_vault",
+    world_x: 60000,
+    world_y: 1024,
+    px_wid: 768,
+    px_hei: 384,
+    fill_collision: "empty",
+    bg_color: "#1A1810",
+    biome: "lab",
+    entities: [
+        ( type: "Solid", px: [0, 352], size: [768, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [768, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 336], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [752, 16], size: [16, 336], fields: ( name: "right_wall" ) ),
+        ( type: "PlayerStart", px: [60, 306], size: [28, 46], fields: ( name: "overfit_annex_vault_spawn" ) ),
+        ( type: "PickupSpawn", px: [360, 328], size: [24, 24], fields: ( name: "vault_coins", kind: "currency:50" ) ),
+        ( type: "PickupSpawn", px: [460, 328], size: [24, 24], fields: ( name: "vault_heal", kind: "health:3" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 256],
+            size: [48, 96],
+            fields: ( id: "overfit_annex_vault_to_climb", name: "overfit_annex_vault_to_climb", activation: "Door", target_room: "overfit_annex_climb", target_zone: "overfit_annex_climb_vault_door", bidirectional: true ),
+        ),
+        ( type: "CameraZone", px: [0, 0], size: [768, 384], fields: ( id: "overfit_annex_vault_camera", name: "overfit_annex_vault_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [120, 120], size: [420, 24], fields: ( name: "overfit_annex_vault_label", text: "The vault — your reward for clearing the annex.", category: "Custom" ) ),
+    ],
+    connect_to: [
+        ( target_room: "overfit_annex_climb", px: [1080, 144], size: [16, 96], id: "overfit_annex_climb_vault_door", target_zone: "overfit_annex_vault_to_climb", activation: "Door", bidirectional: true ),
+    ],
+)

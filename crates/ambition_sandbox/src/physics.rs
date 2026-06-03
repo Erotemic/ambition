@@ -112,6 +112,38 @@ pub fn collect_gravity_zones(mut snapshot: ResMut<GravityZones>, zones: Query<&G
         .extend(zones.iter().map(|z| (z.aabb, z.dir)));
 }
 
+/// A [`GravityZone`] that slides horizontally — a "gravity column riding a moving
+/// platform" (Jon's gravity TODO). Its region oscillates each frame, and because
+/// the snapshot is rebuilt every frame, a body riding the column is carried with
+/// it (localized gravity + motion).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct OscillatingZone {
+    /// Center the column oscillates around.
+    pub base_center: Vec2,
+    /// Half-extent of the column region (kept as the zone slides).
+    pub half: Vec2,
+    /// Horizontal sweep amplitude (px).
+    pub amplitude_x: f32,
+    /// Angular frequency (radians / second).
+    pub freq: f32,
+    /// Accumulated phase (radians); advanced by scaled dt so pause / bullet-time
+    /// freeze the column too.
+    pub phase: f32,
+}
+
+/// Slide each oscillating gravity zone before [`collect_gravity_zones`] snapshots
+/// it, so the moved region is what the actor integrators read this frame.
+pub fn oscillate_gravity_zones(
+    time: Res<crate::WorldTime>,
+    mut zones: Query<(&mut GravityZone, &mut OscillatingZone)>,
+) {
+    for (mut zone, mut osc) in &mut zones {
+        osc.phase += time.scaled_dt * osc.freq;
+        let cx = osc.base_center.x + osc.phase.sin() * osc.amplitude_x;
+        zone.aabb = crate::engine_core::Aabb::new(Vec2::new(cx, osc.base_center.y), osc.half);
+    }
+}
+
 /// The **localized** gravity direction for a body whose center is at `pos`: the
 /// first [`GravityZone`] containing `pos`, else `base_dir` (the room ambient).
 ///
@@ -374,5 +406,37 @@ mod tests {
         });
         app.update();
         assert_eq!(app.world().resource::<GravityZones>().zones.len(), 1);
+    }
+
+    #[test]
+    fn oscillating_zone_slides_horizontally_over_time() {
+        let mut app = App::new();
+        app.insert_resource(crate::WorldTime {
+            scaled_dt: 0.1,
+            ..Default::default()
+        });
+        app.add_systems(Update, oscillate_gravity_zones);
+        let base = Vec2::new(100.0, 50.0);
+        let e = app
+            .world_mut()
+            .spawn((
+                GravityZone {
+                    aabb: crate::engine_core::Aabb::new(base, Vec2::new(20.0, 20.0)),
+                    dir: Vec2::new(0.0, -1.0),
+                },
+                OscillatingZone {
+                    base_center: base,
+                    half: Vec2::new(20.0, 20.0),
+                    amplitude_x: 80.0,
+                    freq: 2.0,
+                    phase: 0.0,
+                },
+            ))
+            .id();
+        app.update(); // phase -> 0.2, sin(0.2) > 0 -> slides right of base
+        let aabb = app.world().get::<GravityZone>(e).unwrap().aabb;
+        let c = (aabb.min + aabb.max) * 0.5;
+        assert!(c.x > base.x, "the column slid right of its base (x={})", c.x);
+        assert!((c.y - base.y).abs() < 1e-3, "vertical position unchanged");
     }
 }

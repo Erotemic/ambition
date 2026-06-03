@@ -244,7 +244,13 @@ fn register_portal_systems(app: &mut App) {
     // OWN local gravity by position (gravity is local in space, not one global).
     app.add_systems(
         Update,
-        crate::physics::collect_gravity_zones.before(SandboxSet::CoreSimulation),
+        (
+            // Slide oscillating columns, then snapshot, before the integrators read.
+            crate::physics::oscillate_gravity_zones,
+            crate::physics::collect_gravity_zones,
+        )
+            .chain()
+            .before(SandboxSet::CoreSimulation),
     );
     app.add_systems(
         Update,

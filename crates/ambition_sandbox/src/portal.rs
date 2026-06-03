@@ -668,6 +668,24 @@ pub fn spawn_debug_gravity_zone_once(
         },
         Name::new("Gravity zone: up (gravity_lab)"),
     ));
+    // A SECOND up-gravity column that *slides* horizontally — a gravity column
+    // "riding a moving platform" (the deferred half of Jon's gravity TODO). Step
+    // into it as it drifts past and you ride it up.
+    let moving_base = kin.pos + Vec2::new(150.0, -120.0);
+    commands.spawn((
+        GravityZone {
+            aabb: ae::Aabb::new(moving_base, Vec2::new(80.0, 180.0)),
+            dir: Vec2::new(0.0, -1.0), // up
+        },
+        crate::physics::OscillatingZone {
+            base_center: moving_base,
+            half: Vec2::new(80.0, 180.0),
+            amplitude_x: 150.0,
+            freq: 1.1,
+            phase: 0.0,
+        },
+        Name::new("Gravity zone: up, sliding (gravity_lab)"),
+    ));
 }
 
 /// Marks the visual for a [`GravityZone`].

@@ -630,6 +630,9 @@ pub fn upgrade_boss_sprites(
         (Entity, &FeatureVisual),
         (Without<CharacterAnimator>, Without<BossAnimator>),
     >,
+    // Boss keys we've already warned about resolving no dedicated sheet, so the
+    // warning fires once per boss instead of every time one spawns.
+    mut warned_generic_bosses: Local<std::collections::HashSet<String>>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -717,7 +720,34 @@ pub fn upgrade_boss_sprites(
                 continue;
             };
             asset
+        } else if boss_key == "flying_spaghetti_monster_boss" {
+            let Some(asset) = assets
+                .flying_spaghetti_monster_boss
+                .as_ref()
+                .or(assets.boss.as_ref())
+            else {
+                continue;
+            };
+            asset
+        } else if boss_key == "trex_boss" {
+            let Some(asset) = assets.trex_boss.as_ref().or(assets.boss.as_ref()) else {
+                continue;
+            };
+            asset
         } else {
+            // No dedicated sheet wired for this boss — it renders with the
+            // generic gradient-sentinel body. Surface it once (a boss with its
+            // own art should have a branch above + a GameAssets field) instead
+            // of silently shipping the wrong character, the bug that hid the
+            // FSM / T-Rex behind the generic boss.
+            if warned_generic_bosses.insert(boss_key.clone()) {
+                bevy::log::warn!(
+                    target: "ambition::sprites",
+                    "boss '{boss_key}' has no dedicated spritesheet wired — rendering with the \
+                     generic boss body. If it should have its own sprite, wire a BossSheetSpec + \
+                     a GameAssets field + a resolver branch (see flying_spaghetti_monster_boss).",
+                );
+            }
             let Some(asset) = assets.boss.as_ref() else {
                 continue;
             };

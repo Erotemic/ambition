@@ -424,6 +424,11 @@ pub(crate) const SMIRKING_BEHEMOTH_FILENAME: &str = "smirking_behemoth_boss_spri
 // danger separately.
 pub(crate) const GNU_TON_BODY_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_body_spritesheet.png";
 pub(crate) const GNU_TON_HANDS_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png";
+pub(crate) const FLYING_SPAGHETTI_MONSTER_FILENAME: &str =
+    "flying_spaghetti_monster_boss_spritesheet.png";
+// The T-Rex boss reuses the published trex *enemy* sheet — no separate boss
+// render is generated; the boss path just maps `trex_boss` onto this sheet.
+pub(crate) const TREX_BOSS_FILENAME: &str = "trex_enemy_spritesheet.png";
 
 /// GNU-ton boss sheet.
 ///
@@ -499,6 +504,65 @@ pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
     authored_faces_left: false,
 };
 
+/// Flying Spaghetti Monster boss sheet (169×150 frames, 7 rows). The sheet
+/// ships its own attack rows, so unlike the old generic fallback this renders
+/// the noodly appendages instead of the gradient-sentinel body. Rows in PNG
+/// order map onto the gameplay vocabulary as: idle→Rest, drift→DashEcho,
+/// noodle_whip→SideSweep, meatball_volley→FloorSlam, eye_beam→SpikeHalo,
+/// hurt→Hit, death→Death (every BossAnim used exactly once). Floating boss, so
+/// `body_centered`. _Render scale / anchor are first-pass; feel-tune in-game._
+pub const FLYING_SPAGHETTI_MONSTER_SHEET: BossSheetSpec = BossSheetSpec {
+    label_width: 100,
+    frame_width: 169,
+    frame_height: 150,
+    rows: &[
+        (BossAnim::Rest, AnimRow { frame_count: 6, duration_secs: 0.132 }),
+        (BossAnim::DashEcho, AnimRow { frame_count: 8, duration_secs: 0.098 }),
+        (BossAnim::SideSweep, AnimRow { frame_count: 7, duration_secs: 0.090 }),
+        (BossAnim::FloorSlam, AnimRow { frame_count: 7, duration_secs: 0.090 }),
+        (BossAnim::SpikeHalo, AnimRow { frame_count: 7, duration_secs: 0.090 }),
+        (BossAnim::Hit, AnimRow { frame_count: 4, duration_secs: 0.090 }),
+        (BossAnim::Death, AnimRow { frame_count: 8, duration_secs: 0.108 }),
+    ],
+    collision_scale: 1.8,
+    feet_anchor_y: 0.0,
+    frame_sample_inset: 1,
+    body_centered: true,
+    authored_faces_left: false,
+};
+
+/// T-Rex boss sheet (398×320 frames, 9 rows; reuses the trex *enemy* PNG). The
+/// sheet has more rows than the 7-variant `BossAnim`, so `tail_swipe` and
+/// `stomp` reuse `SideSweep`/`FloorSlam` labels — every physical row is still
+/// listed in PNG order (so `build_atlas` y-offsets stay correct), the duplicate
+/// labels just aren't separately selectable. Mapping: idle→Rest, walk→DashEcho,
+/// charge→FloorSlam, bite→SideSweep, roar→SpikeHalo, tail_swipe→(SideSweep,
+/// atlas-only), stomp→(FloorSlam, atlas-only), hurt→Hit, death→Death. Grounded
+/// bipedal, so NOT `body_centered`. _Render scale / anchor are first-pass._
+pub const TREX_BOSS_SHEET: BossSheetSpec = BossSheetSpec {
+    label_width: 100,
+    frame_width: 398,
+    frame_height: 320,
+    rows: &[
+        (BossAnim::Rest, AnimRow { frame_count: 6, duration_secs: 0.140 }),
+        (BossAnim::DashEcho, AnimRow { frame_count: 8, duration_secs: 0.090 }),
+        (BossAnim::FloorSlam, AnimRow { frame_count: 8, duration_secs: 0.080 }),
+        (BossAnim::SideSweep, AnimRow { frame_count: 7, duration_secs: 0.080 }),
+        (BossAnim::SpikeHalo, AnimRow { frame_count: 6, duration_secs: 0.100 }),
+        // tail_swipe — duplicate SideSweep label; in the atlas, not separately picked.
+        (BossAnim::SideSweep, AnimRow { frame_count: 7, duration_secs: 0.080 }),
+        // stomp — duplicate FloorSlam label; in the atlas, not separately picked.
+        (BossAnim::FloorSlam, AnimRow { frame_count: 6, duration_secs: 0.090 }),
+        (BossAnim::Hit, AnimRow { frame_count: 4, duration_secs: 0.090 }),
+        (BossAnim::Death, AnimRow { frame_count: 8, duration_secs: 0.110 }),
+    ],
+    collision_scale: 1.6,
+    feet_anchor_y: -0.5,
+    frame_sample_inset: 1,
+    body_centered: false,
+    authored_faces_left: false,
+};
+
 /// Sandbox-side `(label, filename)` rows for every boss spritesheet
 /// the sandbox knows about. The aggregator in
 /// [`crate::sandbox_assets`] registers one catalog entry per row;
@@ -511,6 +575,8 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
         ("smirking_behemoth_boss", SMIRKING_BEHEMOTH_FILENAME),
         ("gnu_ton_body", GNU_TON_BODY_FILENAME),
         ("gnu_ton_hands", GNU_TON_HANDS_FILENAME),
+        ("flying_spaghetti_monster_boss", FLYING_SPAGHETTI_MONSTER_FILENAME),
+        ("trex_boss", TREX_BOSS_FILENAME),
     ]
 }
 
@@ -579,6 +645,38 @@ pub fn load_smirking_behemoth_sprite_in(
         layouts,
         "smirking_behemoth_boss",
         SMIRKING_BEHEMOTH_SHEET,
+    )
+}
+
+/// Build the Flying Spaghetti Monster boss sprite asset. `None` until its PNG
+/// is published; the renderer then falls back to the generic boss sheet.
+pub fn load_flying_spaghetti_sprite_in(
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> Option<BossSpriteAsset> {
+    load_named_boss_sprite_via_catalog(
+        catalog,
+        asset_server,
+        layouts,
+        "flying_spaghetti_monster_boss",
+        FLYING_SPAGHETTI_MONSTER_SHEET,
+    )
+}
+
+/// Build the T-Rex boss sprite asset (reuses the trex enemy PNG). `None` until
+/// its PNG is published; the renderer then falls back to the generic boss sheet.
+pub fn load_trex_boss_sprite_in(
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> Option<BossSpriteAsset> {
+    load_named_boss_sprite_via_catalog(
+        catalog,
+        asset_server,
+        layouts,
+        "trex_boss",
+        TREX_BOSS_SHEET,
     )
 }
 
@@ -821,6 +919,38 @@ mod tests {
         // ever drift, indexing by `anim as usize` would panic at
         // runtime.
         assert_eq!(BOSS_SHEET.rows.len(), 7);
+    }
+
+    #[test]
+    fn fsm_and_trex_sheets_match_their_published_layouts() {
+        // FSM: 7 PNG rows (169×150), every BossAnim used once. These match
+        // flying_spaghetti_monster_boss_spritesheet.yaml; a drift here means
+        // the boss renders frames from the wrong row.
+        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.rows.len(), 7);
+        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_width, 169);
+        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_height, 150);
+        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_count(BossAnim::Rest), 6);
+        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_count(BossAnim::Death), 8);
+        assert!(FLYING_SPAGHETTI_MONSTER_SHEET.body_centered, "FSM floats");
+        // Rest is row 0; FloorSlam (meatball_volley) is row 3 → 6+8+7 frames before.
+        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.flat_index(BossAnim::Rest, 0), 0);
+        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.flat_index(BossAnim::FloorSlam, 0), 6 + 8 + 7);
+
+        // T-Rex: 9 PNG rows (398×320); tail_swipe/stomp reuse SideSweep/FloorSlam
+        // labels but every physical row is still listed so the atlas stays aligned.
+        assert_eq!(TREX_BOSS_SHEET.rows.len(), 9);
+        assert_eq!(TREX_BOSS_SHEET.frame_width, 398);
+        assert_eq!(TREX_BOSS_SHEET.frame_height, 320);
+        assert!(!TREX_BOSS_SHEET.body_centered, "T-Rex is grounded");
+        assert_eq!(TREX_BOSS_SHEET.frame_count(BossAnim::Rest), 6);
+        // SideSweep (bite) is row 3, not the later tail_swipe dup at row 5.
+        assert_eq!(TREX_BOSS_SHEET.flat_index(BossAnim::SideSweep, 0), 6 + 8 + 8);
+
+        // Both atlases build without panic and have one rect per frame.
+        let fsm_frames: usize = FLYING_SPAGHETTI_MONSTER_SHEET.rows.iter().map(|(_, r)| r.frame_count).sum();
+        assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.build_atlas().len(), fsm_frames);
+        let trex_frames: usize = TREX_BOSS_SHEET.rows.iter().map(|(_, r)| r.frame_count).sum();
+        assert_eq!(TREX_BOSS_SHEET.build_atlas().len(), trex_frames);
     }
 
     #[test]

@@ -653,6 +653,13 @@ pub struct GameAssets {
     /// Hands-only GNU-ton sheet (with shockwave / vulnerability glow).
     /// Rendered in front of platforms so incoming danger reads clearly.
     pub gnu_ton_hands: Option<BossSpriteAsset>,
+    /// Flying Spaghetti Monster boss spritesheet (noodly appendages). The
+    /// renderer dispatches on `behavior.id == "flying_spaghetti_monster_boss"`;
+    /// `None` falls back to the generic `boss` sheet.
+    pub flying_spaghetti_monster_boss: Option<BossSpriteAsset>,
+    /// T-Rex boss spritesheet (reuses the trex enemy PNG). The renderer
+    /// dispatches on `behavior.id == "trex_boss"`; `None` falls back to `boss`.
+    pub trex_boss: Option<BossSpriteAsset>,
     /// Optional generated biome sky/background/parallax layers. Missing PNGs
     /// are fine: room rendering simply skips the extra layers and keeps the
     /// existing clear-color/grid/block visuals.
@@ -688,6 +695,9 @@ pub fn load_game_assets(
         sprites::load_smirking_behemoth_sprite_in(catalog, asset_server, layouts);
     let gnu_ton_body = sprites::load_gnu_ton_body_sprite_in(catalog, asset_server, layouts);
     let gnu_ton_hands = sprites::load_gnu_ton_hands_sprite_in(catalog, asset_server, layouts);
+    let flying_spaghetti_monster_boss =
+        sprites::load_flying_spaghetti_sprite_in(catalog, asset_server, layouts);
+    let trex_boss = sprites::load_trex_boss_sprite_in(catalog, asset_server, layouts);
     let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);
     let parallax_layers =
         load_parallax_layers_for_theme(catalog, asset_server, active_parallax_theme);
@@ -710,6 +720,8 @@ pub fn load_game_assets(
         smirking_behemoth_boss,
         gnu_ton_body,
         gnu_ton_hands,
+        flying_spaghetti_monster_boss,
+        trex_boss,
         parallax_layers,
     }
 }

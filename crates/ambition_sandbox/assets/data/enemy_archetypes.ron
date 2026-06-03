@@ -106,6 +106,28 @@
         smash_hit_band: Some(32.0),
         move_style: Walk,
     ),
+    // Volatile kamikaze: 2 HP, a fast committed rush from far away, a
+    // light contact swipe — but the real threat is the death blast
+    // (`damage.rs::spawn_death_explosion`). Kill it at range or eat the boom.
+    "ExplodingMite": (
+        max_health: 2,
+        patrol_speed: 70.0,
+        chase_speed: 245.0,
+        aggro_radius: 460.0,
+        attack_range: 60.0,
+        contact_strength: 0.60,
+        damage_amount: 1,
+        brain_template: Smash,
+        melee: Some(Swipe((
+            windup_s: 0.22,
+            active_s: 0.08,
+            recover_s: 0.30,
+            damage: 1,
+            reach_px: 26.0,
+        ))),
+        smash_hit_band: Some(30.0),
+        move_style: Walk,
+    ),
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
     // careless approach still punishes via the swipe.
     "SmallLurker": (

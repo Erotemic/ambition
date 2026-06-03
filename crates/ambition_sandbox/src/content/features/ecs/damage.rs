@@ -91,6 +91,38 @@ pub fn drop_currency_coin(commands: &mut Commands, id: &str, pos: ae::Vec2, amou
     ));
 }
 
+/// Half-extent (px) of an `ExplodingMite`'s death blast — a wide, readable boom.
+const EXPLODER_BLAST_HALF: f32 = 64.0;
+/// Damage the blast deals (more than the mite's contact, so a point-blank kill
+/// genuinely punishes).
+const EXPLODER_BLAST_DAMAGE: i32 = 3;
+const EXPLODER_BLAST_KNOCKBACK: f32 = 1.6;
+/// A brief flash — the box exists just long enough to register one hit.
+const EXPLODER_BLAST_LIFETIME_S: f32 = 0.14;
+
+/// Spawn the death blast of a volatile mite: a one-shot **Enemy-faction**
+/// [`Hitbox`](crate::features::Hitbox) centered on the corpse. Enemy faction, so
+/// `apply_hitbox_damage` routes it at the *player* (not other enemies — the blast
+/// doesn't chain), and the player's shield/parry can still negate it. `owner` is
+/// the dying mite (moot for ignore-self, since the blast never hits its own side).
+fn spawn_death_explosion(commands: &mut Commands, owner: Entity, pos: ae::Vec2) {
+    commands.spawn((
+        crate::features::Hitbox {
+            owner,
+            source: crate::features::ActorFaction::Enemy,
+            anchor: crate::features::HitboxAnchor::World { center: pos },
+            half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF),
+            damage: EXPLODER_BLAST_DAMAGE,
+            knockback_strength: EXPLODER_BLAST_KNOCKBACK,
+        },
+        crate::features::HitboxLifetime {
+            remaining_s: EXPLODER_BLAST_LIFETIME_S,
+        },
+        crate::features::HitboxHits::default(),
+        bevy::prelude::Name::new("Exploding mite blast"),
+    ));
+}
+
 /// Spawn a collectible health heart at `pos` (a sometimes-drop on enemy defeat),
 /// same pickup path as the coin so `collect_ecs_pickups` heals the player on
 /// overlap via `PlayerHealRequested`.
@@ -582,6 +614,17 @@ fn apply_actor_hit(
                     // player can fund the merchant / ability shop from combat, and
                     // ~1 in 4 enemy kinds also drops a heart (combat sustain).
                     drop_currency_coin(&mut writers.commands, &em.config.id, em.kin.pos, ENEMY_BOUNTY);
+                    // Volatile archetypes detonate on death — a sizable
+                    // Enemy-faction blast at the corpse, so a point-blank kill is
+                    // punished (the read: kill it at range / sidestep the body).
+                    if em.config.archetype == EnemyArchetype::ExplodingMite {
+                        spawn_death_explosion(&mut writers.commands, actor_entity, em.kin.pos);
+                        writers.vfx.write(VfxMessage::Explosion {
+                            pos: em.kin.pos,
+                            kind: crate::presentation::fx::ExplosionKind::ClassicBurst,
+                            scale: 0.85,
+                        });
+                    }
                     if id_drops_health(&em.config.id) {
                         drop_health_pickup(
                             &mut writers.commands,
@@ -1354,6 +1397,29 @@ mod tests {
         assert_eq!(g(BossBehaviorProfile::exploding_gradient_boss()), Some(crate::sentry::SENTRY_ID));
         assert_eq!(g(BossBehaviorProfile::overflow_boss()), Some(crate::dive::DIVE_ID));
         assert_eq!(g(BossBehaviorProfile::gnu_ton()), Some(crate::meteor::METEOR_ID));
+    }
+
+    #[test]
+    fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
+        let mut app = App::new();
+        app.add_systems(Update, |mut c: Commands| {
+            spawn_death_explosion(&mut c, Entity::PLACEHOLDER, ae::Vec2::new(50.0, 60.0));
+        });
+        app.update();
+        let mut q = app.world_mut().query::<&crate::features::Hitbox>();
+        let boxes: Vec<crate::features::Hitbox> = q.iter(app.world()).cloned().collect();
+        assert_eq!(boxes.len(), 1, "the mite's death spawns one blast hitbox");
+        assert_eq!(
+            boxes[0].source,
+            crate::features::ActorFaction::Enemy,
+            "enemy-faction → the blast damages the player, not other mites (no chain)",
+        );
+        assert_eq!(boxes[0].damage, EXPLODER_BLAST_DAMAGE);
+        if let crate::features::HitboxAnchor::World { center } = boxes[0].anchor {
+            assert_eq!(center, ae::Vec2::new(50.0, 60.0), "the blast centers on the corpse");
+        } else {
+            panic!("the blast should be world-anchored at the death site");
+        }
     }
 
     #[test]

@@ -148,6 +148,13 @@ pub enum EnemyArchetype {
     /// On shark-death dismount, the rider drops to a ground
     /// `PirateHeavy` (heavier and slower than a `PirateRaider`).
     PirateHeavyOnShark,
+    /// Volatile kamikaze mite — low HP, fast aggressive rush, and it
+    /// **detonates on death** in a sizable Enemy-faction blast
+    /// (`damage.rs::spawn_death_explosion`). The threat is the blast,
+    /// not the body: meleeing it point-blank eats the explosion, so the
+    /// read is "kill it at range or sidestep the corpse." Thematically
+    /// the Exploding Gradient boss's runaway spawn.
+    ExplodingMite,
 }
 
 /// Maps `crate::actor::EnemyBrain::Custom("...")` strings to archetype variants.
@@ -168,6 +175,7 @@ const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
     ("puppy_slug", EnemyArchetype::PuppySlug),
     ("pirate_heavy", EnemyArchetype::PirateHeavy),
     ("pirate_heavy_on_shark", EnemyArchetype::PirateHeavyOnShark),
+    ("exploding_mite", EnemyArchetype::ExplodingMite),
 ];
 
 /// Authored tuning row for one [`EnemyArchetype`]. Every archetype is
@@ -338,6 +346,7 @@ fn archetype_data_key(arch: EnemyArchetype) -> &'static str {
         PirateHeavy => "PirateHeavy",
         PirateHeavyOnShark => "PirateHeavyOnShark",
         PuppySlug => "PuppySlug",
+        ExplodingMite => "ExplodingMite",
     }
 }
 
@@ -532,9 +541,8 @@ impl EnemyArchetype {
         use EnemyArchetype::*;
         match self {
             Combatant | SmallSkitter | SmallLurker | MediumStriker | AggressiveSeeker
-            | PuppySlug | PirateRaider | BurningFlyingShark | InfiniteSandbag | FiniteSandbag => {
-                EnemyRespawnPolicy::OnRoomReenter
-            }
+            | PuppySlug | PirateRaider | BurningFlyingShark | InfiniteSandbag | FiniteSandbag
+            | ExplodingMite => EnemyRespawnPolicy::OnRoomReenter,
             LargeBrute | LargeColossus | PirateHeavy | PirateOnShark | PirateHeavyOnShark => {
                 EnemyRespawnPolicy::OnRest
             }

@@ -107,10 +107,11 @@ mod tests {
 
     #[test]
     fn abilities_and_key_items_inspect_when_owned() {
+        // Fly is still an unwired ability slot (no HeldItemSpec) → inspect-only.
         let mut owned = OwnedItems::default();
-        owned.grant(Item::Blink, 1);
+        owned.grant(Item::Fly, 1);
         owned.grant(Item::MapFragment, 1);
-        assert_eq!(decide(Item::Blink, &owned), MenuAction::Inspect(Item::Blink));
+        assert_eq!(decide(Item::Fly, &owned), MenuAction::Inspect(Item::Fly));
         assert_eq!(
             decide(Item::MapFragment, &owned),
             MenuAction::Inspect(Item::MapFragment)

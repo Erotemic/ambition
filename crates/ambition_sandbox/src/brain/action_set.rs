@@ -178,6 +178,17 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 }),
             },
         );
+        // Blink has no melee/ranged verb — its plain `Attack` is intercepted by
+        // `blink::blink_system` (a short collision-clamped teleport along aim),
+        // so it opts out of throw-on-attack like the other pure-use abilities.
+        items.insert(
+            "blink",
+            HeldItemSpec {
+                id: "blink".into(),
+                melee: None,
+                ranged: None,
+            },
+        );
         items
     });
 

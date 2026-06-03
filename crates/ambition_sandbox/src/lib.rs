@@ -45,6 +45,7 @@ pub mod save;
 // leaves the sandbox-specific ones (`content`, sandbox `assets`) behind.
 pub(crate) mod assets;
 pub(crate) mod body_mode;
+pub mod blink;
 pub mod bomb;
 pub(crate) mod boss_encounter;
 pub(crate) mod brain;

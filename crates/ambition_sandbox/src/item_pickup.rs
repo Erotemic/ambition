@@ -318,7 +318,8 @@ pub fn throw_held_item_system(
     // — EXCEPT a "use-on-attack" item like the puppy-slug gun, whose plain Attack
     // is consumed by its own use system (summon), so it only throws on Shield+Attack.
     let use_on_attack = held.spec.id == crate::puppy_slug_gun::PUPPY_SLUG_GUN_ID
-        || held.spec.id == crate::mark_recall::MARK_RECALL_ID;
+        || held.spec.id == crate::mark_recall::MARK_RECALL_ID
+        || held.spec.id == crate::blink::BLINK_ID;
     if !(control.shield_held || (is_pure_throwable(&held.spec) && !use_on_attack)) {
         return;
     }
@@ -418,7 +419,7 @@ fn emit_fireball_explosion(
 /// Aim a held ranged shot the way the pirates aim their gun-sword: right-stick
 /// aim if pushed, else the movement axis (so holding Up / Down / a diagonal
 /// aims there), else straight ahead along facing.
-fn held_shot_aim(control: &ControlFrame, facing: f32) -> Vec2 {
+pub(crate) fn held_shot_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     let aim = Vec2::new(control.aim_x, control.aim_y);
     if aim.length() > 0.3 {
         return aim.normalize_or_zero();

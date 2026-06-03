@@ -332,14 +332,16 @@ fn register_item_pickup_systems(app: &mut App) {
             .in_set(SandboxSet::PlayerSimulation)
             .after(crate::item_pickup::ground_item_physics),
     );
-    // Mark/Recall lives in its own group (the held-item chain above is already at
-    // the `.chain()` tuple-size cap). Order isn't critical: the item is excluded
-    // from throw-on-attack, so `Attack` is free to set the mark wherever this runs.
+    // Mark/Recall + Blink live in their own group (the held-item chain above is
+    // already at the `.chain()` tuple-size cap). Order isn't critical: these items
+    // are excluded from throw-on-attack, so `Attack` is free to drive them.
     app.add_systems(
         Update,
         (
             crate::mark_recall::spawn_debug_mark_recall_once,
             crate::mark_recall::mark_recall_system.run_if(gameplay_allowed),
+            crate::blink::spawn_debug_blink_once,
+            crate::blink::blink_system.run_if(gameplay_allowed),
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation)

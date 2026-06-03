@@ -263,6 +263,11 @@ pub fn clear_transient_on_sandbox_reset(
             .remove::<crate::item_pickup::StashedActionSet>();
         commands.entity(player).remove::<crate::features::HeldItem>();
         commands.entity(player).remove::<crate::portal::PortalGun>();
+        // Clear any Mark/Recall mark too, so re-equipping after a reset can't
+        // recall to a position from before the room was rebuilt.
+        commands
+            .entity(player)
+            .remove::<crate::mark_recall::PlayerMark>();
     }
 }
 

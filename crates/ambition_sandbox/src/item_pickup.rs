@@ -317,7 +317,8 @@ pub fn throw_held_item_system(
     // Shield+Attack throws anything; a plain Attack only throws a pure throwable
     // — EXCEPT a "use-on-attack" item like the puppy-slug gun, whose plain Attack
     // is consumed by its own use system (summon), so it only throws on Shield+Attack.
-    let use_on_attack = held.spec.id == crate::puppy_slug_gun::PUPPY_SLUG_GUN_ID;
+    let use_on_attack = held.spec.id == crate::puppy_slug_gun::PUPPY_SLUG_GUN_ID
+        || held.spec.id == crate::mark_recall::MARK_RECALL_ID;
     if !(control.shield_held || (is_pure_throwable(&held.spec) && !use_on_attack)) {
         return;
     }

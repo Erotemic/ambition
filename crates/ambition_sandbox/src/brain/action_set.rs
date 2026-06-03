@@ -151,6 +151,18 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 ranged: None,
             },
         );
+        // The Mark/Recall ability has no melee/ranged verb either — its plain
+        // `Attack` is intercepted by `mark_recall::mark_recall_system` (drop a
+        // teleport mark) and `Blink` recalls to it. Like the puppy-slug gun it
+        // opts out of throw-on-attack via `throw_held_item_system`.
+        items.insert(
+            "mark_recall",
+            HeldItemSpec {
+                id: "mark_recall".into(),
+                melee: None,
+                ranged: None,
+            },
+        );
         items
     });
 

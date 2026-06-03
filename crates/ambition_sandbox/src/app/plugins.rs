@@ -332,6 +332,19 @@ fn register_item_pickup_systems(app: &mut App) {
             .in_set(SandboxSet::PlayerSimulation)
             .after(crate::item_pickup::ground_item_physics),
     );
+    // Mark/Recall lives in its own group (the held-item chain above is already at
+    // the `.chain()` tuple-size cap). Order isn't critical: the item is excluded
+    // from throw-on-attack, so `Attack` is free to set the mark wherever this runs.
+    app.add_systems(
+        Update,
+        (
+            crate::mark_recall::spawn_debug_mark_recall_once,
+            crate::mark_recall::mark_recall_system.run_if(gameplay_allowed),
+        )
+            .chain()
+            .in_set(SandboxSet::PlayerSimulation)
+            .after(crate::item_pickup::ground_item_physics),
+    );
 }
 
 /// Detection emits `RoomTransitionRequested`; apply consumes it and runs

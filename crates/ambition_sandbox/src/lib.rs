@@ -66,6 +66,7 @@ pub(crate) mod pause_menu;
 pub mod hud_overlay;
 pub mod item_pickup;
 pub mod items;
+pub mod mark_recall;
 #[cfg(feature = "oot_inventory")]
 pub mod oot_menu;
 pub mod physics;

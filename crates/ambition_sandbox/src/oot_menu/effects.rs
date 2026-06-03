@@ -39,9 +39,21 @@ pub fn decide(item: Item, owned: &OwnedItems) -> MenuAction {
             // Bomb / gold pouch / battery / chip have no in-menu use yet.
             _ => MenuAction::Inspect(item),
         },
-        ItemCategory::Ability | ItemCategory::KeyItem | ItemCategory::Reserved => {
-            MenuAction::Inspect(item)
+        ItemCategory::Ability => {
+            // A "wired" ability — one backed by a HeldItemSpec, like Mark/Recall
+            // — equips like a weapon (toggle equip/unequip). Ability slots with
+            // no mechanic yet (Blink, Fly, …) stay inspect-only lore.
+            if item.held_item_id().is_some() {
+                if owned.is_equipped(item) {
+                    MenuAction::Unequip(item)
+                } else {
+                    MenuAction::Equip(item)
+                }
+            } else {
+                MenuAction::Inspect(item)
+            }
         }
+        ItemCategory::KeyItem | ItemCategory::Reserved => MenuAction::Inspect(item),
     }
 }
 
@@ -102,6 +114,24 @@ mod tests {
         assert_eq!(
             decide(Item::MapFragment, &owned),
             MenuAction::Inspect(Item::MapFragment)
+        );
+    }
+
+    #[test]
+    fn wired_ability_equips_like_a_weapon() {
+        // Mark/Recall is an Ability backed by a HeldItemSpec, so the menu lets
+        // you equip/unequip it (unlike Blink, a lore-only ability slot).
+        let mut owned = OwnedItems::default();
+        owned.grant(Item::MarkRecall, 1);
+        assert!(Item::MarkRecall.held_item_id().is_some(), "Mark/Recall is wired");
+        assert_eq!(
+            decide(Item::MarkRecall, &owned),
+            MenuAction::Equip(Item::MarkRecall)
+        );
+        owned.set_equipped(Some(Item::MarkRecall));
+        assert_eq!(
+            decide(Item::MarkRecall, &owned),
+            MenuAction::Unequip(Item::MarkRecall)
         );
     }
 }

@@ -90,6 +90,7 @@ pub mod shop;
 pub mod volley;
 pub mod vortex;
 pub mod sentry;
+pub mod dive;
 pub mod shrine;
 pub(crate) mod time;
 pub(crate) mod ui_nav;

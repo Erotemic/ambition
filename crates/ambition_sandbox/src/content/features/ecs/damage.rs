@@ -139,7 +139,20 @@ fn boss_signature_gauntlet(boss_id: &str) -> Option<&'static str> {
         "mockingbird" => Some(crate::volley::VOLLEY_ID),
         // The smirking_behemoth's signature tell is a focused eye beam — drop
         // the focus-beam gauntlet so the player wields that same line attack.
-        "smirking_behemoth" => Some(crate::beam::BEAM_ID),
+        // NOTE: keyed on the REAL behavior id `smirking_behemoth_boss` (what
+        // `boss.config.behavior.id` actually is). A bare `smirking_behemoth`
+        // silently never matched, so the beam drop never fired in-game; the
+        // `boss_reward_lookups_key_on_real_behavior_ids` test guards this.
+        "smirking_behemoth_boss" => Some(crate::beam::BEAM_ID),
+        // Mode Collapse converges a diverse population onto one mode — drop the
+        // Vortex, a singularity that gathers a scattered mob to a single point.
+        "mode_collapse_boss" => Some(crate::vortex::VORTEX_ID),
+        // The Exploding Gradient sprays runaway values outward — drop the
+        // Sentry, a deployed turret that auto-sprays the room for you.
+        "exploding_gradient_boss" => Some(crate::sentry::SENTRY_ID),
+        // Overflow is an aerial dive-bomber that bursts its bounds and crashes
+        // into you — drop the Dive, its lunging crash, to close and cut a line.
+        "overflow_boss" => Some(crate::dive::DIVE_ID),
         _ => None,
     }
 }
@@ -1254,16 +1267,83 @@ mod tests {
         // dropped GroundItem is actually pick-up-able.
         assert_eq!(boss_signature_gauntlet("trex_boss"), Some(crate::shockwave::SHOCKWAVE_ID));
         assert_eq!(boss_signature_gauntlet("mockingbird"), Some(crate::volley::VOLLEY_ID));
-        // The eye-beam boss drops the focus beam — wield its signature line attack.
-        assert_eq!(boss_signature_gauntlet("smirking_behemoth"), Some(crate::beam::BEAM_ID));
+        // The eye-beam boss drops the focus beam — wield its signature line
+        // attack. Keyed on the REAL behavior id (`smirking_behemoth_boss`).
+        assert_eq!(boss_signature_gauntlet("smirking_behemoth_boss"), Some(crate::beam::BEAM_ID));
+        // The three data-driven bosses each arm the player with a thematic kit:
+        // Mode Collapse -> the gathering Vortex; Exploding Gradient -> the
+        // spraying Sentry; Overflow -> the lunging Dive.
+        assert_eq!(boss_signature_gauntlet("mode_collapse_boss"), Some(crate::vortex::VORTEX_ID));
+        assert_eq!(boss_signature_gauntlet("exploding_gradient_boss"), Some(crate::sentry::SENTRY_ID));
+        assert_eq!(boss_signature_gauntlet("overflow_boss"), Some(crate::dive::DIVE_ID));
         assert_eq!(boss_signature_gauntlet("gnu_ton"), None);
-        for boss in ["trex_boss", "mockingbird", "smirking_behemoth"] {
+        for boss in [
+            "trex_boss",
+            "mockingbird",
+            "smirking_behemoth_boss",
+            "mode_collapse_boss",
+            "exploding_gradient_boss",
+            "overflow_boss",
+        ] {
             let id = boss_signature_gauntlet(boss).unwrap();
             assert!(
                 crate::brain::held_item_by_id(id).is_some(),
                 "boss {boss} -> gauntlet {id} must be a registered held item",
             );
         }
+    }
+
+    /// REGRESSION GUARD: the reward lookups match on `boss.config.behavior.id`
+    /// at runtime. An arm keyed on a string no boss actually carries (e.g. the
+    /// original `"smirking_behemoth"` vs the real `"smirking_behemoth_boss"`)
+    /// silently never fires — the drop just doesn't happen in-game, while a
+    /// literal-keyed unit test passes anyway. Driving the lookups off each
+    /// boss's REAL behavior id (via its profile constructor) catches that, and
+    /// flows future id renames through automatically.
+    #[test]
+    fn boss_reward_lookups_key_on_real_behavior_ids() {
+        use crate::features::BossBehaviorProfile;
+        let bosses = [
+            BossBehaviorProfile::clockwork_warden(),
+            BossBehaviorProfile::mockingbird(),
+            BossBehaviorProfile::gnu_ton(),
+            BossBehaviorProfile::smirking_behemoth_boss(),
+            BossBehaviorProfile::flying_spaghetti_monster_boss(),
+            BossBehaviorProfile::trex_boss(),
+            BossBehaviorProfile::mode_collapse_boss(),
+            BossBehaviorProfile::exploding_gradient_boss(),
+            BossBehaviorProfile::overflow_boss(),
+        ];
+        let mut gauntlets = 0;
+        let mut abilities = 0;
+        for b in &bosses {
+            let id = b.id.as_str();
+            if let Some(g) = boss_signature_gauntlet(id) {
+                assert!(
+                    crate::brain::held_item_by_id(g).is_some(),
+                    "boss {id} -> gauntlet {g} must resolve to a real held item",
+                );
+                gauntlets += 1;
+            }
+            if let Some(a) = boss_reward_ability(id) {
+                assert!(
+                    crate::items::Item::from_dialog_id(a).is_some(),
+                    "boss {id} -> ability {a} must resolve to a real catalog item",
+                );
+                abilities += 1;
+            }
+        }
+        // trex + mockingbird + smirking + mode_collapse + exploding_gradient +
+        // overflow each arm a wielded gauntlet (six "learn its attack" drops).
+        assert_eq!(gauntlets, 6, "six bosses drop a signature gauntlet, keyed on real ids");
+        // FSM(blink) + trex(grapple) + gnu(fireball) + clockwork(markrecall).
+        assert_eq!(abilities, 4, "four bosses grant a catalog ability, keyed on real ids");
+        // The bug this guards: the beam drop must fire on the REAL behavior id.
+        let g = |b: BossBehaviorProfile| boss_signature_gauntlet(&b.id);
+        assert_eq!(g(BossBehaviorProfile::smirking_behemoth_boss()), Some(crate::beam::BEAM_ID));
+        assert_eq!(g(BossBehaviorProfile::mode_collapse_boss()), Some(crate::vortex::VORTEX_ID));
+        assert_eq!(g(BossBehaviorProfile::exploding_gradient_boss()), Some(crate::sentry::SENTRY_ID));
+        assert_eq!(g(BossBehaviorProfile::overflow_boss()), Some(crate::dive::DIVE_ID));
     }
 
     #[test]

@@ -245,6 +245,18 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
+        // The dive gauntlet has no melee/ranged verb — `Attack` is intercepted
+        // by `dive::fire_dive_system`, which lunges the player along the aim and
+        // cuts a damage corridor (the overflow boss's crash, wielded).
+        items.insert(
+            "dive",
+            HeldItemSpec {
+                id: "dive".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::UseSystem,
+            },
+        );
         // The bomb is a pure throwable (no melee/ranged verb): a plain Attack
         // throws it, and `bomb::tick_bomb_fuses` detonates it on a fuse.
         items.insert(

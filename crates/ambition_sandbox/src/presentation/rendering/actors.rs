@@ -36,6 +36,7 @@ pub fn sync_visuals(
             Option<&PlayerSpriteBaseline>,
             &crate::player::PlayerKinematics,
             &crate::player::PlayerCombatState,
+            Option<&crate::portal::PlayerRoll>,
         ),
         With<PlayerVisual>,
     >,
@@ -46,10 +47,12 @@ pub fn sync_visuals(
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
-    if let Ok((mut transform, mut sprite, baseline, body, player_combat)) =
+    if let Ok((mut transform, mut sprite, baseline, body, player_combat, roll)) =
         player_query.get_mut(entities.player)
     {
         transform.translation = world_to_bevy(&world.0, body.pos, WORLD_Z_PLAYER);
+        // Aerial roll (portal somersault / future gravity-room orientation).
+        transform.rotation = Quat::from_rotation_z(roll.map_or(0.0, |r| r.angle));
         if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
             // Colored-rectangle fallback only — stretch to the collision-box
             // size and tint by flash. Textured sprites (atlas OR plain image)

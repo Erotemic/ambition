@@ -245,6 +245,8 @@ fn register_portal_systems(app: &mut App) {
             crate::portal::portal_projectile_step.run_if(gameplay_allowed),
             // Portals must not outlive their gun (the "destroyed" case).
             crate::portal::despawn_orphaned_portals,
+            // Make sure the player can carry an aerial roll through portals.
+            crate::portal::ensure_player_roll,
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation),
@@ -260,6 +262,8 @@ fn register_portal_systems(app: &mut App) {
             crate::portal::portal_teleport_system,
             crate::portal::portal_teleport_ground_items,
             crate::portal::portal_teleport_actors,
+            // Ease the aerial roll the teleport just set (somersault to upright).
+            crate::portal::update_player_roll,
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation)

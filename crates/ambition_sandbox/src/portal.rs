@@ -528,12 +528,86 @@ pub fn portal_toggle_system(
 #[derive(Resource, Default)]
 pub struct IntentionalTeleport(pub bool);
 
+/// Visual roll (aerial orientation) of the player, in render-space radians.
+/// Portal transit adds the rotation the velocity underwent — a floor→floor jump
+/// flips you 180° so you somersault to reorient (enter feet-first, leave
+/// feet-first) instead of teleporting head-first — and the roll eases back to
+/// upright on landing under normal gravity.
+///
+/// UNIFICATION NOTE: this is the seed of a first-class "which way is down"
+/// orientation. Today it's player-only; non-player actors that travel through
+/// portals (`portal_teleport_actors`) should grow the same roll so a shark /
+/// goblin somersaults too, and a future **gravity room** would drive `target`
+/// directly instead of always easing to 0. Promote to a shared
+/// `ActorOrientation` when either lands.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct PlayerRoll {
+    /// Current render-space z-rotation applied to the player sprite.
+    pub angle: f32,
+    /// Orientation the roll eases toward (0 = upright under normal gravity).
+    pub target: f32,
+}
+
+/// Aerial spin rate easing `angle` toward `target` (rad/s). Fast enough that a
+/// 180° portal flip reads as a quick somersault (~0.25s).
+const PLAYER_ROLL_SPEED: f32 = 13.0;
+
+/// Attach a [`PlayerRoll`] to the primary player once it exists (lazy so the
+/// player bundle doesn't need to know about the portal module).
+pub fn ensure_player_roll(
+    mut commands: Commands,
+    players: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>, Without<PlayerRoll>)>,
+) {
+    for entity in &players {
+        commands.entity(entity).insert(PlayerRoll::default());
+    }
+}
+
+/// Ease the player's roll toward its target (the aerial rotation), and under
+/// normal gravity snap the target back to upright once grounded so you land on
+/// your feet. A gravity room would instead set `target` to its down-orientation.
+pub fn update_player_roll(
+    time: Res<crate::WorldTime>,
+    mut players: Query<
+        (&mut PlayerRoll, &crate::player::PlayerGroundState),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
+) {
+    let dt = time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    let Ok((mut roll, ground)) = players.single_mut() else {
+        return;
+    };
+    if ground.on_ground {
+        roll.target = 0.0;
+    }
+    let max_step = PLAYER_ROLL_SPEED * dt;
+    let diff = roll.target - roll.angle;
+    if diff.abs() <= max_step {
+        roll.angle = roll.target;
+    } else {
+        roll.angle += max_step * diff.signum();
+    }
+}
+
+/// The render-space roll a body picks up traveling through a portal pair: the
+/// angle the velocity is rotated by (entry `-n_in` → exit `n_out`), negated for
+/// the y-down→y-up render flip. Floor→floor is π (a half-somersault).
+pub fn portal_transit_roll(n_in: Vec2, n_out: Vec2) -> f32 {
+    let u = -n_in;
+    let cos = u.dot(n_out);
+    let sin = u.x * n_out.y - u.y * n_out.x;
+    -sin.atan2(cos)
+}
+
 /// Teleport the player between linked portals, carrying momentum. Requires
 /// both portals to exist; a short cooldown after each jump prevents ping-pong.
 pub fn portal_teleport_system(
     time: Res<crate::WorldTime>,
     mut players: Query<
-        (&mut PlayerKinematics, &mut PortalGun),
+        (&mut PlayerKinematics, &mut PortalGun, Option<&mut PlayerRoll>),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     portals: Query<&Portal>,
@@ -545,7 +619,7 @@ pub fn portal_teleport_system(
         flag.0 = false;
     }
     let dt = time.sim_dt();
-    let Ok((mut kin, mut gun)) = players.single_mut() else {
+    let Ok((mut kin, mut gun, mut roll)) = players.single_mut() else {
         return;
     };
     if gun.teleport_cooldown > 0.0 {
@@ -577,6 +651,12 @@ pub fn portal_teleport_system(
             kin.pos = exit.pos + exit.normal * clearance;
             kin.vel = out_vel;
             gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
+            // Aerial reorientation: roll the body by the same rotation the
+            // velocity took, so a floor→floor jump somersaults the player to
+            // land feet-first instead of emerging head-first.
+            if let Some(roll) = roll.as_deref_mut() {
+                roll.target += portal_transit_roll(enter.normal, exit.normal);
+            }
             // Suction warp going in, soft pop-out coming back into normal space.
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_ENTER,
@@ -1170,6 +1250,63 @@ mod tests {
             "an oversized actor does not fit and stays put, pos={:?}",
             b.pos
         );
+    }
+
+    #[test]
+    fn floor_to_floor_transit_is_a_half_somersault() {
+        let up = Vec2::new(0.0, -1.0); // both floor portals face up (y-down world)
+        let roll = portal_transit_roll(up, up);
+        assert!(
+            (roll.abs() - std::f32::consts::PI).abs() < 1e-5,
+            "floor->floor should flip 180°, got {roll}"
+        );
+        // A straight-through wall pair (enter +x-normal, exit -x-normal) keeps
+        // the body upright — no somersault.
+        let roll2 = portal_transit_roll(Vec2::new(1.0, 0.0), Vec2::new(-1.0, 0.0));
+        assert!(roll2.abs() < 1e-5, "straight wall pair keeps orientation, got {roll2}");
+    }
+
+    #[test]
+    fn roll_eases_to_target_then_uprights_on_landing() {
+        let mut app = App::new();
+        app.insert_resource(crate::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_systems(Update, update_player_roll);
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                PlayerRoll {
+                    angle: 0.0,
+                    target: std::f32::consts::PI,
+                },
+                crate::player::PlayerGroundState {
+                    on_ground: false,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        // Airborne: the roll progresses toward the target.
+        for _ in 0..3 {
+            app.update();
+        }
+        let mid = app.world().get::<PlayerRoll>(player).unwrap().angle;
+        assert!(mid > 0.0, "roll should progress while airborne, got {mid}");
+
+        // Landing snaps the target upright and the roll eases back to 0.
+        app.world_mut()
+            .get_mut::<crate::player::PlayerGroundState>(player)
+            .unwrap()
+            .on_ground = true;
+        for _ in 0..120 {
+            app.update();
+        }
+        let landed = *app.world().get::<PlayerRoll>(player).unwrap();
+        assert_eq!(landed.target, 0.0, "grounded target uprights");
+        assert!(landed.angle.abs() < 1e-3, "lands upright, got {}", landed.angle);
     }
 
     #[test]

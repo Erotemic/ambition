@@ -27,19 +27,31 @@ const GRAPPLE_RANGE: f32 = 300.0;
 /// Speed of the burst yank toward a grappled surface.
 const GRAPPLE_PULL_SPEED: f32 = 620.0;
 
+/// Cooldown between successful yanks, so grappling reads as deliberate.
+const GRAPPLE_COOLDOWN_S: f32 = 0.55;
+
 /// `Attack` while holding the Grapple ability casts along the aim direction; on
 /// hitting a solid within [`GRAPPLE_RANGE`] it yanks the player toward the hit.
 pub fn grapple_system(
     control: Res<ControlFrame>,
     world: Option<Res<crate::GameWorld>>,
-    mut players: Query<(&mut PlayerKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut commands: Commands,
+    mut players: Query<
+        (
+            Entity,
+            &mut PlayerKinematics,
+            &HeldItem,
+            Option<&mut crate::ability_cooldown::AbilityCooldown>,
+        ),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
         return;
     }
-    let Ok((mut kin, held)) = players.single_mut() else {
+    let Ok((player, mut kin, held, mut cooldown)) = players.single_mut() else {
         return;
     };
     if held.spec.id != GRAPPLE_ID {
@@ -54,13 +66,22 @@ pub fn grapple_system(
         .as_ref()
         .and_then(|w| crate::portal::raycast_solids(&w.0, from, dir, GRAPPLE_RANGE))
     else {
-        // Grapple into empty space: a dry fizzle, no pull.
+        // Grapple into empty space: a dry fizzle, no pull (and no cooldown burned).
         sfx.write(crate::audio::SfxMessage::Play {
             id: ambition_sfx::ids::PLAYER_DASH,
             pos: from,
         });
         return;
     };
+    // Only a successful latch is on cooldown — a miss above costs nothing.
+    if !crate::ability_cooldown::try_use_ability(
+        &mut cooldown,
+        &mut commands,
+        player,
+        GRAPPLE_COOLDOWN_S,
+    ) {
+        return;
+    }
     // Yank toward the latched surface (collision resolution settles the player at
     // it). A burst velocity, not a teleport, so the movement reads as a pull.
     let pull = (hit - from).normalize_or_zero();

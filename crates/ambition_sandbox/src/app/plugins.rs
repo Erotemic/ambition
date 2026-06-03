@@ -344,6 +344,9 @@ fn register_item_pickup_systems(app: &mut App) {
             crate::blink::blink_system.run_if(gameplay_allowed),
             crate::grapple::spawn_debug_grapple_once,
             crate::grapple::grapple_system.run_if(gameplay_allowed),
+            // Shared movement-ability cooldown timer (scaled_dt, so pause /
+            // bullet-time slow it too).
+            crate::ability_cooldown::tick_ability_cooldown,
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation)

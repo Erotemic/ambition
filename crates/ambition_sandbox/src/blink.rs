@@ -25,13 +25,25 @@ pub const BLINK_ID: &str = "blink";
 /// How far a blink carries the player along the aim direction, walls permitting.
 const BLINK_DISTANCE: f32 = 150.0;
 
+/// Cooldown between blinks, so it reads as a deliberate reposition (not spam).
+const BLINK_COOLDOWN_S: f32 = 0.45;
+
 /// `Attack` while holding the Blink ability teleports the player up to
 /// [`BLINK_DISTANCE`] along the aim direction, stopping a body-half short of the
 /// first solid wall so the teleport never lands inside geometry.
 pub fn blink_system(
     control: Res<ControlFrame>,
     world: Option<Res<crate::GameWorld>>,
-    mut players: Query<(&mut PlayerKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut commands: Commands,
+    mut players: Query<
+        (
+            Entity,
+            &mut PlayerKinematics,
+            &HeldItem,
+            Option<&mut crate::ability_cooldown::AbilityCooldown>,
+        ),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
 ) {
@@ -39,7 +51,7 @@ pub fn blink_system(
     if !control.attack_pressed || control.shield_held {
         return;
     }
-    let Ok((mut kin, held)) = players.single_mut() else {
+    let Ok((player, mut kin, held, mut cooldown)) = players.single_mut() else {
         return;
     };
     if held.spec.id != BLINK_ID {
@@ -49,6 +61,12 @@ pub fn blink_system(
     // else facing), so the blink goes where the player is pointing.
     let dir = crate::item_pickup::held_shot_aim(&control, kin.facing);
     if dir == ae::Vec2::ZERO {
+        return;
+    }
+    // Gate on the shared movement-ability cooldown (after confirming a real blink
+    // so an aimless press doesn't burn it).
+    if !crate::ability_cooldown::try_use_ability(&mut cooldown, &mut commands, player, BLINK_COOLDOWN_S)
+    {
         return;
     }
     let from = kin.pos;

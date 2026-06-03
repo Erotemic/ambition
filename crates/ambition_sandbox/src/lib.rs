@@ -44,6 +44,7 @@ pub mod save;
 // term shape carves the reusable ones (`presentation`, `time`, `dev`,
 // `world`, `persistence`) into the future `ambition` framework crate, and
 // leaves the sandbox-specific ones (`content`, sandbox `assets`) behind.
+pub mod ability_cooldown;
 pub(crate) mod assets;
 pub(crate) mod body_mode;
 pub mod blink;

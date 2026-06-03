@@ -33,6 +33,11 @@ use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 /// `HELD_ITEMS` and `items::Item::held_item_id`).
 pub const MARK_RECALL_ID: &str = "mark_recall";
 
+/// Half-extent of the recall-strike shockwave at the mark.
+const RECALL_SHOCKWAVE_HALF: f32 = 36.0;
+/// Recall-strike damage — modest, like Blink's arrival shockwave.
+const RECALL_SHOCKWAVE_DAMAGE: i32 = 2;
+
 /// The teleport mark a player has dropped with the Mark/Recall item, if any.
 /// Per-player (a component, not a resource) so the future multiplayer split
 /// keeps each player's mark independent.
@@ -60,6 +65,7 @@ pub fn mark_recall_system(
     >,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
+    mut hits: MessageWriter<crate::features::HitEvent>,
 ) {
     let Ok((player, mut kin, held, mut mark)) = players.single_mut() else {
         return;
@@ -96,6 +102,18 @@ pub fn mark_recall_system(
     if control.blink_pressed {
         if let Some(target) = mark.and_then(|m| m.pos) {
             kin.pos = target;
+            // Recall-strike: a player-side shockwave at the mark, so you can mark a
+            // spot, lure enemies onto it, and recall in to hit them (mirrors Blink).
+            hits.write(crate::features::HitEvent {
+                volume: ae::Aabb::new(target, ae::Vec2::splat(RECALL_SHOCKWAVE_HALF)),
+                damage: RECALL_SHOCKWAVE_DAMAGE,
+                source: crate::features::HitSource::PlayerSlash { knock_x: 0.0 },
+                attacker: Some(player),
+                target: crate::features::HitTarget::Volume,
+                mode: crate::features::HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+            });
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PLAYER_BLINK,
                 pos: target,
@@ -147,6 +165,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::presentation::fx::VfxMessage>();
+        app.add_message::<crate::features::HitEvent>();
         app.insert_resource(ControlFrame::default());
         app.add_systems(Update, mark_recall_system);
         app
@@ -180,6 +199,40 @@ mod tests {
 
     fn player_pos(app: &App, player: Entity) -> ae::Vec2 {
         app.world().get::<PlayerKinematics>(player).unwrap().pos
+    }
+
+    #[derive(bevy::prelude::Resource, Default)]
+    struct CapturedHits(Vec<crate::features::HitEvent>);
+
+    fn capture_hits(
+        mut reader: bevy::prelude::MessageReader<crate::features::HitEvent>,
+        mut out: bevy::prelude::ResMut<CapturedHits>,
+    ) {
+        out.0.extend(reader.read().cloned());
+    }
+
+    #[test]
+    fn recall_emits_a_player_side_shockwave_at_the_mark() {
+        let mut app = test_app();
+        app.init_resource::<CapturedHits>();
+        app.add_systems(bevy::prelude::Update, capture_hits.after(mark_recall_system));
+        let player = spawn_player_holding(&mut app, MARK_RECALL_ID, ae::Vec2::new(200.0, 80.0));
+        press(&mut app, true, false); // mark at (200,80) — no hit yet
+        app.update();
+        app.world_mut()
+            .get_mut::<PlayerKinematics>(player)
+            .unwrap()
+            .pos = ae::Vec2::new(900.0, 50.0);
+        press(&mut app, false, true); // recall -> shockwave at the mark
+        app.update();
+        let hits = &app.world().resource::<CapturedHits>().0;
+        assert_eq!(hits.len(), 1, "one shockwave on recall");
+        let cx = (hits[0].volume.min.x + hits[0].volume.max.x) * 0.5;
+        assert!((cx - 200.0).abs() < 1.0, "shockwave centered on the mark");
+        assert!(
+            matches!(hits[0].source, crate::features::HitSource::PlayerSlash { .. }),
+            "player-side so it spares the player",
+        );
     }
 
     #[test]

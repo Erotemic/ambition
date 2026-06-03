@@ -759,8 +759,14 @@ fn apply_boss_hit(
             cue: PhysicsDebrisCue::BossRagdoll,
         });
         writers.sfx.write(SfxMessage::Death { pos: boss.kin.pos });
-        // A jackpot of coins for the hardest fight, on top of the ability reward.
+        // A jackpot of coins + a heal for the hardest fight, on top of the ability.
         drop_currency_coin(commands, &boss.config.behavior.id, boss.kin.pos, BOSS_BOUNTY);
+        drop_health_pickup(
+            commands,
+            &boss.config.behavior.id,
+            boss.kin.pos + ae::Vec2::new(24.0, 0.0),
+            3,
+        );
         // North star: "every boss a failed objective function, every upgrade a
         // theorem" — a defeated boss drops the ability it embodies, so combat
         // (not just the merchant) teaches the player new verbs.

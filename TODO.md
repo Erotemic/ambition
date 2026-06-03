@@ -51,7 +51,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] When the player is holding the axe, their attack should be replaced with an axe swing. 
 
-- [ ] Portals and held items don't reset on sandbox reset. They should.
+- [x] Portals and held items don't reset on sandbox reset. They should. — _Done 2026-06-03 (`3c055ed7`): `clear_transient_on_sandbox_reset` (chained before `process_sandbox_reset_request`) despawns placed portals + in-flight shots + the portal-gun pickup + ground items + summoned puppy-slug allies, and strips the player's `HeldItem`/`PortalGun`/stashed set (restoring the base `ActionSet`). +1 test._
 
 - [x] Portals now teleport non-player actors, **size-gated** so only actors that fit the opening pass (`portal::portal_teleport_actors` / `portal_fits` — wall portals gate on height, floor portals on width; bosses repositioned, enemies carry momentum; `PortalCooldown` stops ping-pong). _Done 2026-06-03 (`55d3f19`)._
 

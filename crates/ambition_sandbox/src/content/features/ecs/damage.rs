@@ -36,12 +36,16 @@ use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
 #[derive(SystemParam)]
-pub struct FeatureHitWriters<'w> {
+pub struct FeatureHitWriters<'w, 's> {
     pub set_flag: MessageWriter<'w, SetFlagRequested>,
     pub actor_stimuli: MessageWriter<'w, ActorStimulus>,
     pub sfx: MessageWriter<'w, SfxMessage>,
     pub vfx: MessageWriter<'w, VfxMessage>,
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
+    /// Refactor 3: spawning loot/respawns on a hit is a one-liner
+    /// (`writers.commands.spawn(...)`) instead of hand-threading a separate
+    /// `&mut Commands` through every helper that already takes `writers`.
+    pub commands: Commands<'w, 's>,
 }
 
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
@@ -148,7 +152,6 @@ pub fn drop_ability_pickup(
 
 /// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
 pub fn apply_feature_hit_events(
-    mut commands: Commands,
     mut hit_events: MessageReader<HitEvent>,
     mut banner: ResMut<GameplayBanner>,
     combat_banter: Option<Res<crate::content::banter::CombatBanterRegistry>>,
@@ -247,7 +250,7 @@ pub fn apply_feature_hit_events(
                 let broke = feature.breakable.apply_damage(event.damage.max(1));
                 writers.vfx.write(VfxMessage::Impact { pos: aabb.center });
                 if broke {
-                    begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
+                    begin_ecs_breakable_respawn(&mut writers.commands, entity, &feature.breakable);
                     banner.show(format!("shattered {}", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(
                         aabb.center,
@@ -312,7 +315,6 @@ pub fn apply_feature_hit_events(
                 npc_target,
                 &mut banner,
                 combat_banter.as_deref(),
-                &mut commands,
                 &mut writers,
             ) {
                 actor_hit_this_event = true;
@@ -360,7 +362,6 @@ pub fn apply_feature_hit_events(
                 animation_frame,
                 &mut banner,
                 combat_banter.as_deref(),
-                &mut commands,
                 &mut writers,
                 boss_registry.as_deref_mut(),
                 music_request.as_deref_mut(),
@@ -406,11 +407,11 @@ pub fn apply_feature_hit_events(
                 pos: midpoint(event.volume.center(), aabb.center),
             });
             if broke {
-                begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
+                begin_ecs_breakable_respawn(&mut writers.commands, entity, &feature.breakable);
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
                 // Loot: a smashed crate/pot drops a small coin (same collectible
                 // pickup path as enemy drops).
-                drop_currency_coin(&mut commands, id.as_str(), aabb.center, BREAKABLE_BOUNTY);
+                drop_currency_coin(&mut writers.commands, id.as_str(), aabb.center, BREAKABLE_BOUNTY);
                 emit_breakable_destroyed(
                     aabb.center,
                     &mut writers.sfx,
@@ -453,8 +454,7 @@ fn apply_actor_hit(
     npc: Option<NpcHitTarget<'_>>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
-    commands: &mut Commands,
-    writers: &mut FeatureHitWriters,
+    writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     match actor {
         ActorRuntime::Npc => {
@@ -545,10 +545,10 @@ fn apply_actor_hit(
                     // Earn-side: a defeated enemy drops a collectible coin so the
                     // player can fund the merchant / ability shop from combat, and
                     // ~1 in 4 enemy kinds also drops a heart (combat sustain).
-                    drop_currency_coin(commands, &em.config.id, em.kin.pos, ENEMY_BOUNTY);
+                    drop_currency_coin(&mut writers.commands, &em.config.id, em.kin.pos, ENEMY_BOUNTY);
                     if id_drops_health(&em.config.id) {
                         drop_health_pickup(
-                            commands,
+                            &mut writers.commands,
                             &em.config.id,
                             em.kin.pos + ae::Vec2::new(18.0, 0.0),
                             ENEMY_HEALTH_DROP,
@@ -558,7 +558,7 @@ fn apply_actor_hit(
                     // a held item drops it as a `GroundItem` the player can grab +
                     // wield (e.g. a pirate's gun-sword), via the existing pickup path.
                     if let Some(spec) = em.config.archetype.held_item_spec() {
-                        commands.spawn((
+                        writers.commands.spawn((
                             crate::item_pickup::GroundItem {
                                 spec,
                                 pos: em.kin.pos + ae::Vec2::new(-14.0, 0.0),
@@ -627,8 +627,7 @@ fn apply_boss_hit(
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::content::banter::CombatBanterRegistry>,
-    commands: &mut Commands,
-    writers: &mut FeatureHitWriters,
+    writers: &mut FeatureHitWriters<'_, '_>,
     boss_registry: Option<&mut BossEncounterRegistry>,
     music_request: Option<&mut BossEncounterMusicRequest>,
     cutscene_queue: Option<&mut CutsceneTriggerQueue>,
@@ -760,9 +759,9 @@ fn apply_boss_hit(
         });
         writers.sfx.write(SfxMessage::Death { pos: boss.kin.pos });
         // A jackpot of coins + a heal for the hardest fight, on top of the ability.
-        drop_currency_coin(commands, &boss.config.behavior.id, boss.kin.pos, BOSS_BOUNTY);
+        drop_currency_coin(&mut writers.commands, &boss.config.behavior.id, boss.kin.pos, BOSS_BOUNTY);
         drop_health_pickup(
-            commands,
+            &mut writers.commands,
             &boss.config.behavior.id,
             boss.kin.pos + ae::Vec2::new(24.0, 0.0),
             3,
@@ -773,7 +772,7 @@ fn apply_boss_hit(
         if let Some(ability_id) = boss_reward_ability(&boss.config.behavior.id) {
             if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
                 drop_ability_pickup(
-                    commands,
+                    &mut writers.commands,
                     &boss.config.behavior.id,
                     boss.kin.pos,
                     ability_id,

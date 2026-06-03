@@ -108,6 +108,12 @@ fn boss_reward_ability(boss_id: &str) -> Option<&'static str> {
         "flying_spaghetti_monster_boss" => Some("blink"),
         // The grounded T-Rex lunges and anchors — it drops Grapple.
         "trex_boss" => Some("grapple"),
+        // GNU-Ton hurls apples in arcs — it drops the Fireball projectile.
+        "gnu_ton" => Some("fireball"),
+        // The Clockwork Warden rewinds and repositions — it drops Mark/Recall.
+        "clockwork_warden" => Some("markrecall"),
+        // Mockingbird (mimic) + Smirking Behemoth (environmental puzzle) grant
+        // nothing on their own.
         _ => None,
     }
 }
@@ -1150,7 +1156,18 @@ mod tests {
             Some("blink")
         );
         assert_eq!(boss_reward_ability("trex_boss"), Some("grapple"));
-        assert_eq!(boss_reward_ability("smirking_behemoth"), None);
+        assert_eq!(boss_reward_ability("gnu_ton"), Some("fireball"));
+        assert_eq!(boss_reward_ability("clockwork_warden"), Some("markrecall"));
+        assert_eq!(boss_reward_ability("mockingbird"), None);
+        assert_eq!(boss_reward_ability("smirking_behemoth_boss"), None);
+        // Every mapped reward resolves to a real catalog item.
+        for boss in ["flying_spaghetti_monster_boss", "trex_boss", "gnu_ton", "clockwork_warden"] {
+            let id = boss_reward_ability(boss).unwrap();
+            assert!(
+                crate::items::Item::from_dialog_id(id).is_some(),
+                "boss {boss} -> ability {id} must be a real catalog item",
+            );
+        }
 
         // The drop spawns a single collectible Ability pickup.
         let mut app = App::new();

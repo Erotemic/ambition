@@ -400,6 +400,10 @@ pub fn boss_phase_transition_feedback(
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     // Optional: a headless / camera-less build may not insert the shake resource.
     mut shake: Option<ResMut<crate::time::camera_ease::CameraShakeState>>,
+    // Boss entities, to resolve the encounter id back to the actor that emits
+    // the phase-transition shockwave.
+    bosses: Query<(Entity, &crate::features::FeatureId), With<crate::features::BossConfig>>,
+    mut actions: MessageWriter<crate::brain::ActorActionMessage>,
 ) {
     use crate::boss_encounter::BossEncounterPhase as P;
     for (id, state) in &registry.encounters {
@@ -417,6 +421,26 @@ pub fn boss_phase_transition_feedback(
                 id: ambition_sfx::ids::WORLD_ROCK_HIT,
                 pos: ae::Vec2::ZERO,
             });
+            // The transition is now a dodge-able GAMEPLAY beat, not just feel: the
+            // boss emits a `ShockwaveSlam` Special through the SAME actor-generic
+            // consumer the player's shockwave gauntlet uses (`crate::shockwave`).
+            // Resolved as the boss's own faction (`ActorFaction::Boss`), so the
+            // shared `apply_hitbox_damage` lands it on the player — the literal
+            // "player and boss fire the same attack" unification, in-game.
+            if let Some((entity, _)) = bosses.iter().find(|(_, fid)| fid.as_str() == id) {
+                actions.write(crate::brain::ActorActionMessage {
+                    actor: entity,
+                    request: crate::brain::ActionRequest::Special {
+                        spec: crate::brain::action_set::SpecialActionSpec::ShockwaveSlam {
+                            half_extent_x: 170.0,
+                            half_extent_y: 80.0,
+                            damage: 2,
+                            lifetime_s: 0.30,
+                            knockback: 1.6,
+                        },
+                    },
+                });
+            }
         }
     }
 }
@@ -444,6 +468,7 @@ mod phase_feedback_tests {
     fn dramatic_phase_change_kicks_the_camera_shake() {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<crate::brain::ActorActionMessage>();
         app.init_resource::<CameraShakeState>();
         app.insert_resource(registry_with_boss(BossEncounterPhase::Phase1));
         app.add_systems(Update, boss_phase_transition_feedback);
@@ -467,6 +492,7 @@ mod phase_feedback_tests {
     fn non_dramatic_change_does_not_shake() {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
+        app.add_message::<crate::brain::ActorActionMessage>();
         app.init_resource::<CameraShakeState>();
         app.insert_resource(registry_with_boss(BossEncounterPhase::Intro));
         app.add_systems(Update, boss_phase_transition_feedback);

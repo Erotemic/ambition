@@ -533,7 +533,7 @@ pub struct IntentionalTeleport(pub bool);
 /// a body that gets rotated (e.g. by a portal pair at any angle) rights itself
 /// to point its feet along gravity. Change `dir` and bodies will reorient to the
 /// new down — the seed of gravity effects / gravity rooms. Today only
-/// [`update_player_roll`] consumes it (the orient-to-gravity reflex); wiring it
+/// [`update_actor_roll`] consumes it (the orient-to-gravity reflex); wiring it
 /// into the movement integrator so things actually *fall* the new way is the
 /// follow-up that makes a real gravity room.
 #[derive(Resource, Clone, Copy, Debug)]
@@ -641,71 +641,81 @@ pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
     render_up.y.atan2(render_up.x) - std::f32::consts::FRAC_PI_2
 }
 
-/// Visual roll (aerial orientation) of the player, in render-space radians.
-/// Portal transit ADDS the rotation the velocity underwent (general for ANY
-/// portal-pair angle — see [`portal_transit_roll`]), so you leave a portal
-/// rotated consistently with how you entered; then [`update_player_roll`] eases
-/// the roll back toward "feet along gravity" so the player rights themselves.
+/// Visual roll (aerial orientation) of an actor — player OR any NPC / enemy /
+/// boss — in render-space radians. Portal transit ADDS the rotation the velocity
+/// underwent (general for ANY portal-pair angle — see [`portal_transit_roll`]),
+/// so a body leaves a portal rotated consistently with how it entered; then
+/// [`update_actor_roll`] eases the roll back toward "feet along gravity" so the
+/// body rights itself.
 ///
-/// UNIFICATION NOTE: this is the seed of a first-class "which way is down"
-/// orientation. Today it's player-only; non-player actors that travel through
-/// portals (`portal_teleport_actors`) should grow the same roll so a shark /
-/// goblin somersaults too. Promote to a shared `ActorOrientation` when that
-/// lands. The [`GravityField`] it orients to is the gravity-room hook.
+/// This is the shared "which way is down" orientation: the SAME component,
+/// righting system ([`update_actor_roll`]), and transit math drive the player
+/// and every actor, so a goblin or shark somersaults through a portal exactly
+/// like the player (the unification). The [`GravityField`] it orients to is the
+/// gravity-room hook.
 #[derive(Component, Clone, Copy, Debug, Default)]
-pub struct PlayerRoll {
-    /// Current render-space z-rotation applied to the player sprite.
+pub struct ActorRoll {
+    /// Current render-space z-rotation applied to the body's sprite.
     pub angle: f32,
 }
 
 /// Reorientation rate easing `angle` toward gravity-upright (rad/s). Visible but
-/// quick — a 180° portal flip rights itself in ~0.4s as the player arcs.
-const PLAYER_ROLL_SPEED: f32 = 8.0;
+/// quick — a 180° portal flip rights itself in ~0.4s as the body arcs.
+const ACTOR_ROLL_SPEED: f32 = 8.0;
 
-/// Attach a [`PlayerRoll`] to the primary player once it exists (lazy so the
-/// player bundle doesn't need to know about the portal module).
-pub fn ensure_player_roll(
+/// Attach an [`ActorRoll`] to every body that can travel through a portal — the
+/// player plus all non-player actors (enemies / NPCs via `ActorKinematics`,
+/// bosses via `BossKinematics`) — lazily, so no bundle needs to know about the
+/// portal module.
+pub fn ensure_actor_roll(
     mut commands: Commands,
-    players: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>, Without<PlayerRoll>)>,
+    player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>, Without<ActorRoll>)>,
+    actors: Query<Entity, (With<crate::features::ActorKinematics>, Without<ActorRoll>)>,
+    bosses: Query<Entity, (With<crate::features::BossKinematics>, Without<ActorRoll>)>,
 ) {
-    for entity in &players {
-        commands.entity(entity).insert(PlayerRoll::default());
+    for entity in &player {
+        commands.entity(entity).insert(ActorRoll::default());
+    }
+    for entity in &actors {
+        commands.entity(entity).insert(ActorRoll::default());
+    }
+    for entity in &bosses {
+        commands.entity(entity).insert(ActorRoll::default());
     }
 }
 
-/// Continuously ease the player's roll toward "feet along gravity" (the
-/// orient-to-gravity reflex). Runs whether airborne or grounded, so after a
-/// portal rotates the body it visibly rights itself toward the current
-/// [`GravityField`] — and in a gravity room it would settle to that room's down.
-pub fn update_player_roll(
+/// Continuously ease EVERY actor's roll toward "feet along gravity" (the
+/// orient-to-gravity reflex) — player and non-player alike. Runs whether
+/// airborne or grounded, so after a portal rotates a body it visibly rights
+/// itself toward the current [`GravityField`]; in a gravity room it settles to
+/// that room's down.
+pub fn update_actor_roll(
     time: Res<crate::WorldTime>,
     gravity: Option<Res<GravityField>>,
-    mut players: Query<&mut PlayerRoll, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut rolls: Query<&mut ActorRoll>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
     }
-    let Ok(mut roll) = players.single_mut() else {
-        return;
-    };
     let gravity_dir = gravity.map_or(Vec2::new(0.0, 1.0), |g| g.dir);
     let target = gravity_upright_angle(gravity_dir);
-    // Shortest signed difference, wrapped to (-π, π], so righting always takes
-    // the short way around.
-    let mut diff = target - roll.angle;
-    diff = diff.rem_euclid(std::f32::consts::TAU);
-    if diff > std::f32::consts::PI {
-        diff -= std::f32::consts::TAU;
+    let max_step = ACTOR_ROLL_SPEED * dt;
+    for mut roll in &mut rolls {
+        // Shortest signed difference, wrapped to (-π, π], so righting always
+        // takes the short way around.
+        let mut diff = (target - roll.angle).rem_euclid(std::f32::consts::TAU);
+        if diff > std::f32::consts::PI {
+            diff -= std::f32::consts::TAU;
+        }
+        if diff.abs() <= max_step {
+            roll.angle = target;
+        } else {
+            roll.angle += max_step * diff.signum();
+        }
+        // Keep the stored angle bounded so repeated portals don't grow it.
+        roll.angle = roll.angle.rem_euclid(std::f32::consts::TAU);
     }
-    let max_step = PLAYER_ROLL_SPEED * dt;
-    if diff.abs() <= max_step {
-        roll.angle = target;
-    } else {
-        roll.angle += max_step * diff.signum();
-    }
-    // Keep the stored angle bounded so repeated portals don't grow it forever.
-    roll.angle = roll.angle.rem_euclid(std::f32::consts::TAU);
 }
 
 /// The render-space roll a body picks up traveling through a portal pair: the
@@ -731,7 +741,7 @@ pub fn portal_transit_roll(n_in: Vec2, n_out: Vec2) -> f32 {
 pub fn portal_teleport_system(
     time: Res<crate::WorldTime>,
     mut players: Query<
-        (&mut PlayerKinematics, &mut PortalGun, Option<&mut PlayerRoll>),
+        (&mut PlayerKinematics, &mut PortalGun, Option<&mut ActorRoll>),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     portals: Query<&Portal>,
@@ -778,7 +788,7 @@ pub fn portal_teleport_system(
             // Aerial reorientation: roll the body by the same rotation the
             // portal pair applies to the velocity, so you leave rotated
             // consistently with how you entered (general for any pair of portal
-            // angles). update_player_roll then rights you toward gravity.
+            // angles). update_actor_roll then rights you toward gravity.
             if let Some(roll) = roll.as_deref_mut() {
                 roll.angle += portal_transit_roll(enter.normal, exit.normal);
             }
@@ -944,10 +954,24 @@ pub fn portal_teleport_actors(
     mut commands: Commands,
     portals: Query<&Portal>,
     mut actors: Query<
-        (Entity, &mut crate::features::ActorKinematics),
+        (
+            Entity,
+            &mut crate::features::ActorKinematics,
+            Option<&mut ActorRoll>,
+        ),
+        // Exclude bosses so this query and the boss query below have disjoint
+        // entity sets — both take `&mut ActorRoll`, so Bevy needs them proven
+        // non-overlapping.
+        (Without<PortalCooldown>, Without<crate::features::BossKinematics>),
+    >,
+    mut bosses: Query<
+        (
+            Entity,
+            &mut crate::features::BossKinematics,
+            Option<&mut ActorRoll>,
+        ),
         Without<PortalCooldown>,
     >,
-    mut bosses: Query<(Entity, &mut crate::features::BossKinematics), Without<PortalCooldown>>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let blue = portals.iter().find(|p| p.color == PortalColor::Blue).copied();
@@ -960,7 +984,7 @@ pub fn portal_teleport_actors(
     };
     let pair = [(blue, orange), (orange, blue)];
 
-    for (entity, mut kin) in &mut actors {
+    for (entity, mut kin, mut roll) in &mut actors {
         let aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
         for (enter, exit) in pair {
             if !portal_fits(kin.size, &enter) {
@@ -971,6 +995,11 @@ pub fn portal_teleport_actors(
                 kin.vel = portal_transform_velocity(kin.vel, enter.normal, exit.normal);
                 let clearance = portal_exit_clearance(kin.size * 0.5, exit.normal);
                 kin.pos = exit.pos + exit.normal * clearance;
+                // Same aerial roll as the player (the unification): the actor
+                // leaves rotated and `update_actor_roll` rights it to gravity.
+                if let Some(roll) = roll.as_deref_mut() {
+                    roll.angle += portal_transit_roll(enter.normal, exit.normal);
+                }
                 commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
                 sfx.write(crate::audio::SfxMessage::Play {
                     id: ambition_sfx::ids::PORTAL_ENTER,
@@ -985,7 +1014,7 @@ pub fn portal_teleport_actors(
         }
     }
 
-    for (entity, mut kin) in &mut bosses {
+    for (entity, mut kin, mut roll) in &mut bosses {
         let aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
         for (enter, exit) in pair {
             if !portal_fits(kin.size, &enter) {
@@ -995,6 +1024,9 @@ pub fn portal_teleport_actors(
             {
                 let clearance = portal_exit_clearance(kin.size * 0.5, exit.normal);
                 kin.pos = exit.pos + exit.normal * clearance;
+                if let Some(roll) = roll.as_deref_mut() {
+                    roll.angle += portal_transit_roll(enter.normal, exit.normal);
+                }
                 commands.entity(entity).insert(PortalCooldown(TELEPORT_COOLDOWN_S));
                 sfx.write(crate::audio::SfxMessage::Play {
                     id: ambition_sfx::ids::PORTAL_ENTER,
@@ -1440,14 +1472,14 @@ mod tests {
             scaled_dt: 1.0 / 60.0,
         });
         app.init_resource::<GravityField>();
-        app.add_systems(Update, update_player_roll);
+        app.add_systems(Update, update_actor_roll);
         // Start rolled 180° (just exited a floor↔floor portal), airborne.
         let player = app
             .world_mut()
             .spawn((
                 PlayerEntity,
                 PrimaryPlayer,
-                PlayerRoll {
+                ActorRoll {
                     angle: std::f32::consts::PI,
                 },
             ))
@@ -1457,7 +1489,7 @@ mod tests {
         for _ in 0..120 {
             app.update();
         }
-        let angle = app.world().get::<PlayerRoll>(player).unwrap().angle;
+        let angle = app.world().get::<ActorRoll>(player).unwrap().angle;
         let from_upright = angle.min(std::f32::consts::TAU - angle); // distance to 0 mod 2π
         assert!(from_upright < 1e-2, "should right itself to gravity-up, got {angle}");
     }
@@ -1469,6 +1501,49 @@ mod tests {
         assert!(gravity_upright_angle(Vec2::new(0.0, 1.0)).abs() < 1e-5);
         // Gravity to the right (+X) → the body stands rotated +90° (render).
         assert!((gravity_upright_angle(Vec2::new(1.0, 0.0)) - FRAC_PI_2).abs() < 1e-5);
+    }
+
+    #[test]
+    fn actors_get_the_same_aerial_roll_through_portals_as_the_player() {
+        use crate::features::ActorKinematics;
+        let mut app = App::new();
+        app.add_message::<crate::audio::SfxMessage>();
+        app.add_systems(Update, portal_teleport_actors);
+        // Floor portal (normal up) + right-wall portal (normal left): a
+        // floor→wall pair, so transit imparts a -90° roll — the SAME value
+        // portal_transit_roll gives the player.
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Blue,
+            pos: Vec2::new(200.0, 380.0),
+            normal: Vec2::new(0.0, -1.0),
+            half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
+        });
+        app.world_mut().spawn(Portal {
+            color: PortalColor::Orange,
+            pos: Vec2::new(380.0, 200.0),
+            normal: Vec2::new(-1.0, 0.0),
+            half_extent: portal_half_extent(Vec2::new(-1.0, 0.0)),
+        });
+        let actor = app
+            .world_mut()
+            .spawn((
+                ActorKinematics {
+                    pos: Vec2::new(200.0, 380.0),
+                    vel: Vec2::new(0.0, 100.0),
+                    size: Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                ActorRoll::default(),
+            ))
+            .id();
+        app.update();
+        let roll = app.world().get::<ActorRoll>(actor).unwrap().angle;
+        let expected = portal_transit_roll(Vec2::new(0.0, -1.0), Vec2::new(-1.0, 0.0))
+            .rem_euclid(std::f32::consts::TAU);
+        assert!(
+            (roll.rem_euclid(std::f32::consts::TAU) - expected).abs() < 1e-4,
+            "a teleported actor should pick up the same aerial roll as the player; got {roll}, expected {expected}"
+        );
     }
 
     #[test]

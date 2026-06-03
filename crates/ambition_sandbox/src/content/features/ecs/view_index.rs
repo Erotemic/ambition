@@ -76,6 +76,9 @@ pub fn rebuild_feature_view_index(
         Option<&super::enemy_clusters::EnemyConfig>,
         Option<&ActorSurfaceState>,
         Option<&super::npc_clusters::NpcStatus>,
+        // Portal aerial-roll (same component the player uses) so actors
+        // somersault + self-right through portals just like the player.
+        Option<&crate::portal::ActorRoll>,
     )>,
     hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
     bosses: Query<(
@@ -148,7 +151,8 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, aabb, actor, status, attack, config, surface, npc_status) in &actors {
+    for (id, aabb, actor, status, attack, config, surface, npc_status, roll) in &actors {
+        let roll_rad = roll.map_or(0.0, |r| r.angle);
         let view = match actor {
             ActorRuntime::Npc => FeatureView {
                 pos: aabb.center,
@@ -157,7 +161,7 @@ pub fn rebuild_feature_view_index(
                 visible: true,
                 flash: npc_status.is_some_and(|s| s.hit_flash > 0.0),
                 switch_on: false,
-                rotation_rad: 0.0,
+                rotation_rad: roll_rad,
             },
             ActorRuntime::Enemy => {
                 let alive = status.is_some_and(|s| s.alive);
@@ -169,10 +173,12 @@ pub fn rebuild_feature_view_index(
                     FeatureVisualKind::Enemy
                 };
                 // Surface-walker (PuppySlug) sprite rotation from the
-                // clung surface normal; flat actors render upright.
+                // clung surface normal; flat actors render upright. The portal
+                // aerial-roll composes on top so a teleported actor somersaults.
                 let rotation_rad = surface
                     .map(|s| f32::atan2(-s.surface_normal.x, -s.surface_normal.y))
-                    .unwrap_or(0.0);
+                    .unwrap_or(0.0)
+                    + roll_rad;
                 FeatureView {
                     pos: aabb.center,
                     size: aabb.size(),

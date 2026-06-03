@@ -26,10 +26,14 @@ use crate::features::{
     HitboxLifetime,
 };
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
 
 /// Held-item id of the shockwave gauntlet.
 pub const SHOCKWAVE_ID: &str = "shockwave";
+
+/// Mana the shockwave slam spends per use (out of 100). With the sandbox's fast
+/// regen this is feedback (the bar visibly drops), not a hard gate — feel-tune.
+const SHOCKWAVE_MANA_COST: f32 = 25.0;
 
 /// Player-wielded shockwave tunings. (A boss using `ShockwaveSlam` authors its
 /// own values on the spec; these are the player gauntlet's.)
@@ -46,17 +50,24 @@ const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 /// throw-on-plain-Attack).
 pub fn fire_shockwave_system(
     control: Res<ControlFrame>,
-    players: Query<(Entity, &HeldItem, &PlayerKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut players: Query<
+        (Entity, &HeldItem, &PlayerKinematics, &mut PlayerMana),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
     mut actions: MessageWriter<ActorActionMessage>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
         return;
     }
-    let Ok((entity, held, kin)) = players.single() else {
+    let Ok((entity, held, kin, mut mana)) = players.single_mut() else {
         return;
     };
     if held.spec.id != SHOCKWAVE_ID {
+        return;
+    }
+    // Costs mana — out of mana, no slam (the sandbox's fast regen tops it back up).
+    if !mana.meter.try_spend(SHOCKWAVE_MANA_COST) {
         return;
     }
     actions.write(ActorActionMessage {
@@ -159,6 +170,7 @@ mod tests {
                 },
                 ActionSet::default(),
                 HeldItem::new(spec),
+                PlayerMana::default(),
             ))
             .id()
     }
@@ -193,6 +205,27 @@ mod tests {
         spawn_player_holding_shockwave(&mut app);
         app.update();
         assert_eq!(shockwave_count(&mut app), 0);
+    }
+
+    #[test]
+    fn shockwave_costs_mana_and_is_blocked_when_empty() {
+        let mut app = test_app();
+        let player = spawn_player_holding_shockwave(&mut app);
+        // Mana below the cost → the slam is blocked.
+        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 5.0;
+        app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
+        app.update();
+        assert_eq!(shockwave_count(&mut app), 0, "no slam when mana < cost");
+
+        // Refill and fire → one slam, and mana drops by exactly the cost.
+        app.world_mut().get_mut::<PlayerMana>(player).unwrap().meter.current = 100.0;
+        app.update();
+        assert_eq!(shockwave_count(&mut app), 1, "fires once there's mana");
+        let mana = app.world().get::<PlayerMana>(player).unwrap().meter.current;
+        assert!(
+            (mana - (100.0 - SHOCKWAVE_MANA_COST)).abs() < 0.01,
+            "mana dropped by the cost: {mana}"
+        );
     }
 
     #[test]

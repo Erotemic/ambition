@@ -16,11 +16,14 @@ use crate::engine_core as ae;
 use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
-use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
+use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
 use crate::projectile::ProjectileFaction;
 
 /// Held-item id of the volley gauntlet.
 pub const VOLLEY_ID: &str = "volley";
+
+/// Mana the volley spends per fan (out of 100). Cheaper than the shockwave slam.
+const VOLLEY_MANA_COST: f32 = 18.0;
 
 /// Bolts per volley.
 const VOLLEY_SHOT_COUNT: usize = 5;
@@ -37,17 +40,24 @@ const VOLLEY_HALF: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 /// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_volley_system(
     control: Res<ControlFrame>,
-    players: Query<(&PlayerKinematics, &HeldItem), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut players: Query<
+        (&PlayerKinematics, &HeldItem, &mut PlayerMana),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
     mut enemy_projectiles: ResMut<EnemyProjectileState>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     if !control.attack_pressed || control.shield_held {
         return;
     }
-    let Ok((kin, held)) = players.single() else {
+    let Ok((kin, held, mut mana)) = players.single_mut() else {
         return;
     };
     if held.spec.id != VOLLEY_ID {
+        return;
+    }
+    // Costs mana — out of mana, no volley.
+    if !mana.meter.try_spend(VOLLEY_MANA_COST) {
         return;
     }
     let aim = crate::item_pickup::held_shot_aim(&control, kin.facing);
@@ -114,6 +124,7 @@ mod tests {
             },
             ActionSet::default(),
             HeldItem::new(spec),
+            PlayerMana::default(),
         ));
     }
 

@@ -752,6 +752,43 @@
             default_action_set: "ranger_arrow",
             tags: ["enemy", "ranged"],
         ),
+        // Sandbox kiter enemy (EnemyArchetype::RangedSkirmisher). The spawn's
+        // display name is "Skirmisher", which is how the renderer resolves it.
+        "npc_ranged_skirmisher": (
+            display_name: "Skirmisher",
+            spritesheet: "sprites/ranged_skirmisher_spritesheet.png",
+            manifest: "sprites/ranged_skirmisher_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "skirmisher_ranger",
+            default_action_set: "ranger_arrow",
+            tags: ["enemy", "ranged"],
+        ),
+        // Sandbox kamikaze mite (EnemyArchetype::ExplodingMite); spawn name "Exploding Mite".
+        "npc_exploding_mite": (
+            display_name: "Exploding Mite",
+            spritesheet: "sprites/exploding_mite_spritesheet.png",
+            manifest: "sprites/exploding_mite_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy", "robot"],
+        ),
+        // Sandbox splitter mite (EnemyArchetype::DividingMite); spawn name "Dividing Mite".
+        "npc_dividing_mite": (
+            display_name: "Dividing Mite",
+            spritesheet: "sprites/dividing_mite_spritesheet.png",
+            manifest: "sprites/dividing_mite_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["enemy", "robot"],
+        ),
         "npc_goblin_frost_sword": (
             display_name: "Goblin Frost Sword",
             spritesheet: "sprites/goblin_frost_sword_spritesheet.png",

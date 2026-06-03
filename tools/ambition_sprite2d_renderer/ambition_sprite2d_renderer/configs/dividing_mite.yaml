@@ -1,0 +1,104 @@
+target: robot
+name: dividing_mite
+seed: 59
+archetype: heavy
+variant: replicator_blob_drone
+animations:
+- idle
+- walk
+- run
+- slash
+- hit
+- death
+- dash
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 3
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 120
+actor:
+  character_id: npc_dividing_mite
+  display_name: Dividing Mite
+visual:
+  default_pose: idle
+body:
+  body_plan: HumanoidBiped
+  body_kind: Standard
+  mass_class: Medium
+  traits:
+  - robot
+  - enemy
+  - combatant
+  - mite
+  - replicator
+  locomotion_hint: Walk
+capabilities:
+  traversal:
+    walk: true
+    jump: null
+    climb: null
+    fly: null
+    swim: null
+    crawl: null
+    use_lifts: true
+    door_access:
+    - public
+  interactions:
+    talk: null
+    trade: null
+    carry: null
+    open_doors:
+    - public
+brain:
+  default_preset: melee_brute_striker
+actions:
+  default_preset: striker_swipe
+animation_bindings:
+  default:
+    animation: idle
+    events: []
+  locomotion.walk:
+    animation: walk
+    events: []
+  action.melee.primary:
+    animation: slash
+    events:
+    - t: 0.32
+      event: hitbox_active_start
+      source: explicit.profile.combat_humanoid
+    - t: 0.56
+      event: hitbox_active_end
+      source: explicit.profile.combat_humanoid
+sockets:
+  head:
+    source: explicit.profile.humanoid
+    point:
+      x: 64.0
+      y: 24.0
+  chest:
+    source: explicit.profile.humanoid
+    point:
+      x: 64.0
+      y: 54.0
+  hand_l:
+    source: explicit.profile.humanoid
+    point:
+      x: 48.0
+      y: 64.0
+  hand_r:
+    source: explicit.profile.humanoid
+    point:
+      x: 80.0
+      y: 64.0
+tags:
+- robot
+- enemy
+- combatant
+- mite
+- replicator

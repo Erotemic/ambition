@@ -157,6 +157,10 @@ expected_files=(
     player_robot_spritesheet.png player_robot_spritesheet.yaml player_robot_spritesheet.ron
     robot_spritesheet.png robot_spritesheet.yaml robot_spritesheet.ron
     sandbag_spritesheet.png sandbag_spritesheet.yaml sandbag_spritesheet.ron
+    # Sandbox combat-variety enemies (draw-all): the kiter + the two volatile mites.
+    ranged_skirmisher_spritesheet.png ranged_skirmisher_spritesheet.yaml ranged_skirmisher_spritesheet.ron
+    exploding_mite_spritesheet.png exploding_mite_spritesheet.yaml exploding_mite_spritesheet.ron
+    dividing_mite_spritesheet.png dividing_mite_spritesheet.yaml dividing_mite_spritesheet.ron
     # Review-config NPCs (draw-review → copied).
     absurd_general_spritesheet.png absurd_general_spritesheet.yaml absurd_general_spritesheet.ron
     alice_spritesheet.png alice_spritesheet.yaml alice_spritesheet.ron

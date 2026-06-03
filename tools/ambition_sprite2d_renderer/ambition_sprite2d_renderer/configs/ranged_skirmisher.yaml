@@ -1,0 +1,132 @@
+target: goblin
+name: ranged_skirmisher
+seed: 47
+archetype: desert
+held_item: bow
+variant: desert_bow_skirmisher
+animations:
+- idle
+- walk
+- run
+- slash
+- hit
+- death
+- dash
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 3
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 120
+actor:
+  character_id: npc_ranged_skirmisher
+  display_name: Skirmisher
+visual:
+  default_pose: idle
+body:
+  body_plan: HumanoidBiped
+  body_kind: Standard
+  mass_class: Medium
+  traits:
+  - story
+  - humanoid
+  - enemy
+  - combatant
+  - goblin
+  - desert
+  - bow
+  - ranged
+  locomotion_hint: Walk
+capabilities:
+  traversal:
+    walk: true
+    jump: null
+    climb: null
+    fly: null
+    swim: null
+    crawl: null
+    use_lifts: true
+    door_access:
+    - public
+  interactions:
+    talk: true
+    trade: null
+    carry: null
+    open_doors:
+    - public
+brain:
+  default_preset: skirmisher_ranger
+actions:
+  default_preset: ranger_arrow
+animation_bindings:
+  default:
+    animation: idle
+    events: []
+  locomotion.walk:
+    animation: walk
+    events: []
+  interaction.talk:
+    animation: talk
+    events: []
+  interaction.use:
+    animation: interact
+    events: []
+  action.melee.primary:
+    animation: slash
+    events:
+    - t: 0.34
+      event: hitbox_active_start
+      source: explicit.profile.combat_humanoid
+    - t: 0.58
+      event: hitbox_active_end
+      source: explicit.profile.combat_humanoid
+sockets:
+  head:
+    source: explicit.profile.humanoid
+    point:
+      x: 64.0
+      y: 24.0
+  chest:
+    source: explicit.profile.humanoid
+    point:
+      x: 64.0
+      y: 54.0
+  hand_l:
+    source: explicit.profile.humanoid
+    point:
+      x: 48.0
+      y: 64.0
+  hand_r:
+    source: explicit.profile.humanoid
+    point:
+      x: 80.0
+      y: 64.0
+  speech_bubble:
+    source: explicit.profile.humanoid
+    point:
+      x: 64.0
+      y: 8.0
+  weapon_grip:
+    source: explicit.profile.combat_humanoid
+    point:
+      x: 80.0
+      y: 64.0
+  weapon_tip:
+    source: explicit.profile.combat_humanoid
+    point:
+      x: 104.0
+      y: 60.0
+tags:
+- story
+- humanoid
+- enemy
+- combatant
+- goblin
+- desert
+- bow
+- ranged

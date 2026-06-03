@@ -613,6 +613,13 @@ for pair in "${held_prop_map[@]}"; do
     fi
 done
 
+echo "==> wielded-gauntlet prop icons (procedural → $props_dir)"
+# The abstract wielded gauntlets (shockwave/volley/beam/vortex/sentry/dive/
+# meteor) have no character rig, so their ground/held icons are procedural
+# 64x64 PNGs from `item_icons.py::write_gauntlet_props`, consumed at runtime by
+# `item_pickup::item_sprite`. (No canonical-pose copy step — drawn directly.)
+(cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_gauntlet_props as w; w('$props_dir')")
+
 echo "==> standalone pirate sheets (publish into $sprites_dir)"
 # Pirates are registered as tack-on `[characters]` targets and publish
 # through the same machinery as the other tack-ons above. Kept as its

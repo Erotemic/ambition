@@ -214,6 +214,70 @@ def icon_coin(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
     d.rectangle((30*s, 21*s, 34*s, 43*s), fill=rgba("#6E4A12"))
 
 
+# ---- Wielded-gauntlet icons (sandbox ground / held items) -------------------
+# Distinct from the review-only ability icons above: these ARE consumed by the
+# runtime (`item_pickup::item_sprite` / `ItemArt`), rendered into `sprites/props/`
+# by `write_gauntlet_props`. Each is one strong geometric silhouette so the
+# gauntlets read apart on the ground instead of sharing a brown quad.
+
+
+def icon_shockwave(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    for diam, a in [(46, 95), (33, 140), (20, 195)]:
+        d.ellipse(bbox(32 * s, 35 * s, diam * s, diam * 0.6 * s), outline=with_alpha(accent, a), width=max(1, int(1.8 * s)))
+    d.ellipse(bbox(32 * s, 35 * s, 10 * s, 6 * s), fill=rgba("#FFFFFF", 235), outline=rgba("#05070D"))
+
+
+def icon_volley(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    d.ellipse(bbox(19 * s, 32 * s, 9 * s, 9 * s), fill=with_alpha(accent, 130), outline=rgba("#05070D"), width=max(1, int(1.5 * s)))
+    for dy in (-11, 0, 11):
+        ty = 32 + dy
+        d.polygon(scaled([(25, ty - 4), (44, ty - dy * 0.22), (25, ty + 4)], s), fill=accent, outline=rgba("#05070D"))
+
+
+def icon_beam(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    d.rounded_rectangle((15 * s, 29 * s, 50 * s, 35 * s), radius=3 * s, fill=with_alpha(accent, 165), outline=rgba("#05070D"), width=max(1, int(1.5 * s)))
+    d.rounded_rectangle((16 * s, 31 * s, 49 * s, 33 * s), radius=1 * s, fill=rgba("#FFFFFF", 235))
+    d.polygon(scaled([(12, 26), (21, 32), (12, 38)], s), fill=accent, outline=rgba("#05070D"))
+
+
+def icon_vortex(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    for diam, a0, a1, a in [(44, 20, 230, 110), (30, 130, 340, 150), (16, 240, 90, 205)]:
+        d.arc(bbox(32 * s, 32 * s, diam * s, diam * s), a0, a1, fill=with_alpha(accent, a), width=max(1, int(2.4 * s)))
+    d.ellipse(bbox(32 * s, 32 * s, 6 * s, 6 * s), fill=rgba("#FFFFFF", 235), outline=rgba("#05070D"))
+
+
+def icon_sentry(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    d.rounded_rectangle((19 * s, 39 * s, 45 * s, 50 * s), radius=3 * s, fill=rgba("#1E2940"), outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.pieslice(bbox(32 * s, 40 * s, 24 * s, 24 * s), 180, 360, fill=accent, outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.rounded_rectangle((31 * s, 31 * s, 52 * s, 36 * s), radius=1.5 * s, fill=accent, outline=rgba("#05070D"), width=max(1, int(1.5 * s)))
+    d.ellipse(bbox(32 * s, 40 * s, 6 * s, 6 * s), fill=rgba("#FFFFFF", 220))
+
+
+def icon_dive(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    d.polygon(scaled([(22, 14), (32, 28), (42, 14), (42, 24), (32, 38), (22, 24)], s), fill=accent, outline=rgba("#05070D"))
+    for x in (25, 32, 39):
+        d.line([(x * s, 42 * s), (x * s, 50 * s)], fill=with_alpha(accent, 140), width=max(1, int(2 * s)))
+
+
+def icon_meteor(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    for i in range(3):
+        x0 = 46 - i * 6
+        d.line([(x0 * s, (13 + i * 3) * s), ((x0 - 12) * s, (25 + i * 3) * s)], fill=with_alpha(accent, 130), width=max(1, int(2.2 * s)))
+    d.ellipse(bbox(28 * s, 41 * s, 15 * s, 15 * s), fill=accent, outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.ellipse(bbox(25 * s, 38 * s, 5 * s, 5 * s), fill=rgba("#FFFFFF", 215))
+
+
+GAUNTLET_ICON_SPECS: List[IconSpec] = [
+    IconSpec("shockwave", "gauntlet_shockwave.png", "gauntlet", "ground-slam ring", "#FFD166", "shockwave"),
+    IconSpec("volley", "gauntlet_volley.png", "gauntlet", "ranged spread shots", "#8AE66A", "volley"),
+    IconSpec("beam", "gauntlet_beam.png", "gauntlet", "aimed line lance", "#FF5E5E", "beam"),
+    IconSpec("vortex", "gauntlet_vortex.png", "gauntlet", "crowd-control singularity", "#B083FF", "vortex"),
+    IconSpec("sentry", "gauntlet_sentry.png", "gauntlet", "deployable turret", "#5E9BFF", "sentry"),
+    IconSpec("dive", "gauntlet_dive.png", "gauntlet", "lunging dash strike", "#FF9F45", "dive"),
+    IconSpec("meteor", "gauntlet_meteor.png", "gauntlet", "overhead area rain", "#FFC857", "meteor"),
+]
+
+
 DRAWERS: Dict[str, Callable[[ImageDraw.ImageDraw, float, Color], None]] = {
     "blink": icon_blink,
     "dash": icon_dash,
@@ -235,6 +299,13 @@ DRAWERS: Dict[str, Callable[[ImageDraw.ImageDraw, float, Color], None]] = {
     "health": icon_health,
     "key": icon_key,
     "coin": icon_coin,
+    "shockwave": icon_shockwave,
+    "volley": icon_volley,
+    "beam": icon_beam,
+    "vortex": icon_vortex,
+    "sentry": icon_sentry,
+    "dive": icon_dive,
+    "meteor": icon_meteor,
 }
 
 
@@ -278,6 +349,21 @@ def write_item_icons(out_dir: str | Path, *, size: Tuple[int, int] = (64, 64)) -
     manifest_path.write_text(yaml.safe_dump({"icons": manifest}, sort_keys=False), encoding="utf8")
     outputs.append(manifest_path)
     outputs.append(write_icon_contact_sheet(out_dir, icon_paths))
+    return outputs
+
+
+def write_gauntlet_props(out_dir: str | Path, *, size: Tuple[int, int] = (64, 64)) -> List[Path]:
+    """Render the wielded-gauntlet ground-item icons into ``out_dir`` (the sandbox
+    ``sprites/props/`` dir). Unlike ``write_item_icons`` (the review-only ability
+    set), these icons ARE consumed by the runtime via ``item_pickup::item_sprite``
+    / ``ItemArt`` — one ``gauntlet_<id>.png`` per wielded gauntlet."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    outputs: List[Path] = []
+    for spec in GAUNTLET_ICON_SPECS:
+        path = out_dir / spec.filename
+        render_icon(spec, size).save(path)
+        outputs.append(path)
     return outputs
 
 

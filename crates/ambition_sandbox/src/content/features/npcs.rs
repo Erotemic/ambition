@@ -35,6 +35,7 @@ impl<'a> NpcMut<'a> {
         ae::Aabb::new(self.kin.pos, self.kin.size * 0.5)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn tick_via_brain(
         &mut self,
         brain: &mut crate::brain::Brain,
@@ -42,6 +43,9 @@ impl<'a> NpcMut<'a> {
         target_pos: ae::Vec2,
         sim_time: f32,
         dt: f32,
+        // World gravity sign (+1 down / -1 up) so NPCs fall the way the player
+        // does when gravity flips.
+        gravity_sign: f32,
     ) -> crate::actor_control::ActorControlFrame {
         self.status.hit_flash = (self.status.hit_flash - dt).max(0.0);
 
@@ -114,8 +118,7 @@ impl<'a> NpcMut<'a> {
             crate::kinematic::KinematicTuning {
                 gravity: ENEMY_GRAVITY,
                 max_fall_speed: ENEMY_MAX_FALL,
-                // NPCs stay under normal gravity for now (stationary talkers).
-                gravity_sign: 1.0,
+                gravity_sign,
             },
             crate::kinematic::KinematicInputs::default(),
             dt,

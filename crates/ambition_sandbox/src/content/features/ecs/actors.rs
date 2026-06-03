@@ -635,6 +635,7 @@ pub fn update_ecs_actors(
 pub fn update_ecs_npcs(
     world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
+    gravity_field: Option<Res<crate::physics::GravityField>>,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut npcs: Query<
@@ -674,15 +675,23 @@ pub fn update_ecs_npcs(
     ) in &mut npcs
     {
         let target_pos = target.pos;
+        let gravity_sign = gravity_field.as_deref().map_or(1.0, |g| g.vertical_sign());
         let mut npc = clusters.as_npc_mut();
         let frame = if let Some(brain) = brain.as_deref_mut() {
-            npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt)
+            npc.tick_via_brain(brain, &feature_world, target_pos, sim_time, dt, gravity_sign)
         } else {
             // Brainless peaceful actor — should not happen post-Chunk 3
             // (spawn attaches a brain), but build one inline so the tick
             // is never skipped if components drift.
             let mut fallback = npc.build_brain();
-            npc.tick_via_brain(&mut fallback, &feature_world, target_pos, sim_time, dt)
+            npc.tick_via_brain(
+                &mut fallback,
+                &feature_world,
+                target_pos,
+                sim_time,
+                dt,
+                gravity_sign,
+            )
         };
         if let Some(control) = control.as_deref_mut() {
             control.0 = frame;

@@ -72,7 +72,7 @@ mod conversion_tests {
         let mut brain = brain_for(&mut npc);
         for _ in 0..120 {
             npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
         }
         assert!(
             npc.surface.on_ground,
@@ -97,14 +97,14 @@ mod conversion_tests {
         // not the freefall.
         for _ in 0..30 {
             npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
         }
         let spawn_x = npc.config.spawn.x;
         let mut min_x = npc.kin.pos.x;
         let mut max_x = npc.kin.pos.x;
         for _ in 0..600 {
             npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
             min_x = min_x.min(npc.kin.pos.x);
             max_x = max_x.max(npc.kin.pos.x);
         }
@@ -141,7 +141,7 @@ mod conversion_tests {
         // Settle physics.
         for _ in 0..30 {
             npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
         }
         // Park the player right next to the NPC — within talk_radius.
         player.kinematics.pos = ae::Vec2::new(npc.kin.pos.x + 30.0, npc.kin.pos.y);
@@ -150,7 +150,7 @@ mod conversion_tests {
         // talk radius.
         for _ in 0..30 {
             npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
         }
         assert!(
             matches!(npc.status.ai_mode, crate::character_ai::CharacterAiMode::Chase),
@@ -183,7 +183,7 @@ mod conversion_tests {
         let mut brain = brain_for(&mut npc);
         for _ in 0..300 {
             npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
         }
         assert!(
             (npc.kin.pos.x - original_x).abs() < 1.0,
@@ -251,7 +251,7 @@ mod conversion_tests {
         // Settle gravity.
         for _ in 0..30 {
             npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
         }
         // Run for a long while; track that the AI mode stays in
         // patrol and never wedges in Idle.
@@ -259,7 +259,7 @@ mod conversion_tests {
         let mut chase_ticks = 0;
         for _ in 0..300 {
             npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
             match npc.status.ai_mode {
                 crate::character_ai::CharacterAiMode::Patrol => patrol_ticks += 1,
                 crate::character_ai::CharacterAiMode::Chase => chase_ticks += 1,
@@ -284,7 +284,7 @@ mod conversion_tests {
         let mut brain = brain_for(&mut npc);
         for _ in 0..120 {
             npc.as_mut()
-                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016);
+                .tick_via_brain(&mut brain, &world, player.kinematics.pos, 0.0, 0.016, 1.0);
         }
         // Vel along x should drain to zero (gravity has settled).
         assert!(

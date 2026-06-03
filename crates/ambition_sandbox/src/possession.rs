@@ -22,9 +22,15 @@ use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 /// player `ControlFrame`, synced each frame by [`sync_possession_input`] (which
 /// holds `Res<ControlFrame>`), so the already-large `update_ecs_actors` reads it
 /// as a query field instead of growing another top-level system param.
-#[derive(Component, Clone, Copy, Default)]
+///
+/// `original_faction` is the actor's faction before possession; while possessed
+/// the actor is flipped to [`ActorFaction::Player`] so it fights its former
+/// allies (its attacks become player-faction through the shared
+/// `apply_hitbox_damage` / faction-aware projectile paths), restored on release.
+#[derive(Component, Clone, Copy)]
 pub struct Possessed {
     pub control: ControlFrame,
+    pub original_faction: crate::features::ActorFaction,
 }
 
 /// Who the player is possessing (`None` = controlling their own body).
@@ -72,6 +78,8 @@ pub fn possession_trigger_system(
             Without<crate::features::BossConfig>,
         ),
     >,
+    mut factions: Query<&mut crate::features::ActorFaction>,
+    possessed_q: Query<&Possessed>,
 ) {
     let down_interact = control.axis_y > 0.35 && control.interact_pressed;
     let release_edge = down_interact && !*prev_down_interact;
@@ -82,6 +90,11 @@ pub fn possession_trigger_system(
         *hold_timer = 0.0;
         if release_edge {
             if let Some(entity) = state.possessed.take() {
+                // Restore the actor's original faction, then drop the marker.
+                let original = possessed_q.get(entity).ok().map(|p| p.original_faction);
+                if let (Some(original), Ok(mut faction)) = (original, factions.get_mut(entity)) {
+                    *faction = original;
+                }
                 if let Ok(mut ec) = commands.get_entity(entity) {
                     ec.remove::<Possessed>();
                 }
@@ -110,8 +123,17 @@ pub fn possession_trigger_system(
         .filter(|(_, d)| *d <= POSSESS_RADIUS)
         .min_by(|a, b| a.1.total_cmp(&b.1));
     if let Some((entity, _)) = nearest {
-        commands.entity(entity).insert(Possessed::default());
-        state.possessed = Some(entity);
+        // Flip the actor to the player's side so it now fights its former
+        // allies; remember the original faction to restore on release.
+        if let Ok(mut faction) = factions.get_mut(entity) {
+            let original = *faction;
+            *faction = crate::features::ActorFaction::Player;
+            commands.entity(entity).insert(Possessed {
+                control: *control,
+                original_faction: original,
+            });
+            state.possessed = Some(entity);
+        }
     }
 }
 
@@ -177,8 +199,13 @@ mod tests {
                 crate::features::FeatureSimEntity,
                 crate::features::FeatureAabb::new(pos, vec2(12.0, 16.0)),
                 crate::brain::ActorControl::default(),
+                crate::features::ActorFaction::Enemy,
             ))
             .id()
+    }
+
+    fn faction_of(app: &App, e: Entity) -> crate::features::ActorFaction {
+        *app.world().get::<crate::features::ActorFaction>(e).unwrap()
     }
 
     fn hold_down_interact(app: &mut App, held: bool) {
@@ -204,6 +231,12 @@ mod tests {
         app.update(); // hold_timer = 2.0 ≥ threshold → possess
         assert_eq!(possessed(&app), Some(actor), "a full ~2s hold possesses the nearest candidate");
         assert!(app.world().get::<Possessed>(actor).is_some());
+        // The possessed enemy flips to the player's side so it fights its allies.
+        assert_eq!(
+            faction_of(&app, actor),
+            crate::features::ActorFaction::Player,
+            "possession flips the actor to the player's faction"
+        );
 
         // Release the button, then a fresh press releases possession.
         hold_down_interact(&mut app, false);
@@ -212,6 +245,11 @@ mod tests {
         app.update();
         assert_eq!(possessed(&app), None, "a fresh Down+Interact press releases");
         assert!(app.world().get::<Possessed>(actor).is_none());
+        assert_eq!(
+            faction_of(&app, actor),
+            crate::features::ActorFaction::Enemy,
+            "release restores the actor's original faction"
+        );
     }
 
     #[test]

@@ -557,10 +557,18 @@ pub fn update_ecs_actors(
                     // the body instead of in front.
                     let attack_box = em.attack_aabb_dir(em.attack.pending_axis);
                     let local_offset = attack_box.center() - em.kin.pos;
+                    // A POSSESSED enemy swings for the player's side, so its
+                    // hitbox damages its former allies (through the player-
+                    // faction branch of `apply_hitbox_damage`) instead of you.
+                    let hitbox_faction = if possessed.is_some() {
+                        super::super::components::ActorFaction::Player
+                    } else {
+                        super::super::components::ActorFaction::Enemy
+                    };
                     super::hitbox::spawn_melee_hitbox(
                         &mut commands,
                         actor_entity,
-                        super::super::components::ActorFaction::Enemy,
+                        hitbox_faction,
                         local_offset,
                         attack_box.half_size(),
                         1,

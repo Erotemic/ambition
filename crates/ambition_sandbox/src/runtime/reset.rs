@@ -217,6 +217,55 @@ pub fn process_sandbox_reset_request(
     banner.show("SANDBOX RESET", 3.0);
 }
 
+/// On a sandbox reset, despawn the transient world items the registry/room
+/// reset doesn't touch — placed portals + in-flight shots, the portal-gun
+/// pickup, thrown/dropped ground items, and summoned puppy-slug allies — and
+/// strip the player's held state (`HeldItem` / `StashedActionSet` / `PortalGun`),
+/// restoring its base `ActionSet`. Runs BEFORE
+/// [`process_sandbox_reset_request`] consumes the request flag, so it sees the
+/// same reset tick (Jon: "portals and held items don't reset on sandbox reset —
+/// they should").
+#[allow(clippy::type_complexity)]
+pub fn clear_transient_on_sandbox_reset(
+    request: Res<SandboxResetRequested>,
+    mut commands: Commands,
+    transient: Query<
+        Entity,
+        Or<(
+            With<crate::portal::Portal>,
+            With<crate::portal::PortalProjectile>,
+            With<crate::portal::PortalGunPickup>,
+            With<crate::item_pickup::GroundItem>,
+            With<crate::puppy_slug_gun::PuppySlugAlly>,
+        )>,
+    >,
+    mut players: Query<
+        (
+            Entity,
+            &mut crate::brain::ActionSet,
+            Option<&crate::item_pickup::StashedActionSet>,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    if !request.request {
+        return;
+    }
+    for entity in &transient {
+        commands.entity(entity).despawn();
+    }
+    for (player, mut action_set, stashed) in &mut players {
+        if let Some(stash) = stashed {
+            *action_set = stash.0.clone();
+        }
+        commands
+            .entity(player)
+            .remove::<crate::item_pickup::StashedActionSet>();
+        commands.entity(player).remove::<crate::features::HeldItem>();
+        commands.entity(player).remove::<crate::portal::PortalGun>();
+    }
+}
+
 /// Module-local Bevy plugin: schedules
 /// [`process_sandbox_reset_request`] into [`SandboxSet::ResetProcessing`].
 ///
@@ -229,7 +278,14 @@ impl Plugin for SandboxResetSchedulePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            process_sandbox_reset_request.in_set(crate::app::SandboxSet::ResetProcessing),
+            // Clear transient portals/held-items/summons BEFORE the request flag
+            // is consumed by the main reset processor.
+            (
+                clear_transient_on_sandbox_reset,
+                process_sandbox_reset_request,
+            )
+                .chain()
+                .in_set(crate::app::SandboxSet::ResetProcessing),
         );
     }
 }
@@ -256,6 +312,63 @@ mod tests {
         let mut req = SandboxResetRequested::default();
         req.request();
         assert!(req.request);
+    }
+
+    #[test]
+    fn sandbox_reset_clears_portals_held_items_and_summons() {
+        let mut app = App::new();
+        app.insert_resource(SandboxResetRequested::default());
+        app.add_systems(Update, clear_transient_on_sandbox_reset);
+
+        let ground = app
+            .world_mut()
+            .spawn(crate::item_pickup::GroundItem {
+                spec: crate::item_pickup::axe_spec(),
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::ZERO,
+                half_extent: ae::Vec2::splat(18.0),
+            })
+            .id();
+        let ally = app.world_mut().spawn(crate::puppy_slug_gun::PuppySlugAlly).id();
+        let player = app
+            .world_mut()
+            .spawn((
+                crate::player::PlayerEntity,
+                crate::brain::ActionSet::default(),
+                crate::item_pickup::StashedActionSet(crate::brain::ActionSet::default()),
+                crate::features::HeldItem::new(crate::item_pickup::axe_spec()),
+                crate::portal::PortalGun::default(),
+            ))
+            .id();
+
+        // No reset queued → nothing changes.
+        app.update();
+        assert!(app.world().get::<crate::item_pickup::GroundItem>(ground).is_some());
+        assert!(app.world().get::<crate::features::HeldItem>(player).is_some());
+
+        // Reset requested → transient entities despawn + player held-state stripped.
+        app.world_mut().resource_mut::<SandboxResetRequested>().request = true;
+        app.update();
+        assert!(
+            app.world().get::<crate::item_pickup::GroundItem>(ground).is_none(),
+            "ground item despawned on reset"
+        );
+        assert!(
+            app.world().get::<crate::puppy_slug_gun::PuppySlugAlly>(ally).is_none(),
+            "summoned ally despawned on reset"
+        );
+        assert!(
+            app.world().get::<crate::features::HeldItem>(player).is_none(),
+            "held item removed from player"
+        );
+        assert!(
+            app.world().get::<crate::portal::PortalGun>(player).is_none(),
+            "portal gun removed from player"
+        );
+        assert!(
+            app.world().get::<crate::item_pickup::StashedActionSet>(player).is_none(),
+            "stashed action set cleared"
+        );
     }
 
     fn dummy_world() -> ae::World {

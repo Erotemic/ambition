@@ -25,7 +25,7 @@ use crate::brain::ActionSet;
 use crate::engine_core::{self as ae, AabbExt};
 use crate::input::ControlFrame;
 use crate::item_pickup::StashedActionSet;
-use crate::physics::{gravity_upright_angle, GravityField};
+use crate::physics::{gravity_upright_angle, GravityField, GravityZone};
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
 use crate::GameWorld;
 
@@ -566,10 +566,12 @@ pub fn spawn_debug_gravity_switch_once(
     ));
 }
 
-/// Flip [`GravityField`] up↔down when the player steps into a [`GravityFlipSwitch`]
-/// (rising-edge latched by `armed`).
+/// Flip the room's **ambient** gravity ([`crate::physics::BaseGravity`]) up↔down
+/// when the player steps into a [`GravityFlipSwitch`] (rising-edge latched by
+/// `armed`). Flipping the ambient (not the live `GravityField` directly) lets
+/// gravity zones override locally while the switch sets the room default.
 pub fn gravity_flip_switch_system(
-    mut gravity: ResMut<GravityField>,
+    mut base: ResMut<crate::physics::BaseGravity>,
     players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut switches: Query<&mut GravityFlipSwitch>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
@@ -581,35 +583,93 @@ pub fn gravity_flip_switch_system(
     for mut sw in &mut switches {
         let overlapping = player_aabb.strict_intersects(ae::Aabb::new(sw.pos, sw.half_extent));
         if overlapping && sw.armed {
-            // Flip the vertical component of gravity.
-            gravity.dir = Vec2::new(gravity.dir.x, -gravity.dir.y);
+            // Flip the vertical component of the ambient gravity.
+            base.dir = Vec2::new(base.dir.x, -base.dir.y);
             sw.armed = false;
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_POWERUP,
                 pos: kin.pos,
             });
-            bevy::log::info!(target: "ambition::portal", "gravity flipped: dir = {:?}", gravity.dir);
+            bevy::log::info!(target: "ambition::portal", "ambient gravity flipped: dir = {:?}", base.dir);
         } else if !overlapping {
             sw.armed = true;
         }
     }
 }
 
-/// Reset gravity to the default (down) when the room resets, so a flipped room
-/// doesn't carry over.
+/// Spawn one **gravity-up zone** near the player the first frame a player exists
+/// (debug convenience until LDtk-authored placement lands): a tall region to the
+/// right where gravity points up, so walking in drops you onto the ceiling and
+/// walking out returns you to the ambient gravity.
+pub fn spawn_debug_gravity_zone_once(
+    mut commands: Commands,
+    mut done: Local<bool>,
+    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    if *done {
+        return;
+    }
+    let Ok(kin) = players.single() else {
+        return;
+    };
+    *done = true;
+    let center = kin.pos + Vec2::new(380.0, 0.0);
+    commands.spawn((
+        GravityZone {
+            aabb: ae::Aabb::new(center, Vec2::new(140.0, 240.0)),
+            dir: Vec2::new(0.0, -1.0), // up
+        },
+        Name::new("Gravity zone: up"),
+    ));
+}
+
+/// Marks the visual for a [`GravityZone`].
+#[derive(Component)]
+pub struct GravityZoneVisual;
+
+/// Draw each gravity zone as a translucent tinted region so the player can see
+/// where gravity changes (violet = up, teal = down/other).
+pub fn sync_gravity_zone_visual(
+    mut commands: Commands,
+    world: Res<GameWorld>,
+    visuals: Query<Entity, With<GravityZoneVisual>>,
+    zones: Query<&GravityZone>,
+) {
+    for entity in &visuals {
+        commands.entity(entity).despawn();
+    }
+    for zone in &zones {
+        let color = if zone.dir.y < 0.0 {
+            Color::srgba(0.62, 0.40, 0.95, 0.16) // up = violet
+        } else {
+            Color::srgba(0.30, 0.80, 0.80, 0.16) // else teal
+        };
+        let center = (zone.aabb.min + zone.aabb.max) * 0.5;
+        let size = zone.aabb.max - zone.aabb.min;
+        let translation = crate::config::world_to_bevy(&world.0, center, 7.5);
+        commands.spawn((
+            GravityZoneVisual,
+            Sprite::from_color(color, size),
+            Transform::from_translation(translation),
+            Name::new("Gravity zone visual"),
+        ));
+    }
+}
+
+/// Reset gravity to the default (down) when the room resets, so a flipped /
+/// zoned room doesn't carry over.
 pub fn reset_gravity_on_room_reset(
     mut resets: MessageReader<crate::features::ResetRoomFeaturesEvent>,
     mut gravity: ResMut<GravityField>,
+    mut base: ResMut<crate::physics::BaseGravity>,
 ) {
     if resets.read().next().is_none() {
         return;
     }
     *gravity = GravityField::default();
+    *base = crate::physics::BaseGravity::default();
 }
 
-/// Render-space z-rotation that stands a body upright under `gravity_dir`: it
-/// points the sprite's local +Y ("up") along world-up (`-gravity`), accounting
-/// for the y-down→y-up render flip. Default gravity → angle 0.
 /// Visual roll (aerial orientation) of an actor — player OR any NPC / enemy /
 /// boss — in render-space radians. Portal transit ADDS the rotation the velocity
 /// underwent (general for ANY portal-pair angle — see [`portal_transit_roll`]),
@@ -1520,6 +1580,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.init_resource::<GravityField>();
+        app.init_resource::<crate::physics::BaseGravity>();
         app.add_systems(Update, gravity_flip_switch_system);
         let player = spawn_player(&mut app, Vec2::new(100.0, 100.0), 1.0);
         app.world_mut().spawn(GravityFlipSwitch {
@@ -1530,7 +1591,7 @@ mod tests {
 
         // Not overlapping → gravity stays down.
         app.update();
-        assert!(app.world().resource::<GravityField>().dir.y > 0.0, "starts down");
+        assert!(app.world().resource::<crate::physics::BaseGravity>().dir.y > 0.0, "starts down");
 
         // Step onto the switch → flips up.
         app.world_mut()
@@ -1539,12 +1600,12 @@ mod tests {
             .pos = Vec2::new(400.0, 100.0);
         app.update();
         assert!(
-            app.world().resource::<GravityField>().dir.y < 0.0,
-            "stepping on the switch flips gravity up"
+            app.world().resource::<crate::physics::BaseGravity>().dir.y < 0.0,
+            "stepping on the switch flips ambient gravity up"
         );
         // Staying on it does not re-flip (latched).
         app.update();
-        assert!(app.world().resource::<GravityField>().dir.y < 0.0, "stays flipped while on it");
+        assert!(app.world().resource::<crate::physics::BaseGravity>().dir.y < 0.0, "stays flipped while on it");
 
         // Leave, then re-enter → flips back down.
         app.world_mut()
@@ -1558,8 +1619,8 @@ mod tests {
             .pos = Vec2::new(400.0, 100.0);
         app.update();
         assert!(
-            app.world().resource::<GravityField>().dir.y > 0.0,
-            "re-entering flips gravity back down"
+            app.world().resource::<crate::physics::BaseGravity>().dir.y > 0.0,
+            "re-entering flips ambient gravity back down"
         );
     }
 

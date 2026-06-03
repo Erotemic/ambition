@@ -59,6 +59,70 @@ impl GravityField {
     }
 }
 
+/// The room's **ambient** gravity — the default an actor falls under when it's
+/// not inside any [`GravityZone`]. Flipped by the `GravityFlipSwitch` and
+/// (later) authored per room. [`resolve_active_gravity`] copies this (or an
+/// overlapping zone's direction) into the live [`GravityField`] each frame, so
+/// the switch sets the ambient while zones override locally.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct BaseGravity {
+    pub dir: Vec2,
+}
+
+impl Default for BaseGravity {
+    fn default() -> Self {
+        Self {
+            dir: Vec2::new(0.0, 1.0),
+        }
+    }
+}
+
+/// An authored region with its own gravity direction — the building block of a
+/// "gravity room". While the player is inside the zone's `aabb`, the world
+/// [`GravityField`] points along `dir` (everything falls that way and the player
+/// reorients via the shared `ActorRoll`); on exit it reverts to [`BaseGravity`].
+#[derive(Component, Clone, Copy, Debug)]
+pub struct GravityZone {
+    /// World-space region (engine coords) the zone covers.
+    pub aabb: crate::engine_core::Aabb,
+    /// Gravity direction inside the zone (e.g. `(0,-1)` = up).
+    pub dir: Vec2,
+}
+
+/// Resolve the live [`GravityField`] each frame: it points along the first
+/// [`GravityZone`] the player overlaps, else the room's [`BaseGravity`]. This is
+/// the one writer of `GravityField.dir`, so zones and the ambient switch compose
+/// cleanly (zone overrides ambient while inside). Reorientation is handled for
+/// free by the shared `update_actor_roll`, which eases every body toward the new
+/// gravity.
+pub fn resolve_active_gravity(
+    base: Option<Res<BaseGravity>>,
+    zones: Query<&GravityZone>,
+    players: Query<
+        &crate::player::PlayerKinematics,
+        (
+            With<crate::player::PlayerEntity>,
+            With<crate::player::PrimaryPlayer>,
+        ),
+    >,
+    mut gravity: ResMut<GravityField>,
+) {
+    use crate::engine_core::AabbExt;
+    let base_dir = base.map_or(Vec2::new(0.0, 1.0), |b| b.dir);
+    let target = players
+        .single()
+        .ok()
+        .and_then(|kin| {
+            let body = crate::engine_core::Aabb::new(kin.pos, kin.size * 0.5);
+            zones
+                .iter()
+                .find(|z| body.strict_intersects(z.aabb))
+                .map(|z| z.dir)
+        })
+        .unwrap_or(base_dir);
+    gravity.dir = target.normalize_or_zero();
+}
+
 /// Apply the world's per-frame global forces to a free body's velocity. This is
 /// the ONE place new global forces get added, so every caller (items,
 /// projectiles, …) inherits them. Today it's just gravity; future forces go
@@ -96,6 +160,58 @@ mod tests {
         };
         assert_eq!(up.vertical_sign(), -1.0);
         assert_eq!(up.gravity_accel(1000.0), Vec2::new(0.0, -1000.0));
+    }
+
+    #[test]
+    fn gravity_zone_overrides_ambient_while_inside_then_reverts() {
+        let mut app = App::new();
+        app.init_resource::<GravityField>();
+        app.init_resource::<BaseGravity>();
+        app.add_systems(Update, resolve_active_gravity);
+        let player = app
+            .world_mut()
+            .spawn((
+                crate::player::PlayerEntity,
+                crate::player::PrimaryPlayer,
+                crate::player::PlayerKinematics {
+                    pos: Vec2::new(0.0, 0.0),
+                    vel: Vec2::ZERO,
+                    size: Vec2::new(24.0, 40.0),
+                    base_size: Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.world_mut().spawn(GravityZone {
+            aabb: crate::engine_core::Aabb::new(Vec2::new(200.0, 0.0), Vec2::new(60.0, 60.0)),
+            dir: Vec2::new(0.0, -1.0), // up
+        });
+
+        // Outside the zone → ambient (down).
+        app.update();
+        assert!(app.world().resource::<GravityField>().dir.y > 0.0, "starts ambient down");
+
+        // Inside the zone → gravity points up.
+        app.world_mut()
+            .get_mut::<crate::player::PlayerKinematics>(player)
+            .unwrap()
+            .pos = Vec2::new(200.0, 0.0);
+        app.update();
+        assert!(
+            app.world().resource::<GravityField>().dir.y < 0.0,
+            "inside the gravity-up zone, gravity points up"
+        );
+
+        // Leave the zone → reverts to ambient down.
+        app.world_mut()
+            .get_mut::<crate::player::PlayerKinematics>(player)
+            .unwrap()
+            .pos = Vec2::new(0.0, 0.0);
+        app.update();
+        assert!(
+            app.world().resource::<GravityField>().dir.y > 0.0,
+            "exiting the zone reverts to ambient gravity"
+        );
     }
 
     #[test]

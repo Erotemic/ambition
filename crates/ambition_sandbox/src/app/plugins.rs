@@ -237,6 +237,7 @@ fn register_player_simulation_systems(app: &mut App) {
 fn register_portal_systems(app: &mut App) {
     app.init_resource::<crate::portal::IntentionalTeleport>();
     app.init_resource::<crate::physics::GravityField>();
+    app.init_resource::<crate::physics::BaseGravity>();
     app.add_systems(
         Update,
         (
@@ -284,7 +285,11 @@ fn register_item_pickup_systems(app: &mut App) {
             crate::item_pickup::spawn_debug_gunsword_once,
             crate::portal::spawn_debug_portal_gun_pickup_once,
             crate::portal::spawn_debug_gravity_switch_once,
+            crate::portal::spawn_debug_gravity_zone_once,
             crate::portal::gravity_flip_switch_system,
+            // Resolve the live GravityField from zones + ambient AFTER the switch
+            // sets the ambient and BEFORE ground_item_physics (below) reads it.
+            crate::physics::resolve_active_gravity,
             crate::portal::arm_portal_pickups,
             crate::item_pickup::pickup_held_item_system.run_if(gameplay_allowed),
             // Fire the held gun-sword laser (after pickup so the grab press

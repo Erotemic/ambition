@@ -1,0 +1,91 @@
+// volatile_cache — a small combat-platforming vault that showcases this run's
+// two "volatile" enemies. A currency cache sits on a high platform; the floor
+// is guarded by Exploding Mites (kamikaze — kill at range or eat the blast) and
+// a Dividing Mite (splits into two skitters on death). The intended read: use
+// the ranged/AOE gauntlets (volley / beam / meteor / sentry) to clear the mites
+// WITHOUT meleeing the exploders point-blank, then hop the ledges to the cache.
+//
+// The reciprocal hub door uses `snap_to_surface: true` so it rests on the hub
+// floor instead of hovering in mid-air (the bug fixed in 4e28928f — applied at
+// authoring time here, the right place).
+//
+// Layout (1280x512), floor top = 480:
+//   y=240  ....................[ cache_platform ]..  <- reward (currency:120)
+//   y=320  ............[ ledge_2 ]..................
+//   y=400  ....[ ledge_1 ]........................
+//   y=480  ====================================== floor (mites guard it)
+(
+    id: "volatile_cache",
+    level_id: "volatile_cache",
+    world_x: 72000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 512,
+    fill_collision: "empty",
+    bg_color: "#1A1620",
+    biome: "lab",
+    entities: [
+        // Bounding box.
+        ( type: "Solid", px: [0, 480], size: [1280, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 464], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 464], fields: ( name: "right_wall" ) ),
+        // Ascending ledges up to the cache platform — each a single hop.
+        ( type: "Solid", px: [220, 400], size: [170, 16], fields: ( name: "ledge_1" ) ),
+        ( type: "Solid", px: [500, 320], size: [170, 16], fields: ( name: "ledge_2" ) ),
+        ( type: "Solid", px: [820, 240], size: [240, 16], fields: ( name: "cache_platform" ) ),
+        // Spawn + entry door (left).
+        ( type: "PlayerStart", px: [60, 434], size: [28, 46], fields: ( name: "volatile_cache_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 384],
+            size: [48, 96],
+            fields: (
+                id: "volatile_cache_entry",
+                name: "volatile_cache_entry",
+                activation: "Door",
+                target_room: "central_hub_complex",
+                target_zone: "volatile_cache_door",
+                bidirectional: true,
+            ),
+        ),
+        // The volatile guard: two kamikaze mites + a splitter on the floor.
+        ( type: "EnemySpawn", px: [360, 414], size: [38, 66], fields: ( name: "Exploding Mite", brain: "exploding_mite" ) ),
+        ( type: "EnemySpawn", px: [740, 414], size: [38, 66], fields: ( name: "Exploding Mite", brain: "exploding_mite" ) ),
+        ( type: "EnemySpawn", px: [560, 428], size: [40, 52], fields: ( name: "Dividing Mite", brain: "dividing_mite" ) ),
+        // The cache: a fat coin on the high platform — the reward for clearing
+        // the floor safely and climbing.
+        ( type: "PickupSpawn", px: [920, 200], size: [24, 24], fields: ( name: "volatile_cache_reward", kind: "currency:120" ) ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1280, 512],
+            fields: ( id: "volatile_cache_camera", name: "volatile_cache_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [60, 96],
+            size: [720, 24],
+            fields: (
+                name: "volatile_cache_intro",
+                text: "Volatile Cache: clear the mites at range (don't melee the bombs), then climb.",
+                category: "Custom",
+            ),
+        ),
+    ],
+    // Reciprocal hub door — snapped to the hub floor so it isn't a mid-air Door.
+    connect_to: [
+        (
+            // A `door free-spots central_hub_main` clear floor slot (the
+            // 256..344 gap); snap_to_surface keeps it resting on the floor.
+            target_room: "central_hub_main",
+            px: [276, 880],
+            size: [16, 96],
+            id: "volatile_cache_door",
+            target_zone: "volatile_cache_entry",
+            activation: "Door",
+            snap_to_surface: true,
+            bidirectional: true,
+        ),
+    ],
+)

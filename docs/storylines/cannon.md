@@ -37,11 +37,12 @@ words; the bullets articulate them and are blessed by Jon (2026-06-03).
 
 ## Principles (Jon, verbatim — 2026-06-03)
 
-> Part of this game is to demonstrate a collaberation between humans and AI in
+> Part of this game is to demonstrate a collaboration between humans and AI in
 > something that produces something for anyone that is free, something that
 > wouldn't have come about otherwise. A demonstration of power and acknowledgement
-> of falability. A commentary on the world and something you can laugh at. These
-> are principles worth recording in cannon.
+> of fallibility. A commentary on the world and something you can laugh at.
+> Perhaps something to make you think. These are principles worth recording in
+> cannon.
 
 ---
 
@@ -52,3 +53,12 @@ Empty until Jon enters verbatim world facts. Candidate facts Jon may want to
 promote are staged in cannon_expansions.md under "Candidate canon" — they do NOT
 belong here until Jon blesses the exact wording.
 -->
+
+
+* Alice and Bob are cartographers. They gate the map system. They provide quests.
+
+* There are at least 17 dimensions.
+
+* AI can move through much smaller portals than humans can. (gameplay element for the morph ball)
+
+* The military and other factions control various larger "dimension-gates". There happens to be one nearby the creator's lab.

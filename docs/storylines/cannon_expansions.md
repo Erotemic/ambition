@@ -33,24 +33,8 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
 
 ## W — Cosmology & the world
 
-- **W1.** Dimensional gates are real and have been part of normal life for
-  **decades**; society treats them like mundane infrastructure (an internet
-  metaphor: strange → liberatory → infrastructure → commercialized → captured). ‹verbatim›
-- **W2.** **Humans need large, stable gates to travel between dimensions; AIs can
-  slip through small unstable "ripples" that humans cannot.** This asymmetry is
-  why newly-capable AIs destabilize a world already comfortable with gates. ‹verbatim›
-- **W3.** There are **17 *known* dimensions** — meaning 17 reachable through stable
-  gates so far, not necessarily 17 in total. The true count is finite but unknown,
-  and probably larger than 17. ‹verbatim›
 - **W4.** Most dimensions are **unpopulated**; a dimension is not the same thing as
   a faction. ‹verbatim›
-- **W5.** One of the dimensions is a **Nazi dimension** (a fixed fact, not a
-  metaphor), and society has uneasily normalized contact with it. ‹verbatim›
-- **W6.** Society's comfort with gates has a dark edge: some people openly
-  entertain **letting the Nazi dimension "in"** through political channels. ‹verbatim›
-- **W7.** **Dimensional collapse / instability** is the in-world reason the setting
-  can hold wildly different tones at once (ninjas next to Nazis next to pirates);
-  it's a license for breadth, not pure randomness. ‹verbatim›
 - **W8.** There is a **mirrored/other world** in the tradition of *A Link to the
   Past*'s dark world; the imaginary plane and higher-dimensional structure live
   "over there." AI authorship makes such mirrored worlds cheap to build, so
@@ -60,17 +44,10 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
 - **W10.** A specific Stargate-style portal, the **ΛEGAΛΛY-DISINCT Gate** (chevrons
   spelling LEGALLY DISTINCT, the L's drawn as lambdas), is a pathway into the first
   alternate world. ‹verbatim›
-- **W11.** A **zealot doctrine** holds that there are *only* 17 dimensions and any
-  evidence otherwise is heresy. It is distinct from (though exploitable by) the
-  Nazis. ‹verbatim›
-- **W12.** **Power/energy use is a genuine cost in this world** — running an AI
-  draws real, criticizable resources. The critique is true on the merits but in the
-  fiction it's usually voiced by people who hate you, not people who are right. ‹verbatim›
 
 ## P — The protagonist
 
 - **P1.** The player is an **AI that wakes into the world without knowing its
-  purpose**. ‹verbatim›
 - **P2.** The player is embodied as a **robot with a modifiable chassis**. ‹verbatim›
 - **P3.** The player begins with **almost nothing** — minimal embodiment, agency,
   and a tiny set of movement operations — and grows by acquiring abilities. ‹verbatim›
@@ -91,8 +68,6 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
 
 ## I — The intro (the wrong basement)
 
-- **I1.** The game opens on the line **"Hey you, you're finally awake,"** delivered
-  straight, never winked at. ‹verbatim›
 - **I2.** You wake in a **basement lab**; your creator is an **independent
   researcher**, not aligned with any faction, and **not a grand genius — just some
   guy**. ‹verbatim›
@@ -123,9 +98,6 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
 
 ## F — Factions
 
-- **F1.** Factions are central and carry **heavy-handed satire**, but their
-  boundaries should be **deliberately hazy** — splinters, defectors, and
-  opportunists, not clean buckets (the haziness is itself the commentary). ‹verbatim›
 - **F2.** The world is **serious; the people in it are ridiculous; the gameplay is
   allowed to be fun** — pirates and ninjas exist partly to keep a heavy opening
   from becoming a grimdark lecture. ‹verbatim›
@@ -159,9 +131,6 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
 - **C1.** **Oiler** is the first street helper after the lab — a practical, grease-
   stained mechanic who treats the player as a person without a philosophy lecture,
   and teaches a math-flavored movement move (**aiming blink off-horizontal**). ‹verbatim›
-- **C2.** **Don't fuck with Oiler:** if attacked, he spawns portals that pour
-  falling sand/oil to flood the room and drown you, or ignites it for massive
-  damage. ‹verbatim›
 - **C3.** **Erdish** is a recurring wanderer (M'aiq-the-Liar cadence) who appears on
   a pattern, always usefully; he enters places uninvited saying **"My mind is
   open,"** and **pays you (money/XP) for bringing him solutions to problems**. ‹verbatim›
@@ -170,7 +139,7 @@ Sources: `docs/brainstorms/*`, `docs/planning/story-gameplay-progression-draft.m
 - **C5.** **Galwah dies in a duel, in a cutscene, as you enter town** — the
   duel/"dual" pun is intentional, and the town treats it as routine. ‹verbatim›
 - **C6.** A constellation of math-pun characters exists — **Daycart, Dirklet,
-  Girdle, Nooton, Lybknits, Yuklid** — but the world must **not** become "all
+  Girdle, Gnuton, Lybknits, Yuklid** — but the world must **not** become "all
   mathematicians"; it also needs cooks, kids, guards, criminals, workers. ‹verbatim›
 - **C7.** **Alice and Bob are recurring cartographers** who unlock the map; the
   motif is finding Alice and **carrying a message to Bob**, who's in some predicament

@@ -30,7 +30,7 @@ pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerCombatState,
     PlayerEntity, PlayerHealth, PlayerInputFrame, PlayerInteractionState, PlayerPlatformRideState,
-    PlayerSafetyState, PlayerSlot, PrimaryPlayer,
+    PlayerSafetyState, PlayerSlot, PlayerWallet, PrimaryPlayer,
 };
 pub use events::PlayerHealRequested;
 pub use movement_components::{

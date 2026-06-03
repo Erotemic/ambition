@@ -19,6 +19,7 @@ pub fn collect_ecs_pickups(
         With<FeatureSimEntity>,
     >,
     mut heals: MessageWriter<crate::player::PlayerHealRequested>,
+    mut wallets: Query<&mut crate::player::PlayerWallet>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut set_flag: MessageWriter<SetFlagRequested>,
@@ -50,6 +51,12 @@ pub fn collect_ecs_pickups(
                     *amount,
                     collector_entity,
                 ));
+            }
+            crate::interaction::PickupKind::Currency { amount } => {
+                // Credit the collecting player's wallet (HUD money meter).
+                if let Ok(mut wallet) = wallets.get_mut(collector_entity) {
+                    wallet.add(*amount);
+                }
             }
             crate::interaction::PickupKind::StoryFlag { flag } => {
                 // PickupSpawn entities with `kind: "flag:<id>"` set
@@ -144,6 +151,53 @@ mod tests {
         assert!(
             app.world().get::<Collected>(distant).is_none(),
             "a distant pickup should be left uncollected"
+        );
+    }
+
+    #[test]
+    fn currency_pickup_credits_the_player_wallet() {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<PlayerHealRequested>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<SetFlagRequested>();
+        app.add_systems(Update, collect_ecs_pickups);
+
+        let center = ae::Vec2::new(64.0, 64.0);
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                crate::player::PlayerWallet::default(),
+                PlayerKinematics {
+                    pos: center,
+                    size: ae::Vec2::new(28.0, 46.0),
+                    base_size: ae::Vec2::new(28.0, 46.0),
+                    facing: 1.0,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("coin"),
+            FeatureName::new("Coin"),
+            FeatureAabb::from_center_size(center, ae::Vec2::new(12.0, 12.0)),
+            PickupFeature::new(crate::interaction::Pickup::new(
+                "coin",
+                crate::interaction::PickupKind::Currency { amount: 25 },
+            )),
+        ));
+
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<crate::player::PlayerWallet>(player)
+                .unwrap()
+                .balance,
+            25,
+            "collecting a currency pickup should credit the wallet"
         );
     }
 

@@ -632,6 +632,18 @@ fn install_fx_and_hud_systems(app: &mut App) {
         )
             .chain()
             .after(windowing::window_mode_hotkeys),
+    )
+    // Always-on player HUD overlay (health / mana / money bars). Spawns once
+    // a player exists, then mirrors the meters each frame. Mana regen is a
+    // gameplay system (sim dt), kept in this group for cohesion.
+    .add_systems(
+        Update,
+        (
+            crate::hud_overlay::regen_player_mana,
+            crate::hud_overlay::spawn_player_hud,
+            crate::hud_overlay::update_player_hud,
+        )
+            .chain(),
     );
 }
 

@@ -122,6 +122,32 @@ impl PlayerHealth {
     }
 }
 
+/// Player money — abstract coin/credits balance shown on the HUD and spent at
+/// merchants. Fed by `PickupKind::Currency` collection (`collect_ecs_pickups`).
+/// Decided (Jon): a coin/credits wallet, not item-as-currency.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PlayerWallet {
+    pub balance: i32,
+}
+
+impl PlayerWallet {
+    /// Credit the wallet (clamped at zero so a negative `amount` can't drive it
+    /// below zero).
+    pub fn add(&mut self, amount: i32) {
+        self.balance = (self.balance + amount).max(0);
+    }
+
+    /// Spend `amount` if affordable; returns `true` and debits on success.
+    pub fn try_spend(&mut self, amount: i32) -> bool {
+        if amount >= 0 && self.balance >= amount {
+            self.balance -= amount;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 /// ECS-authoritative player combat/timer state.
 ///
 /// The four timer fields are written directly by the phase helpers and

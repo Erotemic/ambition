@@ -235,6 +235,7 @@ impl Item {
             MarkRecall => Some("mark_recall"),
             Fireball => Some("fireball"),
             Blink => Some("blink"),
+            Grapple => Some("grapple"),
             // PortalGun equips via its own `PortalGun` component (handled
             // specially by the menu), not a HeldItemSpec.
             _ => None,

@@ -29,6 +29,7 @@ pub mod combat;
 pub mod cutscene;
 pub mod debug_label;
 pub mod engine_core;
+pub mod grapple;
 pub mod headless;
 pub mod input;
 pub mod interaction;

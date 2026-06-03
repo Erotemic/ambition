@@ -189,6 +189,16 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 ranged: None,
             },
         );
+        // Grapple has no melee/ranged verb either — `grapple::grapple_system`
+        // intercepts its `Attack` (yank toward a grappled surface).
+        items.insert(
+            "grapple",
+            HeldItemSpec {
+                id: "grapple".into(),
+                melee: None,
+                ranged: None,
+            },
+        );
         items
     });
 

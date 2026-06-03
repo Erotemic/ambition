@@ -342,6 +342,8 @@ fn register_item_pickup_systems(app: &mut App) {
             crate::mark_recall::mark_recall_system.run_if(gameplay_allowed),
             crate::blink::spawn_debug_blink_once,
             crate::blink::blink_system.run_if(gameplay_allowed),
+            crate::grapple::spawn_debug_grapple_once,
+            crate::grapple::grapple_system.run_if(gameplay_allowed),
         )
             .chain()
             .in_set(SandboxSet::PlayerSimulation)

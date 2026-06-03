@@ -319,7 +319,8 @@ pub fn throw_held_item_system(
     // is consumed by its own use system (summon), so it only throws on Shield+Attack.
     let use_on_attack = held.spec.id == crate::puppy_slug_gun::PUPPY_SLUG_GUN_ID
         || held.spec.id == crate::mark_recall::MARK_RECALL_ID
-        || held.spec.id == crate::blink::BLINK_ID;
+        || held.spec.id == crate::blink::BLINK_ID
+        || held.spec.id == crate::grapple::GRAPPLE_ID;
     if !(control.shield_held || (is_pure_throwable(&held.spec) && !use_on_attack)) {
         return;
     }

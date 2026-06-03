@@ -85,6 +85,9 @@ Merchant Prototype: Wares for sale. Coin talks — anything you can't afford sta
 -> Buy Blink — 45g <<if can_afford(45)>>
     <<buy_item "blink" 45>>
     <<jump merchant_seed>>
+-> Buy Grapple — 45g <<if can_afford(45)>>
+    <<buy_item "grapple" 45>>
+    <<jump merchant_seed>>
 -> Sell Gun-Sword — 17g <<if inventory_has("gunsword")>>
     <<sell_item "gunsword" 17>>
     <<jump merchant_seed>>

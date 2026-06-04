@@ -486,6 +486,9 @@ pub fn portal_projectile_step(
                     PortalColor::Blue => "Portal: blue",
                     PortalColor::Orange => "Portal: orange",
                 }),
+                // Portals are per-room: a room transition despawns them, so they
+                // don't linger and reappear when you leave and come back (#41).
+                crate::presentation::rendering::RoomScopedEntity,
             ));
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_ATTACH,
@@ -1822,6 +1825,16 @@ mod tests {
             blue.is_some_and(|p| p.pos.x < 60.0 && p.normal.x > 0.5),
             "the shot should open a blue portal on the left wall, got {blue:?}"
         );
+        // The opened portal is room-scoped, so a room transition despawns it —
+        // no lingering portals that reappear when you leave and come back (#41).
+        let scoped = {
+            let mut q = app.world_mut().query_filtered::<
+                (),
+                (With<Portal>, With<crate::presentation::rendering::RoomScopedEntity>),
+            >();
+            q.iter(app.world()).count()
+        };
+        assert!(scoped >= 1, "an opened portal must be RoomScopedEntity (#41)");
         assert_eq!(
             {
                 let mut q = app.world_mut().query::<&PortalProjectile>();

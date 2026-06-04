@@ -25,12 +25,25 @@ pub enum InventoryUiBackend {
     Cube,
 }
 
+/// Peak opacity of the readability dim-scrim (black) when the cube is fully open.
+/// The game runs the cube as an Option-1 overlay (cube camera clears `None`, so the
+/// live world shows through); that busy world wrecks the cube text contrast. A
+/// full-screen translucent-black `bevy_ui` Node on the order-0 `Camera2d` renders
+/// UNDER the order-8 cube but OVER the world, dimming the world so the cube text
+/// reads. The demo doesn't need this (it has a dark `ClearColor`).
+const SCRIM_PEAK_ALPHA: f32 = 0.7;
+
+/// Marks the full-screen readability dim-scrim node (game overlay only).
+#[derive(Component)]
+struct CubeScrim;
+
 /// Wire the 3D-cube menu into the app: the lib plugins + our page-feed system.
 pub fn install_cube_menu(app: &mut App) {
     app.init_resource::<InventoryUiBackend>()
         .init_resource::<ActiveMenuPages<CubePage, CubeAction>>()
         .add_plugins(AmbitionInventoryUiPlugin)
         .add_plugins(CubeMenuPlugin::<CubePage, CubeAction>::default())
+        .add_systems(Startup, spawn_cube_scrim)
         .add_systems(
             Update,
             (
@@ -38,8 +51,43 @@ pub fn install_cube_menu(app: &mut App) {
                 gate_cube_menu,
                 toggle_inventory_backend,
                 cube_page_nav,
+                fade_cube_scrim,
             ),
         );
+}
+
+/// Spawn the readability dim-scrim node (full-screen, starts fully transparent).
+/// It lives on the `Camera2d` (which carries `IsDefaultUiCamera`), so it renders
+/// between the world and the order-8 cube. [`fade_cube_scrim`] drives its alpha.
+fn spawn_cube_scrim(mut commands: Commands) {
+    commands.spawn((
+        CubeScrim,
+        Name::new("Cube readability scrim"),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.0),
+            top: Val::Px(0.0),
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0)),
+        // Never eat clicks meant for the world/cube; purely a visual dimmer.
+        GlobalZIndex(-1),
+        Pickable::IGNORE,
+    ));
+}
+
+/// Fade the dim-scrim's alpha with the cube's eased open `amount`, so the world
+/// dims in/out exactly with the fold. Fully transparent when the cube is shut.
+fn fade_cube_scrim(
+    open_state: Res<ambition_inventory_ui::cube::CubeOpenState>,
+    mut scrim: Query<&mut BackgroundColor, With<CubeScrim>>,
+) {
+    let alpha = open_state.amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA;
+    for mut bg in &mut scrim {
+        bg.0 = Color::srgba(0.0, 0.0, 0.0, alpha);
+    }
 }
 
 /// Rotate the cube: while it's open, Left/Right (or A/D) cycle the active page and

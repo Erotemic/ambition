@@ -222,9 +222,12 @@ def icon_coin(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
 
 
 def icon_shockwave(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
-    for diam, a in [(46, 95), (33, 140), (20, 195)]:
-        d.ellipse(bbox(32 * s, 35 * s, diam * s, diam * 0.6 * s), outline=with_alpha(accent, a), width=max(1, int(1.8 * s)))
-    d.ellipse(bbox(32 * s, 35 * s, 10 * s, 6 * s), fill=rgba("#FFFFFF", 235), outline=rgba("#05070D"))
+    # heavy slam-core: a metal orb whose glowing equator throws the ring.
+    d.ellipse(bbox(32 * s, 34 * s, 30 * s, 30 * s), fill=rgba("#3A3F4C"), outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.ellipse(bbox(26 * s, 28 * s, 10 * s, 8 * s), fill=rgba("#5A6072", 200))
+    d.ellipse(bbox(32 * s, 37 * s, 36 * s, 13 * s), outline=with_alpha(accent, 235), width=max(1, int(2.4 * s)))
+    d.ellipse(bbox(32 * s, 37 * s, 23 * s, 8 * s), outline=with_alpha(accent, 150), width=max(1, int(1.6 * s)))
+    d.ellipse(bbox(32 * s, 34 * s, 7 * s, 7 * s), fill=with_alpha(accent, 240), outline=rgba("#05070D"))
 
 
 def icon_volley(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
@@ -241,9 +244,12 @@ def icon_beam(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
 
 
 def icon_vortex(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
-    for diam, a0, a1, a in [(44, 20, 230, 110), (30, 130, 340, 150), (16, 240, 90, 205)]:
-        d.arc(bbox(32 * s, 32 * s, diam * s, diam * s), a0, a1, fill=with_alpha(accent, a), width=max(1, int(2.4 * s)))
-    d.ellipse(bbox(32 * s, 32 * s, 6 * s, 6 * s), fill=rgba("#FFFFFF", 235), outline=rgba("#05070D"))
+    # a singularity gem: dark sphere with the swirl etched on it + a glow halo.
+    d.ellipse(bbox(32 * s, 32 * s, 40 * s, 40 * s), outline=with_alpha(accent, 70), width=max(1, int(1.4 * s)))
+    d.ellipse(bbox(32 * s, 33 * s, 30 * s, 30 * s), fill=rgba("#1C1830"), outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    for diam, a0, a1, a in [(24, 20, 250, 165), (15, 140, 360, 205)]:
+        d.arc(bbox(32 * s, 33 * s, diam * s, diam * s), a0, a1, fill=with_alpha(accent, a), width=max(1, int(2.2 * s)))
+    d.ellipse(bbox(32 * s, 33 * s, 5 * s, 5 * s), fill=rgba("#FFFFFF", 235))
 
 
 def icon_sentry(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
@@ -254,9 +260,11 @@ def icon_sentry(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
 
 
 def icon_dive(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
-    d.polygon(scaled([(22, 14), (32, 28), (42, 14), (42, 24), (32, 38), (22, 24)], s), fill=accent, outline=rgba("#05070D"))
-    for x in (25, 32, 39):
-        d.line([(x * s, 42 * s), (x * s, 50 * s)], fill=with_alpha(accent, 140), width=max(1, int(2 * s)))
+    # a winged dive-dart pointing down (the lunging strike as a thrown blade).
+    d.polygon(scaled([(26, 24), (16, 19), (26, 33)], s), fill=with_alpha(accent, 205), outline=rgba("#05070D"))
+    d.polygon(scaled([(38, 24), (48, 19), (38, 33)], s), fill=with_alpha(accent, 205), outline=rgba("#05070D"))
+    d.polygon(scaled([(32, 13), (38, 22), (35, 47), (32, 53), (29, 47), (26, 22)], s), fill=accent, outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.line([(32 * s, 18 * s), (32 * s, 45 * s)], fill=rgba("#FFFFFF", 150), width=max(1, int(1.4 * s)))
 
 
 def icon_meteor(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
@@ -267,6 +275,69 @@ def icon_meteor(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
     d.ellipse(bbox(25 * s, 38 * s, 5 * s, 5 * s), fill=rgba("#FFFFFF", 215))
 
 
+# ---- Item-shaped held-item props (physical objects, not icon tiles) ----------
+# These render WITHOUT the `_base` panel (see `render_item_object`) so each reads
+# as a thing lying on the ground -- a bomb, a hook, a crystal -- rather than a
+# symbol on a square. Wired into the runtime exactly like the gauntlet icons
+# (one `gauntlet_<id>.png` per held-item id). `accent` is the object's hero hue.
+
+
+def icon_bomb(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    d.ellipse(bbox(30 * s, 39 * s, 34 * s, 34 * s), fill=rgba("#23262E"), outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.ellipse(bbox(23 * s, 32 * s, 10 * s, 7 * s), fill=rgba("#5A6072", 200))
+    d.rounded_rectangle((26 * s, 18 * s, 35 * s, 25 * s), radius=2 * s, fill=rgba("#6B5536"), outline=rgba("#05070D"), width=max(1, int(1.5 * s)))
+    d.arc((30 * s, 7 * s, 49 * s, 25 * s), start=120, end=300, fill=rgba("#9A7B4F"), width=max(1, int(2.4 * s)))
+    d.ellipse(bbox(45 * s, 11 * s, 8 * s, 8 * s), fill=with_alpha(accent, 235))
+    d.ellipse(bbox(45 * s, 11 * s, 3 * s, 3 * s), fill=rgba("#FFFFFF", 240))
+
+
+def icon_grapple(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    d.line([(32 * s, 25 * s), (32 * s, 50 * s)], fill=accent, width=max(1, int(3.5 * s)))
+    d.ellipse(bbox(32 * s, 53 * s, 10 * s, 10 * s), outline=accent, width=max(1, int(2.5 * s)))
+    d.arc((14 * s, 12 * s, 33 * s, 33 * s), start=0, end=150, fill=accent, width=max(1, int(3 * s)))
+    d.arc((31 * s, 12 * s, 50 * s, 33 * s), start=30, end=180, fill=accent, width=max(1, int(3 * s)))
+    d.line([(32 * s, 25 * s), (32 * s, 13 * s)], fill=accent, width=max(1, int(3 * s)))
+    for tx, ty in [(15, 16), (49, 16), (32, 12)]:
+        d.ellipse(bbox(tx * s, ty * s, 5 * s, 5 * s), fill=rgba("#FFF3D0"), outline=rgba("#05070D"))
+
+
+def icon_gravity_grenade(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    d.ellipse(bbox(32 * s, 38 * s, 26 * s, 26 * s), outline=with_alpha(accent, 90), width=max(1, int(1.5 * s)))
+    d.rounded_rectangle((23 * s, 26 * s, 41 * s, 50 * s), radius=9 * s, fill=rgba("#2A2740"), outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.rounded_rectangle((27 * s, 17 * s, 37 * s, 27 * s), radius=2 * s, fill=rgba("#4A4668"), outline=rgba("#05070D"), width=max(1, int(1.5 * s)))
+    for diam, a0, a1 in [(16, 20, 250), (9, 140, 360)]:
+        d.arc(bbox(32 * s, 38 * s, diam * s, diam * s), a0, a1, fill=with_alpha(accent, 225), width=max(1, int(2 * s)))
+    d.ellipse(bbox(32 * s, 38 * s, 4 * s, 4 * s), fill=rgba("#FFFFFF", 235))
+
+
+def icon_mark_recall(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    for r, a in [(30, 60), (22, 95)]:
+        d.ellipse(bbox(32 * s, 34 * s, r * s, r * s), outline=with_alpha(accent, a), width=max(1, int(1.3 * s)))
+    d.polygon(scaled([(26, 20), (38, 20), (40, 50), (24, 50)], s), fill=rgba("#2E3A40"), outline=rgba("#05070D"))
+    d.polygon(scaled([(32, 27), (37, 34), (32, 41), (27, 34)], s), fill=with_alpha(accent, 235), outline=rgba("#05070D"))
+    d.line([(32 * s, 41 * s), (32 * s, 47 * s)], fill=with_alpha(accent, 205), width=max(1, int(2 * s)))
+
+
+def icon_blink_crystal(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    d.polygon(scaled([(32, 13), (45, 32), (32, 55), (19, 32)], s), fill=with_alpha(accent, 150), outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.polygon(scaled([(32, 20), (40, 33), (32, 46), (24, 33)], s), fill=with_alpha(accent, 210))
+    d.line([(32 * s, 13 * s), (32 * s, 55 * s)], fill=rgba("#FFFFFF", 200), width=max(1, int(1.5 * s)))
+    d.polygon(scaled([(32, 22), (36, 32), (32, 30)], s), fill=rgba("#FFFFFF", 230))
+    for gx, gy in [(47, 19), (17, 45)]:
+        d.line([((gx - 3) * s, gy * s), ((gx + 3) * s, gy * s)], fill=with_alpha(accent, 185), width=max(1, int(1.4 * s)))
+        d.line([(gx * s, (gy - 3) * s), (gx * s, (gy + 3) * s)], fill=with_alpha(accent, 185), width=max(1, int(1.4 * s)))
+
+
+def icon_puppy_slug_gun(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    d.polygon(scaled([(20, 39), (31, 39), (28, 53), (19, 53)], s), fill=rgba("#2A2740"), outline=rgba("#05070D"))
+    d.rounded_rectangle((15 * s, 27 * s, 42 * s, 40 * s), radius=4 * s, fill=rgba("#3A3550"), outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.polygon(scaled([(41, 25), (47, 21), (46, 31)], s), fill=with_alpha(accent, 230), outline=rgba("#05070D"))
+    d.polygon(scaled([(51, 25), (57, 22), (52, 32)], s), fill=with_alpha(accent, 230), outline=rgba("#05070D"))
+    d.ellipse(bbox(47 * s, 33 * s, 17 * s, 15 * s), fill=with_alpha(accent, 210), outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.ellipse(bbox(44 * s, 31 * s, 3 * s, 3 * s), fill=rgba("#05070D"))
+    d.ellipse(bbox(50 * s, 34 * s, 5 * s, 4 * s), fill=rgba("#23262E"))
+
+
 GAUNTLET_ICON_SPECS: List[IconSpec] = [
     IconSpec("shockwave", "gauntlet_shockwave.png", "gauntlet", "ground-slam ring", "#FFD166", "shockwave"),
     IconSpec("volley", "gauntlet_volley.png", "gauntlet", "ranged spread shots", "#8AE66A", "volley"),
@@ -275,6 +346,12 @@ GAUNTLET_ICON_SPECS: List[IconSpec] = [
     IconSpec("sentry", "gauntlet_sentry.png", "gauntlet", "deployable turret", "#5E9BFF", "sentry"),
     IconSpec("dive", "gauntlet_dive.png", "gauntlet", "lunging dash strike", "#FF9F45", "dive"),
     IconSpec("meteor", "gauntlet_meteor.png", "gauntlet", "overhead area rain", "#FFC857", "meteor"),
+    IconSpec("bomb", "gauntlet_bomb.png", "held_item", "lobbed timed bomb", "#FFD166", "bomb"),
+    IconSpec("grapple", "gauntlet_grapple.png", "held_item", "grappling hook", "#C9A24B", "grapple"),
+    IconSpec("gravity_grenade", "gauntlet_gravity_grenade.png", "held_item", "localized gravity well", "#8E7BFF", "gravity_grenade"),
+    IconSpec("mark_recall", "gauntlet_mark_recall.png", "held_item", "recall beacon", "#5ED6C0", "mark_recall"),
+    IconSpec("blink", "gauntlet_blink.png", "held_item", "short-range teleport shard", "#72E7FF", "blink_crystal"),
+    IconSpec("puppy_slug_gun", "gauntlet_puppy_slug_gun.png", "held_item", "puppy-slug blaster", "#FF8FB0", "puppy_slug_gun"),
 ]
 
 
@@ -306,6 +383,12 @@ DRAWERS: Dict[str, Callable[[ImageDraw.ImageDraw, float, Color], None]] = {
     "sentry": icon_sentry,
     "dive": icon_dive,
     "meteor": icon_meteor,
+    "bomb": icon_bomb,
+    "grapple": icon_grapple,
+    "gravity_grenade": icon_gravity_grenade,
+    "mark_recall": icon_mark_recall,
+    "blink_crystal": icon_blink_crystal,
+    "puppy_slug_gun": icon_puppy_slug_gun,
 }
 
 
@@ -316,6 +399,19 @@ def render_icon(spec: IconSpec, size: Tuple[int, int] = (64, 64), supersample: i
     accent = rgba(spec.accent)
     _base(d, float(s), accent)
     DRAWERS[spec.drawer](d, float(s), accent)
+    return img.resize(size, RESAMPLING.LANCZOS)
+
+
+def render_item_object(spec: IconSpec, size: Tuple[int, int] = (64, 64), supersample: int = 4) -> Image.Image:
+    """Like `render_icon` but WITHOUT the `_base` panel -- the drawer's shape is
+    the whole sprite, so it reads as a physical item on the ground rather than a
+    symbol on a tile. Used for the wielded held-item ground props. No baked drop
+    shadow (the ECS visual layer owns cast shadows; a baked one would shift the
+    alpha bbox and float the item)."""
+    s = max(1, int(supersample))
+    img = Image.new("RGBA", (size[0] * s, size[1] * s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    DRAWERS[spec.drawer](d, float(s), rgba(spec.accent))
     return img.resize(size, RESAMPLING.LANCZOS)
 
 
@@ -362,7 +458,9 @@ def write_gauntlet_props(out_dir: str | Path, *, size: Tuple[int, int] = (64, 64
     outputs: List[Path] = []
     for spec in GAUNTLET_ICON_SPECS:
         path = out_dir / spec.filename
-        render_icon(spec, size).save(path)
+        # Panel-free render: the gauntlets/held-items read as items lying on the
+        # ground, not symbols on a square tile (the `_base` panel).
+        render_item_object(spec, size).save(path)
         outputs.append(path)
     return outputs
 

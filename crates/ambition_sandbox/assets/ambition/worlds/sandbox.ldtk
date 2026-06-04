@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 6002,
+	"nextUid": 6003,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -40051,6 +40051,35 @@
 								{ "__identifier": "dir", "__type": "String", "__value": "up", "__tile": null, "defUid": 5995, "realEditorValues": [] },
 								{ "__identifier": "oscillate_amplitude", "__type": "Float", "__value": 150.0, "__tile": null, "defUid": 5996, "realEditorValues": [{ "id": "V_Float", "params": [150.0] }] },
 								{ "__identifier": "oscillate_freq", "__type": "Float", "__value": 1.1, "__tile": null, "defUid": 5997, "realEditorValues": [{ "id": "V_Float", "params": [1.1] }] }
+							]
+						},
+						{
+							"__identifier": "GravityZone",
+							"__grid": [37,3],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#B98CFF",
+							"__worldX": 44592,
+							"__worldY": 48,
+							"iid": "GravityZone-6002",
+							"width": 416,
+							"height": 560,
+							"defUid": 5998,
+							"px": [592,48],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "glab_wall_walk_right", "__tile": null, "defUid": 5993, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["glab_wall_walk_right"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Wall-walk (gravity right)", "__tile": null, "defUid": 5994, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Wall-walk (gravity right)"]
+								}] },
+								{ "__identifier": "dir", "__type": "String", "__value": "right", "__tile": null, "defUid": 5995, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["right"]
+								}] }
 							]
 						}
 					]

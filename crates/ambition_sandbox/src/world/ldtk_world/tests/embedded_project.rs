@@ -725,4 +725,15 @@ fn ldtk_authors_shrine_and_gravity_zone() {
         zones >= 1,
         "expected an authored GravityZone in the LDtk room set (did convert_gravity_zone break?)"
     );
+    // A sideways (horizontal-gravity) zone must exist so wall-walking is
+    // reachable in-game (the gravity_lab `glab_wall_walk_right` zone).
+    let sideways = room_set
+        .rooms
+        .iter()
+        .flat_map(|r| r.gravity_zones.iter())
+        .any(|z| z.dir.x != 0.0);
+    assert!(
+        sideways,
+        "expected a sideways (wall-walking) GravityZone — the wall-walking demo is unreachable without one"
+    );
 }

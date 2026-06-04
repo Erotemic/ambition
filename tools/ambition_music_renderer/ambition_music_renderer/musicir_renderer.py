@@ -685,6 +685,8 @@ def render_layer_motif(ctx: RenderContext, section: dict[str, Any], layer: dict[
     every_bars = float(layer.get("every_bars", 2.0))
     velocity = float(layer.get("velocity", 78))
     articulation = layer.get("articulation", "normal")
+    gate_value = layer.get("gate")
+    gate = float(gate_value) if gate_value is not None else None
     transpose = int(layer.get("transpose", 0))
     transform = layer.get("transform")
     inst_velocity_offsets = layer.get("instrument_velocity_offsets", {}) or {}
@@ -712,7 +714,7 @@ def render_layer_motif(ctx: RenderContext, section: dict[str, Any], layer: dict[
                     scoop = float(inst_pitch_scoop.get(inst, layer.get("pitch_scoop_cents", 0.0)))
                     bend_curve = inst_pitch_bend_curves.get(inst, layer.get("pitch_bend_curve"))
                     bend_curve_pairs = [(float(x[0]), float(x[1])) for x in bend_curve] if bend_curve else None
-                    add_note(ctx, inst, p, section["start_bar"] + local_bar, beat, dur, v * vel_scale * float(section.get("intensity", 1.0)), articulation=articulation, pitch_scoop_cents=scoop, pitch_bend_curve=bend_curve_pairs, **hk)
+                    add_note(ctx, inst, p, section["start_bar"] + local_bar, beat, dur, v * vel_scale * float(section.get("intensity", 1.0)), articulation=articulation, gate=gate, pitch_scoop_cents=scoop, pitch_bend_curve=bend_curve_pairs, **hk)
                 beat += dur
 
 

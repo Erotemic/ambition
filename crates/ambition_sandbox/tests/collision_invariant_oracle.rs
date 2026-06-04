@@ -163,6 +163,28 @@ fn solid_blocks(sim: &SandboxSim) -> Vec<ae::Aabb> {
         .collect()
 }
 
+/// `room id -> its LoadingZone (edge-exit / door) AABBs`, loaded once from the
+/// LDtk project. An OOB that lands at one of these is the player legitimately
+/// leaving through an opening, not clipping a solid boundary — the cross-check
+/// that turns the raw OOB-SIDE noise into "OOB through a wall with no exit".
+fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
+    use ambition_sandbox as sb;
+    let mut map = std::collections::HashMap::new();
+    let Ok(project) = sb::ldtk_world::LdtkProject::load_default_for_dev() else {
+        return map;
+    };
+    let Ok(room_set) = project.to_room_set() else {
+        return map;
+    };
+    for room in &room_set.rooms {
+        map.insert(
+            room.id.clone(),
+            room.loading_zones.iter().map(|z| z.aabb).collect(),
+        );
+    }
+    map
+}
+
 /// Check one post-tick observation against the invariants. `teleport_from` is
 /// the prior tick's center for the teleport test — passed as `None` whenever the
 /// room changed or the player respawned this tick (a door load or a death→spawn
@@ -176,6 +198,8 @@ fn check_step(
     teleport_from: Option<(f32, f32)>,
     world_size: (f32, f32),
     blocks: &[ae::Aabb],
+    loading_zones: &[ae::Aabb],
+    suppressed: &mut u32,
 ) -> Vec<Violation> {
     let mut out = Vec::new();
     let (px, py) = pos;
@@ -217,14 +241,28 @@ fn check_step(
         None
     };
     if let Some(kind) = kind {
-        out.push(Violation {
-            room: room.to_string(),
-            seed,
-            tick,
-            kind,
-            pos,
-            detail: format!("world [{ww:.0}x{wh:.0}]"),
+        // An OOB at an authored exit (edge-exit / door) is legit traversal, not a
+        // clip — the player is leaving through the opening. Expand the zone so a
+        // center a half-body past the edge still reads as "at the exit".
+        const EXIT_PAD: f32 = 48.0;
+        let at_exit = loading_zones.iter().any(|z| {
+            px > z.min.x - EXIT_PAD
+                && px < z.max.x + EXIT_PAD
+                && py > z.min.y - EXIT_PAD
+                && py < z.max.y + EXIT_PAD
         });
+        if at_exit {
+            *suppressed += 1;
+        } else {
+            out.push(Violation {
+                room: room.to_string(),
+                seed,
+                tick,
+                kind,
+                pos,
+                detail: format!("world [{ww:.0}x{wh:.0}]"),
+            });
+        }
     }
 
     // 3. Teleport: a single-tick jump no legit move can produce (caller passes
@@ -245,14 +283,21 @@ fn check_step(
     out
 }
 
-/// Run one (room, seed) episode of `steps` ticks, collecting violations.
-/// Returns `(violations, steps_actually_run)`.
-fn run_episode(room: &str, seed: u64, steps: u64) -> (Vec<Violation>, u64) {
+/// Run one (start_room, seed) episode of `steps` ticks, collecting violations.
+/// Violations are labelled with the room the player is actually in (not the
+/// start room) so a transition mid-episode attributes correctly. Returns
+/// `(violations, steps_actually_run, oob_suppressed_at_authored_exits)`.
+fn run_episode(
+    start_room: &str,
+    seed: u64,
+    steps: u64,
+    zones: &std::collections::HashMap<String, Vec<ae::Aabb>>,
+) -> (Vec<Violation>, u64, u32) {
     let opts = SandboxSimOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
-        .with_start_room(room);
+        .with_start_room(start_room);
     let Ok(mut sim) = SandboxSim::new_with_options(opts) else {
-        return (Vec::new(), 0);
+        return (Vec::new(), 0, 0);
     };
     let mut rng = Lcg::new(seed);
     let mut sticky = 0.0_f32;
@@ -262,34 +307,45 @@ fn run_episode(room: &str, seed: u64, steps: u64) -> (Vec<Violation>, u64) {
     let mut prev_resets = first.resets;
     let mut violations = Vec::new();
     let mut ran = 0;
+    let mut suppressed = 0;
+    let empty: Vec<ae::Aabb> = Vec::new();
     for _ in 0..steps {
         let action = random_action(&mut rng, &mut sticky);
         let obs = sim.step(action);
         ran += 1;
         let blocks = solid_blocks(&sim);
+        let room_zones = zones.get(&obs.active_room).unwrap_or(&empty);
         // A door load or a death→spawn respawn is a legit large jump — only feed
         // the teleport test a prior pos when neither happened this tick.
         let transitioned = obs.active_room != prev_room || obs.resets != prev_resets;
         let teleport_from = (!transitioned).then_some(prev_pos);
         violations.extend(check_step(
-            room,
+            &obs.active_room,
             seed,
             obs.tick,
             obs.player_pos,
             teleport_from,
             obs.world_size,
             &blocks,
+            room_zones,
+            &mut suppressed,
         ));
         prev_pos = obs.player_pos;
         prev_room = obs.active_room.clone();
         prev_resets = obs.resets;
     }
-    (violations, ran)
+    (violations, ran, suppressed)
 }
 
 /// Group violations into a stable, diff-friendly report: per (room, kind) a
-/// count plus the first repro.
-fn format_report(violations: &[Violation], episodes: u64, total_steps: u64) -> String {
+/// count plus the first repro. `suppressed` = OOB events that landed at an
+/// authored exit (legit traversal, filtered out of the catalog).
+fn format_report(
+    violations: &[Violation],
+    episodes: u64,
+    total_steps: u64,
+    suppressed: u32,
+) -> String {
     use std::collections::BTreeMap;
     let mut buckets: BTreeMap<(String, &'static str), (u64, &Violation)> = BTreeMap::new();
     for v in violations {
@@ -301,7 +357,7 @@ fn format_report(violations: &[Violation], episodes: u64, total_steps: u64) -> S
     }
     let mut s = String::new();
     s.push_str(&format!(
-        "\n=== collision-invariant oracle: {episodes} episodes, {total_steps} steps, {} violations ===\n",
+        "\n=== collision-invariant oracle: {episodes} episodes, {total_steps} steps, {} violations ({suppressed} OOB suppressed at authored exits) ===\n",
         violations.len()
     ));
     if buckets.is_empty() {
@@ -322,18 +378,21 @@ fn format_report(violations: &[Violation], episodes: u64, total_steps: u64) -> S
 /// gap rooms — see the module docs). Fast: a couple seeds on the cold-launch room.
 #[test]
 fn collision_oracle_smoke() {
+    let zones = load_loading_zones();
     let mut all = Vec::new();
     let mut total_steps = 0;
     let mut episodes = 0;
+    let mut suppressed = 0;
     // The empty start_room string means "keep the LDtk-authored start room".
     for seed in [1_u64, 7] {
-        let (mut v, ran) = run_episode("", seed, 200);
+        let (mut v, ran, supp) = run_episode("", seed, 200, &zones);
         assert!(ran > 0, "the oracle episode must actually step the sim");
         total_steps += ran;
         episodes += 1;
+        suppressed += supp;
         all.append(&mut v);
     }
-    eprintln!("{}", format_report(&all, episodes, total_steps));
+    eprintln!("{}", format_report(&all, episodes, total_steps, suppressed));
     // Harness liveness only — the sim stepped without panicking across the run.
     assert_eq!(episodes, 2);
 }
@@ -349,19 +408,22 @@ fn collision_oracle_full_sweep() {
         .room_ids();
     assert!(!rooms.is_empty(), "no rooms — the sweep would pass vacuously");
 
+    let zones = load_loading_zones();
     let seeds = [1_u64, 42, 2026];
     let mut all = Vec::new();
     let mut total_steps = 0;
     let mut episodes = 0;
+    let mut suppressed = 0;
     for room in &rooms {
         for &seed in &seeds {
-            let (mut v, ran) = run_episode(room, seed, 300);
+            let (mut v, ran, supp) = run_episode(room, seed, 300, &zones);
             total_steps += ran;
             episodes += 1;
+            suppressed += supp;
             all.append(&mut v);
         }
     }
-    eprintln!("{}", format_report(&all, episodes, total_steps));
+    eprintln!("{}", format_report(&all, episodes, total_steps, suppressed));
     eprintln!(
         "swept {} rooms x {} seeds; see per-(room,kind) first-repro above.",
         rooms.len(),

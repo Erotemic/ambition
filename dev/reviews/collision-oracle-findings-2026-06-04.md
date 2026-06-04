@@ -57,48 +57,59 @@ trace is the complement. Also the embed check is center-based (catches deep
 embedding, not a partial clip that resolves the same tick), and a same-tick
 OOB→respawn is invisible to a post-tick observation.
 
-## The catalog — minor edge-straddle OOB, by room
+## The catalog — OOB at *un-exit* boundaries, by room
 
-All remaining violations are the player **center crossing a world boundary by
-~17–26px** — i.e. the AABB straddling the edge (body mostly in-bounds, center
-just past). This is the "permitted OOB" the base fuzzer already tolerates, and it
-clusters in rooms with **open / exit boundaries**:
+The oracle cross-references each OOB against the room's authored LoadingZone /
+EdgeExit AABBs (loaded from the LDtk project) and **suppresses OOB that lands at
+an opening** — legit traversal, not a clip. The refined sweep (52,200 steps)
+suppressed only **14** OOB at authored exits; the remaining **1335 are at
+boundaries with *no* loading zone**, so they are NOT the player leaving through a
+door. Each is the player **center crossing a world boundary by ~18–50px** (with a
+~15px half-width, that's the whole body past the edge), held just past it — which
+means it's either an **open/void boundary** (authored, e.g. a sky arena's open
+sides or a shaft's open top) or a **boundary the player clips through** (a real
+collision bug). Rooms, by frequency (labelled by the room the player was actually
+in, so transitions attribute correctly):
 
-| Room | Kind | Count | First repro (seed/tick/pos) |
-|------|------|------:|------|
-| under_town_pipes | OOB-SIDE | 415 | 1 / 25 / (-19,613) |
-| intro_escape_shaft | OOB-SIDE | 280 | 1 / 28 / (-17,1124) |
-| under_town_pipes | OOB-BELOW-FLOOR | 188 | 1 / 112 / (-136,787) |
-| ninja_dojo | OOB-SIDE | 117 | 2026 / 143 / (1822,1519) |
-| alice_relay | OOB-SIDE | 94 | 2026 / 153 / (1042,428) |
-| bob_relay | OOB-SIDE | 89 | 2026 / 156 / (1048,392) |
-| pirate_sky_lookout | OOB-SIDE | 78 | 42 / 79 / (-22,547) |
-| intro_escape_shaft | OOB-BELOW-FLOOR | 48 | 1 / 112 / (-96,1299) |
-| tiny_chamber | OOB-SIDE | 40 | 2026 / 189 / (926,156) |
+| Room | Kind | Count | First repro (seed/tick/pos) | world |
+|------|------|------:|------|------|
+| under_town_pipes | OOB-SIDE | 509 | 2026 / 153 / (1042,428) | 1024×768 |
+| intro_escape_shaft | OOB-SIDE | 266 | 1 / 31 / (-50,1120) | 1280×1280 |
+| under_town_pipes | OOB-BELOW-FLOOR | 188 | 1 / 112 / (-136,787) | 1024×768 |
+| square_arena | OOB-SIDE | 117 | 2026 / 143 / (1822,1519) | 1800×1800 |
+| alice_relay | OOB-SIDE | 89 | 2026 / 156 / (1048,392) | 1024×768 |
+| pirate_sky_lookout | OOB-SIDE | 78 | 42 / 79 / (-22,547) | 1280×768 |
+| intro_escape_shaft | OOB-BELOW-FLOOR | 48 | 1 / 112 / (-96,1299) | 1280×1280 |
+| tiny_chamber | OOB-SIDE | 40 | 2026 / 189 / (926,156) | 900×520 |
 
 Reproduce one: `cargo run -p ambition_sandbox --bin rl_random_walker -- <STEPS>
 <SEED>` after launching that room as `--start-room`.
 
 ### Interpretation (for the interactive session)
 
-The high-count rooms (`under_town_pipes`, `intro_escape_shaft`) have boundaries
-the player walks/falls off easily — almost certainly authored **EdgeExit / gap**
-boundaries (a shaft is open top-to-bottom by design), so the side/below OOB there
-is expected. The `*_relay` and `tiny_chamber` / `ninja_dojo` side-OOB are small
-(18–26px past a right/left wall) and worth a glance: either a legit edge-exit or a
-"you can nudge your center a half-body past the boundary wall" looseness.
+That only 14/1349 OOB sit at authored exits is the actionable result: **these are
+not door-leaving, so each room needs an eyeball at whether its boundary is
+*meant* to be open.** `tiny_chamber` (a small closed-sounding test room where the
+player reaches x=926 in a 900-wide world — fully past the right edge with no exit)
+is the prime suspect for a genuine **boundary clip-through**: if its right edge is
+a Solid wall, the player penetrating ~26px past it before being stopped is the
+"wall-clipping" looseness (TODO §A "Wall-clipping bugs"). `pirate_sky_lookout`
+and the `*_relay` rooms are similar small over-runs (18–24px past). The high-count
+`under_town_pipes` / `intro_escape_shaft` likely have **authored open boundaries**
+(a pipe maze / vertical shaft), so their side/below OOB is probably by-design.
 
-The triage that needs a human (or a follow-up the oracle can't do blind): **cross-
-reference each OOB-SIDE room against its LDtk LoadingZone/EdgeExit geometry** — an
-OOB at an authored exit is fine; an OOB through a *solid boundary wall* with no
-exit is the real bug. That cross-check (read the room's loading zones from the
-sim and suppress OOB within an exit's span) is the natural next enhancement to the
-oracle, deferred because the exit geometry isn't in the observation surface yet.
+The remaining clip-vs-void call per room is a **visual one** — render each with
+`cargo run -p ambition_sandbox --example render_room_geometry -- <ROOM_ID>` and
+look at whether the over-run boundary is a Solid wall (→ bug) or open (→ design).
+The oracle has narrowed "1349 OOB events" down to "8 specific (room, boundary)
+pairs to eyeball," which is the legwork done.
 
 ## Follow-up enhancements (deferred)
 
-1. Suppress OOB that lands within an authored EdgeExit/LoadingZone span (turns the
-   side/below noise into only genuine through-wall OOB).
+1. ✅ *Done in this commit:* suppress OOB at authored EdgeExit/LoadingZone spans
+   (the exit cross-reference above). Next: also test whether a **Solid block sits
+   at the crossed boundary** to auto-split clip-through (bug) from open-void
+   (design) without the manual render step.
 2. A scripted-replay mode that feeds Jon's captured OOB trace inputs (targeted
    repro alongside the random sweep).
 3. Optionally promote EMBEDDED/ABOVE/TELEPORT to a CI gate once they're confirmed

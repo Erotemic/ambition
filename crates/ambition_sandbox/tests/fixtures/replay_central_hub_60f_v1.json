@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "timestamp_unix": 1778171257,
-  "timestamp_label": "1778171257-340032817-000000_20580d16h27m37s",
+  "timestamp_unix": 1780534117,
+  "timestamp_label": "1780534117-400121543-000000_20608d00h48m37s",
   "dump_reason": "Programmatic: headless",
   "capacity_frames": 76,
   "capacity_events": 256,
@@ -24,29 +24,29 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 851.625
+          "y": 883.625
         },
         "vel": {
           "x": 0.0,
           "y": 37.500004
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 828.625
+            "x": 935.0,
+            "y": 859.625
           },
           "max": {
-            "x": 964.0,
-            "y": 874.625
+            "x": 965.0,
+            "y": 907.625
           }
         },
         "facing": 1.0,
@@ -64,10 +64,12 @@
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 883.0
         },
         "time_alive": 0.016666668,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -103,7 +105,7 @@
               "y": 960.0
             }
           },
-          "distance": 92.396645
+          "distance": 60.408115
         },
         {
           "kind": "OneWay",
@@ -118,32 +120,32 @@
               "y": 752.0
             }
           },
-          "distance": 115.78057
+          "distance": 147.74689
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 534.1667,
-            "y": 1202.4
+            "x": 536.1667,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 456.6667,
-              "y": 1193.4
+              "x": 456.1667,
+              "y": 1208.0
             },
             "max": {
-              "x": 611.6667,
-              "y": 1211.4
+              "x": 616.1667,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 544.02246
+          "player_distance": 531.4103
         }
       ]
     },
@@ -161,29 +163,29 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 852.875
+          "y": 884.875
         },
         "vel": {
           "x": 0.0,
           "y": 75.00001
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 829.875
+            "x": 935.0,
+            "y": 860.875
           },
           "max": {
-            "x": 964.0,
-            "y": 875.875
+            "x": 965.0,
+            "y": 908.875
           }
         },
         "facing": 1.0,
@@ -201,10 +203,12 @@
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 883.0
         },
         "time_alive": 0.033333335,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -240,7 +244,7 @@
               "y": 960.0
             }
           },
-          "distance": 91.14694
+          "distance": 59.158817
         },
         {
           "kind": "OneWay",
@@ -255,32 +259,32 @@
               "y": 752.0
             }
           },
-          "distance": 117.02891
+          "distance": 148.99586
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 536.3334,
-            "y": 1202.4
+            "x": 538.3334,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 458.83337,
-              "y": 1193.4
+              "x": 458.33337,
+              "y": 1208.0
             },
             "max": {
-              "x": 613.8334,
-              "y": 1211.4
+              "x": 618.3334,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 541.56055
+          "player_distance": 528.93896
         }
       ]
     },
@@ -298,29 +302,29 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 854.75
+          "y": 886.75
         },
         "vel": {
           "x": 0.0,
           "y": 112.500015
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 831.75
+            "x": 935.0,
+            "y": 862.75
           },
           "max": {
-            "x": 964.0,
-            "y": 877.75
+            "x": 965.0,
+            "y": 910.75
           }
         },
         "facing": 1.0,
@@ -338,10 +342,12 @@
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 883.0
         },
         "time_alive": 0.050000004,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -377,7 +383,7 @@
               "y": 960.0
             }
           },
-          "distance": 89.27241
+          "distance": 57.284924
         },
         {
           "kind": "OneWay",
@@ -392,32 +398,32 @@
               "y": 752.0
             }
           },
-          "distance": 118.90148
+          "distance": 150.86935
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 538.50006,
-            "y": 1202.4
+            "x": 540.50006,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 461.00006,
-              "y": 1193.4
+              "x": 460.50006,
+              "y": 1208.0
             },
             "max": {
-              "x": 616.00006,
-              "y": 1211.4
+              "x": 620.50006,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 538.69543
+          "player_distance": 526.0753
         }
       ]
     },
@@ -435,29 +441,29 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 857.25
+          "y": 889.25
         },
         "vel": {
           "x": 0.0,
           "y": 150.00002
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 834.25
+            "x": 935.0,
+            "y": 865.25
           },
           "max": {
-            "x": 964.0,
-            "y": 880.25
+            "x": 965.0,
+            "y": 913.25
           }
         },
         "facing": 1.0,
@@ -475,10 +481,12 @@
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 883.0
         },
         "time_alive": 0.06666667,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -514,7 +522,7 @@
               "y": 960.0
             }
           },
-          "distance": 86.77305
+          "distance": 54.78652
         },
         {
           "kind": "OneWay",
@@ -529,32 +537,32 @@
               "y": 752.0
             }
           },
-          "distance": 121.39836
+          "distance": 153.36742
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 540.66675,
-            "y": 1202.4
+            "x": 542.66675,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 463.16675,
-              "y": 1193.4
+              "x": 462.66675,
+              "y": 1208.0
             },
             "max": {
-              "x": 618.16675,
-              "y": 1211.4
+              "x": 622.66675,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 535.4272
+          "player_distance": 522.8197
         }
       ]
     },
@@ -572,29 +580,29 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 860.375
+          "y": 892.375
         },
         "vel": {
           "x": 0.0,
           "y": 187.50002
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 837.375
+            "x": 935.0,
+            "y": 868.375
           },
           "max": {
-            "x": 964.0,
-            "y": 883.375
+            "x": 965.0,
+            "y": 916.375
           }
         },
         "facing": 1.0,
@@ -612,10 +620,12 @@
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 883.0
         },
         "time_alive": 0.083333336,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -651,7 +661,7 @@
               "y": 960.0
             }
           },
-          "distance": 83.64891
+          "distance": 51.663727
         },
         {
           "kind": "OneWay",
@@ -666,32 +676,32 @@
               "y": 752.0
             }
           },
-          "distance": 124.51964
+          "distance": 156.49007
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 542.83344,
-            "y": 1202.4
+            "x": 544.83344,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 465.33344,
-              "y": 1193.4
+              "x": 464.83344,
+              "y": 1208.0
             },
             "max": {
-              "x": 620.33344,
-              "y": 1211.4
+              "x": 624.83344,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 531.7572
+          "player_distance": 519.1737
         }
       ]
     },
@@ -709,29 +719,29 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 864.125
+          "y": 896.125
         },
         "vel": {
           "x": 0.0,
           "y": 225.00002
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 841.125
+            "x": 935.0,
+            "y": 872.125
           },
           "max": {
-            "x": 964.0,
-            "y": 887.125
+            "x": 965.0,
+            "y": 920.125
           }
         },
         "facing": 1.0,
@@ -749,10 +759,12 @@
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 883.0
         },
         "time_alive": 0.1,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -788,7 +800,7 @@
               "y": 960.0
             }
           },
-          "distance": 79.90003
+          "distance": 47.916756
         },
         {
           "kind": "OneWay",
@@ -803,32 +815,32 @@
               "y": 752.0
             }
           },
-          "distance": 128.26541
+          "distance": 160.23737
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 545.0001,
-            "y": 1202.4
+            "x": 547.0001,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 467.50012,
-              "y": 1193.4
+              "x": 467.00012,
+              "y": 1208.0
             },
             "max": {
-              "x": 622.5001,
-              "y": 1211.4
+              "x": 627.0001,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 527.6883
+          "player_distance": 515.14044
         }
       ]
     },
@@ -846,29 +858,29 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 868.5
+          "y": 900.5
         },
         "vel": {
           "x": 0.0,
           "y": 262.50003
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 845.5
+            "x": 935.0,
+            "y": 876.5
           },
           "max": {
-            "x": 964.0,
-            "y": 891.5
+            "x": 965.0,
+            "y": 924.5
           }
         },
         "facing": 1.0,
@@ -886,10 +898,12 @@
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 883.0
         },
         "time_alive": 0.11666667,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -925,7 +939,7 @@
               "y": 960.0
             }
           },
-          "distance": 75.52648
+          "distance": 43.54595
         },
         {
           "kind": "OneWay",
@@ -940,32 +954,32 @@
               "y": 752.0
             }
           },
-          "distance": 132.63577
+          "distance": 164.60939
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 547.1668,
-            "y": 1202.4
+            "x": 549.1668,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 469.6668,
-              "y": 1193.4
+              "x": 469.1668,
+              "y": 1208.0
             },
             "max": {
-              "x": 624.6668,
-              "y": 1211.4
+              "x": 629.1668,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 523.2244
+          "player_distance": 510.7245
         }
       ]
     },
@@ -983,33 +997,33 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 873.5
+          "y": 904.0
         },
         "vel": {
           "x": 0.0,
-          "y": 300.00003
+          "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 850.5
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 896.5
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
-        "on_ground": false,
+        "on_ground": true,
         "on_wall": false,
         "wall_clinging": false,
         "wall_climbing": false,
@@ -1019,14 +1033,16 @@
         "air_jumps_available": 1,
         "blink_aiming": false,
         "blink_grace_timer": 0.0,
-        "locomotion": "Airborne",
+        "locomotion": "Grounded",
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 904.0
         },
         "time_alive": 0.13333334,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -1062,7 +1078,7 @@
               "y": 960.0
             }
           },
-          "distance": 70.528366
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -1077,32 +1093,32 @@
               "y": 752.0
             }
           },
-          "distance": 137.63084
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 549.3335,
-            "y": 1202.4
+            "x": 551.3335,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 471.8335,
-              "y": 1193.4
+              "x": 471.3335,
+              "y": 1208.0
             },
             "max": {
-              "x": 626.8335,
-              "y": 1211.4
+              "x": 631.3335,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 518.37134
+          "player_distance": 506.85696
         }
       ]
     },
@@ -1120,33 +1136,33 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 879.125
+          "y": 904.0
         },
         "vel": {
           "x": 0.0,
-          "y": 337.50003
+          "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 856.125
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 902.125
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
-        "on_ground": false,
+        "on_ground": true,
         "on_wall": false,
         "wall_clinging": false,
         "wall_climbing": false,
@@ -1156,14 +1172,16 @@
         "air_jumps_available": 1,
         "blink_aiming": false,
         "blink_grace_timer": 0.0,
-        "locomotion": "Airborne",
+        "locomotion": "Grounded",
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 904.0
         },
         "time_alive": 0.15,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -1199,7 +1217,7 @@
               "y": 960.0
             }
           },
-          "distance": 64.90582
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -1214,32 +1232,32 @@
               "y": 752.0
             }
           },
-          "distance": 143.2507
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 551.5002,
-            "y": 1202.4
+            "x": 553.5002,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 474.00018,
-              "y": 1193.4
+              "x": 473.50018,
+              "y": 1208.0
             },
             "max": {
-              "x": 629.0002,
-              "y": 1211.4
+              "x": 633.5002,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 513.1363
+          "player_distance": 505.15454
         }
       ]
     },
@@ -1257,33 +1275,33 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 885.375
+          "y": 904.0
         },
         "vel": {
           "x": 0.0,
-          "y": 375.00003
+          "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 862.375
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 908.375
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
-        "on_ground": false,
+        "on_ground": true,
         "on_wall": false,
         "wall_clinging": false,
         "wall_climbing": false,
@@ -1293,14 +1311,16 @@
         "air_jumps_available": 1,
         "blink_aiming": false,
         "blink_grace_timer": 0.0,
-        "locomotion": "Airborne",
+        "locomotion": "Grounded",
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 904.0
         },
         "time_alive": 0.16666667,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -1336,7 +1356,7 @@
               "y": 960.0
             }
           },
-          "distance": 58.659103
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -1351,32 +1371,32 @@
               "y": 752.0
             }
           },
-          "distance": 149.49545
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 553.6669,
-            "y": 1202.4
+            "x": 555.6669,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 476.16687,
-              "y": 1193.4
+              "x": 475.66687,
+              "y": 1208.0
             },
             "max": {
-              "x": 631.1669,
-              "y": 1211.4
+              "x": 635.6669,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 507.52814
+          "player_distance": 503.4557
         }
       ]
     },
@@ -1394,33 +1414,33 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 892.25
+          "y": 904.0
         },
         "vel": {
           "x": 0.0,
-          "y": 412.50003
+          "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 869.25
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 915.25
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
-        "on_ground": false,
+        "on_ground": true,
         "on_wall": false,
         "wall_clinging": false,
         "wall_climbing": false,
@@ -1430,14 +1450,16 @@
         "air_jumps_available": 1,
         "blink_aiming": false,
         "blink_grace_timer": 0.0,
-        "locomotion": "Airborne",
+        "locomotion": "Grounded",
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 904.0
         },
         "time_alive": 0.18333334,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -1473,7 +1495,7 @@
               "y": 960.0
             }
           },
-          "distance": 51.78863
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -1488,32 +1510,32 @@
               "y": 752.0
             }
           },
-          "distance": 156.36516
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 555.83356,
-            "y": 1202.4
+            "x": 557.83356,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 478.33356,
-              "y": 1193.4
+              "x": 477.83356,
+              "y": 1208.0
             },
             "max": {
-              "x": 633.33356,
-              "y": 1211.4
+              "x": 637.83356,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 501.5578
+          "player_distance": 501.7604
         }
       ]
     },
@@ -1531,33 +1553,33 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
           "x": 950.0,
-          "y": 899.75
+          "y": 904.0
         },
         "vel": {
           "x": 0.0,
-          "y": 450.00003
+          "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 876.75
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 922.75
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
-        "on_ground": false,
+        "on_ground": true,
         "on_wall": false,
         "wall_clinging": false,
         "wall_climbing": false,
@@ -1567,14 +1589,16 @@
         "air_jumps_available": 1,
         "blink_aiming": false,
         "blink_grace_timer": 0.0,
-        "locomotion": "Airborne",
+        "locomotion": "Grounded",
         "body_mode": "Standing",
         "last_safe_pos": {
           "x": 950.0,
-          "y": 851.0
+          "y": 904.0
         },
         "time_alive": 0.2,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -1610,7 +1634,7 @@
               "y": 960.0
             }
           },
-          "distance": 44.295174
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -1625,32 +1649,32 @@
               "y": 752.0
             }
           },
-          "distance": 163.8599
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 558.00024,
-            "y": 1202.4
+            "x": 560.00024,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 480.50024,
-              "y": 1193.4
+              "x": 480.00024,
+              "y": 1208.0
             },
             "max": {
-              "x": 635.50024,
-              "y": 1211.4
+              "x": 640.00024,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 495.23816
+          "player_distance": 500.06882
         }
       ]
     },
@@ -1668,7 +1692,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -1680,17 +1704,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -1711,7 +1735,9 @@
           "y": 904.0
         },
         "time_alive": 0.21666667,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -1747,7 +1773,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -1762,32 +1788,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 560.16693,
-            "y": 1202.4
+            "x": 562.16693,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 482.66693,
-              "y": 1193.4
+              "x": 482.16693,
+              "y": 1208.0
             },
             "max": {
-              "x": 637.66693,
-              "y": 1211.4
+              "x": 642.16693,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 490.32294
+          "player_distance": 498.38086
         }
       ]
     },
@@ -1805,7 +1831,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -1817,17 +1843,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -1848,7 +1874,9 @@
           "y": 904.0
         },
         "time_alive": 0.23333333,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -1884,7 +1912,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -1899,32 +1927,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 562.3336,
-            "y": 1202.4
+            "x": 564.3336,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 484.83362,
-              "y": 1193.4
+              "x": 484.33362,
+              "y": 1208.0
             },
             "max": {
-              "x": 639.8336,
-              "y": 1211.4
+              "x": 644.3336,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 488.60208
+          "player_distance": 496.69666
         }
       ]
     },
@@ -1942,7 +1970,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -1954,17 +1982,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -1985,7 +2013,9 @@
           "y": 904.0
         },
         "time_alive": 0.25,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -2021,7 +2051,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -2036,32 +2066,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 564.5003,
-            "y": 1202.4
+            "x": 566.5003,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 487.0003,
-              "y": 1193.4
+              "x": 486.5003,
+              "y": 1208.0
             },
             "max": {
-              "x": 642.0003,
-              "y": 1211.4
+              "x": 646.5003,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 486.88477
+          "player_distance": 495.01617
         }
       ]
     },
@@ -2079,7 +2109,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -2091,17 +2121,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -2122,7 +2152,9 @@
           "y": 904.0
         },
         "time_alive": 0.26666668,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -2158,7 +2190,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -2173,32 +2205,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 566.667,
-            "y": 1202.4
+            "x": 568.667,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 489.167,
-              "y": 1193.4
+              "x": 488.667,
+              "y": 1208.0
             },
             "max": {
-              "x": 644.167,
-              "y": 1211.4
+              "x": 648.667,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 485.17108
+          "player_distance": 493.3395
         }
       ]
     },
@@ -2216,7 +2248,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -2228,17 +2260,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -2259,7 +2291,9 @@
           "y": 904.0
         },
         "time_alive": 0.28333336,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -2295,7 +2329,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -2310,32 +2344,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 568.8337,
-            "y": 1202.4
+            "x": 570.8337,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 491.33368,
-              "y": 1193.4
+              "x": 490.83368,
+              "y": 1208.0
             },
             "max": {
-              "x": 646.3337,
-              "y": 1211.4
+              "x": 650.8337,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 483.461
+          "player_distance": 491.66666
         }
       ]
     },
@@ -2353,7 +2387,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -2365,17 +2399,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -2396,7 +2430,9 @@
           "y": 904.0
         },
         "time_alive": 0.30000004,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -2432,7 +2468,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -2447,32 +2483,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 571.00037,
-            "y": 1202.4
+            "x": 573.00037,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 493.50037,
-              "y": 1193.4
+              "x": 493.00037,
+              "y": 1208.0
             },
             "max": {
-              "x": 648.50037,
-              "y": 1211.4
+              "x": 653.00037,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 481.7546
+          "player_distance": 489.99768
         }
       ]
     },
@@ -2490,7 +2526,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -2502,17 +2538,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -2533,7 +2569,9 @@
           "y": 904.0
         },
         "time_alive": 0.31666672,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -2569,7 +2607,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -2584,32 +2622,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 573.16705,
-            "y": 1202.4
+            "x": 575.16705,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 495.66705,
-              "y": 1193.4
+              "x": 495.16705,
+              "y": 1208.0
             },
             "max": {
-              "x": 650.66705,
-              "y": 1211.4
+              "x": 655.16705,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 480.0519
+          "player_distance": 488.3326
         }
       ]
     },
@@ -2627,7 +2665,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -2639,17 +2677,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -2670,7 +2708,9 @@
           "y": 904.0
         },
         "time_alive": 0.3333334,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -2706,7 +2746,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -2721,32 +2761,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 575.33374,
-            "y": 1202.4
+            "x": 577.33374,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 497.83374,
-              "y": 1193.4
+              "x": 497.33374,
+              "y": 1208.0
             },
             "max": {
-              "x": 652.83374,
-              "y": 1211.4
+              "x": 657.33374,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 478.353
+          "player_distance": 486.67148
         }
       ]
     },
@@ -2764,7 +2804,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -2776,17 +2816,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -2807,7 +2847,9 @@
           "y": 904.0
         },
         "time_alive": 0.35000008,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -2843,7 +2885,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -2858,32 +2900,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 577.5004,
-            "y": 1202.4
+            "x": 579.5004,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 500.00043,
-              "y": 1193.4
+              "x": 499.50043,
+              "y": 1208.0
             },
             "max": {
-              "x": 655.0004,
-              "y": 1211.4
+              "x": 659.5004,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 476.65787
+          "player_distance": 485.01437
         }
       ]
     },
@@ -2901,7 +2943,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -2913,17 +2955,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -2944,7 +2986,9 @@
           "y": 904.0
         },
         "time_alive": 0.36666676,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -2980,7 +3024,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -2995,32 +3039,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 579.6671,
-            "y": 1202.4
+            "x": 581.6671,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 502.1671,
-              "y": 1193.4
+              "x": 501.6671,
+              "y": 1208.0
             },
             "max": {
-              "x": 657.1671,
-              "y": 1211.4
+              "x": 661.6671,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 474.96655
+          "player_distance": 483.36127
         }
       ]
     },
@@ -3038,7 +3082,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -3050,17 +3094,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -3081,7 +3125,9 @@
           "y": 904.0
         },
         "time_alive": 0.38333344,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -3117,7 +3163,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -3132,32 +3178,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 581.8338,
-            "y": 1202.4
+            "x": 583.8338,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 504.3338,
-              "y": 1193.4
+              "x": 503.8338,
+              "y": 1208.0
             },
             "max": {
-              "x": 659.3338,
-              "y": 1211.4
+              "x": 663.8338,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 473.2791
+          "player_distance": 481.71225
         }
       ]
     },
@@ -3175,7 +3221,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -3187,17 +3233,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -3218,7 +3264,9 @@
           "y": 904.0
         },
         "time_alive": 0.40000013,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -3254,7 +3302,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -3269,32 +3317,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 584.0005,
-            "y": 1202.4
+            "x": 586.0005,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 506.5005,
-              "y": 1193.4
+              "x": 506.0005,
+              "y": 1208.0
             },
             "max": {
-              "x": 661.5005,
-              "y": 1211.4
+              "x": 666.0005,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 471.59558
+          "player_distance": 480.06732
         }
       ]
     },
@@ -3312,7 +3360,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -3324,17 +3372,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -3355,7 +3403,9 @@
           "y": 904.0
         },
         "time_alive": 0.4166668,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -3391,7 +3441,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -3406,32 +3456,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 586.1672,
-            "y": 1202.4
+            "x": 588.1672,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 508.66718,
-              "y": 1193.4
+              "x": 508.16718,
+              "y": 1208.0
             },
             "max": {
-              "x": 663.6672,
-              "y": 1211.4
+              "x": 668.1672,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 469.91605
+          "player_distance": 478.42657
         }
       ]
     },
@@ -3449,7 +3499,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -3461,17 +3511,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -3492,7 +3542,9 @@
           "y": 904.0
         },
         "time_alive": 0.4333335,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -3528,7 +3580,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -3543,32 +3595,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 588.33386,
-            "y": 1202.4
+            "x": 590.33386,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 510.83386,
-              "y": 1193.4
+              "x": 510.33386,
+              "y": 1208.0
             },
             "max": {
-              "x": 665.83386,
-              "y": 1211.4
+              "x": 670.33386,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 468.2405
+          "player_distance": 476.79004
         }
       ]
     },
@@ -3586,7 +3638,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -3598,17 +3650,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -3629,7 +3681,9 @@
           "y": 904.0
         },
         "time_alive": 0.45000017,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -3665,7 +3719,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -3680,32 +3734,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 590.50055,
-            "y": 1202.4
+            "x": 592.50055,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 513.00055,
-              "y": 1193.4
+              "x": 512.50055,
+              "y": 1208.0
             },
             "max": {
-              "x": 668.00055,
-              "y": 1211.4
+              "x": 672.50055,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 466.569
+          "player_distance": 475.1577
         }
       ]
     },
@@ -3723,7 +3777,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -3735,17 +3789,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -3766,7 +3820,9 @@
           "y": 904.0
         },
         "time_alive": 0.46666685,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -3802,7 +3858,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -3817,32 +3873,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 592.66724,
-            "y": 1202.4
+            "x": 594.66724,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 515.16724,
-              "y": 1193.4
+              "x": 514.66724,
+              "y": 1208.0
             },
             "max": {
-              "x": 670.16724,
-              "y": 1211.4
+              "x": 674.66724,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 464.90158
+          "player_distance": 473.5297
         }
       ]
     },
@@ -3860,7 +3916,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -3872,17 +3928,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -3903,7 +3959,9 @@
           "y": 904.0
         },
         "time_alive": 0.48333353,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -3939,7 +3997,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -3954,32 +4012,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 594.8339,
-            "y": 1202.4
+            "x": 596.8339,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 517.3339,
-              "y": 1193.4
+              "x": 516.8339,
+              "y": 1208.0
             },
             "max": {
-              "x": 672.3339,
-              "y": 1211.4
+              "x": 676.8339,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 463.23828
+          "player_distance": 471.906
         }
       ]
     },
@@ -3997,7 +4055,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -4009,17 +4067,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -4040,7 +4098,9 @@
           "y": 904.0
         },
         "time_alive": 0.5000002,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -4076,7 +4136,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -4091,32 +4151,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 597.0006,
-            "y": 1202.4
+            "x": 599.0006,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 519.5006,
-              "y": 1193.4
+              "x": 519.0006,
+              "y": 1208.0
             },
             "max": {
-              "x": 674.5006,
-              "y": 1211.4
+              "x": 679.0006,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 461.5792
+          "player_distance": 470.28668
         }
       ]
     },
@@ -4134,7 +4194,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -4146,17 +4206,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -4177,7 +4237,9 @@
           "y": 904.0
         },
         "time_alive": 0.5166668,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -4213,7 +4275,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -4228,32 +4290,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 599.1673,
-            "y": 1202.4
+            "x": 601.1673,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 521.6673,
-              "y": 1193.4
+              "x": 521.1673,
+              "y": 1208.0
             },
             "max": {
-              "x": 676.6673,
-              "y": 1211.4
+              "x": 681.1673,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 459.9243
+          "player_distance": 468.67178
         }
       ]
     },
@@ -4271,7 +4333,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -4283,17 +4345,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -4314,7 +4376,9 @@
           "y": 904.0
         },
         "time_alive": 0.5333335,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -4350,7 +4414,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -4365,32 +4429,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 601.334,
-            "y": 1202.4
+            "x": 603.334,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 523.834,
-              "y": 1193.4
+              "x": 523.334,
+              "y": 1208.0
             },
             "max": {
-              "x": 678.834,
-              "y": 1211.4
+              "x": 683.334,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 458.27368
+          "player_distance": 467.06137
         }
       ]
     },
@@ -4408,7 +4472,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -4420,17 +4484,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -4451,7 +4515,9 @@
           "y": 904.0
         },
         "time_alive": 0.55000013,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -4487,7 +4553,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -4502,32 +4568,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 603.5007,
-            "y": 1202.4
+            "x": 605.5007,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 526.0007,
-              "y": 1193.4
+              "x": 525.5007,
+              "y": 1208.0
             },
             "max": {
-              "x": 681.0007,
-              "y": 1211.4
+              "x": 685.5007,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 456.62738
+          "player_distance": 465.45544
         }
       ]
     },
@@ -4545,7 +4611,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -4557,17 +4623,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -4588,7 +4654,9 @@
           "y": 904.0
         },
         "time_alive": 0.5666668,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -4624,7 +4692,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -4639,32 +4707,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 605.66736,
-            "y": 1202.4
+            "x": 607.66736,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 528.16736,
-              "y": 1193.4
+              "x": 527.66736,
+              "y": 1208.0
             },
             "max": {
-              "x": 683.16736,
-              "y": 1211.4
+              "x": 687.66736,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 454.98544
+          "player_distance": 463.85413
         }
       ]
     },
@@ -4682,7 +4750,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -4694,17 +4762,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -4725,7 +4793,9 @@
           "y": 904.0
         },
         "time_alive": 0.58333343,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -4761,7 +4831,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -4776,32 +4846,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 607.83405,
-            "y": 1202.4
+            "x": 609.83405,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 530.33405,
-              "y": 1193.4
+              "x": 529.83405,
+              "y": 1208.0
             },
             "max": {
-              "x": 685.33405,
-              "y": 1211.4
+              "x": 689.83405,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 453.3479
+          "player_distance": 462.25735
         }
       ]
     },
@@ -4819,7 +4889,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -4831,17 +4901,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -4862,7 +4932,9 @@
           "y": 904.0
         },
         "time_alive": 0.6000001,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -4898,7 +4970,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -4913,32 +4985,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 610.00073,
-            "y": 1202.4
+            "x": 612.00073,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 532.50073,
-              "y": 1193.4
+              "x": 532.00073,
+              "y": 1208.0
             },
             "max": {
-              "x": 687.50073,
-              "y": 1211.4
+              "x": 692.00073,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 451.7148
+          "player_distance": 460.66528
         }
       ]
     },
@@ -4956,7 +5028,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -4968,17 +5040,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -4999,7 +5071,9 @@
           "y": 904.0
         },
         "time_alive": 0.61666673,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -5035,7 +5109,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -5050,32 +5124,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 612.1674,
-            "y": 1202.4
+            "x": 614.1674,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 534.6674,
-              "y": 1193.4
+              "x": 534.1674,
+              "y": 1208.0
             },
             "max": {
-              "x": 689.6674,
-              "y": 1211.4
+              "x": 694.1674,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 450.08624
+          "player_distance": 459.0779
         }
       ]
     },
@@ -5093,7 +5167,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -5105,17 +5179,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -5136,7 +5210,9 @@
           "y": 904.0
         },
         "time_alive": 0.6333334,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -5172,7 +5248,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -5187,32 +5263,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 614.3341,
-            "y": 1202.4
+            "x": 616.3341,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 536.8341,
-              "y": 1193.4
+              "x": 536.3341,
+              "y": 1208.0
             },
             "max": {
-              "x": 691.8341,
-              "y": 1211.4
+              "x": 696.3341,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 448.46222
+          "player_distance": 457.4953
         }
       ]
     },
@@ -5230,7 +5306,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -5242,17 +5318,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -5273,7 +5349,9 @@
           "y": 904.0
         },
         "time_alive": 0.65000004,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -5309,7 +5387,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -5324,32 +5402,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 616.5008,
-            "y": 1202.4
+            "x": 618.5008,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 539.0008,
-              "y": 1193.4
+              "x": 538.5008,
+              "y": 1208.0
             },
             "max": {
-              "x": 694.0008,
-              "y": 1211.4
+              "x": 698.5008,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 446.8428
+          "player_distance": 455.91745
         }
       ]
     },
@@ -5367,7 +5445,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -5379,17 +5457,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -5410,7 +5488,9 @@
           "y": 904.0
         },
         "time_alive": 0.6666667,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -5446,7 +5526,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -5461,32 +5541,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 618.6675,
-            "y": 1202.4
+            "x": 620.6675,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 541.1675,
-              "y": 1193.4
+              "x": 540.6675,
+              "y": 1208.0
             },
             "max": {
-              "x": 696.1675,
-              "y": 1211.4
+              "x": 700.6675,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 445.22806
+          "player_distance": 454.34448
         }
       ]
     },
@@ -5504,7 +5584,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -5516,17 +5596,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -5547,7 +5627,9 @@
           "y": 904.0
         },
         "time_alive": 0.68333334,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -5583,7 +5665,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -5598,32 +5680,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 620.83417,
-            "y": 1202.4
+            "x": 622.83417,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 543.33417,
-              "y": 1193.4
+              "x": 542.83417,
+              "y": 1208.0
             },
             "max": {
-              "x": 698.33417,
-              "y": 1211.4
+              "x": 702.83417,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 443.61798
+          "player_distance": 452.77643
         }
       ]
     },
@@ -5641,7 +5723,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -5653,17 +5735,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -5684,7 +5766,9 @@
           "y": 904.0
         },
         "time_alive": 0.7,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -5720,7 +5804,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -5735,32 +5819,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 623.00085,
-            "y": 1202.4
+            "x": 625.00085,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 545.50085,
-              "y": 1193.4
+              "x": 545.00085,
+              "y": 1208.0
             },
             "max": {
-              "x": 700.50085,
-              "y": 1211.4
+              "x": 705.00085,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 442.0127
+          "player_distance": 451.2133
         }
       ]
     },
@@ -5778,7 +5862,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -5790,17 +5874,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -5821,7 +5905,9 @@
           "y": 904.0
         },
         "time_alive": 0.71666664,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -5857,7 +5943,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -5872,32 +5958,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 625.16754,
-            "y": 1202.4
+            "x": 627.16754,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 547.66754,
-              "y": 1193.4
+              "x": 547.16754,
+              "y": 1208.0
             },
             "max": {
-              "x": 702.66754,
-              "y": 1211.4
+              "x": 707.16754,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 440.4122
+          "player_distance": 449.6552
         }
       ]
     },
@@ -5915,7 +6001,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -5927,17 +6013,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -5958,7 +6044,9 @@
           "y": 904.0
         },
         "time_alive": 0.7333333,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -5994,7 +6082,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -6009,32 +6097,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 627.3342,
-            "y": 1202.4
+            "x": 629.3342,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 549.8342,
-              "y": 1193.4
+              "x": 549.3342,
+              "y": 1208.0
             },
             "max": {
-              "x": 704.8342,
-              "y": 1211.4
+              "x": 709.3342,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 438.81656
+          "player_distance": 448.10214
         }
       ]
     },
@@ -6052,7 +6140,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -6064,17 +6152,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -6095,7 +6183,9 @@
           "y": 904.0
         },
         "time_alive": 0.74999994,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -6131,7 +6221,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -6146,32 +6236,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 629.5009,
-            "y": 1202.4
+            "x": 631.5009,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 552.0009,
-              "y": 1193.4
+              "x": 551.5009,
+              "y": 1208.0
             },
             "max": {
-              "x": 707.0009,
-              "y": 1211.4
+              "x": 711.5009,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 437.22583
+          "player_distance": 446.5542
         }
       ]
     },
@@ -6189,7 +6279,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -6201,17 +6291,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -6232,7 +6322,9 @@
           "y": 904.0
         },
         "time_alive": 0.7666666,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -6268,7 +6360,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -6283,32 +6375,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 631.6676,
-            "y": 1202.4
+            "x": 633.6676,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 554.1676,
-              "y": 1193.4
+              "x": 553.6676,
+              "y": 1208.0
             },
             "max": {
-              "x": 709.1676,
-              "y": 1211.4
+              "x": 713.6676,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 435.64008
+          "player_distance": 445.01144
         }
       ]
     },
@@ -6326,7 +6418,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -6338,17 +6430,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -6369,7 +6461,9 @@
           "y": 904.0
         },
         "time_alive": 0.78333324,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -6405,7 +6499,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -6420,32 +6514,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 633.8343,
-            "y": 1202.4
+            "x": 635.8343,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 556.3343,
-              "y": 1193.4
+              "x": 555.8343,
+              "y": 1208.0
             },
             "max": {
-              "x": 711.3343,
-              "y": 1211.4
+              "x": 715.8343,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 434.05936
+          "player_distance": 443.4739
         }
       ]
     },
@@ -6463,7 +6557,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -6475,17 +6569,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -6506,7 +6600,9 @@
           "y": 904.0
         },
         "time_alive": 0.7999999,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -6542,7 +6638,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -6557,32 +6653,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 636.001,
-            "y": 1202.4
+            "x": 638.001,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 558.501,
-              "y": 1193.4
+              "x": 558.001,
+              "y": 1208.0
             },
             "max": {
-              "x": 713.501,
-              "y": 1211.4
+              "x": 718.001,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 432.4837
+          "player_distance": 441.94162
         }
       ]
     },
@@ -6600,7 +6696,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -6612,17 +6708,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -6643,7 +6739,9 @@
           "y": 904.0
         },
         "time_alive": 0.81666654,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -6679,7 +6777,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -6694,32 +6792,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 638.16766,
-            "y": 1202.4
+            "x": 640.16766,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 560.66766,
-              "y": 1193.4
+              "x": 560.16766,
+              "y": 1208.0
             },
             "max": {
-              "x": 715.66766,
-              "y": 1211.4
+              "x": 720.16766,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 430.9132
+          "player_distance": 440.41467
         }
       ]
     },
@@ -6737,7 +6835,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -6749,17 +6847,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -6780,7 +6878,9 @@
           "y": 904.0
         },
         "time_alive": 0.8333332,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -6816,7 +6916,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -6831,32 +6931,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 640.33435,
-            "y": 1202.4
+            "x": 642.33435,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 562.83435,
-              "y": 1193.4
+              "x": 562.33435,
+              "y": 1208.0
             },
             "max": {
-              "x": 717.83435,
-              "y": 1211.4
+              "x": 722.33435,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 429.34787
+          "player_distance": 438.8931
         }
       ]
     },
@@ -6874,7 +6974,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -6886,17 +6986,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -6917,7 +7017,9 @@
           "y": 904.0
         },
         "time_alive": 0.84999985,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -6953,7 +7055,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -6968,32 +7070,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 642.50104,
-            "y": 1202.4
+            "x": 644.50104,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 565.00104,
-              "y": 1193.4
+              "x": 564.50104,
+              "y": 1208.0
             },
             "max": {
-              "x": 720.00104,
-              "y": 1211.4
+              "x": 724.50104,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 427.78778
+          "player_distance": 437.37698
         }
       ]
     },
@@ -7011,7 +7113,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -7023,17 +7125,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -7054,7 +7156,9 @@
           "y": 904.0
         },
         "time_alive": 0.8666665,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -7090,7 +7194,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -7105,32 +7209,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 644.6677,
-            "y": 1202.4
+            "x": 646.6677,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 567.1677,
-              "y": 1193.4
+              "x": 566.6677,
+              "y": 1208.0
             },
             "max": {
-              "x": 722.1677,
-              "y": 1211.4
+              "x": 726.6677,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 426.233
+          "player_distance": 435.86633
         }
       ]
     },
@@ -7148,7 +7252,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -7160,17 +7264,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -7191,7 +7295,9 @@
           "y": 904.0
         },
         "time_alive": 0.88333315,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -7227,7 +7333,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -7242,32 +7348,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 646.8344,
-            "y": 1202.4
+            "x": 648.8344,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 569.3344,
-              "y": 1193.4
+              "x": 568.8344,
+              "y": 1208.0
             },
             "max": {
-              "x": 724.3344,
-              "y": 1211.4
+              "x": 728.8344,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 424.6836
+          "player_distance": 434.36127
         }
       ]
     },
@@ -7285,7 +7391,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -7297,17 +7403,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -7328,7 +7434,9 @@
           "y": 904.0
         },
         "time_alive": 0.8999998,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -7364,7 +7472,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -7379,32 +7487,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 649.0011,
-            "y": 1202.4
+            "x": 651.0011,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 571.5011,
-              "y": 1193.4
+              "x": 571.0011,
+              "y": 1208.0
             },
             "max": {
-              "x": 726.5011,
-              "y": 1211.4
+              "x": 731.0011,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 423.1396
+          "player_distance": 432.86182
         }
       ]
     },
@@ -7422,7 +7530,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -7434,17 +7542,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -7465,7 +7573,9 @@
           "y": 904.0
         },
         "time_alive": 0.91666645,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -7501,7 +7611,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -7516,32 +7626,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 651.1678,
-            "y": 1202.4
+            "x": 653.1678,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 573.6678,
-              "y": 1193.4
+              "x": 573.1678,
+              "y": 1208.0
             },
             "max": {
-              "x": 728.6678,
-              "y": 1211.4
+              "x": 733.1678,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 421.60107
+          "player_distance": 431.36804
         }
       ]
     },
@@ -7559,7 +7669,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -7571,17 +7681,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -7602,7 +7712,9 @@
           "y": 904.0
         },
         "time_alive": 0.9333331,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -7638,7 +7750,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -7653,32 +7765,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 653.3345,
-            "y": 1202.4
+            "x": 655.3345,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 575.8345,
-              "y": 1193.4
+              "x": 575.3345,
+              "y": 1208.0
             },
             "max": {
-              "x": 730.8345,
-              "y": 1211.4
+              "x": 735.3345,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 420.0681
+          "player_distance": 429.87997
         }
       ]
     },
@@ -7696,7 +7808,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -7708,17 +7820,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -7739,7 +7851,9 @@
           "y": 904.0
         },
         "time_alive": 0.94999975,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -7775,7 +7889,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -7790,32 +7904,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 655.50116,
-            "y": 1202.4
+            "x": 657.50116,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 578.00116,
-              "y": 1193.4
+              "x": 577.50116,
+              "y": 1208.0
             },
             "max": {
-              "x": 733.00116,
-              "y": 1211.4
+              "x": 737.50116,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 418.54074
+          "player_distance": 428.39767
         }
       ]
     },
@@ -7833,7 +7947,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -7845,17 +7959,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -7876,7 +7990,9 @@
           "y": 904.0
         },
         "time_alive": 0.9666664,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -7912,7 +8028,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -7927,32 +8043,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 657.66785,
-            "y": 1202.4
+            "x": 659.66785,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 580.16785,
-              "y": 1193.4
+              "x": 579.66785,
+              "y": 1208.0
             },
             "max": {
-              "x": 735.16785,
-              "y": 1211.4
+              "x": 739.66785,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 417.019
+          "player_distance": 426.92123
         }
       ]
     },
@@ -7970,7 +8086,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -7982,17 +8098,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -8013,7 +8129,9 @@
           "y": 904.0
         },
         "time_alive": 0.98333305,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -8049,7 +8167,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -8064,32 +8182,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 659.83453,
-            "y": 1202.4
+            "x": 661.83453,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 582.33453,
-              "y": 1193.4
+              "x": 581.83453,
+              "y": 1208.0
             },
             "max": {
-              "x": 737.33453,
-              "y": 1211.4
+              "x": 741.83453,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 415.50305
+          "player_distance": 425.45074
         }
       ]
     },
@@ -8107,7 +8225,7 @@
       },
       "world_spawn": {
         "x": 950.0,
-        "y": 851.0
+        "y": 883.0
       },
       "player": {
         "pos": {
@@ -8119,17 +8237,17 @@
           "y": 0.0
         },
         "size": {
-          "x": 28.0,
-          "y": 46.0
+          "x": 30.0,
+          "y": 48.0
         },
         "aabb": {
           "min": {
-            "x": 936.0,
-            "y": 881.0
+            "x": 935.0,
+            "y": 880.0
           },
           "max": {
-            "x": 964.0,
-            "y": 927.0
+            "x": 965.0,
+            "y": 928.0
           }
         },
         "facing": 1.0,
@@ -8150,7 +8268,9 @@
           "y": 904.0
         },
         "time_alive": 0.9999997,
-        "resets": 0
+        "resets": 0,
+        "wall_normal_x": 0.0,
+        "ledge_grabbing": false
       },
       "controls": {
         "axis_x": 0.0,
@@ -8186,7 +8306,7 @@
               "y": 960.0
             }
           },
-          "distance": 39.051247
+          "distance": 40.04997
         },
         {
           "kind": "OneWay",
@@ -8201,32 +8321,32 @@
               "y": 752.0
             }
           },
-          "distance": 169.10648
+          "distance": 168.1071
         }
       ],
       "moving_platforms": [
         {
           "pos": {
-            "x": 662.0012,
-            "y": 1202.4
+            "x": 664.0012,
+            "y": 1217.0
           },
           "size": {
-            "x": 155.0,
+            "x": 160.0,
             "y": 18.0
           },
           "aabb": {
             "min": {
-              "x": 584.5012,
-              "y": 1193.4
+              "x": 584.0012,
+              "y": 1208.0
             },
             "max": {
-              "x": 739.5012,
-              "y": 1211.4
+              "x": 744.0012,
+              "y": 1226.0
             }
           },
           "direction": 1.0,
           "player_riding": false,
-          "player_distance": 413.99283
+          "player_distance": 423.9862
         }
       ]
     }

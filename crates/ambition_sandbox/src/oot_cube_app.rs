@@ -58,23 +58,24 @@ fn toggle_inventory_backend(
 fn gate_cube_menu(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<crate::inventory::InventoryUiState>>,
-    mut cameras: Query<&mut Camera, With<ambition_inventory_ui::cube::CubePauseCamera>>,
+    mut cameras: Query<(&mut Camera, Has<ambition_inventory_ui::cube::CubePauseCamera>)>,
     mut rings: Query<&mut Visibility, With<ambition_inventory_ui::cube::MenuRing>>,
     mut last_show: Local<Option<bool>>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     let show = *backend == InventoryUiBackend::Cube && open;
     if *last_show != Some(show) {
-        info!(
-            "cube gate: show={show} backend={:?} menu_open={open} (cameras={})",
-            *backend,
-            cameras.iter().count()
-        );
+        info!("cube gate: show={show} backend={:?} menu_open={open}", *backend);
         *last_show = Some(show);
     }
-    for mut cam in &mut cameras {
-        if cam.is_active != show {
-            cam.is_active = show;
+    // While the cube is shown it renders as the SOLE active camera, exactly like the
+    // mock demo: disable the game's 2D camera(s) so a Camera3d and Camera2d never
+    // share one window. That sharing is what left the cube camera clearing but
+    // drawing no geometry (MSAA/depth/compositing race). Re-enabled when hidden.
+    for (mut cam, is_cube) in &mut cameras {
+        let want_active = if is_cube { show } else { !show };
+        if cam.is_active != want_active {
+            cam.is_active = want_active;
         }
     }
     let want = if show {

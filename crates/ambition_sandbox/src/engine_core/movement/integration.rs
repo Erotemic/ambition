@@ -178,6 +178,20 @@ pub(super) fn integrate_velocity_clusters(
         tuning.gravity_sign,
     );
 
+    // World-bounds containment (runs for every mode -- walk, climb, flight). The
+    // collision de-penetration can rarely push the body out a WIDE block's far
+    // edge and past the world: flying deep into the thin ceiling near a corner
+    // shoves the body out the ceiling's far X edge, after which nothing stops it
+    // leaving the envelope (the "outside world (y)" OOB the fly traces showed).
+    // Clamp the body back inside so it can never leave the world -- the player
+    // counterpart of the boss soft world-bounds clamp.
+    {
+        let half = clusters.kinematics.size * 0.5;
+        let pos = &mut clusters.kinematics.pos;
+        pos.x = pos.x.clamp(half.x, (world.size.x - half.x).max(half.x));
+        pos.y = pos.y.clamp(half.y, (world.size.y - half.y).max(half.y));
+    }
+
     if clusters.ground.on_ground {
         crate::engine_core::player_clusters::refresh_movement_resources_clusters(
             clusters.abilities,

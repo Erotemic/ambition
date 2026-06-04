@@ -81,7 +81,12 @@ pub(super) fn sweep_player_x_clusters(
         let overlap_y = (body.bottom().min(hit.block.aabb.bottom())
             - body.top().max(hit.block.aabb.top()))
         .max(0.0);
-        let vertical_dominant = immediate_contact && overlap_y > 0.0 && overlap_x > overlap_y;
+        // A t=0 contact with no vertical overlap (e.g. the body resting just
+        // under the thin ceiling, or grazing a block's corner) or with the
+        // horizontal overlap dominant is really a Y/edge contact, NOT an X
+        // penetration -- don't shove the body out the block's (possibly far) X
+        // edge, which for a wide ceiling/wall block ejects it past the world.
+        let vertical_dominant = immediate_contact && (overlap_y <= 0.0 || overlap_x > overlap_y);
         let body_to_right_of_block = body.center().x > hit.block.aabb.center().x;
         let moving_away_from_block =
             (body_to_right_of_block && delta.x > 0.0) || (!body_to_right_of_block && delta.x < 0.0);

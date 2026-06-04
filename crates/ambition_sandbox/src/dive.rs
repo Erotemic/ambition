@@ -115,7 +115,7 @@ pub fn fire_dive_system(
     let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
     let mut target = match world
         .as_ref()
-        .and_then(|w| crate::portal::raycast_solids(&w.0, from, dir, DIVE_LUNGE + margin))
+        .and_then(|w| crate::portal::raycast_solids(&w.0, from, dir, DIVE_LUNGE + margin, false))
     {
         Some((hit, _normal)) => hit - dir * margin,
         None => from + dir * DIVE_LUNGE,

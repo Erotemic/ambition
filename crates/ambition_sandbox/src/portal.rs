@@ -135,6 +135,7 @@ pub fn raycast_solids(
     origin: Vec2,
     dir: Vec2,
     max_dist: f32,
+    include_one_way: bool,
 ) -> Option<(Vec2, Vec2)> {
     let dir = dir.normalize_or_zero();
     if dir == Vec2::ZERO {
@@ -143,10 +144,11 @@ pub fn raycast_solids(
     let mut best_t = max_dist;
     let mut best_normal = Vec2::ZERO;
     for block in &world.blocks {
-        if !matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        ) {
+        // Portals adhere to one-way platforms too (#39); blink/dive pass through
+        // them, so they leave `include_one_way` off.
+        let hittable = matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. })
+            || (include_one_way && matches!(block.kind, ae::BlockKind::OneWay));
+        if !hittable {
             continue;
         }
         if let Some((t, n)) = ray_aabb(origin, dir, block.aabb) {
@@ -464,7 +466,7 @@ pub fn portal_projectile_step(
     }
     for (proj_entity, mut proj) in &mut projectiles {
         let step = (proj.vel * dt).length().max(1.0);
-        if let Some((hit, normal)) = raycast_solids(&world.0, proj.pos, proj.vel, step) {
+        if let Some((hit, normal)) = raycast_solids(&world.0, proj.pos, proj.vel, step, true) {
             // Hit a wall — open (or replace) the portal of this color.
             for (entity, portal) in &portals {
                 if portal.color == proj.color {
@@ -1325,10 +1327,40 @@ mod tests {
         let world = world_with_two_walls().0;
         // Fire left from mid-room: hit the left wall's right face at x=20,
         // normal pointing back toward the shooter (+x).
-        let (hit, normal) = raycast_solids(&world, Vec2::new(200.0, 200.0), Vec2::new(-1.0, 0.0), 6000.0)
+        let (hit, normal) = raycast_solids(&world, Vec2::new(200.0, 200.0), Vec2::new(-1.0, 0.0), 6000.0, false)
             .expect("ray should hit the left wall");
         assert!((hit.x - 20.0).abs() < 0.001, "hit x={}", hit.x);
         assert!(normal.x > 0.5 && normal.y.abs() < 0.001, "normal={normal:?}");
+    }
+
+    #[test]
+    fn portals_adhere_to_one_way_platforms_but_blink_passes_through() {
+        use crate::engine_core::world::{Block, World};
+        let world = World {
+            name: "one-way".to_string(),
+            size: Vec2::new(400.0, 400.0),
+            spawn: Vec2::new(200.0, 200.0),
+            blocks: vec![Block::one_way(
+                "ledge",
+                Vec2::new(100.0, 300.0),
+                Vec2::new(200.0, 12.0),
+            )],
+            climbable_regions: Vec::new(),
+            water_regions: Vec::new(),
+        };
+        let from = Vec2::new(200.0, 100.0);
+        let dir = Vec2::new(0.0, 1.0); // down toward the one-way's top (y=300)
+        // A portal shot adheres to the one-way (#39).
+        let portal_hit = raycast_solids(&world, from, dir, 6000.0, true);
+        assert!(
+            portal_hit.is_some_and(|(hit, n)| (hit.y - 300.0).abs() < 1.0 && n.y < -0.5),
+            "a portal shot should adhere to a one-way's face (#39), got {portal_hit:?}"
+        );
+        // ...but blink / dive pass straight through one-ways.
+        assert!(
+            raycast_solids(&world, from, dir, 6000.0, false).is_none(),
+            "blink/dive should pass through one-way platforms"
+        );
     }
 
     #[test]

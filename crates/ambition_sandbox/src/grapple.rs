@@ -64,7 +64,7 @@ pub fn grapple_system(
     let from = kin.pos;
     let Some((hit, _normal)) = world
         .as_ref()
-        .and_then(|w| crate::portal::raycast_solids(&w.0, from, dir, GRAPPLE_RANGE))
+        .and_then(|w| crate::portal::raycast_solids(&w.0, from, dir, GRAPPLE_RANGE, false))
     else {
         // Grapple into empty space: a dry fizzle, no pull (and no cooldown burned).
         sfx.write(crate::audio::SfxMessage::Play {

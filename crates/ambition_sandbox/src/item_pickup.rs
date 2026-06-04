@@ -530,7 +530,7 @@ pub fn held_projectile_step(
         }
         // Solid wall in this step → impact + expire (Fireball detonates here too).
         let step = (proj.vel * dt).length().max(1.0);
-        if let Some((hit_pos, _normal)) = crate::portal::raycast_solids(&world.0, proj.pos, proj.vel, step) {
+        if let Some((hit_pos, _normal)) = crate::portal::raycast_solids(&world.0, proj.pos, proj.vel, step, false) {
             if proj.explode_half > 0.0 {
                 emit_fireball_explosion(
                     hit_pos,

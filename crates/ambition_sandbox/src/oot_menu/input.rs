@@ -31,11 +31,8 @@ pub fn oot_menu_input(
     mut next_mode: ResMut<NextState<GameMode>>,
     mut owned: ResMut<OwnedItems>,
     mut commands: Commands,
-    mut players: Query<
-        (Entity, &mut ActionSet, Option<&StashedActionSet>),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
-    mut mana_q: Query<&mut PlayerMana, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    mut players: MenuEffectPlayers,
+    mut mana_q: MenuEffectManaQuery,
     mut heals: MessageWriter<PlayerHealRequested>,
 ) {
     if menu.inventory {
@@ -91,16 +88,44 @@ pub fn oot_menu_input(
     }
 }
 
+/// The player query shape every menu-effect dispatch shares (grid + cube). The
+/// lifetimes stay free so callers (systems with their own `'w`/`'s`) can pass
+/// `&mut their_query` without the borrow escaping to `'static`.
+pub(crate) type MenuEffectPlayers<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static mut ActionSet, Option<&'static StashedActionSet>),
+    (With<PlayerEntity>, With<PrimaryPlayer>),
+>;
+
+/// The player-mana query shape shared by every menu-effect dispatch.
+pub(crate) type MenuEffectManaQuery<'w, 's> =
+    Query<'w, 's, &'static mut PlayerMana, (With<PlayerEntity>, With<PrimaryPlayer>)>;
+
+/// Decide and apply the effect of confirming `item` (equip / unequip / use /
+/// inspect). The ONE place both the Bevy-UI grid and the 3D cube turn an item
+/// confirmation into ECS side effects — neither duplicates the portal/equip/heal
+/// logic. Returns the decided [`MenuAction`] so callers can surface its status.
+pub(crate) fn dispatch_item_confirm(
+    item: Item,
+    owned: &mut OwnedItems,
+    commands: &mut Commands,
+    players: &mut MenuEffectPlayers<'_, '_>,
+    mana_q: &mut MenuEffectManaQuery<'_, '_>,
+    heals: &mut MessageWriter<PlayerHealRequested>,
+) -> MenuAction {
+    let action = effects::decide(item, owned);
+    apply_menu_action(action, owned, commands, players, mana_q, heals);
+    action
+}
+
 /// Turn a decided [`MenuAction`] into its ECS side effects.
-fn apply_menu_action(
+pub(crate) fn apply_menu_action(
     action: MenuAction,
     owned: &mut OwnedItems,
     commands: &mut Commands,
-    players: &mut Query<
-        (Entity, &mut ActionSet, Option<&StashedActionSet>),
-        (With<PlayerEntity>, With<PrimaryPlayer>),
-    >,
-    mana_q: &mut Query<&mut PlayerMana, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    players: &mut MenuEffectPlayers<'_, '_>,
+    mana_q: &mut MenuEffectManaQuery<'_, '_>,
     heals: &mut MessageWriter<PlayerHealRequested>,
 ) {
     match action {

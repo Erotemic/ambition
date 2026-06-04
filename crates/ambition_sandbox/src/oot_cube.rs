@@ -14,10 +14,53 @@
 //! a host-defined [`CubeAction`] emitted back to the game.
 
 use ambition_inventory_ui::{
-    InventoryItemNode, InventorySlotId, ItemsOnlyPageSpec, MenuColor, MenuPageModel, MenuTextAlign,
+    InventoryItemNode, InventorySlotId, ItemsOnlyPageSpec, MenuColor, MenuControlKind,
+    MenuPageModel, MenuRect, MenuTextAlign,
 };
 
 use crate::items::{Item, OwnedItems};
+
+/// Edge page-turn buttons flank the page. Rects match the lib's decorative nav
+/// arrows (`spawn_nav_arrows` in `cube.rs`) so they sit where the L/R affordance
+/// has always been. The game draws these as REAL controls and turns the lib's
+/// decorative arrows off (`draw_nav_arrows = false`) so they aren't double-drawn.
+const EDGE_LEFT_RECT: MenuRect = MenuRect { x: 1.8, y: 43.5, w: 7.5, h: 13.0 };
+const EDGE_RIGHT_RECT: MenuRect = MenuRect { x: 90.7, y: 43.5, w: 7.5, h: 13.0 };
+
+impl CubePage {
+    /// The neighbouring page when turning the ring left/right (wraps), matching
+    /// [`CubePage::ALL`] order.
+    pub fn neighbor(self, dir: isize) -> CubePage {
+        let all = CubePage::ALL;
+        let cur = all.iter().position(|p| *p == self).unwrap_or(0);
+        let next = (cur as isize + dir).rem_euclid(all.len() as isize) as usize;
+        all[next]
+    }
+}
+
+/// Append the Left/Right edge page-turn buttons to a page model. Emitted as real
+/// `Action` controls (`CubeAction::ChangePage`) so Bevy picking + directional focus
+/// can dispatch them; mirrors the demo's `add_edge_buttons` intent.
+fn add_edge_buttons(model: &mut MenuPageModel<CubePage, CubeAction>, page: CubePage) {
+    model.control(
+        EDGE_LEFT_RECT,
+        MenuControlKind::Action,
+        "<",
+        None,
+        false,
+        false,
+        Some(CubeAction::ChangePage(page.neighbor(-1))),
+    );
+    model.control(
+        EDGE_RIGHT_RECT,
+        MenuControlKind::Action,
+        ">",
+        None,
+        false,
+        false,
+        Some(CubeAction::ChangePage(page.neighbor(1))),
+    );
+}
 
 /// The cube faces (pages). `Items` is wired live from our inventory; the rest
 /// mirror OoT's subscreen tabs as host-data-driven placeholders for now.
@@ -92,7 +135,9 @@ pub fn build_items_page(
     equipped: Option<Item>,
     selected: Option<Item>,
 ) -> MenuPageModel<CubePage, CubeAction> {
-    items_spec(owned, equipped, selected).into_page_model()
+    let mut model = items_spec(owned, equipped, selected).into_page_model();
+    add_edge_buttons(&mut model, CubePage::Items);
+    model
 }
 
 /// Build every cube face from our inventory (Items live, the rest placeholders
@@ -137,6 +182,7 @@ fn placeholder_page(page: CubePage, title: &str, body: &str) -> MenuPageModel<Cu
         MenuTextAlign::Center,
         MenuColor::rgba(0.85, 0.92, 1.0, 0.9),
     );
+    add_edge_buttons(&mut model, page);
     model
 }
 

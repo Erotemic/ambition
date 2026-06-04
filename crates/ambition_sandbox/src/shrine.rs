@@ -7,10 +7,9 @@
 //! no-op on wasm).
 //!
 //! Handoff / not-yet-built:
-//! - placement is a single debug-spawned shrine; authored placement via an
-//!   `Interactable` (so it routes through the affordance/prompt system) is the
-//!   follow-up (see TODO "Healing / save-point shrine").
-//! - a real shrine sprite (section B); a tinted pillar stands in for now.
+//! - placement is LDtk-authored (`ShrineSpawn`); routing the heal/save through
+//!   the affordance/prompt system via an `Interactable` is the follow-up (see
+//!   TODO "Healing / save-point shrine").
 
 use bevy::prelude::*;
 
@@ -73,10 +72,14 @@ pub fn heal_save_shrine_system(
 #[derive(Component)]
 pub struct ShrineVisual;
 
-/// Draw each shrine as a glowing pillar so the player can find it.
+/// Draw each shrine as its obelisk prop sprite so the player reads it as a
+/// "rest here" landmark. The sprite (`sprites/props/shrine.png`, an 88x160
+/// 11:20 art rendered by `item_icons::write_shrine_prop`) is scaled to the
+/// shrine's collision footprint, so its base sits at the floor.
 pub fn sync_shrine_visual(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
+    asset_server: Res<AssetServer>,
     visuals: Query<Entity, With<ShrineVisual>>,
     shrines: Query<&HealShrine>,
 ) {
@@ -85,9 +88,11 @@ pub fn sync_shrine_visual(
     }
     for shrine in &shrines {
         let translation = crate::config::world_to_bevy(&world.0, shrine.pos, 8.0);
+        let mut sprite = Sprite::from_image(asset_server.load("sprites/props/shrine.png"));
+        sprite.custom_size = Some(shrine.half_extent * 2.0);
         commands.spawn((
             ShrineVisual,
-            Sprite::from_color(Color::srgba(0.55, 0.95, 0.85, 0.85), shrine.half_extent * 2.0),
+            sprite,
             Transform::from_translation(translation),
             Name::new("Shrine visual"),
         ));

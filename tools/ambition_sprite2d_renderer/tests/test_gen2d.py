@@ -312,6 +312,19 @@ def test_ability_item_icons_render(tmp_path):
 
 
 @pytest.mark.slow_render
+def test_shrine_prop_renders(tmp_path):
+    from ambition_sprite2d_renderer.targets.icons.item_icons import write_shrine_prop
+
+    path = write_shrine_prop(tmp_path / "props")
+    assert path.name == "shrine.png"
+    assert path.exists()
+    img = Image.open(path).convert("RGBA")
+    # Tall 11:20 prop matching the in-game 44x80 footprint, with drawn content.
+    assert img.size == (88, 160)
+    assert img.getchannel("A").getbbox() is not None
+
+
+@pytest.mark.slow_render
 def test_review_npc_variants_have_distinct_specs_and_render(tmp_path):
     samples = [
         "goblin_brute_hammer.yaml",

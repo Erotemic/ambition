@@ -620,6 +620,12 @@ echo "==> wielded-gauntlet prop icons (procedural → $props_dir)"
 # `item_pickup::item_sprite`. (No canonical-pose copy step — drawn directly.)
 (cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_gauntlet_props as w; w('$props_dir')")
 
+echo "==> heal/save shrine prop (procedural obelisk → $props_dir)"
+# The world heal/save shrine is a free-standing prop (taller than the 64x64
+# icons), an 88x160 obelisk from `item_icons.py::write_shrine_prop`, consumed at
+# runtime by `shrine::sync_shrine_visual`.
+(cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_shrine_prop as w; w('$props_dir')")
+
 echo "==> standalone pirate sheets (publish into $sprites_dir)"
 # Pirates are registered as tack-on `[characters]` targets and publish
 # through the same machinery as the other tack-ons above. Kept as its

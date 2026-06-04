@@ -375,7 +375,7 @@ pub fn try_pogo_clusters(
         .find(|block| block.kind.is_pogo_target() && hitbox.strict_intersects(block.aabb));
     if let Some(block) = hit {
         let aabb = block.aabb;
-        kinematics.vel.y = -tuning.pogo_speed * tuning.gravity_sign;
+        super::integration::set_jump_velocity(&mut kinematics.vel, tuning.gravity_dir, tuning.pogo_speed);
         crate::engine_core::player_clusters::refresh_movement_resources_clusters(
             abilities, dash, jump_state, tuning,
         );

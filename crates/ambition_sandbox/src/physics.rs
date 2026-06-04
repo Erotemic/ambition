@@ -200,6 +200,21 @@ pub fn local_gravity_sign(pos: Vec2, zones: &GravityZones, base_dir: Vec2) -> f3
     }
 }
 
+/// Snap a gravity direction to the nearest cardinal unit vector — down `(0,1)`,
+/// up `(0,-1)`, right `(1,0)`, left `(-1,0)`. The player's wall-walking model is
+/// cardinal so the AABB collision stays axis-aligned; a diagonal zone direction
+/// resolves to whichever axis dominates (ties favour the vertical axis).
+pub fn snap_cardinal(dir: Vec2) -> Vec2 {
+    if dir == Vec2::ZERO {
+        return Vec2::new(0.0, 1.0);
+    }
+    if dir.x.abs() > dir.y.abs() {
+        Vec2::new(dir.x.signum(), 0.0)
+    } else {
+        Vec2::new(0.0, dir.y.signum())
+    }
+}
+
 /// One bundled system param for the world's gravity, so the many actor
 /// integrators read gravity through a single argument (Bevy caps systems at 16
 /// params) and resolve it **by position** — `sign_at`/`dir_at` give a body its

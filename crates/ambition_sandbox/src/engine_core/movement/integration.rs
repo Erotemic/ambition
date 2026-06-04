@@ -12,6 +12,41 @@ fn approach(value: f32, target: f32, delta: f32) -> f32 {
     }
 }
 
+/// Clamp the velocity component ALONG `gravity_dir` (the fall direction) to
+/// `cap`, leaving the perpendicular (movement) component untouched. The
+/// gravity-direction-relative form of `vel.y = vel.y.min(cap)`.
+fn cap_fall_speed(vel: &mut crate::engine_core::Vec2, gravity_dir: crate::engine_core::Vec2, cap: f32) {
+    let along = vel.dot(gravity_dir);
+    if along > cap {
+        *vel -= (along - cap) * gravity_dir;
+    }
+}
+
+/// Launch the body at `speed` OPPOSITE `gravity_dir` (a jump / pogo / wall-kick
+/// vertical impulse), preserving the perpendicular (movement-axis) component.
+/// The gravity-direction-relative form of `vel.y = -speed * gravity_sign`.
+pub(super) fn set_jump_velocity(
+    vel: &mut crate::engine_core::Vec2,
+    gravity_dir: crate::engine_core::Vec2,
+    speed: f32,
+) {
+    let perp = *vel - vel.dot(gravity_dir) * gravity_dir;
+    *vel = perp - speed * gravity_dir;
+}
+
+/// The MOVEMENT axis for a cardinal gravity direction: the unit axis the player
+/// runs along (perpendicular to gravity). Sign-consistent so `axis_x` never
+/// inverts under a gravity flip — screen `+X` under vertical gravity (down/up),
+/// screen `+Y` under horizontal gravity (wall-walking). `axis_x = +1` walks the
+/// player along this axis.
+pub(super) fn move_axis(gravity_dir: crate::engine_core::Vec2) -> crate::engine_core::Vec2 {
+    if gravity_dir.x == 0.0 {
+        crate::engine_core::Vec2::new(1.0, 0.0)
+    } else {
+        crate::engine_core::Vec2::new(0.0, 1.0)
+    }
+}
+
 use super::dec;
 use super::events::FrameEvents;
 use super::input::InputState;
@@ -62,16 +97,20 @@ pub(super) fn integrate_velocity_clusters(
             tuning,
         );
     } else {
+        // Cardinal gravity DIRECTION (down `(0,1)` / up `(0,-1)` / wall-walking
+        // `(±1,0)`). The player model is gravity-direction-relative: gravity,
+        // fall-cap, fast-fall and glide all project onto `g` instead of assuming
+        // `+Y`. For down/up this is identical to the old `gravity_sign` path.
+        let g = tuning.gravity_dir;
         let blink_hang_active =
-            clusters.blink.grace_timer > 0.0 && clusters.kinematics.vel.y >= 0.0;
+            clusters.blink.grace_timer > 0.0 && clusters.kinematics.vel.dot(g) >= 0.0;
         let water_gravity_scale = clusters
             .env_contact
             .water
             .map(|c| c.spec.gravity_scale)
             .unwrap_or(1.0);
         if !blink_hang_active {
-            clusters.kinematics.vel.y +=
-                tuning.gravity * tuning.gravity_sign * water_gravity_scale * dt;
+            clusters.kinematics.vel += tuning.gravity * g * water_gravity_scale * dt;
         }
         if input.fast_fall_pressed
             && clusters.abilities.abilities.fast_fall
@@ -83,7 +122,7 @@ pub(super) fn integrate_velocity_clusters(
             && !blink_hang_active
             && clusters.env_contact.water.is_none()
         {
-            clusters.kinematics.vel.y += tuning.fast_fall_accel * tuning.gravity_sign * dt;
+            clusters.kinematics.vel += tuning.fast_fall_accel * g * dt;
         }
         clusters.flight.gliding = clusters.abilities.abilities.glide
             && !clusters.ground.on_ground
@@ -91,7 +130,7 @@ pub(super) fn integrate_velocity_clusters(
             && !blink_hang_active
             && clusters.env_contact.water.is_none()
             && input.jump_held
-            && clusters.kinematics.vel.y > 0.0;
+            && clusters.kinematics.vel.dot(g) > 0.0;
 
         if clusters.abilities.abilities.move_horizontal {
             let accel = if clusters.ground.on_ground {
@@ -101,23 +140,29 @@ pub(super) fn integrate_velocity_clusters(
             } else {
                 tuning.air_accel
             };
-            let target_vx = input.axis_x * tuning.max_run_speed;
-            clusters.kinematics.vel.x = approach(clusters.kinematics.vel.x, target_vx, accel * dt);
+            // The run/friction act along the MOVEMENT axis (perpendicular to
+            // gravity), so `axis_x` walks the player ALONG the surface whatever
+            // the gravity direction — on a wall that's the vertical axis. For
+            // down/up gravity `m == (1,0)`, so this is identical to `vel.x`.
+            let m = move_axis(g);
+            let along = clusters.kinematics.vel.dot(m);
+            let target = input.axis_x * tuning.max_run_speed;
+            let mut new_along = approach(along, target, accel * dt);
             let friction = if clusters.ground.on_ground {
                 tuning.ground_friction
             } else {
                 tuning.air_friction
             };
             if input.axis_x.abs() <= 0.1 {
-                clusters.kinematics.vel.x = approach(clusters.kinematics.vel.x, 0.0, friction * dt);
+                new_along = approach(new_along, 0.0, friction * dt);
             }
+            clusters.kinematics.vel += (new_along - along) * m;
         }
 
         if let Some(contact) = clusters.env_contact.water {
             let drag = contact.spec.drag.clamp(0.0, 1.0);
-            clusters.kinematics.vel.x *= 1.0 - drag;
-            clusters.kinematics.vel.y *= 1.0 - drag;
-            clusters.kinematics.vel.y = clusters.kinematics.vel.y.min(contact.spec.max_fall_speed);
+            clusters.kinematics.vel *= 1.0 - drag;
+            cap_fall_speed(&mut clusters.kinematics.vel, g, contact.spec.max_fall_speed);
         } else {
             let fall_cap = if clusters.flight.fast_falling {
                 tuning.fast_fall_speed
@@ -126,7 +171,7 @@ pub(super) fn integrate_velocity_clusters(
             } else {
                 tuning.max_fall_speed
             };
-            clusters.kinematics.vel.y = clusters.kinematics.vel.y.min(fall_cap);
+            cap_fall_speed(&mut clusters.kinematics.vel, g, fall_cap);
         }
     }
 

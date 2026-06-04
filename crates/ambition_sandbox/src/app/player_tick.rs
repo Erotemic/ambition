@@ -199,11 +199,20 @@ pub fn player_simulation_system(
         return;
     };
     let mut tuning = editable_tuning.as_engine();
-    // Gravity direction from the world GravityField (the gravity-flip switch /
-    // gravity rooms). +1 = down, -1 = up; threaded through the integrator.
-    tuning.gravity_sign = gravity_field
+    // Cardinal gravity DIRECTION from the world GravityField (the gravity-flip
+    // switch / gravity rooms / wall-walking zones). Snapped to a cardinal unit
+    // vector so the AABB collision stays axis-aligned. The player movement model
+    // is gravity-direction-relative (`gravity_dir`); `gravity_sign` is kept in
+    // sync for the down/up case (the legacy Y-only scalar).
+    let gdir = gravity_field
         .as_deref()
-        .map_or(1.0, |g| g.dir.y.signum());
+        .map_or(crate::engine_core::Vec2::new(0.0, 1.0), |g| g.dir);
+    tuning.gravity_dir = crate::physics::snap_cardinal(gdir);
+    tuning.gravity_sign = if tuning.gravity_dir.y != 0.0 {
+        tuning.gravity_dir.y.signum()
+    } else {
+        1.0
+    };
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
     // Same polarity flip as the control phase — ActorControl is the

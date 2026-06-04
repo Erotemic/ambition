@@ -720,6 +720,7 @@ impl EditableMovementTuning {
             // Runtime-overridden each frame from the world GravityField; default
             // upright here.
             gravity_sign: 1.0,
+            gravity_dir: ae::Vec2::new(0.0, 1.0),
             run_accel: self.run_accel,
             air_accel: self.air_accel,
             ground_friction: self.ground_friction,

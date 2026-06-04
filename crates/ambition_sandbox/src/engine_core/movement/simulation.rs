@@ -83,7 +83,11 @@ pub fn handle_jump_buffer_clusters(
 
     if abilities.abilities.wall_jump && wall.on_wall && !ground.on_ground {
         kinematics.vel.x = wall.wall_normal_x * tuning.wall_jump_x;
-        kinematics.vel.y = -tuning.jump_speed * 0.94 * tuning.gravity_sign;
+        super::integration::set_jump_velocity(
+            &mut kinematics.vel,
+            tuning.gravity_dir,
+            tuning.jump_speed * 0.94,
+        );
         wall.on_wall = false;
         wall.wall_clinging = false;
         wall.wall_climbing = false;
@@ -93,14 +97,18 @@ pub fn handle_jump_buffer_clusters(
     } else if abilities.abilities.jump
         && (ground.on_ground || ground.coyote_timer > 0.0 || can_ladder_jump)
     {
-        kinematics.vel.y = -tuning.jump_speed * tuning.gravity_sign;
+        super::integration::set_jump_velocity(&mut kinematics.vel, tuning.gravity_dir, tuning.jump_speed);
         ground.on_ground = false;
         action_buffer.jump = 0.0;
         ground.coyote_timer = 0.0;
         jump_state.air_jumps_available = abilities.abilities.air_jump_count(tuning.air_jumps);
         events.op_clusters(combo_trace, MovementOp::Jump);
     } else if abilities.abilities.double_jump && jump_state.air_jumps_available > 0 {
-        kinematics.vel.y = -tuning.double_jump_speed * tuning.gravity_sign;
+        super::integration::set_jump_velocity(
+            &mut kinematics.vel,
+            tuning.gravity_dir,
+            tuning.double_jump_speed,
+        );
         ground.on_ground = false;
         wall.on_wall = false;
         wall.wall_clinging = false;

@@ -1,9 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+use crate::engine_core::Vec2;
+
 /// Default gravity sign (normal, downward). Used by `serde(default)` so tuning
 /// files baked before `gravity_sign` existed load as normal gravity.
 fn default_gravity_sign() -> f32 {
     1.0
+}
+
+/// Default cardinal gravity direction (down, `+Y`). `serde(default)` for tuning
+/// files baked before `gravity_dir` existed.
+fn default_gravity_dir() -> Vec2 {
+    Vec2::new(0.0, 1.0)
 }
 
 // First-pass movement constants. These remain constants for easy grep/tuning,
@@ -185,6 +193,13 @@ pub struct MovementTuning {
     /// baked before it existed deserialize as normal gravity.
     #[serde(default = "default_gravity_sign")]
     pub gravity_sign: f32,
+    /// Cardinal gravity DIRECTION for the player (unit vector; `(0,1)` = down,
+    /// `(0,-1)` = up, `(±1,0)` = wall-walking). The player movement model is
+    /// gravity-direction-relative; the `gravity_sign` scalar above is the legacy
+    /// Y-only form kept for the vertical-only actor controllers (enemies/NPCs).
+    /// Set per-frame from the world `GravityField` (cardinal-snapped).
+    #[serde(default = "default_gravity_dir")]
+    pub gravity_dir: Vec2,
     pub run_accel: f32,
     pub air_accel: f32,
     pub ground_friction: f32,
@@ -250,6 +265,7 @@ impl Default for MovementTuning {
 pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
     gravity_sign: 1.0,
+    gravity_dir: Vec2::new(0.0, 1.0),
     run_accel: RUN_ACCEL,
     air_accel: AIR_ACCEL,
     ground_friction: GROUND_FRICTION,

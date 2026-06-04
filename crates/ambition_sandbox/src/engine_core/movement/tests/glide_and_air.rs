@@ -30,7 +30,8 @@ fn flipped_gravity_makes_the_player_fall_up_and_stand_on_the_ceiling() {
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 300.0));
     scratch.ground.on_ground = false;
     let mut tuning = DEFAULT_TUNING;
-    tuning.gravity_sign = -1.0; // up
+    tuning.gravity_dir = Vec2::new(0.0, -1.0); // up — drives the integrator
+    tuning.gravity_sign = -1.0; // legacy mirror, still read by the sweeps (pre-P4)
 
     // Let it fall UP for a while.
     for _ in 0..240 {
@@ -50,6 +51,57 @@ fn flipped_gravity_makes_the_player_fall_up_and_stand_on_the_ceiling() {
     assert!(
         scratch.ground.on_ground,
         "the player should land on (stand under) the ceiling with flipped gravity"
+    );
+}
+
+#[test]
+fn sideways_gravity_pulls_the_player_along_x() {
+    // Vector-gravity foundation (wall-walking P2/P3): with gravity pointing RIGHT
+    // the player accelerates +x and barely moves in y -- the same integrator that
+    // handles down/up now handles sideways. (Standing ON the wall needs the P4
+    // ground-sweep generalization; this pins the acceleration model.)
+    use crate::engine_core::world::{Block, World};
+    let world = World {
+        name: "sideways gravity".to_string(),
+        size: Vec2::new(2000.0, 600.0),
+        spawn: Vec2::new(200.0, 300.0),
+        blocks: vec![Block::solid(
+            "right wall",
+            Vec2::new(1900.0, 0.0),
+            Vec2::new(100.0, 600.0),
+        )],
+        climbable_regions: Vec::new(),
+        water_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 300.0));
+    scratch.ground.on_ground = false;
+    let mut tuning = DEFAULT_TUNING;
+    tuning.gravity_dir = Vec2::new(1.0, 0.0); // gravity points RIGHT
+    tuning.gravity_sign = 1.0;
+    let y0 = scratch.kinematics.pos.y;
+    for _ in 0..30 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        scratch.kinematics.vel.x > 100.0,
+        "rightward gravity should build +x velocity, got {}",
+        scratch.kinematics.vel.x
+    );
+    assert!(
+        scratch.kinematics.pos.x > 220.0,
+        "should have fallen right, got x={}",
+        scratch.kinematics.pos.x
+    );
+    assert!(
+        (scratch.kinematics.pos.y - y0).abs() < 5.0,
+        "should barely move in y, got dy={}",
+        scratch.kinematics.pos.y - y0
     );
 }
 

@@ -1000,12 +1000,12 @@ def add_reciprocal_loading_zone(
     # Authors who already know the right y leave the flag off and the
     # snap is a no-op.
     if connection.get("snap_to_surface"):
-        snapped_x, snapped_y, surface_kind = snap_door_to_surface(
+        snapped_x, snapped_y, surface_kind = snap_entity_to_surface(
             project,
             target_room,
             new_x,
-            door_w=new_w,
-            door_h=new_h,
+            width=new_w,
+            height=new_h,
             prefer_y=new_y,
         )
         if snapped_y != new_y:
@@ -1085,76 +1085,77 @@ def run_repair_and_validate(project_path: Path, schema: Path | None) -> int:
 
 # Collision IntGrid value mapping. Keep in sync with the project's
 # Collision layer defs in `sandbox.ldtk`. The sandbox treats Solid (1)
-# and OneWayUp (2) as floors a door can rest on; BlinkSoft / BlinkHard
-# / Hazard are intentionally excluded as door-bases (BlinkWalls move,
-# Hazards damage you).
+# and OneWayUp (2) as surfaces an entity can rest on; BlinkSoft / BlinkHard
+# / Hazard are intentionally excluded (BlinkWalls move, Hazards damage you).
 _COLLISION_SOLID = 1
 _COLLISION_ONEWAY_UP = 2
-_DOOR_SUPPORTING_VALUES = frozenset({_COLLISION_SOLID, _COLLISION_ONEWAY_UP})
+_FLOOR_SUPPORTING_VALUES = frozenset({_COLLISION_SOLID, _COLLISION_ONEWAY_UP})
 
 
-def snap_door_to_surface(
+def snap_entity_to_surface(
     project: dict,
-    target_room: str,
+    room: str,
     x: int,
-    door_w: int = 48,
-    door_h: int = 96,
+    width: int,
+    height: int,
     prefer_y: int | None = None,
 ) -> tuple[int, int, str]:
-    """Find the door y so a `door_w × door_h` rect rests flush on a surface.
+    """Find the y at which a `width × height` rect rests flush on a surface.
 
-    Reads the target room's Collision IntGrid and looks for the topmost
-    cell row R where every cell column the door spans (`x..x+door_w`)
-    contains a Solid or OneWayUp value. The door's bottom edge then
-    lands at `R * gridSize`, so the returned door y is `R*gridSize - door_h`.
+    Reads `room`'s Collision IntGrid for a cell row R where every column the
+    rect spans (`x .. x+width`) holds a Solid or OneWayUp value *and* the
+    `height`-worth of rows directly above are empty (so the rect body does not
+    intersect level geometry). The rect's bottom edge lands at `R * gridSize`,
+    so the returned y is `R*gridSize - height`.
 
-    When `prefer_y` is given, the surface closest to (but at or below)
-    `prefer_y + door_h` wins — useful when authors already had a y in
-    mind from `door free-spots` and want the snap to honor that row's
-    intent rather than always picking the highest reachable surface.
+    This is the generic floor-snap behind both `entity snap-to-floor` and door
+    authoring (`connect_to ... snap_to_surface`) — doors just pass their 48×96
+    footprint as `width`/`height`.
 
-    Returns `(x, snapped_y, surface_kind)` where surface_kind is
-    'Solid' or 'OneWayUp'. Raises `SystemExit` if no continuous surface
-    exists in the door's column range.
+    When `prefer_y` is given, the surface whose snapped y is closest to it wins
+    (honors a row the author already had in mind); otherwise the lowest
+    reachable surface wins, so entities rest on the floor rather than a ledge
+    near the ceiling.
+
+    Returns `(x, snapped_y, surface_kind)` where surface_kind is 'Solid' or
+    'OneWayUp'. Raises `SystemExit` if no continuous surface exists in the
+    rect's column range.
     """
-    target_level = find_level(project, target_room)
+    target_level = find_level(project, room)
     if target_level is None:
         known = ", ".join(sorted(l["identifier"] for l in project.get("levels", [])))
-        raise SystemExit(
-            f"snap target_room '{target_room}' not found. Known levels: {known}"
-        )
+        raise SystemExit(f"snap room '{room}' not found. Known levels: {known}")
     collision = find_layer_in_level(target_level, "Collision")
     if collision is None:
-        raise SystemExit(f"'{target_room}' has no Collision IntGrid layer")
+        raise SystemExit(f"'{room}' has no Collision IntGrid layer")
     grid_size = int(collision.get("__gridSize", 16))
     c_wid = int(collision["__cWid"])
     c_hei = int(collision["__cHei"])
     csv = collision.get("intGridCsv") or []
     if len(csv) != c_wid * c_hei:
         raise SystemExit(
-            f"'{target_room}' Collision csv length {len(csv)} != cWid*cHei={c_wid * c_hei}"
+            f"'{room}' Collision csv length {len(csv)} != cWid*cHei={c_wid * c_hei}"
         )
 
     cx_start = x // grid_size
-    cx_end_excl = (x + door_w + grid_size - 1) // grid_size
+    cx_end_excl = (x + width + grid_size - 1) // grid_size
     if cx_start < 0 or cx_end_excl > c_wid:
         raise SystemExit(
-            f"door x={x} (cells {cx_start}..{cx_end_excl - 1}) is outside the room's "
+            f"x={x} (cells {cx_start}..{cx_end_excl - 1}) is outside the room's "
             f"collision grid (0..{c_wid - 1})"
         )
 
-    # Walk every row top-down. The first row whose cells span the
-    # door's column range with all Solid/OneWayUp wins. We also need
-    # the rows *above* the surface (where the door body sits) to be
-    # empty — otherwise the door geometry intersects level geometry.
-    door_rows = max(1, door_h // grid_size)
+    # Walk every row top-down. A row qualifies when the rect's column span is
+    # all Solid/OneWayUp and the body rows above it (where the rect sits) are
+    # empty — otherwise the rect geometry intersects level geometry.
+    body_rows = max(1, height // grid_size)
     candidates: list[tuple[int, str]] = []
     for r in range(c_hei):
         row_cells = [csv[r * c_wid + c] for c in range(cx_start, cx_end_excl)]
-        if not all(v in _DOOR_SUPPORTING_VALUES for v in row_cells):
+        if not all(v in _FLOOR_SUPPORTING_VALUES for v in row_cells):
             continue
-        # Surface row at r. Door body occupies rows [r - door_rows, r-1].
-        body_start = r - door_rows
+        # Surface row at r. Rect body occupies rows [r - body_rows, r-1].
+        body_start = r - body_rows
         if body_start < 0:
             continue
         body_clear = True
@@ -1172,22 +1173,21 @@ def snap_door_to_surface(
 
     if not candidates:
         raise SystemExit(
-            f"snap_to_surface: no continuous Solid/OneWayUp surface under door at "
-            f"x={x} (cells {cx_start}..{cx_end_excl - 1}) wide enough for {door_w}x{door_h}"
+            f"snap_entity_to_surface: no continuous Solid/OneWayUp surface under "
+            f"x={x} (cells {cx_start}..{cx_end_excl - 1}) wide enough for {width}x{height}"
         )
 
     if prefer_y is None:
-        # Default: pick the LOWEST surface (largest r). Authors usually
-        # mean "this door sits on the floor", not "this door dangles
-        # off the ceiling".
+        # Default: pick the LOWEST surface (largest r). Authors usually mean
+        # "this rests on the floor", not "this dangles off the ceiling".
         chosen_r, chosen_kind = candidates[-1]
     else:
-        # Pick the candidate whose snapped door y is closest to prefer_y.
+        # Pick the candidate whose snapped y is closest to prefer_y.
         chosen_r, chosen_kind = min(
             candidates,
-            key=lambda rk: abs((rk[0] * grid_size - door_h) - prefer_y),
+            key=lambda rk: abs((rk[0] * grid_size - height) - prefer_y),
         )
-    snapped_y = chosen_r * grid_size - door_h
+    snapped_y = chosen_r * grid_size - height
     return (x, snapped_y, chosen_kind)
 
 
@@ -1607,12 +1607,12 @@ def main(argv=None) -> int:
             return _fail("--snap-to-surface requires --x <px>")
         project = load_project(args.ldtk)
         try:
-            x, y, kind = snap_door_to_surface(
+            x, y, kind = snap_entity_to_surface(
                 project,
                 args.snap_to_surface,
                 args.x,
-                door_w=args.door_w,
-                door_h=args.door_h,
+                width=args.door_w,
+                height=args.door_h,
                 prefer_y=args.prefer_y,
             )
         except SystemExit as ex:

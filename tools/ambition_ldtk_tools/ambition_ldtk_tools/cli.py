@@ -160,6 +160,8 @@ def cmd_entity(args, rest):
         return _delegate("ambition_ldtk_tools.edit.measure", rest)
     if args.entity_action == "check":
         return _delegate("ambition_ldtk_tools.edit.check", rest)
+    if args.entity_action == "snap-to-floor":
+        return _delegate("ambition_ldtk_tools.edit.snap_to_floor", rest)
     if args.entity_action == "even-space":
         # area_authoring exposes --even-space-entities; forward through.
         return _delegate(
@@ -364,6 +366,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Even-space entities of one type along x in a level. "
         "Usage: entity even-space <room> [--entity-type ID] [--y-row Y] "
         "[--strategy preserve-ends|fit] [--start-x N --end-x N]",
+    )
+    entity_sub.add_parser(
+        "snap-to-floor",
+        help=(
+            "Drop an entity onto the nearest Solid/OneWayUp surface beneath "
+            "its x-span (treats one-way platforms as floor, unlike measure). "
+            "Use --level, --iid / --identifier [--match k=v], optionally --x "
+            "to reposition first, --prefer-y, --dry-run."
+        ),
     )
     sp_entity.set_defaults(func=cmd_entity)
 

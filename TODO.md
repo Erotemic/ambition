@@ -40,7 +40,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [x] An earlier TODO says portals despawn when you leave a room, but that does not happen. They reappear if I leave and come back. — _Done (verified 2026-06-04): portals are now `RoomScopedEntity`, so a room transition despawns them (portal.rs, `#41`) — they no longer reappear when you return._
 
-- [ ] bug: If you throw and attack and your hitbox is entirely inside the mockingbird hurtbox, it does not register.
+- [x] bug: If you throw and attack and your hitbox is entirely inside the mockingbird hurtbox, it does not register. — _Done — investigated + guarded (2026-06-04): containment registers. Every hit path (boss/actor/projectile, via `ecs_hit_event_hits_boss` / `apply_boss_hit`) routes through `strict_intersects`, which detects a hitbox fully inside a hurtbox — added `strict_intersects_accepts_full_containment` to prove + guard it. The mockingbird's damageable region is its per-frame visible body (`damageable_volumes` → per-animation hurtbox / alpha bbox), so a hit inside it lands. If a miss persists it's the hit landing in the transparent quad OUTSIDE the alpha bbox (intended), not a containment bug._
 
 - [ ] I want portals to have the effect where some percent of the entity going into it is visible on the other side instead of being a: you touch it you teleport. This can be a story element later because we have effectively topologically glued two parts of the world together in an interesting non Euclidean way. The 2007 portal 2D game does this well (although it doesn't do the feet in feet out well, and we do at least do that). We need proper portal physics.
 
@@ -51,6 +51,8 @@ When you wake up here, pick the next task from this list and work on it without 
 - [x] The fireball item doesn't have a sprite, and it shoots a sword, not a fireball, so maybe we need a fireball sprite. The explosion is nice though. — _Done (verified 2026-06-04): the fireball has a bespoke prop + in-flight shot sprite (`gauntlet_fireball`, `FIREBALL_ID`, `explode_half`); it no longer fires the gun-sword bolt._
 
 - [ ] Not sure what the grapple hook really does.  **_Clarified + bug found (2026-06-04):_** it now draws a rope line so it reads as a reel-in (grapple.rs `#53`), BUT it's under-powered — the 620 burst is killed by drag in ~45px, so it can't reach a wall beyond ~45px. Filed `dev/reviews/grapple-pull-underpowered-2026-06-04.md` for a feel/balance pass.
+
+- [ ] Ledge grab does not work correctly under different gravity, 
 
 - [x] One way platforms should still work when gravity flips. You should be able to fall and stand on them. (on the bottom of them this time, so the one wayness of them depends on how gravity is pushing on them). — _Done (verified 2026-06-04): one-ways are solid from the gravity-up side and passable from the other (lands on the BOTTOM face under flipped gravity; collision.rs, `#55`); covered by `one_way_platform_works_under_flipped_gravity`._
 

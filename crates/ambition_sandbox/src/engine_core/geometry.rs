@@ -293,6 +293,19 @@ mod tests {
     }
 
     #[test]
+    fn strict_intersects_accepts_full_containment() {
+        // #43: a hit volume ENTIRELY INSIDE a hurtbox must still register — full
+        // containment is overlap, not a miss (Jon hit this on the mockingbird: an
+        // attack box wholly inside the hurtbox didn't register). Every hit path
+        // (`ecs_hit_event_hits_boss/_actor`, `apply_boss_hit`, the projectile)
+        // routes through `strict_intersects`, so this is the shared guarantee.
+        let hurtbox = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(20.0, 20.0));
+        let inside = Aabb::new(Vec2::new(2.0, -3.0), Vec2::new(3.0, 3.0));
+        assert!(inside.strict_intersects(hurtbox), "small box inside the hurtbox hits");
+        assert!(hurtbox.strict_intersects(inside), "and the check is symmetric");
+    }
+
+    #[test]
     fn sweep_zero_delta_returns_intersection_state() {
         // Zero delta short-circuits to strict_intersects.
         let a = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));

@@ -328,6 +328,11 @@ fn presentation_world_inner(
 
     commands.spawn((
         Camera2d,
+        // Pin bevy_ui's default UI camera to the main camera. Without this, adding any
+        // second camera (the #31 cube-menu `Camera3d`) makes bevy_ui's implicit
+        // default-camera resolution ambiguous, so the HUD + pause overlay silently
+        // render to the wrong camera and vanish (still present/clickable, just unseen).
+        IsDefaultUiCamera,
         crate::presentation::screen_effects::ScreenEffectSettings::default(),
         Name::new("Main Camera"),
     ));

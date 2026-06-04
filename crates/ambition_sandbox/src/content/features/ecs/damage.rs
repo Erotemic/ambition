@@ -381,11 +381,11 @@ pub fn apply_feature_hit_events(
             npc_config,
         ) in &mut actors
         {
-            let key = match *disposition {
-                ActorDisposition::Peaceful => format!("npc:{}", id.as_str()),
-                ActorDisposition::Hostile => format!("enemy:{}", id.as_str()),
+            let prefix = match *disposition {
+                ActorDisposition::Peaceful => "npc",
+                ActorDisposition::Hostile => "enemy",
             };
-            if event.ignored_targets.iter().any(|ignored| ignored == &key) {
+            if target_is_ignored(&event.ignored_targets, prefix, id.as_str()) {
                 continue;
             }
             if !event.volume.strict_intersects(aabb.aabb()) {
@@ -444,8 +444,7 @@ pub fn apply_feature_hit_events(
         }
         let mut boss_hit_this_event = false;
         for (id, _aabb, mut feature, attack_state, animation_frame) in &mut bosses {
-            let key = format!("boss:{}", id.as_str());
-            if event.ignored_targets.iter().any(|ignored| ignored == &key) {
+            if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
                 continue;
             }
             if apply_boss_hit(
@@ -482,8 +481,7 @@ pub fn apply_feature_hit_events(
         }
 
         for (entity, id, name, aabb, mut feature) in &mut breakables {
-            let key = format!("breakable:{}", id.as_str());
-            if event.ignored_targets.iter().any(|ignored| ignored == &key) {
+            if target_is_ignored(&event.ignored_targets, "breakable", id.as_str()) {
                 continue;
             }
             if feature.broken() || !feature.breakable.trigger.allows_hit() {
@@ -908,6 +906,21 @@ fn apply_boss_hit(
     true
 }
 
+/// True if `ignored_targets` contains the `"{prefix}:{id}"` disposition key,
+/// WITHOUT allocating that key. The old code `format!("enemy:{id}")`-ed a fresh
+/// `String` for every actor on every hit event just to compare it; this matches
+/// the same keys by slicing each ignored entry instead — removing per-hit
+/// allocator churn that compounds when RL steps the sim millions of times, and
+/// folding the six copies of the pattern into one helper.
+fn target_is_ignored(ignored_targets: &[String], prefix: &str, id: &str) -> bool {
+    ignored_targets.iter().any(|ignored| {
+        ignored
+            .strip_prefix(prefix)
+            .and_then(|rest| rest.strip_prefix(':'))
+            == Some(id)
+    })
+}
+
 /// Read-only hit test used by systems that need immediate projectile / attack
 /// feedback while damage application is still drained through
 /// typed Bevy messages.
@@ -916,8 +929,7 @@ pub fn ecs_hit_event_hits_breakable(
     breakables: &Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
 ) -> bool {
     breakables.iter().any(|(id, aabb, feature)| {
-        let key = format!("breakable:{}", id.as_str());
-        !event.ignored_targets.iter().any(|ignored| ignored == &key)
+        !target_is_ignored(&event.ignored_targets, "breakable", id.as_str())
             && !feature.broken()
             && feature.breakable.trigger.allows_hit()
             && !feature.breakable.pogo_refresh
@@ -938,11 +950,11 @@ pub fn ecs_hit_event_hits_actor(
     >,
 ) -> bool {
     actors.iter().any(|(id, aabb, disposition, combat)| {
-        let key = match *disposition {
-            ActorDisposition::Peaceful => format!("npc:{}", id.as_str()),
-            ActorDisposition::Hostile => format!("enemy:{}", id.as_str()),
+        let prefix = match *disposition {
+            ActorDisposition::Peaceful => "npc",
+            ActorDisposition::Hostile => "enemy",
         };
-        !event.ignored_targets.iter().any(|ignored| ignored == &key)
+        !target_is_ignored(&event.ignored_targets, prefix, id.as_str())
             && combat.alive
             && event.volume.strict_intersects(aabb.aabb())
     })
@@ -978,8 +990,7 @@ pub fn ecs_hit_event_hits_boss(
     bosses
         .iter()
         .any(|(id, _aabb, feature, attack_state, animation_frame)| {
-            let key = format!("boss:{}", id.as_str());
-            if event.ignored_targets.iter().any(|ignored| ignored == &key) {
+            if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
                 return false;
             }
             if !feature.status.alive {

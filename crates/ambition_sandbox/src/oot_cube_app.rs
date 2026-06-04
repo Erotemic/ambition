@@ -33,8 +33,42 @@ pub fn install_cube_menu(app: &mut App) {
         .add_plugins(CubeMenuPlugin::<CubePage, CubeAction>::default())
         .add_systems(
             Update,
-            (sync_cube_pages, gate_cube_menu, toggle_inventory_backend),
+            (
+                sync_cube_pages,
+                gate_cube_menu,
+                toggle_inventory_backend,
+                cube_page_nav,
+            ),
         );
+}
+
+/// Rotate the cube: while it's open, Left/Right (or A/D) cycle the active page and
+/// the lib's snap-to-active rotation turns that face to the camera (#31 nav).
+fn cube_page_nav(
+    backend: Res<InventoryUiBackend>,
+    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
+) {
+    let open = ui_state.map(|s| s.visible).unwrap_or(false);
+    if *backend != InventoryUiBackend::Cube || !open {
+        return;
+    }
+    let dir = if keys.just_pressed(KeyCode::ArrowRight) || keys.just_pressed(KeyCode::KeyD) {
+        1
+    } else if keys.just_pressed(KeyCode::ArrowLeft) || keys.just_pressed(KeyCode::KeyA) {
+        -1
+    } else {
+        return;
+    };
+    let all = CubePage::ALL;
+    let cur = pages
+        .active
+        .and_then(|a| all.iter().position(|p| *p == a))
+        .unwrap_or(0);
+    let next = (cur as isize + dir).rem_euclid(all.len() as isize) as usize;
+    pages.active = Some(all[next]);
+    info!("cube page \u{2192} {:?}", all[next]);
 }
 
 /// Dev runtime toggle (#31): `\` flips the inventory frontend between the Bevy-UI

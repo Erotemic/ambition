@@ -310,13 +310,12 @@ fn register_item_pickup_systems(app: &mut App) {
             // bomb / gravity-grenade / mark-recall / puppy-slug gun).
             crate::item_pickup::spawn_debug_ground_items_once,
             crate::portal::spawn_debug_portal_gun_pickup_once,
-            crate::portal::spawn_debug_gravity_switch_once,
             crate::portal::spawn_debug_gravity_zone_once,
             crate::shrine::spawn_debug_shrine_once,
             crate::shrine::heal_save_shrine_system.run_if(gameplay_allowed),
-            crate::portal::gravity_flip_switch_system,
-            // Resolve the live GravityField from zones + ambient AFTER the switch
-            // sets the ambient and BEFORE ground_item_physics (below) reads it.
+            // Resolve the live GravityField from zones + ambient AFTER the
+            // FlipGravity Switch flips the ambient (in the encounter switch loop)
+            // and BEFORE ground_item_physics (below) reads it.
             crate::physics::resolve_active_gravity,
             crate::portal::arm_portal_pickups,
             crate::item_pickup::pickup_held_item_system.run_if(gameplay_allowed),

@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 5939,
+	"nextUid": 5940,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -6257,6 +6257,40 @@
 							],
 							"__worldX": 299,
 							"__worldY": 480
+						},
+						{
+							"__identifier": "Switch",
+							"__grid": [54,56],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FFC857",
+							"__worldX": 873,
+							"__worldY": 896,
+							"iid": "Switch-5939",
+							"width": 24,
+							"height": 32,
+							"defUid": 4051,
+							"px": [873,896],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "hub_gravity_switch", "__tile": null, "defUid": 4046, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hub_gravity_switch"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Hub Gravity Switch", "__tile": null, "defUid": 4047, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Hub Gravity Switch"]
+								}] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Flip Gravity", "__tile": null, "defUid": 4048, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Flip Gravity"]
+								}] },
+								{ "__identifier": "target_encounter", "__type": "String", "__value": "", "__tile": null, "defUid": 4049, "realEditorValues": [] },
+								{ "__identifier": "action", "__type": "String", "__value": "FlipGravity", "__tile": null, "defUid": 4050, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["FlipGravity"]
+								}] }
+							]
 						}
 					]
 				},

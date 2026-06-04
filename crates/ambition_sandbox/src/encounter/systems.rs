@@ -261,6 +261,20 @@ pub fn update_encounters_from_world(
         quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet(
             "test_switch_toggled".into(),
         ));
+        // Hub gravity switch: a `Switch` whose `action` is "FlipGravity" flips
+        // the room's ambient gravity ([`crate::physics::BaseGravity`]) up<->down.
+        // Done as a deferred world command so this 16-param system needn't take
+        // `BaseGravity` as a 17th param (Bevy's tuple limit). Toggle the
+        // persisted switch state so the switch sprite reads as flipped.
+        if activation.action.as_str() == "FlipGravity" {
+            commands.queue(|world: &mut bevy::prelude::World| {
+                let mut base = world.resource_mut::<crate::physics::BaseGravity>();
+                base.dir.y = -base.dir.y;
+            });
+            let new_on = !save.data().switch(&activation.id);
+            save.data_mut().set_switch(&activation.id, new_on);
+            continue;
+        }
         if !matches!(activation.action.as_str(), "ResetEncounter") {
             continue;
         }

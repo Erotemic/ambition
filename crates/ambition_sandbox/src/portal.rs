@@ -577,30 +577,11 @@ pub struct GravityFlipSwitch {
     pub armed: bool,
 }
 
-/// Spawn one gravity-flip switch column near the player the first frame a
-/// player exists (debug convenience until authored placement lands).
-pub fn spawn_debug_gravity_switch_once(
-    mut commands: Commands,
-    mut done: Local<bool>,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    if *done {
-        return;
-    }
-    let Ok(kin) = players.single() else {
-        return;
-    };
-    *done = true;
-    commands.spawn((
-        GravityFlipSwitch {
-            pos: kin.pos + Vec2::new(140.0, 0.0),
-            // Tall column so it spans floor→ceiling and is reachable either way.
-            half_extent: Vec2::new(16.0, 220.0),
-            armed: true,
-        },
-        Name::new("Gravity flip switch"),
-    ));
-}
+// The hub gravity flip is now an LDtk-authored `Switch` whose `action` is
+// "FlipGravity" (handled in `encounter::systems::update_encounters_from_world`),
+// so the old debug-spawned overlap column is gone. The `GravityFlipSwitch`
+// component + `gravity_flip_switch_system` below remain only for the unit test
+// + any future overlap-style gravity plate; nothing spawns one in-game.
 
 /// Flip the room's **ambient** gravity ([`crate::physics::BaseGravity`]) up↔down
 /// when the player steps into a [`GravityFlipSwitch`] (rising-edge latched by

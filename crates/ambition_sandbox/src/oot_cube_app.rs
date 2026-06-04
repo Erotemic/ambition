@@ -16,12 +16,12 @@ use crate::items::OwnedItems;
 use crate::oot_cube::{build_inventory_pages, CubeAction, CubePage};
 
 /// Which inventory frontend renders. Runtime toggle (both compiled in); defaults to
-/// the proven Bevy-UI `Grid` so the menu is always usable, with the 3D `Cube` one
-/// `\` press away (see [`toggle_inventory_backend`]) for #31 bring-up/debug.
+/// the 3D `Cube` (#31), with `\` flipping to the proven Bevy-UI `Grid` (see
+/// [`toggle_inventory_backend`]).
 #[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum InventoryUiBackend {
-    #[default]
     Grid,
+    #[default]
     Cube,
 }
 
@@ -60,9 +60,18 @@ fn gate_cube_menu(
     ui_state: Option<Res<crate::inventory::InventoryUiState>>,
     mut cameras: Query<&mut Camera, With<ambition_inventory_ui::cube::CubePauseCamera>>,
     mut rings: Query<&mut Visibility, With<ambition_inventory_ui::cube::MenuRing>>,
+    mut last_show: Local<Option<bool>>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     let show = *backend == InventoryUiBackend::Cube && open;
+    if *last_show != Some(show) {
+        info!(
+            "cube gate: show={show} backend={:?} menu_open={open} (cameras={})",
+            *backend,
+            cameras.iter().count()
+        );
+        *last_show = Some(show);
+    }
     for mut cam in &mut cameras {
         if cam.is_active != show {
             cam.is_active = show;
@@ -100,4 +109,5 @@ fn sync_cube_pages(
     if pages.active.is_none() {
         pages.active = Some(CubePage::Items);
     }
+    info!("cube sync: published {} page(s) to the cube", pages.pages.len());
 }

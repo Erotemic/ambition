@@ -31,7 +31,20 @@
         // One target across the gap, at the dive's landing — the lunge closes the
         // distance and strikes it (the dive is an OFFENSIVE gap-closer).
         ( type: "EnemySpawn", px: [540, 210], size: [28, 46], fields: ( name: "Target", brain: "Passive" ) ),
-        ( type: "PlayerStart", px: [40, 210], size: [28, 46], fields: ( name: "dive_drill_spawn" ) ),
+        ( type: "PlayerStart", px: [80, 210], size: [28, 46], fields: ( name: "dive_drill_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 160],
+            size: [40, 96],
+            fields: (
+                id: "dive_drill_entry",
+                name: "dive_drill_entry",
+                activation: "Door",
+                target_room: "portal_bridge",
+                target_zone: "dive_drill_door",
+                bidirectional: true,
+            ),
+        ),
         (
             type: "CameraZone",
             px: [0, 0],
@@ -47,6 +60,20 @@
                 text: "Dive Drill: the gap is death — grab the dive, then lunge (aim right + Attack) across to strike the target.",
                 category: "Custom",
             ),
+        ),
+    ],
+    // Reciprocal door on portal_bridge's right floor (a combat branch off the
+    // advanced-abilities zone). x=950 snaps clean onto the floor.
+    connect_to: [
+        (
+            target_room: "portal_bridge",
+            px: [950, 400],
+            size: [16, 96],
+            id: "dive_drill_door",
+            target_zone: "dive_drill_entry",
+            activation: "Door",
+            bidirectional: true,
+            snap_to_surface: true,
         ),
     ],
 )

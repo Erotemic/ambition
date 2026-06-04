@@ -203,6 +203,48 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
 }
 
 #[test]
+fn one_way_platform_works_under_flipped_gravity() {
+    // #55: under UP gravity the player falls up and lands on the one-way's BOTTOM
+    // face (solid from the side you fall from, passable from the other).
+    use crate::engine_core::world::{Block, World};
+    let world = World {
+        name: "flip one-way".to_string(),
+        size: Vec2::new(800.0, 600.0),
+        spawn: Vec2::new(400.0, 400.0),
+        blocks: vec![
+            Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(800.0, 40.0)),
+            Block::one_way("oneway", Vec2::new(300.0, 200.0), Vec2::new(200.0, 12.0)),
+        ],
+        climbable_regions: Vec::new(),
+        water_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 400.0));
+    scratch.ground.on_ground = false;
+    let mut tuning = DEFAULT_TUNING;
+    tuning.gravity_dir = Vec2::new(0.0, -1.0); // UP
+    tuning.gravity_sign = -1.0;
+    for _ in 0..120 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    // Rests under the one-way's bottom face (y=212): player top ~= 212.
+    let top = scratch.kinematics.pos.y - scratch.kinematics.size.y * 0.5;
+    assert!(
+        (top - 212.0).abs() < 6.0,
+        "player should rest under the one-way's bottom (y=212), got top={top}"
+    );
+    assert!(
+        scratch.ground.on_ground,
+        "should be grounded on the one-way's bottom under up gravity"
+    );
+}
+
+#[test]
 fn glide_caps_fall_speed_while_jump_held() {
     let world = test_world();
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);

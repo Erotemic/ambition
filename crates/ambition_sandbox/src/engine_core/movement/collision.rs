@@ -145,6 +145,9 @@ pub(super) fn sweep_player_y_clusters(
     }
 
     let start_body = kinematics.aabb();
+    // Prev leading edge for one-way landing — bottom under normal gravity, top
+    // under flipped (derived, so no extra param threads through the sweeps).
+    let prev_top = prev_bottom - kinematics.size.y;
     if let Some(hit) = world.first_body_sweep(kinematics.aabb(), delta, |block| {
         if !is_solid_for_axis(block.kind, Axis::Y) {
             return false;
@@ -156,8 +159,15 @@ pub(super) fn sweep_player_y_clusters(
             if !y_is_gravity {
                 return false;
             }
-            let landing_from_above = delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0;
-            return landing_from_above && !drop_through;
+            // Land on the one-way's gravity-up face — its TOP under normal
+            // gravity, its BOTTOM under flipped — solid from the side you fall
+            // from, passable from the other (#55).
+            let landing = if gravity_dir.y >= 0.0 {
+                delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0
+            } else {
+                delta.y <= 0.0 && prev_top >= block.aabb.bottom() - 8.0
+            };
+            return landing && !drop_through;
         }
         if body_is_side_contact(start_body, block.aabb) {
             return false;
@@ -330,9 +340,15 @@ fn resolve_vertical_clusters(
             if !y_is_gravity {
                 continue;
             }
-            let landing_from_above =
-                kinematics.vel.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0;
-            if !landing_from_above || drop_through {
+            // Land on the gravity-up face (top under normal gravity, bottom under
+            // flipped) — #55.
+            let prev_top = prev_bottom - kinematics.size.y;
+            let landing = if gravity_dir.y >= 0.0 {
+                kinematics.vel.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0
+            } else {
+                kinematics.vel.y <= 0.0 && prev_top >= block.aabb.bottom() - 8.0
+            };
+            if !landing || drop_through {
                 continue;
             }
         }

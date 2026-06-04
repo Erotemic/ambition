@@ -626,6 +626,12 @@ echo "==> heal/save shrine prop (procedural obelisk → $props_dir)"
 # runtime by `shrine::sync_shrine_visual`.
 (cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_shrine_prop as w; w('$props_dir')")
 
+echo "==> Mark/Recall world beacon prop (procedural crystal → $props_dir)"
+# The recall beacon is a free-standing 48x112 crystal pillar from
+# `item_icons.py::write_mark_beacon_prop`, consumed at runtime by
+# `mark_recall::sync_mark_beacon_visual` (stands at the dropped recall mark).
+(cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_mark_beacon_prop as w; w('$props_dir')")
+
 echo "==> standalone pirate sheets (publish into $sprites_dir)"
 # Pirates are registered as tack-on `[characters]` targets and publish
 # through the same machinery as the other tack-ons above. Kept as its

@@ -18,9 +18,9 @@
 //!
 //! One mark per player, stored as a [`PlayerMark`] **component** (not a resource)
 //! so each player keeps an independent mark once the multiplayer split lands.
-//! The mark has no persistent on-screen beacon yet — set/recall emit a VFX burst
-//! and an SFX cue; a beacon sprite is a follow-up (it needs an authored asset,
-//! same as the boss-sprite wiring).
+//! A persistent [`MarkBeaconVisual`] glowing-crystal beacon stands at the mark
+//! ([`sync_mark_beacon_visual`]) so the player can see where Blink will recall
+//! them to; set/recall also emit a VFX burst + SFX cue.
 
 use bevy::prelude::*;
 
@@ -124,6 +124,48 @@ pub fn mark_recall_system(
                 scale: 0.6,
             });
         }
+    }
+}
+
+/// Marks the persistent beacon sprite shown at a player's dropped recall mark.
+#[derive(Component)]
+pub struct MarkBeaconVisual;
+
+/// How far above the mark (player center) the beacon's center sits, so it reads
+/// as a marker standing UP from the spot rather than buried in the floor.
+const BEACON_RISE: f32 = 18.0;
+/// In-world display size of the beacon sprite (3:7, matching the rendered prop).
+const BEACON_SIZE: ae::Vec2 = ae::Vec2::new(30.0, 70.0);
+
+/// Draw a persistent glowing beacon at each player's dropped recall mark so they
+/// can see where `Blink` will recall them to (the mark used to be VFX-only).
+/// Clear-and-rebuild each frame — one mark per player, despawns when the mark is
+/// cleared. Visible build only.
+pub fn sync_mark_beacon_visual(
+    mut commands: Commands,
+    world: Res<crate::GameWorld>,
+    asset_server: Res<AssetServer>,
+    visuals: Query<Entity, With<MarkBeaconVisual>>,
+    marks: Query<&PlayerMark>,
+) {
+    for entity in &visuals {
+        commands.entity(entity).despawn();
+    }
+    for mark in &marks {
+        let Some(pos) = mark.pos else {
+            continue;
+        };
+        // +Y is down in world space, so "up" (toward the ceiling) is -Y.
+        let translation =
+            crate::config::world_to_bevy(&world.0, pos - ae::Vec2::new(0.0, BEACON_RISE), 7.0);
+        let mut sprite = Sprite::from_image(asset_server.load("sprites/props/mark_beacon.png"));
+        sprite.custom_size = Some(BEACON_SIZE);
+        commands.spawn((
+            MarkBeaconVisual,
+            sprite,
+            Transform::from_translation(translation),
+            Name::new("Mark beacon visual"),
+        ));
     }
 }
 

@@ -562,6 +562,58 @@ def write_shrine_prop(out_dir: str | Path, *, size: Tuple[int, int] = (88, 160))
     return path
 
 
+def draw_mark_beacon(d: ImageDraw.ImageDraw, s: float) -> None:
+    """A glowing recall beacon: a teal crystal pillar rising in a column of light,
+    with the Mark/Recall diamond glyph + concentric rings at its heart. Stands at
+    the dropped mark so the player can see where Blink will recall them to."""
+    teal = rgba("#5ED6C0")
+    outline = rgba("#05070D")
+    w = max(1, int(2 * s))
+    # Column of light rising to the sky (two nested translucent wedges).
+    d.polygon(scaled([(24, 3), (34, 98), (14, 98)], s), fill=with_alpha(teal, 36))
+    d.polygon(scaled([(24, 14), (29, 94), (19, 94)], s), fill=with_alpha(teal, 58))
+    # Outer glow around the crystal.
+    d.ellipse(bbox(24 * s, 66 * s, 42 * s, 86 * s), fill=with_alpha(teal, 30))
+    # Base plinth at the mark.
+    d.polygon(
+        scaled([(12, 105), (36, 105), (32, 96), (16, 96)], s),
+        fill=rgba("#22303A"),
+        outline=outline,
+        width=w,
+    )
+    # Crystal pillar (tall diamond section) with a brighter inner core.
+    d.polygon(scaled([(24, 26), (37, 64), (24, 100), (11, 64)], s), fill=with_alpha(teal, 150), outline=outline, width=w)
+    d.polygon(scaled([(24, 40), (31, 64), (24, 88), (17, 64)], s), fill=with_alpha(teal, 215))
+    d.line(scaled([(24, 26), (24, 100)], s), fill=rgba("#FFFFFF", 170), width=max(1, int(1.5 * s)))
+    # Concentric recall rings + the bright diamond glyph at the heart.
+    for r, a in [(28, 70), (19, 115)]:
+        d.ellipse(bbox(24 * s, 66 * s, r * s, r * s), outline=with_alpha(teal, a), width=max(1, int(1.3 * s)))
+    d.polygon(scaled([(24, 57), (31, 66), (24, 75), (17, 66)], s), fill=rgba("#EAFFFB", 240), outline=outline)
+    # Apex spark crowning the column.
+    for r, a in [(8, 95), (4, 185)]:
+        d.ellipse(bbox(24 * s, 8 * s, r * s, r * s), fill=with_alpha(teal, a))
+    d.ellipse(bbox(24 * s, 8 * s, 3 * s, 3 * s), fill=rgba("#FFFFFF", 235))
+
+
+def render_mark_beacon(size: Tuple[int, int] = (48, 112), supersample: int = 4) -> Image.Image:
+    s = max(1, int(supersample))
+    img = Image.new("RGBA", (size[0] * s, size[1] * s), (0, 0, 0, 0))
+    draw_mark_beacon(ImageDraw.Draw(img), float(s))
+    return img.resize(size, RESAMPLING.LANCZOS)
+
+
+def write_mark_beacon_prop(out_dir: str | Path, *, size: Tuple[int, int] = (48, 112)) -> Path:
+    """Render the Mark/Recall world beacon into ``out_dir`` (the sandbox
+    ``sprites/props/`` dir) as ``mark_beacon.png``. Consumed at runtime by
+    ``mark_recall::sync_mark_beacon_visual`` -- the persistent marker at the
+    dropped recall point. 3:7 aspect; the runtime ``custom_size`` scales it."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "mark_beacon.png"
+    render_mark_beacon(size).save(path)
+    return path
+
+
 # ---- Tack-on target API -------------------------------------------------------
 #
 # One module, one target ("item_icons") that batches every ability/item

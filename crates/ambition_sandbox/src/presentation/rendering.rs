@@ -118,6 +118,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     crate::portal::sync_gravity_switch_visual.after(actors::sync_visuals),
                     crate::portal::sync_gravity_zone_visual.after(actors::sync_visuals),
                     crate::shrine::sync_shrine_visual.after(actors::sync_visuals),
+                    crate::mark_recall::sync_mark_beacon_visual.after(actors::sync_visuals),
                 ),
             );
     }

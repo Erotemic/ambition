@@ -19,12 +19,19 @@ use super::*;
 /// O(features) once per frame and per-id lookup is O(1).
 #[derive(Resource, Default, Clone, Debug)]
 pub struct FeatureViewIndex {
-    views: std::collections::HashMap<String, FeatureView>,
+    /// `(view, generation)` per id. The generation lets the per-frame rebuild
+    /// MARK-AND-SWEEP instead of clear()+reinsert: a surviving id keeps its
+    /// existing key allocation, so a `String` is allocated only for a genuinely
+    /// new feature id — not for every id every frame. This index rebuilds every
+    /// frame and RL steps the sim millions of times, so the old per-id
+    /// `to_string()` was pure allocator churn.
+    views: std::collections::HashMap<String, (FeatureView, u64)>,
+    generation: u64,
 }
 
 impl FeatureViewIndex {
     pub fn get(&self, id: &str) -> Option<&FeatureView> {
-        self.views.get(id)
+        self.views.get(id).map(|(view, _)| view)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -35,11 +42,20 @@ impl FeatureViewIndex {
         self.views.len()
     }
 
-    fn clear(&mut self) {
-        self.views.clear();
+    /// Begin a rebuild pass: bump the generation so this frame's writes are
+    /// distinguishable from last frame's (swept by [`Self::end_rebuild`]).
+    fn begin_rebuild(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
     }
 
-    /// Insert `view` for `id` only if no view has been recorded yet this
+    /// End a rebuild pass: drop every entry not written this generation — the
+    /// features that despawned. Surviving keys keep their allocations.
+    fn end_rebuild(&mut self) {
+        let gen = self.generation;
+        self.views.retain(|_, (_, g)| *g == gen);
+    }
+
+    /// Insert `view` for `id` only if no view has been recorded yet THIS
     /// rebuild.
     ///
     /// Preserves the priority order of the old `ecs_feature_view`
@@ -50,8 +66,18 @@ impl FeatureViewIndex {
     /// LDtk-authored Switch id with the same string would have rendered
     /// as the chest under the linear scan; a plain HashMap `insert`
     /// would silently flip them to whichever family runs last).
+    ///
+    /// A same-generation entry is kept (first wins); a stale prior-frame entry
+    /// is refreshed in place; only a genuinely new id allocates a `String`.
     fn insert_if_absent(&mut self, id: &str, view: FeatureView) {
-        self.views.entry(id.to_string()).or_insert(view);
+        let gen = self.generation;
+        if let Some(slot) = self.views.get_mut(id) {
+            if slot.1 != gen {
+                *slot = (view, gen);
+            }
+        } else {
+            self.views.insert(id.to_string(), (view, gen));
+        }
     }
 }
 
@@ -94,7 +120,7 @@ pub fn rebuild_feature_view_index(
         Option<&BossPhase>,
     )>,
 ) {
-    index.clear();
+    index.begin_rebuild();
     for (id, aabb, collected) in &pickups {
         index.insert_if_absent(
             id.as_str(),
@@ -232,6 +258,9 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
+    // Sweep entries for features that despawned this frame (those not
+    // re-inserted under the current generation); surviving keys are reused.
+    index.end_rebuild();
 }
 
 #[cfg(test)]
@@ -277,5 +306,37 @@ mod view_index_tests {
         );
         assert!(!idx.get("other").unwrap().visible);
         assert!(idx.get("missing").is_none());
+    }
+
+    #[test]
+    fn rebuild_generations_refresh_survivors_and_sweep_the_despawned() {
+        let mut idx = FeatureViewIndex::default();
+        // Frame 1: two features present.
+        idx.begin_rebuild();
+        idx.insert_if_absent("a", view(true));
+        idx.insert_if_absent("b", view(true));
+        idx.end_rebuild();
+        assert_eq!(idx.len(), 2);
+
+        // Frame 2: "a" survives (re-inserted, refreshed in place), "b" despawned
+        // (not re-inserted) — the sweep must drop it, exactly like the old
+        // clear()+rebuild did.
+        idx.begin_rebuild();
+        idx.insert_if_absent("a", view(false));
+        idx.end_rebuild();
+        assert_eq!(idx.len(), 1, "the despawned 'b' is swept");
+        assert!(idx.get("b").is_none(), "'b' is gone");
+        assert_eq!(
+            idx.get("a").map(|v| v.visible),
+            Some(false),
+            "'a' refreshed to this frame's view"
+        );
+
+        // First-wins still holds *within* a generation across rebuilds.
+        idx.begin_rebuild();
+        idx.insert_if_absent("a", view(true)); // first this frame wins
+        idx.insert_if_absent("a", view(false)); // dropped
+        idx.end_rebuild();
+        assert_eq!(idx.get("a").map(|v| v.visible), Some(true));
     }
 }

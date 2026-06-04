@@ -90,6 +90,20 @@ pub fn grapple_system(
         id: ambition_sfx::ids::PLAYER_DASH,
         pos: from,
     });
+    // Draw the grapple LINE as a tan spark trail from the player to the latch
+    // point, so the ability READS as a grapple rope being thrown and reeling you
+    // in — not just a mysterious sudden yank (#53 "not sure what it does").
+    const GRAPPLE_LINE_SEGMENTS: i32 = 8;
+    for i in 1..GRAPPLE_LINE_SEGMENTS {
+        let p = from.lerp(hit, i as f32 / GRAPPLE_LINE_SEGMENTS as f32);
+        vfx.write(crate::presentation::fx::VfxMessage::Burst {
+            pos: p,
+            count: 2,
+            speed: 28.0,
+            color: [0.86, 0.78, 0.48, 0.95],
+            kind: crate::presentation::fx::ParticleKind::Spark,
+        });
+    }
     vfx.write(crate::presentation::fx::VfxMessage::Impact { pos: hit });
 }
 

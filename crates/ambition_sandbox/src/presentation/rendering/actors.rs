@@ -483,6 +483,9 @@ pub fn animate_characters(
         ),
     >,
     ecs_actors: Query<crate::features::ActorSpriteData>,
+    // Localized gravity, so an enemy/NPC wall-walking or on a flipped-gravity
+    // ceiling flips the right way (the same gravity-aware facing the player got).
+    gravity: crate::physics::GravityCtx,
 ) {
     // ADR 0011 — per-entity proper time. SP today: no entity carries
     // ProperTimeScale, so `entity_dt` collapses to `sim_dt` and
@@ -493,12 +496,13 @@ pub fn animate_characters(
         let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(
             scale,
         ));
-        let (anim, facing, hit_flash, attacking) = if let Some(state) =
+        let (anim, facing, pos, hit_flash, attacking) = if let Some(state) =
             crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
         {
             (
                 crate::presentation::character_sprites::pick_enemy_anim(state),
                 state.facing,
+                state.pos,
                 state.hit_flash,
                 state.attack_active || state.attack_windup,
             )
@@ -506,6 +510,7 @@ pub fn animate_characters(
             (
                 crate::presentation::character_sprites::pick_npc_anim(state),
                 state.facing,
+                state.pos,
                 state.hit_flash,
                 false,
             )
@@ -517,7 +522,7 @@ pub fn animate_characters(
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
         }
-        sprite.flip_x = facing < 0.0;
+        sprite.flip_x = crate::physics::gravity_aware_flip_x(facing, gravity.dir_at(pos));
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash`. Keep the warm
         // attack tint on the multiplicative `sprite.color` channel

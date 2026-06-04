@@ -85,6 +85,7 @@ pub fn ecs_enemy_anim_state(
                     let status = status?;
                     let attack = attack?;
                     Some(crate::presentation::character_sprites::EnemyAnimState {
+                        pos: kin.pos,
                         vel: kin.vel,
                         facing: kin.facing,
                         alive: status.alive,
@@ -113,6 +114,7 @@ pub fn ecs_npc_anim_state(
                     let kin = kin?;
                     let status = npc_status?;
                     Some(crate::presentation::character_sprites::NpcAnimState {
+                        pos: kin.pos,
                         vel: kin.vel,
                         facing: kin.facing,
                         hit_flash: status.hit_flash > 0.0,

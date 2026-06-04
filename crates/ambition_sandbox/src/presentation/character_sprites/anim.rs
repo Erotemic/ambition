@@ -467,6 +467,9 @@ fn directional_attack_anim(attack: Option<&crate::PlayerAttackState>) -> Charact
 /// Snapshot of an enemy's per-frame state used to drive its animation.
 #[derive(Clone, Copy, Debug)]
 pub struct EnemyAnimState {
+    /// World position — resolves this actor's *localized* gravity so the sprite
+    /// flips the right way when it's wall-walking / on a flipped-gravity ceiling.
+    pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub facing: f32,
     pub alive: bool,
@@ -500,6 +503,8 @@ pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
 /// `pick_enemy_anim` instead).
 #[derive(Clone, Copy, Debug)]
 pub struct NpcAnimState {
+    /// World position — see [`EnemyAnimState::pos`] (localized-gravity flip).
+    pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub facing: f32,
     pub hit_flash: bool,

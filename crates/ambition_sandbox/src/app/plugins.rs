@@ -709,6 +709,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
             crate::oot_menu::spawn_oot_menu.after(setup_simulation_system),
         );
         crate::oot_menu::install_oot_menu_visuals(app);
+        // 3D-cube inventory frontend (#31), runtime-toggleable vs the grid above.
+        crate::oot_cube_app::install_cube_menu(app);
     }
 }
 

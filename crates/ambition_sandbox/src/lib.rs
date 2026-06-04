@@ -81,6 +81,8 @@ pub mod oot_menu;
 // the reusable `ambition_inventory_ui` cube model. Renderer promotion pending.
 #[cfg(feature = "oot_inventory")]
 pub mod oot_cube;
+#[cfg(feature = "oot_inventory")]
+pub mod oot_cube_app;
 pub mod physics;
 pub mod possession;
 pub mod puppy_slug_gun;

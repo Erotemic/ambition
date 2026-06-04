@@ -65,11 +65,27 @@ the clean "no bug" the embed-only count implied.
 
 Honest caveat on the 175: it's a **heuristic** (`[past-solid?]`). A player can also
 leave through an open gap and then *drift while OOB* (gravity) to a coordinate
-that happens to be walled — a false positive. So the 175 narrows the OOB to "the
-crossed edge has a Solid at that coordinate", which is suspect-of-a-clip, not
-confirmed. The right follow-up is to replay one repro (`under_town_pipes` seed=1
-tick=99) and watch whether the player genuinely passes through a solid face vs
-drifts past it from outside.
+that happens to be walled — a false positive.
+
+**RESOLVED — traced, and it IS drift, not a clip** (`trace_oob_under_town_pipes`).
+Replaying the worst repro (under_town_pipes seed=1) and logging the trajectory:
+
+```
+tick 90: pos=(-193,704) dx=+3 left_edge_solid@y=false   <- already OOB, edge OPEN here
+tick 95: pos=(-171,723) dx=+4 left_edge_solid@y=false   <- drifting RIGHT, falling
+tick 99: pos=(-153,738) dx=+4 left_edge_solid@y=true    <- now at a y the edge IS walled
+```
+
+The player was **already outside** (x=-193) by tick 90, at a y where the left edge
+is **open**, then eased back right (+4/tick) while falling. It only reaches a
+walled y at tick 99 — but it never *crossed* that wall; it was outside above it
+and drifted down past it. So the `[past-solid?]` flag here is a **drift false
+positive**, and the 175 are (at least for the worst repro) the same story. The
+original conclusion stands: **the OOB are open-boundary level-authoring, not
+clip-throughs.** The classifier is still worth keeping as a regression tripwire —
+if a genuinely *enclosed* room ever shows `[past-solid?]`, that one IS a real clip
+— but the current 175 are not bugs. (The over-flagging comes from counting every
+OOB tick; a per-event dedup + a "was inside last tick" gate would tighten it.)
 
 Caveat (be honest): the fuzz is biased toward vertical/fly/pogo/jump input to
 stress ceilings, but it is *random*, not Jon's exact input sequence — "did not

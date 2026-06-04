@@ -445,6 +445,38 @@ fn oob_classifies_through_wall_vs_open_edge() {
     );
 }
 
+/// Diagnostic: trace the player trajectory around the worst `[past-solid?]` OOB
+/// (under_town_pipes seed=1, ~tick 99) to settle clip-through vs drift-after-gap.
+/// A real clip shows a single big jump from inside (x>0) to outside (x<0) crossing
+/// a Solid face; drift shows the center easing left over many ticks (already OOB).
+/// Run: `... --test collision_invariant_oracle trace_oob -- --ignored --nocapture`.
+#[test]
+#[ignore = "diagnostic trace — run with --ignored --nocapture"]
+fn trace_oob_under_town_pipes() {
+    let opts = SandboxSimOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_start_room("under_town_pipes");
+    let mut sim = SandboxSim::new_with_options(opts).expect("sim");
+    let mut rng = Lcg::new(1);
+    let mut sticky = 0.0_f32;
+    let mut prev = sim.observation().player_pos;
+    for tick in 1..=110u64 {
+        let action = random_action(&mut rng, &mut sticky);
+        let obs = sim.step(action);
+        let (px, py) = obs.player_pos;
+        if (90..=105).contains(&tick) {
+            let dx = px - prev.0;
+            // Probe the left edge at this y (where the classifier flagged a Solid).
+            let left_solid = point_in_solid(&solid_blocks(&sim), 8.0, py);
+            eprintln!(
+                "tick {tick}: pos=({px:.0},{py:.0}) dx={dx:+.0} left_edge_solid@y={left_solid} room={}",
+                obs.active_room
+            );
+        }
+        prev = (px, py);
+    }
+}
+
 /// Smoke test: proves the oracle harness runs end-to-end and prints a report.
 /// Does NOT assert zero violations (embed/teleport/OOB are the deferred bugs +
 /// gap rooms — see the module docs). Fast: a couple seeds on the cold-launch room.

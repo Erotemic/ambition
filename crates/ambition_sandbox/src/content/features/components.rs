@@ -971,6 +971,50 @@ pub struct EnemyActorBundle {
     pub pogo_target_volumes: PogoTargetVolumes,
 }
 
+impl EnemyActorBundle {
+    /// Construct a spawn bundle, filling the four fields that are identical at
+    /// every spawn site — `target` (no target until `select_actor_targets`
+    /// runs), `damageable_volumes` (derived from the sheet), `pogo_policy =
+    /// FromDamageable`, and `pogo_target_volumes`. Each `spawn_*` site supplies
+    /// only the fields that actually vary, so adding a new defaulted bundle field
+    /// is a one-line change here instead of an edit at all six call sites
+    /// (`spawn_actors.rs` ×4, `spawn_mounts.rs` ×2). Every parameter is a
+    /// distinct type, so a mis-ordered argument is a compile error, not a silent
+    /// spawn bug.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        base: FeatureBaseBundle,
+        identity: ActorIdentity,
+        disposition: ActorDisposition,
+        faction: ActorFaction,
+        pose: ActorPose,
+        combat_kit: CombatKit,
+        aggression: ActorAggression,
+        health: ActorHealth,
+        combat: ActorCombatState,
+        intent: ActorIntent,
+        cooldowns: ActorCooldowns,
+    ) -> Self {
+        Self {
+            base,
+            identity,
+            disposition,
+            faction,
+            target: ActorTarget::default(),
+            pose,
+            combat_kit,
+            aggression,
+            health,
+            combat,
+            intent,
+            cooldowns,
+            damageable_volumes: DamageableVolumes::default(),
+            pogo_policy: PogoPolicy::FromDamageable,
+            pogo_target_volumes: PogoTargetVolumes::default(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

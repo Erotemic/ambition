@@ -436,8 +436,16 @@ pub fn fire_held_ranged_system(
         },
         Name::new("Held ranged shot"),
     ));
+    // A Fireball whooshes out (reusing the dash whoosh) rather than the gun-sword
+    // laser zap, so it doesn't *sound* like a sword either; a bespoke ignite SFX
+    // is a tracked follow-up (TODO section B "Fireball projectile sprite + SFX").
+    let fire_sfx = if held.spec.id == FIREBALL_ID {
+        ambition_sfx::ids::PLAYER_DASH
+    } else {
+        ambition_sfx::SfxId::from_static("weapon.lasersword.fire")
+    };
     sfx.write(crate::audio::SfxMessage::Play {
-        id: ambition_sfx::SfxId::from_static("weapon.lasersword.fire"),
+        id: fire_sfx,
         pos: origin,
     });
 }
@@ -576,8 +584,11 @@ pub struct GroundItemVisual;
 pub const GAUNTLET_PROP_IDS: &[&str] = &[
     "shockwave", "volley", "beam", "vortex", "sentry", "dive", "meteor",
     // Item-shaped held-items: drawn as physical objects (a bomb, a hook, a
-    // crystal) rather than icon tiles -- see `item_icons.py::render_item_object`.
+    // crystal, a fire sphere) rather than icon tiles -- see
+    // `item_icons.py::render_item_object`. The fireball prop doubles as the
+    // in-flight shot visual (`sync_held_projectile_visuals`).
     "bomb", "grapple", "gravity_grenade", "mark_recall", "blink", "puppy_slug_gun",
+    "fireball",
 ];
 
 #[derive(Resource)]
@@ -721,9 +732,13 @@ pub fn sync_held_item_visual(
 #[derive(Component)]
 pub struct HeldProjectileVisual;
 
-/// Render each in-flight gun-sword shot as the **same** spinning lasersword
-/// sprite the pirates fire (`enemy_projectile::lasersword_projectile_sprite`),
-/// rotated along its travel. Clear-and-rebuild each frame (few shots).
+/// Render each in-flight held shot. A **Fireball** (it carries a splash, i.e.
+/// `explode_half > 0`) draws as its glowing fire sphere — a fireball reads as
+/// fire from any travel angle, so it needs no orientation, unlike the gun-sword
+/// bolt. Every other shot is the **same** spinning lasersword sprite the pirates
+/// fire (`enemy_projectile::lasersword_projectile_sprite`), rotated along its
+/// travel. Clear-and-rebuild each frame (few shots). Fixes Jon's "the fireball
+/// shoots a sword, not a fireball" — the bolt no longer looks like a sword.
 pub fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -734,11 +749,27 @@ pub fn sync_held_projectile_visuals(
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-    let texture = asset_server.load(crate::enemy_projectile::LASERSWORD_SHEET);
+    let lasersword = asset_server.load(crate::enemy_projectile::LASERSWORD_SHEET);
+    let fireball = asset_server.load(format!("sprites/props/gauntlet_{FIREBALL_ID}.png"));
     for proj in &projectiles {
         let translation = crate::config::world_to_bevy(&world.0, proj.pos, 9.5);
+        if proj.explode_half > 0.0 {
+            // Fireball: a glowing ball, sized a touch over the contact box so the
+            // fire visibly fills the space that hits. No rotation — it's radial.
+            commands.spawn((
+                HeldProjectileVisual,
+                Sprite {
+                    image: fireball.clone(),
+                    custom_size: Some(Vec2::splat(30.0)),
+                    ..default()
+                },
+                Transform::from_translation(translation),
+                Name::new("Fireball shot"),
+            ));
+            continue;
+        }
         let (sprite, anchor, rotation) =
-            crate::enemy_projectile::lasersword_projectile_sprite(texture.clone(), proj.vel);
+            crate::enemy_projectile::lasersword_projectile_sprite(lasersword.clone(), proj.vel);
         commands.spawn((
             HeldProjectileVisual,
             sprite,

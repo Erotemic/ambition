@@ -338,6 +338,21 @@ def icon_puppy_slug_gun(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None
     d.ellipse(bbox(50 * s, 34 * s, 5 * s, 4 * s), fill=rgba("#23262E"))
 
 
+def icon_fireball(d: ImageDraw.ImageDraw, s: float, accent: Color) -> None:
+    # A flaming sphere: soft glow, flame tongues licking up, a hot orange body,
+    # a white-hot core. Reads as fire whether held in hand or streaking in flight
+    # (no orientation needed -- it's radial), so it doubles as the in-flight shot.
+    d.ellipse(bbox(32 * s, 36 * s, 44 * s, 48 * s), fill=with_alpha(accent, 45))
+    # Flame tongues crowning the top -- tips well above the body so they read as
+    # fire licking up, not a planet. Outer tongues lean outward, paler.
+    for fx, fy, fw, fh, a in [(32, 5, 14, 30, 220), (24, 11, 10, 26, 195), (40, 12, 10, 25, 195), (17, 19, 9, 20, 160), (47, 20, 8, 18, 160)]:
+        d.polygon(scaled([(fx, fy), (fx + fw / 2, fy + fh), (fx - fw / 2, fy + fh)], s), fill=with_alpha(accent, a))
+    d.ellipse(bbox(32 * s, 39 * s, 34 * s, 38 * s), fill=with_alpha(accent, 238), outline=rgba("#05070D"), width=max(1, int(2 * s)))
+    d.ellipse(bbox(32 * s, 41 * s, 23 * s, 25 * s), fill=rgba("#FFB347", 242))
+    d.ellipse(bbox(31 * s, 42 * s, 12 * s, 13 * s), fill=rgba("#FFF3D0", 246))
+    d.ellipse(bbox(30 * s, 43 * s, 5 * s, 5 * s), fill=rgba("#FFFFFF", 250))
+
+
 GAUNTLET_ICON_SPECS: List[IconSpec] = [
     IconSpec("shockwave", "gauntlet_shockwave.png", "gauntlet", "ground-slam ring", "#FFD166", "shockwave"),
     IconSpec("volley", "gauntlet_volley.png", "gauntlet", "ranged spread shots", "#8AE66A", "volley"),
@@ -352,6 +367,7 @@ GAUNTLET_ICON_SPECS: List[IconSpec] = [
     IconSpec("mark_recall", "gauntlet_mark_recall.png", "held_item", "recall beacon", "#5ED6C0", "mark_recall"),
     IconSpec("blink", "gauntlet_blink.png", "held_item", "short-range teleport shard", "#72E7FF", "blink_crystal"),
     IconSpec("puppy_slug_gun", "gauntlet_puppy_slug_gun.png", "held_item", "puppy-slug blaster", "#FF8FB0", "puppy_slug_gun"),
+    IconSpec("fireball", "gauntlet_fireball.png", "held_item", "lobbed fire shot", "#FF6A2A", "fireball"),
 ]
 
 
@@ -389,6 +405,7 @@ DRAWERS: Dict[str, Callable[[ImageDraw.ImageDraw, float, Color], None]] = {
     "mark_recall": icon_mark_recall,
     "blink_crystal": icon_blink_crystal,
     "puppy_slug_gun": icon_puppy_slug_gun,
+    "fireball": icon_fireball,
 }
 
 

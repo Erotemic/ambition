@@ -575,6 +575,43 @@ pub struct PortalGunSpawnSpec {
     pub half_extent: ae::Vec2,
 }
 
+/// LDtk-authored heal/save shrine. Resolves to a [`crate::shrine::HealShrine`]
+/// at room load — the authored-placement home for the debug
+/// `spawn_debug_shrine_once`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShrineSpec {
+    /// LDtk iid — stable across rebuilds for save/debug joins.
+    pub id: String,
+    /// LDtk display name (editor-facing / entity naming only).
+    pub name: String,
+    /// World-space center of the shrine's interaction box.
+    pub pos: ae::Vec2,
+    /// Interaction half-extent, taken from the LDtk entity's box size.
+    pub half_extent: ae::Vec2,
+}
+
+/// LDtk-authored localized-gravity zone (a [`crate::physics::GravityZone`]).
+/// `oscillate_amplitude > 0` also attaches a [`crate::physics::OscillatingZone`]
+/// so the column slides horizontally. The authored-placement home for the debug
+/// `spawn_debug_gravity_zone_once`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GravityZoneSpec {
+    /// LDtk iid — stable across rebuilds for save/debug joins.
+    pub id: String,
+    /// LDtk display name (editor-facing / entity naming only).
+    pub name: String,
+    /// World-space center of the zone.
+    pub center: ae::Vec2,
+    /// Zone half-extent, taken from the LDtk entity's box size.
+    pub half_extent: ae::Vec2,
+    /// Gravity direction inside the zone (e.g. `(0,-1)` = up).
+    pub dir: ae::Vec2,
+    /// Horizontal slide amplitude in px; `0` = a static column.
+    pub oscillate_amplitude: f32,
+    /// Slide frequency (used only when `oscillate_amplitude > 0`).
+    pub oscillate_freq: f32,
+}
+
 /// Authored entity payload — `(id, name, aabb, payload)`.
 ///
 /// Sandbox-side replacement for the retired `ae::RoomObject` IR. Each
@@ -624,6 +661,10 @@ pub struct RoomSpec {
     pub ground_items: Vec<GroundItemSpec>,
     /// LDtk-authored portal-gun pickups. See [`PortalGunSpawnSpec`].
     pub portal_gun_spawns: Vec<PortalGunSpawnSpec>,
+    /// LDtk-authored heal/save shrines. See [`ShrineSpec`].
+    pub shrines: Vec<ShrineSpec>,
+    /// LDtk-authored localized-gravity zones. See [`GravityZoneSpec`].
+    pub gravity_zones: Vec<GravityZoneSpec>,
 
     // --- Per-family authored entity lists (replaces the retired
     //     `ae::World::objects: Vec<RoomObject>` / `RoomObjectKind`

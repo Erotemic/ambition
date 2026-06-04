@@ -711,3 +711,18 @@ fn ldtk_authors_portal_gun_spawn() {
          the entity def, convert_portal_gun_spawn, or the authoring break?"
     );
 }
+
+/// `ShrineSpawn` and `GravityZone` convert into their `RoomSpec` lists — the
+/// authored homes for the last two near-player debug spawns.
+#[test]
+fn ldtk_authors_shrine_and_gravity_zone() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
+    let room_set = project.to_room_set().expect("LDtk should compose");
+    let shrines: usize = room_set.rooms.iter().map(|r| r.shrines.len()).sum();
+    let zones: usize = room_set.rooms.iter().map(|r| r.gravity_zones.len()).sum();
+    assert!(shrines >= 1, "expected an authored ShrineSpawn in the LDtk room set");
+    assert!(
+        zones >= 1,
+        "expected an authored GravityZone in the LDtk room set (did convert_gravity_zone break?)"
+    );
+}

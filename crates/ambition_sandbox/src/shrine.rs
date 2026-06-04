@@ -25,28 +25,8 @@ pub struct HealShrine {
     pub half_extent: Vec2,
 }
 
-/// Spawn one shrine near the player the first frame a player exists (debug
-/// convenience until authored placement lands).
-pub fn spawn_debug_shrine_once(
-    mut commands: Commands,
-    mut done: Local<bool>,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    if *done {
-        return;
-    }
-    let Ok(kin) = players.single() else {
-        return;
-    };
-    *done = true;
-    commands.spawn((
-        HealShrine {
-            pos: kin.pos + Vec2::new(-160.0, 0.0),
-            half_extent: Vec2::new(22.0, 40.0),
-        },
-        Name::new("Heal/save shrine"),
-    ));
-}
+// The heal/save shrine is now an LDtk-authored `ShrineSpawn` entity (spawned at
+// room load via `spawn_room_feature_entities`); the old debug spawner is retired.
 
 /// `Interact` while overlapping a [`HealShrine`] heals the player to full
 /// (health + mana) and writes a save checkpoint. `interact_pressed` is an edge,

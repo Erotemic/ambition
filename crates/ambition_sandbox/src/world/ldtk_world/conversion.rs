@@ -121,6 +121,8 @@ impl LdtkProject {
         let mut props: Vec<PropSpec> = Vec::new();
         let mut ground_items: Vec<crate::rooms::GroundItemSpec> = Vec::new();
         let mut portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec> = Vec::new();
+        let mut shrines: Vec<crate::rooms::ShrineSpec> = Vec::new();
+        let mut gravity_zones: Vec<crate::rooms::GravityZoneSpec> = Vec::new();
         // Per-family authored entity lists. Each LDtk entity emits into
         // exactly one of these (or into one of the non-authored Vecs
         // above).
@@ -173,6 +175,8 @@ impl LdtkProject {
                         props.extend(emission.props);
                         ground_items.extend(emission.ground_items);
                         portal_gun_spawns.extend(emission.portal_gun_spawns);
+                        shrines.extend(emission.shrines);
+                        gravity_zones.extend(emission.gravity_zones);
                         hazards.extend(emission.hazards);
                         interactables.extend(emission.interactables);
                         pickups.extend(emission.pickups);
@@ -261,6 +265,8 @@ impl LdtkProject {
             props,
             ground_items,
             portal_gun_spawns,
+            shrines,
+            gravity_zones,
             hazards,
             interactables,
             pickups,
@@ -315,6 +321,11 @@ pub(super) struct RuntimeEntityEmission {
     /// LDtk-authored portal-gun pickups. Most emit zero; `PortalGunSpawn` emits
     /// one. See [`crate::rooms::PortalGunSpawnSpec`].
     pub(super) portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec>,
+    /// LDtk-authored heal/save shrines. Most emit zero; `ShrineSpawn` emits one.
+    pub(super) shrines: Vec<crate::rooms::ShrineSpec>,
+    /// LDtk-authored localized-gravity zones. Most emit zero; `GravityZone` emits
+    /// one. See [`crate::rooms::GravityZoneSpec`].
+    pub(super) gravity_zones: Vec<crate::rooms::GravityZoneSpec>,
     // --- Per-family authored entity emissions:
     pub(super) hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>>,
     pub(super) interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>>,
@@ -387,6 +398,20 @@ impl RuntimeEntityEmission {
     fn portal_gun_spawn(spec: crate::rooms::PortalGunSpawnSpec) -> Self {
         Self {
             portal_gun_spawns: vec![spec],
+            ..Self::default()
+        }
+    }
+
+    fn shrine(spec: crate::rooms::ShrineSpec) -> Self {
+        Self {
+            shrines: vec![spec],
+            ..Self::default()
+        }
+    }
+
+    fn gravity_zone(spec: crate::rooms::GravityZoneSpec) -> Self {
+        Self {
+            gravity_zones: vec![spec],
             ..Self::default()
         }
     }
@@ -540,6 +565,8 @@ pub(super) fn entity_to_runtime(
         "PickupSpawn" => Ok(convert_pickup_spawn(entity, name, min, size)),
         "GroundItem" => convert_ground_item(entity, name, min, size),
         "PortalGunSpawn" => Ok(convert_portal_gun_spawn(entity, name, min, size)),
+        "ShrineSpawn" => Ok(convert_shrine(entity, name, min, size)),
+        "GravityZone" => Ok(convert_gravity_zone(entity, name, min, size)),
         "ChestSpawn" => Ok(convert_chest_spawn(entity, name, min, size)),
         "EnemySpawn" => Ok(convert_enemy_spawn(entity, name, min, size)),
         "BossSpawn" => Ok(convert_boss_spawn(entity, name, min, size)),
@@ -775,6 +802,51 @@ fn convert_portal_gun_spawn(
         name,
         pos: min + size * 0.5,
         half_extent: size * 0.5,
+    })
+}
+
+fn authored_id(entity: &LdtkEntityInstance) -> String {
+    field_string(entity, "id")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| entity.iid.clone())
+}
+
+fn convert_shrine(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    RuntimeEntityEmission::shrine(crate::rooms::ShrineSpec {
+        id: authored_id(entity),
+        name,
+        pos: min + size * 0.5,
+        half_extent: size * 0.5,
+    })
+}
+
+fn convert_gravity_zone(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    // `dir` names the gravity direction inside the zone; default up (the demo).
+    let dir = match field_string(entity, "dir").as_deref().map(str::trim) {
+        Some("down") => ae::Vec2::new(0.0, 1.0),
+        Some("left") => ae::Vec2::new(-1.0, 0.0),
+        Some("right") => ae::Vec2::new(1.0, 0.0),
+        _ => ae::Vec2::new(0.0, -1.0),
+    };
+    RuntimeEntityEmission::gravity_zone(crate::rooms::GravityZoneSpec {
+        id: authored_id(entity),
+        name,
+        center: min + size * 0.5,
+        half_extent: size * 0.5,
+        dir,
+        oscillate_amplitude: field_f32(entity, "oscillate_amplitude").unwrap_or(0.0),
+        oscillate_freq: field_f32(entity, "oscillate_freq").unwrap_or(1.0),
     })
 }
 

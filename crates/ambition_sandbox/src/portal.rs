@@ -594,60 +594,10 @@ pub fn gravity_flip_switch_system(
     }
 }
 
-/// Spawn one **gravity-up zone** near the player the first frame a player exists
-/// (debug convenience until LDtk-authored placement lands): a tall region to the
-/// right where gravity points up, so walking in drops you onto the ceiling and
-/// walking out returns you to the ambient gravity.
-pub fn spawn_debug_gravity_zone_once(
-    mut commands: Commands,
-    mut done: Local<bool>,
-    room_set: Res<crate::rooms::RoomSet>,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    if *done {
-        return;
-    }
-    // Gravity COLUMNS live only in the dedicated `gravity_lab` room (Jon: they
-    // can't clutter the main sandbox). The global gravity-flip switch stays in
-    // the start room and flips the whole sandbox. Spawns the first frame the
-    // player is actually in gravity_lab.
-    if room_set.active_spec().id != "gravity_lab" {
-        return;
-    }
-    let Ok(kin) = players.single() else {
-        return;
-    };
-    *done = true;
-    // An up-gravity column, tall enough to reach the ceiling so a body inside it
-    // (the demo puppy slug authored at this spot) falls UP and crawls the
-    // ceiling — localized gravity in action.
-    let center = kin.pos + Vec2::new(374.0, -40.0);
-    commands.spawn((
-        GravityZone {
-            aabb: ae::Aabb::new(center, Vec2::new(150.0, 300.0)),
-            dir: Vec2::new(0.0, -1.0), // up
-        },
-        Name::new("Gravity zone: up (gravity_lab)"),
-    ));
-    // A SECOND up-gravity column that *slides* horizontally — a gravity column
-    // "riding a moving platform" (the deferred half of Jon's gravity TODO). Step
-    // into it as it drifts past and you ride it up.
-    let moving_base = kin.pos + Vec2::new(150.0, -120.0);
-    commands.spawn((
-        GravityZone {
-            aabb: ae::Aabb::new(moving_base, Vec2::new(80.0, 180.0)),
-            dir: Vec2::new(0.0, -1.0), // up
-        },
-        crate::physics::OscillatingZone {
-            base_center: moving_base,
-            half: Vec2::new(80.0, 180.0),
-            amplitude_x: 150.0,
-            freq: 1.1,
-            phase: 0.0,
-        },
-        Name::new("Gravity zone: up, sliding (gravity_lab)"),
-    ));
-}
+// Localized gravity zones are now LDtk-authored `GravityZone` entities (spawned
+// at room load via `spawn_room_feature_entities`), including the sliding column
+// -- a `oscillate_amplitude > 0` field attaches an `OscillatingZone`. The old
+// debug `spawn_debug_gravity_zone_once` is retired.
 
 /// Marks the visual for a [`GravityZone`].
 #[derive(Component)]

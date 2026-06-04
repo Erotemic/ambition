@@ -78,6 +78,37 @@ pub(super) fn spawn_portal_gun_spawn(
     ));
 }
 
+pub(super) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineSpec) {
+    commands.spawn((
+        Name::new(format!("Heal/save shrine: {}", spec.name)),
+        crate::shrine::HealShrine {
+            pos: spec.pos,
+            half_extent: spec.half_extent,
+        },
+    ));
+}
+
+pub(super) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::GravityZoneSpec) {
+    let mut entity = commands.spawn((
+        Name::new(format!("Gravity zone: {}", spec.name)),
+        crate::physics::GravityZone {
+            aabb: crate::engine_core::Aabb::new(spec.center, spec.half_extent),
+            dir: spec.dir,
+        },
+    ));
+    // A non-zero amplitude makes the column slide horizontally (the sliding
+    // gravity demo); a static column omits the OscillatingZone.
+    if spec.oscillate_amplitude > 0.0 {
+        entity.insert(crate::physics::OscillatingZone {
+            base_center: spec.center,
+            half: spec.half_extent,
+            amplitude_x: spec.oscillate_amplitude,
+            freq: spec.oscillate_freq,
+            phase: 0.0,
+        });
+    }
+}
+
 pub(super) fn spawn_chest(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Chest>,

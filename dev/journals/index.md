@@ -7,6 +7,7 @@ Use this index when debugging a symptom. Search `dev/journals/` when in doubt; t
 | Symptom | Read |
 |---|---|
 | Wall-cling or y-sweep teleports the player to a wall top/far edge | [`movement-edge-touch-y-sweep-lessons-2026-05-11.md`](movement-edge-touch-y-sweep-lessons-2026-05-11.md), [`lessons_learned.md`](lessons_learned.md) |
+| Flying/sliding along a wide ceiling teleports the player out its far X edge (X analog of the y-sweep edge-touch; the parallel graze is a non-immediate swept hit) | [`lessons_learned.md`](lessons_learned.md) (2026-06-04) |
 | Movement module split causes compile failures, lost extension-trait scope, or `Self: Sized` surprises | [`movement-refactor-lessons-2026-05-11.md`](movement-refactor-lessons-2026-05-11.md), [`rust-module-split-import-visibility-lessons-2026-05-11.md`](rust-module-split-import-visibility-lessons-2026-05-11.md) |
 | Movement-snap probes pass local clearance but escape world bounds | [`lessons_learned.md`](lessons_learned.md) |
 | Enemies/NPCs need player-like collision semantics | [`lessons_learned.md`](lessons_learned.md) |

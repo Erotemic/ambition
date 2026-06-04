@@ -2,6 +2,26 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-06-04: Swept-collision parallel graze teleports the body out the wide ceiling's far X edge (the X analog of the May y-sweep edge-touch bug)
+
+Symptom (reported across three sessions, ~a dozen traces): flying up to the hub ceiling and "moving around a bit" popped the player out of bounds — a single-frame teleport like `x1000 → x1919` (past the world's right wall at 1904) while the player was moving **LEFT**.
+
+Root cause: axis-separated AABB collision. The player box is **30×48**, so resting against the wide thin ceiling (`0..1904 × 0..32`) its top sits exactly on the ceiling's bottom edge (y32). Flying LEFT at speed, the body slides *parallel*, just grazing the ceiling. Parry's swept `cast_shapes` returns a **non-immediate** contact with the ceiling (`time_of_impact` a hair above 0, even though the body is ~0.01px below it and never moves toward it). The swept de-pen only deferred floor/ceiling contacts to the Y pass when `immediate_contact` (toi ≈ 0), so the grazing hit fell through to the push branch, which shoved the body out the ceiling block's **far X edge**: `block.right(1904) − body.left ≈ 918px`.
+
+This is the X-axis analog of the **2026-05-11 y-sweep edge-touch bug** (a body exact-edge-touching a tall wall, y-range nested, Parry `TOI=0`, snapped to the wall's far Y edge ~215px). That one was fixed by rejecting side contacts (`body_is_side_contact`) in the y-sweep predicate. The x-side never got the symmetric guard, so it sat latent for ~4 weeks until a player flew along the ceiling. **Lesson: when you guard one axis of an axis-separated collision against spurious shape-cast hits, mirror it on the other axis.**
+
+Wrong turns (each fixed a real but *different* shape of the same teleport, none the reported one):
+- Replaced an overlap-DEPTH heuristic with an exit-distance defer for *deep* penetration — gated on `immediate_contact`.
+- Added a world-bounds clamp as a backstop. Actively harmful: the border walls sit AT the world edge, so clamping to `world.size` pinned the body INSIDE the right wall (turned "outside world" into "inside wall, stuck oscillating"). Reverted.
+- Added an eject-guard for the *corner* case (near a ceiling edge the near X exit is the world boundary) — still gated on `immediate_contact`.
+- I twice concluded "your build is stale," because the math said the committed defer should fire. It did fire — for the *immediate* case. The grazing case is non-immediate, so the immediate-only guard never ran. **Don't dismiss a reproducible report as environmental; reproduce it.**
+
+What finally cracked it: the trace's per-frame dump already carried the player **size** (30×48, not the assumed 24×40) and velocity (moving LEFT but flung RIGHT — a "delta opposes velocity" tell). A unit test calling `sweep_player_x_clusters` **directly** with the exact captured `(pos, vel, size, dt)` reproduced the 918px teleport deterministically; the higher-level "fly around" repro did NOT — the exact sub-pixel graze is what triggers Parry's spurious non-immediate hit.
+
+Fix: one `resolve_x_penetration(body, block, world_w)` helper backing both X de-pen paths (the swept de-pen and the positional `resolve_axis_clusters`) — defers to the Y pass whenever the vertical exit is shorter **regardless of `immediate_contact`**, otherwise pushes the nearer X face but never out of the world. The Y axis is already protected by `body_is_side_contact`, so the class is now closed on both axes.
+
+Benchmark candidate: `dev/benchmark-candidates/swept-parallel-graze-far-edge-depenetration-2026-06-04.md` (the X analog of `movement-edge-touch-y-sweep-question-2026-05-11.md`).
+
 ## 2026-05-21: Bevy file watcher EMFILE is `inotify_instances`, not `max_user_watches`
 
 Reported during the intro-v1 polish session: `cargo run -p ambition_sandbox --bin ambition_sandbox` on the user's host failed with `Failed to create file watcher from path "…/crates/ambition_sandbox/assets", Error { kind: Io(Os { code: 24, kind: Uncategorized, message: "Too many open files" }), paths: [] }`. First guess (in the original developer-tools doc patch) was that `max_user_watches` was exhausted by the ~320 files in `crates/ambition_sandbox/assets/`. The user immediately falsified that — `cat /proc/sys/fs/inotify/max_user_watches → 65536` — and confirmed that removing `bevy/file_watcher` from the default `dev_tools` feature resolved the error.

@@ -31,7 +31,8 @@ Use this index before refactors or when planning validation. Benchmark candidate
 
 | Failure class | Read |
 |---|---|
-| Edge-touch side contact misclassified as vertical landing | [`movement-edge-touch-y-sweep-question-2026-05-11.md`](movement-edge-touch-y-sweep-question-2026-05-11.md) |
+| Edge-touch side contact misclassified as vertical landing (Y-sweep) | [`movement-edge-touch-y-sweep-question-2026-05-11.md`](movement-edge-touch-y-sweep-question-2026-05-11.md) |
+| Swept parallel-graze far-edge de-penetration: a body sliding under a wide ceiling teleports out its far X edge (X analog of the edge-touch bug; an `immediate_contact`-gated defer misses the non-immediate graze) | [`swept-parallel-graze-far-edge-depenetration-2026-06-04.md`](swept-parallel-graze-far-edge-depenetration-2026-06-04.md) |
 | Collision refactor replaces guarded semantics with raw shape-cast normals | [`movement-refactor-questions-2026-05-11.md`](movement-refactor-questions-2026-05-11.md) |
 | Grounded attack/pogo intent and intercept semantics | [`grounded-attack-intent-pogo-intercept-question-2026-05-13.md`](grounded-attack-intent-pogo-intercept-question-2026-05-13.md) |
 | Runtime LDtk collision insertion and ledge snap world-bound validation | [`ldtk-runtime-collision-questions.md`](ldtk-runtime-collision-questions.md) |

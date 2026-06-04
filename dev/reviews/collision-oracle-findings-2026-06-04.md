@@ -87,6 +87,17 @@ if a genuinely *enclosed* room ever shows `[past-solid?]`, that one IS a real cl
 — but the current 175 are not bugs. (The over-flagging comes from counting every
 OOB tick; a per-event dedup + a "was inside last tick" gate would tighten it.)
 
+**DONE — the gate landed, and the catalog is now clean** (28f16ecb). Recording
+only a FRESH crossing (inside last tick → outside now) instead of every OOB tick
+collapses the noise: the same 56,700-step sweep now reports **11 distinct OOB
+events** (down from 1335), **0 `[past-solid?]`** (down from 175), and every one of
+the 11 is a clean `(open edge)` walk-off — ≤5 per room (alice_relay/intro_escape_
+shaft/square_arena/tiny_chamber ×1, pirate_sky_lookout ×2, under_town_pipes ×5).
+So the final, accurate verdict across the whole 63-room world: **0 embed, 0
+above-ceiling, 0 teleport, 0 clip-through; 11 walk-offs at open boundaries (level-
+authoring).** No physics OOB bug. The oracle is now a reliable tripwire — a
+`[past-solid?]` in an enclosed room would be a genuine clip; today there are none.
+
 Caveat (be honest): the fuzz is biased toward vertical/fly/pogo/jump input to
 stress ceilings, but it is *random*, not Jon's exact input sequence — "did not
 reproduce" reduces, not eliminates, the possibility. A targeted replay of Jon's

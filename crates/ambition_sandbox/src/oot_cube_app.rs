@@ -135,8 +135,10 @@ fn gate_cube_menu(
 /// host-owned data seam — the cube renderer treats `ActiveMenuPages` as read-only).
 fn sync_cube_pages(
     backend: Res<InventoryUiBackend>,
+    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
     mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
+    mut was_open: Local<bool>,
 ) {
     if *backend != InventoryUiBackend::Cube {
         return;
@@ -144,7 +146,14 @@ fn sync_cube_pages(
     let Some(owned) = owned else {
         return;
     };
-    if !owned.is_changed() && !pages.pages.is_empty() {
+    let open = ui_state.map(|s| s.visible).unwrap_or(false);
+    let just_opened = open && !*was_open;
+    *was_open = open;
+    // Republish on catalog change, first publish, OR each time the menu opens. The
+    // open case fixes icons rendering blank until the first rotate: faces are built
+    // once at startup, but item icon textures that finish loading after that build
+    // are only picked up on a rebuild — so force one when the menu is shown.
+    if !owned.is_changed() && !pages.pages.is_empty() && !just_opened {
         return;
     }
     pages.pages = build_inventory_pages(&owned, owned.equipped(), None);

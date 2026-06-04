@@ -973,8 +973,17 @@ pub(crate) fn sync_actor_components_from_enemy(
     intent: &mut ActorIntent,
     cooldowns: &mut ActorCooldowns,
 ) {
-    *identity = ActorIdentity::new(em.config.id.clone(), em.config.name.clone())
-        .with_sprite_override(em.config.sprite_override_npc_name.clone());
+    // Identity is stable after spawn — only rebuild it (which clones the id/name
+    // strings AND wakes Bevy change-detection on `ActorIdentity`) when it actually
+    // differs, not every tick. This mirror runs per actor per frame, so the
+    // unconditional rebuild was pure clone + change-mark churn.
+    if identity.id != em.config.id
+        || identity.name != em.config.name
+        || identity.sprite_override_npc_name != em.config.sprite_override_npc_name
+    {
+        *identity = ActorIdentity::new(em.config.id.clone(), em.config.name.clone())
+            .with_sprite_override(em.config.sprite_override_npc_name.clone());
+    }
     *disposition = ActorDisposition::Hostile;
     *health = ActorHealth::new(em.status.health);
     *combat = ActorCombatState::hostile(

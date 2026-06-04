@@ -23,7 +23,7 @@
 
 use bevy::prelude::*;
 
-use crate::engine_core as ae;
+use crate::engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::player::{PlayerEntity, PlayerKinematics, PlayerMana, PrimaryPlayer};
@@ -104,18 +104,34 @@ pub fn fire_dive_system(
     if !mana.meter.try_spend(DIVE_MANA_COST) {
         return;
     }
-    let dir = dive_dir(crate::item_pickup::held_shot_aim(&control, kin.facing), kin.facing);
+    let dir = dive_dir(crate::item_pickup::held_shot_aim(&control, kin.facing), kin.facing)
+        .normalize_or_zero();
     let from = kin.pos;
-    // Stop a body-half short of the wall so the lunge never embeds in geometry —
-    // the same wall-stop the blink uses.
-    let margin = kin.size.x * 0.5 + 2.0;
-    let target = match world
+    // Stop a body-half short of the wall so the lunge never embeds. The pull-back
+    // must use the body's extent IN THE LUNGE DIRECTION -- half-height for a
+    // vertical dive, not half-width -- the same direction-aware clamp the blink
+    // uses (or a down/diagonal dive embeds in the floor and trips the OOB detector).
+    let half = kin.size * 0.5;
+    let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
+    let mut target = match world
         .as_ref()
         .and_then(|w| crate::portal::raycast_solids(&w.0, from, dir, DIVE_LUNGE + margin))
     {
         Some((hit, _normal)) => hit - dir * margin,
         None => from + dir * DIVE_LUNGE,
     };
+    // Safety net: if the landing AABB still overlaps a solid (a corner / grazing
+    // the center-ray missed), fall back to the start instead of embedding.
+    if let Some(w) = world.as_ref() {
+        let landing = ae::Aabb::new(target, half);
+        let embeds = w.0.blocks.iter().any(|b| {
+            matches!(b.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. })
+                && landing.strict_intersects(b.aabb)
+        });
+        if embeds {
+            target = from;
+        }
+    }
     kin.pos = target;
     if dir.x.abs() > 0.001 {
         kin.facing = dir.x.signum();
@@ -211,6 +227,37 @@ mod tests {
             "corridor covers start..landing: {:?}",
             hits[0].volume
         );
+    }
+
+    #[test]
+    fn downward_dive_does_not_embed_in_the_floor() {
+        // Regression (same class as the blink fix): a vertical lunge must clamp by
+        // the body's half-HEIGHT, not half-width, or a down dive embeds in the floor.
+        let mut app = test_app();
+        let player = spawn_player_holding_dive(&mut app); // (100,100), 24x40
+        app.insert_resource(crate::GameWorld(ae::World::new(
+            "test",
+            ae::Vec2::new(600.0, 600.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 200.0),
+                ae::Vec2::new(600.0, 400.0),
+            )],
+        )));
+        {
+            let mut c = app.world_mut().resource_mut::<ControlFrame>();
+            c.attack_pressed = true;
+            c.aim_y = 1.0; // dive straight down
+        }
+        app.update();
+        let pos = app.world().get::<PlayerKinematics>(player).unwrap().pos;
+        assert!(
+            pos.y + 20.0 <= 200.0 + 1e-3,
+            "downward dive embedded the body in the floor: bottom={}, floor top=200",
+            pos.y + 20.0,
+        );
+        assert!(pos.y > 100.0, "the dive should still carry the player downward");
     }
 
     #[test]

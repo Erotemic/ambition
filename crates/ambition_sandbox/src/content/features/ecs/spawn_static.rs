@@ -45,6 +45,24 @@ pub(super) fn spawn_pickup(
     ));
 }
 
+pub(super) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::GroundItemSpec) {
+    // Resolve the held-item registry id -> HeldItemSpec. An unregistered or
+    // feature-gated id is skipped (the item simply doesn't appear) -- the same
+    // tolerance the retired `spawn_debug_ground_items_once` table had.
+    let Some(held) = crate::brain::held_item_by_id(&spec.held_item) else {
+        return;
+    };
+    commands.spawn((
+        Name::new(format!("Ground item: {}", spec.name)),
+        crate::item_pickup::GroundItem {
+            spec: held,
+            pos: spec.pos,
+            vel: crate::engine_core::Vec2::ZERO,
+            half_extent: spec.half_extent,
+        },
+    ));
+}
+
 pub(super) fn spawn_chest(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Chest>,

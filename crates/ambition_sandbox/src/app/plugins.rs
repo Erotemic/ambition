@@ -305,10 +305,11 @@ fn register_item_pickup_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            // Refactor 4: one table-driven spawner replaces the ~8 per-item
-            // `spawn_debug_*_once` systems (axe / gun-sword / blink / grapple /
-            // bomb / gravity-grenade / mark-recall / puppy-slug gun).
-            crate::item_pickup::spawn_debug_ground_items_once,
+            // Ground held-items (gauntlets / weapons) are now LDtk-authored
+            // `GroundItem` entities spawned at room load via
+            // `spawn_room_feature_entities`; the debug near-player spawner is
+            // retired. The portal gun + gravity zone + shrine below are the
+            // remaining debug-spawned conveniences pending their own authoring.
             crate::portal::spawn_debug_portal_gun_pickup_once,
             crate::portal::spawn_debug_gravity_zone_once,
             crate::shrine::spawn_debug_shrine_once,

@@ -32,6 +32,7 @@ KNOWN_ENTITIES = {
     "DebugLabel",
     "EncounterTrigger",
     "EnemySpawn",
+    "GroundItem",
     "HazardBlock",
     "KinematicPath",
     "LoadingZone",

@@ -23,6 +23,9 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
     for pickup in &room.pickups {
         super::spawn_static::spawn_pickup(commands, pickup);
     }
+    for ground_item in &room.ground_items {
+        super::spawn_static::spawn_ground_item(commands, ground_item);
+    }
     for chest in &room.chests {
         super::spawn_static::spawn_chest(commands, chest);
     }

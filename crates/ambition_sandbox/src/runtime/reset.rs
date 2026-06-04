@@ -441,6 +441,7 @@ mod tests {
             kinematic_paths: Vec::new(),
             moving_platforms: Vec::new(),
             props: Vec::new(),
+            ground_items: Vec::new(),
             hazards: Vec::new(),
             interactables: Vec::new(),
             pickups: Vec::new(),

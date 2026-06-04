@@ -666,3 +666,30 @@ fn intro_props_do_not_grow_interactables() {
         }
     }
 }
+
+/// `GroundItem` LDtk entities convert into `RoomSpec.ground_items` carrying the
+/// authored `held_item` registry id. This is the authored-placement home for
+/// the gauntlet/weapon pickups that `spawn_debug_ground_items_once` used to
+/// drop near the player; the test pins that the convert + RoomSpec plumbing is
+/// intact by checking a representative subset of the tiny_chamber armory shelf.
+#[test]
+fn ldtk_authors_gauntlet_ground_items() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
+    let room_set = project.to_room_set().expect("LDtk should compose");
+
+    let held_ids: std::collections::HashSet<&str> = room_set
+        .rooms
+        .iter()
+        .flat_map(|room| room.ground_items.iter())
+        .map(|gi| gi.held_item.as_str())
+        .collect();
+
+    for expected in ["meteor", "bomb", "blink", "puppy_slug_gun", "gun_sword"] {
+        assert!(
+            held_ids.contains(expected),
+            "expected GroundItem held_item '{expected}' missing from the LDtk room \
+             set; did the GroundItem entity def, convert_ground_item, or the \
+             tiny_chamber authoring break? (saw: {held_ids:?})"
+        );
+    }
+}

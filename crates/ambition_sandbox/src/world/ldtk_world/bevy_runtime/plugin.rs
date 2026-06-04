@@ -124,6 +124,7 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "KinematicPath",
     "NpcSpawn",
     "PickupSpawn",
+    "GroundItem",
     "ChestSpawn",
     "BreakablePlatform",
     "BreakablePogoOrb",

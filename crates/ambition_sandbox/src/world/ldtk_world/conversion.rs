@@ -119,6 +119,7 @@ impl LdtkProject {
         let mut camera_zones: Vec<CameraZoneSpec> = Vec::new();
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut props: Vec<PropSpec> = Vec::new();
+        let mut ground_items: Vec<crate::rooms::GroundItemSpec> = Vec::new();
         // Per-family authored entity lists. Each LDtk entity emits into
         // exactly one of these (or into one of the non-authored Vecs
         // above).
@@ -169,6 +170,7 @@ impl LdtkProject {
                         camera_zones.extend(emission.camera_zones);
                         kinematic_paths.extend(emission.kinematic_paths);
                         props.extend(emission.props);
+                        ground_items.extend(emission.ground_items);
                         hazards.extend(emission.hazards);
                         interactables.extend(emission.interactables);
                         pickups.extend(emission.pickups);
@@ -255,6 +257,7 @@ impl LdtkProject {
             kinematic_paths,
             moving_platforms: resolved_moving_platforms,
             props,
+            ground_items,
             hazards,
             interactables,
             pickups,
@@ -303,6 +306,9 @@ pub(super) struct RuntimeEntityEmission {
     /// entities emit zero; `Prop` emits one. Render-only — see
     /// [`PropSpec`].
     pub(super) props: Vec<PropSpec>,
+    /// LDtk-authored ground held-items emitted by this entity. Most emit
+    /// zero; `GroundItem` emits one. See [`crate::rooms::GroundItemSpec`].
+    pub(super) ground_items: Vec<crate::rooms::GroundItemSpec>,
     // --- Per-family authored entity emissions:
     pub(super) hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>>,
     pub(super) interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>>,
@@ -361,6 +367,13 @@ impl RuntimeEntityEmission {
     fn prop(spec: PropSpec) -> Self {
         Self {
             props: vec![spec],
+            ..Self::default()
+        }
+    }
+
+    fn ground_item(spec: crate::rooms::GroundItemSpec) -> Self {
+        Self {
+            ground_items: vec![spec],
             ..Self::default()
         }
     }
@@ -512,6 +525,7 @@ pub(super) fn entity_to_runtime(
         "Prop" => convert_prop(entity, name, min, size),
         "NpcSpawn" => Ok(convert_npc_spawn(entity, name, min, size)),
         "PickupSpawn" => Ok(convert_pickup_spawn(entity, name, min, size)),
+        "GroundItem" => convert_ground_item(entity, name, min, size),
         "ChestSpawn" => Ok(convert_chest_spawn(entity, name, min, size)),
         "EnemySpawn" => Ok(convert_enemy_spawn(entity, name, min, size)),
         "BossSpawn" => Ok(convert_boss_spawn(entity, name, min, size)),
@@ -698,6 +712,36 @@ fn convert_pickup_spawn(
     );
     let (id, name, aabb) = authored_triple(entity, name, min, size);
     RuntimeEntityEmission::pickup(crate::rooms::Authored::new(id, name, aabb, pickup))
+}
+
+fn convert_ground_item(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> Result<RuntimeEntityEmission, String> {
+    // Authored held-item pickup. `held_item` is a brain held-item registry id
+    // (`meteor`, `bomb`, `puppy_slug_gun`, `gun_sword`, ...); resolution to a
+    // `HeldItemSpec` happens at spawn, where an unregistered / feature-gated id
+    // is tolerated (the item simply doesn't appear) rather than failing the
+    // whole room load.
+    let held_item = field_string(entity, "held_item").unwrap_or_default();
+    if held_item.trim().is_empty() {
+        return Err("GroundItem requires non-empty `held_item` field".to_string());
+    }
+    let id = field_string(entity, "id")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| entity.iid.clone());
+    Ok(RuntimeEntityEmission::ground_item(
+        crate::rooms::GroundItemSpec {
+            id,
+            name,
+            held_item: held_item.trim().to_string(),
+            pos: min + size * 0.5,
+            half_extent: size * 0.5,
+        },
+    ))
 }
 
 fn convert_chest_spawn(

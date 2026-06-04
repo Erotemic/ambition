@@ -92,6 +92,7 @@ RUNTIME_RS = (
     / "crates"
     / "ambition_sandbox"
     / "src"
+    / "world"
     / "ldtk_world"
     / "bevy_runtime"
     / "plugin.rs"

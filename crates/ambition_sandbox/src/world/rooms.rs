@@ -535,6 +535,30 @@ pub struct PropSpec {
     pub size: ae::Vec2,
 }
 
+/// LDtk-authored held item resting on the ground, pick-up-able with `Attack`.
+///
+/// Resolved to a [`crate::item_pickup::GroundItem`] at room load by looking
+/// `held_item` up in the brain held-item registry
+/// (`crate::brain::held_item_by_id`). This is the authored-placement home for
+/// the gauntlet / weapon pickups that the debug `spawn_debug_ground_items_once`
+/// table used to drop near the player — kept off `World::objects` for the same
+/// reason as [`PropSpec`] (the engine never sees them).
+#[derive(Clone, Debug, PartialEq)]
+pub struct GroundItemSpec {
+    /// LDtk iid — stable across rebuilds for save/debug joins.
+    pub id: String,
+    /// LDtk display name (editor-facing / entity naming only).
+    pub name: String,
+    /// Held-item registry id, e.g. `meteor`, `bomb`, `puppy_slug_gun`,
+    /// `gun_sword`. Resolved via `crate::brain::held_item_by_id`; an
+    /// unregistered id is skipped at spawn rather than erroring.
+    pub held_item: String,
+    /// World-space center of the pickup box.
+    pub pos: ae::Vec2,
+    /// Pickup half-extent, taken from the LDtk entity's box size.
+    pub half_extent: ae::Vec2,
+}
+
 /// Authored entity payload — `(id, name, aabb, payload)`.
 ///
 /// Sandbox-side replacement for the retired `ae::RoomObject` IR. Each
@@ -579,6 +603,9 @@ pub struct RoomSpec {
     pub moving_platforms: Vec<crate::world::platforms::MovingPlatformState>,
     /// LDtk-authored decorative props. Render-only — see [`PropSpec`].
     pub props: Vec<PropSpec>,
+    /// LDtk-authored ground held-items (gauntlet / weapon pickups). See
+    /// [`GroundItemSpec`].
+    pub ground_items: Vec<GroundItemSpec>,
 
     // --- Per-family authored entity lists (replaces the retired
     //     `ae::World::objects: Vec<RoomObject>` / `RoomObjectKind`

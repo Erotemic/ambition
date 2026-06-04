@@ -2,6 +2,28 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-06-04: A second camera (3D cube pause menu) rendered black because the game's `With<Camera>` follow dragged it off-target
+
+Symptom (a full session of blind iteration with the user, ~6 rebuild/test rounds): the new #31 OoT-style 3D inventory cube — a `Camera3d` overlaid on the 2D game — rendered as black, then purple, then gizmo-lines-only, with run-to-run variance, never showing the faces, even though the bevy_lunex meshes were demonstrably built.
+
+Root cause: the game's camera systems — the follow in [`presentation/rendering/camera.rs`](../../crates/ambition_sandbox/src/presentation/rendering/camera.rs), plus `parallax.rs` and `foreground.rs` — all query `With<Camera>`. Adding ANY second camera makes those queries match it too. The camera-follow obediently dragged the cube `Camera3d` up to the player's world position (`y≈120.5`), aiming it at empty space, while the 85 cube meshes sat correctly at the origin. The cube camera was rendering fine — at nothing.
+
+Wrong turns (each a real but *different* issue, none of them the reported black):
+- Pause-gating the cube camera (it was clearing black every frame over the game). Real fix, wrong layer.
+- `IsDefaultUiCamera` on the main `Camera2d` — the second camera had also broken bevy_ui's implicit default-UI-camera pick, so the HUD + pause overlay silently rendered to the wrong camera and vanished (present + clickable, just unseen). Real, separate fix worth keeping.
+- bevy_lunex faces missing `UiLayoutRoot::new_3d()` + `Dimension` → child `UiLayout::window()` planes resolve `Rl`/`Rh` against nothing → zero-size. Real, separate fix worth keeping.
+- MSAA mismatch (game `Camera2d` defaults to `Sample4`, the cube forced `Msaa::Off`) sharing one window — a genuine fragility of layering 3D-over-2D. Addressed by making the cube the SOLE active camera while shown (disable the 2D camera), which also matches the mock demo's single-camera setup. Got a full-screen purple clear but STILL no geometry — because the camera was still aimed at empty space.
+
+What finally cracked it: a probe system logging the camera's `GlobalTransform`, a marker mesh's `ViewVisibility`, and the total `Mesh3d` count. One line settled it: `camera at Vec3(0.0, 120.5, -2.28) … box at Vec3(0,0,0) ViewVisibility=false; total Mesh3d entities=85`. That reads as "85 meshes exist, the box is at the origin, the camera is 120 units away pointed elsewhere" — i.e. not a missing-geometry / pipeline / material / MSAA problem at all, but a camera-aim problem.
+
+Fix: target the actual game camera — `With<Camera2d>` instead of `With<Camera>` — in the three camera systems. The cube `Camera3d` is then invisible to follow/parallax/foreground, stays pinned, and renders the cube. (Then: strip the debug scaffolding, set a dark backdrop, add snap-to-active ring rotation + Left/Right page nav.)
+
+Lessons:
+- **Adding a second camera to a Bevy game silently breaks every `With<Camera>` query in the codebase** — follow systems mutate the wrong camera, `.single()` queries start erroring, parallax reads the wrong transform. The moment a second camera exists, audit `With<Camera>` and narrow each to a specific marker (`With<Camera2d>`, a `MainCamera` tag).
+- **3D-over-2D on one window is fragile** (MSAA / depth / clear / compositing, with run-to-run variance). Making the overlay the *sole* active camera while it's up sidesteps the whole class — and matches how standalone 3D demos are built.
+- **When "nothing renders," probe `ViewVisibility` + `GlobalTransform` + entity count BEFORE touching materials / MSAA / pipeline.** It collapses a dozen hypotheses into the single bit "in view, or not."
+- bevy_lunex 3D faces each need `UiLayoutRoot::new_3d()` + a `Dimension`, or their `UiLayout::window()` children collapse to zero size and the camera clears to a blank screen.
+
 ## 2026-06-04: Swept-collision parallel graze teleports the body out the wide ceiling's far X edge (the X analog of the May y-sweep edge-touch bug)
 
 Symptom (reported across three sessions, ~a dozen traces): flying up to the hub ceiling and "moving around a bit" popped the player out of bounds — a single-frame teleport like `x1000 → x1919` (past the world's right wall at 1904) while the player was moving **LEFT**.

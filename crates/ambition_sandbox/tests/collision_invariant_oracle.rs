@@ -137,6 +137,19 @@ struct Violation {
     kind: Kind,
     pos: (f32, f32),
     detail: String,
+    /// For an OOB: did the player cross a Solid boundary wall to get out
+    /// (`Some(true)` = a real clip-through bug) or walk off an open edge
+    /// (`Some(false)` = level-authoring, the edge is just open)? `None` for the
+    /// embed/teleport kinds, which aren't boundary-relative.
+    through_wall: Option<bool>,
+}
+
+/// True if `(x, y)` lies inside any Solid block — used to probe whether a Solid
+/// boundary wall sits just inside the edge the player went OOB through.
+fn point_in_solid(blocks: &[ae::Aabb], x: f32, y: f32) -> bool {
+    blocks
+        .iter()
+        .any(|b| x >= b.min.x && x <= b.max.x && y >= b.min.y && y <= b.max.y)
 }
 
 /// Margin (px) the player center must be *past* a face before we call it
@@ -224,6 +237,7 @@ fn check_step(
                     "center inside solid [{:.0},{:.0}]..[{:.0},{:.0}]",
                     b.min.x, b.min.y, b.max.x, b.max.y
                 ),
+                through_wall: None,
             });
             break; // one embed report per step is enough
         }
@@ -254,6 +268,17 @@ fn check_step(
         if at_exit {
             *suppressed += 1;
         } else {
+            // Probe just inside the crossed edge: a Solid there means the player
+            // clipped THROUGH a boundary wall (a real bug); nothing there means
+            // the edge is simply open (level-authoring — a pit, a sky boundary).
+            const PROBE: f32 = 8.0;
+            let through_wall = match kind {
+                Kind::OutOfBoundsAbove => point_in_solid(blocks, px, PROBE),
+                Kind::OutOfBoundsBelow => point_in_solid(blocks, px, wh - PROBE),
+                Kind::OutOfBoundsSide if px < 0.0 => point_in_solid(blocks, PROBE, py),
+                Kind::OutOfBoundsSide => point_in_solid(blocks, ww - PROBE, py),
+                _ => false,
+            };
             out.push(Violation {
                 room: room.to_string(),
                 seed,
@@ -261,6 +286,7 @@ fn check_step(
                 kind,
                 pos,
                 detail: format!("world [{ww:.0}x{wh:.0}]"),
+                through_wall: Some(through_wall),
             });
         }
     }
@@ -277,6 +303,7 @@ fn check_step(
                 kind: Kind::Teleport,
                 pos,
                 detail: format!("jumped {d:.0}px from ({qx:.0},{qy:.0})"),
+                through_wall: None,
             });
         }
     }
@@ -347,17 +374,33 @@ fn format_report(
     suppressed: u32,
 ) -> String {
     use std::collections::BTreeMap;
-    let mut buckets: BTreeMap<(String, &'static str), (u64, &Violation)> = BTreeMap::new();
+    // A label that folds in the through-wall classification so a genuine
+    // clip-through (bug) buckets separately from an open-edge walk-off (design).
+    let label = |v: &Violation| -> String {
+        match v.through_wall {
+            // A Solid sits just inside the crossed edge. SUSPECT clip-through —
+            // but a heuristic: the player could also have left through a gap and
+            // drifted (while OOB) to a coordinate that happens to be walled. The
+            // `?` flags "investigate", not "confirmed bug".
+            Some(true) => format!("{} [past-solid?]", v.kind.label()),
+            Some(false) => format!("{} (open edge)", v.kind.label()),
+            None => v.kind.label().to_string(),
+        }
+    };
+    let mut buckets: BTreeMap<(String, String), (u64, &Violation)> = BTreeMap::new();
     for v in violations {
-        let key = (v.room.clone(), v.kind.label());
         buckets
-            .entry(key)
+            .entry((v.room.clone(), label(v)))
             .and_modify(|(n, _)| *n += 1)
             .or_insert((1, v));
     }
+    // Split the OOB by whether a Solid sat at the crossed edge: `past_solid` are
+    // the SUSPECT clip-throughs to investigate (vs walking off an open edge,
+    // which is level-authoring, not a physics bug).
+    let past_solid = violations.iter().filter(|v| v.through_wall == Some(true)).count();
     let mut s = String::new();
     s.push_str(&format!(
-        "\n=== collision-invariant oracle: {episodes} episodes, {total_steps} steps, {} violations ({suppressed} OOB suppressed at authored exits) ===\n",
+        "\n=== collision-invariant oracle: {episodes} episodes, {total_steps} steps, {} violations ({suppressed} OOB suppressed at authored exits; {past_solid} OOB ended up PAST a Solid at the crossed edge — suspect clips, investigate) ===\n",
         violations.len()
     ));
     if buckets.is_empty() {
@@ -366,11 +409,40 @@ fn format_report(
     }
     for ((room, kind), (count, first)) in &buckets {
         s.push_str(&format!(
-            "  {room:28} {kind:18} x{count:<4} first: seed={} tick={} pos=({:.0},{:.0}) {}\n",
+            "  {room:28} {kind:28} x{count:<4} first: seed={} tick={} pos=({:.0},{:.0}) {}\n",
             first.seed, first.tick, first.pos.0, first.pos.1, first.detail
         ));
     }
     s
+}
+
+/// The through-wall classifier: an OOB past a Solid boundary wall is a real
+/// clip-through; an OOB off an open edge is level-authoring. (PROBE-based, so it
+/// reads the same boundary the player crossed.)
+#[test]
+fn oob_classifies_through_wall_vs_open_edge() {
+    let world = (100.0, 100.0); // ww = wh = 100
+    let mut supp = 0;
+    let oob_right = (130.0, 50.0); // center well past the right edge (> ww + margin)
+
+    // A Solid boundary wall at x[92,100]: being at x=130 means clipping through it.
+    let walled = [ae::Aabb::new(ae::Vec2::new(96.0, 50.0), ae::Vec2::new(4.0, 50.0))];
+    let v = check_step("r", 1, 1, oob_right, None, world, &walled, &[], &mut supp);
+    let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
+    assert_eq!(
+        side.and_then(|x| x.through_wall),
+        Some(true),
+        "past a boundary wall = clip-through (bug)"
+    );
+
+    // No wall at the right edge — the player walked off an open edge (design).
+    let v = check_step("r", 1, 1, oob_right, None, world, &[], &[], &mut supp);
+    let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
+    assert_eq!(
+        side.and_then(|x| x.through_wall),
+        Some(false),
+        "open edge = not a clip (level-authoring)"
+    );
 }
 
 /// Smoke test: proves the oracle harness runs end-to-end and prints a report.

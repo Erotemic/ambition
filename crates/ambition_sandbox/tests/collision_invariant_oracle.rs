@@ -152,6 +152,11 @@ fn point_in_solid(blocks: &[ae::Aabb], x: f32, y: f32) -> bool {
         .any(|b| x >= b.min.x && x <= b.max.x && y >= b.min.y && y <= b.max.y)
 }
 
+/// True if the center is past the world bounds (the same test the OOB check uses).
+fn is_oob(pos: (f32, f32), world: (f32, f32)) -> bool {
+    pos.0 < -OOB_MARGIN || pos.0 > world.0 + OOB_MARGIN || pos.1 < -OOB_MARGIN || pos.1 > world.1 + OOB_MARGIN
+}
+
 /// Margin (px) the player center must be *past* a face before we call it
 /// embedded — keeps sub-pixel contact drift from false-positiving.
 const EMBED_MARGIN: f32 = 2.0;
@@ -265,7 +270,14 @@ fn check_step(
                 && py > z.min.y - EXIT_PAD
                 && py < z.max.y + EXIT_PAD
         });
-        if at_exit {
+        // Only count a FRESH crossing (inside last tick → outside now). Staying
+        // outside (drift under gravity) just continues the same event — it would
+        // double-count AND mis-flag the through-wall probe at a drifted-to coord
+        // (the exact false positive the under_town_pipes trace exposed).
+        let was_inside = teleport_from.is_some_and(|prev| !is_oob(prev, (ww, wh)));
+        if !was_inside {
+            // Drift continuation or a room transition — not a new boundary cross.
+        } else if at_exit {
             *suppressed += 1;
         } else {
             // Probe just inside the crossed edge: a Solid there means the player
@@ -427,7 +439,7 @@ fn oob_classifies_through_wall_vs_open_edge() {
 
     // A Solid boundary wall at x[92,100]: being at x=130 means clipping through it.
     let walled = [ae::Aabb::new(ae::Vec2::new(96.0, 50.0), ae::Vec2::new(4.0, 50.0))];
-    let v = check_step("r", 1, 1, oob_right, None, world, &walled, &[], &mut supp);
+    let v = check_step("r", 1, 1, oob_right, Some((90.0, 50.0)), world, &walled, &[], &mut supp);
     let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
     assert_eq!(
         side.and_then(|x| x.through_wall),
@@ -436,12 +448,21 @@ fn oob_classifies_through_wall_vs_open_edge() {
     );
 
     // No wall at the right edge — the player walked off an open edge (design).
-    let v = check_step("r", 1, 1, oob_right, None, world, &[], &[], &mut supp);
+    let v = check_step("r", 1, 1, oob_right, Some((90.0, 50.0)), world, &[], &[], &mut supp);
     let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
     assert_eq!(
         side.and_then(|x| x.through_wall),
         Some(false),
         "open edge = not a clip (level-authoring)"
+    );
+
+    // Drift: already OOB last tick (prev x=120 is also past the edge) → the same
+    // event continuing, not a fresh crossing → NOT recorded. This is the gate that
+    // kills the under_town_pipes [past-solid?] false positives.
+    let v = check_step("r", 1, 1, oob_right, Some((120.0, 50.0)), world, &walled, &[], &mut supp);
+    assert!(
+        v.iter().all(|x| !matches!(x.kind, Kind::OutOfBoundsSide)),
+        "a drift continuation (already OOB last tick) is not a new OOB event"
     );
 }
 

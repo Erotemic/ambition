@@ -15,12 +15,13 @@ use bevy::prelude::*;
 use crate::items::OwnedItems;
 use crate::oot_cube::{build_inventory_pages, CubeAction, CubePage};
 
-/// Which inventory frontend renders. Runtime toggle (both are compiled in); the
-/// cube is default during #31 bring-up so it's visible to iterate on.
+/// Which inventory frontend renders. Runtime toggle (both compiled in); defaults to
+/// the proven Bevy-UI `Grid` so the menu is always usable, with the 3D `Cube` one
+/// `\` press away (see [`toggle_inventory_backend`]) for #31 bring-up/debug.
 #[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum InventoryUiBackend {
-    Grid,
     #[default]
+    Grid,
     Cube,
 }
 
@@ -30,7 +31,25 @@ pub fn install_cube_menu(app: &mut App) {
         .init_resource::<ActiveMenuPages<CubePage, CubeAction>>()
         .add_plugins(AmbitionInventoryUiPlugin)
         .add_plugins(CubeMenuPlugin::<CubePage, CubeAction>::default())
-        .add_systems(Update, (sync_cube_pages, gate_cube_menu));
+        .add_systems(
+            Update,
+            (sync_cube_pages, gate_cube_menu, toggle_inventory_backend),
+        );
+}
+
+/// Dev runtime toggle (#31): `\` flips the inventory frontend between the Bevy-UI
+/// grid and the 3D cube. Logs the new backend so it's visible in the console.
+fn toggle_inventory_backend(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut backend: ResMut<InventoryUiBackend>,
+) {
+    if keys.just_pressed(KeyCode::Backslash) {
+        *backend = match *backend {
+            InventoryUiBackend::Grid => InventoryUiBackend::Cube,
+            InventoryUiBackend::Cube => InventoryUiBackend::Grid,
+        };
+        info!("inventory backend → {:?}", *backend);
+    }
 }
 
 /// Pause-gate the cube: its order-8 `Camera3d` clears the whole screen every frame,

@@ -1,0 +1,82 @@
+// live_floor — the gauntlet's hazard finale (story: "the floor is live — hop the
+// insulated islands; touch the floor and it throws you back to the start"). The
+// fourth challenge type after climb / traverse / diagonal-steps: a row of safe
+// platforms strung over a continuous HazardBlock floor. Flat ~120px gaps (under
+// the ~150px running-jump reach), so each leap is clearable with margin, but a
+// miss drops you 60px onto the hazard → damage + respawn. Chains off
+// stagger_steps' top, so the gridvania finale is:
+//   gradient_ascent → gap_run → stagger_steps → live_floor
+//
+// Layout (1280x384), platforms y=300, hazard floor y=360:
+//   y=300  [plat_1]   [plat_2]   [plat_3]   [plat_4]   [plat_5]
+//   y=360  ##################### live hazard floor ####################
+(
+    id: "live_floor",
+    level_id: "live_floor",
+    world_x: 94000,
+    world_y: 1024,
+    px_wid: 1280,
+    px_hei: 384,
+    fill_collision: "empty",
+    bg_color: "#1A1210",
+    biome: "lab",
+    entities: [
+        // Bounding: ceiling + side walls.
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 368], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 368], fields: ( name: "right_wall" ) ),
+        // The live floor — a continuous hazard surface; touch it and respawn.
+        ( type: "HazardBlock", px: [16, 360], size: [1248, 24], fields: ( name: "live_floor_hazard" ) ),
+        // Safe insulated platforms strung over the hazard, ~120px flat gaps.
+        ( type: "Solid", px: [40, 300], size: [160, 16], fields: ( name: "plat_1" ) ),
+        ( type: "Solid", px: [320, 300], size: [160, 16], fields: ( name: "plat_2" ) ),
+        ( type: "Solid", px: [600, 300], size: [160, 16], fields: ( name: "plat_3" ) ),
+        ( type: "Solid", px: [880, 300], size: [160, 16], fields: ( name: "plat_4" ) ),
+        ( type: "Solid", px: [1160, 300], size: [104, 16], fields: ( name: "plat_5" ) ),
+        // Spawn + entry door on the first (safe) platform.
+        ( type: "PlayerStart", px: [80, 254], size: [28, 46], fields: ( name: "live_floor_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [40, 204],
+            size: [48, 96],
+            fields: (
+                id: "live_floor_entry",
+                name: "live_floor_entry",
+                activation: "Door",
+                target_room: "stagger_steps",
+                target_zone: "live_floor_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1280, 384],
+            fields: ( id: "live_floor_camera", name: "live_floor_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [140, 90],
+            size: [680, 24],
+            fields: (
+                name: "live_floor_intro",
+                text: "Live Floor: hop the insulated platforms — touch the floor and it resets you.",
+                category: "Custom",
+            ),
+        ),
+    ],
+    // Reciprocal door inserted at stagger_steps' top step (step_5), snapped onto
+    // it — the gauntlet's final transition.
+    connect_to: [
+        (
+            target_room: "stagger_steps",
+            px: [700, 200],
+            size: [16, 96],
+            id: "live_floor_door",
+            target_zone: "live_floor_entry",
+            activation: "Door",
+            bidirectional: true,
+            snap_to_surface: true,
+        ),
+    ],
+)

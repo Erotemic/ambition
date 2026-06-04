@@ -77,6 +77,10 @@ pub mod items;
 pub mod mark_recall;
 #[cfg(feature = "oot_inventory")]
 pub mod oot_menu;
+// 3D-cube OoT pause menu (#31): the data seam wiring our 24-item inventory into
+// the reusable `ambition_inventory_ui` cube model. Renderer promotion pending.
+#[cfg(feature = "oot_inventory")]
+pub mod oot_cube;
 pub mod physics;
 pub mod possession;
 pub mod puppy_slug_gun;

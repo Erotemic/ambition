@@ -151,10 +151,11 @@ fn page_of(
 #[allow(clippy::too_many_arguments)]
 fn cube_focus_nav(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<crate::inventory::InventoryUiState>>,
     menu: Res<MenuControlFrame>,
     mut focus: ResMut<CubeFocus>,
     mut pages: ResMut<ActiveMenuPages<CubePage, CubeAction>>,
+    // Single mutable access to the overlay state — also read `.visible` from it (a
+    // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
     controls: Query<(Entity, &AmbitionMenuControl<CubeAction>)>,
     parents: Query<&ChildOf>,
@@ -165,7 +166,7 @@ fn cube_focus_nav(
     mut mana_q: MenuEffectManaQuery,
     mut heals: MessageWriter<PlayerHealRequested>,
 ) {
-    let open = ui_state.map(|s| s.visible).unwrap_or(false);
+    let open = overlay.visible;
     if *backend != InventoryUiBackend::Cube || !open {
         return;
     }

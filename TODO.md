@@ -28,6 +28,8 @@ When you wake up here, pick the next task from this list and work on it without 
 
 ## Jon's List
 
+- [ ] The real 3d cube OOT pause menu is on the table. We need to make sure that we can revert to a simpler bevy-ui design if we don't like it, or it is too expensive, but its probably worth testing a real integration pass with it. 
+
 - [ ] The actor sprits face the wrong way horizontally when they are flipped. E.g. I move the left, but the sprite direction faces to the right. However, if I attack the attack hitbox does go in the right direction. So this is just a sign or simple angle issue I think. However, there a lot of weird movement inconsistencies when gravity is inverted. Jump is much shorter when upside down.  
 
 - [ ] The gravity zones in appear to be hard coded instead of placed via ldtk. There is one in the ninja dojo, which I don't think was intentional. But even in the gravity lab there is no ldtk entity indicating that a gravity zone would spawn there. The layout of levels and physical features in rooms must correspond to some authoring in ldtk, it can never be hard coded.

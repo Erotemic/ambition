@@ -109,6 +109,7 @@ pub fn sync_visuals(
             if let Some(target_key) = state_aware_entity_sprite(
                 &visual.id,
                 view.kind,
+                view.switch_on,
                 &ecs_chest_states,
                 &ecs_breakable_states,
             ) {
@@ -149,6 +150,7 @@ pub fn sync_visuals(
 fn state_aware_entity_sprite(
     id: &str,
     kind: FeatureVisualKind,
+    switch_on: bool,
     ecs_chests: &Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakables: &Query<(&FeatureId, &BreakableFeature)>,
 ) -> Option<EntitySprite> {
@@ -158,6 +160,13 @@ fn state_aware_entity_sprite(
         FeatureVisualKind::Chest => {
             crate::features::ecs_chest_opened(id, ecs_chests).map(game_assets::chest_state_sprite)
         }
+        // Switch shows its on/off button sprite (armed = on, disabled = off)
+        // instead of a flat colored block (#57).
+        FeatureVisualKind::Switch => Some(if switch_on {
+            EntitySprite::SwitchArmed
+        } else {
+            EntitySprite::SwitchDisabled
+        }),
         _ => None,
     }
 }

@@ -159,6 +159,10 @@ pub enum EntitySprite {
     NpcTerminal,
     BossCore,
     SandbagDummy,
+    // Switch on/off — chosen state-aware in `state_aware_entity_sprite` by the
+    // `FeatureView::switch_on` flag (armed = on, disabled = off).
+    SwitchArmed,
+    SwitchDisabled,
     // Blocks / surfaces
     SolidBlock,
     OneWayPlatform,
@@ -204,6 +208,8 @@ impl EntitySprite {
             Self::NpcTerminal => "entities/npc_terminal.png",
             Self::BossCore => "entities/boss_core.png",
             Self::SandbagDummy => "entities/sandbag_dummy.png",
+            Self::SwitchArmed => "entities/switch_armed.png",
+            Self::SwitchDisabled => "entities/switch_disabled.png",
             Self::SolidBlock => "entities/solid_block.png",
             Self::OneWayPlatform => "entities/one_way_platform.png",
             Self::SoftBlinkWall => "entities/soft_blink_wall.png",
@@ -236,6 +242,8 @@ impl EntitySprite {
         Self::NpcTerminal,
         Self::BossCore,
         Self::SandbagDummy,
+        Self::SwitchArmed,
+        Self::SwitchDisabled,
         Self::SolidBlock,
         Self::OneWayPlatform,
         Self::SoftBlinkWall,
@@ -276,6 +284,8 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
         EntitySprite::NpcTerminal => "npc_terminal",
         EntitySprite::BossCore => "boss_core",
         EntitySprite::SandbagDummy => "sandbag_dummy",
+        EntitySprite::SwitchArmed => "switch_armed",
+        EntitySprite::SwitchDisabled => "switch_disabled",
         EntitySprite::SolidBlock => "solid_block",
         EntitySprite::OneWayPlatform => "one_way_platform",
         EntitySprite::SoftBlinkWall => "soft_blink_wall",

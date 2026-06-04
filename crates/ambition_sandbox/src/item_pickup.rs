@@ -183,7 +183,7 @@ pub fn unequip_held(
 /// `Attack` while empty-handed and overlapping a `GroundItem` picks it up:
 /// stash the current action set, overlay the item's verbs, attach `HeldItem`.
 pub fn pickup_held_item_system(
-    control: Res<ControlFrame>,
+    mut control: ResMut<ControlFrame>,
     mut commands: Commands,
     mut players: Query<
         (Entity, &PlayerKinematics, &mut ActionSet),
@@ -229,6 +229,11 @@ pub fn pickup_held_item_system(
                     owned.set_equipped(Some(item));
                 }
             }
+            // The Attack press is *consumed* by the pickup: clear it so the same
+            // press doesn't also fire the just-equipped item's attack this frame
+            // (the gauntlet/weapon attack systems all gate on `attack_pressed`).
+            // Mirrors the portal-gun pickup's consume.
+            control.attack_pressed = false;
             commands.entity(ground_entity).despawn();
             break;
         }
@@ -871,6 +876,33 @@ mod tests {
             q.iter(app.world()).count()
         };
         assert_eq!(bolts, 1, "Attack while holding the gun-sword fires one laser bolt");
+    }
+
+    #[test]
+    fn pickup_consumes_the_attack_press() {
+        // Picking an item up must EAT the Attack press, so the same press does
+        // NOT also fire the just-equipped item this frame (the gauntlet/weapon
+        // attack systems all gate on `ControlFrame::attack_pressed`).
+        let mut app = App::new();
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, pickup_held_item_system);
+        let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+        app.world_mut().spawn(GroundItem {
+            spec: gunsword_spec(),
+            pos: Vec2::new(100.0, 100.0),
+            vel: Vec2::ZERO,
+            half_extent: Vec2::splat(PICKUP_HALF),
+        });
+        set_control(&mut app, true, false);
+        app.update();
+        assert!(
+            app.world().get::<HeldItem>(player).is_some(),
+            "the item should be picked up"
+        );
+        assert!(
+            !app.world().resource::<ControlFrame>().attack_pressed,
+            "pickup must clear attack_pressed so the item doesn't fire on the pickup press"
+        );
     }
 
     #[test]

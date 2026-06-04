@@ -106,7 +106,9 @@ pub fn spawn_parallax_layers(
 }
 
 pub fn sync_parallax_layers(
-    camera: Query<&Transform, (With<Camera>, Without<ParallaxLayerVisual>)>,
+    // `With<Camera2d>`: ignore the #31 cube overlay Camera3d so `.single()` still
+    // resolves the one 2D game camera.
+    camera: Query<&Transform, (With<Camera2d>, Without<ParallaxLayerVisual>)>,
     mut layers: Query<(&mut Transform, &ParallaxLayerVisual), Without<Camera>>,
 ) {
     let Ok(camera_transform) = camera.single() else {

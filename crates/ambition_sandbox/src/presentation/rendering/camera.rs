@@ -114,7 +114,10 @@ pub fn camera_follow(
     possession: Res<crate::possession::PossessionState>,
     feature_aabbs: Query<&crate::features::FeatureAabb>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
+    // `With<Camera2d>` (not `With<Camera>`): the #31 cube pause menu adds a 3D
+    // overlay Camera3d; targeting only the 2D game camera keeps this follow from
+    // dragging that camera off to the player and pointing it at empty space.
+    mut query: Query<(&mut Transform, &mut Projection), (With<Camera2d>, Without<PlayerVisual>)>,
 ) {
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
     let base_view = ae::Vec2::new(base_view_w, base_view_h);

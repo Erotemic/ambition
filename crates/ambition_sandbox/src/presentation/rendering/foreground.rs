@@ -76,7 +76,9 @@ pub fn spawn_room_foreground_parallax(
 /// screen: enough to imply depth without creating a readable gameplay layer.
 pub fn sync_foreground_parallax(
     windows: Query<&Window, With<PrimaryWindow>>,
-    camera: Query<(&Transform, &Projection), (With<Camera>, Without<ForegroundParallax>)>,
+    // `With<Camera2d>`: ignore the #31 cube overlay Camera3d so `.single()` still
+    // resolves the one 2D game camera.
+    camera: Query<(&Transform, &Projection), (With<Camera2d>, Without<ForegroundParallax>)>,
     mut layers: Query<(&ForegroundParallax, &mut Transform, &mut Sprite)>,
 ) {
     let Ok((camera_transform, projection)) = camera.single() else {

@@ -382,3 +382,105 @@ fn body_is_side_contact_classifies_walls_vs_floors() {
             "rising into a thick ceiling (body.bottom poking past block.bottom) must NOT be classified as a side contact"
         );
 }
+
+/// Regression: flying deep into the wide, thin ceiling must push the body DOWN
+/// the short way, never shove it out the ceiling block's far X edge. The old
+/// overlap-depth de-penetration heuristic ejected a deeply-penetrating body
+/// hundreds of px in X -- out the ceiling's far edge, into the border wall /
+/// past the world -- which the OOB detector flagged as "inside solid" /
+/// "outside world (y)" in the fly-into-ceiling traces.
+#[test]
+fn deep_ceiling_penetration_resolves_down_not_out_the_far_x_edge() {
+    let world = test_world(); // ceiling (0,0)-(1600,24); right wall x:1564-1600
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    // Place the 40-tall body fully spanning the 24-tall ceiling (top at the world
+    // top), mid-span so its near X edge is ~800px away -- the exact shape the old
+    // code mis-read as an X penetration and shoved out the far edge.
+    scratch.kinematics.pos = Vec2::new(800.0, 20.0);
+    scratch.kinematics.vel = Vec2::ZERO;
+    scratch.ground.on_ground = false;
+
+    step_scratch(&world, &mut scratch, InputState::default());
+
+    let pos = scratch.kinematics.pos;
+    let half = scratch.kinematics.size * 0.5;
+    assert!(
+        (pos.x - 800.0).abs() < 2.0,
+        "deep ceiling de-pen shoved the body sideways out the far edge: x={}",
+        pos.x,
+    );
+    assert!(
+        pos.y - half.y >= 24.0 - 1.0e-3,
+        "body still embedded in the ceiling: top={}, ceiling bottom=24",
+        pos.y - half.y,
+    );
+    let body = scratch.kinematics.aabb();
+    assert!(
+        body.left() >= 0.0
+            && body.right() <= world.size.x
+            && body.top() >= 0.0
+            && body.bottom() <= world.size.y,
+        "body left the world envelope: {body:?}",
+    );
+
+    // Gravity carries it down over time; it never re-enters a solid or leaves.
+    for _ in 0..120 {
+        step_scratch(&world, &mut scratch, InputState::default());
+        let b = scratch.kinematics.aabb();
+        assert!(
+            b.left() >= 0.0 && b.right() <= world.size.x && b.top() >= 0.0,
+            "body left the world while falling: {b:?}",
+        );
+    }
+}
+
+/// Realistic repro: hold up+right into the top-right corner (where the wide thin
+/// ceiling meets the right wall) under flight for a long time. The body settles
+/// in the corner and is never ejected out the ceiling's far X edge / past the
+/// world.
+#[test]
+fn flying_into_the_ceiling_corner_never_ejects_the_body_from_the_world() {
+    let world = test_world();
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    step_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            fly_toggle_pressed: true,
+            ..Default::default()
+        },
+    );
+    assert!(scratch.flight.fly_enabled);
+    scratch.kinematics.pos = Vec2::new(1400.0, 200.0);
+    scratch.kinematics.vel = Vec2::ZERO;
+    scratch.ground.on_ground = false;
+
+    for _ in 0..240 {
+        step_scratch(
+            &world,
+            &mut scratch,
+            InputState {
+                axis_x: 1.0,
+                axis_y: -1.0,
+                ..Default::default()
+            },
+        );
+        let b = scratch.kinematics.aabb();
+        assert!(
+            b.left() >= 0.0
+                && b.right() <= world.size.x
+                && b.top() >= 0.0
+                && b.bottom() <= world.size.y,
+            "flying into the corner ejected the body from the world: {b:?}",
+        );
+    }
+    // Pressed into the corner: under the ceiling (bottom y=24), left of the right
+    // wall (left edge x=1564).
+    let b = scratch.kinematics.aabb();
+    assert!(b.top() >= 24.0 - 1.0, "should rest under the ceiling, got top={}", b.top());
+    assert!(
+        b.right() <= 1564.0 + 1.0,
+        "should rest left of the right wall, got right={}",
+        b.right(),
+    );
+}

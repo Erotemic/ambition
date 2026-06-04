@@ -78,15 +78,19 @@ pub(super) fn sweep_player_x_clusters(
         let overlap_x = (body.right().min(hit.block.aabb.right())
             - body.left().max(hit.block.aabb.left()))
         .max(0.0);
-        let overlap_y = (body.bottom().min(hit.block.aabb.bottom())
-            - body.top().max(hit.block.aabb.top()))
-        .max(0.0);
-        // A t=0 contact with no vertical overlap (e.g. the body resting just
-        // under the thin ceiling, or grazing a block's corner) or with the
-        // horizontal overlap dominant is really a Y/edge contact, NOT an X
-        // penetration -- don't shove the body out the block's (possibly far) X
-        // edge, which for a wide ceiling/wall block ejects it past the world.
-        let vertical_dominant = immediate_contact && (overlap_y <= 0.0 || overlap_x > overlap_y);
+        // Exit distances -- how far to push out each NEAR face. A t=0 penetration
+        // into a WIDE block (the body resting under / flown into the thin ceiling)
+        // must resolve out the SHORTER axis, never shoved out the block's far X
+        // edge, which for a ceiling/border-wall block ejects it past the world.
+        let exit_left = body.right() - hit.block.aabb.left();
+        let exit_right = hit.block.aabb.right() - body.left();
+        let exit_up = body.bottom() - hit.block.aabb.top();
+        let exit_down = hit.block.aabb.bottom() - body.top();
+        let x_exit = exit_left.min(exit_right);
+        let y_exit = exit_up.min(exit_down);
+        // A t=0 contact whose vertical exit is the shorter one is really a
+        // floor/ceiling contact -- defer it to the Y pass (which runs next).
+        let vertical_dominant = immediate_contact && y_exit <= x_exit;
         let body_to_right_of_block = body.center().x > hit.block.aabb.center().x;
         let moving_away_from_block =
             (body_to_right_of_block && delta.x > 0.0) || (!body_to_right_of_block && delta.x < 0.0);
@@ -95,12 +99,13 @@ pub(super) fn sweep_player_x_clusters(
         if vertical_dominant || horizontal_overlap_moving_away {
             kinematics.pos.x += delta.x * (1.0 - toi_fraction);
         } else {
-            if body_to_right_of_block {
-                kinematics.pos.x += hit.block.aabb.right() - body.left();
-                wall.wall_normal_x = 1.0;
-            } else {
-                kinematics.pos.x += hit.block.aabb.left() - body.right();
+            // Push out the NEAR X edge (shorter of the two), not the far one.
+            if exit_left < exit_right {
+                kinematics.pos.x -= exit_left;
                 wall.wall_normal_x = -1.0;
+            } else {
+                kinematics.pos.x += exit_right;
+                wall.wall_normal_x = 1.0;
             }
             kinematics.vel.x = 0.0;
             wall.on_wall = true;
@@ -229,22 +234,27 @@ fn resolve_axis_clusters(
         }
         match axis {
             Axis::X => {
-                let overlap_x = (aabb.right().min(block.aabb.right())
-                    - aabb.left().max(block.aabb.left()))
-                .max(0.0);
-                let overlap_y = (aabb.bottom().min(block.aabb.bottom())
-                    - aabb.top().max(block.aabb.top()))
-                .max(0.0);
-                if overlap_x > overlap_y {
+                // De-penetrate along the axis with the SHORTER exit, pushing out
+                // the NEAR edge. The previous overlap-depth heuristic mis-fired
+                // when the body penetrated a WIDE block (e.g. flying deep into the
+                // thin ceiling): it shoved the body out the block's FAR X edge --
+                // hundreds of px, into the border wall / out of the room. Compare
+                // real exit distances and defer to the Y pass (which runs next)
+                // when the vertical exit is shorter.
+                let exit_left = aabb.right() - block.aabb.left(); // push left this far
+                let exit_right = block.aabb.right() - aabb.left(); // push right this far
+                let exit_up = aabb.bottom() - block.aabb.top(); // push up this far
+                let exit_down = block.aabb.bottom() - aabb.top(); // push down this far
+                let x_exit = exit_left.min(exit_right);
+                let y_exit = exit_up.min(exit_down);
+                if y_exit <= x_exit {
                     continue;
                 }
-                if aabb.center().x < block.aabb.center().x {
-                    let push = block.aabb.left() - aabb.right();
-                    kinematics.pos.x += push;
+                if exit_left < exit_right {
+                    kinematics.pos.x -= exit_left;
                     wall.wall_normal_x = -1.0;
                 } else {
-                    let push = block.aabb.right() - aabb.left();
-                    kinematics.pos.x += push;
+                    kinematics.pos.x += exit_right;
                     wall.wall_normal_x = 1.0;
                 }
                 kinematics.vel.x = 0.0;

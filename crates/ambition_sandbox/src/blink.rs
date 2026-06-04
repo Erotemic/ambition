@@ -188,7 +188,7 @@ mod tests {
         let mut app = test_app();
         app.init_resource::<CapturedHits>();
         app.add_systems(bevy::prelude::Update, capture_hits.after(blink_system));
-        let player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
+        let _player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
         app.world_mut().resource_mut::<ControlFrame>().attack_pressed = true;
         app.update();
         let hits = &app.world().resource::<CapturedHits>().0;

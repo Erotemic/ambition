@@ -761,7 +761,7 @@ pub fn portal_transit_roll(n_in: Vec2, n_out: Vec2) -> f32 {
 pub fn portal_teleport_system(
     time: Res<crate::WorldTime>,
     mut players: Query<
-        (&mut PlayerKinematics, &mut PortalGun, Option<&mut ActorRoll>),
+        (&mut PlayerKinematics, &mut PortalGun),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
     portals: Query<&Portal>,
@@ -773,7 +773,7 @@ pub fn portal_teleport_system(
         flag.0 = false;
     }
     let dt = time.sim_dt();
-    let Ok((mut kin, mut gun, mut roll)) = players.single_mut() else {
+    let Ok((mut kin, mut gun)) = players.single_mut() else {
         return;
     };
     if gun.teleport_cooldown > 0.0 {
@@ -805,13 +805,13 @@ pub fn portal_teleport_system(
             kin.pos = exit.pos + exit.normal * clearance;
             kin.vel = out_vel;
             gun.teleport_cooldown = TELEPORT_COOLDOWN_S;
-            // Aerial reorientation: roll the body by the same rotation the
-            // portal pair applies to the velocity, so you leave rotated
-            // consistently with how you entered (general for any pair of portal
-            // angles). update_actor_roll then rights you toward gravity.
-            if let Some(roll) = roll.as_deref_mut() {
-                roll.angle += portal_transit_roll(enter.normal, exit.normal);
-            }
+            // The player keeps their GRAVITY-relative orientation through the
+            // portal: the pair changes velocity + facing, not "which way is up".
+            // Applying the velocity's geometric turn to the sprite roll flipped
+            // the player UPSIDE DOWN exiting two same-wall portals (#47) — a
+            // gravity-upright platformer should just turn around. The roll is
+            // left to `update_actor_roll`, which holds gravity-upright (and
+            // reorients if the exit lands in a different-gravity zone).
             // Suction warp going in, soft pop-out coming back into normal space.
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::PORTAL_ENTER,
@@ -1524,14 +1524,14 @@ mod tests {
     }
 
     #[test]
-    fn actors_get_the_same_aerial_roll_through_portals_as_the_player() {
+    fn actors_get_an_aerial_roll_through_portals() {
         use crate::features::ActorKinematics;
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_systems(Update, portal_teleport_actors);
         // Floor portal (normal up) + right-wall portal (normal left): a
-        // floor→wall pair, so transit imparts a -90° roll — the SAME value
-        // portal_transit_roll gives the player.
+        // floor→wall pair, so transit imparts a -90° roll. (Non-player actors
+        // still tumble through portals; the PLAYER stays gravity-upright — #47.)
         app.world_mut().spawn(Portal {
             color: PortalColor::Blue,
             pos: Vec2::new(200.0, 380.0),
@@ -1760,6 +1760,11 @@ mod tests {
             .get_mut::<PlayerKinematics>(player)
             .unwrap()
             .vel = Vec2::new(-100.0, 0.0);
+        // Give the player a pre-set roll so we can prove the portal leaves the
+        // player's orientation alone (#47 — no upside-down flip).
+        app.world_mut()
+            .entity_mut(player)
+            .insert(ActorRoll { angle: 0.5 });
         app.update();
         let kin = *app.world().get::<PlayerKinematics>(player).unwrap();
         assert!(
@@ -1771,6 +1776,11 @@ mod tests {
             kin.vel.length() >= MIN_EXIT_SPEED - 1.0,
             "exit should carry momentum (>= min exit speed), got {:?}",
             kin.vel
+        );
+        let roll = app.world().get::<ActorRoll>(player).unwrap().angle;
+        assert!(
+            (roll - 0.5).abs() < 1e-5,
+            "player keeps its orientation through the portal (#47 — no flip), got {roll}"
         );
     }
 

@@ -78,35 +78,26 @@ pub(super) fn sweep_player_x_clusters(
         let overlap_x = (body.right().min(hit.block.aabb.right())
             - body.left().max(hit.block.aabb.left()))
         .max(0.0);
-        // Exit distances -- how far to push out each NEAR face. A t=0 penetration
-        // into a WIDE block (the body resting under / flown into the thin ceiling)
-        // must resolve out the SHORTER axis, never shoved out the block's far X
-        // edge, which for a ceiling/border-wall block ejects it past the world.
-        let exit_left = body.right() - hit.block.aabb.left();
-        let exit_right = hit.block.aabb.right() - body.left();
-        let exit_up = body.bottom() - hit.block.aabb.top();
-        let exit_down = hit.block.aabb.bottom() - body.top();
-        let x_exit = exit_left.min(exit_right);
-        let y_exit = exit_up.min(exit_down);
-        // A t=0 contact whose vertical exit is the shorter one is really a
-        // floor/ceiling contact -- defer it to the Y pass (which runs next).
-        let vertical_dominant = immediate_contact && y_exit <= x_exit;
         let body_to_right_of_block = body.center().x > hit.block.aabb.center().x;
         let moving_away_from_block =
             (body_to_right_of_block && delta.x > 0.0) || (!body_to_right_of_block && delta.x < 0.0);
         let horizontal_overlap_moving_away =
             immediate_contact && overlap_x > 0.0 && moving_away_from_block;
-        if vertical_dominant || horizontal_overlap_moving_away {
+        // Resolve the X penetration robustly via the shared helper: defer to the
+        // Y pass when the vertical exit is shorter -- crucially REGARDLESS of
+        // `immediate_contact`. A body sliding PARALLEL just under the wide thin
+        // ceiling (its top grazing the ceiling's bottom edge) makes the swept
+        // cast return a spurious *non-immediate* grazing hit; the old
+        // immediate-only guard let that fall through to a far-X-edge push,
+        // teleporting the body ~900px out of the room. `None` => not an X
+        // contact to resolve here, so keep the swept motion going.
+        let depen = resolve_x_penetration(body, hit.block.aabb, world.size.x);
+        if horizontal_overlap_moving_away || depen.is_none() {
             kinematics.pos.x += delta.x * (1.0 - toi_fraction);
         } else {
-            // Push out the NEAR X edge (shorter of the two), not the far one.
-            if exit_left < exit_right {
-                kinematics.pos.x -= exit_left;
-                wall.wall_normal_x = -1.0;
-            } else {
-                kinematics.pos.x += exit_right;
-                wall.wall_normal_x = 1.0;
-            }
+            let (dx, normal) = depen.expect("checked is_none above");
+            kinematics.pos.x += dx;
+            wall.wall_normal_x = normal;
             kinematics.vel.x = 0.0;
             wall.on_wall = true;
         }
@@ -212,10 +203,41 @@ fn contact_is_gravity_side(snap_to_top: bool, gravity_sign: f32) -> bool {
     }
 }
 
-/// Penetration repair for the X axis. Push the body out of any block
-/// it strictly intersects after the shape sweep, picking the snap face
-/// from `body.center` vs `block.center` (so a pre-existing overlap
-/// resolves toward the closer edge instead of through the block).
+/// Resolve an X-axis penetration of `body` into `block`, returning the
+/// `(dx, wall_normal_x)` to apply, or `None` to defer to the Y pass.
+///
+/// Two rules, both guarding the OOB class from flying into the hub's wide, thin
+/// ceiling:
+/// 1. If the vertical exit is shorter, it's a floor/ceiling contact -- defer to
+///    the Y pass (which snaps the body out the short way) instead of shoving it
+///    out the wide block's far X edge (hundreds of px).
+/// 2. Otherwise push out the nearer X face, but NEVER out of the world: at a top
+///    corner the nearer face of a boundary-spanning block IS the world edge, so
+///    pick the other face; if both X exits would leave the world, defer to Y.
+fn resolve_x_penetration(body: Aabb, block: Aabb, world_w: f32) -> Option<(f32, f32)> {
+    let exit_left = body.right() - block.left(); // push left (-) this far
+    let exit_right = block.right() - body.left(); // push right (+) this far
+    let exit_up = body.bottom() - block.top();
+    let exit_down = block.bottom() - body.top();
+    if exit_up.min(exit_down) <= exit_left.min(exit_right) {
+        return None; // vertical exit is shorter -> the Y pass owns it
+    }
+    let half_w = (body.right() - body.left()) * 0.5;
+    let cx = body.center().x;
+    let left = ((cx - exit_left) - half_w >= 0.0).then_some((-exit_left, -1.0));
+    let right = ((cx + exit_right) + half_w <= world_w).then_some((exit_right, 1.0));
+    // Prefer the shorter exit; fall back to the other if it would leave the world.
+    if exit_left <= exit_right {
+        left.or(right)
+    } else {
+        right.or(left)
+    }
+}
+
+/// Penetration repair for the X axis. Pushes the body out of any block it
+/// strictly intersects after the shape sweep via [`resolve_x_penetration`]
+/// (shortest non-ejecting exit, or defer to the Y pass for floor/ceiling
+/// contacts).
 fn resolve_axis_clusters(
     world: &World,
     kinematics: &mut crate::engine_core::player_clusters::PlayerKinematics,
@@ -234,31 +256,14 @@ fn resolve_axis_clusters(
         }
         match axis {
             Axis::X => {
-                // De-penetrate along the axis with the SHORTER exit, pushing out
-                // the NEAR edge. The previous overlap-depth heuristic mis-fired
-                // when the body penetrated a WIDE block (e.g. flying deep into the
-                // thin ceiling): it shoved the body out the block's FAR X edge --
-                // hundreds of px, into the border wall / out of the room. Compare
-                // real exit distances and defer to the Y pass (which runs next)
-                // when the vertical exit is shorter.
-                let exit_left = aabb.right() - block.aabb.left(); // push left this far
-                let exit_right = block.aabb.right() - aabb.left(); // push right this far
-                let exit_up = aabb.bottom() - block.aabb.top(); // push up this far
-                let exit_down = block.aabb.bottom() - aabb.top(); // push down this far
-                let x_exit = exit_left.min(exit_right);
-                let y_exit = exit_up.min(exit_down);
-                if y_exit <= x_exit {
-                    continue;
+                if let Some((dx, normal)) =
+                    resolve_x_penetration(aabb, block.aabb, world.size.x)
+                {
+                    kinematics.pos.x += dx;
+                    wall.wall_normal_x = normal;
+                    kinematics.vel.x = 0.0;
+                    wall.on_wall = true;
                 }
-                if exit_left < exit_right {
-                    kinematics.pos.x -= exit_left;
-                    wall.wall_normal_x = -1.0;
-                } else {
-                    kinematics.pos.x += exit_right;
-                    wall.wall_normal_x = 1.0;
-                }
-                kinematics.vel.x = 0.0;
-                wall.on_wall = true;
             }
             Axis::Y => {}
         }

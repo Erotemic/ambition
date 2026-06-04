@@ -484,3 +484,90 @@ fn flying_into_the_ceiling_corner_never_ejects_the_body_from_the_world() {
         b.right(),
     );
 }
+
+#[test]
+fn sliding_along_the_ceiling_edge_does_not_teleport_across_the_room() {
+    // Repro of the fly-along-the-ceiling OOB (trace 1780544963): the 30x48 body
+    // slides LEFT just under a wide thin ceiling, its top grazing the ceiling's
+    // bottom edge, at high speed. The swept cast reports a *non-immediate*
+    // grazing contact with the ceiling; the de-pen must NOT shove the body out
+    // the ceiling's far X edge (it was teleporting ~900px right, to the world's
+    // right wall / out of the world).
+    let world = World {
+        name: "hub ceiling".to_string(),
+        size: Vec2::new(1900.0, 2004.0),
+        spawn: Vec2::new(950.0, 883.0),
+        blocks: vec![
+            Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(1904.0, 32.0)),
+            Block::solid("right wall", Vec2::new(1856.0, 32.0), Vec2::new(48.0, 224.0)),
+            Block::solid("floor", Vec2::new(0.0, 1980.0), Vec2::new(1904.0, 24.0)),
+        ],
+        water_regions: Vec::new(),
+        climbable_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.kinematics.size = Vec2::new(30.0, 48.0);
+    scratch.kinematics.base_size = Vec2::new(30.0, 48.0);
+    scratch.kinematics.pos = Vec2::new(1000.0, 56.01); // top ~= ceiling bottom (32)
+    scratch.kinematics.vel = Vec2::new(-760.0, 0.0); // flying left, fast
+    scratch.ground.on_ground = false;
+    scratch.flight.fly_enabled = true;
+
+    for i in 0..40 {
+        step_scratch(
+            &world,
+            &mut scratch,
+            InputState {
+                axis_x: -1.0,
+                ..Default::default()
+            },
+        );
+        let b = scratch.kinematics.aabb();
+        assert!(
+            b.right() <= world.size.x && b.left() >= 0.0,
+            "frame {i}: body teleported out of the world: pos={:?} aabb={b:?}",
+            scratch.kinematics.pos,
+        );
+    }
+}
+
+/// Exact reproduction of trace 1780544963 tick 644 (fly left along the hub
+/// ceiling): the body's top grazes the ceiling's bottom edge while sweeping
+/// LEFT, the swept cast returns a spurious *non-immediate* grazing hit, and the
+/// de-pen pushed the body out the ceiling's far X edge -- a ~918px teleport
+/// RIGHT, past the world. Calls the X-sweep directly with the captured state.
+#[test]
+fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
+    // Exact trace 1780544963 tick 644 inputs, calling the X-sweep directly.
+    let world = World {
+        name: "hub ceiling".to_string(),
+        size: Vec2::new(1900.0, 2004.0),
+        spawn: Vec2::new(950.0, 883.0),
+        blocks: vec![
+            Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(1904.0, 32.0)),
+            Block::solid("right wall", Vec2::new(1856.0, 32.0), Vec2::new(48.0, 224.0)),
+        ],
+        water_regions: Vec::new(),
+        climbable_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.kinematics.size = Vec2::new(30.0, 48.0);
+    scratch.kinematics.base_size = Vec2::new(30.0, 48.0);
+    scratch.kinematics.pos = Vec2::new(1000.9404, 56.01338);
+    scratch.kinematics.vel = Vec2::new(-760.0, 1.6108618);
+    let dt = 0.006874742_f32;
+    let delta_x = scratch.kinematics.vel.x * dt;
+    super::super::collision::sweep_player_x_clusters(
+        &world,
+        &mut scratch.kinematics,
+        &mut scratch.wall,
+        &scratch.body_mode,
+        &scratch.env_contact,
+        delta_x,
+    );
+    let after = scratch.kinematics.pos;
+    assert!(
+        after.x < 1100.0,
+        "X-sweep teleported the body out the ceiling's far edge: pos={after:?} (delta_x={delta_x})",
+    );
+}

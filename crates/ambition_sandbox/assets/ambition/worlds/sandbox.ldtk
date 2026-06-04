@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 5972,
+	"nextUid": 5986,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -7981,6 +7981,412 @@
 							],
 							"__worldX": 400,
 							"__worldY": 1536
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [20,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 320,
+							"__worldY": 1608,
+							"iid": "GroundItem-5972",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [320,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_gun_sword", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_gun_sword"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Gun-Sword", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Gun-Sword"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "gun_sword", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["gun_sword"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [24,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 394,
+							"__worldY": 1608,
+							"iid": "GroundItem-5973",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [394,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_puppy_slug_gun", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_puppy_slug_gun"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Puppy-Slug Gun", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Puppy-Slug Gun"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "puppy_slug_gun", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["puppy_slug_gun"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [29,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 468,
+							"__worldY": 1608,
+							"iid": "GroundItem-5974",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [468,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_bomb", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_bomb"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Bomb", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Bomb"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "bomb", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["bomb"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [33,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 542,
+							"__worldY": 1608,
+							"iid": "GroundItem-5975",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [542,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_blink", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_blink"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Blink", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Blink"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "blink", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["blink"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [38,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 615,
+							"__worldY": 1608,
+							"iid": "GroundItem-5976",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [615,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_grapple", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_grapple"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Grapple", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Grapple"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "grapple", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["grapple"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [43,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 689,
+							"__worldY": 1608,
+							"iid": "GroundItem-5977",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [689,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_gravity_grenade", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_gravity_grenade"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Gravity Grenade", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Gravity Grenade"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "gravity_grenade", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["gravity_grenade"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [47,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 763,
+							"__worldY": 1608,
+							"iid": "GroundItem-5978",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [763,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_mark_recall", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_mark_recall"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Mark-Recall Beacon", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Mark-Recall Beacon"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "mark_recall", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["mark_recall"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [52,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 837,
+							"__worldY": 1608,
+							"iid": "GroundItem-5979",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [837,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_shockwave", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_shockwave"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Shockwave Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Shockwave Gauntlet"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "shockwave", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["shockwave"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [56,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 911,
+							"__worldY": 1608,
+							"iid": "GroundItem-5980",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [911,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_volley", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_volley"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Volley Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Volley Gauntlet"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "volley", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["volley"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [61,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 985,
+							"__worldY": 1608,
+							"iid": "GroundItem-5981",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [985,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_beam", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_beam"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Focus-Beam Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Focus-Beam Gauntlet"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "beam", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["beam"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [66,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 1058,
+							"__worldY": 1608,
+							"iid": "GroundItem-5982",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [1058,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_vortex", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_vortex"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Vortex Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Vortex Gauntlet"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "vortex", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["vortex"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [70,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 1132,
+							"__worldY": 1608,
+							"iid": "GroundItem-5983",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [1132,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_sentry", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_sentry"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Sentry Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Sentry Gauntlet"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "sentry", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sentry"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [75,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 1206,
+							"__worldY": 1608,
+							"iid": "GroundItem-5984",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [1206,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_dive", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_dive"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Dive Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Dive Gauntlet"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "dive", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["dive"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "GroundItem",
+							"__grid": [80,36],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#7FE3C0",
+							"__worldX": 1280,
+							"__worldY": 1608,
+							"iid": "GroundItem-5985",
+							"width": 24,
+							"height": 24,
+							"defUid": 5943,
+							"px": [1280,584],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "ground_meteor", "__tile": null, "defUid": 5940, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ground_meteor"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Meteor Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Meteor Gauntlet"]
+								}] },
+								{ "__identifier": "held_item", "__type": "String", "__value": "meteor", "__tile": null, "defUid": 5942, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["meteor"]
+								}] }
+							]
 						}
 					]
 				},
@@ -13252,412 +13658,6 @@
 							}] }],
 							"__worldX": 499,
 							"__worldY": 2528
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [29,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 474,
-							"__worldY": 2744,
-							"iid": "GroundItem-5958",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [474,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_gun_sword", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_gun_sword"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Gun-Sword", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Gun-Sword"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "gun_sword", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["gun_sword"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [31,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 500,
-							"__worldY": 2744,
-							"iid": "GroundItem-5959",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [500,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_puppy_slug_gun", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_puppy_slug_gun"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Puppy-Slug Gun", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Puppy-Slug Gun"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "puppy_slug_gun", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["puppy_slug_gun"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [32,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 527,
-							"__worldY": 2744,
-							"iid": "GroundItem-5960",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [527,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_bomb", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_bomb"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Bomb", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Bomb"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "bomb", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["bomb"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [34,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 553,
-							"__worldY": 2744,
-							"iid": "GroundItem-5961",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [553,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_blink", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_blink"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Blink", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Blink"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "blink", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["blink"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [36,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 579,
-							"__worldY": 2744,
-							"iid": "GroundItem-5962",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [579,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_grapple", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_grapple"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Grapple", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Grapple"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "grapple", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["grapple"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [37,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 606,
-							"__worldY": 2744,
-							"iid": "GroundItem-5963",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [606,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_gravity_grenade", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_gravity_grenade"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Gravity Grenade", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Gravity Grenade"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "gravity_grenade", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["gravity_grenade"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [39,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 632,
-							"__worldY": 2744,
-							"iid": "GroundItem-5964",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [632,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_mark_recall", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_mark_recall"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Mark-Recall Beacon", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Mark-Recall Beacon"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "mark_recall", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["mark_recall"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [41,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 658,
-							"__worldY": 2744,
-							"iid": "GroundItem-5965",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [658,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_shockwave", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_shockwave"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Shockwave Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Shockwave Gauntlet"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "shockwave", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["shockwave"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [42,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 684,
-							"__worldY": 2744,
-							"iid": "GroundItem-5966",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [684,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_volley", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_volley"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Volley Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Volley Gauntlet"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "volley", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["volley"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [44,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 711,
-							"__worldY": 2744,
-							"iid": "GroundItem-5967",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [711,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_beam", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_beam"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Focus-Beam Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Focus-Beam Gauntlet"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "beam", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["beam"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [46,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 737,
-							"__worldY": 2744,
-							"iid": "GroundItem-5968",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [737,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_vortex", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_vortex"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Vortex Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Vortex Gauntlet"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "vortex", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["vortex"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [47,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 763,
-							"__worldY": 2744,
-							"iid": "GroundItem-5969",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [763,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_sentry", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_sentry"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Sentry Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Sentry Gauntlet"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "sentry", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["sentry"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [49,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 790,
-							"__worldY": 2744,
-							"iid": "GroundItem-5970",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [790,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_dive", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_dive"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Dive Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Dive Gauntlet"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "dive", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["dive"]
-								}] }
-							]
-						},
-						{
-							"__identifier": "GroundItem",
-							"__grid": [51,27],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#7FE3C0",
-							"__worldX": 816,
-							"__worldY": 2744,
-							"iid": "GroundItem-5971",
-							"width": 24,
-							"height": 24,
-							"defUid": 5943,
-							"px": [816,440],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "ground_meteor", "__tile": null, "defUid": 5940, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["ground_meteor"]
-								}] },
-								{ "__identifier": "name", "__type": "String", "__value": "Meteor Gauntlet", "__tile": null, "defUid": 5941, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["Meteor Gauntlet"]
-								}] },
-								{ "__identifier": "held_item", "__type": "String", "__value": "meteor", "__tile": null, "defUid": 5942, "realEditorValues": [{
-									"id": "V_String",
-									"params": ["meteor"]
-								}] }
-							]
 						}
 					]
 				},

@@ -16,10 +16,33 @@ fn shark_charge_crashed(
 ) -> bool {
     !is_mounted
         && em.config.archetype == EnemyArchetype::BurningFlyingShark
-        && charge_vec.x.abs() > em.config.archetype.chase_speed() * 1.5
-        && (em.kin.pos.x - previous_pos.x).abs() < 0.01
-        && em.kin.vel.x.abs() < 0.01
         && em.status.alive
+        && shark_charge_crashed_geometry(
+            charge_vec,
+            em.kin.pos,
+            previous_pos,
+            em.kin.vel,
+            em.config.archetype.chase_speed(),
+        )
+}
+
+/// True when a fast shark charge along EITHER axis was stopped dead by a wall:
+/// the charge speed was high on that axis, yet the body neither moved nor kept
+/// any velocity on it. Per-axis so a shark that charges UP into a ceiling (or
+/// down into a floor) explodes just like one that rams a side wall — the riderless
+/// shark flies vertically + horizontally and crashes on any of them (#98).
+fn shark_charge_crashed_geometry(
+    charge_vec: ae::Vec2,
+    pos: ae::Vec2,
+    prev_pos: ae::Vec2,
+    vel: ae::Vec2,
+    chase_speed: f32,
+) -> bool {
+    let crashed = |cv: f32, p: f32, pp: f32, v: f32| {
+        cv.abs() > chase_speed * 1.5 && (p - pp).abs() < 0.01 && v.abs() < 0.01
+    };
+    crashed(charge_vec.x, pos.x, prev_pos.x, vel.x)
+        || crashed(charge_vec.y, pos.y, prev_pos.y, vel.y)
 }
 
 /// Marker for an actor entity. Both variants are payload-free — NPC and
@@ -971,6 +994,46 @@ pub(crate) fn sync_actor_components_from_enemy(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shark_crashes_on_a_fast_charge_blocked_on_either_axis() {
+        let chase = 100.0;
+        let fast = chase * 2.0; // > chase * 1.5
+        let p = ae::Vec2::new(50.0, 50.0);
+        let still = ae::Vec2::ZERO;
+        // Horizontal charge rammed into a side wall (didn't move, vel zeroed).
+        assert!(shark_charge_crashed_geometry(
+            ae::Vec2::new(fast, 0.0),
+            p,
+            p,
+            still,
+            chase
+        ));
+        // Vertical charge UP into a ceiling — the case the old X-only check missed.
+        assert!(shark_charge_crashed_geometry(
+            ae::Vec2::new(0.0, -fast),
+            p,
+            p,
+            still,
+            chase
+        ));
+        // Still travelling (not blocked) → no crash.
+        assert!(!shark_charge_crashed_geometry(
+            ae::Vec2::new(fast, 0.0),
+            ae::Vec2::new(60.0, 50.0),
+            p,
+            ae::Vec2::new(fast, 0.0),
+            chase
+        ));
+        // A slow drift into the wall is not a hard charge → no crash.
+        assert!(!shark_charge_crashed_geometry(
+            ae::Vec2::new(chase, 0.0),
+            p,
+            p,
+            still,
+            chase
+        ));
+    }
 
     #[test]
     fn nearest_neighbor_is_same_kind_and_closest() {

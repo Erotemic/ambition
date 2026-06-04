@@ -1,0 +1,82 @@
+// blink_run — purposes BLINK (Jon's note: "Short-range teleport. Your favorite,
+// and high-skill."). Blink is a precise 150px collision-clamped teleport: its
+// edge over a jump is that it's INSTANT with no air-time, so the room that needs
+// it is one where you CAN'T jump. A low ceiling (~14px headroom) caps any jump to
+// a useless hop, and the floor has hazard gaps ~120px wide — too far to walk or
+// hop across, but inside a 150px blink. Grab the blink ability, then blink each
+// gap.
+//
+// Layout (1024x208): ceiling y0-80, corridor y80-140 (player is 46px tall),
+// floor y140-208 split by two ~120px death gaps.
+//   y=80   [================== low ceiling ==================]
+//   y=140  [ start ][##gap1##][ mid ][##gap2##][   end   ]
+(
+    id: "blink_run",
+    level_id: "blink_run",
+    world_x: 104000,
+    world_y: 1024,
+    px_wid: 1024,
+    px_hei: 208,
+    fill_collision: "empty",
+    bg_color: "#0B0E16",
+    biome: "lab",
+    entities: [
+        // Low ceiling + walls form a corridor too short to jump in.
+        ( type: "Solid", px: [0, 0], size: [1024, 80], fields: ( name: "low_ceiling" ) ),
+        ( type: "Solid", px: [0, 80], size: [16, 128], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1008, 80], size: [16, 128], fields: ( name: "right_wall" ) ),
+        // Floor split by two death gaps: walk/hop in and you fall onto the hazard.
+        ( type: "Solid", px: [16, 140], size: [284, 68], fields: ( name: "start_floor" ) ),
+        ( type: "HazardBlock", px: [300, 140], size: [120, 68], fields: ( name: "gap_1" ) ),
+        ( type: "Solid", px: [420, 140], size: [200, 68], fields: ( name: "mid_floor" ) ),
+        ( type: "HazardBlock", px: [620, 140], size: [120, 68], fields: ( name: "gap_2" ) ),
+        ( type: "Solid", px: [740, 140], size: [268, 68], fields: ( name: "end_floor" ) ),
+        // The Blink ability, on the start floor — walk over + Attack to grab.
+        ( type: "GroundItem", px: [120, 108], size: [40, 32], fields: ( id: "blink_run_pickup", name: "Blink", held_item: "blink" ) ),
+        // Spawn + entry door on the start floor (head y=94 under the y=80 ceiling).
+        ( type: "PlayerStart", px: [40, 94], size: [28, 46], fields: ( name: "blink_run_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 80],
+            size: [40, 60],
+            fields: (
+                id: "blink_run_entry",
+                name: "blink_run_entry",
+                activation: "Door",
+                target_room: "portal_bridge",
+                target_zone: "blink_run_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1024, 208],
+            fields: ( id: "blink_run_camera", name: "blink_run_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [44, 86],
+            size: [620, 16],
+            fields: (
+                name: "blink_run_intro",
+                text: "Blink Run: too low to jump, the floor bites — blink each gap (aim + Attack).",
+                category: "Custom",
+            ),
+        ),
+    ],
+    // Reciprocal door on portal_bridge's right floor (its crossing goal), extending
+    // the advanced-mechanics chain: ...-> portal_bridge -> blink_run.
+    connect_to: [
+        (
+            target_room: "portal_bridge",
+            px: [1100, 400],
+            size: [16, 96],
+            id: "blink_run_door",
+            target_zone: "blink_run_entry",
+            activation: "Door",
+            bidirectional: true,
+            snap_to_surface: true,
+        ),
+    ],
+)

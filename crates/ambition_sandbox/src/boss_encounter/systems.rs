@@ -402,8 +402,16 @@ pub fn boss_phase_transition_feedback(
     mut shake: Option<ResMut<crate::time::camera_ease::CameraShakeState>>,
     // Boss entities, to resolve the encounter id back to the actor that emits
     // the phase-transition shockwave.
-    bosses: Query<(Entity, &crate::features::FeatureId), With<crate::features::BossConfig>>,
+    bosses: Query<
+        (
+            Entity,
+            &crate::features::FeatureId,
+            &crate::features::BossKinematics,
+        ),
+        With<crate::features::BossConfig>,
+    >,
     mut actions: MessageWriter<crate::brain::ActorActionMessage>,
+    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
 ) {
     use crate::boss_encounter::BossEncounterPhase as P;
     for (id, state) in &registry.encounters {
@@ -427,7 +435,7 @@ pub fn boss_phase_transition_feedback(
             // Resolved as the boss's own faction (`ActorFaction::Boss`), so the
             // shared `apply_hitbox_damage` lands it on the player — the literal
             // "player and boss fire the same attack" unification, in-game.
-            if let Some((entity, _)) = bosses.iter().find(|(_, fid)| fid.as_str() == id) {
+            if let Some((entity, _, kin)) = bosses.iter().find(|(_, fid, _)| fid.as_str() == id) {
                 actions.write(crate::brain::ActorActionMessage {
                     actor: entity,
                     request: crate::brain::ActionRequest::Special {
@@ -439,6 +447,18 @@ pub fn boss_phase_transition_feedback(
                             knockback: 1.6,
                         },
                     },
+                });
+                // "Scream lines": a sharp radial spark burst FROM the boss, so the
+                // phase change reads as a dramatic beat instead of a silent state
+                // flip (#122 "transitions are not noticeable / too short"). The
+                // radial Spark burst is the placeholder; a bespoke scream-line
+                // sprite is later polish (TODO §A boss transitions).
+                vfx.write(crate::presentation::fx::VfxMessage::Burst {
+                    pos: kin.pos,
+                    count: 24,
+                    speed: 340.0,
+                    color: [1.0, 0.92, 0.45, 0.95],
+                    kind: crate::presentation::fx::ParticleKind::Spark,
                 });
             }
         }
@@ -469,6 +489,7 @@ mod phase_feedback_tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::brain::ActorActionMessage>();
+        app.add_message::<crate::presentation::fx::VfxMessage>();
         app.init_resource::<CameraShakeState>();
         app.insert_resource(registry_with_boss(BossEncounterPhase::Phase1));
         app.add_systems(Update, boss_phase_transition_feedback);
@@ -493,6 +514,7 @@ mod phase_feedback_tests {
         let mut app = App::new();
         app.add_message::<crate::audio::SfxMessage>();
         app.add_message::<crate::brain::ActorActionMessage>();
+        app.add_message::<crate::presentation::fx::VfxMessage>();
         app.init_resource::<CameraShakeState>();
         app.insert_resource(registry_with_boss(BossEncounterPhase::Intro));
         app.add_systems(Update, boss_phase_transition_feedback);

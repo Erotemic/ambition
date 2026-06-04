@@ -14,7 +14,7 @@
 
 use bevy::prelude::*;
 
-use crate::engine_core as ae;
+use crate::engine_core::{self as ae, AabbExt};
 use crate::features::HeldItem;
 use crate::input::ControlFrame;
 use crate::player::{PlayerEntity, PlayerKinematics, PrimaryPlayer};
@@ -66,7 +66,7 @@ pub fn blink_system(
     }
     // Aim exactly like the ranged held items (right-stick aim, else movement,
     // else facing), so the blink goes where the player is pointing.
-    let dir = crate::item_pickup::held_shot_aim(&control, kin.facing);
+    let dir = crate::item_pickup::held_shot_aim(&control, kin.facing).normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
     }
@@ -77,15 +77,33 @@ pub fn blink_system(
         return;
     }
     let from = kin.pos;
-    // Stop a body-half short of the wall so the player doesn't embed in it.
-    let margin = kin.size.x * 0.5 + 2.0;
-    let target = match world
+    // Stop a body-half short of the wall so the player doesn't embed in it. The
+    // pull-back must use the body's extent IN THE BLINK DIRECTION -- a vertical
+    // blink needs half-HEIGHT, not half-width (the player is ~40 tall, ~24 wide),
+    // or an up/down/diagonal blink (common while flying + aiming) embeds in the
+    // floor/ceiling and trips the inside-solid OOB detector.
+    let half = kin.size * 0.5;
+    let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
+    let mut target = match world
         .as_ref()
         .and_then(|w| crate::portal::raycast_solids(&w.0, from, dir, BLINK_DISTANCE + margin))
     {
         Some((hit, _normal)) => hit - dir * margin,
         None => from + dir * BLINK_DISTANCE,
     };
+    // Safety net: the center-ray can miss a wall the body's *perpendicular* extent
+    // would clip (corners, grazing). If the landing box still overlaps a solid,
+    // fall back to the start so a blink never lands the player inside geometry.
+    if let Some(w) = world.as_ref() {
+        let landing = ae::Aabb::new(target, half);
+        let embeds = w.0.blocks.iter().any(|b| {
+            matches!(b.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. })
+                && landing.strict_intersects(b.aabb)
+        });
+        if embeds {
+            target = from;
+        }
+    }
     kin.pos = target;
     // Offensive blink: a small player-side shockwave at the arrival point, so you
     // can blink *into* enemies to strike them (and the PlayerSlash source spares
@@ -199,6 +217,44 @@ mod tests {
             player_pos(&app, player),
             ae::Vec2::new(300.0 + BLINK_DISTANCE, 300.0),
             "blink carried the player one BLINK_DISTANCE along facing",
+        );
+    }
+
+    #[test]
+    fn downward_blink_does_not_embed_in_the_floor() {
+        // Regression: a vertical blink must pull back by the body's half-HEIGHT,
+        // not half-width, or the 40-tall body embeds in the floor and trips the
+        // inside-solid OOB detector (the fly + aim-down blink case).
+        let mut app = test_app();
+        let player = spawn_player_holding(&mut app, BLINK_ID, 1.0); // (300,300), 24x40
+        // Solid floor whose top edge is at y=350, just below the player.
+        app.insert_resource(crate::GameWorld(ae::World::new(
+            "test",
+            ae::Vec2::new(600.0, 600.0),
+            ae::Vec2::new(300.0, 300.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 350.0),
+                ae::Vec2::new(600.0, 250.0),
+            )],
+        )));
+        {
+            let mut c = app.world_mut().resource_mut::<ControlFrame>();
+            c.attack_pressed = true;
+            c.aim_y = 1.0; // aim straight down
+        }
+        app.update();
+        let pos = player_pos(&app, player);
+        let half_h = 20.0;
+        assert!(
+            pos.y + half_h <= 350.0 + 1e-3,
+            "downward blink embedded the body in the floor: bottom={}, floor top=350",
+            pos.y + half_h,
+        );
+        assert!(
+            pos.y > 300.0,
+            "the blink should still carry the player toward the floor (got y={})",
+            pos.y,
         );
     }
 

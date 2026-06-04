@@ -313,6 +313,13 @@ pub(crate) fn synthesize_events_from_diff(
         suppressed_teleport = true;
     }
 
+    // A blink is an intentional same-room teleport (its grace timer starts the
+    // frame it fires), so the resulting big position delta is expected -- don't
+    // let the velocity-budget check auto-dump on every blink.
+    if prev.blink_grace_timer <= 0.0 && clusters.blink.grace_timer > 0.0 {
+        suppressed_teleport = true;
+    }
+
     // Position-delta vs velocity-budget check. Catches teleports that
     // aren't covered by Reset / RoomTransition.
     let dpos = cur_pos - prev.pos;

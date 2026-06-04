@@ -1,0 +1,87 @@
+// wall_run — a dedicated showcase for the flagship wall-walking (vector gravity).
+// Story: "step into the field and 'down' rotates 90°; the right wall becomes your
+// floor — walk UP it." A clean single-mechanic room (vs the busy gravity_lab): a
+// rightward GravityZone fills the right half, so a player who walks into it falls
+// RIGHT onto the right wall and then walks vertically along it (the move-axis
+// rotates with gravity). The left strip stays normal-gravity so the entrance
+// reads normally before the rotation.
+//
+// Layout (640x768): floor y=752, right wall x=624 is the wall-walk surface, the
+// rightward GravityZone covers x[260,624].
+(
+    id: "wall_run",
+    level_id: "wall_run",
+    world_x: 98000,
+    world_y: 1024,
+    px_wid: 640,
+    px_hei: 768,
+    fill_collision: "empty",
+    bg_color: "#101626",
+    biome: "lab",
+    entities: [
+        // Bounding box. The right wall is the wall-walk surface.
+        ( type: "Solid", px: [0, 752], size: [640, 16], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [640, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 736], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [624, 16], size: [16, 736], fields: ( name: "right_wall" ) ),
+        // Rightward gravity field over the right half: walk in and you fall RIGHT
+        // onto the right wall, then walk up/down it (the move-axis goes vertical).
+        (
+            type: "GravityZone",
+            px: [260, 16],
+            size: [364, 736],
+            fields: ( id: "wall_run_field", name: "Wall-walk field (gravity right)", dir: "right" ),
+        ),
+        // Spawn + entry door on the floor, in the normal-gravity left strip.
+        ( type: "PlayerStart", px: [80, 706], size: [28, 46], fields: ( name: "wall_run_spawn" ) ),
+        (
+            type: "LoadingZone",
+            px: [16, 656],
+            size: [48, 96],
+            fields: (
+                id: "wall_run_entry",
+                name: "wall_run_entry",
+                activation: "Door",
+                target_room: "gradient_ascent",
+                target_zone: "wall_run_door",
+                bidirectional: true,
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [640, 768],
+            fields: ( id: "wall_run_camera", name: "wall_run_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [40, 110],
+            size: [560, 24],
+            fields: (
+                name: "wall_run_intro",
+                text: "Wall Run: walk right into the field — down rotates, walk UP the right wall.",
+                category: "Custom",
+            ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [360, 60],
+            size: [240, 24],
+            fields: ( name: "wall_run_top", text: "Top of the wall (you walked here sideways).", category: "Custom" ),
+        ),
+    ],
+    // Reciprocal door inserted into gradient_ascent's left floor (clear of its
+    // hub door at x=16 and the right-side gauntlet doors), snapped onto the floor.
+    connect_to: [
+        (
+            target_room: "gradient_ascent",
+            px: [120, 400],
+            size: [16, 96],
+            id: "wall_run_door",
+            target_zone: "wall_run_entry",
+            activation: "Door",
+            bidirectional: true,
+            snap_to_surface: true,
+        ),
+    ],
+)

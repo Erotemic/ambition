@@ -122,8 +122,13 @@ pub(super) fn sweep_player_y_clusters(
     delta_y: f32,
     prev_bottom: f32,
     drop_through: bool,
-    gravity_sign: f32,
+    gravity_dir: Vec2,
 ) {
+    // Y is the GRAVITY axis only under vertical gravity. Under sideways gravity
+    // (wall-walking) Y is the MOVEMENT axis: this sweep still stops the body at
+    // obstacles but does NOT ground it (the gravity-axis sweep / probe does), and
+    // one-way platforms (a gravity-relative affordance) pass straight through.
+    let y_is_gravity = gravity_dir.y != 0.0;
     let delta = Vec2::new(0.0, delta_y);
     if delta.y.abs() <= 1.0e-5 {
         resolve_vertical_clusters(
@@ -134,7 +139,7 @@ pub(super) fn sweep_player_y_clusters(
             env_contact,
             prev_bottom,
             drop_through,
-            gravity_sign,
+            gravity_dir,
         );
         return;
     }
@@ -148,6 +153,9 @@ pub(super) fn sweep_player_y_clusters(
             return false;
         }
         if matches!(block.kind, BlockKind::OneWay) {
+            if !y_is_gravity {
+                return false;
+            }
             let landing_from_above = delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0;
             return landing_from_above && !drop_through;
         }
@@ -168,10 +176,10 @@ pub(super) fn sweep_player_y_clusters(
         } else {
             kinematics.pos.y += hit.block.aabb.bottom() - body.top();
         }
-        // Grounded when the contact is on the side gravity pulls toward: a
-        // block top under normal gravity, a block bottom (standing on a
-        // ceiling) under flipped gravity.
-        if contact_is_gravity_side(snap_to_top, gravity_sign) {
+        // Grounded only when Y is the gravity axis AND the contact is on the side
+        // gravity pulls toward (block top under normal gravity, block bottom under
+        // flipped). Under sideways gravity this is just an obstacle to the walk.
+        if y_is_gravity && contact_is_gravity_side(snap_to_top, gravity_dir.y) {
             ground.on_ground = true;
         }
         kinematics.vel.y = 0.0;
@@ -187,7 +195,7 @@ pub(super) fn sweep_player_y_clusters(
         env_contact,
         prev_bottom,
         drop_through,
-        gravity_sign,
+        gravity_dir,
     );
 }
 
@@ -201,6 +209,31 @@ fn contact_is_gravity_side(snap_to_top: bool, gravity_sign: f32) -> bool {
     } else {
         !snap_to_top
     }
+}
+
+/// Is the body resting on a surface on the side gravity pulls toward? Probes a
+/// thin strip just past the body's gravity-side face for a Solid/OneWay block.
+/// This is the wall-walking ground check used when the gravity axis is X (the
+/// X-sweep stops the body at the wall, but the gravity-side contact is "ground",
+/// not a "wall"). Cardinal `gravity_dir`.
+pub(super) fn grounded_against_gravity(world: &World, body: Aabb, gravity_dir: Vec2) -> bool {
+    const PROBE: f32 = 2.0;
+    let cx = body.center().x;
+    let cy = body.center().y;
+    let half_x = (body.right() - body.left()) * 0.5;
+    let half_y = (body.bottom() - body.top()) * 0.5;
+    let probe = if gravity_dir.x > 0.0 {
+        Aabb::new(Vec2::new(body.right() + PROBE * 0.5, cy), Vec2::new(PROBE * 0.5, half_y))
+    } else if gravity_dir.x < 0.0 {
+        Aabb::new(Vec2::new(body.left() - PROBE * 0.5, cy), Vec2::new(PROBE * 0.5, half_y))
+    } else if gravity_dir.y < 0.0 {
+        Aabb::new(Vec2::new(cx, body.top() - PROBE * 0.5), Vec2::new(half_x, PROBE * 0.5))
+    } else {
+        Aabb::new(Vec2::new(cx, body.bottom() + PROBE * 0.5), Vec2::new(half_x, PROBE * 0.5))
+    };
+    world.blocks.iter().any(|b| {
+        matches!(b.kind, BlockKind::Solid | BlockKind::OneWay) && probe.strict_intersects(b.aabb)
+    })
 }
 
 /// Resolve an X-axis penetration of `body` into `block`, returning the
@@ -283,14 +316,20 @@ fn resolve_vertical_clusters(
     _env_contact: &crate::engine_core::player_clusters::PlayerEnvironmentContact,
     prev_bottom: f32,
     drop_through: bool,
-    gravity_sign: f32,
+    gravity_dir: Vec2,
 ) {
+    let y_is_gravity = gravity_dir.y != 0.0;
     let mut aabb = kinematics.aabb();
     for block in &world.blocks {
         if !is_solid_for_axis(block.kind, Axis::Y) || !aabb.strict_intersects(block.aabb) {
             continue;
         }
         if matches!(block.kind, BlockKind::OneWay) {
+            // One-way is gravity-relative; under sideways gravity it doesn't
+            // resolve along the (movement) Y axis.
+            if !y_is_gravity {
+                continue;
+            }
             let landing_from_above =
                 kinematics.vel.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0;
             if !landing_from_above || drop_through {
@@ -308,7 +347,7 @@ fn resolve_vertical_clusters(
             let push = block.aabb.bottom() - aabb.top();
             kinematics.pos.y += push;
         }
-        if contact_is_gravity_side(snap_to_top, gravity_sign) {
+        if y_is_gravity && contact_is_gravity_side(snap_to_top, gravity_dir.y) {
             ground.on_ground = true;
         }
         kinematics.vel.y = 0.0;

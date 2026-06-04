@@ -106,6 +106,103 @@ fn sideways_gravity_pulls_the_player_along_x() {
 }
 
 #[test]
+fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
+    // P4 — the flagship wall-walking slice: under RIGHTWARD gravity the player
+    // falls onto the right wall, is grounded ON it, walks ALONG it (axis_x -> the
+    // vertical move axis), and jumps OFF it (-x, opposite gravity).
+    use crate::engine_core::world::{Block, World};
+    let world = World {
+        name: "wall walk".to_string(),
+        size: Vec2::new(800.0, 600.0),
+        spawn: Vec2::new(400.0, 300.0),
+        blocks: vec![
+            Block::solid("right wall", Vec2::new(760.0, 0.0), Vec2::new(40.0, 600.0)),
+            Block::solid("floor", Vec2::new(0.0, 560.0), Vec2::new(800.0, 40.0)),
+        ],
+        climbable_regions: Vec::new(),
+        water_regions: Vec::new(),
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 300.0));
+    scratch.ground.on_ground = false;
+    let mut tuning = DEFAULT_TUNING;
+    tuning.gravity_dir = Vec2::new(1.0, 0.0); // gravity RIGHT
+    tuning.gravity_sign = 1.0;
+
+    for _ in 0..120 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        scratch.kinematics.pos.x > 700.0,
+        "should fall onto the right wall, got x={}",
+        scratch.kinematics.pos.x
+    );
+    assert!(scratch.ground.on_ground, "should be grounded ON the wall");
+
+    // Walk along the wall: axis_x drives the vertical move axis.
+    let y0 = scratch.kinematics.pos.y;
+    for _ in 0..30 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState {
+                axis_x: 1.0,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        (scratch.kinematics.pos.y - y0).abs() > 20.0,
+        "axis_x should walk the player ALONG the wall (in Y), dy={}",
+        scratch.kinematics.pos.y - y0
+    );
+    assert!(
+        scratch.kinematics.pos.x > 700.0,
+        "still pinned to the wall, x={}",
+        scratch.kinematics.pos.x
+    );
+
+    // Jump OFF the wall: launches in -x (opposite gravity).
+    let x0 = scratch.kinematics.pos.x;
+    update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            jump_pressed: true,
+            jump_held: true,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        tuning,
+    );
+    for _ in 0..8 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState {
+                jump_held: true,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        scratch.kinematics.pos.x < x0 - 5.0,
+        "jump should push OFF the wall (-x), x {} -> {}",
+        x0,
+        scratch.kinematics.pos.x
+    );
+}
+
+#[test]
 fn glide_caps_fall_speed_while_jump_held() {
     let world = test_world();
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);

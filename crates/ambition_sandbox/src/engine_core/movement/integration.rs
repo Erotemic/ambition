@@ -183,6 +183,11 @@ pub(super) fn integrate_velocity_clusters(
     let was_clinging = clusters.wall.wall_clinging;
     clusters.wall.wall_clinging = false;
 
+    // Under sideways gravity X is the GRAVITY axis (wall-walking): the X sweep is
+    // the gravity sweep, so on_ground is set by a probe after the sweeps and the
+    // vertical-only wall abilities (cling / wall-jump) are skipped for this slice.
+    let gravity_on_x = tuning.gravity_dir.x != 0.0;
+
     // X-sweep — fully cluster-native.
     let dt_x = clusters.kinematics.vel.x * dt;
     super::collision::sweep_player_x_clusters(
@@ -194,21 +199,27 @@ pub(super) fn integrate_velocity_clusters(
         dt_x,
     );
 
-    apply_wall_abilities_clusters(
-        clusters.kinematics,
-        clusters.ground,
-        clusters.wall,
-        clusters.abilities,
-        clusters.combo_trace,
-        input,
-        tuning,
-        was_clinging,
-        events,
-    );
+    if !gravity_on_x {
+        apply_wall_abilities_clusters(
+            clusters.kinematics,
+            clusters.ground,
+            clusters.wall,
+            clusters.abilities,
+            clusters.combo_trace,
+            input,
+            tuning,
+            was_clinging,
+            events,
+        );
+    }
 
     // Pre-Y-sweep state.
     let prev_bottom = clusters.kinematics.aabb().bottom();
-    clusters.ground.on_ground = false;
+    if !gravity_on_x {
+        // Y is the gravity axis (down/up): reset on_ground before the Y sweep
+        // grounds the player. Under sideways gravity the probe below owns it.
+        clusters.ground.on_ground = false;
+    }
     let drop_through = input.drop_through_pressed || clusters.ground.drop_through_timer > 0.0;
     let dt_y = clusters.kinematics.vel.y * dt;
     super::collision::sweep_player_y_clusters(
@@ -220,8 +231,20 @@ pub(super) fn integrate_velocity_clusters(
         dt_y,
         prev_bottom,
         drop_through,
-        tuning.gravity_sign,
+        tuning.gravity_dir,
     );
+
+    // Wall-walking ground probe: under sideways gravity the X (gravity-axis)
+    // sweep has stopped the body against the wall; ground it when a surface sits
+    // right there on the gravity side, and clear the spurious wall contact.
+    if gravity_on_x {
+        clusters.ground.on_ground = super::collision::grounded_against_gravity(
+            world,
+            clusters.kinematics.aabb(),
+            tuning.gravity_dir,
+        );
+        clusters.wall.on_wall = false;
+    }
 
     if clusters.ground.on_ground {
         crate::engine_core::player_clusters::refresh_movement_resources_clusters(

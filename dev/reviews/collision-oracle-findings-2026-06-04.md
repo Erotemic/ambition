@@ -85,24 +85,33 @@ in, so transitions attribute correctly):
 Reproduce one: `cargo run -p ambition_sandbox --bin rl_random_walker -- <STEPS>
 <SEED>` after launching that room as `--start-room`.
 
-### Interpretation (for the interactive session)
+### Interpretation — characterized: these are OPEN boundaries, not clips
 
-That only 14/1349 OOB sit at authored exits is the actionable result: **these are
-not door-leaving, so each room needs an eyeball at whether its boundary is
-*meant* to be open.** `tiny_chamber` (a small closed-sounding test room where the
-player reaches x=926 in a 900-wide world — fully past the right edge with no exit)
-is the prime suspect for a genuine **boundary clip-through**: if its right edge is
-a Solid wall, the player penetrating ~26px past it before being stopped is the
-"wall-clipping" looseness (TODO §A "Wall-clipping bugs"). `pirate_sky_lookout`
-and the `*_relay` rooms are similar small over-runs (18–24px past). The high-count
-`under_town_pipes` / `intro_escape_shaft` likely have **authored open boundaries**
-(a pipe maze / vertical shaft), so their side/below OOB is probably by-design.
+Two of the eight (room, boundary) pairs were rendered with `render_room_geometry`
+to settle clip-vs-void, and **both are open boundaries, not solid-wall clip-
+throughs**:
 
-The remaining clip-vs-void call per room is a **visual one** — render each with
-`cargo run -p ambition_sandbox --example render_room_geometry -- <ROOM_ID>` and
-look at whether the over-run boundary is a Solid wall (→ bug) or open (→ design).
-The oracle has narrowed "1349 OOB events" down to "8 specific (room, boundary)
-pairs to eyeball," which is the legwork done.
+- **`tiny_chamber`** — solid left wall + ceiling + floor, but the **right side is
+  open**: just a LoadingZone entity partway down (y≈310–490) with open dark space
+  above it. The OOB at (926, **156**) is *above* the door, where there is no wall
+  at all — the player walks off the open right edge. Not a clip.
+- **`under_town_pipes`** — **no solid wall on either the left or right boundary**
+  (only the nominal world-bounds line); the interior is one-way platforms. The
+  OOB-SIDE at (1042,428)/(-19,613) is the player walking off the open sides; the
+  ceiling even has an authored gap. Not a clip.
+
+So the catalog is **level-authoring, not a physics bug**: these rooms have edges
+the player can leave because nothing is there to stop them. The question for the
+interactive session is design — *should* those edges be walled, or are they
+intended open (sky arena, shaft, pipe maze)? — not "why does collision fail."
+Combined with the zero embed/ceiling/teleport, **no movement/collision OOB bug
+reproduced in 52,200 steps**, which corroborates that this run's two de-pen fixes
+closed the "teleported into a wall" physics class.
+
+(The other six pairs — `intro_escape_shaft`, `square_arena`, `alice_relay`,
+`pirate_sky_lookout` — read the same way from their names/sizes; render any to
+confirm. The oracle narrowed 1349 events to 8 boundaries, two of which are now
+characterized.)
 
 ## Follow-up enhancements (deferred)
 

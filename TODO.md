@@ -30,29 +30,29 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] The real 3d cube OOT pause menu is on the table. We need to make sure that we can revert to a simpler bevy-ui design if we don't like it, or it is too expensive, but its probably worth testing a real integration pass with it to see how it feels. Changes to the submodules/ambition_inventory_ui are in scope for this item if needed. Ideally we want a very clean seam between the game and this UI frontend so we can swap it out if we need to. There is a mock demo that tries to exercise this pattern: submodules/ambition_inventory_ui/crates/ambition_mock_demo
 
-- [ ] The actor sprits face the wrong way horizontally when they are flipped. E.g. I move the left, but the sprite direction faces to the right. However, if I attack the attack hitbox does go in the right direction. So this is just a sign or simple angle issue I think. However, there a lot of weird movement inconsistencies when gravity is inverted. Jump is much shorter when upside down.  
+- [ ] The actor sprits face the wrong way horizontally when they are flipped. E.g. I move the left, but the sprite direction faces to the right. However, if I attack the attack hitbox does go in the right direction. So this is just a sign or simple angle issue I think. However, there a lot of weird movement inconsistencies when gravity is inverted. Jump is much shorter when upside down.  **_Partly done (2026-06-04):_** the sprite-flip is fixed — `gravity_aware_flip_x` inverts the facing flip under up-gravity (physics.rs `#33`, with a test). The _"jump much shorter upside down"_ part is still open.
 
-- [ ] The gravity zones in appear to be hard coded instead of placed via ldtk. There is one in the ninja dojo, which I don't think was intentional. But even in the gravity lab there is no ldtk entity indicating that a gravity zone would spawn there. The layout of levels and physical features in rooms must correspond to some authoring in ldtk, it can never be hard coded.
+- [x] The gravity zones in appear to be hard coded instead of placed via ldtk. There is one in the ninja dojo, which I don't think was intentional. But even in the gravity lab there is no ldtk entity indicating that a gravity zone would spawn there. The layout of levels and physical features in rooms must correspond to some authoring in ldtk, it can never be hard coded. — _Done (verified 2026-06-04): gravity zones are LDtk `GravityZone` entities (3 in gravity_lab, + wall_run/ceiling_cross this run); no hard-coded spawns remain (the debug `spawn_debug_gravity_zone_once` was retired), so the unintentional ninja-dojo zone is gone._
 
-- [ ] The portal gun still seems to spawn in `central_hub_main` but there is no ldtk entity I see for its spawn zone.
+- [x] The portal gun still seems to spawn in `central_hub_main` but there is no ldtk entity I see for its spawn zone. — _Done (verified 2026-06-04): a `PortalGunSpawn` LDtk entity authors it (in `central_hub_basement`); the debug-spawn tables were retired, so nothing is hard-coded._
 
-- [ ] Portals should be able to adhere to one way platforms.
+- [x] Portals should be able to adhere to one way platforms. — _Done (verified 2026-06-04): `raycast_solids` includes one-way platforms for portal shots (portal.rs, `#39`); covered by a unit test (blink/dive still pass through)._
 
-- [ ] An earlier TODO says portals despawn when you leave a room, but that does not happen. They reappear if I leave and come back. 
+- [x] An earlier TODO says portals despawn when you leave a room, but that does not happen. They reappear if I leave and come back. — _Done (verified 2026-06-04): portals are now `RoomScopedEntity`, so a room transition despawns them (portal.rs, `#41`) — they no longer reappear when you return._
 
 - [ ] bug: If you throw and attack and your hitbox is entirely inside the mockingbird hurtbox, it does not register.
 
 - [ ] I want portals to have the effect where some percent of the entity going into it is visible on the other side instead of being a: you touch it you teleport. This can be a story element later because we have effectively topologically glued two parts of the world together in an interesting non Euclidean way. The 2007 portal 2D game does this well (although it doesn't do the feet in feet out well, and we do at least do that). We need proper portal physics.
 
-- [ ] If I have two portals on the right wall and I enter from the left moving right, I exit the other portal moving left (correct), but upside down (incorrect). This is another spatial angle / sign problem. We need to make sure portal physics are correct (up to the gameplay feel consideration we make where the character orients itself after leaving the portal).
+- [x] If I have two portals on the right wall and I enter from the left moving right, I exit the other portal moving left (correct), but upside down (incorrect). This is another spatial angle / sign problem. We need to make sure portal physics are correct (up to the gameplay feel consideration we make where the character orients itself after leaving the portal). — _Done (verified 2026-06-04): `portal_teleport_system` no longer applies the velocity-turn to the sprite roll; `update_actor_roll` holds gravity-upright, so two same-wall portals just turn you around, not upside down (portal.rs, `#47`)._
 
-- [ ] There are a significant numbers of out of bound errors, in the movement. Defer this for a non-autonomous run.
+- [ ] There are a significant numbers of out of bound errors, in the movement. Defer this for a non-autonomous run.  **_Detection legwork done (2026-06-04, still deferred for your interactive fix):_** a fuzz oracle (`tests/collision_invariant_oracle.rs`) swept 63 rooms — 0 embed / clip-through / teleport, 11 open-boundary walk-offs (level-authoring, not physics). See `dev/reviews/collision-oracle-findings-2026-06-04.md`.
 
-- [ ] The fireball item doesn't have a sprite, and it shoots a sword, not a fireball, so maybe we need a fireball sprite. The explosion is nice though.
+- [x] The fireball item doesn't have a sprite, and it shoots a sword, not a fireball, so maybe we need a fireball sprite. The explosion is nice though. — _Done (verified 2026-06-04): the fireball has a bespoke prop + in-flight shot sprite (`gauntlet_fireball`, `FIREBALL_ID`, `explode_half`); it no longer fires the gun-sword bolt._
 
-- [ ] Not sure what the grapple hook really does. 
+- [ ] Not sure what the grapple hook really does.  **_Clarified + bug found (2026-06-04):_** it now draws a rope line so it reads as a reel-in (grapple.rs `#53`), BUT it's under-powered — the 620 burst is killed by drag in ~45px, so it can't reach a wall beyond ~45px. Filed `dev/reviews/grapple-pull-underpowered-2026-06-04.md` for a feel/balance pass.
 
-- [ ] One way platforms should still work when gravity flips. You should be able to fall and stand on them. (on the bottom of them this time, so the one wayness of them depends on how gravity is pushing on them).
+- [x] One way platforms should still work when gravity flips. You should be able to fall and stand on them. (on the bottom of them this time, so the one wayness of them depends on how gravity is pushing on them). — _Done (verified 2026-06-04): one-ways are solid from the gravity-up side and passable from the other (lands on the BOTTOM face under flipped gravity; collision.rs, `#55`); covered by `one_way_platform_works_under_flipped_gravity`._
 
 ## ⭐ Elevated for the next long run — architectural unblocks (2026-06-03)
 

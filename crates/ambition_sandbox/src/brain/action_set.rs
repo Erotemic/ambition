@@ -476,7 +476,7 @@ pub enum MoveStyleSpec {
 /// Per-entity signature move. The contents vary widely between
 /// actors — keep the enum small and add variants only when a real
 /// consumer lands.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SpecialActionSpec {
     /// Player-only: deploys the bubble shield. Wired through the
     /// existing bubble-shield pipeline when Chunk 4 hooks the player
@@ -876,6 +876,28 @@ pub fn resolve(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn special_action_spec_round_trips_through_ron() {
+        // Validates the serde derive: boss special-attack tunings can now be
+        // authored in RON, so the boss-attack feel (shot speed, damage, cadence)
+        // is iterable without a ~10-minute sandbox recompile — the foundation for
+        // moving `boss_special_for_profile`'s hardcoded constants into
+        // `boss_profiles.ron` (elevated #1's named first slice).
+        let spec = SpecialActionSpec::EyeBeam {
+            shot_speed: 420.0,
+            damage: 3,
+            box_count: 5,
+            box_spacing: 24.0,
+            half_extent_x: 20.0,
+            half_extent_y: 14.0,
+            lifetime_s: 1.2,
+        };
+        let serialized = ron::to_string(&spec).expect("SpecialActionSpec should serialize to RON");
+        let restored: SpecialActionSpec =
+            ron::from_str(&serialized).expect("SpecialActionSpec should deserialize from RON");
+        assert_eq!(spec, restored);
+    }
 
     #[test]
     fn use_behavior_decides_throw_on_plain_attack() {

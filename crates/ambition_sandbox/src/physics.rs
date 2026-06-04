@@ -317,12 +317,17 @@ pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
 }
 
 /// Horizontal `flip_x` for a sprite that the gravity roll
-/// ([`gravity_upright_angle`]) may rotate. Under UP gravity the ~180° roll
-/// already mirrors the sprite horizontally, so the facing flip must invert —
-/// otherwise the body "moves left but faces right" upside down (the #33 bug).
-/// Down and sideways gravity keep the normal `facing < 0` flip.
+/// ([`gravity_upright_angle`]) may rotate. The roll re-aims the rolled sprite
+/// along the move-axis; whether that still matches `facing` inverts with the
+/// gravity direction. UP gravity inverts (the ~180° roll mirrors horizontally) and
+/// RIGHT gravity inverts (the 90° roll points the sprite opposite the down=right
+/// move-axis) — without this the body "moves left but faces right" (the #33 bug,
+/// first seen upside-down, then under sideways gravity). DOWN and LEFT keep the
+/// normal `facing < 0` flip. (Derivation: the rolled facing is `(g.y, -g.x)` in
+/// screen space; invert when it opposes the move-axis — `g.y < 0` for vertical
+/// gravity, `g.x > 0` for horizontal.)
 pub fn gravity_aware_flip_x(facing: f32, gravity_dir: Vec2) -> bool {
-    (facing < 0.0) ^ (gravity_dir.y < 0.0)
+    (facing < 0.0) ^ (gravity_dir.y < 0.0 || gravity_dir.x > 0.0)
 }
 
 #[cfg(test)]
@@ -340,8 +345,20 @@ mod tests {
         // Up: inverted (the #33 bug — moving left must not face right upside down).
         assert!(!gravity_aware_flip_x(-1.0, up), "facing left must NOT flip upside down");
         assert!(gravity_aware_flip_x(1.0, up));
-        // Sideways: keep the normal flip (the sprite is rolled 90deg anyway).
-        assert!(gravity_aware_flip_x(-1.0, right));
+        // Sideways (#33, the bug Jon found after the up fix): RIGHT gravity
+        // inverts (the 90° roll points the rolled sprite opposite the down=right
+        // move-axis), LEFT keeps the normal flip.
+        let left = Vec2::new(-1.0, 0.0);
+        assert!(
+            !gravity_aware_flip_x(-1.0, right),
+            "facing left under RIGHT gravity must NOT flip (the rolled sprite already faces that way)"
+        );
+        assert!(gravity_aware_flip_x(1.0, right));
+        assert!(
+            gravity_aware_flip_x(-1.0, left),
+            "facing left under LEFT gravity flips (normal)"
+        );
+        assert!(!gravity_aware_flip_x(1.0, left));
     }
 
     #[test]

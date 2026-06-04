@@ -1,0 +1,15 @@
+# Add a "down is left" GravityZone to the gravity_lab so the sideways sprite-flip
+# can be tested in the OTHER direction (the existing dir=right zone at x592-1008
+# tests down=right; this tests down=left). Placed against the left wall (x16),
+# clear of the spawn (x~118) and the up-zones (x>=150): the player walks left off
+# the floor into it, falls left onto the left wall, and wall-walks it. With the
+# #33 sideways-flip fix, LEFT gravity keeps the normal facing flip (RIGHT inverts).
+level_id: gravity_lab
+entities:
+  - type: GravityZone
+    px: [16, 48]
+    size: [84, 552]
+    fields:
+      id: glab_wall_walk_left
+      name: "Wall-walk (gravity left)"
+      dir: left

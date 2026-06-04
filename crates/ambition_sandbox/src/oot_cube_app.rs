@@ -109,14 +109,14 @@ fn gate_cube_menu(
     // until the cube has fully folded shut.
     open_state.target = if show { 1.0 } else { 0.0 };
     let shown = open_state.amount > 0.002;
-    // While the cube is shown it renders as the SOLE active camera, exactly like the
-    // mock demo: disable the game's 2D camera(s) so a Camera3d and Camera2d never
-    // share one window. That sharing is what left the cube camera clearing but
-    // drawing no geometry (MSAA/depth/compositing race). Re-enabled when hidden.
+    // Option 1 overlay experiment: toggle ONLY the cube camera and LEAVE the game's
+    // 2D camera active, so the live world renders behind the cube (which now clears
+    // None). This is the configuration we previously avoided (sole-camera) to dodge
+    // the 2D/3D share bug — but that bug's real cause was the camera-drag (now fixed
+    // via With<Camera2d>) plus an MSAA mismatch (now matched), so it's worth a try.
     for (mut cam, is_cube) in &mut cameras {
-        let want_active = if is_cube { shown } else { !shown };
-        if cam.is_active != want_active {
-            cam.is_active = want_active;
+        if is_cube && cam.is_active != shown {
+            cam.is_active = shown;
         }
     }
     let want = if shown {

@@ -316,9 +316,33 @@ pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
     render_up.y.atan2(render_up.x) - std::f32::consts::FRAC_PI_2
 }
 
+/// Horizontal `flip_x` for a sprite that the gravity roll
+/// ([`gravity_upright_angle`]) may rotate. Under UP gravity the ~180° roll
+/// already mirrors the sprite horizontally, so the facing flip must invert —
+/// otherwise the body "moves left but faces right" upside down (the #33 bug).
+/// Down and sideways gravity keep the normal `facing < 0` flip.
+pub fn gravity_aware_flip_x(facing: f32, gravity_dir: Vec2) -> bool {
+    (facing < 0.0) ^ (gravity_dir.y < 0.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gravity_aware_flip_inverts_only_upside_down() {
+        let down = Vec2::new(0.0, 1.0);
+        let up = Vec2::new(0.0, -1.0);
+        let right = Vec2::new(1.0, 0.0);
+        // Down: normal facing flip.
+        assert!(gravity_aware_flip_x(-1.0, down), "facing left flips under down gravity");
+        assert!(!gravity_aware_flip_x(1.0, down));
+        // Up: inverted (the #33 bug — moving left must not face right upside down).
+        assert!(!gravity_aware_flip_x(-1.0, up), "facing left must NOT flip upside down");
+        assert!(gravity_aware_flip_x(1.0, up));
+        // Sideways: keep the normal flip (the sprite is rolled 90deg anyway).
+        assert!(gravity_aware_flip_x(-1.0, right));
+    }
 
     #[test]
     fn vertical_sign_and_accel_track_the_direction() {

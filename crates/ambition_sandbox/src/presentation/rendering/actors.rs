@@ -363,6 +363,7 @@ pub fn animate_player(
     world_time: Res<crate::WorldTime>,
     primary_attack: Query<&crate::player::ActivePlayerAttack, crate::player::PrimaryPlayerOnly>,
     entities: Res<SceneEntities>,
+    gravity: Option<Res<crate::physics::GravityField>>,
     mut query: Query<
         (
             (
@@ -443,7 +444,10 @@ pub fn animate_player(
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
-    sprite.flip_x = kinematics.facing < 0.0;
+    // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
+    // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
+    let player_gravity = gravity.as_deref().map_or(crate::engine_core::Vec2::Y, |g| g.dir);
+    sprite.flip_x = crate::physics::gravity_aware_flip_x(kinematics.facing, player_gravity);
     // Hit feedback is drawn by the white-silhouette overlay in
     // `presentation::rendering::hit_flash` — a sibling mesh that
     // samples this atlas frame and outputs pure white modulated by

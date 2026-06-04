@@ -47,8 +47,29 @@ OOB above the ceiling"** bugs Jon reported this session **did not reproduce in
 52k fuzzed steps across every room** — consistent with the two OOB fixes shipped
 earlier in this run (`resolve_x_penetration` far-edge/never-eject de-pen, and the
 ceiling-graze swept-de-pen defer-regardless-of-immediate-contact;
-`crates/ambition_sandbox/src/engine_core/movement/collision.rs`). The stuck-in-
-wall class looks closed.
+`crates/ambition_sandbox/src/engine_core/movement/collision.rs`). The *stuck-
+inside-a-wall* (embedded) class looks closed.
+
+### UPDATE — the embed check was not the whole story (clip-through-a-wall)
+
+A later through-wall classifier (db02cc2b) revealed the "0 OOB bugs" headline was
+**incomplete**. The embed check only catches a center *inside* a Solid; it misses
+the player clipping THROUGH a boundary wall and ending up *outside* the room
+(center past the wall, not in it) — which is exactly "popped OOB into a wall". The
+classifier probes just inside each crossed edge: of the 1335 OOB, most are open-
+edge walk-offs (design), but **175 ended up PAST a Solid at the crossed edge**
+— concentrated in **intro_escape_shaft** (OOB-SIDE ×37, e.g. seed=1 tick=99 →
+(-113,1250)) and **under_town_pipes** (OOB-SIDE ×44 + OOB-BELOW ×94, e.g. →
+(-153,738) / (3,793)). Those are *suspect clip-throughs* worth investigating, not
+the clean "no bug" the embed-only count implied.
+
+Honest caveat on the 175: it's a **heuristic** (`[past-solid?]`). A player can also
+leave through an open gap and then *drift while OOB* (gravity) to a coordinate
+that happens to be walled — a false positive. So the 175 narrows the OOB to "the
+crossed edge has a Solid at that coordinate", which is suspect-of-a-clip, not
+confirmed. The right follow-up is to replay one repro (`under_town_pipes` seed=1
+tick=99) and watch whether the player genuinely passes through a solid face vs
+drifts past it from outside.
 
 Caveat (be honest): the fuzz is biased toward vertical/fly/pogo/jump input to
 stress ceilings, but it is *random*, not Jon's exact input sequence — "did not

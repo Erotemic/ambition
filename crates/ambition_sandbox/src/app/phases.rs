@@ -21,6 +21,39 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
+/// How a ledge-grabbing player should react to the moving platform that carries
+/// them this frame: ride along with it, or be knocked off because the carry
+/// would shove them into a wall.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum LedgePlatformCarry {
+    Carry,
+    KnockOff,
+}
+
+/// Decide [`LedgePlatformCarry`] for a ledge-grabbing player about to be carried
+/// by `delta`. `world` is the base collision world, which **excludes** the
+/// moving platform (it's composited in separately), so a solid overlap here is a
+/// genuine *other* wall — meaning the platform would push the player through it
+/// (#126 "ledge grab on a moving platform into a wall pushes you through").
+/// Pure, so the wall decision is unit-testable without the full phase context.
+pub(super) fn ledge_platform_carry(
+    world: &ae::World,
+    player_aabb: ae::Aabb,
+    delta: ae::Vec2,
+) -> LedgePlatformCarry {
+    use crate::engine_core::AabbExt;
+    let carried = player_aabb.translated(delta);
+    let into_wall = world
+        .blocks
+        .iter()
+        .any(|b| matches!(b.kind, ae::BlockKind::Solid) && carried.strict_intersects(b.aabb));
+    if into_wall {
+        LedgePlatformCarry::KnockOff
+    } else {
+        LedgePlatformCarry::Carry
+    }
+}
+
 /// Phase 4 — control-clock half of the two-clock player update.
 ///
 /// Owns: hitstun-filtered control snapshot, real-time `frame_dt`
@@ -225,12 +258,22 @@ pub(super) fn player_simulation_phase(
     ride.was_riding = riding_now;
     if let Some(platform_delta) = ledge_platform_delta {
         // Ledge grabs can latch to the temporary moving-platform collision block.
-        // Carry both the player and the stored ledge contact so hang / climb /
-        // roll interpolation remains platform-relative after the platform moves.
-        clusters.kinematics.pos += platform_delta;
-        if let Some(grab) = clusters.ledge.grab.as_mut() {
-            grab.contact.anchor += platform_delta;
-            grab.contact.climb_target += platform_delta;
+        match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
+            // #126: the platform is about to carry the hanging player INTO a wall.
+            // Don't ride into it (that clips through) — get knocked off the ledge
+            // and fall, the same knock-off a hit triggers.
+            LedgePlatformCarry::KnockOff => {
+                clusters.ledge.knock_off_on_hit();
+            }
+            // Carry both the player and the stored ledge contact so hang / climb /
+            // roll interpolation remains platform-relative after the platform moves.
+            LedgePlatformCarry::Carry => {
+                clusters.kinematics.pos += platform_delta;
+                if let Some(grab) = clusters.ledge.grab.as_mut() {
+                    grab.contact.anchor += platform_delta;
+                    grab.contact.climb_target += platform_delta;
+                }
+            }
         }
     } else if let Some((_, platform_delta, _, _)) = riding_platform {
         clusters.kinematics.pos += platform_delta;
@@ -292,4 +335,54 @@ pub(super) fn player_simulation_phase(
         Some(was_grounded),
     );
     PhaseOutcome::Continue
+}
+
+#[cfg(test)]
+mod ledge_carry_tests {
+    use super::{ledge_platform_carry, LedgePlatformCarry};
+    use crate::engine_core as ae;
+
+    fn world_with_right_wall() -> ae::World {
+        // A solid wall occupying x[100,120], full height; open space to its left.
+        ae::World::new(
+            "ledge_carry_test",
+            ae::Vec2::new(400.0, 400.0),
+            ae::Vec2::new(20.0, 50.0),
+            vec![ae::Block::solid(
+                "wall",
+                ae::Vec2::new(100.0, 0.0),
+                ae::Vec2::new(20.0, 400.0),
+            )],
+        )
+    }
+
+    // A ledge-grabbing player hugging the left of the wall (right edge at x=92).
+    fn player() -> ae::Aabb {
+        ae::Aabb::new(ae::Vec2::new(80.0, 50.0), ae::Vec2::new(12.0, 20.0))
+    }
+
+    #[test]
+    fn carry_into_a_wall_knocks_the_player_off() {
+        // A rightward platform delta would push the player's right edge (92) past
+        // the wall face (100) and into it — #126: knock off, don't clip through.
+        assert_eq!(
+            ledge_platform_carry(&world_with_right_wall(), player(), ae::Vec2::new(30.0, 0.0)),
+            LedgePlatformCarry::KnockOff,
+        );
+    }
+
+    #[test]
+    fn carry_away_from_walls_rides_normally() {
+        // Leftward (away) — and a small rightward nudge that stays clear — both
+        // ride along with the platform.
+        let world = world_with_right_wall();
+        assert_eq!(
+            ledge_platform_carry(&world, player(), ae::Vec2::new(-30.0, 0.0)),
+            LedgePlatformCarry::Carry,
+        );
+        assert_eq!(
+            ledge_platform_carry(&world, player(), ae::Vec2::new(5.0, 0.0)),
+            LedgePlatformCarry::Carry,
+        );
+    }
 }

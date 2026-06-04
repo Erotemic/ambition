@@ -52,9 +52,9 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] Not sure what the grapple hook really does.  **_Clarified + bug found (2026-06-04):_** it now draws a rope line so it reads as a reel-in (grapple.rs `#53`), BUT it's under-powered — the 620 burst is killed by drag in ~45px, so it can't reach a wall beyond ~45px. Filed `dev/reviews/grapple-pull-underpowered-2026-06-04.md` for a feel/balance pass.
 
-- [ ] Ledge grab does not work correctly under different gravity, 
+- [ ] Ledge grab does not work correctly under different gravity, _**Scoped 2026-06-04:** the ledge-grab module (`engine_core/ledge_grab.rs`, 2438 lines) is pervasively Y-down — head = `pos.y - half.y`, ledge = `block.top()`, "space directly above", "Sim convention: +Y is down" throughout detect/grab/climb. Making it gravity-aware is a vector-gravity generalization across the whole module (like the one-way `#55` fix but far larger), not a focused change — best for a dedicated session._
 
-- [ ] Switch entities need a sprite with a distinct "on" and "off" state.
+- [ ] Switch entities need a sprite with a distinct "on" and "off" state. _**Scoped 2026-06-04:** the on/off sprites already exist (`switch_armed.png` = glowing red button = on, `switch_disabled.png` = off, in the renderer's `generated/entities`). The gap is wiring: the runtime draws a colored block — `actors.rs:126` sets `sprite.color` from `FeatureView::switch_on`, and `entity_sprite_for_kind(Switch)` is deliberately `None`. To finish: give the Switch a texture instead of a color (set `sprite.image` to an armed/disabled handle by `switch_on`; load both into `GameAssets` via two `EntitySprite` variants; ensure `sprites/entities/switch_*.png` ship via regen; update the `entity_sprite_for_kind(Switch).is_none()` test)._
 
 - [x] One way platforms should still work when gravity flips. You should be able to fall and stand on them. (on the bottom of them this time, so the one wayness of them depends on how gravity is pushing on them). — _Done (verified 2026-06-04): one-ways are solid from the gravity-up side and passable from the other (lands on the BOTTOM face under flipped gravity; collision.rs, `#55`); covered by `one_way_platform_works_under_flipped_gravity`._
 

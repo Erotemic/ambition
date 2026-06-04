@@ -251,7 +251,7 @@ falling_sand = ["dep:bevy_falling_sand"]
 # UI nodes) + `input` (MenuControlFrame). No new dependencies — the 3D OoT cube
 # renderer (submodule `ambition_inventory_ui` + bevy_lunex) is a separate,
 # heavier follow-up.
-oot_inventory = ["ui", "input"]
+oot_inventory = ["ui", "input", "dep:ambition_inventory_ui"]
 
 # Bevy/Tracy per-system profiling. Off by default because it pulls
 # `tracing-tracy` and instruments every Bevy system, increasing binary
@@ -269,6 +269,9 @@ parry2d = "0.26"
 # (`features.rs`) needs `SfxId` to enqueue SFX-only events generically.
 # Headless / RL builds compile it but never play through it.
 ambition_sfx = { path = "../ambition_sfx" }
+# 3D-cube OoT inventory/pause UI (bevy_lunex). Optional: only UI builds need it,
+# gated by `oot_inventory`; runtime-toggleable vs the Bevy-UI grid (#31).
+ambition_inventory_ui = { path = "../../submodules/ambition_inventory_ui", optional = true }
 # Logical asset catalog + per-profile source resolution. Bevy + sfx
 # features so the sandbox can format `AssetPath` strings through the
 # catalog and (in a follow-up) route the SFX bank bytes through the

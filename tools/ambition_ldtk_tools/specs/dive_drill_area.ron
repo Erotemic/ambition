@@ -1,0 +1,52 @@
+// dive_drill — purposes DIVE ("Overflow Crash", the ability you wield after
+// beating the Overflow boss): an OFFENSIVE gap-closer — a 140px lunge along the aim
+// that strikes the target at the landing (the wielded kit's only offensive
+// mobility). Story: "the floor between you and the mark is death — close the
+// distance and cut it down in one commit." The target stands across a hazard the
+// player can't walk over; grab the dive and lunge across to strike it.
+//
+// Layout (768x320): left ledge y256, a ~105px hazard gap, far ledge with one
+// EnemySpawn target at the dive's landing (~x540, a 140px lunge from ~x405).
+(
+    id: "dive_drill",
+    level_id: "dive_drill",
+    world_x: 106000,
+    world_y: 1024,
+    px_wid: 768,
+    px_hei: 320,
+    fill_collision: "empty",
+    bg_color: "#160C0C",
+    biome: "lab",
+    entities: [
+        ( type: "Solid", px: [0, 0], size: [768, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 304], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [752, 16], size: [16, 304], fields: ( name: "right_wall" ) ),
+        // Floor split by a death gap: a left staging ledge, a hazard the player
+        // can't walk across, and a far ledge with the target on it.
+        ( type: "Solid", px: [16, 256], size: [404, 64], fields: ( name: "left_ledge" ) ),
+        ( type: "HazardBlock", px: [420, 256], size: [105, 64], fields: ( name: "gap" ) ),
+        ( type: "Solid", px: [525, 256], size: [227, 64], fields: ( name: "right_ledge" ) ),
+        // The Dive ability, on the left ledge — walk over + Attack to grab.
+        ( type: "GroundItem", px: [110, 224], size: [40, 32], fields: ( id: "dive_drill_pickup", name: "Dive", held_item: "dive" ) ),
+        // One target across the gap, at the dive's landing — the lunge closes the
+        // distance and strikes it (the dive is an OFFENSIVE gap-closer).
+        ( type: "EnemySpawn", px: [540, 210], size: [28, 46], fields: ( name: "Target", brain: "Passive" ) ),
+        ( type: "PlayerStart", px: [40, 210], size: [28, 46], fields: ( name: "dive_drill_spawn" ) ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [768, 320],
+            fields: ( id: "dive_drill_camera", name: "dive_drill_camera", mode: "Default" ),
+        ),
+        (
+            type: "DebugLabel",
+            px: [40, 110],
+            size: [620, 16],
+            fields: (
+                name: "dive_drill_intro",
+                text: "Dive Drill: the gap is death — grab the dive, then lunge (aim right + Attack) across to strike the target.",
+                category: "Custom",
+            ),
+        ),
+    ],
+)

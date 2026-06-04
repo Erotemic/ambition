@@ -230,6 +230,11 @@ pub fn spawn_oot_menu(mut commands: Commands) {
 pub fn sync_oot_menu(
     state: Res<OotMenuState>,
     overlay: Res<crate::inventory::InventoryUiState>,
+    // The grid is one of two inventory frontends; when the Cube backend is active it
+    // renders the inventory, so the bevy_ui grid must stay hidden (otherwise it
+    // flashes behind the order-8 cube on open). `Option<Res>` so the grid still works
+    // if the cube hookup is ever absent.
+    backend: Option<Res<crate::oot_cube_app::InventoryUiBackend>>,
     owned: Res<OwnedItems>,
     mut roots: Query<&mut Visibility, With<OotMenuRoot>>,
     mut slots: Query<
@@ -238,7 +243,10 @@ pub fn sync_oot_menu(
     >,
     mut detail: Query<&mut Text, (With<OotDetailText>, Without<OotSlot>)>,
 ) {
-    let visible = overlay.visible;
+    let grid_backend = backend
+        .map(|b| *b == crate::oot_cube_app::InventoryUiBackend::Grid)
+        .unwrap_or(true);
+    let visible = overlay.visible && grid_backend;
     for mut vis in &mut roots {
         *vis = if visible {
             Visibility::Visible

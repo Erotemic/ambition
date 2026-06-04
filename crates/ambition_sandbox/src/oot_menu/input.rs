@@ -25,6 +25,10 @@ const MANA_CELL_RESTORE: f32 = 40.0;
 #[allow(clippy::too_many_arguments)]
 pub fn oot_menu_input(
     menu: Res<MenuControlFrame>,
+    // When the Cube backend renders the inventory, it owns navigation / confirm via
+    // `cube_focus_nav`; the grid still owns the shared open/close toggle (the
+    // Inventory button) so the menu can be opened regardless of backend.
+    backend: Option<Res<crate::oot_cube_app::InventoryUiBackend>>,
     mut state: ResMut<OotMenuState>,
     mut overlay: ResMut<crate::inventory::InventoryUiState>,
     mode: Res<State<GameMode>>,
@@ -48,6 +52,18 @@ pub fn oot_menu_input(
     }
 
     if !overlay.visible {
+        state.pointer_confirm = false;
+        state.pointer_armed = None;
+        return;
+    }
+
+    // The Cube frontend owns navigation / confirm / back while it's active; the grid
+    // only kept the shared open toggle above. Bail before grid nav so the two
+    // frontends don't both act on the same frame's input.
+    let cube_active = backend
+        .map(|b| *b == crate::oot_cube_app::InventoryUiBackend::Cube)
+        .unwrap_or(false);
+    if cube_active {
         state.pointer_confirm = false;
         state.pointer_armed = None;
         return;

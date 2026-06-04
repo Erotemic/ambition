@@ -499,6 +499,7 @@ mod tests {
             moving_platforms: platforms,
             props: Vec::new(),
             ground_items: Vec::new(),
+            portal_gun_spawns: Vec::new(),
             hazards: Vec::new(),
             interactables: Vec::new(),
             pickups: Vec::new(),

@@ -26,6 +26,9 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
     for ground_item in &room.ground_items {
         super::spawn_static::spawn_ground_item(commands, ground_item);
     }
+    for portal_gun in &room.portal_gun_spawns {
+        super::spawn_static::spawn_portal_gun_spawn(commands, portal_gun);
+    }
     for chest in &room.chests {
         super::spawn_static::spawn_chest(commands, chest);
     }

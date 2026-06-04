@@ -63,6 +63,21 @@ pub(super) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::Gr
     ));
 }
 
+pub(super) fn spawn_portal_gun_spawn(
+    commands: &mut Commands,
+    spec: &crate::rooms::PortalGunSpawnSpec,
+) {
+    commands.spawn((
+        Name::new(format!("Portal gun pickup: {}", spec.name)),
+        crate::portal::PortalGunPickup {
+            pos: spec.pos,
+            half_extent: spec.half_extent,
+            // World-placed pickups spawn already armed (a just-dropped one delays).
+            arm_timer: 0.0,
+        },
+    ));
+}
+
 pub(super) fn spawn_chest(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::interaction::Chest>,

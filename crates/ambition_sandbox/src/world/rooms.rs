@@ -559,6 +559,22 @@ pub struct GroundItemSpec {
     pub half_extent: ae::Vec2,
 }
 
+/// LDtk-authored portal-gun pickup. Resolves to a
+/// [`crate::portal::PortalGunPickup`] (already armed, `arm_timer = 0`) at room
+/// load — the authored-placement home for the debug
+/// `spawn_debug_portal_gun_pickup_once`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PortalGunSpawnSpec {
+    /// LDtk iid — stable across rebuilds for save/debug joins.
+    pub id: String,
+    /// LDtk display name (editor-facing / entity naming only).
+    pub name: String,
+    /// World-space center of the pickup box.
+    pub pos: ae::Vec2,
+    /// Pickup half-extent, taken from the LDtk entity's box size.
+    pub half_extent: ae::Vec2,
+}
+
 /// Authored entity payload — `(id, name, aabb, payload)`.
 ///
 /// Sandbox-side replacement for the retired `ae::RoomObject` IR. Each
@@ -606,6 +622,8 @@ pub struct RoomSpec {
     /// LDtk-authored ground held-items (gauntlet / weapon pickups). See
     /// [`GroundItemSpec`].
     pub ground_items: Vec<GroundItemSpec>,
+    /// LDtk-authored portal-gun pickups. See [`PortalGunSpawnSpec`].
+    pub portal_gun_spawns: Vec<PortalGunSpawnSpec>,
 
     // --- Per-family authored entity lists (replaces the retired
     //     `ae::World::objects: Vec<RoomObject>` / `RoomObjectKind`

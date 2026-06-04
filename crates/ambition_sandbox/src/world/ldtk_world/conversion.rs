@@ -120,6 +120,7 @@ impl LdtkProject {
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut props: Vec<PropSpec> = Vec::new();
         let mut ground_items: Vec<crate::rooms::GroundItemSpec> = Vec::new();
+        let mut portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec> = Vec::new();
         // Per-family authored entity lists. Each LDtk entity emits into
         // exactly one of these (or into one of the non-authored Vecs
         // above).
@@ -171,6 +172,7 @@ impl LdtkProject {
                         kinematic_paths.extend(emission.kinematic_paths);
                         props.extend(emission.props);
                         ground_items.extend(emission.ground_items);
+                        portal_gun_spawns.extend(emission.portal_gun_spawns);
                         hazards.extend(emission.hazards);
                         interactables.extend(emission.interactables);
                         pickups.extend(emission.pickups);
@@ -258,6 +260,7 @@ impl LdtkProject {
             moving_platforms: resolved_moving_platforms,
             props,
             ground_items,
+            portal_gun_spawns,
             hazards,
             interactables,
             pickups,
@@ -309,6 +312,9 @@ pub(super) struct RuntimeEntityEmission {
     /// LDtk-authored ground held-items emitted by this entity. Most emit
     /// zero; `GroundItem` emits one. See [`crate::rooms::GroundItemSpec`].
     pub(super) ground_items: Vec<crate::rooms::GroundItemSpec>,
+    /// LDtk-authored portal-gun pickups. Most emit zero; `PortalGunSpawn` emits
+    /// one. See [`crate::rooms::PortalGunSpawnSpec`].
+    pub(super) portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec>,
     // --- Per-family authored entity emissions:
     pub(super) hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>>,
     pub(super) interactables: Vec<crate::rooms::Authored<crate::interaction::Interactable>>,
@@ -374,6 +380,13 @@ impl RuntimeEntityEmission {
     fn ground_item(spec: crate::rooms::GroundItemSpec) -> Self {
         Self {
             ground_items: vec![spec],
+            ..Self::default()
+        }
+    }
+
+    fn portal_gun_spawn(spec: crate::rooms::PortalGunSpawnSpec) -> Self {
+        Self {
+            portal_gun_spawns: vec![spec],
             ..Self::default()
         }
     }
@@ -526,6 +539,7 @@ pub(super) fn entity_to_runtime(
         "NpcSpawn" => Ok(convert_npc_spawn(entity, name, min, size)),
         "PickupSpawn" => Ok(convert_pickup_spawn(entity, name, min, size)),
         "GroundItem" => convert_ground_item(entity, name, min, size),
+        "PortalGunSpawn" => Ok(convert_portal_gun_spawn(entity, name, min, size)),
         "ChestSpawn" => Ok(convert_chest_spawn(entity, name, min, size)),
         "EnemySpawn" => Ok(convert_enemy_spawn(entity, name, min, size)),
         "BossSpawn" => Ok(convert_boss_spawn(entity, name, min, size)),
@@ -742,6 +756,26 @@ fn convert_ground_item(
             half_extent: size * 0.5,
         },
     ))
+}
+
+fn convert_portal_gun_spawn(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    // Field-less marker (id/name optional): the box gives the pickup's center +
+    // half-extent. Spawns an already-armed `PortalGunPickup` at room load.
+    let id = field_string(entity, "id")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| entity.iid.clone());
+    RuntimeEntityEmission::portal_gun_spawn(crate::rooms::PortalGunSpawnSpec {
+        id,
+        name,
+        pos: min + size * 0.5,
+        half_extent: size * 0.5,
+    })
 }
 
 fn convert_chest_spawn(

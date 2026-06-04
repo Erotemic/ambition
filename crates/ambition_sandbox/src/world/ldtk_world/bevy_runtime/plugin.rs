@@ -125,6 +125,7 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "NpcSpawn",
     "PickupSpawn",
     "GroundItem",
+    "PortalGunSpawn",
     "ChestSpawn",
     "BreakablePlatform",
     "BreakablePogoOrb",

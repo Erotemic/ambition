@@ -234,29 +234,9 @@ pub struct PortalGunPickup {
     pub arm_timer: f32,
 }
 
-/// Spawn one portal-gun pickup near the player on the first frame a player
-/// exists (debug convenience until authored placement lands).
-pub fn spawn_debug_portal_gun_pickup_once(
-    mut commands: Commands,
-    mut done: Local<bool>,
-    players: Query<&PlayerKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    if *done {
-        return;
-    }
-    let Ok(kin) = players.single() else {
-        return;
-    };
-    *done = true;
-    commands.spawn((
-        PortalGunPickup {
-            pos: kin.pos + Vec2::new(-80.0, 0.0),
-            half_extent: Vec2::splat(20.0),
-            arm_timer: 0.0,
-        },
-        Name::new("Portal gun pickup"),
-    ));
-}
+// The portal gun is now an LDtk-authored `PortalGunSpawn` entity (spawned at
+// room load via `spawn_room_feature_entities`); the old debug near-player
+// spawner is retired.
 
 /// Tick down each pickup's [`PortalGunPickup::arm_timer`] so a just-dropped gun
 /// becomes grabbable after the short delay. Always runs (cheap; at most a

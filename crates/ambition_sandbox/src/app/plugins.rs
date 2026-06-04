@@ -305,12 +305,11 @@ fn register_item_pickup_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            // Ground held-items (gauntlets / weapons) are now LDtk-authored
-            // `GroundItem` entities spawned at room load via
-            // `spawn_room_feature_entities`; the debug near-player spawner is
-            // retired. The portal gun + gravity zone + shrine below are the
+            // Ground held-items (gauntlets / weapons) AND the portal gun are now
+            // LDtk-authored (`GroundItem` / `PortalGunSpawn`), spawned at room
+            // load via `spawn_room_feature_entities`; their debug near-player
+            // spawners are retired. The gravity zone + shrine below are the
             // remaining debug-spawned conveniences pending their own authoring.
-            crate::portal::spawn_debug_portal_gun_pickup_once,
             crate::portal::spawn_debug_gravity_zone_once,
             crate::shrine::spawn_debug_shrine_once,
             crate::shrine::heal_save_shrine_system.run_if(gameplay_allowed),

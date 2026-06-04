@@ -689,7 +689,25 @@ fn ldtk_authors_gauntlet_ground_items() {
             held_ids.contains(expected),
             "expected GroundItem held_item '{expected}' missing from the LDtk room \
              set; did the GroundItem entity def, convert_ground_item, or the \
-             tiny_chamber authoring break? (saw: {held_ids:?})"
+             basement armory authoring break? (saw: {held_ids:?})"
         );
     }
+}
+
+/// `PortalGunSpawn` converts into `RoomSpec.portal_gun_spawns` — the authored
+/// home for the portal-gun pickup (replacing spawn_debug_portal_gun_pickup_once).
+#[test]
+fn ldtk_authors_portal_gun_spawn() {
+    let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
+    let room_set = project.to_room_set().expect("LDtk should compose");
+    let total: usize = room_set
+        .rooms
+        .iter()
+        .map(|room| room.portal_gun_spawns.len())
+        .sum();
+    assert!(
+        total >= 1,
+        "expected at least one authored PortalGunSpawn in the LDtk room set; did \
+         the entity def, convert_portal_gun_spawn, or the authoring break?"
+    );
 }

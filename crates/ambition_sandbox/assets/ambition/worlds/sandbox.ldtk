@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 5986,
+	"nextUid": 5990,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -4801,6 +4801,123 @@
 					"searchable": true
 				}
 			]
+		},
+		{
+			"identifier": "PortalGunSpawn",
+			"uid": 5988,
+			"tags": [],
+			"exportToToc": false,
+			"allowOutOfBounds": true,
+			"doc": "Authored spawn for the portal-gun pickup. The box center + size set the pickup's position + half-extent; spawns an already-armed PortalGunPickup at room load. Replaces the debug spawn_debug_portal_gun_pickup_once.",
+			"tileOpacity": 1.0,
+			"lineOpacity": 1.0,
+			"fillOpacity": 0.08,
+			"hollow": false,
+			"color": "#5BD1FF",
+			"renderMode": "Rectangle",
+			"showName": true,
+			"tilesetId": null,
+			"tileRenderMode": "FitInside",
+			"tileRect": null,
+			"uiTileRect": null,
+			"nineSliceBorders": [],
+			"maxCount": 0,
+			"limitScope": "PerLevel",
+			"limitBehavior": "MoveLastOne",
+			"pivotX": 0,
+			"pivotY": 0,
+			"tileId": null,
+			"width": 40,
+			"height": 40,
+			"resizableX": true,
+			"resizableY": true,
+			"minWidth": null,
+			"maxWidth": null,
+			"minHeight": null,
+			"maxHeight": null,
+			"keepAspectRatio": false,
+			"fieldDefs": [
+				{
+					"identifier": "id",
+					"doc": null,
+					"__type": "String",
+					"uid": 5986,
+					"type": "F_String",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "RefLinkBetweenCenters",
+					"editorDisplayPos": "Above",
+					"editorDisplayScale": 1.0,
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorCutLongValues": true,
+					"editorShowInWorld": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"editorLinkStyle": "CurvedArrow",
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"tilesetUid": null,
+					"defaultOverride": {
+						"id": "V_String",
+						"params": [""]
+					},
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"exportToToc": false,
+					"searchable": true
+				},
+				{
+					"identifier": "name",
+					"doc": null,
+					"__type": "String",
+					"uid": 5987,
+					"type": "F_String",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "RefLinkBetweenCenters",
+					"editorDisplayPos": "Above",
+					"editorDisplayScale": 1.0,
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorCutLongValues": true,
+					"editorShowInWorld": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"editorLinkStyle": "CurvedArrow",
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"tilesetUid": null,
+					"defaultOverride": {
+						"id": "V_String",
+						"params": [""]
+					},
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"exportToToc": false,
+					"searchable": true
+				}
+			]
 		}
 	], "tilesets": [], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 		{
@@ -8385,6 +8502,31 @@
 								{ "__identifier": "held_item", "__type": "String", "__value": "meteor", "__tile": null, "defUid": 5942, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["meteor"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PortalGunSpawn",
+							"__grid": [90,35],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#5BD1FF",
+							"__worldX": 1450,
+							"__worldY": 1592,
+							"iid": "PortalGunSpawn-5989",
+							"width": 40,
+							"height": 40,
+							"defUid": 5988,
+							"px": [1450,568],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "hub_portal_gun", "__tile": null, "defUid": 5986, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hub_portal_gun"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Portal Gun", "__tile": null, "defUid": 5987, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Portal Gun"]
 								}] }
 							]
 						}

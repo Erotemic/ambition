@@ -43,6 +43,7 @@ KNOWN_ENTITIES = {
     "PickupSpawn",
     "PlayerStart",
     "PogoOrb",
+    "PortalGunSpawn",
     "Prop",
     "ReboundPad",
     "Solid",

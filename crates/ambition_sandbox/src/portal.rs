@@ -349,8 +349,7 @@ pub fn raycast_through_portals(
                 let entry = origin + dir * t;
                 // Emerge just out of the exit face, redirected through the pair.
                 origin = pp::map_point(entry, &enter.frame(), &exit.frame()) + exit.normal;
-                dir = pp::rotate(dir, pp::portal_rotation(enter.normal, exit.normal))
-                    .normalize_or_zero();
+                dir = pp::portal_map_vec(dir, enter.normal, exit.normal).normalize_or_zero();
                 budget -= t;
                 if budget <= 0.0 || dir == Vec2::ZERO {
                     return None;
@@ -362,16 +361,13 @@ pub fn raycast_through_portals(
     None
 }
 
-/// Transform a velocity through a portal pair: the rotation that maps the
-/// "into the entry portal" direction (`-n_in`) onto the "out of the exit
-/// portal" direction (`n_out`), applied to `v`. This preserves the player's
-/// sideways momentum through the pair (Portal-style) instead of always
-/// shooting straight out.
+/// Transform a velocity through a portal pair via the IDEAL tangent-preserving
+/// portal map ([`crate::portal_pieces::portal_map_vec`]): the component into the
+/// entry emerges out of the exit, the along-surface component is carried over. So
+/// momentum is preserved Portal-style AND your along-surface direction is kept
+/// (two floor portals don't mirror your horizontal velocity).
 pub fn portal_transform_velocity(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
-    let u = -n_in; // direction the player was traveling into the entry portal
-    let cos = u.dot(n_out);
-    let sin = u.x * n_out.y - u.y * n_out.x; // 2D cross (z component)
-    Vec2::new(v.x * cos - v.y * sin, v.x * sin + v.y * cos)
+    pp::portal_map_vec(v, n_in, n_out)
 }
 
 /// Aim direction for a fired portal: right-stick aim, else movement axis,
@@ -1024,11 +1020,12 @@ pub enum TransitStep {
         pos: Vec2,
         vel: Vec2,
         roll_delta: f32,
-        warp_rot: (f32, f32),
         /// Mirror the body's horizontal facing (the wall↔wall "face out" rule).
         /// Also the gate for the held-input warp: it's exactly the case where
         /// warping held movement stays horizontally expressible.
         facing_flip: bool,
+        /// Entry + exit portal normals — the held-input warp maps through them.
+        enter_normal: Vec2,
         /// Outward normal of the exit portal — the direction the body emerges.
         /// Used by emission protection so held input can't cancel the emergence.
         exit_normal: Vec2,
@@ -1150,9 +1147,8 @@ pub fn transit_step(
                     // turn-around); `update_actor_roll` then eases it back to
                     // gravity-upright (feet-in → reorient).
                     roll_delta: somersault_roll(enter.normal, exit.normal, gravity_dir),
-                    // Same rotation the velocity took — the held-input warp uses it.
-                    warp_rot: pp::portal_rotation(enter.normal, exit.normal),
                     facing_flip: portal_facing_flips(enter.normal, exit.normal, gravity_dir),
+                    enter_normal: enter.normal,
                     exit_normal: exit.normal,
                     exit_color: exit.color,
                     exit_pos: exit.pos,
@@ -1183,16 +1179,24 @@ pub fn transit_step(
     }
 }
 
-/// Holds the player's real `ledge_grab` ability while it's suppressed during a
+/// Holds the player's real wall abilities while they're suppressed during a
 /// portal transit, so nothing is lost when transit ends.
 #[derive(Component, Clone, Copy, Debug)]
-pub struct LedgeGrabSuppressed(pub bool);
+pub struct WallAbilitiesSuppressed {
+    ledge_grab: bool,
+    wall_cling: bool,
+    wall_jump: bool,
+    wall_climb: bool,
+}
 
-/// While the player is mid-transit, suppress ledge-grab so they don't latch onto
-/// the carved aperture EDGES (the carve splits the host block, and those new
-/// edges read as grabbable ledges — you'd grab "into" the portal and pop back out
-/// the entry instead of crossing). The real ability is saved and restored, so the
-/// player keeps ledge-grab everywhere else. Runs before the movement integration.
+/// While the player is mid-transit, suppress the wall abilities (ledge-grab,
+/// cling, wall-jump, wall-climb) so they don't latch onto the carved aperture
+/// EDGES — the carve splits the host block, and those new edges read as grabbable
+/// ledges / climbable walls, so you'd cling "into" a portal and pop back out the
+/// entry instead of sinking through and crossing. The real abilities are saved
+/// and restored, so the player keeps them everywhere else (including wall-jumping
+/// UP to reach a portal — suppression only starts once transit begins). Runs
+/// before the movement integration.
 pub fn suppress_ledge_grab_during_transit(
     mut commands: Commands,
     mut players: Query<
@@ -1200,20 +1204,32 @@ pub fn suppress_ledge_grab_during_transit(
             Entity,
             &mut crate::player::PlayerAbilities,
             Option<&PortalTransit>,
-            Option<&LedgeGrabSuppressed>,
+            Option<&WallAbilitiesSuppressed>,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
     >,
 ) {
     for (entity, mut abilities, transiting, saved) in &mut players {
+        let a = &mut abilities.abilities;
         match (transiting.is_some(), saved) {
             (true, None) => {
-                commands.entity(entity).insert(LedgeGrabSuppressed(abilities.abilities.ledge_grab));
-                abilities.abilities.ledge_grab = false;
+                commands.entity(entity).insert(WallAbilitiesSuppressed {
+                    ledge_grab: a.ledge_grab,
+                    wall_cling: a.wall_cling,
+                    wall_jump: a.wall_jump,
+                    wall_climb: a.wall_climb,
+                });
+                a.ledge_grab = false;
+                a.wall_cling = false;
+                a.wall_jump = false;
+                a.wall_climb = false;
             }
             (false, Some(saved)) => {
-                abilities.abilities.ledge_grab = saved.0;
-                commands.entity(entity).remove::<LedgeGrabSuppressed>();
+                a.ledge_grab = saved.ledge_grab;
+                a.wall_cling = saved.wall_cling;
+                a.wall_jump = saved.wall_jump;
+                a.wall_climb = saved.wall_climb;
+                commands.entity(entity).remove::<WallAbilitiesSuppressed>();
             }
             _ => {}
         }
@@ -1289,7 +1305,7 @@ pub fn portal_transit_system(
             });
         }
         TransitStep::Transfer {
-            pos, vel, roll_delta, warp_rot, facing_flip, exit_normal, exit_color, exit_pos,
+            pos, vel, roll_delta, facing_flip, enter_normal, exit_normal, exit_color, exit_pos,
         } => {
             kin.pos = pos;
             kin.vel = vel;
@@ -1320,9 +1336,11 @@ pub fn portal_transit_system(
                 .as_deref()
                 .map_or(Vec2::ZERO, |c| Vec2::new(c.axis_x, c.axis_y));
             if facing_flip && held.length() > PORTAL_INPUT_HELD_EPS {
-                commands
-                    .entity(entity)
-                    .insert(PortalInputWarp { rot: warp_rot, anchor: held });
+                commands.entity(entity).insert(PortalInputWarp {
+                    n_in: enter_normal,
+                    n_out: exit_normal,
+                    anchor: held,
+                });
             }
             if let Some(t) = transit.as_deref_mut() {
                 t.crossed = true;
@@ -1361,8 +1379,11 @@ const PORTAL_EMISSION_TIME: f32 = 0.18;
 /// expressible). Soft, not a hard latch — see [`warp_portal_input`].
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalInputWarp {
-    /// `(cos, sin)` portal-map rotation applied to the movement axis.
-    pub rot: (f32, f32),
+    /// Entry + exit portal normals — the held movement axis is mapped through the
+    /// tangent-preserving portal map (so a horizontal hold mirrors horizontally
+    /// and a vertical hold is left alone).
+    pub n_in: Vec2,
+    pub n_out: Vec2,
     /// Raw (un-warped) movement direction held when the warp was set; the warp
     /// drops once the live raw input releases or clearly diverges from this.
     pub anchor: Vec2,
@@ -1410,7 +1431,7 @@ pub fn warp_portal_input(
         {
             commands.entity(entity).remove::<PortalInputWarp>();
         } else {
-            let warped = pp::rotate(raw, warp.rot);
+            let warped = pp::portal_map_vec(raw, warp.n_in, warp.n_out);
             control.axis_x = warped.x;
             control.axis_y = warped.y;
         }
@@ -1728,6 +1749,47 @@ pub struct PortalVisual;
 /// mid-transit (the entry-side slice or the exit-side slice). Rebuilt each frame.
 #[derive(Component)]
 pub struct PortalBodyPiece;
+
+/// Marks the transient "portal disorientation" indicator above the player —
+/// visible exactly while the held movement input is portal-warped.
+#[derive(Component)]
+pub struct PortalDisorientIndicator;
+
+/// Show a small indicator over the player whenever their movement input is
+/// portal-warped ([`PortalInputWarp`]) — so the "I'm holding left but moving
+/// right" state is legible, and it disappears the instant the warp drops (on
+/// release / redirect). Placeholder dot+glyph for now; a nicer effect (incl. on
+/// the joystick visual) can replace it later.
+pub fn sync_portal_disorientation_indicator(
+    mut commands: Commands,
+    world: Res<GameWorld>,
+    existing: Query<Entity, With<PortalDisorientIndicator>>,
+    player: Query<
+        (&PlayerKinematics, Has<PortalInputWarp>),
+        (With<PlayerEntity>, With<PrimaryPlayer>),
+    >,
+) {
+    for entity in &existing {
+        commands.entity(entity).despawn();
+    }
+    let Ok((kin, warped)) = player.single() else {
+        return;
+    };
+    if !warped {
+        return;
+    }
+    // A little spinning-arrow glyph just above the head.
+    let pos = kin.pos + Vec2::new(0.0, -(kin.size.y * 0.5 + 16.0));
+    let translation = crate::config::world_to_bevy(&world.0, pos, crate::config::WORLD_Z_PLAYER + 9.0);
+    commands.spawn((
+        PortalDisorientIndicator,
+        Text2d::new("\u{21BB}"), // ↻ clockwise open circle arrow
+        TextFont { font_size: 18.0, ..default() },
+        TextColor(Color::srgb(0.74, 0.92, 1.0)),
+        Transform::from_translation(translation),
+        Name::new("Portal disorientation indicator"),
+    ));
+}
 
 /// Render the player mid-transit as the body in BOTH charts: the real sprite at
 /// the entry, a second copy of the sprite emerging from the exit (rotated by the
@@ -2174,6 +2236,20 @@ mod tests {
             hit.is_some_and(|(p, n)| (p.x - 20.0).abs() < 1.0 && n.x > 0.5),
             "ray should recurse through the pair and hit the left wall, got {hit:?}"
         );
+    }
+
+    #[test]
+    fn ground_ground_keeps_horizontal_direction() {
+        // Two floor portals (both normals up). Falling in moving RIGHT + down must
+        // come out moving RIGHT (and up out of the exit floor) — the tangent
+        // (horizontal) component is preserved, NOT mirrored to the left.
+        let out = portal_transform_velocity(
+            Vec2::new(120.0, 200.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(0.0, -1.0),
+        );
+        assert!(out.x > 0.0, "horizontal direction kept (right stays right), got {out:?}");
+        assert!(out.y < 0.0, "into-floor reverses to out-of-floor (down → up), got {out:?}");
     }
 
     #[test]
@@ -2726,7 +2802,8 @@ mod tests {
                 PlayerEntity,
                 PrimaryPlayer,
                 PortalInputWarp {
-                    rot: pp::portal_rotation(Vec2::new(-1.0, 0.0), Vec2::new(-1.0, 0.0)),
+                    n_in: Vec2::new(-1.0, 0.0),
+                    n_out: Vec2::new(-1.0, 0.0),
                     anchor: Vec2::new(1.0, 0.0),
                 },
             ))
@@ -2748,8 +2825,9 @@ mod tests {
 
         // Re-arm, then press a clearly different direction (left) → warp drops.
         app.world_mut().entity_mut(player).insert(PortalInputWarp {
-            rot: pp::portal_rotation(Vec2::new(-1.0, 0.0), Vec2::new(-1.0, 0.0)),
-            anchor: Vec2::new(1.0, 0.0),
+                    n_in: Vec2::new(-1.0, 0.0),
+                    n_out: Vec2::new(-1.0, 0.0),
+                    anchor: Vec2::new(1.0, 0.0),
         });
         app.world_mut().resource_mut::<ControlFrame>().axis_x = -1.0;
         app.update();

@@ -62,22 +62,52 @@ pub fn rotate(v: Vec2, cs: (f32, f32)) -> Vec2 {
     Vec2::new(v.x * c - v.y * s, v.x * s + v.y * c)
 }
 
-/// Map a world point near `enter` to the corresponding point near `exit`: the
-/// depth a point has sunk *into* the entry wall becomes the depth it emerges
-/// *out* of the exit portal (so `enter.pos` maps to `exit.pos`).
-pub fn map_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame) -> Vec2 {
-    exit.pos + rotate(p - enter.pos, portal_rotation(enter.normal, exit.normal))
+/// The canonical along-surface **tangent** for a portal normal — the "second
+/// normal" that fixes which way is "along" the doorway: the normal rotated +90°.
+/// (floor → +x, ceiling → -x, right-wall → -y, left-wall → +y.) The portal map
+/// preserves the tangent component, so it does NOT mirror your along-surface
+/// direction the way a bare rotation would.
+pub fn portal_tangent(normal: Vec2) -> Vec2 {
+    Vec2::new(-normal.y, normal.x)
 }
 
-/// Map an axis-aligned AABB through the portal pair. For axis-aligned portals
-/// the rotation is a multiple of 90°, so the image is still an axis-aligned
-/// AABB (half-extents swap on a 90° turn).
+/// The IDEAL portal map for a free vector (velocity / spatial offset), given a
+/// consistent [`portal_tangent`]: the component going INTO the entry emerges OUT
+/// of the exit, and the along-surface (tangent) component is carried straight
+/// over. So falling right-and-down through two floor portals comes out
+/// right-and-up — you keep your horizontal direction — instead of the bare
+/// rotation's left-and-up mirror. This is one orthogonal map shared by velocity,
+/// position, AABB, input, and rays so they always agree.
+pub fn portal_map_vec(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
+    let t_in = portal_tangent(n_in);
+    let t_out = portal_tangent(n_out);
+    let into = -v.dot(n_in); // speed/offset INTO the entry → OUT of the exit
+    let along = v.dot(t_in); // along-surface component, preserved
+    into * n_out + along * t_out
+}
+
+/// Map a world point near `enter` to the corresponding point near `exit`: the
+/// depth a point has sunk *into* the entry wall becomes the depth it emerges
+/// *out* of the exit portal (so `enter.pos` maps to `exit.pos`), and its
+/// along-surface offset is preserved (see [`portal_map_vec`]).
+pub fn map_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame) -> Vec2 {
+    exit.pos + portal_map_vec(p - enter.pos, enter.normal, exit.normal)
+}
+
+/// Map an axis-aligned AABB through the portal pair. The map is axis-aligned for
+/// axis-aligned portals (a 90° turn swaps the half-extents), so the image stays
+/// an axis-aligned AABB.
 pub fn map_aabb(b: ae::Aabb, enter: &PortalFrame, exit: &PortalFrame) -> ae::Aabb {
-    let cs = portal_rotation(enter.normal, exit.normal);
-    let center = exit.pos + rotate(b.center() - enter.pos, cs);
+    let center = map_point(b.center(), enter, exit);
+    // Transform the half-extent through the (axis-aligned) map: each output axis
+    // gets |contribution| from each input axis.
+    let col_x = portal_map_vec(Vec2::new(1.0, 0.0), enter.normal, exit.normal);
+    let col_y = portal_map_vec(Vec2::new(0.0, 1.0), enter.normal, exit.normal);
     let h = b.half_size();
-    let (c, s) = (cs.0.abs(), cs.1.abs());
-    let half = Vec2::new(c * h.x + s * h.y, s * h.x + c * h.y);
+    let half = Vec2::new(
+        col_x.x.abs() * h.x + col_y.x.abs() * h.y,
+        col_x.y.abs() * h.x + col_y.y.abs() * h.y,
+    );
     ae::Aabb::new(center, half)
 }
 

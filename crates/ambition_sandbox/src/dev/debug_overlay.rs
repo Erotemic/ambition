@@ -215,6 +215,16 @@ fn draw_portals<'a>(
         let base = w2(world, portal.pos);
         let tip = w2(world, portal.pos + portal.normal * 22.0);
         gizmos.line_2d(base, tip, color);
+        // The along-surface TANGENT (the "second normal" — which way is "right"
+        // along the doorway). The portal map preserves this component, so it sets
+        // whether your along-surface direction is kept or mirrored. Drawn in green
+        // as a single-headed tick so its sign is visible.
+        let tangent = crate::portal_pieces::portal_tangent(portal.normal);
+        gizmos.line_2d(
+            base,
+            w2(world, portal.pos + tangent * 18.0),
+            Color::srgb(0.4, 1.0, 0.5),
+        );
     }
 }
 

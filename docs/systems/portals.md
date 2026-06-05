@@ -48,11 +48,25 @@ invariant**: every gameplay query that asks "where is this thing?" should use
 those pieces, not the raw body AABB. `compute_body_pieces` is the one function
 that produces them.
 
-### Position, velocity, and orientation transform through the portal map *(implemented)*
+### Position, velocity, and orientation transform through one tangent-preserving map *(implemented)*
 
-Entry and exit are related by a single rotation (the portal map). Position,
-velocity, and the body's facing all turn through that same rotation, so they can
-never disagree. For axis-aligned portals the rotation is a multiple of 90°.
+Each portal has a **normal** (out of the surface) and a **tangent** (along the
+surface — the "second normal" that fixes which way is "right" along the doorway;
+canonically the normal rotated +90°, `portal_tangent`). The portal map
+(`portal_map_vec`) sends the component going *into* the entry *out* of the exit,
+and carries the **tangent (along-surface) component straight over**. Position,
+velocity, the recursive ray, and the warped input all use this one map, so they
+can never disagree.
+
+This is the key correctness point vs a *bare rotation*: two same-facing floor
+portals are a 180° rotation, and 180° flips *both* axes — so falling in moving
+right would come out moving **left** (mirrored). The tangent-preserving map keeps
+the horizontal component, so you **keep moving right** (and come out *up* of the
+exit floor). That's the intuitive, physically-consistent behavior given a
+standard tangent — an ideal property, not an accommodation. The debug overlay
+draws the tangent as a green tick so its direction is visible. (If a specific
+pair ever needs a flipped tangent, it can become an authored per-portal field;
+today it's derived consistently from the normal.)
 
 ### Restricted to axis-aligned portals *(implemented; by design for now)*
 
@@ -211,13 +225,23 @@ feel changes — but they are still departures from a purely ideal portal.
   body touches the opening's thin capture box (face + a small margin), a hair
   before the geometric plane crossing, so the carve can open before the body needs
   to sink. A purely ideal aperture would begin exactly at the plane.
-- **Ledge-grab suppressed while transiting** (`suppress_ledge_grab_during_transit`):
-  the carve splits the host block, and the new edges read as grabbable ledges — so
-  without this you can ledge-grab "into" a portal (and pop back out the entry
-  instead of crossing), or cling to the carved opening mid-wall. While the player
-  is mid-transit, ledge-grab is suppressed (the real ability is saved and
-  restored). Ledge-grabbing the *outer* rim of a wall portal mid-air is still
-  possible and is not currently considered wrong.
+- **Wall abilities suppressed while transiting** (`suppress_ledge_grab_during_transit`):
+  the carve splits the host block, and the new edges read as grabbable ledges /
+  climbable walls — so without this you can grab or cling "into" a portal (and pop
+  back out the entry instead of crossing). While mid-transit, ledge-grab, wall-
+  cling, wall-jump, and wall-climb are suppressed (the real abilities are saved and
+  restored, and suppression only starts once transit begins — so wall-jumping *up*
+  to reach a portal still works). Grabbing the *outer* rim of a wall portal mid-air
+  is still possible and is not currently considered wrong.
+
+### Debug aids
+
+- **Portal color labels** + **tangent tick** (green) draw on/near each portal so
+  you can refer to a pair precisely and see which way its tangent points.
+- **Disorientation indicator** (`sync_portal_disorientation_indicator`): a small
+  glyph over the player shows exactly while the held input is portal-warped (the
+  "holding left, moving right" state), and vanishes when the warp drops. A
+  placeholder for a nicer effect (incl. on the joystick visual) later.
 
 ## Gravity
 
